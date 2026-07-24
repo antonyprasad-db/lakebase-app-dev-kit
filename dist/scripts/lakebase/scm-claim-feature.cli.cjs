@@ -850,6 +850,12 @@ var import_pg = require("pg");
 // scripts/lakebase/constants.ts
 var POSTGRES_PORT = 5432;
 var DEFAULT_DATABASE = "databricks_postgres";
+var RUNTIME_ARTIFACT_IGNORE = [
+  ".sftdd/",
+  ".tdd/",
+  ".lakebase/",
+  ".claude/agent-memory/"
+];
 var DEFAULT_ENDPOINT = "primary";
 
 // scripts/lakebase/get-connection.ts
@@ -1065,7 +1071,7 @@ function resolveFeatureStartPoint(cwd, parentBranch) {
 }
 async function assertCleanForFork(cwd, startPoint) {
   if (!startPoint) return;
-  if (await isDirty({ cwd, ignore: [".sftdd/", ".tdd/", ".lakebase/", ".claude/agent-memory/"], untracked: false })) {
+  if (await isDirty({ cwd, ignore: [...RUNTIME_ARTIFACT_IGNORE], untracked: false })) {
     throw new Error(
       `Working tree has uncommitted changes; refusing to fork from ${startPoint} (they would be carried onto the new branch). Commit or stash first.`
     );

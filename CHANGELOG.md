@@ -6,6 +6,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0-beta.35] - 2026-07-24
+
+### Changed
+
+- **De-coupled the SCM core from SFTDD, ahead of extracting `@databricks-solutions/lakebase-scm-utils` (FEIP-8263, Phase 0).** `scm-doctor.ts` no longer imports `scripts/sftdd/*` (the only reverse edge in the SCM/substrate core): the stale experiment/spike finder is now an injected `RunDoctorDeps` dependency (`StaleBranchFinding` declared locally), and `scm-doctor.cli.ts` wires the SFTDD finder as the single accepted composition point. The `lakebase-scm-doctor` bin behaves identically (no test relied on `runDoctor` auto-finding stale branches). The dirty-tree ignore list (`.sftdd/` `.tdd/` `.lakebase/` `.claude/agent-memory/`) is centralized into `RUNTIME_ARTIFACT_IGNORE` in `constants.ts` and referenced from `paired-branch.ts` + `scm-prepare-pr.ts`, so no SFTDD-dir literals remain scattered in SCM core. Internal refactor; no user-facing behavior change.
+
+### Added
+
+- **Split-readiness guard test.** `scm-core-no-sftdd-import.test.ts` fails if any module under `scripts/{lakebase,github,git,util}` imports `scripts/sftdd/` outside an explicit allowlist (the project scaffolders + the `scm-doctor` CLI wiring), and asserts `scm-doctor.ts` stays SFTDD-free. Enforces the one-way dependency direction for the pending package split.
+
 ## [0.3.0-beta.34] - 2026-07-19
 
 Documentation audit remediation (FEIP-8085), plus one CLI help-text fix. Docs match the code at this version.

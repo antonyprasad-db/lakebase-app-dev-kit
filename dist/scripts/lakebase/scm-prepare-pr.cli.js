@@ -374,6 +374,14 @@ function parseCiStatus(rawChecks) {
   return "pending";
 }
 
+// scripts/lakebase/constants.ts
+var RUNTIME_ARTIFACT_IGNORE = [
+  ".sftdd/",
+  ".tdd/",
+  ".lakebase/",
+  ".claude/agent-memory/"
+];
+
 // scripts/lakebase/scm-workflow-state.ts
 import * as fs3 from "fs";
 import * as path2 from "path";
@@ -631,7 +639,7 @@ async function preparePr(args) {
     );
   }
   if (!args.force) {
-    const dirty = await isDirty({ cwd: args.projectDir, ignore: [".sftdd/", ".tdd/", ".lakebase/", ".claude/agent-memory/"] });
+    const dirty = await isDirty({ cwd: args.projectDir, ignore: [...RUNTIME_ARTIFACT_IGNORE] });
     if (dirty) {
       throw new ScmPreparePrError(
         "Working tree has uncommitted code changes; commit them before opening the PR (or pass --force).",
