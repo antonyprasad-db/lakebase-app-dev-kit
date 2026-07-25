@@ -56,9 +56,9 @@ function deployCommand(projectDir: string, name: string, pinnedVersion?: string)
   fs.writeFileSync(dst, content);
 }
 
-// A real scaffold resolves {{LAKEBASE_KIT_VERSION}} in the workflow templates as
-// it writes them; the fixture must do the same so the umbrella's workflow
-// surface reads "unchanged" (detect substitutes before comparing).
+// A real scaffold resolves {{LAKEBASE_SCM_UTILS_VERSION}} in the workflow
+// templates as it writes them; the fixture must do the same so the umbrella's
+// workflow surface reads "unchanged" (detect substitutes before comparing).
 function deployWorkflow(projectDir: string, name: string): void {
   const src = path.join(
     REPO_ROOT, "templates", "project", "common", ".github", "workflows", name
@@ -66,7 +66,7 @@ function deployWorkflow(projectDir: string, name: string): void {
   const dst = path.join(projectDir, ".github", "workflows", name);
   const content = fs
     .readFileSync(src, "utf8")
-    .replace(/\{\{LAKEBASE_KIT_VERSION\}\}/g, kitVersion());
+    .replace(/\{\{LAKEBASE_SCM_UTILS_VERSION\}\}/g, kitVersion());
   fs.writeFileSync(dst, content);
 }
 

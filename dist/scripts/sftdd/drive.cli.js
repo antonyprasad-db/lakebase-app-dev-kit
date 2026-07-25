@@ -10722,7 +10722,26 @@ import { spawnSync } from "child_process";
 import * as fs11 from "fs";
 import * as path5 from "path";
 var KIT_ROOT = path5.resolve(__dirname, "..", "..", "..");
+var SUBSTRATE_PKG = "@databricks-solutions/lakebase-scm-utils";
 var kitBinMap = null;
+var substrateRoot;
+var substrateBinMap = null;
+function resolveSubstrateRoot() {
+  if (substrateRoot !== void 0) return substrateRoot;
+  let dir = KIT_ROOT;
+  for (; ; ) {
+    const cand = path5.join(dir, "node_modules", SUBSTRATE_PKG);
+    if (fs11.existsSync(path5.join(cand, "package.json"))) {
+      substrateRoot = cand;
+      return cand;
+    }
+    const parent = path5.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  substrateRoot = null;
+  return null;
+}
 function resolveKitBinJs(bin) {
   if (kitBinMap === null) {
     try {
@@ -10733,7 +10752,21 @@ function resolveKitBinJs(bin) {
     }
   }
   const rel = kitBinMap[bin];
-  return rel ? path5.join(KIT_ROOT, rel) : null;
+  if (rel) return path5.join(KIT_ROOT, rel);
+  const subRoot = resolveSubstrateRoot();
+  if (subRoot) {
+    if (substrateBinMap === null) {
+      try {
+        const pkg = JSON.parse(fs11.readFileSync(path5.join(subRoot, "package.json"), "utf8"));
+        substrateBinMap = pkg.bin ?? {};
+      } catch {
+        substrateBinMap = {};
+      }
+    }
+    const subRel = substrateBinMap[bin];
+    if (subRel) return path5.join(subRoot, subRel);
+  }
+  return null;
 }
 function kitVersion() {
   try {
@@ -10749,11 +10782,11 @@ import { isForeignFeatureClaim, readWorkflowState as readWorkflowState2 } from "
 
 // scripts/sftdd/stray-artifact-recovery.ts
 init_esm_shims();
-import { existsSync as existsSync32, mkdirSync as mkdirSync22, cpSync as cpSync4, rmSync as rmSync9, readdirSync as readdirSync17, statSync as statSync12 } from "fs";
-import { join as join27, dirname as dirname12, basename as basename2 } from "path";
+import { existsSync as existsSync33, mkdirSync as mkdirSync22, cpSync as cpSync4, rmSync as rmSync9, readdirSync as readdirSync17, statSync as statSync12 } from "fs";
+import { join as join27, dirname as dirname13, basename as basename2 } from "path";
 function malformedSiblingRoot(projectDir) {
   const p = projectDir.replace(/\/+$/, "");
-  return `${dirname12(p)}-${basename2(p)}`;
+  return `${dirname13(p)}-${basename2(p)}`;
 }
 function listFilesRel(dir) {
   const out = [];
@@ -10770,11 +10803,11 @@ function listFilesRel(dir) {
 }
 function relocateStrayDesignArtifacts(projectDir) {
   const sibling = malformedSiblingRoot(projectDir);
-  if (!existsSync32(sibling)) return { relocated: false, moved: [] };
+  if (!existsSync33(sibling)) return { relocated: false, moved: [] };
   const moved = [];
   for (const artRoot of [".sftdd", ".tdd"]) {
     const strayRoot = join27(sibling, artRoot);
-    if (!existsSync32(strayRoot)) continue;
+    if (!existsSync33(strayRoot)) continue;
     for (const rel of listFilesRel(strayRoot)) moved.push(join27(artRoot, rel));
     const realRoot = join27(projectDir, artRoot);
     mkdirSync22(realRoot, { recursive: true });

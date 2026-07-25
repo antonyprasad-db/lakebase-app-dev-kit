@@ -7976,7 +7976,26 @@ import { spawnSync } from "child_process";
 import * as fs5 from "fs";
 import * as path3 from "path";
 var KIT_ROOT = path3.resolve(__dirname, "..", "..", "..");
+var SUBSTRATE_PKG = "@databricks-solutions/lakebase-scm-utils";
 var kitBinMap = null;
+var substrateRoot;
+var substrateBinMap = null;
+function resolveSubstrateRoot() {
+  if (substrateRoot !== void 0) return substrateRoot;
+  let dir = KIT_ROOT;
+  for (; ; ) {
+    const cand = path3.join(dir, "node_modules", SUBSTRATE_PKG);
+    if (fs5.existsSync(path3.join(cand, "package.json"))) {
+      substrateRoot = cand;
+      return cand;
+    }
+    const parent = path3.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  substrateRoot = null;
+  return null;
+}
 function resolveKitBinJs(bin) {
   if (kitBinMap === null) {
     try {
@@ -7987,7 +8006,21 @@ function resolveKitBinJs(bin) {
     }
   }
   const rel = kitBinMap[bin];
-  return rel ? path3.join(KIT_ROOT, rel) : null;
+  if (rel) return path3.join(KIT_ROOT, rel);
+  const subRoot = resolveSubstrateRoot();
+  if (subRoot) {
+    if (substrateBinMap === null) {
+      try {
+        const pkg = JSON.parse(fs5.readFileSync(path3.join(subRoot, "package.json"), "utf8"));
+        substrateBinMap = pkg.bin ?? {};
+      } catch {
+        substrateBinMap = {};
+      }
+    }
+    const subRel = substrateBinMap[bin];
+    if (subRel) return path3.join(subRoot, subRel);
+  }
+  return null;
 }
 function runKitBinSync(bin, args, cwd) {
   const js = resolveKitBinJs(bin);

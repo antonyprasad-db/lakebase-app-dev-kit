@@ -7971,7 +7971,26 @@ var import_node_child_process2 = require("child_process");
 var fs5 = __toESM(require("fs"), 1);
 var path2 = __toESM(require("path"), 1);
 var KIT_ROOT = path2.resolve(__dirname, "..", "..", "..");
+var SUBSTRATE_PKG = "@databricks-solutions/lakebase-scm-utils";
 var kitBinMap = null;
+var substrateRoot;
+var substrateBinMap = null;
+function resolveSubstrateRoot() {
+  if (substrateRoot !== void 0) return substrateRoot;
+  let dir = KIT_ROOT;
+  for (; ; ) {
+    const cand = path2.join(dir, "node_modules", SUBSTRATE_PKG);
+    if (fs5.existsSync(path2.join(cand, "package.json"))) {
+      substrateRoot = cand;
+      return cand;
+    }
+    const parent = path2.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  substrateRoot = null;
+  return null;
+}
 function resolveKitBinJs(bin) {
   if (kitBinMap === null) {
     try {
@@ -7982,7 +8001,21 @@ function resolveKitBinJs(bin) {
     }
   }
   const rel = kitBinMap[bin];
-  return rel ? path2.join(KIT_ROOT, rel) : null;
+  if (rel) return path2.join(KIT_ROOT, rel);
+  const subRoot = resolveSubstrateRoot();
+  if (subRoot) {
+    if (substrateBinMap === null) {
+      try {
+        const pkg = JSON.parse(fs5.readFileSync(path2.join(subRoot, "package.json"), "utf8"));
+        substrateBinMap = pkg.bin ?? {};
+      } catch {
+        substrateBinMap = {};
+      }
+    }
+    const subRel = substrateBinMap[bin];
+    if (subRel) return path2.join(subRoot, subRel);
+  }
+  return null;
 }
 function runKitBinSync(bin, args, cwd) {
   const js = resolveKitBinJs(bin);
