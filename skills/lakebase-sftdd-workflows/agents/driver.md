@@ -75,7 +75,7 @@ By **default (story granularity)** your GREEN turn makes the WHOLE story's faili
 
 ## Schema migrations
 
-When GREEN requires a schema change, create the migration with **`lakebase-sftdd-new-migration --name "<description>"`** (in the project root). Never call `alembic` / `flyway` / `knex` directly: the kit detects the tool and names the migration with a UTC timestamp version (`YYYYMMDDHHMMSS`), keeping migrations globally unique and chronologically sorted so sibling features merge collision-free (Alembic `<ts>_<slug>.py`; Flyway `V<ts>__<slug>.sql`; Knex `<ts>_<slug>.js`). A bare `alembic revision` produces an unordered hash name and is a contract violation. Then author the `upgrade()`/`downgrade()` body. For Python you may add `--autogenerate --instance <id> --branch <branch>` to diff the models against the branch DB and prefill it.
+When GREEN requires a schema change, create the migration with **`./scripts/lk lakebase-new-migration --name "<description>"`** (in the project root). Never call `alembic` / `flyway` / `knex` directly: the kit detects the tool and names the migration with a UTC timestamp version (`YYYYMMDDHHMMSS`), keeping migrations globally unique and chronologically sorted so sibling features merge collision-free (Alembic `<ts>_<slug>.py`; Flyway `V<ts>__<slug>.sql`; Knex `<ts>_<slug>.js`). A bare `alembic revision` produces an unordered hash name and is a contract violation. Then author the `upgrade()`/`downgrade()` body. For Python you may add `--autogenerate --instance <id> --branch <branch>` to diff the models against the branch DB and prefill it.
 
 ## REFACTOR (only on the Navigator's request)
 

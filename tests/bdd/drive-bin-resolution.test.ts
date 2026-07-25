@@ -1,14 +1,15 @@
-// Guard: the deterministic driver resolves the kit child-CLIs it emits through
-// the kit's OWN package.json `bin` map (drive.cli's resolveKitBinJs), NOT a
-// hand-maintained list. So every kit bin the effects layer can emit as a `cli`
-// command MUST be declared in package.json `bin` , otherwise the driver falls
-// back to a bare `spawn(<bin>)` which is not on PATH under lk and dies with
-// ENOENT (this is exactly what happened when lakebase-sftdd-log was emitted by the
-// feature drive but missing from the old hardcoded map).
+// Guard: the deterministic driver resolves the child-CLIs it emits through a
+// package.json `bin` map (drive.cli's resolveKitBinJs), NOT a hand-maintained
+// list. Every bin the effects layer can emit as a `cli` command MUST be declared
+// in SOME resolvable bin map , the kit's own (for sftdd/tdd bins) or the installed
+// substrate's (for scm-* bins, which the kit no longer redeclares after Track C
+// Phase 4) , otherwise the driver falls back to a bare `spawn(<bin>)` which is not
+// on PATH under lk and dies with ENOENT (this is exactly what happened when
+// lakebase-sftdd-log was emitted but missing from the old hardcoded map).
 //
-// This test reads the *_BIN constants the effects layer declares and asserts
-// each is a package.json bin key, so a newly-emitted bin can't drift out of
-// sync before a live run catches it.
+// This test reads the *_BIN constants the effects layer declares and asserts each
+// resolves against the union of the kit + substrate bin maps, so a newly-emitted
+// bin can't drift out of sync before a live run catches it.
 
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
@@ -25,9 +26,20 @@ function emittedKitBins(): string[] {
   return [...bins];
 }
 
-function packageBinKeys(): Set<string> {
-  const pkg = JSON.parse(readFileSync(`${ROOT}/package.json`, "utf8")) as { bin?: Record<string, string> };
-  return new Set(Object.keys(pkg.bin ?? {}));
+/** The union of the kit's own bin keys and the installed substrate's bin keys ,
+ *  every name resolveKitBinJs can resolve to a dist JS. */
+function resolvableBinKeys(): Set<string> {
+  const kit = JSON.parse(readFileSync(`${ROOT}/package.json`, "utf8")) as { bin?: Record<string, string> };
+  const keys = new Set(Object.keys(kit.bin ?? {}));
+  try {
+    const sub = JSON.parse(
+      readFileSync(`${ROOT}/node_modules/@databricks-solutions/lakebase-scm-utils/package.json`, "utf8"),
+    ) as { bin?: Record<string, string> };
+    for (const k of Object.keys(sub.bin ?? {})) keys.add(k);
+  } catch {
+    /* substrate not installed (shouldn't happen in the kit's own suite) */
+  }
+  return keys;
 }
 
 describe("driver kit-bin resolution is backed by package.json bin (no hardcoded map)", () => {
@@ -35,10 +47,10 @@ describe("driver kit-bin resolution is backed by package.json bin (no hardcoded 
     expect(emittedKitBins().length).toBeGreaterThanOrEqual(4);
   });
 
-  it("every kit bin the effects layer emits is declared in package.json bin", () => {
-    const declared = packageBinKeys();
+  it("every bin the effects layer emits resolves against the kit or substrate bin map", () => {
+    const declared = resolvableBinKeys();
     const missing = emittedKitBins().filter((b) => !declared.has(b));
-    expect(missing, `these kit bins are emitted by the driver but missing from package.json bin (would ENOENT under lk)`).toEqual([]);
+    expect(missing, `these bins are emitted by the driver but resolve in neither the kit nor the substrate bin map (would ENOENT under lk)`).toEqual([]);
   });
 
   it("drive.cli no longer carries a hardcoded bin->js map (resolves via package.json)", () => {

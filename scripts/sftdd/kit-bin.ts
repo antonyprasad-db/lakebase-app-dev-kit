@@ -12,11 +12,39 @@ import * as path from "node:path";
 // __dirname is the importer's dir: <kitRoot>/dist/scripts/sftdd. The kit root
 // (which holds package.json + its bin map) is three directories up.
 const KIT_ROOT = path.resolve(__dirname, "..", "..", "..");
+const SUBSTRATE_PKG = "@databricks-solutions/lakebase-scm-utils";
 let kitBinMap: Record<string, string> | null = null;
+let substrateRoot: string | null | undefined; // undefined = not yet resolved
+let substrateBinMap: Record<string, string> | null = null;
 
-/** The dist JS for a kit bin (via the kit's package.json `bin` map), or null for
- *  a name that is not a kit bin (an external tool resolved on PATH). Resolving to
- *  the mapped file means the bin runs regardless of PATH / global install. */
+/** Locate the installed scm-utils package root by walking node_modules up from
+ *  the kit root (Node's own resolution order), so it resolves whether scm-utils is
+ *  nested under the kit (a dev clone) or hoisted to a shared node_modules (a
+ *  scaffolded project / the lk cache, where scm-utils is a sibling of the kit).
+ *  Returns null when scm-utils is not installed. */
+function resolveSubstrateRoot(): string | null {
+  if (substrateRoot !== undefined) return substrateRoot;
+  let dir = KIT_ROOT;
+  for (;;) {
+    const cand = path.join(dir, "node_modules", SUBSTRATE_PKG);
+    if (fs.existsSync(path.join(cand, "package.json"))) {
+      substrateRoot = cand;
+      return cand;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  substrateRoot = null;
+  return null;
+}
+
+/** The dist JS for a bin the driver emits, or null for a name that is neither a
+ *  kit bin nor a substrate bin (an external tool resolved on PATH). Kit-owned bins
+ *  resolve under the kit's dist; SUBSTRATE bins (e.g. lakebase-scm-merge) resolve
+ *  under the installed scm-utils package's OWN dist via its bin map, so they run
+ *  from the substrate regardless of hoisting , the kit no longer redeclares them.
+ *  Resolving to the mapped file means the bin runs regardless of PATH. */
 export function resolveKitBinJs(bin: string): string | null {
   if (kitBinMap === null) {
     try {
@@ -29,7 +57,26 @@ export function resolveKitBinJs(bin: string): string | null {
     }
   }
   const rel = kitBinMap[bin];
-  return rel ? path.join(KIT_ROOT, rel) : null;
+  if (rel) return path.join(KIT_ROOT, rel);
+
+  // Not a kit bin: it may be a SUBSTRATE bin (scm-merge, scm-wait-ci, ...) the
+  // driver emits. Resolve it from the installed scm-utils package's bin map.
+  const subRoot = resolveSubstrateRoot();
+  if (subRoot) {
+    if (substrateBinMap === null) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(path.join(subRoot, "package.json"), "utf8")) as {
+          bin?: Record<string, string>;
+        };
+        substrateBinMap = pkg.bin ?? {};
+      } catch {
+        substrateBinMap = {};
+      }
+    }
+    const subRel = substrateBinMap[bin];
+    if (subRel) return path.join(subRoot, subRel);
+  }
+  return null;
 }
 
 /** The kit's own version (package.json `version`), or "unknown" if unreadable.

@@ -33,13 +33,13 @@ describe("shipped release artifact: every package.json bin is git-tracked in dis
     const bins = Object.entries(pkg.bin);
     expect(bins.length).toBeGreaterThan(0);
 
-    // Normalize the bin path ("./dist/scripts/sftdd/intake.cli.js") to the
-    // repo-relative form git ls-files emits ("dist/scripts/sftdd/intake.cli.js").
+    // The kit now declares ONLY its own bins (all under ./dist/...). Substrate/SCM
+    // bins live in @databricks-solutions/lakebase-scm-utils and are resolved by lk
+    // (and the driver) from that package's own dist, so they are validated there,
+    // never redeclared here. Normalize the bin path
+    // ("./dist/scripts/sftdd/intake.cli.js") to the repo-relative form git ls-files
+    // emits ("dist/scripts/sftdd/intake.cli.js").
     const missing = bins
-      // Substrate/SCM bins now resolve into the @databricks-solutions/lakebase-scm-utils
-      // dependency's dist (./node_modules/...); that package ships + git-tracks its own
-      // dist, so those targets are validated there, not in this kit's dist.
-      .filter(([, p]) => !p.includes("node_modules/"))
       .map(([name, p]) => [name, p.replace(/^\.\//, "")] as const)
       .filter(([, p]) => !tracked.has(p));
 
