@@ -117,5 +117,12 @@ describe("replayBuildTurn (per-turn build replay)", () => {
     expect(f("/p/.env.example")).toBe(true); // template kept
     expect(f("/p/Makefile")).toBe(false); // scaffold config , corpus must not clobber
     expect(f("/p/deploy-targets.yaml")).toBe(false); // scaffold config (run command)
+    // Dependency manifests + lock files are scaffold-owned (carry the project
+    // name + env-specific lock fields); overlaying a corpus copy dirties the
+    // tracked lock file and blocks the next story's experiment fork.
+    expect(f("/p/client/package.json")).toBe(false);
+    expect(f("/p/client/package-lock.json")).toBe(false);
+    expect(f("/p/client/yarn.lock")).toBe(false);
+    expect(f("/p/client/src/App.tsx")).toBe(true); // real client SOURCE still kept
   });
 });

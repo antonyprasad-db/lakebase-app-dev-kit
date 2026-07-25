@@ -35,8 +35,24 @@ const JUNK_DIRS = new Set([
 /** Files to never capture/overlay: secrets + OS cruft, plus scaffold-owned root
  *  config the build never authors , the corpus must not clobber the fresh
  *  scaffold's copy (e.g. Makefile/deploy-targets.yaml carry the run command; a
- *  stale `--reload` copy would re-break the deploy teardown). (.env.example IS kept.) */
-const JUNK_FILES = new Set([".env", ".DS_Store", "Makefile", "deploy-targets.yaml"]);
+ *  stale `--reload` copy would re-break the deploy teardown). (.env.example IS kept.)
+ *
+ *  Dependency manifests + lock files (package.json / package-lock.json / yarn.lock
+ *  / pnpm-lock.yaml) are likewise scaffold-owned: create-project stamps the
+ *  PROJECT NAME into them and runs the installer, so a corpus copy carries the
+ *  CAPTURE's project name (e.g. `<oldproject>-client`) plus env-specific lock
+ *  fields (npm `libc` entries). Overlaying that stale copy, then a live
+ *  deploy-verify `npm install`, leaves the tracked lock file dirty with the
+ *  replay project's name, which makes the NEXT story's experiment fork refuse
+ *  ("uncommitted changes"). Keeping the fresh scaffold's manifests (correct name,
+ *  local npm) makes the install idempotent. All current corpora are Python+React
+ *  with manifests only under client/ (the build authors client SOURCE, never the
+ *  manifest); revisit if a Node-backend corpus ever needs a build-authored
+ *  root package.json. */
+const JUNK_FILES = new Set([
+  ".env", ".DS_Store", "Makefile", "deploy-targets.yaml",
+  "package.json", "package-lock.json", "yarn.lock", "pnpm-lock.yaml",
+]);
 
 /** A cpSync filter that copies a code tree under `root` while skipping (a) the
  *  scaffold-owned top-level dirs (replay must not clobber the fresh scaffold's
