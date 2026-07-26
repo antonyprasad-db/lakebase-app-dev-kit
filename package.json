@@ -144,7 +144,7 @@
     "test:live": "bash scripts/run-live-tests.sh"
   },
   "dependencies": {
-    "@databricks-solutions/lakebase-scm-utils": "github:databricks-solutions/lakebase-scm-utils#v0.1.0-beta.7",
+    "@databricks-solutions/lakebase-scm-utils": "github:databricks-solutions/lakebase-scm-utils#v0.1.0-beta.8",
     "@databricks/appkit": "^0.38.1",
     "@databricks/lakebase": "^0.4.0",
     "adm-zip": "^0.5.16",
