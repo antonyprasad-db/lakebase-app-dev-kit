@@ -13,7 +13,7 @@ What keeps the ensemble honest is where it plays. Every red/green/refactor cycle
 
 ## The ensemble
 
-Each agent owns one concern and hands off through files on disk, in the order a lifecycle would run them. No shared memory, one job each.
+Each agent owns one concern and communicates only through the artifacts it produces and the ones it consumes, in the order a lifecycle would run them. No shared memory, one job each: the spec the Spec Author produces is what the Architect Reviewer reads, whose contract the DBA and Test Strategist build on in turn.
 
 | Agent | Lifecycle role | Owns |
 |---|---|---|
