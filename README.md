@@ -44,7 +44,7 @@ Consort ships its framework skill and the engineering canon its roles import.
 
 ```bash
 claude plugin marketplace add databricks-solutions/consort
-claude plugin install consort@consort
+claude plugin install consort@databricks-solutions
 ```
 
 Then, in any session:
