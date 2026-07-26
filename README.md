@@ -29,7 +29,7 @@ The scaffolded `.sftdd/` runtime dir (`features/`, `experiments/`, `spikes/`, `c
 
 ## Skills
 
-Consort ships one framework skill plus the canon it imports; the SCM skill it composes on lives in the substrate.
+Consort ships its framework skill and the engineering canon its roles import. The paired-branch SCM skill those roles build on is owned by the substrate (`lakebase-scm-utils`), not duplicated here.
 
 - **[`consort`](skills/consort/README.md)** the framework itself: the `/design` and `/build` lanes, the role agents, the gates, and the code patterns for the paired-branch primitives.
 - **[`software-design-principles`](skills/software-design-principles/SKILL.md)** SOLID, DRY, clean code, layered architecture, cross-cutting concerns, NFRs. Imported by the framework roles.
