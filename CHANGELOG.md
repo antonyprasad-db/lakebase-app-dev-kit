@@ -6,6 +6,38 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **Renamed to Consort.** The package is now `@databricks-solutions/consort` and the
+  GitHub repo is `databricks-solutions/consort` (the old URL redirects). The framework
+  skill `lakebase-sftdd-workflows` is now `consort`, with a `/consort:*` plugin command
+  namespace and a Consort MCP identity. Consort is positioned, per its companion paper,
+  as a Spec-First Branched-Database TDD agent framework built on governance by
+  construction. Internal `sftdd` module names, the `lakebase-sftdd-*` bin names, and the
+  scaffolded `.sftdd/` runtime dir are intentionally unchanged for back-compat with
+  already-scaffolded projects.
+- Repinned the substrate dependency `@databricks-solutions/lakebase-scm-utils` to
+  `v0.1.0-beta.6` (apply-tier subcommand for 2-tier/3-tier merge migrations + the lk
+  non-prefixed kit-bin routing fix), then to the scm-utils commit carrying the consort
+  scaffolder.
+
+### Added
+
+- **DBA design-lane role (the ninth role).** A `dba` agent runs between the architect
+  reviewer and the test strategist: it consumes `architecture.json` and produces a
+  feature-scoped `db-design.json` (physical tables/DDL + per-story schema-change plan)
+  that realizes the architect's persistence invariants (the architect keeps ownership of
+  the invariants; the DBA realizes, never re-authors). The spec gate hard-blocks a
+  service-backed feature whose `db-design.json` is missing or leaves any declared
+  invariant unrealized.
+
+### Removed
+
+- Purged the dead per-language app-scaffold template trees under `templates/project/`
+  (client/python/java/kotlin/spring, nodejs except its `.gitignore.extra`, and the dead
+  `common/` playwright/e2e fixtures) that the scm-utils extraction orphaned; scaffolding
+  runs off scm-utils's own bundled templates. The live `common/**` BDD fixtures are kept.
+
 ## [0.3.0-beta.36] - 2026-07-24
 
 ### Changed

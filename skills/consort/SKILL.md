@@ -1,10 +1,10 @@
 ---
 name: consort
-description: "Spec-First Test-Driven Development (SFTDD) with evolutionary design, against paired Lakebase branches: the design lane is Spec Driven Development (SDD) and the build lane is canonical Beck-style Test Driven Development (RED-GREEN-REFACTOR), composed with paired-branch primitives (cheap experiments, parent-aware schema diff, real per-branch databases). Spec-first means the spec is drafted, reviewed, and frozen at gates before any build cycle runs; evolutionary means the spec, the architecture, and the database all evolve increment over increment. Use when planning a new feature, running design-spec gates, running TDD cycles, comparing parallel experiments, or detecting workflow bad smells. Imports software-design-principles canon. Builds on lakebase-scm-workflows + lakebase-release-workflows."
+description: "Consort, a Spec-First Branched-Database TDD agent framework built on governance by construction: a deterministic orchestrator drives role agents through a spec-first design lane (Spec Driven Development) and a build lane that runs canonical Beck-style Test Driven Development (RED-GREEN-REFACTOR) against a live copy-on-write branch of a real, governed Lakebase database, composed with paired-branch primitives (cheap experiments, parent-aware schema diff, real per-branch databases). The controls are code the agent cannot edit: gates fail closed, tests are immutable within a unit of work, and a green result is a real test run against real data. Spec-first means the spec is drafted, reviewed, and frozen at gates before any build cycle runs; evolutionary means the spec, the architecture, and the database all evolve increment over increment. Use when planning a new feature, running design-spec gates, running TDD cycles, comparing parallel experiments, or detecting workflow bad smells. Imports software-design-principles canon. Builds on lakebase-scm-workflows + lakebase-release-workflows."
 user-invocable: true
 ---
 
-# consort – agent contract
+# Consort – agent contract
 
 Agent-facing contract: hard rules, phase flow, agent prompt index, and concrete code patterns for the substrate primitives.
 

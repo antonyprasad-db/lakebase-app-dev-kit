@@ -1,11 +1,13 @@
-# consort
+# Consort
 
-Lakebase-backed application development kit. The shared foundation that the [`lakebase-scm-extension`](https://github.com/databricks-solutions/lakebase-scm-extension) (VS Code/Cursor) and coding agents – Claude Code (terminal), Claude Desktop, OpenAI Foundry, Cursor, and Databricks Genie Code – all consume. One canonical implementation; multiple presentation layers and workflow-domain skills.
+**Consort is a Spec-First Branched-Database TDD agent framework: it governs what an AI agent writes by construction.** A deterministic orchestrator drives a set of separate role agents through a spec-first design lane and a test-driven build lane whose every red/green/refactor cycle runs against a live, copy-on-write branch of a real, governed Lakebase database. The controls are code the agent runs inside but cannot edit: human-in-the-loop gates fail closed, tests are immutable within a unit of work, and a green result is defined as a test runner actually passing against real data, not the agent's report that it passed. Its design and the governance argument are set out in the companion paper *Introducing Consort: A Spec-First Branched-Database TDD Agent Framework that Governs Output by Construction, Verified Against Real Data*.
+
+Consort is also the Lakebase-backed application development kit that hosts the framework: the shared foundation that the [`lakebase-scm-extension`](https://github.com/databricks-solutions/lakebase-scm-extension) (VS Code/Cursor) and coding agents – Claude Code (terminal), Claude Desktop, OpenAI Foundry, Cursor, and Databricks Genie Code – all consume. One canonical implementation; multiple presentation layers and workflow-domain skills.
 
 **Workflow domains** (kit-authored, one skill each, hosted under `skills/`):
 - **[`lakebase-scm-workflows`](skills/lakebase-scm-workflows/README.md)** – paired-branch source control, schema diff, PR flow, runner setup.
 - **[`lakebase-release-workflows`](skills/lakebase-release-workflows/SKILL.md)** – branching + release methodology for Lakebase-paired projects.
-- **[`consort`](skills/consort/README.md)** – Spec-First Test-Driven Development (SFTDD) with evolutionary design, against paired branches: Spec Driven Development (SDD) for the design lane (`/design`) and Test Driven Development (TDD) for the build lane (`/build`), with a deterministic orchestrator and HITL gates at every phase boundary. Specs, architecture, and database all evolve increment over increment.
+- **[`consort`](skills/consort/README.md)** – the Consort framework itself: a spec-first design lane (`/design`) and a Branched-Database TDD build lane (`/build`) against paired branches, coordinated by a deterministic orchestrator with HITL gates that fail closed at every phase boundary. Work is divided among nine role agents – product owner, spec author, architect reviewer, DBA, test strategist, navigator, driver, release engineer, and (for user-facing work) UX designer – each with a bounded responsibility and no shared memory, so the agent that writes the code is never the one that judges it. Specs, architecture, and database all evolve increment over increment.
 - Future domains include deploying to Databricks Apps and beyond.
 
 **Shared canon** (kit-authored, unprefixed because not Lakebase-specific):
