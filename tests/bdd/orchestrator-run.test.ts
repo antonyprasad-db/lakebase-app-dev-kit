@@ -25,7 +25,7 @@ function freshStory(): StoryView {
   return {
     gateApproved: false,
     gateSurfaced: false,
-    design: { hasAcs: false, architectAnnotated: false, architectProjectable: false, testListReady: false, reflectionPassed: false, reflectionVerdictWritten: false },
+    design: { hasAcs: false, architectAnnotated: false, architectProjectable: false, dbaDesigned: false, testListReady: false, reflectionPassed: false, reflectionVerdictWritten: false },
     build: {
       experimentCut: false,
       testsWritten: false,
@@ -79,6 +79,7 @@ function makeFakeWorld(storyIds: string[]) {
             const s = state.stories[action.story];
             if (action.role === "spec-author") s.design.hasAcs = true;
             else if (action.role === "architect-reviewer") s.design.architectAnnotated = true;
+            else if (action.role === "dba") s.design.dbaDesigned = true;
             else if (action.role === "test-strategist") s.design.testListReady = true;
             else if (action.role === "navigator" && "buildMode" in action && action.buildMode === "reflect") {
               // Pre-build reflection: the clean-design happy path writes a passing
@@ -306,7 +307,7 @@ describe("runDriver: Tier-2 phase bounds (driverBoundOptions)", () => {
     state.storyOrder = ["S1", "S2"];
     for (const id of ["S1", "S2"]) {
       const v = freshStory();
-      v.design = { hasAcs: true, architectAnnotated: true, architectProjectable: false, testListReady: true, reflectionPassed: true, reflectionVerdictWritten: true };
+      v.design = { hasAcs: true, architectAnnotated: true, architectProjectable: false, dbaDesigned: true, testListReady: true, reflectionPassed: true, reflectionVerdictWritten: true };
       v.gateApproved = true;
       v.gateSurfaced = true;
       state.stories[id] = v;

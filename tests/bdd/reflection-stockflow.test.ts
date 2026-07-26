@@ -41,6 +41,33 @@ beforeEach(() => {
   // the feature test-list master) , the real design-lane outputs.
   mkdirSync(join(tdd, "features"), { recursive: true });
   cpSync(RECORDED_F1, join(tdd, "features", FEATURE), { recursive: true });
+  // The recorded corpus predates the DBA role, so it has no db-design.json. The
+  // design lane now runs the DBA (architect -> dba -> test-strategist), so stage a
+  // db-design.json realizing the recorded architecture's persistence_invariants
+  // (PI1-PI4 on stock_records) , the DBA's physical product for this feature , so
+  // the derive sees a DBA-complete design just as a real replay would.
+  writeFileSync(
+    join(tdd, "features", FEATURE, "db-design.json"),
+    JSON.stringify({
+      feature_id: FEATURE,
+      tables: [
+        {
+          name: "stock_records",
+          columns: [
+            { name: "id", type: "uuid", nullable: false },
+            { name: "sku", type: "text", nullable: false },
+            { name: "location", type: "text", nullable: false },
+            { name: "quantity", type: "integer", nullable: false },
+          ],
+          primary_key: ["id"],
+          unique_constraints: [["sku", "location"]],
+          checks: [{ name: "quantity_non_negative", expression: "quantity >= 0" }],
+        },
+      ],
+      schema_changes: [{ story_id: "S1-record-stock", kind: "create_table", table: "stock_records", detail: "sku+location unique, quantity >= 0" }],
+      realizes_invariants: ["PI1-sku-location-unique", "PI2-required-fields-not-null", "PI3-quantity-non-negative", "PI4-migration-reversible"],
+    }),
+  );
   // The recording ships each story's reflect-verdict.json (a real design-lane
   // artifact). These tests DRIVE the reflect gate themselves (write the verdict
   // under test, leave siblings' absent), so strip the staged verdicts to control

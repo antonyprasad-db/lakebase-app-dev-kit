@@ -127,6 +127,15 @@ function replayEffects(feature: string, stories: string[]) {
               ],
               nfrs: [],
             });
+          } else if (action.role === "dba") {
+            // The DBA's product: db-design.json realizing the architecture's
+            // persistence contract (none declared here, so just >=1 table). Runs
+            // between the architect and the test-strategist.
+            writeJson(join(featureDir(feature), "db-design.json"), {
+              feature_id: feature,
+              tables: [{ name: "items", columns: [{ name: "id", type: "uuid", nullable: false }] }],
+              realizes_invariants: [],
+            });
           } else if (action.role === "test-strategist") {
             // The real flow: the role writes the feature master, then the
             // driver's deterministic scope step produces the canonical per-story

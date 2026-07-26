@@ -16,7 +16,7 @@
 // docs/refactor/orchestrator-deterministic-driver.md.
 
 /** The design-lane roles, in the order a story flows through them. */
-export type DesignRole = "spec-author" | "architect-reviewer" | "test-strategist";
+export type DesignRole = "spec-author" | "architect-reviewer" | "dba" | "test-strategist";
 
 /** What a story has produced so far in the design lane (derived from disk). */
 export interface StoryDesign {
@@ -31,6 +31,11 @@ export interface StoryDesign {
    *  story, or clean a novel story + amend the canon). Only consulted while
    *  architectAnnotated is false. */
   architectProjectable: boolean;
+  /** The DBA has produced db-design.json realizing this story's persistence
+   *  invariants (the physical schema). Runs after the architect, before the test
+   *  strategist. A not-service_backed feature has nothing to realize, so this is
+   *  satisfied without a DBA turn (see the probe). */
+  dbaDesigned: boolean;
   /** The Test Strategist has produced this story's ordered test list. */
   testListReady: boolean;
   /** The pre-build reflection critic (Navigator, reflect mode) has PASSED this
@@ -132,6 +137,7 @@ export function nextDesignAction(state: DesignDriveState): DriveAction {
       hasAcs: false,
       architectAnnotated: false,
       architectProjectable: false,
+      dbaDesigned: false,
       testListReady: false,
       reflectionPassed: false,
       reflectionVerdictWritten: false,
@@ -146,6 +152,11 @@ export function nextDesignAction(state: DesignDriveState): DriveAction {
       if (design.architectProjectable) return { kind: "project-architect-notes", story };
       return { kind: "invoke-role", role: "architect-reviewer", story };
     }
+    // DBA step: once the architect has annotated the story, the DBA realizes the
+    // physical schema (db-design.json) before the test list is built. The probe
+    // satisfies this without a turn for a not-service_backed feature (nothing to
+    // realize), so a trivial feature skips straight to the test strategist.
+    if (!design.dbaDesigned) return { kind: "invoke-role", role: "dba", story };
     if (!design.testListReady) return { kind: "invoke-role", role: "test-strategist", story };
     // Pre-build reflection: the Navigator critiques the (now complete) spec +
     // test-list BEFORE the human spec gate + the build. On findings it flags a

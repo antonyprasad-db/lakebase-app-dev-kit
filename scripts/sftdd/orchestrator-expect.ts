@@ -142,6 +142,15 @@ export function expectationFor(action: WorkflowAction): Handoff | null {
         "Write a non-empty `architectural_notes` field into EVERY one of this story's acs/<AC>.json files (your per-AC product; the gate checks each AC carries it), AND ensure the feature architecture.json exists. architectural_notes are per-AC: annotate this story's ACs even when the feature-level architecture.json already exists from an earlier story.",
     };
   }
+  if (responder === "dba") {
+    return {
+      ...base,
+      expected: "a db-design.json realizing every persistence_invariant",
+      satisfiedBy: (s) => storyView(s)?.design.dbaDesigned === true,
+      remediation:
+        "Write features/<F>/db-design.json declaring >=1 table[] and a realizes_invariants[] that lists EVERY architecture.json persistence_invariant id (each mapped to a physical table/constraint). A service_backed feature with no db-design or an unrealized invariant hard-blocks the spec gate.",
+    };
+  }
   if (responder === "test-strategist") {
     // The S2 stall: a malformed/empty per-story test list leaves testListReady
     // false. The contract makes that a loud, attributed abort, not a spin.

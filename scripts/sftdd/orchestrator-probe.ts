@@ -46,7 +46,9 @@ import {
   storyTestListJson,
   readAcArchitecturalNotes,
   architectureJson,
+  dbDesignJson,
 } from "./sftdd-paths.js";
+import { checkDbDesign } from "./artifact-conformance.js";
 
 /** Every recorded cycle artifact for a story, across all of its ACs. */
 function storyCycles(sftddDir: string, featureId: string, story: string): CycleArtifact[] {
@@ -196,6 +198,34 @@ export function diskArtifactProbe(
       // feature architecture.json (service_backed + layers + nfrs).
       const everyAcNoted = acs.every((ac) => readAcArchitecturalNotes(sftddDir, featureId, ac) !== undefined);
       return everyAcNoted && fs.existsSync(architectureJson(sftddDir, featureId));
+    },
+
+    dbaDesigned() {
+      // The DBA is "done" once the physical schema realizes the architect's
+      // contract: keyed on the SAME check the spec gate uses (checkDbDesign). A
+      // not-service_backed feature has nothing to realize, so checkDbDesign is ok
+      // without a DBA turn and this returns true (the lane skips straight to the
+      // test strategist). Only consulted after architectAnnotated, so
+      // architecture.json exists here; false until it does (the architect owns the
+      // contract the DBA realizes).
+      const archFile = architectureJson(sftddDir, featureId);
+      if (!fs.existsSync(archFile)) return false;
+      let archContent: string;
+      try {
+        archContent = fs.readFileSync(archFile, "utf8");
+      } catch {
+        return false;
+      }
+      const dbFile = dbDesignJson(sftddDir, featureId);
+      let dbContent: string | undefined;
+      if (fs.existsSync(dbFile)) {
+        try {
+          dbContent = fs.readFileSync(dbFile, "utf8");
+        } catch {
+          dbContent = undefined;
+        }
+      }
+      return checkDbDesign(dbContent, archContent).ok;
     },
 
     architectProjectable(story) {

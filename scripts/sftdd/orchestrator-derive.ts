@@ -39,6 +39,10 @@ export interface StoryArtifactProbe {
    *  turn): architecture.json exists, the canon is established, the story is not
    *  novel. */
   architectProjectable(story: string): boolean;
+  /** The DBA realized the physical schema (db-design.json realizes every
+   *  architect persistence_invariant). Satisfied without a turn for a
+   *  not-service_backed feature (nothing to realize). */
+  dbaDesigned(story: string): boolean;
   /** The Test Strategist produced this story's test list (test-list.json). */
   testListReady(story: string): boolean;
   /** The pre-build reflection critic PASSED this story's spec + test-list
@@ -154,6 +158,7 @@ function storyView(
       hasAcs: probe.hasAcs(id),
       architectAnnotated: probe.architectAnnotated(id),
       architectProjectable: probe.architectProjectable(id),
+      dbaDesigned: probe.dbaDesigned(id),
       testListReady: probe.testListReady(id),
       reflectionPassed: probe.reflectionPassed(id),
       reflectionVerdictWritten: probe.reflectionVerdictWritten(id),

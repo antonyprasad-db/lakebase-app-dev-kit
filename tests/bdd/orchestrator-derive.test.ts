@@ -20,6 +20,7 @@ function fakeProbe(facts: Record<string, Partial<Record<keyof StoryArtifactProbe
     hasAcs: (s) => get(s, "hasAcs"),
     architectAnnotated: (s) => get(s, "architectAnnotated"),
     architectProjectable: (s) => get(s, "architectProjectable"),
+    dbaDesigned: (s) => get(s, "dbaDesigned"),
     testListReady: (s) => get(s, "testListReady"),
     reflectionPassed: (s) => get(s, "reflectionPassed"),
     reflectionVerdictWritten: (s) => get(s, "reflectionVerdictWritten"),
@@ -109,11 +110,23 @@ describe("deriveDriveState + nextTransition: realistic on-disk situations", () =
     expect(nextTransition(state)).toEqual({ kind: "invoke-role", role: "architect-reviewer", story: "S1" });
   });
 
+  it("design lane: a story with architecture but no db-design advances to the DBA", () => {
+    const p = pipeline({ S1: { status: "designing" } });
+    const state = deriveDriveState(p, fakeProbe({ S1: { hasAcs: true, architectAnnotated: true } }), FEATURE);
+    expect(nextTransition(state)).toEqual({ kind: "invoke-role", role: "dba", story: "S1" });
+  });
+
+  it("design lane: once the DBA produced db-design, the story advances to the test-strategist", () => {
+    const p = pipeline({ S1: { status: "designing" } });
+    const state = deriveDriveState(p, fakeProbe({ S1: { hasAcs: true, architectAnnotated: true, dbaDesigned: true } }), FEATURE);
+    expect(nextTransition(state)).toEqual({ kind: "invoke-role", role: "test-strategist", story: "S1" });
+  });
+
   it("design lane: a story with a ready test-list but no reflection PASS runs the Navigator reflect turn (before the gate)", () => {
     const p = pipeline({ S1: { status: "designing" } });
     const state = deriveDriveState(
       p,
-      fakeProbe({ S1: { hasAcs: true, architectAnnotated: true, testListReady: true } }),
+      fakeProbe({ S1: { hasAcs: true, architectAnnotated: true, dbaDesigned: true, testListReady: true } }),
       FEATURE,
     );
     // reflectionPassed is absent (false) -> the reflect turn runs, NOT surface-gate.
@@ -124,7 +137,7 @@ describe("deriveDriveState + nextTransition: realistic on-disk situations", () =
     const p = pipeline({ S1: { status: "designing" } });
     const state = deriveDriveState(
       p,
-      fakeProbe({ S1: { hasAcs: true, architectAnnotated: true, testListReady: true, reflectionPassed: true } }),
+      fakeProbe({ S1: { hasAcs: true, architectAnnotated: true, dbaDesigned: true, testListReady: true, reflectionPassed: true } }),
       FEATURE,
     );
     expect(nextTransition(state)).toEqual({ kind: "surface-gate", story: "S1" });
@@ -137,8 +150,8 @@ describe("deriveDriveState + nextTransition: realistic on-disk situations", () =
     const state = deriveDriveState(
       p,
       fakeProbe({
-        S1: { hasAcs: true, architectAnnotated: true, testListReady: true },
-        S2: { hasAcs: true, architectAnnotated: true, testListReady: true },
+        S1: { hasAcs: true, architectAnnotated: true, dbaDesigned: true, testListReady: true },
+        S2: { hasAcs: true, architectAnnotated: true, dbaDesigned: true, testListReady: true },
       }),
       FEATURE,
     );
@@ -147,8 +160,8 @@ describe("deriveDriveState + nextTransition: realistic on-disk situations", () =
     const state2 = deriveDriveState(
       p,
       fakeProbe({
-        S1: { hasAcs: true, architectAnnotated: true, testListReady: true, reflectionPassed: true },
-        S2: { hasAcs: true, architectAnnotated: true, testListReady: true },
+        S1: { hasAcs: true, architectAnnotated: true, dbaDesigned: true, testListReady: true, reflectionPassed: true },
+        S2: { hasAcs: true, architectAnnotated: true, dbaDesigned: true, testListReady: true },
       }),
       FEATURE,
     );

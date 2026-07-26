@@ -634,6 +634,49 @@ function roleTaskBody(
         designRootNote(root, featureId, s)
       );
     }
+    case "dba": {
+      const dbaAcIds = storyAcIds(sftddDir, featureId, s);
+      const dbaAcScope = dbaAcIds.length ? ` Story ${s}'s ACs are: ${dbaAcIds.join(", ")}.` : "";
+      // Inject the architect's contract to realize (service_backed, the models
+      // layer to mirror, and the persistence_invariants the design must physically
+      // realize) so the DBA does not re-scan to re-derive it. Best-effort: omit
+      // when architecture.json is not on disk yet (the spec gate still enforces).
+      let contract = "";
+      try {
+        const arch = JSON.parse(fs.readFileSync(architectureJson(sftddDir, featureId), "utf8")) as {
+          service_backed?: boolean;
+          persistence_invariants?: Array<{ id?: string; type?: string; table?: string; brief?: string }>;
+          layers?: Array<{ role?: string; module?: string }>;
+        };
+        if (arch.service_backed === true) {
+          const inv = (arch.persistence_invariants ?? []).filter((i) => i && typeof i.id === "string");
+          const invList = inv.length
+            ? ` Realize EVERY declared persistence_invariant and list its id in realizes_invariants[]: ${inv
+                .map((i) => `${i.id}${i.type ? ` [${i.type}${i.table ? ` on ${i.table}` : ""}]` : ""}${i.brief ? ` (${i.brief})` : ""}`)
+                .join("; ")}.`
+            : "";
+          const models = (arch.layers ?? []).find((l) => l.role === "models");
+          const modelsNote = models?.module ? ` Mirror the architect's models package (${models.module}), one table per domain object.` : "";
+          contract =
+            ` This feature is service_backed.${modelsNote}${invList}`;
+        } else if (arch.service_backed === false) {
+          contract = ` This feature is not service_backed (a trivial static/read-through endpoint); an empty or absent db-design.json is acceptable.`;
+        }
+      } catch {
+        /* no architecture.json yet -> omit; the spec gate still enforces it */
+      }
+      return (
+        `Realize the physical database schema for story ${s} into ${root}/features/${featureId}/db-design.json` +
+        ` (+ a short db-design.md narrative).${dbaAcScope}` +
+        ` Read architecture.json (service_backed, layers, persistence_invariants) , the architect owns that logical contract;` +
+        ` you produce the PHYSICAL realization and do NOT re-author the invariants.` +
+        ` Declare tables[] (columns with explicit type/nullable/default, primary_key, unique_constraints, foreign_keys, checks, indexes)` +
+        ` and this story's schema_changes[] (the per-story migration plan the build lane authors the Alembic migration from; keep an` +
+        ` expand/contract column split or drop reversible). Populate realizes_invariants[] with every architecture.json` +
+        ` persistence_invariant id, mapped to the physical construct that enforces it , an uncovered invariant hard-blocks the spec gate.${contract}` +
+        designRootNote(root, featureId, s)
+      );
+    }
     case "test-strategist": {
       // Pass the story's AC ids INLINE so the strategist does not re-scan the
       // acs/ dir to re-derive them (a slow, error-prone step that, on a small
@@ -676,7 +719,8 @@ function roleTaskBody(
             ` session, never a mock): verify the MIGRATION actually realized the guarantee (e.g. inserting a duplicate raises` +
             ` an IntegrityError, a NOT NULL/CHECK rejects a bad row, a down-then-up migration round-trips) and that the` +
             ` repository honors it. Do NOT write a test of the ORM's generic add/commit/query round-trip , that tests the` +
-            ` library, not your schema.${list}`;
+            ` library, not your schema.${list} The DBA's db-design.json (features/${featureId}/db-design.json) has the concrete` +
+            ` table/column/constraint definitions realizing these invariants , read it for precise schema assertions.`;
         }
       } catch {
         /* no architecture.json yet -> omit; the test_list gate still enforces it */

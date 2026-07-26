@@ -16,8 +16,8 @@
 // every item maps to one of the story's ACs (the S2 live-stall bug).
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { storyAcIds, readAcLayer, storyTestListJson, acsDir, designGuideJson } from "./sftdd-paths.js";
-import { checkArtifactConformance, canonicalArtifactName } from "./artifact-conformance.js";
+import { storyAcIds, readAcLayer, storyTestListJson, acsDir, designGuideJson, architectureJson, dbDesignJson } from "./sftdd-paths.js";
+import { checkArtifactConformance, canonicalArtifactName, checkDbDesign } from "./artifact-conformance.js";
 
 export interface FormatViolation {
   /** The artifact (relative-ish path / name) that failed. */
@@ -46,6 +46,7 @@ export interface FormatArgs {
 export const FORMATTED_ROLES = new Set([
   "spec-author",
   "architect-reviewer",
+  "dba",
   "test-strategist",
   "ux-designer",
 ]);
@@ -124,6 +125,27 @@ function checkArchitect(args: FormatArgs, v: FormatViolation[]): void {
   }
 }
 
+/** dba (per feature): db-design.json conforms + realizes every architecture.json
+ *  persistence_invariant. Uses the same checkDbDesign the spec gate does. */
+function checkDba(args: FormatArgs, v: FormatViolation[]): void {
+  const { sftddDir, featureId } = args;
+  const archFile = architectureJson(sftddDir, featureId);
+  if (!existsSync(archFile)) {
+    v.push({ artifact: "architecture.json", problem: "architecture.json missing (the architect owns the contract the DBA realizes)" });
+    return;
+  }
+  const archContent = readFileSync(archFile, "utf8");
+  const dbFile = dbDesignJson(sftddDir, featureId);
+  const dbContent = existsSync(dbFile) ? readFileSync(dbFile, "utf8") : undefined;
+  // Schema conformance first (a malformed db-design.json), then invariant realization.
+  if (dbContent !== undefined) {
+    const conf = checkArtifactConformance("db-design.json", dbContent);
+    if (!conf.ok) v.push({ artifact: "db-design.json", problem: conf.violations.join("; ") });
+  }
+  const r = checkDbDesign(dbContent, archContent);
+  if (!r.ok) v.push({ artifact: "db-design.json", problem: r.violations.join("; ") });
+}
+
 /** test-strategist (per story): the per-story test list exists, parses, has >=1
  *  item, and EVERY item's ac_id maps to one of the story's ACs. The S2 live
  *  stall was exactly this: items with ac_id:null / unmapped -> empty scope. */
@@ -194,6 +216,7 @@ function checkUxDesigner(args: FormatArgs, v: FormatViolation[]): void {
 const CHECKERS: Record<string, (a: FormatArgs, v: FormatViolation[]) => void> = {
   "spec-author": checkSpecAuthor,
   "architect-reviewer": checkArchitect,
+  dba: checkDba,
   "test-strategist": checkTestStrategist,
   "ux-designer": checkUxDesigner,
 };
