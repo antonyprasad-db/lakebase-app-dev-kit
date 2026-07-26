@@ -227,7 +227,7 @@ Consort ships no installed slash commands; the scaffolder writes the command fil
 
 ## Agents
 
-The role agents under [`agents/`](agents/) are invokable directly with `@consort/<agent-name>` in Claude Code, or spawned by the deterministic orchestrator (`lakebase-sftdd-drive`) when it delegates a phase. Each agent file is a self-contained prompt; the orchestrator (code, not an agent) coordinates them.
+The role agents under [`agents/`](agents/) are self-contained prompts. `lakebase-create-project` scaffolds them into a project's `.claude/agents/`, and the deterministic orchestrator (`lakebase-sftdd-drive`) spawns them as `claude --agent <role>` when it delegates a phase. They are not shipped as plugin agents, so there is no `@consort/<role>` invocation; the orchestrator (code, not an agent) coordinates them.
 
 | Agent | File | Invoked when |
 |---|---|---|
