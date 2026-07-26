@@ -24,6 +24,19 @@ describe("layDownTddScaffold (hermetic)", () => {
     expect(existsSync(join(projectDir, ".sftdd", "smells.json"))).toBe(true);
   });
 
+  it("writes .lakebase/kit-package with the kit's package name (config seam for lk)", () => {
+    // The substrate's lk shim resolves kit bins from .lakebase/kit-package rather
+    // than hardcoding the kit's package name; the kit's scaffolder writes it here.
+    layDownTddScaffold(projectDir);
+    const kitPkg = readFileSync(join(projectDir, ".lakebase", "kit-package"), "utf8").trim();
+    const kitName = (
+      JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as {
+        name: string;
+      }
+    ).name;
+    expect(kitPkg).toBe(kitName);
+  });
+
   it("workflow-state.json seed has phase=discovery", () => {
     layDownTddScaffold(projectDir);
     const state = JSON.parse(readFileSync(join(projectDir, ".sftdd", "workflow-state.json"), "utf8"));

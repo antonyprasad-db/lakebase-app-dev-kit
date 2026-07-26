@@ -26,7 +26,36 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * consumed via git URL (dist + src co-located) and from a dev clone. Safe to
  * call when <targetDir>/.sftdd/ already exists (existing files are preserved).
  */
+/** The kit's own package name, read from the kit's package.json (works in the
+ *  src, committed-dist, and git-installed layouts). The kit owns its identity; the
+ *  substrate must not name it, so the scaffolder writes it into the project for the
+ *  `lk` shim to resolve kit bins. */
+function kitPackageName(): string {
+  const candidates = [
+    path.resolve(__dirname, "../../package.json"),
+    path.resolve(__dirname, "../../../package.json"),
+  ];
+  for (const c of candidates) {
+    try {
+      const name = (JSON.parse(fs.readFileSync(c, "utf8")) as { name?: string }).name;
+      if (typeof name === "string" && name) return name;
+    } catch {
+      /* try the next candidate */
+    }
+  }
+  throw new Error(`could not resolve the kit package name; looked in: ${candidates.join(", ")}`);
+}
+
 export function layDownTddScaffold(targetDir: string): void {
+  // Write the kit's package name so the scaffolded `lk` shim can resolve kit bins
+  // without the substrate hardcoding it. Committed project config (like kit-ref);
+  // idempotent, so a re-scaffold never clobbers an existing pin.
+  const kitPkgFile = path.join(targetDir, ".lakebase", "kit-package");
+  if (!fs.existsSync(kitPkgFile)) {
+    fs.mkdirSync(path.dirname(kitPkgFile), { recursive: true });
+    fs.writeFileSync(kitPkgFile, `${kitPackageName()}\n`);
+  }
+
   const candidates = [
     path.resolve(__dirname, `../../templates/sftdd-bootstrap/${ARTIFACT_ROOT}`),
     path.resolve(__dirname, `../../../templates/sftdd-bootstrap/${ARTIFACT_ROOT}`),
