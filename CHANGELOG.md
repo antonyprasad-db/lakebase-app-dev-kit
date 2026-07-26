@@ -11,9 +11,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Renamed to Consort.** The package is now `@databricks-solutions/consort` and the
   GitHub repo is `databricks-solutions/consort` (the old URL redirects). The framework
   skill `lakebase-sftdd-workflows` is now `consort`, with a `/consort:*` plugin command
-  namespace and a Consort MCP identity. Consort is positioned, per its companion paper,
-  as a Spec-First Branched-Database TDD agent framework built on governance by
-  construction. Internal `sftdd` module names, the `lakebase-sftdd-*` bin names, and the
+  namespace and a Consort MCP identity. Consort is positioned as a Spec-First
+  Branched-Database TDD agent framework built on governance by construction. Internal `sftdd` module names, the `lakebase-sftdd-*` bin names, and the
   scaffolded `.sftdd/` runtime dir are intentionally unchanged for back-compat with
   already-scaffolded projects.
 - Repinned the substrate dependency `@databricks-solutions/lakebase-scm-utils` to
