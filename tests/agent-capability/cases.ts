@@ -39,6 +39,17 @@ export const CAPABILITY_CASES: AgentCapabilityCase[] = [
     note: "needs a conformant feature-spec.json + story.json + ac.json + nfrs.md fixture",
   },
   {
+    role: "dba",
+    capability: "produce a conformant db-design.json (tables + schema_changes) that realizes every architecture.json persistence_invariant",
+    fixture: "dba",
+    task:
+      "Acting as the DBA, write .tdd/features/F1-initial-domain/db-design.json " +
+      "(conformant to db-design.schema.json: feature_id + tables[] + realizes_invariants[]) realizing every persistence_invariant in architecture.json. Write only that file.",
+    produces: [{ path: ".tdd/features/F1-initial-domain/db-design.json" }],
+    live: false,
+    note: "needs a conformant architecture.json (service_backed + persistence_invariants) fixture",
+  },
+  {
     role: "test-strategist",
     capability: "produce a conformant test-list.json (items[] ordered) from the ACs",
     fixture: "test-strategist",

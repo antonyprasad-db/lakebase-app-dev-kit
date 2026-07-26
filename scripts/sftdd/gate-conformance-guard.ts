@@ -21,9 +21,10 @@ import {
   checkPersistenceCoverage,
   checkInvariantCoverageDistinct,
   checkServiceBackedDeclaration,
+  checkDbDesign,
 } from "./artifact-conformance.js";
 import { acsForStory } from "./test-list.js";
-import { featureResolved, architectureJson, nfrsMd, featureNfrsMd } from "./sftdd-paths.js";
+import { featureResolved, architectureJson, dbDesignJson, nfrsMd, featureNfrsMd } from "./sftdd-paths.js";
 import { readConventions, assertArchitectureConforms } from "./architecture-conventions.js";
 
 export function featureDir(sftddDir: string, featureId: string): string {
@@ -177,6 +178,22 @@ function layeringDeclaredReason(sftddDir: string, featureId: string): string | n
   if (arch === undefined) return null;
   const r = checkLayeringDeclared(arch);
   return r.ok ? null : `layering declaration failed: ${r.violations.join("; ")}`;
+}
+
+/**
+ * DB-design spec-gate condition (the DBA's realization of the architect's
+ * persistence contract): once architecture.json exists, a service_backed feature
+ * MUST have a db-design.json that declares >=1 table and realizes every declared
+ * persistence_invariant. A trivial (non-service-backed) feature is exempt. Null
+ * when it conforms / architecture not produced yet.
+ */
+function dbDesignReason(sftddDir: string, featureId: string): string | null {
+  const arch = readArchitecture(sftddDir, featureId);
+  if (arch === undefined) return null;
+  const dbFile = dbDesignJson(sftddDir, featureId);
+  const db = existsSync(dbFile) ? (() => { try { return readFileSync(dbFile, "utf8"); } catch { return undefined; } })() : undefined;
+  const r = checkDbDesign(db, arch);
+  return r.ok ? null : `db-design failed: ${r.violations.join("; ")}`;
 }
 
 /**
@@ -391,6 +408,11 @@ export function resolveArtifactInputs(
       if (serviceBacked !== null) return { reason: serviceBacked };
       const layeringReason = layeringDeclaredReason(sftddDir, featureId);
       if (layeringReason !== null) return { reason: layeringReason };
+      // The DBA runs after the architect and before the test-strategist: a
+      // service_backed feature must have a db-design.json realizing every declared
+      // persistence_invariant with a physical table/constraint.
+      const dbReason = dbDesignReason(sftddDir, featureId);
+      if (dbReason !== null) return { reason: dbReason };
       const nfrReason = nfrCoverageReason(sftddDir, featureId);
       return nfrReason === null ? conf : { reason: nfrReason };
     }

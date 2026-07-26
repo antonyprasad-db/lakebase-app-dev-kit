@@ -228,6 +228,9 @@ describe("drainGatesAsHumanProxy: hard-blocks non-conformant artifacts (Layer 2)
         ],
       }),
     );
+    // The DBA's db-design.json is required at the spec gate for a service_backed
+    // feature (>=1 table; no invariants to realize here).
+    writeFileSync(join(fdir, "db-design.json"), JSON.stringify({ feature_id: FEATURE_ID, tables: [{ name: "bugs", columns: [{ name: "id", type: "uuid" }] }], realizes_invariants: [] }));
     const ok = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd });
     expect(ok.approved).toContain("spec");
   });
@@ -260,6 +263,7 @@ describe("drainGatesAsHumanProxy: hard-blocks non-conformant artifacts (Layer 2)
         nfrs: [{ category: "operability", requirement: "bugs survive every schema migration", hil_status: "accepted" }],
       }),
     );
+    writeFileSync(join(fdir, "db-design.json"), JSON.stringify({ feature_id: FEATURE_ID, tables: [{ name: "bugs", columns: [{ name: "id", type: "uuid" }] }], realizes_invariants: [] }));
     expect(drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd }).approved).toContain("spec");
   });
 
@@ -277,6 +281,35 @@ describe("drainGatesAsHumanProxy: hard-blocks non-conformant artifacts (Layer 2)
       join(fdir, "architecture.json"),
       JSON.stringify({ service_backed: true, layers: [{ role: "boundary", module: "app/routes" }, { role: "service", module: "app/services" }, { role: "repository", module: "app/repositories" }] }),
     );
+    writeFileSync(join(fdir, "db-design.json"), JSON.stringify({ feature_id: FEATURE_ID, tables: [{ name: "bugs", columns: [{ name: "id", type: "uuid" }] }], realizes_invariants: [] }));
+    expect(drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd }).approved).toContain("spec");
+  });
+
+  it("hard-blocks spec when the DBA's db-design.json is missing or leaves an architect invariant unrealized (dbDesignReason)", () => {
+    writeFileSync(join(fdir, "feature-spec.json"), FEATURE_JSON);
+    writeFileSync(join(fdir, "feature-spec.md"), FEATURE_MD);
+    // A conformant service_backed architecture that declares one invariant.
+    const archJson = JSON.stringify({
+      feature_id: FEATURE_ID,
+      service_backed: true,
+      layers: [{ role: "boundary", module: "app/routes" }, { role: "service", module: "app/services" }, { role: "repository", module: "app/repositories" }],
+      persistence_invariants: [{ id: "PI1-bug-title-not-null", type: "not_null", table: "bugs", brief: "a bug row requires a title" }],
+      nfrs: [],
+    });
+    writeFileSync(join(fdir, "architecture.json"), archJson);
+    // No db-design.json yet -> the DBA has not run -> spec gate blocks.
+    const blocked = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd });
+    expect(blocked.approved).not.toContain("spec");
+    expect(blocked.skipped.find((s) => s.gate === "spec")?.reason ?? "").toMatch(/db-design failed.*no db-design\.json/i);
+
+    // db-design.json present but does NOT realize the invariant -> still blocked.
+    writeFileSync(join(fdir, "db-design.json"), JSON.stringify({ feature_id: FEATURE_ID, tables: [{ name: "bugs", columns: [{ name: "id", type: "uuid" }] }], realizes_invariants: [] }));
+    const stillBlocked = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd });
+    expect(stillBlocked.approved).not.toContain("spec");
+    expect(stillBlocked.skipped.find((s) => s.gate === "spec")?.reason ?? "").toMatch(/db-design failed.*PI1-bug-title-not-null/i);
+
+    // Realize it -> spec approves.
+    writeFileSync(join(fdir, "db-design.json"), JSON.stringify({ feature_id: FEATURE_ID, tables: [{ name: "bugs", columns: [{ name: "id", type: "uuid" }, { name: "title", type: "text", nullable: false }] }], realizes_invariants: ["PI1-bug-title-not-null"] }));
     expect(drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd }).approved).toContain("spec");
   });
 
