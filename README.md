@@ -5,42 +5,65 @@
   </picture>
 </p>
 
-**Consort is a Spec-First Branched-Database TDD agent framework.** A deterministic orchestrator drives a set of separate role agents through a spec-first design lane and a test-driven build lane whose every red/green/refactor cycle runs against a live, copy-on-write branch of a real, governed Lakebase database. The controls are code the agent runs inside but cannot edit: human-in-the-loop gates fail closed, tests are immutable within a unit of work, and a green result is defined as a test runner actually passing against real data.
+**Consort builds software with a coordinated ensemble of AI agents, spec-first and test-driven, on live branches of a real Lakebase database.**
+
+A *consort* is an ensemble that plays in concert: each musician holds one part, and a conductor keeps them in time. Consort is that, applied to building software. A set of agents each take on one familiar role from the software lifecycle, a product owner, a spec author, an architect, a DBA, a test strategist, a UX designer, and a navigator/driver pair at the keyboard, while a deterministic conductor keeps them in sequence and a human holds the downbeat at every gate. No agent plays another's part, and the one that writes the code is never the one that judges it.
+
+What keeps the ensemble honest is where it plays. Every red/green/refactor cycle runs against a live, copy-on-write branch of a real, governed Lakebase database, never a mock. A step is "green" only when a real test runner passes against real data; the human-in-the-loop gates fail closed; and within a unit of work the tests cannot be edited to force a pass.
+
+## The ensemble
+
+Each agent owns one concern and hands off through files on disk, in the order a lifecycle would run them. No shared memory, one job each.
+
+| Agent | Lifecycle role | Owns |
+|---|---|---|
+| **Product Owner** | Product | the backlog and each story's acceptance criteria |
+| **Spec Author** | Analysis | the structured, testable specification |
+| **Architect Reviewer** | Architecture | the layering lens, NFRs, and the persistence invariants |
+| **DBA** | Data | the physical schema and the per-story migration plan |
+| **Test Strategist** | Test design | the ordered master test list drawn from the ACs |
+| **UX Designer** | Experience | the interface design, for user-facing work |
+| **Navigator** | Test + review | the failing test (RED), and review of the code that answers it |
+| **Driver** | Implementation | the minimal honest code (GREEN), then the refactor |
 
 ## How it works
 
-The workflow runs as a loop of increments, `/plan -> /design -> /build -> /deploy`, with a human deciding every gate:
+Consort runs as a loop of small increments, `/plan -> /design -> /build -> /deploy`, and a human decides every gate:
 
-- **Design lane (spec-first).** Intent is captured in a specification and a list of the tests that will demonstrate it, then frozen at a hashed gate so the target cannot move mid-build. Eight role agents each own a bounded concern: product owner, spec author, architect reviewer, DBA, test strategist, UX designer (for user-facing work), and the navigator/driver pair that run the build cycle. No role can do another's job and roles share no memory, so the agent that writes the code is never the one that judges it.
-- **Build lane (Branched-Database TDD).** The full red/green/refactor cycle runs against a copy-on-write branch of real, governed data. A green result is stamped only when the test runner actually passes; a failed verify routes to a bounded code repair that never touches the tests, or, when a later story legitimately supersedes a prior test, to a rule-bound refactor of only the superseded tests.
-- **Deploy + promote (deterministic).** These phases are run by the orchestrator itself, not an agent: it deploys/verifies the increment and drives the PR, CI, merge, and parent-tier migration. The human approves the deploy and promote gates.
+- **Design (spec-first).** Intent becomes a specification and the list of tests that will demonstrate it, then freezes at a hashed gate so the target cannot move mid-build. The Spec Author, Architect Reviewer, DBA, and Test Strategist each add their part (plus the UX Designer for user-facing work).
+- **Build (test-driven).** The Navigator writes a failing test; the Driver makes it pass with the least honest code, then refactors, each cycle against a copy-on-write branch of real data. A failed verify routes to a bounded repair that never touches the tests.
+- **Deploy + promote (deterministic).** The conductor, not an agent, deploys and verifies the increment and drives the PR, CI, merge, and parent-tier migration. The human approves the deploy and promote gates.
 
-Routing between phases is a program, not a model decision, so the control loop cannot drift or be argued out of a step, and it cannot be lost across context compaction.
+Routing between phases is a program, not a model's choice, so the loop cannot drift, be argued out of a step, or be lost across a context reset.
 
-## What is in this repo
+## Who it's for
 
-- **`scripts/sftdd/`** the deterministic orchestrator and the per-role logic: the drive loop, design/build routing, the gates, experiments and spikes, bad-smell detection, and agent logging.
-- **`skills/consort/`** the framework's agent-facing contract (`SKILL.md`), the eight role-agent prompts under `agents/`, and its references. Plus the shared engineering canon skills (`software-design-principles`, `architectural-design-principles`, `ui-ux-design-principles`) that the roles import, and the vendored Databricks skills (`databricks-core`, `databricks-lakebase`).
-- **`templates/`** the `.sftdd/` workflow bootstrap and the project-level `.claude/commands` a scaffolded project carries.
+Engineers building net-new services on Lakebase who already think in tests and reviewable increments, and the integration consultants who carry that discipline into a team. Consort is a method you adopt, scaffolded into your own project, not a product you run.
+
+## What's in this repo
+
+- **`scripts/sftdd/`** the deterministic conductor and the per-role logic: the drive loop, design/build routing, the gates, experiments and spikes, bad-smell detection, and agent logging.
+- **`skills/consort/`** the agent-facing contract (`SKILL.md`), the eight role-agent prompts under `agents/`, and its references. Plus the engineering-canon skills (`software-design-principles`, `architectural-design-principles`, `ui-ux-design-principles`) the roles import, and the vendored Databricks skills (`databricks-core`, `databricks-lakebase`).
+- **`templates/`** the `.sftdd/` bootstrap and the project-level `.claude/commands` a scaffolded project carries.
 - **`apps/mcp-server/`** a single MCP server exposing the tool surface to MCP-capable agents (Claude Desktop, OpenAI Codex, Cursor-via-MCP, Genie Code).
 - **`tools/openai-foundry/`** a pre-rendered OpenAI Foundry / Codex tool spec, generated from the same `apps/mcp-server/tools.ts` registry.
-- **`tests/`** Vitest BDD tests. Live Lakebase paths skip cleanly when `LAKEBASE_TEST_*` env vars are not set.
+- **`tests/`** Vitest BDD tests. Live Lakebase paths skip cleanly when the `LAKEBASE_TEST_*` env vars are not set.
 
-The scaffolded `.sftdd/` runtime dir (`features/`, `experiments/`, `spikes/`, `cycles/`, `workflow-state.json`, `smells.json`) is where a project's live workflow state is read and written.
+A scaffolded project keeps its live state under `.sftdd/` (`features/`, `experiments/`, `spikes/`, `cycles/`, `workflow-state.json`, `smells.json`), where the conductor reads and writes as the loop runs.
 
 ## Skills
 
-Consort ships its framework skill and the engineering canon its roles import.
+Consort ships its own skill plus the engineering canon its roles import.
 
 - **[`consort`](skills/consort/README.md)** the framework itself: the `/design` and `/build` lanes, the role agents, and the gates.
-- **[`software-design-principles`](skills/software-design-principles/SKILL.md)** SOLID, DRY, clean code, layered architecture, cross-cutting concerns, NFRs. Imported by the framework roles.
+- **[`software-design-principles`](skills/software-design-principles/SKILL.md)** SOLID, DRY, clean code, layered architecture, cross-cutting concerns, NFRs. Imported by the roles.
 - **[`architectural-design-principles`](skills/architectural-design-principles/SKILL.md)** system-level canon: layered architecture, ports and adapters, twelve-factor, evolutionary architecture and database design.
 - **[`ui-ux-design-principles`](skills/ui-ux-design-principles/SKILL.md)** experience-level canon for the UX Designer and any user-facing build.
 - **Vendored** `databricks-core` and `databricks-lakebase` are read-only mirrors of [`databricks/devhub`](https://github.com/databricks/devhub/tree/main/.agents/skills) (the `databricks postgres` CLI surface). Refresh with `npm run sync:devhub` (drift-checked in CI via `npm run check:devhub`).
 
 ## Install and use
 
-### As a Claude Code plugin (the workflow)
+### As a Claude Code plugin
 
 ```bash
 claude plugin marketplace add databricks-solutions/consort
@@ -53,11 +76,11 @@ Then, in any session:
 /consort:start
 ```
 
-In a folder with a `.sftdd/` directory this resumes the `/plan -> /design -> /build -> /deploy` loop; elsewhere it guides you through creating a project, then resumes. The workflow is driven by the deterministic orchestrator (`lakebase-sftdd-drive`), which spawns the role agents scaffolded into the project's `.claude/agents/` (invoked as `claude --agent <role>`) and pauses at every HITL gate. The plugin ships the command + skills + MCP server; the role agents come from the scaffolded project, not the plugin.
+In a project that already has a `.sftdd/` directory this resumes the `/plan -> /design -> /build -> /deploy` loop; elsewhere it walks you through creating a project first, then resumes. The command, skills, and MCP server ship in the plugin; the role agents are scaffolded into your project's `.claude/agents/` and spawned by the conductor (`lakebase-sftdd-drive`) as `claude --agent <role>`, pausing at every gate.
 
-### For coding agents (skills only)
+### As skills for other agents
 
-`install.sh` copies the skill trees under `skills/` into the path each agent reads from, pulling the latest vendored skills first (best-effort; skipped offline). Auto-detects installed agents; `--tools` overrides.
+`install.sh` copies the skill trees under `skills/` into the path each agent reads from, pulling the latest vendored skills first (best-effort; skipped offline). It auto-detects installed agents; `--tools` overrides.
 
 ```bash
 # Auto-detect installed agents, prompt to pick
@@ -70,9 +93,9 @@ bash <(curl -sL https://raw.githubusercontent.com/databricks-solutions/consort/m
 ./install.sh --install-to-genie --profile DEFAULT
 ```
 
-Supported targets: **Claude Code** via `.claude/skills/`, **Cursor** via `.cursor/skills/`, **Databricks Genie Code** via workspace upload, and **Claude Desktop / OpenAI Codex** via the MCP manifest at `.mcp.json` (the server lives at `apps/mcp-server/`, also exposed as the `lakebase-mcp-server` bin). **OpenAI Foundry** consumes the pre-rendered tool spec at [`tools/openai-foundry/consort.tools.json`](tools/openai-foundry/consort.tools.json). `manifest.json` is a machine-readable index of every skill + its files (regenerated by `python3 scripts/skills.py`).
+Targets: **Claude Code** (`.claude/skills/`), **Cursor** (`.cursor/skills/`), **Databricks Genie Code** (workspace upload), and **Claude Desktop / OpenAI Codex** via the MCP manifest at `.mcp.json` (the server lives at `apps/mcp-server/`, also on PATH as `lakebase-mcp-server`). **OpenAI Foundry** consumes the pre-rendered spec at [`tools/openai-foundry/consort.tools.json`](tools/openai-foundry/consort.tools.json). `manifest.json` is a machine-readable index of every skill and its files (regenerated by `python3 scripts/skills.py`).
 
-### From a clone (running the bins directly)
+### From a clone
 
 ```bash
 git clone https://github.com/databricks-solutions/consort
@@ -92,12 +115,12 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full live-test prerequisites and 
 
 ## CLIs
 
-The bins are Consort's workflow surface plus a few project-lifecycle helpers. Run any with `--help`.
+The bins are Consort's command surface plus a few project-lifecycle helpers. Run any with `--help`.
 
-- **`lakebase-sftdd-drive`** the deterministic orchestrator: routes the design/build/deploy/promote phases, spawns the role agents, and holds the gates. The `lakebase-sftdd-*` family (`-intake`, `-cycle`, `-experiment`, `-spike`, `-deploy`, `-approve-gate`, `-gate-conformance`, `-next`, `-test-list`, `-human-proxy`, ...) are its building blocks.
-- **`lakebase-create-project`** end-to-end Lakebase-paired project bootstrap that also lays down the workflow.
-- **`lakebase-adopt-sftdd`** add Consort's workflow to an existing Lakebase-paired project.
-- **`lakebase-feature-status`** report the workflow state of the features in a project.
+- **`lakebase-sftdd-drive`** the deterministic conductor: routes the design/build/deploy/promote phases, spawns the role agents, and holds the gates. The `lakebase-sftdd-*` family (`-intake`, `-cycle`, `-experiment`, `-spike`, `-deploy`, `-approve-gate`, `-gate-conformance`, `-next`, `-test-list`, `-human-proxy`, ...) are its building blocks.
+- **`lakebase-create-project`** end-to-end Lakebase-paired project bootstrap that also scaffolds the Consort commands.
+- **`lakebase-adopt-sftdd`** add Consort to an existing Lakebase-paired project.
+- **`lakebase-feature-status`** report where each feature sits in the loop.
 - **`lakebase-update-commands`** refresh a scaffolded project's `.claude/commands` to the current version.
 - **`lakebase-mcp-server`** stdio MCP server exposing the tool surface to MCP-capable agents.
 
