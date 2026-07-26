@@ -5,7 +5,7 @@ The end-to-end state machine for `lakebase-sftdd-workflows` (**Spec-First Test-D
 The driver's coarse phases (`DrivePhase`) run in order: **planning -> feature (design + build) -> deploy -> promote -> done**. Deploy proves working software (local target) before promote opens the PR and merges the feature up to its parent tier; `shipped` is reached only after that merge.
 
 Canonical phase names come from `workflow-state.json.current_workflow_phase`:
-`discovery`, `architectural-review`, `test-list-construction`, `design-spec-gate`, `implementation`, `synthesis`, `review`, `promote`, `shipped`, `abandoned`.
+`discovery`, `architectural-review`, `database-design`, `test-list-construction`, `design-spec-gate`, `implementation`, `synthesis`, `review`, `promote`, `shipped`, `abandoned`.
 
 ## How a run begins
 
@@ -80,7 +80,7 @@ Every step carries a **circled number** ①②③ giving the orchestrator's acti
 the first thing the orchestrator does (route into the opening phase), and the count follows
 what it does next, **including the deterministic tool runs**, which are steps in their own
 right. There are two kinds of step rectangle: a **white** one is an agent-driven phase (a
-**coral** agent circle is attached: Spec Author, Architect, Test Strategist, Navigator,
+**coral** agent circle is attached: Spec Author, Architect, DBA, Test Strategist, Navigator,
 Driver, Release Engineer, Product Owner); a **teal** one is a deterministic step the
 orchestrator runs (a tool like `sync-backlog`, `analyzeForGate`, `detectAll`,
 `compareExperiments`, `promoteExperiment`, `lakebase-sftdd-deploy`), never agent-authored;
@@ -152,7 +152,10 @@ flowchart LR
     uxguide -.->|gates build dispatch| archReview
     AR(("Architect<br/>Reviewer")) -. responsible .-> archReview
     archReview["② architectural-review<br/>per-AC architectural_notes, NFR coverage"] -. produces .-> arch(["architecture md/json"])
-    archReview --> SpecGate
+    DBA(("DBA")) -. responsible .-> dbDesign
+    archReview --> dbDesign
+    dbDesign["②b database-design<br/>physical schema, realizes invariants"] -. produces .-> dbd(["db-design md/json"])
+    dbDesign --> SpecGate
     HU1(("human")) -. decides .-> SpecGate
     SpecGate{③ spec gate}
     SpecGate -->|approve| testList
@@ -394,6 +397,7 @@ flowchart TB
 | `discovery` | SDD | `/design` | Spec Author drafts `feature-spec` + stories + ACs | feeds `spec` gate |
 | UX design (conditional, `project.uiTrack: true`) | SDD | `/design` | UX Designer writes the project-level `design-guide.{md,json}` + `ia.md`; readiness gates build dispatch | none (readiness check) |
 | `architectural-review` | SDD | `/design` | Architect Reviewer writes `architectural_notes` on EVERY AC of the story + the feature `architecture` md/json (`service_backed`, layers, `persistence_invariants`), covers NFRs | **`spec` gate** (arch folds in) |
+| `database-design` | SDD | `/design` | DBA realizes the physical schema in `db-design.{json,md}` (tables/DDL + per-story migration plan) realizing every architecture `persistence_invariant`; runs after the architect, before the test-strategist | **`spec` gate** (db-design folds in) |
 | `test-list-construction` | SDD | `/design` | Test Strategist builds the Beck-ordered test list, scoped per story | **`test_list` gate** |
 | `design-spec-gate` | SDD | `/design` | Analyzer proposes the experiment plan (N, strategies, budget) to `plan.json`; PO signs off | experiment-plan approval |
 | `implementation` | TDD | `/build` | Per-story experiment; Navigator runs PLAN/RED/REVIEW (+ ASSESS on a failed verify), Driver runs GREEN/REFACTOR (+ REPAIR or permissive-green on a failed verify); each verify runs on a disposable ephemeral child DB; smells after each cycle | per story: **accept / discard / revise** |
@@ -441,7 +445,7 @@ the `promote` gate then merges upstream.
 
 - **Spec-first within an increment.** The `spec` and `test_list` gates freeze the spec before any product code; the TDD lane refuses to start until they are approved.
 - **Evolutionary across increments.** The freeze is per increment, not forever: each `/plan` re-plans from the last working software; architecture evolves under fitness functions; the database evolves by migration on the paired branch, diffed against its parent.
-- **The orchestrator never writes spec/code/tests.** `lakebase-sftdd-drive` is deterministic routing; the eight role agents (Product Owner, Spec Author, UX Designer (UI only), Architect Reviewer, Test Strategist, Navigator, Driver, Release Engineer) do the work, communicating only through on-disk artifacts.
+- **The orchestrator never writes spec/code/tests.** `lakebase-sftdd-drive` is deterministic routing; the nine role agents (Product Owner, Spec Author, UX Designer (UI only), Architect Reviewer, DBA, Test Strategist, Navigator, Driver, Release Engineer) do the work, communicating only through on-disk artifacts.
 - **Every gate is HITL.** Live, the human answers; headless, the Human Proxy answers only on present + format-conformant artifacts.
 - **Escalation pre-empts every transition.** While an unresolved escalation exists (a failed honest-GREEN, a blocking smell, a deploy verify-fail), the driver routes to a single raise-to-hil halt before any forward step. It is a routing rule, not a side effect, so it is not drawn as an edge on each diagram but applies to all of them.
 - **The design lane streams per story.** Stories flow through `/design` one at a time onto a ready queue; story N can be building while story N+1 is still being designed. The per-command diagrams show one story's path for clarity.

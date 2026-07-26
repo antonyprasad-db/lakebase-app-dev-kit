@@ -94,6 +94,13 @@ describe("lakebase-sftdd-workflows hard rules", () => {
     }
   });
 
+  // Anti-recurrence guard: the design lane runs the DBA between the Architect and
+  // the Test Strategist (a routing change in orchestrator-drive). SKILL.md's
+  // /design-lane sentence must name the DBA so the doc cannot drift behind the code.
+  it("SKILL.md's design-lane sentence names the DBA between the Architect and the Test Strategist", () => {
+    expect(skill).toMatch(/Architect Reviewer\s*->\s*DBA\s*->\s*Test Strategist/i);
+  });
+
   // Finding 30: a fixed-key seed with only `finally` cleanup poisons every later
   // run on a reused branch DB when a run is killed mid-test. The migration-test
   // guidance in BOTH design roles must require an idempotent seed at the START.

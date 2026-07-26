@@ -10,7 +10,7 @@ One JSON object per line (JSON Lines) in `.sftdd/agent-log.jsonl`, validated aga
 |---|---|
 | `timestamp` | ISO-8601 UTC (stamped by the logger) |
 | `level` | `debug` / `info` / `warn` / `error` |
-| `role` | the role doing the work (orchestrator, spec-author, ux-designer, architect-reviewer, test-strategist, navigator, driver, product-owner, release-engineer) |
+| `role` | the role doing the work (orchestrator, spec-author, ux-designer, architect-reviewer, dba, test-strategist, navigator, driver, product-owner, release-engineer) |
 | `event` | dotted machine name (`phase.start`, `artifact.written`, `gate.surfaced`, `handoff`, `reasoning`, `smell.flagged`) |
 | `message` | human-readable one-liner (rendered from the event template) |
 | `metadata` | optional payload; `feature_id` is its primary scope key, then `phase`, `cycle_id`, event-specific keys |
