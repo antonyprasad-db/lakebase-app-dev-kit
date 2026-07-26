@@ -32,20 +32,20 @@ Consort runs as a loop of small increments, `/plan -> /design -> /build -> /depl
 
 - **Design (spec-first).** Intent becomes a specification and the list of tests that will demonstrate it, then freezes at a hashed gate so the target cannot move mid-build. The Spec Author, Architect Reviewer, DBA, and Test Strategist each add their part (plus the UX Designer for user-facing work).
 - **Build (test-driven).** The Navigator writes a failing test; the Driver makes it pass with the least honest code, then refactors, each cycle against a copy-on-write branch of real data. A failed verify routes to a bounded repair that never touches the tests.
-- **Deploy + promote (deterministic).** The conductor, not an agent, deploys and verifies the increment and drives the PR, CI, merge, and parent-tier migration. The human approves the deploy and promote gates.
+- **Deploy + promote (deterministic).** The orchestrator, not an agent, deploys and verifies the increment and drives the PR, CI, merge, and parent-tier migration. The human approves the deploy and promote gates.
 
 Routing between phases is a program, not a model's choice, so the loop cannot drift, be argued out of a step, or be lost across a context reset.
 
 ## What's in this repo
 
-- **`scripts/sftdd/`** the deterministic conductor and the per-role logic: the drive loop, design/build routing, the gates, experiments and spikes, bad-smell detection, and agent logging.
+- **`scripts/sftdd/`** the deterministic orchestrator and the per-role logic: the drive loop, design/build routing, the gates, experiments and spikes, bad-smell detection, and agent logging.
 - **`skills/consort/`** the agent-facing contract (`SKILL.md`), the eight role-agent prompts under `agents/`, and its references. Plus the engineering-canon skills (`software-design-principles`, `architectural-design-principles`, `ui-ux-design-principles`) the roles import, and the vendored Databricks skills (`databricks-core`, `databricks-lakebase`).
 - **`templates/`** the `.sftdd/` bootstrap and the project-level `.claude/commands` a scaffolded project carries.
 - **`apps/mcp-server/`** a single MCP server exposing the tool surface to MCP-capable agents (Claude Desktop, OpenAI Codex, Cursor-via-MCP, Genie Code).
 - **`tools/openai-foundry/`** a pre-rendered OpenAI Foundry / Codex tool spec, generated from the same `apps/mcp-server/tools.ts` registry.
 - **`tests/`** Vitest BDD tests. Live Lakebase paths skip cleanly when the `LAKEBASE_TEST_*` env vars are not set.
 
-A scaffolded project keeps its live state under `.sftdd/` (`features/`, `experiments/`, `spikes/`, `cycles/`, `workflow-state.json`, `smells.json`), where the conductor reads and writes as the loop runs.
+A scaffolded project keeps its live state under `.sftdd/` (`features/`, `experiments/`, `spikes/`, `cycles/`, `workflow-state.json`, `smells.json`), where the orchestrator reads and writes as the loop runs.
 
 ## Skills
 
@@ -72,7 +72,7 @@ Then, in any session:
 /consort:start
 ```
 
-In a project that already has a `.sftdd/` directory this resumes the `/plan -> /design -> /build -> /deploy` loop; elsewhere it walks you through creating a project first, then resumes. The command, skills, and MCP server ship in the plugin; the role agents are scaffolded into your project's `.claude/agents/` and spawned by the conductor (`lakebase-sftdd-drive`) as `claude --agent <role>`, pausing at every gate.
+In a project that already has a `.sftdd/` directory this resumes the `/plan -> /design -> /build -> /deploy` loop; elsewhere it walks you through creating a project first, then resumes. The command, skills, and MCP server ship in the plugin; the role agents are scaffolded into your project's `.claude/agents/` and spawned by the orchestrator (`lakebase-sftdd-drive`) as `claude --agent <role>`, pausing at every gate.
 
 ### As skills for other agents
 
@@ -113,7 +113,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full live-test prerequisites and 
 
 The bins are Consort's command surface plus a few project-lifecycle helpers. Run any with `--help`.
 
-- **`lakebase-sftdd-drive`** the deterministic conductor: routes the design/build/deploy/promote phases, spawns the role agents, and holds the gates. The `lakebase-sftdd-*` family (`-intake`, `-cycle`, `-experiment`, `-spike`, `-deploy`, `-approve-gate`, `-gate-conformance`, `-next`, `-test-list`, `-human-proxy`, ...) are its building blocks.
+- **`lakebase-sftdd-drive`** the deterministic orchestrator: routes the design/build/deploy/promote phases, spawns the role agents, and holds the gates. The `lakebase-sftdd-*` family (`-intake`, `-cycle`, `-experiment`, `-spike`, `-deploy`, `-approve-gate`, `-gate-conformance`, `-next`, `-test-list`, `-human-proxy`, ...) are its building blocks.
 - **`lakebase-create-project`** end-to-end Lakebase-paired project bootstrap that also scaffolds the Consort commands.
 - **`lakebase-adopt-sftdd`** add Consort to an existing Lakebase-paired project.
 - **`lakebase-feature-status`** report where each feature sits in the loop.
