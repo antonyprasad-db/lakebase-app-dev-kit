@@ -1,0 +1,112 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://databricks-solutions.github.io/lakebase-app-dev-kit/schemas/db-design.schema.json",
+  "title": "DB Design",
+  "description": "The DBA role's structured output for a feature, persisted as features/<F>/db-design.json (the machine-checkable companion to db-design.md). The DBA consumes the architect's logical persistence contract (architecture.json: service_backed, layers incl. the models package, and persistence_invariants[]) and produces the PHYSICAL schema: concrete tables/columns/keys/constraints/indexes and a per-story schema-change/migration plan. The DBA does NOT re-author the persistence invariants (those stay owned by the architect on architecture.json); it realizes them, and realizes_invariants[] cross-references each invariant id so the spec gate can hard-block any left uncovered.",
+  "type": "object",
+  "required": ["feature_id"],
+  "additionalProperties": false,
+  "properties": {
+    "feature_id": {
+      "type": "string",
+      "pattern": "^F[0-9]+(-[a-z0-9-]+)?$"
+    },
+    "tables": {
+      "type": "array",
+      "description": "The physical tables the feature persists to (one per persisted domain model / architect models package module). Empty/absent is allowed only for a not-service_backed feature.",
+      "items": {
+        "type": "object",
+        "required": ["name", "columns"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "type"],
+              "additionalProperties": false,
+              "properties": {
+                "name": { "type": "string" },
+                "type": { "type": "string", "description": "The physical column type (e.g. text, integer, uuid, timestamptz, numeric(12,2))." },
+                "nullable": { "type": "boolean" },
+                "default": { "type": "string", "description": "The SQL default expression, if any (e.g. now(), gen_random_uuid())." },
+                "description": { "type": "string" }
+              }
+            }
+          },
+          "primary_key": { "type": "array", "items": { "type": "string" } },
+          "unique_constraints": {
+            "type": "array",
+            "description": "Each entry is the set of column names that together must be unique.",
+            "items": { "type": "array", "items": { "type": "string" } }
+          },
+          "foreign_keys": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["columns", "references_table", "references_columns"],
+              "additionalProperties": false,
+              "properties": {
+                "columns": { "type": "array", "items": { "type": "string" } },
+                "references_table": { "type": "string" },
+                "references_columns": { "type": "array", "items": { "type": "string" } },
+                "on_delete": { "type": "string", "enum": ["cascade", "restrict", "set null", "no action", "set default"] }
+              }
+            }
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "expression"],
+              "additionalProperties": false,
+              "properties": {
+                "name": { "type": "string" },
+                "expression": { "type": "string" }
+              }
+            }
+          },
+          "indexes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "columns"],
+              "additionalProperties": false,
+              "properties": {
+                "name": { "type": "string" },
+                "columns": { "type": "array", "items": { "type": "string" } },
+                "unique": { "type": "boolean" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "schema_changes": {
+      "type": "array",
+      "description": "The per-story migration plan the build lane authors the Alembic migration from. Sequence an expand/contract (column split, drop) so each story's migration is reversible.",
+      "items": {
+        "type": "object",
+        "required": ["story_id", "kind", "table", "detail"],
+        "additionalProperties": false,
+        "properties": {
+          "story_id": { "type": "string" },
+          "kind": {
+            "type": "string",
+            "enum": ["create_table", "add_column", "alter_column", "add_index", "add_constraint", "drop"]
+          },
+          "table": { "type": "string" },
+          "detail": { "type": "string" },
+          "migration_note": { "type": "string" }
+        }
+      }
+    },
+    "realizes_invariants": {
+      "type": "array",
+      "description": "The architecture.json persistence_invariants[].id values this physical design realizes. Every declared invariant id MUST appear here; the spec gate cross-checks coverage.",
+      "items": { "type": "string" }
+    }
+  }
+}

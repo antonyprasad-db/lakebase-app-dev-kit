@@ -115,6 +115,8 @@ export const featureSpecMd = (tdd: string, f: string): string => join(featureRes
 export const featureRequestMd = (tdd: string, f: string): string => join(featureResolved(tdd, f), "feature-request.md");
 export const architectureJson = (tdd: string, f: string): string => join(featureResolved(tdd, f), "architecture.json");
 export const architectureMd = (tdd: string, f: string): string => join(featureResolved(tdd, f), "architecture.md");
+export const dbDesignJson = (tdd: string, f: string): string => join(featureResolved(tdd, f), "db-design.json");
+export const dbDesignMd = (tdd: string, f: string): string => join(featureResolved(tdd, f), "db-design.md");
 export const featureTestListJson = (tdd: string, f: string): string => join(featureResolved(tdd, f), "test-list.json");
 export const featureTestListMd = (tdd: string, f: string): string => join(featureResolved(tdd, f), "test-list.md");
 export const pipelineJson = (tdd: string, f: string): string => join(featureResolved(tdd, f), "pipeline.json");

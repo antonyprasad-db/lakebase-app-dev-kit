@@ -64,6 +64,9 @@ export const ARTIFACT_FORMATS: Record<string, FormatSpec> = {
   "test-list.json": { kind: "json-schema", schema: "test-list.schema.json" },
   "plan.json": { kind: "json-schema", schema: "plan.schema.json" },
   "architecture.json": { kind: "json-schema", schema: "architecture.schema.json" },
+  // DBA's physical schema (tables/DDL + per-story migration plan) that realizes
+  // the architect's persistence_invariants.
+  "db-design.json": { kind: "json-schema", schema: "db-design.schema.json" },
   "workflow-state.json": { kind: "json-schema", schema: "workflow-state.schema.json" },
   // Release Engineer's deploy-gate evidence (reachability + feature-verify).
   "deploy-evidence.json": { kind: "json-schema", schema: "deploy-evidence.schema.json" },
@@ -521,6 +524,62 @@ export function checkPersistenceCoverage(testListJson: string, architectureJson:
 }
 
 /**
+ * DB-design coverage (the DBA's cross-check, the physical counterpart to
+ * checkPersistenceCoverage): a service_backed feature's DBA produces
+ * db-design.json realizing the architect's contract. It must (1) exist + parse,
+ * (2) declare >=1 table, and (3) list EVERY architecture.json
+ * persistence_invariant id in `realizes_invariants[]` (the physical design that
+ * enforces each declared guarantee). The architect still OWNS the invariants; the
+ * DBA realizes them, so an uncovered invariant is an unrealized guarantee. A
+ * not-service_backed feature is exempt (db-design may be empty/absent), the same
+ * posture as persistence_invariants. The spec gate hard-blocks on a violation.
+ */
+export function checkDbDesign(dbDesignJson: string | undefined, architectureJson: string): ConformanceResult {
+  let arch: { service_backed?: boolean; persistence_invariants?: Array<{ id?: string }> };
+  try {
+    arch = JSON.parse(architectureJson);
+  } catch {
+    return { ok: true }; // invalid architecture reported elsewhere
+  }
+  if (arch.service_backed !== true) return { ok: true };
+  const invariants = (arch.persistence_invariants ?? [])
+    .filter((i) => i && typeof i.id === "string" && i.id.length > 0)
+    .map((i) => i.id as string);
+  if (dbDesignJson === undefined) {
+    return {
+      ok: false,
+      violations: [
+        `service-backed feature has no db-design.json (the DBA runs after the architect and before the ` +
+          `test-strategist to realize the schema; declare >=1 table and realize every persistence_invariant; ` +
+          `see db-design.schema.json + agents/dba.md)`,
+      ],
+    };
+  }
+  let db: { tables?: unknown[]; realizes_invariants?: string[] };
+  try {
+    db = JSON.parse(dbDesignJson);
+  } catch (err) {
+    return { ok: false, violations: [`db-design.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`] };
+  }
+  const violations: string[] = [];
+  if (!Array.isArray(db.tables) || db.tables.length === 0) {
+    violations.push(
+      `service-backed feature's db-design.json declares no tables[] (it persists data, so it has >=1 table; see agents/dba.md)`,
+    );
+  }
+  const realized = new Set((db.realizes_invariants ?? []).filter((x): x is string => typeof x === "string" && x.length > 0));
+  const uncovered = invariants.filter((id) => !realized.has(id));
+  if (uncovered.length > 0) {
+    violations.push(
+      `persistence_invariant(s) not realized by db-design.json realizes_invariants[]: ${uncovered.join(", ")} ` +
+        `(the DBA must physically realize every invariant the architect declared , a table/column/constraint/index , ` +
+        `and list its id here; see agents/dba.md)`,
+    );
+  }
+  return violations.length > 0 ? { ok: false, violations } : { ok: true };
+}
+
+/**
  * Story independence (design-gate enforcement): in a feature with >1 story, every
  * story AFTER the first must record `independence.distinct_from_prior: true` with a
  * non-empty rationale on its story.json. A later story whose behavior an earlier
@@ -721,7 +780,7 @@ export function scanFeatureConformance(sftddDir: string, featureId: string): Fea
     pushIfExists(join(sftddDir, "design", name));
   }
   // Feature-level artifacts.
-  for (const name of ["feature-request.md", "feature-spec.json", "feature-spec.md", "nfrs.md", "architecture.md", "plan.json", "test-list.json", "test-list.md"]) {
+  for (const name of ["feature-request.md", "feature-spec.json", "feature-spec.md", "nfrs.md", "architecture.md", "db-design.json", "plan.json", "test-list.json", "test-list.md"]) {
     pushIfExists(join(featureDir, name));
   }
   // Stories + their acceptance criteria.
@@ -818,6 +877,18 @@ export function scanFeatureConformance(sftddDir: string, featureId: string): Fea
       artifact: "architecture.json (layering declared)",
       ok: lay.ok,
       violations: lay.ok ? [] : lay.violations,
+    });
+
+    // DB-design coverage: a service_backed feature's DBA produces db-design.json
+    // realizing every architect-declared persistence_invariant with a physical
+    // table/constraint. No-op for a non-service-backed feature.
+    const dbDesignPath = join(featureDir, "db-design.json");
+    const dbDesignContent = existsSync(dbDesignPath) ? readFileSync(dbDesignPath, "utf8") : undefined;
+    const dbd = checkDbDesign(dbDesignContent, archContent);
+    entries.push({
+      artifact: "db-design.json -> architecture.json (invariant realization)",
+      ok: dbd.ok,
+      violations: dbd.ok ? [] : dbd.violations,
     });
     const testListPath = join(featureDir, "test-list.json");
     if (existsSync(testListPath)) {
