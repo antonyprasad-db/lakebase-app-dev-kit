@@ -4,7 +4,7 @@
 # restart coordinators, so the wiring lives in exactly one place.
 #
 # A local ref exists nowhere on GitHub, so it resolves ONLY via a cache symlink
-# (~/.cache/lakebase-app-dev-kit/<ref>/node_modules/@databricks-solutions/...).
+# (~/.cache/consort/<ref>/node_modules/@databricks-solutions/...).
 # If that symlink is lost mid-run (an external rm, a cache sweep), lk cannot
 # GitHub-re-resolve it and would hard-fail a whole capture. To make that
 # recoverable, record_local_kit_hint also writes .lakebase/kit-local-dir into the
@@ -16,8 +16,8 @@ LOCAL_KIT_REF_DEFAULT="sftdd-capture-local"
 # The cache slot (node_modules/<pkg> symlink target) for a local ref.
 local_kit_cache_link() {
   local ref="${1:-$LOCAL_KIT_REF_DEFAULT}"
-  local cache_root="${XDG_CACHE_HOME:-$HOME/.cache}/lakebase-app-dev-kit"
-  printf '%s\n' "${cache_root}/${ref}/node_modules/@databricks-solutions/lakebase-app-dev-kit"
+  local cache_root="${XDG_CACHE_HOME:-$HOME/.cache}/consort"
+  printf '%s\n' "${cache_root}/${ref}/node_modules/@databricks-solutions/consort"
 }
 
 # Plant (idempotent) the cache symlink -> the working tree, so a bin run finds

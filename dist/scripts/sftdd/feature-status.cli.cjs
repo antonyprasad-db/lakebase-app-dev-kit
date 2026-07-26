@@ -7044,6 +7044,9 @@ var REFLECT_SMELLS = Object.values(SMELL_FOR_OWNER);
 // scripts/sftdd/architecture-canon.ts
 init_cjs_shims();
 
+// scripts/sftdd/artifact-conformance.ts
+init_cjs_shims();
+
 // scripts/sftdd/orchestrator-probe.ts
 function readJson(file) {
   if (!fs6.existsSync(file)) return void 0;
@@ -7122,9 +7125,6 @@ var import_fs6 = require("fs");
 init_cjs_shims();
 var import_node_fs5 = require("fs");
 var import_node_path7 = require("path");
-
-// scripts/sftdd/artifact-conformance.ts
-init_cjs_shims();
 
 // scripts/sftdd/architecture-conventions.ts
 init_cjs_shims();

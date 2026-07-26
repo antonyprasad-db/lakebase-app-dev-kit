@@ -6,6 +6,7 @@ import { dirname, join } from "path";
 var RECOMMENDED_MODELS = {
   "spec-author": "opus",
   "architect-reviewer": "opus",
+  dba: "opus",
   "test-strategist": "sonnet",
   "ux-designer": "sonnet",
   navigator: "sonnet",

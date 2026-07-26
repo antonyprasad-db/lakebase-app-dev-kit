@@ -1,7 +1,7 @@
 # Branching + release methodology for Lakebase-paired projects
 
 Status: Proposed. Pending the substrate primitives that automate it (see "Future work").
-Owners: PSA team, lakebase-app-dev-kit maintainers.
+Owners: PSA team, consort maintainers.
 
 ## Context
 

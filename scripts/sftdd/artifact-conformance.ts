@@ -9,7 +9,7 @@
 //   Layer 3 signoff    - approveGate records the HITL approval + hash.
 //
 // The format each artifact must satisfy is DERIVED FROM the role contracts in
-// skills/lakebase-sftdd-workflows/agents/*.md and references/spec-format.md, not
+// skills/consort/agents/*.md and references/spec-format.md, not
 // invented here:
 //   - JSON artifacts (feature/story/ac/test-list/plan/workflow-state) have
 //     JSON Schemas in scripts/sftdd/schemas/ and are validated against them.

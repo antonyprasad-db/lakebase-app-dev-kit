@@ -6728,6 +6728,9 @@ var ARTIFACT_FORMATS = {
   "test-list.json": { kind: "json-schema", schema: "test-list.schema.json" },
   "plan.json": { kind: "json-schema", schema: "plan.schema.json" },
   "architecture.json": { kind: "json-schema", schema: "architecture.schema.json" },
+  // DBA's physical schema (tables/DDL + per-story migration plan) that realizes
+  // the architect's persistence_invariants.
+  "db-design.json": { kind: "json-schema", schema: "db-design.schema.json" },
   "workflow-state.json": { kind: "json-schema", schema: "workflow-state.schema.json" },
   // Release Engineer's deploy-gate evidence (reachability + feature-verify).
   "deploy-evidence.json": { kind: "json-schema", schema: "deploy-evidence.schema.json" },
@@ -6908,6 +6911,7 @@ var import_path2 = require("path");
 var RECOMMENDED_MODELS = {
   "spec-author": "opus",
   "architect-reviewer": "opus",
+  dba: "opus",
   "test-strategist": "sonnet",
   "ux-designer": "sonnet",
   navigator: "sonnet",

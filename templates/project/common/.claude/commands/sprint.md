@@ -7,7 +7,7 @@ only at the gates, the human answers them live; headless, the Human Proxy does.
 
 ## Operating contract (drive, do not narrate)
 
-Follow `@lakebase-sftdd-workflows/references/orchestrator-contract.md`: drive to
+Follow `@consort/references/orchestrator-contract.md`: drive to
 completion via `lakebase-sftdd-next` (enact its `primary_action`, then continue),
 and stop for the human ONLY at a HITL gate or a blocker. At a stop, present the
 decision (the `next` option titles + their `hil_prompt`s), not the CLIs you ran;

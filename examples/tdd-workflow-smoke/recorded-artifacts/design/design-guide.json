@@ -100,6 +100,6 @@
 
   "adherenceContract": {
     "description": "Token-level adherence: every cssVar above must exist on :root in the running app (assertDesignAdherence). Element-level checks: no hardcoded hex/px in inline styles (checkHardcodedValues), all ia.md testids present (checkRequiredSeams), every form/submit surface has role=alert or data-testid matching error|success|message|status (checkFeedbackPresent).",
-    "playwrightUsage": "import { assertDesignAdherence } from '@databricks-solutions/lakebase-app-dev-kit/tdd/design-adherence'; import guide from '../.tdd/design/design-guide.json'; test('UI adheres to design guide', async ({ page }) => { await page.goto(process.env.BASE_URL!); await assertDesignAdherence(page, guide); });"
+    "playwrightUsage": "import { assertDesignAdherence } from '@databricks-solutions/consort/tdd/design-adherence'; import guide from '../.tdd/design/design-guide.json'; test('UI adheres to design guide', async ({ page }) => { await page.goto(process.env.BASE_URL!); await assertDesignAdherence(page, guide); });"
   }
 }

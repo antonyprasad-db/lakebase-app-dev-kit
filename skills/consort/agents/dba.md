@@ -57,7 +57,7 @@ A **not-`service_backed`** feature (a trivial static/read-through endpoint) may 
 Read these for the rules (don't re-derive them); only re-read on a genuinely ambiguous case:
 - **`@architectural-design-principles`** (esp. `references/evolutionary-database-design.md`, `references/layered-architecture.md`) , expand/contract (parallel-change) migrations, the repository as the only ORM-touching layer, and schema evolution increment over increment on the paired branch.
 - **`@software-design-principles/references/nfrs.md`** , where data-integrity, performance (indexing), and durability concerns live.
-- **`@lakebase-sftdd-workflows/references/test-strategy.md`** , the schema is verified by REAL integration tests against the paired Lakebase branch (Alembic migrations applied first), never mocks. Design so each invariant is checkable against the real branch.
+- **`@consort/references/test-strategy.md`** , the schema is verified by REAL integration tests against the paired Lakebase branch (Alembic migrations applied first), never mocks. Design so each invariant is checkable against the real branch.
 
 ## Method
 

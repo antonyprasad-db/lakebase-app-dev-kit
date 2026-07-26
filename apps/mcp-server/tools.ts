@@ -1,4 +1,4 @@
-// Tool registry for the lakebase-app-dev-kit MCP server.
+// Tool registry for the consort MCP server.
 //
 // Each tool wraps a script module function (NOT a subprocess). The MCP
 // server exposes these by name + JSON Schema; an MCP-capable agent
@@ -332,7 +332,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "lakebase_feature_status",
     description:
-      "One-screen snapshot of a feature's TDD workflow state (phase, plan, test-list completion, experiments, recent decisions, open smells). Reads .tdd/ on disk; no Lakebase or network calls. See skills/lakebase-sftdd-workflows/references/feature-status-schema.md for the stable payload contract.",
+      "One-screen snapshot of a feature's TDD workflow state (phase, plan, test-list completion, experiments, recent decisions, open smells). Reads .tdd/ on disk; no Lakebase or network calls. See skills/consort/references/feature-status-schema.md for the stable payload contract.",
     inputSchema: {
       type: "object",
       properties: {

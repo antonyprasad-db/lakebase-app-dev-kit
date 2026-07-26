@@ -58,7 +58,7 @@ describe("build/bin coverage", () => {
   });
 
   it("exports exposes ./package.json so consumers can require.resolve it", () => {
-    // The extension does require.resolve("@databricks-solutions/lakebase-app-dev-kit/package.json")
+    // The extension does require.resolve("@databricks-solutions/consort/package.json")
     // to find the kit package root (then walks to templates/). With an `exports`
     // field present, Node refuses any subpath not listed, so package.json must be
     // explicitly exported or the resolve throws ERR_PACKAGE_PATH_NOT_EXPORTED at

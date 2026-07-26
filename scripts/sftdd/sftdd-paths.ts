@@ -14,7 +14,7 @@ import { join } from "node:path";
 // ── Artifact root name (single source of truth) ───────────────────
 //
 // The on-disk directory that holds all workflow artifacts + logs. Named
-// ".sftdd" to match the lakebase-sftdd-workflows skill. It was historically
+// ".sftdd" to match the consort skill. It was historically
 // ".tdd" and that name was copy-pasted as a default across ~20 call sites; this
 // is the one place the name is now defined. Existing projects keep their legacy
 // ".tdd" (dual-read via resolveSftddDir) and are auto-migrated to ".sftdd" by the

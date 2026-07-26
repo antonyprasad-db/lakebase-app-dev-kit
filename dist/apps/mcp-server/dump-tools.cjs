@@ -6743,6 +6743,7 @@ var import_path = require("path");
 var RECOMMENDED_MODELS = {
   "spec-author": "opus",
   "architect-reviewer": "opus",
+  dba: "opus",
   "test-strategist": "sonnet",
   "ux-designer": "sonnet",
   navigator: "sonnet",
@@ -7170,6 +7171,9 @@ var REFLECT_SMELLS = Object.values(SMELL_FOR_OWNER);
 // scripts/sftdd/architecture-canon.ts
 init_cjs_shims();
 
+// scripts/sftdd/artifact-conformance.ts
+init_cjs_shims();
+
 // scripts/sftdd/orchestrator-probe.ts
 function readJson(file) {
   if (!fs8.existsSync(file)) return void 0;
@@ -7248,9 +7252,6 @@ var import_fs7 = require("fs");
 init_cjs_shims();
 var import_node_fs5 = require("fs");
 var import_node_path7 = require("path");
-
-// scripts/sftdd/artifact-conformance.ts
-init_cjs_shims();
 
 // scripts/sftdd/architecture-conventions.ts
 init_cjs_shims();
@@ -7700,7 +7701,7 @@ var TOOLS = [
   },
   {
     name: "lakebase_feature_status",
-    description: "One-screen snapshot of a feature's TDD workflow state (phase, plan, test-list completion, experiments, recent decisions, open smells). Reads .tdd/ on disk; no Lakebase or network calls. See skills/lakebase-sftdd-workflows/references/feature-status-schema.md for the stable payload contract.",
+    description: "One-screen snapshot of a feature's TDD workflow state (phase, plan, test-list completion, experiments, recent decisions, open smells). Reads .tdd/ on disk; no Lakebase or network calls. See skills/consort/references/feature-status-schema.md for the stable payload contract.",
     inputSchema: {
       type: "object",
       properties: {

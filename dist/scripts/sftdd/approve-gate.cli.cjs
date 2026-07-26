@@ -6726,6 +6726,7 @@ var featureProposalsMd = (tdd) => (0, import_node_path.join)(planningDir(tdd), "
 var featureDir = (tdd, featureId) => (0, import_node_path.join)(featuresDir(tdd), featureId);
 var featureResolved = (tdd, f) => findFeatureDir(tdd, f) ?? featureDir(tdd, f);
 var architectureJson = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "architecture.json");
+var dbDesignJson = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "db-design.json");
 var pipelineJson = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "pipeline.json");
 var featureNfrsMd = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "nfrs.md");
 var storiesDir = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "stories");
@@ -6764,6 +6765,9 @@ var ARTIFACT_FORMATS = {
   "test-list.json": { kind: "json-schema", schema: "test-list.schema.json" },
   "plan.json": { kind: "json-schema", schema: "plan.schema.json" },
   "architecture.json": { kind: "json-schema", schema: "architecture.schema.json" },
+  // DBA's physical schema (tables/DDL + per-story migration plan) that realizes
+  // the architect's persistence_invariants.
+  "db-design.json": { kind: "json-schema", schema: "db-design.schema.json" },
   "workflow-state.json": { kind: "json-schema", schema: "workflow-state.schema.json" },
   // Release Engineer's deploy-gate evidence (reachability + feature-verify).
   "deploy-evidence.json": { kind: "json-schema", schema: "deploy-evidence.schema.json" },
@@ -7087,6 +7091,44 @@ function checkPersistenceCoverage(testListJson, architectureJson2) {
     };
   }
   return { ok: true };
+}
+function checkDbDesign(dbDesignJson2, architectureJson2) {
+  let arch;
+  try {
+    arch = JSON.parse(architectureJson2);
+  } catch {
+    return { ok: true };
+  }
+  if (arch.service_backed !== true) return { ok: true };
+  const invariants = (arch.persistence_invariants ?? []).filter((i) => i && typeof i.id === "string" && i.id.length > 0).map((i) => i.id);
+  if (dbDesignJson2 === void 0) {
+    return {
+      ok: false,
+      violations: [
+        `service-backed feature has no db-design.json (the DBA runs after the architect and before the test-strategist to realize the schema; declare >=1 table and realize every persistence_invariant; see db-design.schema.json + agents/dba.md)`
+      ]
+    };
+  }
+  let db;
+  try {
+    db = JSON.parse(dbDesignJson2);
+  } catch (err) {
+    return { ok: false, violations: [`db-design.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`] };
+  }
+  const violations = [];
+  if (!Array.isArray(db.tables) || db.tables.length === 0) {
+    violations.push(
+      `service-backed feature's db-design.json declares no tables[] (it persists data, so it has >=1 table; see agents/dba.md)`
+    );
+  }
+  const realized = new Set((db.realizes_invariants ?? []).filter((x) => typeof x === "string" && x.length > 0));
+  const uncovered = invariants.filter((id) => !realized.has(id));
+  if (uncovered.length > 0) {
+    violations.push(
+      `persistence_invariant(s) not realized by db-design.json realizes_invariants[]: ${uncovered.join(", ")} (the DBA must physically realize every invariant the architect declared , a table/column/constraint/index , and list its id here; see agents/dba.md)`
+    );
+  }
+  return violations.length > 0 ? { ok: false, violations } : { ok: true };
 }
 function checkStoryIndependence(stories) {
   const parsed = [];
@@ -7864,6 +7906,20 @@ function layeringDeclaredReason(sftddDir, featureId) {
   const r = checkLayeringDeclared(arch);
   return r.ok ? null : `layering declaration failed: ${r.violations.join("; ")}`;
 }
+function dbDesignReason(sftddDir, featureId) {
+  const arch = readArchitecture(sftddDir, featureId);
+  if (arch === void 0) return null;
+  const dbFile = dbDesignJson(sftddDir, featureId);
+  const db = (0, import_node_fs2.existsSync)(dbFile) ? (() => {
+    try {
+      return (0, import_node_fs2.readFileSync)(dbFile, "utf8");
+    } catch {
+      return void 0;
+    }
+  })() : void 0;
+  const r = checkDbDesign(db, arch);
+  return r.ok ? null : `db-design failed: ${r.violations.join("; ")}`;
+}
 function nfrCoverageReason(sftddDir, featureId) {
   const arch = readArchitecture(sftddDir, featureId);
   if (arch === void 0) return null;
@@ -7984,6 +8040,8 @@ function resolveArtifactInputs(gate, fdir, promoteRef, sftddDir, featureId) {
       if (serviceBacked !== null) return { reason: serviceBacked };
       const layeringReason = layeringDeclaredReason(sftddDir, featureId);
       if (layeringReason !== null) return { reason: layeringReason };
+      const dbReason = dbDesignReason(sftddDir, featureId);
+      if (dbReason !== null) return { reason: dbReason };
       const nfrReason = nfrCoverageReason(sftddDir, featureId);
       return nfrReason === null ? conf : { reason: nfrReason };
     }

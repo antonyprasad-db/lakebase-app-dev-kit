@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Generate the OpenAI Foundry / Codex tool-spec layer for
-lakebase-app-dev-kit.
+consort.
 
 We don't re-implement schemas here. The canonical surface lives in
 apps/mcp-server/tools.ts; this script invokes the built `dump-tools`
@@ -19,7 +19,7 @@ shape:
     }
 
 Output is committed at
-tools/openai-foundry/lakebase-app-dev-kit.tools.json so it can be
+tools/openai-foundry/consort.tools.json so it can be
 pasted directly into a Foundry assistant or Codex tool config.
 
 Usage:
@@ -41,7 +41,7 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DUMP_BIN = REPO_ROOT / "dist" / "apps" / "mcp-server" / "dump-tools.js"
-OUTPUT_PATH = REPO_ROOT / "tools" / "openai-foundry" / "lakebase-app-dev-kit.tools.json"
+OUTPUT_PATH = REPO_ROOT / "tools" / "openai-foundry" / "consort.tools.json"
 
 
 def dump_tools() -> list[dict[str, Any]]:

@@ -9,7 +9,7 @@
 
 ## Why this exists
 
-The TDD workflow has eight conceptual roles, but seven of them live only as markdown prompt docs in `skills/lakebase-sftdd-workflows/agents/*.md` that the slash commands `@`-reference inline. They are not separately-invokable actors. There is no per-task selection criteria, no per-role tool scoping, no isolated context, and no per-project model choice. The eighth role (Product Owner) and a shipping role (Release Engineer) do not exist as agents at all.
+The TDD workflow has eight conceptual roles, but seven of them live only as markdown prompt docs in `skills/consort/agents/*.md` that the slash commands `@`-reference inline. They are not separately-invokable actors. There is no per-task selection criteria, no per-role tool scoping, no isolated context, and no per-project model choice. The eighth role (Product Owner) and a shipping role (Release Engineer) do not exist as agents at all.
 
 The user's direction:
 - Each role is a **real, separately-invokable agent** with its **own system prompt**, auto-selected by **predefined criteria based on the task** it performs.
@@ -68,11 +68,11 @@ state machine. Writes no spec / code / test / deploy.
 - **H , Conformance + docs + suite**: a vitest asserting each role def has required frontmatter (name, description non-empty + <=1536 chars, recommended model), a relay header, a non-empty system prompt, and that the role set matches the `AgentRole` enum; update `spec-format.md` + smoke README; full typecheck + vitest.
 
 ## Critical files
-- Role defs: `skills/lakebase-sftdd-workflows/agents/*.md` (+ new `product-owner.md`, `release-engineer.md`)
+- Role defs: `skills/consort/agents/*.md` (+ new `product-owner.md`, `release-engineer.md`)
 - Role enum/schema: `scripts/sftdd/agent-log.ts`, `scripts/sftdd/schemas/agent-log-event.schema.json`
 - State machine: `scripts/sftdd/schemas/workflow-state.schema.json` (+ helpers/tests)
 - Model config: new `scripts/sftdd/agent-models.ts` + `scripts/sftdd/schemas/agent-models.schema.json`; `scripts/lakebase/create-project.ts` + `create-project.cli.ts` + `scripts/lakebase/scaffold.ts`
-- Commands: `templates/project/common/.claude/commands/{plan,design,build,deploy}.md`; `skills/lakebase-sftdd-workflows/SKILL.md`
+- Commands: `templates/project/common/.claude/commands/{plan,design,build,deploy}.md`; `skills/consort/SKILL.md`
 - Smoke: `examples/tdd-workflow-smoke/orchestrator/run-smoke.sh`, `tests/bdd/tdd-workflow-smoke.test.ts`
 - Release skill (compose + audit): `skills/lakebase-release-workflows/`
 
@@ -89,7 +89,7 @@ state machine. Writes no spec / code / test / deploy.
 
 ## Plugin packaging (Phase K)
 
-The kit is a Claude Code plugin (`.claude-plugin/plugin.json`, name `lakebase-app-dev-kit`, the broad umbrella, NOT rebranded to TDD). It exposes `skills/`, the role `agents` (pointed at `skills/lakebase-sftdd-workflows/agents`, so the 8 role agents are plugin agents, no per-project copy needed for discoverability), and one launcher command `commands/tdd.md` -> **`/lakebase-app-dev-kit:tdd`**. A `.claude-plugin/marketplace.json` catalogs it so `/plugin marketplace add databricks-solutions/lakebase-app-dev-kit` + `/plugin install lakebase-app-dev-kit@lakebase-app-dev-kit` registers it.
+The kit is a Claude Code plugin (`.claude-plugin/plugin.json`, name `lakebase-app-dev-kit`, the broad umbrella, NOT rebranded to TDD). It exposes `skills/`, the role `agents` (pointed at `skills/consort/agents`, so the 8 role agents are plugin agents, no per-project copy needed for discoverability), and one launcher command `commands/tdd.md` -> **`/lakebase-app-dev-kit:tdd`**. A `.claude-plugin/marketplace.json` catalogs it so `/plugin marketplace add databricks-solutions/consort` + `/plugin install lakebase-app-dev-kit@lakebase-app-dev-kit` registers it.
 
 `/lakebase-app-dev-kit:tdd` is one smart command: in a scaffolded `.sftdd/` project it takes stock and resumes the `/plan -> /design -> /build -> /deploy` loop; elsewhere it guides project creation (`lakebase-create-project`), then resumes. The slash commands invoke the deterministic orchestrator (`lakebase-sftdd-drive`), which spawns the role agents. (Superseded by `orchestrator-deterministic-driver.md`: the orchestrator is now a deterministic driver, not an `--agent scrum-master` session.) NOT validated live yet (`/plugin marketplace add` + install + cross-reference resolution in plugin agents) , that is a manual smoke.
 

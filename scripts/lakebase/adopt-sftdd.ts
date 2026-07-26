@@ -1,5 +1,5 @@
 // Brownfield TDD adoption: drop the `.tdd/` scaffold into an existing
-// repo so the lakebase-sftdd-workflows skill has a place to write.
+// repo so the consort skill has a place to write.
 //
 // Greenfield path: `lakebase-create-project` calls `layDownTddScaffold`
 // as one step in its 11-step pipeline. The brownfield equivalent needs

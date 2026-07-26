@@ -7049,6 +7049,9 @@ var REFLECT_SMELLS = Object.values(SMELL_FOR_OWNER);
 // scripts/sftdd/architecture-canon.ts
 init_esm_shims();
 
+// scripts/sftdd/artifact-conformance.ts
+init_esm_shims();
+
 // scripts/sftdd/orchestrator-probe.ts
 function readJson(file) {
   if (!fs6.existsSync(file)) return void 0;
@@ -7127,9 +7130,6 @@ import { existsSync as existsSync16, readFileSync as readFileSync17, writeFileSy
 init_esm_shims();
 import { existsSync as existsSync15, readFileSync as readFileSync16, readdirSync as readdirSync11, statSync as statSync8 } from "fs";
 import { join as join13 } from "path";
-
-// scripts/sftdd/artifact-conformance.ts
-init_esm_shims();
 
 // scripts/sftdd/architecture-conventions.ts
 init_esm_shims();

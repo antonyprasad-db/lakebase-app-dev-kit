@@ -1,6 +1,6 @@
 # Workflow state machine (SFTDD)
 
-The end-to-end state machine for `lakebase-sftdd-workflows` (**Spec-First Test-Driven Development**). It composes two disciplines back to back: the **SDD** design lane (`/design`) and the **TDD** build lane (`/build`), wrapped by sprint planning (`/plan`), deploy (`/deploy`), promote (the PR + merge to the parent tier), and the top-level `/sprint` loop. The deterministic driver `lakebase-sftdd-drive` routes every transition; gates (keyed `plan` / `spec` / `test_list` / `promote` / `deploy`) are the HITL decision points.
+The end-to-end state machine for `consort` (**Spec-First Test-Driven Development**). It composes two disciplines back to back: the **SDD** design lane (`/design`) and the **TDD** build lane (`/build`), wrapped by sprint planning (`/plan`), deploy (`/deploy`), promote (the PR + merge to the parent tier), and the top-level `/sprint` loop. The deterministic driver `lakebase-sftdd-drive` routes every transition; gates (keyed `plan` / `spec` / `test_list` / `promote` / `deploy`) are the HITL decision points.
 
 The driver's coarse phases (`DrivePhase`) run in order: **planning -> feature (design + build) -> deploy -> promote -> done**. Deploy proves working software (local target) before promote opens the PR and merges the feature up to its parent tier; `shipped` is reached only after that merge.
 

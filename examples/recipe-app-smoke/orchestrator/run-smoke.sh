@@ -184,7 +184,7 @@ fi
 # clones that branch / tag / sha. Empty KIT_REF means "kit main" (the
 # default-published-pin behavior). Exported so any subprocess + the
 # templated /design pre-hook can pick the same ref.
-KIT_PACKAGE_BASE="github:databricks-solutions/lakebase-app-dev-kit"
+KIT_PACKAGE_BASE="github:databricks-solutions/consort"
 if [[ -n "$KIT_REF" ]]; then
   KIT_NPX="${KIT_PACKAGE_BASE}#${KIT_REF}"
   export LAKEBASE_KIT_REF="$KIT_REF"

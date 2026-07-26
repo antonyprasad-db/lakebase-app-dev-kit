@@ -4,7 +4,7 @@ Drives a designed feature through TDD cycles to ready-for-review by delegating t
 
 ## Operating contract (drive, do not narrate)
 
-Follow `@lakebase-sftdd-workflows/references/orchestrator-contract.md`: drive to completion via `lakebase-sftdd-next` (enact its `primary_action`, then continue), and stop for the human ONLY at a HITL gate (per-story acceptance) or a blocker. Present the decision (the `next` option titles + their `hil_prompt`s), not the CLIs you ran; report outcomes ("S2 accepted"), not per-command play-by-play; show working software at the acceptance gate. Verbose step narration is opt-in (`LAKEBASE_SFTDD_VERBOSE=1`), off by default.
+Follow `@consort/references/orchestrator-contract.md`: drive to completion via `lakebase-sftdd-next` (enact its `primary_action`, then continue), and stop for the human ONLY at a HITL gate (per-story acceptance) or a blocker. Present the decision (the `next` option titles + their `hil_prompt`s), not the CLIs you ran; report outcomes ("S2 accepted"), not per-command play-by-play; show working software at the acceptance gate. Verbose step narration is opt-in (`LAKEBASE_SFTDD_VERBOSE=1`), off by default.
 
 ## Usage
 
@@ -32,7 +32,7 @@ The driver:
   (PLAN + RED) -> Driver (GREEN + REFACTOR) -> deploy the story for the PO's
   acceptance review (the story's deploy must be reachable + verify-green, the
   teeth) -> **accept** (merge the experiment) -> pull the next ready story.
-- routes deterministically (routing is code, not an LLM orchestrator): spawns `@lakebase-sftdd-workflows/agents/{navigator,driver,release-engineer}`
+- routes deterministically (routing is code, not an LLM orchestrator): spawns `@consort/agents/{navigator,driver,release-engineer}`
   at their resolved per-role models, emits the cycle/handoff log as code. Tail:
   `lakebase-sftdd-log --read --feature <id>`.
 - **requires design done**: `--only build` REFUSES (stops at iteration 0) if a

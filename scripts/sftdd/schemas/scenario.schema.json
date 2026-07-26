@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://databricks-solutions.github.io/lakebase-app-dev-kit/schemas/scenario.schema.json",
+  "$id": "https://databricks-solutions.github.io/consort/schemas/scenario.schema.json",
   "title": "RecordedScenario",
   "description": "Manifest for a recorded replay scenario under examples/sftdd-scenarios/<name>/. A scenario is a self-contained corpus (recorded-artifacts/ design lane + recorded-build/ build corpus + turns/ per-turn timeline) plus this manifest, replayed by replay-scenario.sh and guarded by tests/bdd/sftdd-scenarios.test.ts. See examples/sftdd-scenarios/SCENARIOS.md.",
   "type": "object",

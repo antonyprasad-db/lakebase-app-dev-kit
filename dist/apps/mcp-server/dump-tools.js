@@ -6747,6 +6747,7 @@ import { dirname, join as join2 } from "path";
 var RECOMMENDED_MODELS = {
   "spec-author": "opus",
   "architect-reviewer": "opus",
+  dba: "opus",
   "test-strategist": "sonnet",
   "ux-designer": "sonnet",
   navigator: "sonnet",
@@ -7179,6 +7180,9 @@ var REFLECT_SMELLS = Object.values(SMELL_FOR_OWNER);
 // scripts/sftdd/architecture-canon.ts
 init_esm_shims();
 
+// scripts/sftdd/artifact-conformance.ts
+init_esm_shims();
+
 // scripts/sftdd/orchestrator-probe.ts
 function readJson(file) {
   if (!fs8.existsSync(file)) return void 0;
@@ -7257,9 +7261,6 @@ import { existsSync as existsSync19, readFileSync as readFileSync19, writeFileSy
 init_esm_shims();
 import { existsSync as existsSync18, readFileSync as readFileSync18, readdirSync as readdirSync12, statSync as statSync9 } from "fs";
 import { join as join17 } from "path";
-
-// scripts/sftdd/artifact-conformance.ts
-init_esm_shims();
 
 // scripts/sftdd/architecture-conventions.ts
 init_esm_shims();
@@ -7725,7 +7726,7 @@ var TOOLS = [
   },
   {
     name: "lakebase_feature_status",
-    description: "One-screen snapshot of a feature's TDD workflow state (phase, plan, test-list completion, experiments, recent decisions, open smells). Reads .tdd/ on disk; no Lakebase or network calls. See skills/lakebase-sftdd-workflows/references/feature-status-schema.md for the stable payload contract.",
+    description: "One-screen snapshot of a feature's TDD workflow state (phase, plan, test-list completion, experiments, recent decisions, open smells). Reads .tdd/ on disk; no Lakebase or network calls. See skills/consort/references/feature-status-schema.md for the stable payload contract.",
     inputSchema: {
       type: "object",
       properties: {

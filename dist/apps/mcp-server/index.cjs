@@ -6756,6 +6756,7 @@ var import_path = require("path");
 var RECOMMENDED_MODELS = {
   "spec-author": "opus",
   "architect-reviewer": "opus",
+  dba: "opus",
   "test-strategist": "sonnet",
   "ux-designer": "sonnet",
   navigator: "sonnet",
@@ -7183,6 +7184,9 @@ var REFLECT_SMELLS = Object.values(SMELL_FOR_OWNER);
 // scripts/sftdd/architecture-canon.ts
 init_cjs_shims();
 
+// scripts/sftdd/artifact-conformance.ts
+init_cjs_shims();
+
 // scripts/sftdd/orchestrator-probe.ts
 function readJson(file) {
   if (!fs8.existsSync(file)) return void 0;
@@ -7261,9 +7265,6 @@ var import_fs7 = require("fs");
 init_cjs_shims();
 var import_node_fs5 = require("fs");
 var import_node_path7 = require("path");
-
-// scripts/sftdd/artifact-conformance.ts
-init_cjs_shims();
 
 // scripts/sftdd/architecture-conventions.ts
 init_cjs_shims();
@@ -7713,7 +7714,7 @@ var TOOLS = [
   },
   {
     name: "lakebase_feature_status",
-    description: "One-screen snapshot of a feature's TDD workflow state (phase, plan, test-list completion, experiments, recent decisions, open smells). Reads .tdd/ on disk; no Lakebase or network calls. See skills/lakebase-sftdd-workflows/references/feature-status-schema.md for the stable payload contract.",
+    description: "One-screen snapshot of a feature's TDD workflow state (phase, plan, test-list completion, experiments, recent decisions, open smells). Reads .tdd/ on disk; no Lakebase or network calls. See skills/consort/references/feature-status-schema.md for the stable payload contract.",
     inputSchema: {
       type: "object",
       properties: {
@@ -8086,7 +8087,7 @@ function findTool(name) {
 async function createServer() {
   const server = new import_server.Server(
     {
-      name: "lakebase-app-dev-kit",
+      name: "consort",
       version: "0.2.0-alpha.0"
     },
     {
@@ -8131,7 +8132,7 @@ async function main() {
   const transport = new import_stdio.StdioServerTransport();
   await server.connect(transport);
   process.stderr.write(
-    `lakebase-app-dev-kit MCP server ready (${TOOLS.length} tools)
+    `consort MCP server ready (${TOOLS.length} tools)
 `
   );
 }

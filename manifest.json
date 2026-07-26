@@ -4,7 +4,7 @@
   "skills": {
     "architectural-design-principles": {
       "version": "0.0.0",
-      "description": "System-level engineering canon, the architecture counterpart to software-design-principles. Layered architecture + dependency direction, ports and adapters (repository / ORM-as-adapter), the twelve-factor app for cloud-native development, evolutionary architecture with fitness functions, and evolutionary database design (schema that evolves by migration on paired branches). Imported by workflow skills (lakebase-sftdd-workflows, lakebase-scm-workflows, lakebase-release-workflows). Use when: shaping a system boundary, deciding what is a backing service, mapping config to the environment, or authoring the fitness functions that keep the architecture honest as it evolves.",
+      "description": "System-level engineering canon, the architecture counterpart to software-design-principles. Layered architecture + dependency direction, ports and adapters (repository / ORM-as-adapter), the twelve-factor app for cloud-native development, evolutionary architecture with fitness functions, and evolutionary database design (schema that evolves by migration on paired branches). Imported by workflow skills (consort, lakebase-scm-workflows, lakebase-release-workflows). Use when: shaping a system boundary, deciding what is a backing service, mapping config to the environment, or authoring the fitness functions that keep the architecture honest as it evolves.",
       "experimental": false,
       "updated_at": "2026-06-20T23:06:07Z",
       "files": [
@@ -63,7 +63,7 @@
         "references/github-auth.md"
       ]
     },
-    "lakebase-sftdd-workflows": {
+    "consort": {
       "version": "0.0.0",
       "description": "Spec-First Test-Driven Development (SFTDD) with evolutionary design, against paired Lakebase branches: the design lane is Spec Driven Development (SDD) and the build lane is canonical Beck-style Test Driven Development (RED-GREEN-REFACTOR), composed with paired-branch primitives (cheap experiments, parent-aware schema diff, real per-branch databases). Spec-first means the spec is drafted, reviewed, and frozen at gates before any build cycle runs; evolutionary means the spec, the architecture, and the database all evolve increment over increment. Use when planning a new feature, running design-spec gates, running TDD cycles, comparing parallel experiments, or detecting workflow bad smells. Imports software-design-principles canon. Builds on lakebase-scm-workflows + lakebase-release-workflows.",
       "experimental": false,
@@ -94,7 +94,7 @@
     },
     "software-design-principles": {
       "version": "0.0.0",
-      "description": "Foundational engineering canon \u2013 SOLID, DRY, clean code, layered architecture, cross-cutting concerns, NFRs. Imported by workflow skills (lakebase-sftdd-workflows, lakebase-scm-workflows, lakebase-release-workflows). Use when designing a module, reviewing a PR, planning a refactor, mapping cross-cutting concerns to layers, or arguing about API shape.",
+      "description": "Foundational engineering canon \u2013 SOLID, DRY, clean code, layered architecture, cross-cutting concerns, NFRs. Imported by workflow skills (consort, lakebase-scm-workflows, lakebase-release-workflows). Use when designing a module, reviewing a PR, planning a refactor, mapping cross-cutting concerns to layers, or arguing about API shape.",
       "experimental": false,
       "updated_at": "2026-06-27T05:28:47Z",
       "files": [
@@ -109,7 +109,7 @@
     },
     "ui-ux-design-principles": {
       "version": "0.0.0",
-      "description": "Experience-level engineering canon, the UI/UX counterpart to software-design-principles (code-level) and architectural-design-principles (system-level). Usability heuristics, visual hierarchy, accessibility, interaction and feedback, information architecture, design systems and tokens, and testable UI. Imported by the lakebase-sftdd-workflows UX Designer (authoring design-guide.{md,json} + ia.md and the adherence gate) and by the Driver building UI. Use when: shaping a design guide or information architecture, reviewing a user-facing surface, choosing a UI framework, or making the UI testable.",
+      "description": "Experience-level engineering canon, the UI/UX counterpart to software-design-principles (code-level) and architectural-design-principles (system-level). Usability heuristics, visual hierarchy, accessibility, interaction and feedback, information architecture, design systems and tokens, and testable UI. Imported by the consort UX Designer (authoring design-guide.{md,json} + ia.md and the adherence gate) and by the Driver building UI. Use when: shaping a design guide or information architecture, reviewing a user-facing surface, choosing a UI framework, or making the UI testable.",
       "experimental": false,
       "updated_at": "2026-06-20T23:06:07Z",
       "files": [

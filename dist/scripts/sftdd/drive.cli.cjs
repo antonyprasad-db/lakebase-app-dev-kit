@@ -6684,6 +6684,7 @@ var featureResolved = (tdd, f) => findFeatureDir(tdd, f) ?? featureDir(tdd, f);
 var featureSpecJson = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "feature-spec.json");
 var featureRequestMd = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "feature-request.md");
 var architectureJson = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "architecture.json");
+var dbDesignJson = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "db-design.json");
 var featureTestListJson = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "test-list.json");
 var pipelineJson = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "pipeline.json");
 var featureDeployEvidenceJson = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "deploy-evidence.json");
@@ -7022,7 +7023,16 @@ var JUNK_DIRS = /* @__PURE__ */ new Set([
   ".git",
   "node_modules"
 ]);
-var JUNK_FILES = /* @__PURE__ */ new Set([".env", ".DS_Store", "Makefile", "deploy-targets.yaml"]);
+var JUNK_FILES = /* @__PURE__ */ new Set([
+  ".env",
+  ".DS_Store",
+  "Makefile",
+  "deploy-targets.yaml",
+  "package.json",
+  "package-lock.json",
+  "yarn.lock",
+  "pnpm-lock.yaml"
+]);
 function codeTreeFilter(root) {
   return (src) => {
     const rel = src.slice(root.length).replace(/^[/\\]+/, "");
@@ -7279,6 +7289,7 @@ function nextDesignAction(state) {
       hasAcs: false,
       architectAnnotated: false,
       architectProjectable: false,
+      dbaDesigned: false,
       testListReady: false,
       reflectionPassed: false,
       reflectionVerdictWritten: false
@@ -7288,6 +7299,7 @@ function nextDesignAction(state) {
       if (design.architectProjectable) return { kind: "project-architect-notes", story };
       return { kind: "invoke-role", role: "architect-reviewer", story };
     }
+    if (!design.dbaDesigned) return { kind: "invoke-role", role: "dba", story };
     if (!design.testListReady) return { kind: "invoke-role", role: "test-strategist", story };
     if (!design.reflectionPassed) return { kind: "invoke-role", role: "navigator", story, buildMode: "reflect" };
     if (!v?.gateSurfaced) return { kind: "surface-gate", story };
@@ -7510,6 +7522,14 @@ function expectationFor(action) {
       expected: "layer/NFR-annotated ACs",
       satisfiedBy: (s) => storyView2(s)?.design.architectAnnotated === true,
       remediation: "Write a non-empty `architectural_notes` field into EVERY one of this story's acs/<AC>.json files (your per-AC product; the gate checks each AC carries it), AND ensure the feature architecture.json exists. architectural_notes are per-AC: annotate this story's ACs even when the feature-level architecture.json already exists from an earlier story."
+    };
+  }
+  if (responder === "dba") {
+    return {
+      ...base,
+      expected: "a db-design.json realizing every persistence_invariant",
+      satisfiedBy: (s) => storyView2(s)?.design.dbaDesigned === true,
+      remediation: "Write features/<F>/db-design.json declaring >=1 table[] and a realizes_invariants[] that lists EVERY architecture.json persistence_invariant id (each mapped to a physical table/constraint). A service_backed feature with no db-design or an unrealized invariant hard-blocks the spec gate."
     };
   }
   if (responder === "test-strategist") {
@@ -8638,6 +8658,7 @@ function storyView(id, e, probe, loop) {
       hasAcs: probe.hasAcs(id),
       architectAnnotated: probe.architectAnnotated(id),
       architectProjectable: probe.architectProjectable(id),
+      dbaDesigned: probe.dbaDesigned(id),
       testListReady: probe.testListReady(id),
       reflectionPassed: probe.reflectionPassed(id),
       reflectionVerdictWritten: probe.reflectionVerdictWritten(id)
@@ -8903,228 +8924,6 @@ function architectNovelty(canon, storyAcs, storyArchitectureJsonContent) {
   return { novel: reasons.length > 0, reasons };
 }
 
-// scripts/sftdd/orchestrator-probe.ts
-function storyCycles2(sftddDir, featureId, story) {
-  const base = path2.join(cyclesRootDir(sftddDir), featureId, story);
-  if (!fs7.existsSync(base)) return [];
-  const out = [];
-  for (const acDir of fs7.readdirSync(base)) {
-    const dir = path2.join(base, acDir);
-    let isDir = false;
-    try {
-      isDir = fs7.statSync(dir).isDirectory();
-    } catch {
-      isDir = false;
-    }
-    if (!isDir) continue;
-    for (const f of fs7.readdirSync(dir)) {
-      if (!/^cycle-\d+\.json$/.test(f)) continue;
-      try {
-        out.push(JSON.parse(fs7.readFileSync(path2.join(dir, f), "utf8")));
-      } catch {
-      }
-    }
-  }
-  return out;
-}
-function readJson(file) {
-  if (!fs7.existsSync(file)) return void 0;
-  try {
-    return JSON.parse(fs7.readFileSync(file, "utf8"));
-  } catch {
-    return void 0;
-  }
-}
-function readDriveContext(sftddDir, featureId, projectDir) {
-  const ws = readJson(workflowStateJson(sftddDir));
-  const phaseOwner = typeof ws?.[PHASE_OWNER_KEY] === "string" ? ws[PHASE_OWNER_KEY] : void 0;
-  const rawPhase = typeof ws?.phase === "string" ? ws.phase : void 0;
-  const honorPhase = rawPhase === "planning" || phaseOwner === featureId;
-  const tddPhase = honorPhase && rawPhase ? rawPhase : "feature";
-  const spec = readJson(featureSpecJson(sftddDir, featureId));
-  const proposed = spec !== void 0;
-  const breakdownDone = Array.isArray(spec?.stories) && spec.stories.length > 0;
-  const requestsAuthored = fs7.existsSync(featureRequestMd(sftddDir, featureId));
-  const deployed = fs7.existsSync(featureDeployEvidenceJson(sftddDir, featureId));
-  const gateApproved = readGateApproved(featureId, sftddDir, "deploy");
-  const proj = projectDir ?? path2.dirname(sftddDir);
-  let scmState;
-  try {
-    scmState = (0, import_lakebase8.readWorkflowState)(proj)?.state;
-  } catch {
-    scmState = void 0;
-  }
-  const atOrPast = (target) => {
-    if (!scmState) return false;
-    const i = import_lakebase8.SCM_STATES.indexOf(scmState);
-    const t = import_lakebase8.SCM_STATES.indexOf(target);
-    return i >= 0 && t >= 0 && i >= t;
-  };
-  const promote = {
-    prReady: atOrPast("pr-ready"),
-    ciGreen: atOrPast("ci-green"),
-    prApproved: readGateApproved(featureId, sftddDir, "promote"),
-    merged: scmState === "merged"
-  };
-  return {
-    phase: driverPhaseForTdd(tddPhase),
-    breakdownDone,
-    planning: { proposed, estimated: hasEstimates(sftddDir), requestsAuthored },
-    deploy: { deployed, gateApproved },
-    promote
-  };
-}
-function readGateApproved(featureId, sftddDir, gate) {
-  try {
-    return readGates(featureId, { sftddDir }).gates[gate].status === "approved";
-  } catch {
-    return false;
-  }
-}
-function diskArtifactProbe(sftddDir, featureId, buildActive) {
-  return {
-    hasAcs(story) {
-      return storyAcIds(sftddDir, featureId, story).length > 0;
-    },
-    architectAnnotated(story) {
-      const acs = storyAcIds(sftddDir, featureId, story);
-      if (acs.length === 0) return false;
-      const everyAcNoted = acs.every((ac) => readAcArchitecturalNotes(sftddDir, featureId, ac) !== void 0);
-      return everyAcNoted && fs7.existsSync(architectureJson(sftddDir, featureId));
-    },
-    architectProjectable(story) {
-      if (!fs7.existsSync(architectureJson(sftddDir, featureId))) return false;
-      const canon = readCanon(sftddDir);
-      if (!canon) return false;
-      if (canon.established_by === featureId) return false;
-      if (priorReviseCount(sftddDir, "architect-canon-gap", story) > 0) return false;
-      const acs = storyAcIds(sftddDir, featureId, story);
-      if (acs.length === 0) return false;
-      const layers = acs.map((ac) => readAcLayer2(sftddDir, featureId, ac));
-      if (layers.some((l) => !l)) return false;
-      return !architectNovelty(canon, layers.map((l) => ({ layer: l }))).novel;
-    },
-    testListReady(story) {
-      const file = storyTestListJson(sftddDir, featureId, story);
-      if (!fs7.existsSync(file)) return false;
-      try {
-        const data = JSON.parse(fs7.readFileSync(file, "utf8"));
-        return Array.isArray(data.items) && data.items.length > 0;
-      } catch {
-        return false;
-      }
-    },
-    reflectionPassed(story) {
-      return reflectionPassed(sftddDir, featureId, story);
-    },
-    reflectionVerdictWritten(story) {
-      return reflectionVerdictWritten(sftddDir, featureId, story);
-    },
-    // The build loop is TEST-LIST-DRIVEN: the Navigator/Driver hand off ONE test
-    // at a time (write RED -> make GREEN) until EVERY test-list item is green.
-    // `testsWritten` = "the Navigator has nothing to write right now" (a RED
-    // already awaits the Driver, OR all tests are green); `codeWritten` = "every
-    // test-list item has a GREEN cycle". With nextBuildAction's order
-    // (!testsWritten -> navigator; !codeWritten -> driver) this yields the
-    // interleaved per-test handoff: RED T1 -> GREEN T1 -> RED T2 -> ... Without
-    // it the loop advanced after a single test and stalled at await-acceptance
-    // with the rest of the list unbuilt (the live stall).
-    testsWritten(story) {
-      const p = storyTestProgress(sftddDir, featureId, story);
-      if (p.total === 0) {
-        return storyCycles2(sftddDir, featureId, story).some((c) => Boolean(c.red_at));
-      }
-      return p.openRed.length > 0 || p.allGreen;
-    },
-    codeWritten(story) {
-      const p = storyTestProgress(sftddDir, featureId, story);
-      if (p.total === 0) {
-        const reds = storyCycles2(sftddDir, featureId, story).filter((c) => Boolean(c.red_at));
-        return reds.length > 0 && reds.every((c) => Boolean(c.green_at));
-      }
-      return p.allGreen;
-    },
-    reviewPendingAc(story) {
-      return firstReviewPendingAc(sftddDir, featureId, story);
-    },
-    refactorPendingAc(story) {
-      return firstRefactorPendingAc(sftddDir, featureId, story);
-    },
-    reviewPending(story) {
-      return reviewPending(sftddDir, featureId, story);
-    },
-    refactorPending(story) {
-      return refactorPending(sftddDir, featureId, story);
-    },
-    assessGreenFailureAc(story) {
-      let acId;
-      try {
-        acId = storyTestProgress(sftddDir, featureId, story).openRed[0]?.ac_id;
-      } catch {
-        acId = void 0;
-      }
-      if (!acId) return null;
-      return needsGreenAssess(sftddDir, featureId, story, acId) ? acId : null;
-    },
-    repairRegressionFixAc(story) {
-      let acId;
-      try {
-        acId = storyTestProgress(sftddDir, featureId, story).openRed[0]?.ac_id;
-      } catch {
-        acId = void 0;
-      }
-      if (!acId) return null;
-      return hasPendingRegressionFix(sftddDir, featureId, story, acId) ? acId : null;
-    },
-    storyDeployVerified(story) {
-      return storyDeployVerified(sftddDir, featureId, story);
-    },
-    deployVerifyAssessEligible(story) {
-      return deployVerifyNeedsAssess(sftddDir, featureId, story);
-    },
-    deployVerifyRefactorPending(story) {
-      return deployVerifyRefactorPending(sftddDir, featureId, story);
-    },
-    pendingEscalation() {
-      const e = firstPendingEscalation(sftddDir, featureId);
-      if (!e) return null;
-      const base = {
-        id: e.id,
-        source: e.source,
-        reason: e.reason,
-        ...e.story_id ? { story_id: e.story_id } : {}
-      };
-      if (e.source.startsWith("smell:")) {
-        const name = e.source.slice("smell:".length);
-        const story = e.story_id ?? buildActive ?? void 0;
-        if (isBuildRefactorRoutableSmell(name) && story && firstRefactorPendingAc(sftddDir, featureId, story)) {
-          return null;
-        }
-        const spec = specLevelSmell(name);
-        if (spec && story && priorReviseCount(sftddDir, name, story) < 1) {
-          base.routable = { story, owning_role: spec.owning_role, gate: spec.gate_to_rerun };
-        }
-      }
-      return base;
-    }
-  };
-}
-
-// scripts/sftdd/design-spec-gate.ts
-init_cjs_shims();
-
-// scripts/sftdd/spike-carryforward.ts
-init_cjs_shims();
-
-// scripts/sftdd/story-pipeline.ts
-init_cjs_shims();
-var import_fs12 = require("fs");
-
-// scripts/sftdd/gate-conformance-guard.ts
-init_cjs_shims();
-var import_node_fs6 = require("fs");
-var import_node_path9 = require("path");
-
 // scripts/sftdd/artifact-conformance.ts
 init_cjs_shims();
 var import_path9 = require("path");
@@ -9135,6 +8934,9 @@ var ARTIFACT_FORMATS = {
   "test-list.json": { kind: "json-schema", schema: "test-list.schema.json" },
   "plan.json": { kind: "json-schema", schema: "plan.schema.json" },
   "architecture.json": { kind: "json-schema", schema: "architecture.schema.json" },
+  // DBA's physical schema (tables/DDL + per-story migration plan) that realizes
+  // the architect's persistence_invariants.
+  "db-design.json": { kind: "json-schema", schema: "db-design.schema.json" },
   "workflow-state.json": { kind: "json-schema", schema: "workflow-state.schema.json" },
   // Release Engineer's deploy-gate evidence (reachability + feature-verify).
   "deploy-evidence.json": { kind: "json-schema", schema: "deploy-evidence.schema.json" },
@@ -9302,11 +9104,291 @@ function checkTestListMd(content) {
   }
   return violations;
 }
+function checkDbDesign(dbDesignJson2, architectureJson2) {
+  let arch;
+  try {
+    arch = JSON.parse(architectureJson2);
+  } catch {
+    return { ok: true };
+  }
+  if (arch.service_backed !== true) return { ok: true };
+  const invariants = (arch.persistence_invariants ?? []).filter((i) => i && typeof i.id === "string" && i.id.length > 0).map((i) => i.id);
+  if (dbDesignJson2 === void 0) {
+    return {
+      ok: false,
+      violations: [
+        `service-backed feature has no db-design.json (the DBA runs after the architect and before the test-strategist to realize the schema; declare >=1 table and realize every persistence_invariant; see db-design.schema.json + agents/dba.md)`
+      ]
+    };
+  }
+  let db;
+  try {
+    db = JSON.parse(dbDesignJson2);
+  } catch (err) {
+    return { ok: false, violations: [`db-design.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`] };
+  }
+  const violations = [];
+  if (!Array.isArray(db.tables) || db.tables.length === 0) {
+    violations.push(
+      `service-backed feature's db-design.json declares no tables[] (it persists data, so it has >=1 table; see agents/dba.md)`
+    );
+  }
+  const realized = new Set((db.realizes_invariants ?? []).filter((x) => typeof x === "string" && x.length > 0));
+  const uncovered = invariants.filter((id) => !realized.has(id));
+  if (uncovered.length > 0) {
+    violations.push(
+      `persistence_invariant(s) not realized by db-design.json realizes_invariants[]: ${uncovered.join(", ")} (the DBA must physically realize every invariant the architect declared , a table/column/constraint/index , and list its id here; see agents/dba.md)`
+    );
+  }
+  return violations.length > 0 ? { ok: false, violations } : { ok: true };
+}
 function canonicalArtifactName(path6) {
   const base = (0, import_path9.basename)(path6);
   if ((0, import_path9.basename)((0, import_path9.dirname)(path6)) === "acs" && base.endsWith(".json")) return "ac.json";
   return base;
 }
+
+// scripts/sftdd/orchestrator-probe.ts
+function storyCycles2(sftddDir, featureId, story) {
+  const base = path2.join(cyclesRootDir(sftddDir), featureId, story);
+  if (!fs7.existsSync(base)) return [];
+  const out = [];
+  for (const acDir of fs7.readdirSync(base)) {
+    const dir = path2.join(base, acDir);
+    let isDir = false;
+    try {
+      isDir = fs7.statSync(dir).isDirectory();
+    } catch {
+      isDir = false;
+    }
+    if (!isDir) continue;
+    for (const f of fs7.readdirSync(dir)) {
+      if (!/^cycle-\d+\.json$/.test(f)) continue;
+      try {
+        out.push(JSON.parse(fs7.readFileSync(path2.join(dir, f), "utf8")));
+      } catch {
+      }
+    }
+  }
+  return out;
+}
+function readJson(file) {
+  if (!fs7.existsSync(file)) return void 0;
+  try {
+    return JSON.parse(fs7.readFileSync(file, "utf8"));
+  } catch {
+    return void 0;
+  }
+}
+function readDriveContext(sftddDir, featureId, projectDir) {
+  const ws = readJson(workflowStateJson(sftddDir));
+  const phaseOwner = typeof ws?.[PHASE_OWNER_KEY] === "string" ? ws[PHASE_OWNER_KEY] : void 0;
+  const rawPhase = typeof ws?.phase === "string" ? ws.phase : void 0;
+  const honorPhase = rawPhase === "planning" || phaseOwner === featureId;
+  const tddPhase = honorPhase && rawPhase ? rawPhase : "feature";
+  const spec = readJson(featureSpecJson(sftddDir, featureId));
+  const proposed = spec !== void 0;
+  const breakdownDone = Array.isArray(spec?.stories) && spec.stories.length > 0;
+  const requestsAuthored = fs7.existsSync(featureRequestMd(sftddDir, featureId));
+  const deployed = fs7.existsSync(featureDeployEvidenceJson(sftddDir, featureId));
+  const gateApproved = readGateApproved(featureId, sftddDir, "deploy");
+  const proj = projectDir ?? path2.dirname(sftddDir);
+  let scmState;
+  try {
+    scmState = (0, import_lakebase8.readWorkflowState)(proj)?.state;
+  } catch {
+    scmState = void 0;
+  }
+  const atOrPast = (target) => {
+    if (!scmState) return false;
+    const i = import_lakebase8.SCM_STATES.indexOf(scmState);
+    const t = import_lakebase8.SCM_STATES.indexOf(target);
+    return i >= 0 && t >= 0 && i >= t;
+  };
+  const promote = {
+    prReady: atOrPast("pr-ready"),
+    ciGreen: atOrPast("ci-green"),
+    prApproved: readGateApproved(featureId, sftddDir, "promote"),
+    merged: scmState === "merged"
+  };
+  return {
+    phase: driverPhaseForTdd(tddPhase),
+    breakdownDone,
+    planning: { proposed, estimated: hasEstimates(sftddDir), requestsAuthored },
+    deploy: { deployed, gateApproved },
+    promote
+  };
+}
+function readGateApproved(featureId, sftddDir, gate) {
+  try {
+    return readGates(featureId, { sftddDir }).gates[gate].status === "approved";
+  } catch {
+    return false;
+  }
+}
+function diskArtifactProbe(sftddDir, featureId, buildActive) {
+  return {
+    hasAcs(story) {
+      return storyAcIds(sftddDir, featureId, story).length > 0;
+    },
+    architectAnnotated(story) {
+      const acs = storyAcIds(sftddDir, featureId, story);
+      if (acs.length === 0) return false;
+      const everyAcNoted = acs.every((ac) => readAcArchitecturalNotes(sftddDir, featureId, ac) !== void 0);
+      return everyAcNoted && fs7.existsSync(architectureJson(sftddDir, featureId));
+    },
+    dbaDesigned() {
+      const archFile = architectureJson(sftddDir, featureId);
+      if (!fs7.existsSync(archFile)) return false;
+      let archContent;
+      try {
+        archContent = fs7.readFileSync(archFile, "utf8");
+      } catch {
+        return false;
+      }
+      const dbFile = dbDesignJson(sftddDir, featureId);
+      let dbContent;
+      if (fs7.existsSync(dbFile)) {
+        try {
+          dbContent = fs7.readFileSync(dbFile, "utf8");
+        } catch {
+          dbContent = void 0;
+        }
+      }
+      return checkDbDesign(dbContent, archContent).ok;
+    },
+    architectProjectable(story) {
+      if (!fs7.existsSync(architectureJson(sftddDir, featureId))) return false;
+      const canon = readCanon(sftddDir);
+      if (!canon) return false;
+      if (canon.established_by === featureId) return false;
+      if (priorReviseCount(sftddDir, "architect-canon-gap", story) > 0) return false;
+      const acs = storyAcIds(sftddDir, featureId, story);
+      if (acs.length === 0) return false;
+      const layers = acs.map((ac) => readAcLayer2(sftddDir, featureId, ac));
+      if (layers.some((l) => !l)) return false;
+      return !architectNovelty(canon, layers.map((l) => ({ layer: l }))).novel;
+    },
+    testListReady(story) {
+      const file = storyTestListJson(sftddDir, featureId, story);
+      if (!fs7.existsSync(file)) return false;
+      try {
+        const data = JSON.parse(fs7.readFileSync(file, "utf8"));
+        return Array.isArray(data.items) && data.items.length > 0;
+      } catch {
+        return false;
+      }
+    },
+    reflectionPassed(story) {
+      return reflectionPassed(sftddDir, featureId, story);
+    },
+    reflectionVerdictWritten(story) {
+      return reflectionVerdictWritten(sftddDir, featureId, story);
+    },
+    // The build loop is TEST-LIST-DRIVEN: the Navigator/Driver hand off ONE test
+    // at a time (write RED -> make GREEN) until EVERY test-list item is green.
+    // `testsWritten` = "the Navigator has nothing to write right now" (a RED
+    // already awaits the Driver, OR all tests are green); `codeWritten` = "every
+    // test-list item has a GREEN cycle". With nextBuildAction's order
+    // (!testsWritten -> navigator; !codeWritten -> driver) this yields the
+    // interleaved per-test handoff: RED T1 -> GREEN T1 -> RED T2 -> ... Without
+    // it the loop advanced after a single test and stalled at await-acceptance
+    // with the rest of the list unbuilt (the live stall).
+    testsWritten(story) {
+      const p = storyTestProgress(sftddDir, featureId, story);
+      if (p.total === 0) {
+        return storyCycles2(sftddDir, featureId, story).some((c) => Boolean(c.red_at));
+      }
+      return p.openRed.length > 0 || p.allGreen;
+    },
+    codeWritten(story) {
+      const p = storyTestProgress(sftddDir, featureId, story);
+      if (p.total === 0) {
+        const reds = storyCycles2(sftddDir, featureId, story).filter((c) => Boolean(c.red_at));
+        return reds.length > 0 && reds.every((c) => Boolean(c.green_at));
+      }
+      return p.allGreen;
+    },
+    reviewPendingAc(story) {
+      return firstReviewPendingAc(sftddDir, featureId, story);
+    },
+    refactorPendingAc(story) {
+      return firstRefactorPendingAc(sftddDir, featureId, story);
+    },
+    reviewPending(story) {
+      return reviewPending(sftddDir, featureId, story);
+    },
+    refactorPending(story) {
+      return refactorPending(sftddDir, featureId, story);
+    },
+    assessGreenFailureAc(story) {
+      let acId;
+      try {
+        acId = storyTestProgress(sftddDir, featureId, story).openRed[0]?.ac_id;
+      } catch {
+        acId = void 0;
+      }
+      if (!acId) return null;
+      return needsGreenAssess(sftddDir, featureId, story, acId) ? acId : null;
+    },
+    repairRegressionFixAc(story) {
+      let acId;
+      try {
+        acId = storyTestProgress(sftddDir, featureId, story).openRed[0]?.ac_id;
+      } catch {
+        acId = void 0;
+      }
+      if (!acId) return null;
+      return hasPendingRegressionFix(sftddDir, featureId, story, acId) ? acId : null;
+    },
+    storyDeployVerified(story) {
+      return storyDeployVerified(sftddDir, featureId, story);
+    },
+    deployVerifyAssessEligible(story) {
+      return deployVerifyNeedsAssess(sftddDir, featureId, story);
+    },
+    deployVerifyRefactorPending(story) {
+      return deployVerifyRefactorPending(sftddDir, featureId, story);
+    },
+    pendingEscalation() {
+      const e = firstPendingEscalation(sftddDir, featureId);
+      if (!e) return null;
+      const base = {
+        id: e.id,
+        source: e.source,
+        reason: e.reason,
+        ...e.story_id ? { story_id: e.story_id } : {}
+      };
+      if (e.source.startsWith("smell:")) {
+        const name = e.source.slice("smell:".length);
+        const story = e.story_id ?? buildActive ?? void 0;
+        if (isBuildRefactorRoutableSmell(name) && story && firstRefactorPendingAc(sftddDir, featureId, story)) {
+          return null;
+        }
+        const spec = specLevelSmell(name);
+        if (spec && story && priorReviseCount(sftddDir, name, story) < 1) {
+          base.routable = { story, owning_role: spec.owning_role, gate: spec.gate_to_rerun };
+        }
+      }
+      return base;
+    }
+  };
+}
+
+// scripts/sftdd/design-spec-gate.ts
+init_cjs_shims();
+
+// scripts/sftdd/spike-carryforward.ts
+init_cjs_shims();
+
+// scripts/sftdd/story-pipeline.ts
+init_cjs_shims();
+var import_fs12 = require("fs");
+
+// scripts/sftdd/gate-conformance-guard.ts
+init_cjs_shims();
+var import_node_fs6 = require("fs");
+var import_node_path9 = require("path");
 
 // scripts/sftdd/architecture-conventions.ts
 init_cjs_shims();
@@ -9580,6 +9662,25 @@ function roleTaskBody(action, featureId, uiTrack, sftddDir, build) {
       const arAcScope = arAcIds.length ? ` Story ${s}'s ACs are: ${arAcIds.join(", ")}.` : "";
       return `Annotate story ${s}'s acceptance criteria + nfrs.md coverage.${arAcScope} For EVERY one of this story's ACs, write a non-empty "architectural_notes" field into its acs/<AC>.json (the layer it lives in + how it realizes the design). This is your distinctive per-AC product; the design gate verifies every AC carries it and the spec-author's "layer" field does NOT count. architectural_notes are per-AC, so annotate this story's ACs even when the feature-level architecture.json already exists from an earlier story. In architecture.json, make an EXPLICIT service_backed call (required): set service_backed:true if the feature persists data (a DB table/migration) or carries business logic, and then you MUST declare boundary, service, and repository layers (plus a "models" PACKAGE app/models/, one module per domain object, NOT a flat app/models.py, when it persists entities); set false ONLY for a trivial static/read-through endpoint. An Infra-layer AC or a migration/schema/storage NFR while service_backed is false hard-blocks the gate. When service_backed:true you MUST also declare architecture.json persistence_invariants[]: the DB-level guarantees the schema enforces (each with id, type one of unique|foreign_key|cascade|not_null|check|transactional|migration_reversible, table, and a one-line brief), covering unique/composite keys, foreign keys + cascade rules, NOT NULL / CHECK constraints, any transactional-atomicity boundary, and migration reversibility. The test-strategist must cover each with a real-branch test; a service_backed feature with no persistence_invariants hard-blocks the gate.${architectConventionsDirective(sftddDir)}` + designRootNote(root, featureId, s);
     }
+    case "dba": {
+      const dbaAcIds = storyAcIds(sftddDir, featureId, s);
+      const dbaAcScope = dbaAcIds.length ? ` Story ${s}'s ACs are: ${dbaAcIds.join(", ")}.` : "";
+      let contract = "";
+      try {
+        const arch = JSON.parse(fs8.readFileSync(architectureJson(sftddDir, featureId), "utf8"));
+        if (arch.service_backed === true) {
+          const inv = (arch.persistence_invariants ?? []).filter((i) => i && typeof i.id === "string");
+          const invList = inv.length ? ` Realize EVERY declared persistence_invariant and list its id in realizes_invariants[]: ${inv.map((i) => `${i.id}${i.type ? ` [${i.type}${i.table ? ` on ${i.table}` : ""}]` : ""}${i.brief ? ` (${i.brief})` : ""}`).join("; ")}.` : "";
+          const models = (arch.layers ?? []).find((l) => l.role === "models");
+          const modelsNote = models?.module ? ` Mirror the architect's models package (${models.module}), one table per domain object.` : "";
+          contract = ` This feature is service_backed.${modelsNote}${invList}`;
+        } else if (arch.service_backed === false) {
+          contract = ` This feature is not service_backed (a trivial static/read-through endpoint); an empty or absent db-design.json is acceptable.`;
+        }
+      } catch {
+      }
+      return `Realize the physical database schema for story ${s} into ${root}/features/${featureId}/db-design.json (+ a short db-design.md narrative).${dbaAcScope} Read architecture.json (service_backed, layers, persistence_invariants) , the architect owns that logical contract; you produce the PHYSICAL realization and do NOT re-author the invariants. Declare tables[] (columns with explicit type/nullable/default, primary_key, unique_constraints, foreign_keys, checks, indexes) and this story's schema_changes[] (the per-story migration plan the build lane authors the Alembic migration from; keep an expand/contract column split or drop reversible). Populate realizes_invariants[] with every architecture.json persistence_invariant id, mapped to the physical construct that enforces it , an uncovered invariant hard-blocks the spec gate.${contract}` + designRootNote(root, featureId, s);
+    }
     case "test-strategist": {
       const acIds = storyAcIds(sftddDir, featureId, s);
       const acScope = acIds.length ? ` The story's ACs are: ${acIds.join(", ")}. Map every test's ac_id to one of these EXACT ids (verbatim, never a bare slug or an invented id), and cover each AC at least once.` : "";
@@ -9589,7 +9690,7 @@ function roleTaskBody(action, featureId, uiTrack, sftddDir, build) {
         if (arch.service_backed === true) {
           const inv = (arch.persistence_invariants ?? []).filter((i) => i && typeof i.id === "string");
           const list = inv.length ? ` The declared persistence invariants are: ${inv.map((i) => `${i.id}${i.brief ? ` (${i.brief})` : ""}`).join("; ")}.` : "";
-          dbScope = ` This feature is service-backed. Cover EVERY architecture.json persistence_invariant with >=1 test that sets "invariant_id" to that invariant's id and exercises it DIRECTLY against the branch database (a real DB session, never a mock): verify the MIGRATION actually realized the guarantee (e.g. inserting a duplicate raises an IntegrityError, a NOT NULL/CHECK rejects a bad row, a down-then-up migration round-trips) and that the repository honors it. Do NOT write a test of the ORM's generic add/commit/query round-trip , that tests the library, not your schema.${list}`;
+          dbScope = ` This feature is service-backed. Cover EVERY architecture.json persistence_invariant with >=1 test that sets "invariant_id" to that invariant's id and exercises it DIRECTLY against the branch database (a real DB session, never a mock): verify the MIGRATION actually realized the guarantee (e.g. inserting a duplicate raises an IntegrityError, a NOT NULL/CHECK rejects a bad row, a down-then-up migration round-trips) and that the repository honors it. Do NOT write a test of the ORM's generic add/commit/query round-trip , that tests the library, not your schema.${list} The DBA's db-design.json (features/${featureId}/db-design.json) has the concrete table/column/constraint definitions realizing these invariants , read it for precise schema assertions.`;
         }
       } catch {
       }
@@ -10376,6 +10477,7 @@ var import_path10 = require("path");
 var RECOMMENDED_MODELS = {
   "spec-author": "opus",
   "architect-reviewer": "opus",
+  dba: "opus",
   "test-strategist": "sonnet",
   "ux-designer": "sonnet",
   navigator: "sonnet",

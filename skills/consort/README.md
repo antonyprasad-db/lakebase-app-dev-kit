@@ -1,4 +1,4 @@
-# lakebase-sftdd-workflows
+# consort
 
 Substrate for **Spec-First Test-Driven Development (SFTDD) with evolutionary design** on paired Lakebase branches. Canonical Beck-style RED → GREEN → REFACTOR composed with paired-branch primitives (cheap experiments, parent-aware schema diff, real per-branch databases) and HITL gates at every phase boundary.
 
@@ -227,7 +227,7 @@ The substrate itself ships no installed slash commands; the scaffolder writes th
 
 ## Agents
 
-The role agents under [`agents/`](agents/) are invokable directly with `@lakebase-sftdd-workflows/<agent-name>` in Claude Code, or spawned by the deterministic orchestrator (`lakebase-sftdd-drive`) when it delegates a phase. Each agent file is a self-contained prompt; the orchestrator (code, not an agent) coordinates them.
+The role agents under [`agents/`](agents/) are invokable directly with `@consort/<agent-name>` in Claude Code, or spawned by the deterministic orchestrator (`lakebase-sftdd-drive`) when it delegates a phase. Each agent file is a self-contained prompt; the orchestrator (code, not an agent) coordinates them.
 
 | Agent | File | Invoked when |
 |---|---|---|
@@ -241,7 +241,7 @@ The role agents under [`agents/`](agents/) are invokable directly with `@lakebas
 The substrate's behavior is exposed as a TypeScript surface under `scripts/sftdd/`. The agents call these; you can also call them directly from a Node script or from your own tooling. Import paths shown are the in-repo source paths; published consumers import from the kit package.
 
 ```ts
-import { cutExperiment, listExperiments, deleteExperiment } from "@databricks-solutions/lakebase-app-dev-kit/scripts/sftdd/experiment.js";
+import { cutExperiment, listExperiments, deleteExperiment } from "@databricks-solutions/consort/scripts/sftdd/experiment.js";
 ```
 
 ### Experiments and spikes

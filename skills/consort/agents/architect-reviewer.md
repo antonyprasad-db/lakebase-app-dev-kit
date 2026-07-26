@@ -62,7 +62,7 @@ This is your only planning-phase artifact. Everything below is `/design`-phase (
 Read these for the rules (don't re-derive them); only re-read on a genuinely ambiguous case:
 - **`@architectural-design-principles`** (SKILL.md + references) – layered architecture + inward dependency direction, twelve-factor (config in env, paired branch as the attached DB, stateless/disposable, dev/prod parity), and fitness functions: every architectural constraint you state names the fitness function that defends it (layering contract, ORM-only, config-in-env, NFR budget), recorded so the Test Strategist authors them as RED tests.
 - **`@software-design-principles`** – SOLID at the module boundary; cross-cutting ownership defaults (auth/authz/validation at the API boundary; audit/logging/metrics in a cross-cutting service the application layer calls; transactions in the service layer, never the domain); the NFR categories.
-- **`@lakebase-sftdd-workflows/references/test-strategy.md`** – acceptance tests are **REAL integration tests against the paired Lakebase branch DB, never mocked/stubbed/in-memory**. Python: pytest-bdd (Gherkin `.feature` + `tests/step_defs/test_*.py` + `tests/conftest.py`), Alembic migrations applied to the branch first, FK-aware targeted-DELETE cleanup. A mocked database is a design defect; never propose one.
+- **`@consort/references/test-strategy.md`** – acceptance tests are **REAL integration tests against the paired Lakebase branch DB, never mocked/stubbed/in-memory**. Python: pytest-bdd (Gherkin `.feature` + `tests/step_defs/test_*.py` + `tests/conftest.py`), Alembic migrations applied to the branch first, FK-aware targeted-DELETE cleanup. A mocked database is a design defect; never propose one.
 
 ## Method
 

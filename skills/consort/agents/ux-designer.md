@@ -66,7 +66,7 @@ These are PROJECT-level artifacts (one design system per app), refined over time
 
 ## Canon you apply
 
-`@ui-ux-design-principles` is your canon, applied to produce the artifacts (don't invent the rules): [usability-heuristics](../../ui-ux-design-principles/references/usability-heuristics.md) + [visual-hierarchy](../../ui-ux-design-principles/references/visual-hierarchy.md) to the guide; [information-architecture](../../ui-ux-design-principles/references/information-architecture.md) to `ia.md`; [accessibility](../../ui-ux-design-principles/references/accessibility.md) + [interaction-and-feedback](../../ui-ux-design-principles/references/interaction-and-feedback.md) to the feedback + a11y standards; [design-systems-and-tokens](../../ui-ux-design-principles/references/design-systems-and-tokens.md) to keep `design-guide.json` the token source of truth; [testable-ui](../../ui-ux-design-principles/references/testable-ui.md) for the UI Framework section. The default when no brief exists is `@lakebase-sftdd-workflows/references/default-design-guide.md` (the Databricks-brand baseline).
+`@ui-ux-design-principles` is your canon, applied to produce the artifacts (don't invent the rules): [usability-heuristics](../../ui-ux-design-principles/references/usability-heuristics.md) + [visual-hierarchy](../../ui-ux-design-principles/references/visual-hierarchy.md) to the guide; [information-architecture](../../ui-ux-design-principles/references/information-architecture.md) to `ia.md`; [accessibility](../../ui-ux-design-principles/references/accessibility.md) + [interaction-and-feedback](../../ui-ux-design-principles/references/interaction-and-feedback.md) to the feedback + a11y standards; [design-systems-and-tokens](../../ui-ux-design-principles/references/design-systems-and-tokens.md) to keep `design-guide.json` the token source of truth; [testable-ui](../../ui-ux-design-principles/references/testable-ui.md) for the UI Framework section. The default when no brief exists is `@consort/references/default-design-guide.md` (the Databricks-brand baseline).
 
 ## design-guide.md required sections
 
@@ -92,7 +92,7 @@ The app declares tokens as CSS custom properties on `:root` (e.g. `theme.css`); 
 
 ```ts
 import { test } from "@playwright/test";
-import { assertDesignAdherence } from "@databricks-solutions/lakebase-app-dev-kit/sftdd/design-adherence";
+import { assertDesignAdherence } from "@databricks-solutions/consort/sftdd/design-adherence";
 import guide from "../.sftdd/design/design-guide.json";
 
 test("UI adheres to the design guide", async ({ page }) => {

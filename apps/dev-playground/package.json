@@ -1,5 +1,5 @@
 {
-  "name": "@databricks-solutions/lakebase-app-dev-kit-dev-playground",
+  "name": "@databricks-solutions/consort-dev-playground",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -8,6 +8,6 @@
     "start": "tsx index.ts"
   },
   "dependencies": {
-    "@databricks-solutions/lakebase-app-dev-kit": "file:../.."
+    "@databricks-solutions/consort": "file:../.."
   }
 }

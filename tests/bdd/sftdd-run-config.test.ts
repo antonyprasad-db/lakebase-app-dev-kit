@@ -87,9 +87,9 @@ describe("run-config: buildRunConfig resolves the model + option matrix", () => 
 
   it("captures the kit ref from .lakebase/kit-ref when present", () => {
     mkdirSync(join(proj, ".lakebase"), { recursive: true });
-    writeFileSync(join(proj, ".lakebase", "kit-ref"), "github:databricks-solutions/lakebase-app-dev-kit#abc123\n");
+    writeFileSync(join(proj, ".lakebase", "kit-ref"), "github:databricks-solutions/consort#abc123\n");
     const cfg = buildRunConfig(inputs());
-    expect(cfg.kit_ref).toBe("github:databricks-solutions/lakebase-app-dev-kit#abc123");
+    expect(cfg.kit_ref).toBe("github:databricks-solutions/consort#abc123");
   });
 });
 

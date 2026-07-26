@@ -502,7 +502,7 @@ describe("checkArtifactConformance: UX Designer artifacts (UI projects)", () => 
   });
 
   it("the shipped default design guide conforms to the design-guide.md contract", () => {
-    const p = join(__dirname, "../../skills/lakebase-sftdd-workflows/references/default-design-guide.md");
+    const p = join(__dirname, "../../skills/consort/references/default-design-guide.md");
     expect(checkArtifactConformance("design-guide.md", readFileSync(p, "utf8")).ok).toBe(true);
   });
 });

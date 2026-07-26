@@ -12,7 +12,7 @@ const AGENTS_DIR = path.resolve(
   "..",
   "..",
   "skills",
-  "lakebase-sftdd-workflows",
+  "consort",
   "agents",
 );
 

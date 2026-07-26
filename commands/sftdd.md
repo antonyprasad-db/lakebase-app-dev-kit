@@ -2,7 +2,7 @@
 description: Launch the Lakebase SFTDD (Spec-First Test-Driven Development) workflow. In a scaffolded .sftdd/ project, takes stock and resumes the /plan -> /design -> /build -> /deploy loop; elsewhere, guides you through creating a project, then resumes.
 ---
 
-# /lakebase-app-dev-kit:sftdd : launch the SFTDD workflow
+# /consort:sftdd : launch the SFTDD workflow
 
 You are the entry point to the kit's SFTDD (Spec-First Test-Driven Development) state-machine workflow. First detect where you are, then branch.
 
@@ -50,7 +50,7 @@ Realize the choice through `lakebase-create-project`'s per-role overrides (below
 Then run the kit's creator (surface the exact command first; report its output, which prints a `Next:` hint):
 
 ```bash
-KIT_PKG="github:databricks-solutions/lakebase-app-dev-kit${LAKEBASE_KIT_REF:+#${LAKEBASE_KIT_REF}}"
+KIT_PKG="github:databricks-solutions/consort${LAKEBASE_KIT_REF:+#${LAKEBASE_KIT_REF}}"
 npx --yes --package="$KIT_PKG" lakebase-create-project \
   --project-name "<name>" --parent-dir "<parent-dir>" \
   --databricks-host "<host>" --github-owner "<owner>" \
@@ -65,10 +65,10 @@ On success, tell the user to enter the new project and resume:
 cd <parent-dir>/<name>
 ```
 
-then re-run **`/lakebase-app-dev-kit:sftdd`** there (it will find `.sftdd/` and resume at `/plan`), or `./scripts/sftdd.sh plan` to open the orchestrator session directly. Do not start the workflow from the current directory, the project is elsewhere.
+then re-run **`/consort:sftdd`** there (it will find `.sftdd/` and resume at `/plan`), or `./scripts/sftdd.sh plan` to open the orchestrator session directly. Do not start the workflow from the current directory, the project is elsewhere.
 
 ---
 
 ## Note on the orchestrator
 
-The orchestrator is the deterministic driver (`lakebase-sftdd-drive`), not an LLM agent: the slash commands invoke it, and IT spawns the role agents + pauses at gates. `/lakebase-app-dev-kit:sftdd` (this command) helps you pick + run the right command from your session; the project's `./scripts/sftdd.sh` is the equivalent local launcher.
+The orchestrator is the deterministic driver (`lakebase-sftdd-drive`), not an LLM agent: the slash commands invoke it, and IT spawns the role agents + pauses at gates. `/consort:sftdd` (this command) helps you pick + run the right command from your session; the project's `./scripts/sftdd.sh` is the equivalent local launcher.

@@ -155,7 +155,7 @@ describe("feature-status N=1 snapshot", () => {
 // public contract (consumed by agents + MCP). Any field rename or removal must
 // be a deliberate contract change: bumping this assertion is the gate.
 //
-// See: skills/lakebase-sftdd-workflows/references/feature-status-schema.md
+// See: skills/consort/references/feature-status-schema.md
 
 const TOP_LEVEL_KEYS = [
   "feature_id",

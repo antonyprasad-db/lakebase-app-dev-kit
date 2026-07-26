@@ -29,9 +29,9 @@ set -euo pipefail
 
 ORCH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 KIT_DIR="$(cd "$ORCH_DIR/../../.." && pwd)"   # examples/tdd-workflow-smoke/orchestrator -> kit root
-PKG="@databricks-solutions/lakebase-app-dev-kit"
-GH="github:databricks-solutions/lakebase-app-dev-kit"
-GH_URL="https://github.com/databricks-solutions/lakebase-app-dev-kit.git"
+PKG="@databricks-solutions/consort"
+GH="github:databricks-solutions/consort"
+GH_URL="https://github.com/databricks-solutions/consort.git"
 MARKER="pauseBeforeMilestone"              # a string the NEW dist must contain
 DO_PUSH=1
 
@@ -79,7 +79,7 @@ free_deploy_port() {
 free_deploy_port
 
 HEAD_SHA="$(git rev-parse HEAD)"
-CACHE_ROOT="${XDG_CACHE_HOME:-$HOME/.cache}/lakebase-app-dev-kit"
+CACHE_ROOT="${XDG_CACHE_HOME:-$HOME/.cache}/consort"
 CACHE="${CACHE_ROOT}/${HEAD_SHA}"
 KIT_INSTALL="${CACHE}/node_modules/${PKG}"
 

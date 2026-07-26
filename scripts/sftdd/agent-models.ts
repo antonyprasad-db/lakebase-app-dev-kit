@@ -1,6 +1,6 @@
 // per-role model selection. Each TDD-workflow role agent carries a
 // strongly-recommended model in its definition's frontmatter
-// (skills/lakebase-sftdd-workflows/agents/<role>.md `model:`). The HIL overrides
+// (skills/consort/agents/<role>.md `model:`). The HIL overrides
 // per project, asked at `lakebase-create-project` setup and persisted to
 // .lakebase/agent-config.json. The orchestrator resolves the model to spawn
 // each role with: project override -> recommended -> "inherit".
@@ -23,7 +23,7 @@ export type SpawnableAgentRole = Exclude<AgentRole, "orchestrator">;
 
 /**
  * Strongly-recommended default model per spawnable role. Mirrors each role def's
- * frontmatter `model:` in skills/lakebase-sftdd-workflows/agents/<role>.md.
+ * frontmatter `model:` in skills/consort/agents/<role>.md.
  */
 export const RECOMMENDED_MODELS: Record<SpawnableAgentRole, string> = {
   "spec-author": "opus",

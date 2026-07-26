@@ -1,7 +1,7 @@
 // Auto-migration for the artifact root rename (.tdd -> .sftdd).
 //
 // WHY THIS EXISTS: the workflow's on-disk artifact directory was renamed from
-// ".tdd" to ".sftdd" to match the lakebase-sftdd-workflows skill. Existing
+// ".tdd" to ".sftdd" to match the consort skill. Existing
 // projects still have a ".tdd" dir. Rather than force a manual migration, the
 // orchestrator calls migrateLegacyArtifactDir() on entry: a legacy ".tdd" is
 // renamed to ".sftdd" in place on the next run, preserving git history when the

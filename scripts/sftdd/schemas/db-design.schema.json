@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://databricks-solutions.github.io/lakebase-app-dev-kit/schemas/db-design.schema.json",
+  "$id": "https://databricks-solutions.github.io/consort/schemas/db-design.schema.json",
   "title": "DB Design",
   "description": "The DBA role's structured output for a feature, persisted as features/<F>/db-design.json (the machine-checkable companion to db-design.md). The DBA consumes the architect's logical persistence contract (architecture.json: service_backed, layers incl. the models package, and persistence_invariants[]) and produces the PHYSICAL schema: concrete tables/columns/keys/constraints/indexes and a per-story schema-change/migration plan. The DBA does NOT re-author the persistence invariants (those stay owned by the architect on architecture.json); it realizes them, and realizes_invariants[] cross-references each invariant id so the spec gate can hard-block any left uncovered.",
   "type": "object",

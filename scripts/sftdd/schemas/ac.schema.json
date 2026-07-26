@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://databricks-solutions.github.io/lakebase-app-dev-kit/schemas/ac.schema.json",
+  "$id": "https://databricks-solutions.github.io/consort/schemas/ac.schema.json",
   "title": "AcceptanceCriterion",
   "description": "One observable behavior. Tagged API / E2E / Infra. Maps to one or more scenarios in the test list.",
   "type": "object",

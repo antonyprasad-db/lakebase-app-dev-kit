@@ -1,10 +1,10 @@
 # /design : feature design pipeline
 
-Drives a feature from idea to spec to architect review to test list. This wraps the canonical lakebase-sftdd-workflows design phases as a single one-shot you can invoke from Claude Code in a Lakebase-paired project.
+Drives a feature from idea to spec to architect review to test list. This wraps the canonical consort design phases as a single one-shot you can invoke from Claude Code in a Lakebase-paired project.
 
 ## Operating contract (drive, do not narrate)
 
-Follow `@lakebase-sftdd-workflows/references/orchestrator-contract.md`: drive to completion via `lakebase-sftdd-next` (enact its `primary_action`, then continue), and stop for the human ONLY at a HITL gate or a blocker. Present the decision (the `next` option titles + their `hil_prompt`s), not the CLIs you ran; report outcomes, not per-command play-by-play. Verbose step narration is opt-in (`LAKEBASE_SFTDD_VERBOSE=1`), off by default.
+Follow `@consort/references/orchestrator-contract.md`: drive to completion via `lakebase-sftdd-next` (enact its `primary_action`, then continue), and stop for the human ONLY at a HITL gate or a blocker. Present the decision (the `next` option titles + their `hil_prompt`s), not the CLIs you ran; report outcomes, not per-command play-by-play. Verbose step narration is opt-in (`LAKEBASE_SFTDD_VERBOSE=1`), off by default.
 
 ## Usage
 
@@ -95,7 +95,7 @@ The driver:
   `lakebase-sftdd-agent-model`) and emits the phase/handoff log to
   `.sftdd/agent-log.jsonl` as code. Tail it: `lakebase-sftdd-log --read --feature <id> --min-level info`.
 - `--only design` STOPS when every story's spec gate is approved, without
-  building. The roles are `@lakebase-sftdd-workflows/agents/{spec-author,ux-designer,architect-reviewer,test-strategist}`.
+  building. The roles are `@consort/agents/{spec-author,ux-designer,architect-reviewer,test-strategist}`.
 
 **Gates.** Interactive: at each per-story spec gate the driver stops and prints a
 `GATE` marker with the pending action and the EXACT command to clear it. Surface

@@ -1,5 +1,5 @@
 {
-  "name": "@databricks-solutions/lakebase-app-dev-kit",
+  "name": "@databricks-solutions/consort",
   "version": "0.3.0-beta.37",
   "description": "Lakebase-backed application development kit – shared scripts, agent skills (SCM and SFTDD), MCP server, and OpenAI Foundry tool spec. Consumed by lakebase-scm-extension and coding agents (Claude Code, Claude Desktop, OpenAI Codex, Cursor, Databricks Genie Code).",
   "type": "module",
@@ -19,7 +19,7 @@
   "license": "SEE LICENSE IN LICENSE.md",
   "repository": {
     "type": "git",
-    "url": "https://github.com/databricks-solutions/lakebase-app-dev-kit"
+    "url": "https://github.com/databricks-solutions/consort"
   },
   "main": "./dist/scripts/index.cjs",
   "module": "./dist/scripts/index.js",

@@ -12,7 +12,7 @@ const REPO_ROOT = join(__dirname, "..", "..");
 const CONTRACT = join(
   REPO_ROOT,
   "skills",
-  "lakebase-sftdd-workflows",
+  "consort",
   "references",
   "orchestrator-contract.md",
 );

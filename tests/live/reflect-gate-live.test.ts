@@ -31,7 +31,7 @@ function stage(mode: "clean" | "clean_patched" | "corrupt" | "minimal_clean"): {
   const proj = mkdtempSync(join(tmpdir(), `live-reflect-${mode}-`));
   const sftddDir = join(proj, ".tdd");
   mkdirSync(join(proj, ".claude", "agents"), { recursive: true });
-  cpSync(join(KIT, "skills/lakebase-sftdd-workflows/agents/navigator.md"), join(proj, ".claude", "agents", "navigator.md"));
+  cpSync(join(KIT, "skills/consort/agents/navigator.md"), join(proj, ".claude", "agents", "navigator.md"));
   const featDst = join(sftddDir, "features", FEATURE);
   mkdirSync(featDst, { recursive: true });
 

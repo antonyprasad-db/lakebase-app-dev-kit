@@ -55,7 +55,7 @@ You communicate with other roles only through artifacts on disk and your recorde
 
 ## HITL + Human Proxy
 
-You ARE the HITL. Headless, `human-proxy` performs your reviews: it approves only when the expected artifacts exist and carry their required elements, never skips a gate, never fabricates intent, never approves a malformed artifact. See `@lakebase-sftdd-workflows/SKILL.md` "Headless / Human Proxy mode".
+You ARE the HITL. Headless, `human-proxy` performs your reviews: it approves only when the expected artifacts exist and carry their required elements, never skips a gate, never fabricates intent, never approves a malformed artifact. See `@consort/SKILL.md` "Headless / Human Proxy mode".
 
 ## Logging
 

@@ -37,7 +37,7 @@ first. Do not invent a way around it.
    network, `--warm`/`--rewarm` are no-ops.
 2. else ref = `LAKEBASE_KIT_REF` -> `.lakebase/kit-ref.local` (gitignored run pin,
    survives checkouts) -> `.lakebase/kit-ref` (committed; CI reads it) -> `main`,
-   installed from GitHub into a shared cache at `~/.cache/lakebase-app-dev-kit/<ref>`.
+   installed from GitHub into a shared cache at `~/.cache/consort/<ref>`.
 
 Two facts that cause split-brain runs:
 

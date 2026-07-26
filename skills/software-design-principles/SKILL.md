@@ -1,6 +1,6 @@
 ---
 name: software-design-principles
-description: "Foundational engineering canon – SOLID, DRY, clean code, layered architecture, cross-cutting concerns, NFRs. Imported by workflow skills (lakebase-sftdd-workflows, lakebase-scm-workflows, lakebase-release-workflows). Use when designing a module, reviewing a PR, planning a refactor, mapping cross-cutting concerns to layers, or arguing about API shape."
+description: "Foundational engineering canon – SOLID, DRY, clean code, layered architecture, cross-cutting concerns, NFRs. Imported by workflow skills (consort, lakebase-scm-workflows, lakebase-release-workflows). Use when designing a module, reviewing a PR, planning a refactor, mapping cross-cutting concerns to layers, or arguing about API shape."
 ---
 
 # software-design-principles
@@ -47,6 +47,6 @@ Layered architecture lives in the architectural skill ([reference](../architectu
 
 ## Composition
 
-- **`lakebase-sftdd-workflows`** – Architect Reviewer imports this in per-story review; Navigator in PLAN; Driver in REFACTOR.
+- **`consort`** – Architect Reviewer imports this in per-story review; Navigator in PLAN; Driver in REFACTOR.
 - **`lakebase-scm-workflows`** – PRs reviewed against the layered-architecture + cross-cutting checks.
 - **`lakebase-release-workflows`** – the NFR baseline is the release gate.

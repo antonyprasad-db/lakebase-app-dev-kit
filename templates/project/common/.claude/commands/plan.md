@@ -28,7 +28,7 @@ Note: no `--feature`. `lakebase-sftdd-intake` without a feature checks only the 
 
 The Spec Author reads `product-overview.md` + `nfrs.md` (and `design-brief.md` for UI projects) and proposes the candidate features for **the next sprint only**, the next coherent, usable increment, NOT the whole product. Do not decompose or spec features beyond this sprint: the team folds what each sprint's working software reveals into the next `/plan`, so proposing the entire roadmap up front wastes work and pre-commits decisions the PO has not made. Later sprints get their own `/plan`.
 
-Invoke `@lakebase-sftdd-workflows/agents/spec-author` in its planning mode. It writes a proposal to `.sftdd/planning/feature-proposals.md`: a short list of **this sprint's** candidate features, each with a stable id, a one-line ask, the rationale (which part of the overview / which NFR it serves), and a rough priority. The proposal is the PO's INPUT; it is not a gate deliverable and is never a feature-request itself.
+Invoke `@consort/agents/spec-author` in its planning mode. It writes a proposal to `.sftdd/planning/feature-proposals.md`: a short list of **this sprint's** candidate features, each with a stable id, a one-line ask, the rationale (which part of the overview / which NFR it serves), and a rough priority. The proposal is the PO's INPUT; it is not a gate deliverable and is never a feature-request itself.
 
 ## Phase 2: the Product Owner prioritizes and authors the requests
 
@@ -61,7 +61,7 @@ The Spec Author's proposal step may still run headless (it is deterministic from
 
 ## Human Proxy (headless) mode
 
-Headless, the Human Proxy plays the PO at this activity: it supplies the sprint's `feature-request.md` files from the recorded backlog and refuses anything missing or non-conformant, so planning never silently produces an empty or malformed sprint. See `@lakebase-sftdd-workflows/SKILL.md` "Headless / Human Proxy mode".
+Headless, the Human Proxy plays the PO at this activity: it supplies the sprint's `feature-request.md` files from the recorded backlog and refuses anything missing or non-conformant, so planning never silently produces an empty or malformed sprint. See `@consort/SKILL.md` "Headless / Human Proxy mode".
 
 ## How it runs: the deterministic driver
 

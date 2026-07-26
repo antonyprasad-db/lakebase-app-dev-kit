@@ -1,10 +1,10 @@
 ---
-name: lakebase-sftdd-workflows
+name: consort
 description: "Spec-First Test-Driven Development (SFTDD) with evolutionary design, against paired Lakebase branches: the design lane is Spec Driven Development (SDD) and the build lane is canonical Beck-style Test Driven Development (RED-GREEN-REFACTOR), composed with paired-branch primitives (cheap experiments, parent-aware schema diff, real per-branch databases). Spec-first means the spec is drafted, reviewed, and frozen at gates before any build cycle runs; evolutionary means the spec, the architecture, and the database all evolve increment over increment. Use when planning a new feature, running design-spec gates, running TDD cycles, comparing parallel experiments, or detecting workflow bad smells. Imports software-design-principles canon. Builds on lakebase-scm-workflows + lakebase-release-workflows."
 user-invocable: true
 ---
 
-# lakebase-sftdd-workflows – agent contract
+# consort – agent contract
 
 Agent-facing contract: hard rules, phase flow, agent prompt index, and concrete code patterns for the substrate primitives.
 
@@ -137,7 +137,7 @@ A test-list item's `kind` refines this: a **`kind:"client"`** item (a UI-present
 Each cycle records its runner outcome via `recordRunnerOutcome({ scope, cycleId, experimentSlug, layer, passed })`. The substrate uses these counts for `outcomes.by_tag`, the `e2e-row-perma-red` smell detector, and the design-spec gate guard.
 
 ```ts
-import { recordRunnerOutcome, markGreen } from "@databricks-solutions/lakebase-app-dev-kit/sftdd/run-cycle";
+import { recordRunnerOutcome, markGreen } from "@databricks-solutions/consort/sftdd/run-cycle";
 
 // Run the runner mapped to the current cycle's layer, then:
 recordRunnerOutcome({ scope, cycleId: c1.cycle_id, experimentSlug: "checkout", passed: true });
@@ -153,9 +153,9 @@ Concrete invocations of the substrate primitives.
 ### Design-spec gate (phase 3)
 
 ```ts
-import { analyzeForGate, recordPlan, writePlan } from "@databricks-solutions/lakebase-app-dev-kit/sftdd/design-spec-gate";
-import { canCutAnotherExperiment } from "@databricks-solutions/lakebase-app-dev-kit/sftdd/budget";
-import { attachSpikeInputs } from "@databricks-solutions/lakebase-app-dev-kit/sftdd/spike-carryforward";
+import { analyzeForGate, recordPlan, writePlan } from "@databricks-solutions/consort/sftdd/design-spec-gate";
+import { canCutAnotherExperiment } from "@databricks-solutions/consort/sftdd/budget";
+import { attachSpikeInputs } from "@databricks-solutions/consort/sftdd/spike-carryforward";
 
 const analysis = analyzeForGate(".sftdd", "F1", "S1");
 // analysis.opinion_gaps[]            – items the analyzer flagged as opinion gaps
@@ -182,7 +182,7 @@ if (!ok.ok) throw new Error(`budget: ${ok.reason}`);
 
 ```ts
 import { cutExperiment, listExperiments, readOutcomes, writeOutcomes, deleteExperiment }
-  from "@databricks-solutions/lakebase-app-dev-kit/sftdd/experiment";
+  from "@databricks-solutions/consort/sftdd/experiment";
 
 // N=1 – one experiment for story S1, forked from the feature branch.
 const exp = await cutExperiment({
@@ -215,9 +215,9 @@ await deleteExperiment({
 
 ```ts
 import { cutSpike, listSpikes, deleteSpike }
-  from "@databricks-solutions/lakebase-app-dev-kit/sftdd/spike";
+  from "@databricks-solutions/consort/sftdd/spike";
 import { collectSpikeInputs, attachSpikeInputs }
-  from "@databricks-solutions/lakebase-app-dev-kit/sftdd/spike-carryforward";
+  from "@databricks-solutions/consort/sftdd/spike-carryforward";
 
 await cutSpike({
   instance: "proj-checkout",
@@ -254,7 +254,7 @@ attachSpikeInputs({ tddDir: ".sftdd", featureId: "F1-checkout", slugs: ["explore
 
 ```ts
 import { beginCycle, markGreen, markRefactored, flagSmells, listCycles, openBranchDsn }
-  from "@databricks-solutions/lakebase-app-dev-kit/sftdd/run-cycle";
+  from "@databricks-solutions/consort/sftdd/run-cycle";
 
 const scope = {
   tddDir: ".sftdd",
@@ -290,7 +290,7 @@ flagSmells(scope, c1.cycle_id, ["test-deletion-attempt"]);
 
 ```ts
 import { runDetectorsForScope, writeSmellsLog, readSmellsLog, SMELL_CATALOG }
-  from "@databricks-solutions/lakebase-app-dev-kit/sftdd/smells";
+  from "@databricks-solutions/consort/sftdd/smells";
 
 const hits = runDetectorsForScope(".sftdd", scope);
 if (hits.length) {
@@ -304,8 +304,8 @@ if (hits.length) {
 
 ```ts
 import { checkPerExperimentCap, recordExperimentCap, clearExperimentCap }
-  from "@databricks-solutions/lakebase-app-dev-kit/sftdd/experiment-cap";
-import { readPlan } from "@databricks-solutions/lakebase-app-dev-kit/sftdd/design-spec-gate";
+  from "@databricks-solutions/consort/sftdd/experiment-cap";
+import { readPlan } from "@databricks-solutions/consort/sftdd/design-spec-gate";
 
 // Each cycle, after recording the runner outcome and before queuing
 // the next one, ask the substrate if this experiment is over its cap.
@@ -346,9 +346,9 @@ The default cap (30 cycles, 60 minutes wall-clock) is seeded by `analyzeForGate`
 
 ```ts
 import { compareExperiments }
-  from "@databricks-solutions/lakebase-app-dev-kit/sftdd/compare-experiments";
+  from "@databricks-solutions/consort/sftdd/compare-experiments";
 import { renderComparisonReport, writeComparisonReport }
-  from "@databricks-solutions/lakebase-app-dev-kit/sftdd/comparison-report";
+  from "@databricks-solutions/consort/sftdd/comparison-report";
 
 const report = compareExperiments(".sftdd", "F1", "S1");
 // report.rows[].signal       – "winning" | "stalled" | "abandoned" | "running"
@@ -370,7 +370,7 @@ writeComparisonReport({ tddDir: ".sftdd", featureId: "F1", report });
 
 ```ts
 import { promoteExperiment }
-  from "@databricks-solutions/lakebase-app-dev-kit/sftdd/promote-experiment";
+  from "@databricks-solutions/consort/sftdd/promote-experiment";
 
 // Refuses to run without hitlApproved: true (PO gate enforced at the function boundary).
 const result = promoteExperiment({
@@ -389,7 +389,7 @@ const result = promoteExperiment({
 
 ```ts
 import { synthesizeExperiments }
-  from "@databricks-solutions/lakebase-app-dev-kit/sftdd/synthesis";
+  from "@databricks-solutions/consort/sftdd/synthesis";
 
 // Refuses to run without hitlApproved: true.
 const result = await synthesizeExperiments({
@@ -415,7 +415,7 @@ const result = await synthesizeExperiments({
 
 ```ts
 import { validateSpec, readFeature, writeFeature, readWorkflowState, writeWorkflowState }
-  from "@databricks-solutions/lakebase-app-dev-kit/sftdd/spec-sync";
+  from "@databricks-solutions/consort/sftdd/spec-sync";
 
 const drift = validateSpec(".sftdd");
 // drift[].kind – "schema" | "pair-missing" | "narrative-empty" | "id-mismatch"
@@ -426,7 +426,7 @@ const drift = validateSpec(".sftdd");
 
 ```ts
 import { readMasterTestList, writeMasterTestList, viewByAc, viewsForAllAcs, writePerAcViews }
-  from "@databricks-solutions/lakebase-app-dev-kit/sftdd/test-list";
+  from "@databricks-solutions/consort/sftdd/test-list";
 
 const list = readMasterTestList(".sftdd", "F1");
 writePerAcViews(".sftdd", "F1", list);
@@ -446,10 +446,10 @@ import {
   readGates,
   writeGates,
   defaultGatesState,
-} from "@databricks-solutions/lakebase-app-dev-kit/sftdd/gates";
-import { approveGate } from "@databricks-solutions/lakebase-app-dev-kit/sftdd/approve-gate";
-import { verifyGateIntegrity } from "@databricks-solutions/lakebase-app-dev-kit/sftdd/verify-gate-integrity";
-import { withdrawGate } from "@databricks-solutions/lakebase-app-dev-kit/sftdd/withdraw-gate";
+} from "@databricks-solutions/consort/sftdd/gates";
+import { approveGate } from "@databricks-solutions/consort/sftdd/approve-gate";
+import { verifyGateIntegrity } from "@databricks-solutions/consort/sftdd/verify-gate-integrity";
+import { withdrawGate } from "@databricks-solutions/consort/sftdd/withdraw-gate";
 
 // Read current state (returns default-open shape when gates.json absent).
 const state = readGates("F1", { tddDir: ".sftdd" });
@@ -502,7 +502,7 @@ withdrawGate({
 For features that pre-date the gates state machine (approvals only in `selection-log.md`):
 
 ```ts
-import { migrateGatesFromSelectionLog } from "@databricks-solutions/lakebase-app-dev-kit/sftdd/migrate-gates";
+import { migrateGatesFromSelectionLog } from "@databricks-solutions/consort/sftdd/migrate-gates";
 
 migrateGatesFromSelectionLog({
   featureId: "F1",
@@ -533,7 +533,7 @@ End-to-end orchestrator patterns the deterministic driver runs in response to `/
 ```ts
 import { writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
-import { validateSpec } from "@databricks-solutions/lakebase-app-dev-kit/sftdd/spec-sync";
+import { validateSpec } from "@databricks-solutions/consort/sftdd/spec-sync";
 
 const tdd = ".sftdd";
 const fdir = join(tdd, "features", "F1-checkout");
@@ -564,11 +564,11 @@ if (drift.length) console.warn(drift);
 ### N=1 cycle end-to-end (response to `/build`, simple case)
 
 ```ts
-import { writeMasterTestList } from "@databricks-solutions/lakebase-app-dev-kit/sftdd/test-list";
-import { analyzeForGate, writePlan, recordPlan } from "@databricks-solutions/lakebase-app-dev-kit/sftdd/design-spec-gate";
-import { cutExperiment, writeOutcomes } from "@databricks-solutions/lakebase-app-dev-kit/sftdd/experiment";
-import { beginCycle, markGreen } from "@databricks-solutions/lakebase-app-dev-kit/sftdd/run-cycle";
-import { runDetectorsForScope, writeSmellsLog } from "@databricks-solutions/lakebase-app-dev-kit/sftdd/smells";
+import { writeMasterTestList } from "@databricks-solutions/consort/sftdd/test-list";
+import { analyzeForGate, writePlan, recordPlan } from "@databricks-solutions/consort/sftdd/design-spec-gate";
+import { cutExperiment, writeOutcomes } from "@databricks-solutions/consort/sftdd/experiment";
+import { beginCycle, markGreen } from "@databricks-solutions/consort/sftdd/run-cycle";
+import { runDetectorsForScope, writeSmellsLog } from "@databricks-solutions/consort/sftdd/smells";
 
 const tdd = ".sftdd"; const featureId = "F1"; const storyId = "S1-submit";
 
@@ -603,10 +603,10 @@ writeOutcomes(tdd, featureId, storyId, exp.experiment_slug, { status: "succeeded
 ### N≥2 race + promote/synthesize
 
 ```ts
-import { cutExperiment, writeOutcomes } from "@databricks-solutions/lakebase-app-dev-kit/sftdd/experiment";
-import { compareExperiments } from "@databricks-solutions/lakebase-app-dev-kit/sftdd/compare-experiments";
-import { promoteExperiment } from "@databricks-solutions/lakebase-app-dev-kit/sftdd/promote-experiment";
-import { synthesizeExperiments } from "@databricks-solutions/lakebase-app-dev-kit/sftdd/synthesis";
+import { cutExperiment, writeOutcomes } from "@databricks-solutions/consort/sftdd/experiment";
+import { compareExperiments } from "@databricks-solutions/consort/sftdd/compare-experiments";
+import { promoteExperiment } from "@databricks-solutions/consort/sftdd/promote-experiment";
+import { synthesizeExperiments } from "@databricks-solutions/consort/sftdd/synthesis";
 
 const tdd = ".sftdd"; const featureId = "F1"; const storyId = "S1";
 

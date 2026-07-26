@@ -947,7 +947,7 @@ create-project run with a GitHub repo).
 ## [0.3.0-beta.1] - 2026-06-10
 
 Second beta on the 0.3.0 line. Consume via
-`npx github:databricks-solutions/lakebase-app-dev-kit#v0.3.0-beta.1`.
+`npx github:databricks-solutions/consort#v0.3.0-beta.1`.
 
 ### Added
 
@@ -965,7 +965,7 @@ Second beta on the 0.3.0 line. Consume via
   import-time coupling before deploy. New `import-time-build-coupling` bad smell
   plus a dev/prod-parity rule in the `software-design-principles` canon.
 - **Claude Code plugin.** The kit installs as a plugin: `claude plugin
-  marketplace add databricks-solutions/lakebase-app-dev-kit` then `claude plugin
+  marketplace add databricks-solutions/consort` then `claude plugin
   install lakebase-app-dev-kit@lakebase-app-dev-kit`. Launch the workflow with
   `/lakebase-app-dev-kit:tdd` (resumes in a scaffolded project, guides creation
   elsewhere).
@@ -997,7 +997,7 @@ Second beta on the 0.3.0 line. Consume via
 ## [0.3.0-beta.0] - 2026-06-05
 
 First beta on the 0.3.0 line, graduating from the alpha series. Consume via
-`npx github:databricks-solutions/lakebase-app-dev-kit#v0.3.0-beta.0`.
+`npx github:databricks-solutions/consort#v0.3.0-beta.0`.
 
 ### Added
 
@@ -1039,5 +1039,5 @@ First beta on the 0.3.0 line, graduating from the alpha series. Consume via
   requester's document is preserved as `feature-request.md` and never
   overwritten.
 
-[0.3.0-beta.1]: https://github.com/databricks-solutions/lakebase-app-dev-kit/releases/tag/v0.3.0-beta.1
-[0.3.0-beta.0]: https://github.com/databricks-solutions/lakebase-app-dev-kit/releases/tag/v0.3.0-beta.0
+[0.3.0-beta.1]: https://github.com/databricks-solutions/consort/releases/tag/v0.3.0-beta.1
+[0.3.0-beta.0]: https://github.com/databricks-solutions/consort/releases/tag/v0.3.0-beta.0

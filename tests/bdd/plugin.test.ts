@@ -1,4 +1,4 @@
-// the kit is a Claude Code plugin. /lakebase-app-dev-kit:tdd launches
+// the kit is a Claude Code plugin. /consort:tdd launches
 // the TDD workflow. The plugin ships the command + skills + MCP server; the role
 // agents are NOT shipped as plugin agents , the driver invokes them as
 // `claude --agent <role>` against the agents scaffolded into each project's
@@ -21,7 +21,7 @@ describe("plugin manifest (.claude-plugin/plugin.json)", () => {
   const manifest = readJson(".claude-plugin/plugin.json");
 
   it("keeps the broad kit name (not rebranded to TDD)", () => {
-    expect(manifest.name).toBe("lakebase-app-dev-kit");
+    expect(manifest.name).toBe("consort");
   });
 
   it("exposes skills and declares NO agents field (agents come from the scaffolded project)", () => {
@@ -31,7 +31,7 @@ describe("plugin manifest (.claude-plugin/plugin.json)", () => {
     expect(manifest.agents).toBeUndefined();
     // The canonical role-agent source (what create-project scaffolds into a
     // project's .claude/agents/) still resolves to exactly the AgentRole defs.
-    const agentSourceDir = path.join(REPO_ROOT, "skills", "lakebase-sftdd-workflows", "agents");
+    const agentSourceDir = path.join(REPO_ROOT, "skills", "consort", "agents");
     expect(fs.existsSync(agentSourceDir)).toBe(true);
     const onDisk = fs
       .readdirSync(agentSourceDir)
@@ -47,15 +47,15 @@ describe("marketplace catalog (.claude-plugin/marketplace.json)", () => {
 
   it("lists the kit plugin from this repo", () => {
     expect(Array.isArray(market.plugins)).toBe(true);
-    const entry = market.plugins.find((p: any) => p.name === "lakebase-app-dev-kit");
-    expect(entry, "marketplace should list lakebase-app-dev-kit").toBeTruthy();
+    const entry = market.plugins.find((p: any) => p.name === "consort");
+    expect(entry, "marketplace should list consort").toBeTruthy();
     // Relative-path plugin sources must start with "./" (a bare "." is rejected
     // as an unsupported source type by `claude plugin install`).
     expect(entry.source).toBe("./");
   });
 });
 
-describe("/lakebase-app-dev-kit:sftdd launcher command (commands/sftdd.md)", () => {
+describe("/consort:sftdd launcher command (commands/sftdd.md)", () => {
   const tdd = fs.readFileSync(path.join(REPO_ROOT, "commands", "sftdd.md"), "utf8");
 
   it("has a frontmatter description", () => {

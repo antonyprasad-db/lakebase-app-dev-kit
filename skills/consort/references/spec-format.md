@@ -1,6 +1,6 @@
 # Spec format
 
-The on-disk `.sftdd/` layout that the lakebase-sftdd-workflows substrate reads and writes. Portable, tool-agnostic. Every structured element has both a markdown narrative (for humans) and a JSON contract (for agents, validation, and adapter sync).
+The on-disk `.sftdd/` layout that the consort substrate reads and writes. Portable, tool-agnostic. Every structured element has both a markdown narrative (for humans) and a JSON contract (for agents, validation, and adapter sync).
 
 This `.sftdd/` tree is the artifact of **Spec Driven Development (SDD)**: the design lane (`/design`) writes the feature spec, stories, ACs, architecture, and ordered test list here, and freezes them at the `spec` + `test_list` gates. The **Test Driven Development (TDD)** build lane (`/build`) then reads this tree as its source of truth, never the other way around: the spec drives the code.
 

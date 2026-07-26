@@ -3,7 +3,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { GATE_NAMES } from "../../scripts/sftdd/gates";
 
-const SKILL_DIR = join(__dirname, "..", "..", "skills", "lakebase-sftdd-workflows");
+const SKILL_DIR = join(__dirname, "..", "..", "skills", "consort");
 const SKILL_PATH = join(SKILL_DIR, "SKILL.md");
 const README_PATH = join(SKILL_DIR, "README.md");
 const NAV_PATH = join(SKILL_DIR, "agents", "navigator.md");
@@ -22,7 +22,7 @@ const NINE_RULES_PHRASES = [
   "iterative refinement",
 ];
 
-describe("lakebase-sftdd-workflows hard rules", () => {
+describe("consort hard rules", () => {
   const skill = readFileSync(SKILL_PATH, "utf8");
   const readme = readFileSync(README_PATH, "utf8");
 

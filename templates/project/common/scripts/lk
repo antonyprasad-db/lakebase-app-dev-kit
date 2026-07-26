@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # lk , run a kit CLI fast, without the npx tax.
 #
-# `npx --package=github:databricks-solutions/lakebase-app-dev-kit#<ref> <bin>`
+# `npx --package=github:databricks-solutions/consort#<ref> <bin>`
 # re-resolves the GitHub ref on EVERY call (~3.5s even warm). This shim resolves
 # the kit ONCE per ref into a shared cache and runs the bin via `node dist/...`
 # (~0.09s). Use it everywhere a kit CLI is invoked from a scaffolded project:
@@ -26,9 +26,9 @@ if [ -z "$bin" ]; then
 fi
 shift
 
-PKG="@databricks-solutions/lakebase-app-dev-kit"
-GH="github:databricks-solutions/lakebase-app-dev-kit"
-GH_URL="https://github.com/databricks-solutions/lakebase-app-dev-kit.git"
+PKG="@databricks-solutions/consort"
+GH="github:databricks-solutions/consort"
+GH_URL="https://github.com/databricks-solutions/consort.git"
 
 # 1. Resolve the kit install dir.
 # Dev override: a kit checkout/install pointed at directly. --warm/--rewarm are
@@ -61,7 +61,7 @@ else
     local_dir="$(tr -d '[:space:]' < "$root/.lakebase/kit-local-dir")"
   fi
 
-  cache_root="${XDG_CACHE_HOME:-$HOME/.cache}/lakebase-app-dev-kit"
+  cache_root="${XDG_CACHE_HOME:-$HOME/.cache}/consort"
   cache="${cache_root}/${ref}"
   kit_dir="${cache}/node_modules/${PKG}"
 

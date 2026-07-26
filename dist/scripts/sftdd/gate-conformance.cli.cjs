@@ -6714,6 +6714,9 @@ var ARTIFACT_FORMATS = {
   "test-list.json": { kind: "json-schema", schema: "test-list.schema.json" },
   "plan.json": { kind: "json-schema", schema: "plan.schema.json" },
   "architecture.json": { kind: "json-schema", schema: "architecture.schema.json" },
+  // DBA's physical schema (tables/DDL + per-story migration plan) that realizes
+  // the architect's persistence_invariants.
+  "db-design.json": { kind: "json-schema", schema: "db-design.schema.json" },
   "workflow-state.json": { kind: "json-schema", schema: "workflow-state.schema.json" },
   // Release Engineer's deploy-gate evidence (reachability + feature-verify).
   "deploy-evidence.json": { kind: "json-schema", schema: "deploy-evidence.schema.json" },
@@ -7015,6 +7018,44 @@ function checkPersistenceCoverage(testListJson, architectureJson) {
   }
   return { ok: true };
 }
+function checkDbDesign(dbDesignJson, architectureJson) {
+  let arch;
+  try {
+    arch = JSON.parse(architectureJson);
+  } catch {
+    return { ok: true };
+  }
+  if (arch.service_backed !== true) return { ok: true };
+  const invariants = (arch.persistence_invariants ?? []).filter((i) => i && typeof i.id === "string" && i.id.length > 0).map((i) => i.id);
+  if (dbDesignJson === void 0) {
+    return {
+      ok: false,
+      violations: [
+        `service-backed feature has no db-design.json (the DBA runs after the architect and before the test-strategist to realize the schema; declare >=1 table and realize every persistence_invariant; see db-design.schema.json + agents/dba.md)`
+      ]
+    };
+  }
+  let db;
+  try {
+    db = JSON.parse(dbDesignJson);
+  } catch (err) {
+    return { ok: false, violations: [`db-design.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`] };
+  }
+  const violations = [];
+  if (!Array.isArray(db.tables) || db.tables.length === 0) {
+    violations.push(
+      `service-backed feature's db-design.json declares no tables[] (it persists data, so it has >=1 table; see agents/dba.md)`
+    );
+  }
+  const realized = new Set((db.realizes_invariants ?? []).filter((x) => typeof x === "string" && x.length > 0));
+  const uncovered = invariants.filter((id) => !realized.has(id));
+  if (uncovered.length > 0) {
+    violations.push(
+      `persistence_invariant(s) not realized by db-design.json realizes_invariants[]: ${uncovered.join(", ")} (the DBA must physically realize every invariant the architect declared , a table/column/constraint/index , and list its id here; see agents/dba.md)`
+    );
+  }
+  return violations.length > 0 ? { ok: false, violations } : { ok: true };
+}
 function checkStoryIndependence(stories) {
   const parsed = [];
   for (const s of stories) {
@@ -7104,7 +7145,7 @@ function scanFeatureConformance(sftddDir, featureId) {
   for (const name of ["design-brief.md", "design-guide.md", "design-guide.json", "ia.md"]) {
     pushIfExists((0, import_path2.join)(sftddDir, "design", name));
   }
-  for (const name of ["feature-request.md", "feature-spec.json", "feature-spec.md", "nfrs.md", "architecture.md", "plan.json", "test-list.json", "test-list.md"]) {
+  for (const name of ["feature-request.md", "feature-spec.json", "feature-spec.md", "nfrs.md", "architecture.md", "db-design.json", "plan.json", "test-list.json", "test-list.md"]) {
     pushIfExists((0, import_path2.join)(featureDir, name));
   }
   const storiesDir = (0, import_path2.join)(featureDir, "stories");
@@ -7181,6 +7222,14 @@ function scanFeatureConformance(sftddDir, featureId) {
       artifact: "architecture.json (layering declared)",
       ok: lay.ok,
       violations: lay.ok ? [] : lay.violations
+    });
+    const dbDesignPath = (0, import_path2.join)(featureDir, "db-design.json");
+    const dbDesignContent = (0, import_fs2.existsSync)(dbDesignPath) ? (0, import_fs2.readFileSync)(dbDesignPath, "utf8") : void 0;
+    const dbd = checkDbDesign(dbDesignContent, archContent);
+    entries.push({
+      artifact: "db-design.json -> architecture.json (invariant realization)",
+      ok: dbd.ok,
+      violations: dbd.ok ? [] : dbd.violations
     });
     const testListPath = (0, import_path2.join)(featureDir, "test-list.json");
     if ((0, import_fs2.existsSync)(testListPath)) {

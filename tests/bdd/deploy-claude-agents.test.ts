@@ -130,9 +130,9 @@ describe("deployClaudeSkills", () => {
       expect(fs.existsSync(path.join(targetDir, skillRel(skill), "SKILL.md")), `${skill}/SKILL.md`).toBe(true);
     }
     expect(fs.existsSync(path.join(targetDir, REL, "references"))).toBe(true);
-    // lakebase-sftdd-workflows ships its agents/ subtree so @lakebase-sftdd-workflows/agents/* resolves.
+    // consort ships its agents/ subtree so @consort/agents/* resolves.
     expect(
-      fs.existsSync(path.join(targetDir, skillRel("lakebase-sftdd-workflows"), "agents", "navigator.md"))
+      fs.existsSync(path.join(targetDir, skillRel("consort"), "agents", "navigator.md"))
     ).toBe(true);
   });
 

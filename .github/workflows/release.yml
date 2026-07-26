@@ -1,9 +1,9 @@
 name: Release tag verify
 
-# Tag-driven build/typecheck/test for lakebase-app-dev-kit.
+# Tag-driven build/typecheck/test for consort.
 #
 # v0 consumers depend on the substrate via a git URL in package.json:
-#   "github:databricks-solutions/lakebase-app-dev-kit#<tag-or-sha>"
+#   "github:databricks-solutions/consort#<tag-or-sha>"
 #
 # This workflow exists so each release tag has a green build run attached,
 # so consumers can pin against a verified sha. There is no npm publish step.
