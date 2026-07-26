@@ -13,9 +13,23 @@ import {
   deployClaudeAgents,
   deployClaudeSkills,
   scaffoldStaticAll,
-  PROJECT_SKILLS,
 } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { ALL_AGENT_ROLES } from "../../scripts/sftdd/agent-models";
+
+// The kit owns the set of skills a scaffolded project carries; the substrate no
+// longer enumerates them, it DISCOVERS every skills/<dir>/SKILL.md the resolved
+// kit ships. This is the kit's expected set, asserted against what discovery
+// deploys (order-independent; the assertions sort).
+const KIT_PROJECT_SKILLS = [
+  "architectural-design-principles",
+  "consort",
+  "databricks-core",
+  "databricks-lakebase",
+  "lakebase-release-workflows",
+  "lakebase-scm-workflows",
+  "software-design-principles",
+  "ui-ux-design-principles",
+];
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(here, "..", "..");
@@ -120,13 +134,13 @@ describe("deployClaudeSkills", () => {
 
   const REL = skillRel("software-design-principles");
 
-  it("copies every PROJECT_SKILLS skill dir (whole, SKILL.md + references) into .claude/skills/", async () => {
+  it("copies every KIT_PROJECT_SKILLS skill dir (whole, SKILL.md + references) into .claude/skills/", async () => {
     const result = await deployClaudeSkills(targetDir, { templatesDir: REPO_TEMPLATES });
-    expect(result.written.sort()).toEqual(PROJECT_SKILLS.map(skillRel).sort());
+    expect(result.written.sort()).toEqual(KIT_PROJECT_SKILLS.map(skillRel).sort());
     expect(result.skipped).toEqual([]);
     // The engineering canon + the three workflow skills + the two Databricks
     // parents the agents/commands reference are all present, manifests intact.
-    for (const skill of PROJECT_SKILLS) {
+    for (const skill of KIT_PROJECT_SKILLS) {
       expect(fs.existsSync(path.join(targetDir, skillRel(skill), "SKILL.md")), `${skill}/SKILL.md`).toBe(true);
     }
     expect(fs.existsSync(path.join(targetDir, REL, "references"))).toBe(true);
@@ -162,14 +176,14 @@ describe("scaffoldStaticAll integration: claudeSkills", () => {
   });
   afterEach(() => rmTemp(targetDir));
 
-  it("scaffolds .claude/skills by default and reports every PROJECT_SKILLS in claudeSkills", async () => {
+  it("scaffolds .claude/skills by default and reports every KIT_PROJECT_SKILLS in claudeSkills", async () => {
     const result = await scaffoldStaticAll({
       targetDir,
       templatesDir: REPO_TEMPLATES,
       language: "nodejs",
     });
-    expect(result.claudeSkills.sort()).toEqual(PROJECT_SKILLS.map(skillRel).sort());
-    for (const skill of PROJECT_SKILLS) {
+    expect(result.claudeSkills.sort()).toEqual(KIT_PROJECT_SKILLS.map(skillRel).sort());
+    for (const skill of KIT_PROJECT_SKILLS) {
       expect(fs.existsSync(path.join(targetDir, skillRel(skill), "SKILL.md")), `${skill}/SKILL.md`).toBe(true);
     }
   });
