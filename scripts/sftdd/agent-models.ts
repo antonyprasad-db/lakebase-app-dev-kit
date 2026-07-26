@@ -28,6 +28,7 @@ export type SpawnableAgentRole = Exclude<AgentRole, "orchestrator">;
 export const RECOMMENDED_MODELS: Record<SpawnableAgentRole, string> = {
   "spec-author": "opus",
   "architect-reviewer": "opus",
+  dba: "opus",
   "test-strategist": "sonnet",
   "ux-designer": "sonnet",
   navigator: "sonnet",

@@ -22,6 +22,7 @@ export type AgentRole =
   | "spec-author"
   | "ux-designer"
   | "architect-reviewer"
+  | "dba"
   | "test-strategist"
   | "orchestrator"
   | "navigator"
