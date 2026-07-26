@@ -1,6 +1,6 @@
 # Consort
 
-**Consort is a Spec-First Branched-Database TDD agent framework.** A deterministic orchestrator drives a set of separate role agents through a spec-first design lane and a test-driven build lane whose every red/green/refactor cycle runs against a live, copy-on-write branch of a real, governed Lakebase database. The controls are code the agent runs inside but cannot edit: human-in-the-loop gates fail closed, tests are immutable within a unit of work, and a green result is defined as a test runner actually passing against real data, not the agent's report that it passed.
+**Consort is a Spec-First Branched-Database TDD agent framework.** A deterministic orchestrator drives a set of separate role agents through a spec-first design lane and a test-driven build lane whose every red/green/refactor cycle runs against a live, copy-on-write branch of a real, governed Lakebase database. The controls are code the agent runs inside but cannot edit: human-in-the-loop gates fail closed, tests are immutable within a unit of work, and a green result is defined as a test runner actually passing against real data.
 
 ## How it works
 
