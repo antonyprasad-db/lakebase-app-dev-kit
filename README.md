@@ -2,25 +2,21 @@
 
 **Consort is a Spec-First Branched-Database TDD agent framework: it governs what an AI agent writes by construction.** A deterministic orchestrator drives a set of separate role agents through a spec-first design lane and a test-driven build lane whose every red/green/refactor cycle runs against a live, copy-on-write branch of a real, governed Lakebase database. The controls are code the agent runs inside but cannot edit: human-in-the-loop gates fail closed, tests are immutable within a unit of work, and a green result is defined as a test runner actually passing against real data, not the agent's report that it passed.
 
-Consort builds on a substrate package, [`@databricks-solutions/lakebase-scm-utils`](https://github.com/databricks-solutions/lakebase-scm-utils), which owns the paired-branch source-control primitives (branch lifecycle, schema diff, PR/merge, credential minting, project bootstrap). Consort composes on that substrate; it does not reimplement it.
-
 ## How it works
 
 The workflow runs as a loop of increments, `/plan -> /design -> /build -> /deploy`, with a human deciding every gate:
 
 - **Design lane (spec-first).** Intent is captured in a specification and a list of the tests that will demonstrate it, then frozen at a hashed gate so the target cannot move mid-build. Eight role agents each own a bounded concern: product owner, spec author, architect reviewer, DBA, test strategist, UX designer (for user-facing work), and the navigator/driver pair that run the build cycle. No role can do another's job and roles share no memory, so the agent that writes the code is never the one that judges it.
 - **Build lane (Branched-Database TDD).** The full red/green/refactor cycle runs against a copy-on-write branch of real, governed data. A green result is stamped only when the test runner actually passes; a failed verify routes to a bounded code repair that never touches the tests, or, when a later story legitimately supersedes a prior test, to a rule-bound refactor of only the superseded tests.
-- **Deploy + promote (deterministic).** These phases are run by the orchestrator itself, not an agent: it deploys/verifies the increment and drives the PR -> CI -> merge -> parent-tier migration through the substrate. The human approves the deploy and promote gates.
+- **Deploy + promote (deterministic).** These phases are run by the orchestrator itself, not an agent: it deploys/verifies the increment and drives the PR, CI, merge, and parent-tier migration. The human approves the deploy and promote gates.
 
 Routing between phases is a program, not a model decision, so the control loop cannot drift or be argued out of a step, and it cannot be lost across context compaction.
 
 ## What is in this repo
 
-Consort is the framework layer. The SCM/substrate layer lives in `lakebase-scm-utils` (a dependency).
-
-- **`scripts/sftdd/`** the deterministic orchestrator and the per-role logic (drive loop, design/build routing, gate conformance, experiment/spike/promote lexicon, bad-smell catalog, agent logging).
+- **`scripts/sftdd/`** the deterministic orchestrator and the per-role logic: the drive loop, design/build routing, the gates, experiments and spikes, bad-smell detection, and agent logging.
 - **`skills/consort/`** the framework's agent-facing contract (`SKILL.md`), the eight role-agent prompts under `agents/`, and its references. Plus the shared engineering canon skills (`software-design-principles`, `architectural-design-principles`, `ui-ux-design-principles`) that the roles import, and the vendored Databricks skills (`databricks-core`, `databricks-lakebase`).
-- **`templates/`** the `.sftdd/` workflow bootstrap and the project-level `.claude/commands` a scaffolded project carries. (The app-scaffold and CI templates a new project gets are the substrate's; Consort layers the SFTDD workflow on top.)
+- **`templates/`** the `.sftdd/` workflow bootstrap and the project-level `.claude/commands` a scaffolded project carries.
 - **`apps/mcp-server/`** a single MCP server exposing the tool surface to MCP-capable agents (Claude Desktop, OpenAI Codex, Cursor-via-MCP, Genie Code).
 - **`tools/openai-foundry/`** a pre-rendered OpenAI Foundry / Codex tool spec, generated from the same `apps/mcp-server/tools.ts` registry.
 - **`tests/`** Vitest BDD tests. Live Lakebase paths skip cleanly when `LAKEBASE_TEST_*` env vars are not set.
@@ -29,13 +25,12 @@ The scaffolded `.sftdd/` runtime dir (`features/`, `experiments/`, `spikes/`, `c
 
 ## Skills
 
-Consort ships its framework skill and the engineering canon its roles import. The paired-branch SCM skill those roles build on is owned by the substrate (`lakebase-scm-utils`), not duplicated here.
+Consort ships its framework skill and the engineering canon its roles import.
 
-- **[`consort`](skills/consort/README.md)** the framework itself: the `/design` and `/build` lanes, the role agents, the gates, and the code patterns for the paired-branch primitives.
+- **[`consort`](skills/consort/README.md)** the framework itself: the `/design` and `/build` lanes, the role agents, and the gates.
 - **[`software-design-principles`](skills/software-design-principles/SKILL.md)** SOLID, DRY, clean code, layered architecture, cross-cutting concerns, NFRs. Imported by the framework roles.
 - **[`architectural-design-principles`](skills/architectural-design-principles/SKILL.md)** system-level canon: layered architecture, ports and adapters, twelve-factor, evolutionary architecture and database design.
 - **[`ui-ux-design-principles`](skills/ui-ux-design-principles/SKILL.md)** experience-level canon for the UX Designer and any user-facing build.
-- **[`lakebase-scm-workflows`](https://github.com/databricks-solutions/lakebase-scm-utils/tree/main/skills/lakebase-scm-workflows)** paired-branch source control, schema diff, PR flow, runner setup. **Owned by the substrate**; scaffolded into every project so Consort's roles can compose on it without carrying a copy.
 - **Vendored** `databricks-core` and `databricks-lakebase` are read-only mirrors of [`databricks/devhub`](https://github.com/databricks/devhub/tree/main/.agents/skills) (the `databricks postgres` CLI surface). Refresh with `npm run sync:devhub` (drift-checked in CI via `npm run check:devhub`).
 
 ## Install and use
@@ -50,7 +45,7 @@ claude plugin install consort@consort
 Then, in any session:
 
 ```
-/consort:tdd
+/consort:start
 ```
 
 In a folder with a `.sftdd/` directory this resumes the `/plan -> /design -> /build -> /deploy` loop; elsewhere it guides you through creating a project, then resumes. The workflow is driven by the deterministic orchestrator (`lakebase-sftdd-drive`), which spawns the role agents scaffolded into the project's `.claude/agents/` (invoked as `claude --agent <role>`) and pauses at every HITL gate. The plugin ships the command + skills + MCP server; the role agents come from the scaffolded project, not the plugin.
@@ -92,24 +87,14 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full live-test prerequisites and 
 
 ## CLIs
 
-Consort's own bins are the SFTDD workflow surface plus a few project-lifecycle helpers. Run any with `--help`. (The paired-branch SCM bins, `lakebase-branch`, `lakebase-pr`, `lakebase-schema-diff`, `lakebase-schema-migrate`, `lakebase-get-connection`, `lakebase-doctor`, and the `lakebase-scm-*` family, are the substrate's, in `lakebase-scm-utils`.)
+The bins are Consort's workflow surface plus a few project-lifecycle helpers. Run any with `--help`.
 
-- **`lakebase-sftdd-drive`** the deterministic orchestrator: routes the design/build/deploy/promote phases, spawns the role agents, and holds the gates. The `lakebase-sftdd-*` family (`-intake`, `-cycle`, `-experiment`, `-spike`, `-deploy`, `-approve-gate`, `-gate-conformance`, `-next`, `-test-list`, `-human-proxy`, ...) are its building blocks. `lakebase-tdd-*` are back-compat aliases.
-- **`lakebase-create-project`** end-to-end Lakebase-paired project bootstrap that also lays down the `.sftdd/` workflow (wraps the substrate's base scaffolder).
-- **`lakebase-adopt-sftdd`** add the SFTDD workflow to an existing Lakebase-paired project.
+- **`lakebase-sftdd-drive`** the deterministic orchestrator: routes the design/build/deploy/promote phases, spawns the role agents, and holds the gates. The `lakebase-sftdd-*` family (`-intake`, `-cycle`, `-experiment`, `-spike`, `-deploy`, `-approve-gate`, `-gate-conformance`, `-next`, `-test-list`, `-human-proxy`, ...) are its building blocks.
+- **`lakebase-create-project`** end-to-end Lakebase-paired project bootstrap that also lays down the workflow.
+- **`lakebase-adopt-sftdd`** add Consort's workflow to an existing Lakebase-paired project.
 - **`lakebase-feature-status`** report the workflow state of the features in a project.
 - **`lakebase-update-commands`** refresh a scaffolded project's `.claude/commands` to the current version.
 - **`lakebase-mcp-server`** stdio MCP server exposing the tool surface to MCP-capable agents.
-
-## Imports (transition shim)
-
-For backward compatibility, this package re-exports the substrate's modules so existing `@databricks-solutions/consort/{github,lakebase,git,util}` imports keep resolving:
-
-```ts
-import { getConnection } from "@databricks-solutions/consort/lakebase";
-```
-
-**New consumers should depend on [`@databricks-solutions/lakebase-scm-utils`](https://github.com/databricks-solutions/lakebase-scm-utils) directly** for those substrate functions; the re-export exists only to ease the transition.
 
 ## Contributing
 

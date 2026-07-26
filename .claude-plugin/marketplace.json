@@ -3,12 +3,12 @@
   "owner": {
     "name": "databricks-solutions"
   },
-  "description": "Lakebase app dev kit: agentic software-development workflows on paired Lakebase branches (TDD state-machine, SCM branch lifecycle, release promotion).",
+  "description": "Consort: a Spec-First Branched-Database TDD agent framework, running on paired Lakebase branches with human-in-the-loop gates.",
   "plugins": [
     {
       "name": "consort",
       "source": "./",
-      "description": "Lakebase app dev kit: git-Lakebase branch-pairing, schema diff, PR flow, and the SFTDD (Spec-First Test-Driven Development) state-machine workflow. Run /consort:sftdd to launch the SFTDD workflow (resumes in a scaffolded project, guides creation elsewhere). The orchestrator is a deterministic driver (lakebase-sftdd-drive) that spawns the role agents (product-owner, spec-author, architect-reviewer, test-strategist, ux-designer, navigator, driver, release-engineer)."
+      "description": "Consort: a Spec-First Branched-Database TDD agent framework. Run /consort:start to launch the workflow (resumes in a scaffolded project, guides creation elsewhere). A deterministic orchestrator (lakebase-sftdd-drive) spawns the role agents (product-owner, spec-author, architect-reviewer, dba, test-strategist, ux-designer, navigator, driver) and holds human-in-the-loop gates."
     }
   ]
 }

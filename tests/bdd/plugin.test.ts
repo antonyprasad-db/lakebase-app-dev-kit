@@ -1,5 +1,5 @@
-// the kit is a Claude Code plugin. /consort:tdd launches
-// the TDD workflow. The plugin ships the command + skills + MCP server; the role
+// the kit is a Claude Code plugin. /consort:start launches
+// the workflow. The plugin ships the command + skills + MCP server; the role
 // agents are NOT shipped as plugin agents , the driver invokes them as
 // `claude --agent <role>` against the agents scaffolded into each project's
 // .claude/agents/, so the manifest declares no `agents` field. Hermetic JSON/file checks.
@@ -55,8 +55,8 @@ describe("marketplace catalog (.claude-plugin/marketplace.json)", () => {
   });
 });
 
-describe("/consort:sftdd launcher command (commands/sftdd.md)", () => {
-  const tdd = fs.readFileSync(path.join(REPO_ROOT, "commands", "sftdd.md"), "utf8");
+describe("/consort:start launcher command (commands/start.md)", () => {
+  const tdd = fs.readFileSync(path.join(REPO_ROOT, "commands", "start.md"), "utf8");
 
   it("has a frontmatter description", () => {
     expect(tdd).toMatch(/^---\n[\s\S]*?\bdescription:/);
