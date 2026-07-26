@@ -76,7 +76,27 @@ import { fileURLToPath } from "url";
 
 // scripts/sftdd/project-sftdd-setup.ts
 var __dirname2 = path2.dirname(fileURLToPath2(import.meta.url));
+function kitPackageName() {
+  const candidates = [
+    path2.resolve(__dirname2, "../../package.json"),
+    path2.resolve(__dirname2, "../../../package.json")
+  ];
+  for (const c of candidates) {
+    try {
+      const name = JSON.parse(fs3.readFileSync(c, "utf8")).name;
+      if (typeof name === "string" && name) return name;
+    } catch {
+    }
+  }
+  throw new Error(`could not resolve the kit package name; looked in: ${candidates.join(", ")}`);
+}
 function layDownTddScaffold(targetDir) {
+  const kitPkgFile = path2.join(targetDir, ".lakebase", "kit-package");
+  if (!fs3.existsSync(kitPkgFile)) {
+    fs3.mkdirSync(path2.dirname(kitPkgFile), { recursive: true });
+    fs3.writeFileSync(kitPkgFile, `${kitPackageName()}
+`);
+  }
   const candidates = [
     path2.resolve(__dirname2, `../../templates/sftdd-bootstrap/${ARTIFACT_ROOT}`),
     path2.resolve(__dirname2, `../../../templates/sftdd-bootstrap/${ARTIFACT_ROOT}`)
