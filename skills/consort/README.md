@@ -1,8 +1,8 @@
 # consort
 
-Substrate for **Spec-First Test-Driven Development (SFTDD) with evolutionary design** on paired Lakebase branches. Canonical Beck-style RED → GREEN → REFACTOR composed with paired-branch primitives (cheap experiments, parent-aware schema diff, real per-branch databases) and HITL gates at every phase boundary.
+Consort's spec-first, test-driven workflow on paired Lakebase branches: canonical Beck-style RED → GREEN → REFACTOR composed with paired-branch primitives (cheap experiments, parent-aware schema diff, real per-branch databases) and human-in-the-loop gates at every phase boundary.
 
-**Spec-first: two disciplines, back to back.** SFTDD runs the design lane as **Spec Driven Development (SDD)** and the build lane as **Test Driven Development (TDD)**:
+**Spec-first: two disciplines, back to back.** Consort runs the design lane as **Spec Driven Development (SDD)** and the build lane as **Test Driven Development (TDD)**:
 
 - **Design lane = SDD** (`/design`). Spec Author, Architect Reviewer, and Test Strategist turn intent into a gated, executable spec – feature spec, stories, ACs, architecture notes, and a Beck-ordered test list – before any product code exists. The spec is the artifact that drives everything downstream.
 - **Build lane = TDD** (`/build`). RED → GREEN → REFACTOR cycles turn that approved spec into working software on a paired branch, one test-list item at a time. The test list authored by SDD is the build lane's horizon.
@@ -41,7 +41,7 @@ This README is the human-facing overview. The agent's operating contract – har
 | **Bad smell** | A pattern the orchestrator detects that signals the workflow is sliding. Surfaces a proposed remediation to the HITL. |
 | **Adapter** | Pluggable component that syncs the spec format to/from an external tracker (JIRA, Linear, GitHub Issues, plain markdown). |
 
-The substrate API keeps "experiment" as the noun for the rigorous TDD branch; it is scoped to a story (N=1 is one experiment per story, N>=2 races several). The feature branch is the durable integration unit each accepted experiment merges into.
+"Experiment" is the noun for the rigorous TDD branch; it is scoped to a story (N=1 is one experiment per story, N>=2 races several). The feature branch is the durable integration unit each accepted experiment merges into.
 
 ## Roles
 
@@ -51,6 +51,7 @@ The substrate API keeps "experiment" as the noun for the rigorous TDD branch; it
 | **Spec Author** | Reads the Feature Requester's `feature-request.md` and the PO's `product-overview.md`, and turns them into the structured draft spec (`feature-spec.{md,json}`, stories, ACs). | [`agents/spec-author.md`](agents/spec-author.md) (first phase of `/design`). |
 | **UX Designer** | The experience lens (UI projects only). Owns the design guide + information architecture and ensures downstream UI adheres to them. | [`agents/ux-designer.md`](agents/ux-designer.md) |
 | **Architect Reviewer** | Applies layering lens; populates `layer` and `architectural_notes` per AC; imports `software-design-principles`. | [`agents/architect-reviewer.md`](agents/architect-reviewer.md) |
+| **DBA** | The physical-database lens. Consumes `architecture.json` and produces `db-design.json` (tables, columns/types, indexes, and a per-story schema-change plan) that realizes the architect's persistence invariants. Runs after the Architect Reviewer, before the Test Strategist. | [`agents/dba.md`](agents/dba.md) |
 | **Test Strategist** | Converts annotated ACs into a Beck-style ordered test list; emits per-AC views. | [`agents/test-strategist.md`](agents/test-strategist.md) |
 | **Orchestrator** | The deterministic driver (`lakebase-sftdd-drive`), not an agent. Routes over `workflow-state.json`: runs the design-spec gate; spawns experiments to budget; runs cycles; watches smells; presents outcomes to HITL. | `lakebase-sftdd-drive` (code, not an agent def). |
 | **Navigator** | PLAN, RED (writes failing tests), REVIEW. Never weakens an assertion. | [`agents/navigator.md`](agents/navigator.md) |
@@ -75,7 +76,7 @@ Each phase has a defined predecessor + artifact contract. The orchestrator refus
 
 ## Operations
 
-What the substrate does on your behalf, in user-journey order. You don't invoke these directly – the agent does, in response to the prompts in [How to use](#how-to-use).
+What Consort does on your behalf, in user-journey order. You don't invoke these directly – the agent does, in response to the prompts in [How to use](#how-to-use).
 
 ### 1. Design-spec gate
 
@@ -159,9 +160,9 @@ Every HITL decision is recorded in `.sftdd/features/<feature>/gates.json` via `a
 
 ## How to use
 
-Three flows – shown as what you'd prompt your agent to do, using a cart-checkout example throughout. The deterministic orchestrator (`lakebase-sftdd-drive`) routes the work and spawns the role agents (Navigator, Driver, and the rest), which read their prompts and run the underlying substrate primitives on your behalf.
+Three flows – shown as what you'd prompt your agent to do, using a cart-checkout example throughout. The deterministic orchestrator (`lakebase-sftdd-drive`) routes the work and spawns the role agents (Navigator, Driver, and the rest), which read their prompts and run the workflow on your behalf.
 
-The project-level slash commands `/design` and `/build` are the canonical entry points. They're thin wrappers around this substrate, scaffolded into new projects by `lakebase-create-project` under `.claude/commands/` (opt-out via `--skip-commands`). Projects extend them with their own concerns (JIRA hierarchy, IDE branch suggestions, manual review gates) by dropping sibling `design.{pre,post}-hook.md` or `build.{pre,post}-hook.md` files next to the scaffolded command. If a slash command isn't installed in your project, just describe what you want to your agent directly; the prompts below work either way.
+The project-level slash commands `/design` and `/build` are the canonical entry points. They're thin wrappers around the orchestrator, scaffolded into new projects by `lakebase-create-project` under `.claude/commands/` (opt-out via `--skip-commands`). Projects extend them with their own concerns (JIRA hierarchy, IDE branch suggestions, manual review gates) by dropping sibling `design.{pre,post}-hook.md` or `build.{pre,post}-hook.md` files next to the scaffolded command. If a slash command isn't installed in your project, just describe what you want to your agent directly; the prompts below work either way.
 
 ### 1. Author a feature spec (the SDD lane)
 
@@ -208,8 +209,7 @@ For when you want to run something directly without the agent. Most TDD work goe
 
 | Command | Purpose |
 |---|---|
-| `lakebase-feature-status <featureId> [--tdd <dir>] [--json]` | One-screen snapshot of a feature's TDD workflow state (phase, plan, test-list completion, experiments, recent decisions, open smells). |
-| `lakebase-infra-runner [--instance <id>] [--branch <id>] [--project-dir <path>] [--comparison-branch <id>] [--junit-output <file>]` | Run the `[Infra]`-tag suite against a paired Lakebase branch. Backs the scaffolded `test:infra` script; reads `LAKEBASE_PROJECT_ID` / `LAKEBASE_BRANCH_ID` when flags are absent. Emits JUnit XML when `--junit-output` is set. |
+| `lakebase-feature-status <featureId> [--tdd <dir>] [--json]` | One-screen snapshot of a feature's workflow state (phase, plan, test-list completion, experiments, recent decisions, open smells). |
 | `node dist/scripts/sftdd/spec-sync.cli.js <tddDir>` | Walk the `.sftdd/` tree and print drift reports. Exit 0 even when reports exist (warn-only by design). |
 | `node dist/scripts/sftdd/test-list.cli.js <tddDir> <featureId> [storyId]` | Regenerate per-AC views from the feature-level master test list. With a `storyId`, instead write that story's scoped per-story test list (`stories/<story>/test-list-per-story.json`), the streaming build lane's per-story input. |
 | `bash tests/run_all.sh` (per scaffolded project) | Run every `validate_*.sh` in the project's `tests/` directory (the project's full validation suite). |
@@ -221,9 +221,9 @@ For when you want to run something directly without the agent. Most TDD work goe
 - **`/design`** – the **SDD (Spec Driven Development)** lane: wraps Spec Author + Architect Reviewer + Test Strategist phases to produce the gated, executable spec. Scaffolded into new projects by `lakebase-create-project`. Project-specific JIRA hierarchy creation lives in `design.pre-hook.md`.
 - **`/build`** – the **TDD (Test Driven Development)** lane: wraps the Orchestrator running RED → GREEN → REFACTOR against the frozen spec. Scaffolded into new projects by `lakebase-create-project`. Project-specific PR/merge ceremony lives in `build.post-hook.md`.
 - **`/deploy <feature-id>`** – deploys the merged feature (or one story's branch), verifies reachable + feature-verify, and surfaces the `deploy` gate for the PO. The local target is the one implemented; remote release rides the scaffolded `merge.yml`.
-- **`/ship`** – not part of this skill. Promotion past PR merge (tier promote, release-on-merge) is the deterministic promote/merge substrate (`lakebase-scm-merge` + the scaffolded `merge.yml`).
+- **`/ship`** – not part of this skill. Promotion past PR merge (tier promote, release-on-merge) is the deterministic promote/merge phase (`lakebase-scm-merge` + the scaffolded `merge.yml`).
 
-The substrate itself ships no installed slash commands; the scaffolder writes the command files into the project at `lakebase-create-project` time (templated, with a kit-version pin). The substrate's runtime surface stays skills + agents + scripts + CLI bins. The MCP server (`apps/mcp-server/`) exposes the tool surface for MCP-capable consumers.
+Consort ships no installed slash commands; the scaffolder writes the command files into the project at `lakebase-create-project` time (templated, with a version pin). The runtime surface is skills + agents + scripts + CLI bins. The MCP server (`apps/mcp-server/`) exposes the tool surface for MCP-capable consumers.
 
 ## Agents
 
@@ -231,18 +231,16 @@ The role agents under [`agents/`](agents/) are invokable directly with `@consort
 
 | Agent | File | Invoked when |
 |---|---|---|
+| Spec Author | [`agents/spec-author.md`](agents/spec-author.md) | Phase 0. Turns the feature request and product overview into the structured draft spec (stories, ACs). |
 | Architect Reviewer | [`agents/architect-reviewer.md`](agents/architect-reviewer.md) | Phase 1. Applies the layering lens to each AC and populates `layer` + `architectural_notes`. Imports `software-design-principles`. |
+| DBA | [`agents/dba.md`](agents/dba.md) | Phase 1, after the architect. Produces `db-design.json` (tables, columns, indexes, per-story schema-change plan) realizing the architect's persistence invariants. |
 | Test Strategist | [`agents/test-strategist.md`](agents/test-strategist.md) | Phase 2. Converts annotated ACs into the ordered master test list and emits per-AC views. |
 | Navigator | [`agents/navigator.md`](agents/navigator.md) | Each cycle, RED step. Writes the failing test for the current test-list item and reviews the Driver's GREEN code. Never weakens an assertion. |
 | Driver | [`agents/driver.md`](agents/driver.md) | Each cycle, GREEN + REFACTOR steps. Writes the minimal honest code to make the failing test pass, then cleans up. Never deletes or weakens a test. |
 
-## Under the covers (JS/TS primitives)
+## Under the covers (internal primitives)
 
-The substrate's behavior is exposed as a TypeScript surface under `scripts/sftdd/`. The agents call these; you can also call them directly from a Node script or from your own tooling. Import paths shown are the in-repo source paths; published consumers import from the kit package.
-
-```ts
-import { cutExperiment, listExperiments, deleteExperiment } from "@databricks-solutions/consort/scripts/sftdd/experiment.js";
-```
+Consort's behavior is implemented as TypeScript functions under `scripts/sftdd/`. These are the internal primitives that the deterministic orchestrator and the CLI bins call; they are not a public import API. The tables below name them so you can read the source and understand what each phase does.
 
 ### Experiments and spikes
 
@@ -361,5 +359,5 @@ Implement your own adapter against the `SpecAdapter` interface (with the `SyncEv
 
 ## Integration with sibling skills
 
-- **[`lakebase-scm-workflows`](../lakebase-scm-workflows/README.md)** – `createFeatureBranch`, `deleteBranch`, `getSchemaDiff`, `getConnection`. Experiments and spikes are paired branches.
-- **[`software-design-principles`](../software-design-principles/SKILL.md)** – Imported as canon by Architect Reviewer (layering + cross-cutting concerns) and Navigator (refactor heuristics).
+- **`lakebase-scm-workflows`** – the paired-branch SCM primitives (`createFeatureBranch`, `deleteBranch`, `getSchemaDiff`, `getConnection`) that experiments and spikes run on. This skill is deployed into each scaffolded project's `.claude/skills/`.
+- **[`software-design-principles`](../software-design-principles/SKILL.md)** – imported as canon by the Architect Reviewer (layering + cross-cutting concerns) and the Navigator (refactor heuristics).
