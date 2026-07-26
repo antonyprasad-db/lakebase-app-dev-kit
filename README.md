@@ -7,9 +7,21 @@
 
 **Consort builds software with a coordinated ensemble of AI agents, spec-first and test-driven, on live branches of a real Lakebase database.**
 
-Taking a page from the field of music, a *consort* is an ensemble that plays in concert: each musician holds one part, and a conductor keeps them in time. Consort is that, applied to building software. A set of agents each take on one familiar role from the software lifecycle, a product owner, a spec author, an architect, a DBA, a test strategist, a UX designer, and a navigator/driver pair at the keyboard, while a deterministic conductor keeps them in sequence and a human approves every gate. No agent plays another's part, and the one that writes the code is never the one that judges it.
+Taking a page from the field of music, a *consort* is an ensemble that plays in concert: each musician holds one part, and a conductor keeps them in time. Consort is that, applied to building software. A set of agents each take on one familiar role from the software lifecycle, a product owner, a spec author, an architect, a DBA, a test strategist, a UX designer, and a navigator/driver pair at the keyboard, while a deterministic conductor keeps them in sequence and a human approves every gate, and no agent plays another's part.
 
-What keeps the ensemble honest is where it plays. Every red/green/refactor cycle runs against a live, copy-on-write branch of a real, governed Lakebase database, never a mock. A step is "green" only when a real test runner passes against real data; the human-in-the-loop gates fail closed; and within a unit of work the tests cannot be edited to force a pass.
+## Why Consort
+
+AI agents write code fast, but you can't trust that it works. On their own they mock the database, mark a task "done" with no test behind it, drift off the request, weaken a test to reach green, and lose the plan across a context reset. The database made it worse: it was the one dependency you couldn't cheaply branch, so it got faked with mocks and shared staging.
+
+Lakebase removes that constraint. A database branch is a real, governed, copy-on-write copy created in about a second, so the work runs against real data instead of a mock. Consort builds on that to make an agent's "done" checkable. Every increment is:
+
+- **Verified against real data**: "green" means a real test runner passed against a live database branch, not an agent's say-so.
+- **Independently reviewed**: the agent that writes the code is never the one that judges it.
+- **Spec-first and immutable**: intent is frozen at a hashed gate, and within a unit of work the tests can't be edited to force a pass.
+- **Deterministically driven**: the control loop is code, so it can't drift, skip a step, or get lost after a long session.
+- **Human-gated**: the gates fail closed, and nothing advances past one without your approval.
+
+A technical paper is forthcoming.
 
 ## The ensemble
 
@@ -36,47 +48,34 @@ Consort runs as a loop of small increments, `/plan -> /design -> /build -> /depl
 
 Routing between phases is a program, not a model's choice, so the loop cannot drift, be argued out of a step, or be lost across a context reset.
 
-## What's in this repo
+## Get started
 
-- **`scripts/sftdd/`** the deterministic orchestrator and the per-role logic: the drive loop, design/build routing, the gates, experiments and spikes, bad-smell detection, and agent logging.
-- **`skills/consort/`** the agent-facing contract (`SKILL.md`), the eight role-agent prompts under `agents/`, and its references. Plus the engineering-canon skills (`software-design-principles`, `architectural-design-principles`, `ui-ux-design-principles`) the roles import, and the vendored Databricks skills (`databricks-core`, `databricks-lakebase`).
-- **`templates/`** the `.sftdd/` bootstrap and the project-level `.claude/commands` a scaffolded project carries.
-- **`apps/mcp-server/`** a single MCP server exposing the tool surface to MCP-capable agents (Claude Desktop, OpenAI Codex, Cursor-via-MCP, Genie Code).
-- **`tools/openai-foundry/`** a pre-rendered OpenAI Foundry / Codex tool spec, generated from the same `apps/mcp-server/tools.ts` registry.
-- **`tests/`** Vitest BDD tests. Live Lakebase paths skip cleanly when the `LAKEBASE_TEST_*` env vars are not set.
-
-A scaffolded project keeps its live state under `.sftdd/` (`features/`, `experiments/`, `spikes/`, `cycles/`, `workflow-state.json`, `smells.json`), where the orchestrator reads and writes as the loop runs.
-
-## Skills
-
-Consort ships its own skill plus the engineering canon its roles import.
-
-- **[`consort`](skills/consort/README.md)** the framework itself: the `/design` and `/build` lanes, the role agents, and the gates.
-- **[`software-design-principles`](skills/software-design-principles/SKILL.md)** SOLID, DRY, clean code, layered architecture, cross-cutting concerns, NFRs. Imported by the roles.
-- **[`architectural-design-principles`](skills/architectural-design-principles/SKILL.md)** system-level canon: layered architecture, ports and adapters, twelve-factor, evolutionary architecture and database design.
-- **[`ui-ux-design-principles`](skills/ui-ux-design-principles/SKILL.md)** experience-level canon for the UX Designer and any user-facing build.
-- **Vendored** `databricks-core` and `databricks-lakebase` are read-only mirrors of [`databricks/devhub`](https://github.com/databricks/devhub/tree/main/.agents/skills) (the `databricks postgres` CLI surface). Refresh with `npm run sync:devhub` (drift-checked in CI via `npm run check:devhub`).
-
-## Install and use
-
-### As a Claude Code plugin
+Install the Claude Code plugin:
 
 ```bash
 claude plugin marketplace add databricks-solutions/consort
 claude plugin install consort@databricks-solutions
 ```
 
-Then, in any session:
+Then, in any session, run:
 
 ```
 /consort:start
 ```
 
-In a project that already has a `.sftdd/` directory this resumes the `/plan -> /design -> /build -> /deploy` loop; elsewhere it walks you through creating a project first, then resumes. The command, skills, and MCP server ship in the plugin; the role agents are scaffolded into your project's `.claude/agents/` and spawned by the orchestrator (`lakebase-sftdd-drive`) as `claude --agent <role>`, pausing at every gate.
+**Your first run.** In a fresh folder, `/consort:start` walks you through creating a Lakebase-paired project: a repo, a paired database, and the role agents and commands scaffolded into it. In a project that already has a `.sftdd/` directory, it resumes wherever you left off. (The command, skills, and MCP server ship in the plugin; the role agents live in your project's `.claude/agents/`, spawned by the orchestrator `lakebase-sftdd-drive` as `claude --agent <role>`.)
 
-### As skills for other agents
+**What to expect.** Consort drives the loop `/plan -> /design -> /build -> /deploy` and stops at every gate for you:
 
-`install.sh` copies the skill trees under `skills/` into the path each agent reads from, pulling the latest vendored skills first (best-effort; skipped offline). It auto-detects installed agents; `--tools` overrides.
+- at the **design gate**, you review and approve the frozen spec: the stories and acceptance criteria, the ordered test list, and the DBA's schema plan;
+- through the **build**, each cycle writes a failing test, makes it pass against a live database branch, then refactors;
+- at the **deploy** and **promote** gates, you approve the release and the migration to the parent tier.
+
+Nothing advances past a gate without you.
+
+### Other ways to install
+
+For coding agents other than the Claude Code plugin, `install.sh` copies the skill trees under `skills/` into the path each agent reads from, pulling the latest vendored skills first (best-effort; skipped offline). It auto-detects installed agents; `--tools` overrides.
 
 ```bash
 # Auto-detect installed agents, prompt to pick
@@ -91,7 +90,7 @@ bash <(curl -sL https://raw.githubusercontent.com/databricks-solutions/consort/m
 
 Targets: **Claude Code** (`.claude/skills/`), **Cursor** (`.cursor/skills/`), **Databricks Genie Code** (workspace upload), and **Claude Desktop / OpenAI Codex** via the MCP manifest at `.mcp.json` (the server lives at `apps/mcp-server/`, also on PATH as `lakebase-mcp-server`). **OpenAI Foundry** consumes the pre-rendered spec at [`tools/openai-foundry/consort.tools.json`](tools/openai-foundry/consort.tools.json). `manifest.json` is a machine-readable index of every skill and its files (regenerated by `python3 scripts/skills.py`).
 
-### From a clone
+Or run the bins directly from a clone:
 
 ```bash
 git clone https://github.com/databricks-solutions/consort
@@ -108,6 +107,27 @@ npm install   # the prepare script builds dist/
 - **JDK 17+** for the Flyway live path (the CLI itself is auto-downloaded)
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full live-test prerequisites and the `.env.template.test.config` / `.env.local.test.config` pattern.
+
+## What's in this repo
+
+- **`scripts/sftdd/`** the deterministic orchestrator and the per-role logic: the drive loop, design/build routing, the gates, experiments and spikes, bad-smell detection, and agent logging.
+- **`skills/consort/`** the agent-facing contract (`SKILL.md`), the eight role-agent prompts under `agents/`, and its references. Plus the engineering-canon skills (`software-design-principles`, `architectural-design-principles`, `ui-ux-design-principles`) the roles import, and the vendored Databricks skills (`databricks-core`, `databricks-lakebase`).
+- **`templates/`** the `.sftdd/` bootstrap and the project-level `.claude/commands` a scaffolded project carries.
+- **`apps/mcp-server/`** a single MCP server exposing the tool surface to MCP-capable agents (Claude Desktop, OpenAI Codex, Cursor-via-MCP, Genie Code).
+- **`tools/openai-foundry/`** a pre-rendered OpenAI Foundry / Codex tool spec, generated from the same `apps/mcp-server/tools.ts` registry.
+- **`tests/`** Vitest BDD tests. Live Lakebase paths skip cleanly when the `LAKEBASE_TEST_*` env vars are not set.
+
+A scaffolded project keeps its live state under `.sftdd/` (`features/`, `experiments/`, `spikes/`, `cycles/`, `workflow-state.json`, `smells.json`), where the orchestrator reads and writes as the loop runs.
+
+## Skills
+
+Consort ships its own skill plus the engineering canon its roles import.
+
+- **[`consort`](skills/consort/README.md)** Consort itself: the `/design` and `/build` lanes, the role agents, and the gates.
+- **[`software-design-principles`](skills/software-design-principles/SKILL.md)** SOLID, DRY, clean code, layered architecture, cross-cutting concerns, NFRs. Imported by the roles.
+- **[`architectural-design-principles`](skills/architectural-design-principles/SKILL.md)** system-level canon: layered architecture, ports and adapters, twelve-factor, evolutionary architecture and database design.
+- **[`ui-ux-design-principles`](skills/ui-ux-design-principles/SKILL.md)** experience-level canon for the UX Designer and any user-facing build.
+- **Vendored** `databricks-core` and `databricks-lakebase` are read-only mirrors of [`databricks/devhub`](https://github.com/databricks/devhub/tree/main/.agents/skills) (the `databricks postgres` CLI surface). Refresh with `npm run sync:devhub` (drift-checked in CI via `npm run check:devhub`).
 
 ## CLIs
 
