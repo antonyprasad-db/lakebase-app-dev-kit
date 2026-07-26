@@ -11,7 +11,7 @@ description: >-
   those stay the architect's. An uncovered invariant hard-blocks the spec gate.
 tools: Read, Write, Edit, Bash
 model: opus
-color: cyan
+color: red
 ---
 
 # DBA

@@ -28,7 +28,7 @@ npm install   # `prepare` builds dist/ via tsup
 
 ### Environment configuration
 
-The kit's substrate reads a number of `LAKEBASE_KIT_*` env vars to tune timeouts, package-registry URLs, and convention-branch TTLs (see `scripts/lakebase/kit-config.ts` for the full surface). Two committed files document the contract:
+The live tests read a number of `LAKEBASE_*` env vars (package-registry URLs, timeouts, convention-branch TTLs). Two committed files document the contract:
 
 - **`.env.template.test.config`** (committed): public-default values for every env-overridable knob. Sourced first by `scripts/run-all-live-tests.sh`.
 - **`.env.local.test.config`** (gitignored): your local overrides, e.g. corp-proxy package registries or a workspace-tighter `LAKEBASE_KIT_FEATURE_BRANCH_TTL_MS`. Sourced second so local values win.
@@ -47,27 +47,28 @@ npm run typecheck   # tsc --noEmit
 ## Project structure
 
 ```
-scripts/                       # operations – CLI and module entry points
-  git/                         # init, clone, commit-push, push, remote
-  github/                      # auth, repo, pr, secrets, runner
-  lakebase/                    # branch-*, get-connection, schema-diff, scaffold,
-                               #   create-project, migrate, schema-migrate-runners, ...
-  util/                        # exec, delay, parse, env helpers
+scripts/
+  sftdd/                       # the deterministic orchestrator + per-role logic
+  lakebase/                    # create-project, adopt-sftdd, update-commands,
+                               #   resolve-sftdd-dir
+  index.ts                     # package barrel
   openai-foundry.py            # generates tools/openai-foundry/*.tools.json
   skills.py                    # regenerates manifest.json from skills/
   sync-devhub-skills.ts        # syncs vendored skills from databricks/devhub
-  run-live-tests.sh            # live integration test runner with consent + cleanup
+  run-all-live-tests.sh        # live integration test runner (consent + cleanup)
 
 apps/mcp-server/               # MCP server entry (built to dist/apps/mcp-server/)
-tools/openai-foundry/          # Pre-rendered OpenAI Foundry tool spec
-skills/                        # Per-workflow-domain agent surface (SKILL.md per domain)
-                               # (lakebase-scm-workflows is owned by the substrate
-                               #  @databricks-solutions/lakebase-scm-utils, not here)
-  lakebase-release-workflows/  # kit-authored
-  databricks-core/             # vendored from databricks/devhub – read-only
-  databricks-lakebase/         # vendored from databricks/devhub – read-only
+commands/                      # the /consort:start plugin command
+tools/openai-foundry/          # pre-rendered OpenAI Foundry tool spec
+skills/
+  consort/                     # the framework skill + the role-agent prompts
+  software-design-principles/  # engineering canon imported by the roles
+  architectural-design-principles/
+  ui-ux-design-principles/
+  databricks-core/             # vendored from databricks/devhub, read-only
+  databricks-lakebase/         # vendored from databricks/devhub, read-only
 templates/                     # files shipped into bootstrapped projects
-tests/bdd/                     # vitest BDD tests – hermetic + live-gated
+tests/bdd/                     # vitest BDD tests, hermetic + live-gated
 ```
 
 The kit has two parallel agent surfaces that must stay in sync:
