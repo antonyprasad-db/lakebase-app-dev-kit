@@ -36,10 +36,6 @@ Consort runs as a loop of small increments, `/plan -> /design -> /build -> /depl
 
 Routing between phases is a program, not a model's choice, so the loop cannot drift, be argued out of a step, or be lost across a context reset.
 
-## Who it's for
-
-Engineers building net-new services on Lakebase who already think in tests and reviewable increments, and the integration consultants who carry that discipline into a team. Consort is a method you adopt, scaffolded into your own project, not a product you run.
-
 ## What's in this repo
 
 - **`scripts/sftdd/`** the deterministic conductor and the per-role logic: the drive loop, design/build routing, the gates, experiments and spikes, bad-smell detection, and agent logging.
