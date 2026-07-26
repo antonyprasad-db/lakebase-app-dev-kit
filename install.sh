@@ -3,7 +3,7 @@
 # consort – multi-target installer
 #
 # Modeled on databricks-solutions/ai-dev-kit/install.sh. One canonical
-# skill tree (skills/lakebase-scm-workflows/), copied into the path each
+# skill tree (skills/), copied into the path each
 # agent reads from.
 #
 # Usage:
@@ -34,12 +34,12 @@ set -e
 # Auto-discovered from the kit's skills/ tree at install time. Every
 # directory under skills/ that contains a SKILL.md is treated as a
 # skill and installed to each chosen agent's path. Today that covers
-# the kit-authored workflow skills (lakebase-scm-workflows,
-# lakebase-release-workflows, ...) AND the vendored upstream skills
+# the kit-authored workflow skills (consort, the design canon, ...)
+# AND the vendored upstream skills
 # from devhub (databricks-core, databricks-lakebase) - consumers get
 # both layers without thinking about it.
 SKILL_NAMES=()  # populated after REPO_ROOT is resolved below
-PRIMARY_SKILL="lakebase-scm-workflows"  # used for the "checking source" probe
+PRIMARY_SKILL="consort"  # used for the "checking source" probe (a kit-owned skill)
 OWNER="databricks-solutions"
 REPO="consort"
 
@@ -59,7 +59,7 @@ NC='\033[0m'
 
 usage() {
   cat <<EOF
-lakebase-scm-workflows installer
+Consort installer
 
 Usage: install.sh [OPTIONS]
 
@@ -135,7 +135,7 @@ echo -e "${BLUE}Pulling latest vendored skills (npm run sync:devhub)...${NC}"
 
 # Discover every skill in the tree (any skills/<dir>/SKILL.md). Sorted
 # alphabetically so install order is deterministic. Today this covers
-# both kit-authored workflows (lakebase-scm-workflows, ...) and
+# both kit-authored workflows (consort, ...) and
 # vendored upstream references (databricks-core, databricks-lakebase).
 while IFS= read -r -d '' skill_md; do
   skill_dir="$(dirname "$skill_md")"

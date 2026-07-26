@@ -15,11 +15,14 @@ import type { AgentRole } from "./agent-log";
 
 /**
  * The SPAWNABLE role agents: the log roles that are real subagents with a
- * <role>.md def + a model. "orchestrator" is a log role (the deterministic
- * driver emits orchestration events under it) but NOT a spawnable agent, the
- * driver is code, has no .md + no model, so it is excluded here.
+ * <role>.md def + a model. Two log roles are NOT spawnable and are excluded:
+ * "orchestrator" (the deterministic driver emits orchestration events under it)
+ * and "release-engineer" (the deploy + promote phases are deterministic - the
+ * driver runs lakebase-sftdd-deploy + lakebase-scm-merge - and log under this
+ * label; there is no release-engineer agent). Both are code, with no .md + no
+ * model, so they are excluded here.
  */
-export type SpawnableAgentRole = Exclude<AgentRole, "orchestrator">;
+export type SpawnableAgentRole = Exclude<AgentRole, "orchestrator" | "release-engineer">;
 
 /**
  * Strongly-recommended default model per spawnable role. Mirrors each role def's
@@ -34,7 +37,6 @@ export const RECOMMENDED_MODELS: Record<SpawnableAgentRole, string> = {
   navigator: "sonnet",
   driver: "sonnet",
   "product-owner": "opus",
-  "release-engineer": "sonnet",
 };
 
 export const ALL_AGENT_ROLES = Object.keys(RECOMMENDED_MODELS) as SpawnableAgentRole[];

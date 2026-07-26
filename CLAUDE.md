@@ -14,7 +14,7 @@ The `.sftdd/` directory is created at scaffold time by `layDownTddScaffold()` in
 ## When working in this repo
 
 - Substrate scripts live in `scripts/<domain>/` (lakebase, github, git, tdd, util).
-- Workflow-domain skills live in `skills/<domain>/SKILL.md`. Two kit-authored domains: `lakebase-scm-workflows`, `lakebase-release-workflows`, `consort`. One shared-canon skill: `software-design-principles`. Vendored devhub skills also live under `skills/`.
+- Workflow-domain skills live in `skills/<domain>/SKILL.md`. The kit-authored workflow domain is `consort` (the SFTDD framework). The SCM skill `lakebase-scm-workflows` is owned by the substrate (`@databricks-solutions/lakebase-scm-utils`) and deployed from there. Shared-canon skills: `software-design-principles`, `architectural-design-principles`, `ui-ux-design-principles`. Vendored devhub skills also live under `skills/`.
 - Templates ship under `templates/`. Treat them as project assets – they end up in scaffolded projects, not in the substrate itself.
 - BDD tests live in `tests/bdd/`. Hermetic by default; live tiers gate on `LAKEBASE_TEST_E2E=1` + `DATABRICKS_HOST`.
 

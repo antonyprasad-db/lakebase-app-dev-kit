@@ -1,12 +1,12 @@
 {
   "version": "2",
-  "updated_at": "2026-07-26T14:17:16Z",
+  "updated_at": "2026-07-26T19:06:35Z",
   "skills": {
     "architectural-design-principles": {
       "version": "0.0.0",
-      "description": "System-level engineering canon, the architecture counterpart to software-design-principles. Layered architecture + dependency direction, ports and adapters (repository / ORM-as-adapter), the twelve-factor app for cloud-native development, evolutionary architecture with fitness functions, and evolutionary database design (schema that evolves by migration on paired branches). Imported by workflow skills (consort, lakebase-scm-workflows, lakebase-release-workflows). Use when: shaping a system boundary, deciding what is a backing service, mapping config to the environment, or authoring the fitness functions that keep the architecture honest as it evolves.",
+      "description": "System-level engineering canon, the architecture counterpart to software-design-principles. Layered architecture + dependency direction, ports and adapters (repository / ORM-as-adapter), the twelve-factor app for cloud-native development, evolutionary architecture with fitness functions, and evolutionary database design (schema that evolves by migration on paired branches). Imported by workflow skills (consort, lakebase-scm-workflows). Use when: shaping a system boundary, deciding what is a backing service, mapping config to the environment, or authoring the fitness functions that keep the architecture honest as it evolves.",
       "experimental": false,
-      "updated_at": "2026-06-20T23:06:07Z",
+      "updated_at": "2026-07-26T19:04:57Z",
       "files": [
         "SKILL.md",
         "references/evolutionary-architecture.md",
@@ -15,59 +15,11 @@
         "references/twelve-factor.md"
       ]
     },
-    "databricks-core": {
-      "version": "0.1.0",
-      "description": "Databricks CLI operations: auth, profiles, data exploration, and bundles. Contains up-to-date guidelines for Databricks-related CLI tasks.",
-      "experimental": false,
-      "updated_at": "2026-07-26T14:07:40Z",
-      "files": [
-        "SKILL.md",
-        "data-exploration.md",
-        "databricks-cli-auth.md",
-        "databricks-cli-install.md",
-        "declarative-automation-bundles.md"
-      ]
-    },
-    "databricks-lakebase": {
-      "version": "0.1.0",
-      "description": "Manage Lakebase Postgres Autoscaling projects, branches, and endpoints via Databricks CLI. Use when asked to create, configure, or manage Lakebase Postgres databases, projects, branches, computes, or endpoints.",
-      "experimental": false,
-      "updated_at": "2026-07-26T14:07:41Z",
-      "files": [
-        "SKILL.md"
-      ]
-    },
-    "lakebase-release-workflows": {
-      "version": "0.2.0",
-      "description": "Opinionated branching + release methodology for Lakebase-paired projects. Use when designing a project's branch layout, cutting a release candidate, promoting between long-running tiers, rolling back, or asking 'where should this work happen?' Encodes the prod / staging / {feature,test,uat,perf} default and the N-tier-capable cut-RC / regression-test / cut-backup / migrate release flow.",
-      "experimental": false,
-      "updated_at": "2026-06-10T08:15:11Z",
-      "files": [
-        "README.md",
-        "SKILL.md",
-        "references/branching-and-release-methodology.md"
-      ]
-    },
-    "lakebase-scm-workflows": {
-      "version": "0.1.0",
-      "description": "Opinionated git-Lakebase branch-pairing workflows. Use when scaffolding a Lakebase-paired project, creating/deleting Lakebase branches in lockstep with git branches, diffing parent-aware schemas, opening or merging PRs that touch Lakebase, or running the same operations the lakebase-scm-extension exposes in VS Code.",
-      "experimental": false,
-      "updated_at": "2026-07-19T19:10:42Z",
-      "files": [
-        "README.md",
-        "SKILL.md",
-        "agents/openai.yaml",
-        "assets/databricks.png",
-        "assets/databricks.svg",
-        "references/get-connection.md",
-        "references/github-auth.md"
-      ]
-    },
     "consort": {
       "version": "0.0.0",
-      "description": "Spec-First Test-Driven Development (SFTDD) with evolutionary design, against paired Lakebase branches: the design lane is Spec Driven Development (SDD) and the build lane is canonical Beck-style Test Driven Development (RED-GREEN-REFACTOR), composed with paired-branch primitives (cheap experiments, parent-aware schema diff, real per-branch databases). Spec-first means the spec is drafted, reviewed, and frozen at gates before any build cycle runs; evolutionary means the spec, the architecture, and the database all evolve increment over increment. Use when planning a new feature, running design-spec gates, running TDD cycles, comparing parallel experiments, or detecting workflow bad smells. Imports software-design-principles canon. Builds on lakebase-scm-workflows + lakebase-release-workflows.",
+      "description": "Consort, a Spec-First Branched-Database TDD agent framework built on governance by construction: a deterministic orchestrator drives role agents through a spec-first design lane (Spec Driven Development) and a build lane that runs canonical Beck-style Test Driven Development (RED-GREEN-REFACTOR) against a live copy-on-write branch of a real, governed Lakebase database, composed with paired-branch primitives (cheap experiments, parent-aware schema diff, real per-branch databases). The controls are code the agent cannot edit: gates fail closed, tests are immutable within a unit of work, and a green result is a real test run against real data. Spec-first means the spec is drafted, reviewed, and frozen at gates before any build cycle runs; evolutionary means the spec, the architecture, and the database all evolve increment over increment. Use when planning a new feature, running design-spec gates, running TDD cycles, comparing parallel experiments, or detecting workflow bad smells. Imports software-design-principles canon. Builds on lakebase-scm-workflows.",
       "experimental": false,
-      "updated_at": "2026-07-19T19:10:42Z",
+      "updated_at": "2026-07-26T19:05:13Z",
       "files": [
         "CONFIG.md",
         "README.md",
@@ -77,7 +29,6 @@
         "agents/driver.md",
         "agents/navigator.md",
         "agents/product-owner.md",
-        "agents/release-engineer.md",
         "agents/spec-author.md",
         "agents/test-strategist.md",
         "agents/ux-designer.md",
@@ -92,11 +43,33 @@
         "references/workflow-state-machine.md"
       ]
     },
+    "databricks-core": {
+      "version": "0.1.0",
+      "description": "Databricks CLI operations: auth, profiles, data exploration, and bundles. Contains up-to-date guidelines for Databricks-related CLI tasks.",
+      "experimental": false,
+      "updated_at": "2026-07-26T18:10:17Z",
+      "files": [
+        "SKILL.md",
+        "data-exploration.md",
+        "databricks-cli-auth.md",
+        "databricks-cli-install.md",
+        "declarative-automation-bundles.md"
+      ]
+    },
+    "databricks-lakebase": {
+      "version": "0.1.0",
+      "description": "Manage Lakebase Postgres Autoscaling projects, branches, and endpoints via Databricks CLI. Use when asked to create, configure, or manage Lakebase Postgres databases, projects, branches, computes, or endpoints.",
+      "experimental": false,
+      "updated_at": "2026-07-26T18:10:19Z",
+      "files": [
+        "SKILL.md"
+      ]
+    },
     "software-design-principles": {
       "version": "0.0.0",
-      "description": "Foundational engineering canon \u2013 SOLID, DRY, clean code, layered architecture, cross-cutting concerns, NFRs. Imported by workflow skills (consort, lakebase-scm-workflows, lakebase-release-workflows). Use when designing a module, reviewing a PR, planning a refactor, mapping cross-cutting concerns to layers, or arguing about API shape.",
+      "description": "Foundational engineering canon \u2013 SOLID, DRY, clean code, layered architecture, cross-cutting concerns, NFRs. Imported by workflow skills (consort, lakebase-scm-workflows). Use when designing a module, reviewing a PR, planning a refactor, mapping cross-cutting concerns to layers, or arguing about API shape.",
       "experimental": false,
-      "updated_at": "2026-06-27T05:28:47Z",
+      "updated_at": "2026-07-26T19:04:57Z",
       "files": [
         "SKILL.md",
         "references/clean-code.md",
@@ -111,7 +84,7 @@
       "version": "0.0.0",
       "description": "Experience-level engineering canon, the UI/UX counterpart to software-design-principles (code-level) and architectural-design-principles (system-level). Usability heuristics, visual hierarchy, accessibility, interaction and feedback, information architecture, design systems and tokens, and testable UI. Imported by the consort UX Designer (authoring design-guide.{md,json} + ia.md and the adherence gate) and by the Driver building UI. Use when: shaping a design guide or information architecture, reviewing a user-facing surface, choosing a UI framework, or making the UI testable.",
       "experimental": false,
-      "updated_at": "2026-06-20T23:06:07Z",
+      "updated_at": "2026-07-26T15:31:55Z",
       "files": [
         "SKILL.md",
         "references/accessibility.md",

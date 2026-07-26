@@ -279,7 +279,7 @@ export interface DeployState {
 /** The promote phase: take the accepted feature through its PR review (the
  *  lakebase-scm-workflows ladder) and MERGE it up into its parent tier (e.g.
  *  staging) in git + Lakebase, so the next sprint forks from a populated parent.
- *  A "release into a long-running branch" per lakebase-release-workflows. The
+ *  A "release into a long-running branch" (the deterministic promote/merge). The
  *  SCM ladder (feature-claimed -> pr-ready -> ci-green -> merged) backs the first
  *  three; the `promote` HITL gate is the human's PR acceptance, BEFORE the merge. */
 export interface PromoteState {

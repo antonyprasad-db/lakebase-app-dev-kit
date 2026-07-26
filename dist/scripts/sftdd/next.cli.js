@@ -6835,8 +6835,7 @@ var RECOMMENDED_MODELS = {
   "ux-designer": "sonnet",
   navigator: "sonnet",
   driver: "sonnet",
-  "product-owner": "opus",
-  "release-engineer": "sonnet"
+  "product-owner": "opus"
 };
 var ALL_AGENT_ROLES = Object.keys(RECOMMENDED_MODELS);
 var AGENT_CONFIG_REL = join2(".lakebase", "agent-config.json");
@@ -8625,7 +8624,6 @@ function orchestratorLogEvents(action, ctx = {}) {
       return [{ ...base, event: "gate.surfaced", slots: { gate: "spec", subject: `story ${story}`, ...withStory } }];
     case "await-acceptance":
       return [
-        { ...base, event: "handoff", slots: { to_role: "release-engineer", phase: "deploy", ...withStory } },
         { role: "release-engineer", level: "info", feature_id, event: "phase.start", slots: { phase: "deploy", ...withStory } },
         { ...base, event: "gate.surfaced", slots: { gate: "acceptance", subject: `story ${story}`, ...withStory } }
       ];

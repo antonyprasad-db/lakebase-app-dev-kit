@@ -25,7 +25,6 @@ const KIT_PROJECT_SKILLS = [
   "consort",
   "databricks-core",
   "databricks-lakebase",
-  "lakebase-release-workflows",
   "lakebase-scm-workflows",
   "software-design-principles",
   "ui-ux-design-principles",

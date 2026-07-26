@@ -90,11 +90,13 @@ export function orchestratorLogEvents(
     case "surface-gate":
       return [{ ...base, event: "gate.surfaced", slots: { gate: "spec", subject: `story ${story}`, ...withStory } }];
     case "await-acceptance":
-      // The Release Engineer takes over here to run the deterministic deploy +
-      // verify; the deploy CLI emits the deploy.* events with the real outcome.
-      // The orchestrator records the RE dispatch + the acceptance gate.
+      // Deploy is a DETERMINISTIC phase, not an inter-agent handoff: the
+      // orchestrator itself runs the deploy + verify (the deploy CLI emits the
+      // deploy.* events with the real outcome), logged under the release-engineer
+      // label. Modeled as a phase.start (like the build-lane dispatch below),
+      // never a handoff to a spawnable agent (there is no release-engineer agent).
+      // The orchestrator then surfaces the acceptance gate.
       return [
-        { ...base, event: "handoff", slots: { to_role: "release-engineer", phase: "deploy", ...withStory } },
         { role: "release-engineer", level: "info", feature_id, event: "phase.start", slots: { phase: "deploy", ...withStory } },
         { ...base, event: "gate.surfaced", slots: { gate: "acceptance", subject: `story ${story}`, ...withStory } },
       ];

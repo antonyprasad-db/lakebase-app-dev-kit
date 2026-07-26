@@ -7015,8 +7015,7 @@ var RECOMMENDED_MODELS = {
   "ux-designer": "sonnet",
   navigator: "sonnet",
   driver: "sonnet",
-  "product-owner": "opus",
-  "release-engineer": "sonnet"
+  "product-owner": "opus"
 };
 var ALL_AGENT_ROLES = Object.keys(RECOMMENDED_MODELS);
 var AGENT_CONFIG_REL = join4(".lakebase", "agent-config.json");

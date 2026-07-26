@@ -55,7 +55,7 @@ The substrate API keeps "experiment" as the noun for the rigorous TDD branch; it
 | **Orchestrator** | The deterministic driver (`lakebase-sftdd-drive`), not an agent. Routes over `workflow-state.json`: runs the design-spec gate; spawns experiments to budget; runs cycles; watches smells; presents outcomes to HITL. | `lakebase-sftdd-drive` (code, not an agent def). |
 | **Navigator** | PLAN, RED (writes failing tests), REVIEW. Never weakens an assertion. | [`agents/navigator.md`](agents/navigator.md) |
 | **Driver** | GREEN (minimal honest code), REFACTOR. Never deletes or weakens a test. | [`agents/driver.md`](agents/driver.md) |
-| **Release Engineer** | `/deploy`: deploys the built increment to its target, polls reachable, runs the feature verify, and hands the evidence to the PO for the `deploy` gate. Composes on `lakebase-release-workflows`. | [`agents/release-engineer.md`](agents/release-engineer.md) |
+| **Deploy + promote** (deterministic, no agent) | `/deploy`: the orchestrator runs `lakebase-sftdd-deploy` (deploy the increment, poll reachable, run the feature verify) and `lakebase-scm-merge` (promote via PR + CI + merge), surfacing the `deploy` and `promote` gates to the PO. Logged under the `release-engineer` label. | Deterministic phase (no agent). |
 | **Product Owner / HITL** | Owns the project-level `product-overview.md` (open-ended intent; software is a product), ACs, test list ordering. Decides promote vs synthesize. Owns every gate. | The human. |
 
 ## Phases and gates
@@ -221,7 +221,7 @@ For when you want to run something directly without the agent. Most TDD work goe
 - **`/design`** – the **SDD (Spec Driven Development)** lane: wraps Spec Author + Architect Reviewer + Test Strategist phases to produce the gated, executable spec. Scaffolded into new projects by `lakebase-create-project`. Project-specific JIRA hierarchy creation lives in `design.pre-hook.md`.
 - **`/build`** – the **TDD (Test Driven Development)** lane: wraps the Orchestrator running RED → GREEN → REFACTOR against the frozen spec. Scaffolded into new projects by `lakebase-create-project`. Project-specific PR/merge ceremony lives in `build.post-hook.md`.
 - **`/deploy <feature-id>`** – deploys the merged feature (or one story's branch), verifies reachable + feature-verify, and surfaces the `deploy` gate for the PO. The local target is the one implemented; remote release rides the scaffolded `merge.yml`.
-- **`/ship`** – lives in `lakebase-release-workflows`. Not part of this skill.
+- **`/ship`** – not part of this skill. Promotion past PR merge (tier promote, release-on-merge) is the deterministic promote/merge substrate (`lakebase-scm-merge` + the scaffolded `merge.yml`).
 
 The substrate itself ships no installed slash commands; the scaffolder writes the command files into the project at `lakebase-create-project` time (templated, with a kit-version pin). The substrate's runtime surface stays skills + agents + scripts + CLI bins. The MCP server (`apps/mcp-server/`) exposes the tool surface for MCP-capable consumers.
 
@@ -362,5 +362,4 @@ Implement your own adapter against the `SpecAdapter` interface (with the `SyncEv
 ## Integration with sibling skills
 
 - **[`lakebase-scm-workflows`](../lakebase-scm-workflows/README.md)** – `createFeatureBranch`, `deleteBranch`, `getSchemaDiff`, `getConnection`. Experiments and spikes are paired branches.
-- **`lakebase-release-workflows`** – Tier model (feature → staging → production), TTL, "never delete production." TDD defers to release-workflows for everything past PR merge.
 - **[`software-design-principles`](../software-design-principles/SKILL.md)** – Imported as canon by Architect Reviewer (layering + cross-cutting concerns) and Navigator (refactor heuristics).

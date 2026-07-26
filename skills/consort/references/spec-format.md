@@ -184,7 +184,7 @@ and reports any that do not conform. Exit 1 if any artifact is non-conformant.
 ## Where this format does NOT go
 
 - It does **not** carry execution telemetry. That lives in `cycles/<F>/<S>/<AC>/cycle-NNN.json` (per-cycle artifacts), `experiments/<F>/<exp>/timeline.json` (per-experiment), and `smells.json`.
-- It does **not** carry CI / release state. That belongs to `lakebase-release-workflows`.
+- It does **not** carry CI / release state. That belongs to the deterministic promote/merge substrate.
 - It does **not** carry code or test source. Those live in the project tree, on the experiment branch.
 
 The spec is what the workflow agrees on. The execution telemetry is what actually happened. Both matter; they live in different files for a reason.

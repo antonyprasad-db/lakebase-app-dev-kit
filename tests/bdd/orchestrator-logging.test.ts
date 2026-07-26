@@ -65,15 +65,14 @@ describe("orchestratorLogEvents: pure action -> canonical log events", () => {
     expect(bare?.effort).toBeUndefined();
   });
 
-  it("await-acceptance narrates the release-engineer handoff + phase.start (it is the invisible deploy actor)", () => {
-    // The Release Engineer runs the deterministic deploy at await-acceptance, but
-    // the deploy is a CLI and the RE's own model may stay silent. The orchestrator
-    // must still record that the RE was dispatched, so a run shows it was invoked.
+  it("await-acceptance emits a deterministic release-engineer phase.start (deploy), NOT a handoff", () => {
+    // Deploy is a deterministic phase the orchestrator runs itself (the deploy CLI
+    // emits the deploy.* outcome), logged under the release-engineer label. It is
+    // NOT an inter-agent handoff (there is no release-engineer agent), so it emits
+    // a phase.start like the build-lane dispatch, never a handoff.
     const action = { kind: "await-acceptance", story: "S1-file-bug" } as WorkflowAction;
     const events = orchestratorLogEvents(action, { featureId: "F1" });
-    const handoff = events.find((e) => e.event === "handoff");
-    expect(handoff, "expected a release-engineer handoff").toBeTruthy();
-    expect(handoff!.slots?.to_role).toBe("release-engineer");
+    expect(events.some((e) => e.event === "handoff"), "await-acceptance must NOT emit a handoff").toBe(false);
     const start = events.find((e) => e.event === "phase.start" && e.role === "release-engineer");
     expect(start, "expected a release-engineer phase.start").toBeTruthy();
     // The acceptance gate is still surfaced.

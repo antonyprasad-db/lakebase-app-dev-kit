@@ -59,7 +59,7 @@ describe("buildAgentConfig", () => {
 
   it("produces a config that validates against agent-config.schema.json", () => {
     const validate = getValidator("agent-models.schema.json");
-    const cfg = buildAgentConfig({ "release-engineer": "opus" });
+    const cfg = buildAgentConfig({ "product-owner": "opus" });
     expect(validate(cfg)).toBe(true);
   });
 });

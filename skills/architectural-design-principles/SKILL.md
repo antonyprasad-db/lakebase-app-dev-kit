@@ -1,6 +1,6 @@
 ---
 name: architectural-design-principles
-description: "System-level engineering canon, the architecture counterpart to software-design-principles. Layered architecture + dependency direction, ports and adapters (repository / ORM-as-adapter), the twelve-factor app for cloud-native development, evolutionary architecture with fitness functions, and evolutionary database design (schema that evolves by migration on paired branches). Imported by workflow skills (consort, lakebase-scm-workflows, lakebase-release-workflows). Use when: shaping a system boundary, deciding what is a backing service, mapping config to the environment, or authoring the fitness functions that keep the architecture honest as it evolves."
+description: "System-level engineering canon, the architecture counterpart to software-design-principles. Layered architecture + dependency direction, ports and adapters (repository / ORM-as-adapter), the twelve-factor app for cloud-native development, evolutionary architecture with fitness functions, and evolutionary database design (schema that evolves by migration on paired branches). Imported by workflow skills (consort, lakebase-scm-workflows). Use when: shaping a system boundary, deciding what is a backing service, mapping config to the environment, or authoring the fitness functions that keep the architecture honest as it evolves."
 ---
 
 # architectural-design-principles
@@ -52,4 +52,3 @@ A property with no clear owner or no fitness function: resolve it before merging
 
 - **`consort`** – Architect Reviewer imports this in architectural review (layering + twelve-factor); Test Strategist authors the fitness functions as RED tests; Navigator imports in PLAN; Driver keeps them green through REFACTOR.
 - **`lakebase-scm-workflows`** – branch PRs reviewed against layering + the fitness-function suite in CI.
-- **`lakebase-release-workflows`** – the NFR budget fitness functions are part of the release gate.

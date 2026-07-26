@@ -61,7 +61,8 @@ scripts/                       # operations – CLI and module entry points
 apps/mcp-server/               # MCP server entry (built to dist/apps/mcp-server/)
 tools/openai-foundry/          # Pre-rendered OpenAI Foundry tool spec
 skills/                        # Per-workflow-domain agent surface (SKILL.md per domain)
-  lakebase-scm-workflows/      # kit-authored
+                               # (lakebase-scm-workflows is owned by the substrate
+                               #  @databricks-solutions/lakebase-scm-utils, not here)
   lakebase-release-workflows/  # kit-authored
   databricks-core/             # vendored from databricks/devhub – read-only
   databricks-lakebase/         # vendored from databricks/devhub – read-only
