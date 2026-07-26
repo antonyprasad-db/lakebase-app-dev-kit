@@ -7,7 +7,7 @@
 
 **Consort builds software with a coordinated ensemble of AI agents, spec-first and test-driven, on live branches of a real Lakebase database.**
 
-Taking a page from the field of music, a *consort* is an ensemble that plays in concert: each musician holds one part, and a conductor keeps them in time. Consort is that, applied to building software. A set of agents each take on one familiar role from the software lifecycle, a product owner, a spec author, an architect, a DBA, a test strategist, a UX designer, and a navigator/driver pair at the keyboard, while a deterministic conductor keeps them in sequence and a human approves every gate, and no agent plays another's part.
+Consort takes its inspiration from the field of music. A *consort* is an ensemble that plays in concert: each musician holds one part, and a conductor keeps them in time. Consort is that, applied to building software. A set of agents each take on one familiar role from the software lifecycle, a product owner, a spec author, an architect, a DBA, a test strategist, a UX designer, and a navigator/driver pair at the keyboard, while a deterministic conductor keeps them in sequence and a human approves every gate, and no agent plays another's part.
 
 ## Why Consort
 
