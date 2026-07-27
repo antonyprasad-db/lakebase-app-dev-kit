@@ -91,6 +91,21 @@ describe("response-formatter: test-strategist (the S2 contract)", () => {
     expect(r.violations.some((x) => /no covering test/.test(x.problem) && x.problem.includes("AC2-redirected-to-detail-page"))).toBe(true);
   });
 
+  it("FLAGS a kind:fitness item carrying a Gherkin .feature scenario_file (mutually exclusive)", () => {
+    writeJson(perStoryList(), {
+      feature_id: F,
+      story_id: S,
+      items: [
+        { id: "T1", description: "submit creates", ac_id: "AC1-form-submission-creates-bug", status: "pending" },
+        { id: "T2", description: "redirect", ac_id: "AC2-redirected-to-detail-page", status: "pending" },
+        { id: "T3", description: "layering fitness", ac_id: "AC1-form-submission-creates-bug", kind: "fitness", scenario_file: "tests/features/S1.feature", status: "pending" },
+      ],
+    });
+    const r = formatRoleResponse({ role: "test-strategist", sftddDir: tdd, featureId: F, story: S });
+    expect(r.ok).toBe(false);
+    expect(r.violations.some((x) => /kind:"fitness".*\.feature|Gherkin/.test(x.problem))).toBe(true);
+  });
+
   it("PASSES a conformant per-story list (>=1 item, every ac_id mapped, every AC covered)", () => {
     writeJson(perStoryList(), {
       feature_id: F,

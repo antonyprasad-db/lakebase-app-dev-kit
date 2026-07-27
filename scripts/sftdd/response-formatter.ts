@@ -164,7 +164,9 @@ function checkTestStrategist(args: FormatArgs, v: FormatViolation[]): void {
     v.push({ artifact: `stories/${story}/test-list-per-story.json`, problem: `invalid JSON: ${e instanceof Error ? e.message : String(e)}` });
     return;
   }
-  const items = Array.isArray(parsed.items) ? (parsed.items as Array<{ id?: unknown; ac_id?: unknown }>) : [];
+  const items = Array.isArray(parsed.items)
+    ? (parsed.items as Array<{ id?: unknown; ac_id?: unknown; kind?: unknown; scenario_file?: unknown }>)
+    : [];
   if (items.length === 0) {
     v.push({ artifact: `stories/${story}/test-list-per-story.json`, problem: "empty `items` (expected >=1 test mapped to the story's ACs)" });
     return;
@@ -172,6 +174,17 @@ function checkTestStrategist(args: FormatArgs, v: FormatViolation[]): void {
   const acIds = new Set(storyAcIds(sftddDir, featureId, story));
   const covered = new Set<string>();
   items.forEach((item, i) => {
+    // A `kind:"fitness"` item is a plain architectural/DB test, NOT a Gherkin
+    // scenario, so it must not carry a .feature scenario_file (the two are
+    // mutually exclusive per canon; a fitness item pointing at a pytest-bdd
+    // .feature gives the Navigator contradictory instructions). The reflection
+    // gate raises this as a reflect-testlist-defect; enforce it in-turn.
+    if (item.kind === "fitness" && typeof item.scenario_file === "string" && /\.feature$/.test(item.scenario_file)) {
+      v.push({
+        artifact: `stories/${story}/test-list-per-story.json`,
+        problem: `items[${i}] (${String(item.id)}) is kind:"fitness" but its scenario_file "${item.scenario_file}" is a Gherkin .feature (mutually exclusive). A fitness item is a plain test (drop scenario_file), or make it kind:"behavior".`,
+      });
+    }
     const acId = item.ac_id;
     if (typeof acId !== "string" || acId.length === 0) {
       v.push({ artifact: `stories/${story}/test-list-per-story.json`, problem: `items[${i}] (${String(item.id)}) has null/empty ac_id` });
