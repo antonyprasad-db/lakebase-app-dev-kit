@@ -170,6 +170,7 @@ function checkTestStrategist(args: FormatArgs, v: FormatViolation[]): void {
     return;
   }
   const acIds = new Set(storyAcIds(sftddDir, featureId, story));
+  const covered = new Set<string>();
   items.forEach((item, i) => {
     const acId = item.ac_id;
     if (typeof acId !== "string" || acId.length === 0) {
@@ -179,8 +180,26 @@ function checkTestStrategist(args: FormatArgs, v: FormatViolation[]): void {
         artifact: `stories/${story}/test-list-per-story.json`,
         problem: `items[${i}] ac_id "${acId}" is not one of the story's ACs [${[...acIds].join(", ")}]`,
       });
+    } else if (typeof acId === "string") {
+      covered.add(acId);
     }
   });
+  // REVERSE coverage: every AC of the story must carry >=1 test item. The
+  // reflection gate enforces this downstream (an uncovered AC is a
+  // `reflect-testlist-defect` that burns a revise budget and can hard-halt a
+  // headless run); pulling it into the self-check makes the Test Strategist fix
+  // the gap WITHIN its own turn, deterministically, instead of shipping a
+  // half-covered list the critic rejects turns later. An AC whose
+  // architectural_notes assign it to the client harness is covered only by a
+  // client item; the self-check does not police WHICH kind, just that the AC is
+  // not silently dropped.
+  const uncovered = [...acIds].filter((id) => !covered.has(id));
+  if (uncovered.length > 0) {
+    v.push({
+      artifact: `stories/${story}/test-list-per-story.json`,
+      problem: `AC(s) with no covering test: [${uncovered.join(", ")}]. Every AC needs >=1 item (a client AC needs a kind:client item; see the reflect gate).`,
+    });
+  }
 }
 
 /** Whether the project's design-guide.json exists AND conforms to its schema.

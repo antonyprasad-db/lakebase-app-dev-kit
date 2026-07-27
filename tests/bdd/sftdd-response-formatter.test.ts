@@ -77,7 +77,21 @@ describe("response-formatter: test-strategist (the S2 contract)", () => {
     expect(r.violations[0].problem).toMatch(/not one of the story's ACs/);
   });
 
-  it("PASSES a conformant per-story list (>=1 item, every ac_id mapped)", () => {
+  it("FLAGS an AC left with no covering test (reverse coverage; the reflect-testlist-defect the gate raises)", () => {
+    // Only AC1 is covered; AC2 (e.g. a client-presentation AC the strategist
+    // under-covered) has no item. The self-check must catch it in-turn, not let
+    // the reflect gate hard-halt turns later.
+    writeJson(perStoryList(), {
+      feature_id: F,
+      story_id: S,
+      items: [{ id: "T1", description: "submit creates", ac_id: "AC1-form-submission-creates-bug", status: "pending" }],
+    });
+    const r = formatRoleResponse({ role: "test-strategist", sftddDir: tdd, featureId: F, story: S });
+    expect(r.ok).toBe(false);
+    expect(r.violations.some((x) => /no covering test/.test(x.problem) && x.problem.includes("AC2-redirected-to-detail-page"))).toBe(true);
+  });
+
+  it("PASSES a conformant per-story list (>=1 item, every ac_id mapped, every AC covered)", () => {
     writeJson(perStoryList(), {
       feature_id: F,
       story_id: S,
