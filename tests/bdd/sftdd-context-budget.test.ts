@@ -10,6 +10,7 @@ import {
   resumeFitsBudget,
   CONTEXT_FREE_FRACTION_REQUIRED,
   isPromptTooLongSignal,
+  isTransientApiErrorSignal,
   startsFreshEachTurn,
   heavyRoles,
   requiredFreeFraction,
@@ -77,6 +78,29 @@ describe("isPromptTooLongSignal (mid-turn overflow detection -> fresh-session re
     expect(isPromptTooLongSignal("claude exited 1")).toBe(false);
     expect(isPromptTooLongSignal("Error: ENOENT no such file")).toBe(false);
     expect(isPromptTooLongSignal("the test list is too long to enumerate here")).toBe(false);
+  });
+});
+
+describe("isTransientApiErrorSignal (blip detection -> same-session backoff retry)", () => {
+  it("matches transient API/network failures (the ones that killed unattended runs)", () => {
+    expect(isTransientApiErrorSignal("API Error: Connection closed mid-response. The response above may be incomplete.")).toBe(true);
+    expect(isTransientApiErrorSignal("Error: overloaded_error")).toBe(true);
+    expect(isTransientApiErrorSignal("429 Too Many Requests")).toBe(true);
+    expect(isTransientApiErrorSignal("503 Service Unavailable")).toBe(true);
+    expect(isTransientApiErrorSignal("upstream connect error: 502")).toBe(true);
+    expect(isTransientApiErrorSignal("read ECONNRESET")).toBe(true);
+    expect(isTransientApiErrorSignal("socket hang up")).toBe(true);
+    expect(isTransientApiErrorSignal("fetch failed")).toBe(true);
+  });
+  it("does NOT treat an AUTH failure as transient (it needs a human /login, retrying is futile)", () => {
+    expect(isTransientApiErrorSignal("Not logged in · Please run /login")).toBe(false);
+    expect(isTransientApiErrorSignal("authentication error")).toBe(false);
+    expect(isTransientApiErrorSignal("401 Unauthorized")).toBe(false);
+  });
+  it("does NOT match ordinary turn output (no false retry)", () => {
+    expect(isTransientApiErrorSignal("All 10 tests pass.")).toBe(false);
+    expect(isTransientApiErrorSignal("claude exited 1")).toBe(false);
+    expect(isTransientApiErrorSignal("the reflection gate flagged a defect")).toBe(false);
   });
 });
 

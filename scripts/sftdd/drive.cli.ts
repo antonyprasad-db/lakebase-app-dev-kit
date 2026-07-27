@@ -60,7 +60,7 @@ import {
 import { resolveModelForRole } from "./agent-models.js";
 import { resolveSftddSettings, applyProjectOverrides } from "./sftdd-config.js";
 import { parseTurnUsage, assistantTextFromLine, assistantEventSummary, type TurnUsage } from "./claude-usage.js";
-import { resumeFitsBudget, turnContextTokens, CONTEXT_FREE_FRACTION_REQUIRED, isPromptTooLongSignal, startsFreshEachTurn } from "./context-budget.js";
+import { resumeFitsBudget, turnContextTokens, CONTEXT_FREE_FRACTION_REQUIRED, isPromptTooLongSignal, isTransientApiErrorSignal, startsFreshEachTurn } from "./context-budget.js";
 import { writeRunConfig } from "./run-config.js";
 import { resolveLaunchKitRef, pinRunKitRef, kitRefDriftWarning } from "./kit-ref.js";
 import type { AgentRole } from "./agent-log.js";
@@ -74,6 +74,13 @@ import { relocateStrayDesignArtifacts, malformedSiblingRoot } from "./stray-arti
 // propagates. Each retry inherits the prior attempt's on-disk progress, so a
 // small bound converges; it is a backstop, not a substitute for chunking work.
 const MAX_PROMPT_TOO_LONG_RETRIES = 2;
+// A transient API/network blip (connection dropped, overloaded, 5xx) is not the
+// agent's or the workflow's fault; re-running the same turn a moment later
+// usually succeeds. Retry more times than the context-overflow case (a blip is
+// pure chance, so more attempts pay off) with exponential backoff, so one blip
+// cannot kill a multi-hour unattended capture. Overridable for tests.
+const MAX_TRANSIENT_RETRIES = Number(sftddEnv("MAX_TRANSIENT_RETRIES") ?? "5");
+const TRANSIENT_BACKOFF_MS = Number(sftddEnv("TRANSIENT_BACKOFF_MS") ?? "5000");
 
 interface ParsedArgs {
   feature?: string;
@@ -183,6 +190,9 @@ class ClaudeTurnError extends Error {
   constructor(
     message: string,
     readonly promptTooLong: boolean,
+    /** The turn's output matched a transient API/network failure (connection
+     *  dropped, overloaded, rate-limited, 5xx), so re-running it may succeed. */
+    readonly transient = false,
   ) {
     super(message);
     this.name = "ClaudeTurnError";
@@ -240,6 +250,7 @@ function spawnClaudeStreaming(args: string[], cwd: string): Promise<TurnUsage | 
     const child = spawn("claude", args, { cwd, stdio: ["inherit", "pipe", "pipe"] });
     const lines: string[] = [];
     let sawTooLong = false;
+    let sawTransient = false;
     // Tee a COMPACT trace: each tool action (liveness) as it streams, and the
     // turn's FINAL assistant text (the outcome) at close. The interstitial
     // "now I'll... / let me check..." prose is buffered and overwritten, so only
@@ -251,6 +262,7 @@ function spawnClaudeStreaming(args: string[], cwd: string): Promise<TurnUsage | 
     rl.on("line", (line) => {
       lines.push(line);
       if (isPromptTooLongSignal(line)) sawTooLong = true;
+      if (isTransientApiErrorSignal(line)) sawTransient = true;
       if (verboseAgent) {
         const text = assistantTextFromLine(line);
         if (text) process.stderr.write(text);
@@ -263,6 +275,7 @@ function spawnClaudeStreaming(args: string[], cwd: string): Promise<TurnUsage | 
     const erl = readline.createInterface({ input: child.stderr! });
     erl.on("line", (line) => {
       if (isPromptTooLongSignal(line)) sawTooLong = true;
+      if (isTransientApiErrorSignal(line)) sawTransient = true;
       process.stderr.write(`${line}\n`); // tee: keep claude's own errors visible
     });
     child.on("error", (err) => reject(err));
@@ -272,7 +285,7 @@ function spawnClaudeStreaming(args: string[], cwd: string): Promise<TurnUsage | 
       // The turn's final assistant text = the outcome (rule 5). Print it once,
       // after the tool trace, so the log shows actions + result, not the prose.
       if (!verboseAgent && lastText) process.stderr.write(`${lastText}\n`);
-      if (code !== 0) return reject(new ClaudeTurnError(`claude exited ${code}`, sawTooLong));
+      if (code !== 0) return reject(new ClaudeTurnError(`claude exited ${code}`, sawTooLong, sawTransient));
       resolve(parseTurnUsage(lines));
     });
   });
@@ -474,17 +487,35 @@ function execRunner(cfg: DriveEffectsConfig): CommandRunner {
         // the whole drive. A non-overflow failure (or exhausted retries) still throws.
         let usage: TurnUsage | undefined;
         const turnStart = Date.now();
-        for (let attempt = 0; ; attempt++) {
-          const args = [...baseArgs, ...sessionArgsFor(attempt > 0)];
+        // Two independent bounded retry budgets on a failed turn: a mid-turn
+        // context overflow (retry on a FRESH session, converges as artifacts
+        // persist) and a TRANSIENT API/network blip (retry the same session after
+        // a backoff). A blip must never hard-halt a long unattended capture; an
+        // auth failure is deliberately not transient, so it still surfaces.
+        let overflowRetries = 0;
+        let transientRetries = 0;
+        for (;;) {
+          const args = [...baseArgs, ...sessionArgsFor(overflowRetries > 0)];
           try {
             usage = await spawnClaudeStreaming(args, cfg.projectDir);
             break;
           } catch (e) {
-            if (e instanceof ClaudeTurnError && e.promptTooLong && attempt < MAX_PROMPT_TOO_LONG_RETRIES) {
+            if (e instanceof ClaudeTurnError && e.promptTooLong && overflowRetries < MAX_PROMPT_TOO_LONG_RETRIES) {
+              overflowRetries++;
               process.stderr.write(
                 `[drive] context guard (mid-turn): ${cmd.role} overflowed ${cmd.model}; ` +
-                  `fresh-session retry ${attempt + 1}/${MAX_PROMPT_TOO_LONG_RETRIES}\n`,
+                  `fresh-session retry ${overflowRetries}/${MAX_PROMPT_TOO_LONG_RETRIES}\n`,
               );
+              continue;
+            }
+            if (e instanceof ClaudeTurnError && e.transient && transientRetries < MAX_TRANSIENT_RETRIES) {
+              transientRetries++;
+              const backoff = TRANSIENT_BACKOFF_MS * transientRetries;
+              process.stderr.write(
+                `[drive] transient API error on ${cmd.role} (${cmd.model}); ` +
+                  `retry ${transientRetries}/${MAX_TRANSIENT_RETRIES} after ${(backoff / 1000).toFixed(0)}s\n`,
+              );
+              await new Promise((r) => setTimeout(r, backoff));
               continue;
             }
             throw e;

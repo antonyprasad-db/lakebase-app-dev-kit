@@ -105,3 +105,22 @@ export const PROMPT_TOO_LONG_RE =
 export function isPromptTooLongSignal(line: string): boolean {
   return PROMPT_TOO_LONG_RE.test(line);
 }
+
+/**
+ * TRANSIENT infrastructure failures: the API dropped the connection mid-stream,
+ * was overloaded, rate-limited, or returned a 5xx / network error. These are NOT
+ * the agent's fault and NOT a workflow problem , the same turn re-run a moment
+ * later usually succeeds. A long unattended capture must not hard-halt on one
+ * blip (an expired auth session is deliberately EXCLUDED: it needs a human
+ * /login, so retrying is futile and it should surface). The driver retries a
+ * turn whose output matched this, on a bounded budget with backoff.
+ */
+export const TRANSIENT_API_ERROR_RE =
+  /connection closed|connection reset|connection error|overloaded|rate.?limit|too many requests|\b(?:429|500|502|503|504|529)\b|internal server error|service unavailable|gateway time|network error|ECONNRESET|ETIMEDOUT|socket hang up|fetch failed|timed? out/i;
+
+/** True when a line of claude output signals a transient, retryable API/network
+ *  failure (not an auth failure, which needs a human and must surface). */
+export function isTransientApiErrorSignal(line: string): boolean {
+  if (/not logged in|please run \/login|authentication|unauthor/i.test(line)) return false;
+  return TRANSIENT_API_ERROR_RE.test(line);
+}
