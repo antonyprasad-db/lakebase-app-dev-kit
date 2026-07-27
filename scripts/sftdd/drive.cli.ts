@@ -882,9 +882,13 @@ async function runSprintMode(args: ParsedArgs): Promise<number> {
   const sprint = args.sprint as string;
   const projectDir = args.projectDir ?? process.cwd();
   const sftddDir = args.sftddDir ?? resolveSftddDir(projectDir);
-  // The claim CLI lives in dist/scripts/lakebase/, a sibling-of-parent of this
-  // file's dist dir, so it resolves regardless of PATH (the smoke runs via npx).
-  const claimJs = path.join(__dirname, "..", "lakebase", "scm-claim-feature.cli.js");
+  // Claim through the project's lk shim, exactly as per-feature mode and
+  // capture-scenario.sh do. scm-claim-feature is a SUBSTRATE bin
+  // (lakebase-scm-claim-feature-branch); post-extraction it lives in
+  // node_modules/@databricks-solutions/lakebase-scm-utils, NOT the kit dist, so a
+  // hardcoded kit-relative path no longer resolves. The lk shim routes the bin
+  // through node_modules + the run's pinned kit ref.
+  const lkShim = path.join(projectDir, "scripts", "lk");
   // sizing comes from sftdd-config.json; the gate mode is RUN-SCOPED (--gates
   // override else the project's declared policy), never read back from a
   // flag-mutated file.
@@ -947,7 +951,7 @@ async function runSprintMode(args: ParsedArgs): Promise<number> {
       }
     },
     async claimFeature(featureId) {
-      await spawnCmd("node", [claimJs, featureId, "--project-dir", projectDir, "--json"], projectDir);
+      await spawnCmd(lkShim, ["lakebase-scm-claim-feature-branch", featureId, "--project-dir", projectDir, "--json"], projectDir);
     },
     async driveFeature(featureId) {
       const cfg = buildCfg(args, featureId);
