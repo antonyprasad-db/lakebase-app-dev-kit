@@ -32,7 +32,7 @@ import {
 } from "./deploy-verify-assess.js";
 import { readWorkflowState, SCM_STATES } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { firstPendingEscalation } from "./escalation.js";
-import { specLevelSmell, priorReviseCount, isBuildRefactorRoutableSmell, isReflectSmell, priorReflectReviseCount } from "./smells.js";
+import { specLevelSmell, priorReviseCount, isBuildRefactorRoutableSmell, isReflectSmell, priorReflectReviseCount, REFLECT_REVISE_CAP, storyTestListFingerprint, lastReflectReviseFingerprint } from "./smells.js";
 import { reflectionPassed, reflectionVerdictWritten } from "./reflection.js";
 import { readCanon, architectNovelty } from "./architecture-canon.js";
 import {
@@ -404,13 +404,32 @@ export function diskArtifactProbe(
         }
         const spec = specLevelSmell(name);
         if (spec && story) {
-          // Reflect defects share ONE per-STORY budget (a full design re-run heals
-          // all of a reflection's coupled findings together, e.g. a test-list gap
-          // rooted in an architecture under-declaration); other spec smells keep
-          // their per-(smell,story) budget.
-          const budgetSpent = isReflectSmell(name)
-            ? priorReflectReviseCount(sftddDir, story) >= 1
-            : priorReviseCount(sftddDir, name, story) >= 1;
+          // Reflect defects use a PROGRESS-BASED per-STORY budget. The reflection
+          // critic surfaces defects one at a time, so a story with several latent
+          // findings needs several re-designs (each full design re-run co-heals
+          // the findings currently open, then the critic may reveal a NEW one). A
+          // re-design is allowed as long as (a) we are under REFLECT_REVISE_CAP and
+          // (b) the PRIOR revise actually changed the test-list , real progress.
+          // A revise that produced NO change (the strategist is stuck, re-emitting
+          // the same list) hard-halts instead of looping. Other spec smells keep
+          // their simple per-(smell,story) budget.
+          let budgetSpent: boolean;
+          if (isReflectSmell(name)) {
+            const revises = priorReflectReviseCount(sftddDir, story);
+            if (revises >= REFLECT_REVISE_CAP) {
+              budgetSpent = true;
+            } else if (revises === 0) {
+              budgetSpent = false; // first revise always allowed
+            } else {
+              // Progress check: the current test-list must differ from what the
+              // last revise sent back. Unchanged => no progress => stop.
+              const lastSha = lastReflectReviseFingerprint(sftddDir, story);
+              const curSha = storyTestListFingerprint(sftddDir, featureId, story);
+              budgetSpent = lastSha !== null && lastSha === curSha;
+            }
+          } else {
+            budgetSpent = priorReviseCount(sftddDir, name, story) >= 1;
+          }
           if (!budgetSpent) {
             base.routable = { story, owning_role: spec.owning_role, gate: spec.gate_to_rerun };
           }

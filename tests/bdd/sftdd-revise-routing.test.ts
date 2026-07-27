@@ -21,6 +21,8 @@ import {
   markSmellResolved,
   priorReviseCount,
   readSmellsLog,
+  resolveOpenReflectSmellsForStory,
+  storyTestListFingerprint,
 } from "../../scripts/sftdd/smells";
 import { recordBlockingSmellFlag, writeEscalation, readEscalations } from "../../scripts/sftdd/escalation";
 import { nextTransition, actionLane, type DriveState } from "../../scripts/sftdd/orchestrator-drive";
@@ -515,6 +517,40 @@ describe("diskArtifactProbe pendingEscalation.routable", () => {
     recordBlockingSmellFlag(tdd, "ac-overlap", "again", { story_id: STORY });
     const e = diskArtifactProbe(tdd, FEATURE, STORY).pendingEscalation();
     expect(e?.source).toBe("smell:ac-overlap");
+    expect(e?.routable).toBeUndefined();
+  });
+
+  // Progress-based reflect budget: the critic drip-feeds test-list defects, so a
+  // SECOND distinct reflect defect must still route AS LONG AS the prior revise
+  // changed the test-list; a no-change re-emit (stuck) hard-halts.
+  function writeTestList(sha: string): void {
+    mkdirSync(join(storyTestListJson(tdd, FEATURE, STORY), ".."), { recursive: true });
+    writeFileSync(
+      storyTestListJson(tdd, FEATURE, STORY),
+      JSON.stringify({ feature_id: FEATURE, story_id: STORY, marker: sha, items: [] }) + "\n",
+    );
+  }
+
+  it("marks a SECOND reflect defect routable when the prior revise changed the test-list (progress)", () => {
+    writeTestList("v1");
+    recordBlockingSmellFlag(tdd, "reflect-testlist-defect", "defect A", { story_id: STORY });
+    // First revise: co-heals + records the v1 fingerprint.
+    resolveOpenReflectSmellsForStory(tdd, STORY, "revised A", storyTestListFingerprint(tdd, FEATURE, STORY));
+    // The re-design CHANGED the list (v2), and the critic reveals a new defect B.
+    writeTestList("v2");
+    recordBlockingSmellFlag(tdd, "reflect-testlist-defect", "defect B", { story_id: STORY });
+    const e = diskArtifactProbe(tdd, FEATURE, STORY).pendingEscalation();
+    expect(e?.routable).toEqual({ story: STORY, owning_role: "test-strategist", gate: "test_list" });
+  });
+
+  it("does NOT mark routable when a reflect revise produced NO change (stuck -> hard halt)", () => {
+    writeTestList("v1");
+    recordBlockingSmellFlag(tdd, "reflect-testlist-defect", "defect A", { story_id: STORY });
+    resolveOpenReflectSmellsForStory(tdd, STORY, "revised A", storyTestListFingerprint(tdd, FEATURE, STORY));
+    // The re-design left the list UNCHANGED (still v1); the same defect re-fires.
+    recordBlockingSmellFlag(tdd, "reflect-testlist-defect", "defect A again", { story_id: STORY });
+    const e = diskArtifactProbe(tdd, FEATURE, STORY).pendingEscalation();
+    expect(e?.source).toBe("smell:reflect-testlist-defect");
     expect(e?.routable).toBeUndefined();
   });
 });

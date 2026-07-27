@@ -37,6 +37,7 @@ import {
   resolveAllOpenSmellsForStory,
   isReflectSmell,
   resolveOpenReflectSmellsForStory,
+  storyTestListFingerprint,
 } from "./smells.js";
 import { clearReflectVerdict } from "./reflection.js";
 import { resetStoryBuildState } from "./cycle-record.js";
@@ -158,6 +159,12 @@ export function applyReviseSelfHeal(args: ReviseSelfHealArgs): ReviseSelfHealRes
   const approver = args.approver ?? REVISE_APPROVER;
   const at = new Date().toISOString();
 
+  // Fingerprint the test-list BEFORE staleStoryArtifactsForRevise removes it, so
+  // a reflect revise can stamp "the list looked like THIS when I sent it back".
+  // The next re-design's reflect budget compares the fresh list against this: an
+  // unchanged list means the strategist made no progress (stuck -> hard halt).
+  const preReviseTestListSha = storyTestListFingerprint(sftddDir, args.featureId, args.story);
+
   // 1. Record the PO's revise decision (the human's choice) as a gate event.
   try {
     emitAgentLogEvent(
@@ -243,6 +250,7 @@ export function applyReviseSelfHeal(args: ReviseSelfHealArgs): ReviseSelfHealRes
         sftddDir,
         args.story,
         `revised by ${approver}: full design re-run (${args.gate} gate)`,
+        preReviseTestListSha,
       ) > 0
     : markSmellResolved(sftddDir, args.smell, {
         story_id: args.story,

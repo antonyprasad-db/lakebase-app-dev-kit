@@ -1,7 +1,9 @@
 import { existsSync, readFileSync, writeFileSync } from "fs";
+import { createHash } from "crypto";
 import { join } from "path";
 import { listCycles } from "./run-cycle";
 import type { CycleScope, CycleArtifact } from "./run-cycle";
+import { storyTestListJson } from "./sftdd-paths";
 
 export type SmellName =
   | "test-list-drift"
@@ -691,6 +693,11 @@ export interface SmellsLog {
        *  re-run reflect gate now PASSES), an automatic self-resolve that is NOT a
        *  human decision. Only `revised` drives the one-revise-per-(smell,story) bound. */
       resolution_kind?: "revised" | "accepted" | "cleared";
+      /** For a reflect `revised` entry: a fingerprint of the story's test-list at
+       *  the moment of the revise, so the PROGRESS-BASED budget can tell whether a
+       *  later re-design actually changed the list (progress -> keep going) or
+       *  produced no change (stuck -> hard halt). Set only on reflect revises. */
+      revised_artifact_sha?: string;
     }
   >;
 }
@@ -832,14 +839,46 @@ export function isReflectSmell(name: string): boolean {
   return REFLECT_SMELL_NAMES.has(name);
 }
 
-/** How many times THIS story's reflection has already been auto-revised. Reflect
- *  defects share ONE per-story budget: a testlist gap rooted in an architecture
- *  under-declaration only heals when the whole design lane re-runs, so a SECOND
- *  reflection failure is the hard halt. Counts resolved-as-`revised` reflect smells. */
+/** How many times THIS story's reflection has already been auto-revised. Counts
+ *  resolved-as-`revised` reflect smells. The reflection critic surfaces defects
+ *  one at a time, so a story with several latent findings needs several
+ *  re-designs; the budget is PROGRESS-BASED (see the probe): each re-design is
+ *  allowed as long as the prior one actually changed the test-list, up to
+ *  REFLECT_REVISE_CAP. A revise that produces no change (a genuinely stuck
+ *  strategist) and the cap are the two hard halts, so the loop still converges. */
+export const REFLECT_REVISE_CAP = 4;
 export function priorReflectReviseCount(sftddDir: string, story_id: string): number {
   return readSmellsLog(sftddDir).detected.filter(
     (d) => d.resolution_kind === "revised" && isReflectSmell(d.smell) && d.story_id === story_id,
   ).length;
+}
+
+/** A stable fingerprint of a story's per-story test-list (the artifact a reflect
+ *  revise sends the design lane to re-author), or "" when absent. Used by the
+ *  progress-based reflect budget to detect whether a re-design actually changed
+ *  the list. */
+export function storyTestListFingerprint(sftddDir: string, featureId: string, story_id: string): string {
+  const f = storyTestListJson(sftddDir, featureId, story_id);
+  if (!existsSync(f)) return "";
+  try {
+    return createHash("sha1").update(readFileSync(f)).digest("hex");
+  } catch {
+    return "";
+  }
+}
+
+/** The test-list fingerprint recorded on the MOST RECENT reflect `revised` entry
+ *  for the story, or null if none. The probe compares the CURRENT fingerprint
+ *  against this: if a prior revise ran and the list is unchanged since, the
+ *  re-design made no progress (a stuck strategist) and must hard-halt rather
+ *  than loop. */
+export function lastReflectReviseFingerprint(sftddDir: string, story_id: string): string | null {
+  const reflects = readSmellsLog(sftddDir).detected.filter(
+    (d) => d.resolution_kind === "revised" && isReflectSmell(d.smell) && d.story_id === story_id,
+  );
+  if (reflects.length === 0) return null;
+  const last = reflects[reflects.length - 1];
+  return typeof last.revised_artifact_sha === "string" ? last.revised_artifact_sha : null;
 }
 
 /** Co-heal: resolve EVERY open reflect smell for a story as `revised` in one pass,
@@ -849,6 +888,10 @@ export function resolveOpenReflectSmellsForStory(
   sftddDir: string,
   story_id: string,
   note: string,
+  /** The story's test-list fingerprint at revise time, stamped on each resolved
+   *  entry so the progress-based budget can later detect a no-change (stuck)
+   *  re-design. Omitted only by callers that cannot compute it. */
+  artifactSha?: string,
 ): number {
   const file = join(sftddDir, "smells.json");
   if (!existsSync(file)) return 0;
@@ -858,6 +901,7 @@ export function resolveOpenReflectSmellsForStory(
     if (!d.resolution && isReflectSmell(d.smell) && d.story_id === story_id) {
       d.resolution = note;
       d.resolution_kind = "revised";
+      if (artifactSha !== undefined) d.revised_artifact_sha = artifactSha;
       n++;
     }
   }
