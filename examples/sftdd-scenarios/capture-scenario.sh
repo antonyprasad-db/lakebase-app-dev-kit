@@ -195,6 +195,11 @@ if [[ -n "$CREATE" ]]; then
   [[ "$SC_UI" == "true" || -n "$UI" ]] && create_flags+=(--ui-track)
   [[ -n "$SC_LANG" ]] && create_flags+=(--language "$SC_LANG")
   [[ -n "$SC_RUNNER" ]] && create_flags+=(--runner "$SC_RUNNER")
+  # AGENT_MODELS (optional): space-separated <role>=<model> pairs, threaded into
+  # create-project as repeated --agent-model flags (persisted to sftdd-config.json,
+  # which the drive reads per turn). Lets a capture pin a weak-point role to a
+  # stronger model, e.g. AGENT_MODELS='test-strategist=opus'.
+  for _pair in ${AGENT_MODELS:-}; do create_flags+=(--agent-model "$_pair"); done
 
   echo "[capture-scenario] create ${PROJECT_NAME} on ${HOST} (owner ${OWNER}; conditions ${SCENARIO_MANIFEST}: uiTrack=${SC_UI:-false} lang=${SC_LANG:-<default>} runner=${SC_RUNNER:-<default>} tiers=${SC_TIERS:-$TIERS})" >&2
   bash "$KIT_LK" --warm || { echo "capture-scenario: kit --warm failed" >&2; exit 1; }
