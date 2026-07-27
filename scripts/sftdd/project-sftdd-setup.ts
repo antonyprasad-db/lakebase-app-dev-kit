@@ -56,6 +56,14 @@ export function layDownTddScaffold(targetDir: string): void {
     fs.writeFileSync(kitPkgFile, `${kitPackageName()}\n`);
   }
 
+  // The substrate scaffolder must not name the kit, so it only deploys its OWN
+  // skill; the kit lays down its own .claude assets (role agents, skills, and
+  // workflow commands) here. Without this a scaffolded project has no
+  // .claude/agents/, and the driver's `claude --agent <role>` spawns resolve
+  // nothing. Runs before the .sftdd early-return so a re-scaffold still refreshes
+  // any missing kit assets.
+  layDownKitClaudeAssets(targetDir);
+
   const candidates = [
     path.resolve(__dirname, `../../templates/sftdd-bootstrap/${ARTIFACT_ROOT}`),
     path.resolve(__dirname, `../../../templates/sftdd-bootstrap/${ARTIFACT_ROOT}`),
@@ -69,6 +77,104 @@ export function layDownTddScaffold(targetDir: string): void {
     return;
   }
   fs.cpSync(source, dest, { recursive: true });
+}
+
+/** Resolve the kit root (the dir holding package.json + skills/ + templates/),
+ *  working in the src, committed-dist, and git-installed layouts. Anchored on
+ *  skills/consort/agents so a partial layout can't resolve falsely. */
+function resolveKitRoot(): string {
+  const candidates = [
+    path.resolve(__dirname, "../.."),
+    path.resolve(__dirname, "../../.."),
+  ];
+  for (const c of candidates) {
+    if (
+      fs.existsSync(path.join(c, "package.json")) &&
+      fs.existsSync(path.join(c, "skills", "consort", "agents"))
+    ) {
+      return c;
+    }
+  }
+  throw new Error(
+    `could not resolve the kit root (package.json + skills/consort/agents); looked in: ${candidates.join(", ")}`,
+  );
+}
+
+/** The kit version, for the ${KIT_VERSION_AT_SCAFFOLD} command substitution. */
+function kitVersion(root: string): string {
+  try {
+    return (
+      (JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")) as { version?: string })
+        .version ?? ""
+    );
+  } catch {
+    return "";
+  }
+}
+
+/** Copy every *.md from src to dest that is not already present (no clobber).
+ *  No-op when src is absent. */
+function copyMissingMd(src: string, dest: string): void {
+  if (!fs.existsSync(src)) return;
+  fs.mkdirSync(dest, { recursive: true });
+  for (const entry of fs.readdirSync(src)) {
+    if (!entry.endsWith(".md")) continue;
+    const d = path.join(dest, entry);
+    if (fs.existsSync(d)) continue;
+    fs.copyFileSync(path.join(src, entry), d);
+  }
+}
+
+/**
+ * Deploy the kit-owned `.claude` assets the substrate scaffolder does not know
+ * about (it only deploys its OWN skill):
+ *   - the role agents  `skills/consort/agents/*.md`  -> `.claude/agents/`
+ *   - the kit skills   `skills/<name with SKILL.md>` -> `.claude/skills/<name>/`
+ *   - the workflow commands `templates/project/common/.claude/commands/*.md`
+ *       -> `.claude/commands/` (with the ${KIT_VERSION_AT_SCAFFOLD} substitution
+ *       the base scaffolder applies to its own command templates)
+ * Idempotent: never overwrites a file the substrate (or a prior pass) wrote.
+ */
+export function layDownKitClaudeAssets(targetDir: string): void {
+  const root = resolveKitRoot();
+  const claudeDir = path.join(targetDir, ".claude");
+
+  // 1. Role agents: the source `claude --agent <role>` resolves.
+  copyMissingMd(
+    path.join(root, "skills", "consort", "agents"),
+    path.join(claudeDir, "agents"),
+  );
+
+  // 2. Kit skills (each dir carrying a SKILL.md): consort + the engineering canon
+  //    the agents import. The substrate already placed its own skill; skip any
+  //    that exist.
+  const skillsSrc = path.join(root, "skills");
+  if (fs.existsSync(skillsSrc)) {
+    for (const skill of fs.readdirSync(skillsSrc).sort()) {
+      if (!fs.existsSync(path.join(skillsSrc, skill, "SKILL.md"))) continue;
+      const dest = path.join(claudeDir, "skills", skill);
+      if (fs.existsSync(dest)) continue;
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.cpSync(path.join(skillsSrc, skill), dest, { recursive: true });
+    }
+  }
+
+  // 3. Workflow commands, with the same version substitution the base applies.
+  const cmdSrc = path.join(root, "templates", "project", "common", ".claude", "commands");
+  if (fs.existsSync(cmdSrc)) {
+    const version = kitVersion(root);
+    const cmdDest = path.join(claudeDir, "commands");
+    fs.mkdirSync(cmdDest, { recursive: true });
+    for (const entry of fs.readdirSync(cmdSrc)) {
+      if (!entry.endsWith(".md")) continue;
+      const dest = path.join(cmdDest, entry);
+      if (fs.existsSync(dest)) continue;
+      const body = fs
+        .readFileSync(path.join(cmdSrc, entry), "utf8")
+        .replace(/\$\{KIT_VERSION_AT_SCAFFOLD\}/g, version);
+      fs.writeFileSync(dest, body);
+    }
+  }
 }
 
 /** Seed .lakebase/sftdd-config.json from per-role model overrides + UI knobs. */
