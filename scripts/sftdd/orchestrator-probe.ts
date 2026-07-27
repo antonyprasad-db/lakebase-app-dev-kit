@@ -32,7 +32,7 @@ import {
 } from "./deploy-verify-assess.js";
 import { readWorkflowState, SCM_STATES } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { firstPendingEscalation } from "./escalation.js";
-import { specLevelSmell, priorReviseCount, isBuildRefactorRoutableSmell } from "./smells.js";
+import { specLevelSmell, priorReviseCount, isBuildRefactorRoutableSmell, isReflectSmell, priorReflectReviseCount } from "./smells.js";
 import { reflectionPassed, reflectionVerdictWritten } from "./reflection.js";
 import { readCanon, architectNovelty } from "./architecture-canon.js";
 import {
@@ -403,8 +403,17 @@ export function diskArtifactProbe(
           return null;
         }
         const spec = specLevelSmell(name);
-        if (spec && story && priorReviseCount(sftddDir, name, story) < 1) {
-          base.routable = { story, owning_role: spec.owning_role, gate: spec.gate_to_rerun };
+        if (spec && story) {
+          // Reflect defects share ONE per-STORY budget (a full design re-run heals
+          // all of a reflection's coupled findings together, e.g. a test-list gap
+          // rooted in an architecture under-declaration); other spec smells keep
+          // their per-(smell,story) budget.
+          const budgetSpent = isReflectSmell(name)
+            ? priorReflectReviseCount(sftddDir, story) >= 1
+            : priorReviseCount(sftddDir, name, story) >= 1;
+          if (!budgetSpent) {
+            base.routable = { story, owning_role: spec.owning_role, gate: spec.gate_to_rerun };
+          }
         }
       }
       return base;

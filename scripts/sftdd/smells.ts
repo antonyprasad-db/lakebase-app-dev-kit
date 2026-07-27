@@ -821,6 +821,50 @@ export function priorReviseCount(sftddDir: string, smell: string, story_id?: str
   ).length;
 }
 
+/** The reflect-gate smell names (the pre-build reflection critic's spec + test-list
+ *  defects). Budgeted per-STORY, not per-smell: one full design re-run heals all of
+ *  a reflection's coupled findings together. */
+const REFLECT_SMELL_NAMES: ReadonlySet<string> = new Set([
+  "reflect-spec-defect",
+  "reflect-testlist-defect",
+]);
+export function isReflectSmell(name: string): boolean {
+  return REFLECT_SMELL_NAMES.has(name);
+}
+
+/** How many times THIS story's reflection has already been auto-revised. Reflect
+ *  defects share ONE per-story budget: a testlist gap rooted in an architecture
+ *  under-declaration only heals when the whole design lane re-runs, so a SECOND
+ *  reflection failure is the hard halt. Counts resolved-as-`revised` reflect smells. */
+export function priorReflectReviseCount(sftddDir: string, story_id: string): number {
+  return readSmellsLog(sftddDir).detected.filter(
+    (d) => d.resolution_kind === "revised" && isReflectSmell(d.smell) && d.story_id === story_id,
+  ).length;
+}
+
+/** Co-heal: resolve EVERY open reflect smell for a story as `revised` in one pass,
+ *  so a single revise addresses the whole reflection and no sibling reflect smell
+ *  immediately re-routes or halts. Returns how many were resolved. */
+export function resolveOpenReflectSmellsForStory(
+  sftddDir: string,
+  story_id: string,
+  note: string,
+): number {
+  const file = join(sftddDir, "smells.json");
+  if (!existsSync(file)) return 0;
+  const log: SmellsLog = JSON.parse(readFileSync(file, "utf8"));
+  let n = 0;
+  for (const d of log.detected) {
+    if (!d.resolution && isReflectSmell(d.smell) && d.story_id === story_id) {
+      d.resolution = note;
+      d.resolution_kind = "revised";
+      n++;
+    }
+  }
+  if (n) writeFileSync(file, JSON.stringify(log, null, 2) + "\n");
+  return n;
+}
+
 export function runDetectorsForScope(
   sftddDir: string,
   scope: CycleScope,

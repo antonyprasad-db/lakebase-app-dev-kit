@@ -35,6 +35,8 @@ import {
   readSmellsLog,
   specLevelSmell,
   resolveAllOpenSmellsForStory,
+  isReflectSmell,
+  resolveOpenReflectSmellsForStory,
 } from "./smells.js";
 import { clearReflectVerdict } from "./reflection.js";
 import { resetStoryBuildState } from "./cycle-record.js";
@@ -90,27 +92,32 @@ export function staleStoryArtifactsForRevise(
       }
     }
   } else if (gate === "architecture") {
-    // Clear each AC's architectural_notes so architectAnnotated reads false and
-    // the design lane re-dispatches the ARCHITECT (who re-annotates + amends the
-    // canon). The ACs themselves stay (this is not a re-decomposition); only the
-    // architect's product is staled. Projection is separately disabled for this
-    // story after a revise (architectProjectable checks priorReviseCount), so the
-    // architect runs live rather than re-projecting the same gap.
-    const dir = acsDir(sftddDir, featureId, story);
-    if (existsSync(dir)) {
-      for (const f of readdirSync(dir)) {
-        if (!f.endsWith(".json")) continue;
-        const p = join(dir, f);
-        try {
-          const ac = JSON.parse(readFileSync(p, "utf8")) as Record<string, unknown>;
-          if ("architectural_notes" in ac) {
-            delete ac.architectural_notes;
-            writeFileSync(p, JSON.stringify(ac, null, 2) + "\n");
-          }
-        } catch {
-          // Leave an unparseable AC as-is; the architect turn will surface it.
-        }
+    clearArchitecturalNotes(sftddDir, featureId, story);
+  }
+}
+
+/**
+ * Clear each AC's architectural_notes so architectAnnotated reads false and the
+ * design lane re-dispatches the ARCHITECT (who re-annotates + re-evaluates the
+ * persistence invariants). The ACs themselves stay (this is not a
+ * re-decomposition); only the architect's product is staled. Projection is
+ * separately disabled for this story after a revise (architectProjectable checks
+ * priorReviseCount), so the architect runs live rather than re-projecting the gap.
+ */
+export function clearArchitecturalNotes(sftddDir: string, featureId: string, story: string): void {
+  const dir = acsDir(sftddDir, featureId, story);
+  if (!existsSync(dir)) return;
+  for (const f of readdirSync(dir)) {
+    if (!f.endsWith(".json")) continue;
+    const p = join(dir, f);
+    try {
+      const ac = JSON.parse(readFileSync(p, "utf8")) as Record<string, unknown>;
+      if ("architectural_notes" in ac) {
+        delete ac.architectural_notes;
+        writeFileSync(p, JSON.stringify(ac, null, 2) + "\n");
       }
+    } catch {
+      // Leave an unparseable AC as-is; the architect turn will surface it.
     }
   }
 }
@@ -202,12 +209,46 @@ export function applyReviseSelfHeal(args: ReviseSelfHealArgs): ReviseSelfHealRes
     // The brief is best-effort observability; never block the heal.
   }
 
-  // 3. Resolve the smell as `revised` (spends the budget; a re-fire is a hard halt).
-  const resolvedSmell = markSmellResolved(sftddDir, args.smell, {
-    story_id: args.story,
-    kind: "revised",
-    note: `revised by ${approver}: routed to ${args.routedTo} (${args.gate} gate)`,
-  });
+  // 2c. A reflect defect couples the design roles: a test-list gap is often rooted
+  // in an architecture under-declaration (an undeclared column/invariant), and the
+  // reflect owner model has no architect slot, so such a defect is routed to the
+  // spec-author or test-strategist, neither of whom can fix architecture.json.
+  // Re-run the FULL design lane for the story: stale the architect's product too
+  // and hand the SAME defect brief to the architect and the test-strategist, so
+  // whoever must fix it re-runs with the context. Budgeted per-STORY (the probe
+  // checks priorReflectReviseCount), so this is ONE re-design; a second reflection
+  // failure is the hard halt.
+  const reflect = isReflectSmell(args.smell);
+  if (reflect) {
+    clearArchitecturalNotes(sftddDir, args.featureId, args.story);
+    for (const role of ["architect-reviewer", "test-strategist"] as const) {
+      if (role === args.routedTo) continue;
+      try {
+        const hb = handbackFile(sftddDir, args.featureId, role, args.story);
+        mkdirSync(dirname(hb), { recursive: true });
+        const gate = role === "architect-reviewer" ? "architecture" : "test_list";
+        writeFileSync(hb, composeReviseBrief({ smell: args.smell, gate, reason: args.reason }));
+      } catch {
+        // Best-effort brief; never block the heal.
+      }
+    }
+  }
+
+  // 3. Resolve the smell(s) as `revised` (spends the budget; a re-fire is a hard
+  // halt). A reflect defect CO-HEALS: resolve EVERY open reflect smell for the
+  // story in this one revise, so a sibling reflect smell does not immediately
+  // re-route or halt before the full re-design has run.
+  const resolvedSmell = reflect
+    ? resolveOpenReflectSmellsForStory(
+        sftddDir,
+        args.story,
+        `revised by ${approver}: full design re-run (${args.gate} gate)`,
+      ) > 0
+    : markSmellResolved(sftddDir, args.smell, {
+        story_id: args.story,
+        kind: "revised",
+        note: `revised by ${approver}: routed to ${args.routedTo} (${args.gate} gate)`,
+      });
 
   return { decided: "revise", story: args.story, routedTo: args.routedTo, resolvedSmell };
 }
