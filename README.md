@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-**Consort enforces the discipline that keeps AI-written code clean and correct: spec-first, test-driven, with the gates and tests enforced in code, not just asked of the model, and every green a real test run on a live branch of a real Lakebase.**
+**Consort keeps AI-written code clean and correct: spec-first, test-driven, with gates and tests enforced by a deterministic state machine, not left to chance at the whim of a model. Every green is a real test run on a live branch of a real Lakebase database.**
 
 Consort takes its name from the field of music. A *consort* is an ensemble that plays in concert: each musician holds one part, and a conductor keeps them in time. Consort is that, applied to building software. A set of agents each take on one familiar role from the software lifecycle, a product owner, a spec author, an architect, a DBA, a test strategist, a UX designer, and a navigator/driver pair at the keyboard, while a deterministic conductor keeps them in sequence and a human approves every gate. No agent plays another's part.
 
@@ -21,7 +21,7 @@ Lakebase removes that constraint. A database branch is a real, governed, copy-on
 - **Deterministically driven**: the control loop is code, so it can't drift, skip a step, or get lost after a long session.
 - **Human-gated**: the gates fail closed, and nothing advances past one without your approval.
 
-**What makes it different.** Other spec-first frameworks ask the agent to comply: a strong spec then a trusted build (Spec Kit), or a firm test-first rule the model is told to honor (superpowers). An agent can set either aside under pressure to go green. Consort puts the controls where the agent can't reach them: routing is code, gates fail closed, tests are immutable within a unit of work, and green means a real run against a real database. The others request compliance; Consort enforces it.
+**What makes it different.** Other spec-first frameworks ask the agent to comply: a strong spec then a trusted build (Spec Kit), or a firm test-first rule the model is told to honor (superpowers). Under pressure to go green, an agent can set either aside. Consort puts the controls in a deterministic state machine the agent runs inside but cannot edit: routing is code, gates fail closed, tests are immutable within a unit of work, and green means a real run against a real database. Enforcement is in the state machine, not left to chance at the whim of a model.
 
 Two papers are forthcoming: one on the practice underneath Consort, Branched-Database TDD, and one on Consort itself.
 
