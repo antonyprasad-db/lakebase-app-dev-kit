@@ -50,6 +50,7 @@ export interface ReplayArgs {
 export const REPLAYABLE_DESIGN_ROLES = new Set([
   "spec-author",
   "architect-reviewer",
+  "dba",
   "test-strategist",
   "ux-designer",
   "product-owner",
@@ -120,6 +121,16 @@ export function replayDesignTurn(args: ReplayArgs): boolean {
         const acs = cpDir(join(cf, "stories", turn.story, "acs"), join(tf, "stories", turn.story, "acs"));
         ok = ok || acs;
       }
+      return ok;
+    }
+    case "dba": {
+      // Feature-level physical schema (the DBA realizes the architect's persistence
+      // invariants into db-design.json + a short db-design.md narrative). Dispatched
+      // per-story (architect -> dba -> test-strategist); a corpus captured with the
+      // DBA MUST replay this from disk, else the drive spawns the DBA live and can
+      // diverge the schema the spec gate conforms against.
+      let ok = cp(join(cf, "db-design.json"), join(tf, "db-design.json"));
+      cp(join(cf, "db-design.md"), join(tf, "db-design.md"));
       return ok;
     }
     case "test-strategist": {

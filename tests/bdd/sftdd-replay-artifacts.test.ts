@@ -14,7 +14,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { replayDesignTurn, restoreReflectVerdict } from "../../scripts/sftdd/replay-artifacts.js";
+import { replayDesignTurn, restoreReflectVerdict, REPLAYABLE_DESIGN_ROLES } from "../../scripts/sftdd/replay-artifacts.js";
 
 const F = "F1-file-bug";
 const S = "S1-file-bug";
@@ -38,6 +38,8 @@ beforeEach(() => {
   wj(join(cf, "stories", S, "acs", "AC1.json"), { id: "AC1", given: "g", layer: "E2E" });
   wj(join(cf, "architecture.json"), { feature_id: F, layers: [] });
   writeFileSync(join(cf, "architecture.md"), "# arch\n");
+  wj(join(cf, "db-design.json"), { feature_id: F, tables: [{ name: "bugs" }], realizes_invariants: [] });
+  writeFileSync(join(cf, "db-design.md"), "# db-design\n");
   wj(join(cf, "test-list.json"), { feature_id: F, items: [{ id: "T1", ac_id: "AC1" }] });
   writeFileSync(join(cf, "test-list.md"), "# tests\n");
   mkdirSync(join(corpus, "design"), { recursive: true });
@@ -74,6 +76,16 @@ describe("replayDesignTurn: each stage's output is replayed per-turn", () => {
     expect(existsSync(join(tdd, "features", F, "architecture.json"))).toBe(true);
   });
 
+  it("dba copies the feature db-design (json + md) so the DBA turn is replayed, not spawned live", () => {
+    // The design lane dispatches the DBA per-story (architect -> dba -> test-strategist).
+    // A corpus captured with the DBA role MUST replay db-design.json from disk; a
+    // fall-through to a live DBA spawn would diverge the schema and can fail the spec gate.
+    expect(replayDesignTurn({ turn: { role: "dba", story: S }, replayDir: corpus, sftddDir: tdd, featureId: F })).toBe(true);
+    expect(existsSync(join(tdd, "features", F, "db-design.json"))).toBe(true);
+    expect(existsSync(join(tdd, "features", F, "db-design.md"))).toBe(true);
+    expect(JSON.parse(readFileSync(join(tdd, "features", F, "db-design.json"), "utf8")).tables[0].name).toBe("bugs");
+  });
+
   it("test-strategist copies the feature test-list; ux-designer copies the design guide", () => {
     expect(replayDesignTurn({ turn: { role: "test-strategist", story: S }, replayDir: corpus, sftddDir: tdd, featureId: F })).toBe(true);
     expect(existsSync(join(tdd, "features", F, "test-list.json"))).toBe(true);
@@ -83,6 +95,18 @@ describe("replayDesignTurn: each stage's output is replayed per-turn", () => {
 
   it("a story the corpus does not cover returns false (a corpus miss; the driver hard-fails, never runs a live agent)", () => {
     expect(replayDesignTurn({ turn: { role: "spec-author", story: "S2-not-recorded" }, replayDir: corpus, sftddDir: tdd, featureId: F })).toBe(false);
+  });
+
+  // Anti-recurrence guard: every design role the router can dispatch must be
+  // replayable, else the drive falls through to a live model spawn on replay (the
+  // exact DBA gap that let a live DBA turn diverge a captured corpus's schema).
+  it("every dispatchable DesignRole is in REPLAYABLE_DESIGN_ROLES", () => {
+    // Mirrors orchestrator-drive.ts `DesignRole` (kept in lockstep by hand: a new
+    // design role added there without a replay case here trips this test).
+    const dispatchableDesignRoles = ["spec-author", "architect-reviewer", "dba", "test-strategist"];
+    for (const role of dispatchableDesignRoles) {
+      expect(REPLAYABLE_DESIGN_ROLES.has(role)).toBe(true);
+    }
   });
 });
 
