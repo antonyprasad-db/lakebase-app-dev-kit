@@ -3259,8 +3259,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path3) {
-      let input = path3;
+    function removeDotSegments(path4) {
+      let input = path4;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3513,8 +3513,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path3, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path3 && path3 !== "/" ? path3 : void 0;
+        const [path4, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path4 && path4 !== "/" ? path4 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -6685,6 +6685,7 @@ function findStoryDir(tdd, f, s) {
   return matches.length === 1 ? join(root, matches[0]) : void 0;
 }
 var storyResolved = (tdd, f, s) => findStoryDir(tdd, f, s) ?? storyDir(tdd, f, s);
+var storyJson = (tdd, f, s) => join(storyResolved(tdd, f, s), "story.json");
 var acsDir = (tdd, f, s) => join(storyResolved(tdd, f, s), "acs");
 var acJson = (tdd, f, s, ac) => join(acsDir(tdd, f, s), `${ac}.json`);
 var storyTestListJson = (tdd, f, s) => join(storyResolved(tdd, f, s), "test-list-per-story.json");
@@ -6703,6 +6704,39 @@ function requireFeatureDir(tdd, featureId) {
   if (!dir) throw new Error(`feature ${featureId} not found (or ambiguous) under ${featuresDir(tdd)}`);
   return dir;
 }
+function storyAcIds(tdd, f, s) {
+  const ids = /* @__PURE__ */ new Set();
+  const sj = storyJson(tdd, f, s);
+  if (fs.existsSync(sj)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(sj, "utf8"));
+      if (Array.isArray(data.acs)) {
+        for (const a of data.acs) {
+          const id = typeof a === "string" ? a : a?.id;
+          if (typeof id === "string" && id.length > 0) ids.add(id);
+        }
+      }
+    } catch {
+    }
+  }
+  const dir = acsDir(tdd, f, s);
+  if (fs.existsSync(dir)) {
+    try {
+      for (const file of fs.readdirSync(dir)) {
+        const m = /^(.+)\.json$/.exec(file);
+        if (!m) continue;
+        const base = m[1];
+        try {
+          const obj = JSON.parse(fs.readFileSync(join(dir, file), "utf8"));
+          if (obj && typeof obj.id === "string" && obj.id === base) ids.add(base);
+        } catch {
+        }
+      }
+    } catch {
+    }
+  }
+  return [...ids];
+}
 function readAcLayer(tdd, f, acId) {
   const stories = storiesDir(tdd, f);
   if (!fs.existsSync(stories)) return void 0;
@@ -6720,7 +6754,7 @@ function readAcLayer(tdd, f, acId) {
 
 // scripts/sftdd/cycle-record.ts
 init_esm_shims();
-import { existsSync as existsSync13, readFileSync as readFileSync15, readdirSync as readdirSync10, statSync as statSync8, writeFileSync as writeFileSync10, mkdirSync as mkdirSync9, rmSync as rmSync4 } from "fs";
+import { existsSync as existsSync14, readFileSync as readFileSync16, readdirSync as readdirSync10, statSync as statSync8, writeFileSync as writeFileSync11, mkdirSync as mkdirSync10, rmSync as rmSync5 } from "fs";
 
 // scripts/sftdd/sftdd-env.ts
 init_esm_shims();
@@ -6729,7 +6763,7 @@ function sftddEnv(suffix, env = process.env) {
 }
 
 // scripts/sftdd/cycle-record.ts
-import { join as join14, dirname as dirname4 } from "path";
+import { join as join15, dirname as dirname5 } from "path";
 
 // scripts/sftdd/test-list.ts
 init_esm_shims();
@@ -6821,7 +6855,7 @@ function nextTestNumber(items) {
 function writeStoryTestList(tddDir, featureId, storyId) {
   const storyDir2 = findStoryDir(tddDir, featureId, storyId);
   if (!storyDir2) return null;
-  const storyAcIds = acIdsInStoryDir(storyDir2);
+  const storyAcIds2 = acIdsInStoryDir(storyDir2);
   let master = null;
   try {
     master = readMasterTestList(tddDir, featureId);
@@ -6838,7 +6872,7 @@ function writeStoryTestList(tddDir, featureId, storyId) {
     const key = (it) => `${it.ac_id}\0${it.description}`;
     const have = new Set(baseList.items.map(key));
     const usedIds = new Set(baseList.items.map((i) => i.id));
-    const fresh = authored.items.filter((it) => storyAcIds.includes(it.ac_id) && !have.has(key(it)));
+    const fresh = authored.items.filter((it) => storyAcIds2.includes(it.ac_id) && !have.has(key(it)));
     if (fresh.length > 0 || master === null) {
       let n = nextTestNumber(baseList.items);
       const renumbered = fresh.map((it) => {
@@ -6856,7 +6890,7 @@ function writeStoryTestList(tddDir, featureId, storyId) {
     }
   }
   if (!master) return null;
-  const scoped = scopeToStory(master, storyId, storyAcIds);
+  const scoped = scopeToStory(master, storyId, storyAcIds2);
   const file = storyTestListJson(tddDir, featureId, storyId);
   mkdirSync2(dirname(file), { recursive: true });
   writeFileSync2(file, JSON.stringify(scoped, null, 2) + "\n");
@@ -7964,10 +7998,65 @@ ${list}`;
   return { droppedSymbols: dropped, candidates, advisory };
 }
 
+// scripts/sftdd/refactor-verify-assess.ts
+init_esm_shims();
+import * as fs5 from "fs";
+import * as path3 from "path";
+function markerPath2(sftddDir, featureId, storyId) {
+  const fdir = findFeatureDir(sftddDir, featureId);
+  if (!fdir) return void 0;
+  return path3.join(fdir, "stories", storyId, "refactor-verify-assess.json");
+}
+function readRefactorVerifyAssessMarker(sftddDir, featureId, storyId) {
+  const file = markerPath2(sftddDir, featureId, storyId);
+  if (!file || !fs5.existsSync(file)) return void 0;
+  try {
+    return JSON.parse(fs5.readFileSync(file, "utf8"));
+  } catch {
+    return void 0;
+  }
+}
+function writeRefactorVerifyAssessMarker(sftddDir, featureId, storyId, args) {
+  const file = markerPath2(sftddDir, featureId, storyId);
+  if (!file) return void 0;
+  const prior = readRefactorVerifyAssessMarker(sftddDir, featureId, storyId);
+  const marker = {
+    version: 1,
+    story_id: storyId,
+    summary: args.summary,
+    ...args.supersededAdvisory ? { superseded_advisory: args.supersededAdvisory } : {},
+    assessed: false,
+    attempts: prior?.attempts ?? 0
+  };
+  fs5.mkdirSync(path3.dirname(file), { recursive: true });
+  fs5.writeFileSync(file, JSON.stringify(marker, null, 2) + "\n", "utf8");
+  return file;
+}
+function markRefactorVerifyAssessed(sftddDir, featureId, storyId, flaggedTests) {
+  const file = markerPath2(sftddDir, featureId, storyId);
+  const m = readRefactorVerifyAssessMarker(sftddDir, featureId, storyId);
+  if (!file || !m) return;
+  m.assessed = true;
+  m.attempts += 1;
+  if (flaggedTests && flaggedTests.length > 0) m.flagged_tests = flaggedTests;
+  fs5.writeFileSync(file, JSON.stringify(m, null, 2) + "\n", "utf8");
+}
+function markRefactorVerifyRefactored(sftddDir, featureId, storyId) {
+  const file = markerPath2(sftddDir, featureId, storyId);
+  const m = readRefactorVerifyAssessMarker(sftddDir, featureId, storyId);
+  if (!file || !m) return;
+  m.refactored = true;
+  fs5.writeFileSync(file, JSON.stringify(m, null, 2) + "\n", "utf8");
+}
+function clearRefactorVerifyAssessMarker(sftddDir, featureId, storyId) {
+  const file = markerPath2(sftddDir, featureId, storyId);
+  if (file && fs5.existsSync(file)) fs5.rmSync(file);
+}
+
 // scripts/sftdd/migration-app-clean.ts
 init_esm_shims();
-import { existsSync as existsSync12, readFileSync as readFileSync14, readdirSync as readdirSync9, statSync as statSync7 } from "fs";
-import { join as join13, relative as relative2, extname as extname2 } from "path";
+import { existsSync as existsSync13, readFileSync as readFileSync15, readdirSync as readdirSync9, statSync as statSync7 } from "fs";
+import { join as join14, relative as relative2, extname as extname2 } from "path";
 var DEFAULT_MIGRATION_DIRS2 = ["alembic/versions", "migrations", "db/migrations", "src/migrations"];
 var EXCLUDE_DIR2 = /(^|\/)(node_modules|\.git|\.venv|venv|__pycache__)(\/|$)/;
 var MODULE_SCOPE_APP_IMPORT = /^(from\s+app\b|import\s+app\b)/;
@@ -7979,7 +8068,7 @@ function walk2(dir, keep, out = []) {
     return out;
   }
   for (const e of entries) {
-    const abs = join13(dir, e);
+    const abs = join14(dir, e);
     let st;
     try {
       st = statSync7(abs);
@@ -7998,12 +8087,12 @@ function checkMigrationAppClean(args) {
   const migrationDirs = args.migrationDirs ?? DEFAULT_MIGRATION_DIRS2;
   const violations = [];
   for (const md of migrationDirs) {
-    const abs = join13(args.projectDir, md);
-    if (!existsSync12(abs)) continue;
+    const abs = join14(args.projectDir, md);
+    if (!existsSync13(abs)) continue;
     for (const file of walk2(abs, (p) => extname2(p) === ".py")) {
       let lines;
       try {
-        lines = readFileSync14(file, "utf8").split("\n");
+        lines = readFileSync15(file, "utf8").split("\n");
       } catch {
         continue;
       }
@@ -8044,7 +8133,7 @@ async function commitExperimentCode(projectDir, message) {
 }
 async function commitCycleWork(sftddDir, message) {
   try {
-    await commitExperimentCode(dirname4(sftddDir), message);
+    await commitExperimentCode(dirname5(sftddDir), message);
   } catch (e) {
     if (e instanceof ProtectedBranchCommitError) throw e;
   }
@@ -8057,10 +8146,10 @@ function logCycleEvent2(sftddDir, event) {
 }
 function readStoryItems(sftddDir, featureId, story) {
   const file = storyTestListJson(sftddDir, featureId, story);
-  if (!existsSync13(file)) {
+  if (!existsSync14(file)) {
     throw new Error(`per-story test-list not found for ${featureId}/${story} at ${file}`);
   }
-  const data = JSON.parse(readFileSync15(file, "utf8"));
+  const data = JSON.parse(readFileSync16(file, "utf8"));
   return Array.isArray(data.items) ? data.items : [];
 }
 function storyExperiment(sftddDir, featureId, story) {
@@ -8069,11 +8158,11 @@ function storyExperiment(sftddDir, featureId, story) {
   return { slug: e?.experiment_slug, branch: e?.branch_id };
 }
 function storyCycles(sftddDir, featureId, story) {
-  const base = join14(cyclesRootDir(sftddDir), featureId, story);
-  if (!existsSync13(base)) return [];
+  const base = join15(cyclesRootDir(sftddDir), featureId, story);
+  if (!existsSync14(base)) return [];
   const out = [];
   for (const acDir of readdirSync10(base)) {
-    const dir = join14(base, acDir);
+    const dir = join15(base, acDir);
     try {
       if (!statSync8(dir).isDirectory()) continue;
     } catch {
@@ -8082,7 +8171,7 @@ function storyCycles(sftddDir, featureId, story) {
     for (const f of readdirSync10(dir)) {
       if (!/^cycle-\d+\.json$/.test(f)) continue;
       try {
-        out.push(JSON.parse(readFileSync15(join14(dir, f), "utf8")));
+        out.push(JSON.parse(readFileSync16(join15(dir, f), "utf8")));
       } catch {
       }
     }
@@ -8186,10 +8275,10 @@ async function greenOpenCycle(args) {
     branch_id: open.branch_id
   };
   const verify = args.verify ?? defaultGreenVerifier;
-  let result = await verify({ projectDir: dirname4(sftddDir), sftddDir, featureId, story, branchId: open.branch_id });
+  let result = await verify({ projectDir: dirname5(sftddDir), sftddDir, featureId, story, branchId: open.branch_id });
   if (result.passed && !sftddEnv("REPLAY_BUILD_DIR")) {
     try {
-      const mig = checkMigrationAppClean({ projectDir: dirname4(sftddDir) });
+      const mig = checkMigrationAppClean({ projectDir: dirname5(sftddDir) });
       if (!mig.clean && mig.remediation) result = { passed: false, summary: mig.remediation };
     } catch {
     }
@@ -8203,9 +8292,9 @@ async function greenOpenCycle(args) {
       let contractRefs;
       let supersededTestRefs;
       try {
-        const contract = checkContractClean({ projectDir: dirname4(sftddDir) });
+        const contract = checkContractClean({ projectDir: dirname5(sftddDir) });
         if (!contract.clean && contract.remediation) contractRefs = contract.remediation;
-        const superseded = supersededTestCandidates({ projectDir: dirname4(sftddDir) });
+        const superseded = supersededTestCandidates({ projectDir: dirname5(sftddDir) });
         if (superseded.advisory) supersededTestRefs = superseded.advisory;
       } catch {
       }
@@ -8248,9 +8337,9 @@ async function greenOpenCycle(args) {
 }
 function readReview(sftddDir, featureId, story, acId) {
   const f = acReviewJson(sftddDir, featureId, story, acId);
-  if (!existsSync13(f)) return {};
+  if (!existsSync14(f)) return {};
   try {
-    return JSON.parse(readFileSync15(f, "utf8"));
+    return JSON.parse(readFileSync16(f, "utf8"));
   } catch {
     return {};
   }
@@ -8301,9 +8390,9 @@ function firstRefactorPendingAc(sftddDir, featureId, story) {
 function reviewAc(sftddDir, featureId, story, acId) {
   let verdict = {};
   const vf = acReviewVerdictJson(sftddDir, featureId, story, acId);
-  if (existsSync13(vf)) {
+  if (existsSync14(vf)) {
     try {
-      verdict = JSON.parse(readFileSync15(vf, "utf8"));
+      verdict = JSON.parse(readFileSync16(vf, "utf8"));
     } catch {
       verdict = {};
     }
@@ -8311,8 +8400,8 @@ function reviewAc(sftddDir, featureId, story, acId) {
   const refactorRequested = verdict.refactor === true;
   const file = acReviewJson(sftddDir, featureId, story, acId);
   const prior = readReview(sftddDir, featureId, story, acId);
-  mkdirSync9(dirname4(file), { recursive: true });
-  writeFileSync10(
+  mkdirSync10(dirname5(file), { recursive: true });
+  writeFileSync11(
     file,
     JSON.stringify(
       { ...prior, reviewed_at: (/* @__PURE__ */ new Date()).toISOString(), refactor_requested: refactorRequested, ...verdict.notes ? { refactor_notes: verdict.notes } : {} },
@@ -8337,7 +8426,7 @@ function reviewAc(sftddDir, featureId, story, acId) {
 async function refactorAc(sftddDir, featureId, story, acId, opts) {
   const exp = storyExperiment(sftddDir, featureId, story);
   const verify = opts?.verify ?? defaultGreenVerifier;
-  const result = await verify({ projectDir: dirname4(sftddDir), sftddDir, featureId, story, branchId: exp.branch });
+  const result = await verify({ projectDir: dirname5(sftddDir), sftddDir, featureId, story, branchId: exp.branch });
   if (!result.passed) {
     const escalation = writeEscalation(sftddDir, {
       source: "driver-refactor",
@@ -8350,8 +8439,8 @@ async function refactorAc(sftddDir, featureId, story, acId, opts) {
   }
   const file = acReviewJson(sftddDir, featureId, story, acId);
   const prior = readReview(sftddDir, featureId, story, acId);
-  mkdirSync9(dirname4(file), { recursive: true });
-  writeFileSync10(file, JSON.stringify({ ...prior, refactored_at: (/* @__PURE__ */ new Date()).toISOString() }, null, 2) + "\n");
+  mkdirSync10(dirname5(file), { recursive: true });
+  writeFileSync11(file, JSON.stringify({ ...prior, refactored_at: (/* @__PURE__ */ new Date()).toISOString() }, null, 2) + "\n");
   for (const d of readSmellsLog(sftddDir).detected) {
     if (!d.resolution && isBuildRefactorRoutableSmell(d.smell) && (d.story_id === void 0 || d.story_id === story)) {
       markSmellResolved(sftddDir, d.smell, { story_id: d.story_id, kind: "accepted", note: `refactored: ${acId}` });
@@ -8370,9 +8459,9 @@ async function refactorAc(sftddDir, featureId, story, acId, opts) {
 }
 function readStoryReview(sftddDir, featureId, story) {
   const f = storyReviewJson(sftddDir, featureId, story);
-  if (!existsSync13(f)) return {};
+  if (!existsSync14(f)) return {};
   try {
-    return JSON.parse(readFileSync15(f, "utf8"));
+    return JSON.parse(readFileSync16(f, "utf8"));
   } catch {
     return {};
   }
@@ -8380,9 +8469,9 @@ function readStoryReview(sftddDir, featureId, story) {
 function reviewStory(sftddDir, featureId, story) {
   let verdict = {};
   const vf = storyReviewVerdictJson(sftddDir, featureId, story);
-  if (existsSync13(vf)) {
+  if (existsSync14(vf)) {
     try {
-      verdict = JSON.parse(readFileSync15(vf, "utf8"));
+      verdict = JSON.parse(readFileSync16(vf, "utf8"));
     } catch {
       verdict = {};
     }
@@ -8390,8 +8479,8 @@ function reviewStory(sftddDir, featureId, story) {
   const refactorRequested = verdict.refactor === true;
   const file = storyReviewJson(sftddDir, featureId, story);
   const prior = readStoryReview(sftddDir, featureId, story);
-  mkdirSync9(dirname4(file), { recursive: true });
-  writeFileSync10(
+  mkdirSync10(dirname5(file), { recursive: true });
+  writeFileSync11(
     file,
     JSON.stringify(
       { ...prior, reviewed_at: (/* @__PURE__ */ new Date()).toISOString(), refactor_requested: refactorRequested, ...verdict.notes ? { refactor_notes: verdict.notes } : {} },
@@ -8416,8 +8505,22 @@ function reviewStory(sftddDir, featureId, story) {
 async function refactorStory(sftddDir, featureId, story, opts) {
   const exp = storyExperiment(sftddDir, featureId, story);
   const verify = opts?.verify ?? defaultGreenVerifier;
-  const result = await verify({ projectDir: dirname4(sftddDir), sftddDir, featureId, story, branchId: exp.branch });
+  const result = await verify({ projectDir: dirname5(sftddDir), sftddDir, featureId, story, branchId: exp.branch });
   if (!result.passed) {
+    const rf = readRefactorVerifyAssessMarker(sftddDir, featureId, story);
+    if (!rf?.assessed) {
+      let supersededAdvisory;
+      try {
+        const superseded = supersededTestCandidates({ projectDir: dirname5(sftddDir) });
+        if (superseded.advisory) supersededAdvisory = superseded.advisory;
+      } catch {
+      }
+      writeRefactorVerifyAssessMarker(sftddDir, featureId, story, {
+        summary: result.summary,
+        ...supersededAdvisory ? { supersededAdvisory } : {}
+      });
+      return { refactored: false, needsAssess: true, summary: result.summary };
+    }
     const escalation = writeEscalation(sftddDir, {
       source: "driver-refactor",
       reason: `REFACTOR verify failed for story ${featureId}/${story}: ${result.summary}`,
@@ -8426,10 +8529,11 @@ async function refactorStory(sftddDir, featureId, story, opts) {
     });
     return { refactored: false, escalated: true, escalation, summary: result.summary };
   }
+  clearRefactorVerifyAssessMarker(sftddDir, featureId, story);
   const file = storyReviewJson(sftddDir, featureId, story);
   const prior = readStoryReview(sftddDir, featureId, story);
-  mkdirSync9(dirname4(file), { recursive: true });
-  writeFileSync10(file, JSON.stringify({ ...prior, refactored_at: (/* @__PURE__ */ new Date()).toISOString() }, null, 2) + "\n");
+  mkdirSync10(dirname5(file), { recursive: true });
+  writeFileSync11(file, JSON.stringify({ ...prior, refactored_at: (/* @__PURE__ */ new Date()).toISOString() }, null, 2) + "\n");
   for (const d of readSmellsLog(sftddDir).detected) {
     if (!d.resolution && isBuildRefactorRoutableSmell(d.smell) && (d.story_id === void 0 || d.story_id === story)) {
       markSmellResolved(sftddDir, d.smell, { story_id: d.story_id, kind: "accepted", note: `refactored story: ${story}` });
@@ -8449,16 +8553,16 @@ async function refactorStory(sftddDir, featureId, story, opts) {
 
 // scripts/sftdd/reflection.ts
 init_esm_shims();
-import { existsSync as existsSync14, readFileSync as readFileSync16, writeFileSync as writeFileSync11, mkdirSync as mkdirSync10, rmSync as rmSync5 } from "fs";
+import { existsSync as existsSync15, readFileSync as readFileSync17, writeFileSync as writeFileSync12, mkdirSync as mkdirSync11, rmSync as rmSync6 } from "fs";
 var SMELL_FOR_OWNER = {
   "spec-author": "reflect-spec-defect",
   "test-strategist": "reflect-testlist-defect"
 };
 function readReflectVerdict(sftddDir, feature, story) {
   const p = reflectVerdictJson(sftddDir, feature, story);
-  if (!existsSync14(p)) return void 0;
+  if (!existsSync15(p)) return void 0;
   try {
-    return JSON.parse(readFileSync16(p, "utf8"));
+    return JSON.parse(readFileSync17(p, "utf8"));
   } catch {
     return void 0;
   }
@@ -8709,6 +8813,46 @@ async function main() {
       if (!a.story) return usage("refactor-deploy-verify: --story is required.");
       markDeployVerifyRefactored(sftddDir, a.feature, a.story);
       process.stdout.write(`cycle: deploy-verify scope refactor recorded for ${a.story}; re-deploying to re-verify
+`);
+      return 0;
+    }
+    case "assess-refactor-verify": {
+      if (!a.story) return usage("assess-refactor-verify: --story is required.");
+      const marker = readRefactorVerifyAssessMarker(sftddDir, a.feature, a.story);
+      if (!marker) {
+        process.stdout.write(`cycle: assess-refactor-verify , no marker for ${a.feature}/${a.story} (nothing to assess)
+`);
+        return 0;
+      }
+      const flagged = [];
+      for (const ac of storyAcIds(sftddDir, a.feature, a.story)) {
+        const s = readSupersededTests(sftddDir, a.feature, a.story, ac);
+        if (s?.tests) flagged.push(...s.tests);
+      }
+      const uniqueFlagged = [...new Set(flagged)];
+      if (uniqueFlagged.length > 0) {
+        markRefactorVerifyAssessed(sftddDir, a.feature, a.story, uniqueFlagged);
+        process.stdout.write(
+          `cycle: assessed refactor-verify ${a.story} -> ${uniqueFlagged.length} superseded test(s); routing Driver permissive refactor
+`
+        );
+      } else {
+        markRefactorVerifyAssessed(sftddDir, a.feature, a.story);
+        writeEscalation(sftddDir, {
+          source: "driver-refactor",
+          reason: `REFACTOR verify failure for ${a.feature}/${a.story}: Navigator assessed it as a genuine regression (no superseded tests to refactor); raising to HIL`,
+          feature_id: a.feature,
+          story_id: a.story
+        });
+        process.stdout.write(`cycle: assessed refactor-verify ${a.story} -> genuine regression (no supersession), raised to HIL
+`);
+      }
+      return 0;
+    }
+    case "refactor-superseded-verify": {
+      if (!a.story) return usage("refactor-superseded-verify: --story is required.");
+      markRefactorVerifyRefactored(sftddDir, a.feature, a.story);
+      process.stdout.write(`cycle: refactor-verify superseded refactor recorded for ${a.story}; re-verifying
 `);
       return 0;
     }

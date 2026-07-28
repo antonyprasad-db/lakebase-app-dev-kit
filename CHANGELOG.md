@@ -6,6 +6,78 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-07-27
+
+### Changed
+
+- Repinned the substrate dependency `@databricks-solutions/lakebase-scm-utils` to
+  `v0.1.0-beta.9`, which ships the React client scaffold's `.gitignore` via an npm-safe
+  `.gitignore.base` (npm strips a literal `.gitignore` from a packed tarball). Without it a
+  scaffolded project committed `client/node_modules/`, whose Vite/Vitest cache kept the
+  tree perpetually dirty and made `scm-prepare-pr` refuse to open the promote PR.
+
+### Fixed
+
+- **Scaffold the kit's own `.claude` assets.** A newly created project received only the
+  substrate's skill, so it had no `.claude/agents/` and the driver's `claude --agent
+  <role>` spawns resolved nothing (the design lane halted at the first agent turn). The
+  substrate must not name the kit, so the kit's setup hook now lays down its own role
+  agents, skills (consort + the engineering canon), and workflow commands, deduped
+  against the substrate's.
+- **Sprint-mode feature claim.** The whole-sprint driver claimed a feature through a
+  hardcoded kit-dist path to `scm-claim-feature.cli.js`, a substrate bin that moved to
+  `@databricks-solutions/lakebase-scm-utils`, so it crashed with `MODULE_NOT_FOUND`. It
+  now claims through the project's `lk` shim (`lakebase-scm-claim-feature-branch`),
+  matching per-feature mode.
+- **Coupled reflection defects now co-heal.** A pre-build reflection that flagged both a
+  spec-level and a test-list defect could not self-heal: the revise re-ran only the
+  routed role and burned independent per-smell budgets, so the sibling defect re-fired
+  and hard-halted the run. A reflection revise now re-runs the whole design lane for the
+  story (staling the architect's product and briefing both the architect and the test
+  strategist), co-heals every open reflect smell for the story, and is budgeted
+  per-story (one re-design, then the human gate), matching the documented intent.
+- **Test Strategist migration coverage.** For a data-carrying migration (additive column,
+  expand/contract, backfill) with a declared data-durability NFR, the Test Strategist now
+  emits a data-preservation fitness test (seed rows, run the migration, assert they
+  survive) alongside the reversibility round-trip; covering only reversibility is a
+  `reflect-testlist-defect`.
+- **Transient agent failures no longer hard-halt the drive.** A single transient API or
+  network blip (connection closed mid-response, overloaded, rate-limited, 5xx) used to
+  kill a whole run, since the driver aborted on any nonzero `claude` exit. It now retries
+  the turn on a bounded budget with exponential backoff, in the same session. An auth
+  failure is deliberately not treated as transient (it needs a human `/login`), so it
+  still surfaces instead of retrying futilely.
+- **Test Strategist self-check enforces reverse AC coverage.** The role's self-check
+  verified each test item maps to a real AC but not that every AC carries a test, so an
+  uncovered AC (often a client-presentation AC) slipped through to the reflection gate as
+  a `reflect-testlist-defect`. The self-check now hard-fails on any AC with no covering
+  test, so the gap is fixed within the Test Strategist's own turn instead of downstream.
+- **Test Strategist self-check rejects a mislabelled fitness item.** A `kind:"fitness"`
+  item carrying a Gherkin `.feature` `scenario_file` (mutually exclusive per canon) now
+  fails the self-check in-turn, rather than reaching the reflection gate as a
+  `reflect-testlist-defect`.
+- **NFR coverage is per-feature-relevant, not per-feature-mandatory.** The conformance
+  gate required every feature's architecture to cover every project-wide Required NFR, so a
+  feature that touches no code a given NFR governs hard-halted the promote gate even when a
+  sibling feature already realized it. A Required NFR is now satisfied when the feature
+  covers it, a sibling feature covers it, or the feature explicitly declares it out of scope
+  (`nfr_out_of_scope`).
+- **Refactor-verify failures route to a bounded supersession assess.** A REFACTOR-phase
+  verify failure hard-halted to the human gate, unlike the structurally identical GREEN and
+  deploy-verify failures, which route to a bounded Navigator supersession assess. That
+  stranded a legitimate supersession (a later story's refactor retires a field a prior
+  story's test still asserts). The first refactor-verify failure now routes to a Navigator
+  assess (flag the superseded prior tests, then the Driver permissively refactors only
+  those, then one honest re-verify), one-shot bounded; a genuine regression or a repeat
+  failure still takes the terminal human gate. The honest re-verify gates every round, so
+  it never green-washes.
+- **Reflection revise budget is now progress-based.** The reflection critic surfaces
+  test-list defects one at a time, but the prior budget allowed only one re-design, so a
+  story with more than one latent defect hard-halted after the first heal. A reflect
+  revise is now allowed while under a cap and the prior revise actually changed the
+  test-list (fingerprinted at revise time); a no-change re-emit (a stuck author) or the
+  cap still halts, so the loop converges instead of stalling a headless run.
+
 ### Changed
 
 - **Renamed to Consort.** The package is now `@databricks-solutions/consort` and the

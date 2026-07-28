@@ -3254,8 +3254,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path3) {
-      let input = path3;
+    function removeDotSegments(path4) {
+      let input = path4;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3508,8 +3508,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path3, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path3 && path3 !== "/" ? path3 : void 0;
+        const [path4, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path4 && path4 !== "/" ? path4 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -6651,8 +6651,8 @@ var import_path5 = require("path");
 
 // scripts/sftdd/orchestrator-probe.ts
 init_cjs_shims();
-var fs6 = __toESM(require("fs"), 1);
-var path2 = __toESM(require("path"), 1);
+var fs7 = __toESM(require("fs"), 1);
+var path3 = __toESM(require("path"), 1);
 
 // scripts/sftdd/run-cycle.ts
 init_cjs_shims();
@@ -6903,6 +6903,11 @@ init_cjs_shims();
 var import_node_fs3 = require("fs");
 var import_node_path5 = require("path");
 
+// scripts/sftdd/refactor-verify-assess.ts
+init_cjs_shims();
+var fs5 = __toESM(require("fs"), 1);
+var path2 = __toESM(require("path"), 1);
+
 // scripts/sftdd/migration-app-clean.ts
 init_cjs_shims();
 var import_node_fs4 = require("fs");
@@ -7027,7 +7032,7 @@ function validateGateRecord(parsed, gateName, file) {
 
 // scripts/sftdd/workflow-phase.ts
 init_cjs_shims();
-var fs5 = __toESM(require("fs"), 1);
+var fs6 = __toESM(require("fs"), 1);
 var PHASE_OWNER_KEY = "phase_feature_id";
 
 // scripts/sftdd/orchestrator-probe.ts
@@ -7049,9 +7054,9 @@ init_cjs_shims();
 
 // scripts/sftdd/orchestrator-probe.ts
 function readJson(file) {
-  if (!fs6.existsSync(file)) return void 0;
+  if (!fs7.existsSync(file)) return void 0;
   try {
-    return JSON.parse(fs6.readFileSync(file, "utf8"));
+    return JSON.parse(fs7.readFileSync(file, "utf8"));
   } catch {
     return void 0;
   }
@@ -7065,10 +7070,10 @@ function readDriveContext(sftddDir, featureId, projectDir) {
   const spec = readJson(featureSpecJson(sftddDir, featureId));
   const proposed = spec !== void 0;
   const breakdownDone = Array.isArray(spec?.stories) && spec.stories.length > 0;
-  const requestsAuthored = fs6.existsSync(featureRequestMd(sftddDir, featureId));
-  const deployed = fs6.existsSync(featureDeployEvidenceJson(sftddDir, featureId));
+  const requestsAuthored = fs7.existsSync(featureRequestMd(sftddDir, featureId));
+  const deployed = fs7.existsSync(featureDeployEvidenceJson(sftddDir, featureId));
   const gateApproved = readGateApproved(featureId, sftddDir, "deploy");
-  const proj = projectDir ?? path2.dirname(sftddDir);
+  const proj = projectDir ?? path3.dirname(sftddDir);
   let scmState;
   try {
     scmState = (0, import_lakebase8.readWorkflowState)(proj)?.state;
@@ -7144,9 +7149,9 @@ function readPipeline(sftddDir, featureId) {
 
 // scripts/sftdd/feature-status.ts
 var MAX_RECENT_LOG_ENTRIES = 5;
-function readJsonIfExists(path3) {
-  if (!(0, import_fs7.existsSync)(path3)) return null;
-  return JSON.parse((0, import_fs7.readFileSync)(path3, "utf8"));
+function readJsonIfExists(path4) {
+  if (!(0, import_fs7.existsSync)(path4)) return null;
+  return JSON.parse((0, import_fs7.readFileSync)(path4, "utf8"));
 }
 function listFeatureStories(sftddDir, featureId) {
   const storiesDir2 = storiesDir(sftddDir, featureId);
@@ -7182,9 +7187,9 @@ function summarizeTestList(sftddDir, featureId) {
   }
 }
 function readSelectionLogRecent(sftddDir, limit) {
-  const path3 = (0, import_path5.join)(sftddDir, "selection-log.md");
-  if (!(0, import_fs7.existsSync)(path3)) return [];
-  const text = (0, import_fs7.readFileSync)(path3, "utf8");
+  const path4 = (0, import_path5.join)(sftddDir, "selection-log.md");
+  if (!(0, import_fs7.existsSync)(path4)) return [];
+  const text = (0, import_fs7.readFileSync)(path4, "utf8");
   const entries = [];
   const headingRe = /^##\s+(\S+T\S+?)\s+–\s+(.+?)$/gm;
   let match;

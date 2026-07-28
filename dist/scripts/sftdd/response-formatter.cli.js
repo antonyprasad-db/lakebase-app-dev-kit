@@ -7105,7 +7105,14 @@ function checkTestStrategist(args, v) {
     return;
   }
   const acIds = new Set(storyAcIds(sftddDir, featureId, story));
+  const covered = /* @__PURE__ */ new Set();
   items.forEach((item, i) => {
+    if (item.kind === "fitness" && typeof item.scenario_file === "string" && /\.feature$/.test(item.scenario_file)) {
+      v.push({
+        artifact: `stories/${story}/test-list-per-story.json`,
+        problem: `items[${i}] (${String(item.id)}) is kind:"fitness" but its scenario_file "${item.scenario_file}" is a Gherkin .feature (mutually exclusive). A fitness item is a plain test (drop scenario_file), or make it kind:"behavior".`
+      });
+    }
     const acId = item.ac_id;
     if (typeof acId !== "string" || acId.length === 0) {
       v.push({ artifact: `stories/${story}/test-list-per-story.json`, problem: `items[${i}] (${String(item.id)}) has null/empty ac_id` });
@@ -7114,8 +7121,17 @@ function checkTestStrategist(args, v) {
         artifact: `stories/${story}/test-list-per-story.json`,
         problem: `items[${i}] ac_id "${acId}" is not one of the story's ACs [${[...acIds].join(", ")}]`
       });
+    } else if (typeof acId === "string") {
+      covered.add(acId);
     }
   });
+  const uncovered = [...acIds].filter((id) => !covered.has(id));
+  if (uncovered.length > 0) {
+    v.push({
+      artifact: `stories/${story}/test-list-per-story.json`,
+      problem: `AC(s) with no covering test: [${uncovered.join(", ")}]. Every AC needs >=1 item (a client AC needs a kind:client item; see the reflect gate).`
+    });
+  }
 }
 function designGuideConformance(sftddDir) {
   const file = designGuideJson(sftddDir);

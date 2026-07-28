@@ -6673,6 +6673,7 @@ function hashArtifact(content) {
 
 // scripts/sftdd/artifact-conformance.ts
 init_cjs_shims();
+var import_fs2 = require("fs");
 var import_path2 = require("path");
 
 // scripts/sftdd/schema-loader.ts
@@ -6958,7 +6959,7 @@ function parseRequiredNfrs(nfrsMd2) {
   }
   return out;
 }
-function checkNfrCoverage(nfrsMd2, architectureJson2) {
+function checkNfrCoverage(nfrsMd2, architectureJson2, otherFeatureBriefRefs = /* @__PURE__ */ new Set()) {
   const required = parseRequiredNfrs(nfrsMd2);
   if (required.length === 0) return { ok: true };
   let parsed;
@@ -6971,6 +6972,9 @@ function checkNfrCoverage(nfrsMd2, architectureJson2) {
   const briefRefs = new Set(
     (parsed.nfrs ?? []).map((n) => n.brief_ref).filter((r) => typeof r === "string" && r.length > 0)
   );
+  const scopedOut = new Set(
+    (parsed.nfr_out_of_scope ?? []).map((s) => s.ref).filter((r) => typeof r === "string" && r.length > 0)
+  );
   const violations = [];
   for (const item of required) {
     if (item.id === null) {
@@ -6978,13 +6982,31 @@ function checkNfrCoverage(nfrsMd2, architectureJson2) {
       violations.push(`nfrs.md Required item has no R<n> id (cannot be coverage-tracked): "${preview}"`);
       continue;
     }
-    if (!briefRefs.has(item.id)) {
+    const covered = briefRefs.has(item.id) || otherFeatureBriefRefs.has(item.id) || scopedOut.has(item.id);
+    if (!covered) {
       violations.push(
-        `Required NFR ${item.id} from nfrs.md is not covered by any architecture.json nfr (no matching brief_ref)`
+        `Required NFR ${item.id} from nfrs.md is not covered by this feature, any sibling feature, or an explicit nfr_out_of_scope declaration (no matching brief_ref)`
       );
     }
   }
   return finalize(violations);
+}
+function projectBriefRefs(sftddDir) {
+  const refs = /* @__PURE__ */ new Set();
+  const fdir = featuresDir(sftddDir);
+  if (!(0, import_fs2.existsSync)(fdir)) return refs;
+  for (const feature of (0, import_fs2.readdirSync)(fdir)) {
+    const archPath = (0, import_path2.join)(fdir, feature, "architecture.json");
+    if (!(0, import_fs2.existsSync)(archPath)) continue;
+    try {
+      const parsed = JSON.parse((0, import_fs2.readFileSync)(archPath, "utf8"));
+      for (const n of parsed.nfrs ?? []) {
+        if (typeof n.brief_ref === "string" && n.brief_ref.length > 0) refs.add(n.brief_ref);
+      }
+    } catch {
+    }
+  }
+  return refs;
 }
 var PERSISTENCE_EVIDENCE_RE = /\b(migrat\w*|schema|persist\w*|stored|store|tables?|database|repositor\w*|\bORM\b)\b/i;
 function checkServiceBackedDeclaration(architectureJson2, evidence) {
@@ -7326,12 +7348,12 @@ var import_node_path3 = require("path");
 
 // scripts/sftdd/approve-gate.ts
 init_cjs_shims();
-var import_fs4 = require("fs");
+var import_fs5 = require("fs");
 var import_path5 = require("path");
 
 // scripts/sftdd/gates-lock.ts
 init_cjs_shims();
-var import_fs2 = require("fs");
+var import_fs3 = require("fs");
 var import_path3 = require("path");
 var GatesLockBusyError = class extends Error {
   constructor(featureId, heldByPid, retries) {
@@ -7357,9 +7379,9 @@ function withGatesLock(featureId, fn, opts = {}) {
   let attempts = 0;
   while (!acquired && attempts <= maxRetries) {
     try {
-      const fd = (0, import_fs2.openSync)(lockPath, "wx");
-      (0, import_fs2.writeFileSync)(fd, String(process.pid));
-      (0, import_fs2.closeSync)(fd);
+      const fd = (0, import_fs3.openSync)(lockPath, "wx");
+      (0, import_fs3.writeFileSync)(fd, String(process.pid));
+      (0, import_fs3.closeSync)(fd);
       acquired = true;
     } catch (err) {
       if (!isEexist(err)) throw err;
@@ -7375,7 +7397,7 @@ function withGatesLock(featureId, fn, opts = {}) {
     return fn();
   } finally {
     try {
-      (0, import_fs2.unlinkSync)(lockPath);
+      (0, import_fs3.unlinkSync)(lockPath);
     } catch {
     }
   }
@@ -7385,7 +7407,7 @@ function isEexist(err) {
 }
 function readHeldByPid(lockPath) {
   try {
-    const text = (0, import_fs2.readFileSync)(lockPath, "utf8");
+    const text = (0, import_fs3.readFileSync)(lockPath, "utf8");
     const n = Number(text.trim());
     return Number.isFinite(n) && n > 0 ? n : null;
   } catch {
@@ -7394,7 +7416,7 @@ function readHeldByPid(lockPath) {
 }
 function gatesLockFilePath(sftddDir, featureId) {
   const dir = requireFeatureDir(sftddDir, featureId);
-  (0, import_fs2.mkdirSync)(dir, { recursive: true });
+  (0, import_fs3.mkdirSync)(dir, { recursive: true });
   return (0, import_path3.join)(dir, ".gates.lock");
 }
 function defaultSleep(ms) {
@@ -7404,7 +7426,7 @@ function defaultSleep(ms) {
 
 // scripts/sftdd/gates.ts
 init_cjs_shims();
-var import_fs3 = require("fs");
+var import_fs4 = require("fs");
 var import_path4 = require("path");
 var GATES_SCHEMA_VERSION = 1;
 var GATE_NAMES = ["spec", "plan", "test_list", "promote", "deploy"];
@@ -7425,10 +7447,10 @@ function defaultGatesState(featureId) {
 function readGates(featureId, opts = {}) {
   const sftddDir = opts.sftddDir ?? resolveSftddDir();
   const file = gatesFilePath(sftddDir, featureId);
-  if (!(0, import_fs3.existsSync)(file)) {
+  if (!(0, import_fs4.existsSync)(file)) {
     return defaultGatesState(featureId);
   }
-  const raw = (0, import_fs3.readFileSync)(file, "utf8");
+  const raw = (0, import_fs4.readFileSync)(file, "utf8");
   let parsed;
   try {
     parsed = JSON.parse(raw);
@@ -7446,12 +7468,12 @@ function writeGates(state, opts = {}) {
   const file = gatesFilePath(sftddDir, state.feature_id);
   const tempFile = `${file}.tmp.${process.pid}.${Date.now()}`;
   const payload = JSON.stringify(state, null, 2) + "\n";
-  (0, import_fs3.writeFileSync)(tempFile, payload, "utf8");
+  (0, import_fs4.writeFileSync)(tempFile, payload, "utf8");
   try {
-    (0, import_fs3.renameSync)(tempFile, file);
+    (0, import_fs4.renameSync)(tempFile, file);
   } catch (err) {
     try {
-      (0, import_fs3.unlinkSync)(tempFile);
+      (0, import_fs4.unlinkSync)(tempFile);
     } catch {
     }
     throw err;
@@ -7606,16 +7628,16 @@ function appendSelectionLog(sftddDir, entry) {
     ""
   ];
   const text = lines.join("\n");
-  if ((0, import_fs4.existsSync)(logPath)) {
-    (0, import_fs4.writeFileSync)(logPath, (0, import_fs4.readFileSync)(logPath, "utf8") + text);
+  if ((0, import_fs5.existsSync)(logPath)) {
+    (0, import_fs5.writeFileSync)(logPath, (0, import_fs5.readFileSync)(logPath, "utf8") + text);
   } else {
-    (0, import_fs4.writeFileSync)(logPath, text);
+    (0, import_fs5.writeFileSync)(logPath, text);
   }
 }
 
 // scripts/sftdd/agent-log.ts
 init_cjs_shims();
-var import_fs5 = require("fs");
+var import_fs6 = require("fs");
 var import_path6 = require("path");
 
 // scripts/sftdd/agent-log-events.ts
@@ -7733,7 +7755,7 @@ function emitAgentLogEvent(input, opts = {}) {
   const sftddDir = opts.sftddDir ?? resolveSftddDir();
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const event = buildAgentLogEvent(input, now);
-  (0, import_fs5.appendFileSync)(logFilePath(sftddDir), `${JSON.stringify(event)}
+  (0, import_fs6.appendFileSync)(logFilePath(sftddDir), `${JSON.stringify(event)}
 `, "utf8");
   return event;
 }
@@ -7745,17 +7767,17 @@ var import_node_path2 = require("path");
 
 // scripts/sftdd/test-list.ts
 init_cjs_shims();
-var import_fs6 = require("fs");
+var import_fs7 = require("fs");
 var import_path7 = require("path");
 function acIdsInStoryDir(storyDir2) {
   const dir = (0, import_path7.join)(storyDir2, "acs");
-  if (!(0, import_fs6.existsSync)(dir)) return [];
+  if (!(0, import_fs7.existsSync)(dir)) return [];
   const out = [];
-  for (const f of (0, import_fs6.readdirSync)(dir)) {
+  for (const f of (0, import_fs7.readdirSync)(dir)) {
     if (!f.endsWith(".json")) continue;
     const base = f.slice(0, -".json".length);
     try {
-      const obj = JSON.parse((0, import_fs6.readFileSync)((0, import_path7.join)(dir, f), "utf8"));
+      const obj = JSON.parse((0, import_fs7.readFileSync)((0, import_path7.join)(dir, f), "utf8"));
       if (obj && typeof obj.id === "string" && obj.id === base) out.push(base);
     } catch {
     }
@@ -7769,15 +7791,15 @@ function acsForStory(tddDir, featureId, storyId) {
 
 // scripts/sftdd/architecture-conventions.ts
 init_cjs_shims();
-var import_fs7 = require("fs");
+var import_fs8 = require("fs");
 function normModule(m) {
   return m.replace(/\/+$/, "");
 }
 function readConventions(sftddDir) {
   const f = architectureConventionsJson(sftddDir);
-  if (!(0, import_fs7.existsSync)(f)) return void 0;
+  if (!(0, import_fs8.existsSync)(f)) return void 0;
   try {
-    return JSON.parse((0, import_fs7.readFileSync)(f, "utf8"));
+    return JSON.parse((0, import_fs8.readFileSync)(f, "utf8"));
   } catch {
     return void 0;
   }
@@ -7933,7 +7955,7 @@ function nfrCoverageReason(sftddDir, featureId) {
   } catch {
     return null;
   }
-  const r = checkNfrCoverage(nfrsContent, arch);
+  const r = checkNfrCoverage(nfrsContent, arch, projectBriefRefs(sftddDir));
   return r.ok ? null : `NFR coverage failed: ${r.violations.join("; ")}`;
 }
 function fitnessCoverageReason(sftddDir, featureId, testListJson) {
@@ -8176,7 +8198,7 @@ function drainGatesAsHumanProxy(args) {
 
 // scripts/sftdd/story-pipeline.ts
 init_cjs_shims();
-var import_fs8 = require("fs");
+var import_fs9 = require("fs");
 var import_path8 = require("path");
 function initPipeline(featureId) {
   return { version: 1, feature_id: featureId, stories: {}, build_queue: [], build_active: null };
@@ -8186,13 +8208,13 @@ function pipelinePath(sftddDir, featureId) {
 }
 function readPipeline(sftddDir, featureId) {
   const p = pipelinePath(sftddDir, featureId);
-  if (!(0, import_fs8.existsSync)(p)) return initPipeline(featureId);
-  return JSON.parse((0, import_fs8.readFileSync)(p, "utf8"));
+  if (!(0, import_fs9.existsSync)(p)) return initPipeline(featureId);
+  return JSON.parse((0, import_fs9.readFileSync)(p, "utf8"));
 }
 function writePipeline(sftddDir, pipeline) {
   const p = pipelinePath(sftddDir, pipeline.feature_id);
-  (0, import_fs8.mkdirSync)((0, import_path8.dirname)(p), { recursive: true });
-  (0, import_fs8.writeFileSync)(p, JSON.stringify(pipeline, null, 2) + "\n");
+  (0, import_fs9.mkdirSync)((0, import_path8.dirname)(p), { recursive: true });
+  (0, import_fs9.writeFileSync)(p, JSON.stringify(pipeline, null, 2) + "\n");
 }
 function setStoryStatus(pipeline, storyId, status) {
   const existing = pipeline.stories[storyId];
@@ -8206,14 +8228,14 @@ function enqueueReady(pipeline, storyId) {
 }
 function storyHasAcceptanceCriteria(sftddDir, featureId, storyId) {
   const acsDir2 = acsDir(sftddDir, featureId, storyId);
-  if (!(0, import_fs8.existsSync)(acsDir2)) return false;
-  return (0, import_fs8.readdirSync)(acsDir2).some((f) => f.endsWith(".json"));
+  if (!(0, import_fs9.existsSync)(acsDir2)) return false;
+  return (0, import_fs9.readdirSync)(acsDir2).some((f) => f.endsWith(".json"));
 }
 function findBatchedDraftStories(sftddDir, featureId, pipeline, gatingStoryId) {
   const storiesDir2 = storiesDir(sftddDir, featureId);
-  if (!(0, import_fs8.existsSync)(storiesDir2)) return [];
+  if (!(0, import_fs9.existsSync)(storiesDir2)) return [];
   const offenders = [];
-  for (const storyId of (0, import_fs8.readdirSync)(storiesDir2)) {
+  for (const storyId of (0, import_fs9.readdirSync)(storiesDir2)) {
     if (storyId === gatingStoryId) continue;
     if (!storyHasAcceptanceCriteria(sftddDir, featureId, storyId)) continue;
     const status = pipeline.stories[storyId]?.status;

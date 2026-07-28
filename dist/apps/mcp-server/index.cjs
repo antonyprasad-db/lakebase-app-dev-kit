@@ -3262,8 +3262,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path5) {
-      let input = path5;
+    function removeDotSegments(path6) {
+      let input = path6;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3516,8 +3516,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path5, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path5 && path5 !== "/" ? path5 : void 0;
+        const [path6, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path6 && path6 !== "/" ? path6 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -6829,6 +6829,7 @@ function layDownTddScaffold(targetDir) {
     fs3.writeFileSync(kitPkgFile, `${kitPackageName()}
 `);
   }
+  layDownKitClaudeAssets(targetDir);
   const candidates = [
     path2.resolve(__dirname2, `../../templates/sftdd-bootstrap/${ARTIFACT_ROOT}`),
     path2.resolve(__dirname2, `../../../templates/sftdd-bootstrap/${ARTIFACT_ROOT}`)
@@ -6842,6 +6843,68 @@ function layDownTddScaffold(targetDir) {
     return;
   }
   fs3.cpSync(source, dest, { recursive: true });
+}
+function resolveKitRoot() {
+  const candidates = [
+    path2.resolve(__dirname2, "../.."),
+    path2.resolve(__dirname2, "../../..")
+  ];
+  for (const c of candidates) {
+    if (fs3.existsSync(path2.join(c, "package.json")) && fs3.existsSync(path2.join(c, "skills", "consort", "agents"))) {
+      return c;
+    }
+  }
+  throw new Error(
+    `could not resolve the kit root (package.json + skills/consort/agents); looked in: ${candidates.join(", ")}`
+  );
+}
+function kitVersion(root) {
+  try {
+    return JSON.parse(fs3.readFileSync(path2.join(root, "package.json"), "utf8")).version ?? "";
+  } catch {
+    return "";
+  }
+}
+function copyMissingMd(src, dest) {
+  if (!fs3.existsSync(src)) return;
+  fs3.mkdirSync(dest, { recursive: true });
+  for (const entry of fs3.readdirSync(src)) {
+    if (!entry.endsWith(".md")) continue;
+    const d = path2.join(dest, entry);
+    if (fs3.existsSync(d)) continue;
+    fs3.copyFileSync(path2.join(src, entry), d);
+  }
+}
+function layDownKitClaudeAssets(targetDir) {
+  const root = resolveKitRoot();
+  const claudeDir = path2.join(targetDir, ".claude");
+  copyMissingMd(
+    path2.join(root, "skills", "consort", "agents"),
+    path2.join(claudeDir, "agents")
+  );
+  const skillsSrc = path2.join(root, "skills");
+  if (fs3.existsSync(skillsSrc)) {
+    for (const skill of fs3.readdirSync(skillsSrc).sort()) {
+      if (!fs3.existsSync(path2.join(skillsSrc, skill, "SKILL.md"))) continue;
+      const dest = path2.join(claudeDir, "skills", skill);
+      if (fs3.existsSync(dest)) continue;
+      fs3.mkdirSync(path2.dirname(dest), { recursive: true });
+      fs3.cpSync(path2.join(skillsSrc, skill), dest, { recursive: true });
+    }
+  }
+  const cmdSrc = path2.join(root, "templates", "project", "common", ".claude", "commands");
+  if (fs3.existsSync(cmdSrc)) {
+    const version = kitVersion(root);
+    const cmdDest = path2.join(claudeDir, "commands");
+    fs3.mkdirSync(cmdDest, { recursive: true });
+    for (const entry of fs3.readdirSync(cmdSrc)) {
+      if (!entry.endsWith(".md")) continue;
+      const dest = path2.join(cmdDest, entry);
+      if (fs3.existsSync(dest)) continue;
+      const body = fs3.readFileSync(path2.join(cmdSrc, entry), "utf8").replace(/\$\{KIT_VERSION_AT_SCAFFOLD\}/g, version);
+      fs3.writeFileSync(dest, body);
+    }
+  }
 }
 function seedSftddConfig(projectDir, opts) {
   const sftddConfig = defaultSftddConfig();
@@ -6880,8 +6943,8 @@ var import_path7 = require("path");
 
 // scripts/sftdd/orchestrator-probe.ts
 init_cjs_shims();
-var fs8 = __toESM(require("fs"), 1);
-var path4 = __toESM(require("path"), 1);
+var fs9 = __toESM(require("fs"), 1);
+var path5 = __toESM(require("path"), 1);
 
 // scripts/sftdd/run-cycle.ts
 init_cjs_shims();
@@ -7062,6 +7125,11 @@ init_cjs_shims();
 var import_node_fs3 = require("fs");
 var import_node_path5 = require("path");
 
+// scripts/sftdd/refactor-verify-assess.ts
+init_cjs_shims();
+var fs7 = __toESM(require("fs"), 1);
+var path4 = __toESM(require("path"), 1);
+
 // scripts/sftdd/migration-app-clean.ts
 init_cjs_shims();
 var import_node_fs4 = require("fs");
@@ -7186,7 +7254,7 @@ function validateGateRecord(parsed, gateName, file) {
 
 // scripts/sftdd/workflow-phase.ts
 init_cjs_shims();
-var fs7 = __toESM(require("fs"), 1);
+var fs8 = __toESM(require("fs"), 1);
 var PHASE_OWNER_KEY = "phase_feature_id";
 
 // scripts/sftdd/orchestrator-probe.ts
@@ -7208,9 +7276,9 @@ init_cjs_shims();
 
 // scripts/sftdd/orchestrator-probe.ts
 function readJson(file) {
-  if (!fs8.existsSync(file)) return void 0;
+  if (!fs9.existsSync(file)) return void 0;
   try {
-    return JSON.parse(fs8.readFileSync(file, "utf8"));
+    return JSON.parse(fs9.readFileSync(file, "utf8"));
   } catch {
     return void 0;
   }
@@ -7224,10 +7292,10 @@ function readDriveContext(sftddDir, featureId, projectDir) {
   const spec = readJson(featureSpecJson(sftddDir, featureId));
   const proposed = spec !== void 0;
   const breakdownDone = Array.isArray(spec?.stories) && spec.stories.length > 0;
-  const requestsAuthored = fs8.existsSync(featureRequestMd(sftddDir, featureId));
-  const deployed = fs8.existsSync(featureDeployEvidenceJson(sftddDir, featureId));
+  const requestsAuthored = fs9.existsSync(featureRequestMd(sftddDir, featureId));
+  const deployed = fs9.existsSync(featureDeployEvidenceJson(sftddDir, featureId));
   const gateApproved = readGateApproved(featureId, sftddDir, "deploy");
-  const proj = projectDir ?? path4.dirname(sftddDir);
+  const proj = projectDir ?? path5.dirname(sftddDir);
   let scmState;
   try {
     scmState = (0, import_lakebase9.readWorkflowState)(proj)?.state;
@@ -7303,9 +7371,9 @@ function readPipeline(sftddDir, featureId) {
 
 // scripts/sftdd/feature-status.ts
 var MAX_RECENT_LOG_ENTRIES = 5;
-function readJsonIfExists(path5) {
-  if (!(0, import_fs8.existsSync)(path5)) return null;
-  return JSON.parse((0, import_fs8.readFileSync)(path5, "utf8"));
+function readJsonIfExists(path6) {
+  if (!(0, import_fs8.existsSync)(path6)) return null;
+  return JSON.parse((0, import_fs8.readFileSync)(path6, "utf8"));
 }
 function listFeatureStories(sftddDir, featureId) {
   const storiesDir2 = storiesDir(sftddDir, featureId);
@@ -7341,9 +7409,9 @@ function summarizeTestList(sftddDir, featureId) {
   }
 }
 function readSelectionLogRecent(sftddDir, limit) {
-  const path5 = (0, import_path7.join)(sftddDir, "selection-log.md");
-  if (!(0, import_fs8.existsSync)(path5)) return [];
-  const text = (0, import_fs8.readFileSync)(path5, "utf8");
+  const path6 = (0, import_path7.join)(sftddDir, "selection-log.md");
+  if (!(0, import_fs8.existsSync)(path6)) return [];
+  const text = (0, import_fs8.readFileSync)(path6, "utf8");
   const entries = [];
   const headingRe = /^##\s+(\S+T\S+?)\s+–\s+(.+?)$/gm;
   let match;

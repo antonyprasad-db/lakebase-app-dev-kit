@@ -3254,8 +3254,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path3) {
-      let input = path3;
+    function removeDotSegments(path4) {
+      let input = path4;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3508,8 +3508,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path3, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path3 && path3 !== "/" ? path3 : void 0;
+        const [path4, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path4 && path4 !== "/" ? path4 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -6979,9 +6979,9 @@ function checkAcIndependence(acs) {
   }
   return violations.length === 0 ? { ok: true } : { ok: false, violations };
 }
-function canonicalArtifactName(path3) {
-  const base = (0, import_path2.basename)(path3);
-  if ((0, import_path2.basename)((0, import_path2.dirname)(path3)) === "acs" && base.endsWith(".json")) return "ac.json";
+function canonicalArtifactName(path4) {
+  const base = (0, import_path2.basename)(path4);
+  if ((0, import_path2.basename)((0, import_path2.dirname)(path4)) === "acs" && base.endsWith(".json")) return "ac.json";
   return base;
 }
 
@@ -7398,6 +7398,7 @@ function emitAgentLogEvent(input, opts = {}) {
 // scripts/sftdd/smells.ts
 init_cjs_shims();
 var import_fs4 = require("fs");
+var import_crypto = require("crypto");
 var import_path5 = require("path");
 
 // scripts/sftdd/run-cycle.ts
@@ -7613,6 +7614,38 @@ function resolveAllOpenSmellsForStory(sftddDir, story, note) {
   if (cleared.length) (0, import_fs4.writeFileSync)(file, JSON.stringify(log, null, 2) + "\n");
   return cleared;
 }
+var REFLECT_SMELL_NAMES = /* @__PURE__ */ new Set([
+  "reflect-spec-defect",
+  "reflect-testlist-defect"
+]);
+function isReflectSmell(name) {
+  return REFLECT_SMELL_NAMES.has(name);
+}
+function storyTestListFingerprint(sftddDir, featureId, story_id) {
+  const f = storyTestListJson(sftddDir, featureId, story_id);
+  if (!(0, import_fs4.existsSync)(f)) return "";
+  try {
+    return (0, import_crypto.createHash)("sha1").update((0, import_fs4.readFileSync)(f)).digest("hex");
+  } catch {
+    return "";
+  }
+}
+function resolveOpenReflectSmellsForStory(sftddDir, story_id, note, artifactSha) {
+  const file = (0, import_path5.join)(sftddDir, "smells.json");
+  if (!(0, import_fs4.existsSync)(file)) return 0;
+  const log = JSON.parse((0, import_fs4.readFileSync)(file, "utf8"));
+  let n = 0;
+  for (const d of log.detected) {
+    if (!d.resolution && isReflectSmell(d.smell) && d.story_id === story_id) {
+      d.resolution = note;
+      d.resolution_kind = "revised";
+      if (artifactSha !== void 0) d.revised_artifact_sha = artifactSha;
+      n++;
+    }
+  }
+  if (n) (0, import_fs4.writeFileSync)(file, JSON.stringify(log, null, 2) + "\n");
+  return n;
+}
 
 // scripts/sftdd/reflection.ts
 init_cjs_shims();
@@ -7708,6 +7741,11 @@ init_cjs_shims();
 var import_node_fs4 = require("fs");
 var import_node_path6 = require("path");
 
+// scripts/sftdd/refactor-verify-assess.ts
+init_cjs_shims();
+var fs5 = __toESM(require("fs"), 1);
+var path2 = __toESM(require("path"), 1);
+
 // scripts/sftdd/migration-app-clean.ts
 init_cjs_shims();
 var import_node_fs5 = require("fs");
@@ -7767,20 +7805,22 @@ function staleStoryArtifactsForRevise(sftddDir, featureId, story, gate) {
       }
     }
   } else if (gate === "architecture") {
-    const dir = acsDir(sftddDir, featureId, story);
-    if ((0, import_node_fs6.existsSync)(dir)) {
-      for (const f of (0, import_node_fs6.readdirSync)(dir)) {
-        if (!f.endsWith(".json")) continue;
-        const p = (0, import_node_path8.join)(dir, f);
-        try {
-          const ac = JSON.parse((0, import_node_fs6.readFileSync)(p, "utf8"));
-          if ("architectural_notes" in ac) {
-            delete ac.architectural_notes;
-            (0, import_node_fs6.writeFileSync)(p, JSON.stringify(ac, null, 2) + "\n");
-          }
-        } catch {
-        }
+    clearArchitecturalNotes(sftddDir, featureId, story);
+  }
+}
+function clearArchitecturalNotes(sftddDir, featureId, story) {
+  const dir = acsDir(sftddDir, featureId, story);
+  if (!(0, import_node_fs6.existsSync)(dir)) return;
+  for (const f of (0, import_node_fs6.readdirSync)(dir)) {
+    if (!f.endsWith(".json")) continue;
+    const p = (0, import_node_path8.join)(dir, f);
+    try {
+      const ac = JSON.parse((0, import_node_fs6.readFileSync)(p, "utf8"));
+      if ("architectural_notes" in ac) {
+        delete ac.architectural_notes;
+        (0, import_node_fs6.writeFileSync)(p, JSON.stringify(ac, null, 2) + "\n");
       }
+    } catch {
     }
   }
 }
@@ -7788,6 +7828,7 @@ function applyReviseSelfHeal(args) {
   const sftddDir = args.sftddDir ?? resolveSftddDir();
   const approver = args.approver ?? REVISE_APPROVER;
   const at = (/* @__PURE__ */ new Date()).toISOString();
+  const preReviseTestListSha = storyTestListFingerprint(sftddDir, args.featureId, args.story);
   try {
     emitAgentLogEvent(
       {
@@ -7820,7 +7861,26 @@ function applyReviseSelfHeal(args) {
     (0, import_node_fs6.writeFileSync)(hb, composeReviseBrief({ smell: args.smell, gate: args.gate, reason: args.reason }));
   } catch {
   }
-  const resolvedSmell = markSmellResolved(sftddDir, args.smell, {
+  const reflect = isReflectSmell(args.smell);
+  if (reflect) {
+    clearArchitecturalNotes(sftddDir, args.featureId, args.story);
+    for (const role of ["architect-reviewer", "test-strategist"]) {
+      if (role === args.routedTo) continue;
+      try {
+        const hb = handbackFile(sftddDir, args.featureId, role, args.story);
+        (0, import_node_fs6.mkdirSync)((0, import_node_path8.dirname)(hb), { recursive: true });
+        const gate = role === "architect-reviewer" ? "architecture" : "test_list";
+        (0, import_node_fs6.writeFileSync)(hb, composeReviseBrief({ smell: args.smell, gate, reason: args.reason }));
+      } catch {
+      }
+    }
+  }
+  const resolvedSmell = reflect ? resolveOpenReflectSmellsForStory(
+    sftddDir,
+    args.story,
+    `revised by ${approver}: full design re-run (${args.gate} gate)`,
+    preReviseTestListSha
+  ) > 0 : markSmellResolved(sftddDir, args.smell, {
     story_id: args.story,
     kind: "revised",
     note: `revised by ${approver}: routed to ${args.routedTo} (${args.gate} gate)`
@@ -7971,9 +8031,9 @@ function resolveAcceptMergeArgs(sftddDir, projectDir, featureId, storyId, opts =
 // scripts/sftdd/kit-bin.ts
 init_cjs_shims();
 var import_node_child_process2 = require("child_process");
-var fs5 = __toESM(require("fs"), 1);
-var path2 = __toESM(require("path"), 1);
-var KIT_ROOT = path2.resolve(__dirname, "..", "..", "..");
+var fs6 = __toESM(require("fs"), 1);
+var path3 = __toESM(require("path"), 1);
+var KIT_ROOT = path3.resolve(__dirname, "..", "..", "..");
 var SUBSTRATE_PKG = "@databricks-solutions/lakebase-scm-utils";
 var kitBinMap = null;
 var substrateRoot;
@@ -7982,12 +8042,12 @@ function resolveSubstrateRoot() {
   if (substrateRoot !== void 0) return substrateRoot;
   let dir = KIT_ROOT;
   for (; ; ) {
-    const cand = path2.join(dir, "node_modules", SUBSTRATE_PKG);
-    if (fs5.existsSync(path2.join(cand, "package.json"))) {
+    const cand = path3.join(dir, "node_modules", SUBSTRATE_PKG);
+    if (fs6.existsSync(path3.join(cand, "package.json"))) {
       substrateRoot = cand;
       return cand;
     }
-    const parent = path2.dirname(dir);
+    const parent = path3.dirname(dir);
     if (parent === dir) break;
     dir = parent;
   }
@@ -7997,26 +8057,26 @@ function resolveSubstrateRoot() {
 function resolveKitBinJs(bin) {
   if (kitBinMap === null) {
     try {
-      const pkg = JSON.parse(fs5.readFileSync(path2.join(KIT_ROOT, "package.json"), "utf8"));
+      const pkg = JSON.parse(fs6.readFileSync(path3.join(KIT_ROOT, "package.json"), "utf8"));
       kitBinMap = pkg.bin ?? {};
     } catch {
       kitBinMap = {};
     }
   }
   const rel = kitBinMap[bin];
-  if (rel) return path2.join(KIT_ROOT, rel);
+  if (rel) return path3.join(KIT_ROOT, rel);
   const subRoot = resolveSubstrateRoot();
   if (subRoot) {
     if (substrateBinMap === null) {
       try {
-        const pkg = JSON.parse(fs5.readFileSync(path2.join(subRoot, "package.json"), "utf8"));
+        const pkg = JSON.parse(fs6.readFileSync(path3.join(subRoot, "package.json"), "utf8"));
         substrateBinMap = pkg.bin ?? {};
       } catch {
         substrateBinMap = {};
       }
     }
     const subRel = substrateBinMap[bin];
-    if (subRel) return path2.join(subRoot, subRel);
+    if (subRel) return path3.join(subRoot, subRel);
   }
   return null;
 }

@@ -3254,8 +3254,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path5) {
-      let input = path5;
+    function removeDotSegments(path6) {
+      let input = path6;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3508,8 +3508,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path5, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path5 && path5 !== "/" ? path5 : void 0;
+        const [path6, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path6 && path6 !== "/" ? path6 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -6905,7 +6905,7 @@ function resolveSftddSettings(inputs) {
 
 // scripts/sftdd/orchestrator-effects.ts
 init_cjs_shims();
-var fs7 = __toESM(require("fs"), 1);
+var fs8 = __toESM(require("fs"), 1);
 var import_node_path8 = require("path");
 
 // scripts/sftdd/orchestrator-drive.ts
@@ -6949,6 +6949,8 @@ function nextBuildAction(story, b) {
   if (!b.experimentCut) {
     return b.experimentDiscarded ? { kind: "cut-experiment", story, resetStaleBranch: true } : { kind: "cut-experiment", story };
   }
+  if (b.refactorVerifyAssessEligible) return { kind: "invoke-role", role: "navigator", story, buildMode: "assess-refactor" };
+  if (b.refactorVerifyRefactorPending) return { kind: "invoke-role", role: "driver", story, buildMode: "refactor-superseded" };
   if ((b.loop ?? "story") === "story") {
     if (b.reviewStoryPending) return { kind: "invoke-role", role: "navigator", story, buildMode: "review" };
     if (b.refactorStoryPending) return { kind: "invoke-role", role: "driver", story, buildMode: "refactor" };
@@ -7079,6 +7081,8 @@ function storyView(id, e, probe, loop) {
       deployVerified: probe.storyDeployVerified(id),
       deployVerifyAssessEligible: probe.deployVerifyAssessEligible(id),
       deployVerifyRefactorPending: probe.deployVerifyRefactorPending(id),
+      refactorVerifyAssessEligible: probe.refactorVerifyAssessEligible(id),
+      refactorVerifyRefactorPending: probe.refactorVerifyRefactorPending(id),
       accepted
     }
   };
@@ -7121,8 +7125,8 @@ function driverPhaseForTdd(tddPhase) {
 
 // scripts/sftdd/orchestrator-probe.ts
 init_cjs_shims();
-var fs6 = __toESM(require("fs"), 1);
-var path2 = __toESM(require("path"), 1);
+var fs7 = __toESM(require("fs"), 1);
+var path3 = __toESM(require("path"), 1);
 
 // scripts/sftdd/run-cycle.ts
 init_cjs_shims();
@@ -7274,6 +7278,7 @@ var fs2 = __toESM(require("fs"), 1);
 // scripts/sftdd/smells.ts
 init_cjs_shims();
 var import_fs4 = require("fs");
+var import_crypto = require("crypto");
 var import_path4 = require("path");
 var SMELL_CATALOG = [
   {
@@ -7466,6 +7471,36 @@ function priorReviseCount(sftddDir, smell, story_id) {
     (d) => d.resolution_kind === "revised" && smellMatches(d, smell, story_id)
   ).length;
 }
+var REFLECT_SMELL_NAMES = /* @__PURE__ */ new Set([
+  "reflect-spec-defect",
+  "reflect-testlist-defect"
+]);
+function isReflectSmell(name) {
+  return REFLECT_SMELL_NAMES.has(name);
+}
+var REFLECT_REVISE_CAP = 4;
+function priorReflectReviseCount(sftddDir, story_id) {
+  return readSmellsLog(sftddDir).detected.filter(
+    (d) => d.resolution_kind === "revised" && isReflectSmell(d.smell) && d.story_id === story_id
+  ).length;
+}
+function storyTestListFingerprint(sftddDir, featureId, story_id) {
+  const f = storyTestListJson(sftddDir, featureId, story_id);
+  if (!(0, import_fs4.existsSync)(f)) return "";
+  try {
+    return (0, import_crypto.createHash)("sha1").update((0, import_fs4.readFileSync)(f)).digest("hex");
+  } catch {
+    return "";
+  }
+}
+function lastReflectReviseFingerprint(sftddDir, story_id) {
+  const reflects = readSmellsLog(sftddDir).detected.filter(
+    (d) => d.resolution_kind === "revised" && isReflectSmell(d.smell) && d.story_id === story_id
+  );
+  if (reflects.length === 0) return null;
+  const last = reflects[reflects.length - 1];
+  return typeof last.revised_artifact_sha === "string" ? last.revised_artifact_sha : null;
+}
 
 // scripts/sftdd/escalation.ts
 var BLOCKING_SMELLS = /* @__PURE__ */ new Set([
@@ -7641,6 +7676,33 @@ function hasPendingRegressionFix(tdd, feature, story, ac) {
 init_cjs_shims();
 var import_node_fs3 = require("fs");
 var import_node_path5 = require("path");
+
+// scripts/sftdd/refactor-verify-assess.ts
+init_cjs_shims();
+var fs5 = __toESM(require("fs"), 1);
+var path2 = __toESM(require("path"), 1);
+function markerPath2(sftddDir, featureId, storyId) {
+  const fdir = findFeatureDir(sftddDir, featureId);
+  if (!fdir) return void 0;
+  return path2.join(fdir, "stories", storyId, "refactor-verify-assess.json");
+}
+function readRefactorVerifyAssessMarker(sftddDir, featureId, storyId) {
+  const file = markerPath2(sftddDir, featureId, storyId);
+  if (!file || !fs5.existsSync(file)) return void 0;
+  try {
+    return JSON.parse(fs5.readFileSync(file, "utf8"));
+  } catch {
+    return void 0;
+  }
+}
+function refactorVerifyNeedsAssess(sftddDir, featureId, storyId) {
+  const m = readRefactorVerifyAssessMarker(sftddDir, featureId, storyId);
+  return !!m && !m.assessed && m.attempts < 1;
+}
+function refactorVerifyRefactorPending(sftddDir, featureId, storyId) {
+  const m = readRefactorVerifyAssessMarker(sftddDir, featureId, storyId);
+  return !!m && m.assessed === true && (m.flagged_tests?.length ?? 0) > 0 && m.refactored !== true;
+}
 
 // scripts/sftdd/migration-app-clean.ts
 init_cjs_shims();
@@ -7882,7 +7944,7 @@ function validateGateRecord(parsed, gateName, file) {
 
 // scripts/sftdd/workflow-phase.ts
 init_cjs_shims();
-var fs5 = __toESM(require("fs"), 1);
+var fs6 = __toESM(require("fs"), 1);
 var PHASE_OWNER_KEY = "phase_feature_id";
 
 // scripts/sftdd/orchestrator-probe.ts
@@ -8175,30 +8237,30 @@ function checkDbDesign(dbDesignJson2, architectureJson2) {
   }
   return violations.length > 0 ? { ok: false, violations } : { ok: true };
 }
-function canonicalArtifactName(path5) {
-  const base = (0, import_path7.basename)(path5);
-  if ((0, import_path7.basename)((0, import_path7.dirname)(path5)) === "acs" && base.endsWith(".json")) return "ac.json";
+function canonicalArtifactName(path6) {
+  const base = (0, import_path7.basename)(path6);
+  if ((0, import_path7.basename)((0, import_path7.dirname)(path6)) === "acs" && base.endsWith(".json")) return "ac.json";
   return base;
 }
 
 // scripts/sftdd/orchestrator-probe.ts
 function storyCycles2(sftddDir, featureId, story) {
-  const base = path2.join(cyclesRootDir(sftddDir), featureId, story);
-  if (!fs6.existsSync(base)) return [];
+  const base = path3.join(cyclesRootDir(sftddDir), featureId, story);
+  if (!fs7.existsSync(base)) return [];
   const out = [];
-  for (const acDir of fs6.readdirSync(base)) {
-    const dir = path2.join(base, acDir);
+  for (const acDir of fs7.readdirSync(base)) {
+    const dir = path3.join(base, acDir);
     let isDir = false;
     try {
-      isDir = fs6.statSync(dir).isDirectory();
+      isDir = fs7.statSync(dir).isDirectory();
     } catch {
       isDir = false;
     }
     if (!isDir) continue;
-    for (const f of fs6.readdirSync(dir)) {
+    for (const f of fs7.readdirSync(dir)) {
       if (!/^cycle-\d+\.json$/.test(f)) continue;
       try {
-        out.push(JSON.parse(fs6.readFileSync(path2.join(dir, f), "utf8")));
+        out.push(JSON.parse(fs7.readFileSync(path3.join(dir, f), "utf8")));
       } catch {
       }
     }
@@ -8206,9 +8268,9 @@ function storyCycles2(sftddDir, featureId, story) {
   return out;
 }
 function readJson(file) {
-  if (!fs6.existsSync(file)) return void 0;
+  if (!fs7.existsSync(file)) return void 0;
   try {
-    return JSON.parse(fs6.readFileSync(file, "utf8"));
+    return JSON.parse(fs7.readFileSync(file, "utf8"));
   } catch {
     return void 0;
   }
@@ -8222,10 +8284,10 @@ function readDriveContext(sftddDir, featureId, projectDir) {
   const spec = readJson(featureSpecJson(sftddDir, featureId));
   const proposed = spec !== void 0;
   const breakdownDone = Array.isArray(spec?.stories) && spec.stories.length > 0;
-  const requestsAuthored = fs6.existsSync(featureRequestMd(sftddDir, featureId));
-  const deployed = fs6.existsSync(featureDeployEvidenceJson(sftddDir, featureId));
+  const requestsAuthored = fs7.existsSync(featureRequestMd(sftddDir, featureId));
+  const deployed = fs7.existsSync(featureDeployEvidenceJson(sftddDir, featureId));
   const gateApproved = readGateApproved(featureId, sftddDir, "deploy");
-  const proj = projectDir ?? path2.dirname(sftddDir);
+  const proj = projectDir ?? path3.dirname(sftddDir);
   let scmState;
   try {
     scmState = (0, import_lakebase8.readWorkflowState)(proj)?.state;
@@ -8268,22 +8330,22 @@ function diskArtifactProbe(sftddDir, featureId, buildActive) {
       const acs = storyAcIds(sftddDir, featureId, story);
       if (acs.length === 0) return false;
       const everyAcNoted = acs.every((ac) => readAcArchitecturalNotes(sftddDir, featureId, ac) !== void 0);
-      return everyAcNoted && fs6.existsSync(architectureJson(sftddDir, featureId));
+      return everyAcNoted && fs7.existsSync(architectureJson(sftddDir, featureId));
     },
     dbaDesigned() {
       const archFile = architectureJson(sftddDir, featureId);
-      if (!fs6.existsSync(archFile)) return false;
+      if (!fs7.existsSync(archFile)) return false;
       let archContent;
       try {
-        archContent = fs6.readFileSync(archFile, "utf8");
+        archContent = fs7.readFileSync(archFile, "utf8");
       } catch {
         return false;
       }
       const dbFile = dbDesignJson(sftddDir, featureId);
       let dbContent;
-      if (fs6.existsSync(dbFile)) {
+      if (fs7.existsSync(dbFile)) {
         try {
-          dbContent = fs6.readFileSync(dbFile, "utf8");
+          dbContent = fs7.readFileSync(dbFile, "utf8");
         } catch {
           dbContent = void 0;
         }
@@ -8291,7 +8353,7 @@ function diskArtifactProbe(sftddDir, featureId, buildActive) {
       return checkDbDesign(dbContent, archContent).ok;
     },
     architectProjectable(story) {
-      if (!fs6.existsSync(architectureJson(sftddDir, featureId))) return false;
+      if (!fs7.existsSync(architectureJson(sftddDir, featureId))) return false;
       const canon = readCanon(sftddDir);
       if (!canon) return false;
       if (canon.established_by === featureId) return false;
@@ -8304,9 +8366,9 @@ function diskArtifactProbe(sftddDir, featureId, buildActive) {
     },
     testListReady(story) {
       const file = storyTestListJson(sftddDir, featureId, story);
-      if (!fs6.existsSync(file)) return false;
+      if (!fs7.existsSync(file)) return false;
       try {
-        const data = JSON.parse(fs6.readFileSync(file, "utf8"));
+        const data = JSON.parse(fs7.readFileSync(file, "utf8"));
         return Array.isArray(data.items) && data.items.length > 0;
       } catch {
         return false;
@@ -8383,6 +8445,12 @@ function diskArtifactProbe(sftddDir, featureId, buildActive) {
     deployVerifyRefactorPending(story) {
       return deployVerifyRefactorPending(sftddDir, featureId, story);
     },
+    refactorVerifyAssessEligible(story) {
+      return refactorVerifyNeedsAssess(sftddDir, featureId, story);
+    },
+    refactorVerifyRefactorPending(story) {
+      return refactorVerifyRefactorPending(sftddDir, featureId, story);
+    },
     pendingEscalation() {
       const e = firstPendingEscalation(sftddDir, featureId);
       if (!e) return null;
@@ -8399,8 +8467,25 @@ function diskArtifactProbe(sftddDir, featureId, buildActive) {
           return null;
         }
         const spec = specLevelSmell(name);
-        if (spec && story && priorReviseCount(sftddDir, name, story) < 1) {
-          base.routable = { story, owning_role: spec.owning_role, gate: spec.gate_to_rerun };
+        if (spec && story) {
+          let budgetSpent;
+          if (isReflectSmell(name)) {
+            const revises = priorReflectReviseCount(sftddDir, story);
+            if (revises >= REFLECT_REVISE_CAP) {
+              budgetSpent = true;
+            } else if (revises === 0) {
+              budgetSpent = false;
+            } else {
+              const lastSha = lastReflectReviseFingerprint(sftddDir, story);
+              const curSha = storyTestListFingerprint(sftddDir, featureId, story);
+              budgetSpent = lastSha !== null && lastSha === curSha;
+            }
+          } else {
+            budgetSpent = priorReviseCount(sftddDir, name, story) >= 1;
+          }
+          if (!budgetSpent) {
+            base.routable = { story, owning_role: spec.owning_role, gate: spec.gate_to_rerun };
+          }
         }
       }
       return base;
@@ -8508,9 +8593,9 @@ function readSprintGates(sprint, opts = {}) {
 }
 
 // scripts/sftdd/orchestrator-sprint.ts
-var fs8 = __toESM(require("fs"), 1);
+var fs9 = __toESM(require("fs"), 1);
 function deriveSprintPlanningState(sftddDir, sprint, opts = {}) {
-  const proposed = fs8.existsSync(featureProposalsMd(sftddDir));
+  const proposed = fs9.existsSync(featureProposalsMd(sftddDir));
   const estimated = hasEstimates(sftddDir);
   const backlog = readBacklog(sftddDir, sprint).features;
   const requestsAuthored = backlog.length > 0 && backlog.every((f) => hasFeatureRequest(sftddDir, f.id));
@@ -8565,12 +8650,12 @@ function deriveFeaturePhase(stories) {
 // scripts/sftdd/kit-bin.ts
 init_cjs_shims();
 var import_node_child_process2 = require("child_process");
-var fs9 = __toESM(require("fs"), 1);
-var path3 = __toESM(require("path"), 1);
-var KIT_ROOT = path3.resolve(__dirname, "..", "..", "..");
+var fs10 = __toESM(require("fs"), 1);
+var path4 = __toESM(require("path"), 1);
+var KIT_ROOT = path4.resolve(__dirname, "..", "..", "..");
 function kitVersion() {
   try {
-    const pkg = JSON.parse(fs9.readFileSync(path3.join(KIT_ROOT, "package.json"), "utf8"));
+    const pkg = JSON.parse(fs10.readFileSync(path4.join(KIT_ROOT, "package.json"), "utf8"));
     return pkg.version ?? "unknown";
   } catch {
     return "unknown";
@@ -8579,8 +8664,8 @@ function kitVersion() {
 
 // scripts/sftdd/next.ts
 init_cjs_shims();
-var fs10 = __toESM(require("fs"), 1);
-var path4 = __toESM(require("path"), 1);
+var fs11 = __toESM(require("fs"), 1);
+var path5 = __toESM(require("path"), 1);
 
 // scripts/sftdd/orchestrator-logging.ts
 init_cjs_shims();

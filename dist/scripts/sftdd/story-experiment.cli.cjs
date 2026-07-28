@@ -3254,8 +3254,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path2) {
-      let input = path2;
+    function removeDotSegments(path3) {
+      let input = path3;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3508,8 +3508,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path2, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path2 && path2 !== "/" ? path2 : void 0;
+        const [path3, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path3 && path3 !== "/" ? path3 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -7128,6 +7128,11 @@ var import_node_path5 = require("path");
 init_cjs_shims();
 var import_node_fs4 = require("fs");
 var import_node_path6 = require("path");
+
+// scripts/sftdd/refactor-verify-assess.ts
+init_cjs_shims();
+var fs5 = __toESM(require("fs"), 1);
+var path2 = __toESM(require("path"), 1);
 
 // scripts/sftdd/migration-app-clean.ts
 init_cjs_shims();

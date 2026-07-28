@@ -3262,8 +3262,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path2) {
-      let input = path2;
+    function removeDotSegments(path3) {
+      let input = path3;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3516,8 +3516,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path2, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path2 && path2 !== "/" ? path2 : void 0;
+        const [path3, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path3 && path3 !== "/" ? path3 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -7089,6 +7089,7 @@ function appendSelectionLog(sftddDir, entry) {
 
 // scripts/sftdd/artifact-conformance.ts
 init_cjs_shims();
+var import_fs5 = require("fs");
 var import_path5 = require("path");
 
 // scripts/sftdd/schema-loader.ts
@@ -7320,7 +7321,7 @@ function parseRequiredNfrs(nfrsMd2) {
   }
   return out;
 }
-function checkNfrCoverage(nfrsMd2, architectureJson2) {
+function checkNfrCoverage(nfrsMd2, architectureJson2, otherFeatureBriefRefs = /* @__PURE__ */ new Set()) {
   const required = parseRequiredNfrs(nfrsMd2);
   if (required.length === 0) return { ok: true };
   let parsed;
@@ -7333,6 +7334,9 @@ function checkNfrCoverage(nfrsMd2, architectureJson2) {
   const briefRefs = new Set(
     (parsed.nfrs ?? []).map((n) => n.brief_ref).filter((r) => typeof r === "string" && r.length > 0)
   );
+  const scopedOut = new Set(
+    (parsed.nfr_out_of_scope ?? []).map((s) => s.ref).filter((r) => typeof r === "string" && r.length > 0)
+  );
   const violations = [];
   for (const item of required) {
     if (item.id === null) {
@@ -7340,13 +7344,31 @@ function checkNfrCoverage(nfrsMd2, architectureJson2) {
       violations.push(`nfrs.md Required item has no R<n> id (cannot be coverage-tracked): "${preview}"`);
       continue;
     }
-    if (!briefRefs.has(item.id)) {
+    const covered = briefRefs.has(item.id) || otherFeatureBriefRefs.has(item.id) || scopedOut.has(item.id);
+    if (!covered) {
       violations.push(
-        `Required NFR ${item.id} from nfrs.md is not covered by any architecture.json nfr (no matching brief_ref)`
+        `Required NFR ${item.id} from nfrs.md is not covered by this feature, any sibling feature, or an explicit nfr_out_of_scope declaration (no matching brief_ref)`
       );
     }
   }
   return finalize(violations);
+}
+function projectBriefRefs(sftddDir) {
+  const refs = /* @__PURE__ */ new Set();
+  const fdir = featuresDir(sftddDir);
+  if (!(0, import_fs5.existsSync)(fdir)) return refs;
+  for (const feature of (0, import_fs5.readdirSync)(fdir)) {
+    const archPath = (0, import_path5.join)(fdir, feature, "architecture.json");
+    if (!(0, import_fs5.existsSync)(archPath)) continue;
+    try {
+      const parsed = JSON.parse((0, import_fs5.readFileSync)(archPath, "utf8"));
+      for (const n of parsed.nfrs ?? []) {
+        if (typeof n.brief_ref === "string" && n.brief_ref.length > 0) refs.add(n.brief_ref);
+      }
+    } catch {
+    }
+  }
+  return refs;
 }
 var PERSISTENCE_EVIDENCE_RE = /\b(migrat\w*|schema|persist\w*|stored|store|tables?|database|repositor\w*|\bORM\b)\b/i;
 function checkServiceBackedDeclaration(architectureJson2, evidence) {
@@ -7585,15 +7607,15 @@ function checkInvariantCoverageDistinct(perStory) {
   }
   return violations.length === 0 ? { ok: true } : { ok: false, violations };
 }
-function canonicalArtifactName(path2) {
-  const base = (0, import_path5.basename)(path2);
-  if ((0, import_path5.basename)((0, import_path5.dirname)(path2)) === "acs" && base.endsWith(".json")) return "ac.json";
+function canonicalArtifactName(path3) {
+  const base = (0, import_path5.basename)(path3);
+  if ((0, import_path5.basename)((0, import_path5.dirname)(path3)) === "acs" && base.endsWith(".json")) return "ac.json";
   return base;
 }
 
 // scripts/sftdd/agent-log.ts
 init_cjs_shims();
-var import_fs5 = require("fs");
+var import_fs6 = require("fs");
 var import_path6 = require("path");
 
 // scripts/sftdd/agent-log-events.ts
@@ -7711,7 +7733,7 @@ function emitAgentLogEvent(input, opts = {}) {
   const sftddDir = opts.sftddDir ?? resolveSftddDir();
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const event = buildAgentLogEvent(input, now);
-  (0, import_fs5.appendFileSync)(logFilePath(sftddDir), `${JSON.stringify(event)}
+  (0, import_fs6.appendFileSync)(logFilePath(sftddDir), `${JSON.stringify(event)}
 `, "utf8");
   return event;
 }
@@ -7723,17 +7745,17 @@ var import_node_path2 = require("path");
 
 // scripts/sftdd/test-list.ts
 init_cjs_shims();
-var import_fs6 = require("fs");
+var import_fs7 = require("fs");
 var import_path7 = require("path");
 function acIdsInStoryDir(storyDir2) {
   const dir = (0, import_path7.join)(storyDir2, "acs");
-  if (!(0, import_fs6.existsSync)(dir)) return [];
+  if (!(0, import_fs7.existsSync)(dir)) return [];
   const out = [];
-  for (const f of (0, import_fs6.readdirSync)(dir)) {
+  for (const f of (0, import_fs7.readdirSync)(dir)) {
     if (!f.endsWith(".json")) continue;
     const base = f.slice(0, -".json".length);
     try {
-      const obj = JSON.parse((0, import_fs6.readFileSync)((0, import_path7.join)(dir, f), "utf8"));
+      const obj = JSON.parse((0, import_fs7.readFileSync)((0, import_path7.join)(dir, f), "utf8"));
       if (obj && typeof obj.id === "string" && obj.id === base) out.push(base);
     } catch {
     }
@@ -7747,15 +7769,15 @@ function acsForStory(tddDir, featureId, storyId) {
 
 // scripts/sftdd/architecture-conventions.ts
 init_cjs_shims();
-var import_fs7 = require("fs");
+var import_fs8 = require("fs");
 function normModule(m) {
   return m.replace(/\/+$/, "");
 }
 function readConventions(sftddDir) {
   const f = architectureConventionsJson(sftddDir);
-  if (!(0, import_fs7.existsSync)(f)) return void 0;
+  if (!(0, import_fs8.existsSync)(f)) return void 0;
   try {
-    return JSON.parse((0, import_fs7.readFileSync)(f, "utf8"));
+    return JSON.parse((0, import_fs8.readFileSync)(f, "utf8"));
   } catch {
     return void 0;
   }
@@ -7907,7 +7929,7 @@ function nfrCoverageReason(sftddDir, featureId) {
   } catch {
     return null;
   }
-  const r = checkNfrCoverage(nfrsContent, arch);
+  const r = checkNfrCoverage(nfrsContent, arch, projectBriefRefs(sftddDir));
   return r.ok ? null : `NFR coverage failed: ${r.violations.join("; ")}`;
 }
 function fitnessCoverageReason(sftddDir, featureId, testListJson) {
@@ -8267,7 +8289,7 @@ var import_node_path9 = require("path");
 
 // scripts/sftdd/story-pipeline.ts
 init_cjs_shims();
-var import_fs8 = require("fs");
+var import_fs9 = require("fs");
 var import_path8 = require("path");
 function initPipeline(featureId) {
   return { version: 1, feature_id: featureId, stories: {}, build_queue: [], build_active: null };
@@ -8277,13 +8299,13 @@ function pipelinePath(sftddDir, featureId) {
 }
 function readPipeline(sftddDir, featureId) {
   const p = pipelinePath(sftddDir, featureId);
-  if (!(0, import_fs8.existsSync)(p)) return initPipeline(featureId);
-  return JSON.parse((0, import_fs8.readFileSync)(p, "utf8"));
+  if (!(0, import_fs9.existsSync)(p)) return initPipeline(featureId);
+  return JSON.parse((0, import_fs9.readFileSync)(p, "utf8"));
 }
 function writePipeline(sftddDir, pipeline) {
   const p = pipelinePath(sftddDir, pipeline.feature_id);
-  (0, import_fs8.mkdirSync)((0, import_path8.dirname)(p), { recursive: true });
-  (0, import_fs8.writeFileSync)(p, JSON.stringify(pipeline, null, 2) + "\n");
+  (0, import_fs9.mkdirSync)((0, import_path8.dirname)(p), { recursive: true });
+  (0, import_fs9.writeFileSync)(p, JSON.stringify(pipeline, null, 2) + "\n");
 }
 function setStoryStatus(pipeline, storyId, status) {
   const existing = pipeline.stories[storyId];
@@ -8323,7 +8345,8 @@ function reviseStory(pipeline, storyId, opts) {
 
 // scripts/sftdd/smells.ts
 init_cjs_shims();
-var import_fs9 = require("fs");
+var import_fs10 = require("fs");
+var import_crypto2 = require("crypto");
 var import_path9 = require("path");
 
 // scripts/sftdd/run-cycle.ts
@@ -8354,32 +8377,64 @@ function smellMatches(entry, smell, story_id) {
 }
 function markSmellResolved(sftddDir, smell, opts) {
   const file = (0, import_path9.join)(sftddDir, "smells.json");
-  if (!(0, import_fs9.existsSync)(file)) return false;
-  const log = JSON.parse((0, import_fs9.readFileSync)(file, "utf8"));
+  if (!(0, import_fs10.existsSync)(file)) return false;
+  const log = JSON.parse((0, import_fs10.readFileSync)(file, "utf8"));
   const entry = log.detected.find((d) => !d.resolution && smellMatches(d, smell, opts.story_id));
   if (!entry) return false;
   entry.resolution = opts.note ?? `${opts.kind} by PO`;
   entry.resolution_kind = opts.kind;
-  (0, import_fs9.writeFileSync)(file, JSON.stringify(log, null, 2) + "\n");
+  (0, import_fs10.writeFileSync)(file, JSON.stringify(log, null, 2) + "\n");
   return true;
+}
+var REFLECT_SMELL_NAMES = /* @__PURE__ */ new Set([
+  "reflect-spec-defect",
+  "reflect-testlist-defect"
+]);
+function isReflectSmell(name) {
+  return REFLECT_SMELL_NAMES.has(name);
+}
+function storyTestListFingerprint(sftddDir, featureId, story_id) {
+  const f = storyTestListJson(sftddDir, featureId, story_id);
+  if (!(0, import_fs10.existsSync)(f)) return "";
+  try {
+    return (0, import_crypto2.createHash)("sha1").update((0, import_fs10.readFileSync)(f)).digest("hex");
+  } catch {
+    return "";
+  }
+}
+function resolveOpenReflectSmellsForStory(sftddDir, story_id, note, artifactSha) {
+  const file = (0, import_path9.join)(sftddDir, "smells.json");
+  if (!(0, import_fs10.existsSync)(file)) return 0;
+  const log = JSON.parse((0, import_fs10.readFileSync)(file, "utf8"));
+  let n = 0;
+  for (const d of log.detected) {
+    if (!d.resolution && isReflectSmell(d.smell) && d.story_id === story_id) {
+      d.resolution = note;
+      d.resolution_kind = "revised";
+      if (artifactSha !== void 0) d.revised_artifact_sha = artifactSha;
+      n++;
+    }
+  }
+  if (n) (0, import_fs10.writeFileSync)(file, JSON.stringify(log, null, 2) + "\n");
+  return n;
 }
 
 // scripts/sftdd/reflection.ts
 init_cjs_shims();
-var import_fs10 = require("fs");
+var import_fs11 = require("fs");
 var SMELL_FOR_OWNER = {
   "spec-author": "reflect-spec-defect",
   "test-strategist": "reflect-testlist-defect"
 };
 function clearReflectVerdict(sftddDir, feature, story) {
   const p = reflectVerdictJson(sftddDir, feature, story);
-  if ((0, import_fs10.existsSync)(p)) (0, import_fs10.rmSync)(p, { force: true });
+  if ((0, import_fs11.existsSync)(p)) (0, import_fs11.rmSync)(p, { force: true });
 }
 var REFLECT_SMELLS = Object.values(SMELL_FOR_OWNER);
 
 // scripts/sftdd/cycle-record.ts
 init_cjs_shims();
-var import_fs11 = require("fs");
+var import_fs12 = require("fs");
 var import_path10 = require("path");
 
 // scripts/sftdd/deploy.ts
@@ -8422,6 +8477,11 @@ init_cjs_shims();
 var import_node_fs5 = require("fs");
 var import_node_path7 = require("path");
 
+// scripts/sftdd/refactor-verify-assess.ts
+init_cjs_shims();
+var fs5 = __toESM(require("fs"), 1);
+var path2 = __toESM(require("path"), 1);
+
 // scripts/sftdd/migration-app-clean.ts
 init_cjs_shims();
 var import_node_fs6 = require("fs");
@@ -8433,22 +8493,22 @@ var import_lakebase7 = require("@databricks-solutions/lakebase-scm-utils/lakebas
 function resetStoryBuildState(sftddDir, featureId, story) {
   const cyclesDir = (0, import_path10.join)(cyclesRootDir(sftddDir), featureId, story);
   let cyclesCleared = false;
-  if ((0, import_fs11.existsSync)(cyclesDir)) {
-    (0, import_fs11.rmSync)(cyclesDir, { recursive: true, force: true });
+  if ((0, import_fs12.existsSync)(cyclesDir)) {
+    (0, import_fs12.rmSync)(cyclesDir, { recursive: true, force: true });
     cyclesCleared = true;
   }
   let testItemsReset = 0;
   const tlPath = storyTestListJson(sftddDir, featureId, story);
-  if ((0, import_fs11.existsSync)(tlPath)) {
+  if ((0, import_fs12.existsSync)(tlPath)) {
     try {
-      const tl = JSON.parse((0, import_fs11.readFileSync)(tlPath, "utf8"));
+      const tl = JSON.parse((0, import_fs12.readFileSync)(tlPath, "utf8"));
       for (const item of tl.items ?? []) {
         if (item.status && item.status !== "pending") {
           item.status = "pending";
           testItemsReset++;
         }
       }
-      (0, import_fs11.writeFileSync)(tlPath, JSON.stringify(tl, null, 2) + "\n");
+      (0, import_fs12.writeFileSync)(tlPath, JSON.stringify(tl, null, 2) + "\n");
     } catch {
     }
   }
@@ -8481,20 +8541,22 @@ function staleStoryArtifactsForRevise(sftddDir, featureId, story, gate) {
       }
     }
   } else if (gate === "architecture") {
-    const dir = acsDir(sftddDir, featureId, story);
-    if ((0, import_node_fs7.existsSync)(dir)) {
-      for (const f of (0, import_node_fs7.readdirSync)(dir)) {
-        if (!f.endsWith(".json")) continue;
-        const p = (0, import_node_path9.join)(dir, f);
-        try {
-          const ac = JSON.parse((0, import_node_fs7.readFileSync)(p, "utf8"));
-          if ("architectural_notes" in ac) {
-            delete ac.architectural_notes;
-            (0, import_node_fs7.writeFileSync)(p, JSON.stringify(ac, null, 2) + "\n");
-          }
-        } catch {
-        }
+    clearArchitecturalNotes(sftddDir, featureId, story);
+  }
+}
+function clearArchitecturalNotes(sftddDir, featureId, story) {
+  const dir = acsDir(sftddDir, featureId, story);
+  if (!(0, import_node_fs7.existsSync)(dir)) return;
+  for (const f of (0, import_node_fs7.readdirSync)(dir)) {
+    if (!f.endsWith(".json")) continue;
+    const p = (0, import_node_path9.join)(dir, f);
+    try {
+      const ac = JSON.parse((0, import_node_fs7.readFileSync)(p, "utf8"));
+      if ("architectural_notes" in ac) {
+        delete ac.architectural_notes;
+        (0, import_node_fs7.writeFileSync)(p, JSON.stringify(ac, null, 2) + "\n");
       }
+    } catch {
     }
   }
 }
@@ -8502,6 +8564,7 @@ function applyReviseSelfHeal(args) {
   const sftddDir = args.sftddDir ?? resolveSftddDir();
   const approver = args.approver ?? REVISE_APPROVER;
   const at = (/* @__PURE__ */ new Date()).toISOString();
+  const preReviseTestListSha = storyTestListFingerprint(sftddDir, args.featureId, args.story);
   try {
     emitAgentLogEvent(
       {
@@ -8534,7 +8597,26 @@ function applyReviseSelfHeal(args) {
     (0, import_node_fs7.writeFileSync)(hb, composeReviseBrief({ smell: args.smell, gate: args.gate, reason: args.reason }));
   } catch {
   }
-  const resolvedSmell = markSmellResolved(sftddDir, args.smell, {
+  const reflect = isReflectSmell(args.smell);
+  if (reflect) {
+    clearArchitecturalNotes(sftddDir, args.featureId, args.story);
+    for (const role of ["architect-reviewer", "test-strategist"]) {
+      if (role === args.routedTo) continue;
+      try {
+        const hb = handbackFile(sftddDir, args.featureId, role, args.story);
+        (0, import_node_fs7.mkdirSync)((0, import_node_path9.dirname)(hb), { recursive: true });
+        const gate = role === "architect-reviewer" ? "architecture" : "test_list";
+        (0, import_node_fs7.writeFileSync)(hb, composeReviseBrief({ smell: args.smell, gate, reason: args.reason }));
+      } catch {
+      }
+    }
+  }
+  const resolvedSmell = reflect ? resolveOpenReflectSmellsForStory(
+    sftddDir,
+    args.story,
+    `revised by ${approver}: full design re-run (${args.gate} gate)`,
+    preReviseTestListSha
+  ) > 0 : markSmellResolved(sftddDir, args.smell, {
     story_id: args.story,
     kind: "revised",
     note: `revised by ${approver}: routed to ${args.routedTo} (${args.gate} gate)`

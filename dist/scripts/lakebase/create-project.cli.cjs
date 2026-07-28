@@ -121,6 +121,7 @@ function layDownTddScaffold(targetDir) {
     fs3.writeFileSync(kitPkgFile, `${kitPackageName()}
 `);
   }
+  layDownKitClaudeAssets(targetDir);
   const candidates = [
     path2.resolve(__dirname, `../../templates/sftdd-bootstrap/${ARTIFACT_ROOT}`),
     path2.resolve(__dirname, `../../../templates/sftdd-bootstrap/${ARTIFACT_ROOT}`)
@@ -134,6 +135,68 @@ function layDownTddScaffold(targetDir) {
     return;
   }
   fs3.cpSync(source, dest, { recursive: true });
+}
+function resolveKitRoot() {
+  const candidates = [
+    path2.resolve(__dirname, "../.."),
+    path2.resolve(__dirname, "../../..")
+  ];
+  for (const c of candidates) {
+    if (fs3.existsSync(path2.join(c, "package.json")) && fs3.existsSync(path2.join(c, "skills", "consort", "agents"))) {
+      return c;
+    }
+  }
+  throw new Error(
+    `could not resolve the kit root (package.json + skills/consort/agents); looked in: ${candidates.join(", ")}`
+  );
+}
+function kitVersion(root) {
+  try {
+    return JSON.parse(fs3.readFileSync(path2.join(root, "package.json"), "utf8")).version ?? "";
+  } catch {
+    return "";
+  }
+}
+function copyMissingMd(src, dest) {
+  if (!fs3.existsSync(src)) return;
+  fs3.mkdirSync(dest, { recursive: true });
+  for (const entry of fs3.readdirSync(src)) {
+    if (!entry.endsWith(".md")) continue;
+    const d = path2.join(dest, entry);
+    if (fs3.existsSync(d)) continue;
+    fs3.copyFileSync(path2.join(src, entry), d);
+  }
+}
+function layDownKitClaudeAssets(targetDir) {
+  const root = resolveKitRoot();
+  const claudeDir = path2.join(targetDir, ".claude");
+  copyMissingMd(
+    path2.join(root, "skills", "consort", "agents"),
+    path2.join(claudeDir, "agents")
+  );
+  const skillsSrc = path2.join(root, "skills");
+  if (fs3.existsSync(skillsSrc)) {
+    for (const skill of fs3.readdirSync(skillsSrc).sort()) {
+      if (!fs3.existsSync(path2.join(skillsSrc, skill, "SKILL.md"))) continue;
+      const dest = path2.join(claudeDir, "skills", skill);
+      if (fs3.existsSync(dest)) continue;
+      fs3.mkdirSync(path2.dirname(dest), { recursive: true });
+      fs3.cpSync(path2.join(skillsSrc, skill), dest, { recursive: true });
+    }
+  }
+  const cmdSrc = path2.join(root, "templates", "project", "common", ".claude", "commands");
+  if (fs3.existsSync(cmdSrc)) {
+    const version = kitVersion(root);
+    const cmdDest = path2.join(claudeDir, "commands");
+    fs3.mkdirSync(cmdDest, { recursive: true });
+    for (const entry of fs3.readdirSync(cmdSrc)) {
+      if (!entry.endsWith(".md")) continue;
+      const dest = path2.join(cmdDest, entry);
+      if (fs3.existsSync(dest)) continue;
+      const body = fs3.readFileSync(path2.join(cmdSrc, entry), "utf8").replace(/\$\{KIT_VERSION_AT_SCAFFOLD\}/g, version);
+      fs3.writeFileSync(dest, body);
+    }
+  }
 }
 function seedSftddConfig(projectDir, opts) {
   const sftddConfig = defaultSftddConfig();

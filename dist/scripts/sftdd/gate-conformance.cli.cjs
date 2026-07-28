@@ -6907,7 +6907,7 @@ function parseRequiredNfrs(nfrsMd) {
   }
   return out;
 }
-function checkNfrCoverage(nfrsMd, architectureJson) {
+function checkNfrCoverage(nfrsMd, architectureJson, otherFeatureBriefRefs = /* @__PURE__ */ new Set()) {
   const required = parseRequiredNfrs(nfrsMd);
   if (required.length === 0) return { ok: true };
   let parsed;
@@ -6920,6 +6920,9 @@ function checkNfrCoverage(nfrsMd, architectureJson) {
   const briefRefs = new Set(
     (parsed.nfrs ?? []).map((n) => n.brief_ref).filter((r) => typeof r === "string" && r.length > 0)
   );
+  const scopedOut = new Set(
+    (parsed.nfr_out_of_scope ?? []).map((s) => s.ref).filter((r) => typeof r === "string" && r.length > 0)
+  );
   const violations = [];
   for (const item of required) {
     if (item.id === null) {
@@ -6927,13 +6930,31 @@ function checkNfrCoverage(nfrsMd, architectureJson) {
       violations.push(`nfrs.md Required item has no R<n> id (cannot be coverage-tracked): "${preview}"`);
       continue;
     }
-    if (!briefRefs.has(item.id)) {
+    const covered = briefRefs.has(item.id) || otherFeatureBriefRefs.has(item.id) || scopedOut.has(item.id);
+    if (!covered) {
       violations.push(
-        `Required NFR ${item.id} from nfrs.md is not covered by any architecture.json nfr (no matching brief_ref)`
+        `Required NFR ${item.id} from nfrs.md is not covered by this feature, any sibling feature, or an explicit nfr_out_of_scope declaration (no matching brief_ref)`
       );
     }
   }
   return finalize(violations);
+}
+function projectBriefRefs(sftddDir) {
+  const refs = /* @__PURE__ */ new Set();
+  const fdir = featuresDir(sftddDir);
+  if (!(0, import_fs2.existsSync)(fdir)) return refs;
+  for (const feature of (0, import_fs2.readdirSync)(fdir)) {
+    const archPath = (0, import_path2.join)(fdir, feature, "architecture.json");
+    if (!(0, import_fs2.existsSync)(archPath)) continue;
+    try {
+      const parsed = JSON.parse((0, import_fs2.readFileSync)(archPath, "utf8"));
+      for (const n of parsed.nfrs ?? []) {
+        if (typeof n.brief_ref === "string" && n.brief_ref.length > 0) refs.add(n.brief_ref);
+      }
+    } catch {
+    }
+  }
+  return refs;
 }
 function checkLayeringDeclared(architectureJson) {
   let parsed;
@@ -7207,9 +7228,10 @@ function scanFeatureConformance(sftddDir, featureId) {
   const archPath = (0, import_path2.join)(featureDir, "architecture.json");
   if ((0, import_fs2.existsSync)(archPath)) {
     const archContent = (0, import_fs2.readFileSync)(archPath, "utf8");
+    const siblingRefs = projectBriefRefs(sftddDir);
     for (const nfrsPath of [(0, import_path2.join)(sftddDir, "nfrs.md"), (0, import_path2.join)(featureDir, "nfrs.md")]) {
       if (!(0, import_fs2.existsSync)(nfrsPath)) continue;
-      const cov = checkNfrCoverage((0, import_fs2.readFileSync)(nfrsPath, "utf8"), archContent);
+      const cov = checkNfrCoverage((0, import_fs2.readFileSync)(nfrsPath, "utf8"), archContent, siblingRefs);
       const rel = nfrsPath.startsWith(sftddDir) ? nfrsPath.slice(sftddDir.length).replace(/^\//, "") : nfrsPath;
       entries.push({
         artifact: `${rel} -> architecture.json (NFR coverage)`,

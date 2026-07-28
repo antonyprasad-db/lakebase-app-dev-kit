@@ -6651,7 +6651,7 @@ init_esm_shims();
 
 // scripts/sftdd/sprint-gates.ts
 init_esm_shims();
-import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync3, renameSync, unlinkSync, writeFileSync as writeFileSync2 } from "fs";
+import { existsSync as existsSync3, mkdirSync as mkdirSync2, readFileSync as readFileSync4, renameSync, unlinkSync, writeFileSync as writeFileSync2 } from "fs";
 
 // scripts/sftdd/gate-hash.ts
 init_esm_shims();
@@ -6668,6 +6668,7 @@ function hashArtifact(content) {
 
 // scripts/sftdd/artifact-conformance.ts
 init_esm_shims();
+import { existsSync as existsSync2, readFileSync as readFileSync3, readdirSync as readdirSync2, statSync as statSync2 } from "fs";
 import { join as join3, basename, dirname } from "path";
 
 // scripts/sftdd/schema-loader.ts
@@ -6953,7 +6954,7 @@ function parseRequiredNfrs(nfrsMd2) {
   }
   return out;
 }
-function checkNfrCoverage(nfrsMd2, architectureJson2) {
+function checkNfrCoverage(nfrsMd2, architectureJson2, otherFeatureBriefRefs = /* @__PURE__ */ new Set()) {
   const required = parseRequiredNfrs(nfrsMd2);
   if (required.length === 0) return { ok: true };
   let parsed;
@@ -6966,6 +6967,9 @@ function checkNfrCoverage(nfrsMd2, architectureJson2) {
   const briefRefs = new Set(
     (parsed.nfrs ?? []).map((n) => n.brief_ref).filter((r) => typeof r === "string" && r.length > 0)
   );
+  const scopedOut = new Set(
+    (parsed.nfr_out_of_scope ?? []).map((s) => s.ref).filter((r) => typeof r === "string" && r.length > 0)
+  );
   const violations = [];
   for (const item of required) {
     if (item.id === null) {
@@ -6973,13 +6977,31 @@ function checkNfrCoverage(nfrsMd2, architectureJson2) {
       violations.push(`nfrs.md Required item has no R<n> id (cannot be coverage-tracked): "${preview}"`);
       continue;
     }
-    if (!briefRefs.has(item.id)) {
+    const covered = briefRefs.has(item.id) || otherFeatureBriefRefs.has(item.id) || scopedOut.has(item.id);
+    if (!covered) {
       violations.push(
-        `Required NFR ${item.id} from nfrs.md is not covered by any architecture.json nfr (no matching brief_ref)`
+        `Required NFR ${item.id} from nfrs.md is not covered by this feature, any sibling feature, or an explicit nfr_out_of_scope declaration (no matching brief_ref)`
       );
     }
   }
   return finalize(violations);
+}
+function projectBriefRefs(sftddDir) {
+  const refs = /* @__PURE__ */ new Set();
+  const fdir = featuresDir(sftddDir);
+  if (!existsSync2(fdir)) return refs;
+  for (const feature of readdirSync2(fdir)) {
+    const archPath = join3(fdir, feature, "architecture.json");
+    if (!existsSync2(archPath)) continue;
+    try {
+      const parsed = JSON.parse(readFileSync3(archPath, "utf8"));
+      for (const n of parsed.nfrs ?? []) {
+        if (typeof n.brief_ref === "string" && n.brief_ref.length > 0) refs.add(n.brief_ref);
+      }
+    } catch {
+    }
+  }
+  return refs;
 }
 var PERSISTENCE_EVIDENCE_RE = /\b(migrat\w*|schema|persist\w*|stored|store|tables?|database|repositor\w*|\bORM\b)\b/i;
 function checkServiceBackedDeclaration(architectureJson2, evidence) {
@@ -7240,10 +7262,10 @@ function sprintGatesFile(sftddDir, sprint) {
 function readSprintGates(sprint, opts = {}) {
   const sftddDir = opts.sftddDir ?? resolveSftddDir();
   const file = sprintGatesFile(sftddDir, sprint);
-  if (!existsSync2(file)) return defaultSprintGatesState(sprint);
+  if (!existsSync3(file)) return defaultSprintGatesState(sprint);
   let parsed;
   try {
-    parsed = JSON.parse(readFileSync3(file, "utf8"));
+    parsed = JSON.parse(readFileSync4(file, "utf8"));
   } catch (err) {
     const cause = err instanceof Error ? err.message : String(err);
     throw new Error(`sprint gates.json at ${file} is not valid JSON: ${cause}`);
@@ -7276,10 +7298,10 @@ function approveSprintPlanGate(args) {
   if (args.approver.length === 0) return { ok: false, reason: "approver must not be empty" };
   const sftddDir = args.sftddDir ?? resolveSftddDir();
   const file = featureProposalsMd(sftddDir);
-  if (!existsSync2(file)) {
+  if (!existsSync3(file)) {
     return { ok: false, reason: `${PLAN_GATE_ARTIFACT} not found (no sprint plan to review)` };
   }
-  const content = readFileSync3(file, "utf8");
+  const content = readFileSync4(file, "utf8");
   const conf = checkArtifactConformance(PLAN_GATE_ARTIFACT, content);
   if (!conf.ok) {
     return { ok: false, reason: `${PLAN_GATE_ARTIFACT} not conformant: ${(conf.violations ?? []).join("; ")}` };
@@ -7311,7 +7333,7 @@ function approveSprintPlanGate(args) {
 
 // scripts/sftdd/human-proxy.ts
 init_esm_shims();
-import { existsSync as existsSync10, readFileSync as readFileSync11, writeFileSync as writeFileSync8, mkdirSync as mkdirSync6 } from "fs";
+import { existsSync as existsSync11, readFileSync as readFileSync12, writeFileSync as writeFileSync8, mkdirSync as mkdirSync6 } from "fs";
 
 // scripts/sftdd/sftdd-env.ts
 init_esm_shims();
@@ -7321,12 +7343,12 @@ import { dirname as dirname3, basename as basename2 } from "path";
 
 // scripts/sftdd/approve-gate.ts
 init_esm_shims();
-import { existsSync as existsSync5, readFileSync as readFileSync6, writeFileSync as writeFileSync5 } from "fs";
+import { existsSync as existsSync6, readFileSync as readFileSync7, writeFileSync as writeFileSync5 } from "fs";
 import { join as join6 } from "path";
 
 // scripts/sftdd/gates-lock.ts
 init_esm_shims();
-import { closeSync, mkdirSync as mkdirSync3, openSync, readFileSync as readFileSync4, unlinkSync as unlinkSync2, writeFileSync as writeFileSync3 } from "fs";
+import { closeSync, mkdirSync as mkdirSync3, openSync, readFileSync as readFileSync5, unlinkSync as unlinkSync2, writeFileSync as writeFileSync3 } from "fs";
 import { join as join4 } from "path";
 var GatesLockBusyError = class extends Error {
   constructor(featureId, heldByPid, retries) {
@@ -7380,7 +7402,7 @@ function isEexist(err) {
 }
 function readHeldByPid(lockPath) {
   try {
-    const text = readFileSync4(lockPath, "utf8");
+    const text = readFileSync5(lockPath, "utf8");
     const n = Number(text.trim());
     return Number.isFinite(n) && n > 0 ? n : null;
   } catch {
@@ -7399,7 +7421,7 @@ function defaultSleep(ms) {
 
 // scripts/sftdd/gates.ts
 init_esm_shims();
-import { existsSync as existsSync4, readFileSync as readFileSync5, renameSync as renameSync2, unlinkSync as unlinkSync3, writeFileSync as writeFileSync4 } from "fs";
+import { existsSync as existsSync5, readFileSync as readFileSync6, renameSync as renameSync2, unlinkSync as unlinkSync3, writeFileSync as writeFileSync4 } from "fs";
 import { join as join5 } from "path";
 var GATES_SCHEMA_VERSION = 1;
 var GATE_NAMES = ["spec", "plan", "test_list", "promote", "deploy"];
@@ -7420,10 +7442,10 @@ function defaultGatesState(featureId) {
 function readGates(featureId, opts = {}) {
   const sftddDir = opts.sftddDir ?? resolveSftddDir();
   const file = gatesFilePath(sftddDir, featureId);
-  if (!existsSync4(file)) {
+  if (!existsSync5(file)) {
     return defaultGatesState(featureId);
   }
-  const raw = readFileSync5(file, "utf8");
+  const raw = readFileSync6(file, "utf8");
   let parsed;
   try {
     parsed = JSON.parse(raw);
@@ -7601,8 +7623,8 @@ function appendSelectionLog(sftddDir, entry) {
     ""
   ];
   const text = lines.join("\n");
-  if (existsSync5(logPath)) {
-    writeFileSync5(logPath, readFileSync6(logPath, "utf8") + text);
+  if (existsSync6(logPath)) {
+    writeFileSync5(logPath, readFileSync7(logPath, "utf8") + text);
   } else {
     writeFileSync5(logPath, text);
   }
@@ -7610,7 +7632,7 @@ function appendSelectionLog(sftddDir, entry) {
 
 // scripts/sftdd/agent-log.ts
 init_esm_shims();
-import { appendFileSync, existsSync as existsSync6, readFileSync as readFileSync7 } from "fs";
+import { appendFileSync, existsSync as existsSync7, readFileSync as readFileSync8 } from "fs";
 import { join as join7 } from "path";
 
 // scripts/sftdd/agent-log-events.ts
@@ -7735,22 +7757,22 @@ function emitAgentLogEvent(input, opts = {}) {
 
 // scripts/sftdd/gate-conformance-guard.ts
 init_esm_shims();
-import { existsSync as existsSync9, readFileSync as readFileSync10, readdirSync as readdirSync5, statSync as statSync3 } from "fs";
+import { existsSync as existsSync10, readFileSync as readFileSync11, readdirSync as readdirSync6, statSync as statSync4 } from "fs";
 import { join as join9 } from "path";
 
 // scripts/sftdd/test-list.ts
 init_esm_shims();
-import { readFileSync as readFileSync8, writeFileSync as writeFileSync6, existsSync as existsSync7, mkdirSync as mkdirSync4, readdirSync as readdirSync4, statSync as statSync2 } from "fs";
+import { readFileSync as readFileSync9, writeFileSync as writeFileSync6, existsSync as existsSync8, mkdirSync as mkdirSync4, readdirSync as readdirSync5, statSync as statSync3 } from "fs";
 import { join as join8, dirname as dirname2 } from "path";
 function acIdsInStoryDir(storyDir2) {
   const dir = join8(storyDir2, "acs");
-  if (!existsSync7(dir)) return [];
+  if (!existsSync8(dir)) return [];
   const out = [];
-  for (const f of readdirSync4(dir)) {
+  for (const f of readdirSync5(dir)) {
     if (!f.endsWith(".json")) continue;
     const base = f.slice(0, -".json".length);
     try {
-      const obj = JSON.parse(readFileSync8(join8(dir, f), "utf8"));
+      const obj = JSON.parse(readFileSync9(join8(dir, f), "utf8"));
       if (obj && typeof obj.id === "string" && obj.id === base) out.push(base);
     } catch {
     }
@@ -7764,15 +7786,15 @@ function acsForStory(tddDir, featureId, storyId) {
 
 // scripts/sftdd/architecture-conventions.ts
 init_esm_shims();
-import { existsSync as existsSync8, readFileSync as readFileSync9, writeFileSync as writeFileSync7, mkdirSync as mkdirSync5 } from "fs";
+import { existsSync as existsSync9, readFileSync as readFileSync10, writeFileSync as writeFileSync7, mkdirSync as mkdirSync5 } from "fs";
 function normModule(m) {
   return m.replace(/\/+$/, "");
 }
 function readConventions(sftddDir) {
   const f = architectureConventionsJson(sftddDir);
-  if (!existsSync8(f)) return void 0;
+  if (!existsSync9(f)) return void 0;
   try {
-    return JSON.parse(readFileSync9(f, "utf8"));
+    return JSON.parse(readFileSync10(f, "utf8"));
   } catch {
     return void 0;
   }
@@ -7826,15 +7848,15 @@ function conformanceReason(inputs) {
 }
 function storyAcProblems(fdir, story) {
   const acsDir2 = join9(fdir, "stories", story, "acs");
-  if (!existsSync9(acsDir2)) return [];
+  if (!existsSync10(acsDir2)) return [];
   const problems = [];
   const acs = [];
-  for (const f of readdirSync5(acsDir2)) {
+  for (const f of readdirSync6(acsDir2)) {
     if (!f.endsWith(".json")) continue;
     const p = join9(acsDir2, f);
     let content;
     try {
-      content = readFileSync10(p, "utf8");
+      content = readFileSync11(p, "utf8");
     } catch {
       continue;
     }
@@ -7852,19 +7874,19 @@ function storyAcsConformanceReason(fdir, story) {
 }
 function acsConformanceReason(fdir) {
   const stories = join9(fdir, "stories");
-  if (!existsSync9(stories)) return null;
-  const problems = readdirSync5(stories).flatMap((s) => storyAcProblems(fdir, s));
+  if (!existsSync10(stories)) return null;
+  const problems = readdirSync6(stories).flatMap((s) => storyAcProblems(fdir, s));
   return problems.length === 0 ? null : `AC conformance failed: ${problems.join("; ")}`;
 }
 function storyIndependenceReason(fdir) {
   const stories = join9(fdir, "stories");
-  if (!existsSync9(stories)) return null;
+  if (!existsSync10(stories)) return null;
   const storyJsons = [];
-  for (const s of readdirSync5(stories)) {
+  for (const s of readdirSync6(stories)) {
     const p = join9(stories, s, "story.json");
-    if (!existsSync9(p)) continue;
+    if (!existsSync10(p)) continue;
     try {
-      storyJsons.push({ name: s, content: readFileSync10(p, "utf8") });
+      storyJsons.push({ name: s, content: readFileSync11(p, "utf8") });
     } catch {
       continue;
     }
@@ -7876,10 +7898,10 @@ function architectureConventionsReason(sftddDir, featureId) {
   const conventions = readConventions(sftddDir);
   if (!conventions) return null;
   const archFile = architectureJson(sftddDir, featureId);
-  if (!existsSync9(archFile)) return null;
+  if (!existsSync10(archFile)) return null;
   let content;
   try {
-    content = readFileSync10(archFile, "utf8");
+    content = readFileSync11(archFile, "utf8");
   } catch {
     return null;
   }
@@ -7888,9 +7910,9 @@ function architectureConventionsReason(sftddDir, featureId) {
 }
 function readArchitecture(sftddDir, featureId) {
   const f = architectureJson(sftddDir, featureId);
-  if (!existsSync9(f)) return void 0;
+  if (!existsSync10(f)) return void 0;
   try {
-    return readFileSync10(f, "utf8");
+    return readFileSync11(f, "utf8");
   } catch {
     return void 0;
   }
@@ -7905,9 +7927,9 @@ function dbDesignReason(sftddDir, featureId) {
   const arch = readArchitecture(sftddDir, featureId);
   if (arch === void 0) return null;
   const dbFile = dbDesignJson(sftddDir, featureId);
-  const db = existsSync9(dbFile) ? (() => {
+  const db = existsSync10(dbFile) ? (() => {
     try {
-      return readFileSync10(dbFile, "utf8");
+      return readFileSync11(dbFile, "utf8");
     } catch {
       return void 0;
     }
@@ -7920,15 +7942,15 @@ function nfrCoverageReason(sftddDir, featureId) {
   if (arch === void 0) return null;
   const featureNfrs = featureNfrsMd(sftddDir, featureId);
   const projectNfrs = nfrsMd(sftddDir);
-  const nfrsFile = existsSync9(featureNfrs) ? featureNfrs : existsSync9(projectNfrs) ? projectNfrs : void 0;
+  const nfrsFile = existsSync10(featureNfrs) ? featureNfrs : existsSync10(projectNfrs) ? projectNfrs : void 0;
   if (nfrsFile === void 0) return null;
   let nfrsContent;
   try {
-    nfrsContent = readFileSync10(nfrsFile, "utf8");
+    nfrsContent = readFileSync11(nfrsFile, "utf8");
   } catch {
     return null;
   }
-  const r = checkNfrCoverage(nfrsContent, arch);
+  const r = checkNfrCoverage(nfrsContent, arch, projectBriefRefs(sftddDir));
   return r.ok ? null : `NFR coverage failed: ${r.violations.join("; ")}`;
 }
 function fitnessCoverageReason(sftddDir, featureId, testListJson) {
@@ -7952,10 +7974,10 @@ function invariantCoverageDistinctReason(sftddDir, featureId, testListJson) {
   }
   const items = master.items ?? [];
   const storiesDir2 = join9(featureDir2(sftddDir, featureId), "stories");
-  if (!existsSync9(storiesDir2)) return null;
-  const perStory = readdirSync5(storiesDir2).filter((s) => {
+  if (!existsSync10(storiesDir2)) return null;
+  const perStory = readdirSync6(storiesDir2).filter((s) => {
     try {
-      return statSync3(join9(storiesDir2, s)).isDirectory();
+      return statSync4(join9(storiesDir2, s)).isDirectory();
     } catch {
       return false;
     }
@@ -7973,14 +7995,14 @@ function serviceBackedReason(sftddDir, featureId) {
   const acLayers = [];
   const fdir = featureDir2(sftddDir, featureId);
   const stories = join9(fdir, "stories");
-  if (existsSync9(stories)) {
-    for (const s of readdirSync5(stories)) {
+  if (existsSync10(stories)) {
+    for (const s of readdirSync6(stories)) {
       const ad = join9(stories, s, "acs");
-      if (!existsSync9(ad)) continue;
-      for (const f of readdirSync5(ad)) {
+      if (!existsSync10(ad)) continue;
+      for (const f of readdirSync6(ad)) {
         if (!f.endsWith(".json")) continue;
         try {
-          const layer = JSON.parse(readFileSync10(join9(ad, f), "utf8")).layer;
+          const layer = JSON.parse(readFileSync11(join9(ad, f), "utf8")).layer;
           if (typeof layer === "string") acLayers.push(layer);
         } catch {
         }
@@ -8000,7 +8022,7 @@ function resolveArtifactInputs(gate, fdir, promoteRef, sftddDir, featureId) {
   const readIfPresent = (name) => {
     const p = join9(fdir, name);
     try {
-      return existsSync9(p) ? readFileSync10(p, "utf8") : void 0;
+      return existsSync10(p) ? readFileSync11(p, "utf8") : void 0;
     } catch {
       return void 0;
     }
@@ -8171,7 +8193,7 @@ function drainGatesAsHumanProxy(args) {
 
 // scripts/sftdd/story-pipeline.ts
 init_esm_shims();
-import { existsSync as existsSync11, readFileSync as readFileSync12, writeFileSync as writeFileSync9, mkdirSync as mkdirSync7, readdirSync as readdirSync7, statSync as statSync4, rmSync } from "fs";
+import { existsSync as existsSync12, readFileSync as readFileSync13, writeFileSync as writeFileSync9, mkdirSync as mkdirSync7, readdirSync as readdirSync8, statSync as statSync5, rmSync } from "fs";
 import { dirname as dirname4, join as join11 } from "path";
 function initPipeline(featureId) {
   return { version: 1, feature_id: featureId, stories: {}, build_queue: [], build_active: null };
@@ -8181,8 +8203,8 @@ function pipelinePath(sftddDir, featureId) {
 }
 function readPipeline(sftddDir, featureId) {
   const p = pipelinePath(sftddDir, featureId);
-  if (!existsSync11(p)) return initPipeline(featureId);
-  return JSON.parse(readFileSync12(p, "utf8"));
+  if (!existsSync12(p)) return initPipeline(featureId);
+  return JSON.parse(readFileSync13(p, "utf8"));
 }
 function writePipeline(sftddDir, pipeline) {
   const p = pipelinePath(sftddDir, pipeline.feature_id);
@@ -8201,14 +8223,14 @@ function enqueueReady(pipeline, storyId) {
 }
 function storyHasAcceptanceCriteria(sftddDir, featureId, storyId) {
   const acsDir2 = acsDir(sftddDir, featureId, storyId);
-  if (!existsSync11(acsDir2)) return false;
-  return readdirSync7(acsDir2).some((f) => f.endsWith(".json"));
+  if (!existsSync12(acsDir2)) return false;
+  return readdirSync8(acsDir2).some((f) => f.endsWith(".json"));
 }
 function findBatchedDraftStories(sftddDir, featureId, pipeline, gatingStoryId) {
   const storiesDir2 = storiesDir(sftddDir, featureId);
-  if (!existsSync11(storiesDir2)) return [];
+  if (!existsSync12(storiesDir2)) return [];
   const offenders = [];
-  for (const storyId of readdirSync7(storiesDir2)) {
+  for (const storyId of readdirSync8(storiesDir2)) {
     if (storyId === gatingStoryId) continue;
     if (!storyHasAcceptanceCriteria(sftddDir, featureId, storyId)) continue;
     const status = pipeline.stories[storyId]?.status;

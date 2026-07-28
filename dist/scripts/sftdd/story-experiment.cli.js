@@ -3259,8 +3259,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path3) {
-      let input = path3;
+    function removeDotSegments(path4) {
+      let input = path4;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3513,8 +3513,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path3, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path3 && path3 !== "/" ? path3 : void 0;
+        const [path4, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path4 && path4 !== "/" ? path4 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -6954,13 +6954,13 @@ import { mergePaired } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 
 // scripts/sftdd/cycle-record.ts
 init_esm_shims();
-import { existsSync as existsSync12, readFileSync as readFileSync14, readdirSync as readdirSync10, statSync as statSync8, writeFileSync as writeFileSync8, mkdirSync as mkdirSync8, rmSync as rmSync5 } from "fs";
+import { existsSync as existsSync13, readFileSync as readFileSync15, readdirSync as readdirSync10, statSync as statSync8, writeFileSync as writeFileSync9, mkdirSync as mkdirSync9, rmSync as rmSync6 } from "fs";
 
 // scripts/sftdd/sftdd-env.ts
 init_esm_shims();
 
 // scripts/sftdd/cycle-record.ts
-import { join as join13, dirname as dirname4 } from "path";
+import { join as join14, dirname as dirname5 } from "path";
 
 // scripts/sftdd/deploy.ts
 init_esm_shims();
@@ -7134,10 +7134,15 @@ init_esm_shims();
 import { existsSync as existsSync10, readFileSync as readFileSync12, readdirSync as readdirSync8, statSync as statSync6 } from "fs";
 import { join as join11, relative, extname } from "path";
 
+// scripts/sftdd/refactor-verify-assess.ts
+init_esm_shims();
+import * as fs5 from "fs";
+import * as path3 from "path";
+
 // scripts/sftdd/migration-app-clean.ts
 init_esm_shims();
-import { existsSync as existsSync11, readFileSync as readFileSync13, readdirSync as readdirSync9, statSync as statSync7 } from "fs";
-import { join as join12, relative as relative2, extname as extname2 } from "path";
+import { existsSync as existsSync12, readFileSync as readFileSync14, readdirSync as readdirSync9, statSync as statSync7 } from "fs";
+import { join as join13, relative as relative2, extname as extname2 } from "path";
 
 // scripts/sftdd/cycle-record.ts
 import { commitAllIfChanged } from "@databricks-solutions/lakebase-scm-utils/git";
@@ -7161,24 +7166,24 @@ async function commitExperimentCode(projectDir, message) {
   });
 }
 function resetStoryBuildState(sftddDir, featureId, story) {
-  const cyclesDir = join13(cyclesRootDir(sftddDir), featureId, story);
+  const cyclesDir = join14(cyclesRootDir(sftddDir), featureId, story);
   let cyclesCleared = false;
-  if (existsSync12(cyclesDir)) {
-    rmSync5(cyclesDir, { recursive: true, force: true });
+  if (existsSync13(cyclesDir)) {
+    rmSync6(cyclesDir, { recursive: true, force: true });
     cyclesCleared = true;
   }
   let testItemsReset = 0;
   const tlPath = storyTestListJson(sftddDir, featureId, story);
-  if (existsSync12(tlPath)) {
+  if (existsSync13(tlPath)) {
     try {
-      const tl = JSON.parse(readFileSync14(tlPath, "utf8"));
+      const tl = JSON.parse(readFileSync15(tlPath, "utf8"));
       for (const item of tl.items ?? []) {
         if (item.status && item.status !== "pending") {
           item.status = "pending";
           testItemsReset++;
         }
       }
-      writeFileSync8(tlPath, JSON.stringify(tl, null, 2) + "\n");
+      writeFileSync9(tlPath, JSON.stringify(tl, null, 2) + "\n");
     } catch {
     }
   }

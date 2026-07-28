@@ -3259,8 +3259,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path3) {
-      let input = path3;
+    function removeDotSegments(path4) {
+      let input = path4;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3513,8 +3513,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path3, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path3 && path3 !== "/" ? path3 : void 0;
+        const [path4, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path4 && path4 !== "/" ? path4 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -7258,7 +7258,7 @@ function reconstituteAgentLog(opts) {
 
 // scripts/sftdd/escalation.ts
 init_esm_shims();
-import * as fs4 from "fs";
+import * as fs5 from "fs";
 
 // scripts/sftdd/smells.ts
 init_esm_shims();
@@ -7342,10 +7342,15 @@ init_esm_shims();
 import { existsSync as existsSync12, readFileSync as readFileSync13, readdirSync as readdirSync7, statSync as statSync5 } from "fs";
 import { join as join12, relative as relative2, extname } from "path";
 
+// scripts/sftdd/refactor-verify-assess.ts
+init_esm_shims();
+import * as fs4 from "fs";
+import * as path3 from "path";
+
 // scripts/sftdd/migration-app-clean.ts
 init_esm_shims();
-import { existsSync as existsSync13, readFileSync as readFileSync14, readdirSync as readdirSync8, statSync as statSync6 } from "fs";
-import { join as join13, relative as relative3, extname as extname2 } from "path";
+import { existsSync as existsSync14, readFileSync as readFileSync15, readdirSync as readdirSync8, statSync as statSync6 } from "fs";
+import { join as join14, relative as relative3, extname as extname2 } from "path";
 
 // scripts/sftdd/cycle-record.ts
 import { commitAllIfChanged } from "@databricks-solutions/lakebase-scm-utils/git";

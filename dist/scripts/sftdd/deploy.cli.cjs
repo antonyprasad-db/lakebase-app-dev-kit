@@ -3262,8 +3262,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path2) {
-      let input = path2;
+    function removeDotSegments(path3) {
+      let input = path3;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3516,8 +3516,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path2, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path2 && path2 !== "/" ? path2 : void 0;
+        const [path3, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path3 && path3 !== "/" ? path3 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -6694,7 +6694,7 @@ function findFeatureDir(tdd, featureId) {
 
 // scripts/sftdd/escalation.ts
 init_cjs_shims();
-var fs3 = __toESM(require("fs"), 1);
+var fs4 = __toESM(require("fs"), 1);
 
 // scripts/sftdd/smells.ts
 init_cjs_shims();
@@ -6882,6 +6882,11 @@ init_cjs_shims();
 var import_node_fs = require("fs");
 var import_node_path3 = require("path");
 
+// scripts/sftdd/refactor-verify-assess.ts
+init_cjs_shims();
+var fs3 = __toESM(require("fs"), 1);
+var path = __toESM(require("path"), 1);
+
 // scripts/sftdd/migration-app-clean.ts
 init_cjs_shims();
 var import_node_fs2 = require("fs");
@@ -6909,14 +6914,14 @@ function writeEscalation(sftddDir, esc) {
     ...esc.ac_id ? { ac_id: esc.ac_id } : {},
     raised_at: esc.raised_at ?? (/* @__PURE__ */ new Date()).toISOString()
   };
-  fs3.mkdirSync(escalationsDir(sftddDir), { recursive: true });
-  fs3.writeFileSync(file, JSON.stringify(full, null, 2) + "\n", "utf8");
+  fs4.mkdirSync(escalationsDir(sftddDir), { recursive: true });
+  fs4.writeFileSync(file, JSON.stringify(full, null, 2) + "\n", "utf8");
   return full;
 }
 function readEscalationFile(file) {
-  if (!fs3.existsSync(file)) return void 0;
+  if (!fs4.existsSync(file)) return void 0;
   try {
-    return JSON.parse(fs3.readFileSync(file, "utf8"));
+    return JSON.parse(fs4.readFileSync(file, "utf8"));
   } catch {
     return void 0;
   }
@@ -6924,8 +6929,8 @@ function readEscalationFile(file) {
 
 // scripts/sftdd/deploy-verify-assess.ts
 init_cjs_shims();
-var fs4 = __toESM(require("fs"), 1);
-var path = __toESM(require("path"), 1);
+var fs5 = __toESM(require("fs"), 1);
+var path2 = __toESM(require("path"), 1);
 function parseFailedNodeIds(output) {
   const ids = [];
   const seen = /* @__PURE__ */ new Set();
@@ -6941,13 +6946,13 @@ function parseFailedNodeIds(output) {
 function markerPath(sftddDir, featureId, storyId) {
   const fdir = findFeatureDir(sftddDir, featureId);
   if (!fdir) return void 0;
-  return path.join(fdir, "stories", storyId, "deploy-verify-assess.json");
+  return path2.join(fdir, "stories", storyId, "deploy-verify-assess.json");
 }
 function readDeployVerifyAssessMarker(sftddDir, featureId, storyId) {
   const file = markerPath(sftddDir, featureId, storyId);
-  if (!file || !fs4.existsSync(file)) return void 0;
+  if (!file || !fs5.existsSync(file)) return void 0;
   try {
-    return JSON.parse(fs4.readFileSync(file, "utf8"));
+    return JSON.parse(fs5.readFileSync(file, "utf8"));
   } catch {
     return void 0;
   }
@@ -6963,13 +6968,13 @@ function writeDeployVerifyAssessMarker(sftddDir, featureId, storyId, failingNode
     assessed: false,
     attempts: prior?.attempts ?? 0
   };
-  fs4.mkdirSync(path.dirname(file), { recursive: true });
-  fs4.writeFileSync(file, JSON.stringify(marker, null, 2) + "\n", "utf8");
+  fs5.mkdirSync(path2.dirname(file), { recursive: true });
+  fs5.writeFileSync(file, JSON.stringify(marker, null, 2) + "\n", "utf8");
   return file;
 }
 function clearDeployVerifyAssessMarker(sftddDir, featureId, storyId) {
   const file = markerPath(sftddDir, featureId, storyId);
-  if (file && fs4.existsSync(file)) fs4.rmSync(file);
+  if (file && fs5.existsSync(file)) fs5.rmSync(file);
 }
 async function classifyDeployVerifyFailure(failingNodeIds, runIsolated) {
   if (failingNodeIds.length === 0) return "genuine";

@@ -3254,8 +3254,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path2) {
-      let input = path2;
+    function removeDotSegments(path3) {
+      let input = path3;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3508,8 +3508,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path2, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path2 && path2 !== "/" ? path2 : void 0;
+        const [path3, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path3 && path3 !== "/" ? path3 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -6680,6 +6680,7 @@ function findStoryDir(tdd, f, s) {
   return matches.length === 1 ? (0, import_node_path.join)(root, matches[0]) : void 0;
 }
 var storyResolved = (tdd, f, s) => findStoryDir(tdd, f, s) ?? storyDir(tdd, f, s);
+var storyJson = (tdd, f, s) => (0, import_node_path.join)(storyResolved(tdd, f, s), "story.json");
 var acsDir = (tdd, f, s) => (0, import_node_path.join)(storyResolved(tdd, f, s), "acs");
 var acJson = (tdd, f, s, ac) => (0, import_node_path.join)(acsDir(tdd, f, s), `${ac}.json`);
 var storyTestListJson = (tdd, f, s) => (0, import_node_path.join)(storyResolved(tdd, f, s), "test-list-per-story.json");
@@ -6697,6 +6698,39 @@ function requireFeatureDir(tdd, featureId) {
   const dir = findFeatureDir(tdd, featureId);
   if (!dir) throw new Error(`feature ${featureId} not found (or ambiguous) under ${featuresDir(tdd)}`);
   return dir;
+}
+function storyAcIds(tdd, f, s) {
+  const ids = /* @__PURE__ */ new Set();
+  const sj = storyJson(tdd, f, s);
+  if (fs.existsSync(sj)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(sj, "utf8"));
+      if (Array.isArray(data.acs)) {
+        for (const a of data.acs) {
+          const id = typeof a === "string" ? a : a?.id;
+          if (typeof id === "string" && id.length > 0) ids.add(id);
+        }
+      }
+    } catch {
+    }
+  }
+  const dir = acsDir(tdd, f, s);
+  if (fs.existsSync(dir)) {
+    try {
+      for (const file of fs.readdirSync(dir)) {
+        const m = /^(.+)\.json$/.exec(file);
+        if (!m) continue;
+        const base = m[1];
+        try {
+          const obj = JSON.parse(fs.readFileSync((0, import_node_path.join)(dir, file), "utf8"));
+          if (obj && typeof obj.id === "string" && obj.id === base) ids.add(base);
+        } catch {
+        }
+      }
+    } catch {
+    }
+  }
+  return [...ids];
 }
 function readAcLayer(tdd, f, acId) {
   const stories = storiesDir(tdd, f);
@@ -6816,7 +6850,7 @@ function nextTestNumber(items) {
 function writeStoryTestList(tddDir, featureId, storyId) {
   const storyDir2 = findStoryDir(tddDir, featureId, storyId);
   if (!storyDir2) return null;
-  const storyAcIds = acIdsInStoryDir(storyDir2);
+  const storyAcIds2 = acIdsInStoryDir(storyDir2);
   let master = null;
   try {
     master = readMasterTestList(tddDir, featureId);
@@ -6833,7 +6867,7 @@ function writeStoryTestList(tddDir, featureId, storyId) {
     const key = (it) => `${it.ac_id}\0${it.description}`;
     const have = new Set(baseList.items.map(key));
     const usedIds = new Set(baseList.items.map((i) => i.id));
-    const fresh = authored.items.filter((it) => storyAcIds.includes(it.ac_id) && !have.has(key(it)));
+    const fresh = authored.items.filter((it) => storyAcIds2.includes(it.ac_id) && !have.has(key(it)));
     if (fresh.length > 0 || master === null) {
       let n = nextTestNumber(baseList.items);
       const renumbered = fresh.map((it) => {
@@ -6851,7 +6885,7 @@ function writeStoryTestList(tddDir, featureId, storyId) {
     }
   }
   if (!master) return null;
-  const scoped = scopeToStory(master, storyId, storyAcIds);
+  const scoped = scopeToStory(master, storyId, storyAcIds2);
   const file = storyTestListJson(tddDir, featureId, storyId);
   (0, import_fs.mkdirSync)((0, import_path.dirname)(file), { recursive: true });
   (0, import_fs.writeFileSync)(file, JSON.stringify(scoped, null, 2) + "\n");
@@ -7959,6 +7993,61 @@ ${list}`;
   return { droppedSymbols: dropped, candidates, advisory };
 }
 
+// scripts/sftdd/refactor-verify-assess.ts
+init_cjs_shims();
+var fs5 = __toESM(require("fs"), 1);
+var path2 = __toESM(require("path"), 1);
+function markerPath2(sftddDir, featureId, storyId) {
+  const fdir = findFeatureDir(sftddDir, featureId);
+  if (!fdir) return void 0;
+  return path2.join(fdir, "stories", storyId, "refactor-verify-assess.json");
+}
+function readRefactorVerifyAssessMarker(sftddDir, featureId, storyId) {
+  const file = markerPath2(sftddDir, featureId, storyId);
+  if (!file || !fs5.existsSync(file)) return void 0;
+  try {
+    return JSON.parse(fs5.readFileSync(file, "utf8"));
+  } catch {
+    return void 0;
+  }
+}
+function writeRefactorVerifyAssessMarker(sftddDir, featureId, storyId, args) {
+  const file = markerPath2(sftddDir, featureId, storyId);
+  if (!file) return void 0;
+  const prior = readRefactorVerifyAssessMarker(sftddDir, featureId, storyId);
+  const marker = {
+    version: 1,
+    story_id: storyId,
+    summary: args.summary,
+    ...args.supersededAdvisory ? { superseded_advisory: args.supersededAdvisory } : {},
+    assessed: false,
+    attempts: prior?.attempts ?? 0
+  };
+  fs5.mkdirSync(path2.dirname(file), { recursive: true });
+  fs5.writeFileSync(file, JSON.stringify(marker, null, 2) + "\n", "utf8");
+  return file;
+}
+function markRefactorVerifyAssessed(sftddDir, featureId, storyId, flaggedTests) {
+  const file = markerPath2(sftddDir, featureId, storyId);
+  const m = readRefactorVerifyAssessMarker(sftddDir, featureId, storyId);
+  if (!file || !m) return;
+  m.assessed = true;
+  m.attempts += 1;
+  if (flaggedTests && flaggedTests.length > 0) m.flagged_tests = flaggedTests;
+  fs5.writeFileSync(file, JSON.stringify(m, null, 2) + "\n", "utf8");
+}
+function markRefactorVerifyRefactored(sftddDir, featureId, storyId) {
+  const file = markerPath2(sftddDir, featureId, storyId);
+  const m = readRefactorVerifyAssessMarker(sftddDir, featureId, storyId);
+  if (!file || !m) return;
+  m.refactored = true;
+  fs5.writeFileSync(file, JSON.stringify(m, null, 2) + "\n", "utf8");
+}
+function clearRefactorVerifyAssessMarker(sftddDir, featureId, storyId) {
+  const file = markerPath2(sftddDir, featureId, storyId);
+  if (file && fs5.existsSync(file)) fs5.rmSync(file);
+}
+
 // scripts/sftdd/migration-app-clean.ts
 init_cjs_shims();
 var import_node_fs4 = require("fs");
@@ -8413,6 +8502,20 @@ async function refactorStory(sftddDir, featureId, story, opts) {
   const verify = opts?.verify ?? defaultGreenVerifier;
   const result = await verify({ projectDir: (0, import_path7.dirname)(sftddDir), sftddDir, featureId, story, branchId: exp.branch });
   if (!result.passed) {
+    const rf = readRefactorVerifyAssessMarker(sftddDir, featureId, story);
+    if (!rf?.assessed) {
+      let supersededAdvisory;
+      try {
+        const superseded = supersededTestCandidates({ projectDir: (0, import_path7.dirname)(sftddDir) });
+        if (superseded.advisory) supersededAdvisory = superseded.advisory;
+      } catch {
+      }
+      writeRefactorVerifyAssessMarker(sftddDir, featureId, story, {
+        summary: result.summary,
+        ...supersededAdvisory ? { supersededAdvisory } : {}
+      });
+      return { refactored: false, needsAssess: true, summary: result.summary };
+    }
     const escalation = writeEscalation(sftddDir, {
       source: "driver-refactor",
       reason: `REFACTOR verify failed for story ${featureId}/${story}: ${result.summary}`,
@@ -8421,6 +8524,7 @@ async function refactorStory(sftddDir, featureId, story, opts) {
     });
     return { refactored: false, escalated: true, escalation, summary: result.summary };
   }
+  clearRefactorVerifyAssessMarker(sftddDir, featureId, story);
   const file = storyReviewJson(sftddDir, featureId, story);
   const prior = readStoryReview(sftddDir, featureId, story);
   (0, import_fs7.mkdirSync)((0, import_path7.dirname)(file), { recursive: true });
@@ -8704,6 +8808,46 @@ async function main() {
       if (!a.story) return usage("refactor-deploy-verify: --story is required.");
       markDeployVerifyRefactored(sftddDir, a.feature, a.story);
       process.stdout.write(`cycle: deploy-verify scope refactor recorded for ${a.story}; re-deploying to re-verify
+`);
+      return 0;
+    }
+    case "assess-refactor-verify": {
+      if (!a.story) return usage("assess-refactor-verify: --story is required.");
+      const marker = readRefactorVerifyAssessMarker(sftddDir, a.feature, a.story);
+      if (!marker) {
+        process.stdout.write(`cycle: assess-refactor-verify , no marker for ${a.feature}/${a.story} (nothing to assess)
+`);
+        return 0;
+      }
+      const flagged = [];
+      for (const ac of storyAcIds(sftddDir, a.feature, a.story)) {
+        const s = readSupersededTests(sftddDir, a.feature, a.story, ac);
+        if (s?.tests) flagged.push(...s.tests);
+      }
+      const uniqueFlagged = [...new Set(flagged)];
+      if (uniqueFlagged.length > 0) {
+        markRefactorVerifyAssessed(sftddDir, a.feature, a.story, uniqueFlagged);
+        process.stdout.write(
+          `cycle: assessed refactor-verify ${a.story} -> ${uniqueFlagged.length} superseded test(s); routing Driver permissive refactor
+`
+        );
+      } else {
+        markRefactorVerifyAssessed(sftddDir, a.feature, a.story);
+        writeEscalation(sftddDir, {
+          source: "driver-refactor",
+          reason: `REFACTOR verify failure for ${a.feature}/${a.story}: Navigator assessed it as a genuine regression (no superseded tests to refactor); raising to HIL`,
+          feature_id: a.feature,
+          story_id: a.story
+        });
+        process.stdout.write(`cycle: assessed refactor-verify ${a.story} -> genuine regression (no supersession), raised to HIL
+`);
+      }
+      return 0;
+    }
+    case "refactor-superseded-verify": {
+      if (!a.story) return usage("refactor-superseded-verify: --story is required.");
+      markRefactorVerifyRefactored(sftddDir, a.feature, a.story);
+      process.stdout.write(`cycle: refactor-verify superseded refactor recorded for ${a.story}; re-verifying
 `);
       return 0;
     }
