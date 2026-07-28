@@ -23,7 +23,7 @@ Lakebase removes that constraint. A database branch is a real, governed, copy-on
 
 **What makes Consort different.** Other spec-first frameworks ask the agent to comply: a strong spec then a trusted build (Spec Kit), or a firm test-first rule the model is told to honor (superpowers). Under pressure to go green, an agent can set either aside. Consort puts the controls in a deterministic state machine the agent runs inside but cannot edit: routing is code, human-approval gates fail closed, tests are immutable within a unit of work, and green means a real run against a real database. Engineering discipline is enforced by hard rules, not soft prompts.
 
-Two papers are forthcoming: one on the practice underneath Consort, Branched-Database TDD, and one on Consort itself.
+Two papers describing Consort and the methodology behind it are forthcoming.
 
 ## The ensemble
 
