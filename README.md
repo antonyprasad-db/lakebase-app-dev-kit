@@ -21,7 +21,7 @@ Lakebase removes that constraint. A database branch is a real, governed, copy-on
 - **Deterministically driven**: the control loop is code, so it can't drift, skip a step, or get lost after a long session.
 - **Human-gated**: the gates fail closed, and nothing advances past one without your approval.
 
-**What makes Consort different.** Other spec-first frameworks ask the agent to comply: a strong spec then a trusted build (Spec Kit), or a firm test-first rule the model is told to honor (superpowers). Under pressure to go green, an agent can set either aside. Consort puts the controls in a deterministic state machine the agent runs inside but cannot edit: routing is code, human-approval gates fail closed, tests are immutable within a unit of work, and green means a real run against a real database. Engineering discipline is enforced, not left to chance at the whim of a model.
+**What makes Consort different.** Other spec-first frameworks ask the agent to comply: a strong spec then a trusted build (Spec Kit), or a firm test-first rule the model is told to honor (superpowers). Under pressure to go green, an agent can set either aside. Consort puts the controls in a deterministic state machine the agent runs inside but cannot edit: routing is code, human-approval gates fail closed, tests are immutable within a unit of work, and green means a real run against a real database. Engineering discipline is enforced by hard rules, not soft prompts.
 
 Two papers are forthcoming: one on the practice underneath Consort, Branched-Database TDD, and one on Consort itself.
 
