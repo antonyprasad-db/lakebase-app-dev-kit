@@ -324,11 +324,20 @@ export function parseRequiredNfrs(nfrsMd: string): RequiredNfr[] {
  * (the Human Proxy will not approve it). architecture.json that is absent or
  * invalid JSON is itself reported (the architect produced nothing to cover with).
  */
-export function checkNfrCoverage(nfrsMd: string, architectureJson: string): ConformanceResult {
+export function checkNfrCoverage(
+  nfrsMd: string,
+  architectureJson: string,
+  /** PER-FEATURE RELEVANCE: brief ids a SIBLING feature in the same project
+   *  already covers. A project-wide Required NFR need only be realized by the
+   *  feature(s) that TOUCH it, so a feature that does not implement a concern is
+   *  not forced to manufacture nominal coverage , it passes when a sibling covers
+   *  it. Empty/omitted preserves the original single-feature strictness. */
+  otherFeatureBriefRefs: ReadonlySet<string> = new Set(),
+): ConformanceResult {
   const required = parseRequiredNfrs(nfrsMd);
   if (required.length === 0) return { ok: true }; // no Required NFRs to cover
 
-  let parsed: { nfrs?: Array<{ brief_ref?: string }> };
+  let parsed: { nfrs?: Array<{ brief_ref?: string }>; nfr_out_of_scope?: Array<{ ref?: string }> };
   try {
     parsed = JSON.parse(architectureJson);
   } catch (err) {
@@ -338,6 +347,12 @@ export function checkNfrCoverage(nfrsMd: string, architectureJson: string): Conf
   const briefRefs = new Set(
     (parsed.nfrs ?? []).map((n) => n.brief_ref).filter((r): r is string => typeof r === "string" && r.length > 0),
   );
+  // This feature may EXPLICITLY scope a project NFR out (it touches no code the
+  // NFR governs), an honest "not my concern, upheld elsewhere" declaration the
+  // gate accepts rather than forcing nominal coverage.
+  const scopedOut = new Set(
+    (parsed.nfr_out_of_scope ?? []).map((s) => s.ref).filter((r): r is string => typeof r === "string" && r.length > 0),
+  );
 
   const violations: string[] = [];
   for (const item of required) {
@@ -346,13 +361,38 @@ export function checkNfrCoverage(nfrsMd: string, architectureJson: string): Conf
       violations.push(`nfrs.md Required item has no R<n> id (cannot be coverage-tracked): "${preview}"`);
       continue;
     }
-    if (!briefRefs.has(item.id)) {
+    const covered = briefRefs.has(item.id) || otherFeatureBriefRefs.has(item.id) || scopedOut.has(item.id);
+    if (!covered) {
       violations.push(
-        `Required NFR ${item.id} from nfrs.md is not covered by any architecture.json nfr (no matching brief_ref)`,
+        `Required NFR ${item.id} from nfrs.md is not covered by this feature, any sibling feature, or an ` +
+          `explicit nfr_out_of_scope declaration (no matching brief_ref)`,
       );
     }
   }
   return finalize(violations);
+}
+
+/** Collect the brief_refs covered by EVERY feature's architecture.json under the
+ *  project (for the per-feature-relevance NFR check: a Required NFR satisfied by
+ *  any one feature counts as covered project-wide). Best-effort: unreadable /
+ *  invalid architecture.json files contribute nothing. */
+export function projectBriefRefs(sftddDir: string): Set<string> {
+  const refs = new Set<string>();
+  const fdir = featuresDirOf(sftddDir);
+  if (!existsSync(fdir)) return refs;
+  for (const feature of readdirSync(fdir)) {
+    const archPath = join(fdir, feature, "architecture.json");
+    if (!existsSync(archPath)) continue;
+    try {
+      const parsed = JSON.parse(readFileSync(archPath, "utf8")) as { nfrs?: Array<{ brief_ref?: string }> };
+      for (const n of parsed.nfrs ?? []) {
+        if (typeof n.brief_ref === "string" && n.brief_ref.length > 0) refs.add(n.brief_ref);
+      }
+    } catch {
+      /* best-effort: skip an unreadable/invalid feature architecture */
+    }
+  }
+  return refs;
 }
 
 /**
@@ -858,9 +898,13 @@ export function scanFeatureConformance(sftddDir: string, featureId: string): Fea
   const archPath = join(featureDir, "architecture.json");
   if (existsSync(archPath)) {
     const archContent = readFileSync(archPath, "utf8");
+    // Per-feature relevance: a project Required NFR is covered when THIS feature,
+    // OR any sibling feature, realizes it (or this feature scopes it out). Collect
+    // sibling coverage once.
+    const siblingRefs = projectBriefRefs(sftddDir);
     for (const nfrsPath of [join(sftddDir, "nfrs.md"), join(featureDir, "nfrs.md")]) {
       if (!existsSync(nfrsPath)) continue;
-      const cov = checkNfrCoverage(readFileSync(nfrsPath, "utf8"), archContent);
+      const cov = checkNfrCoverage(readFileSync(nfrsPath, "utf8"), archContent, siblingRefs);
       const rel = nfrsPath.startsWith(sftddDir) ? nfrsPath.slice(sftddDir.length).replace(/^\//, "") : nfrsPath;
       entries.push({
         artifact: `${rel} -> architecture.json (NFR coverage)`,

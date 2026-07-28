@@ -17,6 +17,7 @@ import {
   checkAcIndependence,
   checkLayeringDeclared,
   checkNfrCoverage,
+  projectBriefRefs,
   checkFitnessCoverage,
   checkPersistenceCoverage,
   checkInvariantCoverageDistinct,
@@ -216,7 +217,11 @@ function nfrCoverageReason(sftddDir: string, featureId: string): string | null {
   } catch {
     return null;
   }
-  const r = checkNfrCoverage(nfrsContent, arch);
+  // Per-feature relevance: a project Required NFR is covered when THIS feature,
+  // any sibling feature, or an explicit nfr_out_of_scope declaration realizes it,
+  // so a feature that touches no code a project-wide NFR governs is not forced to
+  // manufacture nominal coverage (it is upheld by the feature that owns it).
+  const r = checkNfrCoverage(nfrsContent, arch, projectBriefRefs(sftddDir));
   return r.ok ? null : `NFR coverage failed: ${r.violations.join("; ")}`;
 }
 

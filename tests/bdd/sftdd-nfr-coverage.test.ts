@@ -105,6 +105,29 @@ describe("checkNfrCoverage", () => {
     const md = "# NFRs\n## Required\n## Preferences\n## Out of bounds\n";
     expect(checkNfrCoverage(md, arch([]))).toEqual({ ok: true });
   });
+
+  // Per-feature relevance: a Required NFR this feature does not touch passes when
+  // a SIBLING feature covers it (the F6/R2 stockflow-rerecord halt).
+  it("passes when a sibling feature covers the Required NFR (per-feature relevance)", () => {
+    // This feature covers only R1; R2 is covered by a sibling (F1).
+    const r = checkNfrCoverage(CONFORMANT_NFRS, arch(["R1"]), new Set(["R2"]));
+    expect(r).toEqual({ ok: true });
+  });
+
+  it("still fails when NEITHER this feature NOR a sibling covers the Required NFR", () => {
+    const r = checkNfrCoverage(CONFORMANT_NFRS, arch(["R1"]), new Set(["R9-unrelated"]));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.violations.join(" ")).toMatch(/R2 .*not covered/);
+  });
+
+  it("passes when the feature explicitly declares the NFR out of scope", () => {
+    const archScopedOut = JSON.stringify({
+      feature_id: "F6-x",
+      nfrs: [{ category: "x", requirement: "y", brief_ref: "R1" }],
+      nfr_out_of_scope: [{ ref: "R2", reason: "no stock-write path in this feature; upheld by F1" }],
+    });
+    expect(checkNfrCoverage(CONFORMANT_NFRS, archScopedOut)).toEqual({ ok: true });
+  });
 });
 
 describe("scanFeatureConformance: enforces NFR coverage once architecture.json exists", () => {
