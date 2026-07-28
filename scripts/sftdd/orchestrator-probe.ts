@@ -30,6 +30,10 @@ import {
   deployVerifyNeedsAssess,
   deployVerifyRefactorPending as deployVerifyRefactorPendingMarker,
 } from "./deploy-verify-assess.js";
+import {
+  refactorVerifyNeedsAssess as refactorVerifyNeedsAssessMarker,
+  refactorVerifyRefactorPending as refactorVerifyRefactorPendingMarker,
+} from "./refactor-verify-assess.js";
 import { readWorkflowState, SCM_STATES } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { firstPendingEscalation } from "./escalation.js";
 import { specLevelSmell, priorReviseCount, isBuildRefactorRoutableSmell, isReflectSmell, priorReflectReviseCount, REFLECT_REVISE_CAP, storyTestListFingerprint, lastReflectReviseFingerprint } from "./smells.js";
@@ -373,6 +377,19 @@ export function diskArtifactProbe(
       // The Navigator assessed + recorded a scope set the Driver has not yet
       // refactored: routes the Driver SCOPE-DEPLOY turn.
       return deployVerifyRefactorPendingMarker(sftddDir, featureId, story);
+    },
+
+    refactorVerifyAssessEligible(story) {
+      // A refactor-verify failure (marker written by refactorStory) not yet
+      // assessed + under the one-shot cap: routes the story-level Navigator
+      // supersession ASSESS turn instead of the terminal HIL.
+      return refactorVerifyNeedsAssessMarker(sftddDir, featureId, story);
+    },
+
+    refactorVerifyRefactorPending(story) {
+      // The Navigator flagged superseded prior tests the Driver has not yet
+      // permissively refactored: routes the Driver permissive-refactor turn.
+      return refactorVerifyRefactorPendingMarker(sftddDir, featureId, story);
     },
 
     pendingEscalation(): DriveEscalation | null {

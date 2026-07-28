@@ -82,6 +82,12 @@ export interface StoryArtifactProbe {
   /** The Navigator assessed a deploy-verify failure with a non-empty scope set the
    *  Driver has not yet refactored, or false (drives the Driver SCOPE-DEPLOY turn). */
   deployVerifyRefactorPending(story: string): boolean;
+  /** A refactor-verify failure the Navigator has not yet assessed (one-shot), or
+   *  false (drives the story-level Navigator supersession ASSESS turn). */
+  refactorVerifyAssessEligible(story: string): boolean;
+  /** The Navigator flagged superseded prior tests the Driver has not yet
+   *  permissively refactored, or false (drives the Driver permissive-refactor turn). */
+  refactorVerifyRefactorPending(story: string): boolean;
   /** An unresolved blocking escalation (failed honest-GREEN run, blocking smell,
    *  deploy verify-fail), or null. When set the driver routes to raise-to-hil. */
   pendingEscalation(): DriveEscalation | null;
@@ -181,6 +187,8 @@ function storyView(
       deployVerified: probe.storyDeployVerified(id),
       deployVerifyAssessEligible: probe.deployVerifyAssessEligible(id),
       deployVerifyRefactorPending: probe.deployVerifyRefactorPending(id),
+      refactorVerifyAssessEligible: probe.refactorVerifyAssessEligible(id),
+      refactorVerifyRefactorPending: probe.refactorVerifyRefactorPending(id),
       accepted,
     },
   };

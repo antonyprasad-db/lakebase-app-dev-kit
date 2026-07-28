@@ -230,6 +230,8 @@ export interface StoryBuild {
   /** Deploy-verify self-heal: the failure was classified as shared-state
    *  contamination (fails full-suite, passes in isolation) + not yet assessed.
    *  Drives one story-level Navigator ASSESS-DEPLOY turn before re-deploying. */
+  refactorVerifyAssessEligible?: boolean;
+  refactorVerifyRefactorPending?: boolean;
   deployVerifyAssessEligible?: boolean;
   /** Deploy-verify self-heal: the Navigator assessed + chose a scope set the
    *  Driver has not yet refactored. Drives one Driver SCOPE-DEPLOY turn. */
@@ -349,7 +351,7 @@ export type WorkflowAction =
       kind: "invoke-role";
       role: "navigator" | "driver";
       story: string;
-      buildMode?: "review" | "refactor" | "assess" | "repair" | "assess-deploy" | "refactor-deploy";
+      buildMode?: "review" | "refactor" | "assess" | "repair" | "assess-deploy" | "refactor-deploy" | "assess-refactor" | "refactor-superseded";
       ac?: string;
     }
   | { kind: "await-acceptance"; story: string }
@@ -403,6 +405,15 @@ function nextBuildAction(story: string, b: StoryBuild): WorkflowAction {
   // turn and the Driver REFACTORs it in one turn (no `ac`), instead of cycling
   // per AC. Placed, like the per-AC checks, ABOVE the RED/GREEN steps so a
   // green story is reviewed/refactored before the lane advances to acceptance.
+  // Refactor-verify supersession self-heal (pre-empts the refactor-pending re-route
+  // below: a failed refactor verify leaves refactored_at unstamped, so
+  // refactorStoryPending stays true; these checks must run FIRST so the failure
+  // routes to a bounded Navigator assess instead of blindly re-refactoring). A
+  // refactor-verify break may be a PRIOR test this story legitimately supersedes;
+  // the Navigator assesses (flag superseded -> Driver permissively refactors ONLY
+  // those, OR veto -> genuine regression escalates), then ONE honest re-verify.
+  if (b.refactorVerifyAssessEligible) return { kind: "invoke-role", role: "navigator", story, buildMode: "assess-refactor" };
+  if (b.refactorVerifyRefactorPending) return { kind: "invoke-role", role: "driver", story, buildMode: "refactor-superseded" };
   if ((b.loop ?? "story") === "story") {
     if (b.reviewStoryPending) return { kind: "invoke-role", role: "navigator", story, buildMode: "review" };
     if (b.refactorStoryPending) return { kind: "invoke-role", role: "driver", story, buildMode: "refactor" };

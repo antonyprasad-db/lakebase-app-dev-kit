@@ -28,6 +28,7 @@ import {
   type GreenVerifier,
 } from "../../scripts/sftdd/cycle-record.js";
 import { readAgentLog } from "../../scripts/sftdd/agent-log.js";
+import { markRefactorVerifyAssessed } from "../../scripts/sftdd/refactor-verify-assess.js";
 
 // greenOpenCycle now runs an HONEST verify (deploy-during-build) before stamping
 // green. These cycle-record unit tests inject a passing verifier so they exercise
@@ -396,14 +397,25 @@ describe("cycle-record: story-level review/refactor (story granularity)", async 
     expect(refactorPending(tdd, F, S)).toBe(false); // refactored -> no longer pending
   });
 
-  it("a FAILED post-refactor verify keeps the story refactor-pending + escalates", async () => {
+  it("a FAILED post-refactor verify routes the FIRST failure to a bounded supersession assess, then escalates", async () => {
     await greenWholeStory();
     writeJson(join(tdd, "cycles", F, S, "review-verdict.json"), { refactor: true, notes: "risky change" });
     reviewStory(tdd, F, S);
-    const fail: GreenVerifier = async () => ({ passed: false, summary: "a sibling test regressed" });
-    const res = await refactorStory(tdd, F, S, { verify: fail });
-    expect(res.refactored).toBe(false);
-    expect(res.escalated).toBe(true);
-    expect(refactorPending(tdd, F, S)).toBe(true); // still pending (not stamped)
+    const fail: GreenVerifier = async () => ({ passed: false, summary: "a prior-story test regressed" });
+    // First failure: a refactor break may be a PRIOR test this story supersedes,
+    // so it routes to a bounded Navigator assess (marker written) rather than the
+    // terminal HIL. refactored_at stays unstamped (still pending).
+    const first = await refactorStory(tdd, F, S, { verify: fail });
+    expect(first.refactored).toBe(false);
+    expect(first.needsAssess).toBe(true);
+    expect(first.escalated).toBeFalsy();
+    expect(refactorPending(tdd, F, S)).toBe(true);
+    // Simulate the assess having run (the Navigator vetoed / one shot spent), then
+    // a repeat failure now escalates to the HIL (the one-shot bound).
+    markRefactorVerifyAssessed(tdd, F, S);
+    const second = await refactorStory(tdd, F, S, { verify: fail });
+    expect(second.refactored).toBe(false);
+    expect(second.escalated).toBe(true);
+    expect(refactorPending(tdd, F, S)).toBe(true);
   });
 });

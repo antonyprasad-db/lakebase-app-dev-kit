@@ -31,6 +31,8 @@ function fakeProbe(facts: Record<string, Partial<Record<keyof StoryArtifactProbe
     // in the nextTransition suite via explicit build-flag overrides).
     deployVerifyAssessEligible: (s) => get(s, "deployVerifyAssessEligible" as keyof StoryArtifactProbe),
     deployVerifyRefactorPending: (s) => get(s, "deployVerifyRefactorPending" as keyof StoryArtifactProbe),
+    refactorVerifyAssessEligible: (s) => get(s, "refactorVerifyAssessEligible" as keyof StoryArtifactProbe),
+    refactorVerifyRefactorPending: (s) => get(s, "refactorVerifyRefactorPending" as keyof StoryArtifactProbe),
     // Per-AC REVIEW/REFACTOR: not exercised by these derive tests (default: none pending).
     reviewPendingAc: () => null,
     refactorPendingAc: () => null,

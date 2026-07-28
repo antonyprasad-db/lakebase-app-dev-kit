@@ -31,6 +31,7 @@ import { designGuideConformance } from "./response-formatter.js";
 import { storyTestProgress, nextPendingBatch, DEFAULT_BATCH_CAP } from "./cycle-record.js";
 import { readSupersededTests, readGreenFailure } from "./supersession.js";
 import { readDeployVerifyAssessMarker, readDeployVerifyScope } from "./deploy-verify-assess.js";
+import { readRefactorVerifyAssessMarker } from "./refactor-verify-assess.js";
 import { readConventions } from "./architecture-conventions.js";
 import { sanitizeBranchName } from "@databricks-solutions/lakebase-scm-utils/util";
 
@@ -843,6 +844,29 @@ function roleTaskBody(
           ` array); the orchestration then raises it to a human instead of scoping. Write ONLY that file.`
         );
       }
+      if (action.buildMode === "assess-refactor") {
+        // Story-level REFACTOR-verify self-heal ASSESS: the story's own tests are
+        // green and the Navigator-requested refactor was applied, but the refactor
+        // broke the full suite , typically a PRIOR story's test that asserts a
+        // symbol THIS story's refactor legitimately retired. Confirm which broken
+        // tests are genuinely SUPERSEDED (the current story's design supersedes
+        // them) vs a real regression the refactor introduced.
+        const marker = readRefactorVerifyAssessMarker(sftddDir, featureId, s);
+        return (
+          `ASSESS a failed REFACTOR-verify for story ${s}. The story's own tests are green and the requested` +
+          ` refactor was applied, but the full suite then FAILED:\n${marker?.summary ?? "(see the refactor verify output)"}\n` +
+          (marker?.superseded_advisory
+            ? `\nDeterministic supersession advisory (prior tests referencing a symbol the refactor removed):\n${marker.superseded_advisory}\n`
+            : "") +
+          `\nDecide, per failing test: is it a PRIOR test this story legitimately SUPERSEDES (it asserts old` +
+          ` behavior/fields this story deliberately retired), or a GENUINE regression the refactor introduced?\n` +
+          `Flag ONLY the genuinely superseded prior tests via` +
+          ` \`./scripts/lk lakebase-sftdd-cycle flag-superseded --feature ${featureId} --story ${s} --ac <ac> --test <path::test> [--test ...] --reason "<why superseded>"\`` +
+          ` , the Driver will then permissively refactor ONLY those. If instead the refactor broke CURRENT behavior` +
+          ` (a real regression), flag NOTHING; the orchestration raises it to a human. Never flag a test just to` +
+          ` make a red go away. Do NOT edit product code or tests in this turn.`
+        );
+      }
       if (action.buildMode === "review") {
         // story granularity (default): REVIEW the WHOLE story's implementation in
         // one turn; verdict at the story root (no AC).
@@ -895,6 +919,21 @@ function roleTaskBody(
           ` whole-table total. Keep the invariant; do NOT weaken it, and do NOT change product code.\n` +
           directives.map((d) => `  ${d.node_id}\n    -> ${d.directive}`).join("\n") +
           `\nEdit ONLY those test files. The orchestrator re-deploys + re-verifies after your turn.`
+        );
+      }
+      if (action.buildMode === "refactor-superseded") {
+        // Story-level REFACTOR-verify self-heal: the Navigator confirmed a set of
+        // PRIOR tests this story's refactor legitimately superseded (they assert a
+        // symbol/behavior the refactor retired). Permissively refactor ONLY those
+        // flagged tests so they match the new reality (or remove the superseded
+        // assertion), NEVER touch product code and NEVER weaken a CURRENT test.
+        // The honest re-verify after this turn is the teeth.
+        return (
+          `The Navigator flagged prior tests that story ${s}'s refactor SUPERSEDED. Permissively refactor ONLY the` +
+          ` flagged superseded tests below so they reflect the retired behavior (update or drop the superseded` +
+          ` assertion); do NOT change product code and do NOT weaken any CURRENT (non-superseded) test.\n` +
+          supersededTestsDirective(sftddDir, featureId, s) +
+          `\nEdit ONLY the flagged test files. The orchestrator re-verifies the full suite after your turn.`
         );
       }
       if (action.buildMode === "repair") {
@@ -1198,6 +1237,13 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
         // the terminal deploy-verify escalation (raise-to-hil). The verdict is the
         // role's (read from disk); the finalize is deterministic.
         cmds.push({ kind: "cli", bin: CYCLE_BIN, args: ["assess-deploy-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] });
+      } else if (!("mode" in action) && action.role === "navigator" && "buildMode" in action && action.buildMode === "assess-refactor") {
+        // After the Navigator's refactor-verify ASSESS turn, finalize it: read the
+        // superseded tests it flagged and either record them on the marker (routes
+        // the Driver permissive-refactor turn) or , when it flagged none (its veto,
+        // a genuine regression) , mark the one shot spent + write the terminal
+        // refactor escalation (raise-to-hil). Verdict is the role's (read from disk).
+        cmds.push({ kind: "cli", bin: CYCLE_BIN, args: ["assess-refactor-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] });
       } else if (!("mode" in action) && action.role === "navigator") {
         const acFlag = "ac" in action && action.ac ? ["--ac", action.ac] : [];
         const verb = "buildMode" in action && action.buildMode === "review" ? "review" : "begin";
@@ -1223,6 +1269,12 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
         // clears the marker on pass, or writes the terminal escalation on a repeat
         // failure , the one-shot bound). Emitted INSTEAD of a green/refactor cycle.
         cmds.push({ kind: "cli", bin: CYCLE_BIN, args: ["refactor-deploy-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] });
+      } else if (!("mode" in action) && action.role === "driver" && "buildMode" in action && action.buildMode === "refactor-superseded") {
+        // The Driver's refactor-verify permissive-refactor turn edited ONLY the
+        // flagged superseded tests (no product code, no green stamp). Finalize by
+        // marking the marker refactored, then re-verify the full suite: pass clears
+        // the marker, a repeat failure (marker now assessed) takes the terminal HIL.
+        cmds.push({ kind: "cli", bin: CYCLE_BIN, args: ["refactor-superseded-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] });
       } else if (!("mode" in action) && action.role === "driver") {
         const acFlag = "ac" in action && action.ac ? ["--ac", action.ac] : [];
         const isRepair = "buildMode" in action && action.buildMode === "repair";

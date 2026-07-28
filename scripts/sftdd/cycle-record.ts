@@ -45,6 +45,7 @@ import {
   rearmRegressionFix,
 } from "./supersession.js";
 import { checkContractClean, supersededTestCandidates } from "./contract-clean.js";
+import { readRefactorVerifyAssessMarker, writeRefactorVerifyAssessMarker, clearRefactorVerifyAssessMarker } from "./refactor-verify-assess.js";
 import { checkMigrationAppClean } from "./migration-app-clean.js";
 import { emitAgentLogEvent, type AgentLogEventInput } from "./agent-log.js";
 import { commitAllIfChanged } from "@databricks-solutions/lakebase-scm-utils/git";
@@ -773,6 +774,10 @@ export interface RefactorResult {
   escalation?: Escalation;
   /** The post-refactor verify summary (pass or the failure reason). */
   summary?: string;
+  /** Set when the FIRST refactor-verify failure was routed to a bounded Navigator
+   *  supersession assess (a refactor-verify-assess marker was written) instead of
+   *  escalating. The drive routes the assess; a repeat failure then escalates. */
+  needsAssess?: boolean;
 }
 
 /**
@@ -978,6 +983,29 @@ export async function refactorStory(
   const verify = opts?.verify ?? defaultGreenVerifier;
   const result = await verify({ projectDir: dirname(sftddDir), sftddDir, featureId, story, branchId: exp.branch });
   if (!result.passed) {
+    // A refactor-verify break may be a PRIOR test the current story legitimately
+    // supersedes (e.g. this story retired a field and an earlier story's test
+    // still asserts it), which only the full-suite verify reveals. Route a bounded
+    // Navigator supersession ASSESS instead of the terminal HIL, mirroring the
+    // GREEN / deploy-verify assess. The one-shot marker bounds it; the honest
+    // re-verify still gates, so this never green-washes. On the FIRST failure,
+    // record the marker (with the deterministic superseded advisory) + set
+    // needsAssess; a repeat failure after the assess falls through to escalate.
+    const rf = readRefactorVerifyAssessMarker(sftddDir, featureId, story);
+    if (!rf?.assessed) {
+      let supersededAdvisory: string | undefined;
+      try {
+        const superseded = supersededTestCandidates({ projectDir: dirname(sftddDir) });
+        if (superseded.advisory) supersededAdvisory = superseded.advisory;
+      } catch {
+        /* advisory only: a gate error must never change the halt */
+      }
+      writeRefactorVerifyAssessMarker(sftddDir, featureId, story, {
+        summary: result.summary,
+        ...(supersededAdvisory ? { supersededAdvisory } : {}),
+      });
+      return { refactored: false, needsAssess: true, summary: result.summary };
+    }
     const escalation = writeEscalation(sftddDir, {
       source: "driver-refactor",
       reason: `REFACTOR verify failed for story ${featureId}/${story}: ${result.summary}`,
@@ -987,6 +1015,10 @@ export async function refactorStory(
     return { refactored: false, escalated: true, escalation, summary: result.summary };
   }
 
+  // The refactor verify PASSED. Clear any refactor-verify-assess marker (a prior
+  // supersession round self-healed: the flagged tests were refactored + the suite
+  // is green again), so a later story does not see a stale marker.
+  clearRefactorVerifyAssessMarker(sftddDir, featureId, story);
   const file = storyReviewJson(sftddDir, featureId, story);
   const prior = readStoryReview(sftddDir, featureId, story);
   mkdirSync(dirname(file), { recursive: true });

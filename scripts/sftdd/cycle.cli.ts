@@ -13,7 +13,7 @@
 // Exit: 0 ok; 2 bad args; 1 op failure (e.g. no open RED cycle to green).
 
 import { join } from "path";
-import { resolveSftddDir } from "./sftdd-paths.js";
+import { resolveSftddDir, storyAcIds } from "./sftdd-paths.js";
 import {
   beginNextPendingCycle,
   beginNextPendingBatch,
@@ -43,6 +43,11 @@ import {
   markDeployVerifyAssessed,
   markDeployVerifyRefactored,
 } from "./deploy-verify-assess.js";
+import {
+  readRefactorVerifyAssessMarker,
+  markRefactorVerifyAssessed,
+  markRefactorVerifyRefactored,
+} from "./refactor-verify-assess.js";
 
 interface Args {
   cmd?: string;
@@ -317,6 +322,56 @@ async function main(): Promise<number> {
       if (!a.story) return usage("refactor-deploy-verify: --story is required.");
       markDeployVerifyRefactored(sftddDir, a.feature, a.story);
       process.stdout.write(`cycle: deploy-verify scope refactor recorded for ${a.story}; re-deploying to re-verify\n`);
+      return 0;
+    }
+    case "assess-refactor-verify": {
+      // Finalize the Navigator's refactor-verify ASSESS turn. A marker exists (the
+      // refactor broke the full suite). The Navigator's verdict is READ from disk
+      // (the per-AC superseded-tests.json it wrote via flag-superseded):
+      //   - superseded tests flagged -> confirmed the current story's refactor
+      //     supersedes them: mark assessed + record the set (routes the Driver
+      //     permissive-refactor turn);
+      //   - nothing flagged (its veto: a genuine regression the refactor introduced)
+      //     -> mark assessed (spend the one shot) + write the terminal refactor
+      //     escalation (raise-to-hil).
+      if (!a.story) return usage("assess-refactor-verify: --story is required.");
+      const marker = readRefactorVerifyAssessMarker(sftddDir, a.feature, a.story);
+      if (!marker) {
+        process.stdout.write(`cycle: assess-refactor-verify , no marker for ${a.feature}/${a.story} (nothing to assess)\n`);
+        return 0;
+      }
+      // Aggregate the superseded tests the Navigator flagged across the story's ACs.
+      const flagged: string[] = [];
+      for (const ac of storyAcIds(sftddDir, a.feature, a.story)) {
+        const s = readSupersededTests(sftddDir, a.feature, a.story, ac);
+        if (s?.tests) flagged.push(...s.tests);
+      }
+      const uniqueFlagged = [...new Set(flagged)];
+      if (uniqueFlagged.length > 0) {
+        markRefactorVerifyAssessed(sftddDir, a.feature, a.story, uniqueFlagged);
+        process.stdout.write(
+          `cycle: assessed refactor-verify ${a.story} -> ${uniqueFlagged.length} superseded test(s); routing Driver permissive refactor\n`,
+        );
+      } else {
+        markRefactorVerifyAssessed(sftddDir, a.feature, a.story);
+        writeEscalation(sftddDir, {
+          source: "driver-refactor",
+          reason: `REFACTOR verify failure for ${a.feature}/${a.story}: Navigator assessed it as a genuine regression (no superseded tests to refactor); raising to HIL`,
+          feature_id: a.feature,
+          story_id: a.story,
+        });
+        process.stdout.write(`cycle: assessed refactor-verify ${a.story} -> genuine regression (no supersession), raised to HIL\n`);
+      }
+      return 0;
+    }
+    case "refactor-superseded-verify": {
+      // Finalize the Driver's permissive-refactor turn: mark the marker refactored
+      // so it is no longer refactor-pending and the transition falls through to the
+      // plain story refactor re-verify (which clears the marker on pass, or , if it
+      // still fails , escalates via the now-assessed marker, the one-shot bound).
+      if (!a.story) return usage("refactor-superseded-verify: --story is required.");
+      markRefactorVerifyRefactored(sftddDir, a.feature, a.story);
+      process.stdout.write(`cycle: refactor-verify superseded refactor recorded for ${a.story}; re-verifying\n`);
       return 0;
     }
     default:
