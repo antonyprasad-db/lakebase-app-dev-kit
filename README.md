@@ -18,7 +18,7 @@ Lakebase removes that constraint. A database branch is a real, governed, copy-on
 - **Verified against real data**: "green" means a real test runner passed against a live database branch, not an agent's say-so.
 - **Independently reviewed**: the agent that writes the code is never the one that judges it.
 - **Spec-first and immutable**: intent is frozen at a hashed gate, and within a unit of work the tests can't be edited to force a pass.
-- **Deterministically driven**: the control loop is code, so it can't drift, skip a step, or get lost after a long session.
+- **Deterministically driven**: the control loop is codified, so it can't drift, skip a step, or get lost after a long session.
 - **Human-gated**: the gates fail closed, and nothing advances past one without your approval.
 
 **What makes Consort different.** Other spec-first frameworks ask the agent to comply: a strong spec then a trusted build (Spec Kit), or a firm test-first rule the model is told to honor (superpowers). Under pressure to go green, an agent can set either aside. Consort puts the controls in a deterministic state machine the agent runs inside but cannot edit: routing is code, human-approval gates fail closed, tests are immutable within a unit of work, and green means a real run against a real database. Engineering discipline is enforced by hard rules, not soft prompts.
