@@ -1,0 +1,6 @@
+{
+  "assessed": true,
+  "summary": "GREEN verify FAILED on the client pass (the client Vitest suite failed; the backend suite passed)",
+  "diagnosis": "T3 (client/tests/pages/FileStockRecord.test.tsx) fails because the Driver implemented the backend stack but did not create the client-side modules the test imports: client/src/pages/FileStockRecord.tsx (exported FileStockRecord component) and client/src/api/stock.ts (exported fileStockRecord fn). The import at line 18 throws a module-not-found error, causing the entire Vitest suite to fail. AC1 does not supersede T3; T3 asserts AC3 behavior (success confirmation UI) that the Driver was also required to deliver in this story-granularity cycle.",
+  "fixDirective": "Create client/src/pages/FileStockRecord.tsx exporting a FileStockRecord component with labelled inputs for sku, location, quantity, inventory_code plus a data-testid='submit-btn' submit button, and a data-testid='feedback-message' region rendered after the API call resolves successfully. Create client/src/api/stock.ts exporting fileStockRecord(payload) that POSTs to the backend /stock JSON boundary and returns the parsed response."
+}

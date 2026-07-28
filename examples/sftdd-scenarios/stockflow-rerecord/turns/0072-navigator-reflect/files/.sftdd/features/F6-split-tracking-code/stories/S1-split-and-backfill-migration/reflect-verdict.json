@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "passed": false,
+  "findings": [
+    {
+      "owner": "test-strategist",
+      "detail": "T9 (PI4-row-survival fitness test, ac_id AC1) uses an isolated ephemeral branch with @pytest.mark.migration, directly contradicting architecture.md which explicitly assigns PI4 to 'real-branch tests on the shared UP-state branch'. T9's mechanism (seed pre-migration rows, then run the up migration) cannot execute on the shared branch because the migration is already applied there; this means T9 as written is unrunnable in the shared-branch slot the architecture specifies. Either T9 must be redesigned to verify PI4 on the shared UP-state branch (assert rows survive by reading them post-migration, consistent with how T1/T2 partially cover row survival), or the architecture must be updated to route PI4 to an isolated migration branch -- one of these two must change before the build lane begins."
+    }
+  ]
+}

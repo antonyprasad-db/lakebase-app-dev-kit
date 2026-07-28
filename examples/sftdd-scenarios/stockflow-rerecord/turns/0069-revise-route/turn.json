@@ -1,0 +1,33 @@
+{
+  "ordinal": 69,
+  "step": 0,
+  "label": "revise-route",
+  "kind": "revise-route",
+  "role": "test-strategist",
+  "story": "S1-split-and-backfill-migration",
+  "action": {
+    "kind": "revise-route",
+    "story": "S1-split-and-backfill-migration",
+    "role": "test-strategist",
+    "gate": "test_list",
+    "reason": "blocking smell \"reflect-testlist-defect\": reflection gate: T6 is kind:\"behavior\" (scenario_file: tests/features/S1-split-and-backfill-migration.feature), which runs on the shared branch DB. It invokes the down migration (alembic downgrade -1) to assert reconstruction, violating the canon rule 'Do not downgrade the shared verify database.' Running the down migration on the shared DB would drop batch_number/serial_number and re-add inventory_code, breaking every other test in this story (T1-T5, T8-T11) that expects the UP state. Down-migration assertions must live in a kind:\"fitness\" test marked @pytest.mark.migration on an isolated ephemeral branch (T7 is already correctly scoped that way). T6 should either be reclassified as kind:\"fitness\" with the isolated-branch constraint, or its reconstruction assertion absorbed into T7.",
+    "source": "smell:reflect-testlist-defect"
+  },
+  "produced": [
+    ".sftdd/features/F6-split-tracking-code/.handback/architect-reviewer.S1-split-and-backfill-migration.md",
+    ".sftdd/features/F6-split-tracking-code/.handback/test-strategist.S1-split-and-backfill-migration.md",
+    ".sftdd/features/F6-split-tracking-code/pipeline.json",
+    ".sftdd/features/F6-split-tracking-code/stories/S1-split-and-backfill-migration/acs/AC1-conforming-code-backfilled.json",
+    ".sftdd/features/F6-split-tracking-code/stories/S1-split-and-backfill-migration/acs/AC2-nonconforming-code-left-null.json",
+    ".sftdd/features/F6-split-tracking-code/stories/S1-split-and-backfill-migration/acs/AC3-location-stays-canonical.json",
+    ".sftdd/features/F6-split-tracking-code/stories/S1-split-and-backfill-migration/acs/AC4-combined-code-retired.json",
+    ".sftdd/features/F6-split-tracking-code/stories/S1-split-and-backfill-migration/acs/AC5-integrity-probe-reports-nonconforming-count.json",
+    ".sftdd/features/F6-split-tracking-code/stories/S1-split-and-backfill-migration/acs/AC6-down-migration-reconstructs-code.json",
+    ".sftdd/features/F6-split-tracking-code/test-list.json",
+    ".sftdd/smells.json"
+  ],
+  "deleted": [
+    ".sftdd/features/F6-split-tracking-code/stories/S1-split-and-backfill-migration/reflect-verdict.json",
+    ".sftdd/features/F6-split-tracking-code/stories/S1-split-and-backfill-migration/test-list-per-story.json"
+  ]
+}

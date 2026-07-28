@@ -1,0 +1,12 @@
+{
+  "id": "AC3-save-confirmation-shown",
+  "status": "draft",
+  "layer": "E2E",
+  "given": "the operator has entered a SKU, location, quantity, and tracking code on the filing screen",
+  "when": "the operator submits the filing",
+  "then": "the screen shows an explicit success confirmation naming that the stock was filed, rather than failing silently or leaving the operator on an unchanged form",
+  "independence": {
+    "distinct_from_prior": true,
+    "rationale": "AC1 and AC2 assert the persisted-state outcome (a record exists / is updated); AC3 asserts the distinct user-facing feedback outcome, that a submission surfaces an explicit success confirmation, which can break while persistence still succeeds and vice versa."
+  }
+}

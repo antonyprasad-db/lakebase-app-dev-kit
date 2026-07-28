@@ -1,0 +1,6 @@
+{
+  "assessed": true,
+  "summary": "GREEN verify FAILED on the client pass (the client Vitest suite failed; the backend suite passed)",
+  "diagnosis": "Driver implemented the backend detail endpoint (T19/T21/T23/T25/T26 pass) but never created client/src/pages/SkuDetailView.tsx; the Vitest suite fails at import time because the module does not exist. No prior behavior was changed -- the StockByLocationTable and FileStockRecord tests (T14/T15/T17 and T3) continue to pass since those components already exist. This is an incomplete implementation, not a supersession.",
+  "fixDirective": "Create client/src/pages/SkuDetailView.tsx exporting SkuDetailView({ sku, locations }) where locations is an array of { location: string; quantity: number; tracking_code: string | null }. Render a container with data-testid='sku-detail-page' that displays the SKU. For each location entry render a row with data-testid='sku-row', a cell with data-testid='location-cell-{location}' containing the location string, a cell with data-testid='quantity-cell-{location}' containing the quantity, and a cell with data-testid='tracking-detail-{location}' containing the tracking_code when present or the text 'not tracked' when null."
+}

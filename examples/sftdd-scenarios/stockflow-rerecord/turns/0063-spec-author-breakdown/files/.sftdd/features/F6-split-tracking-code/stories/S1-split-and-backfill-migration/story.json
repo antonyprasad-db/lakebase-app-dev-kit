@@ -1,0 +1,6 @@
+{
+  "id": "S1-split-and-backfill-migration",
+  "asA": "inventory manager",
+  "iWantTo": "split the combined inventory_code into first-class batch_number and serial_number columns, backfilled reversibly, with an integrity probe reporting nonconforming rows",
+  "soThat": "batch and serial become separately queryable and every sprint-1 stock row survives the schema refactor without silent data loss"
+}

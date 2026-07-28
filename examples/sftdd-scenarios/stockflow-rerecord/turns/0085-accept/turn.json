@@ -1,0 +1,15 @@
+{
+  "ordinal": 85,
+  "step": 0,
+  "label": "accept",
+  "kind": "accept",
+  "story": "S1-split-and-backfill-migration",
+  "action": {
+    "kind": "accept",
+    "story": "S1-split-and-backfill-migration"
+  },
+  "produced": [
+    ".sftdd/features/F6-split-tracking-code/pipeline.json"
+  ],
+  "deleted": []
+}

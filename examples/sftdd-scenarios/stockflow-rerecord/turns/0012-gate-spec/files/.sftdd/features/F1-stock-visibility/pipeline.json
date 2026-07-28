@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "feature_id": "F1-stock-visibility",
+  "stories": {
+    "S1-file-stock-record": {
+      "status": "ready",
+      "gate": {
+        "status": "approved",
+        "history": [
+          {
+            "action": "approved",
+            "at": "2026-07-27T19:55:18.641Z",
+            "approver": "human-proxy"
+          }
+        ],
+        "approver": "human-proxy",
+        "approved_at": "2026-07-27T19:55:18.641Z"
+      }
+    },
+    "S2-stock-by-location-table": {
+      "status": "designing"
+    },
+    "S3-sku-detail-view": {
+      "status": "designing"
+    }
+  },
+  "build_queue": [
+    "S1-file-stock-record"
+  ],
+  "build_active": null
+}

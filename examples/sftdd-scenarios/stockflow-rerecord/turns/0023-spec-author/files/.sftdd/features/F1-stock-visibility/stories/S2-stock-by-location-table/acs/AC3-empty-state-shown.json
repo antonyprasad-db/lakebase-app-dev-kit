@@ -1,0 +1,12 @@
+{
+  "id": "AC3-empty-state-shown",
+  "status": "draft",
+  "layer": "E2E",
+  "given": "a location holds no stock records",
+  "when": "the operator views that location on the home stock-by-location screen",
+  "then": "an explicit \"No stock at this location\" message is shown for that location instead of a blank page or an empty table",
+  "independence": {
+    "distinct_from_prior": true,
+    "rationale": "AC1 and AC2 cover the populated-table outcome; AC3 covers the distinct empty-location outcome, which can break (blank page shown) while the populated table still renders rows correctly, and vice versa."
+  }
+}

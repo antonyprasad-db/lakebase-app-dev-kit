@@ -1,0 +1,27 @@
+{
+  "cycle_id": "cycle-001",
+  "feature_id": "F1-stock-visibility",
+  "story_id": "S1-file-stock-record",
+  "ac_id": "AC1-file-new-record",
+  "test_id": "T1",
+  "test_description": "filing a new (sku, location) with a quantity and inventory_code through the JSON boundary persists a stock_records row that is retrievable with the filed quantity and inventory_code",
+  "experiment_slug": "exp1",
+  "branch_id": "experiment-s1-file-stock-record-exp1",
+  "red_at": "2026-07-27T20:19:19.304Z",
+  "layer": "E2E",
+  "test_ids": [
+    "T1",
+    "T4",
+    "T5",
+    "T6",
+    "T8",
+    "T10",
+    "T11",
+    "T12",
+    "T2",
+    "T9",
+    "T3",
+    "T7"
+  ],
+  "chunk": "E2E-1"
+}

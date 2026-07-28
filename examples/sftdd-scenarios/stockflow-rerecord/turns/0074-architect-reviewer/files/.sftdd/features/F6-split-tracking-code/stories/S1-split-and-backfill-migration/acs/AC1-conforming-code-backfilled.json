@@ -1,0 +1,9 @@
+{
+  "id": "AC1-conforming-code-backfilled",
+  "status": "draft",
+  "layer": "Infra",
+  "given": "a sprint-1 stock row whose inventory_code is a full location-batch-serial code (for example \"A12-B7-S001\")",
+  "when": "the up migration runs and backfills the new columns by splitting the code on the hyphen delimiter",
+  "then": "that row's batch_number equals the second segment and serial_number equals the third segment, and the row remains retrievable with its quantity and location intact",
+  "architectural_notes": "Infra. The delimiter split (segment 2 -> batch_number, segment 3 -> serial_number) is pure transformation logic that belongs in app/services and is invoked from the Alembic backfill; the ORM/session read that confirms the migrated values lives in app/repositories, and the column shape is modelled in app/models/stock.py. Two distinct assertions: the batch/serial VALUES are checked on the shared UP-state verify branch (migration already applied); the second clause, that the same row still exists with quantity/location intact, is the whole-row SURVIVAL guarantee (PI4) which cannot be observed on the shared branch (no pre-migration seed possible there) and is therefore verified on the isolated ephemeral @pytest.mark.migration branch that seeds pre-migration rows then runs alembic upgrade. Cross-cutting: schema change owned by the migration revision; row survival owned by the migration/Infra layer, not the domain."
+}

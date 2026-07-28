@@ -1,0 +1,13 @@
+{
+  "id": "AC4-combined-code-retired",
+  "status": "draft",
+  "layer": "Infra",
+  "architectural_notes": "Infra: a DDL outcome of the up migration. After add + backfill, the same reversible revision drops the inventory_code column so batch_number and serial_number become the first-class, separately queryable columns on the stock table (reflected in app/models/stock.py). Verified by inspecting the migrated schema on the paired branch through app/repositories. Ordering (add, backfill, then drop, all in one transaction) is what makes PI1-migration-reversible enforceable.",
+  "given": "the stock record still carries the combined inventory_code column before the migration",
+  "when": "the up migration completes",
+  "then": "the stock record no longer exposes a combined inventory_code column, and batch_number and serial_number are the first-class, separately addressable columns in its place",
+  "independence": {
+    "distinct_from_prior": true,
+    "rationale": "AC1-AC3 assert the new columns' values are correct; AC4 asserts the old combined column is actually dropped. A migration could add and backfill the new columns while leaving the combined column in place, so retirement fails independently of the backfill outcomes."
+  }
+}

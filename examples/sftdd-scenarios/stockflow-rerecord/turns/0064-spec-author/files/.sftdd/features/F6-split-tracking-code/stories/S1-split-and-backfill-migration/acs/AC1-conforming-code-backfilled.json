@@ -1,0 +1,8 @@
+{
+  "id": "AC1-conforming-code-backfilled",
+  "status": "draft",
+  "layer": "Infra",
+  "given": "a sprint-1 stock row whose inventory_code is a full location-batch-serial code (for example \"A12-B7-S001\")",
+  "when": "the up migration runs and backfills the new columns by splitting the code on the hyphen delimiter",
+  "then": "that row's batch_number equals the second segment and serial_number equals the third segment, and the row remains retrievable with its quantity and location intact"
+}

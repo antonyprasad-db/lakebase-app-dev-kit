@@ -1,0 +1,113 @@
+{
+  "feature_id": "F1-stock-visibility",
+  "service_backed": true,
+  "layers": [
+    {
+      "name": "stock-api",
+      "role": "boundary",
+      "module": "app/routes/",
+      "renders_via": "react",
+      "may_import": ["service"]
+    },
+    {
+      "name": "stock-service",
+      "role": "service",
+      "module": "app/services/",
+      "may_import": ["repository", "models"]
+    },
+    {
+      "name": "stock-repository",
+      "role": "repository",
+      "module": "app/repositories/",
+      "may_import": ["models"]
+    },
+    {
+      "name": "domain-models",
+      "role": "models",
+      "module": "app/models/",
+      "may_import": []
+    }
+  ],
+  "persistence_invariants": [
+    {
+      "id": "PI1-unique-sku-location",
+      "type": "unique",
+      "table": "stock_records",
+      "brief": "Composite unique key on (sku, location) so no two stored rows share the pair; a repeat filing collides and updates rather than duplicating."
+    },
+    {
+      "id": "PI2-not-null-core-fields",
+      "type": "not_null",
+      "table": "stock_records",
+      "brief": "sku, location, quantity, and inventory_code are NOT NULL; a filing missing any core field is rejected at write time."
+    },
+    {
+      "id": "PI3-quantity-non-negative",
+      "type": "check",
+      "table": "stock_records",
+      "brief": "CHECK quantity >= 0 so a stored stock level can never go negative (backs R2 at the schema level)."
+    },
+    {
+      "id": "PI4-migration-reversible",
+      "type": "migration_reversible",
+      "table": "stock_records",
+      "brief": "The Alembic migration that creates stock_records has a working downgrade and preserves records created before it (backs R1: no data loss across additive migrations)."
+    }
+  ],
+  "nfrs": [
+    {
+      "id": "NFR1-migration-data-survival",
+      "applies_to": "F1-stock-visibility",
+      "category": "reliability",
+      "brief_ref": "R1",
+      "brief": "Existing stock data survives every additive schema migration with no loss; each inventory adjustment keeps an unmodifiable timestamp and actor. Defended by a reversible-migration fitness test (PI4) run against the paired branch.",
+      "hil_status": "accepted"
+    },
+    {
+      "id": "NFR2-no-negative-no-overcommit",
+      "applies_to": "F1-stock-visibility",
+      "category": "correctness",
+      "brief_ref": "R2",
+      "brief": "Stock levels never go below zero and never overcommit beyond available quantity; an overcommitting write is rejected at write time. Enforced by the service (business rule) plus schema CHECK (PI3). For S1 the filing path enforces quantity >= 0.",
+      "hil_status": "accepted"
+    },
+    {
+      "id": "NFR3-unique-sku-location",
+      "applies_to": "S1-file-stock-record",
+      "category": "correctness",
+      "brief_ref": "R3",
+      "brief": "Every (sku, location) is uniquely addressable; a collision is resolved at write time as an update, never two stored duplicates and never an error page. Defended by the composite-unique constraint PI1 and the service upsert-on-collision logic.",
+      "hil_status": "accepted"
+    },
+    {
+      "id": "NFR4-real-branch-integration",
+      "applies_to": "F1-stock-visibility",
+      "category": "testability",
+      "brief_ref": "R4",
+      "brief": "Integration tests run against the paired Lakebase branch (databricks_postgres), never a mock or in-memory substitute; CI refuses to merge a PR whose integration tests do not run against a real branch. Alembic migrations are applied to the branch first, with FK-aware targeted-DELETE cleanup.",
+      "hil_status": "accepted"
+    },
+    {
+      "id": "NFR5-spa-json-api",
+      "applies_to": "F1-stock-visibility",
+      "category": "architecture",
+      "brief_ref": "R5",
+      "brief": "The UI is a React + TypeScript single-page app under client/ that navigates client-side with no full-page reloads; the backend boundary returns JSON, not server-rendered HTML (boundary renders_via react). The client ships its own component tests; the API is covered by the branch integration suite (R4).",
+      "hil_status": "accepted"
+    },
+    {
+      "id": "NFR6-field-named-validation",
+      "applies_to": "F1-stock-visibility",
+      "category": "usability",
+      "brief": "Preference (nfrs.md): validation messages name the offending field rather than a generic 'bad request'. The boundary returns a structured field-level error the SPA can surface next to the input.",
+      "hil_status": "accepted"
+    },
+    {
+      "id": "NFR7-database-name-fixed",
+      "applies_to": "F1-stock-visibility",
+      "category": "config",
+      "brief": "The app connects to the substrate-provisioned databricks_postgres via DATABASE_URL from the paired branch; the database name is not renamed and not made a requirement. Config-in-env fitness test guards DATABASE_URL sourcing.",
+      "hil_status": "accepted"
+    }
+  ]
+}

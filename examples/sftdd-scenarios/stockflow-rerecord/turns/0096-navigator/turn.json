@@ -1,0 +1,21 @@
+{
+  "ordinal": 96,
+  "step": 0,
+  "label": "navigator",
+  "kind": "invoke-role",
+  "role": "navigator",
+  "story": "S2-batch-serial-fields-in-stock-view",
+  "action": {
+    "kind": "invoke-role",
+    "role": "navigator",
+    "story": "S2-batch-serial-fields-in-stock-view"
+  },
+  "produced": [
+    ".sftdd/cycles/F6-split-tracking-code/S2-batch-serial-fields-in-stock-view/AC1-distinct-labelled-fields/cycle-001.json",
+    "client/tests/pages/StockView.test.tsx",
+    "tests/architecture/test_f6_s2_fitness.py",
+    "tests/features/S2-batch-serial-fields-in-stock-view.feature",
+    "tests/step_defs/test_s2_batch_serial_fields_in_stock_view.py"
+  ],
+  "deleted": []
+}

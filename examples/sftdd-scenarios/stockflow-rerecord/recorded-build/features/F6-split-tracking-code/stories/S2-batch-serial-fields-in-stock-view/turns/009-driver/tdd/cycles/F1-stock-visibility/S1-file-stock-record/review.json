@@ -1,0 +1,6 @@
+{
+  "reviewed_at": "2026-07-27T20:39:24.860Z",
+  "refactor_requested": true,
+  "refactor_notes": "NFR6 (field-named-validation): the API already returns structured field-level errors in the 422 body (Pydantic), but FileStockRecord.tsx catches ALL errors as a generic 'Failed to file stock record.' string, discarding the field context the rubric requires. The catch block should read the 422 response body and surface each field's message next to its input (or at minimum name the offending field in the feedback banner). No other issues: layers are clean, no DB access in the boundary, composite-unique + CHECK constraints satisfy NFR2/NFR3, service enforces upsert-on-collision (NFR3), DATABASE_URL sourced from env (NFR7), JSON API / React SPA (NFR5).",
+  "refactored_at": "2026-07-27T20:44:39.939Z"
+}

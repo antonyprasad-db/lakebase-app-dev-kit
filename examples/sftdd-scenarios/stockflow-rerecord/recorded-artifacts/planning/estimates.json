@@ -1,0 +1,9 @@
+{
+  "estimates": [
+    {
+      "feature_id": "F1-stock-visibility",
+      "size": "M",
+      "rationale": "Foundational service-backed CRUD: persist stock by SKU+location and read it back, with a boundary/service/repository/models stack, migrations, and an E2E read-back path."
+    }
+  ]
+}

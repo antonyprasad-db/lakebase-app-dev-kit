@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "passed": false,
+  "findings": [
+    {
+      "owner": "test-strategist",
+      "detail": "T6 is kind:\"behavior\" (scenario_file: tests/features/S1-split-and-backfill-migration.feature), which runs on the shared branch DB. It invokes the down migration (alembic downgrade -1) to assert reconstruction, violating the canon rule 'Do not downgrade the shared verify database.' Running the down migration on the shared DB would drop batch_number/serial_number and re-add inventory_code, breaking every other test in this story (T1-T5, T8-T11) that expects the UP state. Down-migration assertions must live in a kind:\"fitness\" test marked @pytest.mark.migration on an isolated ephemeral branch (T7 is already correctly scoped that way). T6 should either be reclassified as kind:\"fitness\" with the isolated-branch constraint, or its reconstruction assertion absorbed into T7."
+    }
+  ]
+}

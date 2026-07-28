@@ -1,0 +1,15 @@
+{
+  "ordinal": 77,
+  "step": 0,
+  "label": "gate-surface",
+  "kind": "surface-gate",
+  "story": "S1-split-and-backfill-migration",
+  "action": {
+    "kind": "surface-gate",
+    "story": "S1-split-and-backfill-migration"
+  },
+  "produced": [
+    ".sftdd/features/F6-split-tracking-code/pipeline.json"
+  ],
+  "deleted": []
+}

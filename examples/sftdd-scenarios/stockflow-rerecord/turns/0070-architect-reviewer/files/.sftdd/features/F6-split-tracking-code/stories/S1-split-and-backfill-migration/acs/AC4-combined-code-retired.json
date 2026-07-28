@@ -1,0 +1,13 @@
+{
+  "id": "AC4-combined-code-retired",
+  "status": "draft",
+  "layer": "Infra",
+  "given": "the stock record still carries the combined inventory_code column before the migration",
+  "when": "the up migration completes",
+  "then": "the stock record no longer exposes a combined inventory_code column, and batch_number and serial_number are the first-class, separately addressable columns in its place",
+  "independence": {
+    "distinct_from_prior": true,
+    "rationale": "AC1-AC3 assert the new columns' values are correct; AC4 asserts the old combined column is actually dropped. A migration could add and backfill the new columns while leaving the combined column in place, so retirement fails independently of the backfill outcomes."
+  },
+  "architectural_notes": "Infra layer: asserts the terminal schema shape after the up revision on the shared branch, inspected via app/repositories / column introspection. The drop of inventory_code is the last step of the same atomic add+backfill+drop transaction so no row is left un-backfilled before the column disappears; app/models/stock.py replaces inventory_code with the two first-class nullable columns. Owner modules: migrations/versions/*, app/models/stock.py. Verified by a kind:behavior real-branch test on the shared branch in its UP state (column absent, batch_number/serial_number present)."
+}

@@ -1,0 +1,8 @@
+{
+  "id": "AC1-detail-lists-locations",
+  "status": "draft",
+  "layer": "E2E",
+  "given": "a SKU holds stock at more than one location",
+  "when": "the operator opens that SKU's detail view",
+  "then": "the view shows the SKU once and lists one entry per location where it holds stock, each entry showing that location and its quantity"
+}

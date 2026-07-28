@@ -1,0 +1,13 @@
+{
+  "id": "AC6-down-migration-reconstructs-code",
+  "status": "draft",
+  "layer": "Infra",
+  "given": "a stock record that has been migrated up to first-class batch_number and serial_number columns with the combined column dropped",
+  "when": "the down migration is run",
+  "then": "a combined inventory_code is reconstructed from the canonical location plus the split-out batch and serial, and the combined column is restored",
+  "independence": {
+    "distinct_from_prior": true,
+    "rationale": "Prior ACs cover the forward migration and reporting; AC6 covers the reverse path. The up migration could be entirely correct while the down path is missing or reconstructs the code wrongly, so reversibility breaks independently."
+  },
+  "architectural_notes": "Infra layer, migration_reversible (realizes PI1 + NFR-F6-reversibility). The down revision re-adds inventory_code and reconstructs it from canonical location + batch_number + serial_number. CONSTRAINT: this AC exercises `alembic downgrade -1`, which drops batch_number/serial_number and re-adds inventory_code; running it on the shared verify branch would break every UP-state test (AC1-AC5 and this story's other cases). Per canon 'do not downgrade the shared verify database', its verifying test MUST be kind:fitness, marked @pytest.mark.migration, and run on an ISOLATED ephemeral Lakebase branch that applies up-then-down and asserts reconstruction round-trips; it must NOT be a kind:behavior test on the shared branch. Reconstruction is lossy for rows whose batch/serial were left NULL (nonconforming), so the round-trip assertion covers only conforming rows. Owner modules: migrations/versions/* (down path). This absorbs the down-migration reconstruction assertion into the isolated migration fitness test (T7), not the shared-branch behavior suite."
+}

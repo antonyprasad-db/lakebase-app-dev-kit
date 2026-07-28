@@ -1,0 +1,5 @@
+{
+  "reviewed_at": "2026-07-28T00:37:45.005Z",
+  "refactor_requested": false,
+  "refactor_notes": "All layer constraints satisfied: migration lives in alembic/versions (Infra), no boundary/service/repository code touched. NFR-F6-data-survival: T9 seeds pre-migration rows on isolated branch and asserts survival; T1/T2 assert batch/serial values on shared UP-state branch. NFR-F6-sku-location-unique: T5 proves UNIQUE(sku,location) holds; T3 proves location is not overwritten. NFR-F6-real-branch-tests: all tests use real DB via db_session/DATABASE_URL; no mocks. NFR-F6-reversibility: T8 exercises down -1 on isolated branch only; shared branch is never downgraded. NFR-F6-integrity-probe: T7 counts nonconforming rows scoped to marker SKUs (delta, not whole-table). NFR-F6-react-spa: N/A, no UI surface. Seeds are idempotent (DELETE before INSERT, per-run-unique SKUs). No whole-table aggregate assertions. No naming inconsistencies, no wrong-direction dependencies, no duplicate class definitions."
+}

@@ -1,0 +1,12 @@
+{
+  "id": "AC3-combined-code-no-longer-shown",
+  "status": "draft",
+  "layer": "E2E",
+  "given": "the stock view rendering stock positions after the tracking code has been split",
+  "when": "the operator views the stock positions",
+  "then": "the old combined tracking code is no longer displayed anywhere in the stock view, so the batch and serial fields are the only surface for that identity",
+  "independence": {
+    "distinct_from_prior": true,
+    "rationale": "AC1 and AC2 assert the new batch and serial fields render (populated and empty); AC3 asserts the retired combined code is absent. A view could add the new fields while still showing the old combined code alongside them, so this fails independently."
+  }
+}

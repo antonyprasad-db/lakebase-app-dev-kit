@@ -1,0 +1,9 @@
+{
+  "id": "AC1-table-lists-stock-rows",
+  "status": "passing",
+  "layer": "E2E",
+  "given": "one or more stock records exist across locations",
+  "when": "the operator opens the home stock-by-location screen",
+  "then": "a table renders one row per stock record, each row showing that record's SKU, its location, and its quantity",
+  "architectural_notes": "E2E: exercises the full read path from the paired-branch stock_records rows, through app/repositories (the only ORM-touching layer) and app/services (read business logic), out the app/routes JSON boundary (renders_via react), and into the client/ React table component. The row-per-record shape is a presentation contract owned by the SPA page/component; the boundary returns JSON only. Cross-cutting: read-only, no auth/transaction concern beyond the branch connection sourced from DATABASE_URL (NFR7). Verified through the real-branch integration suite plus the client component test (NFR4/NFR5)."
+}

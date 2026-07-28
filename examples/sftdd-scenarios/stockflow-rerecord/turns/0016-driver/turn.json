@@ -1,0 +1,31 @@
+{
+  "ordinal": 16,
+  "step": 0,
+  "label": "driver",
+  "kind": "invoke-role",
+  "role": "driver",
+  "story": "S1-file-stock-record",
+  "action": {
+    "kind": "invoke-role",
+    "role": "driver",
+    "story": "S1-file-stock-record"
+  },
+  "produced": [
+    ".sftdd/cycles/F1-stock-visibility/S1-file-stock-record/AC1-file-new-record/green-failure.json",
+    ".sftdd/experiments/F1-stock-visibility/S1-file-stock-record/exp1/outcomes.json",
+    "alembic/versions/20260727202444_create_stock_records_table.py",
+    "app/dependencies.py",
+    "app/main.py",
+    "app/models/__init__.py",
+    "app/models/stock_record.py",
+    "app/repositories/__init__.py",
+    "app/repositories/stock_repository.py",
+    "app/routes/__init__.py",
+    "app/routes/stock.py",
+    "app/services/__init__.py",
+    "app/services/stock_service.py"
+  ],
+  "deleted": [
+    "app/models.py"
+  ]
+}

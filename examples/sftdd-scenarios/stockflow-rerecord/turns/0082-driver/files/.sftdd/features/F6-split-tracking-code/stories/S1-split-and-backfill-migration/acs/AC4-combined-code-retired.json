@@ -1,0 +1,13 @@
+{
+  "id": "AC4-combined-code-retired",
+  "status": "passing",
+  "layer": "Infra",
+  "given": "the stock record still carries the combined inventory_code column before the migration",
+  "when": "the up migration completes",
+  "then": "the stock record no longer exposes a combined inventory_code column, and batch_number and serial_number are the first-class, separately addressable columns in its place",
+  "independence": {
+    "distinct_from_prior": true,
+    "rationale": "AC1-AC3 assert the new columns' values are correct; AC4 asserts the old combined column is actually dropped. A migration could add and backfill the new columns while leaving the combined column in place, so retirement fails independently of the backfill outcomes."
+  },
+  "architectural_notes": "Infra. The drop of inventory_code is the final step of the Alembic up revision, sequenced strictly after add + backfill so the transformation reads the combined value before it is removed (add -> backfill -> drop, one reversible revision). Asserted on the shared UP-state verify branch by inspecting the migrated table's columns: inventory_code absent, batch_number/serial_number present as first-class columns; the column shape is modelled in app/models/stock.py. Cross-cutting: schema evolution owned by the migration/Infra layer; retirement ordering is what keeps the down path (AC6) able to reconstruct."
+}

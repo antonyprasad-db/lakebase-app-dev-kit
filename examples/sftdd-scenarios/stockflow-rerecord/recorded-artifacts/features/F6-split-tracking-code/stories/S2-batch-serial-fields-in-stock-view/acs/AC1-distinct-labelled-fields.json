@@ -1,0 +1,9 @@
+{
+  "id": "AC1-distinct-labelled-fields",
+  "status": "passing",
+  "layer": "E2E",
+  "given": "a stock position whose batch and serial are both populated, shown in the stock view where the combined tracking code used to appear",
+  "when": "the operator views that stock position",
+  "then": "the view shows a batch field and a serial field as two separately labelled entries, each displaying its own value, so the two facts are read as distinct identities rather than one combined string",
+  "architectural_notes": "E2E: exercised end to end through the React SPA stock view (client/) rendering JSON returned by the boundary (app/routes), which reads batch_number and serial_number off app/models/stock.py via app/services -> app/repositories. The two S1-split columns are serialized as two distinct fields and rendered as two separately labelled UI entries; the boundary returns data only (no server-rendered HTML, per R5) and no presentation logic lives below it. Cross-cutting concern: presentation-only mapping of two model fields to two labelled entries, owned by the client stock-view component. Owner module: client stock-view component over the app/routes stock JSON payload. Verified by a client component test plus a real-branch integration test that the boundary emits both fields."
+}

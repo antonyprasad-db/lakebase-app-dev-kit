@@ -1,0 +1,22 @@
+{
+  "ordinal": 17,
+  "step": 0,
+  "label": "navigator-assess",
+  "kind": "invoke-role",
+  "role": "navigator",
+  "mode": "assess",
+  "story": "S1-file-stock-record",
+  "ac": "AC1-file-new-record",
+  "action": {
+    "kind": "invoke-role",
+    "role": "navigator",
+    "story": "S1-file-stock-record",
+    "buildMode": "assess",
+    "ac": "AC1-file-new-record"
+  },
+  "produced": [
+    ".sftdd/cycles/F1-stock-visibility/S1-file-stock-record/AC1-file-new-record/green-failure.json",
+    ".sftdd/cycles/F1-stock-visibility/S1-file-stock-record/AC1-file-new-record/regression-assessment.json"
+  ],
+  "deleted": []
+}

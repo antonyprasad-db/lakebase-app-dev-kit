@@ -1,0 +1,12 @@
+{
+  "id": "AC6-down-migration-reconstructs-code",
+  "status": "draft",
+  "layer": "Infra",
+  "given": "a stock record that has been migrated up to first-class batch_number and serial_number columns with the combined column dropped",
+  "when": "the down migration is run",
+  "then": "a combined inventory_code is reconstructed from the canonical location plus the split-out batch and serial, and the combined column is restored",
+  "independence": {
+    "distinct_from_prior": true,
+    "rationale": "Prior ACs cover the forward migration and reporting; AC6 covers the reverse path. The up migration could be entirely correct while the down path is missing or reconstructs the code wrongly, so reversibility breaks independently."
+  }
+}

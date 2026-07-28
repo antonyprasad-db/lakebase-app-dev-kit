@@ -1,0 +1,69 @@
+{
+  "feature_id": "F1-stock-visibility",
+  "story_id": "S3-sku-detail-view",
+  "ordered_for": "design-momentum",
+  "items": [
+    {
+      "id": "T19",
+      "description": "with a SKU seeded at several locations on the branch DB, the detail read boundary returns JSON showing the SKU once and one entry per location, each entry carrying that location and its quantity from the real branch through repository and service grouping",
+      "ac_id": "AC1-detail-lists-locations",
+      "status": "green",
+      "kind": "behavior",
+      "scenario_file": "tests/features/S3-sku-detail-view.feature"
+    },
+    {
+      "id": "T20",
+      "description": "given a SKU's grouped detail data, the SPA detail page renders the SKU header once and exactly one location entry per location, each showing that location and its quantity via their data-testid seams",
+      "ac_id": "AC1-detail-lists-locations",
+      "status": "green",
+      "kind": "client",
+      "scenario_file": "client/tests/pages/SkuDetailView.test.tsx"
+    },
+    {
+      "id": "T25",
+      "description": "the SKU detail read boundary (app/routes/) returns a JSON payload and never server-rendered HTML for the SKU detail view (SPA/JSON-API split, boundary renders_via react)",
+      "ac_id": "AC1-detail-lists-locations",
+      "status": "green",
+      "kind": "fitness"
+    },
+    {
+      "id": "T26",
+      "description": "the SKU detail read path boundary (app/routes/) does not import the DB session; the per-SKU fetch is reachable only through the repository (app/repositories/ is the sole ORM/session owner)",
+      "ac_id": "AC1-detail-lists-locations",
+      "status": "green",
+      "kind": "fitness"
+    },
+    {
+      "id": "T21",
+      "description": "given a stock_records row with a recorded tracking code on the branch DB, the detail read boundary includes that record's tracking code in the JSON for its location entry",
+      "ac_id": "AC2-tracking-code-shown",
+      "status": "green",
+      "kind": "behavior",
+      "scenario_file": "tests/features/S3-sku-detail-view.feature"
+    },
+    {
+      "id": "T22",
+      "description": "given a location entry with a tracking code, the SPA detail component renders that entry's tracking code via its data-testid seam",
+      "ac_id": "AC2-tracking-code-shown",
+      "status": "green",
+      "kind": "client",
+      "scenario_file": "client/tests/pages/SkuDetailView.test.tsx"
+    },
+    {
+      "id": "T23",
+      "description": "given a stock_records row whose optional tracking detail is null on the branch DB, the detail read boundary returns JSON emitting that field as null (an explicit key, not an omitted one) without erroring on the null optional field",
+      "ac_id": "AC3-untracked-detail-explicit",
+      "status": "green",
+      "kind": "behavior",
+      "scenario_file": "tests/features/S3-sku-detail-view.feature"
+    },
+    {
+      "id": "T24",
+      "description": "given a location entry whose optional tracking detail is null, the SPA detail component renders an explicit \"not tracked\" label rather than a blank region and renders without a null crash",
+      "ac_id": "AC3-untracked-detail-explicit",
+      "status": "green",
+      "kind": "client",
+      "scenario_file": "client/tests/pages/SkuDetailView.test.tsx"
+    }
+  ]
+}

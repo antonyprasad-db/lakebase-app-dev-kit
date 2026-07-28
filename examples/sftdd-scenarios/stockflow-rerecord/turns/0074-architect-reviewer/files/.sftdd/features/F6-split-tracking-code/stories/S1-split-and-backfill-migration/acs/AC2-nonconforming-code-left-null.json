@@ -1,0 +1,13 @@
+{
+  "id": "AC2-nonconforming-code-left-null",
+  "status": "draft",
+  "layer": "Infra",
+  "given": "a sprint-1 stock row whose inventory_code has no batch or serial segment (for example \"X-1\" or a bare \"c\")",
+  "when": "the up migration runs and backfills the new columns",
+  "then": "that row's batch_number and serial_number are left NULL rather than guessed or defaulted, and the row still survives the migration and is retrievable",
+  "independence": {
+    "distinct_from_prior": true,
+    "rationale": "AC1 asserts a conforming code parses into populated batch/serial; AC2 asserts the opposite branch, a code that does not parse, is left NULL and not dropped. Backfill logic that parses conforming codes could still incorrectly guess or discard nonconforming ones, so this fails independently."
+  },
+  "architectural_notes": "Infra. The parse-or-NULL decision is the same app/services transformation used by AC1, exercising its failure branch: an unparseable code yields NULL batch_number/serial_number with no fabrication or default. Realized by nullable columns in app/models/stock.py (PI3, no NOT NULL) so a NULL is a legal persisted value; verified via app/repositories reads. The NULL VALUES are asserted on the shared UP-state verify branch; the clause that the nonconforming row still survives the migration is part of the whole-row survival guarantee (PI4), covered on the isolated @pytest.mark.migration branch alongside AC1. Cross-cutting: nullability is a schema contract owned by the migration/models layer, not domain guesswork."
+}

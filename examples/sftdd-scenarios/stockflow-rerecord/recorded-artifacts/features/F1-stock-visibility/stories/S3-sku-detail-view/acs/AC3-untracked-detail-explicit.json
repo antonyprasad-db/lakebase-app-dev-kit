@@ -1,0 +1,13 @@
+{
+  "id": "AC3-untracked-detail-explicit",
+  "status": "passing",
+  "layer": "E2E",
+  "given": "a SKU's detail view is open and one of its location entries has no value for an optional tracking detail",
+  "when": "the operator reads that entry",
+  "then": "the missing optional detail is shown as an explicit \"not tracked\" label rather than a blank region, and the view renders without a null crash",
+  "architectural_notes": "E2E: an optional (nullable) tracking column flows from app/repositories as null through app/services and the app/routes JSON boundary (which emits null, not an omitted key), and the client/ React detail component maps a null value to the explicit 'not tracked' label. The null-vs-present branch is a SPA presentation concern; the boundary must not error on a null optional field. Note this is an OPTIONAL detail, distinct from the NOT NULL core fields in PI2, so no new persistence invariant is required. Verified by the real-branch integration suite (a row with a null optional detail) plus the client empty-value component test.",
+  "independence": {
+    "distinct_from_prior": true,
+    "rationale": "AC1 and AC2 cover populated entries (location, quantity, tracking code present); AC3 covers the distinct missing-optional-detail outcome, which can break (blank region or null crash) while populated entries still render, and vice versa."
+  }
+}

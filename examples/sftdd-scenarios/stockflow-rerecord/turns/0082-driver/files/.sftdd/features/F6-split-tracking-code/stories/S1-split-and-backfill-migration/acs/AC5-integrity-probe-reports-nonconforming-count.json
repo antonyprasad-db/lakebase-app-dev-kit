@@ -1,0 +1,13 @@
+{
+  "id": "AC5-integrity-probe-reports-nonconforming-count",
+  "status": "passing",
+  "layer": "Infra",
+  "given": "a set of sprint-1 stock rows in which some inventory_codes are full location-batch-serial codes and some are nonconforming",
+  "when": "the integrity probe is run as part of accepting the change",
+  "then": "it surfaces the count of nonconforming rows (those whose code could not be parsed into batch and serial) for review before the change is accepted",
+  "independence": {
+    "distinct_from_prior": true,
+    "rationale": "Earlier ACs assert what the migration does to the data; AC5 asserts a separate reporting artifact, the count of nonconforming rows, is produced for review. The backfill could behave correctly while no probe count is surfaced, so this fails independently."
+  },
+  "architectural_notes": "Infra. The integrity probe is an observability concern (NFR-F6-integrity-probe): a query in app/services that counts rows whose code could not be parsed into batch and serial, surfaced for review before the change is accepted. Uses the same delimiter-only parse rule as the backfill (single source of truth, no fabrication) and reads through app/repositories. Verified on the shared UP-state verify branch over a mixed conforming/nonconforming seed by asserting the reported count equals the seeded nonconforming count. Cross-cutting: reporting/observability owned by the service layer the migration calls, never the domain entity."
+}

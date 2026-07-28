@@ -1,0 +1,22 @@
+{
+  "ordinal": 33,
+  "step": 0,
+  "label": "navigator-assess",
+  "kind": "invoke-role",
+  "role": "navigator",
+  "mode": "assess",
+  "story": "S2-stock-by-location-table",
+  "ac": "AC1-table-lists-stock-rows",
+  "action": {
+    "kind": "invoke-role",
+    "role": "navigator",
+    "story": "S2-stock-by-location-table",
+    "buildMode": "assess",
+    "ac": "AC1-table-lists-stock-rows"
+  },
+  "produced": [
+    ".sftdd/cycles/F1-stock-visibility/S2-stock-by-location-table/AC1-table-lists-stock-rows/green-failure.json",
+    ".sftdd/cycles/F1-stock-visibility/S2-stock-by-location-table/AC1-table-lists-stock-rows/regression-assessment.json"
+  ],
+  "deleted": []
+}

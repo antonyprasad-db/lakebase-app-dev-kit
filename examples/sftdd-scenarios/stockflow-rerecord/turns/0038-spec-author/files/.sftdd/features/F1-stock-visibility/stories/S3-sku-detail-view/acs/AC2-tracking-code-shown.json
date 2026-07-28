@@ -1,0 +1,12 @@
+{
+  "id": "AC2-tracking-code-shown",
+  "status": "draft",
+  "layer": "E2E",
+  "given": "a SKU's detail view is open and its location entries have combined tracking codes recorded",
+  "when": "the operator reads a location entry",
+  "then": "that entry shows the record's tracking code",
+  "independence": {
+    "distinct_from_prior": true,
+    "rationale": "AC1 covers that the per-location entries (location + quantity) render at all; AC2 covers the distinct outcome that each entry surfaces its tracking code, which can break (code missing from the entry) while the location and quantity still render, and vice versa."
+  }
+}

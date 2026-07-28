@@ -1,0 +1,8 @@
+{
+  "id": "driver-refactor__F6-split-tracking-code__S2-batch-serial-fields-in-stock-view",
+  "source": "driver-refactor",
+  "reason": "REFACTOR verify failed for story F6-split-tracking-code/S2-batch-serial-fields-in-stock-view: GREEN verify FAILED on the client pass (the client Vitest suite failed; the backend suite passed)",
+  "feature_id": "F6-split-tracking-code",
+  "story_id": "S2-batch-serial-fields-in-stock-view",
+  "raised_at": "2026-07-28T01:43:39.151Z"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "AC1-file-new-record",
+  "status": "passing",
+  "layer": "E2E",
+  "given": "no stock record exists for a given SKU at a given location",
+  "when": "the operator files that SKU at that location with a quantity and a combined tracking code (inventory_code) through the filing screen",
+  "then": "a stock record for that (sku, location) pair now exists and is retrievable, carrying the filed quantity and the filed inventory_code",
+  "architectural_notes": "E2E: the React SPA filing form (client/src/pages + client/src/api) POSTs to the JSON boundary (app/routes/stock.py), which delegates to the stock service (app/services/stock_service.py) and finally the repository (app/repositories/stock_repository.py) as the sole ORM/session owner writing the app/models/stock_record.py entity. Realizes the boundary -> service -> repository -> models inward-dependency contract; the new-record insert exercises persistence invariants PI2 (NOT NULL sku/location/quantity/inventory_code) and PI3 (CHECK quantity >= 0). Cross-cutting: input validation lives at the boundary, the write transaction is owned by the service; verified via the real paired-branch integration suite (R4)."
+}

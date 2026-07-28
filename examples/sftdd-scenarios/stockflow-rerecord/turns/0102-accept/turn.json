@@ -1,0 +1,15 @@
+{
+  "ordinal": 102,
+  "step": 0,
+  "label": "accept",
+  "kind": "accept",
+  "story": "S2-batch-serial-fields-in-stock-view",
+  "action": {
+    "kind": "accept",
+    "story": "S2-batch-serial-fields-in-stock-view"
+  },
+  "produced": [
+    ".sftdd/features/F6-split-tracking-code/pipeline.json"
+  ],
+  "deleted": []
+}

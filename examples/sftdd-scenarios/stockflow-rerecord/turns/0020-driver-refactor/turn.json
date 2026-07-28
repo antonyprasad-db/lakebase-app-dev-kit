@@ -1,0 +1,21 @@
+{
+  "ordinal": 20,
+  "step": 0,
+  "label": "driver-refactor",
+  "kind": "invoke-role",
+  "role": "driver",
+  "mode": "refactor",
+  "story": "S1-file-stock-record",
+  "action": {
+    "kind": "invoke-role",
+    "role": "driver",
+    "story": "S1-file-stock-record",
+    "buildMode": "refactor"
+  },
+  "produced": [
+    ".sftdd/cycles/F1-stock-visibility/S1-file-stock-record/review.json",
+    "client/src/api/stock.ts",
+    "client/src/pages/FileStockRecord.tsx"
+  ],
+  "deleted": []
+}

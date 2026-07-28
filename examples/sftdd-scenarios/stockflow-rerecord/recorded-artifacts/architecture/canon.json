@@ -1,0 +1,26 @@
+{
+  "established_by": "F1-stock-visibility",
+  "established_at": "2026-07-27T19:48:05.545Z",
+  "ac_layers": [
+    "E2E"
+  ],
+  "nfr_posture": [],
+  "invariant_patterns": [
+    {
+      "type": "unique",
+      "brief": "Composite unique key on (sku, location) so no two stored rows share the pair; a repeat filing collides and updates rather than duplicating."
+    },
+    {
+      "type": "not_null",
+      "brief": "sku, location, quantity, and inventory_code are NOT NULL; a filing missing any core field is rejected at write time."
+    },
+    {
+      "type": "check",
+      "brief": "CHECK quantity >= 0 so a stored stock level can never go negative (backs R2 at the schema level)."
+    },
+    {
+      "type": "migration_reversible",
+      "brief": "The Alembic migration that creates stock_records has a working downgrade and preserves records created before it (backs R1: no data loss across additive migrations)."
+    }
+  ]
+}

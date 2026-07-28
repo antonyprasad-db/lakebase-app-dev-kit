@@ -1,0 +1,10 @@
+{
+  "id": "S3-sku-detail-view",
+  "asA": "warehouse operator",
+  "iWantTo": "open a single SKU's detail view showing its stock across all its locations including each record's tracking code, with untracked optional detail shown as an explicit \"not tracked\"",
+  "soThat": "I can see everything known about one SKU in one place without a null crash or blank region",
+  "independence": {
+    "distinct_from_prior": true,
+    "rationale": "S2 renders a flat multi-SKU home list of location rows; S3 adds a per-SKU drill-down that groups one SKU's records across locations, surfaces the combined inventory_code, and renders an explicit \"not tracked\" state for an untracked optional field, behavior neither S1 nor S2 builds."
+  }
+}

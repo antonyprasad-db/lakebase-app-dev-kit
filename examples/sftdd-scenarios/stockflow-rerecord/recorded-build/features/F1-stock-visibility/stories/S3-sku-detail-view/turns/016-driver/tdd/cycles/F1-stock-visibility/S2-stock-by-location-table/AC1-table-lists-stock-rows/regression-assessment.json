@@ -1,0 +1,4 @@
+{
+  "diagnosis": "Driver implemented the backend list endpoint (T13/T16/T18 pass) but never created client/src/pages/StockByLocationTable.tsx; the Vitest suite fails at import time because the module does not exist. No prior behavior was changed, so this is an incomplete implementation, not a supersession.",
+  "fixDirective": "Create client/src/pages/StockByLocationTable.tsx exporting StockByLocationTable({records}). Render a data-testid='stock-table' element with one data-testid='sku-row' per record, each containing data-testid='sku-cell-{sku}', data-testid='location-cell-{sku}', data-testid='quantity-cell-{sku}'. The quantity cell must carry a CSS class matching /text-right|qty-right|quantity-right/ (not an inline style). When records is empty render data-testid='empty-state' with text 'No stock at this location' and no sku-row elements."
+}

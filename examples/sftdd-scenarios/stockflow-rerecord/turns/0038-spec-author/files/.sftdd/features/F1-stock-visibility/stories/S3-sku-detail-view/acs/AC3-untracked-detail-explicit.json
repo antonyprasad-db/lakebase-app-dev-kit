@@ -1,0 +1,12 @@
+{
+  "id": "AC3-untracked-detail-explicit",
+  "status": "draft",
+  "layer": "E2E",
+  "given": "a SKU's detail view is open and one of its location entries has no value for an optional tracking detail",
+  "when": "the operator reads that entry",
+  "then": "the missing optional detail is shown as an explicit \"not tracked\" label rather than a blank region, and the view renders without a null crash",
+  "independence": {
+    "distinct_from_prior": true,
+    "rationale": "AC1 and AC2 cover populated entries (location, quantity, tracking code present); AC3 covers the distinct missing-optional-detail outcome, which can break (blank region or null crash) while populated entries still render, and vice versa."
+  }
+}

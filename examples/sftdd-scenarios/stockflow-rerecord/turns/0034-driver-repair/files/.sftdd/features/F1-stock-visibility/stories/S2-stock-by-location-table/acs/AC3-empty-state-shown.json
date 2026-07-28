@@ -1,0 +1,13 @@
+{
+  "id": "AC3-empty-state-shown",
+  "status": "passing",
+  "layer": "E2E",
+  "given": "a location holds no stock records",
+  "when": "the operator views that location on the home stock-by-location screen",
+  "then": "an explicit \"No stock at this location\" message is shown for that location instead of a blank page or an empty table",
+  "architectural_notes": "E2E: the empty result originates at app/repositories returning zero rows for the location, flows through app/services (which returns an empty collection, not an error) and the app/routes JSON boundary, and the client/ React page renders the explicit empty-state message. The empty-vs-populated branch is owned by the SPA component; the boundary returns an empty JSON array, never a 404 or blank body. Verified end to end via the real-branch integration suite (empty-location fixture, NFR4) plus the client empty-state component test.",
+  "independence": {
+    "distinct_from_prior": true,
+    "rationale": "AC1 and AC2 cover the populated-table outcome; AC3 covers the distinct empty-location outcome, which can break (blank page shown) while the populated table still renders rows correctly, and vice versa."
+  }
+}
