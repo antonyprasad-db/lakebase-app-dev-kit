@@ -52,13 +52,13 @@ Routing between phases is a program, not a model's choice, so the loop cannot dr
 
 ## Get started
 
-**Step 0: check your environment.** Consort runs against a real Lakebase database (no mock mode), so a few tools and an enabled workspace have to be in place first. Run the doctor and fix anything it flags red before continuing:
+**Step 0: set up your environment.** Consort runs against a real Lakebase database (no mock mode), so a few tools and a Lakebase-enabled workspace have to be in place first. One command detects what's missing, offers to install it, and then runs the environment doctor:
 
 ```bash
-npx --yes --package="github:databricks-solutions/lakebase-scm-utils#v0.1.0-beta.10" lakebase-doctor
+bash <(curl -sL https://raw.githubusercontent.com/databricks-solutions/consort/main/bootstrap.sh)
 ```
 
-It verifies the Databricks CLI (and that the workspace has **Lakebase enabled**), plus Node 20+, Python 3.10+, JDK 17+, `gh`, and npm, each with a fix hint. `/consort:start` and `lakebase-create-project` run this same check as a gate and refuse to provision until it passes, so this is just the early heads-up.
+The doctor verifies the Databricks CLI (and that the workspace has **Lakebase enabled**), plus Node 20+, Python 3.10+, JDK 17+, `gh`, and npm, each with a fix hint. `/consort:start` and `lakebase-create-project` run the same doctor as a gate and refuse to provision until it passes, so if you skip this step the check still happens before anything is created. (Prefer to run just the check yourself? `npx --yes --package="github:databricks-solutions/lakebase-scm-utils#v0.1.0-beta.10" lakebase-doctor`.)
 
 Install the Claude Code plugin:
 
@@ -120,6 +120,11 @@ npm install   # the prepare script builds dist/
 
 ### Prerequisites
 
+The bootstrap in [step 0](#get-started) checks and installs these for you; they are listed here for reference and surface only when the doctor reports one missing.
+
+<details>
+<summary>Tool prerequisites</summary>
+
 - **Node.js 20+** and npm
 - **Databricks CLI v1.0.0+**, authenticated to a workspace with Lakebase enabled (macOS: `brew install databricks/tap/databricks`)
 - **Python 3.10+** (for `scripts/openai-foundry.py` and the alembic venv the live driver manages)
@@ -127,6 +132,8 @@ npm install   # the prepare script builds dist/
 - **JDK 17+** for the Flyway live path (the CLI itself is auto-downloaded)
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full live-test prerequisites and the `.env.template.test.config` / `.env.local.test.config` pattern.
+
+</details>
 
 ## What's in this repo
 
