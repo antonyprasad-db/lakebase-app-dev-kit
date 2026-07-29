@@ -28,6 +28,8 @@ export interface CreateDoctorGateArgs {
   databricksHost: string;
   /** Explicit profile, if the caller pinned one. */
   profile?: string;
+  /** Project language. Scopes the JDK check: it blocks only for java/kotlin. */
+  language?: string;
   /** Injectable for tests; defaults to the real runDoctor. */
   doctor?: (args: { projectDir: string; host: string; profile?: string }) => Promise<HealthDoctorReport>;
 }
@@ -40,15 +42,18 @@ export interface CreateDoctorGateResult {
 }
 
 /**
- * The doctor checks that must PASS before creation may start. A "fail" on any of
- * these blocks provisioning; "warn" and "skip" do not (a warning is advisory,
- * and skips happen for checks that need a project that does not exist yet).
+ * The doctor checks that must PASS before creation may start, regardless of
+ * language. A "fail" on any of these blocks provisioning; "warn" and "skip" do
+ * not (a warning is advisory, and skips happen for checks that need a project
+ * that does not exist yet).
  *
- * Scoped to the cold-start environment: the tool prerequisites and, critically,
+ * Scoped to the cold-start environment: the always-needed tools and, critically,
  * that the target workspace actually has Lakebase enabled. Project-state checks
  * (env-file, git-remote, lakebase-project, workflow-drift) are intentionally NOT
  * blockers here: they describe a project that create is about to make, so they
- * cannot pass pre-creation and must not gate it.
+ * cannot pass pre-creation and must not gate it. `jdk` is NOT in this base set:
+ * it is only required for the Java/Kotlin (Flyway) path, added per-language by
+ * blockingChecksForLanguage.
  */
 export const CREATE_GATE_BLOCKING_CHECKS = new Set<string>([
   "databricks-cli",
@@ -58,13 +63,23 @@ export const CREATE_GATE_BLOCKING_CHECKS = new Set<string>([
   "node",
   "npm",
   "python",
-  "jdk",
   "gh",
 ]);
 
 /**
+ * The blocking set for a given project language. JDK 17 is the Flyway live-path
+ * requirement, so it blocks only for java/kotlin; a Python (alembic) or Node
+ * project does not need a JDK and must not be gated on it.
+ */
+export function blockingChecksForLanguage(language?: string): Set<string> {
+  const set = new Set(CREATE_GATE_BLOCKING_CHECKS);
+  if (language === "java" || language === "kotlin") set.add("jdk");
+  return set;
+}
+
+/**
  * Run the doctor and decide whether creation may proceed. A check blocks only
- * when it is BOTH in CREATE_GATE_BLOCKING_CHECKS and reports "fail".
+ * when it is BOTH in the language-scoped blocking set and reports "fail".
  */
 export async function runCreateDoctorGate(
   args: CreateDoctorGateArgs
@@ -77,8 +92,9 @@ export async function runCreateDoctorGate(
     host: args.databricksHost,
     profile: args.profile,
   });
+  const blocking = blockingChecksForLanguage(args.language);
   const blockers = report.checks.filter(
-    (c) => c.status === "fail" && CREATE_GATE_BLOCKING_CHECKS.has(c.name)
+    (c) => c.status === "fail" && blocking.has(c.name)
   );
   return { ok: blockers.length === 0, report, blockers };
 }

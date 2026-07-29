@@ -52,18 +52,33 @@ describe("runCreateDoctorGate", () => {
     expect(res.blockers.map((b) => b.name)).toContain("lakebase-enabled");
   });
 
-  it("BLOCKS when a tool prerequisite (jdk) fails", async () => {
+  it("BLOCKS on a failing JDK for a java project (the Flyway path)", async () => {
     const checks: CheckResult[] = [
       { name: "jdk", status: "fail", message: "JDK not found", hint: "brew install openjdk@17" },
     ];
     const res = await runCreateDoctorGate({
       parentDir: "/tmp/x",
       databricksHost: "https://ws",
+      language: "java",
       doctor: fakeDoctor(checks),
     });
     expect(res.ok).toBe(false);
-    expect(res.blockers).toHaveLength(1);
-    expect(res.blockers[0].name).toBe("jdk");
+    expect(res.blockers.map((b) => b.name)).toContain("jdk");
+  });
+
+  it("does NOT block on a failing JDK for a python project (alembic needs no JDK)", async () => {
+    const checks: CheckResult[] = [
+      { name: "jdk", status: "fail", message: "JDK not found", hint: "brew install openjdk@17" },
+      { name: "lakebase-enabled", status: "ok", message: "on" },
+    ];
+    const res = await runCreateDoctorGate({
+      parentDir: "/tmp/x",
+      databricksHost: "https://ws",
+      language: "python",
+      doctor: fakeDoctor(checks),
+    });
+    expect(res.ok).toBe(true);
+    expect(res.blockers).toHaveLength(0);
   });
 
   it("does NOT block on a warn, or on a non-gating project-state check that fails", async () => {

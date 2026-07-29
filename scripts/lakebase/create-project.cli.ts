@@ -236,6 +236,7 @@ async function main(): Promise<number> {
     const gate = await runCreateDoctorGate({
       parentDir: input.parentDir,
       databricksHost: input.databricksHost,
+      language: input.language,
     });
     if (!gate.ok) {
       process.stderr.write("\n" + formatGateBlockers(gate.blockers) + "\n");
