@@ -6915,6 +6915,7 @@ var import_path = require("path");
 var REPLAYABLE_DESIGN_ROLES = /* @__PURE__ */ new Set([
   "spec-author",
   "architect-reviewer",
+  "dba",
   "test-strategist",
   "ux-designer",
   "product-owner"
@@ -6970,6 +6971,11 @@ function replayDesignTurn(args) {
         const acs = cpDir((0, import_path.join)(cf, "stories", turn.story, "acs"), (0, import_path.join)(tf, "stories", turn.story, "acs"));
         ok = ok || acs;
       }
+      return ok;
+    }
+    case "dba": {
+      let ok = cp((0, import_path.join)(cf, "db-design.json"), (0, import_path.join)(tf, "db-design.json"));
+      cp((0, import_path.join)(cf, "db-design.md"), (0, import_path.join)(tf, "db-design.md"));
       return ok;
     }
     case "test-strategist": {
@@ -7054,7 +7060,9 @@ function listBuildTurns(replayBuildDir, featureId, story) {
 }
 function replayBuildTurn(args) {
   const { replayBuildDir, projectDir, sftddDir, featureId, story, turnIndex } = args;
-  const turns = listBuildTurns(replayBuildDir, featureId, story).filter((n) => !/reflect/i.test(n));
+  const turns = listBuildTurns(replayBuildDir, featureId, story).filter(
+    (n) => !/reflect|assess|repair/i.test(n)
+  );
   if (turnIndex < 1 || turnIndex > turns.length) return false;
   const turnDir = (0, import_path2.join)(storyTurnsDir(replayBuildDir, featureId, story), turns[turnIndex - 1]);
   const codeSrc = (0, import_path2.join)(turnDir, "code");
@@ -7075,6 +7083,17 @@ function replayBuildTurn(args) {
 init_cjs_shims();
 var import_fs3 = require("fs");
 var import_path3 = require("path");
+function nextBuildTurnNumber(recordBuildDir, featureId, story) {
+  const dir = storyTurnsDir(recordBuildDir, featureId, story);
+  if (!(0, import_fs3.existsSync)(dir)) return 1;
+  let max = 0;
+  for (const name of (0, import_fs3.readdirSync)(dir)) {
+    if (name.startsWith(".")) continue;
+    const m = /^(\d+)/.exec(name);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return max + 1;
+}
 function turnSlug(turn, role, ac, mode) {
   const n = String(turn).padStart(3, "0");
   return [n, role, mode, ac].filter(Boolean).join("-");
@@ -11547,14 +11566,13 @@ function makeConfirmContinue() {
 function withBuildRecording(inner, cfg) {
   const recordBuildDir = sftddEnv("RECORD_BUILD_DIR")?.trim();
   if (!recordBuildDir) return inner;
-  let turn = 0;
   return {
     readState: () => inner.readState(),
     onAction: inner.onAction ? (a, i) => inner.onAction(a, i) : void 0,
     async perform(action) {
       await inner.perform(action);
       if (action.kind === "invoke-role" && (action.role === "navigator" || action.role === "driver")) {
-        turn += 1;
+        const turn = nextBuildTurnNumber(recordBuildDir, cfg.featureId, action.story);
         const dir = recordBuildTurn({
           recordBuildDir,
           projectDir: cfg.projectDir,

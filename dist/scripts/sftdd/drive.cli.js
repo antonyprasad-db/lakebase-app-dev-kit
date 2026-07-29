@@ -6920,6 +6920,7 @@ import { join as join3, dirname } from "path";
 var REPLAYABLE_DESIGN_ROLES = /* @__PURE__ */ new Set([
   "spec-author",
   "architect-reviewer",
+  "dba",
   "test-strategist",
   "ux-designer",
   "product-owner"
@@ -6975,6 +6976,11 @@ function replayDesignTurn(args) {
         const acs = cpDir(join3(cf, "stories", turn.story, "acs"), join3(tf, "stories", turn.story, "acs"));
         ok = ok || acs;
       }
+      return ok;
+    }
+    case "dba": {
+      let ok = cp(join3(cf, "db-design.json"), join3(tf, "db-design.json"));
+      cp(join3(cf, "db-design.md"), join3(tf, "db-design.md"));
       return ok;
     }
     case "test-strategist": {
@@ -7059,7 +7065,9 @@ function listBuildTurns(replayBuildDir, featureId, story) {
 }
 function replayBuildTurn(args) {
   const { replayBuildDir, projectDir, sftddDir, featureId, story, turnIndex } = args;
-  const turns = listBuildTurns(replayBuildDir, featureId, story).filter((n) => !/reflect/i.test(n));
+  const turns = listBuildTurns(replayBuildDir, featureId, story).filter(
+    (n) => !/reflect|assess|repair/i.test(n)
+  );
   if (turnIndex < 1 || turnIndex > turns.length) return false;
   const turnDir = join4(storyTurnsDir(replayBuildDir, featureId, story), turns[turnIndex - 1]);
   const codeSrc = join4(turnDir, "code");
@@ -7078,8 +7086,19 @@ function replayBuildTurn(args) {
 
 // scripts/sftdd/record-build.ts
 init_esm_shims();
-import { existsSync as existsSync5, cpSync as cpSync2, mkdirSync as mkdirSync3 } from "fs";
+import { existsSync as existsSync5, cpSync as cpSync2, mkdirSync as mkdirSync3, readdirSync as readdirSync4 } from "fs";
 import { join as join5 } from "path";
+function nextBuildTurnNumber(recordBuildDir, featureId, story) {
+  const dir = storyTurnsDir(recordBuildDir, featureId, story);
+  if (!existsSync5(dir)) return 1;
+  let max = 0;
+  for (const name of readdirSync4(dir)) {
+    if (name.startsWith(".")) continue;
+    const m = /^(\d+)/.exec(name);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return max + 1;
+}
 function turnSlug(turn, role, ac, mode) {
   const n = String(turn).padStart(3, "0");
   return [n, role, mode, ac].filter(Boolean).join("-");
@@ -7115,7 +7134,7 @@ import {
   existsSync as existsSync6,
   mkdirSync as mkdirSync4,
   readFileSync as readFileSync3,
-  readdirSync as readdirSync4,
+  readdirSync as readdirSync5,
   rmSync,
   statSync as statSync4,
   writeFileSync as writeFileSync3
@@ -7145,7 +7164,7 @@ function sha1(abs) {
 function walk(dir, keep) {
   if (!existsSync6(dir)) return [];
   const out = [];
-  for (const entry of readdirSync4(dir)) {
+  for (const entry of readdirSync5(dir)) {
     const abs = join6(dir, entry);
     if (keep && !keep(abs)) continue;
     let st;
@@ -8143,7 +8162,7 @@ function lastReflectReviseFingerprint(sftddDir, story_id) {
 
 // scripts/sftdd/cycle-record.ts
 init_esm_shims();
-import { existsSync as existsSync15, readFileSync as readFileSync14, readdirSync as readdirSync9, statSync as statSync8, writeFileSync as writeFileSync9, mkdirSync as mkdirSync9, rmSync as rmSync6 } from "fs";
+import { existsSync as existsSync15, readFileSync as readFileSync14, readdirSync as readdirSync10, statSync as statSync8, writeFileSync as writeFileSync9, mkdirSync as mkdirSync9, rmSync as rmSync6 } from "fs";
 import { join as join17, dirname as dirname6 } from "path";
 
 // scripts/sftdd/test-list.ts
@@ -8201,7 +8220,7 @@ function deployVerifyNeedsAssess(sftddDir, featureId, storyId) {
 
 // scripts/sftdd/e2e-regex-clean.ts
 init_esm_shims();
-import { readdirSync as readdirSync5, readFileSync as readFileSync8, statSync as statSync5 } from "fs";
+import { readdirSync as readdirSync6, readFileSync as readFileSync8, statSync as statSync5 } from "fs";
 import { join as join11 } from "path";
 
 // scripts/sftdd/ephemeral-verify.ts
@@ -8270,7 +8289,7 @@ function hasPendingRegressionFix(tdd, feature, story, ac) {
 
 // scripts/sftdd/contract-clean.ts
 init_esm_shims();
-import { existsSync as existsSync12, readFileSync as readFileSync11, readdirSync as readdirSync7, statSync as statSync6 } from "fs";
+import { existsSync as existsSync12, readFileSync as readFileSync11, readdirSync as readdirSync8, statSync as statSync6 } from "fs";
 import { join as join14, relative as relative2, extname } from "path";
 
 // scripts/sftdd/refactor-verify-assess.ts
@@ -8302,7 +8321,7 @@ function refactorVerifyRefactorPending(sftddDir, featureId, storyId) {
 
 // scripts/sftdd/migration-app-clean.ts
 init_esm_shims();
-import { existsSync as existsSync14, readFileSync as readFileSync13, readdirSync as readdirSync8, statSync as statSync7 } from "fs";
+import { existsSync as existsSync14, readFileSync as readFileSync13, readdirSync as readdirSync9, statSync as statSync7 } from "fs";
 import { join as join16, relative as relative3, extname as extname2 } from "path";
 
 // scripts/sftdd/cycle-record.ts
@@ -8320,14 +8339,14 @@ function storyCycles(sftddDir, featureId, story) {
   const base = join17(cyclesRootDir(sftddDir), featureId, story);
   if (!existsSync15(base)) return [];
   const out = [];
-  for (const acDir of readdirSync9(base)) {
+  for (const acDir of readdirSync10(base)) {
     const dir = join17(base, acDir);
     try {
       if (!statSync8(dir).isDirectory()) continue;
     } catch {
       continue;
     }
-    for (const f of readdirSync9(dir)) {
+    for (const f of readdirSync10(dir)) {
       if (!/^cycle-\d+\.json$/.test(f)) continue;
       try {
         out.push(JSON.parse(readFileSync14(join17(dir, f), "utf8")));
@@ -8956,7 +8975,7 @@ var REFLECT_SMELLS = Object.values(SMELL_FOR_OWNER);
 
 // scripts/sftdd/architecture-canon.ts
 init_esm_shims();
-import { existsSync as existsSync20, readFileSync as readFileSync19, writeFileSync as writeFileSync14, mkdirSync as mkdirSync13, readdirSync as readdirSync12 } from "fs";
+import { existsSync as existsSync20, readFileSync as readFileSync19, writeFileSync as writeFileSync14, mkdirSync as mkdirSync13, readdirSync as readdirSync13 } from "fs";
 function uniq(xs) {
   return [...new Set(xs.filter((x) => typeof x === "string" && x.length > 0))];
 }
@@ -9481,11 +9500,11 @@ init_esm_shims();
 
 // scripts/sftdd/story-pipeline.ts
 init_esm_shims();
-import { existsSync as existsSync24, readFileSync as readFileSync23, writeFileSync as writeFileSync16, mkdirSync as mkdirSync15, readdirSync as readdirSync15, statSync as statSync11, rmSync as rmSync8 } from "fs";
+import { existsSync as existsSync24, readFileSync as readFileSync23, writeFileSync as writeFileSync16, mkdirSync as mkdirSync15, readdirSync as readdirSync16, statSync as statSync11, rmSync as rmSync8 } from "fs";
 
 // scripts/sftdd/gate-conformance-guard.ts
 init_esm_shims();
-import { existsSync as existsSync23, readFileSync as readFileSync22, readdirSync as readdirSync14, statSync as statSync10 } from "fs";
+import { existsSync as existsSync23, readFileSync as readFileSync22, readdirSync as readdirSync15, statSync as statSync10 } from "fs";
 import { join as join21 } from "path";
 
 // scripts/sftdd/architecture-conventions.ts
@@ -9544,7 +9563,7 @@ import { dirname as dirname9 } from "path";
 
 // scripts/sftdd/response-formatter.ts
 init_esm_shims();
-import { existsSync as existsSync25, readFileSync as readFileSync24, readdirSync as readdirSync16 } from "fs";
+import { existsSync as existsSync25, readFileSync as readFileSync24, readdirSync as readdirSync17 } from "fs";
 function designGuideConformance(sftddDir) {
   const file = designGuideJson(sftddDir);
   if (!existsSync25(file)) {
@@ -10992,7 +11011,7 @@ import { isForeignFeatureClaim, readWorkflowState as readWorkflowState2 } from "
 
 // scripts/sftdd/stray-artifact-recovery.ts
 init_esm_shims();
-import { existsSync as existsSync34, mkdirSync as mkdirSync23, cpSync as cpSync4, rmSync as rmSync10, readdirSync as readdirSync17, statSync as statSync12 } from "fs";
+import { existsSync as existsSync34, mkdirSync as mkdirSync23, cpSync as cpSync4, rmSync as rmSync10, readdirSync as readdirSync18, statSync as statSync12 } from "fs";
 import { join as join28, dirname as dirname14, basename as basename2 } from "path";
 function malformedSiblingRoot(projectDir) {
   const p = projectDir.replace(/\/+$/, "");
@@ -11001,7 +11020,7 @@ function malformedSiblingRoot(projectDir) {
 function listFilesRel(dir) {
   const out = [];
   const walk2 = (abs, rel) => {
-    for (const entry of readdirSync17(abs)) {
+    for (const entry of readdirSync18(abs)) {
       const childAbs = join28(abs, entry);
       const childRel = rel ? join28(rel, entry) : entry;
       if (statSync12(childAbs).isDirectory()) walk2(childAbs, childRel);
@@ -11025,7 +11044,7 @@ function relocateStrayDesignArtifacts(projectDir) {
     rmSync10(strayRoot, { recursive: true, force: true });
   }
   try {
-    if (readdirSync17(sibling).length === 0) rmSync10(sibling, { recursive: true, force: true });
+    if (readdirSync18(sibling).length === 0) rmSync10(sibling, { recursive: true, force: true });
   } catch {
   }
   return moved.length > 0 ? { relocated: true, from: sibling, moved } : { relocated: false, moved: [] };
@@ -11561,14 +11580,13 @@ function makeConfirmContinue() {
 function withBuildRecording(inner, cfg) {
   const recordBuildDir = sftddEnv("RECORD_BUILD_DIR")?.trim();
   if (!recordBuildDir) return inner;
-  let turn = 0;
   return {
     readState: () => inner.readState(),
     onAction: inner.onAction ? (a, i) => inner.onAction(a, i) : void 0,
     async perform(action) {
       await inner.perform(action);
       if (action.kind === "invoke-role" && (action.role === "navigator" || action.role === "driver")) {
-        turn += 1;
+        const turn = nextBuildTurnNumber(recordBuildDir, cfg.featureId, action.story);
         const dir = recordBuildTurn({
           recordBuildDir,
           projectDir: cfg.projectDir,
