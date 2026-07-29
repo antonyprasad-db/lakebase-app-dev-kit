@@ -13,7 +13,7 @@
 // once) is structural here: the function always advances the FIRST not-yet-gated
 // story in breakdown order, so exactly one story is ever in design at a time and
 // the spec-author is invoked per story. See
-// docs/refactor/orchestrator-deterministic-driver.md.
+// docs/design/refactor/orchestrator-deterministic-driver.md.
 
 /** The design-lane roles, in the order a story flows through them. */
 export type DesignRole = "spec-author" | "architect-reviewer" | "dba" | "test-strategist";
