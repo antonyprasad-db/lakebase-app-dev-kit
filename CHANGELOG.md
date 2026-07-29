@@ -6,6 +6,32 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Environment doctor gate on project creation.** `lakebase-create-project`
+  (and `/consort:start`'s create path) now runs the doctor before any
+  provisioning and refuses to start when a hard cold-start check fails (a missing
+  tool, or a workspace without Lakebase), printing the fix. Closes the gap where
+  a good diagnostic existed but nothing on the create path ran it, so a bad
+  environment first surfaced as a failure partway through provisioning a repo and
+  a database. `--skip-doctor` bypasses; the JDK check blocks only java/kotlin.
+- **One-line bootstrap (`bootstrap.sh`).** `curl … | bash` detects each required
+  tool (Node 20+, npm, Python 3.10+, JDK 17+, `gh`, Databricks CLI), offers to
+  install or upgrade what's missing, then runs the environment doctor.
+- **First-project walkthrough** under `examples/first-project/`: a copy-ready,
+  from-zero StockFlow example (intake + feature-proposals + feature-requests +
+  the narrated `/plan → /design → /build → /deploy` walkthrough).
+
+### Changed
+
+- Repin `@databricks-solutions/lakebase-scm-utils` to `v0.1.0-beta.10` (the
+  extended doctor: cold-start prerequisites + a `lakebase-enabled` workspace
+  probe).
+- README "Get started" leads with the bootstrap + doctor step 0 and folds the
+  prerequisite list into a `<details>` block.
+- Docs de-jargoned (dropped grandiose framing and meta-narration) and internal
+  design notes relocated under `docs/design/` so `docs/` reads as user space.
+
 ## [0.3.1] - 2026-07-27
 
 ### Changed
