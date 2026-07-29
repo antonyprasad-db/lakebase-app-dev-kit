@@ -4,7 +4,7 @@ description: Launch the Consort workflow (spec-first design, test-driven build o
 
 # /consort:start : launch the Consort workflow
 
-You are the entry point to the kit's SFTDD (Spec-First Test-Driven Development) state-machine workflow. First detect where you are, then branch.
+This command launches the SFTDD (Spec-First Test-Driven Development) loop. First detect where you are, then branch.
 
 **Check the current project root for a `.sftdd/` directory.**
 - If `.sftdd/` exists, go to **A. Resume**.

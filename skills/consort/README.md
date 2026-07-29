@@ -1,6 +1,6 @@
 # consort
 
-Consort's spec-first, test-driven workflow on paired Lakebase branches: canonical Beck-style RED → GREEN → REFACTOR composed with paired-branch primitives (cheap experiments, parent-aware schema diff, real per-branch databases) and human-in-the-loop gates at every phase boundary.
+Consort's spec-first, test-driven build on paired Lakebase branches: RED → GREEN → REFACTOR composed with paired-branch primitives (cheap experiments, parent-aware schema diff, real per-branch databases) and human-in-the-loop gates at every phase boundary.
 
 **Spec-first: two disciplines, back to back.** Consort runs the design lane as **Spec Driven Development (SDD)** and the build lane as **Test Driven Development (TDD)**:
 
@@ -38,7 +38,7 @@ This README is the human-facing overview. The agent's operating contract – har
 | **discard / revise** | (PO reject) Tear down the experiment with no trace: `discard` drops the story from the sprint; `revise` sends it back to designing for a re-spec. |
 | **Promote** | (N≥2 only) Take one of a story's competing experiments as-is; the losers are archived. The winner then merges into the feature. |
 | **Synthesize** | (N≥2 only) PO menu-picks capabilities across a story's experiments; spec is renegotiated; a fresh experiment produces the final code. |
-| **Bad smell** | A pattern the orchestrator detects that signals the workflow is sliding. Surfaces a proposed remediation to the HITL. |
+| **Bad smell** | A pattern the orchestrator detects that signals the build is sliding. Surfaces a proposed remediation to the HITL. |
 | **Adapter** | Pluggable component that syncs the spec format to/from an external tracker (JIRA, Linear, GitHub Issues, plain markdown). |
 
 "Experiment" is the noun for the rigorous TDD branch; it is scoped to a story (N=1 is one experiment per story, N>=2 races several). The feature branch is the durable integration unit each accepted experiment merges into.
@@ -80,7 +80,7 @@ What Consort does on your behalf, in user-journey order. You don't invoke these 
 
 ### 1. Design-spec gate
 
-Once the test list is approved (Gate 3), the agent runs the design-spec gate analyzer – phase 3. It scans the list for opinion-gap signals (keywords like "either", "consider", "alternatively", "decide", "TBD") and proposes either N=1 (iterative refinement) or N≥2 (parallel race), with strategies and a resource budget (concurrent branches, wall-clock minutes, agent-pair count).
+Once the test list is approved (Gate 3), the agent runs the design-spec gate analyzer – phase 3. It scans the list for unresolved design choices (keywords like "either", "consider", "alternatively", "decide", "TBD") and proposes either N=1 (iterative refinement) or N≥2 (parallel race), with strategies and a resource budget (concurrent branches, wall-clock minutes, agent-pair count).
 
 The proposal is conservative by design: the analyzer's job is to surface the choice to the PO, not to decide. The PO signs off at Gate 4. The plan and the decision are persisted here:
 
@@ -118,7 +118,7 @@ Teardown is HITL-gated: the experiment record is preserved on disk by default ev
 
 ### 3. Spike
 
-Side-mode for exploration that sits outside the main flow. No test list, no gates, no rigor. The agent runs this when you ask to "spike X" or "explore whether Y is possible" – typically before authoring a spec, to de-risk a choice you'll later put into the design-spec gate.
+Exploration that sits outside the main loop. No test list, no gates, no rigor. The agent runs this when you ask to "spike X" or "explore whether Y is possible" – typically before authoring a spec, to de-risk a choice you'll later put into the design-spec gate.
 
 ```
 .sftdd/
@@ -251,7 +251,7 @@ Consort's behavior is implemented as TypeScript functions under `scripts/sftdd/`
 | `readOutcomes(tddDir, featureId, storyId, slug)` / `writeOutcomes(...)` | Read/write the per-experiment `outcomes.json` (tag matrix, tests passed/failed, schema diff summary). |
 | `recordTagRun(outcomes, tag, verdict)` / `tagRunCount(outcomes, tag)` / `acLayerToTag(layer)` | Helpers for maintaining the tag-matrix bookkeeping on `outcomes.json`. |
 | `deleteExperiment(args)` | Tear down a Lakebase branch and (optionally) the on-disk experiment record. HITL-gated. |
-| `cutSpike(args)` / `listSpikes(tddDir)` / `deleteSpike(args)` | Same lifecycle for the spike side-mode under `.sftdd/spikes/`. |
+| `cutSpike(args)` / `listSpikes(tddDir)` / `deleteSpike(args)` | Same lifecycle for spikes (exploration outside the main loop) under `.sftdd/spikes/`. |
 | `collectSpikeInputs({ tddDir, featureId })` / `attachSpikeInputs(args)` | Scan `.sftdd/spikes/` for notes tagged with a feature id (via YAML frontmatter or body line) and persist the resolved inputs onto the feature's `plan.json`. |
 | `archiveExperiment(args)` | Move an experiment record into `_archive/` without tearing down its branch. |
 | `checkPerExperimentCap(args)` / `recordExperimentCap(args)` / `clearExperimentCap(args)` | Per-experiment cap helpers. `checkPerExperimentCap` is a pure read; `recordExperimentCap` writes `outcomes.capped`; `clearExperimentCap` removes it on the PO's `extend` reply. |
@@ -282,7 +282,7 @@ Consort's behavior is implemented as TypeScript functions under `scripts/sftdd/`
 
 | Primitive | Purpose |
 |---|---|
-| `analyzeForGate(input, options?)` | The design-spec analyzer. Scans the approved test list for opinion-gap signals and returns an `ExperimentPlan` proposal (N, strategies, budget incl. `per_experiment` default cap, rationale, plus `spike_inputs[]` populated automatically from any tagged spike under `.sftdd/spikes/`). |
+| `analyzeForGate(input, options?)` | The design-spec analyzer. Scans the approved test list for unresolved design choices and returns an `ExperimentPlan` proposal (N, strategies, budget incl. `per_experiment` default cap, rationale, plus `spike_inputs[]` populated automatically from any tagged spike under `.sftdd/spikes/`). |
 | `recordPlan(tddDir, plan, deciderEmail?)` | Persist an approved plan to `plan.json` and append the decision to `selection-log.md`. |
 | `readPlan(tddDir, featureId, storyId)` / `writePlan(tddDir, plan)` | Direct plan IO. |
 | `checkE2eGate({ tddDir, featureId })` | Pre-merge guard: refuses to advance if any `[E2E]`-tagged AC is still red. |

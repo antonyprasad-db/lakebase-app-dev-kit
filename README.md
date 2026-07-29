@@ -73,7 +73,7 @@ Then, in any session, run:
 /consort:start
 ```
 
-**Your first run.** In a fresh folder, `/consort:start` walks you through creating a Lakebase-paired project: a repo, a paired database, and the role agents and commands scaffolded into it. In a project that already has a `.sftdd/` directory (Consort's spec-first, test-driven workflow state), it resumes wherever you left off. (The command, skills, and MCP server ship in the plugin; the role agents live in your project's `.claude/agents/`, spawned by the orchestrator `lakebase-sftdd-drive` as `claude --agent <role>`.)
+**Your first run.** In a fresh folder, `/consort:start` walks you through creating a Lakebase-paired project: a repo, a paired database, and the role agents and commands scaffolded into it. In a project that already has a `.sftdd/` directory (Consort's spec-first, test-driven state), it resumes wherever you left off. (The command, skills, and MCP server ship in the plugin; the role agents live in your project's `.claude/agents/`, spawned by the orchestrator `lakebase-sftdd-drive` as `claude --agent <role>`.)
 
 **What to expect.** Consort drives the loop `/plan -> /design -> /build -> /deploy` and stops at every gate for you:
 
