@@ -13,7 +13,7 @@
 // and run per scenario discovered under examples/sftdd-scenarios/ (guarding new
 // captures like stockflow the moment they are dropped in).
 
-import { describe, it, expect, afterAll } from "vitest";
+import { describe, it, expect, afterAll, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -66,6 +66,67 @@ function assertScenarioCorpus(
       expect(t.ordinal, `turn ${i} ordinal is its index (monotonic from 0)`).toBe(i);
       expect(fs.existsSync(path.join(corpusRoot, "turns", t.dir)), `turn dir ${t.dir} exists`).toBe(true);
     });
+  }
+
+  // REPLAY-CONSISTENCY of the build corpus: for every build-replay story, the
+  // turns a trusted-green replay actually dispatches must line up with the
+  // recorded dirs. This is what shape-only checks missed (a corpus can be
+  // structurally present yet un-replayable). See assertBuildTurnsReplayable.
+  for (const f of features) {
+    if (f.buildReplay === false) continue;
+    assertBuildTurnsReplayable(corpusRoot, f.id);
+  }
+}
+
+/** Per-story replay-consistency of the recorded-build corpus. A trusted-green
+ *  replay re-dispatches ONLY the canonical sequence, RED (navigator), GREEN
+ *  (driver), optional story REVIEW (navigator), optional REFACTOR (driver), and
+ *  NEVER the capture-time detours (reflect / assess / repair), which replay-build
+ *  filters out. So after dropping those, each story's remaining turn dirs must:
+ *    (a) carry strictly-increasing NUMERIC prefixes (a resume-mislabeled dir with
+ *        a stray low number, e.g. 001 after 010, breaks the lexical order replay
+ *        sorts by, so it must not exist), and
+ *    (b) match the shape navigator, driver, [navigator-review, [driver-refactor]].
+ *  Either failure means a live replay would misalign, exactly the drift this
+ *  guard exists to catch before it costs a cloud run. */
+function assertBuildTurnsReplayable(corpusRoot: string, featureId: string): void {
+  const storiesRoot = path.join(corpusRoot, "recorded-build", "features", featureId, "stories");
+  if (!fs.existsSync(storiesRoot)) return;
+  for (const story of fs.readdirSync(storiesRoot)) {
+    const turnsDir = path.join(storiesRoot, story, "turns");
+    if (!fs.existsSync(turnsDir)) continue;
+    const all = fs.readdirSync(turnsDir).filter((n) => !n.startsWith(".")).sort();
+    const kept = all.filter((n) => !/reflect|assess|repair/i.test(n));
+
+    // (a) numeric prefixes strictly increase in the (lexical) order replay uses.
+    const nums = kept.map((n) => {
+      const m = /^(\d+)/.exec(n);
+      expect(m, `${featureId}/${story}: build turn dir '${n}' has a numeric prefix`).not.toBeNull();
+      return parseInt(m![1], 10);
+    });
+    for (let i = 1; i < nums.length; i++) {
+      expect(
+        nums[i] > nums[i - 1],
+        `${featureId}/${story}: build turn dirs must have strictly increasing numeric prefixes ` +
+          `(got ${kept[i - 1]} then ${kept[i]}), a resume-mislabeled dir corrupts replay order`,
+      ).toBe(true);
+    }
+
+    // (b) the kept sequence is a valid trusted-green dispatch shape.
+    const roles = kept.map((n) => n.replace(/^\d+-/, ""));
+    const shape = roles.map((r) => {
+      if (/^navigator-review/.test(r)) return "review";
+      if (/^driver-refactor/.test(r)) return "refactor";
+      if (/^navigator/.test(r)) return "red";
+      if (/^driver/.test(r)) return "green";
+      return `?(${r})`;
+    });
+    const valid = ["red,green", "red,green,review", "red,green,review,refactor"];
+    expect(
+      valid.includes(shape.join(",")),
+      `${featureId}/${story}: kept build turns must be a trusted-green sequence ` +
+        `[red,green(,review(,refactor))], got [${shape.join(",")}] from [${kept.join(", ")}]`,
+    ).toBe(true);
   }
 }
 
@@ -143,6 +204,57 @@ describe("assertScenarioCorpus: logic exercised against a synthetic fixture", ()
   it("a design-only feature (buildReplay:false) needs no recorded-build", () => {
     fs.mkdirSync(path.join(tmp, "recorded-artifacts", "features", "F3-designonly"), { recursive: true });
     expect(() => assertScenarioCorpus(tmp, [{ id: "F3-designonly", buildReplay: false }])).not.toThrow();
+  });
+});
+
+describe("assertScenarioCorpus: build-turn replay-consistency guard", () => {
+  let tmp: string;
+  const mkStory = (feature: string, story: string, turnDirs: string[]): void => {
+    for (const d of turnDirs) {
+      fs.mkdirSync(path.join(tmp, "recorded-build", "features", feature, "stories", story, "turns", d, "code"), {
+        recursive: true,
+      });
+    }
+    // Minimal design side so assertScenarioCorpus's structural checks pass.
+    fs.mkdirSync(path.join(tmp, "recorded-artifacts", "features", feature), { recursive: true });
+  };
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), "replay-consistency-"));
+  });
+  afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));
+
+  it("accepts a clean red,green,review,refactor story (detours filtered)", () => {
+    // Includes reflect + assess + repair detours, which the guard filters out.
+    mkStory("F1-x", "S1", [
+      "001-navigator-reflect", "002-navigator", "003-driver",
+      "004-navigator-assess-AC1", "005-driver-repair-AC1",
+      "006-navigator-review", "007-driver-refactor",
+    ]);
+    expect(() => assertScenarioCorpus(tmp, [{ id: "F1-x", buildReplay: true }])).not.toThrow();
+  });
+
+  it("REJECTS a resume-mislabeled stray low-numbered dir (001 after 010)", () => {
+    // The F6/S2 bug: a resumed final refactor written as 001 sorts before 007..010.
+    // Lexical sort puts the stray 001 first, so the story reads as [refactor,...]:
+    // caught either by the shape check or the monotonic check (both are rejections).
+    mkStory("F1-x", "S2", ["007-navigator", "008-driver", "010-navigator-review", "001-driver-refactor"]);
+    expect(() => assertScenarioCorpus(tmp, [{ id: "F1-x", buildReplay: true }])).toThrow(
+      /strictly increasing|trusted-green sequence/,
+    );
+  });
+
+  it("REJECTS a mixed-width numbering that lexically sorts to a valid shape but non-increasing numbers", () => {
+    // 01/02/03 (width 2) then a resume-added width-1 '1-driver-refactor': lexical
+    // sort keeps 0*-prefixed first, so the SHAPE reads valid (red,green,review,
+    // refactor) yet the numbers go 1,2,3,1, the numeric-monotonic check must fire.
+    mkStory("F1-x", "S2b", ["01-navigator", "02-driver", "03-navigator-review", "1-driver-refactor"]);
+    expect(() => assertScenarioCorpus(tmp, [{ id: "F1-x", buildReplay: true }])).toThrow(/strictly increasing/);
+  });
+
+  it("REJECTS a build sequence with a leftover un-filtered shape", () => {
+    // e.g. two greens with no review, an impossible trusted-green dispatch.
+    mkStory("F1-x", "S3", ["001-navigator", "002-driver", "003-driver"]);
+    expect(() => assertScenarioCorpus(tmp, [{ id: "F1-x", buildReplay: true }])).toThrow(/trusted-green sequence/);
   });
 });
 

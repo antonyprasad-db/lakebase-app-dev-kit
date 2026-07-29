@@ -8,10 +8,10 @@
 // skipping to the Release Engineer. Mirrors recordedBuild's restore side; only
 // the artifact CONTENT is captured, the events are re-driven live on replay.
 
-import { existsSync, cpSync, mkdirSync } from "fs";
+import { existsSync, cpSync, mkdirSync, readdirSync } from "fs";
 import { join } from "path";
 import { featuresDir, cyclesRootDir, experimentsRootDir } from "./sftdd-paths.js";
-import { codeTreeFilter } from "./replay-build.js";
+import { codeTreeFilter, storyTurnsDir } from "./replay-build.js";
 
 export interface RecordBuildTurnArgs {
   /** The corpus root to write into (LAKEBASE_SFTDD_RECORD_BUILD_DIR). */
@@ -30,6 +30,29 @@ export interface RecordBuildTurnArgs {
   ac?: string;
   /** review | refactor | kickoff , the build mode, for the turn slug. */
   mode?: string;
+}
+
+/**
+ * The next build-turn ordinal for a story, seeded from what is ALREADY on disk
+ * (max recorded numeric prefix + 1), so numbering is PER-STORY and RESUME-SAFE.
+ *
+ * The driver's per-process turn counter resets to 0 each invocation, so a story
+ * whose build spans a resume would otherwise get a second run of turns starting
+ * at 001, which sorts BEFORE the story's earlier 007.. dirs and corrupts the
+ * replay order. Reading the high-water mark from disk makes a resumed capture
+ * CONTINUE the story's sequence. Keys on the leading integer (not lexical) so
+ * 010 outranks 002. A story with no turns yet starts at 1.
+ */
+export function nextBuildTurnNumber(recordBuildDir: string, featureId: string, story: string): number {
+  const dir = storyTurnsDir(recordBuildDir, featureId, story);
+  if (!existsSync(dir)) return 1;
+  let max = 0;
+  for (const name of readdirSync(dir)) {
+    if (name.startsWith(".")) continue;
+    const m = /^(\d+)/.exec(name);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return max + 1;
 }
 
 /** The directory slug for a turn, e.g. `003-driver-AC1-create-form-accessible` or

@@ -1,13 +1,16 @@
 /**
- * T3 - AC3-save-confirmation-shown (client component test)
+ * T3 - AC3-save-confirmation-shown (client component test, refactored for S2)
  *
  * Submitting the filing form renders an explicit success confirmation that
  * names the stock was filed, rather than leaving the operator on an unchanged
  * form (design guide: "No silent failure -- every action has an explicit success
  * or failure acknowledgment"; data-testid="feedback-message" ending in -success).
  *
- * This is a Vitest + Testing Library test against the FileStockRecord component
- * (not yet built -- this test goes RED because the module does not exist).
+ * Note: inventory_code field removed per S1 schema refactor; form now accepts
+ * only sku, location, quantity (batch_number/serial_number are populated by the
+ * backend during upsertion if conforming codes are detected, not user-supplied).
+ *
+ * This is a Vitest + Testing Library test against the FileStockRecord component.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -23,7 +26,6 @@ vi.mock("../../src/api/stock", () => ({
     sku: "TEST-SKU",
     location: "BIN-A1",
     quantity: 10,
-    inventory_code: "IC-001",
   }),
 }));
 
@@ -36,14 +38,13 @@ describe("FileStockRecord", () => {
     const user = userEvent.setup();
     render(<FileStockRecord />);
 
-    // Fill in the required fields.
+    // Fill in the required fields (sku, location, quantity).
     await user.type(screen.getByLabelText(/sku/i), "TEST-SKU");
     await user.type(screen.getByLabelText(/location/i), "BIN-A1");
     // Clear the quantity field first (it may have a default), then type.
     const qtyInput = screen.getByLabelText(/quantity/i);
     await user.clear(qtyInput);
     await user.type(qtyInput, "10");
-    await user.type(screen.getByLabelText(/inventory.?code/i), "IC-001");
 
     // Submit via the primary action button.
     await user.click(screen.getByTestId("submit-btn"));
@@ -73,7 +74,6 @@ describe("FileStockRecord", () => {
     const qtyInput = screen.getByLabelText(/quantity/i);
     await user.clear(qtyInput);
     await user.type(qtyInput, "10");
-    await user.type(screen.getByLabelText(/inventory.?code/i), "IC-001");
 
     await user.click(screen.getByTestId("submit-btn"));
 

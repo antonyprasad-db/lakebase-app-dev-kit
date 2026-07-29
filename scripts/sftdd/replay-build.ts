@@ -113,10 +113,20 @@ export interface ReplayBuildTurnArgs {
  */
 export function replayBuildTurn(args: ReplayBuildTurnArgs): boolean {
   const { replayBuildDir, projectDir, sftddDir, featureId, story, turnIndex } = args;
-  // Reflect turns are restored verdict-only by the driver (they produce no code);
-  // exclude them here so the Kth REAL build turn (RED/GREEN/review/refactor) maps to
-  // the Kth non-reflect recorded turn, even when the capture recorded reflect twice.
-  const turns = listBuildTurns(replayBuildDir, featureId, story).filter((n) => !/reflect/i.test(n));
+  // Skip the turns a trusted-green replay never RE-dispatches, so the Kth
+  // dispatched build turn (RED/GREEN/review/refactor) maps to the Kth recorded
+  // one. Two classes are capture-only:
+  //   - reflect: a DESIGN gate restored verdict-only by the driver (no code).
+  //   - assess/repair: per-turn-verify FAILURE detours. On replay per-turn verify
+  //     is skipped, so the Navigator-assess -> Driver-repair pair never fires; the
+  //     recording still holds them (+ their cumulative code), so leaving them in
+  //     would shift `review` onto the pre-repair snapshot (its source may not yet
+  //     exist), the exact drift that froze a story before its page was written.
+  // Snapshots are cumulative, so dropping a detour is lossless: the next kept
+  // turn's tree already carries the detour's effect.
+  const turns = listBuildTurns(replayBuildDir, featureId, story).filter(
+    (n) => !/reflect|assess|repair/i.test(n),
+  );
   if (turnIndex < 1 || turnIndex > turns.length) return false; // uncovered -> live
   const turnDir = join(storyTurnsDir(replayBuildDir, featureId, story), turns[turnIndex - 1]);
 

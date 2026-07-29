@@ -82,6 +82,42 @@ describe("replayBuildTurn (per-turn build replay)", () => {
     expect(replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, sftddDir: tdd, featureId: F, story: S, turnIndex: 3 })).toBe(false);
   });
 
+  it("skips capture-time assess/repair detour turns (a trusted-green replay never re-dispatches them)", () => {
+    // A capture that hit a per-turn verify failure records navigator-assess +
+    // driver-repair detours between green and review. A trusted-green replay skips
+    // per-turn verify, so it never re-dispatches those, it dispatches only
+    // red -> green -> review [-> refactor]. listBuildTurns must therefore drop
+    // assess/repair (like reflect) so the Kth dispatched turn maps to the Kth
+    // real turn. Snapshots are cumulative, so the review turn's tree already
+    // carries the repair's effect. Here the source page first appears in repair.
+    const src = join(corpus, "features", F, "stories", "S3-detour", "turns");
+    const w = (slug: string, files: Record<string, string>) => {
+      for (const [rel, body] of Object.entries(files)) {
+        const p = join(src, slug, "code", rel);
+        mkdirSync(join(p, ".."), { recursive: true });
+        writeFileSync(p, body);
+      }
+    };
+    w("001-navigator", { "tests/test_ac1.py": "assert False\n" });
+    w("002-driver", { "app/main.py": "# green, no page yet\n" });
+    w("003-navigator-assess-AC1", { "app/main.py": "# assess: still no page\n" });
+    w("004-driver-repair-AC1", { "app/main.py": "# repaired\n", "app/page.py": "# THE PAGE (first appears here)\n" });
+    w("005-navigator-review", { "app/page.py": "# THE PAGE (present at review)\n" });
+
+    // Dispatched sequence red(1) -> green(2) -> review(3): the assess+repair
+    // detours are skipped, so turn 3 maps to 005-navigator-review, landing the
+    // cumulative tree WITH the page (added during the skipped repair). And there
+    // are exactly 3 dispatchable turns: turn 4 is a miss (no refactor recorded).
+    replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, sftddDir: tdd, featureId: F, story: "S3-detour", turnIndex: 1 });
+    replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, sftddDir: tdd, featureId: F, story: "S3-detour", turnIndex: 2 });
+    expect(replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, sftddDir: tdd, featureId: F, story: "S3-detour", turnIndex: 3 })).toBe(true);
+    expect(existsSync(join(proj, "app", "page.py"))).toBe(true);
+    // turn 3 must be the REVIEW, not the assess/repair snapshot (page present).
+    expect(readFileSync(join(proj, "app", "page.py"), "utf8")).toMatch(/present at review/);
+    // exactly 3 dispatchable turns after filtering reflect/assess/repair.
+    expect(replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, sftddDir: tdd, featureId: F, story: "S3-detour", turnIndex: 4 })).toBe(false);
+  });
+
   it("returns false for a story the corpus does not cover", () => {
     const ok = replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, sftddDir: tdd, featureId: F, story: "S2-uncovered", turnIndex: 1 });
     expect(ok).toBe(false);

@@ -26,7 +26,7 @@ import * as readline from "node:readline";
 
 import { replayDesignTurn, REPLAYABLE_DESIGN_ROLES, restoreReflectVerdict } from "./replay-artifacts.js";
 import { replayBuildTurn } from "./replay-build.js";
-import { recordBuildTurn } from "./record-build.js";
+import { recordBuildTurn, nextBuildTurnNumber } from "./record-build.js";
 import { recordTurn, seedRecorderBaseline } from "./turn-recorder.js";
 import { runDriver, driverBoundOptions, ProtocolViolationError, UnexpectedCallbackError, type DriveEffects, type DriverBound, type RunDriverResult, type RunDriverOptions } from "./orchestrator-run.js";
 import { writeEscalation } from "./escalation.js";
@@ -780,14 +780,17 @@ function makeConfirmContinue(): (action: WorkflowAction) => Promise<void> {
 function withBuildRecording(inner: DriveEffects, cfg: DriveEffectsConfig): DriveEffects {
   const recordBuildDir = sftddEnv("RECORD_BUILD_DIR")?.trim();
   if (!recordBuildDir) return inner;
-  let turn = 0;
   return {
     readState: () => inner.readState(),
     onAction: inner.onAction ? (a, i) => inner.onAction!(a, i) : undefined,
     async perform(action) {
       await inner.perform(action);
       if (action.kind === "invoke-role" && (action.role === "navigator" || action.role === "driver")) {
-        turn += 1;
+        // Seed the ordinal PER-STORY from disk (not a per-process counter): a
+        // resumed drive continues the story's sequence instead of restarting at 1
+        // and writing a stray 001-… dir that sorts before the earlier turns and
+        // corrupts replay order.
+        const turn = nextBuildTurnNumber(recordBuildDir, cfg.featureId, action.story);
         const dir = recordBuildTurn({
           recordBuildDir,
           projectDir: cfg.projectDir,
