@@ -8,6 +8,7 @@
 
 import { createProject, CreateProjectArgs } from "./create-project.js";
 import { ALL_AGENT_ROLES, type SpawnableAgentRole } from "../sftdd/agent-models.js";
+import { runCreateDoctorGate, formatGateBlockers } from "./create-doctor-gate.js";
 
 interface ParsedArgs {
   jsonInput?: string;
@@ -26,6 +27,7 @@ interface ParsedArgs {
   clientFramework?: "react" | "none";
   skipCommands?: boolean;
   agentModels?: Partial<Record<SpawnableAgentRole, string>>;
+  skipDoctor?: boolean;
   help?: boolean;
 }
 
@@ -101,6 +103,9 @@ function parseArgs(argv: string[]): ParsedArgs {
       case "--skip-commands":
         out.skipCommands = true;
         break;
+      case "--skip-doctor":
+        out.skipDoctor = true;
+        break;
       case "--agent-model": {
         // --agent-model <role>=<model>, repeatable. The HIL's per-project
         // override of a role's recommended model.
@@ -168,6 +173,10 @@ Flags:
                       for a --ui-track project, none otherwise.
   --skip-commands     Skip scaffolding .claude/commands/{design,build}.md
                       (default: commands are written)
+  --skip-doctor       Skip the environment preflight (lakebase-doctor) that
+                      otherwise gates creation. Not recommended: a missing
+                      prerequisite or a workspace without Lakebase then fails
+                      partway through provisioning instead of up front.
   --agent-model       <role>=<model>, repeatable. Override a TDD role agent's
                       recommended model for this project (asked at setup; the
                       HIL's call). Roles: spec-author, architect-reviewer,
@@ -216,6 +225,23 @@ async function main(): Promise<number> {
       skipCommands: args.skipCommands,
       agentModels: args.agentModels,
     };
+  }
+
+  // Front-door doctor gate: verify the environment BEFORE any irreversible
+  // provisioning (a repo + a Lakebase database). A hard prerequisite failure
+  // (missing tool, or a workspace without Lakebase) stops us here with an
+  // actionable message instead of failing mid-provision. --skip-doctor bypasses.
+  if (!args.skipDoctor) {
+    process.stderr.write("[doctor] verifying environment before provisioning...\n");
+    const gate = await runCreateDoctorGate({
+      parentDir: input.parentDir,
+      databricksHost: input.databricksHost,
+    });
+    if (!gate.ok) {
+      process.stderr.write("\n" + formatGateBlockers(gate.blockers) + "\n");
+      return 2;
+    }
+    process.stderr.write("[doctor] environment ok\n");
   }
 
   const result = await createProject(input, (step, detail) => {

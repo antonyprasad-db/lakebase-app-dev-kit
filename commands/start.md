@@ -59,6 +59,14 @@ npx --yes --package="$KIT_PKG" lakebase-create-project \
   [--agent-model <role>=<model> ...]
 ```
 
+**Environment gate.** Before provisioning anything, `lakebase-create-project`
+runs the environment doctor (tool prerequisites + that the target workspace has
+Lakebase enabled) and refuses to start if a hard check fails, printing what to
+fix. If it stops here, relay the doctor's findings to the human and have them fix
+the environment, then re-run; do not pass `--skip-doctor` to force past a real
+failure (it only exists for the rare case the human has already verified the
+environment another way).
+
 On success, tell the user to enter the new project and resume:
 
 ```

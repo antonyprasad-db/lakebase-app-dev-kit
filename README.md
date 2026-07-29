@@ -52,6 +52,14 @@ Routing between phases is a program, not a model's choice, so the loop cannot dr
 
 ## Get started
 
+**Step 0: check your environment.** Consort runs against a real Lakebase database (no mock mode), so a few tools and an enabled workspace have to be in place first. Run the doctor and fix anything it flags red before continuing:
+
+```bash
+npx --yes --package="github:databricks-solutions/lakebase-scm-utils#v0.1.0-beta.10" lakebase-doctor
+```
+
+It verifies the Databricks CLI (and that the workspace has **Lakebase enabled**), plus Node 20+, Python 3.10+, JDK 17+, `gh`, and npm, each with a fix hint. `/consort:start` and `lakebase-create-project` run this same check as a gate and refuse to provision until it passes, so this is just the early heads-up.
+
 Install the Claude Code plugin:
 
 ```bash
@@ -74,6 +82,8 @@ Then, in any session, run:
 - at the **deploy** and **promote** gates, you approve the release and the migration to the parent tier.
 
 Nothing advances past a gate without you.
+
+**Walk through a full first project.** [`examples/first-project/`](examples/first-project/) is a step-by-step walkthrough of one session, install to first shipped feature, using a sample warehouse app (StockFlow). It ships copy-ready seed files so you can launch your own project from ours instead of starting from a blank page.
 
 ### Other ways to install
 
