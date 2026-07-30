@@ -179,10 +179,11 @@ Flags:
                       partway through provisioning instead of up front.
   --agent-model       <role>=<model>, repeatable. Override a TDD role agent's
                       recommended model for this project (asked at setup; the
-                      HIL's call). Roles: spec-author, architect-reviewer,
+                      HIL's call). Roles: spec-author, architect-reviewer, dba,
                       test-strategist, ux-designer, navigator, driver,
-                      product-owner, release-engineer. Omitted roles use their
-                      recommended model. Persisted to .lakebase/agent-config.json.
+                      product-owner. (release-engineer is deterministic, not a
+                      tunable agent.) Omitted roles use their recommended model.
+                      Persisted to .lakebase/agent-config.json.
   --json-input        Pass all args as a single JSON object (BDD harness)
 
 Output: JSON on stdout (CreateProjectResult). Progress to stderr.

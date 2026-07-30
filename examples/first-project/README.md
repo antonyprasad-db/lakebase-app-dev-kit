@@ -103,14 +103,19 @@ when unsure):
 
 | Prompt | For StockFlow, answer |
 |---|---|
-| Project name (kebab-case) | `stockflow` |
+| Project name (kebab-case) | `stockflow` (its target directory must not already exist when you use `--no-github`) |
 | Parent directory | default (`~/code` or the parent of your cwd) |
 | Databricks host | your Lakebase-enabled workspace |
-| GitHub owner | your org or username (or `--no-github`) |
+| GitHub owner | your org or username (needed for tiers 2/3, see below) |
 | Tiers | `2` (prod + staging) |
 | Language | `python` |
 | E2E / Infra | default (on) |
 | Model profile | **Full** (recommended) |
+
+Two constraints worth knowing before you answer:
+
+- **Tiers 2 and 3 need a GitHub repo.** Cutting a long-running tier (staging, dev) pushes its git side to `origin`, so it needs a remote. If you pass `--no-github`, only tier 1 (prod) is created and the extra tiers are skipped with a warning. Pair `--no-github` with `--tiers 1`; use a GitHub owner (as above) for the `2` this walkthrough uses.
+- **On the `--no-github` path, the target directory must not already exist.** The creator makes the project directory itself and refuses a pre-existing one (even if empty). Let it create `stockflow/`; do not pre-make it.
 
 It then prints the exact `lakebase-create-project` command it is about to run.
 **Create first runs the environment doctor as a gate**, if a hard prerequisite

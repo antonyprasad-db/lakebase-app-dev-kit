@@ -35,7 +35,7 @@ The commands (`/sprint`, `/plan`, `/design`, `/build`, `/deploy`, `/spike`) are 
 
 There is no `.sftdd/` here, so bootstrap one. Walk the user through it (ask, do not assume; offer the noted defaults):
 
-- **Project name** (kebab-case, the Lakebase id + dir name); **parent directory** (default: parent of cwd or `~/code`); **Databricks host** (offer `DATABRICKS_HOST` / `~/.databrickscfg` if present); **GitHub owner** (or `--no-github`); **tiers** (`1` prod / `2` prod+staging / `3` prod+staging+dev, surface this, do not pick silently); **language** (`python`/`nodejs`/`java`/`kotlin`); **E2E/Infra** (default on for nodejs); **model profile** (see "Per-role model profile" just below).
+- **Project name** (kebab-case, the Lakebase id + dir name; its target directory must NOT already exist on the `--no-github` path, the creator refuses a pre-existing directory there); **parent directory** (default: parent of cwd or `~/code`); **Databricks host** (offer `DATABRICKS_HOST` / `~/.databrickscfg` if present); **GitHub owner** (or `--no-github`); **tiers** (`1` prod / `2` prod+staging / `3` prod+staging+dev, surface this, do not pick silently; **tiers `2`/`3` require a GitHub repo**, cutting a long-running tier pushes its git side to origin, so with `--no-github` only tier `1` is created and the extra tiers are skipped with a warning, pair `--no-github` with `--tiers 1`); **language** (`python`/`nodejs`/`java`/`kotlin`); **E2E/Infra** (default on for nodejs); **model profile** (see "Per-role model profile" just below).
 
 ### Per-role model profile
 
