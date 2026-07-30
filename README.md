@@ -42,11 +42,11 @@ Each agent owns one concern and communicates only through the artifacts it produ
 
 ## How it works
 
-Consort runs as a loop of small increments, `/plan -> /design -> /build -> /deploy`, and a human decides every gate:
+Consort runs as a loop of small increments, `/plan -> /design -> /build -> /deploy`, and you decide every gate:
 
 - **Design (spec-first).** Intent becomes a specification and the list of tests that will demonstrate it, then freezes at a hashed gate so the target cannot move mid-build. The Spec Author, Architect Reviewer, DBA, and Test Strategist each add their part (plus the UX Designer for user-facing work).
 - **Build (test-driven).** The Navigator writes a failing test; the Driver makes it pass with the least code that honestly passes, then refactors, each cycle against a copy-on-write branch of real data. A failed verify routes to a bounded repair that never touches the tests.
-- **Deploy + promote (deterministic).** The orchestrator, not an agent, deploys and verifies the increment and drives the PR, CI, merge, and parent-tier migration. The human approves the deploy and promote gates.
+- **Deploy + promote (deterministic).** The orchestrator, not an agent, deploys and verifies the increment and drives the PR, CI, merge, and parent-tier migration. You approve the deploy and promote gates.
 
 Routing between phases is a program, not a model's choice, so the loop cannot drift, be argued out of a step, or be lost across a context reset.
 
