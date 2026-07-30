@@ -50,7 +50,7 @@ Consort runs as a loop of small increments, `/plan -> /design -> /build -> /depl
 
 Routing between phases is a program, not a model's choice, so the loop cannot drift, be argued out of a step, or be lost across a context reset.
 
-## Get started
+## Getting started
 
 **Step 0: set up your environment.** Consort runs against a real Lakebase database (no mock mode), so a few tools and a Lakebase-enabled workspace have to be in place first. One command detects what's missing, offers to install it, and then runs the environment doctor:
 
@@ -120,7 +120,7 @@ npm install   # the prepare script builds dist/
 
 ### Prerequisites
 
-The bootstrap in [step 0](#get-started) checks and installs these for you; they are listed here for reference and surface only when the doctor reports one missing.
+The bootstrap in [step 0](#getting-started) checks and installs these for you; they are listed here for reference and surface only when the doctor reports one missing.
 
 <details>
 <summary>Tool prerequisites</summary>
