@@ -10,4 +10,4 @@ Concretely for this feature:
 - The migration is reversible: the down path reconstructs a combined `inventory_code` from the canonical `location` plus the split-out batch and serial.
 - After the change, a stock record exposes batch and serial as distinct, separately addressable fields wherever the combined code was shown before (R3, single unambiguous identity per stock position).
 
-Builds on F1-stock-visibility (the stock table and `inventory_code` it introduced). The proof of correctness is the parent-aware schema diff plus the integrity-probe warning count, run against the paired Lakebase branch (R1, R4). A worked reference for the migration shape lives at `.tdd/release/migration-examples/split_inventory_code.sql`.
+Builds on F1-stock-visibility (the stock table and `inventory_code` it introduced). The proof of correctness is the parent-aware schema diff plus the integrity-probe warning count, run against the paired Lakebase branch (R1, R4). A worked reference for the migration shape lives at `.sftdd/release/migration-examples/split_inventory_code.sql`.
