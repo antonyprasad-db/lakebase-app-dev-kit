@@ -6,6 +6,6 @@
 
 **NFRs:** R2 (writes still respect the no-overcommit / never-negative rules).
 
-**Size:** M. **Priority:** P2. **Target sprint:** sprint-3. **Status:** planned.
+**Size:** M. **Priority:** P2. **Suggested sprint:** sprint-3.
 
 **E2E story:** Yes.

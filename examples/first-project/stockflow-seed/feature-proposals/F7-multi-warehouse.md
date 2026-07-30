@@ -6,6 +6,6 @@
 
 **NFRs:** R3 (unique addressing, now warehouse-scoped).
 
-**Size:** L. **Priority:** P2. **Target sprint:** sprint-3. **Status:** planned.
+**Size:** L. **Priority:** P2. **Suggested sprint:** sprint-3.
 
 **E2E story:** Yes.

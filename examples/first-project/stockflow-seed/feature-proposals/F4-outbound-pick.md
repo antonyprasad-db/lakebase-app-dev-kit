@@ -6,6 +6,6 @@
 
 **NFRs:** R2 (no overcommit, no negative), R1 (audit).
 
-**Size:** M. **Priority:** P0. **Target sprint:** sprint-2 (carried over from sprint-1). **Status:** carried-over.
+**Size:** M. **Priority:** P0. **Suggested sprint:** sprint-2.
 
 **E2E story:** Yes.

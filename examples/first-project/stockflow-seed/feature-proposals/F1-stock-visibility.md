@@ -6,6 +6,6 @@
 
 **NFRs:** R3 (unique `(sku, location)`), R1 (data survives migrations).
 
-**Size:** M. **Priority:** P0. **Target sprint:** sprint-1. **Status:** committed.
+**Size:** M. **Priority:** P0. **Suggested sprint:** sprint-1.
 
 **E2E story:** Yes.

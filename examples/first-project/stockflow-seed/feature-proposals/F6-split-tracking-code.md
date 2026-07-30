@@ -6,8 +6,8 @@
 
 **NFRs:** R1 (no data loss), R3 (single unambiguous identity).
 
-**Size:** L. **Priority:** P1. **Target sprint:** sprint-2 (leads: the schema baseline the rest of the sprint forks from). **Status:** planned.
+**Size:** L. **Priority:** P1. **Suggested sprint:** sprint-2 (leads: the schema baseline the rest of the sprint forks from).
 
-**Example migration:** `.tdd/release/migration-examples/split_inventory_code.sql`.
+**Example migration:** `.sftdd/release/migration-examples/split_inventory_code.sql`.
 
 **E2E story:** Yes.

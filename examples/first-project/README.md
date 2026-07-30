@@ -260,20 +260,20 @@ so you can see how one becomes the other:
 Here every proposal has a matching request so the set is complete. A real project
 is not like that at any one moment: the PO authors a request *only* for the
 features a sprint commits, and folds what each shipped increment reveals into the
-next `/plan`. The status column shows how StockFlow's own backlog actually broke
-down:
+next `/plan`. The suggested sprint is the Spec Author's proposal, not a
+commitment; the PO decides what each sprint actually takes:
 
-| Feature | The ask | Sprint | Status |
-|---|---|---|---|
-| `F1-stock-visibility` | record + view stock by SKU and location | 1 | committed (built) |
-| `F2-stock-adjustment` | adjust a stock level, audited, never negative | 2 | carried over |
-| `F3-inbound-receipt` | record an inbound receipt from a supplier | 2 | carried over |
-| `F4-outbound-pick` | pick for an order without overcommitting | 2 | carried over |
-| `F5-cycle-count` | count a shelf and reconcile against the system | 2 | planned |
-| `F6-split-tracking-code` | split the combined tracking code into batch + serial columns | 2 | planned (the schema-refactor demo) |
-| `F7-multi-warehouse` | operate across multiple warehouses | 3 | planned |
-| `F8-barcode-scan` | barcode-driven receive, pick, adjust | 3 | planned |
-| `F9-stock-search` | search stock by SKU and location | 2 | planned |
+| Feature | The ask | Suggested sprint |
+|---|---|---|
+| `F1-stock-visibility` | record + view stock by SKU and location | 1 |
+| `F2-stock-adjustment` | adjust a stock level, audited, never negative | 2 |
+| `F3-inbound-receipt` | record an inbound receipt from a supplier | 2 |
+| `F4-outbound-pick` | pick for an order without overcommitting | 2 |
+| `F5-cycle-count` | count a shelf and reconcile against the system | 2 |
+| `F6-split-tracking-code` | split the combined tracking code into batch + serial columns (the schema-refactor demo) | 2 |
+| `F7-multi-warehouse` | operate across multiple warehouses | 3 |
+| `F8-barcode-scan` | barcode-driven receive, pick, adjust | 3 |
+| `F9-stock-search` | search stock by SKU and location | 2 |
 
 `F1` alone is a good first sprint. F2 through F5 (plus F9 search) complete the V1
 "see, adjust, move, reconcile, and find" loop; F6 is the reversible

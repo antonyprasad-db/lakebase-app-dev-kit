@@ -6,6 +6,6 @@
 
 **NFRs:** none specific (read-only over the existing model).
 
-**Size:** S. **Priority:** P1. **Target sprint:** sprint-2. **Status:** planned.
+**Size:** S. **Priority:** P1. **Suggested sprint:** sprint-2.
 
 **E2E story:** Yes.

@@ -6,6 +6,6 @@
 
 **NFRs:** R1 (immutable audit), R2 (never below zero).
 
-**Size:** S. **Priority:** P0. **Target sprint:** sprint-2 (carried over from sprint-1). **Status:** carried-over.
+**Size:** S. **Priority:** P0. **Suggested sprint:** sprint-2.
 
 **E2E story:** Yes.
