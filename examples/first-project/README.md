@@ -132,11 +132,11 @@ Everything Consort does flows from what you tell it the product is. That intent
 lives in **three project-level artifacts**, and they are the only things you
 write by hand before the workflow takes over:
 
-1. **`product-overview.md`** , who the product is for, what they need, and what
+1. **`product-overview.md`** – who the product is for, what they need, and what
    V1 is. This is the primary seed the Spec Author reads.
-2. **`nfrs.md`** , the non-functional requirements (data survives migrations, no
+2. **`nfrs.md`** – the non-functional requirements (data survives migrations, no
    overcommit, tests hit a real branch, and so on).
-3. **`design-brief.md`** , the UX intent and design language. **Optional: only
+3. **`design-brief.md`** – the UX intent and design language. **Optional: only
    for projects with a UI.** A headless service or API skips this one; StockFlow
    has a UI, so it has one.
 
@@ -152,7 +152,7 @@ cp "$SEED/design-brief.md"     .sftdd/design/design-brief.md   # skip if no UI
 ```
 
 When you build your own app, these three files are what you edit. Everything
-downstream, the proposals, the specs, the schema, the tests, the code, derives
+downstream – the proposals, the specs, the schema, the tests, the code – derives
 from them.
 
 ## Step 4: plan the first sprint (proposals in, requests out)
@@ -249,11 +249,11 @@ next sprint should be.
 `/plan` produces two artifacts, from two different roles, and the seed ships both
 so you can see how one becomes the other:
 
-- **`feature-proposals/`** , what the **Spec Author** proposes. One short file per
+- **`feature-proposals/`** – what the **Spec Author** proposes. One short file per
   candidate feature: the one-line ask, the rationale tying it to the overview or
   an NFR, a t-shirt size, a priority, a target sprint, and a status. Proposals
   are the *input* to the Product Owner's call, not a commitment.
-- **`feature-requests/`** , what the **Product Owner** commits. One file per
+- **`feature-requests/`** – what the **Product Owner** commits. One file per
   feature the PO decides to build, the open-ended ask in the PO's own voice. This
   is what `/design` reads and never overwrites.
 
