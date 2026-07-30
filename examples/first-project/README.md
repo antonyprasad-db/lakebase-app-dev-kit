@@ -310,14 +310,15 @@ commitment; the PO decides what each sprint actually takes:
 | `F3-inbound-receipt` | record an inbound receipt from a supplier | 2 |
 | `F4-outbound-pick` | pick for an order without overcommitting | 2 |
 | `F5-cycle-count` | count a shelf and reconcile against the system | 2 |
-| `F6-split-tracking-code` | split the combined tracking code into batch + serial columns (the schema-refactor demo) | 2 |
+| `F6-split-tracking-code` | split the combined tracking code into batch + serial columns (refactor a schema while preserving data) | 2 |
 | `F7-multi-warehouse` | operate across multiple warehouses | 3 |
 | `F8-barcode-scan` | barcode-driven receive, pick, adjust | 3 |
 | `F9-stock-search` | search stock by SKU and location | 2 |
 
 `F1` alone is a good first sprint. F2 through F5 (plus F9 search) complete the V1
 "see, adjust, move, reconcile, and find" loop; F6 is the reversible
-schema-refactor the PO demos after sprint 1; F7 and F8 are the sprint-3 scale-out
+schema-refactor that demonstrates what happens when you need to refactor a
+database schema while preserving data; F7 and F8 are the sprint-3 scale-out
 work. (The ids are not contiguous by sprint; they are the order the Spec Author
 proposed them.)
 
