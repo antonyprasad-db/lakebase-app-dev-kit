@@ -224,6 +224,50 @@ function createProject(input, progress) {
   );
 }
 
+// scripts/lakebase/create-doctor-gate.ts
+var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var CREATE_GATE_BLOCKING_CHECKS = /* @__PURE__ */ new Set([
+  "databricks-cli",
+  "databricks-auth",
+  "workspace-identity",
+  "lakebase-enabled",
+  "node",
+  "npm",
+  "python",
+  "gh"
+]);
+function blockingChecksForLanguage(language) {
+  const set = new Set(CREATE_GATE_BLOCKING_CHECKS);
+  if (language === "java" || language === "kotlin") set.add("jdk");
+  return set;
+}
+async function runCreateDoctorGate(args) {
+  const doctor = args.doctor ?? ((a) => (0, import_lakebase2.runHealthDoctor)(a));
+  const report = await doctor({
+    projectDir: args.parentDir,
+    host: args.databricksHost,
+    profile: args.profile
+  });
+  const blocking = blockingChecksForLanguage(args.language);
+  const blockers = report.checks.filter(
+    (c) => c.status === "fail" && blocking.has(c.name)
+  );
+  return { ok: blockers.length === 0, report, blockers };
+}
+function formatGateBlockers(blockers) {
+  const lines = [
+    "Environment preflight failed. Fix these before creating a project:",
+    ""
+  ];
+  for (const b of blockers) {
+    lines.push(`  \u2717 ${b.name}: ${b.message}`);
+    if (b.hint) lines.push(`      \u2192 ${b.hint}`);
+  }
+  lines.push("");
+  lines.push("Re-run `lakebase-doctor` to recheck, or pass --skip-doctor to bypass (not recommended).");
+  return lines.join("\n");
+}
+
 // scripts/lakebase/create-project.cli.ts
 function parseArgs(argv) {
   const out = {};
@@ -298,6 +342,9 @@ function parseArgs(argv) {
       case "--skip-commands":
         out.skipCommands = true;
         break;
+      case "--skip-doctor":
+        out.skipDoctor = true;
+        break;
       case "--agent-model": {
         const pair = argv[++i] ?? "";
         const eq = pair.indexOf("=");
@@ -363,6 +410,10 @@ Flags:
                       for a --ui-track project, none otherwise.
   --skip-commands     Skip scaffolding .claude/commands/{design,build}.md
                       (default: commands are written)
+  --skip-doctor       Skip the environment preflight (lakebase-doctor) that
+                      otherwise gates creation. Not recommended: a missing
+                      prerequisite or a workspace without Lakebase then fails
+                      partway through provisioning instead of up front.
   --agent-model       <role>=<model>, repeatable. Override a TDD role agent's
                       recommended model for this project (asked at setup; the
                       HIL's call). Roles: spec-author, architect-reviewer,
@@ -410,6 +461,19 @@ async function main() {
       skipCommands: args.skipCommands,
       agentModels: args.agentModels
     };
+  }
+  if (!args.skipDoctor) {
+    process.stderr.write("[doctor] verifying environment before provisioning...\n");
+    const gate = await runCreateDoctorGate({
+      parentDir: input.parentDir,
+      databricksHost: input.databricksHost,
+      language: input.language
+    });
+    if (!gate.ok) {
+      process.stderr.write("\n" + formatGateBlockers(gate.blockers) + "\n");
+      return 2;
+    }
+    process.stderr.write("[doctor] environment ok\n");
   }
   const result = await createProject(input, (step, detail) => {
     process.stderr.write(`[${step}]${detail ? ` ${detail}` : ""}

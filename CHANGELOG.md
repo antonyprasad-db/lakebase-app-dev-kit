@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-07-30
+
 ### Added
 
 - **Environment doctor gate on project creation.** `lakebase-create-project`
