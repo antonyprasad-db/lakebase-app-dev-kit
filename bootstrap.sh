@@ -1,13 +1,20 @@
 #!/usr/bin/env bash
 #
-# consort - one-line bootstrap.
+# consort - one-line bootstrap: get the tools in place, then point you at /consort:start.
 #
-# Consort runs against a real Lakebase database (no mock mode), so a handful of
-# tools plus a Lakebase-enabled workspace must be in place before the first run.
-# This script does the "assemble five tools by hand" work for you: it detects
-# each required tool, offers to install or upgrade the ones that are missing or
-# too old, then runs the environment doctor so the one hard requirement (a
-# Lakebase workspace) is the single thing you have to arrange yourself.
+# Consort runs against a real Lakebase database (no mock mode). This script does
+# the "assemble the tools by hand" work for you: it detects each required tool
+# (Node, npm, Python, JDK, gh, the Databricks CLI), offers to install or upgrade
+# what is missing, and checks that gh and the Databricks CLI are authenticated.
+#
+# It deliberately does NOT probe whether your workspace has Lakebase enabled.
+# That check needs a specific workspace target, and there is no target until you
+# create a project. /consort:start (and lakebase-create-project) run the full
+# environment doctor, INCLUDING the Lakebase-enabled probe, against your chosen
+# workspace before provisioning anything. So a green result here means "tools
+# ready"; the workspace check happens at create time, when there is something to
+# check against. Running that probe now, in an empty folder, would only report
+# "no workspace target yet", which is expected, not a problem to fix.
 #
 # Usage:
 #   bash <(curl -sL https://raw.githubusercontent.com/databricks-solutions/consort/main/bootstrap.sh)
@@ -18,13 +25,10 @@
 #   # Only report what is missing; install nothing.
 #   bash <(curl -sL .../bootstrap.sh) --check-only
 #
-# Exit codes: 0 = environment ready (doctor passed); 1 = a hard prerequisite is
-# still missing after the run (doctor reported a blocker).
+# Exit codes: 0 = all required tools present (any remaining auth step is printed
+# as a reminder, not a failure); 1 = a required tool is still missing.
 
 set -euo pipefail
-
-KIT_REF="${LAKEBASE_KIT_REF:-v0.1.0-beta.10}"
-SCM_UTILS_PKG="github:databricks-solutions/lakebase-scm-utils#${KIT_REF}"
 
 ASSUME_YES=false
 CHECK_ONLY=false
@@ -33,7 +37,7 @@ while [ $# -gt 0 ]; do
     --yes|-y) ASSUME_YES=true; shift ;;
     --check-only) CHECK_ONLY=true; shift ;;
     -h|--help)
-      sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *) echo "Unknown option: $1" >&2; exit 2 ;;
@@ -84,6 +88,7 @@ echo -e "${BLUE}consort bootstrap: checking prerequisites${NC}"
 echo
 
 MISSING=0
+AUTH_REMINDERS=()
 
 # node + npm (npm ships with node)
 if have node; then
@@ -121,54 +126,58 @@ else
   offer_brew_install "JDK 17" "openjdk@17" "https://adoptium.net" || MISSING=$((MISSING+1))
 fi
 
-# gh (present + authenticated)
+# gh: presence is the tool requirement; authentication is a reminder, not a
+# blocker (the tool is installed; `gh auth login` is a one-liner run later).
 if have gh; then
   if gh auth status >/dev/null 2>&1; then
     echo -e "  ${GREEN}✓${NC} GitHub CLI (authenticated)"
   else
-    echo -e "  ${YELLOW}!${NC} GitHub CLI present but not authenticated - run: gh auth login"
-    MISSING=$((MISSING+1))
+    echo -e "  ${GREEN}✓${NC} GitHub CLI (installed; not yet authenticated)"
+    AUTH_REMINDERS+=("gh auth login   # authenticate the GitHub CLI")
   fi
 else
   echo -e "  ${RED}✗${NC} GitHub CLI not found"
   offer_brew_install "GitHub CLI" "gh" "https://cli.github.com" || MISSING=$((MISSING+1))
 fi
 
-# databricks CLI (the doctor version-gates it; we only ensure it exists here)
+# databricks CLI: presence is the tool requirement. Whether it is authenticated
+# to a Lakebase-enabled workspace is verified by the doctor at /consort:start
+# (which has a workspace target); here we only nudge if no auth exists at all.
 if have databricks; then
   echo -e "  ${GREEN}✓${NC} Databricks CLI $(databricks --version 2>/dev/null | tail -1)"
+  if ! databricks auth describe >/dev/null 2>&1; then
+    AUTH_REMINDERS+=("databricks auth login --host <your-lakebase-workspace>   # authenticate the Databricks CLI")
+  fi
 else
   echo -e "  ${RED}✗${NC} Databricks CLI not found"
   offer_brew_install "Databricks CLI" "databricks/tap/databricks" "https://docs.databricks.com/dev-tools/cli/install.html" || MISSING=$((MISSING+1))
 fi
 
 echo
-if [ "$CHECK_ONLY" = true ]; then
-  if [ "$MISSING" -gt 0 ]; then
-    echo -e "${YELLOW}$MISSING prerequisite(s) missing (check-only; nothing installed).${NC}"
-    exit 1
-  fi
-  echo -e "${GREEN}All tool prerequisites present.${NC}"
-  exit 0
+if [ "$MISSING" -gt 0 ]; then
+  echo -e "${YELLOW}$MISSING required tool(s) still missing. Install them (see above), then re-run.${NC}"
+  exit 1
 fi
 
-# Hand off to the environment doctor, which version-gates every tool AND probes
-# that the target workspace has Lakebase enabled (the one requirement this
-# script cannot install for you).
-echo -e "${BLUE}Running the environment doctor (npx lakebase-doctor)...${NC}"
-if ! have npx; then
-  echo -e "${RED}npx not available (install Node.js 20+ first), cannot run the doctor.${NC}"
-  exit 1
-fi
-if npx --yes --package="$SCM_UTILS_PKG" lakebase-doctor; then
+echo -e "${GREEN}All required tools are present.${NC}"
+
+# Auth reminders are NOT failures: the tools are installed, and these one-liners
+# are quick to run whenever you are ready.
+if [ "${#AUTH_REMINDERS[@]}" -gt 0 ]; then
   echo
-  echo -e "${GREEN}Environment ready.${NC} Next: install the Claude Code plugin:"
-  echo "  claude plugin marketplace add databricks-solutions/consort"
-  echo "  claude plugin install consort@databricks-solutions"
-  echo "Then run /consort:start in a fresh folder."
-  exit 0
-else
-  echo
-  echo -e "${YELLOW}The doctor reported blockers above. Fix them (a common one: the workspace does not have Lakebase enabled), then re-run.${NC}"
-  exit 1
+  echo -e "${YELLOW}Before your first project, authenticate:${NC}"
+  for r in "${AUTH_REMINDERS[@]}"; do echo "  $r"; done
 fi
+
+echo
+echo -e "${BLUE}Next:${NC}"
+echo "  claude plugin marketplace add databricks-solutions/consort"
+echo "  claude plugin install consort@databricks-solutions"
+echo "  # then, in the folder for your project:"
+echo "  /consort:start"
+echo
+echo "/consort:start runs the full environment doctor against your chosen"
+echo "workspace, INCLUDING the check that it has Lakebase enabled, before it"
+echo "provisions anything. That workspace check belongs there, not here: it needs"
+echo "a target, and there is no target until you pick a workspace at create time."
+exit 0
