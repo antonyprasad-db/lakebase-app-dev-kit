@@ -345,7 +345,8 @@ first-project/
 The three intake docs are byte-identical to the kit's canonical scenario at
 [`examples/sftdd-scenarios/stockflow/intake/`](../sftdd-scenarios/stockflow/intake),
 so copying them reproduces the same StockFlow product the reference corpus was
-recorded against. The proposals and requests are the StockFlow reference
+recorded against, so that consort itself can be tested and guarded against
+regressions. The proposals and requests are the StockFlow reference
 backlog: F1–F4 and F6 are the feature-requests exactly as they were authored in
 the reference project; F5 and F7–F9 were proposed but not yet authored there, so
 their requests are written here in the same PO voice to complete the set.
