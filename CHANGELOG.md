@@ -6,6 +6,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-07-30
+
+### Changed
+
+- **Repin `@databricks-solutions/lakebase-scm-utils` to `v0.1.0-beta.11`.** It
+  fixes two first-run create findings at the source: `lakebase-create-project`
+  now accepts a pre-existing EMPTY target directory on the `--no-github` path
+  (only a non-empty dir is refused), and `--no-github` with `--tiers 2`/`3` is
+  rejected up front (before any provisioning) instead of provisioning tier 1 and
+  skipping the extra tiers with a post-hoc warning.
+- **`/consort:start` interview + first-project walkthrough reconciled to that
+  behavior.** The project-name guidance now says an empty (or absent) directory
+  is fine on `--no-github` and a non-empty one is refused; the tiers guidance
+  says `--no-github` + `--tiers 2`/`3` is refused up front (pair `--no-github`
+  with `--tiers 1`).
+
+### Fixed
+
+- **`--agent-model` help role list corrected.** It listed `release-engineer`
+  (which is deterministic, not a tunable agent) and omitted `dba`. The accepted
+  roles are `spec-author, architect-reviewer, dba, test-strategist, ux-designer,
+  navigator, driver, product-owner`.
+
 ## [0.3.2] - 2026-07-30
 
 ### Added

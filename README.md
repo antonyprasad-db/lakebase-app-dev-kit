@@ -58,7 +58,7 @@ Routing between phases is a program, not a model's choice, so the loop cannot dr
 bash <(curl -sL https://raw.githubusercontent.com/databricks-solutions/consort/main/bootstrap.sh)
 ```
 
-The doctor verifies the Databricks CLI (and that the workspace has **Lakebase enabled**), plus Node 20+, Python 3.10+, JDK 17+, `gh`, and npm, each with a fix hint. `/consort:start` and `lakebase-create-project` run the same doctor as a gate and refuse to provision until it passes, so if you skip this step the check still happens before anything is created. (Prefer to run just the check yourself? `npx --yes --package="github:databricks-solutions/lakebase-scm-utils#v0.1.0-beta.10" lakebase-doctor`.)
+The doctor verifies the Databricks CLI (and that the workspace has **Lakebase enabled**), plus Node 20+, Python 3.10+, JDK 17+, `gh`, and npm, each with a fix hint. `/consort:start` and `lakebase-create-project` run the same doctor as a gate and refuse to provision until it passes, so if you skip this step the check still happens before anything is created. (Prefer to run just the check yourself? `npx --yes --package="github:databricks-solutions/lakebase-scm-utils#v0.1.0-beta.11" lakebase-doctor`.)
 
 Install the Claude Code plugin:
 
