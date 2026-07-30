@@ -257,6 +257,46 @@ so you can see how one becomes the other:
   feature the PO decides to build, the open-ended ask in the PO's own voice. This
   is what `/design` reads and never overwrites.
 
+### Feature-requests: what, when, and how you write them
+
+**What a feature-request is for.** It is the durable, authoritative statement of
+*what you want built and why*, in your own words. It is the one artifact you
+author by hand in the build loop (the intake docs seed the whole project; a
+feature-request scopes one increment). Everything the design lane produces for a
+feature, the spec, the acceptance criteria, the architecture, the schema plan,
+the test list, traces back to its request, and `/design` treats the request as
+read-only: it reads your intent and never edits it.
+
+**When you submit one.** At the `/plan` gate, and only for the features you are
+committing to the upcoming sprint. The flow is: the Spec Author proposes
+candidates (`feature-proposals/`); you review them; for each one you decide to
+build, you write a `feature-request.md` into
+`.sftdd/features/<feature-id>/feature-request.md`; then you approve the plan
+gate. You do not write requests for the whole roadmap up front, only for the
+sprint in front of you. After the increment ships, `/plan` runs again and you
+author the next sprint's requests, folding in what the working software taught
+you.
+
+**How you write one.** A feature-request is deliberately unstructured: a single
+H1 title and a plain-English body in your voice. There is no rigid schema, but a
+good one tends to:
+
+1. **Open with the need and the why**, one or two sentences on what the team
+   needs and what it unblocks (not how to build it).
+2. **List the concrete behavior** as bullets: what the user can do, the rules
+   that must hold (validation, invariants, what is rejected), and the visible
+   states (empty, success, error). Name the NFRs it must honor.
+3. **State the scope boundary**, what is explicitly in this increment and what is
+   deferred, so the design lane does not over-build.
+4. **Note what it builds on**, the features or records it depends on.
+
+Write behavior and constraints, not implementation: say "a pick that would
+overcommit is rejected at write time," not "add a CHECK constraint." The
+architecture and schema are the Architect's and DBA's to decide from your intent.
+The files in `feature-requests/` here are worked examples of this shape;
+`F1-stock-visibility.md` is the simplest to model yours on, and
+`F6-split-tracking-code.md` shows a request for a schema refactor.
+
 Here every proposal has a matching request so the set is complete. A real project
 is not like that at any one moment: the PO authors a request *only* for the
 features a sprint commits, and folds what each shipped increment reveals into the
