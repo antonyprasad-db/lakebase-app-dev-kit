@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-cd "/Users/kevin.hartman/code/databricks-solutions/lakebase-app-dev-kit"
+cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "=== Validating: create_synthesis_module (CREATE scripts/sftdd/synthesis.ts) ==="
 

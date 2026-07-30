@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-cd "/Users/kevin.hartman/code/databricks-solutions/lakebase-app-dev-kit"
+cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "=== Validating: test_references_resolve (TEST tests/bdd/software-design-principles-references.test.ts) ==="
 

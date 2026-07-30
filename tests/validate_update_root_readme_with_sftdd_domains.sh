@@ -1,11 +1,11 @@
 #!/bin/bash
 set -euo pipefail
-cd "/Users/kevin.hartman/code/databricks-solutions/lakebase-app-dev-kit"
+cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "=== Validating: update_root_readme_with_tdd_domains (MODIFY README.md) ==="
 
 echo "CHECK 1: Running validation command..."
-if grep -q 'skills/consort/SKILL.md' README.md && grep -q 'skills/software-design-principles/SKILL.md' README.md; then
+if grep -q 'skills/consort/README.md' README.md && grep -q 'skills/software-design-principles/SKILL.md' README.md; then
   echo "  PASS: README.md links to both new skills"
 else
   echo "  FAIL: README.md links to both new skills"

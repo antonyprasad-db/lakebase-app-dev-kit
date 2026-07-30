@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-cd "/Users/kevin.hartman/code/databricks-solutions/lakebase-app-dev-kit"
+cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "=== Validating: create_workflow_state_schema (CREATE scripts/sftdd/schemas/workflow-state.schema.json) ==="
 

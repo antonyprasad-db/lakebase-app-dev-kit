@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-cd "/Users/kevin.hartman/code/databricks-solutions/lakebase-app-dev-kit"
+cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "=== Validating: create_promote_experiment (CREATE scripts/sftdd/promote-experiment.ts) ==="
 

@@ -1,19 +1,19 @@
 #!/bin/bash
 set -euo pipefail
-cd "/Users/kevin.hartman/code/databricks-solutions/lakebase-app-dev-kit"
+cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-echo "=== Validating: test_hard_rules_present (TEST tests/bdd/tdd-hard-rules.test.ts) ==="
+echo "=== Validating: test_hard_rules_present (TEST tests/bdd/sftdd-hard-rules.test.ts) ==="
 
 echo "CHECK 1: Test file exists..."
-if [ -f "tests/bdd/tdd-hard-rules.test.ts" ]; then
+if [ -f "tests/bdd/sftdd-hard-rules.test.ts" ]; then
   echo "  PASS: test file exists"
 else
-  echo "  FAIL: test file not found at tests/bdd/tdd-hard-rules.test.ts"
+  echo "  FAIL: test file not found at tests/bdd/sftdd-hard-rules.test.ts"
   exit 1
 fi
 
 echo "CHECK 2: Test passes..."
-if npx vitest run tests/bdd/tdd-hard-rules.test.ts; then
+if npx vitest run tests/bdd/sftdd-hard-rules.test.ts; then
   echo "  PASS: test exited 0"
 else
   echo "  FAIL: test exited non-zero"

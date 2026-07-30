@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-cd "/Users/kevin.hartman/code/databricks-solutions/lakebase-app-dev-kit"
+cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "=== Validating: create_nfrs_reference (CREATE skills/software-design-principles/references/nfrs.md) ==="
 

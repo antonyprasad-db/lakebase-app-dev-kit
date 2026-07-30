@@ -1,11 +1,11 @@
 #!/bin/bash
 set -euo pipefail
-cd "/Users/kevin.hartman/code/databricks-solutions/lakebase-app-dev-kit"
+cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-echo "=== Validating: create_tdd_bootstrap_template (CREATE templates/sftdd-bootstrap/.tdd/README.md) ==="
+echo "=== Validating: create_tdd_bootstrap_template (CREATE templates/sftdd-bootstrap/.sftdd/README.md) ==="
 
 echo "CHECK 1: Running validation command..."
-if test -f templates/sftdd-bootstrap/.tdd/README.md && test -f templates/sftdd-bootstrap/.tdd/spec.json; then
+if test -f templates/sftdd-bootstrap/.sftdd/README.md && test -f templates/sftdd-bootstrap/.sftdd/spec.json; then
   echo "  PASS: skeleton present"
 else
   echo "  FAIL: skeleton present"

@@ -1,14 +1,14 @@
 #!/bin/bash
 set -euo pipefail
-cd "/Users/kevin.hartman/code/databricks-solutions/lakebase-app-dev-kit"
+cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "=== Validating: update_root_claude_md (MODIFY CLAUDE.md) ==="
 
 echo "CHECK 1: Running validation command..."
-if grep -q '\.tdd/' CLAUDE.md; then
-  echo "  PASS: CLAUDE.md mentions .tdd/"
+if grep -q '\.sftdd/' CLAUDE.md; then
+  echo "  PASS: CLAUDE.md mentions .sftdd/"
 else
-  echo "  FAIL: CLAUDE.md mentions .tdd/"
+  echo "  FAIL: CLAUDE.md mentions .sftdd/"
   exit 1
 fi
 
