@@ -148,6 +148,27 @@ describe("response-formatter: spec-author + architect-reviewer contracts", () =>
     expect(r.violations.some((v) => /missing\/invalid `layer`/.test(v.problem))).toBe(true);
   });
 
+  // The self-check must enforce what the GATE enforces: every AC carries a
+  // non-empty `architectural_notes` (the architect's distinctive per-AC output;
+  // the spec-author's bare `layer` does NOT count). Without this, the architect
+  // wrote `layer` on every AC, saw the self-check pass, returned , then the
+  // design gate rejected the story for missing notes on some ACs (the live
+  // PROTOCOL VIOLATION halt). Pin the self-check to the gate.
+  it("architect-reviewer FLAGS an AC that has `layer` but NO architectural_notes", () => {
+    writeJson(join(acsDir(), "AC1-form.json"), { id: "AC1-form", layer: "E2E", given: "g", when: "w", then: "t", status: "draft", architectural_notes: "E2E: the client fetches from the boundary." });
+    writeJson(join(acsDir(), "AC2-list.json"), { id: "AC2-list", layer: "API", given: "g", when: "w", then: "t", status: "draft" }); // layer only, no notes
+    const r = formatRoleResponse({ role: "architect-reviewer", sftddDir: tdd, featureId: F, story: S });
+    expect(r.ok).toBe(false);
+    expect(r.violations.some((v) => /architectural_notes/.test(v.problem))).toBe(true);
+  });
+
+  it("architect-reviewer PASSES when every AC has both layer and architectural_notes", () => {
+    writeJson(join(acsDir(), "AC1-form.json"), { id: "AC1-form", layer: "E2E", given: "g", when: "w", then: "t", status: "draft", architectural_notes: "E2E: client fetches from the boundary." });
+    writeJson(join(acsDir(), "AC2-list.json"), { id: "AC2-list", layer: "API", given: "g", when: "w", then: "t", status: "draft", architectural_notes: "API: the repository lists rows; the service maps them." });
+    const r = formatRoleResponse({ role: "architect-reviewer", sftddDir: tdd, featureId: F, story: S });
+    expect(r.ok).toBe(true);
+  });
+
   it("spec-author FLAGS two ACs with an identical `then` (ac-independence backstop)", () => {
     // The AC2/AC3 overlap that stalled the 2026-06-11 smoke: a non-independent
     // AC whose `then` matches another's can never go RED. Normalization is

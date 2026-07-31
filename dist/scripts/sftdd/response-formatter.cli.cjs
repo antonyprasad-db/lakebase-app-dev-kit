@@ -6734,6 +6734,22 @@ function readAcLayer(tdd, f, acId) {
   }
   return void 0;
 }
+function readAcArchitecturalNotes(tdd, f, acId) {
+  const stories = storiesDir(tdd, f);
+  if (!fs.existsSync(stories)) return void 0;
+  for (const s of fs.readdirSync(stories)) {
+    const file = acJson(tdd, f, s, acId);
+    if (!fs.existsSync(file)) continue;
+    try {
+      const ac = JSON.parse(fs.readFileSync(file, "utf8"));
+      if (typeof ac.architectural_notes === "string" && ac.architectural_notes.trim().length > 0) {
+        return ac.architectural_notes;
+      }
+    } catch {
+    }
+  }
+  return void 0;
+}
 
 // scripts/sftdd/response-formatter.ts
 init_cjs_shims();
@@ -7131,6 +7147,12 @@ function checkArchitect(args, v) {
   for (const ac of ids) {
     if (readAcLayer(sftddDir, featureId, ac) === void 0) {
       v.push({ artifact: `stories/${story}/acs/${ac}.json`, problem: "missing/invalid `layer` (expected API | E2E | Infra)" });
+    }
+    if (readAcArchitecturalNotes(sftddDir, featureId, ac) === void 0) {
+      v.push({
+        artifact: `stories/${story}/acs/${ac}.json`,
+        problem: "missing non-empty `architectural_notes` (annotate EVERY AC with its layer rationale + how it realizes the design; the spec-author's `layer` field does NOT satisfy this)"
+      });
     }
   }
 }

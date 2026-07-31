@@ -16,7 +16,7 @@
 // every item maps to one of the story's ACs (the S2 live-stall bug).
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { storyAcIds, readAcLayer, storyTestListJson, acsDir, designGuideJson, architectureJson, dbDesignJson, featureSpecJson, storiesDir } from "./sftdd-paths.js";
+import { storyAcIds, readAcLayer, readAcArchitecturalNotes, storyTestListJson, acsDir, designGuideJson, architectureJson, dbDesignJson, featureSpecJson, storiesDir } from "./sftdd-paths.js";
 import { checkArtifactConformance, canonicalArtifactName, checkDbDesign, checkStoryIndependence } from "./artifact-conformance.js";
 
 export interface FormatViolation {
@@ -168,6 +168,17 @@ function checkArchitect(args: FormatArgs, v: FormatViolation[]): void {
   for (const ac of ids) {
     if (readAcLayer(sftddDir, featureId, ac) === undefined) {
       v.push({ artifact: `stories/${story}/acs/${ac}.json`, problem: "missing/invalid `layer` (expected API | E2E | Infra)" });
+    }
+    // The GATE requires a non-empty `architectural_notes` on EVERY AC (the
+    // architect's distinctive per-AC product; the spec-author's bare `layer`
+    // does not count). The self-check must enforce the same, or the architect
+    // sees green here, returns, and the design gate then rejects the story for
+    // an AC without notes (a PROTOCOL VIOLATION halt after the fact).
+    if (readAcArchitecturalNotes(sftddDir, featureId, ac) === undefined) {
+      v.push({
+        artifact: `stories/${story}/acs/${ac}.json`,
+        problem: "missing non-empty `architectural_notes` (annotate EVERY AC with its layer rationale + how it realizes the design; the spec-author's `layer` field does NOT satisfy this)",
+      });
     }
   }
 }
