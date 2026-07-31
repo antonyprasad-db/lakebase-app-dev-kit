@@ -6,6 +6,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-07-31
+
+### Fixed
+
+- **DBA design gate was unsatisfiable for any feature with persistence
+  invariants.** The `dba.md` prose told the DBA to write `realizes_invariants[]`
+  entries "mapped to the physical construct that enforces it", which led every
+  model to emit objects (`{invariant_id, realized_by}`), but the schema, the
+  conformance gate, and the recorded corpus all require a **flat array of bare
+  invariant-id strings**. The two disagreed, so the DBA looped until the drive
+  aborted with a PROTOCOL VIOLATION. Aligned the prose (and the orchestrator's
+  DBA task hint + remediation) to the schema: `realizes_invariants[]` is a flat
+  string array (the "which construct realizes it" rationale lives in
+  `db-design.md`), `unique_constraints` is an array of column-name arrays, and
+  `column.default` is a string SQL expression. Added a regression guard
+  (`sftdd-agent-defs.test.ts`) pinning the DBA prose to the schema.
+- **Misleading abort message.** When a role's expected artifact was present but
+  failed schema validation, the drive aborted saying it "returned nothing (the
+  expected artifact is absent / null / empty)". It now says the artifact "did
+  not satisfy its contract (absent, empty, OR present-but-nonconformant)" and
+  appends the remediation, so a shape mismatch is not misreported as a missing
+  file.
+
 ## [0.3.3] - 2026-07-30
 
 ### Changed

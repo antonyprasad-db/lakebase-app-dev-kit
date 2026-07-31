@@ -7550,7 +7550,7 @@ function expectationFor(action) {
       ...base,
       expected: "a db-design.json realizing every persistence_invariant",
       satisfiedBy: (s) => storyView2(s)?.design.dbaDesigned === true,
-      remediation: "Write features/<F>/db-design.json declaring >=1 table[] and a realizes_invariants[] that lists EVERY architecture.json persistence_invariant id (each mapped to a physical table/constraint). A service_backed feature with no db-design or an unrealized invariant hard-blocks the spec gate."
+      remediation: "Write features/<F>/db-design.json declaring >=1 table[] and a realizes_invariants[] that is a FLAT array of EVERY architecture.json persistence_invariant id STRING (bare ids, not objects). A service_backed feature with no db-design or an unrealized invariant hard-blocks the spec gate."
     };
   }
   if (responder === "test-strategist") {
@@ -7641,7 +7641,7 @@ var ExpectationLedger = class {
     if (attempt > this.maxRetries) {
       throw new ProtocolViolationError(
         h,
-        `it returned nothing across ${attempt} attempts (the expected artifact is absent / null / empty)`
+        `the expected artifact did not satisfy its contract across ${attempt} attempts (it is absent, empty, OR present-but-nonconformant on disk , the orchestrator re-checked it and it still fails)` + (h.remediation ? `. To satisfy it: ${h.remediation}` : "")
       );
     }
     return { kind: "retry", handoff: h, detail: handbackMessage(h, attempt), attempt };
@@ -9782,7 +9782,7 @@ function roleTaskBody(action, featureId, uiTrack, sftddDir, build) {
         }
       } catch {
       }
-      return `Realize the physical database schema for story ${s} into ${root}/features/${featureId}/db-design.json (+ a short db-design.md narrative).${dbaAcScope} Read architecture.json (service_backed, layers, persistence_invariants) , the architect owns that logical contract; you produce the PHYSICAL realization and do NOT re-author the invariants. Declare tables[] (columns with explicit type/nullable/default, primary_key, unique_constraints, foreign_keys, checks, indexes) and this story's schema_changes[] (the per-story migration plan the build lane authors the Alembic migration from; keep an expand/contract column split or drop reversible). Populate realizes_invariants[] with every architecture.json persistence_invariant id, mapped to the physical construct that enforces it , an uncovered invariant hard-blocks the spec gate.${contract}` + designRootNote(root, featureId, s);
+      return `Realize the physical database schema for story ${s} into ${root}/features/${featureId}/db-design.json (+ a short db-design.md narrative).${dbaAcScope} Read architecture.json (service_backed, layers, persistence_invariants) , the architect owns that logical contract; you produce the PHYSICAL realization and do NOT re-author the invariants. Declare tables[] (columns with explicit type/nullable/default, primary_key, unique_constraints, foreign_keys, checks, indexes) and this story's schema_changes[] (the per-story migration plan the build lane authors the Alembic migration from; keep an expand/contract column split or drop reversible). Populate realizes_invariants[] as a flat array of the architecture.json persistence_invariant id STRINGS (bare ids, not objects) , an uncovered invariant hard-blocks the spec gate.${contract}` + designRootNote(root, featureId, s);
     }
     case "test-strategist": {
       const acIds = storyAcIds(sftddDir, featureId, s);

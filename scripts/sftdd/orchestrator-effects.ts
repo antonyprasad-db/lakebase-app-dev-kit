@@ -673,8 +673,8 @@ function roleTaskBody(
         ` you produce the PHYSICAL realization and do NOT re-author the invariants.` +
         ` Declare tables[] (columns with explicit type/nullable/default, primary_key, unique_constraints, foreign_keys, checks, indexes)` +
         ` and this story's schema_changes[] (the per-story migration plan the build lane authors the Alembic migration from; keep an` +
-        ` expand/contract column split or drop reversible). Populate realizes_invariants[] with every architecture.json` +
-        ` persistence_invariant id, mapped to the physical construct that enforces it , an uncovered invariant hard-blocks the spec gate.${contract}` +
+        ` expand/contract column split or drop reversible). Populate realizes_invariants[] as a flat array of the architecture.json` +
+        ` persistence_invariant id STRINGS (bare ids, not objects) , an uncovered invariant hard-blocks the spec gate.${contract}` +
         designRootNote(root, featureId, s)
       );
     }

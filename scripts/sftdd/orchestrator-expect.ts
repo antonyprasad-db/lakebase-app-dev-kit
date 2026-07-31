@@ -148,7 +148,7 @@ export function expectationFor(action: WorkflowAction): Handoff | null {
       expected: "a db-design.json realizing every persistence_invariant",
       satisfiedBy: (s) => storyView(s)?.design.dbaDesigned === true,
       remediation:
-        "Write features/<F>/db-design.json declaring >=1 table[] and a realizes_invariants[] that lists EVERY architecture.json persistence_invariant id (each mapped to a physical table/constraint). A service_backed feature with no db-design or an unrealized invariant hard-blocks the spec gate.",
+        "Write features/<F>/db-design.json declaring >=1 table[] and a realizes_invariants[] that is a FLAT array of EVERY architecture.json persistence_invariant id STRING (bare ids, not objects). A service_backed feature with no db-design or an unrealized invariant hard-blocks the spec gate.",
     };
   }
   if (responder === "test-strategist") {
@@ -293,7 +293,9 @@ export class ExpectationLedger {
     if (attempt > this.maxRetries) {
       throw new ProtocolViolationError(
         h,
-        `it returned nothing across ${attempt} attempts (the expected artifact is absent / null / empty)`,
+        `the expected artifact did not satisfy its contract across ${attempt} attempts ` +
+          `(it is absent, empty, OR present-but-nonconformant on disk , the orchestrator re-checked it and it still fails)` +
+          (h.remediation ? `. To satisfy it: ${h.remediation}` : ""),
       );
     }
     return { kind: "retry", handoff: h, detail: handbackMessage(h, attempt), attempt };

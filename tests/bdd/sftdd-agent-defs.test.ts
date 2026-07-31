@@ -100,3 +100,34 @@ describe("agent definitions: frontmatter conformance", () => {
     });
   }
 });
+
+// Regression guard: the DBA prose once described realizes_invariants[] as
+// entries "mapped to the physical construct that enforces it", which pushed
+// every model to emit OBJECTS ({invariant_id, realized_by}). But the schema,
+// the gate (checkDbDesign reads realizes_invariants as string[]), and the
+// recorded corpus all require a FLAT ARRAY OF ID STRINGS. The contradiction
+// made the design gate unsatisfiable (the DBA looped until the drive aborted).
+// Pin the prose to the schema so the drift cannot silently return.
+describe("dba.md: realizes_invariants prose matches the schema (flat string array)", () => {
+  const body = fs.readFileSync(defPath("dba"), "utf8");
+
+  it("states realizes_invariants[] is a flat array of id STRINGS", () => {
+    expect(body, "dba.md must call realizes_invariants a flat array of id strings").toMatch(
+      /realizes_invariants\[\][\s\S]{0,200}?(flat array|id strings|bare id)/i,
+    );
+  });
+
+  it("does NOT tell the DBA to map each realizes_invariants entry to a physical construct (implies objects)", () => {
+    // The offending phrasings, scoped to the realizes_invariants guidance. The
+    // rationale ("which construct enforces it") belongs in db-design.md, not in
+    // this array, and the prose now says so explicitly.
+    expect(body).not.toMatch(/realizes_invariants[\s\S]{0,160}?mapped to the (table\/column\/constraint|physical construct)/i);
+    expect(body).not.toMatch(/naming the physical construct \(constraint\/index\/column\) that enforces it/i);
+  });
+
+  it("states unique_constraints is an array of column-name arrays (no name field)", () => {
+    expect(body, "dba.md must document unique_constraints as array-of-column-name-arrays").toMatch(
+      /unique_constraints[\s\S]{0,240}?(array of column-name arrays|column-name arrays|\[\["\w)/i,
+    );
+  });
+});
