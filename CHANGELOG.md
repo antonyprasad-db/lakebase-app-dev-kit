@@ -6,6 +6,49 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-07-31
+
+### Fixed
+
+- **Story independence is now enforced at each story's own spec gate.** A story
+  after the first that omitted its `independence` determination used to pass
+  every per-story spec gate and only fail at the full-feature ship gate, tens of
+  turns and a full build later. The per-story approve path (`approveStoryGate`)
+  now runs a story-scoped independence check, so the gap fails at the story's
+  own gate. The spec-author also self-checks it at breakdown (a new breakdown
+  mode of the response formatter), and the breakdown prompt + task hint demand
+  the determination up front, so it is caught before the gate at all.
+
+### Added
+
+- **`lakebase-update-agents`** refreshes a scaffolded project's `.claude/agents/`
+  role definitions from the current kit. Project creation only *seeds* agents
+  (it never overwrites one already present), so a kit bugfix to a role prompt
+  did not reach an already-scaffolded project; this closes that gap, and the
+  drive additionally auto-refreshes agents when it detects the kit version moved
+  (a `.claude/agents/.kit-version` marker). `--dry-run` previews; `--keep-local`
+  preserves a project-edited agent.
+- **Recorded turns now carry an agent transcript** (`transcript.md`: the task
+  prompt, the tools used in order, and the turn's final reasoning), summarized in
+  `turn.json` and flagged in the turns index. Purely additive (replay and corpus
+  integrity ignore it); it gives a demo/visualization the "what each role was
+  asked, did, and decided" material the artifact delta alone does not carry.
+
+### Changed
+
+- **The plugin manifests track the release version.** `.claude-plugin/plugin.json`
+  (and `.cursor-plugin/plugin.json`) were frozen at `0.1.0`, so
+  `claude plugin update` compared versions, saw no change, and refused to refresh
+  the cache even when content moved. They now match `package.json` (a
+  `plugin.test.ts` guard fails on drift), so the built-in updater refreshes on
+  every release.
+- **Documented updating an existing project**: `./scripts/lk --warm` (the
+  canonical "pull the latest kit" step), `lakebase-update-agents`,
+  `lakebase-update-commands`, and `claude plugin update`, in the README and the
+  `/consort:start` resume path.
+- The abort message for a role whose artifact failed its contract no longer
+  says "returned nothing" when the artifact is present but non-conformant.
+
 ## [0.3.5] - 2026-07-31
 
 ### Changed

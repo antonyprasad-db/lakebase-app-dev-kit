@@ -7063,7 +7063,7 @@ function checkDbDesign(dbDesignJson, architectureJson) {
   }
   return violations.length > 0 ? { ok: false, violations } : { ok: true };
 }
-function checkStoryIndependence(stories) {
+function checkStoryIndependence(stories, targetStory) {
   const parsed = [];
   for (const s of stories) {
     let obj;
@@ -7075,12 +7075,13 @@ function checkStoryIndependence(stories) {
     const idForNum = typeof obj.id === "string" ? obj.id : s.name;
     const m = /^S(\d+)/.exec(idForNum);
     if (!m) continue;
-    parsed.push({ name: s.name, num: parseInt(m[1], 10), indep: obj.independence });
+    parsed.push({ name: s.name, id: idForNum, num: parseInt(m[1], 10), indep: obj.independence });
   }
   if (parsed.length < 2) return { ok: true };
   const firstNum = Math.min(...parsed.map((p) => p.num));
   const violations = [];
   for (const p of parsed) {
+    if (targetStory !== void 0 && p.name !== targetStory && p.id !== targetStory) continue;
     if (p.num === firstNum) continue;
     const i = p.indep;
     if (!i || typeof i !== "object") {

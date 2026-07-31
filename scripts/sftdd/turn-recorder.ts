@@ -48,6 +48,17 @@ interface ScannedFile {
   sha: string;
 }
 
+/** An agent turn's outcome-level trace, persisted for the demo/visualization:
+ *  the prompt the role was dispatched with, its final reasoning text, and the
+ *  ordered tool list. Not the raw stream (no interstitial deltas). */
+export interface RecordedTranscript {
+  prompt: string;
+  role?: string;
+  model?: string;
+  finalText: string;
+  tools: string[];
+}
+
 export interface RecordTurnArgs {
   /** LAKEBASE_SFTDD_RECORD_DIR , the corpus root. */
   recordDir: string;
@@ -60,6 +71,10 @@ export interface RecordTurnArgs {
   /** The driver loop iteration (per-process; not globally unique , the recorder
    *  assigns its own monotonic ordinal from the on-disk index). */
   step: number;
+  /** The agent turn's transcript (invoke-role turns only); persisted as
+   *  transcript.md + summarized into turn.json so the demo can render what each
+   *  role was asked, decided, and did. Absent for non-agent turns. */
+  transcript?: RecordedTranscript;
 }
 
 export interface RecordedTurn {
@@ -101,6 +116,24 @@ export function labelForAction(action: WorkflowAction): string {
 
 function sha1(abs: string): string {
   return createHash("sha1").update(readFileSync(abs)).digest("hex");
+}
+
+/** Render an agent turn's transcript as human-readable markdown for the
+ *  demo/visualization: the prompt the role was dispatched with, the tools it
+ *  used in order, and its final reasoning (the outcome). */
+export function renderTranscriptMd(t: RecordedTranscript, label: string): string {
+  const lines: string[] = [];
+  lines.push(`# ${label}${t.role ? ` (${t.role})` : ""}${t.model ? ` , ${t.model}` : ""}`, "");
+  lines.push("## Prompt", "", "```", t.prompt.trim() || "(empty)", "```", "");
+  lines.push("## Tools used", "");
+  if (t.tools.length === 0) {
+    lines.push("(none)", "");
+  } else {
+    for (const tool of t.tools) lines.push(`- ${tool}`);
+    lines.push("");
+  }
+  lines.push("## Final reasoning", "", t.finalText.trim() || "(no final assistant text)", "");
+  return lines.join("\n");
 }
 
 /** Recursively list files under a dir, applying an optional path filter. */
@@ -191,6 +224,8 @@ interface IndexEntry {
   dir: string;
   producedCount: number;
   deletedCount: number;
+  /** True when the turn recorded an agent transcript (transcript.md present). */
+  hasTranscript?: boolean;
 }
 
 function readIndex(recordDir: string): IndexEntry[] {
@@ -216,7 +251,7 @@ function pad(n: number): string {
  * timeline is correct even though each feature/sprint is a separate process.
  */
 export function recordTurn(args: RecordTurnArgs): RecordedTurn {
-  const { recordDir, projectDir, sftddDir, action, step } = args;
+  const { recordDir, projectDir, sftddDir, action, step, transcript } = args;
   const a = action as Record<string, unknown>;
 
   const prior = readState(recordDir);
@@ -263,6 +298,21 @@ export function recordTurn(args: RecordTurnArgs): RecordedTurn {
     }
   }
 
+  // Persist the agent turn's transcript (prompt + final reasoning + tool list)
+  // as a human-readable transcript.md the demo/visualization renders, and a
+  // compact summary in turn.json (hasTranscript + counts) so an index consumer
+  // knows a transcript exists without reading it. Non-agent turns have none.
+  let transcriptSummary: { role?: string; model?: string; toolCount: number; finalTextChars: number } | undefined;
+  if (transcript) {
+    writeFileSync(join(turnDir, "transcript.md"), renderTranscriptMd(transcript, label));
+    transcriptSummary = {
+      role: transcript.role,
+      model: transcript.model,
+      toolCount: transcript.tools.length,
+      finalTextChars: transcript.finalText.length,
+    };
+  }
+
   const manifest = {
     ordinal,
     step,
@@ -275,6 +325,7 @@ export function recordTurn(args: RecordTurnArgs): RecordedTurn {
     action,
     produced,
     deleted,
+    ...(transcriptSummary ? { transcript: transcriptSummary } : {}),
   };
   writeFileSync(join(turnDir, "turn.json"), JSON.stringify(manifest, null, 2) + "\n");
 
@@ -292,6 +343,7 @@ export function recordTurn(args: RecordTurnArgs): RecordedTurn {
     dir: dirName,
     producedCount: produced.length,
     deletedCount: deleted.length,
+    ...(transcript ? { hasTranscript: true } : {}),
   };
   index.push(entry);
   mkdirSync(join(recordDir, "turns"), { recursive: true });

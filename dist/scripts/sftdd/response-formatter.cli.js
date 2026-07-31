@@ -6666,6 +6666,7 @@ var featuresDir = (tdd) => join(tdd, "features");
 var designGuideJson = (tdd) => join(tdd, "design", "design-guide.json");
 var featureDir = (tdd, featureId) => join(featuresDir(tdd), featureId);
 var featureResolved = (tdd, f) => findFeatureDir(tdd, f) ?? featureDir(tdd, f);
+var featureSpecJson = (tdd, f) => join(featureResolved(tdd, f), "feature-spec.json");
 var architectureJson = (tdd, f) => join(featureResolved(tdd, f), "architecture.json");
 var dbDesignJson = (tdd, f) => join(featureResolved(tdd, f), "db-design.json");
 var storiesDir = (tdd, f) => join(featureResolved(tdd, f), "stories");
@@ -6992,6 +6993,41 @@ function checkDbDesign(dbDesignJson2, architectureJson2) {
   }
   return violations.length > 0 ? { ok: false, violations } : { ok: true };
 }
+function checkStoryIndependence(stories, targetStory) {
+  const parsed = [];
+  for (const s of stories) {
+    let obj;
+    try {
+      obj = JSON.parse(s.content);
+    } catch {
+      continue;
+    }
+    const idForNum = typeof obj.id === "string" ? obj.id : s.name;
+    const m = /^S(\d+)/.exec(idForNum);
+    if (!m) continue;
+    parsed.push({ name: s.name, id: idForNum, num: parseInt(m[1], 10), indep: obj.independence });
+  }
+  if (parsed.length < 2) return { ok: true };
+  const firstNum = Math.min(...parsed.map((p) => p.num));
+  const violations = [];
+  for (const p of parsed) {
+    if (targetStory !== void 0 && p.name !== targetStory && p.id !== targetStory) continue;
+    if (p.num === firstNum) continue;
+    const i = p.indep;
+    if (!i || typeof i !== "object") {
+      violations.push(
+        `${p.name}: missing independence determination (every story after the first must record independence.distinct_from_prior + rationale; apply the story-independence test, or fold/re-scope it)`
+      );
+    } else if (i.distinct_from_prior !== true) {
+      violations.push(
+        `${p.name}: independence.distinct_from_prior is not true (this story's behavior is a subset of an earlier story; fold it into that story or re-scope it to a distinct, independently-RED-able slice)`
+      );
+    } else if (typeof i.rationale !== "string" || i.rationale.trim().length === 0) {
+      violations.push(`${p.name}: independence.rationale is empty (state the distinct behavior this story adds beyond the prior stories)`);
+    }
+  }
+  return violations.length === 0 ? { ok: true } : { ok: false, violations };
+}
 function canonicalArtifactName(path2) {
   const base = basename(path2);
   if (basename(dirname(path2)) === "acs" && base.endsWith(".json")) return "ac.json";
@@ -7013,9 +7049,44 @@ function needStory(role, story, violations) {
   }
   return true;
 }
+function checkSpecAuthorBreakdown(sftddDir, featureId, v) {
+  const specPath = featureSpecJson(sftddDir, featureId);
+  if (!existsSync2(specPath)) {
+    v.push({ artifact: "feature-spec.json", problem: "breakdown deliverable missing (write feature-spec.json with a non-empty stories[] array of the story ids)" });
+    return;
+  }
+  try {
+    const spec = JSON.parse(readFileSync3(specPath, "utf8"));
+    if (!Array.isArray(spec.stories) || spec.stories.length === 0) {
+      v.push({ artifact: "feature-spec.json", problem: "stories[] is missing or empty (the breakdown must enumerate >=1 story id)" });
+    }
+  } catch (err) {
+    v.push({ artifact: "feature-spec.json", problem: `not valid JSON: ${err instanceof Error ? err.message : String(err)}` });
+    return;
+  }
+  const sdir = storiesDir(sftddDir, featureId);
+  if (!existsSync2(sdir)) return;
+  const storyJsons = [];
+  for (const s of readdirSync2(sdir)) {
+    const p = `${sdir}/${s}/story.json`;
+    if (!existsSync2(p)) continue;
+    try {
+      storyJsons.push({ name: s, content: readFileSync3(p, "utf8") });
+    } catch {
+      continue;
+    }
+  }
+  const indep = checkStoryIndependence(storyJsons);
+  if (!indep.ok) {
+    for (const problem of indep.violations) v.push({ artifact: "stories/*/story.json", problem });
+  }
+}
 function checkSpecAuthor(args, v) {
   const { sftddDir, featureId, story } = args;
-  if (!needStory("spec-author", story, v)) return;
+  if (story === void 0) {
+    checkSpecAuthorBreakdown(sftddDir, featureId, v);
+    return;
+  }
   const dir = acsDir(sftddDir, featureId, story);
   const ids = storyAcIds(sftddDir, featureId, story);
   if (ids.length === 0) {

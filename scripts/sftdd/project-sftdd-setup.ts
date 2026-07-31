@@ -16,6 +16,7 @@ import type {
 import { ARTIFACT_ROOT } from "./sftdd-paths.js";
 import { defaultSftddConfig, writeSftddConfig } from "./sftdd-config.js";
 import { adoptTdd } from "../lakebase/adopt-sftdd.js";
+import { updateAgents } from "../lakebase/update-agents.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -174,6 +175,48 @@ export function layDownKitClaudeAssets(targetDir: string): void {
         .replace(/\$\{KIT_VERSION_AT_SCAFFOLD\}/g, version);
       fs.writeFileSync(dest, body);
     }
+  }
+}
+
+/** Where the kit version that last refreshed .claude/agents/ is recorded, so a
+ *  drive can tell when the kit moved and the agent defs need re-syncing. */
+const AGENT_SYNC_MARKER = path.join(".claude", "agents", ".kit-version");
+
+/**
+ * Version-aware agent refresh: when the running kit version differs from the
+ * one that last synced this project's .claude/agents/, force-refresh the agent
+ * defs (updateAgents) and record the new version. Closes the gap where a kit
+ * bugfix to a role prompt never reached an already-scaffolded project
+ * (create-time copyMissingMd only seeds missing files). A no-op when the marker
+ * already matches the current version, so it is cheap to call on every drive
+ * startup. Best-effort: any failure is swallowed (never block a drive on a
+ * refresh). Returns the outcome for logging/testing.
+ *
+ * The caller MUST skip this during capture/replay (it mutates the project tree
+ * and would pollute a recorded corpus).
+ */
+export function resyncAgentsOnKitDrift(projectDir: string): {
+  refreshed: boolean;
+  from?: string;
+  to?: string;
+} {
+  try {
+    const root = resolveKitRoot();
+    const current = kitVersion(root);
+    const markerPath = path.join(projectDir, AGENT_SYNC_MARKER);
+    let last = "";
+    try {
+      last = fs.readFileSync(markerPath, "utf8").trim();
+    } catch {
+      /* no marker yet (older scaffold): treat as drift so agents refresh once */
+    }
+    if (last === current) return { refreshed: false };
+    updateAgents({ projectDir, kitDir: root, force: true });
+    fs.mkdirSync(path.dirname(markerPath), { recursive: true });
+    fs.writeFileSync(markerPath, current + "\n");
+    return { refreshed: true, from: last || undefined, to: current };
+  } catch {
+    return { refreshed: false };
   }
 }
 

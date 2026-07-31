@@ -40,6 +40,18 @@ describe("plugin manifest (.claude-plugin/plugin.json)", () => {
       .sort();
     expect(onDisk).toEqual([...ALL_AGENT_ROLES].sort());
   });
+
+  // The plugin version MUST track package.json. `claude plugin update` compares
+  // versions to decide whether to refresh the cache; a frozen plugin version
+  // means content moves (e.g. an agent-def bugfix) but the updater sees no
+  // version change and refuses to refresh. Enforce the sync so every release
+  // that bumps package.json also bumps the plugin manifests.
+  it("version matches package.json (so `claude plugin update` refreshes on release)", () => {
+    const pkgVersion = readJson("package.json").version;
+    expect(manifest.version).toBe(pkgVersion);
+    const cursor = readJson(".cursor-plugin/plugin.json");
+    expect(cursor.version).toBe(pkgVersion);
+  });
 });
 
 describe("marketplace catalog (.claude-plugin/marketplace.json)", () => {

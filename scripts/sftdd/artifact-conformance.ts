@@ -654,8 +654,18 @@ export function checkDbDesign(dbDesignJson: string | undefined, architectureJson
  * no-op. Deterministic on PRESENCE; correctness of the rationale is the model's +
  * HIL's call.
  */
-export function checkStoryIndependence(stories: Array<{ name: string; content: string }>): ConformanceResult {
-  const parsed: Array<{ name: string; num: number; indep: unknown }> = [];
+export function checkStoryIndependence(
+  stories: Array<{ name: string; content: string }>,
+  /**
+   * When set, judge ONLY the story whose name (or S-id) matches, still using the
+   * full set to know its priors (and thus whether it is the first). This is the
+   * per-story spec-gate scope: at story S's own gate, a later, not-yet-designed
+   * sibling stub that lacks independence must not fault S's gate. When omitted,
+   * every non-first story is judged (the full-feature ship-gate scope).
+   */
+  targetStory?: string,
+): ConformanceResult {
+  const parsed: Array<{ name: string; id: string; num: number; indep: unknown }> = [];
   for (const s of stories) {
     let obj: { id?: unknown; independence?: unknown };
     try {
@@ -666,12 +676,16 @@ export function checkStoryIndependence(stories: Array<{ name: string; content: s
     const idForNum = typeof obj.id === "string" ? obj.id : s.name;
     const m = /^S(\d+)/.exec(idForNum);
     if (!m) continue;
-    parsed.push({ name: s.name, num: parseInt(m[1], 10), indep: obj.independence });
+    parsed.push({ name: s.name, id: idForNum, num: parseInt(m[1], 10), indep: obj.independence });
   }
   if (parsed.length < 2) return { ok: true }; // nothing to be independent OF
   const firstNum = Math.min(...parsed.map((p) => p.num));
   const violations: string[] = [];
   for (const p of parsed) {
+    // Story-scoped: judge only the target story (matched by dir name or S-id),
+    // still counting all siblings for first-ness. A non-matching target is a
+    // no-op (nothing to judge at this story's gate).
+    if (targetStory !== undefined && p.name !== targetStory && p.id !== targetStory) continue;
     if (p.num === firstNum) continue; // first story has no prior
     const i = p.indep as { distinct_from_prior?: unknown; rationale?: unknown } | undefined;
     if (!i || typeof i !== "object") {

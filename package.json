@@ -1,6 +1,6 @@
 {
   "name": "@databricks-solutions/consort",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "Lakebase-backed application development kit – shared scripts, agent skills (SCM and SFTDD), MCP server, and OpenAI Foundry tool spec. Consumed by lakebase-scm-extension and coding agents (Claude Code, Claude Desktop, OpenAI Codex, Cursor, Databricks Genie Code).",
   "type": "module",
   "private": false,
@@ -130,7 +130,8 @@
     "lakebase-tdd-sync-backlog": "./dist/scripts/sftdd/sync-backlog.cli.js",
     "lakebase-tdd-test-list": "./dist/scripts/sftdd/test-list.cli.js",
     "lakebase-tdd-timing": "./dist/scripts/sftdd/timing-report.cli.js",
-    "lakebase-update-commands": "./dist/scripts/lakebase/update-commands.cli.js"
+    "lakebase-update-commands": "./dist/scripts/lakebase/update-commands.cli.js",
+    "lakebase-update-agents": "./dist/scripts/lakebase/update-agents.cli.js"
   },
   "scripts": {
     "build": "tsup",

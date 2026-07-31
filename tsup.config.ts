@@ -20,6 +20,7 @@ export default defineConfig({
     "scripts/lakebase/adopt-sftdd.cli": "scripts/lakebase/adopt-sftdd.cli.ts",
     "scripts/lakebase/resolve-sftdd-dir.cli": "scripts/lakebase/resolve-sftdd-dir.cli.ts",
     "scripts/lakebase/update-commands.cli": "scripts/lakebase/update-commands.cli.ts",
+    "scripts/lakebase/update-agents.cli": "scripts/lakebase/update-agents.cli.ts",
     "scripts/sftdd/feature-status.cli": "scripts/sftdd/feature-status.cli.ts",
     "scripts/sftdd/next.cli": "scripts/sftdd/next.cli.ts",
     "scripts/sftdd/test-list.cli": "scripts/sftdd/test-list.cli.ts",

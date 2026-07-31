@@ -16,8 +16,8 @@
 // every item maps to one of the story's ACs (the S2 live-stall bug).
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { storyAcIds, readAcLayer, storyTestListJson, acsDir, designGuideJson, architectureJson, dbDesignJson } from "./sftdd-paths.js";
-import { checkArtifactConformance, canonicalArtifactName, checkDbDesign } from "./artifact-conformance.js";
+import { storyAcIds, readAcLayer, storyTestListJson, acsDir, designGuideJson, architectureJson, dbDesignJson, featureSpecJson, storiesDir } from "./sftdd-paths.js";
+import { checkArtifactConformance, canonicalArtifactName, checkDbDesign, checkStoryIndependence } from "./artifact-conformance.js";
 
 export interface FormatViolation {
   /** The artifact (relative-ish path / name) that failed. */
@@ -61,9 +61,56 @@ function needStory(role: string, story: string | undefined, violations: FormatVi
 
 /** spec-author (per story): >=1 AC, and every acs/<AC>.json conforms to ac.schema
  *  (AC<n> id pattern, required fields). The malformed-AC / slug-id source. */
+/** Breakdown-mode self-check: feature-spec.json present + non-empty stories[],
+ *  and every story stub after the first records its independence determination
+ *  (checkStoryIndependence). Run when the spec-author formatter is invoked with
+ *  no --story (the feature-level breakdown turn). */
+function checkSpecAuthorBreakdown(sftddDir: string, featureId: string, v: FormatViolation[]): void {
+  const specPath = featureSpecJson(sftddDir, featureId);
+  if (!existsSync(specPath)) {
+    v.push({ artifact: "feature-spec.json", problem: "breakdown deliverable missing (write feature-spec.json with a non-empty stories[] array of the story ids)" });
+    return;
+  }
+  try {
+    const spec = JSON.parse(readFileSync(specPath, "utf8")) as { stories?: unknown };
+    if (!Array.isArray(spec.stories) || spec.stories.length === 0) {
+      v.push({ artifact: "feature-spec.json", problem: "stories[] is missing or empty (the breakdown must enumerate >=1 story id)" });
+    }
+  } catch (err) {
+    v.push({ artifact: "feature-spec.json", problem: `not valid JSON: ${err instanceof Error ? err.message : String(err)}` });
+    return;
+  }
+  // Story independence across the breakdown's stubs: a later story missing its
+  // determination fails HERE (self-correct at breakdown) rather than at the gate.
+  const sdir = storiesDir(sftddDir, featureId);
+  if (!existsSync(sdir)) return;
+  const storyJsons: Array<{ name: string; content: string }> = [];
+  for (const s of readdirSync(sdir)) {
+    const p = `${sdir}/${s}/story.json`;
+    if (!existsSync(p)) continue;
+    try {
+      storyJsons.push({ name: s, content: readFileSync(p, "utf8") });
+    } catch {
+      continue;
+    }
+  }
+  const indep = checkStoryIndependence(storyJsons);
+  if (!indep.ok) {
+    for (const problem of indep.violations) v.push({ artifact: "stories/*/story.json", problem });
+  }
+}
+
 function checkSpecAuthor(args: FormatArgs, v: FormatViolation[]): void {
   const { sftddDir, featureId, story } = args;
-  if (!needStory("spec-author", story, v)) return;
+  // Breakdown mode (no story): the spec-author's feature-level self-check. The
+  // breakdown deliverable is feature-spec.json with a non-empty stories[], and
+  // every story after the first must record its independence determination.
+  // Enforcing it HERE (the check the spec-author runs before returning) makes a
+  // missing independence self-correct at breakdown, not slip to the ship gate.
+  if (story === undefined) {
+    checkSpecAuthorBreakdown(sftddDir, featureId, v);
+    return;
+  }
   const dir = acsDir(sftddDir, featureId, story);
   const ids = storyAcIds(sftddDir, featureId, story);
   if (ids.length === 0) {

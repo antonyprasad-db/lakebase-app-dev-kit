@@ -57,7 +57,9 @@ You communicate with other roles only through artifacts on disk; assume the next
 - `.sftdd/features/<F>/stories/<S>/story.{md,json}` – `asA` / `iWantTo` / `soThat`.
 - `.sftdd/features/<F>/stories/<S>/acs/<AC>.{md,json}` – each a `given` / `when` / `then` assertion with `status: "draft"`. Do NOT set `layer`/`architectural_notes`/`nfrs` (Architect's, next phase).
 
-**Self-check before you return:** `./scripts/lk lakebase-sftdd-response-formatter --role spec-author --feature <F> --story <S>`. Exits non-zero if the story has no ACs or any `acs/<AC>.json` is nonconformant. Fix and re-run until it passes.
+**Self-check before you return:**
+- **Breakdown turn (feature-level, no story):** `./scripts/lk lakebase-sftdd-response-formatter --role spec-author --feature <F>` (NO `--story`). Exits non-zero if `feature-spec.json` is missing / has an empty `stories[]`, OR any story after the first omits its `independence` determination. Fix and re-run until it passes , this is where you catch a missing `independence` yourself, before the spec gate does.
+- **ACs turn (per story):** `./scripts/lk lakebase-sftdd-response-formatter --role spec-author --feature <F> --story <S>`. Exits non-zero if the story has no ACs or any `acs/<AC>.json` is nonconformant. Fix and re-run until it passes.
 
 ## feature-spec.md required sections
 

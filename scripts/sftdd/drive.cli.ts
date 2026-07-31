@@ -17,6 +17,7 @@
 
 import { spawn } from "node:child_process";
 import { sftddEnv } from "./sftdd-env.js";
+import { resyncAgentsOnKitDrift } from "./project-sftdd-setup.js";
 import { resolveSftddDir, ARTIFACT_ROOT, LEGACY_ARTIFACT_ROOT } from "./sftdd-paths.js";
 import { migrateLegacyArtifactDir } from "./migrate-artifact-dir.js";
 import { randomUUID } from "node:crypto";
@@ -242,6 +243,31 @@ class ArtifactOutOfRootError extends Error {
   }
 }
 
+/** The prompt + final reasoning + tool list captured from ONE agent turn, for
+ *  the recorder to persist (demo transcript). Not the raw stream (that includes
+ *  every interstitial "let me check" delta); just the outcome-level trace. */
+export interface TurnTranscript {
+  /** The task prompt the agent was dispatched with (`claude -p <task>`). */
+  prompt: string;
+  role?: string;
+  model?: string;
+  /** The turn's FINAL assistant text (the outcome/rationale). */
+  finalText: string;
+  /** Each tool action in order (name + a clipped target), as they streamed. */
+  tools: string[];
+}
+
+/** Set by spawnClaudeStreaming on each turn's close; read + cleared by the
+ *  recorder wrapper (withTurnRecording) so it lands in that turn's dir. Module-
+ *  level for the same reason `sessions`/`sessionContext` are: the spawn and the
+ *  record wrapper are separated by the effects boundary. */
+let lastAgentTranscript: TurnTranscript | undefined;
+function takeLastAgentTranscript(): TurnTranscript | undefined {
+  const t = lastAgentTranscript;
+  lastAgentTranscript = undefined;
+  return t;
+}
+
 function spawnClaudeStreaming(args: string[], cwd: string): Promise<TurnUsage | undefined> {
   return new Promise((resolve, reject) => {
     // Capture BOTH stdout (the stream-json events) and stderr (claude's own
@@ -258,6 +284,7 @@ function spawnClaudeStreaming(args: string[], cwd: string): Promise<TurnUsage | 
     // log. Set LAKEBASE_SFTDD_VERBOSE_AGENT=1 to tee every assistant text delta.
     const verboseAgent = !!sftddEnv("VERBOSE_AGENT");
     let lastText = "";
+    const allTools: string[] = []; // accumulate for the recorded transcript
     const rl = readline.createInterface({ input: child.stdout! });
     rl.on("line", (line) => {
       lines.push(line);
@@ -266,10 +293,15 @@ function spawnClaudeStreaming(args: string[], cwd: string): Promise<TurnUsage | 
       if (verboseAgent) {
         const text = assistantTextFromLine(line);
         if (text) process.stderr.write(text);
+        // still collect tools for the transcript even in verbose mode
+        for (const t of assistantEventSummary(line).tools) allTools.push(t);
         return;
       }
       const { text, tools } = assistantEventSummary(line);
-      for (const t of tools) process.stderr.write(`  · ${t}\n`);
+      for (const t of tools) {
+        process.stderr.write(`  · ${t}\n`);
+        allTools.push(t);
+      }
       if (text) lastText = text; // hold; only the final one is printed at close
     });
     const erl = readline.createInterface({ input: child.stderr! });
@@ -286,6 +318,18 @@ function spawnClaudeStreaming(args: string[], cwd: string): Promise<TurnUsage | 
       // after the tool trace, so the log shows actions + result, not the prose.
       if (!verboseAgent && lastText) process.stderr.write(`${lastText}\n`);
       if (code !== 0) return reject(new ClaudeTurnError(`claude exited ${code}`, sawTooLong, sawTransient));
+      // Stash this turn's outcome-level transcript for the recorder. `-p <task>`
+      // and `--agent <role>` / `--model <m>` are positional in the args we built.
+      const pIdx = args.indexOf("-p");
+      const rIdx = args.indexOf("--agent");
+      const mIdx = args.indexOf("--model");
+      lastAgentTranscript = {
+        prompt: pIdx >= 0 ? args[pIdx + 1] ?? "" : "",
+        role: rIdx >= 0 ? args[rIdx + 1] : undefined,
+        model: mIdx >= 0 ? args[mIdx + 1] : undefined,
+        finalText: lastText,
+        tools: allTools,
+      };
       resolve(parseTurnUsage(lines));
     });
   });
@@ -614,10 +658,36 @@ function execRunner(cfg: DriveEffectsConfig): CommandRunner {
   };
 }
 
+let agentResyncDone = false;
+/** Run the version-aware agent refresh at most once per drive process, and
+ *  never during capture/replay (it mutates the tree; a recorded corpus must
+ *  stay a pure product of its turns). Best-effort , resyncAgentsOnKitDrift
+ *  swallows its own errors. */
+function maybeResyncAgents(projectDir: string): void {
+  if (agentResyncDone) return;
+  agentResyncDone = true;
+  const recordingOrReplaying =
+    !!sftddEnv("REPLAY_DIR") ||
+    !!sftddEnv("REPLAY_BUILD_DIR") ||
+    !!sftddEnv("RECORD_BUILD_DIR") ||
+    !!sftddEnv("RECORD_DIR");
+  if (recordingOrReplaying) return;
+  const r = resyncAgentsOnKitDrift(projectDir);
+  if (r.refreshed) {
+    process.stderr.write(`[drive] kit moved (${r.from ?? "unknown"} -> ${r.to}); refreshed .claude/agents/ from the kit\n`);
+  }
+}
+
 /** Build a DriveEffectsConfig for a feature (or planning, featureId ""). */
 function buildCfg(args: ParsedArgs, featureId: string): DriveEffectsConfig {
   const projectDir = args.projectDir ?? process.cwd();
   const sftddDir = args.sftddDir ?? resolveSftddDir(projectDir);
+  // Version-aware agent refresh: if the kit moved since this project last synced
+  // its .claude/agents/, force-refresh them so a role-prompt bugfix reaches the
+  // project (create-time copyMissingMd only seeds missing files). Once per drive
+  // process, best-effort, and NEVER during capture/replay (it mutates the tree
+  // and would pollute a recorded corpus).
+  maybeResyncAgents(projectDir);
   // Resolve the Lakebase instance + the feature's branch from the SCM workflow
   // state (.lakebase/workflow-state.json, written at claim). The per-story
   // experiment ops need both: the instance to create/merge the paired branch,
@@ -835,7 +905,11 @@ function withTurnRecording(inner: DriveEffects, cfg: DriveEffectsConfig): DriveE
     async perform(action) {
       await inner.perform(action);
       if (action.kind === "done") return; // terminal no-op, produces nothing
-      const rec = recordTurn({ recordDir, projectDir: cfg.projectDir, sftddDir: cfg.sftddDir, action, step: 0 });
+      // An invoke-role action just ran an agent; grab its outcome-level
+      // transcript (prompt + final reasoning + tool list) to record alongside
+      // the artifact delta. Non-agent actions (gates, deploy) have none.
+      const transcript = takeLastAgentTranscript();
+      const rec = recordTurn({ recordDir, projectDir: cfg.projectDir, sftddDir: cfg.sftddDir, action, step: 0, transcript });
       process.stderr.write(
         `[record] turn ${rec.ordinal} (${rec.dir}): ${rec.produced.length} produced` +
           `${rec.deleted.length ? `, ${rec.deleted.length} deleted` : ""}\n`,

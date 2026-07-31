@@ -135,6 +135,15 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full live-test prerequisites and 
 
 </details>
 
+### Updating the kit in an existing project
+
+When a new kit version ships, refresh what a scaffolded project runs against:
+
+- **Get the latest kit** (the one `/design`, `/build`, etc. actually run): `./scripts/lk --warm`. The shim compares the project's pinned commit to the live tip of its ref and reinstalls on drift, so `--warm` is the canonical "pull the newest kit" step. (`./scripts/lk --rewarm` forces a fresh install of the resolved commit.)
+- **Refresh the role-agent definitions**: `./scripts/lk lakebase-update-agents`. Project creation only *seeds* `.claude/agents/` (it never overwrites a file already there), so a kit bugfix to a role prompt does not reach an already-scaffolded project until you refresh. The drive also auto-refreshes agents when it detects the kit version moved; run the command yourself to refresh out of band. Use `--dry-run` to preview, `--keep-local` to keep a project-edited agent.
+- **Refresh the workflow commands**: `./scripts/lk lakebase-update-commands` (the `.claude/commands/*.md` counterpart; hook files are left untouched).
+- **Refresh the plugin** (Claude Code plugin install): `claude plugin update consort@databricks-solutions`. The plugin version tracks each release, so the updater refreshes the cache when a new version ships.
+
 ## What's in this repo
 
 - **`scripts/sftdd/`** the deterministic orchestrator and the per-role logic: the drive loop, design/build routing, the gates, experiments and spikes, bad-smell detection, and agent logging.
@@ -165,6 +174,7 @@ The bins are Consort's command surface plus a few project-lifecycle helpers. Run
 - **`lakebase-adopt-sftdd`** add Consort to an existing Lakebase-paired project.
 - **`lakebase-feature-status`** report where each feature sits in the loop.
 - **`lakebase-update-commands`** refresh a scaffolded project's `.claude/commands` to the current version.
+- **`lakebase-update-agents`** refresh a scaffolded project's `.claude/agents` role definitions to the current kit (so a role-prompt bugfix reaches an existing project; the drive also auto-refreshes on a kit-version change).
 - **`lakebase-mcp-server`** stdio MCP server exposing the tool surface to MCP-capable agents.
 
 ## Contributing

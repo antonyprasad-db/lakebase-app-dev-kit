@@ -575,8 +575,14 @@ function roleTaskBody(
           `first ${root}/features/${featureId}/feature-spec.json (id, name, status "draft", tdd_mode, ` +
           `and a NON-EMPTY stories[] array of the story ids), then a stub dir per story under ` +
           `${root}/features/${featureId}/stories/<S>/ (story.md + story.json, id + one-line scope; NO acceptance ` +
-          `criteria here). feature-spec.json is REQUIRED , a prose list of stories in your reply is NOT the ` +
-          `breakdown, and do NOT claim it "already exists".${uiTrack ? UI_TRACK_BREAKDOWN : ""}`
+          `criteria here). ON EVERY STORY AFTER THE FIRST, its story.json MUST include ` +
+          `"independence": { "distinct_from_prior": true, "rationale": "<the distinct behavior this story adds ` +
+          `beyond the prior stories>" } , apply the story-independence test (could you build the earlier story ` +
+          `fully and have this one still genuinely unbuilt?); if not, fold or re-scope it. A later story that ` +
+          `omits independence hard-blocks its spec gate, so set it now. Then run the breakdown self-check ` +
+          `(./scripts/lk lakebase-sftdd-response-formatter --role spec-author --feature ${featureId}, NO --story) ` +
+          `and fix anything it flags before returning. feature-spec.json is REQUIRED , a prose list of stories in ` +
+          `your reply is NOT the breakdown, and do NOT claim it "already exists".${uiTrack ? UI_TRACK_BREAKDOWN : ""}`
         );
     }
   }

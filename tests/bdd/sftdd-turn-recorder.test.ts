@@ -155,3 +155,57 @@ describe("record -> replay round-trip", () => {
     expect(readJson(join(freshTdd, "design", "design-guide.json")).tokens.color).toBe("#111");
   });
 });
+
+describe("recordTurn: agent transcript (demo/visualization)", () => {
+  it("writes transcript.md (prompt + tools + final reasoning) and summarizes it in turn.json + index", () => {
+    const { proj, tdd, record } = mkProject();
+    writeTdd(tdd, "features/F1/db-design.json", JSON.stringify({ feature_id: "F1" }));
+    const t = recordTurn({
+      recordDir: record,
+      projectDir: proj,
+      sftddDir: tdd,
+      step: 0,
+      action: act({ kind: "invoke-role", role: "dba", story: "S1" }),
+      transcript: {
+        prompt: "Realize the physical schema for F1/S1 into db-design.json.",
+        role: "dba",
+        model: "opus",
+        finalText: "Done , db-design.json written with a unique (sku, location) constraint.",
+        tools: ["Read .sftdd/features/F1/architecture.json", "Write db-design.json"],
+      },
+    });
+
+    const md = readFileSync(join(record, "turns", t.dir, "transcript.md"), "utf8");
+    expect(md).toMatch(/## Prompt/);
+    expect(md).toMatch(/Realize the physical schema/);
+    expect(md).toMatch(/## Tools used/);
+    expect(md).toMatch(/Write db-design\.json/);
+    expect(md).toMatch(/## Final reasoning/);
+    expect(md).toMatch(/unique \(sku, location\) constraint/);
+
+    // turn.json carries a compact summary (not the full text).
+    const m = readJson(join(record, "turns", t.dir, "turn.json"));
+    expect(m.transcript).toEqual({ role: "dba", model: "opus", toolCount: 2, finalTextChars: expect.any(Number) });
+
+    // index flags the transcript so a consumer knows without opening the dir.
+    const idx = readJson(join(record, "turns", "index.json"));
+    expect(idx.turns[t.ordinal].hasTranscript).toBe(true);
+  });
+
+  it("omits transcript fields entirely for a non-agent turn (no transcript passed)", () => {
+    const { proj, tdd, record } = mkProject();
+    writeTdd(tdd, "features/F1/gates.json", JSON.stringify({ spec: "approved" }));
+    const t = recordTurn({
+      recordDir: record,
+      projectDir: proj,
+      sftddDir: tdd,
+      step: 0,
+      action: act({ kind: "approve-gate", story: "S1" }),
+    });
+    expect(existsSync(join(record, "turns", t.dir, "transcript.md"))).toBe(false);
+    const m = readJson(join(record, "turns", t.dir, "turn.json"));
+    expect(m.transcript).toBeUndefined();
+    const idx = readJson(join(record, "turns", "index.json"));
+    expect(idx.turns[t.ordinal].hasTranscript).toBeUndefined();
+  });
+});

@@ -13,7 +13,7 @@ import {
   featureSpecJson,
   featureSpecMd,
 } from "./sftdd-paths.js";
-import { featureDir, storyAcsConformanceReason } from "./gate-conformance-guard.js";
+import { featureDir, storyAcsConformanceReason, storyIndependenceForStoryReason } from "./gate-conformance-guard.js";
 
 export const STORY_STATUSES = [
   "designing",
@@ -429,6 +429,13 @@ export function approveStoryGateFromDisk(
   // conformance the deploy gate trusts, so the defect fails at approve time.
   const acReason = storyAcsConformanceReason(featureDir(sftddDir, feature), story);
   if (acReason) return { ok: false, error: acReason };
+  // Same class as the AC check above, for story independence: a story that omits
+  // its independence determination (or marks itself a subset of a prior) must
+  // fail at ITS OWN per-story spec gate, not slip through to the full-feature
+  // ship gate long after build + accept. Scoped to the story being gated so a
+  // later, not-yet-designed sibling stub cannot fault an earlier story's gate.
+  const indepReason = storyIndependenceForStoryReason(featureDir(sftddDir, feature), story);
+  if (indepReason) return { ok: false, error: indepReason };
   try {
     approveStoryGate(pipeline, story, {
       approver: opts.approver,

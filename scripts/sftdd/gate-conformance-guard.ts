@@ -114,20 +114,38 @@ function acsConformanceReason(fdir: string): string | null {
  * gate (it otherwise surfaces mid-build as a born-green behavior cycle-stall).
  * Returns a reason listing offenders, or null when all conform (or <2 stories).
  */
-function storyIndependenceReason(fdir: string): string | null {
+function collectStoryJsons(fdir: string): Array<{ name: string; content: string }> {
   const stories = join(fdir, "stories");
-  if (!existsSync(stories)) return null;
-  const storyJsons: Array<{ name: string; content: string }> = [];
+  if (!existsSync(stories)) return [];
+  const out: Array<{ name: string; content: string }> = [];
   for (const s of readdirSync(stories)) {
     const p = join(stories, s, "story.json");
     if (!existsSync(p)) continue;
     try {
-      storyJsons.push({ name: s, content: readFileSync(p, "utf8") });
+      out.push({ name: s, content: readFileSync(p, "utf8") });
     } catch {
       continue;
     }
   }
-  const r = checkStoryIndependence(storyJsons);
+  return out;
+}
+
+function storyIndependenceReason(fdir: string): string | null {
+  const r = checkStoryIndependence(collectStoryJsons(fdir));
+  return r.ok ? null : `story independence failed: ${r.violations.join("; ")}`;
+}
+
+/**
+ * Story-SCOPED independence check for the per-story spec gate: judge ONLY the
+ * story being gated (using its siblings for first-ness), so a story missing its
+ * independence determination fails at ITS OWN spec gate instead of slipping to
+ * the full-feature ship gate 50 turns later. The per-story counterpart of
+ * storyAcsConformanceReason; the whole-feature storyIndependenceReason stays the
+ * ship-gate backstop. Returns a reason, or null when the target conforms / is the
+ * first story / is not present.
+ */
+export function storyIndependenceForStoryReason(fdir: string, story: string): string | null {
+  const r = checkStoryIndependence(collectStoryJsons(fdir), story);
   return r.ok ? null : `story independence failed: ${r.violations.join("; ")}`;
 }
 

@@ -6945,6 +6945,41 @@ function checkTestListMd(content) {
   }
   return violations;
 }
+function checkStoryIndependence(stories, targetStory) {
+  const parsed = [];
+  for (const s of stories) {
+    let obj;
+    try {
+      obj = JSON.parse(s.content);
+    } catch {
+      continue;
+    }
+    const idForNum = typeof obj.id === "string" ? obj.id : s.name;
+    const m = /^S(\d+)/.exec(idForNum);
+    if (!m) continue;
+    parsed.push({ name: s.name, id: idForNum, num: parseInt(m[1], 10), indep: obj.independence });
+  }
+  if (parsed.length < 2) return { ok: true };
+  const firstNum = Math.min(...parsed.map((p) => p.num));
+  const violations = [];
+  for (const p of parsed) {
+    if (targetStory !== void 0 && p.name !== targetStory && p.id !== targetStory) continue;
+    if (p.num === firstNum) continue;
+    const i = p.indep;
+    if (!i || typeof i !== "object") {
+      violations.push(
+        `${p.name}: missing independence determination (every story after the first must record independence.distinct_from_prior + rationale; apply the story-independence test, or fold/re-scope it)`
+      );
+    } else if (i.distinct_from_prior !== true) {
+      violations.push(
+        `${p.name}: independence.distinct_from_prior is not true (this story's behavior is a subset of an earlier story; fold it into that story or re-scope it to a distinct, independently-RED-able slice)`
+      );
+    } else if (typeof i.rationale !== "string" || i.rationale.trim().length === 0) {
+      violations.push(`${p.name}: independence.rationale is empty (state the distinct behavior this story adds beyond the prior stories)`);
+    }
+  }
+  return violations.length === 0 ? { ok: true } : { ok: false, violations };
+}
 function checkAcIndependence(acs) {
   const parsed = [];
   for (const a of acs) {
@@ -7020,6 +7055,25 @@ function storyAcProblems(fdir, story) {
 function storyAcsConformanceReason(fdir, story) {
   const problems = storyAcProblems(fdir, story);
   return problems.length === 0 ? null : `AC conformance failed: ${problems.join("; ")}`;
+}
+function collectStoryJsons(fdir) {
+  const stories = (0, import_node_path2.join)(fdir, "stories");
+  if (!(0, import_node_fs.existsSync)(stories)) return [];
+  const out = [];
+  for (const s of (0, import_node_fs.readdirSync)(stories)) {
+    const p = (0, import_node_path2.join)(stories, s, "story.json");
+    if (!(0, import_node_fs.existsSync)(p)) continue;
+    try {
+      out.push({ name: s, content: (0, import_node_fs.readFileSync)(p, "utf8") });
+    } catch {
+      continue;
+    }
+  }
+  return out;
+}
+function storyIndependenceForStoryReason(fdir, story) {
+  const r = checkStoryIndependence(collectStoryJsons(fdir), story);
+  return r.ok ? null : `story independence failed: ${r.violations.join("; ")}`;
 }
 
 // scripts/sftdd/story-pipeline.ts
@@ -7166,6 +7220,8 @@ function approveStoryGateFromDisk(sftddDir, feature, story, opts) {
   if (batched.length > 0) return { ok: false, batched };
   const acReason = storyAcsConformanceReason(featureDir2(sftddDir, feature), story);
   if (acReason) return { ok: false, error: acReason };
+  const indepReason = storyIndependenceForStoryReason(featureDir2(sftddDir, feature), story);
+  if (indepReason) return { ok: false, error: indepReason };
   try {
     approveStoryGate(pipeline, story, {
       approver: opts.approver,

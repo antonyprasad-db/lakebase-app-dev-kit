@@ -7151,7 +7151,7 @@ function checkDbDesign(dbDesignJson2, architectureJson2) {
   }
   return violations.length > 0 ? { ok: false, violations } : { ok: true };
 }
-function checkStoryIndependence(stories) {
+function checkStoryIndependence(stories, targetStory) {
   const parsed = [];
   for (const s of stories) {
     let obj;
@@ -7163,12 +7163,13 @@ function checkStoryIndependence(stories) {
     const idForNum = typeof obj.id === "string" ? obj.id : s.name;
     const m = /^S(\d+)/.exec(idForNum);
     if (!m) continue;
-    parsed.push({ name: s.name, num: parseInt(m[1], 10), indep: obj.independence });
+    parsed.push({ name: s.name, id: idForNum, num: parseInt(m[1], 10), indep: obj.independence });
   }
   if (parsed.length < 2) return { ok: true };
   const firstNum = Math.min(...parsed.map((p) => p.num));
   const violations = [];
   for (const p of parsed) {
+    if (targetStory !== void 0 && p.name !== targetStory && p.id !== targetStory) continue;
     if (p.num === firstNum) continue;
     const i = p.indep;
     if (!i || typeof i !== "object") {
@@ -7882,20 +7883,27 @@ function acsConformanceReason(fdir) {
   const problems = readdirSync6(stories).flatMap((s) => storyAcProblems(fdir, s));
   return problems.length === 0 ? null : `AC conformance failed: ${problems.join("; ")}`;
 }
-function storyIndependenceReason(fdir) {
+function collectStoryJsons(fdir) {
   const stories = join9(fdir, "stories");
-  if (!existsSync10(stories)) return null;
-  const storyJsons = [];
+  if (!existsSync10(stories)) return [];
+  const out = [];
   for (const s of readdirSync6(stories)) {
     const p = join9(stories, s, "story.json");
     if (!existsSync10(p)) continue;
     try {
-      storyJsons.push({ name: s, content: readFileSync11(p, "utf8") });
+      out.push({ name: s, content: readFileSync11(p, "utf8") });
     } catch {
       continue;
     }
   }
-  const r = checkStoryIndependence(storyJsons);
+  return out;
+}
+function storyIndependenceReason(fdir) {
+  const r = checkStoryIndependence(collectStoryJsons(fdir));
+  return r.ok ? null : `story independence failed: ${r.violations.join("; ")}`;
+}
+function storyIndependenceForStoryReason(fdir, story) {
+  const r = checkStoryIndependence(collectStoryJsons(fdir), story);
   return r.ok ? null : `story independence failed: ${r.violations.join("; ")}`;
 }
 function architectureConventionsReason(sftddDir, featureId) {
@@ -8271,6 +8279,8 @@ function approveStoryGateFromDisk(sftddDir, feature, story, opts) {
   if (batched.length > 0) return { ok: false, batched };
   const acReason = storyAcsConformanceReason(featureDir2(sftddDir, feature), story);
   if (acReason) return { ok: false, error: acReason };
+  const indepReason = storyIndependenceForStoryReason(featureDir2(sftddDir, feature), story);
+  if (indepReason) return { ok: false, error: indepReason };
   try {
     approveStoryGate(pipeline, story, {
       approver: opts.approver,

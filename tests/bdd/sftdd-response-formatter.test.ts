@@ -167,6 +167,50 @@ describe("response-formatter: spec-author + architect-reviewer contracts", () =>
   });
 });
 
+// Breakdown-mode self-check (no --story): the spec-author runs this on its OWN
+// output before returning, so a breakdown that omits story independence
+// self-corrects at breakdown instead of slipping to the ship gate. Enforcement
+// half of the story-independence fix.
+describe("response-formatter: spec-author BREAKDOWN mode (feature-level, no story)", () => {
+  const writeStory = (id: string, over: Record<string, unknown> = {}) =>
+    writeJson(join(tdd, "features", F, "stories", id, "story.json"), { id, asA: "u", iWantTo: "x", soThat: "y", ...over });
+  const writeFeatureSpec = (storyIds: string[]) =>
+    writeJson(join(tdd, "features", F, "feature-spec.json"), {
+      id: F, name: "File a bug", status: "draft", tdd_mode: "standard", stories: storyIds,
+    });
+
+  it("FLAGS a breakdown where a later story stub omits independence", () => {
+    writeFeatureSpec(["S1-file", "S2-list"]);
+    writeStory("S1-file");
+    writeStory("S2-list"); // no independence
+    const r = formatRoleResponse({ role: "spec-author", sftddDir: tdd, featureId: F });
+    expect(r.ok).toBe(false);
+    expect(r.violations.map((x) => x.problem).join(" ")).toMatch(/S2-list.*independence|independence.*S2-list/i);
+  });
+
+  it("PASSES a breakdown where every later story records independence", () => {
+    writeFeatureSpec(["S1-file", "S2-list"]);
+    writeStory("S1-file");
+    writeStory("S2-list", { independence: { distinct_from_prior: true, rationale: "lists bugs, a view S1 never builds" } });
+    const r = formatRoleResponse({ role: "spec-author", sftddDir: tdd, featureId: F });
+    expect(r.ok).toBe(true);
+  });
+
+  it("PASSES a single-story breakdown (nothing to be independent of)", () => {
+    writeFeatureSpec(["S1-file"]);
+    writeStory("S1-file");
+    const r = formatRoleResponse({ role: "spec-author", sftddDir: tdd, featureId: F });
+    expect(r.ok).toBe(true);
+  });
+
+  it("FLAGS a breakdown missing feature-spec.json (the required deliverable)", () => {
+    writeStory("S1-file");
+    const r = formatRoleResponse({ role: "spec-author", sftddDir: tdd, featureId: F });
+    expect(r.ok).toBe(false);
+    expect(r.violations.map((x) => x.problem).join(" ")).toMatch(/feature-spec\.json/i);
+  });
+});
+
 describe("response-formatter: ux-designer (design-guide.json conforms to its schema)", () => {
   function designGuide(): string {
     return join(tdd, "design", "design-guide.json");

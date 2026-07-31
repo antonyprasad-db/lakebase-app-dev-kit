@@ -177,6 +177,45 @@ describe("checkStoryIndependence: a later story must not be a subset of an earli
     ]);
     expect(r.ok).toBe(true);
   });
+
+  // Story-SCOPED variant: at story S's own per-story spec gate, validate ONLY S
+  // (its independence vs its priors), NOT the whole set. A later, not-yet-designed
+  // sibling stub without independence must NOT fault an earlier story's gate.
+  describe("targetStory scoping (per-story spec gate)", () => {
+    const all = [
+      story("S1-submit"),
+      story("S2-retrieve"), // stub, no independence yet
+      story("S3-search"), // stub, no independence yet
+    ];
+
+    it("passes at S1's gate even though S2/S3 stubs lack independence (S1 is first, exempt)", () => {
+      expect(checkStoryIndependence(all, "S1-submit")).toEqual({ ok: true });
+    });
+
+    it("FAILS at S2's gate because S2 itself lacks independence", () => {
+      const r = checkStoryIndependence(all, "S2-retrieve");
+      expect(r.ok).toBe(false);
+      expect(r.ok ? "" : r.violations.join(" ")).toMatch(/S2-retrieve.*missing independence/i);
+    });
+
+    it("does NOT report S3 at S2's gate (only the target story is judged)", () => {
+      const r = checkStoryIndependence(all, "S2-retrieve");
+      expect(r.ok ? "" : r.violations.join(" ")).not.toMatch(/S3-search/);
+    });
+
+    it("passes at S2's gate once S2 records a valid independence determination", () => {
+      const withIndep = [
+        story("S1-submit"),
+        story("S2-retrieve", { distinct_from_prior: true, rationale: "lists by status, a view S1 never builds" }),
+        story("S3-search"),
+      ];
+      expect(checkStoryIndependence(withIndep, "S2-retrieve")).toEqual({ ok: true });
+    });
+
+    it("is a no-op when the target story is not present in the set", () => {
+      expect(checkStoryIndependence(all, "S9-nonexistent")).toEqual({ ok: true });
+    });
+  });
 });
 
 describe("checkArtifactConformance: JSON artifacts (schema-validated)", () => {
