@@ -417,20 +417,41 @@ export function checkServiceBackedDeclaration(
   architectureJson: string,
   evidence: { acLayers?: string[]; nfrsText?: string[] },
 ): ConformanceResult {
-  let parsed: { service_backed?: boolean };
+  let parsed: { service_backed?: boolean; persistence_invariants?: Array<{ id?: string }> };
   try {
     parsed = JSON.parse(architectureJson);
   } catch (err) {
     return { ok: false, violations: [`architecture.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`] };
   }
-  if (parsed.service_backed === true) return { ok: true }; // declared service-backed; layering checks take over
   const infraAc = (evidence.acLayers ?? []).some((l) => l === "Infra");
   const persistNfr = (evidence.nfrsText ?? []).some((t) => PERSISTENCE_EVIDENCE_RE.test(t));
-  if (!infraAc && !persistNfr) return { ok: true }; // no persistence evidence; a trivial feature may omit/false
   const why = [
     infraAc ? "an AC is tagged layer:Infra (a data-store contract)" : "",
     persistNfr ? "an NFR references persistence (migration/schema/storage)" : "",
   ].filter(Boolean).join(" and ");
+
+  if (parsed.service_backed === true) {
+    // Declared service-backed; layering checks take over. But a service does NOT
+    // always mean a database: persistence is tracked by persistence_invariants
+    // (the source of truth for "has a DB"), not by service_backed. So the DB
+    // gates (checkDbDesign / checkPersistenceCoverage) exempt a service that
+    // declares none. The safety net against a feature that REALLY persists
+    // slipping through with no invariants lives HERE: persistence evidence
+    // (an Infra AC / a storage NFR) while persistence_invariants is empty is the
+    // contradiction , force the invariants so the schema gets tested.
+    if (!infraAc && !persistNfr) return { ok: true }; // a non-persisting service: fine
+    const hasInvariants = (parsed.persistence_invariants ?? []).some((i) => i && typeof i.id === "string" && i.id.length > 0);
+    if (hasInvariants) return { ok: true }; // a real DB feature, properly declared
+    return {
+      ok: false,
+      violations: [
+        `architecture.json is service_backed and shows persistence evidence (${why}) but declares NO persistence_invariants[]; ` +
+          `a feature that persists data must name its DB-level guarantees (unique/FK/CHECK/NOT NULL/transactional/migration-reversible) ` +
+          `so the schema gets a real-branch test, OR remove the misleading persistence signal if this service does not actually persist`,
+      ],
+    };
+  }
+  if (!infraAc && !persistNfr) return { ok: true }; // no persistence evidence; a trivial feature may omit/false
   return {
     ok: false,
     violations: [
@@ -532,16 +553,11 @@ export function checkPersistenceCoverage(testListJson: string, architectureJson:
   }
   if (arch.service_backed !== true) return { ok: true };
   const invariants = (arch.persistence_invariants ?? []).filter((i) => i && typeof i.id === "string" && i.id.length > 0);
-  if (invariants.length === 0) {
-    return {
-      ok: false,
-      violations: [
-        `architecture is service-backed but declares no persistence_invariants[] ` +
-          `(name the DB-level guarantees the schema enforces , unique/FK/CHECK/NOT NULL/transactional/migration-reversible , ` +
-          `so each gets a real-branch test; see architecture.schema.json + test-strategy.md)`,
-      ],
-    };
-  }
+  // A service does not always mean a database. No declared invariants => a
+  // non-persisting service with nothing to cover, so coverage is vacuously ok.
+  // The guard that a feature which really persists MUST declare invariants lives
+  // in checkServiceBackedDeclaration (persistence evidence forces them).
+  if (invariants.length === 0) return { ok: true };
   let tl: { items?: Array<{ invariant_id?: string }> };
   try {
     tl = JSON.parse(testListJson);
@@ -585,11 +601,19 @@ export function checkDbDesign(dbDesignJson: string | undefined, architectureJson
   const invariants = (arch.persistence_invariants ?? [])
     .filter((i) => i && typeof i.id === "string" && i.id.length > 0)
     .map((i) => i.id as string);
+  // A service does not always mean a database. When the feature declares NO
+  // persistence_invariants it is a non-persisting service (compute / proxy /
+  // external-API aggregator): there is nothing to physically realize, so
+  // db-design is optional (the DBA is skipped). persistence_invariants, not
+  // service_backed, is the source of truth for "has a database". The safety net
+  // against a truly-persisting feature under-declaring lives in
+  // checkServiceBackedDeclaration (Infra AC / storage NFR forces invariants).
+  if (invariants.length === 0) return { ok: true };
   if (dbDesignJson === undefined) {
     return {
       ok: false,
       violations: [
-        `service-backed feature has no db-design.json (the DBA runs after the architect and before the ` +
+        `feature declares persistence_invariants but has no db-design.json (the DBA runs after the architect and before the ` +
           `test-strategist to realize the schema; declare >=1 table and realize every persistence_invariant; ` +
           `see db-design.schema.json + agents/dba.md)`,
       ],
@@ -604,7 +628,7 @@ export function checkDbDesign(dbDesignJson: string | undefined, architectureJson
   const violations: string[] = [];
   if (!Array.isArray(db.tables) || db.tables.length === 0) {
     violations.push(
-      `service-backed feature's db-design.json declares no tables[] (it persists data, so it has >=1 table; see agents/dba.md)`,
+      `db-design.json declares no tables[] but the feature declares persistence_invariants (it persists data, so it has >=1 table; see agents/dba.md)`,
     );
   }
   const realized = new Set((db.realizes_invariants ?? []).filter((x): x is string => typeof x === "string" && x.length > 0));

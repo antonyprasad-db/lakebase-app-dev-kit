@@ -27,8 +27,33 @@ import { renderTestListMarkdown } from "../../scripts/sftdd/test-list";
 describe("checkServiceBackedDeclaration: evidence-bound service_backed (no silent under-declaration)", () => {
   const arch = (over: Record<string, unknown> = {}) => JSON.stringify({ feature_id: "F1", nfrs: [], ...over });
 
-  it("ok when declared service_backed:true (it owns the layering enforcement)", () => {
-    expect(checkServiceBackedDeclaration(arch({ service_backed: true }), { acLayers: ["Infra"], nfrsText: ["schema migration"] })).toEqual({ ok: true });
+  it("ok when service_backed:true shows persistence evidence AND declares invariants (a real DB feature)", () => {
+    expect(
+      checkServiceBackedDeclaration(
+        arch({ service_backed: true, persistence_invariants: [{ id: "PI1-x", type: "unique", brief: "x" }] }),
+        { acLayers: ["Infra"], nfrsText: ["schema migration"] },
+      ),
+    ).toEqual({ ok: true });
+  });
+
+  // A service does not always mean a database: service_backed:true with NO
+  // persistence evidence and NO invariants is a legitimate non-persisting
+  // service (compute/proxy/aggregator). Layering enforcement still applies; the
+  // DB gates (checkDbDesign / checkPersistenceCoverage) exempt it.
+  it("ok for a non-persisting service: service_backed:true, no persistence evidence, no invariants", () => {
+    expect(
+      checkServiceBackedDeclaration(arch({ service_backed: true }), { acLayers: ["API"], nfrsText: ["respond fast"] }),
+    ).toEqual({ ok: true });
+  });
+
+  // The safety net moves here: service_backed:true that SHOWS persistence
+  // evidence (an Infra AC or a storage/migration NFR) MUST declare invariants,
+  // so a feature that really persists cannot escape DB testing by leaving
+  // persistence_invariants empty.
+  it("FLAGS service_backed:true that shows persistence evidence but declares NO invariants", () => {
+    const r = checkServiceBackedDeclaration(arch({ service_backed: true }), { acLayers: ["Infra"], nfrsText: ["schema migration"] });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.violations.join(" ")).toMatch(/persistence evidence.*persistence_invariants|declare .*persistence_invariants/i);
   });
 
   it("ok for a genuinely trivial feature: not service_backed + NO persistence evidence", () => {
@@ -680,10 +705,13 @@ describe("checkPersistenceCoverage (Gate 3: DB coverage tied to the schema's dec
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.violations.join(" ")).toMatch(/PI2-qty-nonneg/);
   });
-  it("FAILS a service-backed feature that declares NO persistence_invariants", () => {
+  it("EXEMPTS a service-backed feature that declares NO persistence_invariants (a non-persisting service: compute/proxy, no database)", () => {
+    // A service does not always mean a database. With no declared invariants
+    // there is nothing to cover, so persistence coverage is vacuously ok. The
+    // safety net against UNDER-declaring a feature that really persists lives in
+    // checkServiceBackedDeclaration (Infra AC / storage NFR forces invariants).
     const r = checkPersistenceCoverage(tl([{ id: "T1", description: "x", ac_id: "AC1", status: "pending", kind: "behavior" }]), arch([]));
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.violations.join(" ")).toMatch(/no persistence_invariants/);
+    expect(r).toEqual({ ok: true });
   });
   it("EXEMPTS a non-service-backed feature", () => {
     const trivial = JSON.stringify({ feature_id: "F1-x", nfrs: [] });

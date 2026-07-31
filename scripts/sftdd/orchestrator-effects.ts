@@ -658,8 +658,13 @@ function roleTaskBody(
             : "";
           const models = (arch.layers ?? []).find((l) => l.role === "models");
           const modelsNote = models?.module ? ` Mirror the architect's models package (${models.module}), one table per domain object.` : "";
+          // A service does not always mean a database: no declared invariants =>
+          // a non-persisting service, an empty/absent db-design.json is fine.
+          const nonPersistingNote = inv.length
+            ? ""
+            : ` This service declares NO persistence_invariants (a non-persisting service , compute/proxy/aggregator); an empty or absent db-design.json is acceptable, do not invent tables.`;
           contract =
-            ` This feature is service_backed.${modelsNote}${invList}`;
+            ` This feature is service_backed.${modelsNote}${invList}${nonPersistingNote}`;
         } else if (arch.service_backed === false) {
           contract = ` This feature is not service_backed (a trivial static/read-through endpoint); an empty or absent db-design.json is acceptable.`;
         }

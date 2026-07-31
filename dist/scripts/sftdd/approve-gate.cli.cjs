@@ -7016,14 +7016,24 @@ function checkServiceBackedDeclaration(architectureJson2, evidence) {
   } catch (err) {
     return { ok: false, violations: [`architecture.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`] };
   }
-  if (parsed.service_backed === true) return { ok: true };
   const infraAc = (evidence.acLayers ?? []).some((l) => l === "Infra");
   const persistNfr = (evidence.nfrsText ?? []).some((t) => PERSISTENCE_EVIDENCE_RE.test(t));
-  if (!infraAc && !persistNfr) return { ok: true };
   const why = [
     infraAc ? "an AC is tagged layer:Infra (a data-store contract)" : "",
     persistNfr ? "an NFR references persistence (migration/schema/storage)" : ""
   ].filter(Boolean).join(" and ");
+  if (parsed.service_backed === true) {
+    if (!infraAc && !persistNfr) return { ok: true };
+    const hasInvariants = (parsed.persistence_invariants ?? []).some((i) => i && typeof i.id === "string" && i.id.length > 0);
+    if (hasInvariants) return { ok: true };
+    return {
+      ok: false,
+      violations: [
+        `architecture.json is service_backed and shows persistence evidence (${why}) but declares NO persistence_invariants[]; a feature that persists data must name its DB-level guarantees (unique/FK/CHECK/NOT NULL/transactional/migration-reversible) so the schema gets a real-branch test, OR remove the misleading persistence signal if this service does not actually persist`
+      ]
+    };
+  }
+  if (!infraAc && !persistNfr) return { ok: true };
   return {
     ok: false,
     violations: [
@@ -7088,14 +7098,7 @@ function checkPersistenceCoverage(testListJson, architectureJson2) {
   }
   if (arch.service_backed !== true) return { ok: true };
   const invariants = (arch.persistence_invariants ?? []).filter((i) => i && typeof i.id === "string" && i.id.length > 0);
-  if (invariants.length === 0) {
-    return {
-      ok: false,
-      violations: [
-        `architecture is service-backed but declares no persistence_invariants[] (name the DB-level guarantees the schema enforces , unique/FK/CHECK/NOT NULL/transactional/migration-reversible , so each gets a real-branch test; see architecture.schema.json + test-strategy.md)`
-      ]
-    };
-  }
+  if (invariants.length === 0) return { ok: true };
   let tl;
   try {
     tl = JSON.parse(testListJson);
@@ -7123,11 +7126,12 @@ function checkDbDesign(dbDesignJson2, architectureJson2) {
   }
   if (arch.service_backed !== true) return { ok: true };
   const invariants = (arch.persistence_invariants ?? []).filter((i) => i && typeof i.id === "string" && i.id.length > 0).map((i) => i.id);
+  if (invariants.length === 0) return { ok: true };
   if (dbDesignJson2 === void 0) {
     return {
       ok: false,
       violations: [
-        `service-backed feature has no db-design.json (the DBA runs after the architect and before the test-strategist to realize the schema; declare >=1 table and realize every persistence_invariant; see db-design.schema.json + agents/dba.md)`
+        `feature declares persistence_invariants but has no db-design.json (the DBA runs after the architect and before the test-strategist to realize the schema; declare >=1 table and realize every persistence_invariant; see db-design.schema.json + agents/dba.md)`
       ]
     };
   }
@@ -7140,7 +7144,7 @@ function checkDbDesign(dbDesignJson2, architectureJson2) {
   const violations = [];
   if (!Array.isArray(db.tables) || db.tables.length === 0) {
     violations.push(
-      `service-backed feature's db-design.json declares no tables[] (it persists data, so it has >=1 table; see agents/dba.md)`
+      `db-design.json declares no tables[] but the feature declares persistence_invariants (it persists data, so it has >=1 table; see agents/dba.md)`
     );
   }
   const realized = new Set((db.realizes_invariants ?? []).filter((x) => typeof x === "string" && x.length > 0));

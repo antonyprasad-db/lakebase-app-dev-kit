@@ -81,6 +81,16 @@ describe("checkDbDesign: invariant realization (physical counterpart to checkPer
     expect(checkDbDesign(undefined, arch({ service_backed: false }))).toEqual({ ok: true });
   });
 
+  // A service does NOT always mean a database: a service_backed feature that
+  // declares NO persistence_invariants is a non-persisting service (compute /
+  // proxy / external-API aggregator). It has nothing to realize, so db-design
+  // is optional and the DBA is skipped. persistence_invariants (not
+  // service_backed) is the source of truth for "has a database".
+  it("exempts a service_backed feature that declares NO persistence_invariants (a non-persisting service)", () => {
+    expect(checkDbDesign(undefined, arch({ service_backed: true }))).toEqual({ ok: true });
+    expect(checkDbDesign(undefined, arch({ service_backed: true, persistence_invariants: [] }))).toEqual({ ok: true });
+  });
+
   it("FLAGS a service_backed feature with NO db-design.json", () => {
     const r = checkDbDesign(undefined, arch({ persistence_invariants: invariants }));
     expect(r.ok).toBe(false);

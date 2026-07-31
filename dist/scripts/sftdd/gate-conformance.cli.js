@@ -7005,14 +7005,7 @@ function checkPersistenceCoverage(testListJson, architectureJson) {
   }
   if (arch.service_backed !== true) return { ok: true };
   const invariants = (arch.persistence_invariants ?? []).filter((i) => i && typeof i.id === "string" && i.id.length > 0);
-  if (invariants.length === 0) {
-    return {
-      ok: false,
-      violations: [
-        `architecture is service-backed but declares no persistence_invariants[] (name the DB-level guarantees the schema enforces , unique/FK/CHECK/NOT NULL/transactional/migration-reversible , so each gets a real-branch test; see architecture.schema.json + test-strategy.md)`
-      ]
-    };
-  }
+  if (invariants.length === 0) return { ok: true };
   let tl;
   try {
     tl = JSON.parse(testListJson);
@@ -7040,11 +7033,12 @@ function checkDbDesign(dbDesignJson, architectureJson) {
   }
   if (arch.service_backed !== true) return { ok: true };
   const invariants = (arch.persistence_invariants ?? []).filter((i) => i && typeof i.id === "string" && i.id.length > 0).map((i) => i.id);
+  if (invariants.length === 0) return { ok: true };
   if (dbDesignJson === void 0) {
     return {
       ok: false,
       violations: [
-        `service-backed feature has no db-design.json (the DBA runs after the architect and before the test-strategist to realize the schema; declare >=1 table and realize every persistence_invariant; see db-design.schema.json + agents/dba.md)`
+        `feature declares persistence_invariants but has no db-design.json (the DBA runs after the architect and before the test-strategist to realize the schema; declare >=1 table and realize every persistence_invariant; see db-design.schema.json + agents/dba.md)`
       ]
     };
   }
@@ -7057,7 +7051,7 @@ function checkDbDesign(dbDesignJson, architectureJson) {
   const violations = [];
   if (!Array.isArray(db.tables) || db.tables.length === 0) {
     violations.push(
-      `service-backed feature's db-design.json declares no tables[] (it persists data, so it has >=1 table; see agents/dba.md)`
+      `db-design.json declares no tables[] but the feature declares persistence_invariants (it persists data, so it has >=1 table; see agents/dba.md)`
     );
   }
   const realized = new Set((db.realizes_invariants ?? []).filter((x) => typeof x === "string" && x.length > 0));

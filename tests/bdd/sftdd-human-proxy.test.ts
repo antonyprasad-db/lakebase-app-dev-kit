@@ -253,17 +253,22 @@ describe("drainGatesAsHumanProxy: hard-blocks non-conformant artifacts (Layer 2)
     expect(blocked.approved).not.toContain("spec");
     expect(blocked.skipped.find((s) => s.gate === "spec")?.reason ?? "").toMatch(/service_backed declaration failed.*persistence evidence/i);
 
-    // Own it: service_backed:true + the 3 layers -> spec approves.
+    // Own it: service_backed:true + the 3 layers. The migration NFR is
+    // persistence evidence, so the safety net now also requires a declared
+    // persistence_invariant (a service does not always mean a database, but a
+    // feature that DOES persist must name its DB-level guarantee) , declare it
+    // and realize it, then spec approves.
     writeFileSync(
       join(fdir, "architecture.json"),
       JSON.stringify({
         feature_id: "F1-initial-domain",
         service_backed: true,
         layers: [{ role: "boundary", module: "app/main.py" }, { role: "service", module: "app/services" }, { role: "repository", module: "app/repositories" }],
+        persistence_invariants: [{ id: "PI1-bug-migration-reversible", type: "migration_reversible", table: "bugs", brief: "existing bugs survive every schema migration" }],
         nfrs: [{ category: "operability", requirement: "bugs survive every schema migration", hil_status: "accepted" }],
       }),
     );
-    writeFileSync(join(fdir, "db-design.json"), JSON.stringify({ feature_id: FEATURE_ID, tables: [{ name: "bugs", columns: [{ name: "id", type: "uuid" }] }], realizes_invariants: [] }));
+    writeFileSync(join(fdir, "db-design.json"), JSON.stringify({ feature_id: FEATURE_ID, tables: [{ name: "bugs", columns: [{ name: "id", type: "uuid" }] }], realizes_invariants: ["PI1-bug-migration-reversible"] }));
     expect(drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd }).approved).toContain("spec");
   });
 

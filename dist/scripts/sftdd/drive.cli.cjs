@@ -9193,11 +9193,12 @@ function checkDbDesign(dbDesignJson2, architectureJson2) {
   }
   if (arch.service_backed !== true) return { ok: true };
   const invariants = (arch.persistence_invariants ?? []).filter((i) => i && typeof i.id === "string" && i.id.length > 0).map((i) => i.id);
+  if (invariants.length === 0) return { ok: true };
   if (dbDesignJson2 === void 0) {
     return {
       ok: false,
       violations: [
-        `service-backed feature has no db-design.json (the DBA runs after the architect and before the test-strategist to realize the schema; declare >=1 table and realize every persistence_invariant; see db-design.schema.json + agents/dba.md)`
+        `feature declares persistence_invariants but has no db-design.json (the DBA runs after the architect and before the test-strategist to realize the schema; declare >=1 table and realize every persistence_invariant; see db-design.schema.json + agents/dba.md)`
       ]
     };
   }
@@ -9210,7 +9211,7 @@ function checkDbDesign(dbDesignJson2, architectureJson2) {
   const violations = [];
   if (!Array.isArray(db.tables) || db.tables.length === 0) {
     violations.push(
-      `service-backed feature's db-design.json declares no tables[] (it persists data, so it has >=1 table; see agents/dba.md)`
+      `db-design.json declares no tables[] but the feature declares persistence_invariants (it persists data, so it has >=1 table; see agents/dba.md)`
     );
   }
   const realized = new Set((db.realizes_invariants ?? []).filter((x) => typeof x === "string" && x.length > 0));
@@ -9776,7 +9777,8 @@ function roleTaskBody(action, featureId, uiTrack, sftddDir, build) {
           const invList = inv.length ? ` Realize EVERY declared persistence_invariant and list its id in realizes_invariants[]: ${inv.map((i) => `${i.id}${i.type ? ` [${i.type}${i.table ? ` on ${i.table}` : ""}]` : ""}${i.brief ? ` (${i.brief})` : ""}`).join("; ")}.` : "";
           const models = (arch.layers ?? []).find((l) => l.role === "models");
           const modelsNote = models?.module ? ` Mirror the architect's models package (${models.module}), one table per domain object.` : "";
-          contract = ` This feature is service_backed.${modelsNote}${invList}`;
+          const nonPersistingNote = inv.length ? "" : ` This service declares NO persistence_invariants (a non-persisting service , compute/proxy/aggregator); an empty or absent db-design.json is acceptable, do not invent tables.`;
+          contract = ` This feature is service_backed.${modelsNote}${invList}${nonPersistingNote}`;
         } else if (arch.service_backed === false) {
           contract = ` This feature is not service_backed (a trivial static/read-through endpoint); an empty or absent db-design.json is acceptable.`;
         }

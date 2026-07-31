@@ -6,6 +6,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-07-31
+
+### Changed
+
+- **A service no longer implies a database.** `service_backed` used to force a
+  schema: a `service_backed` feature with zero tables or zero
+  `persistence_invariants[]` hard-failed the design gate, so a compute /
+  transform / proxy / external-API-aggregator service (real business logic, no
+  persistence) could not pass. `persistence_invariants[]` is now the single
+  source of truth for "this feature has a database": declaring `>=1` routes the
+  feature through the DBA + DB-integration tests; declaring none marks it a
+  non-persisting service (the DBA turn is skipped, `db-design.json` is optional,
+  no persistence coverage is required). `checkDbDesign` and
+  `checkPersistenceCoverage` now key off the invariants, not `service_backed`.
+  The safety net against under-declaring a feature that really persists moves
+  into `checkServiceBackedDeclaration`: persistence evidence (an `Infra`-layer
+  AC, or a migration/schema/storage NFR) while `persistence_invariants` is empty
+  still hard-blocks the gate. Layering enforcement is unchanged (every
+  `service_backed` feature still declares boundary/service/repository). Agent
+  prose (`dba.md`, `architect-reviewer.md`, `test-strategist.md`), the
+  architecture schema, and the DBA task hint were realigned, with a regression
+  guard in `sftdd-agent-defs.test.ts`.
+
 ## [0.3.4] - 2026-07-31
 
 ### Fixed

@@ -45,7 +45,7 @@
     },
     "persistence_invariants": {
       "type": "array",
-      "description": "The DB-level guarantees the schema must enforce for a service_backed feature (the persistence contract). Each is covered by a real-branch test (test-list item referencing its id via invariant_id); checkPersistenceCoverage hard-blocks Gate 3 when a service_backed feature declares none or leaves one uncovered. These drive DB-integration coverage tied to the schema's own contract, verifying the MIGRATION realized each guarantee against the branch, NOT the ORM's generic behavior.",
+      "description": "The DB-level guarantees the schema must enforce (the persistence contract), for a feature that persists data. This array is the source of truth for 'this feature has a database': a service does NOT always mean a database, so a service_backed compute/proxy/aggregator that persists nothing declares NONE here (and is then routed past the DBA + DB-integration tests). Each declared invariant is covered by a real-branch test (a test-list item referencing its id via invariant_id) and physically realized by the DBA; checkPersistenceCoverage/checkDbDesign hard-block Gate 3 when a feature that DID declare invariants leaves one uncovered/unrealized. The safety net against under-declaring a feature that really persists is checkServiceBackedDeclaration (persistence evidence , an Infra AC or a storage/migration NFR , forces invariants). These drive DB-integration coverage tied to the schema's own contract, verifying the MIGRATION realized each guarantee against the branch, NOT the ORM's generic behavior.",
       "items": {
         "type": "object",
         "required": ["id", "type", "brief"],

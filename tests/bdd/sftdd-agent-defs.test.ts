@@ -130,4 +130,17 @@ describe("dba.md: realizes_invariants prose matches the schema (flat string arra
       /unique_constraints[\s\S]{0,240}?(array of column-name arrays|column-name arrays|\[\["\w)/i,
     );
   });
+
+  // A service does not always mean a database: the DBA must key schema
+  // production off persistence_invariants, not service_backed, so a
+  // non-persisting service is not forced to invent tables.
+  it("does NOT flatly require a table for every service_backed feature", () => {
+    expect(body, "dba.md must not state 'a service_backed feature MUST declare at least one table' unconditionally").not.toMatch(
+      /a\s+`?service_backed`?\s+feature\s+MUST\s+declare\s+at\s+least\s+one\s+table/i,
+    );
+  });
+
+  it("acknowledges a service does not always mean a database", () => {
+    expect(body).toMatch(/service does not always mean a database/i);
+  });
 });
