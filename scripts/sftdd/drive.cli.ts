@@ -706,6 +706,10 @@ function buildCfg(args: ParsedArgs, featureId: string): DriveEffectsConfig {
     // step is deterministic (project feature-proposals.md from them) instead of an
     // LLM spawn. Unset (interactive) keeps the live Spec Author propose turn.
     recordedRequests: !!sftddEnv("SPRINT_REQUESTS")?.trim(),
+    // Force a LIVE propose even with recorded requests (capture exercising the
+    // full plan lane): the Spec Author proposes from product-overview + nfrs,
+    // the proxy still commits the recorded request at author-requests.
+    livePropose: !!sftddEnv("LIVE_PROPOSE")?.trim(),
     instance: args.instance ?? scm?.project_id,
     featureBranch: scm?.branch,
     parentBranch: scm?.parent_branch,

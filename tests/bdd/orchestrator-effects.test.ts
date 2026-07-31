@@ -136,6 +136,26 @@ describe("commandsForAction: invoke-role -> claude", () => {
     expect((cmds[0] as { args: string[] }).args[0]).toBe("supply-proposals");
   });
 
+  // livePropose (capture with a LIVE plan lane): even with recorded requests
+  // present (so the proxy-as-PO still commits the recorded request at
+  // author-requests), the spec-author's PROPOSE runs LIVE , it reads
+  // product-overview.md + nfrs.md and authors feature-proposals.md itself,
+  // instead of projecting deterministically. The proposal set is guided by the
+  // product overview's own feature framing.
+  it("propose (capture + livePropose) runs LIVE despite recorded requests", () => {
+    const cmds = commandsForAction({ kind: "invoke-role", role: "spec-author", mode: "propose" }, cfg({ recordedRequests: true, livePropose: true }));
+    expect(cmds[0]).toMatchObject({ kind: "claude", role: "spec-author" });
+    expect((cmds[0] as { task: string }).task).toMatch(/feature-proposals\.md/);
+    // NOT the deterministic supply-proposals path.
+    expect(cmds.some((c) => (c as { args?: string[] }).args?.[0] === "supply-proposals")).toBe(false);
+  });
+
+  it("author-requests stays DETERMINISTIC (proxy commits the recorded request) even with livePropose", () => {
+    const cmds = commandsForAction({ kind: "invoke-role", role: "product-owner", mode: "author-requests" }, cfg({ recordedRequests: true, livePropose: true }));
+    expect(cmds[0]).toMatchObject({ kind: "cli", bin: "lakebase-sftdd-human-proxy" });
+    expect((cmds[0] as { args: string[] }).args[0]).toBe("supply-requests");
+  });
+
   it("propose + breakdown carry the UI-track E2E directive only when the UI track is on", () => {
     // breakdown prepends a reset-breakdown cli (FEIP-8024), so find the claude turn.
     const task = (cmds: ReturnType<typeof commandsForAction>) =>

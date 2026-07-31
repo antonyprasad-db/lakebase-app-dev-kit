@@ -89,6 +89,14 @@ export interface DriveEffectsConfig {
    *  write nothing then claim the file exists (the propose protocol-violation
    *  abort). Interactive users (no recorded requests) still get the live propose. */
   recordedRequests?: boolean;
+  /** Force the PROPOSE step LIVE even when recordedRequests is set. The capture
+   *  uses this to exercise the full plan lane: the Spec Author proposes live
+   *  (reading product-overview.md + nfrs.md, so the candidate set is guided by
+   *  the product's own framing), while the proxy-as-PO STILL commits the recorded
+   *  feature-request at author-requests. Safe now that an empty live propose is
+   *  caught + retried (improved handoff guard), which is the failure the
+   *  deterministic path originally avoided. Set via $LAKEBASE_SFTDD_LIVE_PROPOSE. */
+  livePropose?: boolean;
   /** Deploy target for the deploy action (e.g. "local"). */
   deployTarget?: string;
   /** Lakebase instance id (the Lakebase project id), threaded to the experiment
@@ -1100,7 +1108,7 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
       // and then, on the re-dispatch, claim the file "already exists" , the handoff
       // guard then aborts on the empty artifact. Interactive users (no recorded
       // requests) still get the live LLM propose below.
-      if (cfg.recordedRequests && "mode" in action && action.role === "spec-author" && action.mode === "propose") {
+      if (cfg.recordedRequests && !cfg.livePropose && "mode" in action && action.role === "spec-author" && action.mode === "propose") {
         return [
           {
             kind: "cli",

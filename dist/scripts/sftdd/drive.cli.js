@@ -10208,7 +10208,7 @@ function commandsForAction(action, cfg) {
           { kind: "sync-backlog", sprint: cfg.sprintName ?? "sprint" }
         ];
       }
-      if (cfg.recordedRequests && "mode" in action && action.role === "spec-author" && action.mode === "propose") {
+      if (cfg.recordedRequests && !cfg.livePropose && "mode" in action && action.role === "spec-author" && action.mode === "propose") {
         return [
           {
             kind: "cli",
@@ -11620,6 +11620,10 @@ function buildCfg(args, featureId) {
     // step is deterministic (project feature-proposals.md from them) instead of an
     // LLM spawn. Unset (interactive) keeps the live Spec Author propose turn.
     recordedRequests: !!sftddEnv("SPRINT_REQUESTS")?.trim(),
+    // Force a LIVE propose even with recorded requests (capture exercising the
+    // full plan lane): the Spec Author proposes from product-overview + nfrs,
+    // the proxy still commits the recorded request at author-requests.
+    livePropose: !!sftddEnv("LIVE_PROPOSE")?.trim(),
     instance: args.instance ?? scm?.project_id,
     featureBranch: scm?.branch,
     parentBranch: scm?.parent_branch,
