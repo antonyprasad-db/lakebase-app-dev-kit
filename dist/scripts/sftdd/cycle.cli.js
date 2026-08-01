@@ -7408,7 +7408,7 @@ import * as path2 from "path";
 function scopePath(sftddDir, featureId, storyId) {
   const fdir = findFeatureDir(sftddDir, featureId);
   if (!fdir) return void 0;
-  return path2.join(fdir, "stories", storyId, "deploy-verify-scope.json");
+  return storyId ? path2.join(fdir, "stories", storyId, "deploy-verify-scope.json") : path2.join(fdir, "deploy-verify-scope.json");
 }
 function readDeployVerifyScope(sftddDir, featureId, storyId) {
   const file = scopePath(sftddDir, featureId, storyId);
@@ -7422,7 +7422,7 @@ function readDeployVerifyScope(sftddDir, featureId, storyId) {
 function markerPath(sftddDir, featureId, storyId) {
   const fdir = findFeatureDir(sftddDir, featureId);
   if (!fdir) return void 0;
-  return path2.join(fdir, "stories", storyId, "deploy-verify-assess.json");
+  return storyId ? path2.join(fdir, "stories", storyId, "deploy-verify-assess.json") : path2.join(fdir, "deploy-verify-assess.json");
 }
 function readDeployVerifyAssessMarker(sftddDir, featureId, storyId) {
   const file = markerPath(sftddDir, featureId, storyId);
@@ -8246,6 +8246,12 @@ function beginNextPendingBatch(args, opts) {
   });
   return { recorded: true, cycleId: art.cycle_id, testId: head.id, acId: head.ac_id };
 }
+function isAuthExpiredSummary(summary) {
+  if (!summary) return false;
+  return /refresh token is invalid|could not be retrieved because|reauthenticate|databricks auth login|not authenticated|no valid.*(credential|token)|invalid.*(access token|credential)|\bunauthorized\b/i.test(
+    summary
+  );
+}
 var defaultGreenVerifier = async ({ projectDir, branchId }) => {
   const r = await ensureDeployedAndVerify({ projectDir, lakebaseBranch: branchId });
   return { passed: r.passed, summary: r.summary };
@@ -8287,6 +8293,16 @@ async function greenOpenCycle(args) {
     recordRunnerOutcome({ scope, cycleId: open.cycle_id, experimentSlug: open.experiment_slug, passed: result.passed });
   }
   if (!result.passed) {
+    if (isAuthExpiredSummary(result.summary)) {
+      const escalation2 = writeEscalation(sftddDir, {
+        source: "auth-expired",
+        reason: `Databricks auth session expired during verify of ${open.test_id} (${open.ac_id}) in ${featureId}/${story}. Re-authenticate with \`databricks auth login\` and re-run. (verify: ${result.summary})`,
+        feature_id: featureId,
+        story_id: story,
+        ac_id: open.ac_id
+      });
+      return { recorded: false, cycleId: open.cycle_id, testId: open.test_id, escalated: true, escalation: escalation2, summary: result.summary };
+    }
     const gf = readGreenFailure(sftddDir, featureId, story, open.ac_id);
     if (!gf?.assessed) {
       let contractRefs;
@@ -8781,10 +8797,10 @@ async function main() {
       return 0;
     }
     case "assess-deploy-verify": {
-      if (!a.story) return usage("assess-deploy-verify: --story is required.");
+      const scopeLabel = a.story ? `${a.feature}/${a.story}` : a.feature;
       const marker = readDeployVerifyAssessMarker(sftddDir, a.feature, a.story);
       if (!marker) {
-        process.stdout.write(`cycle: assess-deploy-verify , no marker for ${a.feature}/${a.story} (nothing to assess)
+        process.stdout.write(`cycle: assess-deploy-verify , no marker for ${scopeLabel} (nothing to assess)
 `);
         return 0;
       }
@@ -8793,27 +8809,28 @@ async function main() {
       if (scoped.length > 0) {
         markDeployVerifyAssessed(sftddDir, a.feature, a.story, scoped);
         process.stdout.write(
-          `cycle: assessed deploy-verify ${a.story} -> ${scoped.length} contamination-fragile test(s) to scope; routing Driver SCOPE-DEPLOY
+          `cycle: assessed deploy-verify ${scopeLabel} -> ${scoped.length} contamination-fragile test(s) to scope; routing Driver SCOPE-DEPLOY
 `
         );
       } else {
         markDeployVerifyAssessed(sftddDir, a.feature, a.story);
         writeEscalation(sftddDir, {
           source: "deploy-verify",
-          reason: `deploy-verify failure for ${a.feature}/${a.story}: Navigator assessed it as genuine (no contamination-fragile tests to scope); raising to HIL`,
+          reason: `deploy-verify failure for ${scopeLabel}: Navigator assessed it as genuine (no contamination-fragile tests to scope); raising to HIL`,
           feature_id: a.feature,
-          story_id: a.story
+          ...a.story ? { story_id: a.story } : {}
         });
-        process.stdout.write(`cycle: assessed deploy-verify ${a.story} -> genuine (no scope set), raised to HIL
+        process.stdout.write(`cycle: assessed deploy-verify ${scopeLabel} -> genuine (no scope set), raised to HIL
 `);
       }
       return 0;
     }
     case "refactor-deploy-verify": {
-      if (!a.story) return usage("refactor-deploy-verify: --story is required.");
       markDeployVerifyRefactored(sftddDir, a.feature, a.story);
-      process.stdout.write(`cycle: deploy-verify scope refactor recorded for ${a.story}; re-deploying to re-verify
-`);
+      process.stdout.write(
+        `cycle: deploy-verify scope refactor recorded for ${a.story ?? a.feature}; re-deploying to re-verify
+`
+      );
       return 0;
     }
     case "assess-refactor-verify": {

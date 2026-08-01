@@ -69,10 +69,16 @@ describe("createProject input validation", () => {
     ).rejects.toThrow(/GitHub owner is required/);
   });
 
-  it("throws when the target directory already exists (local-only mode)", async () => {
+  it("throws when the target directory already exists AND is NOT EMPTY (local-only mode)", async () => {
+    // scm-utils v0.1.0 accepts a pre-existing EMPTY dir on --no-github (the
+    // "I made the folder first" case); only a NON-EMPTY dir is refused. So the
+    // dir must contain a file for this input-validation error to fire. NB: the
+    // input validation runs BEFORE the live auth probe, so this fails on the
+    // directory reason (not "auth required") even with a placeholder host.
     const parent = mkTmp();
     const projectDir = path.join(parent, "existing-app");
     fs.mkdirSync(projectDir);
+    fs.writeFileSync(path.join(projectDir, "some-file.txt"), "not empty\n");
     await expect(
       createProject({
         projectName: "existing-app",

@@ -18,6 +18,7 @@ import {
   featureProposalsMd,
   hasFeatureRequest,
   hasEstimates,
+  readEstimates,
   readBacklog,
 } from "./sftdd-paths.js";
 import * as fs from "node:fs";
@@ -62,6 +63,14 @@ export function deriveSprintPlanningState(
   const estimated = hasEstimates(sftddDir);
   const backlog = readBacklog(sftddDir, sprint).features;
   const requestsAuthored = backlog.length > 0 && backlog.every((f) => hasFeatureRequest(sftddDir, f.id));
+  // committedEstimated: every committed backlog feature has an estimate under its
+  // OWN id (estimates.json keyed by the committed F-id, not the candidate FP id).
+  // This is what the Architect's `estimate-committed` turn produces + sync-backlog
+  // stamps. False (once requests are authored + sizing not skipped) routes that
+  // turn; a re-plan sprint that reused the standing proposals still lands here for
+  // its own newly-committed feature. Only meaningful once requestsAuthored.
+  const estimatedIds = new Set(readEstimates(sftddDir).map((e) => e.feature_id));
+  const committedEstimated = backlog.length > 0 && backlog.every((f) => estimatedIds.has(f.id));
   let gateApproved = false;
   try {
     gateApproved = readSprintGates(sprint, { sftddDir }).gates.plan.status === "approved";
@@ -70,7 +79,7 @@ export function deriveSprintPlanningState(
   }
   return {
     phase: "planning",
-    planning: { proposed, estimated, requestsAuthored, gateApproved, skipSizing: opts.skipSizing ?? false },
+    planning: { proposed, estimated, requestsAuthored, committedEstimated, gateApproved, skipSizing: opts.skipSizing ?? false },
     breakdownDone: false,
     storyOrder: [],
     stories: {},

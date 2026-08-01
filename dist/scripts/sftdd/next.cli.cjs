@@ -6989,12 +6989,16 @@ function nextTransition(state) {
     if (!p.proposed) return { kind: "invoke-role", role: "spec-author", mode: "propose" };
     if (!p.skipSizing && !p.estimated) return { kind: "invoke-role", role: "architect-reviewer", mode: "estimate" };
     if (!p.requestsAuthored) return { kind: "invoke-role", role: "product-owner", mode: "author-requests" };
+    if (!p.skipSizing && p.committedEstimated === false)
+      return { kind: "invoke-role", role: "architect-reviewer", mode: "estimate-committed" };
     if (!p.gateApproved) return { kind: "approve-plan-gate" };
     return { kind: "planning-complete" };
   }
   if (state.phase === "deploy") {
     const d = state.deploy ?? { deployed: false, gateApproved: false };
     if (!d.deployed) return { kind: "deploy" };
+    if (d.verifyAssessEligible) return { kind: "deploy-verify-heal", role: "navigator", mode: "assess-deploy" };
+    if (d.verifyRefactorPending) return { kind: "deploy-verify-heal", role: "driver", mode: "refactor-deploy" };
     if (!d.gateApproved) return { kind: "approve-deploy-gate" };
     return { kind: "deploy-complete" };
   }
@@ -7597,7 +7601,7 @@ var path = __toESM(require("path"), 1);
 function markerPath(sftddDir, featureId, storyId) {
   const fdir = findFeatureDir(sftddDir, featureId);
   if (!fdir) return void 0;
-  return path.join(fdir, "stories", storyId, "deploy-verify-assess.json");
+  return storyId ? path.join(fdir, "stories", storyId, "deploy-verify-assess.json") : path.join(fdir, "deploy-verify-assess.json");
 }
 function readDeployVerifyAssessMarker(sftddDir, featureId, storyId) {
   const file = markerPath(sftddDir, featureId, storyId);
@@ -8288,6 +8292,8 @@ function readDriveContext(sftddDir, featureId, projectDir) {
   const requestsAuthored = fs7.existsSync(featureRequestMd(sftddDir, featureId));
   const deployed = fs7.existsSync(featureDeployEvidenceJson(sftddDir, featureId));
   const gateApproved = readGateApproved(featureId, sftddDir, "deploy");
+  const verifyAssessEligible = deployVerifyNeedsAssess(sftddDir, featureId);
+  const verifyRefactorPending = deployVerifyRefactorPending(sftddDir, featureId);
   const proj = projectDir ?? path3.dirname(sftddDir);
   let scmState;
   try {
@@ -8311,7 +8317,7 @@ function readDriveContext(sftddDir, featureId, projectDir) {
     phase: driverPhaseForTdd(tddPhase),
     breakdownDone,
     planning: { proposed, estimated: hasEstimates(sftddDir), requestsAuthored },
-    deploy: { deployed, gateApproved },
+    deploy: { deployed, gateApproved, verifyAssessEligible, verifyRefactorPending },
     promote
   };
 }
@@ -8600,6 +8606,8 @@ function deriveSprintPlanningState(sftddDir, sprint, opts = {}) {
   const estimated = hasEstimates(sftddDir);
   const backlog = readBacklog(sftddDir, sprint).features;
   const requestsAuthored = backlog.length > 0 && backlog.every((f) => hasFeatureRequest(sftddDir, f.id));
+  const estimatedIds = new Set(readEstimates(sftddDir).map((e) => e.feature_id));
+  const committedEstimated = backlog.length > 0 && backlog.every((f) => estimatedIds.has(f.id));
   let gateApproved = false;
   try {
     gateApproved = readSprintGates(sprint, { sftddDir }).gates.plan.status === "approved";
@@ -8608,7 +8616,7 @@ function deriveSprintPlanningState(sftddDir, sprint, opts = {}) {
   }
   return {
     phase: "planning",
-    planning: { proposed, estimated, requestsAuthored, gateApproved, skipSizing: opts.skipSizing ?? false },
+    planning: { proposed, estimated, requestsAuthored, committedEstimated, gateApproved, skipSizing: opts.skipSizing ?? false },
     breakdownDone: false,
     storyOrder: [],
     stories: {},

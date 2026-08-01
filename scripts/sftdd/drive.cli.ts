@@ -68,6 +68,7 @@ import type { AgentRole } from "./agent-log.js";
 import { makeOnAction, describeAction, approveHint } from "./orchestrator-logging.js";
 import { resolveKitBinJs, kitVersion } from "./kit-bin.js";
 import { isForeignFeatureClaim, readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
+import { driveAuthPreflight } from "./drive-auth-preflight.js";
 import { relocateStrayDesignArtifacts, malformedSiblingRoot } from "./stray-artifact-recovery.js";
 
 // How many times a single role turn that overflows the model window mid-turn
@@ -1258,6 +1259,28 @@ async function main(): Promise<number> {
         `interactive/dev context. Unset LAKEBASE_SFTDD_HUMAN_PROXY, or pass --gates interactive.\n`,
     );
     return 2;
+  }
+
+  // Fail-fast auth preflight (before ANY mode dispatch / agent spawn). A LIVE
+  // drive spawns expensive LLM turns + DB-backed verifies; if the Databricks
+  // OAuth refresh token is expired, credential minting fails deep inside a
+  // test's DB connection and degrades into a hang, spinning the drive for hours.
+  // Exercise the refresh token up front (scm-utils checkDatabricksAuth ->
+  // `databricks auth token --force-refresh`) and halt immediately with the
+  // reauth remediation. SKIP in replay/build-replay lanes (no live workspace):
+  // those reproduce a recorded corpus and never mint a real credential.
+  const inReplayLane = !!(sftddEnv("REPLAY_DIR") || sftddEnv("REPLAY_BUILD_DIR"));
+  if (!inReplayLane && sftddEnv("SKIP_AUTH_PREFLIGHT") !== "1") {
+    // No --databricks-host flag on the drive; checkDatabricksAuth exercises the
+    // active profile's session (DATABRICKS_CONFIG_PROFILE / default), which is
+    // exactly the session the agents + DB mint will use.
+    const auth = await driveAuthPreflight();
+    if (!auth.ok) {
+      process.stderr.write(
+        `lakebase-sftdd-drive: Databricks auth preflight FAILED , halting before any agent spawn.\n${auth.message}\n`,
+      );
+      return 2;
+    }
   }
 
   // Tier-1: `--sprint <name>` with no `--feature` runs the whole-sprint orchestrator.

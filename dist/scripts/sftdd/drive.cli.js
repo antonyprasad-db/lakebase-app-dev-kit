@@ -7654,12 +7654,16 @@ function nextTransition(state) {
     if (!p.proposed) return { kind: "invoke-role", role: "spec-author", mode: "propose" };
     if (!p.skipSizing && !p.estimated) return { kind: "invoke-role", role: "architect-reviewer", mode: "estimate" };
     if (!p.requestsAuthored) return { kind: "invoke-role", role: "product-owner", mode: "author-requests" };
+    if (!p.skipSizing && p.committedEstimated === false)
+      return { kind: "invoke-role", role: "architect-reviewer", mode: "estimate-committed" };
     if (!p.gateApproved) return { kind: "approve-plan-gate" };
     return { kind: "planning-complete" };
   }
   if (state.phase === "deploy") {
     const d = state.deploy ?? { deployed: false, gateApproved: false };
     if (!d.deployed) return { kind: "deploy" };
+    if (d.verifyAssessEligible) return { kind: "deploy-verify-heal", role: "navigator", mode: "assess-deploy" };
+    if (d.verifyRefactorPending) return { kind: "deploy-verify-heal", role: "driver", mode: "refactor-deploy" };
     if (!d.gateApproved) return { kind: "approve-deploy-gate" };
     return { kind: "deploy-complete" };
   }
@@ -7737,6 +7741,7 @@ function actionLane(action) {
       return "coarse";
     case "deploy":
     case "approve-deploy-gate":
+    case "deploy-verify-heal":
       return "deploy";
     case "deploy-complete":
     case "prepare-pr":
@@ -8454,7 +8459,7 @@ import * as path5 from "path";
 function scopePath(sftddDir, featureId, storyId) {
   const fdir = findFeatureDir(sftddDir, featureId);
   if (!fdir) return void 0;
-  return path5.join(fdir, "stories", storyId, "deploy-verify-scope.json");
+  return storyId ? path5.join(fdir, "stories", storyId, "deploy-verify-scope.json") : path5.join(fdir, "deploy-verify-scope.json");
 }
 function readDeployVerifyScope(sftddDir, featureId, storyId) {
   const file = scopePath(sftddDir, featureId, storyId);
@@ -8468,7 +8473,7 @@ function readDeployVerifyScope(sftddDir, featureId, storyId) {
 function markerPath(sftddDir, featureId, storyId) {
   const fdir = findFeatureDir(sftddDir, featureId);
   if (!fdir) return void 0;
-  return path5.join(fdir, "stories", storyId, "deploy-verify-assess.json");
+  return storyId ? path5.join(fdir, "stories", storyId, "deploy-verify-assess.json") : path5.join(fdir, "deploy-verify-assess.json");
 }
 function readDeployVerifyAssessMarker(sftddDir, featureId, storyId) {
   const file = markerPath(sftddDir, featureId, storyId);
@@ -9557,6 +9562,8 @@ function readDriveContext(sftddDir, featureId, projectDir) {
   const requestsAuthored = fs11.existsSync(featureRequestMd(sftddDir, featureId));
   const deployed = fs11.existsSync(featureDeployEvidenceJson(sftddDir, featureId));
   const gateApproved = readGateApproved(featureId, sftddDir, "deploy");
+  const verifyAssessEligible = deployVerifyNeedsAssess(sftddDir, featureId);
+  const verifyRefactorPending = deployVerifyRefactorPending(sftddDir, featureId);
   const proj = projectDir ?? path7.dirname(sftddDir);
   let scmState;
   try {
@@ -9580,7 +9587,7 @@ function readDriveContext(sftddDir, featureId, projectDir) {
     phase: driverPhaseForTdd(tddPhase),
     breakdownDone,
     planning: { proposed, estimated: hasEstimates(sftddDir), requestsAuthored },
-    deploy: { deployed, gateApproved },
+    deploy: { deployed, gateApproved, verifyAssessEligible, verifyRefactorPending },
     promote
   };
 }
@@ -10032,6 +10039,8 @@ function roleTaskBody(action, featureId, uiTrack, sftddDir, build) {
         return `Propose the sprint's candidate features for planning. WRITE the proposal to ${root}/planning/feature-proposals.md , author it FRESH from ${root}/product-overview.md + ${root}/nfrs.md (do NOT assume one already exists), one candidate feature per section, so the Architect can size them and the Product Owner can commit the backlog.${uiTrack ? UI_TRACK_PROPOSE : ""}`;
       case "estimate":
         return `Estimate each proposed candidate feature with a t-shirt size (XS/S/M/L/XL) and write planning/estimates.json, so the Product Owner can commit a backlog that fits sprint capacity.`;
+      case "estimate-committed":
+        return `Estimate the sprint's COMMITTED feature(s) with a t-shirt size (XS/S/M/L/XL). Read each committed feature's request at ${root}/features/<F>/feature-request.md, then ADD one entry per committed feature to ${root}/planning/estimates.json keyed by its REAL feature id (e.g. "F1-stock-visibility", not a "FP" candidate id), each {"feature_id":"<F>","size":"<XS|S|M|L|XL>","rationale":"<why>"}. KEEP every existing estimate already in the file (merge, do not overwrite the candidate sizes). This is the size sync-backlog stamps into the per-sprint backlog, so the committed backlog shows real sizing.`;
       case "author-requests":
         return `Provide the sprint's feature-requests.`;
       case "breakdown":
@@ -10079,7 +10088,7 @@ function roleTaskBody(action, featureId, uiTrack, sftddDir, build) {
         if (arch.service_backed === true) {
           const inv = (arch.persistence_invariants ?? []).filter((i) => i && typeof i.id === "string");
           const list = inv.length ? ` The declared persistence invariants are: ${inv.map((i) => `${i.id}${i.brief ? ` (${i.brief})` : ""}`).join("; ")}.` : "";
-          dbScope = ` This feature is service-backed. Cover EVERY architecture.json persistence_invariant with >=1 test that sets "invariant_id" to that invariant's id and exercises it DIRECTLY against the branch database (a real DB session, never a mock): verify the MIGRATION actually realized the guarantee (e.g. inserting a duplicate raises an IntegrityError, a NOT NULL/CHECK rejects a bad row, a down-then-up migration round-trips) and that the repository honors it. Do NOT write a test of the ORM's generic add/commit/query round-trip , that tests the library, not your schema.${list} The DBA's db-design.json (features/${featureId}/db-design.json) has the concrete table/column/constraint definitions realizing these invariants , read it for precise schema assertions.`;
+          dbScope = ` This feature is service-backed. Cover EVERY architecture.json persistence_invariant with >=1 test that sets "invariant_id" to that invariant's id and exercises it DIRECTLY against the branch database (a real DB session, never a mock): verify the MIGRATION actually realized the guarantee (e.g. inserting a duplicate raises an IntegrityError, a NOT NULL/CHECK rejects a bad row, a down-then-up migration round-trips) and that the repository honors it. Do NOT write a test of the ORM's generic add/commit/query round-trip , that tests the library, not your schema.${list} The DBA's db-design.json (features/${featureId}/db-design.json) has the concrete table/column/constraint definitions realizing these invariants , read it for precise schema assertions. EVERY test that WRITES to the DB (a create/POST test, a content-type or validation test that sends a real body, a retrieve test that seeds a fixture) MUST own its state: use a per-run-UNIQUE key (a uuid-suffixed sku/location, e.g. f"SKU-{uuid.uuid4().hex[:8]}"), OR delete/upsert the fixed key before the write AND clean up after. A test that writes a FIXED key with no cleanup passes alone + on its own isolated build branch but COLLIDES in the full-suite deploy-verify against the shared feature-branch DB (a duplicate-key error surfacing as a non-JSON/500), halting the feature ship , the shared-state-write defect. Do NOT assume an empty table or an untouched fixed key.`;
         }
       } catch {
       }
@@ -10098,9 +10107,13 @@ ${gfAssess.contractRefs}
         const supersededAdvisory = gfAssess?.supersededTestRefs ? `${gfAssess.supersededTestRefs}
 
 ` : "";
-        return contractAdvisory + supersededAdvisory + `ASSESS a failed honest-GREEN verify for AC ${action.ac} in story ${s}. The Driver made the current test pass, but the full-suite verify against the running app FAILED, some OTHER test(s) now fail. Inspect EVERY failing test (the COMPLETE set, not a sample) and decide per test:
+        const hasSupersededAdvisory = !!gfAssess?.supersededTestRefs;
+        const scanDirective = hasSupersededAdvisory ? `(a) If the current AC INTENTIONALLY supersedes behavior those failing tests encode, FLAG them so the Driver may permissively refactor ONLY those. The DETERMINISTIC gate has ALREADY pre-localized the COMPLETE superseded set (the SUPERSEDED-TEST CANDIDATES above , a grep of the migration's dropped symbol across every test, including FITNESS / architecture / migration reversibility tests). TRUST it: flag EXACTLY those file(s) in ONE flag-superseded call and do NOT re-read each candidate to re-verify (that re-verification never converges on a large drop set , it is the assess-spin failure). Only search beyond the list if you have concrete reason to believe it MISSED a failing test; otherwise flag the list as-is:
+` : `Inspect EVERY failing test (the COMPLETE set, not a sample) and decide per test:
 (a) If the current AC INTENTIONALLY supersedes behavior those failing tests encode (the latest AC wins; e.g. a prior feature's test asserts an outcome this AC deliberately changes), FLAG them so the Driver may permissively refactor ONLY those. Scan COMPREHENSIVELY: when this AC drops, removes, or renames a column / field / table / endpoint, the superseded set is NOT only the tests that NAME it in a query/INSERT/assertion , it ALSO includes FITNESS / architecture / migration tests that assert a PROPERTY of the now-gone shape (migration reversibility like "after up() then down(), <col> is reconstructed", schema-shape checks like "<col> exists", invariants over the old column). Those are superseded too , a reversibility/fitness test for an obsoleted column encodes abandoned behavior. Miss one and the verify stays red and escalates, so list ALL of them in ONE flag-superseded call:
-   lakebase-sftdd-cycle flag-superseded --feature ${featureId} --story ${s} --ac ${action.ac} --reason "<new AC + what changed>" --test <path_or_nodeid> [--test ...] --tdd-dir ${sftddDir}
+`;
+        return contractAdvisory + supersededAdvisory + `ASSESS a failed honest-GREEN verify for AC ${action.ac} in story ${s}. The Driver made the current test pass, but the full-suite verify against the running app FAILED, some OTHER test(s) now fail.
+` + scanDirective + `   lakebase-sftdd-cycle flag-superseded --feature ${featureId} --story ${s} --ac ${action.ac} --reason "<new AC + what changed>" --test <path_or_nodeid> [--test ...] --tdd-dir ${sftddDir}
 (b) If instead the failure is a GENUINE REGRESSION (the AC does NOT intend to change that behavior; the Driver's code is wrong), record your ROOT-CAUSE diagnosis so it travels to the Driver / the human instead of being lost. When the Driver can fix it, ALSO give a concrete repair directive (this routes a bounded Driver repair turn):
    lakebase-sftdd-cycle assess-regression --feature ${featureId} --story ${s} --ac ${action.ac} --diagnosis "<the WHY: which behavior broke + the root cause>" [--fix "<what the Driver should change>"] --tdd-dir ${sftddDir}
    Include --fix ONLY when the fix is clear + within the Driver's reach (e.g. a wrong default, a missing filter, an off-by-one); OMIT --fix when it needs a human / a design or spec change (the orchestration then escalates carrying your diagnosis).
@@ -10183,7 +10196,7 @@ var experimentBranchName = (storyId) => sanitizeBranchName(`experiment/${storyId
 function designArtifactExpectation(action, sftddDir, featureId) {
   if ("mode" in action) {
     if (action.role === "spec-author" && action.mode === "propose") return { anyOf: [featureProposalsMd(sftddDir)], label: "planning/feature-proposals.md" };
-    if (action.role === "architect-reviewer" && action.mode === "estimate") return { anyOf: [planningEstimatesJson(sftddDir)], label: "planning/estimates.json" };
+    if (action.role === "architect-reviewer" && (action.mode === "estimate" || action.mode === "estimate-committed")) return { anyOf: [planningEstimatesJson(sftddDir)], label: "planning/estimates.json" };
     if (action.role === "spec-author" && action.mode === "breakdown") return { anyOf: [featureSpecJson(sftddDir, featureId)], label: "feature-spec.json" };
     return null;
   }
@@ -10300,9 +10313,40 @@ function commandsForAction(action, cfg) {
         const loopFlag = verb === "refactor" && (storyLoop ?? "story") === "story" ? ["--loop", "story"] : [];
         cmds.push({ kind: "cli", bin: CYCLE_BIN, args: [verb, "--feature", f, "--story", action.story, ...acFlag, "--tdd-dir", cfg.sftddDir, ...repairFlag, ...loopFlag] });
       }
-      const isPlanningMode = "mode" in action && (action.mode === "propose" || action.mode === "estimate");
+      if ("mode" in action && action.mode === "estimate-committed" && cfg.sprintName) {
+        cmds.push({ kind: "sync-backlog", sprint: cfg.sprintName });
+      }
+      const isPlanningMode = "mode" in action && (action.mode === "propose" || action.mode === "estimate" || action.mode === "estimate-committed");
       if (f && !isPlanningMode) cmds.push({ kind: "cli", bin: LOG_BIN, args: ["--reconcile", ...tdd] });
       return cmds;
+    }
+    case "deploy-verify-heal": {
+      const sftddDir = cfg.sftddDir;
+      const featureId = f;
+      const root = artifactRoot(sftddDir);
+      const marker = readDeployVerifyAssessMarker(sftddDir, featureId);
+      const claude = {
+        kind: "claude",
+        role: action.role,
+        model: cfg.modelForRole(action.role),
+        ...cfg.fallbackModelForRole?.(action.role) ? { fallbackModel: cfg.fallbackModelForRole(action.role) } : {},
+        task: (action.mode === "assess-deploy" ? `ASSESS a failed full-feature DEPLOY-VERIFY for the FEATURE SHIP of ${featureId} (all stories are accepted; this is the merged-increment verify against the running app, no single story). A deterministic classifier RE-RAN each failing test in ISOLATION (a fresh clean DB) and they ALL PASSED alone , shared-state CONTAMINATION, not broken software: a test that does not OWN its DB state (it writes a fixed-key row with no cleanup, or asserts an absolute whole-table total) and so collides with sibling tests' rows on the shared feature-branch DB.
+Failing tests:
+${(marker?.failing_node_ids ?? []).map((n) => `  ${n}`).join("\n")}
+
+For EACH test, prescribe HOW to make it own its state: use a per-run-unique key (a uuid-suffixed sku/location), or delete/upsert the fixed key before the write AND clean up after, or scope a whole-table aggregate to the test's own rows / a delta , NEVER an absolute total. Keep the assertion's intent; just make it self-owning.
+Write your scope directives to ${root}/features/${featureId}/deploy-verify-scope.json as {"version":1,"directives":[{"node_id":"<path::test>","directive":"<how to scope it>"}]} , one entry per test you confirm is contamination-fragile. If (rarely) you judge a failure a GENUINE regression, OMIT it (write no file, or an empty directives array); the orchestration then raises it to a human. Write ONLY that file.` : `SCOPE the contamination-fragile tests the Navigator flagged for the FEATURE SHIP of ${featureId}. Refactor EXACTLY these test files to own their DB state, per the directives , do NOT touch product code, do NOT weaken the assertions' intent:
+` + (readDeployVerifyScope(sftddDir, featureId)?.directives ?? []).map((d) => `  ${d.node_id}
+    -> ${d.directive}`).join("\n") + `
+Edit ONLY those test files. The orchestrator re-deploys + re-verifies the whole feature after your turn.`) + AGENT_TERSE_SUFFIX,
+        replay: { buildMode: action.mode }
+      };
+      const finalizeVerb = action.mode === "assess-deploy" ? "assess-deploy-verify" : "refactor-deploy-verify";
+      return [
+        claude,
+        { kind: "cli", bin: CYCLE_BIN, args: [finalizeVerb, "--feature", f, "--tdd-dir", cfg.sftddDir] },
+        { kind: "cli", bin: LOG_BIN, args: ["--reconcile", ...tdd] }
+      ];
     }
     case "project-architect-notes":
       return [
@@ -10413,7 +10457,18 @@ function commandsForAction(action, cfg) {
         {
           kind: "cli",
           bin: DEPLOY_BIN,
-          args: ["--target", deployTarget, "--feature", f, "--project-dir", cfg.projectDir, "--tdd-dir", cfg.sftddDir, "--gate"]
+          args: [
+            "--target",
+            deployTarget,
+            "--feature",
+            f,
+            ...cfg.featureBranch ? ["--lakebase-branch", cfg.featureBranch] : [],
+            "--project-dir",
+            cfg.projectDir,
+            "--tdd-dir",
+            cfg.sftddDir,
+            "--gate"
+          ]
         }
       ];
     case "approve-deploy-gate":
@@ -10833,6 +10888,8 @@ function deriveSprintPlanningState(sftddDir, sprint, opts = {}) {
   const estimated = hasEstimates(sftddDir);
   const backlog = readBacklog(sftddDir, sprint).features;
   const requestsAuthored = backlog.length > 0 && backlog.every((f) => hasFeatureRequest(sftddDir, f.id));
+  const estimatedIds = new Set(readEstimates(sftddDir).map((e) => e.feature_id));
+  const committedEstimated = backlog.length > 0 && backlog.every((f) => estimatedIds.has(f.id));
   let gateApproved = false;
   try {
     gateApproved = readSprintGates(sprint, { sftddDir }).gates.plan.status === "approved";
@@ -10841,7 +10898,7 @@ function deriveSprintPlanningState(sftddDir, sprint, opts = {}) {
   }
   return {
     phase: "planning",
-    planning: { proposed, estimated, requestsAuthored, gateApproved, skipSizing: opts.skipSizing ?? false },
+    planning: { proposed, estimated, requestsAuthored, committedEstimated, gateApproved, skipSizing: opts.skipSizing ?? false },
     breakdownDone: false,
     storyOrder: [],
     stories: {},
@@ -11148,6 +11205,15 @@ function kitVersion2() {
 
 // scripts/sftdd/drive.cli.ts
 import { isForeignFeatureClaim, readWorkflowState as readWorkflowState2 } from "@databricks-solutions/lakebase-scm-utils/lakebase";
+
+// scripts/sftdd/drive-auth-preflight.ts
+init_esm_shims();
+import { checkDatabricksAuth, databricksAuthPrereqMessage } from "@databricks-solutions/lakebase-scm-utils/lakebase";
+async function driveAuthPreflight(host, check = checkDatabricksAuth) {
+  const res = await check(host);
+  if (res.ok) return { ok: true };
+  return { ok: false, message: databricksAuthPrereqMessage(host, res.reason) };
+}
 
 // scripts/sftdd/stray-artifact-recovery.ts
 init_esm_shims();
@@ -12030,6 +12096,18 @@ interactive/dev context. Unset LAKEBASE_SFTDD_HUMAN_PROXY, or pass --gates inter
 `
     );
     return 2;
+  }
+  const inReplayLane = !!(sftddEnv("REPLAY_DIR") || sftddEnv("REPLAY_BUILD_DIR"));
+  if (!inReplayLane && sftddEnv("SKIP_AUTH_PREFLIGHT") !== "1") {
+    const auth = await driveAuthPreflight();
+    if (!auth.ok) {
+      process.stderr.write(
+        `lakebase-sftdd-drive: Databricks auth preflight FAILED , halting before any agent spawn.
+${auth.message}
+`
+      );
+      return 2;
+    }
   }
   if (args.sprint && !args.feature) {
     return runSprintMode(args);

@@ -265,6 +265,15 @@ export interface PlanningState {
   /** The Product Owner committed the sprint backlog (authored a feature-request
    *  per committed feature; sync-backlog projected backlog.json). */
   requestsAuthored: boolean;
+  /** Every COMMITTED backlog feature has a t-shirt estimate under its own id
+   *  (estimates.json), so sync-backlog can stamp a per-sprint size. Distinct from
+   *  `estimated` (the CANDIDATE FP sizing): candidate ids never reconcile to the
+   *  committed feature ids drawn from intake, and a re-plan sprint reuses the
+   *  standing proposals+candidate-estimates but still commits a NEW feature that
+   *  needs sizing. When false (and sizing is not skipped) the machine routes the
+   *  Architect's `estimate-committed` turn after author-requests. Absent = treated
+   *  as satisfied (legacy states / single-sprint runs that never set it). */
+  committedEstimated?: boolean;
   /** The sprint PLAN gate has been approved (human live, or Human Proxy
    *  headless). The HITL checkpoint between planning and execution; a re-plan
    *  the human "passes on" simply re-approves the standing backlog. */
@@ -276,6 +285,14 @@ export interface DeployState {
   deployed: boolean;
   /** The PO signed the deploy (working-software) gate. */
   gateApproved: boolean;
+  /** Feature-ship deploy-verify self-heal: the feature-level deploy-verify failed
+   *  on shared-state contamination (a feature-scope marker was written, not an
+   *  escalation) + is not yet assessed. Routes ONE Navigator ASSESS-DEPLOY turn at
+   *  feature scope before the deploy gate, mirroring the per-story self-heal. */
+  verifyAssessEligible?: boolean;
+  /** The Navigator assessed the feature-ship failure + chose a scope set the Driver
+   *  has not yet refactored. Routes ONE Driver SCOPE-DEPLOY turn (feature scope). */
+  verifyRefactorPending?: boolean;
 }
 
 /** The promote phase: take the accepted feature through its PR review (the
@@ -342,6 +359,7 @@ export type WorkflowAction =
   | DriveAction
   | { kind: "invoke-role"; role: "spec-author"; mode: "propose" }
   | { kind: "invoke-role"; role: "architect-reviewer"; mode: "estimate" }
+  | { kind: "invoke-role"; role: "architect-reviewer"; mode: "estimate-committed" }
   | { kind: "invoke-role"; role: "product-owner"; mode: "author-requests" }
   | { kind: "approve-plan-gate" }
   | { kind: "planning-complete" }
@@ -354,6 +372,11 @@ export type WorkflowAction =
       buildMode?: "review" | "refactor" | "assess" | "repair" | "assess-deploy" | "refactor-deploy" | "assess-refactor" | "refactor-superseded";
       ac?: string;
     }
+  // FEATURE-ship deploy-verify self-heal: the assess (navigator) / scope (driver)
+  // turns at FEATURE scope (no story), routed from the deploy phase. A distinct
+  // action kind so the build-lane invoke-role keeps its required `story` (its many
+  // consumers rely on it) and this feature-scope path stays fully isolated.
+  | { kind: "deploy-verify-heal"; role: "navigator" | "driver"; mode: "assess-deploy" | "refactor-deploy" }
   | { kind: "await-acceptance"; story: string }
   | { kind: "accept"; story: string }
   | { kind: "complete"; story: string }
@@ -506,6 +529,15 @@ export function nextTransition(state: DriveState): WorkflowAction {
     // with no estimate action, for a backlog small enough not to need sizing.
     if (!p.skipSizing && !p.estimated) return { kind: "invoke-role", role: "architect-reviewer", mode: "estimate" };
     if (!p.requestsAuthored) return { kind: "invoke-role", role: "product-owner", mode: "author-requests" };
+    // After the PO commits, size the COMMITTED feature(s) by their real ids so
+    // sync-backlog can stamp a per-sprint size (the candidate FP estimate above is
+    // keyed to proposal ids that never reconcile to the intake-drawn committed
+    // ids). Fires on EVERY sprint whose committed features are not yet sized ,
+    // including a re-plan that reused the standing proposals+candidate-estimates.
+    // `--no-sizing` (skipSizing) drops this too. `committedEstimated===false` only
+    // (absent = legacy/single-sprint states that never set it, treated as done).
+    if (!p.skipSizing && p.committedEstimated === false)
+      return { kind: "invoke-role", role: "architect-reviewer", mode: "estimate-committed" };
     // The sprint plan gate is the HITL checkpoint between planning + execution.
     // It locks the backlog (human live / Human Proxy headless) before any
     // feature is driven; "pass on a re-plan" = re-approve the standing backlog.
@@ -516,6 +548,13 @@ export function nextTransition(state: DriveState): WorkflowAction {
   if (state.phase === "deploy") {
     const d = state.deploy ?? { deployed: false, gateApproved: false };
     if (!d.deployed) return { kind: "deploy" };
+    // Feature-ship deploy-verify self-heal (the F1-ship halt): a feature-level
+    // verify that failed on shared-state contamination routes the SAME
+    // assess -> scope -> re-deploy loop as a per-story deploy, but at FEATURE
+    // scope (no story), BEFORE the deploy gate. The re-deploy clears the marker
+    // on pass; a repeat failure (one-shot spent) falls through to the terminal HIL.
+    if (d.verifyAssessEligible) return { kind: "deploy-verify-heal", role: "navigator", mode: "assess-deploy" };
+    if (d.verifyRefactorPending) return { kind: "deploy-verify-heal", role: "driver", mode: "refactor-deploy" };
     if (!d.gateApproved) return { kind: "approve-deploy-gate" };
     // Deploy (local working-software check) done -> enter the promote phase.
     return { kind: "deploy-complete" };
@@ -648,6 +687,7 @@ export function actionLane(action: WorkflowAction): ActionLane {
       return "coarse";
     case "deploy":
     case "approve-deploy-gate":
+    case "deploy-verify-heal":
       return "deploy";
     case "deploy-complete":
     case "prepare-pr":

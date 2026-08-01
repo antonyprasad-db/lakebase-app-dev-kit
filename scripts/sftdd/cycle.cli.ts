@@ -289,10 +289,12 @@ async function main(): Promise<number> {
       //   - nothing written (the Navigator's veto: it judged the failure genuine
       //     despite the classifier) -> mark assessed (spend the one shot) + write
       //     the terminal deploy-verify escalation (raise-to-hil).
-      if (!a.story) return usage("assess-deploy-verify: --story is required.");
+      // --story is OPTIONAL: absent = the FEATURE-ship self-heal (feature-scope
+      // marker + scope file; no story_id on the escalation).
+      const scopeLabel = a.story ? `${a.feature}/${a.story}` : a.feature;
       const marker = readDeployVerifyAssessMarker(sftddDir, a.feature, a.story);
       if (!marker) {
-        process.stdout.write(`cycle: assess-deploy-verify , no marker for ${a.feature}/${a.story} (nothing to assess)\n`);
+        process.stdout.write(`cycle: assess-deploy-verify , no marker for ${scopeLabel} (nothing to assess)\n`);
         return 0;
       }
       const scope = readDeployVerifyScope(sftddDir, a.feature, a.story);
@@ -300,17 +302,17 @@ async function main(): Promise<number> {
       if (scoped.length > 0) {
         markDeployVerifyAssessed(sftddDir, a.feature, a.story, scoped);
         process.stdout.write(
-          `cycle: assessed deploy-verify ${a.story} -> ${scoped.length} contamination-fragile test(s) to scope; routing Driver SCOPE-DEPLOY\n`,
+          `cycle: assessed deploy-verify ${scopeLabel} -> ${scoped.length} contamination-fragile test(s) to scope; routing Driver SCOPE-DEPLOY\n`,
         );
       } else {
         markDeployVerifyAssessed(sftddDir, a.feature, a.story);
         writeEscalation(sftddDir, {
           source: "deploy-verify",
-          reason: `deploy-verify failure for ${a.feature}/${a.story}: Navigator assessed it as genuine (no contamination-fragile tests to scope); raising to HIL`,
+          reason: `deploy-verify failure for ${scopeLabel}: Navigator assessed it as genuine (no contamination-fragile tests to scope); raising to HIL`,
           feature_id: a.feature,
-          story_id: a.story,
+          ...(a.story ? { story_id: a.story } : {}),
         });
-        process.stdout.write(`cycle: assessed deploy-verify ${a.story} -> genuine (no scope set), raised to HIL\n`);
+        process.stdout.write(`cycle: assessed deploy-verify ${scopeLabel} -> genuine (no scope set), raised to HIL\n`);
       }
       return 0;
     }
@@ -319,9 +321,11 @@ async function main(): Promise<number> {
       // so the marker is no longer refactor-pending and the transition falls
       // through to the one re-deploy + re-verify (which clears the marker on pass,
       // or , if it still fails , writes the terminal escalation, the one-shot bound).
-      if (!a.story) return usage("refactor-deploy-verify: --story is required.");
+      // --story optional: absent = the feature-ship marker.
       markDeployVerifyRefactored(sftddDir, a.feature, a.story);
-      process.stdout.write(`cycle: deploy-verify scope refactor recorded for ${a.story}; re-deploying to re-verify\n`);
+      process.stdout.write(
+        `cycle: deploy-verify scope refactor recorded for ${a.story ?? a.feature}; re-deploying to re-verify\n`,
+      );
       return 0;
     }
     case "assess-refactor-verify": {

@@ -63,7 +63,7 @@ describe("deriveSprintPlanningState", () => {
   it("nothing on disk => all planning flags false", () => {
     const s = deriveSprintPlanningState(tdd, SPRINT);
     expect(s.phase).toBe("planning");
-    expect(s.planning).toEqual({ proposed: false, estimated: false, requestsAuthored: false, gateApproved: false, skipSizing: false });
+    expect(s.planning).toEqual({ proposed: false, estimated: false, requestsAuthored: false, committedEstimated: false, gateApproved: false, skipSizing: false });
   });
 
   it("estimated when the Architect wrote planning/estimates.json", () => {
@@ -94,6 +94,23 @@ describe("deriveSprintPlanningState", () => {
     expect(deriveSprintPlanningState(tdd, SPRINT).planning?.requestsAuthored).toBe(false);
     writeRequest("F2-b");
     expect(deriveSprintPlanningState(tdd, SPRINT).planning?.requestsAuthored).toBe(true);
+  });
+
+  it("committedEstimated is true only when every committed backlog feature is sized under its OWN id", () => {
+    // The re-plan fix: candidate (FP) estimates do NOT satisfy this , the committed
+    // feature must be sized by its real id. Drives the estimate-committed turn.
+    writeProposal();
+    writeSprintBacklog(tdd, { sprint: SPRINT, features: [{ id: "F6-split-tracking-code" }] });
+    writeRequest("F6-split-tracking-code");
+    // Only candidate FP estimates exist (as after sprint 1): committed feature unsized.
+    writeEstimates(tdd, [{ feature_id: "FP1", size: "M" }, { feature_id: "FP2", size: "S" }]);
+    expect(deriveSprintPlanningState(tdd, SPRINT).planning?.committedEstimated).toBe(false);
+    // Now the Architect sizes the COMMITTED feature by its real id -> satisfied.
+    writeEstimates(tdd, [
+      { feature_id: "FP1", size: "M" },
+      { feature_id: "F6-split-tracking-code", size: "L" },
+    ]);
+    expect(deriveSprintPlanningState(tdd, SPRINT).planning?.committedEstimated).toBe(true);
   });
 
   it("syncBacklog projects the backlog from committed requests + Architect sizes", () => {

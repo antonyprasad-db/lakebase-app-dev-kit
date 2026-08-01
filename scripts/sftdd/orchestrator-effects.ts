@@ -566,6 +566,22 @@ function roleTaskBody(
         return `Propose the sprint's candidate features for planning. WRITE the proposal to ${root}/planning/feature-proposals.md , author it FRESH from ${root}/product-overview.md + ${root}/nfrs.md (do NOT assume one already exists), one candidate feature per section, so the Architect can size them and the Product Owner can commit the backlog.${uiTrack ? UI_TRACK_PROPOSE : ""}`;
       case "estimate":
         return `Estimate each proposed candidate feature with a t-shirt size (XS/S/M/L/XL) and write planning/estimates.json, so the Product Owner can commit a backlog that fits sprint capacity.`;
+      case "estimate-committed":
+        // Size the COMMITTED features by their real ids (F<n>-<slug> from the PO's
+        // intake feature-requests), MERGING into planning/estimates.json alongside
+        // any candidate (FP) estimates. This is what sync-backlog reads to stamp a
+        // per-sprint size; the candidate FP ids never reconcile to the committed
+        // ids, and a re-plan sprint reuses the standing proposals but commits a NEW
+        // feature that still needs a size. Read each committed feature's
+        // feature-request.md for scope.
+        return (
+          `Estimate the sprint's COMMITTED feature(s) with a t-shirt size (XS/S/M/L/XL). Read each committed ` +
+          `feature's request at ${root}/features/<F>/feature-request.md, then ADD one entry per committed feature ` +
+          `to ${root}/planning/estimates.json keyed by its REAL feature id (e.g. "F1-stock-visibility", not a "FP" ` +
+          `candidate id), each {"feature_id":"<F>","size":"<XS|S|M|L|XL>","rationale":"<why>"}. KEEP every existing ` +
+          `estimate already in the file (merge, do not overwrite the candidate sizes). This is the size sync-backlog ` +
+          `stamps into the per-sprint backlog, so the committed backlog shows real sizing.`
+        );
       case "author-requests":
         // Unreachable: author-requests is a human-input step the Human Proxy
         // supplies (see commandsForAction); it never spawns a role agent.
@@ -740,7 +756,13 @@ function roleTaskBody(
             ` an IntegrityError, a NOT NULL/CHECK rejects a bad row, a down-then-up migration round-trips) and that the` +
             ` repository honors it. Do NOT write a test of the ORM's generic add/commit/query round-trip , that tests the` +
             ` library, not your schema.${list} The DBA's db-design.json (features/${featureId}/db-design.json) has the concrete` +
-            ` table/column/constraint definitions realizing these invariants , read it for precise schema assertions.`;
+            ` table/column/constraint definitions realizing these invariants , read it for precise schema assertions.` +
+            ` EVERY test that WRITES to the DB (a create/POST test, a content-type or validation test that sends a real body,` +
+            ` a retrieve test that seeds a fixture) MUST own its state: use a per-run-UNIQUE key (a uuid-suffixed sku/location,` +
+            ` e.g. f"SKU-{uuid.uuid4().hex[:8]}"), OR delete/upsert the fixed key before the write AND clean up after. A test` +
+            ` that writes a FIXED key with no cleanup passes alone + on its own isolated build branch but COLLIDES in the` +
+            ` full-suite deploy-verify against the shared feature-branch DB (a duplicate-key error surfacing as a non-JSON/500),` +
+            ` halting the feature ship , the shared-state-write defect. Do NOT assume an empty table or an untouched fixed key.`;
         }
       } catch {
         /* no architecture.json yet -> omit; the test_list gate still enforces it */
@@ -805,21 +827,40 @@ function roleTaskBody(
         // TESTS that reference the dropped symbol, so the Navigator flags EXACTLY
         // these as superseded (path (a)) instead of searching the test tree.
         const supersededAdvisory = gfAssess?.supersededTestRefs ? `${gfAssess.supersededTestRefs}\n\n` : "";
+        // When the deterministic gate ALREADY pre-localized the superseded set
+        // (supersededTestRefs present), the set above is authoritative , it is a
+        // grep of the migration's net-dropped symbol across the test tree. Telling
+        // the agent to ALSO "scan COMPREHENSIVELY" then makes it re-read every
+        // candidate to verify, and on a big contract/drop set (F6/S3: 56 lines / 8
+        // files) it never converges , the assess spins for ~an hour without ever
+        // writing a verdict. So when the advisory is present, be DECISIVE: flag
+        // exactly the listed set in ONE call, do NOT re-read each. Keep the
+        // open-ended comprehensive scan ONLY when there is no pre-localization.
+        const hasSupersededAdvisory = !!gfAssess?.supersededTestRefs;
+        const scanDirective = hasSupersededAdvisory
+          ? `(a) If the current AC INTENTIONALLY supersedes behavior those failing tests encode, FLAG them so the` +
+            ` Driver may permissively refactor ONLY those. The DETERMINISTIC gate has ALREADY pre-localized the` +
+            ` COMPLETE superseded set (the SUPERSEDED-TEST CANDIDATES above , a grep of the migration's dropped` +
+            ` symbol across every test, including FITNESS / architecture / migration reversibility tests). TRUST it:` +
+            ` flag EXACTLY those file(s) in ONE flag-superseded call and do NOT re-read each candidate to re-verify` +
+            ` (that re-verification never converges on a large drop set , it is the assess-spin failure). Only search` +
+            ` beyond the list if you have concrete reason to believe it MISSED a failing test; otherwise flag the list as-is:\n`
+          : `Inspect EVERY failing test (the COMPLETE set, not a sample) and decide per test:\n` +
+            `(a) If the current AC INTENTIONALLY supersedes behavior those failing tests encode (the latest AC` +
+            ` wins; e.g. a prior feature's test asserts an outcome this AC deliberately changes), FLAG them so the` +
+            ` Driver may permissively refactor ONLY those. Scan COMPREHENSIVELY: when this AC drops, removes, or` +
+            ` renames a column / field / table / endpoint, the superseded set is NOT only the tests that NAME it in a` +
+            ` query/INSERT/assertion , it ALSO includes FITNESS / architecture / migration tests that assert a PROPERTY` +
+            ` of the now-gone shape (migration reversibility like "after up() then down(), <col> is reconstructed",` +
+            ` schema-shape checks like "<col> exists", invariants over the old column). Those are superseded too , a` +
+            ` reversibility/fitness test for an obsoleted column encodes abandoned behavior. Miss one and the verify` +
+            ` stays red and escalates, so list ALL of them in ONE flag-superseded call:\n`;
         return (
           contractAdvisory +
           supersededAdvisory +
           `ASSESS a failed honest-GREEN verify for AC ${action.ac} in story ${s}. The Driver made the current` +
-          ` test pass, but the full-suite verify against the running app FAILED, some OTHER test(s) now fail.` +
-          ` Inspect EVERY failing test (the COMPLETE set, not a sample) and decide per test:\n` +
-          `(a) If the current AC INTENTIONALLY supersedes behavior those failing tests encode (the latest AC` +
-          ` wins; e.g. a prior feature's test asserts an outcome this AC deliberately changes), FLAG them so the` +
-          ` Driver may permissively refactor ONLY those. Scan COMPREHENSIVELY: when this AC drops, removes, or` +
-          ` renames a column / field / table / endpoint, the superseded set is NOT only the tests that NAME it in a` +
-          ` query/INSERT/assertion , it ALSO includes FITNESS / architecture / migration tests that assert a PROPERTY` +
-          ` of the now-gone shape (migration reversibility like "after up() then down(), <col> is reconstructed",` +
-          ` schema-shape checks like "<col> exists", invariants over the old column). Those are superseded too , a` +
-          ` reversibility/fitness test for an obsoleted column encodes abandoned behavior. Miss one and the verify` +
-          ` stays red and escalates, so list ALL of them in ONE flag-superseded call:\n` +
+          ` test pass, but the full-suite verify against the running app FAILED, some OTHER test(s) now fail.\n` +
+          scanDirective +
           `   lakebase-sftdd-cycle flag-superseded --feature ${featureId} --story ${s} --ac ${action.ac}` +
           ` --reason "<new AC + what changed>" --test <path_or_nodeid> [--test ...] --tdd-dir ${sftddDir}\n` +
           `(b) If instead the failure is a GENUINE REGRESSION (the AC does NOT intend to change that behavior;` +
@@ -1068,7 +1109,7 @@ function designArtifactExpectation(
 ): { anyOf: string[]; label: string } | null {
   if ("mode" in action) {
     if (action.role === "spec-author" && action.mode === "propose") return { anyOf: [featureProposalsMd(sftddDir)], label: "planning/feature-proposals.md" };
-    if (action.role === "architect-reviewer" && action.mode === "estimate") return { anyOf: [planningEstimatesJson(sftddDir)], label: "planning/estimates.json" };
+    if (action.role === "architect-reviewer" && (action.mode === "estimate" || action.mode === "estimate-committed")) return { anyOf: [planningEstimatesJson(sftddDir)], label: "planning/estimates.json" };
     if (action.role === "spec-author" && action.mode === "breakdown") return { anyOf: [featureSpecJson(sftddDir, featureId)], label: "feature-spec.json" };
     return null; // author-requests = human input, no role artifact
   }
@@ -1308,13 +1349,76 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
         cmds.push({ kind: "cli", bin: CYCLE_BIN, args: [verb, "--feature", f, "--story", action.story, ...acFlag, "--tdd-dir", cfg.sftddDir, ...repairFlag, ...loopFlag] });
       }
       // Code-emit artifact.written for whatever the role just wrote: reconcile
+      // After the Architect sizes the COMMITTED features, re-project the sprint
+      // backlog so sync-backlog stamps the fresh F-keyed sizes into
+      // sprints/<s>/backlog.json (the estimate ran AFTER author-requests wrote the
+      // id-only backlog, so it must be re-synced now). This is what makes the
+      // committed backlog carry per-sprint sizing, including on a re-plan sprint.
+      if ("mode" in action && action.mode === "estimate-committed" && cfg.sprintName) {
+        cmds.push({ kind: "sync-backlog", sprint: cfg.sprintName });
+      }
       // reads the artifacts on disk and logs any not already in the agent log,
       // so observability never depends on the role's model emitting it. Skipped
-      // for the sprint-scoped planning modes (propose / estimate), which write no
-      // feature artifacts to reconcile. (author-requests returned earlier.)
-      const isPlanningMode = "mode" in action && (action.mode === "propose" || action.mode === "estimate");
+      // for the sprint-scoped planning modes (propose / estimate / estimate-committed),
+      // which write no feature artifacts to reconcile. (author-requests returned earlier.)
+      const isPlanningMode =
+        "mode" in action && (action.mode === "propose" || action.mode === "estimate" || action.mode === "estimate-committed");
       if (f && !isPlanningMode) cmds.push({ kind: "cli", bin: LOG_BIN, args: ["--reconcile", ...tdd] });
       return cmds;
+    }
+
+    case "deploy-verify-heal": {
+      // FEATURE-ship deploy-verify self-heal (mirrors the per-story assess-deploy /
+      // refactor-deploy, but at feature scope , no story). The feature-level verify
+      // failed on shared-state contamination; the deploy wrote a feature-scope
+      // marker (features/<F>/deploy-verify-assess.json). ASSESS (navigator) reads it
+      // + prescribes scoping into features/<F>/deploy-verify-scope.json; the finalize
+      // records the scope set (routes the driver SCOPE turn) or escalates (veto).
+      // SCOPE (driver) refactors the flagged tests; the finalize marks it refactored
+      // so the transition re-deploys + re-verifies (one-shot bound in the marker).
+      const sftddDir = cfg.sftddDir;
+      const featureId = f;
+      const root = artifactRoot(sftddDir);
+      const marker = readDeployVerifyAssessMarker(sftddDir, featureId);
+      const claude: DriveCommand = {
+        kind: "claude",
+        role: action.role,
+        model: cfg.modelForRole(action.role),
+        ...(cfg.fallbackModelForRole?.(action.role) ? { fallbackModel: cfg.fallbackModelForRole(action.role)! } : {}),
+        task:
+          (action.mode === "assess-deploy"
+            ? `ASSESS a failed full-feature DEPLOY-VERIFY for the FEATURE SHIP of ${featureId} (all stories are` +
+              ` accepted; this is the merged-increment verify against the running app, no single story). A` +
+              ` deterministic classifier RE-RAN each failing test in ISOLATION (a fresh clean DB) and they ALL` +
+              ` PASSED alone , shared-state CONTAMINATION, not broken software: a test that does not OWN its DB` +
+              ` state (it writes a fixed-key row with no cleanup, or asserts an absolute whole-table total) and so` +
+              ` collides with sibling tests' rows on the shared feature-branch DB.\n` +
+              `Failing tests:\n${(marker?.failing_node_ids ?? []).map((n) => `  ${n}`).join("\n")}\n\n` +
+              `For EACH test, prescribe HOW to make it own its state: use a per-run-unique key (a uuid-suffixed` +
+              ` sku/location), or delete/upsert the fixed key before the write AND clean up after, or scope a` +
+              ` whole-table aggregate to the test's own rows / a delta , NEVER an absolute total. Keep the` +
+              ` assertion's intent; just make it self-owning.\n` +
+              `Write your scope directives to ${root}/features/${featureId}/deploy-verify-scope.json as` +
+              ` {"version":1,"directives":[{"node_id":"<path::test>","directive":"<how to scope it>"}]} , one entry` +
+              ` per test you confirm is contamination-fragile. If (rarely) you judge a failure a GENUINE regression,` +
+              ` OMIT it (write no file, or an empty directives array); the orchestration then raises it to a human.` +
+              ` Write ONLY that file.`
+            : `SCOPE the contamination-fragile tests the Navigator flagged for the FEATURE SHIP of ${featureId}.` +
+              ` Refactor EXACTLY these test files to own their DB state, per the directives , do NOT touch product` +
+              ` code, do NOT weaken the assertions' intent:\n` +
+              (readDeployVerifyScope(sftddDir, featureId)?.directives ?? [])
+                .map((d) => `  ${d.node_id}\n    -> ${d.directive}`)
+                .join("\n") +
+              `\nEdit ONLY those test files. The orchestrator re-deploys + re-verifies the whole feature after your turn.`) +
+          AGENT_TERSE_SUFFIX,
+        replay: { buildMode: action.mode },
+      };
+      const finalizeVerb = action.mode === "assess-deploy" ? "assess-deploy-verify" : "refactor-deploy-verify";
+      return [
+        claude,
+        { kind: "cli", bin: CYCLE_BIN, args: [finalizeVerb, "--feature", f, "--tdd-dir", cfg.sftddDir] },
+        { kind: "cli", bin: LOG_BIN, args: ["--reconcile", ...tdd] },
+      ];
     }
 
     case "project-architect-notes":
@@ -1465,18 +1569,25 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
     case "deploy":
       // Ship the merged feature, deterministically (same contract as the per-story
       // gate deploy above): the orchestration runs `lakebase-sftdd-deploy --gate`
-      // for the feature (ambient feature-branch DB; no --story/--lakebase-branch),
-      // which polls reachable, runs the feature verify, and writes the FEATURE-
-      // scoped deploy-evidence the deploy gate reads. A failed/foreign deploy is
-      // recorded as evidence + an escalation -> raise-to-hil, not an LLM claiming
-      // success. (For remote targets, `lakebase-sftdd-deploy` refuses cleanly until
-      // they land; that refusal surfaces as the escalation.) Teardown first.
+      // for the feature, which polls reachable, runs the feature verify, and writes
+      // the FEATURE-scoped deploy-evidence the deploy gate reads. A failed/foreign
+      // deploy is recorded as evidence + an escalation -> raise-to-hil, not an LLM
+      // claiming success. (For remote targets, `lakebase-sftdd-deploy` refuses
+      // cleanly until they land; that refusal surfaces as the escalation.)
+      // --lakebase-branch = the FEATURE branch (no --story): a failed verify can
+      // then fork an ephemeral child off it to classify shared-state contamination
+      // (the feature-ship self-heal) instead of hard-raising to HIL on a flaky test.
+      // Teardown first.
       return [
         { kind: "cli", bin: DEPLOY_BIN, args: ["--target", deployTarget, "--project-dir", cfg.projectDir, "--stop"] },
         {
           kind: "cli",
           bin: DEPLOY_BIN,
-          args: ["--target", deployTarget, "--feature", f, "--project-dir", cfg.projectDir, "--tdd-dir", cfg.sftddDir, "--gate"],
+          args: [
+            "--target", deployTarget, "--feature", f,
+            ...(cfg.featureBranch ? ["--lakebase-branch", cfg.featureBranch] : []),
+            "--project-dir", cfg.projectDir, "--tdd-dir", cfg.sftddDir, "--gate",
+          ],
         },
       ];
 

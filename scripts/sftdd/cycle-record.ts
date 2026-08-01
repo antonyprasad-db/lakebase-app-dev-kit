@@ -431,6 +431,19 @@ export interface GreenResult {
   needsAssess?: boolean;
 }
 
+/** True when a verify failure summary carries a Databricks auth-expiry signature
+ *  (the OAuth session/refresh token is dead, so credential minting was refused).
+ *  Such a failure is non-assessable + non-repairable , it needs a human
+ *  `databricks auth login` , so the cycle escalates immediately instead of
+ *  routing an assess/repair loop that can never converge. Mirrors the CLI
+ *  wrapper's isAuthFailure classifier + the Python app's DatabricksAuthExpired. */
+export function isAuthExpiredSummary(summary: string | undefined): boolean {
+  if (!summary) return false;
+  return /refresh token is invalid|could not be retrieved because|reauthenticate|databricks auth login|not authenticated|no valid.*(credential|token)|invalid.*(access token|credential)|\bunauthorized\b/i.test(
+    summary,
+  );
+}
+
 /** Confirm a cycle is genuinely GREEN: returns true only when the project's
  *  verify suite passes against the running app. Injected in tests; the default
  *  is the real deploy-during-build verifier. */
@@ -530,6 +543,24 @@ export async function greenOpenCycle(
     recordRunnerOutcome({ scope, cycleId: open.cycle_id, experimentSlug: open.experiment_slug, passed: result.passed });
   }
   if (!result.passed) {
+    // AUTH-EXPIRED short-circuit: a verify that failed because the Databricks
+    // OAuth session is dead (credential mint refused) is NOT a supersession or a
+    // driver-fixable regression , assessing/repairing it just spins on a failure
+    // that can never clear without a human `databricks auth login`. Detect the
+    // signature in the verify summary and escalate IMMEDIATELY (source
+    // "auth-expired"), before the assess route, on the first failure.
+    if (isAuthExpiredSummary(result.summary)) {
+      const escalation = writeEscalation(sftddDir, {
+        source: "auth-expired",
+        reason:
+          `Databricks auth session expired during verify of ${open.test_id} (${open.ac_id}) in ${featureId}/${story}. ` +
+          `Re-authenticate with \`databricks auth login\` and re-run. (verify: ${result.summary})`,
+        feature_id: featureId,
+        story_id: story,
+        ac_id: open.ac_id,
+      });
+      return { recorded: false, cycleId: open.cycle_id, testId: open.test_id, escalated: true, escalation, summary: result.summary };
+    }
     const gf = readGreenFailure(sftddDir, featureId, story, open.ac_id);
     if (!gf?.assessed) {
       // First failure: the break may be a PRIOR test the new AC legitimately

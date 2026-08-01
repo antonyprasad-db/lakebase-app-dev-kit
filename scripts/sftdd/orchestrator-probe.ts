@@ -130,6 +130,11 @@ export function readDriveContext(sftddDir: string, featureId: string, projectDir
   // readGates (the authoritative gate model), tolerant of a missing/legacy file.
   const deployed = fs.existsSync(featureDeployEvidenceJson(sftddDir, featureId));
   const gateApproved = readGateApproved(featureId, sftddDir, "deploy");
+  // Feature-ship deploy-verify self-heal: a feature-scope contamination marker
+  // (no story) makes the deploy phase route the ASSESS/SCOPE turns before the
+  // gate, mirroring the per-story self-heal. Read at feature scope (storyId omitted).
+  const verifyAssessEligible = deployVerifyNeedsAssess(sftddDir, featureId);
+  const verifyRefactorPending = deployVerifyRefactorPendingMarker(sftddDir, featureId);
 
   // Promote: the SCM workflow-state (.lakebase/workflow-state.json, project root)
   // is the source of truth for prepare-pr / wait-ci / merge (the SCM ladder
@@ -160,7 +165,7 @@ export function readDriveContext(sftddDir: string, featureId: string, projectDir
     phase: driverPhaseForTdd(tddPhase),
     breakdownDone,
     planning: { proposed, estimated: hasEstimates(sftddDir), requestsAuthored },
-    deploy: { deployed, gateApproved },
+    deploy: { deployed, gateApproved, verifyAssessEligible, verifyRefactorPending },
     promote,
   };
 }

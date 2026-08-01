@@ -7104,6 +7104,28 @@ function readSmellsLog(sftddDir) {
 init_esm_shims();
 import * as fs6 from "fs";
 import * as path5 from "path";
+function markerPath(sftddDir, featureId, storyId) {
+  const fdir = findFeatureDir(sftddDir, featureId);
+  if (!fdir) return void 0;
+  return storyId ? path5.join(fdir, "stories", storyId, "deploy-verify-assess.json") : path5.join(fdir, "deploy-verify-assess.json");
+}
+function readDeployVerifyAssessMarker(sftddDir, featureId, storyId) {
+  const file = markerPath(sftddDir, featureId, storyId);
+  if (!file || !fs6.existsSync(file)) return void 0;
+  try {
+    return JSON.parse(fs6.readFileSync(file, "utf8"));
+  } catch {
+    return void 0;
+  }
+}
+function deployVerifyRefactorPending(sftddDir, featureId, storyId) {
+  const m = readDeployVerifyAssessMarker(sftddDir, featureId, storyId);
+  return !!m && m.assessed === true && (m.flagged_tests?.length ?? 0) > 0 && m.refactored !== true;
+}
+function deployVerifyNeedsAssess(sftddDir, featureId, storyId) {
+  const m = readDeployVerifyAssessMarker(sftddDir, featureId, storyId);
+  return !!m && !m.assessed && m.attempts < 1;
+}
 
 // scripts/sftdd/e2e-regex-clean.ts
 init_esm_shims();
@@ -7297,6 +7319,8 @@ function readDriveContext(sftddDir, featureId, projectDir) {
   const requestsAuthored = fs10.existsSync(featureRequestMd(sftddDir, featureId));
   const deployed = fs10.existsSync(featureDeployEvidenceJson(sftddDir, featureId));
   const gateApproved = readGateApproved(featureId, sftddDir, "deploy");
+  const verifyAssessEligible = deployVerifyNeedsAssess(sftddDir, featureId);
+  const verifyRefactorPending = deployVerifyRefactorPending(sftddDir, featureId);
   const proj = projectDir ?? path7.dirname(sftddDir);
   let scmState;
   try {
@@ -7320,7 +7344,7 @@ function readDriveContext(sftddDir, featureId, projectDir) {
     phase: driverPhaseForTdd(tddPhase),
     breakdownDone,
     planning: { proposed, estimated: hasEstimates(sftddDir), requestsAuthored },
-    deploy: { deployed, gateApproved },
+    deploy: { deployed, gateApproved, verifyAssessEligible, verifyRefactorPending },
     promote
   };
 }

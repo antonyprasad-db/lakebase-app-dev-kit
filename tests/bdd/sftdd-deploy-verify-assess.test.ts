@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, mkdirSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -136,5 +136,53 @@ describe("deploy-verify SCOPE routing (assess -> driver scope -> re-deploy)", ()
     expect(m?.flagged_tests).toBeUndefined();
     expect(deployVerifyRefactorPending(sftddDir, FEATURE, STORY)).toBe(false);
     expect(deployVerifyNeedsAssess(sftddDir, FEATURE, STORY)).toBe(false);
+  });
+});
+
+describe("deploy-verify-assess at FEATURE scope (storyId undefined -> feature-ship self-heal)", () => {
+  const IDS = ["tests/architecture/test_layering.py::test_T3_json_not_html"];
+
+  it("markers persist at features/<F>/ (not stories/<S>/) when no story is given", () => {
+    // The feature-ship deploy has no story; its contamination marker must live at
+    // feature scope so the same assess->scope->re-deploy loop can run on the ship.
+    writeDeployVerifyAssessMarker(sftddDir, FEATURE, undefined, IDS);
+    const featureMarker = join(sftddDir, "features", FEATURE, "deploy-verify-assess.json");
+    expect(existsSync(featureMarker)).toBe(true);
+    // It must NOT be created under any story dir.
+    expect(existsSync(join(sftddDir, "features", FEATURE, "stories", STORY, "deploy-verify-assess.json"))).toBe(false);
+
+    const m = readDeployVerifyAssessMarker(sftddDir, FEATURE, undefined);
+    expect(m?.failing_node_ids).toEqual(IDS);
+    expect(m?.assessed).toBe(false);
+    expect(deployVerifyNeedsAssess(sftddDir, FEATURE, undefined)).toBe(true);
+  });
+
+  it("runs the full one-shot assess -> scope -> refactor -> clear lifecycle at feature scope", () => {
+    writeDeployVerifyAssessMarker(sftddDir, FEATURE, undefined, IDS);
+    expect(deployVerifyNeedsAssess(sftddDir, FEATURE, undefined)).toBe(true);
+
+    // Navigator confirms a scope set -> refactor-pending, no longer assess-eligible.
+    markDeployVerifyAssessed(sftddDir, FEATURE, undefined, IDS);
+    expect(deployVerifyNeedsAssess(sftddDir, FEATURE, undefined)).toBe(false);
+    expect(deployVerifyRefactorPending(sftddDir, FEATURE, undefined)).toBe(true);
+
+    // Driver scopes -> no longer refactor-pending (the one re-deploy runs).
+    markDeployVerifyRefactored(sftddDir, FEATURE, undefined);
+    expect(deployVerifyRefactorPending(sftddDir, FEATURE, undefined)).toBe(false);
+
+    // Re-verify passes -> clear.
+    clearDeployVerifyAssessMarker(sftddDir, FEATURE, undefined);
+    expect(readDeployVerifyAssessMarker(sftddDir, FEATURE, undefined)).toBeUndefined();
+  });
+
+  it("feature-scope and story-scope markers are independent (do not collide)", () => {
+    writeDeployVerifyAssessMarker(sftddDir, FEATURE, undefined, ["a.py::feat"]);
+    writeDeployVerifyAssessMarker(sftddDir, FEATURE, STORY, ["a.py::story"]);
+    expect(readDeployVerifyAssessMarker(sftddDir, FEATURE, undefined)?.failing_node_ids).toEqual(["a.py::feat"]);
+    expect(readDeployVerifyAssessMarker(sftddDir, FEATURE, STORY)?.failing_node_ids).toEqual(["a.py::story"]);
+    // Clearing the feature marker leaves the story marker intact.
+    clearDeployVerifyAssessMarker(sftddDir, FEATURE, undefined);
+    expect(readDeployVerifyAssessMarker(sftddDir, FEATURE, undefined)).toBeUndefined();
+    expect(readDeployVerifyAssessMarker(sftddDir, FEATURE, STORY)?.failing_node_ids).toEqual(["a.py::story"]);
   });
 });

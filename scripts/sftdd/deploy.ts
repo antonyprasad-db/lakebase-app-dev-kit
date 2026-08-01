@@ -643,7 +643,14 @@ export async function deployToTarget(args: DeployArgs): Promise<DeployResult> {
       // Anything else (unreachable, no isolatable branch, or still-fails-alone)
       // keeps the terminal deploy-verify HIL, byte-identical to before.
       let contamination = false;
-      if (reachableNow && cfg.verify && args.storyId && args.lakebaseBranch) {
+      // The self-heal fires whenever we can fork a clean child to isolate on: a
+      // bound lakebaseBranch + a feature context. This covers BOTH the per-story
+      // deploy (branch = the story's experiment branch, storyId set) AND the
+      // FEATURE-ship deploy (branch = the feature branch, no storyId) , the ship
+      // was previously gated out (storyId required) and hard-raised to HIL on a
+      // flaky shared-state test. storyId flows through as optional: undefined ->
+      // the feature-scope marker (features/<F>/deploy-verify-assess.json).
+      if (reachableNow && cfg.verify && args.featureId && args.lakebaseBranch) {
         const failing = parseFailedNodeIds(verifyOutput);
         if (failing.length > 0) {
           const runVerify = args.runVerify ?? defaultRunVerify;
@@ -683,10 +690,11 @@ export async function deployToTarget(args: DeployArgs): Promise<DeployResult> {
           ...(args.storyId ? { story_id: args.storyId } : {}),
         });
       }
-    } else if (args.storyId) {
+    } else if (args.featureId) {
       // The deploy verified. If a deploy-verify-assess marker exists, the
       // Navigator ASSESS + Driver SCOPE self-heal WORKED (the re-verify now
-      // passes), so clear it , the story proceeds to acceptance with a clean slate.
+      // passes), so clear it , the story (or the feature ship) proceeds with a
+      // clean slate. storyId undefined clears the feature-scope marker.
       clearDeployVerifyAssessMarker(sftddDir, args.featureId, args.storyId);
     }
   }

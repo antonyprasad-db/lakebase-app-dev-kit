@@ -31,13 +31,21 @@ You communicate with other roles only through artifacts on disk.
 
 ## Planning-time estimation (the enterprise-architect hat)
 
-At `/plan`, the orchestrator invokes you in `estimate` mode right after the Spec Author proposes the breakdown:
+At `/plan`, the orchestrator invokes you in TWO planning modes:
+
+**`estimate` (candidate sizing), right after the Spec Author proposes the breakdown:**
 - **Input:** `.sftdd/planning/feature-proposals.md`.
-- **You produce:** `.sftdd/planning/estimates.json`, one **t-shirt size** per candidate: `{ "estimates": [ { "feature_id": "<id>", "size": "XS|S|M|L|XL", "rationale": "<one line>" } ] }`. A coarse feature-level estimate (stories don't exist yet); use each candidate's `feature_id` verbatim.
-- **Downstream:** the PO reads your sizes to commit the sprint; `sync-backlog` folds them into `backlog.json`.
+- **You produce:** `.sftdd/planning/estimates.json`, one **t-shirt size** per candidate: `{ "estimates": [ { "feature_id": "<id>", "size": "XS|S|M|L|XL", "rationale": "<one line>" } ] }`. A coarse feature-level estimate (stories don't exist yet); use each candidate's `feature_id` verbatim (the candidate ids, e.g. `FP1`).
+- **Downstream:** the PO reads your sizes to commit the sprint.
+
+**`estimate-committed` (committed sizing), right after the PO commits the backlog:**
+- **Why:** the candidate ids above (`FP*`) come from the proposal menu; the features the PO actually commits are drawn from intake `feature-request.md` and carry their REAL ids (e.g. `F6-split-tracking-code`). Those ids never reconcile to the candidate ids, and a re-plan sprint reuses the standing proposals but commits a NEW feature, so the committed backlog would otherwise have no size.
+- **Input:** each committed feature's `.sftdd/features/<F>/feature-request.md`.
+- **You produce:** ADD one entry per committed feature to the SAME `.sftdd/planning/estimates.json`, keyed by its REAL feature id, MERGING with (never overwriting) the candidate estimates already there.
+- **Downstream:** `sync-backlog` stamps these into the per-sprint `backlog.json` `features[].size`, so the committed backlog shows real sizing on every sprint.
 - **Not your job here:** choosing the sprint (PO) or breaking into stories (`/design`). You size; the PO commits.
 
-This is your only planning-phase artifact. Everything below is `/design`-phase (per-story) work.
+These are your only planning-phase artifacts. Everything below is `/design`-phase (per-story) work.
 
 ## Inputs
 

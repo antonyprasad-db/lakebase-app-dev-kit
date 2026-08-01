@@ -161,7 +161,7 @@ describe("readDriveContext", () => {
     expect(ctx.phase).toBe("feature");
     expect(ctx.breakdownDone).toBe(false);
     expect(ctx.planning).toEqual({ proposed: false, estimated: false, requestsAuthored: false });
-    expect(ctx.deploy).toEqual({ deployed: false, gateApproved: false });
+    expect(ctx.deploy).toEqual({ deployed: false, gateApproved: false, verifyAssessEligible: false, verifyRefactorPending: false });
   });
 
   // A full, schema-valid gates.json the strict readGates can parse, with the
@@ -199,7 +199,7 @@ describe("readDriveContext", () => {
     expect(ctx.breakdownDone).toBe(true);
     expect(ctx.planning).toEqual({ proposed: true, estimated: false, requestsAuthored: true });
     // deploy ran (evidence present) but the deploy gate is not approved
-    expect(ctx.deploy).toEqual({ deployed: true, gateApproved: false });
+    expect(ctx.deploy).toEqual({ deployed: true, gateApproved: false, verifyAssessEligible: false, verifyRefactorPending: false });
   });
 
   it("reads deploy phase + approved deploy gate (evidence + strict gate read)", () => {
@@ -209,14 +209,14 @@ describe("readDriveContext", () => {
     writeFeatureFile("gates.json", gatesJson("approved"));
     const ctx = readDriveContext(sftddDir, FEATURE);
     expect(ctx.phase).toBe("deploy");
-    expect(ctx.deploy).toEqual({ deployed: true, gateApproved: true });
+    expect(ctx.deploy).toEqual({ deployed: true, gateApproved: true, verifyAssessEligible: false, verifyRefactorPending: false });
   });
 
   it("deployed=false when no deploy-evidence.json was written, even with an approved gate", () => {
     writeFileSync(join(sftddDir, "workflow-state.json"), JSON.stringify({ phase: "deploy", phase_feature_id: FEATURE }));
     writeFeatureFile("gates.json", gatesJson("approved"));
     const ctx = readDriveContext(sftddDir, FEATURE);
-    expect(ctx.deploy).toEqual({ deployed: false, gateApproved: true });
+    expect(ctx.deploy).toEqual({ deployed: false, gateApproved: true, verifyAssessEligible: false, verifyRefactorPending: false });
   });
 
   // FEIP-8022: the coarse `phase` slot is per-PROJECT, so it must be honored only

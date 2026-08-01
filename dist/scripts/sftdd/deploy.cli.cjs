@@ -6946,7 +6946,7 @@ function parseFailedNodeIds(output) {
 function markerPath(sftddDir, featureId, storyId) {
   const fdir = findFeatureDir(sftddDir, featureId);
   if (!fdir) return void 0;
-  return path2.join(fdir, "stories", storyId, "deploy-verify-assess.json");
+  return storyId ? path2.join(fdir, "stories", storyId, "deploy-verify-assess.json") : path2.join(fdir, "deploy-verify-assess.json");
 }
 function readDeployVerifyAssessMarker(sftddDir, featureId, storyId) {
   const file = markerPath(sftddDir, featureId, storyId);
@@ -6963,7 +6963,7 @@ function writeDeployVerifyAssessMarker(sftddDir, featureId, storyId, failingNode
   const prior = readDeployVerifyAssessMarker(sftddDir, featureId, storyId);
   const marker = {
     version: 1,
-    story_id: storyId,
+    ...storyId ? { story_id: storyId } : {},
     failing_node_ids: failingNodeIds,
     assessed: false,
     attempts: prior?.attempts ?? 0
@@ -7323,7 +7323,7 @@ async function deployToTarget(args) {
     }
     if (!(reachableNow && verify.passed)) {
       let contamination = false;
-      if (reachableNow && cfg.verify && args.storyId && args.lakebaseBranch) {
+      if (reachableNow && cfg.verify && args.featureId && args.lakebaseBranch) {
         const failing = parseFailedNodeIds(verifyOutput);
         if (failing.length > 0) {
           const runVerify = args.runVerify ?? defaultRunVerify;
@@ -7355,7 +7355,7 @@ async function deployToTarget(args) {
           ...args.storyId ? { story_id: args.storyId } : {}
         });
       }
-    } else if (args.storyId) {
+    } else if (args.featureId) {
       clearDeployVerifyAssessMarker(sftddDir, args.featureId, args.storyId);
     }
   }

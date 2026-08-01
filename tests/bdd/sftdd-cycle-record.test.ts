@@ -108,6 +108,24 @@ describe("cycle-record: orchestration stamps RED/GREEN the probe can read", asyn
     expect(outcomes.by_tag).toBeTruthy();
   });
 
+  it("greenOpenCycle short-circuits an AUTH-EXPIRED verify straight to raise-to-hil (never assess)", async () => {
+    // A verify that failed because the Databricks session is expired is NOT a
+    // supersession/regression the Navigator can assess or the Driver can repair ,
+    // routing it to an assess turn just spins. It must escalate IMMEDIATELY with
+    // the reauth remediation, on the FIRST failure (no assess, no self-heal round).
+    beginNextPendingCycle({ sftddDir: tdd, featureId: F, story: S });
+    const authFail: GreenVerifier = async () => ({
+      passed: false,
+      summary:
+        "Backend unreachable: A new access token could not be retrieved because the refresh token is invalid. To reauthenticate, run: databricks auth login",
+    });
+    const g = await greenOpenCycle({ sftddDir: tdd, featureId: F, story: S, verify: authFail });
+    expect(g.needsAssess).toBeFalsy();
+    expect(g.escalated).toBe(true);
+    expect(g.escalation?.source).toBe("auth-expired");
+    expect(g.escalation?.reason).toMatch(/databricks auth login|refresh token/i);
+  });
+
   it("resetStoryBuildState clears cycles + resets test-list statuses so a revised story re-drives", async () => {
     // Drive both tests GREEN so the story reads allGreen (the pre-revise state
     // that made a revised story re-deploy its stale build instead of rebuilding).

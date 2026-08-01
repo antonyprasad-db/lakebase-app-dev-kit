@@ -177,21 +177,36 @@ describe("nextTransition: UX Designer prerequisite (hoisted above build dispatch
 });
 
 describe("nextTransition: planning lane", () => {
-  it("proposes, estimates, authors requests, approves the PLAN GATE, then completes", () => {
+  it("proposes, estimates, authors requests, sizes the COMMITTED features, approves the PLAN GATE, then completes", () => {
     const base = ws({ phase: "planning", planning: { proposed: false, estimated: false, requestsAuthored: false } });
     expect(nextTransition(base)).toEqual({ kind: "invoke-role", role: "spec-author", mode: "propose" });
-    // Proposed -> the Architect t-shirt-sizes the candidates before the PO commits.
+    // Proposed -> the Architect t-shirt-sizes the CANDIDATES before the PO commits.
     expect(nextTransition(ws({ phase: "planning", planning: { proposed: true, estimated: false, requestsAuthored: false } })))
       .toEqual({ kind: "invoke-role", role: "architect-reviewer", mode: "estimate" });
     // Estimated -> the PO commits the backlog (authors the feature-requests).
     expect(nextTransition(ws({ phase: "planning", planning: { proposed: true, estimated: true, requestsAuthored: false } })))
       .toEqual({ kind: "invoke-role", role: "product-owner", mode: "author-requests" });
-    // Backlog committed -> the sprint plan gate (HITL) before execution.
-    expect(nextTransition(ws({ phase: "planning", planning: { proposed: true, estimated: true, requestsAuthored: true } })))
+    // Backlog committed but its COMMITTED features not yet sized -> the Architect
+    // estimates the committed feature(s) by their real ids, so sync-backlog can
+    // stamp per-sprint sizes (candidate FP ids never reconcile to committed ids).
+    expect(nextTransition(ws({ phase: "planning", planning: { proposed: true, estimated: true, requestsAuthored: true, committedEstimated: false } })))
+      .toEqual({ kind: "invoke-role", role: "architect-reviewer", mode: "estimate-committed" });
+    // Committed features sized -> the sprint plan gate (HITL) before execution.
+    expect(nextTransition(ws({ phase: "planning", planning: { proposed: true, estimated: true, requestsAuthored: true, committedEstimated: true } })))
       .toEqual({ kind: "approve-plan-gate" });
     // Gate approved -> planning complete (the human "passing" = approve as-is).
-    expect(nextTransition(ws({ phase: "planning", planning: { proposed: true, estimated: true, requestsAuthored: true, gateApproved: true } })))
+    expect(nextTransition(ws({ phase: "planning", planning: { proposed: true, estimated: true, requestsAuthored: true, committedEstimated: true, gateApproved: true } })))
       .toEqual({ kind: "planning-complete" });
+  });
+
+  it("re-plan sprint (proposals+candidate-estimates already exist) STILL sizes its own committed feature", () => {
+    // Sprint 2: feature-proposals.md + estimates.json (candidate FP sizes) persist
+    // from sprint 1, so proposed+estimated are already true and those turns are
+    // skipped. But the sprint's OWN committed feature (e.g. F6) is not yet sized,
+    // so committedEstimated is false -> the committed-estimate turn still fires.
+    // This is the fix for "sprint 2's committed feature has no size".
+    expect(nextTransition(ws({ phase: "planning", planning: { proposed: true, estimated: true, requestsAuthored: true, committedEstimated: false } })))
+      .toEqual({ kind: "invoke-role", role: "architect-reviewer", mode: "estimate-committed" });
   });
 
   it("--no-sizing (skipSizing) routes proposed -> author-requests, never estimating", () => {
@@ -314,6 +329,21 @@ describe("nextTransition: deploy + done", () => {
     // Deploy gate done -> promote (no longer terminal at done).
     expect(nextTransition(ws({ phase: "deploy", deploy: { deployed: true, gateApproved: true } })))
       .toEqual({ kind: "deploy-complete" });
+  });
+
+  it("feature-ship deploy-verify contamination routes the feature-scope ASSESS then SCOPE self-heal (not the gate, not HIL)", () => {
+    // A feature-ship deploy whose verify failed on shared-state contamination: the
+    // deploy wrote a feature-scope marker (no escalation). The deploy phase must
+    // route the Navigator ASSESS-DEPLOY turn (feature scope, no story), then the
+    // Driver SCOPE turn , mirroring the per-story self-heal , BEFORE surfacing the
+    // deploy gate. Both actions carry no `story` (feature scope).
+    expect(
+      nextTransition(ws({ phase: "deploy", deploy: { deployed: true, gateApproved: false, verifyAssessEligible: true } })),
+    ).toEqual({ kind: "deploy-verify-heal", role: "navigator", mode: "assess-deploy" });
+
+    expect(
+      nextTransition(ws({ phase: "deploy", deploy: { deployed: true, gateApproved: false, verifyRefactorPending: true } })),
+    ).toEqual({ kind: "deploy-verify-heal", role: "driver", mode: "refactor-deploy" });
   });
 });
 

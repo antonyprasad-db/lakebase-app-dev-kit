@@ -230,6 +230,43 @@ describe("commandsForAction: invoke-role -> claude", () => {
     expect(task).not.toMatch(/The story's ACs are:/);
   });
 
+  it("estimate-committed sizes the committed features by real id + re-syncs the backlog to stamp sizes", () => {
+    // The planning-gap fix: after author-requests, the Architect sizes the COMMITTED
+    // feature (by its F-id, merging into estimates.json), then sync-backlog re-projects
+    // so backlog.json carries the per-sprint size (works on a re-plan sprint too).
+    const cmds = commandsForAction(
+      { kind: "invoke-role", role: "architect-reviewer", mode: "estimate-committed" },
+      cfg({ sprintName: "sprint-2" }),
+    );
+    const claude = cmds.find((c) => (c as { kind: string }).kind === "claude") as { task: string };
+    expect(claude.task).toMatch(/COMMITTED feature/);
+    expect(claude.task).toMatch(/real feature id/i);
+    expect(claude.task).toMatch(/estimates\.json/);
+    expect(claude.task).toMatch(/KEEP every existing estimate/); // merge, not overwrite
+    // The backlog is re-synced so the fresh F-keyed size lands in backlog.json.
+    expect(cmds.some((c) => (c as { kind: string }).kind === "sync-backlog" && (c as { sprint?: string }).sprint === "sprint-2")).toBe(true);
+  });
+
+  it("test-strategist task warns that every DB-writing test must own its state (shared-state-write guard)", () => {
+    // A service-backed feature: the dbScope hint must carry the general
+    // state-ownership rule, not just the invariant-coverage directive, so a
+    // create/content-type test that writes a fixed key with no cleanup does not
+    // collide in the shared-feature-branch deploy-verify (the test_T3 halt).
+    const tmp = mkdtempSync(join(tmpdir(), "effects-strategist-state-"));
+    const sftddDir = join(tmp, ".tdd");
+    mkdirSync(join(sftddDir, "features", "F1", "stories", "S1"), { recursive: true });
+    writeFileSync(
+      join(sftddDir, "features", "F1", "architecture.json"),
+      JSON.stringify({ service_backed: true, persistence_invariants: [{ id: "PI1-unique", brief: "unique (sku, location)" }] }),
+    );
+    const task = (commandsForAction({ kind: "invoke-role", role: "test-strategist", story: "S1" }, cfg({ sftddDir }))[0] as { task: string }).task;
+    expect(task).toMatch(/WRITES to the DB/);
+    expect(task).toMatch(/own its state/);
+    expect(task).toMatch(/UNIQUE key/);
+    expect(task).toMatch(/shared-state-write/);
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
   it("author-requests supplies the PO's requests via the Human Proxy + sync-backlog (no LLM spawned)", () => {
     // author-requests is a human-input step: the state machine asks, and headless
     // the Human Proxy supplies the recorded feature-requests (logging each), then
@@ -522,7 +559,7 @@ describe("commandsForAction: state transitions -> kit CLIs", () => {
   });
 
   it("deploy is run by the orchestration (deterministic lakebase-sftdd-deploy --gate), not the LLM", () => {
-    const cmds = commandsForAction({ kind: "deploy" }, cfg());
+    const cmds = commandsForAction({ kind: "deploy" }, cfg({ featureBranch: "feature-f1" }));
     // teardown first (free the port), then the gated feature deploy.
     expect(cmds[0]).toMatchObject({ kind: "cli", bin: "lakebase-sftdd-deploy" });
     expect((cmds[0] as { args: string[] }).args).toContain("--stop");
@@ -530,7 +567,12 @@ describe("commandsForAction: state transitions -> kit CLIs", () => {
     const g = (cmds[1] as { args: string[] }).args;
     expect(g).toContain("--gate"); // gate deploy: records evidence + escalates, never an LLM claim
     expect(g).toContain("--feature");
-    expect(g).not.toContain("--story"); // feature-level deploy (ambient feature branch)
+    expect(g).not.toContain("--story"); // feature-level deploy (no story)
+    // Bind to the FEATURE branch so a failed verify can fork an ephemeral child to
+    // classify shared-state contamination (the feature-ship self-heal), instead of
+    // hard-raising to HIL on a flaky test.
+    expect(g).toContain("--lakebase-branch");
+    expect(g[g.indexOf("--lakebase-branch") + 1]).toBe("feature-f1");
     // No release-engineer LLM turn in the deploy path.
     expect(cmds.some((c) => "role" in c && (c as { role?: string }).role === "release-engineer")).toBe(false);
   });
@@ -986,6 +1028,47 @@ describe("commandsForAction: assess directive scans fitness/migration tests for 
     expect(t).toMatch(/reversibility/);
     expect(t).toMatch(/EVERY failing test|COMPLETE set/);
   });
+
+  it("when a pre-localized superseded advisory is present, tells the agent to TRUST it and flag in one call (no re-verify spin)", () => {
+    // Root cause of the F6/S3 55-min spin: the deterministic gate pre-localized the
+    // superseded set (56 lines / 8 files), but the prompt still said "scan
+    // COMPREHENSIVELY", so the agent re-read every candidate to verify instead of
+    // flagging. When the advisory is present it is authoritative (a deterministic
+    // grep of the migration's dropped symbol) , flag exactly it in ONE call.
+    const tmp = mkdtempSync(join(tmpdir(), "effects-assess-adv-"));
+    const tdd = join(tmp, ".tdd");
+    mkdirSync(join(tdd, "features", "F1", "stories", "S3", "acs"), { recursive: true });
+    writeGreenFailure(tdd, "F1", "S3", "AC1", {
+      assessed: false,
+      summary: "T11 reversibility fails after inventory_code drop",
+      supersededTestRefs:
+        "SUPERSEDED-TEST CANDIDATES (pre-localized; you do NOT need to search): the migration DROPPED inventory_code, and these PRIOR test lines still assert it:\n  tests/test_S1_split_fitness.py:42  [inventory_code]  ...",
+    });
+    const t = (commandsForAction(
+      { kind: "invoke-role", role: "navigator", story: "S3", buildMode: "assess", ac: "AC1" },
+      cfg({ sftddDir: tdd, featureId: "F1" }),
+    )[0] as { task: string }).task;
+    // The advisory is injected.
+    expect(t).toMatch(/SUPERSEDED-TEST CANDIDATES/);
+    // The PROMPT BODY (not just the advisory's own words) must add a decisive
+    // directive to trust the pre-localized set and NOT re-read every candidate.
+    expect(t).toMatch(/deterministic|pre-localized/i);
+    expect(t).toMatch(/do NOT re-read (each|every|them)|without re-reading|flag (exactly )?(the|those) (listed|pre-localized)/i);
+    // AND the contradictory "Scan COMPREHENSIVELY" open-ended directive must be
+    // SUPPRESSED when the set is already localized (it caused the re-verify spin).
+    expect(t).not.toMatch(/Scan COMPREHENSIVELY/);
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it("WITHOUT an advisory, keeps the comprehensive-scan directive (agent must search itself)", () => {
+    // No pre-localization (not a contract/drop story, or gate found nothing): the
+    // agent still needs the COMPREHENSIVE scan guidance.
+    const t = (commandsForAction(
+      { kind: "invoke-role", role: "navigator", story: "S9-plain", buildMode: "assess", ac: "AC1" },
+      cfg(),
+    )[0] as { task: string }).task;
+    expect(t).toMatch(/Scan COMPREHENSIVELY/);
+  });
 });
 
 describe("commandsForAction: pre-build reflection gate (navigator reflect)", () => {
@@ -1088,6 +1171,7 @@ describe("commandsForAction: FEIP-8006 out-of-root artifact guard (verify-artifa
     const cases: Array<[Parameters<typeof commandsForAction>[0], string]> = [
       [{ kind: "invoke-role", role: "spec-author", mode: "propose" }, "feature-proposals.md"],
       [{ kind: "invoke-role", role: "architect-reviewer", mode: "estimate" }, "estimates.json"],
+      [{ kind: "invoke-role", role: "architect-reviewer", mode: "estimate-committed" }, "estimates.json"],
       [{ kind: "invoke-role", role: "spec-author", mode: "breakdown" }, "feature-spec.json"],
       [{ kind: "invoke-role", role: "ux-designer" }, "design-guide.json"],
       [{ kind: "invoke-role", role: "spec-author", story: "S1" }, "acs"],

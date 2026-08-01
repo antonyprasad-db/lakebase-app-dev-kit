@@ -36,7 +36,10 @@ export function parseFailedNodeIds(output: string): string[] {
 
 export interface DeployVerifyAssessMarker {
   version: 1;
-  story_id: string;
+  /** The story this contamination marker belongs to, or absent for a
+   *  FEATURE-ship deploy (no story , the merged-increment verify). The marker
+   *  then lives at features/<F>/deploy-verify-assess.json instead of the story dir. */
+  story_id?: string;
   /** The pytest node-ids that failed in the full suite but the classifier found
    *  pass in isolation , the contamination-fragile tests to scope. */
   failing_node_ids: string[];
@@ -62,21 +65,27 @@ export interface DeployVerifyAssessMarker {
  *  decide the scope set, and injected into the Driver's SCOPE turn as guidance. */
 export interface DeployVerifyScope {
   version: 1;
-  story_id: string;
+  /** Absent for a feature-ship scope file (no story). */
+  story_id?: string;
   directives: { node_id: string; directive: string }[];
 }
 
-function scopePath(sftddDir: string, featureId: string, storyId: string): string | undefined {
+/** The scope/marker files live at STORY scope (next to the story's
+ *  deploy-evidence.json) when a storyId is given, else at FEATURE scope
+ *  (features/<F>/) for the feature-ship deploy's own self-heal. */
+function scopePath(sftddDir: string, featureId: string, storyId?: string): string | undefined {
   const fdir = findFeatureDir(sftddDir, featureId);
   if (!fdir) return undefined;
-  return path.join(fdir, "stories", storyId, "deploy-verify-scope.json");
+  return storyId
+    ? path.join(fdir, "stories", storyId, "deploy-verify-scope.json")
+    : path.join(fdir, "deploy-verify-scope.json");
 }
 
 /** Read the Navigator's scope directives (undefined when it wrote none , its veto). */
 export function readDeployVerifyScope(
   sftddDir: string,
   featureId: string,
-  storyId: string,
+  storyId?: string,
 ): DeployVerifyScope | undefined {
   const file = scopePath(sftddDir, featureId, storyId);
   if (!file || !fs.existsSync(file)) return undefined;
@@ -87,17 +96,20 @@ export function readDeployVerifyScope(
   }
 }
 
-/** The marker lives at story scope, next to the story's deploy-evidence.json. */
-function markerPath(sftddDir: string, featureId: string, storyId: string): string | undefined {
+/** The marker lives at story scope (next to the story's deploy-evidence.json)
+ *  when a storyId is given, else at feature scope for the feature-ship deploy. */
+function markerPath(sftddDir: string, featureId: string, storyId?: string): string | undefined {
   const fdir = findFeatureDir(sftddDir, featureId);
   if (!fdir) return undefined;
-  return path.join(fdir, "stories", storyId, "deploy-verify-assess.json");
+  return storyId
+    ? path.join(fdir, "stories", storyId, "deploy-verify-assess.json")
+    : path.join(fdir, "deploy-verify-assess.json");
 }
 
 export function readDeployVerifyAssessMarker(
   sftddDir: string,
   featureId: string,
-  storyId: string,
+  storyId?: string,
 ): DeployVerifyAssessMarker | undefined {
   const file = markerPath(sftddDir, featureId, storyId);
   if (!file || !fs.existsSync(file)) return undefined;
@@ -111,11 +123,11 @@ export function readDeployVerifyAssessMarker(
 /** Record a fresh contamination marker (assessed:false, attempts:0). Idempotent
  *  on re-detection of the same failure: it refreshes the failing node-ids but
  *  preserves the spent `attempts` so the one-shot bound is not reset by a repeat
- *  deploy of the same story. */
+ *  deploy of the same story/feature. `storyId` absent = the feature-ship marker. */
 export function writeDeployVerifyAssessMarker(
   sftddDir: string,
   featureId: string,
-  storyId: string,
+  storyId: string | undefined,
   failingNodeIds: string[],
 ): string | undefined {
   const file = markerPath(sftddDir, featureId, storyId);
@@ -123,7 +135,7 @@ export function writeDeployVerifyAssessMarker(
   const prior = readDeployVerifyAssessMarker(sftddDir, featureId, storyId);
   const marker: DeployVerifyAssessMarker = {
     version: 1,
-    story_id: storyId,
+    ...(storyId ? { story_id: storyId } : {}),
     failing_node_ids: failingNodeIds,
     assessed: false,
     attempts: prior?.attempts ?? 0,
@@ -141,7 +153,7 @@ export function writeDeployVerifyAssessMarker(
 export function markDeployVerifyAssessed(
   sftddDir: string,
   featureId: string,
-  storyId: string,
+  storyId: string | undefined,
   flaggedTests?: string[],
 ): void {
   const file = markerPath(sftddDir, featureId, storyId);
@@ -159,7 +171,7 @@ export function markDeployVerifyAssessed(
 export function markDeployVerifyRefactored(
   sftddDir: string,
   featureId: string,
-  storyId: string,
+  storyId?: string,
 ): void {
   const file = markerPath(sftddDir, featureId, storyId);
   const m = readDeployVerifyAssessMarker(sftddDir, featureId, storyId);
@@ -173,7 +185,7 @@ export function markDeployVerifyRefactored(
 export function deployVerifyRefactorPending(
   sftddDir: string,
   featureId: string,
-  storyId: string,
+  storyId?: string,
 ): boolean {
   const m = readDeployVerifyAssessMarker(sftddDir, featureId, storyId);
   return !!m && m.assessed === true && (m.flagged_tests?.length ?? 0) > 0 && m.refactored !== true;
@@ -183,7 +195,7 @@ export function deployVerifyRefactorPending(
 export function clearDeployVerifyAssessMarker(
   sftddDir: string,
   featureId: string,
-  storyId: string,
+  storyId?: string,
 ): void {
   const file = markerPath(sftddDir, featureId, storyId);
   if (file && fs.existsSync(file)) fs.rmSync(file);
@@ -194,7 +206,7 @@ export function clearDeployVerifyAssessMarker(
 export function deployVerifyNeedsAssess(
   sftddDir: string,
   featureId: string,
-  storyId: string,
+  storyId?: string,
 ): boolean {
   const m = readDeployVerifyAssessMarker(sftddDir, featureId, storyId);
   return !!m && !m.assessed && m.attempts < 1;

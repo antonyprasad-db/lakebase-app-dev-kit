@@ -393,6 +393,60 @@ describe("deployToTarget: deploy-verify self-heal (contamination classify + one-
     await deployToTarget({ ...baseArgs(sftddDir), runVerify: () => true });
     expect(readDeployVerifyAssessMarker(sftddDir, "F1", "S1")).toBeUndefined();
   });
+
+  // ── FEATURE-SHIP scope: the same self-heal, no storyId (the F1-ship halt) ──
+  function featureShipArgs(sftddDir: string) {
+    // The feature-ship deploy binds to the FEATURE branch (its fork parent for
+    // the isolation re-run), and carries NO storyId. Before the fix this path
+    // skipped the classifier entirely and hard-raised to HIL.
+    return {
+      projectDir: dir,
+      targetName: "localv",
+      featureId: "F1",
+      lakebaseBranch: "feature-f1", // the feature branch = fork parent
+      sftddDir,
+      startProcess: () => 1,
+      reachable: async () => true,
+      stop: () => {},
+      sleep: async () => {},
+      now: fastClock(),
+    };
+  }
+
+  it("feature-ship: classifies contamination -> writes the FEATURE-scope marker + SUPPRESSES the HIL", async () => {
+    const sftddDir = join(dir, ".tdd");
+    mkdirSync(join(sftddDir, "features", "F1"), { recursive: true });
+
+    await deployToTarget({ ...featureShipArgs(sftddDir), runVerify: contaminated });
+
+    // Feature-scope marker (storyId undefined), NOT a story marker.
+    expect(readDeployVerifyAssessMarker(sftddDir, "F1")?.failing_node_ids).toEqual(["tests/x.py::t1"]);
+    const escs = readEscalations(sftddDir).filter((e) => !e.resolved_at && e.source === "deploy-verify");
+    expect(escs).toHaveLength(0);
+  });
+
+  it("feature-ship one-shot: a repeat contamination failure after the assess is spent ESCALATES", async () => {
+    const sftddDir = join(dir, ".tdd");
+    mkdirSync(join(sftddDir, "features", "F1"), { recursive: true });
+
+    await deployToTarget({ ...featureShipArgs(sftddDir), runVerify: contaminated });
+    markDeployVerifyAssessed(sftddDir, "F1", undefined, ["tests/x.py::t1"]);
+
+    await deployToTarget({ ...featureShipArgs(sftddDir), runVerify: contaminated });
+    const escs = readEscalations(sftddDir).filter((e) => !e.resolved_at && e.source === "deploy-verify");
+    expect(escs.length).toBeGreaterThan(0);
+  });
+
+  it("feature-ship: clears the FEATURE marker when the re-verify PASSES", async () => {
+    const sftddDir = join(dir, ".tdd");
+    mkdirSync(join(sftddDir, "features", "F1"), { recursive: true });
+
+    await deployToTarget({ ...featureShipArgs(sftddDir), runVerify: contaminated });
+    expect(readDeployVerifyAssessMarker(sftddDir, "F1")).toBeDefined();
+
+    await deployToTarget({ ...featureShipArgs(sftddDir), runVerify: () => true });
+    expect(readDeployVerifyAssessMarker(sftddDir, "F1")).toBeUndefined();
+  });
 });
 
 describe("stopLocal", () => {
