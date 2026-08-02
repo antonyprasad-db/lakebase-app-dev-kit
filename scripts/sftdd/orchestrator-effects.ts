@@ -46,7 +46,11 @@ export type DriveCommand =
   // judgment turns (REVIEW) to run them fast (low reasoning effort), the headless
   // realization of "fast mode", since `claude -p` has no `--fast` flag. Omitted =>
   // the model's default effort.
-  | { kind: "claude"; role: string; model: string; task: string; resumeKey?: string; effort?: string; fallbackModel?: string; maxBudgetUsd?: number; replay?: { mode?: string; buildMode?: string; story?: string } }
+  // `allowedTools`/`disallowedTools` (optimize harness Family-2 lever): when set,
+  // restrict the agent's tool scope for THIS turn (--allowed-tools /
+  // --disallowed-tools). Absent on every normal-drive command, so the spawn is
+  // unchanged; the harness sets them per candidate to cap on-disk scanning.
+  | { kind: "claude"; role: string; model: string; task: string; resumeKey?: string; effort?: string; fallbackModel?: string; maxBudgetUsd?: number; allowedTools?: string[]; disallowedTools?: string[]; replay?: { mode?: string; buildMode?: string; story?: string } }
   | { kind: "cli"; bin: string; args: string[] }
   | { kind: "set-phase"; phase: string }
   // Deterministic sprint-backlog projection (the ONE writer): after the PO
@@ -143,6 +147,25 @@ export interface DriveEffectsConfig {
   loopGranularity?: "ac" | "hybrid-a" | "story";
   /** P8b: max test-list items per layer-batch (hybrid-a). Default 3. */
   batchCap?: number;
+  /** Optimize harness (Family-2 content/scope levers), all DEFAULT-OFF: a normal
+   *  drive sets none, so every turn's prompt + spawn args are byte-identical to
+   *  before. The per-handoff optimize harness sets them for ONE forked candidate
+   *  turn to A/B-test what the agent SEES and CAN DO, then discards or keeps the
+   *  turn on wall-clock + gate outcome.
+   *
+   *  taskSuffix: extra directive APPENDED to a role's task (after the terse
+   *  suffix), the per-turn task-injection lever. Return "" for no-op. */
+  taskSuffix?(role: string, turn?: "red" | "green" | "review" | "refactor"): string;
+  /** contextPackSuffix: extra pre-extracted CONTEXT appended to a build turn's
+   *  task, BEFORE the terse suffix, so it reads as context, not a trailing order.
+   *  The inject-more/scan-less lever (module map, code snippets, exact refs).
+   *  Return "" for no-op. */
+  contextPackSuffix?(role: string, turn?: "red" | "green" | "review" | "refactor"): string;
+  /** allowedToolsForRole/disallowedToolsForRole: per-role tool-scope restriction
+   *  (--allowed-tools / --disallowed-tools), the cap-what-the-agent-scans lever.
+   *  Return undefined (or an empty list) to leave the tool scope unrestricted. */
+  allowedToolsForRole?(role: string): string[] | undefined;
+  disallowedToolsForRole?(role: string): string[] | undefined;
   onAction?(action: WorkflowAction, iteration: number): void;
 }
 
@@ -1223,11 +1246,27 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
         ...(effort && effort !== "default" ? { effort } : {}),
         ...(fallbackModel ? { fallbackModel } : {}),
         ...(typeof maxBudgetUsd === "number" ? { maxBudgetUsd } : {}),
+        // Optimize harness content/scope levers (all default-off): extra context
+        // is injected BEFORE the terse suffix (reads as context), the task suffix
+        // AFTER it (reads as a trailing directive), and the tool scope is carried
+        // on the command for the runner to translate to spawn flags. When the cfg
+        // sets none, this is byte-identical to `roleTask(...) + AGENT_TERSE_SUFFIX`.
+        ...(((): { allowedTools?: string[]; disallowedTools?: string[] } => {
+          const allowed = cfg.allowedToolsForRole?.(action.role);
+          const disallowed = cfg.disallowedToolsForRole?.(action.role);
+          return {
+            ...(allowed && allowed.length ? { allowedTools: allowed } : {}),
+            ...(disallowed && disallowed.length ? { disallowedTools: disallowed } : {}),
+          };
+        })()),
         task:
           roleTask(action, f, cfg.uiTrack ?? false, cfg.sftddDir, {
             loop: storyLoop,
             cap: cfg.batchCap,
-          }) + AGENT_TERSE_SUFFIX,
+          }) +
+          (cfg.contextPackSuffix?.(action.role, buildTurn) ?? "") +
+          AGENT_TERSE_SUFFIX +
+          (cfg.taskSuffix?.(action.role, buildTurn) ?? ""),
         replay: {
           mode: "mode" in action ? action.mode : undefined,
           // The build turn's mode (reflect / review / refactor / assess / repair),

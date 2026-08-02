@@ -68,6 +68,7 @@ import type { AgentRole } from "./agent-log.js";
 import { makeOnAction, describeAction, approveHint } from "./orchestrator-logging.js";
 import { resolveKitBinJs, kitVersion } from "./kit-bin.js";
 import { isForeignFeatureClaim, readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
+import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 import { driveAuthPreflight } from "./drive-auth-preflight.js";
 import { relocateStrayDesignArtifacts, malformedSiblingRoot } from "./stray-artifact-recovery.js";
 
@@ -352,7 +353,21 @@ function spawnClaudeStreaming(args: string[], cwd: string): Promise<TurnUsage | 
 
 /** The live runner: claude -p for roles, the kit CLIs for state, a direct
  *  workflow-state write for the coarse phase. */
-function execRunner(cfg: DriveEffectsConfig): CommandRunner {
+/**
+ * The spawn flags for a claude command's optional tool-scope levers (the
+ * optimize harness's Family-2 "restrict what the agent can scan/do" knob). A
+ * pure function of the command so it is hermetically testable and has ONE
+ * source of truth. Empty (both fields absent or empty) => `[]`, so a normal
+ * drive command (which sets neither) spawns byte-identically to before.
+ */
+export function claudeToolArgs(cmd: Extract<DriveCommand, { kind: "claude" }>): string[] {
+  const out: string[] = [];
+  if (cmd.allowedTools && cmd.allowedTools.length) out.push("--allowed-tools", cmd.allowedTools.join(","));
+  if (cmd.disallowedTools && cmd.disallowedTools.length) out.push("--disallowed-tools", cmd.disallowedTools.join(","));
+  return out;
+}
+
+export function execRunner(cfg: DriveEffectsConfig): CommandRunner {
   // Per-role Claude session ids, scoped to this runner (one feature drive). A
   // role's first invocation creates a session (--session-id); later invocations
   // resume it (--resume) so the agent's context + prompt cache stay warm instead
@@ -487,6 +502,9 @@ function execRunner(cfg: DriveEffectsConfig): CommandRunner {
         if (cmd.effort) baseArgs.push("--effort", cmd.effort);
         if (cmd.fallbackModel) baseArgs.push("--fallback-model", cmd.fallbackModel);
         if (typeof cmd.maxBudgetUsd === "number") baseArgs.push("--max-budget-usd", String(cmd.maxBudgetUsd));
+        // Optional tool-scope restriction (optimize harness Family-2 lever). A
+        // normal drive sets neither field, so this is a no-op there.
+        baseArgs.push(...claudeToolArgs(cmd));
         // Resolve this attempt's session flags. `forceFresh` ignores the warm
         // session (used when retrying after a mid-turn "Prompt is too long").
         const sessionArgsFor = (forceFresh: boolean): string[] => {
@@ -680,7 +698,7 @@ function maybeResyncAgents(projectDir: string): void {
 }
 
 /** Build a DriveEffectsConfig for a feature (or planning, featureId ""). */
-function buildCfg(args: ParsedArgs, featureId: string): DriveEffectsConfig {
+export function buildCfg(args: ParsedArgs, featureId: string): DriveEffectsConfig {
   const projectDir = args.projectDir ?? process.cwd();
   const sftddDir = args.sftddDir ?? resolveSftddDir(projectDir);
   // Version-aware agent refresh: if the kit moved since this project last synced
@@ -1496,10 +1514,15 @@ async function main(): Promise<number> {
   }
 }
 
-main().then(
-  (code) => process.exit(code),
-  (err) => {
-    process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
-    process.exit(1);
-  },
-);
+// Guard the CLI entry so this module can be imported (by tests + the optimize
+// harness, which reuse buildCfg/execRunner/claudeToolArgs) without spawning a
+// drive. Only `node drive.cli.js` (the bin) actually runs main().
+if (isCliEntry(import.meta.url)) {
+  main().then(
+    (code) => process.exit(code),
+    (err) => {
+      process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+      process.exit(1);
+    },
+  );
+}
