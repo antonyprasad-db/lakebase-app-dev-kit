@@ -181,18 +181,24 @@ declare function claudeToolArgs(cmd: Extract<DriveCommand, {
  * is guardable. Headless essentials: -p (print), --agent/--model, --strict-mcp-config,
  * stream-json + --verbose (to capture turn.usage while teeing text).
  *
- * --permission-mode bypassPermissions is LOAD-BEARING: a scaffolded project ships
- * no .claude/settings.json, so without an explicit mode a headless role agent
- * DEFAULTS TO PROMPTING , and there is no one to answer. A role agent must both
- * WRITE its artifact (feature-spec.json, story stubs, code) AND RUN kit CLIs (its
- * self-check `lakebase-sftdd-response-formatter`, the cycle stamps). acceptEdits
- * granted only the writes, so the Bash self-check kept prompting + retrying, wasting
- * round-trips inside the very turn being timed. bypassPermissions grants both, which
- * is what a fully-unattended drive needs (and what prior captures relied on via an
- * ambient permissive default). SCOPED to the throwaway, isolated, scaffolded project
- * the drive runs in , this spawns each role agent autonomous within that project,
- * not the operator's session. This is why declaring it here makes the drive
- * self-sufficient in any headless environment.
+ * --permission-mode acceptEdits is LOAD-BEARING: a scaffolded project ships no
+ * .claude/settings.json, so without an explicit mode a headless role agent DEFAULTS
+ * TO PROMPTING , and there is no one to answer. A role agent must both WRITE its
+ * artifact (feature-spec.json, story stubs, code) AND RUN kit CLIs (its self-check
+ * `lakebase-sftdd-response-formatter`, the cycle stamps); acceptEdits auto-accepts
+ * both headlessly (verified: Write-tool AND Bash writes land with permission_denials
+ * empty and is_error false).
+ *
+ * Why acceptEdits and NOT bypassPermissions: an enterprise managed-settings policy
+ * (/Library/Application Support/ClaudeCode/managed-settings.json) sets
+ * `permissions.disableBypassPermissionsMode: "disable"`. When that policy is present,
+ * a spawned `claude -p --permission-mode bypassPermissions` is SILENTLY DOWNGRADED to
+ * `default` (the child session's init event reports permissionMode "default"), which
+ * then auto-DENIES every headless prompt , the exact opposite of what we want. So
+ * bypassPermissions is not a stronger acceptEdits in this environment; it is broken.
+ * acceptEdits is the strongest mode the policy honors, and it is sufficient. SCOPED to
+ * the throwaway, isolated, scaffolded project the drive runs in , this spawns each
+ * role agent autonomous within that project, not the operator's session.
  */
 declare function claudeBaseArgs(cmd: Extract<DriveCommand, {
     kind: "claude";

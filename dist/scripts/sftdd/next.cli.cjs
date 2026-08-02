@@ -6970,21 +6970,24 @@ function nextBuildAction(story, b) {
   if (!b.accepted) return { kind: "accept", story };
   return { kind: "complete", story };
 }
-function nextTransition(state) {
-  if (state.escalation) {
-    const e = state.escalation;
-    if (e.routable) {
-      return {
-        kind: "revise-route",
-        story: e.routable.story,
-        role: e.routable.owning_role,
-        gate: e.routable.gate,
-        reason: e.reason,
-        source: e.source
-      };
-    }
-    return { kind: "raise-to-hil", reason: e.reason, source: e.source, ...e.story_id ? { story: e.story_id } : {} };
+function escalationPreempt(state) {
+  if (!state.escalation) return void 0;
+  const e = state.escalation;
+  if (e.routable) {
+    return {
+      kind: "revise-route",
+      story: e.routable.story,
+      role: e.routable.owning_role,
+      gate: e.routable.gate,
+      reason: e.reason,
+      source: e.source
+    };
   }
+  return { kind: "raise-to-hil", reason: e.reason, source: e.source, ...e.story_id ? { story: e.story_id } : {} };
+}
+function nextTransition(state) {
+  const preempt = escalationPreempt(state);
+  if (preempt) return preempt;
   if (state.phase === "planning") {
     const p = state.planning ?? { proposed: false, estimated: false, requestsAuthored: false };
     if (!p.proposed) return { kind: "invoke-role", role: "spec-author", mode: "propose" };

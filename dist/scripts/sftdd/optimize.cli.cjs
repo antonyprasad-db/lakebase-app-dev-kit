@@ -12640,7 +12640,7 @@ function claudeBaseArgs(cmd) {
     "--model",
     cmd.model,
     "--permission-mode",
-    "bypassPermissions",
+    "acceptEdits",
     "--strict-mcp-config",
     "--output-format",
     "stream-json",

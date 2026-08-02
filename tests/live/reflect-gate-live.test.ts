@@ -103,7 +103,7 @@ function runReflect(proj: string, sftddDir: string) {
   const claudeCmd = cmds.find((c) => (c as { kind: string }).kind === "claude") as { task: string; model: string };
   const res = spawnSync(
     "claude",
-    ["-p", claudeCmd.task, "--agent", "navigator", "--model", claudeCmd.model, "--strict-mcp-config", "--permission-mode", "bypassPermissions"],
+    ["-p", claudeCmd.task, "--agent", "navigator", "--model", claudeCmd.model, "--strict-mcp-config", "--permission-mode", "acceptEdits"],
     { cwd: proj, encoding: "utf8", timeout: 280_000, maxBuffer: 64 * 1024 * 1024 },
   );
   // eslint-disable-next-line no-console
