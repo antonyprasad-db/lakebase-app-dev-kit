@@ -57,6 +57,11 @@ PAUSE_BEFORE=""
 # `--only design` to scaffold + drive the design lane and STOP cleanly at the
 # build boundary, so the per-handoff sweep takes the build turns from there.
 ONLY=""
+# --no-drive: scaffold + stage intake + CLAIM the feature, but do NOT run the
+# drive. The optimize LANE sweep needs the project positioned at the start of the
+# design lane (claimed, nothing designed) so IT owns + experiments on every design
+# turn, rather than capture-scenario driving them straight (un-swept).
+NO_DRIVE=""
 FEATURES=()
 # --sprint <name>: drive the whole-sprint orchestrator (planning -> plan gate ->
 # per-feature claim+drive) instead of the per-feature loop, so the capture
@@ -99,6 +104,7 @@ while [[ $# -gt 0 ]]; do
       shift 2 ;;
     --pause-before)   PAUSE_BEFORE="$2"; shift 2 ;;
     --only)           ONLY="$2"; shift 2 ;;
+    --no-drive)       NO_DRIVE=1; shift ;;
     --create)         CREATE=1; shift ;;
     --project-name)   PROJECT_NAME="$2"; shift 2 ;;
     --databricks-host) DATABRICKS_HOST_ARG="$2"; shift 2 ;;
@@ -342,6 +348,12 @@ else
       git checkout main >/dev/null 2>&1 || git checkout master >/dev/null 2>&1 || true
       lk lakebase-scm-claim-feature-branch "${FID}" --project-dir "$PROJECT_DIR" --json \
         || { echo "capture-scenario: claim ${FID} failed" >&2; exit 2; }
+    fi
+    if [[ -n "$NO_DRIVE" ]]; then
+      # Scaffold + claim only: the optimize lane sweep owns the drive from here, so
+      # it can experiment on every design handoff instead of them being driven straight.
+      echo "[capture-scenario] --no-drive: ${FID} scaffolded + claimed; drive NOT run (the sweep takes it from here)." >&2
+      continue
     fi
     echo "[capture-scenario] recording ${SCENARIO} feature ${FID} into ${SCEN}" >&2
     lk lakebase-sftdd-drive --feature "$FID" --project-dir "$PROJECT_DIR" --gates proxy ${pause_args[@]+"${pause_args[@]}"} ${only_args[@]+"${only_args[@]}"}

@@ -24,14 +24,14 @@
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 import { join, resolve } from "node:path";
 import type { WorkflowAction } from "./orchestrator-drive.js";
-import { generateCandidates, type SweepSpec } from "./optimize-candidates.js";
-import { runChampionWalk, type HandoffPlan } from "./optimize-harness.js";
+import { generateCandidates, defaultLaneCandidates, type SweepSpec, type Candidate } from "./optimize-candidates.js";
+import { runChampionWalk, type HandoffPlan, type HandoffResult } from "./optimize-harness.js";
 import type { BuildTurn, EffortLevel } from "./sftdd-config.js";
 import type { SpawnableAgentRole } from "./agent-models.js";
 import { buildCfg, execRunner } from "./drive.cli.js";
 import { planNextAction } from "./orchestrator-effects.js";
 import { resolveSftddDir } from "./sftdd-paths.js";
-import { makeChampionWalkDeps, makeLiveSpawnTurn, makeBuildGate, makeBuildSnapshotDeps, positionToBuildHandoff, type OptimizeLiveCtx } from "./optimize-live.js";
+import { makeChampionWalkDeps, makeLiveSpawnTurn, makeBuildGate, makeBuildSnapshotDeps, positionToBuildHandoff, positionToNextHandoff, runLaneSweep, type OptimizeLiveCtx } from "./optimize-live.js";
 import { actionLane } from "./orchestrator-drive.js";
 import { readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { buildChampionWalkReport, formatChampionWalkReport } from "./optimize-report.js";
@@ -52,6 +52,10 @@ export interface OptimizeArgs {
   /** Propose-only: run + rank + report, but do NOT overlay/record a winner. The
    *  human reviews the ranked candidates and runs optimize-apply to persist one. */
   proposeOnly?: boolean;
+  /** Sweep EVERY role handoff in a lane (design|build), sequentially, with per-role
+   *  default candidates (defaultLaneCandidates) , not just the one handoff the drive
+   *  sits on. Overrides the single-handoff path. */
+  sweepLane?: "design" | "build";
   projectDir?: string;
 }
 
@@ -75,6 +79,11 @@ export function parseOptimizeArgs(argv: string[]): OptimizeArgs {
       case "--project-dir": out.projectDir = next(); break;
       case "--dry-run": out.dryRun = true; break;
       case "--propose-only": out.proposeOnly = true; break;
+      case "--sweep-lane": {
+        const v = next();
+        if (v === "design" || v === "build") out.sweepLane = v;
+        break;
+      }
     }
   }
   return out;
@@ -149,6 +158,50 @@ export function isBuildHandoff(plan: HandoffPlan): boolean {
   return (plan.role === "driver" || plan.role === "navigator") && !!plan.buildMode;
 }
 
+/** Assemble the live OptimizeLiveCtx for a single handoff over the real drive:
+ *  spawnTurn runs the handoff's commands via execRunner; a BUILD handoff also wires
+ *  the git + re-fork snapshot substrate + the honest post-turn gate (from SCM
+ *  state). Returns {error} when a build handoff lacks a claimed feature. Shared by
+ *  the single-handoff path AND the lane sweep (each handoff gets its own ctx). */
+function buildCtxForHandoff(
+  handoff: HandoffPlan,
+  loc: { projectDir: string; sftddDir: string; featureId: string },
+): { ctx: OptimizeLiveCtx } | { error: string } {
+  const { projectDir, sftddDir, featureId } = loc;
+  const ctx: OptimizeLiveCtx = {
+    projectDir,
+    sftddDir,
+    featureId,
+    experimentsDir: join(projectDir, "experiments"),
+    spawnTurn: makeLiveSpawnTurn(featureId, {
+      buildCfg: (fid) => buildCfg({ feature: fid, projectDir } as never, fid),
+      execRunner: (cfg) => execRunner(cfg as never) as { run(cmd: unknown): Promise<void> },
+      planNextAction: (cfg) => planNextAction(cfg as never),
+    }),
+    now: () => Date.now(),
+  };
+  if (isBuildHandoff(handoff)) {
+    const scm = readWorkflowState(projectDir);
+    if (!scm?.project_id || !scm.branch) {
+      return { error: "[optimize] build handoff needs a claimed feature (project_id + branch in .lakebase/workflow-state.json); claim + drive to the build turn first.\n" };
+    }
+    ctx.gateBuild = makeBuildGate(sftddDir, featureId);
+    ctx.buildSnapshotDeps = makeBuildSnapshotDeps({
+      projectDir,
+      story: handoff.story ?? "",
+      cutArgs: {
+        instance: scm.project_id,
+        sftddDir,
+        featureId,
+        experimentSlug: `${handoff.story}-optimize`,
+        branch: scm.branch,
+        ...(scm.parent_branch ? { parentBranch: scm.parent_branch } : {}),
+      },
+    });
+  }
+  return { ctx };
+}
+
 async function main(): Promise<number> {
   const args = parseOptimizeArgs(process.argv.slice(2));
   if (!args.scenario || !args.feature) {
@@ -166,6 +219,58 @@ async function main(): Promise<number> {
       `${args.only ? ` only=${args.only}` : ""}${args.handoff ? ` handoff=${args.handoff}` : ""}\n`,
   );
   process.stderr.write(`[optimize] ${candidates.length} candidate(s): ${candidates.map((c) => c.id).join(", ")}\n`);
+
+  // ── Lane sweep: optimize EVERY role handoff in a lane, sequentially ──
+  // Each handoff's winner is recorded (advancing the drive) before the next is
+  // positioned, so the design lane's inter-turn dependencies (a winner's artifact
+  // feeds the next turn) are honored. Per-handoff candidates come from
+  // defaultLaneCandidates (the reflect critic gets baseline-only).
+  if (args.sweepLane) {
+    const lane = args.sweepLane;
+    process.stderr.write(`[optimize] SWEEP LANE '${lane}': optimizing every role handoff sequentially (propose-only=${!!args.proposeOnly}).\n`);
+    const laneWalk: HandoffResult[] = [];
+    const allCandidates: Candidate[] = [];
+    const result = await runLaneSweep({
+      positionNext: () =>
+        positionToNextHandoff({
+          lane,
+          planNext: async () => {
+            const cfg = buildCfg({ feature: featureId, projectDir } as never, featureId);
+            const { action: a, commands } = await planNextAction(cfg);
+            return { action: a, commands };
+          },
+          perform: async (commands) => {
+            const cfg = buildCfg({ feature: featureId, projectDir } as never, featureId);
+            const runner = execRunner(cfg as never) as { run(cmd: unknown): Promise<void> };
+            for (const cmd of commands as unknown[]) await runner.run(cmd);
+          },
+        }),
+      sweepOne: async (h) => {
+        const hCands = defaultLaneCandidates(h);
+        allCandidates.push(...hCands);
+        const ctxRes = buildCtxForHandoff(h, { projectDir, sftddDir, featureId });
+        if ("error" in ctxRes) throw new Error(ctxRes.error.trim());
+        // Reflect/critic turns (baseline-only) still "sweep" trivially so the walk
+        // records + advances past them; a >1 candidate handoff is a real A/B.
+        process.stderr.write(`[optimize] handoff ${h.id}: ${hCands.length} candidate(s)\n`);
+        const walk = await runChampionWalk(
+          { handoffs: [h], candidates: hCands, trials: args.trials, proposeOnly: args.proposeOnly },
+          makeChampionWalkDeps(ctxRes.ctx),
+        );
+        return walk.walk[0];
+      },
+    });
+    laneWalk.push(...result.walk);
+    const report = buildChampionWalkReport({ walk: laneWalk }, allCandidates);
+    process.stdout.write(formatChampionWalkReport(report));
+    if (args.proposeOnly) {
+      process.stderr.write(
+        `[optimize] propose-only lane sweep: no winners recorded. Review the ranked report + experiments/, ` +
+          `then persist per handoff with lakebase-sftdd-optimize-apply --project-dir ${projectDir} --handoff <id> --candidate <id>\n`,
+      );
+    }
+    return 0;
+  }
 
   // The next handoff the drive is positioned on (the harness optimizes ONE handoff
   // per invocation; the runbook advances the drive between invocations). Read the
@@ -212,46 +317,13 @@ async function main(): Promise<number> {
     return 0;
   }
 
-  // Assemble the live champion-walk deps over the real drive. spawnTurn runs ONE
-  // handoff's commands through execRunner (the real `claude -p`); build handoffs
-  // additionally need the git + re-fork substrate, which the runbook wires; here we
-  // support the design-handoff sweep directly (hermetic bring-up + design lane).
-  const ctx: OptimizeLiveCtx = {
-    projectDir,
-    sftddDir,
-    featureId,
-    experimentsDir: join(projectDir, "experiments"),
-    spawnTurn: makeLiveSpawnTurn(featureId, {
-      buildCfg: (fid) => buildCfg({ feature: fid, projectDir } as never, fid),
-      execRunner: (cfg) => execRunner(cfg as never) as { run(cmd: unknown): Promise<void> },
-      planNextAction: (cfg) => planNextAction(cfg as never),
-    }),
-    now: () => Date.now(),
-  };
-  // Build handoffs (LIVE CLOUD) mutate git + a paired Lakebase branch, so wire the
-  // 3-part snapshot substrate + the honest post-turn gate. Resolved from the SCM
-  // workflow state (instance/branch/parent) the drive itself uses.
-  if (isBuildHandoff(handoff)) {
-    const scm = readWorkflowState(projectDir);
-    if (!scm?.project_id || !scm.branch) {
-      process.stderr.write("[optimize] build handoff needs a claimed feature (project_id + branch in .lakebase/workflow-state.json); claim + drive to the build turn first.\n");
-      return 2;
-    }
-    ctx.gateBuild = makeBuildGate(sftddDir, featureId);
-    ctx.buildSnapshotDeps = makeBuildSnapshotDeps({
-      projectDir,
-      story: handoff.story ?? "",
-      cutArgs: {
-        instance: scm.project_id,
-        sftddDir,
-        featureId,
-        experimentSlug: `${handoff.story}-optimize`,
-        branch: scm.branch,
-        ...(scm.parent_branch ? { parentBranch: scm.parent_branch } : {}),
-      },
-    });
+  // Assemble the live champion-walk deps for THIS handoff over the real drive.
+  const ctxResult = buildCtxForHandoff(handoff, { projectDir, sftddDir, featureId });
+  if ("error" in ctxResult) {
+    process.stderr.write(ctxResult.error);
+    return 2;
   }
-  const deps = makeChampionWalkDeps(ctx);
+  const deps = makeChampionWalkDeps(ctxResult.ctx);
   const result = await runChampionWalk(
     { handoffs: [handoff], candidates, trials: args.trials, proposeOnly: args.proposeOnly },
     deps,

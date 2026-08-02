@@ -6664,6 +6664,35 @@ var import_node_path17 = require("path");
 
 // scripts/sftdd/optimize-candidates.ts
 init_cjs_shims();
+
+// scripts/sftdd/agent-models.ts
+init_cjs_shims();
+var import_fs = require("fs");
+var import_path = require("path");
+var RECOMMENDED_MODELS = {
+  "spec-author": "opus",
+  "architect-reviewer": "opus",
+  dba: "opus",
+  "test-strategist": "sonnet",
+  "ux-designer": "sonnet",
+  navigator: "sonnet",
+  driver: "sonnet",
+  "product-owner": "opus"
+};
+var ALL_AGENT_ROLES = Object.keys(RECOMMENDED_MODELS);
+var AGENT_CONFIG_REL = (0, import_path.join)(".lakebase", "agent-config.json");
+function readAgentConfig(projectDir) {
+  const p = (0, import_path.join)(projectDir, AGENT_CONFIG_REL);
+  if (!(0, import_fs.existsSync)(p)) return void 0;
+  return JSON.parse((0, import_fs.readFileSync)(p, "utf8"));
+}
+function resolveModelForRole(role, projectDir) {
+  const spawnable = role;
+  const entry = readAgentConfig(projectDir)?.roles?.[spawnable];
+  return entry?.override ?? entry?.recommended ?? RECOMMENDED_MODELS[spawnable] ?? "inherit";
+}
+
+// scripts/sftdd/optimize-candidates.ts
 var BASELINE_CANDIDATE_ID = "baseline";
 function generateCandidates(sweep) {
   const role = sweep.role ?? "driver";
@@ -6718,6 +6747,57 @@ function generateCandidates(sweep) {
   });
   return out;
 }
+function cheaperModel(model) {
+  const tier = { opus: "sonnet", sonnet: "haiku" };
+  return tier[model];
+}
+function defaultLaneCandidates(handoff) {
+  const baseline = { id: BASELINE_CANDIDATE_ID, configOverrides: {} };
+  if (handoff.role === "navigator" && handoff.buildMode === "reflect") return [baseline];
+  const role = handoff.role;
+  const isBuild = (role === "navigator" || role === "driver") && (handoff.buildMode === void 0 || handoff.buildMode === "green" || handoff.buildMode === "red");
+  const out = [baseline];
+  if (isBuild) {
+    const turn = role === "driver" ? "green" : "red";
+    const base2 = RECOMMENDED_MODELS[role] ?? "sonnet";
+    const cheaper2 = cheaperModel(base2);
+    if (cheaper2) {
+      out.push({
+        id: `${role}-${turn}-m-${cheaper2}`,
+        configOverrides: { roles: { [role]: { model: { [turn]: cheaper2 } } } }
+      });
+    }
+    out.push({
+      id: `${role}-${turn}-e-low`,
+      configOverrides: { roles: { [role]: { effort: { [turn]: "low" } } } }
+    });
+    out.push({
+      id: `${role}-${turn}-scan-tight`,
+      configOverrides: {},
+      content: { taskSuffix: SCAN_TIGHTEN_SUFFIX }
+    });
+    return out;
+  }
+  const base = RECOMMENDED_MODELS[role] ?? "opus";
+  const cheaper = cheaperModel(base);
+  if (cheaper) {
+    out.push({
+      id: `${role}-m-${cheaper}`,
+      configOverrides: { roles: { [role]: { model: cheaper } } }
+    });
+  }
+  out.push({
+    id: `${role}-e-low`,
+    configOverrides: { roles: { [role]: { effort: "low" } } }
+  });
+  out.push({
+    id: `${role}-scan-tight`,
+    configOverrides: {},
+    content: { taskSuffix: SCAN_TIGHTEN_SUFFIX }
+  });
+  return out;
+}
+var SCAN_TIGHTEN_SUFFIX = " Rely on the context pack + the exact artifact paths named in your task; do NOT scan or grep the wider project tree for context you were already handed.";
 function applyCandidateConfig(base, candidate) {
   return deepMerge(base, candidate.configOverrides);
 }
@@ -7039,35 +7119,6 @@ function syncBacklog(tdd, sprint) {
 init_cjs_shims();
 var import_fs2 = require("fs");
 var import_path2 = require("path");
-
-// scripts/sftdd/agent-models.ts
-init_cjs_shims();
-var import_fs = require("fs");
-var import_path = require("path");
-var RECOMMENDED_MODELS = {
-  "spec-author": "opus",
-  "architect-reviewer": "opus",
-  dba: "opus",
-  "test-strategist": "sonnet",
-  "ux-designer": "sonnet",
-  navigator: "sonnet",
-  driver: "sonnet",
-  "product-owner": "opus"
-};
-var ALL_AGENT_ROLES = Object.keys(RECOMMENDED_MODELS);
-var AGENT_CONFIG_REL = (0, import_path.join)(".lakebase", "agent-config.json");
-function readAgentConfig(projectDir) {
-  const p = (0, import_path.join)(projectDir, AGENT_CONFIG_REL);
-  if (!(0, import_fs.existsSync)(p)) return void 0;
-  return JSON.parse((0, import_fs.readFileSync)(p, "utf8"));
-}
-function resolveModelForRole(role, projectDir) {
-  const spawnable = role;
-  const entry = readAgentConfig(projectDir)?.roles?.[spawnable];
-  return entry?.override ?? entry?.recommended ?? RECOMMENDED_MODELS[spawnable] ?? "inherit";
-}
-
-// scripts/sftdd/sftdd-config.ts
 var SFTDD_CONFIG_REL = (0, import_path2.join)(".lakebase", "sftdd-config.json");
 var LEGACY_TDD_CONFIG_REL = (0, import_path2.join)(".lakebase", "tdd-config.json");
 var TDD_CONFIG_REL = SFTDD_CONFIG_REL;
@@ -7787,21 +7838,24 @@ function nextBuildAction(story, b) {
   if (!b.accepted) return { kind: "accept", story };
   return { kind: "complete", story };
 }
-function nextTransition(state) {
-  if (state.escalation) {
-    const e = state.escalation;
-    if (e.routable) {
-      return {
-        kind: "revise-route",
-        story: e.routable.story,
-        role: e.routable.owning_role,
-        gate: e.routable.gate,
-        reason: e.reason,
-        source: e.source
-      };
-    }
-    return { kind: "raise-to-hil", reason: e.reason, source: e.source, ...e.story_id ? { story: e.story_id } : {} };
+function escalationPreempt(state) {
+  if (!state.escalation) return void 0;
+  const e = state.escalation;
+  if (e.routable) {
+    return {
+      kind: "revise-route",
+      story: e.routable.story,
+      role: e.routable.owning_role,
+      gate: e.routable.gate,
+      reason: e.reason,
+      source: e.source
+    };
   }
+  return { kind: "raise-to-hil", reason: e.reason, source: e.source, ...e.story_id ? { story: e.story_id } : {} };
+}
+function nextTransition(state) {
+  const preempt = escalationPreempt(state);
+  if (preempt) return preempt;
   if (state.phase === "planning") {
     const p = state.planning ?? { proposed: false, estimated: false, requestsAuthored: false };
     if (!p.proposed) return { kind: "invoke-role", role: "spec-author", mode: "propose" };
@@ -7858,6 +7912,8 @@ function toDesignView(state) {
   };
 }
 function nextDesignOnlyTransition(state) {
+  const preempt = escalationPreempt(state);
+  if (preempt) return preempt;
   return nextDesignAction(toDesignView(state));
 }
 function pauseBeforeMilestone(m) {
@@ -13606,17 +13662,42 @@ function makeBuildSnapshotDeps(args) {
   };
 }
 async function positionToBuildHandoff(args) {
+  return positionToNextHandoff({ lane: "build", ...args });
+}
+async function positionToNextHandoff(args) {
   const maxSteps = args.maxSteps ?? 20;
   for (let i = 0; i < maxSteps; i++) {
     const { action, commands } = await args.planNext();
-    if (actionLane(action) !== "build") return null;
+    if (actionLane(action) !== args.lane) return null;
+    if (action.kind === "design-complete") return null;
     const plan = actionToHandoffPlan(action);
-    if (plan && isBuildHandoff(plan)) return plan;
+    if (plan) return plan;
     await args.perform(commands);
   }
   throw new Error(
-    `optimize: could not position on a build role turn within ${maxSteps} steps , the build lane is not advancing (a stuck substrate action). Check the drive state.`
+    `optimize: could not position on a ${args.lane} role turn within ${maxSteps} steps , the lane is not advancing (a stuck non-role action). Check the drive state.`
   );
+}
+async function runLaneSweep(deps, opts = {}) {
+  const maxHandoffs = opts.maxHandoffs ?? 50;
+  const walk2 = [];
+  let prevId;
+  for (let i = 0; ; i++) {
+    if (i >= maxHandoffs) {
+      throw new Error(`optimize lane sweep: exceeded ${maxHandoffs} handoffs without reaching the lane boundary (too many).`);
+    }
+    const handoff = await deps.positionNext();
+    if (!handoff) break;
+    if (handoff.id === prevId) {
+      throw new Error(
+        `optimize lane sweep: handoff "${handoff.id}" did not advance after its winner was recorded , the drive is stuck (a gate the sweep cannot pass, or a winner that does not change readState). Check the drive state.`
+      );
+    }
+    const result = await deps.sweepOne(handoff);
+    walk2.push(result);
+    prevId = handoff.id;
+  }
+  return { walk: walk2 };
 }
 function makeBuildGate(sftddDir, featureId) {
   return ({ handoff }) => {
@@ -13747,6 +13828,11 @@ function parseOptimizeArgs(argv) {
       case "--propose-only":
         out.proposeOnly = true;
         break;
+      case "--sweep-lane": {
+        const v = next();
+        if (v === "design" || v === "build") out.sweepLane = v;
+        break;
+      }
     }
   }
   return out;
@@ -13794,6 +13880,41 @@ function actionToHandoffPlan(action) {
 function isBuildHandoff(plan) {
   return (plan.role === "driver" || plan.role === "navigator") && !!plan.buildMode;
 }
+function buildCtxForHandoff(handoff, loc) {
+  const { projectDir, sftddDir, featureId } = loc;
+  const ctx = {
+    projectDir,
+    sftddDir,
+    featureId,
+    experimentsDir: (0, import_node_path17.join)(projectDir, "experiments"),
+    spawnTurn: makeLiveSpawnTurn(featureId, {
+      buildCfg: (fid) => buildCfg({ feature: fid, projectDir }, fid),
+      execRunner: (cfg) => execRunner(cfg),
+      planNextAction: (cfg) => planNextAction(cfg)
+    }),
+    now: () => Date.now()
+  };
+  if (isBuildHandoff(handoff)) {
+    const scm = (0, import_lakebase11.readWorkflowState)(projectDir);
+    if (!scm?.project_id || !scm.branch) {
+      return { error: "[optimize] build handoff needs a claimed feature (project_id + branch in .lakebase/workflow-state.json); claim + drive to the build turn first.\n" };
+    }
+    ctx.gateBuild = makeBuildGate(sftddDir, featureId);
+    ctx.buildSnapshotDeps = makeBuildSnapshotDeps({
+      projectDir,
+      story: handoff.story ?? "",
+      cutArgs: {
+        instance: scm.project_id,
+        sftddDir,
+        featureId,
+        experimentSlug: `${handoff.story}-optimize`,
+        branch: scm.branch,
+        ...scm.parent_branch ? { parentBranch: scm.parent_branch } : {}
+      }
+    });
+  }
+  return { ctx };
+}
 async function main2() {
   const args = parseOptimizeArgs(process.argv.slice(2));
   if (!args.scenario || !args.feature) {
@@ -13811,6 +13932,51 @@ async function main2() {
   );
   process.stderr.write(`[optimize] ${candidates.length} candidate(s): ${candidates.map((c) => c.id).join(", ")}
 `);
+  if (args.sweepLane) {
+    const lane = args.sweepLane;
+    process.stderr.write(`[optimize] SWEEP LANE '${lane}': optimizing every role handoff sequentially (propose-only=${!!args.proposeOnly}).
+`);
+    const laneWalk = [];
+    const allCandidates = [];
+    const result2 = await runLaneSweep({
+      positionNext: () => positionToNextHandoff({
+        lane,
+        planNext: async () => {
+          const cfg = buildCfg({ feature: featureId, projectDir }, featureId);
+          const { action: a, commands } = await planNextAction(cfg);
+          return { action: a, commands };
+        },
+        perform: async (commands) => {
+          const cfg = buildCfg({ feature: featureId, projectDir }, featureId);
+          const runner = execRunner(cfg);
+          for (const cmd of commands) await runner.run(cmd);
+        }
+      }),
+      sweepOne: async (h) => {
+        const hCands = defaultLaneCandidates(h);
+        allCandidates.push(...hCands);
+        const ctxRes = buildCtxForHandoff(h, { projectDir, sftddDir, featureId });
+        if ("error" in ctxRes) throw new Error(ctxRes.error.trim());
+        process.stderr.write(`[optimize] handoff ${h.id}: ${hCands.length} candidate(s)
+`);
+        const walk2 = await runChampionWalk(
+          { handoffs: [h], candidates: hCands, trials: args.trials, proposeOnly: args.proposeOnly },
+          makeChampionWalkDeps(ctxRes.ctx)
+        );
+        return walk2.walk[0];
+      }
+    });
+    laneWalk.push(...result2.walk);
+    const report2 = buildChampionWalkReport({ walk: laneWalk }, allCandidates);
+    process.stdout.write(formatChampionWalkReport(report2));
+    if (args.proposeOnly) {
+      process.stderr.write(
+        `[optimize] propose-only lane sweep: no winners recorded. Review the ranked report + experiments/, then persist per handoff with lakebase-sftdd-optimize-apply --project-dir ${projectDir} --handoff <id> --candidate <id>
+`
+      );
+    }
+    return 0;
+  }
   const probeCfg = buildCfg({ feature: featureId, projectDir }, featureId);
   const { action } = await planNextAction(probeCfg);
   let handoff = actionToHandoffPlan(action);
@@ -13848,39 +14014,12 @@ async function main2() {
 `);
     return 0;
   }
-  const ctx = {
-    projectDir,
-    sftddDir,
-    featureId,
-    experimentsDir: (0, import_node_path17.join)(projectDir, "experiments"),
-    spawnTurn: makeLiveSpawnTurn(featureId, {
-      buildCfg: (fid) => buildCfg({ feature: fid, projectDir }, fid),
-      execRunner: (cfg) => execRunner(cfg),
-      planNextAction: (cfg) => planNextAction(cfg)
-    }),
-    now: () => Date.now()
-  };
-  if (isBuildHandoff(handoff)) {
-    const scm = (0, import_lakebase11.readWorkflowState)(projectDir);
-    if (!scm?.project_id || !scm.branch) {
-      process.stderr.write("[optimize] build handoff needs a claimed feature (project_id + branch in .lakebase/workflow-state.json); claim + drive to the build turn first.\n");
-      return 2;
-    }
-    ctx.gateBuild = makeBuildGate(sftddDir, featureId);
-    ctx.buildSnapshotDeps = makeBuildSnapshotDeps({
-      projectDir,
-      story: handoff.story ?? "",
-      cutArgs: {
-        instance: scm.project_id,
-        sftddDir,
-        featureId,
-        experimentSlug: `${handoff.story}-optimize`,
-        branch: scm.branch,
-        ...scm.parent_branch ? { parentBranch: scm.parent_branch } : {}
-      }
-    });
+  const ctxResult = buildCtxForHandoff(handoff, { projectDir, sftddDir, featureId });
+  if ("error" in ctxResult) {
+    process.stderr.write(ctxResult.error);
+    return 2;
   }
-  const deps = makeChampionWalkDeps(ctx);
+  const deps = makeChampionWalkDeps(ctxResult.ctx);
   const result = await runChampionWalk(
     { handoffs: [handoff], candidates, trials: args.trials, proposeOnly: args.proposeOnly },
     deps

@@ -28,6 +28,10 @@ interface OptimizeArgs {
     /** Propose-only: run + rank + report, but do NOT overlay/record a winner. The
      *  human reviews the ranked candidates and runs optimize-apply to persist one. */
     proposeOnly?: boolean;
+    /** Sweep EVERY role handoff in a lane (design|build), sequentially, with per-role
+     *  default candidates (defaultLaneCandidates) , not just the one handoff the drive
+     *  sits on. Overrides the single-handoff path. */
+    sweepLane?: "design" | "build";
     projectDir?: string;
 }
 /** Parse the CLI flags. Pure. */

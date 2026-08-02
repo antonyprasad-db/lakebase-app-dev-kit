@@ -57,38 +57,47 @@ done
 # feature, and drives design -> gate, stopping cleanly before the first build turn
 # (the design-complete bound). It PRINTS the scaffolded project dir.
 if [[ -z "$PROJECT_DIR" ]]; then
-  [[ -n "$HOST" ]] || { echo "optimize-live-run: --databricks-host required to scaffold (or pass --project-dir for an already-designed project)" >&2; exit 2; }
+  [[ -n "$HOST" ]] || { echo "optimize-live-run: --databricks-host required to scaffold (or pass --project-dir for an already-scaffolded+claimed project)" >&2; exit 2; }
   [[ -n "$OWNER" ]] || { echo "optimize-live-run: --github-owner required to scaffold" >&2; exit 2; }
   PROJECT_NAME="${SCENARIO}-opt-$(date +%Y%m%d-%H%M%S)"
-  echo "[optimize-live-run] STEP 1/2: scaffold + LIVE design lane (--only design), project ${PROJECT_NAME}" >&2
+  echo "[optimize-live-run] STEP 1/3: scaffold + stage + CLAIM ${FEATURE} (--no-drive; the sweep owns the drive), project ${PROJECT_NAME}" >&2
   LAKEBASE_SFTDD_AUTO_CONTINUE="${LAKEBASE_SFTDD_AUTO_CONTINUE:-1}" \
   bash "${ROOT}/capture-scenario.sh" \
     --scenario "$SCENARIO" --create --project-name "$PROJECT_NAME" \
     --databricks-host "$HOST" --github-owner "$OWNER" \
     --inputs-from "${ROOT}/${SCENARIO}" \
-    --only design \
+    --no-drive \
     --feature "$FEATURE"
   PROJECT_DIR="${CAPTURE_PARENT_DIR:-$HOME/code/tdd-workflow-smoke}/${PROJECT_NAME}"
 else
-  echo "[optimize-live-run] STEP 1/2: reusing already-designed project ${PROJECT_DIR}" >&2
+  echo "[optimize-live-run] STEP 1/3: reusing already-scaffolded+claimed project ${PROJECT_DIR}" >&2
 fi
 
 [[ -d "$PROJECT_DIR/.git" ]] || { echo "optimize-live-run: expected scaffolded project at ${PROJECT_DIR}" >&2; exit 1; }
 
-# ── Step 2: sweep the FIRST build role turn (propose-only) ─────────────────────
-# optimize-scenario --only build positions onto the first build turn (performing
-# the dispatch + cut-experiment fork) and champion-walks the candidates from that
-# identical pre-turn state, keeping NOTHING (propose-only): the ranked report +
-# experiments/ audit trail are written for review.
-echo "[optimize-live-run] STEP 2/2: propose-only build sweep of ${FEATURE}'s first build turn, candidates: ${CANDIDATES}" >&2
+# ── Step 2: sweep the ENTIRE DESIGN lane (propose-only) ────────────────────────
+# --sweep-lane design walks every design role handoff sequentially (spec-author ->
+# architect -> dba -> test-strategist -> ux-designer, per story), champion-walking
+# each with per-role candidates (model + effort + a prompt/scope variant), and
+# recording each winner before positioning the next (the design lane's inter-turn
+# dependency). The reflect critic is baseline-only (not an authoring turn).
+echo "[optimize-live-run] STEP 2/3: propose-only DESIGN-lane sweep of ${FEATURE}" >&2
 bash "${ROOT}/optimize-scenario.sh" \
   --scenario "$SCENARIO" --project-dir "$PROJECT_DIR" --feature "$FEATURE" \
-  --candidates "$CANDIDATES" --trials "$TRIALS" \
-  --only build --propose-only
+  --trials "$TRIALS" --sweep-lane design --propose-only
+
+# ── Step 3: sweep the BUILD lane's turns (propose-only) ───────────────────────
+# --sweep-lane build walks the build role turns (navigator RED / driver GREEN ...)
+# once design is complete + the gate passed. (First pass focuses on the turns that
+# are safe to reset without commit-preservation; see the harness notes.)
+echo "[optimize-live-run] STEP 3/3: propose-only BUILD-lane sweep of ${FEATURE}" >&2
+bash "${ROOT}/optimize-scenario.sh" \
+  --scenario "$SCENARIO" --project-dir "$PROJECT_DIR" --feature "$FEATURE" \
+  --trials "$TRIALS" --sweep-lane build --propose-only
 
 cat >&2 <<EOF
 
-[optimize-live-run] DONE (propose-only). Review, then decide:
+[optimize-live-run] DONE (propose-only, design + build lanes). Review, then decide:
   - ranked report printed above; per-candidate audit in ${PROJECT_DIR}/experiments/
   - persist a winner so the role's next invocation uses it:
       lakebase-sftdd-optimize-apply --project-dir ${PROJECT_DIR} --handoff <id> --candidate <id>

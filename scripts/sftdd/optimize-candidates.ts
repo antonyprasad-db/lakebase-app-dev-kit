@@ -12,7 +12,7 @@
 // testable without touching the filesystem or the cloud.
 
 import type { SftddConfigFile, RoleSettingsFile, BuildTurn, EffortLevel } from "./sftdd-config.js";
-import type { SpawnableAgentRole } from "./agent-models.js";
+import { type SpawnableAgentRole, RECOMMENDED_MODELS } from "./agent-models.js";
 
 /** The identity candidate: no overrides, no content variant. Always first in a
  *  generated list so the harness measures the BASELINE turn under the same
@@ -143,6 +143,91 @@ export function generateCandidates(sweep: SweepSpec): Candidate[] {
 
   return out;
 }
+
+/** A minimal handoff descriptor (role + optional story/buildMode), structurally
+ *  compatible with optimize-harness's HandoffPlan without importing it (avoids a
+ *  module cycle). */
+export interface HandoffLike {
+  role: string;
+  story?: string;
+  buildMode?: string;
+}
+
+/** A cheaper model than `model` for a downgrade candidate: opus->sonnet->haiku.
+ *  Returns undefined when already at the floor (no downgrade to try). */
+function cheaperModel(model: string): string | undefined {
+  const tier: Record<string, string> = { opus: "sonnet", sonnet: "haiku" };
+  return tier[model];
+}
+
+/** Per-role default candidates for a LANE sweep (the "model + effort + a
+ *  prompt/scope variant" axis). DESIGN roles carry a SCALAR model/effort, so their
+ *  candidates set `roles.<role>.model`/`.effort` as scalars; BUILD roles
+ *  (navigator/driver) use the per-turn map keyed by the turn. The navigator REFLECT
+ *  turn is a critic GATE (it flags defects, does not author an artifact), so it is
+ *  never swept , baseline only. Baseline is always first. */
+export function defaultLaneCandidates(handoff: HandoffLike): Candidate[] {
+  const baseline: Candidate = { id: BASELINE_CANDIDATE_ID, configOverrides: {} };
+
+  // The reflect critic is not an authoring turn , do not optimize it.
+  if (handoff.role === "navigator" && handoff.buildMode === "reflect") return [baseline];
+
+  const role = handoff.role;
+  const isBuild = (role === "navigator" || role === "driver") && (handoff.buildMode === undefined || handoff.buildMode === "green" || handoff.buildMode === "red");
+  const out: Candidate[] = [baseline];
+
+  if (isBuild) {
+    // Build turn: per-turn model map keyed by the turn (RED for navigator, GREEN
+    // for driver). Sweep the recommended base vs a cheaper tier.
+    const turn: BuildTurn = role === "driver" ? "green" : "red";
+    const base = RECOMMENDED_MODELS[role as SpawnableAgentRole] ?? "sonnet";
+    const cheaper = cheaperModel(base);
+    if (cheaper) {
+      out.push({
+        id: `${role}-${turn}-m-${cheaper}`,
+        configOverrides: { roles: { [role]: { model: { [turn]: cheaper } } } as DeepPartial<SftddConfigFile>["roles"] },
+      });
+    }
+    out.push({
+      id: `${role}-${turn}-e-low`,
+      configOverrides: { roles: { [role]: { effort: { [turn]: "low" } } } as DeepPartial<SftddConfigFile>["roles"] },
+    });
+    out.push({
+      id: `${role}-${turn}-scan-tight`,
+      configOverrides: {},
+      content: { taskSuffix: SCAN_TIGHTEN_SUFFIX },
+    });
+    return out;
+  }
+
+  // Design role: SCALAR model/effort.
+  const base = RECOMMENDED_MODELS[role as SpawnableAgentRole] ?? "opus";
+  const cheaper = cheaperModel(base);
+  if (cheaper) {
+    out.push({
+      id: `${role}-m-${cheaper}`,
+      configOverrides: { roles: { [role]: { model: cheaper } } as DeepPartial<SftddConfigFile>["roles"] },
+    });
+  }
+  out.push({
+    id: `${role}-e-low`,
+    configOverrides: { roles: { [role]: { effort: "low" } } as DeepPartial<SftddConfigFile>["roles"] },
+  });
+  out.push({
+    id: `${role}-scan-tight`,
+    configOverrides: {},
+    content: { taskSuffix: SCAN_TIGHTEN_SUFFIX },
+  });
+  return out;
+}
+
+/** The default prompt/scope content variant: a scan-tightening directive. The
+ *  inject-vs-scan lever , tell the agent to lean on the injected context pack + the
+ *  named artifact paths instead of broadly scanning the tree. Appended after the
+ *  terse suffix (a trailing directive). */
+const SCAN_TIGHTEN_SUFFIX =
+  " Rely on the context pack + the exact artifact paths named in your task;" +
+  " do NOT scan or grep the wider project tree for context you were already handed.";
 
 /** Deep-merge a candidate's config overrides onto a base config, returning a
  *  FRESH object (the base is never mutated). Arrays + scalars replace; nested

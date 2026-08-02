@@ -57,6 +57,7 @@ TRIALS="3"
 ONLY=""
 DRY_RUN=""
 PROPOSE_ONLY=""
+SWEEP_LANE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -66,6 +67,7 @@ while [[ $# -gt 0 ]]; do
     --candidates) CANDIDATES="$2"; shift 2 ;;
     --trials) TRIALS="$2"; shift 2 ;;
     --only) ONLY="$2"; shift 2 ;;
+    --sweep-lane) SWEEP_LANE="$2"; shift 2 ;;
     --dry-run) DRY_RUN="1"; shift ;;
     --propose-only) PROPOSE_ONLY="1"; shift ;;
     *) echo "optimize-scenario: unknown arg '$1'" >&2; exit 2 ;;
@@ -115,14 +117,22 @@ lk() { "$PROJECT_DIR/scripts/lk" "$@"; }
 dry_args=(); [[ -n "$DRY_RUN" ]] && dry_args=( --dry-run )
 only_args=(); [[ -n "$ONLY" ]] && only_args=( --only "$ONLY" )
 propose_args=(); [[ -n "$PROPOSE_ONLY" ]] && propose_args=( --propose-only )
+# --sweep-lane uses per-role default candidates, so --candidates is optional there.
+lane_args=(); [[ -n "$SWEEP_LANE" ]] && lane_args=( --sweep-lane "$SWEEP_LANE" )
+cand_args=(); [[ -n "$CANDIDATES" ]] && cand_args=( --candidates "$CANDIDATES" )
 
-echo "[optimize-scenario] sweeping the next handoff of ${FEATURE} (trials=${TRIALS}) with candidates: ${CANDIDATES}" >&2
+if [[ -n "$SWEEP_LANE" ]]; then
+  echo "[optimize-scenario] sweeping the ENTIRE '${SWEEP_LANE}' lane of ${FEATURE} (trials=${TRIALS}, per-role default candidates)" >&2
+else
+  echo "[optimize-scenario] sweeping the next handoff of ${FEATURE} (trials=${TRIALS}) with candidates: ${CANDIDATES}" >&2
+fi
 lk lakebase-sftdd-optimize \
   --scenario "$SCENARIO" \
   --feature "$FEATURE" \
   --project-dir "$PROJECT_DIR" \
   --trials "$TRIALS" \
-  --candidates "$CANDIDATES" \
+  ${cand_args[@]+"${cand_args[@]}"} \
+  ${lane_args[@]+"${lane_args[@]}"} \
   ${only_args[@]+"${only_args[@]}"} \
   ${propose_args[@]+"${propose_args[@]}"} \
   ${dry_args[@]+"${dry_args[@]}"}

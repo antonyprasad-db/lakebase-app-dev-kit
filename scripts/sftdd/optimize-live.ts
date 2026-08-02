@@ -20,7 +20,7 @@ import { applyCandidateConfig, type Candidate } from "./optimize-candidates.js";
 import { overlayAgent } from "./optimize-agent-overlay.js";
 import { evaluateDesignGate, type GateOutcome } from "./optimize-gate.js";
 import { snapshotDesign, snapshotBuild, turnMutatesDb, type BuildSnapshotDeps } from "./optimize-snapshot.js";
-import type { ChampionWalkDeps, HandoffPlan, HandoffSnapshot, TrialResult } from "./optimize-harness.js";
+import type { ChampionWalkDeps, HandoffPlan, HandoffSnapshot, TrialResult, HandoffResult, ChampionWalkResult } from "./optimize-harness.js";
 import { defaultSftddConfig, loadSftddConfig, writeSftddConfig, type SftddConfigFile } from "./sftdd-config.js";
 import { isBuildHandoff, actionToHandoffPlan } from "./optimize.cli.js";
 import type { DriveEffectsConfig } from "./orchestrator-effects.js";
@@ -277,22 +277,79 @@ export async function positionToBuildHandoff(args: {
   perform: (commands: unknown[]) => Promise<void>;
   maxSteps?: number;
 }): Promise<HandoffPlan | null> {
+  return positionToNextHandoff({ lane: "build", ...args });
+}
+
+/** Advance the drive to sit ON the next ROLE turn in a given LANE, performing the
+ *  lane's non-role actions to get there (design: project-architect-notes /
+ *  surface-gate / approve-gate; build: dispatch / cut-experiment). Returns the role
+ *  handoff to sweep, or null at the lane boundary (design-complete, or the plan
+ *  left the lane). The target role turn is LEFT unperformed , that is what the walk
+ *  sweeps. A cut-experiment (build) is performed here, so its fork is the pre-turn
+ *  state the snapshot captures. Bounded loop; plan + perform injected -> hermetic. */
+export async function positionToNextHandoff(args: {
+  lane: "design" | "build";
+  planNext: () => Promise<{ action: WorkflowAction; commands: unknown[] }>;
+  perform: (commands: unknown[]) => Promise<void>;
+  maxSteps?: number;
+}): Promise<HandoffPlan | null> {
   const maxSteps = args.maxSteps ?? 20;
   for (let i = 0; i < maxSteps; i++) {
     const { action, commands } = await args.planNext();
-    // Not in the build lane at all -> the caller must advance design/gates first.
-    if (actionLane(action) !== "build") return null;
-    // An invoke-role build turn is the target: land here, do NOT perform it.
+    // Left the target lane (a build action while sweeping design, a gate the sweep
+    // does not own) -> boundary reached.
+    if (actionLane(action) !== args.lane) return null;
+    // A lane TERMINAL (design-complete) shares the lane tag but is not a turn to
+    // perform , it is the boundary. It emits no commands; treat it as done.
+    if (action.kind === "design-complete") return null;
+    // An invoke-role turn in this lane is the target: land here, do NOT perform it.
     const plan = actionToHandoffPlan(action);
-    if (plan && isBuildHandoff(plan)) return plan;
-    // A build-lane SUBSTRATE action (dispatch / cut-experiment / await / accept):
-    // perform it to advance toward the first role turn (cut-experiment forks the
-    // paired branch , the pre-turn fork the snapshot captures).
+    if (plan) return plan;
+    // A non-role lane action (design: gate/architect-notes; build: dispatch/
+    // cut-experiment): perform it to advance toward the next role turn.
     await args.perform(commands);
   }
   throw new Error(
-    `optimize: could not position on a build role turn within ${maxSteps} steps , the build lane is not advancing (a stuck substrate action). Check the drive state.`,
+    `optimize: could not position on a ${args.lane} role turn within ${maxSteps} steps , the lane is not advancing (a stuck non-role action). Check the drive state.`,
   );
+}
+
+/** Injected steps for the multi-handoff LANE sweep. positionNext returns the next
+ *  role handoff in the lane (or null at the lane boundary); sweepOne champion-walks
+ *  ONE handoff and RECORDS its winner (advancing the drive to the winner's state),
+ *  returning the per-handoff result. Both are wired by the CLI over the real drive;
+ *  the loop's sequencing + advance-guard is unit-tested with them stubbed. */
+export interface LaneSweepDeps {
+  positionNext(): Promise<HandoffPlan | null>;
+  sweepOne(handoff: HandoffPlan): Promise<HandoffResult>;
+}
+
+/** Sweep EVERY role handoff in a lane, in order, until its boundary. The design
+ *  lane has inter-turn dependencies (a winner's artifact feeds the next turn), so
+ *  this is strictly SEQUENTIAL: position on the next handoff, sweep + record its
+ *  winner (which advances the drive), then re-position. Guards against a lane that
+ *  does not advance (the same handoff id twice running, or exceeding maxHandoffs)
+ *  by throwing rather than spinning. */
+export async function runLaneSweep(deps: LaneSweepDeps, opts: { maxHandoffs?: number } = {}): Promise<ChampionWalkResult> {
+  const maxHandoffs = opts.maxHandoffs ?? 50;
+  const walk: HandoffResult[] = [];
+  let prevId: string | undefined;
+  for (let i = 0; ; i++) {
+    if (i >= maxHandoffs) {
+      throw new Error(`optimize lane sweep: exceeded ${maxHandoffs} handoffs without reaching the lane boundary (too many).`);
+    }
+    const handoff = await deps.positionNext();
+    if (!handoff) break; // lane boundary reached
+    if (handoff.id === prevId) {
+      throw new Error(
+        `optimize lane sweep: handoff "${handoff.id}" did not advance after its winner was recorded , the drive is stuck (a gate the sweep cannot pass, or a winner that does not change readState). Check the drive state.`,
+      );
+    }
+    const result = await deps.sweepOne(handoff);
+    walk.push(result);
+    prevId = handoff.id;
+  }
+  return { walk };
 }
 
 /** The build-turn gate: after the handoff's commands ran (the cycle-record CLI
