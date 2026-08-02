@@ -52,6 +52,11 @@ SCEN_DIR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCENARIO=""
 PROJECT_DIR=""
 PAUSE_BEFORE=""
+# --only <phase>: bound the per-feature drive to ONE lane (design|build|deploy),
+# threaded to `lakebase-sftdd-drive --only`. The optimize launcher uses
+# `--only design` to scaffold + drive the design lane and STOP cleanly at the
+# build boundary, so the per-handoff sweep takes the build turns from there.
+ONLY=""
 FEATURES=()
 # --sprint <name>: drive the whole-sprint orchestrator (planning -> plan gate ->
 # per-feature claim+drive) instead of the per-feature loop, so the capture
@@ -93,6 +98,7 @@ while [[ $# -gt 0 ]]; do
       CUR_SPRINT_IDX=$(( ${#SPRINT_NAMES[@]} - 1 ))
       shift 2 ;;
     --pause-before)   PAUSE_BEFORE="$2"; shift 2 ;;
+    --only)           ONLY="$2"; shift 2 ;;
     --create)         CREATE=1; shift ;;
     --project-name)   PROJECT_NAME="$2"; shift 2 ;;
     --databricks-host) DATABRICKS_HOST_ARG="$2"; shift 2 ;;
@@ -276,6 +282,7 @@ lk() { "$PROJECT_DIR/scripts/lk" "$@"; }
 SFTDD_DIR="$(lk lakebase-resolve-sftdd-dir --project-dir "$PROJECT_DIR")"
 
 pause_args=(); [[ -n "$PAUSE_BEFORE" ]] && pause_args=( --pause-before "$PAUSE_BEFORE" )
+only_args=(); [[ -n "$ONLY" ]] && only_args=( --only "$ONLY" )
 
 if [[ ${#SPRINT_NAMES[@]} -gt 0 ]]; then
   # ── Sprint mode: drive the whole-sprint orchestrator per sprint IN ORDER
@@ -311,7 +318,7 @@ if [[ ${#SPRINT_NAMES[@]} -gt 0 ]]; then
     # and the sprint's feature is still claimed. Advancing to the NEXT sprint would
     # then trip `already-claimed-other` on the open feature. Stop the capture here
     # so the human resolves the escalation and re-runs (the drive is resumable).
-    if ! lk lakebase-sftdd-drive --sprint "$sname" --project-dir "$PROJECT_DIR" --gates proxy ${pause_args[@]+"${pause_args[@]}"}; then
+    if ! lk lakebase-sftdd-drive --sprint "$sname" --project-dir "$PROJECT_DIR" --gates proxy ${pause_args[@]+"${pause_args[@]}"} ${only_args[@]+"${only_args[@]}"}; then
       rc=$?
       echo "[capture-scenario] sprint '${sname}' halted (drive exit ${rc}); stopping before later sprints." >&2
       exit "$rc"
@@ -328,7 +335,7 @@ else
         || { echo "capture-scenario: claim ${FID} failed" >&2; exit 2; }
     fi
     echo "[capture-scenario] recording ${SCENARIO} feature ${FID} into ${SCEN}" >&2
-    lk lakebase-sftdd-drive --feature "$FID" --project-dir "$PROJECT_DIR" --gates proxy ${pause_args[@]+"${pause_args[@]}"}
+    lk lakebase-sftdd-drive --feature "$FID" --project-dir "$PROJECT_DIR" --gates proxy ${pause_args[@]+"${pause_args[@]}"} ${only_args[@]+"${only_args[@]}"}
   done
 fi
 
