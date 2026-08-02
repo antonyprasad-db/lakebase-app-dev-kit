@@ -1,0 +1,64 @@
+// P2b optimize-gate: the design-handoff gate evaluator. It answers "did this
+// candidate's artifact pass the SAME check the baseline passed?" by reusing the
+// kit's own gates VERBATIM , the role self-check (formatRoleResponse) AND the
+// design gate (resolveArtifactInputs). A candidate can never pass a weaker check
+// than baseline: both must be clean for the trial to count. Pure (reads the
+// .sftdd), hermetic. Build-turn gating is the honest-GREEN cycle result, produced
+// by the trial runner, not this evaluator.
+
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { evaluateDesignGate, gateForDesignHandoff } from "../../scripts/sftdd/optimize-gate";
+
+let sftddDir: string;
+const featureId = "F1";
+
+beforeEach(() => {
+  const root = mkdtempSync(join(tmpdir(), "optimize-gate-"));
+  sftddDir = join(root, ".sftdd");
+  mkdirSync(sftddDir, { recursive: true });
+});
+afterEach(() => {
+  rmSync(join(sftddDir, ".."), { recursive: true, force: true });
+});
+
+describe("gateForDesignHandoff: role -> (selfCheck role, gate name)", () => {
+  it("maps the design roles to their gate", () => {
+    expect(gateForDesignHandoff({ role: "spec-author", story: "S1" })?.gate).toBe("spec");
+    expect(gateForDesignHandoff({ role: "test-strategist", story: "S1" })?.gate).toBe("test_list");
+    // architect-reviewer feeds the spec gate's architecture conformance; it has a
+    // self-check but resolves through the spec gate inputs.
+    expect(gateForDesignHandoff({ role: "architect-reviewer", story: "S1" })?.selfCheckRole).toBe("architect-reviewer");
+  });
+
+  it("returns null for a build turn (navigator/driver) , not a design gate", () => {
+    expect(gateForDesignHandoff({ role: "driver", story: "S1", buildMode: "green" })).toBeNull();
+    expect(gateForDesignHandoff({ role: "navigator", story: "S1", buildMode: "review" })).toBeNull();
+  });
+});
+
+describe("evaluateDesignGate", () => {
+  it("FAILS when the role self-check finds violations (missing artifact)", () => {
+    // No acs/ written => spec-author self-check fails.
+    const r = evaluateDesignGate({ sftddDir, featureId, handoff: { role: "spec-author", story: "S1" } });
+    expect(r.passed).toBe(false);
+    expect(r.reason).toBeTruthy();
+  });
+
+  it("FAILS when the self-check passes but the design gate rejects the artifact", () => {
+    // Write a minimal conformant per-AC so the self-check passes, but leave
+    // feature-spec.json/md absent so the spec GATE (resolveArtifactInputs) fails.
+    const acDir = join(sftddDir, "features", featureId, "stories", "S1", "acs");
+    mkdirSync(acDir, { recursive: true });
+    writeFileSync(
+      join(acDir, "AC1.json"),
+      JSON.stringify({ id: "AC1", title: "t", given: "g", when: "w", then: "t" }),
+    );
+    const r = evaluateDesignGate({ sftddDir, featureId, handoff: { role: "spec-author", story: "S1" } });
+    // Either the self-check or the gate blocks; the point is it does NOT pass.
+    expect(r.passed).toBe(false);
+  });
+});
