@@ -31,7 +31,8 @@ import type { SpawnableAgentRole } from "./agent-models.js";
 import { buildCfg, execRunner } from "./drive.cli.js";
 import { planNextAction } from "./orchestrator-effects.js";
 import { resolveSftddDir } from "./sftdd-paths.js";
-import { makeChampionWalkDeps, makeLiveSpawnTurn, makeBuildGate, makeBuildSnapshotDeps, type OptimizeLiveCtx } from "./optimize-live.js";
+import { makeChampionWalkDeps, makeLiveSpawnTurn, makeBuildGate, makeBuildSnapshotDeps, positionToBuildHandoff, type OptimizeLiveCtx } from "./optimize-live.js";
+import { actionLane } from "./orchestrator-drive.js";
 import { readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { buildChampionWalkReport, formatChampionWalkReport } from "./optimize-report.js";
 
@@ -171,9 +172,30 @@ async function main(): Promise<number> {
   // current disk state via planNextAction with a throwaway cfg.
   const probeCfg = buildCfg({ feature: featureId, projectDir } as never, featureId);
   const { action } = await planNextAction(probeCfg);
-  const handoff = actionToHandoffPlan(action);
+  let handoff = actionToHandoffPlan(action);
+
+  // Build-lane positioning: the design-complete boundary lands on a build-lane
+  // SUBSTRATE action (dispatch, then cut-experiment), not a role turn. When the
+  // next action is a build-lane substrate step, advance through those (performing
+  // the fork) to sit ON the first build role turn , unless --only design, which
+  // must not enter the build lane.
+  if (!handoff && actionLane(action) === "build" && args.only !== "design") {
+    handoff = await positionToBuildHandoff({
+      planNext: async () => {
+        const cfg = buildCfg({ feature: featureId, projectDir } as never, featureId);
+        const { action: a, commands } = await planNextAction(cfg);
+        return { action: a, commands };
+      },
+      perform: async (commands) => {
+        const cfg = buildCfg({ feature: featureId, projectDir } as never, featureId);
+        const runner = execRunner(cfg as never) as { run(cmd: unknown): Promise<void> };
+        for (const cmd of commands as unknown[]) await runner.run(cmd);
+      },
+    });
+  }
+
   if (!handoff) {
-    process.stderr.write(`[optimize] the next action (${action.kind}) is not an optimizable role handoff; nothing to sweep.\n`);
+    process.stderr.write(`[optimize] the next action (${action.kind}) is not an optimizable role handoff; nothing to sweep. Drive design + gates first (or use --only build once past the gate).\n`);
     return 0;
   }
   if (args.only === "build" && !isBuildHandoff(handoff)) {

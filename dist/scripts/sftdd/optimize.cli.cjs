@@ -13605,6 +13605,19 @@ function makeBuildSnapshotDeps(args) {
     }
   };
 }
+async function positionToBuildHandoff(args) {
+  const maxSteps = args.maxSteps ?? 20;
+  for (let i = 0; i < maxSteps; i++) {
+    const { action, commands } = await args.planNext();
+    if (actionLane(action) !== "build") return null;
+    const plan = actionToHandoffPlan(action);
+    if (plan && isBuildHandoff(plan)) return plan;
+    await args.perform(commands);
+  }
+  throw new Error(
+    `optimize: could not position on a build role turn within ${maxSteps} steps , the build lane is not advancing (a stuck substrate action). Check the drive state.`
+  );
+}
 function makeBuildGate(sftddDir, featureId) {
   return ({ handoff }) => {
     const story = handoff.story;
@@ -13800,9 +13813,23 @@ async function main2() {
 `);
   const probeCfg = buildCfg({ feature: featureId, projectDir }, featureId);
   const { action } = await planNextAction(probeCfg);
-  const handoff = actionToHandoffPlan(action);
+  let handoff = actionToHandoffPlan(action);
+  if (!handoff && actionLane(action) === "build" && args.only !== "design") {
+    handoff = await positionToBuildHandoff({
+      planNext: async () => {
+        const cfg = buildCfg({ feature: featureId, projectDir }, featureId);
+        const { action: a, commands } = await planNextAction(cfg);
+        return { action: a, commands };
+      },
+      perform: async (commands) => {
+        const cfg = buildCfg({ feature: featureId, projectDir }, featureId);
+        const runner = execRunner(cfg);
+        for (const cmd of commands) await runner.run(cmd);
+      }
+    });
+  }
   if (!handoff) {
-    process.stderr.write(`[optimize] the next action (${action.kind}) is not an optimizable role handoff; nothing to sweep.
+    process.stderr.write(`[optimize] the next action (${action.kind}) is not an optimizable role handoff; nothing to sweep. Drive design + gates first (or use --only build once past the gate).
 `);
     return 0;
   }

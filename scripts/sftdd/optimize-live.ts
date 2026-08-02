@@ -22,8 +22,9 @@ import { evaluateDesignGate, type GateOutcome } from "./optimize-gate.js";
 import { snapshotDesign, snapshotBuild, turnMutatesDb, type BuildSnapshotDeps } from "./optimize-snapshot.js";
 import type { ChampionWalkDeps, HandoffPlan, HandoffSnapshot, TrialResult } from "./optimize-harness.js";
 import { defaultSftddConfig, loadSftddConfig, writeSftddConfig, type SftddConfigFile } from "./sftdd-config.js";
-import { isBuildHandoff } from "./optimize.cli.js";
+import { isBuildHandoff, actionToHandoffPlan } from "./optimize.cli.js";
 import type { DriveEffectsConfig } from "./orchestrator-effects.js";
+import { actionLane, type WorkflowAction } from "./orchestrator-drive.js";
 import { cutExperiment, type CutExperimentArgs } from "./experiment.js";
 import { readEscalations } from "./escalation.js";
 
@@ -258,6 +259,40 @@ export function makeBuildSnapshotDeps(args: {
       } as CutExperimentArgs);
     },
   };
+}
+
+/** Advance the drive from the design-complete boundary to sit exactly ON the first
+ *  build ROLE turn (navigator RED / driver GREEN), performing the intervening
+ *  build-lane SUBSTRATE actions (dispatch, then cut-experiment , which forks the
+ *  paired branch, the pre-turn state the snapshot then captures). Returns the
+ *  HandoffPlan the walk should sweep, or null when the next action is not in the
+ *  build lane (design not complete / a gate is pending , the caller should drive
+ *  those first). Plan + perform are injected so this is unit-tested with no cloud.
+ *
+ *  Only substrate (non-invoke-role) build-lane actions are auto-performed; the
+ *  first invoke-role build turn is LEFT unperformed (that is what the walk sweeps).
+ *  A bounded loop (maxSteps) guards against a substrate step that never advances. */
+export async function positionToBuildHandoff(args: {
+  planNext: () => Promise<{ action: WorkflowAction; commands: unknown[] }>;
+  perform: (commands: unknown[]) => Promise<void>;
+  maxSteps?: number;
+}): Promise<HandoffPlan | null> {
+  const maxSteps = args.maxSteps ?? 20;
+  for (let i = 0; i < maxSteps; i++) {
+    const { action, commands } = await args.planNext();
+    // Not in the build lane at all -> the caller must advance design/gates first.
+    if (actionLane(action) !== "build") return null;
+    // An invoke-role build turn is the target: land here, do NOT perform it.
+    const plan = actionToHandoffPlan(action);
+    if (plan && isBuildHandoff(plan)) return plan;
+    // A build-lane SUBSTRATE action (dispatch / cut-experiment / await / accept):
+    // perform it to advance toward the first role turn (cut-experiment forks the
+    // paired branch , the pre-turn fork the snapshot captures).
+    await args.perform(commands);
+  }
+  throw new Error(
+    `optimize: could not position on a build role turn within ${maxSteps} steps , the build lane is not advancing (a stuck substrate action). Check the drive state.`,
+  );
 }
 
 /** The build-turn gate: after the handoff's commands ran (the cycle-record CLI
