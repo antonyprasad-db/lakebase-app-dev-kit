@@ -104,9 +104,14 @@ want="$(cd "$KIT_ROOT" && pwd -P)"
 got="$("$PROJECT_DIR/scripts/lk" lakebase-resolve-sftdd-dir --project-dir "$PROJECT_DIR" >/dev/null 2>&1 && cd "$KIT_ROOT" && pwd -P || true)"
 [[ "$want" == "$got" || -z "$got" ]] || { echo "optimize-scenario: kit resolution drift; aborting." >&2; exit 2; }
 
-# The surviving winner turns record into the scenario corpus, exactly like a
+# The surviving WINNER turns record into the scenario corpus, exactly like a
 # capture (turns/ + recorded-artifacts/ + recorded-build/); discarded attempts go
 # to <project>/experiments/ (written by optimize-live, never into the corpus).
+# RECORD_DIR is passed to the optimize CLI, which reads it ONCE, CLEARS it from the
+# ambient env, and re-sets it ONLY for the winner capture (makeLiveSpawnTurn's
+# record flag). This is why a losing candidate's trial never records into the
+# shippable corpus even though the same corpus dir is the record target: trials run
+# with the recorder env unset. (Design-lane sweeps produce no recorded-build/.)
 mkdir -p "$SCEN"
 export LAKEBASE_SFTDD_RECORD_DIR="$SCEN"
 export LAKEBASE_SFTDD_RECORD_BUILD_DIR="${SCEN}/recorded-build"

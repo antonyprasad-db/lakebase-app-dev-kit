@@ -73,11 +73,20 @@ export interface ChampionWalkArgs {
   candidates: Candidate[];
   /** Trials per candidate (median of passing trials damps model variance). */
   trials: number;
-  /** Propose-only: run + gate + rank every candidate and report the winner, but do
-   *  NOT call recordWinner (no overlay, no advance). The human then reviews the
-   *  ranked outcomes and approves before optimize-apply persists the winner. Default
-   *  false (auto-select: the winner is recorded + the walk advances). */
+  /** Propose-only: do NOT PERSIST the winner to the kit , the human reviews the
+   *  ranked outcomes and runs optimize-apply to persist. This gates KIT PERSISTENCE,
+   *  which runChampionWalk never does anyway (that is a separate CLI); on its own it
+   *  also skips the local recordWinner advance, which is correct for a SINGLE-handoff
+   *  sweep (nothing downstream needs the advance). For a LANE sweep, pair it with
+   *  alwaysAdvance. Default false. */
   proposeOnly?: boolean;
+  /** Always record the winner locally (advance the walk) even under proposeOnly. A
+   *  multi-handoff LANE sweep REQUIRES this: each handoff's winner artifact feeds the
+   *  next handoff's planNextAction, so without advancing, positionNext re-plans the
+   *  same handoff and the lane sweep stalls after handoff #1. This is the local
+   *  corpus advance, NOT kit persistence , proposeOnly still governs the latter
+   *  (the separate optimize-apply step). Default false (single-handoff behavior). */
+  alwaysAdvance?: boolean;
 }
 
 /** Per-candidate roll-up at one handoff. */
@@ -121,7 +130,7 @@ export interface ChampionWalkResult {
 
 /** Run the champion walk over the given handoffs + candidates. */
 export async function runChampionWalk(args: ChampionWalkArgs, deps: ChampionWalkDeps): Promise<ChampionWalkResult> {
-  const { handoffs, candidates, trials, proposeOnly } = args;
+  const { handoffs, candidates, trials, proposeOnly, alwaysAdvance } = args;
   const walk: HandoffResult[] = [];
 
   for (const handoff of handoffs) {
@@ -131,10 +140,24 @@ export async function runChampionWalk(args: ChampionWalkArgs, deps: ChampionWalk
       for (const candidate of candidates) {
         const results: TrialResult[] = [];
         for (let t = 0; t < trials; t++) {
-          const r = await deps.runTrial({ handoff, candidate, trial: t });
+          // A trial can THROW (the turn crashed , e.g. the role wrote its artifact
+          // to a malformed sibling root -> ArtifactOutOfRootError, an auth blip, a
+          // spawn failure). One candidate crashing must DISQUALIFY that candidate,
+          // never kill the whole walk (which would discard every completed handoff).
+          // Convert the throw to a disqualifying fail-result and keep going; the
+          // honest baseline then wins if nothing beats it.
+          let r: TrialResult;
+          try {
+            r = await deps.runTrial({ handoff, candidate, trial: t });
+          } catch (e) {
+            r = { gatePassed: false, durationMs: 0, costUsd: 0, gateReason: e instanceof Error ? e.message : String(e) };
+          }
           results.push(r);
           // Restore the pre-turn state so the NEXT trial/candidate forks from the
-          // identical point (the champion-walk invariant).
+          // identical point (the champion-walk invariant). A crashing trial may have
+          // left partial writes, so this restore matters most exactly then; a restore
+          // failure IS fatal (the fork point is corrupt , continuing would compare
+          // candidates from inconsistent states).
           await snap.restore();
         }
         outcomes.push(summarize(candidate.id, results));
@@ -144,11 +167,15 @@ export async function runChampionWalk(args: ChampionWalkArgs, deps: ChampionWalk
       const baseline = outcomes.find((o) => o.candidateId === BASELINE_CANDIDATE_ID);
       const baselineMs = baseline?.medianMs ?? winner.medianMs;
 
-      // Overlay the winner once more, recorded, and advance to its state , UNLESS
-      // propose-only, where the human approves the ranked winner first (then
-      // optimize-apply persists it). Propose-only leaves the corpus + state
-      // untouched: only the experiments/ audit trail + the ranked report are produced.
-      if (!proposeOnly) {
+      // Advance: overlay the winner once more (recorded) so its artifact is the
+      // surviving turn + the next handoff plans from it. This is the LOCAL corpus
+      // advance, distinct from KIT PERSISTENCE (the separate optimize-apply step).
+      //   - Single-handoff propose-only: skip advance , nothing downstream needs it,
+      //     and the human reviews before optimize-apply persists.
+      //   - LANE sweep (alwaysAdvance): advance EVEN under propose-only, because each
+      //     handoff's winner feeds the next handoff's planNextAction; without it the
+      //     lane stalls after handoff #1. propose-only still gates kit persistence.
+      if (!proposeOnly || alwaysAdvance) {
         const winnerCandidate = candidates.find((c) => c.id === winner.candidateId)!;
         await deps.recordWinner({ handoff, candidate: winnerCandidate });
       }

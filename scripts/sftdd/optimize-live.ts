@@ -201,21 +201,50 @@ export interface LiveDriveSeams {
   buildCfg(featureId: string): DriveEffectsConfig;
   execRunner(cfg: DriveEffectsConfig): { run(cmd: unknown): Promise<void> };
   planNextAction(cfg: DriveEffectsConfig): Promise<{ action: unknown; commands: unknown[] }>;
+  /** The corpus dir a WINNER capture records into (turns/ + recorded-artifacts/).
+   *  A TRIAL (record:false) must NOT record , only the winner. When absent, no turn
+   *  records (a pure-timing sweep). This is the single door for "does this turn land
+   *  in the corpus", so a losing candidate can never pollute the shippable corpus. */
+  recordDir?: string;
 }
+
+/** The env var the drive's recorder wrapper + the agent subprocess read to decide
+ *  whether (and where) a turn records into the corpus. */
+const RECORD_DIR_ENV = "LAKEBASE_SFTDD_RECORD_DIR";
 
 /** Build the REAL spawnTurn: for a candidate, construct a fresh drive cfg, thread
  *  the candidate's content seams, plan the ONE next handoff, and run only that
  *  handoff's commands through execRunner (which spawns the `claude -p` turn + emits
- *  turn.usage). `record` toggles the recorder env for the winner capture. NEVER
- *  sets LAKEBASE_SFTDD_REPLAY_BUILD_DIR (that would fake GREEN). */
+ *  turn.usage).
+ *
+ *  Recording is gated on the `record` flag , the load-bearing anti-pollution fix.
+ *  A champion walk runs N candidates x M TRIALS per handoff; only the WINNER (a
+ *  single record:true re-run) may land in the recorded corpus. So this sets
+ *  LAKEBASE_SFTDD_RECORD_DIR (which the agent subprocess + the drive recorder read)
+ *  ONLY when record is true, and restores the prior env afterward so a winner
+ *  capture never leaks recording into the next handoff's trials. A trial
+ *  (record:false) runs with the env cleared, so no losing candidate touches the
+ *  corpus even if the ambient shell exported RECORD_DIR. NEVER sets
+ *  LAKEBASE_SFTDD_REPLAY_BUILD_DIR (that would fake GREEN). */
 export function makeLiveSpawnTurn(featureId: string, seams: LiveDriveSeams): SpawnTurn {
-  return async ({ candidate }) => {
-    const cfg = applyContentSeams(seams.buildCfg(featureId), candidate.content);
-    const runner = seams.execRunner(cfg);
-    // planNextAction reads the CURRENT disk state, so it returns exactly the handoff
-    // the walk is positioned on (the harness snapshot/restore keeps that position).
-    const { commands } = await seams.planNextAction(cfg);
-    for (const cmd of commands) await runner.run(cmd);
+  return async ({ candidate, record }) => {
+    // Set the recorder env for THIS spawn only: the winner capture records into
+    // seams.recordDir; a trial clears it so nothing lands in the corpus. Restore the
+    // prior value in a finally so a winner never leaks recording into later trials.
+    const prior = process.env[RECORD_DIR_ENV];
+    if (record && seams.recordDir) process.env[RECORD_DIR_ENV] = seams.recordDir;
+    else delete process.env[RECORD_DIR_ENV];
+    try {
+      const cfg = applyContentSeams(seams.buildCfg(featureId), candidate.content);
+      const runner = seams.execRunner(cfg);
+      // planNextAction reads the CURRENT disk state, so it returns exactly the handoff
+      // the walk is positioned on (the harness snapshot/restore keeps that position).
+      const { commands } = await seams.planNextAction(cfg);
+      for (const cmd of commands) await runner.run(cmd);
+    } finally {
+      if (prior === undefined) delete process.env[RECORD_DIR_ENV];
+      else process.env[RECORD_DIR_ENV] = prior;
+    }
   };
 }
 

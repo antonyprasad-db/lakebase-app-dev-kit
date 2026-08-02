@@ -6828,7 +6828,7 @@ function clone(v) {
 // scripts/sftdd/optimize-harness.ts
 init_cjs_shims();
 async function runChampionWalk(args, deps) {
-  const { handoffs, candidates, trials, proposeOnly } = args;
+  const { handoffs, candidates, trials, proposeOnly, alwaysAdvance } = args;
   const walk2 = [];
   for (const handoff of handoffs) {
     const snap = await deps.snapshot(handoff);
@@ -6837,7 +6837,12 @@ async function runChampionWalk(args, deps) {
       for (const candidate of candidates) {
         const results = [];
         for (let t = 0; t < trials; t++) {
-          const r = await deps.runTrial({ handoff, candidate, trial: t });
+          let r;
+          try {
+            r = await deps.runTrial({ handoff, candidate, trial: t });
+          } catch (e) {
+            r = { gatePassed: false, durationMs: 0, costUsd: 0, gateReason: e instanceof Error ? e.message : String(e) };
+          }
           results.push(r);
           await snap.restore();
         }
@@ -6846,7 +6851,7 @@ async function runChampionWalk(args, deps) {
       const winner = selectWinner(outcomes);
       const baseline = outcomes.find((o) => o.candidateId === BASELINE_CANDIDATE_ID);
       const baselineMs = baseline?.medianMs ?? winner.medianMs;
-      if (!proposeOnly) {
+      if (!proposeOnly || alwaysAdvance) {
         const winnerCandidate = candidates.find((c) => c.id === winner.candidateId);
         await deps.recordWinner({ handoff, candidate: winnerCandidate });
       }
@@ -13683,12 +13688,21 @@ function applyContentSeams(cfg, content) {
   if (content.disallowedTools?.length) cfg.disallowedToolsForRole = () => content.disallowedTools;
   return cfg;
 }
+var RECORD_DIR_ENV = "LAKEBASE_SFTDD_RECORD_DIR";
 function makeLiveSpawnTurn(featureId, seams) {
-  return async ({ candidate }) => {
-    const cfg = applyContentSeams(seams.buildCfg(featureId), candidate.content);
-    const runner = seams.execRunner(cfg);
-    const { commands } = await seams.planNextAction(cfg);
-    for (const cmd of commands) await runner.run(cmd);
+  return async ({ candidate, record }) => {
+    const prior = process.env[RECORD_DIR_ENV];
+    if (record && seams.recordDir) process.env[RECORD_DIR_ENV] = seams.recordDir;
+    else delete process.env[RECORD_DIR_ENV];
+    try {
+      const cfg = applyContentSeams(seams.buildCfg(featureId), candidate.content);
+      const runner = seams.execRunner(cfg);
+      const { commands } = await seams.planNextAction(cfg);
+      for (const cmd of commands) await runner.run(cmd);
+    } finally {
+      if (prior === void 0) delete process.env[RECORD_DIR_ENV];
+      else process.env[RECORD_DIR_ENV] = prior;
+    }
   };
 }
 function realBuildGitOps(projectDir) {
@@ -13971,7 +13985,13 @@ function buildCtxForHandoff(handoff, loc) {
     spawnTurn: makeLiveSpawnTurn(featureId, {
       buildCfg: (fid) => buildCfg({ feature: fid, projectDir }, fid),
       execRunner: (cfg) => execRunner(cfg),
-      planNextAction: (cfg) => planNextAction(cfg)
+      planNextAction: (cfg) => planNextAction(cfg),
+      // Only the WINNER capture records into the corpus. makeLiveSpawnTurn sets
+      // RECORD_DIR for record:true and clears it for trials, so a losing candidate
+      // never pollutes the shippable corpus. The corpus dir is the runbook's
+      // LAKEBASE_SFTDD_RECORD_DIR (read ONCE here, not left ambient), so the
+      // recorder never fires for a trial even if the shell exported it.
+      ...loc.recordDir ? { recordDir: loc.recordDir } : {}
     }),
     now: () => Date.now(),
     // Prompt-weight signal for the report's pass-2 trim targeting: the role's last
@@ -14010,6 +14030,8 @@ async function main2() {
   const featureId = args.feature;
   const sweep = parseSweepSpec(args.candidates ?? "");
   const candidates = generateCandidates(sweep);
+  const recordDir = process.env.LAKEBASE_SFTDD_RECORD_DIR?.trim() || void 0;
+  delete process.env.LAKEBASE_SFTDD_RECORD_DIR;
   process.stderr.write(
     `[optimize] scenario=${args.scenario} feature=${featureId} trials=${args.trials}${args.only ? ` only=${args.only}` : ""}${args.handoff ? ` handoff=${args.handoff}` : ""}
 `
@@ -14039,12 +14061,12 @@ async function main2() {
       sweepOne: async (h) => {
         const hCands = defaultLaneCandidates(h);
         allCandidates.push(...hCands);
-        const ctxRes = buildCtxForHandoff(h, { projectDir, sftddDir, featureId });
+        const ctxRes = buildCtxForHandoff(h, { projectDir, sftddDir, featureId, recordDir });
         if ("error" in ctxRes) throw new Error(ctxRes.error.trim());
         process.stderr.write(`[optimize] handoff ${h.id}: ${hCands.length} candidate(s)
 `);
         const walk2 = await runChampionWalk(
-          { handoffs: [h], candidates: hCands, trials: args.trials, proposeOnly: args.proposeOnly },
+          { handoffs: [h], candidates: hCands, trials: args.trials, proposeOnly: args.proposeOnly, alwaysAdvance: true },
           makeChampionWalkDeps(ctxRes.ctx)
         );
         return walk2.walk[0];
@@ -14098,7 +14120,7 @@ async function main2() {
 `);
     return 0;
   }
-  const ctxResult = buildCtxForHandoff(handoff, { projectDir, sftddDir, featureId });
+  const ctxResult = buildCtxForHandoff(handoff, { projectDir, sftddDir, featureId, recordDir });
   if ("error" in ctxResult) {
     process.stderr.write(ctxResult.error);
     return 2;

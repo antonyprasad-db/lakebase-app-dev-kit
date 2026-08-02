@@ -12,7 +12,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { makeChampionWalkDeps, type OptimizeLiveCtx, type SpawnTurn } from "../../scripts/sftdd/optimize-live";
+import { makeChampionWalkDeps, makeLiveSpawnTurn, type OptimizeLiveCtx, type SpawnTurn } from "../../scripts/sftdd/optimize-live";
 import { runChampionWalk } from "../../scripts/sftdd/optimize-harness";
 import { generateCandidates } from "../../scripts/sftdd/optimize-candidates";
 import { writeSftddConfig, defaultSftddConfig, loadSftddConfig } from "../../scripts/sftdd/sftdd-config";
@@ -161,5 +161,57 @@ describe("makeChampionWalkDeps: hermetic DESIGN handoff", () => {
     expect(existsSync(expDir)).toBe(true);
     // one subdir per candidate
     expect(readdirSync(expDir).length).toBeGreaterThanOrEqual(candidates.length);
+  });
+});
+
+describe("makeLiveSpawnTurn: recording is gated on the `record` flag (only winners record)", () => {
+  // The corpus-pollution bug: a live sweep runs N candidates x M trials; only the
+  // WINNER should record into the recorded corpus (recorded-artifacts/ + turns/).
+  // Recording is driven by LAKEBASE_SFTDD_RECORD_DIR, which the agent subprocess
+  // (and the drive's recorder wrapper) reads. So the spawn must set that env ONLY
+  // when record:true, and leave it unset for trials. We capture the env visible at
+  // the moment the runner runs a command.
+  const RECORD_ENV = "LAKEBASE_SFTDD_RECORD_DIR";
+
+  function seams(recordDir: string, seenEnv: (v: string | undefined) => void) {
+    return {
+      recordDir,
+      buildCfg: () => ({ projectDir, sftddDir, featureId }) as never,
+      execRunner: () => ({
+        async run() {
+          seenEnv(process.env[RECORD_ENV]);
+        },
+      }),
+      planNextAction: async () => ({ action: {}, commands: [{ kind: "claude" }] }),
+    };
+  }
+
+  const priorEnv = process.env[RECORD_ENV];
+  afterEach(() => {
+    if (priorEnv === undefined) delete process.env[RECORD_ENV];
+    else process.env[RECORD_ENV] = priorEnv;
+  });
+
+  it("does NOT set RECORD_DIR during a trial (record:false) , trials never touch the corpus", async () => {
+    delete process.env[RECORD_ENV];
+    let seen: string | undefined = "unset-sentinel";
+    const spawn = makeLiveSpawnTurn(featureId, seams("/corpus/dir", (v) => (seen = v)) as never);
+    await spawn({ handoff: { id: "S1-spec-author", role: "spec-author" }, candidate: { id: "baseline", configOverrides: {} }, record: false });
+    expect(seen).toBeUndefined(); // no record dir visible to the turn
+  });
+
+  it("DOES set RECORD_DIR for the winner capture (record:true) , only winners record", async () => {
+    delete process.env[RECORD_ENV];
+    let seen: string | undefined;
+    const spawn = makeLiveSpawnTurn(featureId, seams("/corpus/dir", (v) => (seen = v)) as never);
+    await spawn({ handoff: { id: "S1-spec-author", role: "spec-author" }, candidate: { id: "baseline", configOverrides: {} }, record: true });
+    expect(seen).toBe("/corpus/dir");
+  });
+
+  it("restores the ambient RECORD_DIR after a winner capture (no leak to later trials)", async () => {
+    delete process.env[RECORD_ENV];
+    const spawn = makeLiveSpawnTurn(featureId, seams("/corpus/dir", () => {}) as never);
+    await spawn({ handoff: { id: "S1-spec-author", role: "spec-author" }, candidate: { id: "baseline", configOverrides: {} }, record: true });
+    expect(process.env[RECORD_ENV]).toBeUndefined(); // restored after the spawn
   });
 });

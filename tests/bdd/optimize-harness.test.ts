@@ -45,7 +45,12 @@ function scriptedDeps(
         const i = trialCursor[key] ?? 0;
         trialCursor[key] = i + 1;
         log.push(`trial:${handoff.id}:${candidate.id}:${trial}`);
-        return script[handoff.id][candidate.id][i];
+        const outcome = script[handoff.id][candidate.id][i];
+        // A THROWN trial (not a fail RESULT): the candidate's turn crashed , the
+        // real ArtifactOutOfRootError / spawn failure. The engine must treat this
+        // like a disqualification, not let it kill the whole walk.
+        if (outcome === THROWS) throw new Error("simulated candidate crash (ArtifactOutOfRootError)");
+        return outcome;
       },
       async recordWinner({ handoff, candidate }) {
         log.push(`recordWinner:${handoff.id}:${candidate.id}`);
@@ -60,6 +65,9 @@ function pass(ms: number): TrialResult {
 function fail(ms: number): TrialResult {
   return { gatePassed: false, durationMs: ms, costUsd: ms / 1000, gateReason: "gate failed" };
 }
+/** Sentinel: a trial that THROWS (the turn crashed) rather than returning a
+ *  fail RESULT. The engine must not let one crashing candidate kill the walk. */
+const THROWS = Symbol("throws") as unknown as TrialResult;
 
 const handoff: HandoffPlan = { id: "S1-green", role: "driver", story: "S1", buildMode: "green" };
 
@@ -98,6 +106,51 @@ describe("runChampionWalk: winner selection", () => {
     // the disqualified candidate is still reported as an attempt
     const flaky = result.walk[0].candidates.find((c) => c.candidateId === "flaky");
     expect(flaky?.disqualified).toBe(true);
+  });
+
+  it("a candidate whose trial THROWS is disqualified, and the walk still records a winner", async () => {
+    // The real crash: a candidate's turn errors (e.g. the role wrote its artifact
+    // to a malformed sibling root -> ArtifactOutOfRootError). Before this fix the
+    // throw propagated out of runChampionWalk and killed the ENTIRE sweep (exit 3),
+    // discarding every completed handoff. It must instead disqualify just that
+    // candidate and let the honest baseline win.
+    const cands = [
+      { id: "baseline", configOverrides: {} },
+      { id: "crasher", configOverrides: {} },
+    ];
+    const { deps, log } = scriptedDeps({
+      "S1-green": {
+        baseline: [pass(1000), pass(1000)],
+        crasher: [THROWS, pass(300)], // trial 0 throws
+      },
+    });
+    const result = await runChampionWalk({ handoffs: [handoff], candidates: cands, trials: 2 }, deps);
+    // The walk completed (did not throw) and picked the honest baseline.
+    expect(result.walk[0].winner.candidateId).toBe("baseline");
+    const crasher = result.walk[0].candidates.find((c) => c.candidateId === "crasher");
+    expect(crasher?.disqualified).toBe(true);
+    // The pre-turn state was still restored after the crashing trial (so the next
+    // candidate/trial forks clean), and the snapshot was disposed.
+    expect(log).toContain("restore:S1-green");
+    expect(log).toContain("dispose:S1-green");
+  });
+
+  it("does not abort the multi-handoff walk when a candidate throws on an early handoff", async () => {
+    // A crash on handoff 1's candidate must not lose handoff 2.
+    const h1: HandoffPlan = { id: "S1-spec", role: "spec-author" };
+    const h2: HandoffPlan = { id: "S1-arch", role: "architect" };
+    const cands = [
+      { id: "baseline", configOverrides: {} },
+      { id: "crasher", configOverrides: {} },
+    ];
+    const { deps } = scriptedDeps({
+      "S1-spec": { baseline: [pass(900)], crasher: [THROWS] },
+      "S1-arch": { baseline: [pass(800)], crasher: [pass(400)] },
+    });
+    const result = await runChampionWalk({ handoffs: [h1, h2], candidates: cands, trials: 1 }, deps);
+    expect(result.walk).toHaveLength(2);
+    expect(result.walk[0].winner.candidateId).toBe("baseline"); // crasher DQ'd
+    expect(result.walk[1].winner.candidateId).toBe("crasher"); // faster, no crash
   });
 
   it("falls back to baseline when NO candidate beats it", async () => {
@@ -175,6 +228,29 @@ describe("runChampionWalk: state discipline", () => {
     // trials + restores still ran, and the snapshot was disposed.
     expect(log.filter((l) => l === "restore:S1-green")).toHaveLength(2);
     expect(log).toContain("dispose:S1-green");
+  });
+
+  it("alwaysAdvance overrides propose-only: the winner IS recorded so the LANE can advance", async () => {
+    // A multi-handoff LANE sweep MUST advance between handoffs (each winner's
+    // artifact feeds the next turn's planNextAction). propose-only means "do not
+    // PERSIST to the kit" (the separate optimize-apply step), NOT "do not advance
+    // the local walk". So alwaysAdvance=true records the winner even under
+    // proposeOnly; without it, a propose-only lane sweep stalls after handoff #1
+    // (the drive never advances -> the next positionNext re-plans the same handoff).
+    const cands = [
+      { id: "baseline", configOverrides: {} },
+      { id: "fast", configOverrides: {} },
+    ];
+    const { deps, log } = scriptedDeps({
+      "S1-green": { baseline: [pass(1000)], fast: [pass(400)] },
+    });
+    const result = await runChampionWalk(
+      { handoffs: [handoff], candidates: cands, trials: 1, proposeOnly: true, alwaysAdvance: true },
+      deps,
+    );
+    expect(result.walk[0].winner.candidateId).toBe("fast");
+    // The winner IS recorded (advance) despite propose-only.
+    expect(log).toContain("recordWinner:S1-green:fast");
   });
 
   it("runs handoffs sequentially, each with its own snapshot", async () => {

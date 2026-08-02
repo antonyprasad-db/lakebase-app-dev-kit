@@ -165,7 +165,7 @@ export function isBuildHandoff(plan: HandoffPlan): boolean {
  *  the single-handoff path AND the lane sweep (each handoff gets its own ctx). */
 function buildCtxForHandoff(
   handoff: HandoffPlan,
-  loc: { projectDir: string; sftddDir: string; featureId: string },
+  loc: { projectDir: string; sftddDir: string; featureId: string; recordDir?: string },
 ): { ctx: OptimizeLiveCtx } | { error: string } {
   const { projectDir, sftddDir, featureId } = loc;
   const ctx: OptimizeLiveCtx = {
@@ -177,6 +177,12 @@ function buildCtxForHandoff(
       buildCfg: (fid) => buildCfg({ feature: fid, projectDir } as never, fid),
       execRunner: (cfg) => execRunner(cfg as never) as { run(cmd: unknown): Promise<void> },
       planNextAction: (cfg) => planNextAction(cfg as never),
+      // Only the WINNER capture records into the corpus. makeLiveSpawnTurn sets
+      // RECORD_DIR for record:true and clears it for trials, so a losing candidate
+      // never pollutes the shippable corpus. The corpus dir is the runbook's
+      // LAKEBASE_SFTDD_RECORD_DIR (read ONCE here, not left ambient), so the
+      // recorder never fires for a trial even if the shell exported it.
+      ...(loc.recordDir ? { recordDir: loc.recordDir } : {}),
     }),
     now: () => Date.now(),
     // Prompt-weight signal for the report's pass-2 trim targeting: the role's last
@@ -217,6 +223,14 @@ async function main(): Promise<number> {
   const sweep = parseSweepSpec(args.candidates ?? "");
   const candidates = generateCandidates(sweep);
 
+  // The corpus record dir: read ONCE here and CLEAR it from the ambient env, so the
+  // recorder only fires for a WINNER capture (makeLiveSpawnTurn re-sets it per
+  // record:true spawn) and NEVER for a trial. Leaving it ambient (as the runbook
+  // used to export it) made every losing candidate's turn record into the shippable
+  // corpus , the pollution this fixes. recordDir is threaded into each handoff ctx.
+  const recordDir = process.env.LAKEBASE_SFTDD_RECORD_DIR?.trim() || undefined;
+  delete process.env.LAKEBASE_SFTDD_RECORD_DIR;
+
   process.stderr.write(
     `[optimize] scenario=${args.scenario} feature=${featureId} trials=${args.trials}` +
       `${args.only ? ` only=${args.only}` : ""}${args.handoff ? ` handoff=${args.handoff}` : ""}\n`,
@@ -251,13 +265,18 @@ async function main(): Promise<number> {
       sweepOne: async (h) => {
         const hCands = defaultLaneCandidates(h);
         allCandidates.push(...hCands);
-        const ctxRes = buildCtxForHandoff(h, { projectDir, sftddDir, featureId });
+        const ctxRes = buildCtxForHandoff(h, { projectDir, sftddDir, featureId, recordDir });
         if ("error" in ctxRes) throw new Error(ctxRes.error.trim());
         // Reflect/critic turns (baseline-only) still "sweep" trivially so the walk
         // records + advances past them; a >1 candidate handoff is a real A/B.
         process.stderr.write(`[optimize] handoff ${h.id}: ${hCands.length} candidate(s)\n`);
+        // alwaysAdvance: a LANE sweep MUST record each handoff's winner locally so
+        // the next handoff plans from it (the design lane's inter-turn dependency),
+        // even under propose-only. proposeOnly here governs only kit persistence (the
+        // separate optimize-apply step the sweep never runs). Winner-only recording
+        // is enforced by makeLiveSpawnTurn's record flag (trials never touch the corpus).
         const walk = await runChampionWalk(
-          { handoffs: [h], candidates: hCands, trials: args.trials, proposeOnly: args.proposeOnly },
+          { handoffs: [h], candidates: hCands, trials: args.trials, proposeOnly: args.proposeOnly, alwaysAdvance: true },
           makeChampionWalkDeps(ctxRes.ctx),
         );
         return walk.walk[0];
@@ -321,7 +340,7 @@ async function main(): Promise<number> {
   }
 
   // Assemble the live champion-walk deps for THIS handoff over the real drive.
-  const ctxResult = buildCtxForHandoff(handoff, { projectDir, sftddDir, featureId });
+  const ctxResult = buildCtxForHandoff(handoff, { projectDir, sftddDir, featureId, recordDir });
   if ("error" in ctxResult) {
     process.stderr.write(ctxResult.error);
     return 2;
