@@ -31,7 +31,8 @@ import type { SpawnableAgentRole } from "./agent-models.js";
 import { buildCfg, execRunner } from "./drive.cli.js";
 import { planNextAction } from "./orchestrator-effects.js";
 import { resolveSftddDir } from "./sftdd-paths.js";
-import { makeChampionWalkDeps, makeLiveSpawnTurn, type OptimizeLiveCtx } from "./optimize-live.js";
+import { makeChampionWalkDeps, makeLiveSpawnTurn, makeBuildGate, makeBuildSnapshotDeps, type OptimizeLiveCtx } from "./optimize-live.js";
+import { readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { buildChampionWalkReport, formatChampionWalkReport } from "./optimize-report.js";
 
 export interface OptimizeArgs {
@@ -205,6 +206,29 @@ async function main(): Promise<number> {
     }),
     now: () => Date.now(),
   };
+  // Build handoffs (LIVE CLOUD) mutate git + a paired Lakebase branch, so wire the
+  // 3-part snapshot substrate + the honest post-turn gate. Resolved from the SCM
+  // workflow state (instance/branch/parent) the drive itself uses.
+  if (isBuildHandoff(handoff)) {
+    const scm = readWorkflowState(projectDir);
+    if (!scm?.project_id || !scm.branch) {
+      process.stderr.write("[optimize] build handoff needs a claimed feature (project_id + branch in .lakebase/workflow-state.json); claim + drive to the build turn first.\n");
+      return 2;
+    }
+    ctx.gateBuild = makeBuildGate(sftddDir, featureId);
+    ctx.buildSnapshotDeps = makeBuildSnapshotDeps({
+      projectDir,
+      story: handoff.story ?? "",
+      cutArgs: {
+        instance: scm.project_id,
+        sftddDir,
+        featureId,
+        experimentSlug: `${handoff.story}-optimize`,
+        branch: scm.branch,
+        ...(scm.parent_branch ? { parentBranch: scm.parent_branch } : {}),
+      },
+    });
+  }
   const deps = makeChampionWalkDeps(ctx);
   const result = await runChampionWalk(
     { handoffs: [handoff], candidates, trials: args.trials, proposeOnly: args.proposeOnly },

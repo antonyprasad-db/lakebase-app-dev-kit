@@ -8191,9 +8191,9 @@ var fs9 = __toESM(require("fs"), 1);
 
 // scripts/sftdd/smells.ts
 init_cjs_shims();
-var import_fs8 = require("fs");
+var import_fs9 = require("fs");
 var import_crypto = require("crypto");
-var import_path8 = require("path");
+var import_path9 = require("path");
 
 // scripts/sftdd/run-cycle.ts
 init_cjs_shims();
@@ -8201,24 +8201,91 @@ var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebas
 
 // scripts/sftdd/experiment.ts
 init_cjs_shims();
+var import_fs6 = require("fs");
+var import_path6 = require("path");
 var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+function branchIdOf(info) {
+  const leaf = info.name.split("/").pop();
+  if (!leaf) throw new Error(`could not derive branch_id from ${info.name}`);
+  return leaf;
+}
+function experimentsRoot(sftddDir, featureId, storyId) {
+  return (0, import_path6.join)(sftddDir, "experiments", featureId, storyId);
+}
+function experimentDir(sftddDir, featureId, storyId, slug) {
+  return (0, import_path6.join)(experimentsRoot(sftddDir, featureId, storyId), slug);
+}
+async function cutExperiment(args, deps = {}) {
+  const { sftddDir, projectDir, featureId, storyId, experimentSlug, branch, parentBranch, ttl, notes, resetStaleBranch, ...lookup } = args;
+  const create = deps.createPairedBranch ?? import_lakebase.createPairedBranch;
+  const dropBranch = deps.deletePairedBranch ?? import_lakebase.deletePairedBranch;
+  if (resetStaleBranch) {
+    try {
+      await dropBranch({ instance: lookup.instance, branch, cwd: projectDir });
+    } catch {
+    }
+  }
+  const paired = await create({
+    instance: lookup.instance,
+    branch,
+    parentBranch,
+    cwd: projectDir,
+    createGitBranch: true,
+    syncEnv: true,
+    ...ttl ? { ttl } : { noExpiry: true }
+  });
+  if (!paired.envSynced) {
+    throw new Error(
+      `Experiment cut for "${branch}" did not populate .env with the branch's database connection` + (paired.warnings.length ? ` (${paired.warnings.join("; ")})` : "") + `. The build's honest-GREEN verify needs DATABASE_URL; aborting the cut so this is caught now, not at verify time.`
+    );
+  }
+  const branchId = branchIdOf(paired.branch);
+  const dir = experimentDir(sftddDir, featureId, storyId, experimentSlug);
+  (0, import_fs6.mkdirSync)(dir, { recursive: true });
+  (0, import_fs6.writeFileSync)((0, import_path6.join)(dir, "branch.txt"), branchId);
+  (0, import_fs6.writeFileSync)(
+    (0, import_path6.join)(dir, "notes.md"),
+    notes ?? `# ${experimentSlug}
+
+Experiment cut from \`${parentBranch ?? "staging"}\`. Strategy + learning notes go here.
+`
+  );
+  const outcomes = { status: "running" };
+  (0, import_fs6.writeFileSync)((0, import_path6.join)(dir, "outcomes.json"), JSON.stringify(outcomes, null, 2) + "\n");
+  (0, import_fs6.writeFileSync)(
+    (0, import_path6.join)(dir, "timeline.json"),
+    JSON.stringify(
+      { entries: [{ ts: (/* @__PURE__ */ new Date()).toISOString(), kind: "cut", branch: branchId }] },
+      null,
+      2
+    ) + "\n"
+  );
+  return {
+    feature_id: featureId,
+    story_id: storyId,
+    experiment_slug: experimentSlug,
+    branch_id: branchId,
+    created_at: (/* @__PURE__ */ new Date()).toISOString(),
+    dir
+  };
+}
 
 // scripts/sftdd/agent-log.ts
 init_cjs_shims();
-var import_fs7 = require("fs");
-var import_path7 = require("path");
+var import_fs8 = require("fs");
+var import_path8 = require("path");
 
 // scripts/sftdd/schema-loader.ts
 init_cjs_shims();
-var import_fs6 = require("fs");
-var import_path6 = require("path");
+var import_fs7 = require("fs");
+var import_path7 = require("path");
 var import_ajv = __toESM(require_ajv(), 1);
-var SCHEMA_DIR = (0, import_path6.join)(__dirname, "schemas");
+var SCHEMA_DIR = (0, import_path7.join)(__dirname, "schemas");
 var ajv = new import_ajv.default({ allErrors: true, strict: false });
 ajv.addFormat("date-time", true);
 var validatorCache = /* @__PURE__ */ new Map();
 function loadSchema(name) {
-  return JSON.parse((0, import_fs6.readFileSync)((0, import_path6.join)(SCHEMA_DIR, name), "utf8"));
+  return JSON.parse((0, import_fs7.readFileSync)((0, import_path7.join)(SCHEMA_DIR, name), "utf8"));
 }
 function getValidator(name) {
   const cached = validatorCache.get(name);
@@ -8311,7 +8378,7 @@ function renderEventMessage(event, slots = {}) {
 
 // scripts/sftdd/agent-log.ts
 function logFilePath(sftddDir) {
-  return (0, import_path7.join)(sftddDir, "agent-log.jsonl");
+  return (0, import_path8.join)(sftddDir, "agent-log.jsonl");
 }
 function buildAgentLogEvent(input, now) {
   const slots = input.slots ?? {};
@@ -8351,7 +8418,7 @@ function emitAgentLogEvent(input, opts = {}) {
   const sftddDir = opts.sftddDir ?? resolveSftddDir();
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const event = buildAgentLogEvent(input, now);
-  (0, import_fs7.appendFileSync)(logFilePath(sftddDir), `${JSON.stringify(event)}
+  (0, import_fs8.appendFileSync)(logFilePath(sftddDir), `${JSON.stringify(event)}
 `, "utf8");
   return event;
 }
@@ -8543,9 +8610,9 @@ function hasOpenBuildRefactorRoutableSmell(sftddDir, story_id) {
   );
 }
 function readSmellsLog(sftddDir) {
-  const file = (0, import_path8.join)(sftddDir, "smells.json");
-  if (!(0, import_fs8.existsSync)(file)) return { detected: [] };
-  return JSON.parse((0, import_fs8.readFileSync)(file, "utf8"));
+  const file = (0, import_path9.join)(sftddDir, "smells.json");
+  if (!(0, import_fs9.existsSync)(file)) return { detected: [] };
+  return JSON.parse((0, import_fs9.readFileSync)(file, "utf8"));
 }
 function smellMatches(entry, smell, story_id) {
   if (entry.smell !== smell) return false;
@@ -8572,9 +8639,9 @@ function priorReflectReviseCount(sftddDir, story_id) {
 }
 function storyTestListFingerprint(sftddDir, featureId, story_id) {
   const f = storyTestListJson(sftddDir, featureId, story_id);
-  if (!(0, import_fs8.existsSync)(f)) return "";
+  if (!(0, import_fs9.existsSync)(f)) return "";
   try {
-    return (0, import_crypto.createHash)("sha1").update((0, import_fs8.readFileSync)(f)).digest("hex");
+    return (0, import_crypto.createHash)("sha1").update((0, import_fs9.readFileSync)(f)).digest("hex");
   } catch {
     return "";
   }
@@ -8590,22 +8657,22 @@ function lastReflectReviseFingerprint(sftddDir, story_id) {
 
 // scripts/sftdd/cycle-record.ts
 init_cjs_shims();
-var import_fs10 = require("fs");
-var import_path10 = require("path");
+var import_fs11 = require("fs");
+var import_path11 = require("path");
 
 // scripts/sftdd/test-list.ts
 init_cjs_shims();
-var import_fs9 = require("fs");
-var import_path9 = require("path");
+var import_fs10 = require("fs");
+var import_path10 = require("path");
 function acIdsInStoryDir(storyDir2) {
-  const dir = (0, import_path9.join)(storyDir2, "acs");
-  if (!(0, import_fs9.existsSync)(dir)) return [];
+  const dir = (0, import_path10.join)(storyDir2, "acs");
+  if (!(0, import_fs10.existsSync)(dir)) return [];
   const out = [];
-  for (const f of (0, import_fs9.readdirSync)(dir)) {
+  for (const f of (0, import_fs10.readdirSync)(dir)) {
     if (!f.endsWith(".json")) continue;
     const base = f.slice(0, -".json".length);
     try {
-      const obj = JSON.parse((0, import_fs9.readFileSync)((0, import_path9.join)(dir, f), "utf8"));
+      const obj = JSON.parse((0, import_fs10.readFileSync)((0, import_path10.join)(dir, f), "utf8"));
       if (obj && typeof obj.id === "string" && obj.id === base) out.push(base);
     } catch {
     }
@@ -8787,27 +8854,27 @@ var import_git = require("@databricks-solutions/lakebase-scm-utils/git");
 var import_lakebase7 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 function readStoryItems(sftddDir, featureId, story) {
   const file = storyTestListJson(sftddDir, featureId, story);
-  if (!(0, import_fs10.existsSync)(file)) {
+  if (!(0, import_fs11.existsSync)(file)) {
     throw new Error(`per-story test-list not found for ${featureId}/${story} at ${file}`);
   }
-  const data = JSON.parse((0, import_fs10.readFileSync)(file, "utf8"));
+  const data = JSON.parse((0, import_fs11.readFileSync)(file, "utf8"));
   return Array.isArray(data.items) ? data.items : [];
 }
 function storyCycles(sftddDir, featureId, story) {
-  const base = (0, import_path10.join)(cyclesRootDir(sftddDir), featureId, story);
-  if (!(0, import_fs10.existsSync)(base)) return [];
+  const base = (0, import_path11.join)(cyclesRootDir(sftddDir), featureId, story);
+  if (!(0, import_fs11.existsSync)(base)) return [];
   const out = [];
-  for (const acDir of (0, import_fs10.readdirSync)(base)) {
-    const dir = (0, import_path10.join)(base, acDir);
+  for (const acDir of (0, import_fs11.readdirSync)(base)) {
+    const dir = (0, import_path11.join)(base, acDir);
     try {
-      if (!(0, import_fs10.statSync)(dir).isDirectory()) continue;
+      if (!(0, import_fs11.statSync)(dir).isDirectory()) continue;
     } catch {
       continue;
     }
-    for (const f of (0, import_fs10.readdirSync)(dir)) {
+    for (const f of (0, import_fs11.readdirSync)(dir)) {
       if (!/^cycle-\d+\.json$/.test(f)) continue;
       try {
-        out.push(JSON.parse((0, import_fs10.readFileSync)((0, import_path10.join)(dir, f), "utf8")));
+        out.push(JSON.parse((0, import_fs11.readFileSync)((0, import_path11.join)(dir, f), "utf8")));
       } catch {
       }
     }
@@ -8843,9 +8910,9 @@ function nextPendingBatch(sftddDir, featureId, story, cap = DEFAULT_BATCH_CAP) {
 }
 function readReview(sftddDir, featureId, story, acId) {
   const f = acReviewJson(sftddDir, featureId, story, acId);
-  if (!(0, import_fs10.existsSync)(f)) return {};
+  if (!(0, import_fs11.existsSync)(f)) return {};
   try {
-    return JSON.parse((0, import_fs10.readFileSync)(f, "utf8"));
+    return JSON.parse((0, import_fs11.readFileSync)(f, "utf8"));
   } catch {
     return {};
   }
@@ -8895,9 +8962,9 @@ function firstRefactorPendingAc(sftddDir, featureId, story) {
 }
 function readStoryReview(sftddDir, featureId, story) {
   const f = storyReviewJson(sftddDir, featureId, story);
-  if (!(0, import_fs10.existsSync)(f)) return {};
+  if (!(0, import_fs11.existsSync)(f)) return {};
   try {
-    return JSON.parse((0, import_fs10.readFileSync)(f, "utf8"));
+    return JSON.parse((0, import_fs11.readFileSync)(f, "utf8"));
   } catch {
     return {};
   }
@@ -9276,8 +9343,8 @@ function driverPhaseForTdd(tddPhase) {
 
 // scripts/sftdd/gates.ts
 init_cjs_shims();
-var import_fs11 = require("fs");
-var import_path11 = require("path");
+var import_fs12 = require("fs");
+var import_path12 = require("path");
 var GATES_SCHEMA_VERSION = 1;
 var GATE_STATUSES = ["open", "approved", "superseded", "withdrawn"];
 function defaultGatesState(featureId) {
@@ -9296,10 +9363,10 @@ function defaultGatesState(featureId) {
 function readGates(featureId, opts = {}) {
   const sftddDir = opts.sftddDir ?? resolveSftddDir();
   const file = gatesFilePath(sftddDir, featureId);
-  if (!(0, import_fs11.existsSync)(file)) {
+  if (!(0, import_fs12.existsSync)(file)) {
     return defaultGatesState(featureId);
   }
-  const raw = (0, import_fs11.readFileSync)(file, "utf8");
+  const raw = (0, import_fs12.readFileSync)(file, "utf8");
   let parsed;
   try {
     parsed = JSON.parse(raw);
@@ -9310,7 +9377,7 @@ function readGates(featureId, opts = {}) {
   return validateGatesState(parsed, file);
 }
 function gatesFilePath(sftddDir, featureId) {
-  return (0, import_path11.join)(requireFeatureDir(sftddDir, featureId), "gates.json");
+  return (0, import_path12.join)(requireFeatureDir(sftddDir, featureId), "gates.json");
 }
 function validateGatesState(parsed, file) {
   if (typeof parsed !== "object" || parsed === null) {
@@ -9410,16 +9477,16 @@ var import_lakebase8 = require("@databricks-solutions/lakebase-scm-utils/lakebas
 
 // scripts/sftdd/reflection.ts
 init_cjs_shims();
-var import_fs12 = require("fs");
+var import_fs13 = require("fs");
 var SMELL_FOR_OWNER = {
   "spec-author": "reflect-spec-defect",
   "test-strategist": "reflect-testlist-defect"
 };
 function readReflectVerdict(sftddDir, feature, story) {
   const p = reflectVerdictJson(sftddDir, feature, story);
-  if (!(0, import_fs12.existsSync)(p)) return void 0;
+  if (!(0, import_fs13.existsSync)(p)) return void 0;
   try {
-    return JSON.parse((0, import_fs12.readFileSync)(p, "utf8"));
+    return JSON.parse((0, import_fs13.readFileSync)(p, "utf8"));
   } catch {
     return void 0;
   }
@@ -9434,15 +9501,15 @@ var REFLECT_SMELLS = Object.values(SMELL_FOR_OWNER);
 
 // scripts/sftdd/architecture-canon.ts
 init_cjs_shims();
-var import_fs13 = require("fs");
+var import_fs14 = require("fs");
 function uniq(xs) {
   return [...new Set(xs.filter((x) => typeof x === "string" && x.length > 0))];
 }
 function readCanon(sftddDir) {
   const f = architectureCanonJson(sftddDir);
-  if (!(0, import_fs13.existsSync)(f)) return void 0;
+  if (!(0, import_fs14.existsSync)(f)) return void 0;
   try {
-    return JSON.parse((0, import_fs13.readFileSync)(f, "utf8"));
+    return JSON.parse((0, import_fs14.readFileSync)(f, "utf8"));
   } catch {
     return void 0;
   }
@@ -9479,8 +9546,8 @@ function architectNovelty(canon, storyAcs, storyArchitectureJsonContent) {
 
 // scripts/sftdd/artifact-conformance.ts
 init_cjs_shims();
-var import_fs14 = require("fs");
-var import_path12 = require("path");
+var import_fs15 = require("fs");
+var import_path13 = require("path");
 var ARTIFACT_FORMATS = {
   "feature-spec.json": { kind: "json-schema", schema: "feature.schema.json" },
   "story.json": { kind: "json-schema", schema: "story.schema.json" },
@@ -9716,12 +9783,12 @@ function checkNfrCoverage(nfrsMd2, architectureJson2, otherFeatureBriefRefs = /*
 function projectBriefRefs(sftddDir) {
   const refs = /* @__PURE__ */ new Set();
   const fdir = featuresDir(sftddDir);
-  if (!(0, import_fs14.existsSync)(fdir)) return refs;
-  for (const feature of (0, import_fs14.readdirSync)(fdir)) {
-    const archPath = (0, import_path12.join)(fdir, feature, "architecture.json");
-    if (!(0, import_fs14.existsSync)(archPath)) continue;
+  if (!(0, import_fs15.existsSync)(fdir)) return refs;
+  for (const feature of (0, import_fs15.readdirSync)(fdir)) {
+    const archPath = (0, import_path13.join)(fdir, feature, "architecture.json");
+    if (!(0, import_fs15.existsSync)(archPath)) continue;
     try {
-      const parsed = JSON.parse((0, import_fs14.readFileSync)(archPath, "utf8"));
+      const parsed = JSON.parse((0, import_fs15.readFileSync)(archPath, "utf8"));
       for (const n of parsed.nfrs ?? []) {
         if (typeof n.brief_ref === "string" && n.brief_ref.length > 0) refs.add(n.brief_ref);
       }
@@ -9973,8 +10040,8 @@ function checkInvariantCoverageDistinct(perStory) {
   return violations.length === 0 ? { ok: true } : { ok: false, violations };
 }
 function canonicalArtifactName(path10) {
-  const base = (0, import_path12.basename)(path10);
-  if ((0, import_path12.basename)((0, import_path12.dirname)(path10)) === "acs" && base.endsWith(".json")) return "ac.json";
+  const base = (0, import_path13.basename)(path10);
+  if ((0, import_path13.basename)((0, import_path13.dirname)(path10)) === "acs" && base.endsWith(".json")) return "ac.json";
   return base;
 }
 
@@ -10248,7 +10315,7 @@ init_cjs_shims();
 
 // scripts/sftdd/story-pipeline.ts
 init_cjs_shims();
-var import_fs16 = require("fs");
+var import_fs17 = require("fs");
 
 // scripts/sftdd/gate-conformance-guard.ts
 init_cjs_shims();
@@ -10257,15 +10324,15 @@ var import_node_path10 = require("path");
 
 // scripts/sftdd/architecture-conventions.ts
 init_cjs_shims();
-var import_fs15 = require("fs");
+var import_fs16 = require("fs");
 function normModule(m) {
   return m.replace(/\/+$/, "");
 }
 function readConventions(sftddDir) {
   const f = architectureConventionsJson(sftddDir);
-  if (!(0, import_fs15.existsSync)(f)) return void 0;
+  if (!(0, import_fs16.existsSync)(f)) return void 0;
   try {
-    return JSON.parse((0, import_fs15.readFileSync)(f, "utf8"));
+    return JSON.parse((0, import_fs16.readFileSync)(f, "utf8"));
   } catch {
     return void 0;
   }
@@ -10597,8 +10664,8 @@ function pipelinePath(sftddDir, featureId) {
 }
 function readPipeline(sftddDir, featureId) {
   const p = pipelinePath(sftddDir, featureId);
-  if (!(0, import_fs16.existsSync)(p)) return initPipeline(featureId);
-  return JSON.parse((0, import_fs16.readFileSync)(p, "utf8"));
+  if (!(0, import_fs17.existsSync)(p)) return initPipeline(featureId);
+  return JSON.parse((0, import_fs17.readFileSync)(p, "utf8"));
 }
 
 // scripts/sftdd/feature-status.ts
@@ -12062,8 +12129,8 @@ function isTransientApiErrorSignal(line) {
 
 // scripts/sftdd/run-config.ts
 init_cjs_shims();
-var import_fs17 = require("fs");
-var import_path13 = require("path");
+var import_fs18 = require("fs");
+var import_path14 = require("path");
 
 // scripts/sftdd/kit-ref.ts
 init_cjs_shims();
@@ -12110,7 +12177,7 @@ function kitRefDriftWarning(projectDir, launchRef) {
 }
 
 // scripts/sftdd/run-config.ts
-var RUN_CONFIG_REL = (0, import_path13.join)(ARTIFACT_ROOT, "run-config.json");
+var RUN_CONFIG_REL = (0, import_path14.join)(ARTIFACT_ROOT, "run-config.json");
 function buildRunConfig(inputs) {
   const env = inputs.env ?? process.env;
   const models = {};
@@ -12141,12 +12208,12 @@ function writeRunConfig(inputs) {
   const cfg = buildRunConfig(inputs);
   const body = JSON.stringify(cfg, null, 2) + "\n";
   try {
-    (0, import_fs17.mkdirSync)(inputs.sftddDir, { recursive: true });
-    (0, import_fs17.writeFileSync)((0, import_path13.join)(inputs.sftddDir, "run-config.json"), body);
+    (0, import_fs18.mkdirSync)(inputs.sftddDir, { recursive: true });
+    (0, import_fs18.writeFileSync)((0, import_path14.join)(inputs.sftddDir, "run-config.json"), body);
     const recordDir = sftddEnv("RECORD_DIR", inputs.env ?? process.env)?.trim();
     if (recordDir) {
-      (0, import_fs17.mkdirSync)(recordDir, { recursive: true });
-      (0, import_fs17.writeFileSync)((0, import_path13.join)(recordDir, "run-config.json"), body);
+      (0, import_fs18.mkdirSync)(recordDir, { recursive: true });
+      (0, import_fs18.writeFileSync)((0, import_path14.join)(recordDir, "run-config.json"), body);
     }
   } catch {
   }
@@ -13316,6 +13383,7 @@ if ((0, import_util4.isCliEntry)(importMetaUrl)) {
 // scripts/sftdd/optimize-live.ts
 init_cjs_shims();
 var import_node_fs14 = require("fs");
+var import_node_child_process5 = require("child_process");
 var import_node_path16 = require("path");
 
 // scripts/sftdd/optimize-agent-overlay.ts
@@ -13511,6 +13579,45 @@ function makeLiveSpawnTurn(featureId, seams) {
     for (const cmd of commands) await runner.run(cmd);
   };
 }
+function realBuildGitOps(projectDir) {
+  return {
+    async sha() {
+      return (0, import_node_child_process5.execFileSync)("git", ["rev-parse", "HEAD"], { cwd: projectDir, encoding: "utf8" }).trim();
+    },
+    async resetHard(sha) {
+      (0, import_node_child_process5.execFileSync)("git", ["reset", "--hard", sha], { cwd: projectDir, stdio: "ignore" });
+    }
+  };
+}
+function makeBuildSnapshotDeps(args) {
+  const git = args.git ?? realBuildGitOps(args.projectDir);
+  const reFork = args.reForkImpl ?? ((a) => cutExperiment(a));
+  return {
+    captureSha: () => git.sha(),
+    resetHard: (sha) => git.resetHard(sha),
+    reFork: async () => {
+      await reFork({
+        ...args.cutArgs,
+        projectDir: args.projectDir,
+        storyId: args.story,
+        resetStaleBranch: true
+      });
+    }
+  };
+}
+function makeBuildGate(sftddDir, featureId) {
+  return ({ handoff }) => {
+    const story = handoff.story;
+    const open = readEscalations(sftddDir).filter(
+      (e) => !e.resolved_at && e.story_id === story && (e.feature_id === void 0 || e.feature_id === featureId)
+    );
+    if (open.length === 0) return { passed: true };
+    return { passed: false, reason: `honest-GREEN halt: ${open.length} unresolved escalation(s) for ${story} (${open.map((e) => e.source).join(", ")})` };
+  };
+}
+
+// scripts/sftdd/optimize.cli.ts
+var import_lakebase11 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // scripts/sftdd/optimize-report.ts
 init_cjs_shims();
@@ -13726,6 +13833,26 @@ async function main2() {
     }),
     now: () => Date.now()
   };
+  if (isBuildHandoff(handoff)) {
+    const scm = (0, import_lakebase11.readWorkflowState)(projectDir);
+    if (!scm?.project_id || !scm.branch) {
+      process.stderr.write("[optimize] build handoff needs a claimed feature (project_id + branch in .lakebase/workflow-state.json); claim + drive to the build turn first.\n");
+      return 2;
+    }
+    ctx.gateBuild = makeBuildGate(sftddDir, featureId);
+    ctx.buildSnapshotDeps = makeBuildSnapshotDeps({
+      projectDir,
+      story: handoff.story ?? "",
+      cutArgs: {
+        instance: scm.project_id,
+        sftddDir,
+        featureId,
+        experimentSlug: `${handoff.story}-optimize`,
+        branch: scm.branch,
+        ...scm.parent_branch ? { parentBranch: scm.parent_branch } : {}
+      }
+    });
+  }
   const deps = makeChampionWalkDeps(ctx);
   const result = await runChampionWalk(
     { handoffs: [handoff], candidates, trials: args.trials, proposeOnly: args.proposeOnly },

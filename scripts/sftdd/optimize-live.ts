@@ -13,6 +13,7 @@
 // commands. The harness only forks/drops throwaway branches , never pushes/merges.
 
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 
 import { applyCandidateConfig, type Candidate } from "./optimize-candidates.js";
@@ -23,6 +24,8 @@ import type { ChampionWalkDeps, HandoffPlan, HandoffSnapshot, TrialResult } from
 import { defaultSftddConfig, loadSftddConfig, writeSftddConfig, type SftddConfigFile } from "./sftdd-config.js";
 import { isBuildHandoff } from "./optimize.cli.js";
 import type { DriveEffectsConfig } from "./orchestrator-effects.js";
+import { cutExperiment, type CutExperimentArgs } from "./experiment.js";
+import { readEscalations } from "./escalation.js";
 
 /** Spawn ONE role turn for a candidate (the cloud/model leaf). The real impl runs
  *  the handoff's `claude -p` command through execRunner (applying the candidate's
@@ -197,5 +200,78 @@ export function makeLiveSpawnTurn(featureId: string, seams: LiveDriveSeams): Spa
     // the walk is positioned on (the harness snapshot/restore keeps that position).
     const { commands } = await seams.planNextAction(cfg);
     for (const cmd of commands) await runner.run(cmd);
+  };
+}
+
+// ── Build-handoff leaves (LIVE CLOUD) ──────────────────────────────────────────
+// A build turn mutates git + a paired Lakebase branch + branch DB rows, so its
+// snapshot/restore is 3-part (SHA reset + re-fork) and its gate is the honest
+// post-turn signal, not a static-artifact check. These wire the real substrate for
+// snapshotBuild's injected BuildSnapshotDeps; git + cutExperiment are themselves
+// injectable so the wiring is unit-tested with no git repo + no cloud.
+
+/** The injectable git ops a build snapshot needs (raw git; the codebase precedent
+ *  is execFileSync("git", ...), there is no reset --hard helper in scm-utils/git). */
+export interface BuildGitOps {
+  /** The current HEAD sha of the working tree. */
+  sha(): Promise<string>;
+  /** Hard-reset the working tree to `sha` (discards the candidate's code changes). */
+  resetHard(sha: string): Promise<void>;
+}
+
+/** Real git ops via execFileSync (matches migrate-artifact-dir.ts's raw-git use). */
+export function realBuildGitOps(projectDir: string): BuildGitOps {
+  return {
+    async sha() {
+      return execFileSync("git", ["rev-parse", "HEAD"], { cwd: projectDir, encoding: "utf8" }).trim();
+    },
+    async resetHard(sha) {
+      execFileSync("git", ["reset", "--hard", sha], { cwd: projectDir, stdio: "ignore" });
+    },
+  };
+}
+
+/** Assemble the BuildSnapshotDeps (captureSha / resetHard / reFork) snapshotBuild
+ *  needs. reFork ALWAYS drops the candidate's stale paired branch before forking a
+ *  clean one (resetStaleBranch), so a re-tried candidate never inherits the prior
+ *  attempt's schema (Finding 27). git + the re-fork are injected for the unit test;
+ *  the CLI supplies realBuildGitOps + cutExperiment. */
+export function makeBuildSnapshotDeps(args: {
+  projectDir: string;
+  story: string;
+  /** cutExperiment args MINUS storyId + resetStaleBranch (supplied here). */
+  cutArgs: Omit<CutExperimentArgs, "storyId" | "projectDir" | "resetStaleBranch">;
+  git?: BuildGitOps;
+  reForkImpl?: (args: CutExperimentArgs) => Promise<unknown>;
+}): BuildSnapshotDeps {
+  const git = args.git ?? realBuildGitOps(args.projectDir);
+  const reFork = args.reForkImpl ?? ((a: CutExperimentArgs) => cutExperiment(a));
+  return {
+    captureSha: () => git.sha(),
+    resetHard: (sha) => git.resetHard(sha),
+    reFork: async () => {
+      await reFork({
+        ...args.cutArgs,
+        projectDir: args.projectDir,
+        storyId: args.story,
+        resetStaleBranch: true,
+      } as CutExperimentArgs);
+    },
+  };
+}
+
+/** The build-turn gate: after the handoff's commands ran (the cycle-record CLI
+ *  stamped GREEN, or wrote a green-failure + raised an escalation), the turn passed
+ *  iff NO unresolved escalation for this story exists. This is the honest signal ,
+ *  an honest-GREEN failure / build halt leaves a story-scoped escalation on disk;
+ *  the self-heal, if it succeeded, resolved it. Pure read of the .sftdd. */
+export function makeBuildGate(sftddDir: string, featureId: string): (args: { handoff: HandoffPlan }) => GateOutcome {
+  return ({ handoff }) => {
+    const story = handoff.story;
+    const open = readEscalations(sftddDir).filter(
+      (e) => !e.resolved_at && e.story_id === story && (e.feature_id === undefined || e.feature_id === featureId),
+    );
+    if (open.length === 0) return { passed: true };
+    return { passed: false, reason: `honest-GREEN halt: ${open.length} unresolved escalation(s) for ${story} (${open.map((e) => e.source).join(", ")})` };
   };
 }
