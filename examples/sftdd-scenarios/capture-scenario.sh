@@ -188,13 +188,22 @@ if [[ -n "$CREATE" ]]; then
   [[ -f "${INTAKE_DIR}/product-overview.md" ]] || { echo "capture-scenario: missing ${INTAKE_DIR}/product-overview.md (inputs from ${INPUTS})" >&2; exit 2; }
   [[ -d "$PROJECT_DIR/.git" ]] && { echo "capture-scenario: project exists: $PROJECT_DIR" >&2; exit 1; }
   mkdir -p "$PARENT"
-  # The scenario MANIFEST (scenario.json) is the single source for this project's
-  # conditions. Read them via the tested reader and funnel them into create-project
-  # as flags , the ONE way in. uiTrack (persisted to sftdd-config.json) drives BOTH
-  # the drive's UX lane AND the e2e harness (create-project derives e2e from it);
-  # language/runner come from the manifest, not a harness hardcode. Degrades to the
-  # --ui flag when the reader bin is absent (stale dist).
+  # The scenario MANIFEST is the single source for this project's conditions. Read
+  # them via the tested reader and funnel them into create-project as flags , the
+  # ONE way in. uiTrack (persisted to sftdd-config.json) drives BOTH the drive's UX
+  # lane AND the e2e harness (create-project derives e2e from it); language/runner
+  # come from the manifest, not a harness hardcode. Degrades to the --ui flag when
+  # the reader bin is absent (stale dist).
+  #
+  # An IN-PROGRESS scenario holds its manifest as scenario.json.pending (so
+  # sftdd-scenarios.test.ts does not treat the unfinished dir as a shippable corpus;
+  # it is renamed to scenario.json only at finalization). That .pending file IS the
+  # authored manifest, so a capture/optimize run must read it: prefer scenario.json,
+  # fall back to scenario.json.pending. Without this fallback every condition
+  # silently defaults (java, no UI), scaffolding the WRONG stack (Finding: the
+  # stockflow-optimize first live run provisioned Spring Boot/Java, not python+UI).
   SCENARIO_MANIFEST="${INPUTS}/scenario.json"
+  [[ -f "$SCENARIO_MANIFEST" ]] || SCENARIO_MANIFEST="${INPUTS}/scenario.json.pending"
   sc() { node "${KIT_ROOT}/dist/scripts/sftdd/scenario-conditions.cli.js" --manifest "$SCENARIO_MANIFEST" --field "$1" 2>/dev/null || true; }
   SC_UI="$(sc uiTrack)"; SC_LANG="$(sc language)"; SC_RUNNER="$(sc runner)"; SC_TIERS="$(sc tiers)"
   create_flags=(--tiers "${SC_TIERS:-$TIERS}")
