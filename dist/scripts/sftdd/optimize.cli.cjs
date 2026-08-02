@@ -12640,7 +12640,7 @@ function claudeBaseArgs(cmd) {
     "--model",
     cmd.model,
     "--permission-mode",
-    "acceptEdits",
+    "bypassPermissions",
     "--strict-mcp-config",
     "--output-format",
     "stream-json",
@@ -13782,7 +13782,8 @@ var import_lakebase11 = require("@databricks-solutions/lakebase-scm-utils/lakeba
 
 // scripts/sftdd/optimize-report.ts
 init_cjs_shims();
-var PROMPT_BOUND_MIN_INPUT_TOKENS = 2e4;
+var PROMPT_BOUND_MIN_INPUT_TOKENS = 1e5;
+var PROMPT_BOUND_MIN_TURN_MS = 6e4;
 function buildChampionWalkReport(result, candidates) {
   const byId = new Map(candidates.map((c) => [c.id, c]));
   const handoffs = result.walk.map((h) => {
@@ -13792,9 +13793,10 @@ function buildChampionWalkReport(result, candidates) {
     const savedPct = baselineMs > 0 ? Math.round(savedMs / baselineMs * 100) : 0;
     const winnerCandidate = byId.get(h.winner.candidateId);
     const base = h.candidates.find((c) => c.candidateId === BASELINE_CANDIDATE_ID);
-    const baselineInputTokens = base?.medianInputTokens;
-    const cacheRead = base?.medianCacheReadTokens ?? 0;
-    const promptBound = typeof baselineInputTokens === "number" && baselineInputTokens >= PROMPT_BOUND_MIN_INPUT_TOKENS && baselineInputTokens > cacheRead;
+    const freshInput = base?.medianInputTokens;
+    const cacheRead = base?.medianCacheReadTokens;
+    const baselineInputTokens = typeof freshInput === "number" || typeof cacheRead === "number" ? (freshInput ?? 0) + (cacheRead ?? 0) : void 0;
+    const promptBound = typeof baselineInputTokens === "number" && baselineInputTokens >= PROMPT_BOUND_MIN_INPUT_TOKENS && baselineMs >= PROMPT_BOUND_MIN_TURN_MS;
     return {
       handoffId: h.handoffId,
       baselineMs,

@@ -49,35 +49,34 @@ const result: ChampionWalkResult = {
 };
 
 describe("buildChampionWalkReport: prompt-weight signal (two-pass trim targeting)", () => {
-  it("surfaces the baseline's median input tokens + flags a prompt-bound handoff", () => {
+  it("reports TOTAL prompt weight + flags a large-prompt + slow handoff as prompt-bound", () => {
     const promptHeavy: ChampionWalkResult = {
       walk: [
         {
           handoffId: "S1-navigator-red",
-          baselineMs: 200000,
+          baselineMs: 200000, // slow
           candidates: [
-            // input-heavy, little cache -> prompt-bound (a .md-trim target)
-            { candidateId: "baseline", medianMs: 200000, medianCostUsd: 2, medianInputTokens: 90000, medianCacheReadTokens: 5000, trials: [], disqualified: false },
+            // large TOTAL prompt (mostly cache-served, as live data showed) + slow -> prompt-bound
+            { candidateId: "baseline", medianMs: 200000, medianCostUsd: 2, medianInputTokens: 40, medianCacheReadTokens: 300000, trials: [], disqualified: false },
           ],
           winner: { candidateId: "baseline", medianMs: 200000, medianCostUsd: 2 },
         },
         {
           handoffId: "S1-dba",
-          baselineMs: 40000,
+          baselineMs: 20000, // fast turn -> NOT prompt-bound even with a big prompt
           candidates: [
-            // input dominated by cache reads -> NOT prompt-bound
-            { candidateId: "baseline", medianMs: 40000, medianCostUsd: 0.3, medianInputTokens: 8000, medianCacheReadTokens: 70000, trials: [], disqualified: false },
+            { candidateId: "baseline", medianMs: 20000, medianCostUsd: 0.3, medianInputTokens: 30, medianCacheReadTokens: 250000, trials: [], disqualified: false },
           ],
-          winner: { candidateId: "baseline", medianMs: 40000, medianCostUsd: 0.3 },
+          winner: { candidateId: "baseline", medianMs: 20000, medianCostUsd: 0.3 },
         },
       ],
     };
     const report = buildChampionWalkReport(promptHeavy, [{ id: "baseline", configOverrides: {} }]);
     const nav = report.handoffs.find((h) => h.handoffId === "S1-navigator-red")!;
     const dba = report.handoffs.find((h) => h.handoffId === "S1-dba")!;
-    expect(nav.baselineInputTokens).toBe(90000);
-    expect(nav.promptBound).toBe(true); // input-heavy + not cache-amortized
-    expect(dba.promptBound).toBe(false); // cache-amortized
+    expect(nav.baselineInputTokens).toBe(300040); // TOTAL = fresh + cache-read
+    expect(nav.promptBound).toBe(true); // large prompt + slow
+    expect(dba.promptBound).toBe(false); // large prompt but fast turn
   });
 
   it("promptBound is false/undefined when tokens were not measured", () => {

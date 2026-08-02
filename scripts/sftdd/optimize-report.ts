@@ -13,9 +13,13 @@ import type { ChampionWalkResult } from "./optimize-harness.js";
 import type { Candidate } from "./optimize-candidates.js";
 import { BASELINE_CANDIDATE_ID } from "./optimize-candidates.js";
 
-/** Fresh (non-cached) input tokens at/above which a slow turn is worth a .md-trim
- *  candidate in pass 2. Coarse , this only RANKS trim targets, gates nothing. */
-const PROMPT_BOUND_MIN_INPUT_TOKENS = 20000;
+/** TOTAL prompt tokens (fresh input + cache-read) at/above which a slow turn is
+ *  worth a .md-trim candidate in pass 2. Prompts are cache-served, so this is total
+ *  prompt weight, not fresh input. Coarse , RANKS trim targets, gates nothing. */
+const PROMPT_BOUND_MIN_INPUT_TOKENS = 100000;
+/** Baseline turn wall-clock at/above which a large prompt is worth trimming (a fast
+ *  turn is not prompt-bound however big the prompt). */
+const PROMPT_BOUND_MIN_TURN_MS = 60000;
 
 /** One handoff's before/after row. */
 export interface HandoffReportRow {
@@ -27,13 +31,15 @@ export interface HandoffReportRow {
   savedPct: number;
   /** Human-readable description of the winning candidate's levers. */
   winnerLevers: string;
-  /** The baseline turn's median INPUT (prompt) tokens, when measured , the
-   *  prompt-weight signal for the two-pass plan. */
+  /** The baseline turn's TOTAL prompt tokens (fresh input + cache-read), when
+   *  measured , the prompt-weight signal for the two-pass plan. Total, because
+   *  prompts are cache-served (fresh input is tiny), yet a big cached prompt still
+   *  costs and trimming the .md shrinks it. */
   baselineInputTokens?: number;
-  /** Prompt-bound: the baseline is slow AND its prompt is input-heavy + NOT
-   *  cache-amortized (fresh input > cache reads). These are the roles where
-   *  authoring a trimmed .md (agentOverlay candidate) is worth it in pass 2; a
-   *  cache-amortized or cheap turn is not. False when tokens were not measured. */
+  /** Prompt-bound: the baseline turn has a LARGE total prompt AND is SLOW , the
+   *  roles worth authoring a trimmed .md (agentOverlay candidate) for in pass 2. A
+   *  fast turn (however big the prompt) or a small prompt is not. False when tokens
+   *  were not measured. */
   promptBound: boolean;
 }
 
@@ -56,16 +62,25 @@ export function buildChampionWalkReport(result: ChampionWalkResult, candidates: 
     const winnerCandidate = byId.get(h.winner.candidateId);
     // Prompt-weight from the baseline candidate's roll-up (the un-optimized turn).
     const base = h.candidates.find((c) => c.candidateId === BASELINE_CANDIDATE_ID);
-    const baselineInputTokens = base?.medianInputTokens;
-    const cacheRead = base?.medianCacheReadTokens ?? 0;
-    // Prompt-bound heuristic: fresh input tokens are substantial AND exceed cache
-    // reads (the prompt is NOT amortized by caching), so trimming the .md would cut
-    // real per-turn work. Thresholds are deliberately coarse , this only RANKS
-    // trim targets for pass 2, it does not gate anything.
+    const freshInput = base?.medianInputTokens;
+    const cacheRead = base?.medianCacheReadTokens;
+    // TOTAL prompt tokens = fresh input + cache-read. Live data showed prompts are
+    // almost entirely CACHE-SERVED (e.g. ~30 fresh vs ~300k cached), so an earlier
+    // "fresh > cache" rule always read false and masked genuinely large prompts. A
+    // big prompt still costs, cached or not (cache-creation + the model's read-
+    // through), and trimming the role .md shrinks the CACHED prompt too. So the
+    // signal is: TOTAL prompt is large AND the turn is slow (time not explained by a
+    // trivial prompt). baselineInputTokens on the row reports total prompt weight.
+    const baselineInputTokens =
+      typeof freshInput === "number" || typeof cacheRead === "number"
+        ? (freshInput ?? 0) + (cacheRead ?? 0)
+        : undefined;
+    // Prompt-bound: a large total prompt AND a slow baseline turn , the roles worth
+    // authoring a .md trim for in pass 2. Coarse , RANKS trim targets, gates nothing.
     const promptBound =
       typeof baselineInputTokens === "number" &&
       baselineInputTokens >= PROMPT_BOUND_MIN_INPUT_TOKENS &&
-      baselineInputTokens > cacheRead;
+      baselineMs >= PROMPT_BOUND_MIN_TURN_MS;
     return {
       handoffId: h.handoffId,
       baselineMs,

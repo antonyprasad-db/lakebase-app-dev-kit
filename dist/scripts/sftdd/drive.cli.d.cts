@@ -181,14 +181,18 @@ declare function claudeToolArgs(cmd: Extract<DriveCommand, {
  * is guardable. Headless essentials: -p (print), --agent/--model, --strict-mcp-config,
  * stream-json + --verbose (to capture turn.usage while teeing text).
  *
- * --permission-mode acceptEdits is LOAD-BEARING: a scaffolded project ships no
- * .claude/settings.json, so without an explicit mode a headless role agent DEFAULTS
- * TO PROMPTING for file writes , and there is no one to answer, so every Write/mkdir
- * of the role's artifact (feature-spec.json, story stubs, ...) is refused and the
- * role produces nothing. acceptEdits is the MINIMAL grant that lets role agents
- * write their own artifacts autonomously (file edits/writes only), NOT the dangerous
- * full bypass. This is why prior captures depended on an ambient permissive default;
- * declaring it here makes the drive self-sufficient in any headless environment.
+ * --permission-mode bypassPermissions is LOAD-BEARING: a scaffolded project ships
+ * no .claude/settings.json, so without an explicit mode a headless role agent
+ * DEFAULTS TO PROMPTING , and there is no one to answer. A role agent must both
+ * WRITE its artifact (feature-spec.json, story stubs, code) AND RUN kit CLIs (its
+ * self-check `lakebase-sftdd-response-formatter`, the cycle stamps). acceptEdits
+ * granted only the writes, so the Bash self-check kept prompting + retrying, wasting
+ * round-trips inside the very turn being timed. bypassPermissions grants both, which
+ * is what a fully-unattended drive needs (and what prior captures relied on via an
+ * ambient permissive default). SCOPED to the throwaway, isolated, scaffolded project
+ * the drive runs in , this spawns each role agent autonomous within that project,
+ * not the operator's session. This is why declaring it here makes the drive
+ * self-sufficient in any headless environment.
  */
 declare function claudeBaseArgs(cmd: Extract<DriveCommand, {
     kind: "claude";
