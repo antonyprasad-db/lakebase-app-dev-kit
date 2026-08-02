@@ -1,6 +1,0 @@
-{
-  "reviewed_at": "2026-07-28T01:32:09.728Z",
-  "refactor_requested": true,
-  "refactor_notes": "Three dead-field violations of NFR-F6-S2-no-dead-field remain: (1) client/src/pages/SkuDetailView.tsx still types LocationEntry with tracking_code (not batch_number/serial_number) and renders `tracking_code ?? 'not tracked'` -- the retired combined field survives on the read path; (2) client/src/api/stock.ts StockPayload includes inventory_code; (3) client/src/pages/FileStockRecord.tsx still renders an inventory_code input and fieldErrors.inventory_code. All three must be removed and SkuDetailView updated to render batch_number and serial_number as two separately labelled cells (per NFR-F6-S2-spa-distinct-fields / AC1/AC3). StockView.tsx is correct. No layer-boundary or naming issues in the backend layers.",
-  "refactored_at": "2026-07-28T05:23:00.185Z"
-}

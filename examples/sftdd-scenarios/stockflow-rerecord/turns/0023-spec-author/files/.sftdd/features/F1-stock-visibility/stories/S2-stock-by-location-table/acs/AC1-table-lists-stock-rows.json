@@ -1,8 +1,0 @@
-{
-  "id": "AC1-table-lists-stock-rows",
-  "status": "draft",
-  "layer": "E2E",
-  "given": "one or more stock records exist across locations",
-  "when": "the operator opens the home stock-by-location screen",
-  "then": "a table renders one row per stock record, each row showing that record's SKU, its location, and its quantity"
-}

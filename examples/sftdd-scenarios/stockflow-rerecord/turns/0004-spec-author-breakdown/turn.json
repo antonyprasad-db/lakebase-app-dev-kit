@@ -14,13 +14,20 @@
     ".sftdd/features/F1-stock-visibility/feature-spec.json",
     ".sftdd/features/F1-stock-visibility/feature-spec.md",
     ".sftdd/features/F1-stock-visibility/pipeline.json",
-    ".sftdd/features/F1-stock-visibility/stories/S1-file-stock-record/story.json",
-    ".sftdd/features/F1-stock-visibility/stories/S1-file-stock-record/story.md",
+    ".sftdd/features/F1-stock-visibility/stories/S1-file-stock/story.json",
+    ".sftdd/features/F1-stock-visibility/stories/S1-file-stock/story.md",
     ".sftdd/features/F1-stock-visibility/stories/S2-stock-by-location-table/story.json",
     ".sftdd/features/F1-stock-visibility/stories/S2-stock-by-location-table/story.md",
     ".sftdd/features/F1-stock-visibility/stories/S3-sku-detail-view/story.json",
     ".sftdd/features/F1-stock-visibility/stories/S3-sku-detail-view/story.md",
-    ".sftdd/run-config.json"
+    ".sftdd/run-config.json",
+    ".tmp/schema-diff.md"
   ],
-  "deleted": []
+  "deleted": [],
+  "transcript": {
+    "role": "spec-author",
+    "model": "opus",
+    "toolCount": 14,
+    "finalTextChars": 153
+  }
 }

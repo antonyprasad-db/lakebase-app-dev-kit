@@ -4,15 +4,21 @@
   "label": "test-strategist",
   "kind": "invoke-role",
   "role": "test-strategist",
-  "story": "S1-file-stock-record",
+  "story": "S1-file-stock",
   "action": {
     "kind": "invoke-role",
     "role": "test-strategist",
-    "story": "S1-file-stock-record"
+    "story": "S1-file-stock"
   },
   "produced": [
-    ".sftdd/features/F1-stock-visibility/stories/S1-file-stock-record/test-list-per-story.json",
+    ".sftdd/features/F1-stock-visibility/stories/S1-file-stock/test-list-per-story.json",
     ".sftdd/features/F1-stock-visibility/test-list.json"
   ],
-  "deleted": []
+  "deleted": [],
+  "transcript": {
+    "role": "test-strategist",
+    "model": "opus",
+    "toolCount": 13,
+    "finalTextChars": 263
+  }
 }

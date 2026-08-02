@@ -2,178 +2,171 @@
 
 ## Design Philosophy
 
-Derived from the Databricks brand baseline (`client/src/styles/STYLE_GUIDE.md`, `theme.css`) for color and typography, and a clean warehouse/inventory dashboard layout pattern (Cin7/Linnworks card-and-table conventions) for information density.
+Sourced from the Databricks-brand default (`client/src/styles/STYLE_GUIDE.md`, `theme.css`) for brand and color; warehouse/inventory dashboard references (Cin7, Linnworks card-and-table layout) for information density and layout cadence.
 
-- **Clarity over decoration.** Every element earns its space; nothing decorative is added.
-- **Guide the user.** Empty states teach, not scold. Every state (empty, loading, success, error) is named explicitly.
-- **Warm and professional.** Navy + warm neutrals, not cold corporate grey. Consistent with the Databricks ecosystem.
-- **No silent failure.** Every action (receive, pick, adjust, cycle-count) has an explicit success or failure acknowledgment.
+1. **Clarity over decoration.** Every element earns its space. The stock table is the hero; no chrome competes with it.
+2. **Guide the user.** Every empty state teaches: "No stock at this location -- receive an inbound shipment." Never a blank region or a silent null.
+3. **Warm and professional.** Navy + warm-oat neutrals, never cold corporate grey. Consistent with the Databricks ecosystem.
+4. **Scannable at a glance.** Numeric columns are right-aligned with tabular figures (DM Mono). Status carries both text and color -- never color alone.
+5. **Tablet-first floor UX.** 44x44 px minimum tap targets. Readable at 200% zoom. Barcode scan is the primary input; keyboard is always available.
+
+---
 
 ## UI Framework and Templating
 
-StockFlow is a React 18 + TypeScript single-page application (Vite, React Router). All UI is component-based; no hand-assembled HTML strings. Template rendering happens in the client boundary only -- the server returns JSON, never HTML.
+- **React 18 + TypeScript SPA** under `client/` (Vite). No server-rendered HTML; the server returns JSON only.
+- **React Router** for client-side routing (no full-page reloads between screens).
+- **Component library**: project-built presentational components under `client/src/components/`. No hand-assembled raw HTML outside components.
+- Every interactive state (loading, empty, success, error, validation-failed) is a discrete component state, never a blank region.
+- **Stable test seams**: every screen, form, status region, and feedback element carries a `data-testid` attribute named by role (e.g., `data-testid="stock-table"`, `data-testid="scan-feedback"`, `data-testid="form-error-sku"`). This is mandatory, not optional.
+- Feedback regions use `role="alert"` or `aria-live="polite"` so screen readers announce state changes without focus movement.
+- Rendering boundary: pages (`client/src/pages/`) wire hooks + components; components are pure presentational. The `api/` layer is the sole issuer of `fetch`.
 
-Every interactive surface carries a stable `data-testid` attribute so Playwright can target it without coupling to CSS or text content. Required seams:
-
-- Page-level: `data-testid="home-page"`, `data-testid="sku-detail-page"`, `data-testid="receive-form"`, `data-testid="pick-form"`, `data-testid="adjustment-form"`, `data-testid="cycle-count-form"`, `data-testid="search-page"`
-- State-level per page: `data-testid="empty-state"`, `data-testid="loading-state"`, `data-testid="error-state"`
-- Action-level: `data-testid="submit-btn"`, `data-testid="scan-zone"`, `data-testid="stock-table"`, `data-testid="sku-row"` (on each row), `data-testid="feedback-message"`
-- Feedback: every form has a `role="alert"` or `aria-live` region AND a `data-testid` ending in `-error`, `-success`, or `-status`
+---
 
 ## Typography
 
-Source: Databricks brand reference (`theme.css`). DM Sans is the primary face; DM Mono for all numeric/code values.
+Source: Databricks-brand default (`STYLE_GUIDE.md`). DM Sans (UI copy) + DM Mono (quantities, codes, numeric columns).
 
-| Token | Value | Usage |
+| Token | Value | Use |
 |---|---|---|
-| `font_family` | `'DM Sans', system-ui, ...` | All UI text |
-| `font_mono` | `'DM Mono', ui-monospace, ...` | Quantities, SKU codes, barcodes |
-| `text-xs` | 10px | Labels, metadata |
-| `text-sm` | 13px | Table cells, secondary text |
+| `--font-sans` | `"DM Sans", system-ui, …` | All UI copy |
+| `--font-mono` | `"DM Mono", ui-monospace, …` | Quantities, SKU codes, barcodes |
+| `text-xs` | 10px | Micro labels, badge text |
+| `text-sm` | 13px | Table cells, secondary labels |
 | `text-base` | 15px | Body, form inputs |
-| `text-md` | 16px | Subheadings |
+| `text-md` | 16px | Sub-headings |
 | `text-lg` | 20px | Page headings |
-| `text-xl` | 24px | Section headers |
-| `text-xxl` | 29px | Hero / modal headers |
-| Line-height body | 1.5 | Prose, form labels |
-| Line-height heading | 1.25 | Headings |
-| Weights | 400 / 500 / 600 / 700 | regular / medium / semibold / bold |
+| `text-xl` | 24px | Hero headings |
+| `text-xxl` | 29px | Display / splash |
+| Body line-height | 1.5 | Paragraphs, table rows |
+| Heading line-height | 1.25 | H1-H3 |
+| Regular | 400 | Body, table cells |
+| Medium | 500 | Labels, badge text, nav links |
+| Semibold | 600 | Sub-headings, form labels |
+| Bold | 700 | Page headings |
 
-Numeric quantity cells use `font-family: var(--font-mono)` with `font-variant-numeric: tabular-nums` so columns of numbers align visually.
+Numeric quantities in table cells and detail panels always use `font-family: var(--font-mono)` and `font-variant-numeric: tabular-nums` so columns align.
+
+---
 
 ## Color Palette
 
-Source: Databricks brand reference (`theme.css`, `STYLE_GUIDE.md`). Brand red is reserved for the primary action and active state only; the stock table itself stays calm and high-contrast.
+Source: Databricks-brand default (`theme.css`). Brand red is reserved for primary CTA and active state only; everything else is calm navy + warm neutrals.
 
 ### Brand
-| Token | Hex | Usage |
+| Token | Hex | Use |
 |---|---|---|
-| `brand-red` | `#FF3621` | Primary CTA (Receive, Pick, Save), active nav link |
-| `brand-red-hover` | `#EB1600` | Hover on primary button |
-| `navy-900` | `#1B3139` | Primary text color |
+| `brand-red` | `#FF3621` | Primary button (Receive, Pick, Save), active nav link |
+| `brand-red-hover` | `#EB1600` | Hover / pressed state of primary button |
+| `navy-900` | `#1B3139` | Primary text, navbar background |
 
 ### Semantic
-| Token | Hex | Usage |
+| Token | Hex | Use |
 |---|---|---|
-| `success` | `#2E844A` | Confirmed save, green scan flash, in-stock badge |
-| `warning` | `#FFAB00` | Low-stock badge, soft alert |
-| `info` | `#0176D3` | Informational messages |
-| `error` | `#FF3621` | Validation errors, failed scan flash, out-of-stock badge |
+| `success` | `#2E844A` | Inline save flash, scan success, OK stock badge |
+| `warning` | `#FFAB00` | Low-stock badge (text + color) |
+| `info` | `#0176D3` | Informational toast |
+| `error` | `#FF3621` | Validation inline error, scan-fail flash, out-of-stock badge |
 
-Semantic colors are NEVER used alone -- each status badge carries its label as visible text ("out", "low", "ok") in addition to the color.
+Status is ALWAYS communicated with both text and color (e.g., a badge reads "out" AND uses the error color). Never color alone.
 
 ### Surface
-| Token | Hex | Usage |
+| Token | Hex | Use |
 |---|---|---|
-| `page` | `#F9F7F4` | Warm-oat page background |
-| `card` | `#FFFFFF` | Card background |
-| `text` | `#1B3139` | Default body text |
+| `page` | `#F9F7F4` | Page / body background (warm oat) |
+| `card` | `#FFFFFF` | Card and panel background |
+
+---
 
 ## Spacing
 
-4px base grid. All margins, padding, and gaps use these tokens via `var(--space-N)`.
+4px base grid. Source: Databricks-brand default (`theme.css`).
 
-| Token | Value |
-|---|---|
-| `space-1` | 4px |
-| `space-2` | 8px |
-| `space-3` | 12px |
-| `space-4` | 16px |
-| `space-6` | 24px |
-| `space-8` | 32px |
-| `space-12` | 48px |
-| `space-16` | 64px (navbar height) |
+| Token | Value | Typical use |
+|---|---|---|
+| `space-1` | 4px | Icon gap, badge padding (v) |
+| `space-2` | 8px | Badge padding (h), tight row gap |
+| `space-4` | 16px | Section padding, form field gap |
+| `space-6` | 24px | Page padding, card padding |
+| `space-8` | 32px | Section gap |
+| `space-12` | 48px | Large section separation |
+| `space-16` | 64px | Navbar height |
 
-Content max-width: **960px**, centered. Navbar height: **64px** (`space-16`). Tap targets: minimum **44x44px** on tablet.
+Content max-width: **960px**, centered, `padding: var(--space-6) var(--space-4)`.
+
+---
 
 ## Components
 
-### Primary Button
-- Background: `var(--color-brand)` (`#FF3621`), no border, **radius 0px** (sharp corners per brief)
-- Hover: `var(--color-brand-hover)` (`#EB1600`)
-- Text: white, `text-base`, weight semibold
-- Padding: `space-2` vertical, `space-4` horizontal
-- Min tap target: 44px height
-- Used for: Receive, Pick, Save, Submit, Scan Confirm
-
-### Secondary Button / Ghost
-- Background: transparent, border `1px solid var(--color-text)`
-- Text: `var(--color-text)`
-- Radius: `radius-md` (8px)
+### Navbar
+- Height 64px (`var(--space-16)`), `background: var(--color-text)` (navy-900), white wordmark + links.
+- Active link: `color: var(--color-brand)`, weight medium.
+- `data-testid="navbar"`.
 
 ### Card
-- Background: `var(--color-card)` (white)
-- On: `var(--color-surface)` (warm-oat page)
-- Border-radius: `radius-md` (8px)
-- Shadow: `shadow-sm` (navy-tinted, never black)
-- Padding: `space-4` or `space-6`
+- `background: var(--color-card)`, `border-radius: var(--radius-md)`, `box-shadow: var(--shadow-sm)`.
+- Inner padding `var(--space-6)`.
+- `data-testid="card-<name>"`.
+
+### Primary Button
+- `background: var(--color-brand)`, color white, `border-radius: 0` (sharp corners per brief), weight semibold.
+- Hover: `background: var(--color-brand-hover)`.
+- Min tap target 44x44px.
+- `data-testid="btn-<action>"` (e.g., `btn-save`, `btn-receive`, `btn-pick`).
 
 ### Stock Table
-- Full-width within the 960px column
-- Header: weight semibold, `text-sm`, `var(--color-text)`
-- Rows: alternating subtle separator, no heavy zebra
-- Quantity column: right-aligned, `font-family: var(--font-mono)`, tabular-nums
-- SKU column: left-aligned
-- Row hover: light navy tint (opacity 4%)
+- Full-width within card. Row height min 44px (tablet tap target).
+- SKU / description columns: left-aligned, font-sans.
+- Quantity columns: right-aligned, font-mono, tabular-nums.
+- Row hover: `background: rgba(27,49,57,0.04)`.
+- `data-testid="stock-table"`, each row `data-testid="stock-row-<sku>"`.
 
-### Status Badge (Stock Level Pill)
-- Conveys state via BOTH text label AND color (never color alone)
-- `out` label + `var(--color-error)` background + white text
-- `low` label + `var(--color-warning)` background + `var(--color-text)` text
-- `ok` label + `var(--color-success)` background + white text
-- Radius: `radius-pill` (999px)
-- Font: `text-sm`, weight medium
+### Status Badge
+- `border-radius: var(--radius-pill)`, font-size text-sm, weight medium.
+- States: `--ok` (success green + white text), `--warn` (warning amber + navy text), `--error` (brand-red + white text).
+- Always includes visible text label ("ok", "low", "out") in addition to color.
+- `data-testid="stock-badge-<sku>"`.
 
-### Form Inputs
-- Visible, persistent `<label>` above every input (not placeholder-only)
-- Border: `1px solid` muted navy (`rgba(27,49,57,0.3)`)
-- Radius: `radius-sm` (4px)
-- Focus ring: `2px solid var(--color-brand)`
-- Padding: `space-2` vertical, `space-2` horizontal
-- Error state: border `var(--color-error)` + inline error message below the field naming the field
+### Form Field
+- Visible persistent label above the input (never placeholder-only).
+- Input: `border-radius: var(--radius-sm)`, border `1px solid var(--color-text)` at 40% opacity, padding `var(--space-2) var(--space-4)`.
+- Error: inline message below the field, `color: var(--color-error)`, `role="alert"`.
+- `data-testid="field-<name>"`, error `data-testid="error-<name>"`.
 
 ### Scan Zone
-- Prominent outlined area with `data-testid="scan-zone"`
-- Success flash: green overlay (`var(--color-success)` at 20% opacity) for 600ms, then stock row updates in place
-- Failure flash: red overlay (`var(--color-error)` at 20% opacity) for 600ms + persistent toast
+- Visually distinct region with a barcode icon and prompt text.
+- Success state: green flash (`background: var(--color-ok)`), fades after 1.5s; stock row updates in place.
+- Failure state: red flash (`background: var(--color-error)`), does not auto-dismiss; shows persistent toast.
+- `data-testid="scan-zone"`, `data-testid="scan-feedback"`.
 
 ### Toast / Alert
-- `role="alert"` for screen readers
-- Persistent until dismissed for failure cases
-- Auto-dismiss after 4s for success cases
-- Carries both icon and text label
-
-### Navigation Bar
-- Height: `space-16` (64px)
-- Shadow: `shadow-navbar`
-- Active link: `var(--color-brand)` color
+- `role="alert"` or `aria-live="polite"`. Appears top-right, above content.
+- Success: success green background; Error: brand-red background.
+- Persistent until dismissed (or 5s auto-dismiss for success only).
+- `data-testid="toast"`.
 
 ### Empty State
-- `data-testid="empty-state"`
-- Centered in the content area
-- Explanatory text ("No stock at this location -- receive an inbound shipment")
-- Optional primary action CTA
+- Centered in the content area, icon + heading + action prompt.
+- Never a blank region; always explains what is missing and what to do.
+- `data-testid="empty-state"`.
+
+---
 
 ## User Feedback Principles
 
-Every user action gets an explicit acknowledgment. No silent failure, no unacknowledged success.
+No silent failure. No unacknowledged success.
 
-1. **Form submit success**: land on a confirmation view, or show an inline green flash for minor adjustments. Never leave the user wondering if the save worked.
-2. **Form validation error**: displayed inline immediately below the offending field, naming the field ("Quantity: cannot pick more than the 12 on hand"). Never a generic top-level "something went wrong".
-3. **Barcode scan success**: green flash on the scan zone + the stock row updates in place.
-4. **Barcode scan failure** (unknown barcode, locked SKU): red flash on the scan zone + a persistent `role="alert"` toast naming the reason.
-5. **Overcommit on pick**: field-level error before submit, not after a server round-trip.
-6. **Loading states**: every async operation shows a loading indicator (`data-testid="loading-state"`); never a blank region.
-7. **Empty states**: explicit message with guidance; never a blank page or blank section.
+1. **Every form submission gets a response.** A successful Receive / Pick / Adjustment lands on a confirmation view or an inline flash. A failed validation shows an inline error next to the offending field, naming the field.
+2. **Barcode scans are always acknowledged.** Success: green flash + stock row updates in place. Failure (unknown barcode, locked SKU): red flash on the scan zone + persistent toast naming the reason.
+3. **Overcommit is caught before submit.** A pick quantity that exceeds available stock shows an inline error on the quantity field before the form can be submitted.
+4. **Loading is visible.** Any async operation shows a loading indicator (`data-testid="loading"`) and disables the submit button to prevent double-submission.
+5. **Every feedback region is addressable by the E2E layer.** `role="alert"` / `aria-live` for screen readers; `data-testid` naming the state (e.g., `data-testid="form-success"`, `data-testid="form-error-qty"`) for Playwright.
 
-All feedback regions carry `role="alert"` or `aria-live="polite"` for screen reader announcement. Every form carries at least one `data-testid` ending in `-error`, `-success`, or `-status`.
+### Adherence contract (E2E checks)
 
-## Accessibility
+The Playwright suite runs `assertDesignAdherence` against the live `:root` CSS to verify all tokens in `design-guide.json` are present and match. Element-level checks additionally verify:
 
-- Form inputs: visible, persistent `<label>` (not placeholder-only)
-- Tap targets: minimum 44x44px (warehouse tablet use)
-- Quantity cells and stock pills: text label + color (never color alone)
-- All controls keyboard-reachable; readable at 200% zoom
-- Numeric quantities: `font-variant-numeric: tabular-nums` with DM Mono
-- Focus indicators: visible 2px outline using `var(--color-brand)`
-- ARIA roles on dynamic regions: `role="alert"`, `aria-live="polite"`
+- `checkHardcodedValues`: no hex or raw px in inline `style=` / `<style>` outside `:root` token definitions.
+- `checkRequiredSeams`: every `data-testid` declared in `ia.md` is rendered in its screen.
+- `checkFeedbackPresent`: every `<form>` or submit control has a sibling `role="alert"` / `aria-live` region or a `data-testid` naming error/success/message/status.

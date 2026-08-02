@@ -1,9 +1,0 @@
-{
-  "id": "AC1-conforming-code-backfilled",
-  "status": "draft",
-  "layer": "Infra",
-  "given": "a sprint-1 stock row whose inventory_code is a full location-batch-serial code (for example \"A12-B7-S001\")",
-  "when": "the up migration runs and backfills the new columns by splitting the code on the hyphen delimiter",
-  "then": "that row's batch_number equals the second segment and serial_number equals the third segment, and the row remains retrievable with its quantity and location intact",
-  "architectural_notes": "Infra layer: exercised by the up Alembic revision applied to the shared paired branch (databricks_postgres), then read back through app/repositories (the only layer that touches the ORM/session). The delimiter parse (segment 2 -> batch, segment 3 -> serial) is pure transformation logic in app/services so it stays unit-addressable and the migration body stays thin; add + backfill + drop run in one migration transaction. Owner modules: migrations/versions/* (schema), app/services (parse), app/models/stock.py (nullable batch_number/serial_number). Verified by a kind:behavior real-branch test on the shared branch in its UP state; no down migration involved."
-}

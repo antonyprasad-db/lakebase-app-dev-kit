@@ -4,19 +4,28 @@
   "label": "navigator",
   "kind": "invoke-role",
   "role": "navigator",
-  "story": "S1-file-stock-record",
+  "story": "S1-file-stock",
   "action": {
     "kind": "invoke-role",
     "role": "navigator",
-    "story": "S1-file-stock-record"
+    "story": "S1-file-stock"
   },
   "produced": [
-    ".sftdd/cycles/F1-stock-visibility/S1-file-stock-record/AC1-file-new-record/cycle-001.json",
-    "client/tests/pages/FileStockRecord.test.tsx",
+    ".sftdd/cycles/F1-stock-visibility/S1-file-stock/AC1-file-stock-record/cycle-001.json",
+    "client/tests/pages/FileStock.test.tsx",
+    "client/tests/pages/RetrieveStock.test.tsx",
     "tests/architecture/test_layering.py",
-    "tests/features/S1-file-stock-record.feature",
-    "tests/step_defs/test_s1_file_stock_record.py",
+    "tests/features/S1-file-stock.feature",
+    "tests/step_defs/test_S1_file_stock.py",
+    "tests/test_S1_fitness.py",
+    "tests/test_S1_migration.py",
     "uv.lock"
   ],
-  "deleted": []
+  "deleted": [],
+  "transcript": {
+    "role": "navigator",
+    "model": "sonnet",
+    "toolCount": 40,
+    "finalTextChars": 241
+  }
 }

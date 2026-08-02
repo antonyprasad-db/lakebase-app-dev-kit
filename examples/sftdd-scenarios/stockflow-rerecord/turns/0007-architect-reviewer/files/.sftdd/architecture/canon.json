@@ -1,6 +1,6 @@
 {
   "established_by": "F1-stock-visibility",
-  "established_at": "2026-07-27T19:48:05.545Z",
+  "established_at": "2026-08-01T02:59:42.667Z",
   "ac_layers": [
     "E2E"
   ],
@@ -8,19 +8,23 @@
   "invariant_patterns": [
     {
       "type": "unique",
-      "brief": "Composite unique key on (sku, location) so no two stored rows share the pair; a repeat filing collides and updates rather than duplicating."
+      "brief": "A composite unique constraint on (sku, location) guarantees at most one stored record per pair; a repeat write collapses to that row rather than duplicating."
     },
     {
       "type": "not_null",
-      "brief": "sku, location, quantity, and inventory_code are NOT NULL; a filing missing any core field is rejected at write time."
+      "brief": "quantity, sku, location, and inventory_code are NOT NULL so a filed record always carries its addressing key and stored values."
     },
     {
       "type": "check",
-      "brief": "CHECK quantity >= 0 so a stored stock level can never go negative (backs R2 at the schema level)."
+      "brief": "A CHECK (quantity >= 0) constraint enforces that stock never persists below zero (R2 write-time rejection backed at the DB)."
+    },
+    {
+      "type": "transactional",
+      "brief": "The read-existing-then-write for a (sku, location) collision runs in a single transaction so a concurrent repeat file cannot store two rows."
     },
     {
       "type": "migration_reversible",
-      "brief": "The Alembic migration that creates stock_records has a working downgrade and preserves records created before it (backs R1: no data loss across additive migrations)."
+      "brief": "The Alembic migration that creates stock_records has a working downgrade and is additive, preserving records created before it (R1)."
     }
   ]
 }

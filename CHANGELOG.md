@@ -6,7 +6,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.3.6] - 2026-07-31
+## [0.3.6] - 2026-08-02
 
 ### Fixed
 
@@ -18,6 +18,34 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   own gate. The spec-author also self-checks it at breakdown (a new breakdown
   mode of the response formatter), and the breakdown prompt + task hint demand
   the determination up front, so it is caught before the gate at all.
+- **The build fails fast on expired Databricks auth instead of hanging.** When
+  the OAuth refresh token had expired, `generate-database-credential` failed and
+  the app's connection pool hung, so a per-turn verify stalled indefinitely (a
+  cached access token let `current-user me` pass, masking it). A drive-time
+  auth preflight (`driveAuthPreflight`) now checks `databricks auth token
+  --force-refresh` before the run, and an auth-expired verify failure escalates
+  immediately (source `auth-expired`) rather than routing a self-heal detour, so
+  the human sees a clear "re-authenticate" message in seconds, not a spin. (The
+  runtime-token app template also raises a typed `DatabricksAuthExpired` instead
+  of hanging the pool.) Pairs with `@databricks-solutions/lakebase-scm-utils`
+  v0.1.0, which the kit now pins.
+- **Reactive-green supersession turns are labeled so replay stays aligned.** When
+  a story's honest-GREEN verify failed because it superseded a prior test, the
+  Navigator assessed it and the Driver permissively re-greened , but that
+  re-green turn recorded with no build-mode suffix, so a build-turn replay saw a
+  spurious extra `green` ([red,green,green,review]) it could not drop. That turn
+  now routes with a distinct `green-superseded` build mode (running the identical
+  honest GREEN; only the recorded label changes), and both the replay filter and
+  the corpus-integrity guard drop it like the other verify-failure detours.
+
+### Added
+
+- **A re-recorded `stockflow-rerecord` scenario corpus** captured end-to-end on
+  the current kit (design + build lanes both live, including the DBA design-lane
+  role and a fully live planning lane). Two sprints on one project, both shipped
+  end-to-end (build + deploy + promote/merge to staging): F1 record-stock
+  visibility and F6 the split-tracking-code expand/contract migration. It is the
+  standing replay-scenario regression corpus.
 
 ### Added
 
@@ -48,6 +76,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `/consort:start` resume path.
 - The abort message for a role whose artifact failed its contract no longer
   says "returned nothing" when the artifact is present but non-conformant.
+- **Tests own their database state (no shared-state contamination).** The
+  test-strategist now scopes each test's seed and assertion to its own rows (or
+  asserts a delta) instead of an absolute whole-table aggregate, so a story's
+  tests no longer flake once another story's rows share the table. As a safety
+  net, the deploy-verify contamination self-heal (classify by isolation re-run,
+  Navigator assess, Driver scope, one honest re-verify) now also covers the
+  feature-ship deploy, not just the per-story deploy.
+- **The planning lane records the committed feature's size on a re-plan sprint.**
+  A per-sprint `estimate-committed` turn sizes the committed feature and
+  re-syncs the sprint backlog, so `backlog.json` carries per-sprint sizing even
+  when the sprint re-plans rather than proposing fresh.
+- **The green-failure assess turn is decisive when the failure is already
+  localized.** When a deterministic advisory has pre-localized the superseded
+  tests, the Navigator's assess prompt tells it to trust that and flag in one
+  call rather than re-scan the whole tree, closing a long assess spin.
 
 ## [0.3.5] - 2026-07-31
 

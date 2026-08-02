@@ -1,0 +1,15 @@
+{
+  "ordinal": 103,
+  "step": 0,
+  "label": "dispatch",
+  "kind": "dispatch",
+  "story": "S3-stock-shows-split-fields",
+  "action": {
+    "kind": "dispatch",
+    "story": "S3-stock-shows-split-fields"
+  },
+  "produced": [
+    ".sftdd/features/F6-split-tracking-code/pipeline.json"
+  ],
+  "deleted": []
+}

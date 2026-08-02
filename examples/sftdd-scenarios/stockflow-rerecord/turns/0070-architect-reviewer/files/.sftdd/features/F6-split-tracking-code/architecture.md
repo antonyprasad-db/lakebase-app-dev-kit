@@ -1,74 +1,56 @@
-# Architecture: F6 Split tracking code
+# Architecture: F6-split-tracking-code
 
-Reuses the F1-stock-visibility layer convention verbatim: boundary=`app/routes` (react),
-service=`app/services`, repository=`app/repositories`, models=`app/models`. No layer is
-remapped or renamed; this feature adds no new layer. S1 is a schema-refactor story whose
-whole surface lives below the boundary (Alembic migration + repository read paths), so its
-ACs are all `Infra`.
+Split the combined `inventory_code` into first-class `batch_number` and `serial_number` columns on `stock_records`, backfilled by splitting on the hyphen delimiter (segment 2 = batch, segment 3 = serial), dropping the combined column, and surfacing a nonconforming-row count before acceptance. `service_backed: true` (persists domain data; schema migration on the stock aggregate).
+
+## Layer assignment summary (S1-split-columns-migration)
+
+All eight ACs are **Infra**: they assert schema contracts and data-transform guarantees on the `stock_records` table, realized by a single Alembic up-migration (with a paired downgrade) plus a read-only integrity probe. The migration is the owner module; the `app/models/` stock aggregate gains/loses the fields and `app/repositories/` is the only layer that later reads them via the ORM. No business logic lives in the boundary or service for this story; the parse rule is deterministic migration-owned logic. Layer layout is inherited verbatim from the F1 convention (boundary=`app/routes/` react, service=`app/services/`, repository=`app/repositories/`, models=`app/models/`).
 
 ## Architectural Concerns Mapping
 
-| Concern | Owner layer | Module | Notes |
-|---|---|---|---|
-| Schema change (add/backfill/drop columns) | Infra / migration | Alembic `migrations/versions/*` | Additive add + backfill + drop, all in one reversible revision |
-| Delimiter parse of `inventory_code` | Service (backfill logic) | `app/services` | Segment 2 -> batch, segment 3 -> serial; >3 segments conform (extras ignored); unparseable -> NULL |
-| Persistence / row survival | Repository | `app/repositories` | Only layer touching the ORM/session; reads migrated rows for verification |
-| Domain entity shape | Models | `app/models/stock.py` | `batch_number`, `serial_number` nullable columns replace `inventory_code` |
-| Integrity probe (nonconforming count) | Service | `app/services` | Reports count for review at accept time; no fabrication |
-| Canonical location | Repository / schema | `app/repositories`, `stock` table | `location` untouched; UNIQUE(sku, location) preserved |
-| Validation messages | Boundary | `app/routes` | N/A for S1 (no request surface); inherited for S2 |
-| Config in env (DATABASE_URL) | Infrastructure | scaffold defaults | Paired-branch `databricks_postgres`; not renamed |
+| Concern | Owner layer | Notes |
+| --- | --- | --- |
+| Schema evolution (add/drop columns) | Migration (Alembic) | Additive-then-backfill-then-drop ordering (AC1, AC2, AC3); NFR-F6-6 |
+| Data transform / parse rule | Migration data step | Hyphen split, null-safe branch (AC2, AC4); not service/boundary logic |
+| Data preservation | Migration | No row deletes; every prior row survives (AC5, R1); PI3 |
+| Migration reversibility | Migration downgrade() | Reconstruct inventory_code from location+batch+serial (AC7); PI3 |
+| Addressing-key integrity | Migration + repository | location untouched, (sku, location) key preserved (AC8); PI2, R3 |
+| Observability / review gate | Integrity probe (pre-flight query) | Nonconforming count surfaced (AC6); NFR-F6-5 |
+| Persistence (ORM access) | Repository (`app/repositories/`) | Only layer touching the session; boundary/service never import it |
+| Config in env | Alembic env | DATABASE_URL from post-checkout hook; databricks_postgres unchanged (NFR-F6-7) |
+| Test against real branch | pytest-bdd on paired branch | R4 / NFR-F6-3; no mocks/in-memory |
 
 ## Pattern proposals
 
-- Keep the ORM/session strictly in `app/repositories`; the backfill and probe logic is
-  pure transformation in `app/services` operating over rows the repository yields, so the
-  parse rule is unit-addressable and the migration stays thin (SRP, dependency-inversion).
-- Model the domain change in `app/models/stock.py` (one module per entity, package form),
-  not a flat `app/models.py`.
-- Backfill executes inside the migration transaction so add + backfill + drop are atomic.
+- **Migration-as-transform:** the up path is a strict sequence , add nullable columns (AC1), backfill by delimiter with a null-safe branch (AC2/AC4), then drop `inventory_code` (AC3). Ordering is the invariant; the drop must never precede a successful backfill.
+- **Pre-flight integrity probe:** a read-only count query (AC6) executed for operator review before acceptance, kept separate from the mutating migration so it can run without side effects.
+- **Symmetric downgrade:** `downgrade()` recreates `inventory_code` and reconstructs it from canonical `location` + `batch_number` + `serial_number` (AC7), returning the schema to its prior shape.
+- **Model update in `app/models/`:** the stock aggregate module gains `batch_number`/`serial_number` and loses `inventory_code`; repository reads reflect the new shape (dependencies point inward, boundary never imports the session).
 
 ## Risks
 
-- Delimiter parsing of >3-segment codes: treated as conforming (segments beyond serial
-  ignored). If real data has meaningful trailing segments, backfill loses them silently.
-- Two-segment codes (location-batch, no serial): batch backfills, serial stays NULL. If the
-  PO wants those classed nonconforming instead, the probe count and NULL policy shift.
-- Down-migration reconstruction cannot recover the original code for rows whose batch/serial
-  were left NULL (nonconforming); reconstruction is lossy for those rows.
+- **Downgrade fidelity for nonconforming rows:** rows left NULL by AC4 cannot losslessly reconstruct their original `inventory_code` on downgrade (the original tail is unknown). The reconstruction (AC7) is defined for conforming rows; for NULL batch/serial the down path reconstructs from location alone. Flagged for PO awareness , reversibility is structural, not byte-perfect for previously-nonconforming codes.
+- **Delimiter assumption:** segment 2/3 split assumes a stable `location-batch-serial` shape; codes with extra hyphens or empty segments are treated as nonconforming and counted (AC6) rather than partially parsed.
+- **Backfill on large tables:** for sprint-1 volumes this is trivial; a future large dataset may need a batched backfill (out of scope for this story).
 
-## Decisions (Gate 2, PO adjudicates)
+## Decisions (Gate 2, PO to adjudicate; headless recommendation recorded)
 
-- **Probe output = count only.** Recommendation: proceed as drafted (count of nonconforming
-  rows), do not enumerate offending `inventory_code` values unless the PO asks now.
-- **>3-segment codes conform.** Recommendation: treat as conforming, segment 2=batch,
-  segment 3=serial, later segments ignored.
-- **2-segment codes.** Recommendation: backfill batch, leave serial NULL (do not class the
-  whole row nonconforming).
+- **D1 , Reversibility for nonconforming rows:** Recommend accepting structural (not byte-perfect) reversibility; downgrade reconstructs from available canonical fields. **Recommendation: proceed.**
+- **D2 , Probe blocking vs advisory:** the integrity probe (AC6) surfaces a count for review but does not block the migration automatically. Recommend advisory (surface + human accept), matching "surfaced before the change is accepted." **Recommendation: proceed.**
+- **D3 , Nonconforming policy:** leave NULL, never guess or drop (AC4). **Recommendation: proceed** (aligns with R1 no-silent-loss).
 
 ## Test strategy
 
-Real-DB integration tests against the paired Lakebase branch (`databricks_postgres` via
-`DATABASE_URL`), pytest-bdd with Alembic migrations applied to the branch first, FK-aware
-targeted-DELETE cleanup. No mock/stub/in-memory DB. Coverage:
-- AC1, AC2, AC3, AC4, AC5: `kind:behavior` tests on the SHARED verify branch in its UP
-  state (migration already applied). Assert backfill, NULL policy, location canonicality,
-  combined-column drop, and the integrity-probe count over a mixed seed. These never run a
-  downgrade.
-- AC6 (down-migration reconstruction): MUST be a `kind:fitness` test marked
-  `@pytest.mark.migration` on an ISOLATED ephemeral Lakebase branch that applies up then
-  `alembic downgrade -1` and asserts `inventory_code` is reconstructed from
-  location+batch+serial for conforming rows and the combined column is restored.
-  Canon rule: do NOT downgrade the shared verify branch , doing so drops
-  batch_number/serial_number and re-adds inventory_code, breaking every UP-state test
-  (AC1-AC5). The reconstruction assertion is absorbed into that single isolated migration
-  fitness test, not the shared-branch behavior suite. Reconstruction is lossy for
-  nonconforming (NULL) rows, so the round-trip covers conforming rows only.
-- Persistence invariants: PI2, PI3, PI4 get real-branch tests on the shared UP-state branch;
-  PI1 (migration_reversible) is covered by the same isolated `@pytest.mark.migration`
-  fitness test as AC6, never on the shared branch.
+Real-DB integration tests against the paired Lakebase branch (R4 / NFR-F6-3), pytest-bdd with Alembic migrations applied to the branch first, FK-aware targeted-DELETE cleanup. No mocks, stubs, or in-memory substitutes. ACs verified through this suite:
+- AC1, AC3 , schema shape after up-migration (columns present; inventory_code gone).
+- AC2, AC4 , backfill correctness (conforming split; nonconforming NULL).
+- AC5 , row-count preservation across upgrade.
+- AC6 , integrity probe reports the nonconforming count.
+- AC7 , upgrade/downgrade round-trip reconstructs inventory_code and restores schema.
+- AC8 , location unchanged and (sku, location) key intact.
 
 ## Sign-off
 
-Recommendation: **proceed**. Layers inherited from F1, service_backed=true, persistence
-invariants and NFRs declared, all six ACs annotated as Infra. , Architect Reviewer.
+**Recommendation: proceed.** Layer layout inherits the F1 project convention unchanged; all S1 ACs carry Infra `architectural_notes`; persistence invariants and NFRs (including all Required brief items R1, R3, R4) are declared. NFRs recorded as `accepted` under headless Human Proxy for PO validation at Gate 2.
+
+, Architect Reviewer

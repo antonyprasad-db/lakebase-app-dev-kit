@@ -4,19 +4,22 @@
   "label": "spec-author",
   "kind": "invoke-role",
   "role": "spec-author",
-  "story": "S1-file-stock-record",
+  "story": "S1-file-stock",
   "action": {
     "kind": "invoke-role",
     "role": "spec-author",
-    "story": "S1-file-stock-record"
+    "story": "S1-file-stock"
   },
   "produced": [
-    ".sftdd/features/F1-stock-visibility/stories/S1-file-stock-record/acs/AC1-file-new-record.json",
-    ".sftdd/features/F1-stock-visibility/stories/S1-file-stock-record/acs/AC1-file-new-record.md",
-    ".sftdd/features/F1-stock-visibility/stories/S1-file-stock-record/acs/AC2-refile-updates-existing.json",
-    ".sftdd/features/F1-stock-visibility/stories/S1-file-stock-record/acs/AC2-refile-updates-existing.md",
-    ".sftdd/features/F1-stock-visibility/stories/S1-file-stock-record/acs/AC3-save-confirmation-shown.json",
-    ".sftdd/features/F1-stock-visibility/stories/S1-file-stock-record/acs/AC3-save-confirmation-shown.md"
+    ".sftdd/features/F1-stock-visibility/stories/S1-file-stock/acs/AC1-file-stock-record.json",
+    ".sftdd/features/F1-stock-visibility/stories/S1-file-stock/acs/AC2-retrieve-stock-record.json",
+    ".sftdd/features/F1-stock-visibility/stories/S1-file-stock/acs/AC3-collision-resolved-at-write.json"
   ],
-  "deleted": []
+  "deleted": [],
+  "transcript": {
+    "role": "spec-author",
+    "model": "opus",
+    "toolCount": 13,
+    "finalTextChars": 94
+  }
 }

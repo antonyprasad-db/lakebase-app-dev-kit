@@ -41,6 +41,7 @@ function fakeProbe(facts: Record<string, Partial<Record<keyof StoryArtifactProbe
     refactorPending: (s) => get(s, "refactorPending" as keyof StoryArtifactProbe),
     assessGreenFailureAc: () => null,
     repairRegressionFixAc: () => null,
+    greenSupersededFailureAc: () => null,
     // No blocking escalation by default (raise-to-hil routing tested separately).
     pendingEscalation: () => null,
   };

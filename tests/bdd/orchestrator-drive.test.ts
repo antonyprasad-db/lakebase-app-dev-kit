@@ -303,6 +303,49 @@ describe("nextTransition: build lane (after a story is gated)", () => {
     expect(nextTransition(st)).toEqual({ kind: "await-acceptance", story: "S1" });
   });
 
+  it("labels the post-assess re-GREEN as green-superseded (a filtered replay detour, not a bare green)", () => {
+    // Reactive-green supersession: the honest-GREEN verify failed, the Navigator
+    // ASSESSED it and flagged prior tests this AC supersedes (superseded-tests.json,
+    // -> assessGreenAc now null, greenSupersededAc set). The Driver's re-GREEN turn
+    // must carry buildMode "green-superseded" so it records as a distinct dir and
+    // both replay-build.ts + the corpus-integrity guard drop it (per-turn verify is
+    // trusted at replay, so this detour never re-dispatches) , exactly like repair.
+    // Without the label it records bare (`005-driver`) and the kept shape reads
+    // [red,green,green,review], the drift this fix closes.
+    const v = gatedUnbuilt();
+    v.build.experimentCut = true;
+    v.build.testsWritten = true;
+    v.build.codeWritten = false; // the failed green left the AC's code un-written
+    v.build.greenSupersededAc = "AC1";
+    const st = ws({ stories: { S1: v }, buildActive: "S1" });
+    expect(nextTransition(st)).toEqual({ kind: "invoke-role", role: "driver", story: "S1", buildMode: "green-superseded" });
+  });
+
+  it("a genuine-regression REPAIR still wins over green-superseded (mixed verdict takes the labeled repair path)", () => {
+    // If the assess flagged BOTH a supersession AND a driver-fixable regression,
+    // the repair path (which also refactors the flagged superseded tests) must win,
+    // so the ONE turn does both. green-superseded is only the pure-supersession case.
+    const v = gatedUnbuilt();
+    v.build.experimentCut = true;
+    v.build.testsWritten = true;
+    v.build.codeWritten = false;
+    v.build.repairRegressionAc = "AC1";
+    v.build.greenSupersededAc = "AC1";
+    const st = ws({ stories: { S1: v }, buildActive: "S1" });
+    expect(nextTransition(st)).toEqual({ kind: "invoke-role", role: "driver", story: "S1", buildMode: "repair", ac: "AC1" });
+  });
+
+  it("an un-assessed green failure still routes the Navigator ASSESS first (green-superseded only after the flag)", () => {
+    const v = gatedUnbuilt();
+    v.build.experimentCut = true;
+    v.build.testsWritten = true;
+    v.build.codeWritten = false;
+    v.build.assessGreenAc = "AC1"; // not yet assessed
+    v.build.greenSupersededAc = "AC1";
+    const st = ws({ stories: { S1: v }, buildActive: "S1" });
+    expect(nextTransition(st)).toEqual({ kind: "invoke-role", role: "navigator", story: "S1", buildMode: "assess", ac: "AC1" });
+  });
+
   it("builds a gated story before designing the next (per-story flow on a single lane)", () => {
     // S1 gated+unbuilt, S2 fresh, lane idle -> dispatch S1 (build precedes designing S2).
     const st = ws({ storyOrder: ["S1", "S2"], stories: { S1: gatedUnbuilt(), S2: freshStory() }, buildActive: null });

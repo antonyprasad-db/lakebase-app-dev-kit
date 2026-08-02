@@ -19,7 +19,9 @@ const REPO_ROOT = join(__dirname, "..", "..");
 const SCENARIOS = "examples/sftdd-scenarios";
 
 function tracked(paths: string): Set<string> {
-  const out = execFileSync("git", ["ls-files", paths], { cwd: REPO_ROOT, encoding: "utf8" });
+  // maxBuffer is generous: a full recorded corpus is thousands of tracked files,
+  // and `git ls-files` over it overruns execFileSync's 1 MB default (ENOBUFS).
+  const out = execFileSync("git", ["ls-files", paths], { cwd: REPO_ROOT, encoding: "utf8", maxBuffer: 256 * 1024 * 1024 });
   return new Set(out.split("\n").map((l) => l.trim()).filter(Boolean));
 }
 

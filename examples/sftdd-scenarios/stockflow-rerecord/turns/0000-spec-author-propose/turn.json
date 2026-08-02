@@ -13,5 +13,11 @@
   "produced": [
     ".sftdd/planning/feature-proposals.md"
   ],
-  "deleted": []
+  "deleted": [],
+  "transcript": {
+    "role": "spec-author",
+    "model": "opus",
+    "toolCount": 5,
+    "finalTextChars": 126
+  }
 }

@@ -5,17 +5,17 @@
     "plan": {
       "status": "approved",
       "approver": "human-proxy",
-      "approved_at": "2026-07-27T19:39:27.773Z",
+      "approved_at": "2026-08-01T02:52:12.595Z",
       "artifact_hashes": {
-        "feature-proposals.md": "334161ee5124b46123da1526fd782960e9dc33430a801af283abcc929f3df103"
+        "feature-proposals.md": "63add39c26143dcf1800d0c849cf727fef1cae1ad64636fda6b54ac4b05e345c"
       },
       "history": [
         {
           "action": "approved",
-          "at": "2026-07-27T19:39:27.773Z",
+          "at": "2026-08-01T02:52:12.595Z",
           "approver": "human-proxy",
           "artifact_hashes": {
-            "feature-proposals.md": "334161ee5124b46123da1526fd782960e9dc33430a801af283abcc929f3df103"
+            "feature-proposals.md": "63add39c26143dcf1800d0c849cf727fef1cae1ad64636fda6b54ac4b05e345c"
           }
         }
       ]

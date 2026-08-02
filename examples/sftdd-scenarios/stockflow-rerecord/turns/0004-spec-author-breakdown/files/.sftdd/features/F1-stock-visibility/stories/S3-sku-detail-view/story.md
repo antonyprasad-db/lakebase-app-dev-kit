@@ -1,7 +1,9 @@
 # S3-sku-detail-view
 
-As a warehouse operator I want to open a single SKU's detail view showing its stock across all its locations including each record's tracking code, with untracked optional detail shown as an explicit "not tracked", so that I can see everything known about one SKU in one place without a null crash or blank region.
+**As a** warehouse team member
+**I want to** open a SKU detail view showing that SKU's stock across all its locations including its tracking code
+**So that** I can inspect one SKU in depth, not just scan the whole-warehouse overview.
 
-Scope: the user-facing (E2E) SKU detail screen that groups one SKU's records across locations, shows the combined `inventory_code`, and renders "not tracked" for an untracked optional field (e.g. par level).
+Scope: a per-SKU detail screen listing that SKU's stock by location with its combined `inventory_code`, and a clear "not tracked" state for untracked optional detail (par level), never a blank region or null crash.
 
-Independence: S2 shows a flat multi-SKU home list; S3 adds the per-SKU drill-down with tracking code and explicit "not tracked" state, which S1 and S2 do not build.
+**Independence:** distinct from S1 and S2. S1 is the write path; S2 is the whole-warehouse overview table. S3 adds a SKU-scoped drill-down surfacing the tracking code and the "not tracked" optional-detail state, which neither prior story's build produces.

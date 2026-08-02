@@ -122,10 +122,16 @@ export function replayBuildTurn(args: ReplayBuildTurnArgs): boolean {
   //     recording still holds them (+ their cumulative code), so leaving them in
   //     would shift `review` onto the pre-repair snapshot (its source may not yet
   //     exist), the exact drift that froze a story before its page was written.
+  //   - *-superseded: the supersession self-heal driver turns (green-superseded,
+  //     refactor-superseded). Same class: a live verify FAILED, the Navigator
+  //     flagged prior tests the story supersedes, the Driver permissively re-greened
+  //     /re-refactored ONLY those. Replay trusts the verify, so the assess -> re-run
+  //     pair never dispatches; leaving the bare re-run in shows a spurious extra
+  //     `green` in the kept shape ([red,green,green,review]).
   // Snapshots are cumulative, so dropping a detour is lossless: the next kept
   // turn's tree already carries the detour's effect.
   const turns = listBuildTurns(replayBuildDir, featureId, story).filter(
-    (n) => !/reflect|assess|repair/i.test(n),
+    (n) => !/reflect|assess|repair|superseded/i.test(n),
   );
   if (turnIndex < 1 || turnIndex > turns.length) return false; // uncovered -> live
   const turnDir = join(storyTurnsDir(replayBuildDir, featureId, story), turns[turnIndex - 1]);

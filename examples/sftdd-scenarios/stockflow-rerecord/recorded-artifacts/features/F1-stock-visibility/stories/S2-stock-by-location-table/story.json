@@ -1,10 +1,10 @@
 {
   "id": "S2-stock-by-location-table",
-  "asA": "warehouse operator",
-  "iWantTo": "see a calm, scannable home table of stock by location showing SKU, location, and right-aligned quantity, with an explicit empty state when a location holds no stock",
-  "soThat": "I can read at a glance what is on the shelves without a blank or confusing screen",
+  "asA": "warehouse team member",
+  "iWantTo": "see a calm, scannable home table of stock by location showing SKU, location, and right-aligned quantity",
+  "soThat": "I can read at a glance what is on the shelves across locations",
   "independence": {
     "distinct_from_prior": true,
-    "rationale": "S1 only builds the filing form that writes a record; S2 adds the read-back home list view that renders every recorded (sku, location, quantity) row and an explicit no-stock empty state, behavior S1's build does not produce."
+    "rationale": "S1 delivers only the filing/write path and single-record retrieval; S2 adds the home screen that aggregates and renders all stock records as a scannable by-location table with an explicit 'No stock at this location' empty state. S1 can be fully built (records exist and are retrievable) with no home table or empty state screen present, so this list/overview view is genuinely unbuilt after S1."
   }
 }

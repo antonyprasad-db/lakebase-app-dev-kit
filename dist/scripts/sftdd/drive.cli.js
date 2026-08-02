@@ -7310,7 +7310,7 @@ function listBuildTurns(replayBuildDir, featureId, story) {
 function replayBuildTurn(args) {
   const { replayBuildDir, projectDir, sftddDir, featureId, story, turnIndex } = args;
   const turns = listBuildTurns(replayBuildDir, featureId, story).filter(
-    (n) => !/reflect|assess|repair/i.test(n)
+    (n) => !/reflect|assess|repair|superseded/i.test(n)
   );
   if (turnIndex < 1 || turnIndex > turns.length) return false;
   const turnDir = join9(storyTurnsDir(replayBuildDir, featureId, story), turns[turnIndex - 1]);
@@ -7625,6 +7625,7 @@ function nextBuildAction(story, b) {
   }
   if (b.assessGreenAc) return { kind: "invoke-role", role: "navigator", story, buildMode: "assess", ac: b.assessGreenAc };
   if (b.repairRegressionAc) return { kind: "invoke-role", role: "driver", story, buildMode: "repair", ac: b.repairRegressionAc };
+  if (b.greenSupersededAc) return { kind: "invoke-role", role: "driver", story, buildMode: "green-superseded" };
   if (!b.testsWritten) return { kind: "invoke-role", role: "navigator", story };
   if (!b.codeWritten) return { kind: "invoke-role", role: "driver", story };
   if (!b.awaitingAcceptance) return { kind: "await-acceptance", story };
@@ -8541,6 +8542,10 @@ function readSupersededTests(tdd, feature, story, ac) {
     return void 0;
   }
 }
+function hasPendingSupersession(tdd, feature, story, ac) {
+  const s = readSupersededTests(tdd, feature, story, ac);
+  return s !== void 0 && s.refactored !== true;
+}
 function greenFailureJson(tdd, feature, story, ac) {
   return join18(cycleDir(tdd, feature, story, ac), "green-failure.json");
 }
@@ -9044,6 +9049,7 @@ function storyView(id, e, probe, loop) {
       refactorStoryPending: probe.refactorPending(id),
       assessGreenAc: probe.assessGreenFailureAc(id),
       repairRegressionAc: probe.repairRegressionFixAc(id),
+      greenSupersededAc: probe.greenSupersededFailureAc(id),
       awaitingAcceptance: e.status === "awaiting-acceptance",
       deployVerified: probe.storyDeployVerified(id),
       deployVerifyAssessEligible: probe.deployVerifyAssessEligible(id),
@@ -9712,6 +9718,16 @@ function diskArtifactProbe(sftddDir, featureId, buildActive) {
       }
       if (!acId) return null;
       return hasPendingRegressionFix(sftddDir, featureId, story, acId) ? acId : null;
+    },
+    greenSupersededFailureAc(story) {
+      let acId;
+      try {
+        acId = storyTestProgress(sftddDir, featureId, story).openRed[0]?.ac_id;
+      } catch {
+        acId = void 0;
+      }
+      if (!acId) return null;
+      return hasPendingSupersession(sftddDir, featureId, story, acId) ? acId : null;
     },
     storyDeployVerified(story) {
       return storyDeployVerified(sftddDir, featureId, story);

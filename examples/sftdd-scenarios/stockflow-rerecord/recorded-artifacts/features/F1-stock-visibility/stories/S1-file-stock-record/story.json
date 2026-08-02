@@ -1,6 +1,0 @@
-{
-  "id": "S1-file-stock-record",
-  "asA": "warehouse operator",
-  "iWantTo": "file the stock level and tracking code of a SKU at a physical location through a screen, resolving any existing (sku, location) record rather than duplicating it",
-  "soThat": "the system holds one authoritative record of what is on each shelf"
-}

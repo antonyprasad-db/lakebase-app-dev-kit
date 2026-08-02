@@ -1,9 +1,0 @@
-{
-  "id": "AC1-detail-lists-locations",
-  "status": "passing",
-  "layer": "E2E",
-  "given": "a SKU holds stock at more than one location",
-  "when": "the operator opens that SKU's detail view",
-  "then": "the view shows the SKU once and lists one entry per location where it holds stock, each entry showing that location and its quantity",
-  "architectural_notes": "E2E: read path from stock_records filtered by SKU. app/repositories (only ORM-touching layer) fetches all rows for the SKU; app/services groups them into a SKU-once, entry-per-location shape (business logic, not the boundary); app/routes returns JSON (renders_via react); the client/ React detail page renders the header and per-location entries. The grouping/dedupe of the SKU is a service responsibility, the layout is a SPA presentation contract. Read-only, branch connection via DATABASE_URL (NFR7). Verified by the real-branch integration suite plus the client component test (NFR4/NFR5)."
-}

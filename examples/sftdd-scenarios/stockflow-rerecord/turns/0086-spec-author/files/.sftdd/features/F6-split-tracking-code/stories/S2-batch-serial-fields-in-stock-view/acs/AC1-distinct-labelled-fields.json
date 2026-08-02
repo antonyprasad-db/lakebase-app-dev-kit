@@ -1,8 +1,0 @@
-{
-  "id": "AC1-distinct-labelled-fields",
-  "status": "draft",
-  "layer": "E2E",
-  "given": "a stock position whose batch and serial are both populated, shown in the stock view where the combined tracking code used to appear",
-  "when": "the operator views that stock position",
-  "then": "the view shows a batch field and a serial field as two separately labelled entries, each displaying its own value, so the two facts are read as distinct identities rather than one combined string"
-}

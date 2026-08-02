@@ -72,6 +72,10 @@ export interface StoryArtifactProbe {
   /** The open AC the Navigator assessed as a DRIVER-FIXABLE regression (recorded a
    *  fix directive), repair not yet consumed, or null (drives the Driver repair turn). */
   repairRegressionFixAc(story: string): string | null;
+  /** The open AC the Navigator assessed as a SUPERSESSION (flagged prior tests in
+   *  superseded-tests.json), the permissive re-green not yet consumed, or null
+   *  (drives the labeled Driver green-superseded turn). */
+  greenSupersededFailureAc(story: string): string | null;
   /** The story's deploy verified (reachable + verify.passed on its experiment
    *  branch): the teeth on acceptance (features/<F>/stories/<S>/deploy-evidence.json). */
   storyDeployVerified(story: string): boolean;
@@ -183,6 +187,7 @@ function storyView(
       refactorStoryPending: probe.refactorPending(id),
       assessGreenAc: probe.assessGreenFailureAc(id),
       repairRegressionAc: probe.repairRegressionFixAc(id),
+      greenSupersededAc: probe.greenSupersededFailureAc(id),
       awaitingAcceptance: e.status === "awaiting-acceptance",
       deployVerified: probe.storyDeployVerified(id),
       deployVerifyAssessEligible: probe.deployVerifyAssessEligible(id),

@@ -3,10 +3,10 @@
   "step": 0,
   "label": "dispatch",
   "kind": "dispatch",
-  "story": "S1-file-stock-record",
+  "story": "S1-file-stock",
   "action": {
     "kind": "dispatch",
-    "story": "S1-file-stock-record"
+    "story": "S1-file-stock"
   },
   "produced": [
     ".sftdd/features/F1-stock-visibility/pipeline.json"

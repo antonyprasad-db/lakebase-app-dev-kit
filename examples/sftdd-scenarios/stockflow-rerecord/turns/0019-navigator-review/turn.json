@@ -5,16 +5,22 @@
   "kind": "invoke-role",
   "role": "navigator",
   "mode": "review",
-  "story": "S1-file-stock-record",
+  "story": "S1-file-stock",
   "action": {
     "kind": "invoke-role",
     "role": "navigator",
-    "story": "S1-file-stock-record",
+    "story": "S1-file-stock",
     "buildMode": "review"
   },
   "produced": [
-    ".sftdd/cycles/F1-stock-visibility/S1-file-stock-record/review-verdict.json",
-    ".sftdd/cycles/F1-stock-visibility/S1-file-stock-record/review.json"
+    ".sftdd/cycles/F1-stock-visibility/S1-file-stock/review-verdict.json",
+    ".sftdd/cycles/F1-stock-visibility/S1-file-stock/review.json"
   ],
-  "deleted": []
+  "deleted": [],
+  "transcript": {
+    "role": "navigator",
+    "model": "sonnet",
+    "toolCount": 10,
+    "finalTextChars": 49
+  }
 }

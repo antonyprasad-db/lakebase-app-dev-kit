@@ -221,6 +221,15 @@ export interface StoryBuild {
    *  consumed, or null. Drives a bounded Driver REPAIR turn (the diagnosis +
    *  directive injected) before the honest-GREEN backstop escalates. */
   repairRegressionAc?: string | null;
+  /** An AC whose green-failure the Navigator assessed as a SUPERSESSION (it flagged
+   *  prior tests this AC retires in superseded-tests.json), the permissive re-green
+   *  not yet consumed, or null. Drives a Driver GREEN-SUPERSEDED turn: the same
+   *  honest GREEN as a plain re-green, but LABELED so the recorder writes a distinct
+   *  turn dir. That label is what lets replay-build.ts + the corpus-integrity guard
+   *  DROP the turn , at replay per-turn verify is trusted, so the assess -> re-green
+   *  detour never re-dispatches (symmetric to repair). An un-labeled re-green records
+   *  bare and reads as a spurious extra `green` in the kept replay shape. */
+  greenSupersededAc?: string | null;
   /** The built story was deployed for the PO's acceptance review. */
   awaitingAcceptance: boolean;
   /** The story's deploy verified (reachable + verify.passed on its experiment
@@ -369,7 +378,7 @@ export type WorkflowAction =
       kind: "invoke-role";
       role: "navigator" | "driver";
       story: string;
-      buildMode?: "review" | "refactor" | "assess" | "repair" | "assess-deploy" | "refactor-deploy" | "assess-refactor" | "refactor-superseded";
+      buildMode?: "review" | "refactor" | "assess" | "repair" | "assess-deploy" | "refactor-deploy" | "assess-refactor" | "refactor-superseded" | "green-superseded";
       ac?: string;
     }
   // FEATURE-ship deploy-verify self-heal: the assess (navigator) / scope (driver)
@@ -455,6 +464,14 @@ function nextBuildAction(story: string, b: StoryBuild): WorkflowAction {
   // then the honest-GREEN backstop escalates with the diagnosis. Pre-empts the
   // Driver's plain green re-attempt below.
   if (b.repairRegressionAc) return { kind: "invoke-role", role: "driver", story, buildMode: "repair", ac: b.repairRegressionAc };
+  // Pure-supersession re-GREEN: the Navigator ASSESSED the green-failure and flagged
+  // prior tests this AC supersedes (superseded-tests.json), with NO genuine regression
+  // to repair. The Driver permissively re-greens , the SAME honest GREEN as the plain
+  // path below , but this turn is LABELED green-superseded so the recorder writes a
+  // distinct dir the replay filter + corpus guard drop (per-turn verify is trusted at
+  // replay, so this assess->re-green detour never re-dispatches). Runs AFTER repair so
+  // a mixed verdict (supersession + regression) takes the repair path, which does both.
+  if (b.greenSupersededAc) return { kind: "invoke-role", role: "driver", story, buildMode: "green-superseded" };
   // Test-list-driven RED/GREEN handoff for the current (un-reviewed) AC's tests:
   // !testsWritten -> Navigator writes the next pending RED; !codeWritten ->
   // Driver greens the open RED. With the AC-grouped list, "next pending" is

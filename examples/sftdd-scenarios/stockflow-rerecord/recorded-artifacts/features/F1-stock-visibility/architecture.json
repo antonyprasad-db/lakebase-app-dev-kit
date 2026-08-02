@@ -3,7 +3,7 @@
   "service_backed": true,
   "layers": [
     {
-      "name": "stock-api",
+      "name": "stock-boundary",
       "role": "boundary",
       "module": "app/routes/",
       "renders_via": "react",
@@ -13,7 +13,7 @@
       "name": "stock-service",
       "role": "service",
       "module": "app/services/",
-      "may_import": ["repository", "models"]
+      "may_import": ["repository"]
     },
     {
       "name": "stock-repository",
@@ -22,7 +22,7 @@
       "may_import": ["models"]
     },
     {
-      "name": "domain-models",
+      "name": "stock-models",
       "role": "models",
       "module": "app/models/",
       "may_import": []
@@ -30,83 +30,96 @@
   ],
   "persistence_invariants": [
     {
-      "id": "PI1-unique-sku-location",
+      "id": "PI1-sku-location-unique",
       "type": "unique",
       "table": "stock_records",
-      "brief": "Composite unique key on (sku, location) so no two stored rows share the pair; a repeat filing collides and updates rather than duplicating."
+      "brief": "A composite unique constraint on (sku, location) guarantees at most one stored record per pair; a repeat write collapses to that row rather than duplicating."
     },
     {
-      "id": "PI2-not-null-core-fields",
+      "id": "PI2-quantity-not-null",
       "type": "not_null",
       "table": "stock_records",
-      "brief": "sku, location, quantity, and inventory_code are NOT NULL; a filing missing any core field is rejected at write time."
+      "brief": "quantity, sku, location, and inventory_code are NOT NULL so a filed record always carries its addressing key and stored values."
     },
     {
       "id": "PI3-quantity-non-negative",
       "type": "check",
       "table": "stock_records",
-      "brief": "CHECK quantity >= 0 so a stored stock level can never go negative (backs R2 at the schema level)."
+      "brief": "A CHECK (quantity >= 0) constraint enforces that stock never persists below zero (R2 write-time rejection backed at the DB)."
     },
     {
-      "id": "PI4-migration-reversible",
+      "id": "PI4-upsert-atomic",
+      "type": "transactional",
+      "table": "stock_records",
+      "brief": "The read-existing-then-write for a (sku, location) collision runs in a single transaction so a concurrent repeat file cannot store two rows."
+    },
+    {
+      "id": "PI5-migration-reversible",
       "type": "migration_reversible",
       "table": "stock_records",
-      "brief": "The Alembic migration that creates stock_records has a working downgrade and preserves records created before it (backs R1: no data loss across additive migrations)."
+      "brief": "The Alembic migration that creates stock_records has a working downgrade and is additive, preserving records created before it (R1)."
     }
   ],
   "nfrs": [
     {
-      "id": "NFR1-migration-data-survival",
+      "id": "NFR-F1-1",
+      "category": "data-integrity",
       "applies_to": "F1-stock-visibility",
-      "category": "reliability",
       "brief_ref": "R1",
-      "brief": "Existing stock data survives every additive schema migration with no loss; each inventory adjustment keeps an unmodifiable timestamp and actor. Defended by a reversible-migration fitness test (PI4) run against the paired branch.",
+      "brief": "Existing stock data survives every additive schema migration with no loss; each inventory adjustment keeps an unmodifiable timestamp and actor.",
+      "fitness_function": "Real-branch migration test: seed records, apply the next additive migration, assert prior records intact and timestamp/actor immutable.",
       "hil_status": "accepted"
     },
     {
-      "id": "NFR2-no-negative-no-overcommit",
+      "id": "NFR-F1-2",
+      "category": "data-integrity",
       "applies_to": "F1-stock-visibility",
-      "category": "correctness",
       "brief_ref": "R2",
-      "brief": "Stock levels never go below zero and never overcommit beyond available quantity; an overcommitting write is rejected at write time. Enforced by the service (business rule) plus schema CHECK (PI3). For S1 the filing path enforces quantity >= 0.",
+      "brief": "Stock levels never go below zero and never overcommit; an overcommitting pick is rejected at write time (no stored negative, no double-allocation).",
+      "fitness_function": "Service-layer + DB CHECK (PI3) test on the real branch: attempt an overcommitting write and assert rejection with no negative row stored.",
       "hil_status": "accepted"
     },
     {
-      "id": "NFR3-unique-sku-location",
-      "applies_to": "S1-file-stock-record",
-      "category": "correctness",
+      "id": "NFR-F1-3",
+      "category": "data-integrity",
+      "applies_to": "S1-file-stock",
       "brief_ref": "R3",
-      "brief": "Every (sku, location) is uniquely addressable; a collision is resolved at write time as an update, never two stored duplicates and never an error page. Defended by the composite-unique constraint PI1 and the service upsert-on-collision logic.",
+      "brief": "Every (sku, location) is uniquely addressable; a collision is resolved at write time (no duplicate stored, no error page).",
+      "fitness_function": "Real-branch integration test (AC3): file twice for the same pair, assert exactly one row and updated values; DB unique constraint PI1 enforces it.",
       "hil_status": "accepted"
     },
     {
-      "id": "NFR4-real-branch-integration",
-      "applies_to": "F1-stock-visibility",
+      "id": "NFR-F1-4",
       "category": "testability",
+      "applies_to": "F1-stock-visibility",
       "brief_ref": "R4",
-      "brief": "Integration tests run against the paired Lakebase branch (databricks_postgres), never a mock or in-memory substitute; CI refuses to merge a PR whose integration tests do not run against a real branch. Alembic migrations are applied to the branch first, with FK-aware targeted-DELETE cleanup.",
+      "brief": "Integration tests run against the paired Lakebase branch, never a mock or in-memory substitute; CI refuses to merge a PR whose integration tests do not run against a real branch.",
+      "fitness_function": "pytest-bdd suite bound to DATABASE_URL of the paired branch with Alembic applied first; CI gate asserts no in-memory/mocked DB driver.",
       "hil_status": "accepted"
     },
     {
-      "id": "NFR5-spa-json-api",
-      "applies_to": "F1-stock-visibility",
+      "id": "NFR-F1-5",
       "category": "architecture",
+      "applies_to": "F1-stock-visibility",
       "brief_ref": "R5",
-      "brief": "The UI is a React + TypeScript single-page app under client/ that navigates client-side with no full-page reloads; the backend boundary returns JSON, not server-rendered HTML (boundary renders_via react). The client ships its own component tests; the API is covered by the branch integration suite (R4).",
+      "brief": "The UI is a React + TypeScript single-page application under client/ that navigates client-side with no full-page reloads; the backend boundary returns JSON, not server-rendered HTML.",
+      "fitness_function": "Boundary layer declared renders_via: react (JSON only); client ships its own component tests; fitness check asserts no server-side template rendering in app/routes.",
       "hil_status": "accepted"
     },
     {
-      "id": "NFR6-field-named-validation",
-      "applies_to": "F1-stock-visibility",
+      "id": "NFR-F1-6",
       "category": "usability",
-      "brief": "Preference (nfrs.md): validation messages name the offending field rather than a generic 'bad request'. The boundary returns a structured field-level error the SPA can surface next to the input.",
+      "applies_to": "F1-stock-visibility",
+      "brief": "Validation messages name the offending field rather than a generic 'bad request' (PO preference), owned at the API boundary.",
+      "fitness_function": "Boundary validation test asserts the error payload identifies the specific invalid field.",
       "hil_status": "accepted"
     },
     {
-      "id": "NFR7-database-name-fixed",
+      "id": "NFR-F1-7",
+      "category": "configuration",
       "applies_to": "F1-stock-visibility",
-      "category": "config",
-      "brief": "The app connects to the substrate-provisioned databricks_postgres via DATABASE_URL from the paired branch; the database name is not renamed and not made a requirement. Config-in-env fitness test guards DATABASE_URL sourcing.",
+      "brief": "Config in env (twelve-factor): the app connects to databricks_postgres via the DATABASE_URL written by the post-checkout hook; the database name is not renamed or made app-specific.",
+      "fitness_function": "Config-in-env fitness check: no hardcoded connection string; DATABASE_URL sourced from env and points at the paired branch's databricks_postgres.",
       "hil_status": "accepted"
     }
   ]

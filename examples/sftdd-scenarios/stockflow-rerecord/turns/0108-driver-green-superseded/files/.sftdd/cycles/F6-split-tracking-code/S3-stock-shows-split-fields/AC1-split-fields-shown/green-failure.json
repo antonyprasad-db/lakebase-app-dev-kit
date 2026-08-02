@@ -1,0 +1,5 @@
+{
+  "assessed": false,
+  "summary": "GREEN verify FAILED on the client pass (the client Vitest suite failed; the backend suite passed)",
+  "fixAttempts": 0
+}

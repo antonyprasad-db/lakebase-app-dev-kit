@@ -4,15 +4,21 @@
   "label": "dba",
   "kind": "invoke-role",
   "role": "dba",
-  "story": "S1-file-stock-record",
+  "story": "S1-file-stock",
   "action": {
     "kind": "invoke-role",
     "role": "dba",
-    "story": "S1-file-stock-record"
+    "story": "S1-file-stock"
   },
   "produced": [
     ".sftdd/features/F1-stock-visibility/db-design.json",
     ".sftdd/features/F1-stock-visibility/db-design.md"
   ],
-  "deleted": []
+  "deleted": [],
+  "transcript": {
+    "role": "dba",
+    "model": "opus",
+    "toolCount": 8,
+    "finalTextChars": 76
+  }
 }

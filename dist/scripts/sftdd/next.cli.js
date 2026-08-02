@@ -6965,6 +6965,7 @@ function nextBuildAction(story, b) {
   }
   if (b.assessGreenAc) return { kind: "invoke-role", role: "navigator", story, buildMode: "assess", ac: b.assessGreenAc };
   if (b.repairRegressionAc) return { kind: "invoke-role", role: "driver", story, buildMode: "repair", ac: b.repairRegressionAc };
+  if (b.greenSupersededAc) return { kind: "invoke-role", role: "driver", story, buildMode: "green-superseded" };
   if (!b.testsWritten) return { kind: "invoke-role", role: "navigator", story };
   if (!b.codeWritten) return { kind: "invoke-role", role: "driver", story };
   if (!b.awaitingAcceptance) return { kind: "await-acceptance", story };
@@ -7086,6 +7087,7 @@ function storyView(id, e, probe, loop) {
       refactorStoryPending: probe.refactorPending(id),
       assessGreenAc: probe.assessGreenFailureAc(id),
       repairRegressionAc: probe.repairRegressionFixAc(id),
+      greenSupersededAc: probe.greenSupersededFailureAc(id),
       awaitingAcceptance: e.status === "awaiting-acceptance",
       deployVerified: probe.storyDeployVerified(id),
       deployVerifyAssessEligible: probe.deployVerifyAssessEligible(id),
@@ -7660,6 +7662,24 @@ function storyDeployVerified(sftddDir, featureId, storyId) {
 init_esm_shims();
 import * as fs4 from "fs";
 import { join as join9 } from "path";
+function supersededTestsJson(tdd, feature, story, ac) {
+  return join9(cycleDir(tdd, feature, story, ac), "superseded-tests.json");
+}
+function readSupersededTests(tdd, feature, story, ac) {
+  const file = supersededTestsJson(tdd, feature, story, ac);
+  if (!fs4.existsSync(file)) return void 0;
+  try {
+    const parsed = JSON.parse(fs4.readFileSync(file, "utf8"));
+    if (!Array.isArray(parsed.tests) || parsed.tests.length === 0) return void 0;
+    return parsed;
+  } catch {
+    return void 0;
+  }
+}
+function hasPendingSupersession(tdd, feature, story, ac) {
+  const s = readSupersededTests(tdd, feature, story, ac);
+  return s !== void 0 && s.refactored !== true;
+}
 function greenFailureJson(tdd, feature, story, ac) {
   return join9(cycleDir(tdd, feature, story, ac), "green-failure.json");
 }
@@ -8447,6 +8467,16 @@ function diskArtifactProbe(sftddDir, featureId, buildActive) {
       }
       if (!acId) return null;
       return hasPendingRegressionFix(sftddDir, featureId, story, acId) ? acId : null;
+    },
+    greenSupersededFailureAc(story) {
+      let acId;
+      try {
+        acId = storyTestProgress(sftddDir, featureId, story).openRed[0]?.ac_id;
+      } catch {
+        acId = void 0;
+      }
+      if (!acId) return null;
+      return hasPendingSupersession(sftddDir, featureId, story, acId) ? acId : null;
     },
     storyDeployVerified(story) {
       return storyDeployVerified(sftddDir, featureId, story);

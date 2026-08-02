@@ -5,15 +5,21 @@
   "kind": "invoke-role",
   "role": "navigator",
   "mode": "reflect",
-  "story": "S1-file-stock-record",
+  "story": "S1-file-stock",
   "action": {
     "kind": "invoke-role",
     "role": "navigator",
-    "story": "S1-file-stock-record",
+    "story": "S1-file-stock",
     "buildMode": "reflect"
   },
   "produced": [
-    ".sftdd/features/F1-stock-visibility/stories/S1-file-stock-record/reflect-verdict.json"
+    ".sftdd/features/F1-stock-visibility/stories/S1-file-stock/reflect-verdict.json"
   ],
-  "deleted": []
+  "deleted": [],
+  "transcript": {
+    "role": "navigator",
+    "model": "sonnet",
+    "toolCount": 10,
+    "finalTextChars": 37
+  }
 }

@@ -20,7 +20,7 @@ import {
   reviewPending,
   refactorPending,
 } from "./cycle-record.js";
-import { needsGreenAssess, hasPendingRegressionFix } from "./supersession.js";
+import { needsGreenAssess, hasPendingRegressionFix, hasPendingSupersession } from "./supersession.js";
 import { driverPhaseForTdd, type StoryArtifactProbe, type DriveContext } from "./orchestrator-derive.js";
 import type { DriveEscalation } from "./orchestrator-drive.js";
 import { readGates } from "./gates.js";
@@ -365,6 +365,21 @@ export function diskArtifactProbe(
       }
       if (!acId) return null;
       return hasPendingRegressionFix(sftddDir, featureId, story, acId) ? acId : null;
+    },
+
+    greenSupersededFailureAc(story) {
+      // The open RED cycle's AC, when the Navigator assessed its green-failure as a
+      // SUPERSESSION (wrote superseded-tests.json) and the permissive re-green has
+      // not yet been consumed (marker not refactored). Routes the LABELED Driver
+      // green-superseded turn so the recorder writes a distinct, replay-filtered dir.
+      let acId: string | undefined;
+      try {
+        acId = storyTestProgress(sftddDir, featureId, story).openRed[0]?.ac_id;
+      } catch {
+        acId = undefined;
+      }
+      if (!acId) return null;
+      return hasPendingSupersession(sftddDir, featureId, story, acId) ? acId : null;
     },
 
     storyDeployVerified(story) {

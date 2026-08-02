@@ -4,20 +4,19 @@
   "label": "driver",
   "kind": "invoke-role",
   "role": "driver",
-  "story": "S1-file-stock-record",
+  "story": "S1-file-stock",
   "action": {
     "kind": "invoke-role",
     "role": "driver",
-    "story": "S1-file-stock-record"
+    "story": "S1-file-stock"
   },
   "produced": [
-    ".sftdd/cycles/F1-stock-visibility/S1-file-stock-record/AC1-file-new-record/green-failure.json",
-    ".sftdd/experiments/F1-stock-visibility/S1-file-stock-record/exp1/outcomes.json",
-    "alembic/versions/20260727202444_create_stock_records_table.py",
+    ".sftdd/cycles/F1-stock-visibility/S1-file-stock/AC1-file-stock-record/green-failure.json",
+    ".sftdd/experiments/F1-stock-visibility/S1-file-stock/exp1/outcomes.json",
+    "alembic/versions/20260801033642_create_stock_records.py",
     "app/dependencies.py",
     "app/main.py",
-    "app/models/__init__.py",
-    "app/models/stock_record.py",
+    "app/models.py",
     "app/repositories/__init__.py",
     "app/repositories/stock_repository.py",
     "app/routes/__init__.py",
@@ -25,7 +24,11 @@
     "app/services/__init__.py",
     "app/services/stock_service.py"
   ],
-  "deleted": [
-    "app/models.py"
-  ]
+  "deleted": [],
+  "transcript": {
+    "role": "driver",
+    "model": "sonnet",
+    "toolCount": 52,
+    "finalTextChars": 12
+  }
 }

@@ -13,5 +13,11 @@
   "produced": [
     ".sftdd/planning/estimates.json"
   ],
-  "deleted": []
+  "deleted": [],
+  "transcript": {
+    "role": "architect-reviewer",
+    "model": "opus",
+    "toolCount": 2,
+    "finalTextChars": 75
+  }
 }

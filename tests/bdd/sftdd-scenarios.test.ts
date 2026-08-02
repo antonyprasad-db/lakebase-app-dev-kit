@@ -81,8 +81,8 @@ function assertScenarioCorpus(
 /** Per-story replay-consistency of the recorded-build corpus. A trusted-green
  *  replay re-dispatches ONLY the canonical sequence, RED (navigator), GREEN
  *  (driver), optional story REVIEW (navigator), optional REFACTOR (driver), and
- *  NEVER the capture-time detours (reflect / assess / repair), which replay-build
- *  filters out. So after dropping those, each story's remaining turn dirs must:
+ *  NEVER the capture-time detours (reflect / assess / repair / *-superseded), which
+ *  replay-build filters out. So after dropping those, each story's remaining turn dirs must:
  *    (a) carry strictly-increasing NUMERIC prefixes (a resume-mislabeled dir with
  *        a stray low number, e.g. 001 after 010, breaks the lexical order replay
  *        sorts by, so it must not exist), and
@@ -96,7 +96,7 @@ function assertBuildTurnsReplayable(corpusRoot: string, featureId: string): void
     const turnsDir = path.join(storiesRoot, story, "turns");
     if (!fs.existsSync(turnsDir)) continue;
     const all = fs.readdirSync(turnsDir).filter((n) => !n.startsWith(".")).sort();
-    const kept = all.filter((n) => !/reflect|assess|repair/i.test(n));
+    const kept = all.filter((n) => !/reflect|assess|repair|superseded/i.test(n));
 
     // (a) numeric prefixes strictly increase in the (lexical) order replay uses.
     const nums = kept.map((n) => {
@@ -229,6 +229,20 @@ describe("assertScenarioCorpus: build-turn replay-consistency guard", () => {
       "001-navigator-reflect", "002-navigator", "003-driver",
       "004-navigator-assess-AC1", "005-driver-repair-AC1",
       "006-navigator-review", "007-driver-refactor",
+    ]);
+    expect(() => assertScenarioCorpus(tmp, [{ id: "F1-x", buildReplay: true }])).not.toThrow();
+  });
+
+  it("filters a green-superseded detour so the re-green is not a spurious extra green", () => {
+    // The reactive-green supersession path: honest-GREEN verify failed, Navigator
+    // ASSESSED + flagged superseded prior tests, Driver permissively re-greened
+    // (labeled green-superseded). Replay trusts the verify + skips the assess -> re-run
+    // pair, so this turn must be filtered; without the filter the kept shape reads
+    // [red,green,green,review] (the F6/S1 + F6/S3 regression this guard now catches).
+    mkStory("F1-x", "S1b", [
+      "001-navigator-reflect", "002-navigator", "003-driver",
+      "004-navigator-assess-AC1", "005-driver-green-superseded",
+      "006-navigator-review",
     ]);
     expect(() => assertScenarioCorpus(tmp, [{ id: "F1-x", buildReplay: true }])).not.toThrow();
   });
