@@ -510,32 +510,37 @@ function nextBuildAction(story: string, b: StoryBuild): WorkflowAction {
  *              else (all accepted) feature-complete.
  *   deploy:    deploy -> approve-deploy-gate -> done.
  */
-export function nextTransition(state: DriveState): WorkflowAction {
-  // Escalation pre-empts everything (follow-up): any unresolved
-  // blocking problem an agent surfaced (a failed honest-GREEN run, a blocking
-  // bad-smell, a deploy verify-fail) routes to a single raise-to-hil halt rather
-  // than advancing or re-issuing an action that never changes state (the
-  // await-acceptance spin). The run stops cleanly for the HIL; it never
-  // false-greens past the problem or silently stalls.
-  if (state.escalation) {
-    const e = state.escalation;
-    // a SPEC-level smell with revise budget left is recoverable, send
-    // the verdict back to its owning author + re-gate + resume (revise-route)
-    // instead of the terminal halt. The probe sets `routable` ONLY for that case;
-    // everything else (build-level smells, explicit escalation files, the budget
-    // spent) keeps the byte-identical raise-to-hil halt.
-    if (e.routable) {
-      return {
-        kind: "revise-route",
-        story: e.routable.story,
-        role: e.routable.owning_role,
-        gate: e.routable.gate,
-        reason: e.reason,
-        source: e.source,
-      };
-    }
-    return { kind: "raise-to-hil", reason: e.reason, source: e.source, ...(e.story_id ? { story: e.story_id } : {}) };
+/**
+ * The escalation pre-empt shared by BOTH the full transition and the --only
+ * design bound: any unresolved blocking problem an agent surfaced (a failed
+ * honest-GREEN run, a blocking bad-smell, a reflect defect, a deploy verify-fail)
+ * routes to revise-route (a SPEC-level smell with revise budget left, recoverable:
+ * send the verdict back to its owning author + re-gate + resume) or the terminal
+ * raise-to-hil halt (everything else). Returns undefined when there is no
+ * escalation, so the caller proceeds to its normal transition. Extracted so the
+ * design-only path cannot silently omit it (the omission that let a reflect
+ * defect re-loop the reflect turn until the stall guard fired). */
+export function escalationPreempt(state: DriveState): WorkflowAction | undefined {
+  if (!state.escalation) return undefined;
+  const e = state.escalation;
+  if (e.routable) {
+    return {
+      kind: "revise-route",
+      story: e.routable.story,
+      role: e.routable.owning_role,
+      gate: e.routable.gate,
+      reason: e.reason,
+      source: e.source,
+    };
   }
+  return { kind: "raise-to-hil", reason: e.reason, source: e.source, ...(e.story_id ? { story: e.story_id } : {}) };
+}
+
+export function nextTransition(state: DriveState): WorkflowAction {
+  // Escalation pre-empts everything: it never false-greens past the problem or
+  // silently stalls (the await-acceptance spin). Shared with the design-only bound.
+  const preempt = escalationPreempt(state);
+  if (preempt) return preempt;
 
   if (state.phase === "planning") {
     const p = state.planning ?? { proposed: false, estimated: false, requestsAuthored: false };
@@ -643,6 +648,12 @@ function toDesignView(state: DriveState): DesignDriveState {
  * `design-complete` when every story is gate-approved.
  */
 export function nextDesignOnlyTransition(state: DriveState): WorkflowAction {
+  // Same escalation pre-empt as the full transition: a reflect defect (or any
+  // spec-level smell) must route to revise-route / raise-to-hil, NOT re-loop the
+  // flagging design turn. Without this the pure design sub-machine re-returns the
+  // reflect turn on an unresolved defect until the stall guard fires.
+  const preempt = escalationPreempt(state);
+  if (preempt) return preempt;
   return nextDesignAction(toDesignView(state));
 }
 

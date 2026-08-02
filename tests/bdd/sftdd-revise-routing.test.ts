@@ -25,7 +25,7 @@ import {
   storyTestListFingerprint,
 } from "../../scripts/sftdd/smells";
 import { recordBlockingSmellFlag, writeEscalation, readEscalations } from "../../scripts/sftdd/escalation";
-import { nextTransition, actionLane, type DriveState } from "../../scripts/sftdd/orchestrator-drive";
+import { nextTransition, nextDesignOnlyTransition, actionLane, type DriveState } from "../../scripts/sftdd/orchestrator-drive";
 import { commandsForAction, type DriveEffectsConfig } from "../../scripts/sftdd/orchestrator-effects";
 import { diskArtifactProbe } from "../../scripts/sftdd/orchestrator-probe";
 import {
@@ -142,6 +142,53 @@ describe("nextTransition revise-routing", () => {
       }),
     );
     expect(action.kind).toBe("raise-to-hil");
+  });
+});
+
+// The --only design bound (nextDesignOnlyTransition) must apply the SAME
+// escalation pre-empt as the full transition. Without it, a reflect-flagged
+// spec defect leaves reflectionPassed=false and the design sub-machine re-loops
+// the reflect turn forever until the stall guard fires (the live
+// stockflow-optimize --only design run: "driver stalled at iteration 7 ...
+// navigator reflect repeated without advancing state").
+describe("nextDesignOnlyTransition escalation pre-empt", () => {
+  it("routes a routable reflect/spec escalation to revise-route (not a reflect re-loop)", () => {
+    const action = nextDesignOnlyTransition(
+      baseState({
+        id: "smell:reflect-testlist-defect__F1",
+        source: "smell:reflect-testlist-defect",
+        reason: "reflect flagged a test-list defect for S1",
+        story_id: STORY,
+        routable: { story: STORY, owning_role: "test-strategist", gate: "test_list" },
+      }),
+    );
+    expect(action.kind).toBe("revise-route");
+    if (action.kind === "revise-route") {
+      expect(action.story).toBe(STORY);
+      expect(action.role).toBe("test-strategist");
+      expect(action.gate).toBe("test_list");
+    }
+    expect(actionLane(action)).toBe("design");
+  });
+
+  it("hard-halts (raise-to-hil) a non-routable escalation instead of looping", () => {
+    const action = nextDesignOnlyTransition(
+      baseState({
+        id: "smell:reflect-testlist-defect__F1",
+        source: "smell:reflect-testlist-defect",
+        reason: "reflect defect, revise budget spent",
+        story_id: STORY,
+        // no `routable` -> budget spent / explicit file
+      }),
+    );
+    expect(action.kind).toBe("raise-to-hil");
+  });
+
+  it("with NO escalation, still delegates to the design sub-machine (no behavior change)", () => {
+    // A clean state with a breakdown but nothing designed yet -> the design lane's
+    // first action (ux-designer / spec-author etc.), never revise/raise.
+    const action = nextDesignOnlyTransition(baseState(undefined));
+    expect(["invoke-role", "design-complete", "surface-gate", "approve-gate"]).toContain(action.kind);
   });
 });
 
