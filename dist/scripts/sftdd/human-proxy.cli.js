@@ -8284,8 +8284,8 @@ Candidate features for this sprint, projected deterministically from the recorde
 
 // scripts/sftdd/revise.ts
 init_esm_shims();
-import { existsSync as existsSync22, readFileSync as readFileSync24, writeFileSync as writeFileSync17, mkdirSync as mkdirSync14, readdirSync as readdirSync15, rmSync as rmSync8 } from "fs";
-import { join as join21, dirname as dirname9 } from "path";
+import { existsSync as existsSync23, readFileSync as readFileSync25, writeFileSync as writeFileSync17, mkdirSync as mkdirSync14, readdirSync as readdirSync16, rmSync as rmSync8 } from "fs";
+import { join as join22, dirname as dirname9 } from "path";
 
 // scripts/sftdd/story-pipeline.ts
 init_esm_shims();
@@ -8434,8 +8434,8 @@ var REFLECT_SMELLS = Object.values(SMELL_FOR_OWNER);
 
 // scripts/sftdd/cycle-record.ts
 init_esm_shims();
-import { existsSync as existsSync21, readFileSync as readFileSync23, readdirSync as readdirSync14, statSync as statSync9, writeFileSync as writeFileSync16, mkdirSync as mkdirSync13, rmSync as rmSync7 } from "fs";
-import { join as join20, dirname as dirname8 } from "path";
+import { existsSync as existsSync22, readFileSync as readFileSync24, readdirSync as readdirSync15, statSync as statSync9, writeFileSync as writeFileSync16, mkdirSync as mkdirSync13, rmSync as rmSync7 } from "fs";
+import { join as join21, dirname as dirname8 } from "path";
 
 // scripts/sftdd/deploy.ts
 init_esm_shims();
@@ -8467,15 +8467,20 @@ import { createBranch } from "@databricks-solutions/lakebase-scm-utils/lakebase"
 import { deleteBranch } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { getConnection as getConnection2, waitForBranchAuthReady } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 
+// scripts/sftdd/design-adherence.ts
+init_esm_shims();
+import { existsSync as existsSync17, readFileSync as readFileSync19, readdirSync as readdirSync12 } from "fs";
+import { join as join16 } from "path";
+
 // scripts/sftdd/supersession.ts
 init_esm_shims();
 import * as fs4 from "fs";
-import { join as join16 } from "path";
+import { join as join17 } from "path";
 
 // scripts/sftdd/contract-clean.ts
 init_esm_shims();
-import { existsSync as existsSync18, readFileSync as readFileSync20, readdirSync as readdirSync12, statSync as statSync7 } from "fs";
-import { join as join17, relative, extname } from "path";
+import { existsSync as existsSync19, readFileSync as readFileSync21, readdirSync as readdirSync13, statSync as statSync7 } from "fs";
+import { join as join18, relative, extname } from "path";
 
 // scripts/sftdd/refactor-verify-assess.ts
 init_esm_shims();
@@ -8484,24 +8489,24 @@ import * as path3 from "path";
 
 // scripts/sftdd/migration-app-clean.ts
 init_esm_shims();
-import { existsSync as existsSync20, readFileSync as readFileSync22, readdirSync as readdirSync13, statSync as statSync8 } from "fs";
-import { join as join19, relative as relative2, extname as extname2 } from "path";
+import { existsSync as existsSync21, readFileSync as readFileSync23, readdirSync as readdirSync14, statSync as statSync8 } from "fs";
+import { join as join20, relative as relative2, extname as extname2 } from "path";
 
 // scripts/sftdd/cycle-record.ts
 import { commitAllIfChanged } from "@databricks-solutions/lakebase-scm-utils/git";
 import { assertCommitTargetNotProtected, ProtectedBranchCommitError } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 function resetStoryBuildState(sftddDir, featureId, story) {
-  const cyclesDir = join20(cyclesRootDir(sftddDir), featureId, story);
+  const cyclesDir = join21(cyclesRootDir(sftddDir), featureId, story);
   let cyclesCleared = false;
-  if (existsSync21(cyclesDir)) {
+  if (existsSync22(cyclesDir)) {
     rmSync7(cyclesDir, { recursive: true, force: true });
     cyclesCleared = true;
   }
   let testItemsReset = 0;
   const tlPath = storyTestListJson(sftddDir, featureId, story);
-  if (existsSync21(tlPath)) {
+  if (existsSync22(tlPath)) {
     try {
-      const tl = JSON.parse(readFileSync23(tlPath, "utf8"));
+      const tl = JSON.parse(readFileSync24(tlPath, "utf8"));
       for (const item of tl.items ?? []) {
         if (item.status && item.status !== "pending") {
           item.status = "pending";
@@ -8521,9 +8526,9 @@ function staleStoryArtifactsForRevise(sftddDir, featureId, story, gate) {
   clearReflectVerdict(sftddDir, featureId, story);
   const acIds = new Set(storyAcIds(sftddDir, featureId, story));
   const master = featureTestListJson(sftddDir, featureId);
-  if (existsSync22(master)) {
+  if (existsSync23(master)) {
     try {
-      const data = JSON.parse(readFileSync24(master, "utf8"));
+      const data = JSON.parse(readFileSync25(master, "utf8"));
       if (Array.isArray(data.items)) {
         data.items = data.items.filter((it) => !it.ac_id || !acIds.has(it.ac_id));
         writeFileSync17(master, JSON.stringify(data, null, 2) + "\n");
@@ -8532,12 +8537,12 @@ function staleStoryArtifactsForRevise(sftddDir, featureId, story, gate) {
     }
   }
   const perStory = storyTestListJson(sftddDir, featureId, story);
-  if (existsSync22(perStory)) rmSync8(perStory, { force: true });
+  if (existsSync23(perStory)) rmSync8(perStory, { force: true });
   if (gate === "spec") {
     const dir = acsDir(sftddDir, featureId, story);
-    if (existsSync22(dir)) {
-      for (const f of readdirSync15(dir)) {
-        if (f.endsWith(".json") || f.endsWith(".md")) rmSync8(join21(dir, f), { force: true });
+    if (existsSync23(dir)) {
+      for (const f of readdirSync16(dir)) {
+        if (f.endsWith(".json") || f.endsWith(".md")) rmSync8(join22(dir, f), { force: true });
       }
     }
   } else if (gate === "architecture") {
@@ -8546,12 +8551,12 @@ function staleStoryArtifactsForRevise(sftddDir, featureId, story, gate) {
 }
 function clearArchitecturalNotes(sftddDir, featureId, story) {
   const dir = acsDir(sftddDir, featureId, story);
-  if (!existsSync22(dir)) return;
-  for (const f of readdirSync15(dir)) {
+  if (!existsSync23(dir)) return;
+  for (const f of readdirSync16(dir)) {
     if (!f.endsWith(".json")) continue;
-    const p = join21(dir, f);
+    const p = join22(dir, f);
     try {
-      const ac = JSON.parse(readFileSync24(p, "utf8"));
+      const ac = JSON.parse(readFileSync25(p, "utf8"));
       if ("architectural_notes" in ac) {
         delete ac.architectural_notes;
         writeFileSync17(p, JSON.stringify(ac, null, 2) + "\n");
@@ -8626,7 +8631,7 @@ function applyReviseSelfHeal(args) {
 
 // scripts/sftdd/sprint-gates.ts
 init_esm_shims();
-import { existsSync as existsSync23, mkdirSync as mkdirSync15, readFileSync as readFileSync25, renameSync as renameSync2, unlinkSync as unlinkSync3, writeFileSync as writeFileSync18 } from "fs";
+import { existsSync as existsSync24, mkdirSync as mkdirSync15, readFileSync as readFileSync26, renameSync as renameSync2, unlinkSync as unlinkSync3, writeFileSync as writeFileSync18 } from "fs";
 var SPRINT_GATES_SCHEMA_VERSION = 1;
 var PLAN_GATE_ARTIFACT = "feature-proposals.md";
 function defaultSprintGatesState(sprint) {
@@ -8642,10 +8647,10 @@ function sprintGatesFile(sftddDir, sprint) {
 function readSprintGates(sprint, opts = {}) {
   const sftddDir = opts.sftddDir ?? resolveSftddDir();
   const file = sprintGatesFile(sftddDir, sprint);
-  if (!existsSync23(file)) return defaultSprintGatesState(sprint);
+  if (!existsSync24(file)) return defaultSprintGatesState(sprint);
   let parsed;
   try {
-    parsed = JSON.parse(readFileSync25(file, "utf8"));
+    parsed = JSON.parse(readFileSync26(file, "utf8"));
   } catch (err) {
     const cause = err instanceof Error ? err.message : String(err);
     throw new Error(`sprint gates.json at ${file} is not valid JSON: ${cause}`);
@@ -8678,10 +8683,10 @@ function approveSprintPlanGate(args) {
   if (args.approver.length === 0) return { ok: false, reason: "approver must not be empty" };
   const sftddDir = args.sftddDir ?? resolveSftddDir();
   const file = featureProposalsMd(sftddDir);
-  if (!existsSync23(file)) {
+  if (!existsSync24(file)) {
     return { ok: false, reason: `${PLAN_GATE_ARTIFACT} not found (no sprint plan to review)` };
   }
-  const content = readFileSync25(file, "utf8");
+  const content = readFileSync26(file, "utf8");
   const conf = checkArtifactConformance(PLAN_GATE_ARTIFACT, content);
   if (!conf.ok) {
     return { ok: false, reason: `${PLAN_GATE_ARTIFACT} not conformant: ${(conf.violations ?? []).join("; ")}` };

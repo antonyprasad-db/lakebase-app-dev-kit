@@ -7328,8 +7328,8 @@ function reviseStory(pipeline, storyId, opts) {
 
 // scripts/sftdd/revise.ts
 init_esm_shims();
-import { existsSync as existsSync15, readFileSync as readFileSync17, writeFileSync as writeFileSync11, mkdirSync as mkdirSync10, readdirSync as readdirSync10, rmSync as rmSync8 } from "fs";
-import { join as join16, dirname as dirname7 } from "path";
+import { existsSync as existsSync16, readFileSync as readFileSync18, writeFileSync as writeFileSync11, mkdirSync as mkdirSync10, readdirSync as readdirSync11, rmSync as rmSync8 } from "fs";
+import { join as join17, dirname as dirname7 } from "path";
 
 // scripts/sftdd/agent-log.ts
 init_esm_shims();
@@ -7723,13 +7723,13 @@ var REFLECT_SMELLS = Object.values(SMELL_FOR_OWNER);
 
 // scripts/sftdd/cycle-record.ts
 init_esm_shims();
-import { existsSync as existsSync14, readFileSync as readFileSync16, readdirSync as readdirSync9, statSync as statSync7, writeFileSync as writeFileSync10, mkdirSync as mkdirSync9, rmSync as rmSync7 } from "fs";
+import { existsSync as existsSync15, readFileSync as readFileSync17, readdirSync as readdirSync10, statSync as statSync7, writeFileSync as writeFileSync10, mkdirSync as mkdirSync9, rmSync as rmSync7 } from "fs";
 
 // scripts/sftdd/sftdd-env.ts
 init_esm_shims();
 
 // scripts/sftdd/cycle-record.ts
-import { join as join15, dirname as dirname6 } from "path";
+import { join as join16, dirname as dirname6 } from "path";
 
 // scripts/sftdd/deploy.ts
 init_esm_shims();
@@ -7792,15 +7792,20 @@ import { createBranch } from "@databricks-solutions/lakebase-scm-utils/lakebase"
 import { deleteBranch } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { getConnection as getConnection2, waitForBranchAuthReady } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 
+// scripts/sftdd/design-adherence.ts
+init_esm_shims();
+import { existsSync as existsSync10, readFileSync as readFileSync12, readdirSync as readdirSync7 } from "fs";
+import { join as join11 } from "path";
+
 // scripts/sftdd/supersession.ts
 init_esm_shims();
 import * as fs4 from "fs";
-import { join as join11 } from "path";
+import { join as join12 } from "path";
 
 // scripts/sftdd/contract-clean.ts
 init_esm_shims();
-import { existsSync as existsSync11, readFileSync as readFileSync13, readdirSync as readdirSync7, statSync as statSync5 } from "fs";
-import { join as join12, relative, extname } from "path";
+import { existsSync as existsSync12, readFileSync as readFileSync14, readdirSync as readdirSync8, statSync as statSync5 } from "fs";
+import { join as join13, relative, extname } from "path";
 
 // scripts/sftdd/refactor-verify-assess.ts
 init_esm_shims();
@@ -7809,24 +7814,24 @@ import * as path3 from "path";
 
 // scripts/sftdd/migration-app-clean.ts
 init_esm_shims();
-import { existsSync as existsSync13, readFileSync as readFileSync15, readdirSync as readdirSync8, statSync as statSync6 } from "fs";
-import { join as join14, relative as relative2, extname as extname2 } from "path";
+import { existsSync as existsSync14, readFileSync as readFileSync16, readdirSync as readdirSync9, statSync as statSync6 } from "fs";
+import { join as join15, relative as relative2, extname as extname2 } from "path";
 
 // scripts/sftdd/cycle-record.ts
 import { commitAllIfChanged } from "@databricks-solutions/lakebase-scm-utils/git";
 import { assertCommitTargetNotProtected, ProtectedBranchCommitError } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 function resetStoryBuildState(sftddDir, featureId, story) {
-  const cyclesDir = join15(cyclesRootDir(sftddDir), featureId, story);
+  const cyclesDir = join16(cyclesRootDir(sftddDir), featureId, story);
   let cyclesCleared = false;
-  if (existsSync14(cyclesDir)) {
+  if (existsSync15(cyclesDir)) {
     rmSync7(cyclesDir, { recursive: true, force: true });
     cyclesCleared = true;
   }
   let testItemsReset = 0;
   const tlPath = storyTestListJson(sftddDir, featureId, story);
-  if (existsSync14(tlPath)) {
+  if (existsSync15(tlPath)) {
     try {
-      const tl = JSON.parse(readFileSync16(tlPath, "utf8"));
+      const tl = JSON.parse(readFileSync17(tlPath, "utf8"));
       for (const item of tl.items ?? []) {
         if (item.status && item.status !== "pending") {
           item.status = "pending";
@@ -7846,9 +7851,9 @@ function staleStoryArtifactsForRevise(sftddDir, featureId, story, gate) {
   clearReflectVerdict(sftddDir, featureId, story);
   const acIds = new Set(storyAcIds(sftddDir, featureId, story));
   const master = featureTestListJson(sftddDir, featureId);
-  if (existsSync15(master)) {
+  if (existsSync16(master)) {
     try {
-      const data = JSON.parse(readFileSync17(master, "utf8"));
+      const data = JSON.parse(readFileSync18(master, "utf8"));
       if (Array.isArray(data.items)) {
         data.items = data.items.filter((it) => !it.ac_id || !acIds.has(it.ac_id));
         writeFileSync11(master, JSON.stringify(data, null, 2) + "\n");
@@ -7857,12 +7862,12 @@ function staleStoryArtifactsForRevise(sftddDir, featureId, story, gate) {
     }
   }
   const perStory = storyTestListJson(sftddDir, featureId, story);
-  if (existsSync15(perStory)) rmSync8(perStory, { force: true });
+  if (existsSync16(perStory)) rmSync8(perStory, { force: true });
   if (gate === "spec") {
     const dir = acsDir(sftddDir, featureId, story);
-    if (existsSync15(dir)) {
-      for (const f of readdirSync10(dir)) {
-        if (f.endsWith(".json") || f.endsWith(".md")) rmSync8(join16(dir, f), { force: true });
+    if (existsSync16(dir)) {
+      for (const f of readdirSync11(dir)) {
+        if (f.endsWith(".json") || f.endsWith(".md")) rmSync8(join17(dir, f), { force: true });
       }
     }
   } else if (gate === "architecture") {
@@ -7871,12 +7876,12 @@ function staleStoryArtifactsForRevise(sftddDir, featureId, story, gate) {
 }
 function clearArchitecturalNotes(sftddDir, featureId, story) {
   const dir = acsDir(sftddDir, featureId, story);
-  if (!existsSync15(dir)) return;
-  for (const f of readdirSync10(dir)) {
+  if (!existsSync16(dir)) return;
+  for (const f of readdirSync11(dir)) {
     if (!f.endsWith(".json")) continue;
-    const p = join16(dir, f);
+    const p = join17(dir, f);
     try {
-      const ac = JSON.parse(readFileSync17(p, "utf8"));
+      const ac = JSON.parse(readFileSync18(p, "utf8"));
       if ("architectural_notes" in ac) {
         delete ac.architectural_notes;
         writeFileSync11(p, JSON.stringify(ac, null, 2) + "\n");

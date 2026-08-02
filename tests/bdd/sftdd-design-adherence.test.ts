@@ -6,7 +6,10 @@
 // tokens declared in design-guide.json, so a primary button that renders blue
 // or rounded when the guide says red + sharp fails the build.
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   designGuideToCssVars,
   checkTokenAdherence,
@@ -14,6 +17,9 @@ import {
   checkHardcodedValues,
   checkRequiredSeams,
   checkFeedbackPresent,
+  checkRouteReachability,
+  checkTokenConsumption,
+  checkUxClean,
 } from "../../scripts/sftdd/design-adherence";
 
 const GUIDE = {
@@ -198,5 +204,158 @@ describe("checkFeedbackPresent: an action surface has a feedback affordance", ()
   it("ok when there is no action surface to give feedback for", () => {
     const html = `<main><h1>Bugs</h1><p>nothing actionable here</p></main>`;
     expect(checkFeedbackPresent(html).ok).toBe(true);
+  });
+});
+
+// ── Route reachability (increment C): every feature page is wired into App.tsx ──
+describe("checkRouteReachability: feature pages must be reachable from App.tsx routes", () => {
+  const APP_ONE_ROUTE = `
+    import { Routes, Route } from "react-router-dom";
+    import { HomePage } from "./pages/HomePage";
+    export function App() {
+      return (<Routes><Route path="/" element={<HomePage />} /></Routes>);
+    }`;
+  const APP_ALL = `
+    import { Routes, Route } from "react-router-dom";
+    export function App() {
+      return (<Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/location/:loc" element={<StockByLocationPage />} />
+        <Route path="/sku/:sku" element={<SkuDetailPage />} />
+      </Routes>);
+    }`;
+
+  it("flags a page component that is never routed", () => {
+    const r = checkRouteReachability({
+      appSource: APP_ONE_ROUTE,
+      pageComponents: ["HomePage", "StockByLocationPage", "SkuDetailPage"],
+    });
+    expect(r.ok).toBe(false);
+    expect(r.unreachable).toEqual(expect.arrayContaining(["StockByLocationPage", "SkuDetailPage"]));
+    expect(r.unreachable).not.toContain("HomePage");
+    expect(r.remediation).toBeTruthy();
+  });
+
+  it("ok when every page is routed via element={<X/>}", () => {
+    const r = checkRouteReachability({
+      appSource: APP_ALL,
+      pageComponents: ["HomePage", "StockByLocationPage", "SkuDetailPage"],
+    });
+    expect(r.ok).toBe(true);
+    expect(r.unreachable).toEqual([]);
+  });
+
+  it("recognizes the Component={X} route form", () => {
+    const app = `<Routes><Route path="/x" Component={StockByLocationPage} /></Routes>`;
+    const r = checkRouteReachability({ appSource: app, pageComponents: ["StockByLocationPage"] });
+    expect(r.ok).toBe(true);
+  });
+
+  it("empty inventory is trivially reachable", () => {
+    expect(checkRouteReachability({ appSource: APP_ONE_ROUTE, pageComponents: [] }).ok).toBe(true);
+  });
+
+  it("an exempt component (composed inside another page) is not flagged", () => {
+    const r = checkRouteReachability({
+      appSource: APP_ONE_ROUTE,
+      pageComponents: ["HomePage", "StockPanel"],
+      exemptComponents: ["StockPanel"],
+    });
+    expect(r.ok).toBe(true);
+  });
+});
+
+// ── Token consumption (increment C): feature pages must APPLY the design guide ──
+describe("checkTokenConsumption: a feature page must consume tokens / the design vocabulary", () => {
+  const BARE = `export function P(){ return (<table><tr><td>{x}</td></tr></table>); }`;
+  const VAR = `export function P(){ return (<div style={{color:"var(--color-brand-red)"}}>hi</div>); }`;
+  const CLASS = `export function P(){ return (<main className="page"><div className="card"/></main>); }`;
+
+  it("flags a page that renders structure with zero var() and zero design class", () => {
+    const r = checkTokenConsumption({ pageSources: { "SkuDetailPage.tsx": BARE } });
+    expect(r.ok).toBe(false);
+    expect(r.bare).toContain("SkuDetailPage.tsx");
+    expect(r.remediation).toBeTruthy();
+  });
+
+  it("ok when the page consumes a var(--token)", () => {
+    expect(checkTokenConsumption({ pageSources: { "P.tsx": VAR } }).ok).toBe(true);
+  });
+
+  it("ok when the page uses a design-class from the vocabulary", () => {
+    const r = checkTokenConsumption({ pageSources: { "P.tsx": CLASS }, designClasses: ["page", "card", "btn"] });
+    expect(r.ok).toBe(true);
+  });
+
+  it("flags a page that uses only ad-hoc classes not in the design vocabulary", () => {
+    const adhoc = `export function P(){ return (<div className="my-random-wrapper"><span/></div>); }`;
+    const r = checkTokenConsumption({ pageSources: { "P.tsx": adhoc }, designClasses: ["page", "card", "btn"] });
+    expect(r.ok).toBe(false);
+    expect(r.bare).toContain("P.tsx");
+  });
+});
+
+// ── checkUxClean (I/O boundary): scans a project's client/, no-op without one ──
+describe("checkUxClean: project-level UX gate (UI-track only)", () => {
+  let dir: string;
+  const mkClient = (app: string, pages: Record<string, string>): void => {
+    mkdirSync(join(dir, "client", "src", "pages"), { recursive: true });
+    writeFileSync(join(dir, "client", "package.json"), "{}");
+    writeFileSync(join(dir, "client", "src", "App.tsx"), app);
+    for (const [name, src] of Object.entries(pages)) {
+      writeFileSync(join(dir, "client", "src", "pages", name), src);
+    }
+  };
+  beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "uxclean-")); });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  it("clean (no-op) when there is no client/ workspace", () => {
+    expect(checkUxClean({ projectDir: dir }).clean).toBe(true);
+  });
+
+  it("not clean when a feature page is unrouted", () => {
+    mkClient(
+      `import {Routes,Route} from "react-router-dom";
+       export function App(){return(<Routes><Route path="/" element={<HomePage/>}/></Routes>);}`,
+      {
+        "HomePage.tsx": `export function HomePage(){return(<main className="page"/>);}`,
+        "SkuDetailPage.tsx": `export function SkuDetailPage(){return(<main className="page"><div className="card"/></main>);}`,
+      },
+    );
+    const r = checkUxClean({ projectDir: dir });
+    expect(r.clean).toBe(false);
+    expect(r.reachability.unreachable).toContain("SkuDetailPage");
+  });
+
+  it("not clean when a routed feature page is bare (no tokens / classes)", () => {
+    mkClient(
+      `import {Routes,Route} from "react-router-dom";
+       export function App(){return(<Routes>
+         <Route path="/" element={<HomePage/>}/>
+         <Route path="/sku" element={<SkuDetailPage/>}/>
+       </Routes>);}`,
+      {
+        "HomePage.tsx": `export function HomePage(){return(<main className="page"/>);}`,
+        "SkuDetailPage.tsx": `export function SkuDetailPage(){return(<table><tr><td>{x}</td></tr></table>);}`,
+      },
+    );
+    const r = checkUxClean({ projectDir: dir });
+    expect(r.clean).toBe(false);
+    expect(r.tokens.bare).toContain("SkuDetailPage.tsx");
+  });
+
+  it("clean when every feature page is routed and styled", () => {
+    mkClient(
+      `import {Routes,Route} from "react-router-dom";
+       export function App(){return(<Routes>
+         <Route path="/" element={<HomePage/>}/>
+         <Route path="/sku" element={<SkuDetailPage/>}/>
+       </Routes>);}`,
+      {
+        "HomePage.tsx": `export function HomePage(){return(<main className="page"/>);}`,
+        "SkuDetailPage.tsx": `export function SkuDetailPage(){return(<main className="page"><div className="card" style={{gap:"var(--space-4)"}}/></main>);}`,
+      },
+    );
+    expect(checkUxClean({ projectDir: dir }).clean).toBe(true);
   });
 });

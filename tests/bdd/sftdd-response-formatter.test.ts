@@ -246,6 +246,12 @@ describe("response-formatter: ux-designer (design-guide.json conforms to its sch
     },
     colors: { brand: { "brand-red": "#FF3621" } },
     spacing: { "space-4": "16px" },
+    // A UI project's guide names the component-class vocabulary feature pages apply.
+    components: {
+      page: { class: "page" },
+      card: { class: "card" },
+      button: { class: "btn", variants: "btn--primary, btn--secondary" },
+    },
   };
 
   it("FLAGS a missing design-guide.json", () => {
@@ -278,6 +284,15 @@ describe("response-formatter: ux-designer (design-guide.json conforms to its sch
     const r = formatRoleResponse({ role: "ux-designer", sftddDir: tdd, featureId: F });
     expect(r.ok).toBe(true);
     expect(r.violations).toEqual([]);
+  });
+
+  it("FLAGS a schema-valid guide that omits the components vocabulary (UI pages need named classes)", () => {
+    const { components, ...noComponents } = CONFORMANT; // schema-valid, but no components
+    void components;
+    writeJson(designGuide(), noComponents);
+    const r = formatRoleResponse({ role: "ux-designer", sftddDir: tdd, featureId: F });
+    expect(r.ok).toBe(false);
+    expect(r.violations.map((v) => v.problem).join("\n")).toMatch(/components/i);
   });
 
   // The design-lane gate (orchestrator-effects `designGuideReady`) reads .ok from

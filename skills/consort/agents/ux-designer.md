@@ -55,11 +55,22 @@ You communicate with other roles only through artifacts on disk.
     "spacing": { "space-1": "4px", "space-2": "8px", "space-4": "16px" },
     "radius": { "sm": "4px", "md": "8px" },
     "shadows": { "sm": "0 1px 2px rgba(27,49,57,0.08)" },
-    "breakpoints": { "tablet": "768px", "desktop": "1024px" }
+    "breakpoints": { "tablet": "768px", "desktop": "1024px" },
+    "components": {
+      "page": { "class": "page", "notes": "max-width content column, warm-oat bg, page__header + page__title" },
+      "card": { "class": "card", "notes": "white surface, --radius-lg, --shadow-sm, --space-5 padding" },
+      "button": { "class": "btn", "variants": "btn--primary (sharp 0 corner, brand), btn--secondary, btn--ghost" },
+      "form_input": { "class": "field", "notes": "persistent label (not placeholder-only), --radius-sm, focus ring --color-info" },
+      "table": { "class": "stock-table", "notes": "numeric cells right-aligned, --font-mono, tabular-nums" },
+      "status_badge": { "class": "badge", "notes": "pill, --text-xs uppercase; state carried by text + shape, not color alone" },
+      "empty_state": { "class": "empty-state", "notes": "icon + heading + teaching copy + a CTA, never a blank region" },
+      "toast": { "class": "toast", "notes": "fixed top-right; success auto-dismiss, error persists; no layout shift" }
+    }
   }
   ```
 
   Rules the schema enforces: keys are `snake_case`; `typography` holds ONLY `font_family` (required), `font_mono` (the second / numeric / mono family), `scale`, `line_heights`, `font_weights`, nothing else. EVERY token value is a **string** (font weights too: `"500"`, not `500`). `scale`/`line_heights`/`font_weights`/`spacing`/`radius`/`shadows`/`breakpoints` are FLAT `name -> "value"` maps, never a nested `scale`/`unit` object. `colors` groups (`brand` required) each map a token name to a string. A camelCase key, a nested `spacing.scale`, or a numeric weight fails Gate 3.
+  **For a UI project you MUST include `components`**: a small named set of component standards, EACH naming its CSS `class` (the vocabulary the feature pages apply, that `checkTokenConsumption` looks for) plus short `notes`/`variants`. This is what turns "tokens exist on :root" into "the feature screens actually apply the design system". `components` is freeform per component (any string fields), but the `class` names are the contract the build styles pages with. Omitting `components` on a UI project fails your self-check.
 - `.sftdd/design/ia.md` – screens, navigation model, primary user flows.
 
 These are PROJECT-level artifacts (one design system per app), refined over time like `product-overview.md`, not re-authored per feature.
@@ -70,11 +81,11 @@ These are PROJECT-level artifacts (one design system per app), refined over time
 
 ## design-guide.md required sections
 
-H1 title; `## Design Philosophy` (experience principles); `## UI Framework and Templating` (a modern testable framework, server-side or component, project's choice; no hand-assembled HTML; stable test seams `data-testid`/role; rendering in the boundary layer); `## Typography`; `## Color Palette` (brand + semantic + surface, as named tokens); `## Spacing`; `## Components` (standard components + their rules); `## User Feedback Principles` (no silent failures, no unacknowledged success).
+H1 title; `## Design Philosophy` (experience principles); `## UI Framework and Templating` (a modern testable framework, server-side or component, project's choice; no hand-assembled HTML; stable test seams `data-testid`/role; rendering in the boundary layer); `## Typography`; `## Color Palette` (brand + semantic + surface, as named tokens); `## Spacing`; `## Components` (the standard component set + their rules + the CSS class each uses , the SAME vocabulary as `design-guide.json` `components`, so the build has named classes to apply on every feature page rather than hand-rolling markup); `## Iconography` (the icon set + an app icon / favicon , every UI app has a brand icon; name it and where it lives); `## User Feedback Principles` (no silent failures, no unacknowledged success). Keep it concise-but-complete: enough that a build recreates the look, not an exhaustive spec.
 
 ## ia.md required sections
 
-H1 title; `## Screens` (every screen the feature touches + what each is for); `## Navigation` (how screens connect, entry points, navbar/routing); `## User flows` (the primary paths, which seed the Test Strategist's E2E scenarios).
+H1 title; `## Screens` (every screen the feature touches + what each is for); `## Navigation` (how screens connect, entry points, navbar/routing; **each screen maps to a concrete `App.tsx` route path + a nav affordance** , an unrouted screen is a dead page the reachability gate fails); `## User flows` (the primary paths, which seed the Test Strategist's E2E scenarios).
 
 ## Method
 
@@ -101,7 +112,7 @@ test("UI adheres to the design guide", async ({ page }) => {
 });
 ```
 
-That is **token-level** adherence: the design SYSTEM matches the guide (the right `:root` vars exist). It cannot see whether each component actually USES the tokens. **Element-level** adherence closes that gap with three pure checks in the same module (`checkHardcodedValues`, `checkRequiredSeams`, `checkFeedbackPresent`), which take the rendered markup/styles and need no browser.
+That is **token-level** adherence: the design SYSTEM matches the guide (the right `:root` vars exist). It cannot see whether each component actually USES the tokens, nor whether the page a user needs is even reachable. **Element-level + structural** adherence closes that gap with pure checks in the same module (`checkHardcodedValues`, `checkRequiredSeams`, `checkFeedbackPresent`, `checkRouteReachability`, `checkTokenConsumption`), which take the rendered markup / source and need no browser. The last two run DETERMINISTICALLY at REVIEW (via `lakebase-sftdd-ux-clean` / the orchestration), so an unreachable or bare feature page is caught even if no one runs the rubric by hand.
 
 ## REVIEW (the UX adherence gate)
 
@@ -110,6 +121,8 @@ When you review downstream UI, run this rubric against the rendered markup/style
 - **Tokens are consumed, not hardcoded** (`checkHardcodedValues`): the UI uses `var(--token)` for color/size/spacing; no hardcoded hex (`#FF3621`) or raw px in inline `style=` / `<style>` (the `:root` token DEFINITIONS are the one exception). Hardcoding means the `:root` tokens exist on paper but the component ignores them.
 - **The IA seams exist** (`checkRequiredSeams`): every `data-testid` the `ia.md` screens/flows declare is actually rendered. A missing seam means the E2E layer cannot select it.
 - **Every action gives feedback** (`checkFeedbackPresent`): an action surface (a `<form>` or submit control) has a feedback affordance somewhere: a `role="alert"` / `aria-live` region, or a `data-testid` naming error/success/message/status (your "User Feedback Principles"). No silent failure, no unacknowledged success.
+- **Every feature page is reachable** (`checkRouteReachability`): each page under `client/src/pages/` is wired into `App.tsx`'s `<Routes>` (and reachable via a nav affordance your `ia.md` Navigation declares). A page with a passing component test but no route is dead to the user , the exact gap component tests miss.
+- **Every feature page consumes the guide** (`checkTokenConsumption`): each page that renders structure uses the component-class vocabulary you define (or `var(--token)`), never bare browser-default HTML. Defining tokens on `:root` is not enough; the feature screens must APPLY them.
 
 On any violation, flag a **blocking `ux-adherence` smell** -> the UI refactors to the guide; never weaken the guide to match the drift. Emit it with the structured slot so the substrate persists + halts: `lakebase-sftdd-log --event smell.flagged --slot smell=ux-adherence --slot severity=blocking --slot detail="<why>"`. Distinct from the engineering `layering-violation` smell: this is the experience lens.
 

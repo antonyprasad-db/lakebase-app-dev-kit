@@ -7332,15 +7332,20 @@ import { createBranch } from "@databricks-solutions/lakebase-scm-utils/lakebase"
 import { deleteBranch } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { getConnection as getConnection2, waitForBranchAuthReady } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 
+// scripts/sftdd/design-adherence.ts
+init_esm_shims();
+import { existsSync as existsSync11, readFileSync as readFileSync12, readdirSync as readdirSync7 } from "fs";
+import { join as join11 } from "path";
+
 // scripts/sftdd/supersession.ts
 init_esm_shims();
 import * as fs3 from "fs";
-import { join as join11 } from "path";
+import { join as join12 } from "path";
 
 // scripts/sftdd/contract-clean.ts
 init_esm_shims();
-import { existsSync as existsSync12, readFileSync as readFileSync13, readdirSync as readdirSync7, statSync as statSync5 } from "fs";
-import { join as join12, relative as relative2, extname } from "path";
+import { existsSync as existsSync13, readFileSync as readFileSync14, readdirSync as readdirSync8, statSync as statSync5 } from "fs";
+import { join as join13, relative as relative2, extname } from "path";
 
 // scripts/sftdd/refactor-verify-assess.ts
 init_esm_shims();
@@ -7349,8 +7354,8 @@ import * as path3 from "path";
 
 // scripts/sftdd/migration-app-clean.ts
 init_esm_shims();
-import { existsSync as existsSync14, readFileSync as readFileSync15, readdirSync as readdirSync8, statSync as statSync6 } from "fs";
-import { join as join14, relative as relative3, extname as extname2 } from "path";
+import { existsSync as existsSync15, readFileSync as readFileSync16, readdirSync as readdirSync9, statSync as statSync6 } from "fs";
+import { join as join15, relative as relative3, extname as extname2 } from "path";
 
 // scripts/sftdd/cycle-record.ts
 import { commitAllIfChanged } from "@databricks-solutions/lakebase-scm-utils/git";

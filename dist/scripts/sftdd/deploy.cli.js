@@ -6654,8 +6654,8 @@ import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 init_esm_shims();
 import { execSync, spawn } from "child_process";
 import { randomBytes } from "crypto";
-import { existsSync as existsSync9, mkdirSync as mkdirSync6, readFileSync as readFileSync11, rmSync as rmSync4, writeFileSync as writeFileSync6 } from "fs";
-import { dirname as dirname3, join as join10 } from "path";
+import { existsSync as existsSync10, mkdirSync as mkdirSync6, readFileSync as readFileSync12, rmSync as rmSync4, writeFileSync as writeFileSync6 } from "fs";
+import { dirname as dirname3, join as join11 } from "path";
 import { readTargets } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { pollUntil } from "@databricks-solutions/lakebase-scm-utils/util";
 
@@ -6864,15 +6864,20 @@ function sftddEnv(suffix, env = process.env) {
 // scripts/sftdd/test-list.ts
 init_esm_shims();
 
+// scripts/sftdd/design-adherence.ts
+init_esm_shims();
+import { existsSync as existsSync3, readFileSync as readFileSync4, readdirSync as readdirSync2 } from "fs";
+import { join as join4 } from "path";
+
 // scripts/sftdd/supersession.ts
 init_esm_shims();
 import * as fs2 from "fs";
-import { join as join4 } from "path";
+import { join as join5 } from "path";
 
 // scripts/sftdd/contract-clean.ts
 init_esm_shims();
-import { existsSync as existsSync4, readFileSync as readFileSync5, readdirSync as readdirSync2, statSync as statSync2 } from "fs";
-import { join as join5, relative, extname } from "path";
+import { existsSync as existsSync5, readFileSync as readFileSync6, readdirSync as readdirSync3, statSync as statSync2 } from "fs";
+import { join as join6, relative, extname } from "path";
 
 // scripts/sftdd/refactor-verify-assess.ts
 init_esm_shims();
@@ -6881,8 +6886,8 @@ import * as path2 from "path";
 
 // scripts/sftdd/migration-app-clean.ts
 init_esm_shims();
-import { existsSync as existsSync6, readFileSync as readFileSync7, readdirSync as readdirSync3, statSync as statSync3 } from "fs";
-import { join as join7, relative as relative2, extname as extname2 } from "path";
+import { existsSync as existsSync7, readFileSync as readFileSync8, readdirSync as readdirSync4, statSync as statSync3 } from "fs";
+import { join as join8, relative as relative2, extname as extname2 } from "path";
 
 // scripts/sftdd/cycle-record.ts
 import { commitAllIfChanged } from "@databricks-solutions/lakebase-scm-utils/git";
@@ -6976,8 +6981,8 @@ async function classifyDeployVerifyFailure(failingNodeIds, runIsolated) {
 
 // scripts/sftdd/e2e-regex-clean.ts
 init_esm_shims();
-import { readdirSync as readdirSync5, readFileSync as readFileSync10, statSync as statSync4 } from "fs";
-import { join as join9 } from "path";
+import { readdirSync as readdirSync6, readFileSync as readFileSync11, statSync as statSync4 } from "fs";
+import { join as join10 } from "path";
 
 // scripts/sftdd/ephemeral-verify.ts
 init_esm_shims();
@@ -7021,7 +7026,7 @@ function ephemeralVerifyBranchName(experimentBranch, nonce) {
 // scripts/sftdd/deploy.ts
 function readProjectInstance(projectDir) {
   try {
-    const m = readFileSync11(join10(projectDir, ".env"), "utf8").match(/^\s*LAKEBASE_PROJECT_ID\s*=\s*(.+?)\s*$/m);
+    const m = readFileSync12(join11(projectDir, ".env"), "utf8").match(/^\s*LAKEBASE_PROJECT_ID\s*=\s*(.+?)\s*$/m);
     return m ? m[1].replace(/^["']|["']$/g, "").trim() : void 0;
   } catch {
     return void 0;
@@ -7030,7 +7035,7 @@ function readProjectInstance(projectDir) {
 function readAppDatabaseName(projectDir) {
   let env;
   try {
-    env = readFileSync11(join10(projectDir, ".env"), "utf8");
+    env = readFileSync12(join11(projectDir, ".env"), "utf8");
   } catch {
     return void 0;
   }
@@ -7155,7 +7160,7 @@ function logReleaseEngineerDeployOutcome(ctx, result) {
   }
 }
 function pidFile(projectDir, target) {
-  return join10(resolveSftddDir(projectDir), "deploy", `${target}.pid`);
+  return join11(resolveSftddDir(projectDir), "deploy", `${target}.pid`);
 }
 function normalizeVerifyRun(raw) {
   return typeof raw === "boolean" ? { passed: raw, output: "" } : { passed: raw.passed, output: raw.output ?? "" };
@@ -7178,9 +7183,9 @@ ${tail}
 function writeDeployEvidence(sftddDir, evidence) {
   const fdir = findFeatureDir(sftddDir, evidence.feature_id);
   if (!fdir) return void 0;
-  const dir = evidence.story_id ? join10(fdir, "stories", evidence.story_id) : fdir;
+  const dir = evidence.story_id ? join11(fdir, "stories", evidence.story_id) : fdir;
   mkdirSync6(dir, { recursive: true });
-  const file = join10(dir, "deploy-evidence.json");
+  const file = join11(dir, "deploy-evidence.json");
   writeFileSync6(file, JSON.stringify(evidence, null, 2) + "\n", "utf8");
   return file;
 }
@@ -7364,8 +7369,8 @@ async function deployToTarget(args) {
 }
 function stopLocal(projectDir, targetName) {
   const pf = pidFile(projectDir, targetName);
-  if (!existsSync9(pf)) return { stopped: false };
-  const pid = Number(readFileSync11(pf, "utf8").trim());
+  if (!existsSync10(pf)) return { stopped: false };
+  const pid = Number(readFileSync12(pf, "utf8").trim());
   if (Number.isFinite(pid) && pid > 0) {
     try {
       process.kill(-pid);

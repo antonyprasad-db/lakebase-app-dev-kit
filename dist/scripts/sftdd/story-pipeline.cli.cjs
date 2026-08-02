@@ -7323,8 +7323,8 @@ function reviseStory(pipeline, storyId, opts) {
 
 // scripts/sftdd/revise.ts
 init_cjs_shims();
-var import_node_fs6 = require("fs");
-var import_node_path8 = require("path");
+var import_node_fs7 = require("fs");
+var import_node_path9 = require("path");
 
 // scripts/sftdd/agent-log.ts
 init_cjs_shims();
@@ -7787,15 +7787,20 @@ var import_lakebase3 = require("@databricks-solutions/lakebase-scm-utils/lakebas
 var import_lakebase4 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_lakebase5 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
+// scripts/sftdd/design-adherence.ts
+init_cjs_shims();
+var import_node_fs4 = require("fs");
+var import_node_path5 = require("path");
+
 // scripts/sftdd/supersession.ts
 init_cjs_shims();
 var fs4 = __toESM(require("fs"), 1);
-var import_node_path5 = require("path");
+var import_node_path6 = require("path");
 
 // scripts/sftdd/contract-clean.ts
 init_cjs_shims();
-var import_node_fs4 = require("fs");
-var import_node_path6 = require("path");
+var import_node_fs5 = require("fs");
+var import_node_path7 = require("path");
 
 // scripts/sftdd/refactor-verify-assess.ts
 init_cjs_shims();
@@ -7804,8 +7809,8 @@ var path2 = __toESM(require("path"), 1);
 
 // scripts/sftdd/migration-app-clean.ts
 init_cjs_shims();
-var import_node_fs5 = require("fs");
-var import_node_path7 = require("path");
+var import_node_fs6 = require("fs");
+var import_node_path8 = require("path");
 
 // scripts/sftdd/cycle-record.ts
 var import_git = require("@databricks-solutions/lakebase-scm-utils/git");
@@ -7841,23 +7846,23 @@ function staleStoryArtifactsForRevise(sftddDir, featureId, story, gate) {
   clearReflectVerdict(sftddDir, featureId, story);
   const acIds = new Set(storyAcIds(sftddDir, featureId, story));
   const master = featureTestListJson(sftddDir, featureId);
-  if ((0, import_node_fs6.existsSync)(master)) {
+  if ((0, import_node_fs7.existsSync)(master)) {
     try {
-      const data = JSON.parse((0, import_node_fs6.readFileSync)(master, "utf8"));
+      const data = JSON.parse((0, import_node_fs7.readFileSync)(master, "utf8"));
       if (Array.isArray(data.items)) {
         data.items = data.items.filter((it) => !it.ac_id || !acIds.has(it.ac_id));
-        (0, import_node_fs6.writeFileSync)(master, JSON.stringify(data, null, 2) + "\n");
+        (0, import_node_fs7.writeFileSync)(master, JSON.stringify(data, null, 2) + "\n");
       }
     } catch {
     }
   }
   const perStory = storyTestListJson(sftddDir, featureId, story);
-  if ((0, import_node_fs6.existsSync)(perStory)) (0, import_node_fs6.rmSync)(perStory, { force: true });
+  if ((0, import_node_fs7.existsSync)(perStory)) (0, import_node_fs7.rmSync)(perStory, { force: true });
   if (gate === "spec") {
     const dir = acsDir(sftddDir, featureId, story);
-    if ((0, import_node_fs6.existsSync)(dir)) {
-      for (const f of (0, import_node_fs6.readdirSync)(dir)) {
-        if (f.endsWith(".json") || f.endsWith(".md")) (0, import_node_fs6.rmSync)((0, import_node_path8.join)(dir, f), { force: true });
+    if ((0, import_node_fs7.existsSync)(dir)) {
+      for (const f of (0, import_node_fs7.readdirSync)(dir)) {
+        if (f.endsWith(".json") || f.endsWith(".md")) (0, import_node_fs7.rmSync)((0, import_node_path9.join)(dir, f), { force: true });
       }
     }
   } else if (gate === "architecture") {
@@ -7866,15 +7871,15 @@ function staleStoryArtifactsForRevise(sftddDir, featureId, story, gate) {
 }
 function clearArchitecturalNotes(sftddDir, featureId, story) {
   const dir = acsDir(sftddDir, featureId, story);
-  if (!(0, import_node_fs6.existsSync)(dir)) return;
-  for (const f of (0, import_node_fs6.readdirSync)(dir)) {
+  if (!(0, import_node_fs7.existsSync)(dir)) return;
+  for (const f of (0, import_node_fs7.readdirSync)(dir)) {
     if (!f.endsWith(".json")) continue;
-    const p = (0, import_node_path8.join)(dir, f);
+    const p = (0, import_node_path9.join)(dir, f);
     try {
-      const ac = JSON.parse((0, import_node_fs6.readFileSync)(p, "utf8"));
+      const ac = JSON.parse((0, import_node_fs7.readFileSync)(p, "utf8"));
       if ("architectural_notes" in ac) {
         delete ac.architectural_notes;
-        (0, import_node_fs6.writeFileSync)(p, JSON.stringify(ac, null, 2) + "\n");
+        (0, import_node_fs7.writeFileSync)(p, JSON.stringify(ac, null, 2) + "\n");
       }
     } catch {
     }
@@ -7913,8 +7918,8 @@ function applyReviseSelfHeal(args) {
   staleStoryArtifactsForRevise(sftddDir, args.featureId, args.story, args.gate);
   try {
     const hb = handbackFile(sftddDir, args.featureId, args.routedTo, args.story);
-    (0, import_node_fs6.mkdirSync)((0, import_node_path8.dirname)(hb), { recursive: true });
-    (0, import_node_fs6.writeFileSync)(hb, composeReviseBrief({ smell: args.smell, gate: args.gate, reason: args.reason }));
+    (0, import_node_fs7.mkdirSync)((0, import_node_path9.dirname)(hb), { recursive: true });
+    (0, import_node_fs7.writeFileSync)(hb, composeReviseBrief({ smell: args.smell, gate: args.gate, reason: args.reason }));
   } catch {
   }
   const reflect = isReflectSmell(args.smell);
@@ -7924,9 +7929,9 @@ function applyReviseSelfHeal(args) {
       if (role === args.routedTo) continue;
       try {
         const hb = handbackFile(sftddDir, args.featureId, role, args.story);
-        (0, import_node_fs6.mkdirSync)((0, import_node_path8.dirname)(hb), { recursive: true });
+        (0, import_node_fs7.mkdirSync)((0, import_node_path9.dirname)(hb), { recursive: true });
         const gate = role === "architect-reviewer" ? "architecture" : "test_list";
-        (0, import_node_fs6.writeFileSync)(hb, composeReviseBrief({ smell: args.smell, gate, reason: args.reason }));
+        (0, import_node_fs7.writeFileSync)(hb, composeReviseBrief({ smell: args.smell, gate, reason: args.reason }));
       } catch {
       }
     }

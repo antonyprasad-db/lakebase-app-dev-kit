@@ -178,6 +178,28 @@ All controls are keyboard-reachable and remain legible/usable at 200%
 browser zoom (the tablet defaults to large text)
 (`design-brief.md`, Accessibility).
 
+Each component maps to a stable CSS class (the vocabulary the feature
+pages apply, recorded in `design-guide.json` `components`): `navbar`,
+`page` (+ `page__header`/`page__title`), `card`, `btn`
+(`btn--primary`/`btn--secondary`/`btn--ghost`), `field`, `stock-table`,
+`badge` (+ per-state modifiers), `empty-state`, `toast`. Every feature
+page composes these classes rather than hand-rolling markup, so a new
+screen looks like the same product.
+
+## Iconography
+
+- **App icon.** StockFlow's brand mark is a warehouse icon
+  (`client/src/assets/warehouse.png`), shown next to the "StockFlow"
+  title in the navbar / page header, with a favicon
+  (`client/public/favicon.svg`) for the browser tab. Every screen is
+  visibly one branded product.
+- **Icon set.** A single consistent line-style set for the recurring
+  concepts, inbound/outbound, scan, warehouse/location, and the
+  stock-level states (in-stock / low / out). Do not mix icon styles.
+- **Sizing/color.** Inline 16px, in-button 20px, standalone 24px,
+  48-64px in empty states; color inherits the parent text color by
+  default.
+
 ## User Feedback Principles
 
 No silent failure, no unacknowledged success, anywhere a user acts:

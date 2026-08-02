@@ -67,7 +67,7 @@
     },
     "components": {
       "type": "object",
-      "description": "Optional per-component standards (freeform per component)."
+      "description": "Per-component standards (freeform per component). REQUIRED for a UI project (the ux-designer self-check enforces a non-empty object; the schema keeps it optional so older recorded corpora still validate). Each entry SHOULD name the CSS `class` the feature pages apply (page, card, button, form_input, table, status_badge, empty_state, toast, ...), which is the vocabulary the token-consumption gate looks for."
     }
   },
   "additionalProperties": false

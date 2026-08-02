@@ -8438,8 +8438,8 @@ function lastReflectReviseFingerprint(sftddDir, story_id) {
 
 // scripts/sftdd/cycle-record.ts
 init_esm_shims();
-import { existsSync as existsSync20, readFileSync as readFileSync19, readdirSync as readdirSync13, statSync as statSync9, writeFileSync as writeFileSync13, mkdirSync as mkdirSync14, rmSync as rmSync6 } from "fs";
-import { join as join22, dirname as dirname11 } from "path";
+import { existsSync as existsSync21, readFileSync as readFileSync20, readdirSync as readdirSync14, statSync as statSync9, writeFileSync as writeFileSync13, mkdirSync as mkdirSync14, rmSync as rmSync6 } from "fs";
+import { join as join23, dirname as dirname11 } from "path";
 
 // scripts/sftdd/test-list.ts
 init_esm_shims();
@@ -8524,12 +8524,17 @@ function storyDeployVerified(sftddDir, featureId, storyId) {
   return deployEvidencePasses(readDeployEvidence(join17(fdir, "stories", storyId, "deploy-evidence.json")));
 }
 
+// scripts/sftdd/design-adherence.ts
+init_esm_shims();
+import { existsSync as existsSync16, readFileSync as readFileSync15, readdirSync as readdirSync11 } from "fs";
+import { join as join18 } from "path";
+
 // scripts/sftdd/supersession.ts
 init_esm_shims();
 import * as fs7 from "fs";
-import { join as join18 } from "path";
+import { join as join19 } from "path";
 function supersededTestsJson(tdd, feature, story, ac) {
-  return join18(cycleDir(tdd, feature, story, ac), "superseded-tests.json");
+  return join19(cycleDir(tdd, feature, story, ac), "superseded-tests.json");
 }
 function readSupersededTests(tdd, feature, story, ac) {
   const file = supersededTestsJson(tdd, feature, story, ac);
@@ -8547,7 +8552,7 @@ function hasPendingSupersession(tdd, feature, story, ac) {
   return s !== void 0 && s.refactored !== true;
 }
 function greenFailureJson(tdd, feature, story, ac) {
-  return join18(cycleDir(tdd, feature, story, ac), "green-failure.json");
+  return join19(cycleDir(tdd, feature, story, ac), "green-failure.json");
 }
 function readGreenFailure(tdd, feature, story, ac) {
   const file = greenFailureJson(tdd, feature, story, ac);
@@ -8569,8 +8574,8 @@ function hasPendingRegressionFix(tdd, feature, story, ac) {
 
 // scripts/sftdd/contract-clean.ts
 init_esm_shims();
-import { existsSync as existsSync17, readFileSync as readFileSync16, readdirSync as readdirSync11, statSync as statSync7 } from "fs";
-import { join as join19, relative as relative2, extname } from "path";
+import { existsSync as existsSync18, readFileSync as readFileSync17, readdirSync as readdirSync12, statSync as statSync7 } from "fs";
+import { join as join20, relative as relative2, extname } from "path";
 
 // scripts/sftdd/refactor-verify-assess.ts
 init_esm_shims();
@@ -8601,35 +8606,35 @@ function refactorVerifyRefactorPending(sftddDir, featureId, storyId) {
 
 // scripts/sftdd/migration-app-clean.ts
 init_esm_shims();
-import { existsSync as existsSync19, readFileSync as readFileSync18, readdirSync as readdirSync12, statSync as statSync8 } from "fs";
-import { join as join21, relative as relative3, extname as extname2 } from "path";
+import { existsSync as existsSync20, readFileSync as readFileSync19, readdirSync as readdirSync13, statSync as statSync8 } from "fs";
+import { join as join22, relative as relative3, extname as extname2 } from "path";
 
 // scripts/sftdd/cycle-record.ts
 import { commitAllIfChanged } from "@databricks-solutions/lakebase-scm-utils/git";
 import { assertCommitTargetNotProtected, ProtectedBranchCommitError } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 function readStoryItems(sftddDir, featureId, story) {
   const file = storyTestListJson(sftddDir, featureId, story);
-  if (!existsSync20(file)) {
+  if (!existsSync21(file)) {
     throw new Error(`per-story test-list not found for ${featureId}/${story} at ${file}`);
   }
-  const data = JSON.parse(readFileSync19(file, "utf8"));
+  const data = JSON.parse(readFileSync20(file, "utf8"));
   return Array.isArray(data.items) ? data.items : [];
 }
 function storyCycles(sftddDir, featureId, story) {
-  const base = join22(cyclesRootDir(sftddDir), featureId, story);
-  if (!existsSync20(base)) return [];
+  const base = join23(cyclesRootDir(sftddDir), featureId, story);
+  if (!existsSync21(base)) return [];
   const out = [];
-  for (const acDir of readdirSync13(base)) {
-    const dir = join22(base, acDir);
+  for (const acDir of readdirSync14(base)) {
+    const dir = join23(base, acDir);
     try {
       if (!statSync9(dir).isDirectory()) continue;
     } catch {
       continue;
     }
-    for (const f of readdirSync13(dir)) {
+    for (const f of readdirSync14(dir)) {
       if (!/^cycle-\d+\.json$/.test(f)) continue;
       try {
-        out.push(JSON.parse(readFileSync19(join22(dir, f), "utf8")));
+        out.push(JSON.parse(readFileSync20(join23(dir, f), "utf8")));
       } catch {
       }
     }
@@ -8665,9 +8670,9 @@ function nextPendingBatch(sftddDir, featureId, story, cap = DEFAULT_BATCH_CAP) {
 }
 function readReview(sftddDir, featureId, story, acId) {
   const f = acReviewJson(sftddDir, featureId, story, acId);
-  if (!existsSync20(f)) return {};
+  if (!existsSync21(f)) return {};
   try {
-    return JSON.parse(readFileSync19(f, "utf8"));
+    return JSON.parse(readFileSync20(f, "utf8"));
   } catch {
     return {};
   }
@@ -8717,9 +8722,9 @@ function firstRefactorPendingAc(sftddDir, featureId, story) {
 }
 function readStoryReview(sftddDir, featureId, story) {
   const f = storyReviewJson(sftddDir, featureId, story);
-  if (!existsSync20(f)) return {};
+  if (!existsSync21(f)) return {};
   try {
-    return JSON.parse(readFileSync19(f, "utf8"));
+    return JSON.parse(readFileSync20(f, "utf8"));
   } catch {
     return {};
   }
@@ -9098,8 +9103,8 @@ function driverPhaseForTdd(tddPhase) {
 
 // scripts/sftdd/gates.ts
 init_esm_shims();
-import { existsSync as existsSync22, readFileSync as readFileSync21, renameSync as renameSync2, unlinkSync, writeFileSync as writeFileSync15 } from "fs";
-import { join as join23 } from "path";
+import { existsSync as existsSync23, readFileSync as readFileSync22, renameSync as renameSync2, unlinkSync, writeFileSync as writeFileSync15 } from "fs";
+import { join as join24 } from "path";
 var GATES_SCHEMA_VERSION = 1;
 var GATE_STATUSES = ["open", "approved", "superseded", "withdrawn"];
 function defaultGatesState(featureId) {
@@ -9118,10 +9123,10 @@ function defaultGatesState(featureId) {
 function readGates(featureId, opts = {}) {
   const sftddDir = opts.sftddDir ?? resolveSftddDir();
   const file = gatesFilePath(sftddDir, featureId);
-  if (!existsSync22(file)) {
+  if (!existsSync23(file)) {
     return defaultGatesState(featureId);
   }
-  const raw = readFileSync21(file, "utf8");
+  const raw = readFileSync22(file, "utf8");
   let parsed;
   try {
     parsed = JSON.parse(raw);
@@ -9132,7 +9137,7 @@ function readGates(featureId, opts = {}) {
   return validateGatesState(parsed, file);
 }
 function gatesFilePath(sftddDir, featureId) {
-  return join23(requireFeatureDir(sftddDir, featureId), "gates.json");
+  return join24(requireFeatureDir(sftddDir, featureId), "gates.json");
 }
 function validateGatesState(parsed, file) {
   if (typeof parsed !== "object" || parsed === null) {
@@ -9232,16 +9237,16 @@ import { readWorkflowState, SCM_STATES } from "@databricks-solutions/lakebase-sc
 
 // scripts/sftdd/reflection.ts
 init_esm_shims();
-import { existsSync as existsSync24, readFileSync as readFileSync23, writeFileSync as writeFileSync17, mkdirSync as mkdirSync17, rmSync as rmSync7 } from "fs";
+import { existsSync as existsSync25, readFileSync as readFileSync24, writeFileSync as writeFileSync17, mkdirSync as mkdirSync17, rmSync as rmSync7 } from "fs";
 var SMELL_FOR_OWNER = {
   "spec-author": "reflect-spec-defect",
   "test-strategist": "reflect-testlist-defect"
 };
 function readReflectVerdict(sftddDir, feature, story) {
   const p = reflectVerdictJson(sftddDir, feature, story);
-  if (!existsSync24(p)) return void 0;
+  if (!existsSync25(p)) return void 0;
   try {
-    return JSON.parse(readFileSync23(p, "utf8"));
+    return JSON.parse(readFileSync24(p, "utf8"));
   } catch {
     return void 0;
   }
@@ -9256,15 +9261,15 @@ var REFLECT_SMELLS = Object.values(SMELL_FOR_OWNER);
 
 // scripts/sftdd/architecture-canon.ts
 init_esm_shims();
-import { existsSync as existsSync25, readFileSync as readFileSync24, writeFileSync as writeFileSync18, mkdirSync as mkdirSync18, readdirSync as readdirSync16 } from "fs";
+import { existsSync as existsSync26, readFileSync as readFileSync25, writeFileSync as writeFileSync18, mkdirSync as mkdirSync18, readdirSync as readdirSync17 } from "fs";
 function uniq(xs) {
   return [...new Set(xs.filter((x) => typeof x === "string" && x.length > 0))];
 }
 function readCanon(sftddDir) {
   const f = architectureCanonJson(sftddDir);
-  if (!existsSync25(f)) return void 0;
+  if (!existsSync26(f)) return void 0;
   try {
-    return JSON.parse(readFileSync24(f, "utf8"));
+    return JSON.parse(readFileSync25(f, "utf8"));
   } catch {
     return void 0;
   }
@@ -9301,7 +9306,7 @@ function architectNovelty(canon, storyAcs, storyArchitectureJsonContent) {
 
 // scripts/sftdd/artifact-conformance.ts
 init_esm_shims();
-import { join as join24, basename, dirname as dirname12 } from "path";
+import { join as join25, basename, dirname as dirname12 } from "path";
 var ARTIFACT_FORMATS = {
   "feature-spec.json": { kind: "json-schema", schema: "feature.schema.json" },
   "story.json": { kind: "json-schema", schema: "story.schema.json" },
@@ -9794,21 +9799,21 @@ init_esm_shims();
 
 // scripts/sftdd/story-pipeline.ts
 init_esm_shims();
-import { existsSync as existsSync29, readFileSync as readFileSync28, writeFileSync as writeFileSync20, mkdirSync as mkdirSync20, readdirSync as readdirSync19, statSync as statSync12, rmSync as rmSync8 } from "fs";
+import { existsSync as existsSync30, readFileSync as readFileSync29, writeFileSync as writeFileSync20, mkdirSync as mkdirSync20, readdirSync as readdirSync20, statSync as statSync12, rmSync as rmSync8 } from "fs";
 
 // scripts/sftdd/gate-conformance-guard.ts
 init_esm_shims();
-import { existsSync as existsSync28, readFileSync as readFileSync27, readdirSync as readdirSync18, statSync as statSync11 } from "fs";
-import { join as join26 } from "path";
+import { existsSync as existsSync29, readFileSync as readFileSync28, readdirSync as readdirSync19, statSync as statSync11 } from "fs";
+import { join as join27 } from "path";
 
 // scripts/sftdd/architecture-conventions.ts
 init_esm_shims();
-import { existsSync as existsSync27, readFileSync as readFileSync26, writeFileSync as writeFileSync19, mkdirSync as mkdirSync19 } from "fs";
+import { existsSync as existsSync28, readFileSync as readFileSync27, writeFileSync as writeFileSync19, mkdirSync as mkdirSync19 } from "fs";
 function readConventions(sftddDir) {
   const f = architectureConventionsJson(sftddDir);
-  if (!existsSync27(f)) return void 0;
+  if (!existsSync28(f)) return void 0;
   try {
-    return JSON.parse(readFileSync26(f, "utf8"));
+    return JSON.parse(readFileSync27(f, "utf8"));
   } catch {
     return void 0;
   }
@@ -9823,8 +9828,8 @@ function pipelinePath(sftddDir, featureId) {
 }
 function readPipeline(sftddDir, featureId) {
   const p = pipelinePath(sftddDir, featureId);
-  if (!existsSync29(p)) return initPipeline(featureId);
-  return JSON.parse(readFileSync28(p, "utf8"));
+  if (!existsSync30(p)) return initPipeline(featureId);
+  return JSON.parse(readFileSync29(p, "utf8"));
 }
 
 // scripts/sftdd/feature-status.ts
@@ -9857,15 +9862,15 @@ import { dirname as dirname14 } from "path";
 
 // scripts/sftdd/response-formatter.ts
 init_esm_shims();
-import { existsSync as existsSync30, readFileSync as readFileSync29, readdirSync as readdirSync20 } from "fs";
+import { existsSync as existsSync31, readFileSync as readFileSync30, readdirSync as readdirSync21 } from "fs";
 function designGuideConformance(sftddDir) {
   const file = designGuideJson(sftddDir);
-  if (!existsSync30(file)) {
+  if (!existsSync31(file)) {
     return { ok: false, problem: "design-guide.json not written (the machine-checkable token source of truth)" };
   }
   let content;
   try {
-    content = readFileSync29(file, "utf8");
+    content = readFileSync30(file, "utf8");
   } catch (e) {
     return { ok: false, problem: `unreadable: ${e instanceof Error ? e.message : String(e)}` };
   }
@@ -10861,7 +10866,7 @@ init_esm_shims();
 
 // scripts/sftdd/sprint-gates.ts
 init_esm_shims();
-import { existsSync as existsSync32, mkdirSync as mkdirSync23, readFileSync as readFileSync31, renameSync as renameSync3, unlinkSync as unlinkSync2, writeFileSync as writeFileSync23 } from "fs";
+import { existsSync as existsSync33, mkdirSync as mkdirSync23, readFileSync as readFileSync32, renameSync as renameSync3, unlinkSync as unlinkSync2, writeFileSync as writeFileSync23 } from "fs";
 
 // scripts/sftdd/gate-hash.ts
 init_esm_shims();
@@ -10881,10 +10886,10 @@ function sprintGatesFile(sftddDir, sprint) {
 function readSprintGates(sprint, opts = {}) {
   const sftddDir = opts.sftddDir ?? resolveSftddDir();
   const file = sprintGatesFile(sftddDir, sprint);
-  if (!existsSync32(file)) return defaultSprintGatesState(sprint);
+  if (!existsSync33(file)) return defaultSprintGatesState(sprint);
   let parsed;
   try {
-    parsed = JSON.parse(readFileSync31(file, "utf8"));
+    parsed = JSON.parse(readFileSync32(file, "utf8"));
   } catch (err) {
     const cause = err instanceof Error ? err.message : String(err);
     throw new Error(`sprint gates.json at ${file} is not valid JSON: ${cause}`);
@@ -11067,22 +11072,22 @@ function isTransientApiErrorSignal(line) {
 
 // scripts/sftdd/run-config.ts
 init_esm_shims();
-import { existsSync as existsSync35, mkdirSync as mkdirSync25, readFileSync as readFileSync33, writeFileSync as writeFileSync25 } from "fs";
-import { join as join29 } from "path";
+import { existsSync as existsSync36, mkdirSync as mkdirSync25, readFileSync as readFileSync34, writeFileSync as writeFileSync25 } from "fs";
+import { join as join30 } from "path";
 
 // scripts/sftdd/kit-ref.ts
 init_esm_shims();
-import { existsSync as existsSync34, readFileSync as readFileSync32, writeFileSync as writeFileSync24, mkdirSync as mkdirSync24 } from "fs";
-import { dirname as dirname15, join as join28 } from "path";
+import { existsSync as existsSync35, readFileSync as readFileSync33, writeFileSync as writeFileSync24, mkdirSync as mkdirSync24 } from "fs";
+import { dirname as dirname15, join as join29 } from "path";
 var KIT_REF_FILE = "kit-ref";
 var KIT_REF_LOCAL_FILE = "kit-ref.local";
 function lakebaseFile(projectDir, name) {
-  return join28(projectDir, ".lakebase", name);
+  return join29(projectDir, ".lakebase", name);
 }
 function readTrimmed(file) {
-  if (!existsSync34(file)) return void 0;
+  if (!existsSync35(file)) return void 0;
   try {
-    const v = readFileSync32(file, "utf8").trim();
+    const v = readFileSync33(file, "utf8").trim();
     return v.length > 0 ? v : void 0;
   } catch {
     return void 0;
@@ -11115,7 +11120,7 @@ function kitRefDriftWarning(projectDir, launchRef) {
 }
 
 // scripts/sftdd/run-config.ts
-var RUN_CONFIG_REL = join29(ARTIFACT_ROOT, "run-config.json");
+var RUN_CONFIG_REL = join30(ARTIFACT_ROOT, "run-config.json");
 function buildRunConfig(inputs) {
   const env = inputs.env ?? process.env;
   const models = {};
@@ -11147,11 +11152,11 @@ function writeRunConfig(inputs) {
   const body = JSON.stringify(cfg, null, 2) + "\n";
   try {
     mkdirSync25(inputs.sftddDir, { recursive: true });
-    writeFileSync25(join29(inputs.sftddDir, "run-config.json"), body);
+    writeFileSync25(join30(inputs.sftddDir, "run-config.json"), body);
     const recordDir = sftddEnv("RECORD_DIR", inputs.env ?? process.env)?.trim();
     if (recordDir) {
       mkdirSync25(recordDir, { recursive: true });
-      writeFileSync25(join29(recordDir, "run-config.json"), body);
+      writeFileSync25(join30(recordDir, "run-config.json"), body);
     }
   } catch {
   }
@@ -11233,8 +11238,8 @@ async function driveAuthPreflight(host, check = checkDatabricksAuth) {
 
 // scripts/sftdd/stray-artifact-recovery.ts
 init_esm_shims();
-import { existsSync as existsSync37, mkdirSync as mkdirSync26, cpSync as cpSync5, rmSync as rmSync10, readdirSync as readdirSync21, statSync as statSync13 } from "fs";
-import { join as join31, dirname as dirname17, basename as basename2 } from "path";
+import { existsSync as existsSync38, mkdirSync as mkdirSync26, cpSync as cpSync5, rmSync as rmSync10, readdirSync as readdirSync22, statSync as statSync13 } from "fs";
+import { join as join32, dirname as dirname17, basename as basename2 } from "path";
 function malformedSiblingRoot(projectDir) {
   const p = projectDir.replace(/\/+$/, "");
   return `${dirname17(p)}-${basename2(p)}`;
@@ -11242,9 +11247,9 @@ function malformedSiblingRoot(projectDir) {
 function listFilesRel(dir) {
   const out = [];
   const walk2 = (abs, rel) => {
-    for (const entry of readdirSync21(abs)) {
-      const childAbs = join31(abs, entry);
-      const childRel = rel ? join31(rel, entry) : entry;
+    for (const entry of readdirSync22(abs)) {
+      const childAbs = join32(abs, entry);
+      const childRel = rel ? join32(rel, entry) : entry;
       if (statSync13(childAbs).isDirectory()) walk2(childAbs, childRel);
       else out.push(childRel);
     }
@@ -11254,19 +11259,19 @@ function listFilesRel(dir) {
 }
 function relocateStrayDesignArtifacts(projectDir) {
   const sibling = malformedSiblingRoot(projectDir);
-  if (!existsSync37(sibling)) return { relocated: false, moved: [] };
+  if (!existsSync38(sibling)) return { relocated: false, moved: [] };
   const moved = [];
   for (const artRoot of [".sftdd", ".tdd"]) {
-    const strayRoot = join31(sibling, artRoot);
-    if (!existsSync37(strayRoot)) continue;
-    for (const rel of listFilesRel(strayRoot)) moved.push(join31(artRoot, rel));
-    const realRoot = join31(projectDir, artRoot);
+    const strayRoot = join32(sibling, artRoot);
+    if (!existsSync38(strayRoot)) continue;
+    for (const rel of listFilesRel(strayRoot)) moved.push(join32(artRoot, rel));
+    const realRoot = join32(projectDir, artRoot);
     mkdirSync26(realRoot, { recursive: true });
     cpSync5(strayRoot, realRoot, { recursive: true, force: true });
     rmSync10(strayRoot, { recursive: true, force: true });
   }
   try {
-    if (readdirSync21(sibling).length === 0) rmSync10(sibling, { recursive: true, force: true });
+    if (readdirSync22(sibling).length === 0) rmSync10(sibling, { recursive: true, force: true });
   } catch {
   }
   return moved.length > 0 ? { relocated: true, from: sibling, moved } : { relocated: false, moved: [] };

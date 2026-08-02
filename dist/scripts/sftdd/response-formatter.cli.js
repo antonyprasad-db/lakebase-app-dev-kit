@@ -7241,9 +7241,31 @@ function designGuideConformance(sftddDir) {
   const r = checkArtifactConformance(canonicalArtifactName(file), content);
   return r.ok ? { ok: true } : { ok: false, problem: r.violations.join("; ") };
 }
+function designGuideHasComponents(sftddDir) {
+  const file = designGuideJson(sftddDir);
+  if (!existsSync2(file)) return { ok: true };
+  try {
+    const parsed = JSON.parse(readFileSync3(file, "utf8"));
+    const comps = parsed.components;
+    if (!comps || typeof comps !== "object" || Object.keys(comps).length === 0) {
+      return {
+        ok: false,
+        problem: "design-guide.json is missing a non-empty `components` object , name the standard components (page, card, button, form_input, table, status_badge, empty_state, toast) each with its CSS `class`, so feature pages apply the design vocabulary instead of bare HTML"
+      };
+    }
+  } catch {
+    return { ok: true };
+  }
+  return { ok: true };
+}
 function checkUxDesigner(args, v) {
   const r = designGuideConformance(args.sftddDir);
-  if (!r.ok) v.push({ artifact: "design/design-guide.json", problem: r.problem ?? "design-guide.json is non-conformant" });
+  if (!r.ok) {
+    v.push({ artifact: "design/design-guide.json", problem: r.problem ?? "design-guide.json is non-conformant" });
+    return;
+  }
+  const c = designGuideHasComponents(args.sftddDir);
+  if (!c.ok) v.push({ artifact: "design/design-guide.json", problem: c.problem ?? "design-guide.json is missing components" });
 }
 var CHECKERS = {
   "spec-author": checkSpecAuthor,

@@ -7752,12 +7752,92 @@ function stopLocal(projectDir, targetName) {
   return { stopped: true };
 }
 
+// scripts/sftdd/design-adherence.ts
+init_cjs_shims();
+var import_node_fs3 = require("fs");
+var import_node_path4 = require("path");
+var VAR_CALL = /var\(\s*--[A-Za-z0-9-]+[^)]*\)/g;
+var ROUTE_ELEMENT_RE = /element=\{\s*<\s*([A-Z][A-Za-z0-9_]*)/g;
+var ROUTE_COMPONENT_RE = /\bComponent=\{\s*([A-Z][A-Za-z0-9_]*)\s*\}/g;
+var REACHABILITY_REMEDIATION = "A feature page component exists under client/src/pages/ but is not wired into App.tsx's <Routes>, so a user can never reach it (its component test passes in isolation, but the app never renders it). Add a <Route ... element={<Page/>} /> for it AND a nav affordance the IA declares. If the component is composed inside another page (not a route of its own), mark it exempt. See the `ux-adherence` smell.";
+function checkRouteReachability(input) {
+  const routed = /* @__PURE__ */ new Set();
+  for (const re of [ROUTE_ELEMENT_RE, ROUTE_COMPONENT_RE]) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(input.appSource)) !== null) routed.add(m[1]);
+  }
+  const exempt = new Set(input.exemptComponents ?? []);
+  const unreachable = input.pageComponents.filter((c) => !routed.has(c) && !exempt.has(c));
+  return unreachable.length === 0 ? { ok: true, unreachable: [] } : { ok: false, unreachable, remediation: REACHABILITY_REMEDIATION };
+}
+var CLASSNAME_RE = /className\s*=\s*["'`]([^"'`]+)["'`]/g;
+var JSX_ELEMENT_RE = /<[A-Za-z][A-Za-z0-9]*[\s/>]/;
+var CONSUMPTION_REMEDIATION = "A feature page renders visible structure but consumes NONE of the design guide: no var(--token) and no class from the design vocabulary. It renders as bare browser-default HTML. Apply the guide , wrap in the layout/card/button/table classes (or var(--token) styles) the design guide defines , so the screen matches the design system. See the `ux-adherence` smell.";
+function checkTokenConsumption(input) {
+  const vocab = new Set(input.designClasses ?? []);
+  const bare = [];
+  for (const [name, src] of Object.entries(input.pageSources)) {
+    if (!JSX_ELEMENT_RE.test(src)) continue;
+    const usesVar = VAR_CALL.test(src);
+    VAR_CALL.lastIndex = 0;
+    let usesDesignClass = false;
+    if (vocab.size > 0) {
+      CLASSNAME_RE.lastIndex = 0;
+      let m;
+      while ((m = CLASSNAME_RE.exec(src)) !== null) {
+        if (m[1].split(/\s+/).some((cls) => vocab.has(cls) || [...vocab].some((v) => cls === v || cls.startsWith(`${v}__`) || cls.startsWith(`${v}--`)))) {
+          usesDesignClass = true;
+          break;
+        }
+      }
+    } else {
+      CLASSNAME_RE.lastIndex = 0;
+      usesDesignClass = CLASSNAME_RE.test(src);
+      CLASSNAME_RE.lastIndex = 0;
+    }
+    if (!usesVar && !usesDesignClass) bare.push(name);
+  }
+  return bare.length === 0 ? { ok: true, bare: [] } : { ok: false, bare, remediation: CONSUMPTION_REMEDIATION };
+}
+var UX_CLEAN_REMEDIATION = "The client UI does not fully apply the design guide: a feature page is unreachable (not routed in App.tsx) and/or bare (consumes no design tokens/classes). Wire every feature page into <Routes> with a nav affordance and style it with the design vocabulary. See `ux-adherence`.";
+function summarizeUxViolations(r) {
+  const parts = [];
+  if (!r.reachability.ok) parts.push(`unreachable pages: ${r.reachability.unreachable.join(", ")}`);
+  if (!r.tokens.ok) parts.push(`bare (unstyled) pages: ${r.tokens.bare.join(", ")}`);
+  return parts.join("; ");
+}
+function checkUxClean(args) {
+  const clean0 = { clean: true, reachability: { ok: true, unreachable: [] }, tokens: { ok: true, bare: [] } };
+  const srcDir = args.clientSrcDir ?? (0, import_node_path4.join)(args.projectDir, "client", "src");
+  const appTsx = (0, import_node_path4.join)(srcDir, "App.tsx");
+  const pagesDir = (0, import_node_path4.join)(srcDir, "pages");
+  if (!(0, import_node_fs3.existsSync)(appTsx) || !(0, import_node_fs3.existsSync)(pagesDir)) return clean0;
+  const appSource = (0, import_node_fs3.readFileSync)(appTsx, "utf8");
+  const pageSources = {};
+  const pageComponents = [];
+  for (const name of (0, import_node_fs3.readdirSync)(pagesDir)) {
+    if (!name.endsWith(".tsx") || name.endsWith(".test.tsx")) continue;
+    const src = (0, import_node_fs3.readFileSync)((0, import_node_path4.join)(pagesDir, name), "utf8");
+    pageSources[name] = src;
+    for (const re of [/export\s+function\s+([A-Z][A-Za-z0-9_]*)/g, /export\s+const\s+([A-Z][A-Za-z0-9_]*)/g]) {
+      re.lastIndex = 0;
+      let m;
+      while ((m = re.exec(src)) !== null) pageComponents.push(m[1]);
+    }
+  }
+  const reachability = checkRouteReachability({ appSource, pageComponents });
+  const tokens = checkTokenConsumption({ pageSources, designClasses: args.designClasses });
+  const clean = reachability.ok && tokens.ok;
+  return clean ? { clean, reachability, tokens } : { clean, reachability, tokens, remediation: UX_CLEAN_REMEDIATION };
+}
+
 // scripts/sftdd/supersession.ts
 init_cjs_shims();
 var fs4 = __toESM(require("fs"), 1);
-var import_node_path4 = require("path");
+var import_node_path5 = require("path");
 function supersededTestsJson(tdd, feature, story, ac) {
-  return (0, import_node_path4.join)(cycleDir(tdd, feature, story, ac), "superseded-tests.json");
+  return (0, import_node_path5.join)(cycleDir(tdd, feature, story, ac), "superseded-tests.json");
 }
 function readSupersededTests(tdd, feature, story, ac) {
   const file = supersededTestsJson(tdd, feature, story, ac);
@@ -7772,7 +7852,7 @@ function readSupersededTests(tdd, feature, story, ac) {
 }
 function writeSupersededTests(tdd, feature, story, ac, value) {
   const file = supersededTestsJson(tdd, feature, story, ac);
-  fs4.mkdirSync((0, import_node_path4.join)(cycleDir(tdd, feature, story, ac)), { recursive: true });
+  fs4.mkdirSync((0, import_node_path5.join)(cycleDir(tdd, feature, story, ac)), { recursive: true });
   fs4.writeFileSync(file, JSON.stringify(value, null, 2) + "\n");
 }
 function markSupersessionRefactored(tdd, feature, story, ac) {
@@ -7782,7 +7862,7 @@ function markSupersessionRefactored(tdd, feature, story, ac) {
 }
 var MAX_REGRESSION_FIX_ATTEMPTS = 3;
 function greenFailureJson(tdd, feature, story, ac) {
-  return (0, import_node_path4.join)(cycleDir(tdd, feature, story, ac), "green-failure.json");
+  return (0, import_node_path5.join)(cycleDir(tdd, feature, story, ac), "green-failure.json");
 }
 function readGreenFailure(tdd, feature, story, ac) {
   const file = greenFailureJson(tdd, feature, story, ac);
@@ -7835,7 +7915,7 @@ function rearmRegressionFix(tdd, feature, story, ac) {
   fs4.rmSync(supersededTestsJson(tdd, feature, story, ac), { force: true });
 }
 function regressionAssessmentJson(tdd, feature, story, ac) {
-  return (0, import_node_path4.join)(cycleDir(tdd, feature, story, ac), "regression-assessment.json");
+  return (0, import_node_path5.join)(cycleDir(tdd, feature, story, ac), "regression-assessment.json");
 }
 function readRegressionAssessment(tdd, feature, story, ac) {
   const file = regressionAssessmentJson(tdd, feature, story, ac);
@@ -7855,8 +7935,8 @@ function writeRegressionAssessment(tdd, feature, story, ac, value) {
 
 // scripts/sftdd/contract-clean.ts
 init_cjs_shims();
-var import_node_fs3 = require("fs");
-var import_node_path5 = require("path");
+var import_node_fs4 = require("fs");
+var import_node_path6 = require("path");
 var DEFAULT_MIGRATION_DIRS = ["alembic/versions", "migrations", "db/migrations", "src/migrations"];
 var DEFAULT_CODE_DIRS = ["app", "src", "lib", "templates"];
 var DEFAULT_TEST_DIRS = ["tests", "test"];
@@ -7870,15 +7950,15 @@ var ADD_COLUMN_SQL = /add\s+column\s+(?:if\s+not\s+exists\s+)?["'`]?([a-zA-Z_][a
 function walk(dir, keep, out = [], excludeDir = EXCLUDE_DIR) {
   let entries;
   try {
-    entries = (0, import_node_fs3.readdirSync)(dir);
+    entries = (0, import_node_fs4.readdirSync)(dir);
   } catch {
     return out;
   }
   for (const e of entries) {
-    const abs = (0, import_node_path5.join)(dir, e);
+    const abs = (0, import_node_path6.join)(dir, e);
     let st;
     try {
-      st = (0, import_node_fs3.statSync)(abs);
+      st = (0, import_node_fs4.statSync)(abs);
     } catch {
       continue;
     }
@@ -7917,8 +7997,8 @@ function forwardMigrationBody(src, ext) {
 function netDroppedSymbols(projectDir, migrationDirs = DEFAULT_MIGRATION_DIRS) {
   const files = [];
   for (const md of migrationDirs) {
-    const abs = (0, import_node_path5.join)(projectDir, md);
-    if ((0, import_node_fs3.existsSync)(abs)) {
+    const abs = (0, import_node_path6.join)(projectDir, md);
+    if ((0, import_node_fs4.existsSync)(abs)) {
       for (const f of walk(abs, (p) => /\.(py|sql|js|ts)$/.test(p))) files.push(f);
     }
   }
@@ -7927,11 +8007,11 @@ function netDroppedSymbols(projectDir, migrationDirs = DEFAULT_MIGRATION_DIRS) {
   for (const f of files) {
     let src;
     try {
-      src = (0, import_node_fs3.readFileSync)(f, "utf8");
+      src = (0, import_node_fs4.readFileSync)(f, "utf8");
     } catch {
       continue;
     }
-    const ext = (0, import_node_path5.extname)(f);
+    const ext = (0, import_node_path6.extname)(f);
     const isPy = ext === ".py";
     const body = forwardMigrationBody(src, ext);
     const drops = isPy ? collectAll(DROP_COLUMN_PY, body) : collectAll(DROP_COLUMN_SQL, body);
@@ -7948,19 +8028,19 @@ function scanSymbolRefs(projectDir, dirs, dropped, excludeDir = EXCLUDE_DIR) {
   const matchers = dropped.map((s) => ({ symbol: s, re: symbolRefRegex(s) }));
   const hits = [];
   for (const cd of dirs) {
-    const abs = (0, import_node_path5.join)(projectDir, cd);
-    if (!(0, import_node_fs3.existsSync)(abs)) continue;
-    for (const file of walk(abs, (p) => CODE_EXTS.has((0, import_node_path5.extname)(p)), [], excludeDir)) {
+    const abs = (0, import_node_path6.join)(projectDir, cd);
+    if (!(0, import_node_fs4.existsSync)(abs)) continue;
+    for (const file of walk(abs, (p) => CODE_EXTS.has((0, import_node_path6.extname)(p)), [], excludeDir)) {
       let lines;
       try {
-        lines = (0, import_node_fs3.readFileSync)(file, "utf8").split("\n");
+        lines = (0, import_node_fs4.readFileSync)(file, "utf8").split("\n");
       } catch {
         continue;
       }
       lines.forEach((text, i) => {
         for (const { symbol, re } of matchers) {
           if (re.test(text)) {
-            hits.push({ file: (0, import_node_path5.relative)(projectDir, file), line: i + 1, symbol, text: text.trim().slice(0, 200) });
+            hits.push({ file: (0, import_node_path6.relative)(projectDir, file), line: i + 1, symbol, text: text.trim().slice(0, 200) });
           }
         }
       });
@@ -8050,23 +8130,23 @@ function clearRefactorVerifyAssessMarker(sftddDir, featureId, storyId) {
 
 // scripts/sftdd/migration-app-clean.ts
 init_cjs_shims();
-var import_node_fs4 = require("fs");
-var import_node_path6 = require("path");
+var import_node_fs5 = require("fs");
+var import_node_path7 = require("path");
 var DEFAULT_MIGRATION_DIRS2 = ["alembic/versions", "migrations", "db/migrations", "src/migrations"];
 var EXCLUDE_DIR2 = /(^|\/)(node_modules|\.git|\.venv|venv|__pycache__)(\/|$)/;
 var MODULE_SCOPE_APP_IMPORT = /^(from\s+app\b|import\s+app\b)/;
 function walk2(dir, keep, out = []) {
   let entries;
   try {
-    entries = (0, import_node_fs4.readdirSync)(dir);
+    entries = (0, import_node_fs5.readdirSync)(dir);
   } catch {
     return out;
   }
   for (const e of entries) {
-    const abs = (0, import_node_path6.join)(dir, e);
+    const abs = (0, import_node_path7.join)(dir, e);
     let st;
     try {
-      st = (0, import_node_fs4.statSync)(abs);
+      st = (0, import_node_fs5.statSync)(abs);
     } catch {
       continue;
     }
@@ -8082,18 +8162,18 @@ function checkMigrationAppClean(args) {
   const migrationDirs = args.migrationDirs ?? DEFAULT_MIGRATION_DIRS2;
   const violations = [];
   for (const md of migrationDirs) {
-    const abs = (0, import_node_path6.join)(args.projectDir, md);
-    if (!(0, import_node_fs4.existsSync)(abs)) continue;
-    for (const file of walk2(abs, (p) => (0, import_node_path6.extname)(p) === ".py")) {
+    const abs = (0, import_node_path7.join)(args.projectDir, md);
+    if (!(0, import_node_fs5.existsSync)(abs)) continue;
+    for (const file of walk2(abs, (p) => (0, import_node_path7.extname)(p) === ".py")) {
       let lines;
       try {
-        lines = (0, import_node_fs4.readFileSync)(file, "utf8").split("\n");
+        lines = (0, import_node_fs5.readFileSync)(file, "utf8").split("\n");
       } catch {
         continue;
       }
       lines.forEach((text, i) => {
         if (MODULE_SCOPE_APP_IMPORT.test(text)) {
-          violations.push({ file: (0, import_node_path6.relative)(args.projectDir, file), line: i + 1, text: text.trim().slice(0, 200) });
+          violations.push({ file: (0, import_node_path7.relative)(args.projectDir, file), line: i + 1, text: text.trim().slice(0, 200) });
         }
       });
     }
@@ -8398,6 +8478,15 @@ function firstRefactorPendingAc(sftddDir, featureId, story) {
   }
   return null;
 }
+function flagUxAdherenceIfDirty(sftddDir, story) {
+  try {
+    const ux = checkUxClean({ projectDir: (0, import_path7.dirname)(sftddDir) });
+    if (!ux.clean && !hasOpenSmell(sftddDir, "ux-adherence", story)) {
+      writeSmellsLog(sftddDir, [{ smell: "ux-adherence", cycle_ids: [], detail: summarizeUxViolations(ux), story_id: story }]);
+    }
+  } catch {
+  }
+}
 function reviewAc(sftddDir, featureId, story, acId) {
   let verdict = {};
   const vf = acReviewVerdictJson(sftddDir, featureId, story, acId);
@@ -8432,6 +8521,7 @@ function reviewAc(sftddDir, featureId, story, acId) {
       story
     }
   });
+  flagUxAdherenceIfDirty(sftddDir, story);
   return { reviewed: true, refactorRequested };
 }
 async function refactorAc(sftddDir, featureId, story, acId, opts) {
@@ -8511,6 +8601,7 @@ function reviewStory(sftddDir, featureId, story) {
       story
     }
   });
+  flagUxAdherenceIfDirty(sftddDir, story);
   return { reviewed: true, refactorRequested };
 }
 async function refactorStory(sftddDir, featureId, story, opts) {

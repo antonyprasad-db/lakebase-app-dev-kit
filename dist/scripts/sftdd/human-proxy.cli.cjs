@@ -8292,8 +8292,8 @@ Candidate features for this sprint, projected deterministically from the recorde
 
 // scripts/sftdd/revise.ts
 init_cjs_shims();
-var import_node_fs7 = require("fs");
-var import_node_path9 = require("path");
+var import_node_fs8 = require("fs");
+var import_node_path10 = require("path");
 
 // scripts/sftdd/story-pipeline.ts
 init_cjs_shims();
@@ -8475,15 +8475,20 @@ var import_lakebase3 = require("@databricks-solutions/lakebase-scm-utils/lakebas
 var import_lakebase4 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_lakebase5 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
+// scripts/sftdd/design-adherence.ts
+init_cjs_shims();
+var import_node_fs5 = require("fs");
+var import_node_path6 = require("path");
+
 // scripts/sftdd/supersession.ts
 init_cjs_shims();
 var fs4 = __toESM(require("fs"), 1);
-var import_node_path6 = require("path");
+var import_node_path7 = require("path");
 
 // scripts/sftdd/contract-clean.ts
 init_cjs_shims();
-var import_node_fs5 = require("fs");
-var import_node_path7 = require("path");
+var import_node_fs6 = require("fs");
+var import_node_path8 = require("path");
 
 // scripts/sftdd/refactor-verify-assess.ts
 init_cjs_shims();
@@ -8492,8 +8497,8 @@ var path2 = __toESM(require("path"), 1);
 
 // scripts/sftdd/migration-app-clean.ts
 init_cjs_shims();
-var import_node_fs6 = require("fs");
-var import_node_path8 = require("path");
+var import_node_fs7 = require("fs");
+var import_node_path9 = require("path");
 
 // scripts/sftdd/cycle-record.ts
 var import_git = require("@databricks-solutions/lakebase-scm-utils/git");
@@ -8529,23 +8534,23 @@ function staleStoryArtifactsForRevise(sftddDir, featureId, story, gate) {
   clearReflectVerdict(sftddDir, featureId, story);
   const acIds = new Set(storyAcIds(sftddDir, featureId, story));
   const master = featureTestListJson(sftddDir, featureId);
-  if ((0, import_node_fs7.existsSync)(master)) {
+  if ((0, import_node_fs8.existsSync)(master)) {
     try {
-      const data = JSON.parse((0, import_node_fs7.readFileSync)(master, "utf8"));
+      const data = JSON.parse((0, import_node_fs8.readFileSync)(master, "utf8"));
       if (Array.isArray(data.items)) {
         data.items = data.items.filter((it) => !it.ac_id || !acIds.has(it.ac_id));
-        (0, import_node_fs7.writeFileSync)(master, JSON.stringify(data, null, 2) + "\n");
+        (0, import_node_fs8.writeFileSync)(master, JSON.stringify(data, null, 2) + "\n");
       }
     } catch {
     }
   }
   const perStory = storyTestListJson(sftddDir, featureId, story);
-  if ((0, import_node_fs7.existsSync)(perStory)) (0, import_node_fs7.rmSync)(perStory, { force: true });
+  if ((0, import_node_fs8.existsSync)(perStory)) (0, import_node_fs8.rmSync)(perStory, { force: true });
   if (gate === "spec") {
     const dir = acsDir(sftddDir, featureId, story);
-    if ((0, import_node_fs7.existsSync)(dir)) {
-      for (const f of (0, import_node_fs7.readdirSync)(dir)) {
-        if (f.endsWith(".json") || f.endsWith(".md")) (0, import_node_fs7.rmSync)((0, import_node_path9.join)(dir, f), { force: true });
+    if ((0, import_node_fs8.existsSync)(dir)) {
+      for (const f of (0, import_node_fs8.readdirSync)(dir)) {
+        if (f.endsWith(".json") || f.endsWith(".md")) (0, import_node_fs8.rmSync)((0, import_node_path10.join)(dir, f), { force: true });
       }
     }
   } else if (gate === "architecture") {
@@ -8554,15 +8559,15 @@ function staleStoryArtifactsForRevise(sftddDir, featureId, story, gate) {
 }
 function clearArchitecturalNotes(sftddDir, featureId, story) {
   const dir = acsDir(sftddDir, featureId, story);
-  if (!(0, import_node_fs7.existsSync)(dir)) return;
-  for (const f of (0, import_node_fs7.readdirSync)(dir)) {
+  if (!(0, import_node_fs8.existsSync)(dir)) return;
+  for (const f of (0, import_node_fs8.readdirSync)(dir)) {
     if (!f.endsWith(".json")) continue;
-    const p = (0, import_node_path9.join)(dir, f);
+    const p = (0, import_node_path10.join)(dir, f);
     try {
-      const ac = JSON.parse((0, import_node_fs7.readFileSync)(p, "utf8"));
+      const ac = JSON.parse((0, import_node_fs8.readFileSync)(p, "utf8"));
       if ("architectural_notes" in ac) {
         delete ac.architectural_notes;
-        (0, import_node_fs7.writeFileSync)(p, JSON.stringify(ac, null, 2) + "\n");
+        (0, import_node_fs8.writeFileSync)(p, JSON.stringify(ac, null, 2) + "\n");
       }
     } catch {
     }
@@ -8601,8 +8606,8 @@ function applyReviseSelfHeal(args) {
   staleStoryArtifactsForRevise(sftddDir, args.featureId, args.story, args.gate);
   try {
     const hb = handbackFile(sftddDir, args.featureId, args.routedTo, args.story);
-    (0, import_node_fs7.mkdirSync)((0, import_node_path9.dirname)(hb), { recursive: true });
-    (0, import_node_fs7.writeFileSync)(hb, composeReviseBrief({ smell: args.smell, gate: args.gate, reason: args.reason }));
+    (0, import_node_fs8.mkdirSync)((0, import_node_path10.dirname)(hb), { recursive: true });
+    (0, import_node_fs8.writeFileSync)(hb, composeReviseBrief({ smell: args.smell, gate: args.gate, reason: args.reason }));
   } catch {
   }
   const reflect = isReflectSmell(args.smell);
@@ -8612,9 +8617,9 @@ function applyReviseSelfHeal(args) {
       if (role === args.routedTo) continue;
       try {
         const hb = handbackFile(sftddDir, args.featureId, role, args.story);
-        (0, import_node_fs7.mkdirSync)((0, import_node_path9.dirname)(hb), { recursive: true });
+        (0, import_node_fs8.mkdirSync)((0, import_node_path10.dirname)(hb), { recursive: true });
         const gate = role === "architect-reviewer" ? "architecture" : "test_list";
-        (0, import_node_fs7.writeFileSync)(hb, composeReviseBrief({ smell: args.smell, gate, reason: args.reason }));
+        (0, import_node_fs8.writeFileSync)(hb, composeReviseBrief({ smell: args.smell, gate, reason: args.reason }));
       } catch {
       }
     }
@@ -8634,7 +8639,7 @@ function applyReviseSelfHeal(args) {
 
 // scripts/sftdd/sprint-gates.ts
 init_cjs_shims();
-var import_node_fs8 = require("fs");
+var import_node_fs9 = require("fs");
 var SPRINT_GATES_SCHEMA_VERSION = 1;
 var PLAN_GATE_ARTIFACT = "feature-proposals.md";
 function defaultSprintGatesState(sprint) {
@@ -8650,10 +8655,10 @@ function sprintGatesFile(sftddDir, sprint) {
 function readSprintGates(sprint, opts = {}) {
   const sftddDir = opts.sftddDir ?? resolveSftddDir();
   const file = sprintGatesFile(sftddDir, sprint);
-  if (!(0, import_node_fs8.existsSync)(file)) return defaultSprintGatesState(sprint);
+  if (!(0, import_node_fs9.existsSync)(file)) return defaultSprintGatesState(sprint);
   let parsed;
   try {
-    parsed = JSON.parse((0, import_node_fs8.readFileSync)(file, "utf8"));
+    parsed = JSON.parse((0, import_node_fs9.readFileSync)(file, "utf8"));
   } catch (err) {
     const cause = err instanceof Error ? err.message : String(err);
     throw new Error(`sprint gates.json at ${file} is not valid JSON: ${cause}`);
@@ -8667,15 +8672,15 @@ function readSprintGates(sprint, opts = {}) {
 }
 function writeSprintGates(state, opts = {}) {
   const sftddDir = opts.sftddDir ?? resolveSftddDir();
-  (0, import_node_fs8.mkdirSync)(sprintDir(sftddDir, state.sprint), { recursive: true });
+  (0, import_node_fs9.mkdirSync)(sprintDir(sftddDir, state.sprint), { recursive: true });
   const file = sprintGatesJson(sftddDir, state.sprint);
   const tmp = `${file}.tmp.${process.pid}.${Date.now()}`;
-  (0, import_node_fs8.writeFileSync)(tmp, JSON.stringify(state, null, 2) + "\n", "utf8");
+  (0, import_node_fs9.writeFileSync)(tmp, JSON.stringify(state, null, 2) + "\n", "utf8");
   try {
-    (0, import_node_fs8.renameSync)(tmp, file);
+    (0, import_node_fs9.renameSync)(tmp, file);
   } catch (err) {
     try {
-      (0, import_node_fs8.unlinkSync)(tmp);
+      (0, import_node_fs9.unlinkSync)(tmp);
     } catch {
     }
     throw err;
@@ -8686,10 +8691,10 @@ function approveSprintPlanGate(args) {
   if (args.approver.length === 0) return { ok: false, reason: "approver must not be empty" };
   const sftddDir = args.sftddDir ?? resolveSftddDir();
   const file = featureProposalsMd(sftddDir);
-  if (!(0, import_node_fs8.existsSync)(file)) {
+  if (!(0, import_node_fs9.existsSync)(file)) {
     return { ok: false, reason: `${PLAN_GATE_ARTIFACT} not found (no sprint plan to review)` };
   }
-  const content = (0, import_node_fs8.readFileSync)(file, "utf8");
+  const content = (0, import_node_fs9.readFileSync)(file, "utf8");
   const conf = checkArtifactConformance(PLAN_GATE_ARTIFACT, content);
   if (!conf.ok) {
     return { ok: false, reason: `${PLAN_GATE_ARTIFACT} not conformant: ${(conf.violations ?? []).join("; ")}` };

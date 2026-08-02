@@ -19,6 +19,9 @@
 // tested hermetically; assertDesignAdherence takes a minimal page-like reader
 // so the kit core needs no hard @playwright/test dependency.
 
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+
 export interface DesignGuide {
   typography: {
     font_family: string;
@@ -268,4 +271,178 @@ export function checkFeedbackPresent(html: string): ElementAdherenceResult {
     violations: ["an action surface (form/submit) has no feedback affordance (role=alert / aria-live / a *error/success/message/status* data-testid)"],
     remediation: FEEDBACK_REMEDIATION,
   };
+}
+
+// ─── Route reachability + token consumption (increment C) ────────────────────
+// The element-level checks above prove a rendered screen is styled + seamed IF it
+// is rendered at all. They cannot see two upstream defects a UI-track build can
+// ship GREEN with (observed live): a feature page with passing component tests
+// that is never wired into App.tsx's <Routes> (unreachable , dead to the user),
+// and a page rendered as bare browser-default HTML that consumes NONE of the
+// design guide (the tokens exist on :root but the screen ignores them). Both are
+// static + hermetic (parse App.tsx + the page sources), so they run at the REVIEW
+// step and unit-test with string fixtures, like the checks above. Either is the
+// `ux-adherence` smell.
+
+// A React-router v6 route's element component: `element={<PageX ... />}`.
+const ROUTE_ELEMENT_RE = /element=\{\s*<\s*([A-Z][A-Za-z0-9_]*)/g;
+// The object-route / lazy form: `Component={PageX}`.
+const ROUTE_COMPONENT_RE = /\bComponent=\{\s*([A-Z][A-Za-z0-9_]*)\s*\}/g;
+
+export interface RouteReachabilityInput {
+  /** Full source of the client's App.tsx (the route composition boundary). */
+  appSource: string;
+  /** PascalCase page component names discovered under client/src/pages/. */
+  pageComponents: string[];
+  /** Pages legitimately composed INSIDE another routed page (not directly routed). */
+  exemptComponents?: string[];
+}
+export interface RouteReachabilityResult { ok: boolean; unreachable: string[]; remediation?: string; }
+
+const REACHABILITY_REMEDIATION =
+  "A feature page component exists under client/src/pages/ but is not wired into App.tsx's " +
+  "<Routes>, so a user can never reach it (its component test passes in isolation, but the app " +
+  "never renders it). Add a <Route ... element={<Page/>} /> for it AND a nav affordance the IA " +
+  "declares. If the component is composed inside another page (not a route of its own), mark it " +
+  "exempt. See the `ux-adherence` smell.";
+
+/**
+ * Every `pageComponents` entry must appear as a routed element in `appSource`
+ * (`element={<X/>}` or `Component={X}`); any that does not (and is not exempt) is
+ * unreachable. Empty inventory is trivially ok (vacuity guard, like checkRequiredSeams([])).
+ */
+export function checkRouteReachability(input: RouteReachabilityInput): RouteReachabilityResult {
+  const routed = new Set<string>();
+  for (const re of [ROUTE_ELEMENT_RE, ROUTE_COMPONENT_RE]) {
+    re.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(input.appSource)) !== null) routed.add(m[1]);
+  }
+  const exempt = new Set(input.exemptComponents ?? []);
+  const unreachable = input.pageComponents.filter((c) => !routed.has(c) && !exempt.has(c));
+  return unreachable.length === 0
+    ? { ok: true, unreachable: [] }
+    : { ok: false, unreachable, remediation: REACHABILITY_REMEDIATION };
+}
+
+// A className attribute value (any of the classes on an element): className="a b c".
+const CLASSNAME_RE = /className\s*=\s*["'`]([^"'`]+)["'`]/g;
+// A page renders visible structure if it has any JSX element (a `<Tag` opener).
+const JSX_ELEMENT_RE = /<[A-Za-z][A-Za-z0-9]*[\s/>]/;
+
+export interface TokenConsumptionInput {
+  /** Per-page source keyed by file name (client/src/pages/<name>). */
+  pageSources: Record<string, string>;
+  /** The design guide's component-class vocabulary (page/card/btn/...). When given,
+   *  a page that renders structure but references NONE of these (and no var()) is
+   *  flagged even if it uses ad-hoc one-off classes , it bypasses the design system. */
+  designClasses?: string[];
+}
+export interface TokenConsumptionResult { ok: boolean; bare: string[]; remediation?: string; }
+
+const CONSUMPTION_REMEDIATION =
+  "A feature page renders visible structure but consumes NONE of the design guide: no " +
+  "var(--token) and no class from the design vocabulary. It renders as bare browser-default " +
+  "HTML. Apply the guide , wrap in the layout/card/button/table classes (or var(--token) " +
+  "styles) the design guide defines , so the screen matches the design system. See the " +
+  "`ux-adherence` smell.";
+
+/**
+ * A page that renders visible structure must show a design signal: a `var(--token)`
+ * consumption OR (when a `designClasses` vocabulary is supplied) at least one class
+ * from that vocabulary. A page with structure but zero design signal is `bare`. A
+ * page with no visible structure (pure logic / redirect) is never flagged.
+ */
+export function checkTokenConsumption(input: TokenConsumptionInput): TokenConsumptionResult {
+  const vocab = new Set(input.designClasses ?? []);
+  const bare: string[] = [];
+  for (const [name, src] of Object.entries(input.pageSources)) {
+    if (!JSX_ELEMENT_RE.test(src)) continue; // no visible structure -> nothing to style
+    const usesVar = VAR_CALL.test(src);
+    VAR_CALL.lastIndex = 0; // VAR_CALL is /g; reset after .test()
+    let usesDesignClass = false;
+    if (vocab.size > 0) {
+      CLASSNAME_RE.lastIndex = 0;
+      let m: RegExpExecArray | null;
+      while ((m = CLASSNAME_RE.exec(src)) !== null) {
+        // A class token matches the vocabulary by exact name or BEM-style prefix
+        // (`card` matches `card` and `card__title`/`card--active`).
+        if (m[1].split(/\s+/).some((cls) => vocab.has(cls) || [...vocab].some((v) => cls === v || cls.startsWith(`${v}__`) || cls.startsWith(`${v}--`)))) {
+          usesDesignClass = true;
+          break;
+        }
+      }
+    } else {
+      // With no vocabulary supplied, ANY className counts as a design signal (the
+      // conservative default: only truly class-less + var-less pages are bare).
+      CLASSNAME_RE.lastIndex = 0;
+      usesDesignClass = CLASSNAME_RE.test(src);
+      CLASSNAME_RE.lastIndex = 0;
+    }
+    if (!usesVar && !usesDesignClass) bare.push(name);
+  }
+  return bare.length === 0
+    ? { ok: true, bare: [] }
+    : { ok: false, bare, remediation: CONSUMPTION_REMEDIATION };
+}
+
+export interface UxCleanArgs {
+  /** Project root (the dir that contains client/). */
+  projectDir: string;
+  /** Override the client src dir (default <projectDir>/client/src). */
+  clientSrcDir?: string;
+  /** The design guide's component-class vocabulary, threaded to checkTokenConsumption. */
+  designClasses?: string[];
+}
+export interface UxCleanResult {
+  clean: boolean;
+  reachability: RouteReachabilityResult;
+  tokens: TokenConsumptionResult;
+  remediation?: string;
+}
+
+export const UX_CLEAN_REMEDIATION =
+  "The client UI does not fully apply the design guide: a feature page is unreachable (not " +
+  "routed in App.tsx) and/or bare (consumes no design tokens/classes). Wire every feature page " +
+  "into <Routes> with a nav affordance and style it with the design vocabulary. See `ux-adherence`.";
+
+/** Summarize a non-clean result into one line for a smell detail / verify summary. */
+export function summarizeUxViolations(r: UxCleanResult): string {
+  const parts: string[] = [];
+  if (!r.reachability.ok) parts.push(`unreachable pages: ${r.reachability.unreachable.join(", ")}`);
+  if (!r.tokens.ok) parts.push(`bare (unstyled) pages: ${r.tokens.bare.join(", ")}`);
+  return parts.join("; ");
+}
+
+/**
+ * The I/O boundary (mirrors checkE2eRegexClean): scan a project's client workspace
+ * for unreachable + bare feature pages. **UI-track only**: no client/src/App.tsx ->
+ * `{ clean: true }` (a non-UI project has no UI to check). Reads App.tsx + every
+ * client/src/pages/*.tsx, derives the page-component inventory, and runs both pure
+ * checks. Pure functions above are unit-tested with fixtures; this is the thin
+ * filesystem shell around them.
+ */
+export function checkUxClean(args: UxCleanArgs): UxCleanResult {
+  const clean0: UxCleanResult = { clean: true, reachability: { ok: true, unreachable: [] }, tokens: { ok: true, bare: [] } };
+  const srcDir = args.clientSrcDir ?? join(args.projectDir, "client", "src");
+  const appTsx = join(srcDir, "App.tsx");
+  const pagesDir = join(srcDir, "pages");
+  if (!existsSync(appTsx) || !existsSync(pagesDir)) return clean0; // not a UI-track project
+  const appSource = readFileSync(appTsx, "utf8");
+  const pageSources: Record<string, string> = {};
+  const pageComponents: string[] = [];
+  for (const name of readdirSync(pagesDir)) {
+    if (!name.endsWith(".tsx") || name.endsWith(".test.tsx")) continue;
+    const src = readFileSync(join(pagesDir, name), "utf8");
+    pageSources[name] = src;
+    for (const re of [/export\s+function\s+([A-Z][A-Za-z0-9_]*)/g, /export\s+const\s+([A-Z][A-Za-z0-9_]*)/g]) {
+      re.lastIndex = 0;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(src)) !== null) pageComponents.push(m[1]);
+    }
+  }
+  const reachability = checkRouteReachability({ appSource, pageComponents });
+  const tokens = checkTokenConsumption({ pageSources, designClasses: args.designClasses });
+  const clean = reachability.ok && tokens.ok;
+  return clean ? { clean, reachability, tokens } : { clean, reachability, tokens, remediation: UX_CLEAN_REMEDIATION };
 }

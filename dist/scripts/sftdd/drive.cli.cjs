@@ -8516,12 +8516,17 @@ function storyDeployVerified(sftddDir, featureId, storyId) {
   return deployEvidencePasses(readDeployEvidence((0, import_node_path5.join)(fdir, "stories", storyId, "deploy-evidence.json")));
 }
 
+// scripts/sftdd/design-adherence.ts
+init_cjs_shims();
+var import_node_fs4 = require("fs");
+var import_node_path6 = require("path");
+
 // scripts/sftdd/supersession.ts
 init_cjs_shims();
 var fs7 = __toESM(require("fs"), 1);
-var import_node_path6 = require("path");
+var import_node_path7 = require("path");
 function supersededTestsJson(tdd, feature, story, ac) {
-  return (0, import_node_path6.join)(cycleDir(tdd, feature, story, ac), "superseded-tests.json");
+  return (0, import_node_path7.join)(cycleDir(tdd, feature, story, ac), "superseded-tests.json");
 }
 function readSupersededTests(tdd, feature, story, ac) {
   const file = supersededTestsJson(tdd, feature, story, ac);
@@ -8539,7 +8544,7 @@ function hasPendingSupersession(tdd, feature, story, ac) {
   return s !== void 0 && s.refactored !== true;
 }
 function greenFailureJson(tdd, feature, story, ac) {
-  return (0, import_node_path6.join)(cycleDir(tdd, feature, story, ac), "green-failure.json");
+  return (0, import_node_path7.join)(cycleDir(tdd, feature, story, ac), "green-failure.json");
 }
 function readGreenFailure(tdd, feature, story, ac) {
   const file = greenFailureJson(tdd, feature, story, ac);
@@ -8561,8 +8566,8 @@ function hasPendingRegressionFix(tdd, feature, story, ac) {
 
 // scripts/sftdd/contract-clean.ts
 init_cjs_shims();
-var import_node_fs4 = require("fs");
-var import_node_path7 = require("path");
+var import_node_fs5 = require("fs");
+var import_node_path8 = require("path");
 
 // scripts/sftdd/refactor-verify-assess.ts
 init_cjs_shims();
@@ -8593,8 +8598,8 @@ function refactorVerifyRefactorPending(sftddDir, featureId, storyId) {
 
 // scripts/sftdd/migration-app-clean.ts
 init_cjs_shims();
-var import_node_fs5 = require("fs");
-var import_node_path8 = require("path");
+var import_node_fs6 = require("fs");
+var import_node_path9 = require("path");
 
 // scripts/sftdd/cycle-record.ts
 var import_git = require("@databricks-solutions/lakebase-scm-utils/git");
@@ -9790,8 +9795,8 @@ var import_fs14 = require("fs");
 
 // scripts/sftdd/gate-conformance-guard.ts
 init_cjs_shims();
-var import_node_fs6 = require("fs");
-var import_node_path9 = require("path");
+var import_node_fs7 = require("fs");
+var import_node_path10 = require("path");
 
 // scripts/sftdd/architecture-conventions.ts
 init_cjs_shims();
@@ -9845,19 +9850,19 @@ function deriveFeaturePhase(stories) {
 // scripts/sftdd/orchestrator-effects.ts
 init_cjs_shims();
 var fs12 = __toESM(require("fs"), 1);
-var import_node_path10 = require("path");
+var import_node_path11 = require("path");
 
 // scripts/sftdd/response-formatter.ts
 init_cjs_shims();
-var import_node_fs7 = require("fs");
+var import_node_fs8 = require("fs");
 function designGuideConformance(sftddDir) {
   const file = designGuideJson(sftddDir);
-  if (!(0, import_node_fs7.existsSync)(file)) {
+  if (!(0, import_node_fs8.existsSync)(file)) {
     return { ok: false, problem: "design-guide.json not written (the machine-checkable token source of truth)" };
   }
   let content;
   try {
-    content = (0, import_node_fs7.readFileSync)(file, "utf8");
+    content = (0, import_node_fs8.readFileSync)(file, "utf8");
   } catch (e) {
     return { ok: false, problem: `unreadable: ${e instanceof Error ? e.message : String(e)}` };
   }
@@ -10594,7 +10599,7 @@ function buildDriveEffects(cfg) {
     onHandback(handoff, detail) {
       const file = handbackFile(cfg.sftddDir, cfg.featureId, handoff.responder, handoff.story);
       try {
-        fs12.mkdirSync((0, import_node_path10.dirname)(file), { recursive: true });
+        fs12.mkdirSync((0, import_node_path11.dirname)(file), { recursive: true });
         fs12.writeFileSync(file, `${detail}
 `, "utf8");
       } catch {
@@ -10853,7 +10858,7 @@ init_cjs_shims();
 
 // scripts/sftdd/sprint-gates.ts
 init_cjs_shims();
-var import_node_fs8 = require("fs");
+var import_node_fs9 = require("fs");
 
 // scripts/sftdd/gate-hash.ts
 init_cjs_shims();
@@ -10873,10 +10878,10 @@ function sprintGatesFile(sftddDir, sprint) {
 function readSprintGates(sprint, opts = {}) {
   const sftddDir = opts.sftddDir ?? resolveSftddDir();
   const file = sprintGatesFile(sftddDir, sprint);
-  if (!(0, import_node_fs8.existsSync)(file)) return defaultSprintGatesState(sprint);
+  if (!(0, import_node_fs9.existsSync)(file)) return defaultSprintGatesState(sprint);
   let parsed;
   try {
-    parsed = JSON.parse((0, import_node_fs8.readFileSync)(file, "utf8"));
+    parsed = JSON.parse((0, import_node_fs9.readFileSync)(file, "utf8"));
   } catch (err) {
     const cause = err instanceof Error ? err.message : String(err);
     throw new Error(`sprint gates.json at ${file} is not valid JSON: ${cause}`);
@@ -11064,17 +11069,17 @@ var import_path12 = require("path");
 
 // scripts/sftdd/kit-ref.ts
 init_cjs_shims();
-var import_node_fs9 = require("fs");
-var import_node_path11 = require("path");
+var import_node_fs10 = require("fs");
+var import_node_path12 = require("path");
 var KIT_REF_FILE = "kit-ref";
 var KIT_REF_LOCAL_FILE = "kit-ref.local";
 function lakebaseFile(projectDir, name) {
-  return (0, import_node_path11.join)(projectDir, ".lakebase", name);
+  return (0, import_node_path12.join)(projectDir, ".lakebase", name);
 }
 function readTrimmed(file) {
-  if (!(0, import_node_fs9.existsSync)(file)) return void 0;
+  if (!(0, import_node_fs10.existsSync)(file)) return void 0;
   try {
-    const v = (0, import_node_fs9.readFileSync)(file, "utf8").trim();
+    const v = (0, import_node_fs10.readFileSync)(file, "utf8").trim();
     return v.length > 0 ? v : void 0;
   } catch {
     return void 0;
@@ -11096,8 +11101,8 @@ function pinRunKitRef(projectDir, ref) {
   const file = lakebaseFile(projectDir, KIT_REF_LOCAL_FILE);
   const previous = readTrimmed(file);
   if (previous === ref) return { pinned: false, ref };
-  (0, import_node_fs9.mkdirSync)((0, import_node_path11.dirname)(file), { recursive: true });
-  (0, import_node_fs9.writeFileSync)(file, ref + "\n", "utf8");
+  (0, import_node_fs10.mkdirSync)((0, import_node_path12.dirname)(file), { recursive: true });
+  (0, import_node_fs10.writeFileSync)(file, ref + "\n", "utf8");
   return { pinned: true, ref, ...previous ? { previous } : {} };
 }
 function kitRefDriftWarning(projectDir, launchRef) {
@@ -11225,19 +11230,19 @@ async function driveAuthPreflight(host, check = import_lakebase9.checkDatabricks
 
 // scripts/sftdd/stray-artifact-recovery.ts
 init_cjs_shims();
-var import_node_fs10 = require("fs");
-var import_node_path12 = require("path");
+var import_node_fs11 = require("fs");
+var import_node_path13 = require("path");
 function malformedSiblingRoot(projectDir) {
   const p = projectDir.replace(/\/+$/, "");
-  return `${(0, import_node_path12.dirname)(p)}-${(0, import_node_path12.basename)(p)}`;
+  return `${(0, import_node_path13.dirname)(p)}-${(0, import_node_path13.basename)(p)}`;
 }
 function listFilesRel(dir) {
   const out = [];
   const walk2 = (abs, rel) => {
-    for (const entry of (0, import_node_fs10.readdirSync)(abs)) {
-      const childAbs = (0, import_node_path12.join)(abs, entry);
-      const childRel = rel ? (0, import_node_path12.join)(rel, entry) : entry;
-      if ((0, import_node_fs10.statSync)(childAbs).isDirectory()) walk2(childAbs, childRel);
+    for (const entry of (0, import_node_fs11.readdirSync)(abs)) {
+      const childAbs = (0, import_node_path13.join)(abs, entry);
+      const childRel = rel ? (0, import_node_path13.join)(rel, entry) : entry;
+      if ((0, import_node_fs11.statSync)(childAbs).isDirectory()) walk2(childAbs, childRel);
       else out.push(childRel);
     }
   };
@@ -11246,19 +11251,19 @@ function listFilesRel(dir) {
 }
 function relocateStrayDesignArtifacts(projectDir) {
   const sibling = malformedSiblingRoot(projectDir);
-  if (!(0, import_node_fs10.existsSync)(sibling)) return { relocated: false, moved: [] };
+  if (!(0, import_node_fs11.existsSync)(sibling)) return { relocated: false, moved: [] };
   const moved = [];
   for (const artRoot of [".sftdd", ".tdd"]) {
-    const strayRoot = (0, import_node_path12.join)(sibling, artRoot);
-    if (!(0, import_node_fs10.existsSync)(strayRoot)) continue;
-    for (const rel of listFilesRel(strayRoot)) moved.push((0, import_node_path12.join)(artRoot, rel));
-    const realRoot = (0, import_node_path12.join)(projectDir, artRoot);
-    (0, import_node_fs10.mkdirSync)(realRoot, { recursive: true });
-    (0, import_node_fs10.cpSync)(strayRoot, realRoot, { recursive: true, force: true });
-    (0, import_node_fs10.rmSync)(strayRoot, { recursive: true, force: true });
+    const strayRoot = (0, import_node_path13.join)(sibling, artRoot);
+    if (!(0, import_node_fs11.existsSync)(strayRoot)) continue;
+    for (const rel of listFilesRel(strayRoot)) moved.push((0, import_node_path13.join)(artRoot, rel));
+    const realRoot = (0, import_node_path13.join)(projectDir, artRoot);
+    (0, import_node_fs11.mkdirSync)(realRoot, { recursive: true });
+    (0, import_node_fs11.cpSync)(strayRoot, realRoot, { recursive: true, force: true });
+    (0, import_node_fs11.rmSync)(strayRoot, { recursive: true, force: true });
   }
   try {
-    if ((0, import_node_fs10.readdirSync)(sibling).length === 0) (0, import_node_fs10.rmSync)(sibling, { recursive: true, force: true });
+    if ((0, import_node_fs11.readdirSync)(sibling).length === 0) (0, import_node_fs11.rmSync)(sibling, { recursive: true, force: true });
   } catch {
   }
   return moved.length > 0 ? { relocated: true, from: sibling, moved } : { relocated: false, moved: [] };

@@ -6915,15 +6915,20 @@ var import_lakebase3 = require("@databricks-solutions/lakebase-scm-utils/lakebas
 var import_lakebase4 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_lakebase5 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
+// scripts/sftdd/design-adherence.ts
+init_cjs_shims();
+var import_node_fs3 = require("fs");
+var import_node_path4 = require("path");
+
 // scripts/sftdd/supersession.ts
 init_cjs_shims();
 var fs4 = __toESM(require("fs"), 1);
-var import_node_path4 = require("path");
+var import_node_path5 = require("path");
 
 // scripts/sftdd/contract-clean.ts
 init_cjs_shims();
-var import_node_fs3 = require("fs");
-var import_node_path5 = require("path");
+var import_node_fs4 = require("fs");
+var import_node_path6 = require("path");
 
 // scripts/sftdd/refactor-verify-assess.ts
 init_cjs_shims();
@@ -6932,8 +6937,8 @@ var path2 = __toESM(require("path"), 1);
 
 // scripts/sftdd/migration-app-clean.ts
 init_cjs_shims();
-var import_node_fs4 = require("fs");
-var import_node_path6 = require("path");
+var import_node_fs5 = require("fs");
+var import_node_path7 = require("path");
 
 // scripts/sftdd/cycle-record.ts
 var import_git = require("@databricks-solutions/lakebase-scm-utils/git");
@@ -7152,8 +7157,8 @@ var import_fs6 = require("fs");
 
 // scripts/sftdd/gate-conformance-guard.ts
 init_cjs_shims();
-var import_node_fs5 = require("fs");
-var import_node_path7 = require("path");
+var import_node_fs6 = require("fs");
+var import_node_path8 = require("path");
 
 // scripts/sftdd/architecture-conventions.ts
 init_cjs_shims();

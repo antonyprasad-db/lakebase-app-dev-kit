@@ -6662,8 +6662,8 @@ var import_util3 = require("@databricks-solutions/lakebase-scm-utils/util");
 init_cjs_shims();
 var import_node_child_process = require("child_process");
 var import_node_crypto = require("crypto");
-var import_node_fs4 = require("fs");
-var import_node_path6 = require("path");
+var import_node_fs5 = require("fs");
+var import_node_path7 = require("path");
 var import_lakebase7 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_util2 = require("@databricks-solutions/lakebase-scm-utils/util");
 
@@ -6872,15 +6872,20 @@ function sftddEnv(suffix, env = process.env) {
 // scripts/sftdd/test-list.ts
 init_cjs_shims();
 
+// scripts/sftdd/design-adherence.ts
+init_cjs_shims();
+var import_node_fs = require("fs");
+var import_node_path2 = require("path");
+
 // scripts/sftdd/supersession.ts
 init_cjs_shims();
 var fs2 = __toESM(require("fs"), 1);
-var import_node_path2 = require("path");
+var import_node_path3 = require("path");
 
 // scripts/sftdd/contract-clean.ts
 init_cjs_shims();
-var import_node_fs = require("fs");
-var import_node_path3 = require("path");
+var import_node_fs2 = require("fs");
+var import_node_path4 = require("path");
 
 // scripts/sftdd/refactor-verify-assess.ts
 init_cjs_shims();
@@ -6889,8 +6894,8 @@ var path = __toESM(require("path"), 1);
 
 // scripts/sftdd/migration-app-clean.ts
 init_cjs_shims();
-var import_node_fs2 = require("fs");
-var import_node_path4 = require("path");
+var import_node_fs3 = require("fs");
+var import_node_path5 = require("path");
 
 // scripts/sftdd/cycle-record.ts
 var import_git = require("@databricks-solutions/lakebase-scm-utils/git");
@@ -6984,8 +6989,8 @@ async function classifyDeployVerifyFailure(failingNodeIds, runIsolated) {
 
 // scripts/sftdd/e2e-regex-clean.ts
 init_cjs_shims();
-var import_node_fs3 = require("fs");
-var import_node_path5 = require("path");
+var import_node_fs4 = require("fs");
+var import_node_path6 = require("path");
 
 // scripts/sftdd/ephemeral-verify.ts
 init_cjs_shims();
@@ -7029,7 +7034,7 @@ function ephemeralVerifyBranchName(experimentBranch, nonce) {
 // scripts/sftdd/deploy.ts
 function readProjectInstance(projectDir) {
   try {
-    const m = (0, import_node_fs4.readFileSync)((0, import_node_path6.join)(projectDir, ".env"), "utf8").match(/^\s*LAKEBASE_PROJECT_ID\s*=\s*(.+?)\s*$/m);
+    const m = (0, import_node_fs5.readFileSync)((0, import_node_path7.join)(projectDir, ".env"), "utf8").match(/^\s*LAKEBASE_PROJECT_ID\s*=\s*(.+?)\s*$/m);
     return m ? m[1].replace(/^["']|["']$/g, "").trim() : void 0;
   } catch {
     return void 0;
@@ -7038,7 +7043,7 @@ function readProjectInstance(projectDir) {
 function readAppDatabaseName(projectDir) {
   let env;
   try {
-    env = (0, import_node_fs4.readFileSync)((0, import_node_path6.join)(projectDir, ".env"), "utf8");
+    env = (0, import_node_fs5.readFileSync)((0, import_node_path7.join)(projectDir, ".env"), "utf8");
   } catch {
     return void 0;
   }
@@ -7163,7 +7168,7 @@ function logReleaseEngineerDeployOutcome(ctx, result) {
   }
 }
 function pidFile(projectDir, target) {
-  return (0, import_node_path6.join)(resolveSftddDir(projectDir), "deploy", `${target}.pid`);
+  return (0, import_node_path7.join)(resolveSftddDir(projectDir), "deploy", `${target}.pid`);
 }
 function normalizeVerifyRun(raw) {
   return typeof raw === "boolean" ? { passed: raw, output: "" } : { passed: raw.passed, output: raw.output ?? "" };
@@ -7186,10 +7191,10 @@ ${tail}
 function writeDeployEvidence(sftddDir, evidence) {
   const fdir = findFeatureDir(sftddDir, evidence.feature_id);
   if (!fdir) return void 0;
-  const dir = evidence.story_id ? (0, import_node_path6.join)(fdir, "stories", evidence.story_id) : fdir;
-  (0, import_node_fs4.mkdirSync)(dir, { recursive: true });
-  const file = (0, import_node_path6.join)(dir, "deploy-evidence.json");
-  (0, import_node_fs4.writeFileSync)(file, JSON.stringify(evidence, null, 2) + "\n", "utf8");
+  const dir = evidence.story_id ? (0, import_node_path7.join)(fdir, "stories", evidence.story_id) : fdir;
+  (0, import_node_fs5.mkdirSync)(dir, { recursive: true });
+  const file = (0, import_node_path7.join)(dir, "deploy-evidence.json");
+  (0, import_node_fs5.writeFileSync)(file, JSON.stringify(evidence, null, 2) + "\n", "utf8");
   return file;
 }
 function defaultStart(cmd, cwd, env) {
@@ -7256,8 +7261,8 @@ async function deployToTarget(args) {
   const env = args.lakebaseBranch ? { ...process.env, LAKEBASE_BRANCH_ID: args.lakebaseBranch } : void 0;
   const pid = start(cfg.run, args.projectDir, env);
   const pf = pidFile(args.projectDir, args.targetName);
-  (0, import_node_fs4.mkdirSync)((0, import_node_path6.dirname)(pf), { recursive: true });
-  (0, import_node_fs4.writeFileSync)(pf, String(pid));
+  (0, import_node_fs5.mkdirSync)((0, import_node_path7.dirname)(pf), { recursive: true });
+  (0, import_node_fs5.writeFileSync)(pf, String(pid));
   const poll = await (0, import_util2.pollUntil)({
     probe: async () => await reachable(url) ? { done: true, value: true } : { done: false },
     timeoutMs: cfg.readyTimeoutSeconds * 1e3,
@@ -7372,8 +7377,8 @@ async function deployToTarget(args) {
 }
 function stopLocal(projectDir, targetName) {
   const pf = pidFile(projectDir, targetName);
-  if (!(0, import_node_fs4.existsSync)(pf)) return { stopped: false };
-  const pid = Number((0, import_node_fs4.readFileSync)(pf, "utf8").trim());
+  if (!(0, import_node_fs5.existsSync)(pf)) return { stopped: false };
+  const pid = Number((0, import_node_fs5.readFileSync)(pf, "utf8").trim());
   if (Number.isFinite(pid) && pid > 0) {
     try {
       process.kill(-pid);
@@ -7384,7 +7389,7 @@ function stopLocal(projectDir, targetName) {
       }
     }
   }
-  (0, import_node_fs4.rmSync)(pf, { force: true });
+  (0, import_node_fs5.rmSync)(pf, { force: true });
   return { stopped: true };
 }
 

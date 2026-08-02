@@ -6754,7 +6754,7 @@ function readAcLayer(tdd, f, acId) {
 
 // scripts/sftdd/cycle-record.ts
 init_esm_shims();
-import { existsSync as existsSync14, readFileSync as readFileSync16, readdirSync as readdirSync10, statSync as statSync8, writeFileSync as writeFileSync11, mkdirSync as mkdirSync10, rmSync as rmSync5 } from "fs";
+import { existsSync as existsSync15, readFileSync as readFileSync17, readdirSync as readdirSync11, statSync as statSync8, writeFileSync as writeFileSync11, mkdirSync as mkdirSync10, rmSync as rmSync5 } from "fs";
 
 // scripts/sftdd/sftdd-env.ts
 init_esm_shims();
@@ -6763,7 +6763,7 @@ function sftddEnv(suffix, env = process.env) {
 }
 
 // scripts/sftdd/cycle-record.ts
-import { join as join15, dirname as dirname5 } from "path";
+import { join as join16, dirname as dirname5 } from "path";
 
 // scripts/sftdd/test-list.ts
 init_esm_shims();
@@ -7757,12 +7757,92 @@ function stopLocal(projectDir, targetName) {
   return { stopped: true };
 }
 
+// scripts/sftdd/design-adherence.ts
+init_esm_shims();
+import { existsSync as existsSync10, readFileSync as readFileSync12, readdirSync as readdirSync8 } from "fs";
+import { join as join11 } from "path";
+var VAR_CALL = /var\(\s*--[A-Za-z0-9-]+[^)]*\)/g;
+var ROUTE_ELEMENT_RE = /element=\{\s*<\s*([A-Z][A-Za-z0-9_]*)/g;
+var ROUTE_COMPONENT_RE = /\bComponent=\{\s*([A-Z][A-Za-z0-9_]*)\s*\}/g;
+var REACHABILITY_REMEDIATION = "A feature page component exists under client/src/pages/ but is not wired into App.tsx's <Routes>, so a user can never reach it (its component test passes in isolation, but the app never renders it). Add a <Route ... element={<Page/>} /> for it AND a nav affordance the IA declares. If the component is composed inside another page (not a route of its own), mark it exempt. See the `ux-adherence` smell.";
+function checkRouteReachability(input) {
+  const routed = /* @__PURE__ */ new Set();
+  for (const re of [ROUTE_ELEMENT_RE, ROUTE_COMPONENT_RE]) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(input.appSource)) !== null) routed.add(m[1]);
+  }
+  const exempt = new Set(input.exemptComponents ?? []);
+  const unreachable = input.pageComponents.filter((c) => !routed.has(c) && !exempt.has(c));
+  return unreachable.length === 0 ? { ok: true, unreachable: [] } : { ok: false, unreachable, remediation: REACHABILITY_REMEDIATION };
+}
+var CLASSNAME_RE = /className\s*=\s*["'`]([^"'`]+)["'`]/g;
+var JSX_ELEMENT_RE = /<[A-Za-z][A-Za-z0-9]*[\s/>]/;
+var CONSUMPTION_REMEDIATION = "A feature page renders visible structure but consumes NONE of the design guide: no var(--token) and no class from the design vocabulary. It renders as bare browser-default HTML. Apply the guide , wrap in the layout/card/button/table classes (or var(--token) styles) the design guide defines , so the screen matches the design system. See the `ux-adherence` smell.";
+function checkTokenConsumption(input) {
+  const vocab = new Set(input.designClasses ?? []);
+  const bare = [];
+  for (const [name, src] of Object.entries(input.pageSources)) {
+    if (!JSX_ELEMENT_RE.test(src)) continue;
+    const usesVar = VAR_CALL.test(src);
+    VAR_CALL.lastIndex = 0;
+    let usesDesignClass = false;
+    if (vocab.size > 0) {
+      CLASSNAME_RE.lastIndex = 0;
+      let m;
+      while ((m = CLASSNAME_RE.exec(src)) !== null) {
+        if (m[1].split(/\s+/).some((cls) => vocab.has(cls) || [...vocab].some((v) => cls === v || cls.startsWith(`${v}__`) || cls.startsWith(`${v}--`)))) {
+          usesDesignClass = true;
+          break;
+        }
+      }
+    } else {
+      CLASSNAME_RE.lastIndex = 0;
+      usesDesignClass = CLASSNAME_RE.test(src);
+      CLASSNAME_RE.lastIndex = 0;
+    }
+    if (!usesVar && !usesDesignClass) bare.push(name);
+  }
+  return bare.length === 0 ? { ok: true, bare: [] } : { ok: false, bare, remediation: CONSUMPTION_REMEDIATION };
+}
+var UX_CLEAN_REMEDIATION = "The client UI does not fully apply the design guide: a feature page is unreachable (not routed in App.tsx) and/or bare (consumes no design tokens/classes). Wire every feature page into <Routes> with a nav affordance and style it with the design vocabulary. See `ux-adherence`.";
+function summarizeUxViolations(r) {
+  const parts = [];
+  if (!r.reachability.ok) parts.push(`unreachable pages: ${r.reachability.unreachable.join(", ")}`);
+  if (!r.tokens.ok) parts.push(`bare (unstyled) pages: ${r.tokens.bare.join(", ")}`);
+  return parts.join("; ");
+}
+function checkUxClean(args) {
+  const clean0 = { clean: true, reachability: { ok: true, unreachable: [] }, tokens: { ok: true, bare: [] } };
+  const srcDir = args.clientSrcDir ?? join11(args.projectDir, "client", "src");
+  const appTsx = join11(srcDir, "App.tsx");
+  const pagesDir = join11(srcDir, "pages");
+  if (!existsSync10(appTsx) || !existsSync10(pagesDir)) return clean0;
+  const appSource = readFileSync12(appTsx, "utf8");
+  const pageSources = {};
+  const pageComponents = [];
+  for (const name of readdirSync8(pagesDir)) {
+    if (!name.endsWith(".tsx") || name.endsWith(".test.tsx")) continue;
+    const src = readFileSync12(join11(pagesDir, name), "utf8");
+    pageSources[name] = src;
+    for (const re of [/export\s+function\s+([A-Z][A-Za-z0-9_]*)/g, /export\s+const\s+([A-Z][A-Za-z0-9_]*)/g]) {
+      re.lastIndex = 0;
+      let m;
+      while ((m = re.exec(src)) !== null) pageComponents.push(m[1]);
+    }
+  }
+  const reachability = checkRouteReachability({ appSource, pageComponents });
+  const tokens = checkTokenConsumption({ pageSources, designClasses: args.designClasses });
+  const clean = reachability.ok && tokens.ok;
+  return clean ? { clean, reachability, tokens } : { clean, reachability, tokens, remediation: UX_CLEAN_REMEDIATION };
+}
+
 // scripts/sftdd/supersession.ts
 init_esm_shims();
 import * as fs4 from "fs";
-import { join as join11 } from "path";
+import { join as join12 } from "path";
 function supersededTestsJson(tdd, feature, story, ac) {
-  return join11(cycleDir(tdd, feature, story, ac), "superseded-tests.json");
+  return join12(cycleDir(tdd, feature, story, ac), "superseded-tests.json");
 }
 function readSupersededTests(tdd, feature, story, ac) {
   const file = supersededTestsJson(tdd, feature, story, ac);
@@ -7777,7 +7857,7 @@ function readSupersededTests(tdd, feature, story, ac) {
 }
 function writeSupersededTests(tdd, feature, story, ac, value) {
   const file = supersededTestsJson(tdd, feature, story, ac);
-  fs4.mkdirSync(join11(cycleDir(tdd, feature, story, ac)), { recursive: true });
+  fs4.mkdirSync(join12(cycleDir(tdd, feature, story, ac)), { recursive: true });
   fs4.writeFileSync(file, JSON.stringify(value, null, 2) + "\n");
 }
 function markSupersessionRefactored(tdd, feature, story, ac) {
@@ -7787,7 +7867,7 @@ function markSupersessionRefactored(tdd, feature, story, ac) {
 }
 var MAX_REGRESSION_FIX_ATTEMPTS = 3;
 function greenFailureJson(tdd, feature, story, ac) {
-  return join11(cycleDir(tdd, feature, story, ac), "green-failure.json");
+  return join12(cycleDir(tdd, feature, story, ac), "green-failure.json");
 }
 function readGreenFailure(tdd, feature, story, ac) {
   const file = greenFailureJson(tdd, feature, story, ac);
@@ -7840,7 +7920,7 @@ function rearmRegressionFix(tdd, feature, story, ac) {
   fs4.rmSync(supersededTestsJson(tdd, feature, story, ac), { force: true });
 }
 function regressionAssessmentJson(tdd, feature, story, ac) {
-  return join11(cycleDir(tdd, feature, story, ac), "regression-assessment.json");
+  return join12(cycleDir(tdd, feature, story, ac), "regression-assessment.json");
 }
 function readRegressionAssessment(tdd, feature, story, ac) {
   const file = regressionAssessmentJson(tdd, feature, story, ac);
@@ -7860,8 +7940,8 @@ function writeRegressionAssessment(tdd, feature, story, ac, value) {
 
 // scripts/sftdd/contract-clean.ts
 init_esm_shims();
-import { existsSync as existsSync11, readFileSync as readFileSync13, readdirSync as readdirSync8, statSync as statSync6 } from "fs";
-import { join as join12, relative, extname } from "path";
+import { existsSync as existsSync12, readFileSync as readFileSync14, readdirSync as readdirSync9, statSync as statSync6 } from "fs";
+import { join as join13, relative, extname } from "path";
 var DEFAULT_MIGRATION_DIRS = ["alembic/versions", "migrations", "db/migrations", "src/migrations"];
 var DEFAULT_CODE_DIRS = ["app", "src", "lib", "templates"];
 var DEFAULT_TEST_DIRS = ["tests", "test"];
@@ -7875,12 +7955,12 @@ var ADD_COLUMN_SQL = /add\s+column\s+(?:if\s+not\s+exists\s+)?["'`]?([a-zA-Z_][a
 function walk(dir, keep, out = [], excludeDir = EXCLUDE_DIR) {
   let entries;
   try {
-    entries = readdirSync8(dir);
+    entries = readdirSync9(dir);
   } catch {
     return out;
   }
   for (const e of entries) {
-    const abs = join12(dir, e);
+    const abs = join13(dir, e);
     let st;
     try {
       st = statSync6(abs);
@@ -7922,8 +8002,8 @@ function forwardMigrationBody(src, ext) {
 function netDroppedSymbols(projectDir, migrationDirs = DEFAULT_MIGRATION_DIRS) {
   const files = [];
   for (const md of migrationDirs) {
-    const abs = join12(projectDir, md);
-    if (existsSync11(abs)) {
+    const abs = join13(projectDir, md);
+    if (existsSync12(abs)) {
       for (const f of walk(abs, (p) => /\.(py|sql|js|ts)$/.test(p))) files.push(f);
     }
   }
@@ -7932,7 +8012,7 @@ function netDroppedSymbols(projectDir, migrationDirs = DEFAULT_MIGRATION_DIRS) {
   for (const f of files) {
     let src;
     try {
-      src = readFileSync13(f, "utf8");
+      src = readFileSync14(f, "utf8");
     } catch {
       continue;
     }
@@ -7953,12 +8033,12 @@ function scanSymbolRefs(projectDir, dirs, dropped, excludeDir = EXCLUDE_DIR) {
   const matchers = dropped.map((s) => ({ symbol: s, re: symbolRefRegex(s) }));
   const hits = [];
   for (const cd of dirs) {
-    const abs = join12(projectDir, cd);
-    if (!existsSync11(abs)) continue;
+    const abs = join13(projectDir, cd);
+    if (!existsSync12(abs)) continue;
     for (const file of walk(abs, (p) => CODE_EXTS.has(extname(p)), [], excludeDir)) {
       let lines;
       try {
-        lines = readFileSync13(file, "utf8").split("\n");
+        lines = readFileSync14(file, "utf8").split("\n");
       } catch {
         continue;
       }
@@ -8055,20 +8135,20 @@ function clearRefactorVerifyAssessMarker(sftddDir, featureId, storyId) {
 
 // scripts/sftdd/migration-app-clean.ts
 init_esm_shims();
-import { existsSync as existsSync13, readFileSync as readFileSync15, readdirSync as readdirSync9, statSync as statSync7 } from "fs";
-import { join as join14, relative as relative2, extname as extname2 } from "path";
+import { existsSync as existsSync14, readFileSync as readFileSync16, readdirSync as readdirSync10, statSync as statSync7 } from "fs";
+import { join as join15, relative as relative2, extname as extname2 } from "path";
 var DEFAULT_MIGRATION_DIRS2 = ["alembic/versions", "migrations", "db/migrations", "src/migrations"];
 var EXCLUDE_DIR2 = /(^|\/)(node_modules|\.git|\.venv|venv|__pycache__)(\/|$)/;
 var MODULE_SCOPE_APP_IMPORT = /^(from\s+app\b|import\s+app\b)/;
 function walk2(dir, keep, out = []) {
   let entries;
   try {
-    entries = readdirSync9(dir);
+    entries = readdirSync10(dir);
   } catch {
     return out;
   }
   for (const e of entries) {
-    const abs = join14(dir, e);
+    const abs = join15(dir, e);
     let st;
     try {
       st = statSync7(abs);
@@ -8087,12 +8167,12 @@ function checkMigrationAppClean(args) {
   const migrationDirs = args.migrationDirs ?? DEFAULT_MIGRATION_DIRS2;
   const violations = [];
   for (const md of migrationDirs) {
-    const abs = join14(args.projectDir, md);
-    if (!existsSync13(abs)) continue;
+    const abs = join15(args.projectDir, md);
+    if (!existsSync14(abs)) continue;
     for (const file of walk2(abs, (p) => extname2(p) === ".py")) {
       let lines;
       try {
-        lines = readFileSync15(file, "utf8").split("\n");
+        lines = readFileSync16(file, "utf8").split("\n");
       } catch {
         continue;
       }
@@ -8146,10 +8226,10 @@ function logCycleEvent2(sftddDir, event) {
 }
 function readStoryItems(sftddDir, featureId, story) {
   const file = storyTestListJson(sftddDir, featureId, story);
-  if (!existsSync14(file)) {
+  if (!existsSync15(file)) {
     throw new Error(`per-story test-list not found for ${featureId}/${story} at ${file}`);
   }
-  const data = JSON.parse(readFileSync16(file, "utf8"));
+  const data = JSON.parse(readFileSync17(file, "utf8"));
   return Array.isArray(data.items) ? data.items : [];
 }
 function storyExperiment(sftddDir, featureId, story) {
@@ -8158,20 +8238,20 @@ function storyExperiment(sftddDir, featureId, story) {
   return { slug: e?.experiment_slug, branch: e?.branch_id };
 }
 function storyCycles(sftddDir, featureId, story) {
-  const base = join15(cyclesRootDir(sftddDir), featureId, story);
-  if (!existsSync14(base)) return [];
+  const base = join16(cyclesRootDir(sftddDir), featureId, story);
+  if (!existsSync15(base)) return [];
   const out = [];
-  for (const acDir of readdirSync10(base)) {
-    const dir = join15(base, acDir);
+  for (const acDir of readdirSync11(base)) {
+    const dir = join16(base, acDir);
     try {
       if (!statSync8(dir).isDirectory()) continue;
     } catch {
       continue;
     }
-    for (const f of readdirSync10(dir)) {
+    for (const f of readdirSync11(dir)) {
       if (!/^cycle-\d+\.json$/.test(f)) continue;
       try {
-        out.push(JSON.parse(readFileSync16(join15(dir, f), "utf8")));
+        out.push(JSON.parse(readFileSync17(join16(dir, f), "utf8")));
       } catch {
       }
     }
@@ -8353,9 +8433,9 @@ async function greenOpenCycle(args) {
 }
 function readReview(sftddDir, featureId, story, acId) {
   const f = acReviewJson(sftddDir, featureId, story, acId);
-  if (!existsSync14(f)) return {};
+  if (!existsSync15(f)) return {};
   try {
-    return JSON.parse(readFileSync16(f, "utf8"));
+    return JSON.parse(readFileSync17(f, "utf8"));
   } catch {
     return {};
   }
@@ -8403,12 +8483,21 @@ function firstRefactorPendingAc(sftddDir, featureId, story) {
   }
   return null;
 }
+function flagUxAdherenceIfDirty(sftddDir, story) {
+  try {
+    const ux = checkUxClean({ projectDir: dirname5(sftddDir) });
+    if (!ux.clean && !hasOpenSmell(sftddDir, "ux-adherence", story)) {
+      writeSmellsLog(sftddDir, [{ smell: "ux-adherence", cycle_ids: [], detail: summarizeUxViolations(ux), story_id: story }]);
+    }
+  } catch {
+  }
+}
 function reviewAc(sftddDir, featureId, story, acId) {
   let verdict = {};
   const vf = acReviewVerdictJson(sftddDir, featureId, story, acId);
-  if (existsSync14(vf)) {
+  if (existsSync15(vf)) {
     try {
-      verdict = JSON.parse(readFileSync16(vf, "utf8"));
+      verdict = JSON.parse(readFileSync17(vf, "utf8"));
     } catch {
       verdict = {};
     }
@@ -8437,6 +8526,7 @@ function reviewAc(sftddDir, featureId, story, acId) {
       story
     }
   });
+  flagUxAdherenceIfDirty(sftddDir, story);
   return { reviewed: true, refactorRequested };
 }
 async function refactorAc(sftddDir, featureId, story, acId, opts) {
@@ -8475,9 +8565,9 @@ async function refactorAc(sftddDir, featureId, story, acId, opts) {
 }
 function readStoryReview(sftddDir, featureId, story) {
   const f = storyReviewJson(sftddDir, featureId, story);
-  if (!existsSync14(f)) return {};
+  if (!existsSync15(f)) return {};
   try {
-    return JSON.parse(readFileSync16(f, "utf8"));
+    return JSON.parse(readFileSync17(f, "utf8"));
   } catch {
     return {};
   }
@@ -8485,9 +8575,9 @@ function readStoryReview(sftddDir, featureId, story) {
 function reviewStory(sftddDir, featureId, story) {
   let verdict = {};
   const vf = storyReviewVerdictJson(sftddDir, featureId, story);
-  if (existsSync14(vf)) {
+  if (existsSync15(vf)) {
     try {
-      verdict = JSON.parse(readFileSync16(vf, "utf8"));
+      verdict = JSON.parse(readFileSync17(vf, "utf8"));
     } catch {
       verdict = {};
     }
@@ -8516,6 +8606,7 @@ function reviewStory(sftddDir, featureId, story) {
       story
     }
   });
+  flagUxAdherenceIfDirty(sftddDir, story);
   return { reviewed: true, refactorRequested };
 }
 async function refactorStory(sftddDir, featureId, story, opts) {
@@ -8569,16 +8660,16 @@ async function refactorStory(sftddDir, featureId, story, opts) {
 
 // scripts/sftdd/reflection.ts
 init_esm_shims();
-import { existsSync as existsSync15, readFileSync as readFileSync17, writeFileSync as writeFileSync12, mkdirSync as mkdirSync11, rmSync as rmSync6 } from "fs";
+import { existsSync as existsSync16, readFileSync as readFileSync18, writeFileSync as writeFileSync12, mkdirSync as mkdirSync11, rmSync as rmSync6 } from "fs";
 var SMELL_FOR_OWNER = {
   "spec-author": "reflect-spec-defect",
   "test-strategist": "reflect-testlist-defect"
 };
 function readReflectVerdict(sftddDir, feature, story) {
   const p = reflectVerdictJson(sftddDir, feature, story);
-  if (!existsSync15(p)) return void 0;
+  if (!existsSync16(p)) return void 0;
   try {
-    return JSON.parse(readFileSync17(p, "utf8"));
+    return JSON.parse(readFileSync18(p, "utf8"));
   } catch {
     return void 0;
   }

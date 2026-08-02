@@ -84,3 +84,45 @@ extracts tokens from them and cites which decision came from which.
   warehouse-floor tablet defaults to large text).
 - Numeric quantities use tabular figures so columns of numbers align
   visually.
+
+## Component vocabulary
+
+The UI is built from a small, consistent set of named components, so
+every screen looks like the same product. The UX Designer records these
+in `design-guide.json` `components` (each with the CSS class the pages
+apply), and every feature page composes them rather than hand-rolling
+markup:
+
+- **Navbar** , navy top bar (64px) with a 2px brand-red bottom border,
+  the app icon + "StockFlow" title on the left, nav links on the right.
+- **Page** , warm-oat background, a centered ~960px content column, a
+  `page__header` with the page title (the app icon next to the name).
+- **Card** , white surface, soft navy-tinted shadow, gentle radius; the
+  stock table and detail panels live in cards.
+- **Buttons** , primary (solid brand-red, sharp 0px corners), secondary
+  (outlined), ghost (text-only).
+- **Form inputs** , persistent visible labels, a clear focus ring; a
+  validation problem shows inline next to the field.
+- **Stock table** , cool uppercase header row; quantity cells
+  right-aligned in the mono/tabular figure font.
+- **Status (stock-state) pills** , in-stock / low / out / on-order /
+  quarantined, each a pill whose meaning is carried by BOTH text and
+  color (never color alone).
+- **Empty state** , an icon + a teaching heading + copy + a CTA (e.g.
+  "No stock at this location, receive an inbound shipment").
+- **Toasts** , fixed top-right; a success toast auto-dismisses, an
+  error toast persists; feedback never shifts the page layout.
+
+## Iconography and app identity
+
+- **App icon.** StockFlow has a brand icon (a warehouse mark) shown
+  next to the title, plus a favicon for the browser tab. The asset ships
+  with this brief at `intake/assets/warehouse.png`; the build copies it
+  to `client/src/assets/warehouse.png` and references it from the navbar
+  / page title. Every screen should feel like one branded product.
+- **Icon set.** Use a single line-style icon set consistently (e.g.
+  inbound/outbound, scan, warehouse, stock-level states); do not mix
+  icon styles.
+- **Name + tagline.** The product is "StockFlow": warehouse operations,
+  batched and barcoded, on one Postgres. Empty states and headings use
+  this plain, guiding voice.

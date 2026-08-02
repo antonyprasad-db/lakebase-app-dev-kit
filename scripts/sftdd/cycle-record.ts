@@ -33,7 +33,8 @@ import { markTestItemGreen } from "./test-list.js";
 import { listExperiments } from "./experiment.js";
 import { ensureDeployedAndVerify } from "./deploy.js";
 import { writeEscalation, type Escalation } from "./escalation.js";
-import { readSmellsLog, markSmellResolved, isBuildRefactorRoutableSmell, hasOpenBuildRefactorRoutableSmell } from "./smells.js";
+import { readSmellsLog, markSmellResolved, isBuildRefactorRoutableSmell, hasOpenBuildRefactorRoutableSmell, writeSmellsLog, hasOpenSmell } from "./smells.js";
+import { checkUxClean, summarizeUxViolations } from "./design-adherence.js";
 import {
   readGreenFailure,
   writeGreenFailure,
@@ -756,6 +757,28 @@ export function firstRefactorPendingAc(sftddDir: string, featureId: string, stor
  * reviewed_at + refactor_requested. No verdict present => refactor_requested
  * false ("looks good"), so a Navigator that finds nothing to fix never stalls.
  */
+/**
+ * Deterministic UI-track backstop, run at REVIEW (no model cooperation). Scans the
+ * project's client/ for a feature page that is unreachable (not routed in App.tsx)
+ * or bare (renders structure but consumes no design tokens/classes) and, if found,
+ * flags the story-scoped `ux-adherence` smell (idempotently). Because `ux-adherence`
+ * is build-refactor-routable, the open smell then routes the Driver's REFACTOR turn
+ * in-loop (firstRefactorPendingAc / refactorStoryPending), self-healing the gap the
+ * Navigator's prose review used to miss. No client/ workspace -> checkUxClean returns
+ * clean, so non-UI projects are a complete no-op. Best-effort: never throws into the
+ * review path (a scan error must not block recording the verdict).
+ */
+function flagUxAdherenceIfDirty(sftddDir: string, story: string): void {
+  try {
+    const ux = checkUxClean({ projectDir: dirname(sftddDir) });
+    if (!ux.clean && !hasOpenSmell(sftddDir, "ux-adherence", story)) {
+      writeSmellsLog(sftddDir, [{ smell: "ux-adherence", cycle_ids: [], detail: summarizeUxViolations(ux), story_id: story }]);
+    }
+  } catch {
+    /* a UX scan failure is observability, not a gate; never break the review */
+  }
+}
+
 export function reviewAc(sftddDir: string, featureId: string, story: string, acId: string): { reviewed: boolean; refactorRequested: boolean } {
   let verdict: { refactor?: boolean; notes?: string } = {};
   const vf = acReviewVerdictJson(sftddDir, featureId, story, acId);
@@ -792,6 +815,7 @@ export function reviewAc(sftddDir: string, featureId: string, story: string, acI
       story,
     },
   });
+  flagUxAdherenceIfDirty(sftddDir, story);
   return { reviewed: true, refactorRequested };
 }
 
@@ -996,6 +1020,7 @@ export function reviewStory(
       story,
     },
   });
+  flagUxAdherenceIfDirty(sftddDir, story);
   return { reviewed: true, refactorRequested };
 }
 

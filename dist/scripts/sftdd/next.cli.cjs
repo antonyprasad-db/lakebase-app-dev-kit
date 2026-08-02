@@ -6906,7 +6906,7 @@ function resolveSftddSettings(inputs) {
 // scripts/sftdd/orchestrator-effects.ts
 init_cjs_shims();
 var fs8 = __toESM(require("fs"), 1);
-var import_node_path8 = require("path");
+var import_node_path9 = require("path");
 
 // scripts/sftdd/orchestrator-drive.ts
 init_cjs_shims();
@@ -7653,12 +7653,17 @@ function storyDeployVerified(sftddDir, featureId, storyId) {
   return deployEvidencePasses(readDeployEvidence((0, import_node_path3.join)(fdir, "stories", storyId, "deploy-evidence.json")));
 }
 
+// scripts/sftdd/design-adherence.ts
+init_cjs_shims();
+var import_node_fs3 = require("fs");
+var import_node_path4 = require("path");
+
 // scripts/sftdd/supersession.ts
 init_cjs_shims();
 var fs4 = __toESM(require("fs"), 1);
-var import_node_path4 = require("path");
+var import_node_path5 = require("path");
 function supersededTestsJson(tdd, feature, story, ac) {
-  return (0, import_node_path4.join)(cycleDir(tdd, feature, story, ac), "superseded-tests.json");
+  return (0, import_node_path5.join)(cycleDir(tdd, feature, story, ac), "superseded-tests.json");
 }
 function readSupersededTests(tdd, feature, story, ac) {
   const file = supersededTestsJson(tdd, feature, story, ac);
@@ -7676,7 +7681,7 @@ function hasPendingSupersession(tdd, feature, story, ac) {
   return s !== void 0 && s.refactored !== true;
 }
 function greenFailureJson(tdd, feature, story, ac) {
-  return (0, import_node_path4.join)(cycleDir(tdd, feature, story, ac), "green-failure.json");
+  return (0, import_node_path5.join)(cycleDir(tdd, feature, story, ac), "green-failure.json");
 }
 function readGreenFailure(tdd, feature, story, ac) {
   const file = greenFailureJson(tdd, feature, story, ac);
@@ -7698,8 +7703,8 @@ function hasPendingRegressionFix(tdd, feature, story, ac) {
 
 // scripts/sftdd/contract-clean.ts
 init_cjs_shims();
-var import_node_fs3 = require("fs");
-var import_node_path5 = require("path");
+var import_node_fs4 = require("fs");
+var import_node_path6 = require("path");
 
 // scripts/sftdd/refactor-verify-assess.ts
 init_cjs_shims();
@@ -7730,8 +7735,8 @@ function refactorVerifyRefactorPending(sftddDir, featureId, storyId) {
 
 // scripts/sftdd/migration-app-clean.ts
 init_cjs_shims();
-var import_node_fs4 = require("fs");
-var import_node_path6 = require("path");
+var import_node_fs5 = require("fs");
+var import_node_path7 = require("path");
 
 // scripts/sftdd/cycle-record.ts
 var import_git = require("@databricks-solutions/lakebase-scm-utils/git");
@@ -8536,8 +8541,8 @@ var import_fs9 = require("fs");
 
 // scripts/sftdd/gate-conformance-guard.ts
 init_cjs_shims();
-var import_node_fs5 = require("fs");
-var import_node_path7 = require("path");
+var import_node_fs6 = require("fs");
+var import_node_path8 = require("path");
 
 // scripts/sftdd/architecture-conventions.ts
 init_cjs_shims();
@@ -8557,15 +8562,15 @@ function readPipeline(sftddDir, featureId) {
 
 // scripts/sftdd/response-formatter.ts
 init_cjs_shims();
-var import_node_fs6 = require("fs");
+var import_node_fs7 = require("fs");
 function designGuideConformance(sftddDir) {
   const file = designGuideJson(sftddDir);
-  if (!(0, import_node_fs6.existsSync)(file)) {
+  if (!(0, import_node_fs7.existsSync)(file)) {
     return { ok: false, problem: "design-guide.json not written (the machine-checkable token source of truth)" };
   }
   let content;
   try {
-    content = (0, import_node_fs6.readFileSync)(file, "utf8");
+    content = (0, import_node_fs7.readFileSync)(file, "utf8");
   } catch (e) {
     return { ok: false, problem: `unreadable: ${e instanceof Error ? e.message : String(e)}` };
   }
@@ -8593,7 +8598,7 @@ init_cjs_shims();
 
 // scripts/sftdd/sprint-gates.ts
 init_cjs_shims();
-var import_node_fs7 = require("fs");
+var import_node_fs8 = require("fs");
 
 // scripts/sftdd/gate-hash.ts
 init_cjs_shims();
@@ -8613,10 +8618,10 @@ function sprintGatesFile(sftddDir, sprint) {
 function readSprintGates(sprint, opts = {}) {
   const sftddDir = opts.sftddDir ?? resolveSftddDir();
   const file = sprintGatesFile(sftddDir, sprint);
-  if (!(0, import_node_fs7.existsSync)(file)) return defaultSprintGatesState(sprint);
+  if (!(0, import_node_fs8.existsSync)(file)) return defaultSprintGatesState(sprint);
   let parsed;
   try {
-    parsed = JSON.parse((0, import_node_fs7.readFileSync)(file, "utf8"));
+    parsed = JSON.parse((0, import_node_fs8.readFileSync)(file, "utf8"));
   } catch (err) {
     const cause = err instanceof Error ? err.message : String(err);
     throw new Error(`sprint gates.json at ${file} is not valid JSON: ${cause}`);

@@ -1,0 +1,140 @@
+#!/usr/bin/env node
+
+// scripts/sftdd/design-adherence.ts
+import { existsSync, readFileSync, readdirSync } from "fs";
+import { join } from "path";
+var VAR_CALL = /var\(\s*--[A-Za-z0-9-]+[^)]*\)/g;
+var ROUTE_ELEMENT_RE = /element=\{\s*<\s*([A-Z][A-Za-z0-9_]*)/g;
+var ROUTE_COMPONENT_RE = /\bComponent=\{\s*([A-Z][A-Za-z0-9_]*)\s*\}/g;
+var REACHABILITY_REMEDIATION = "A feature page component exists under client/src/pages/ but is not wired into App.tsx's <Routes>, so a user can never reach it (its component test passes in isolation, but the app never renders it). Add a <Route ... element={<Page/>} /> for it AND a nav affordance the IA declares. If the component is composed inside another page (not a route of its own), mark it exempt. See the `ux-adherence` smell.";
+function checkRouteReachability(input) {
+  const routed = /* @__PURE__ */ new Set();
+  for (const re of [ROUTE_ELEMENT_RE, ROUTE_COMPONENT_RE]) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(input.appSource)) !== null) routed.add(m[1]);
+  }
+  const exempt = new Set(input.exemptComponents ?? []);
+  const unreachable = input.pageComponents.filter((c) => !routed.has(c) && !exempt.has(c));
+  return unreachable.length === 0 ? { ok: true, unreachable: [] } : { ok: false, unreachable, remediation: REACHABILITY_REMEDIATION };
+}
+var CLASSNAME_RE = /className\s*=\s*["'`]([^"'`]+)["'`]/g;
+var JSX_ELEMENT_RE = /<[A-Za-z][A-Za-z0-9]*[\s/>]/;
+var CONSUMPTION_REMEDIATION = "A feature page renders visible structure but consumes NONE of the design guide: no var(--token) and no class from the design vocabulary. It renders as bare browser-default HTML. Apply the guide , wrap in the layout/card/button/table classes (or var(--token) styles) the design guide defines , so the screen matches the design system. See the `ux-adherence` smell.";
+function checkTokenConsumption(input) {
+  const vocab = new Set(input.designClasses ?? []);
+  const bare = [];
+  for (const [name, src] of Object.entries(input.pageSources)) {
+    if (!JSX_ELEMENT_RE.test(src)) continue;
+    const usesVar = VAR_CALL.test(src);
+    VAR_CALL.lastIndex = 0;
+    let usesDesignClass = false;
+    if (vocab.size > 0) {
+      CLASSNAME_RE.lastIndex = 0;
+      let m;
+      while ((m = CLASSNAME_RE.exec(src)) !== null) {
+        if (m[1].split(/\s+/).some((cls) => vocab.has(cls) || [...vocab].some((v) => cls === v || cls.startsWith(`${v}__`) || cls.startsWith(`${v}--`)))) {
+          usesDesignClass = true;
+          break;
+        }
+      }
+    } else {
+      CLASSNAME_RE.lastIndex = 0;
+      usesDesignClass = CLASSNAME_RE.test(src);
+      CLASSNAME_RE.lastIndex = 0;
+    }
+    if (!usesVar && !usesDesignClass) bare.push(name);
+  }
+  return bare.length === 0 ? { ok: true, bare: [] } : { ok: false, bare, remediation: CONSUMPTION_REMEDIATION };
+}
+var UX_CLEAN_REMEDIATION = "The client UI does not fully apply the design guide: a feature page is unreachable (not routed in App.tsx) and/or bare (consumes no design tokens/classes). Wire every feature page into <Routes> with a nav affordance and style it with the design vocabulary. See `ux-adherence`.";
+function summarizeUxViolations(r) {
+  const parts = [];
+  if (!r.reachability.ok) parts.push(`unreachable pages: ${r.reachability.unreachable.join(", ")}`);
+  if (!r.tokens.ok) parts.push(`bare (unstyled) pages: ${r.tokens.bare.join(", ")}`);
+  return parts.join("; ");
+}
+function checkUxClean(args) {
+  const clean0 = { clean: true, reachability: { ok: true, unreachable: [] }, tokens: { ok: true, bare: [] } };
+  const srcDir = args.clientSrcDir ?? join(args.projectDir, "client", "src");
+  const appTsx = join(srcDir, "App.tsx");
+  const pagesDir = join(srcDir, "pages");
+  if (!existsSync(appTsx) || !existsSync(pagesDir)) return clean0;
+  const appSource = readFileSync(appTsx, "utf8");
+  const pageSources = {};
+  const pageComponents = [];
+  for (const name of readdirSync(pagesDir)) {
+    if (!name.endsWith(".tsx") || name.endsWith(".test.tsx")) continue;
+    const src = readFileSync(join(pagesDir, name), "utf8");
+    pageSources[name] = src;
+    for (const re of [/export\s+function\s+([A-Z][A-Za-z0-9_]*)/g, /export\s+const\s+([A-Z][A-Za-z0-9_]*)/g]) {
+      re.lastIndex = 0;
+      let m;
+      while ((m = re.exec(src)) !== null) pageComponents.push(m[1]);
+    }
+  }
+  const reachability = checkRouteReachability({ appSource, pageComponents });
+  const tokens = checkTokenConsumption({ pageSources, designClasses: args.designClasses });
+  const clean = reachability.ok && tokens.ok;
+  return clean ? { clean, reachability, tokens } : { clean, reachability, tokens, remediation: UX_CLEAN_REMEDIATION };
+}
+
+// scripts/sftdd/ux-clean.cli.ts
+function parse(argv) {
+  const out = { projectDir: process.cwd(), designClasses: [], json: false };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === "--project-dir" && i + 1 < argv.length) out.projectDir = argv[++i];
+    else if (a === "--client-src" && i + 1 < argv.length) out.clientSrc = argv[++i];
+    else if (a === "--design-class" && i + 1 < argv.length) out.designClasses.push(argv[++i]);
+    else if (a === "--json") out.json = true;
+    else if (a === "-h" || a === "--help") help();
+  }
+  return out;
+}
+function help() {
+  process.stdout.write(
+    `lakebase-sftdd-ux-clean , prove feature pages are reachable + consume the design guide
+
+Usage:
+  lakebase-sftdd-ux-clean [--project-dir <path>] [--client-src <path>] \\
+                          [--design-class <name> ...] [--json]
+
+Exit 0 = clean / no client workspace; exit 1 = an unreachable or bare feature page.
+`
+  );
+  process.exit(0);
+}
+var p = parse(process.argv.slice(2));
+var result = checkUxClean({
+  projectDir: p.projectDir,
+  ...p.clientSrc ? { clientSrcDir: p.clientSrc } : {},
+  ...p.designClasses.length ? { designClasses: p.designClasses } : {}
+});
+if (p.json) {
+  process.stdout.write(`${JSON.stringify(result)}
+`);
+} else if (result.clean) {
+  process.stdout.write(`ux-clean: OK , every feature page is reachable + consumes the design guide (or no client workspace)
+`);
+} else {
+  const blocks = [];
+  if (!result.reachability.ok) {
+    blocks.push(`  [reachability]
+    unreachable feature pages (not routed in App.tsx): ${result.reachability.unreachable.join(", ")}` + (result.reachability.remediation ? `
+    -> ${result.reachability.remediation}` : ""));
+  }
+  if (!result.tokens.ok) {
+    blocks.push(`  [token consumption]
+    bare (unstyled) feature pages: ${result.tokens.bare.join(", ")}` + (result.tokens.remediation ? `
+    -> ${result.tokens.remediation}` : ""));
+  }
+  process.stderr.write(`ux-clean: FAILED , ${summarizeUxViolations(result)}.
+
+${blocks.join("\n\n")}
+
+${UX_CLEAN_REMEDIATION}
+`);
+}
+process.exit(result.clean ? 0 : 1);
+//# sourceMappingURL=ux-clean.cli.js.map

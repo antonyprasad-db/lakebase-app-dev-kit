@@ -293,6 +293,31 @@ export function designGuideConformance(sftddDir: string): { ok: boolean; problem
   return r.ok ? { ok: true } : { ok: false, problem: r.violations.join("; ") };
 }
 
+/** Whether the guide names a non-empty component-class vocabulary (`components`).
+ *  Separate from designGuideConformance (which also gates replay's designGuideReady,
+ *  so it must stay permissive for older recorded corpora): this stricter check is
+ *  the LIVE ux-designer self-check only. A guide is authored only on a UI project,
+ *  so it MUST name the classes feature pages apply, else the build hand-rolls bare
+ *  markup (the "unstyled feature page" gap checkTokenConsumption then catches). */
+export function designGuideHasComponents(sftddDir: string): { ok: boolean; problem?: string } {
+  const file = designGuideJson(sftddDir);
+  if (!existsSync(file)) return { ok: true }; // absence is designGuideConformance's job
+  try {
+    const parsed = JSON.parse(readFileSync(file, "utf8")) as { components?: Record<string, unknown> };
+    const comps = parsed.components;
+    if (!comps || typeof comps !== "object" || Object.keys(comps).length === 0) {
+      return {
+        ok: false,
+        problem:
+          "design-guide.json is missing a non-empty `components` object , name the standard components (page, card, button, form_input, table, status_badge, empty_state, toast) each with its CSS `class`, so feature pages apply the design vocabulary instead of bare HTML",
+      };
+    }
+  } catch {
+    return { ok: true }; // malformed JSON is designGuideConformance's job to report
+  }
+  return { ok: true };
+}
+
 /** ux-designer (project-level, UI track): the machine-checkable design-guide.json
  *  exists and conforms to design-guide.schema.json. The model is told NOT to read
  *  the schema, so it drifts on shape (camelCase keys, nested spacing, extra
@@ -300,7 +325,12 @@ export function designGuideConformance(sftddDir: string): { ok: boolean; problem
  *  instead of at the final feature drain. */
 function checkUxDesigner(args: FormatArgs, v: FormatViolation[]): void {
   const r = designGuideConformance(args.sftddDir);
-  if (!r.ok) v.push({ artifact: "design/design-guide.json", problem: r.problem ?? "design-guide.json is non-conformant" });
+  if (!r.ok) {
+    v.push({ artifact: "design/design-guide.json", problem: r.problem ?? "design-guide.json is non-conformant" });
+    return; // no point checking components on a guide that failed the schema
+  }
+  const c = designGuideHasComponents(args.sftddDir);
+  if (!c.ok) v.push({ artifact: "design/design-guide.json", problem: c.problem ?? "design-guide.json is missing components" });
 }
 
 const CHECKERS: Record<string, (a: FormatArgs, v: FormatViolation[]) => void> = {
