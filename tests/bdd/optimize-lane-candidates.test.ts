@@ -30,11 +30,14 @@ describe("defaultLaneCandidates: design roles (scalar model/effort)", () => {
     expect(effort).toBeDefined();
   });
 
-  it("includes one prompt/scope CONTENT variant (a scan-tightening taskSuffix)", () => {
+  it("includes a HARD scan-tightening content variant: deny Grep/Glob + a directive (enforced, not just requested)", () => {
     const cands = defaultLaneCandidates(h("test-strategist", "S1"));
-    const content = cands.find((c) => c.content?.taskSuffix);
-    expect(content).toBeDefined();
-    expect(content!.content!.taskSuffix).toMatch(/./); // non-empty directive
+    const scan = cands.find((c) => c.content?.disallowedTools?.length);
+    expect(scan).toBeDefined();
+    // the scan lever DENIES the tree-scanning tools, so the tightening is enforced
+    expect(scan!.content!.disallowedTools).toEqual(expect.arrayContaining(["Grep", "Glob"]));
+    // and still carries the directive explaining the intent
+    expect(scan!.content!.taskSuffix).toMatch(/./);
   });
 
   it("ids are unique + stable", () => {

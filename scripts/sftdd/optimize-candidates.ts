@@ -195,7 +195,7 @@ export function defaultLaneCandidates(handoff: HandoffLike): Candidate[] {
     out.push({
       id: `${role}-${turn}-scan-tight`,
       configOverrides: {},
-      content: { taskSuffix: SCAN_TIGHTEN_SUFFIX },
+      content: scanTightenContent(),
     });
     return out;
   }
@@ -216,18 +216,29 @@ export function defaultLaneCandidates(handoff: HandoffLike): Candidate[] {
   out.push({
     id: `${role}-scan-tight`,
     configOverrides: {},
-    content: { taskSuffix: SCAN_TIGHTEN_SUFFIX },
+    content: scanTightenContent(),
   });
   return out;
 }
 
-/** The default prompt/scope content variant: a scan-tightening directive. The
- *  inject-vs-scan lever , tell the agent to lean on the injected context pack + the
- *  named artifact paths instead of broadly scanning the tree. Appended after the
- *  terse suffix (a trailing directive). */
+/** The HARD scan-tightening content variant: the inject-vs-scan lever, ENFORCED.
+ *  A soft directive alone only ASKS the agent not to scan; a losing candidate then
+ *  wanders the tree anyway and shows no speedup (waste). This instead (1) DENIES the
+ *  tree-scanning tools (Grep/Glob) so broad scanning is impossible, and (2) keeps the
+ *  directive so the agent understands to lean on the context pack + named paths it
+ *  was already handed. If it is faster + still gate-passing, the speedup is real +
+ *  enforceable on persist (a narrower tools: frontmatter). Read/Bash stay allowed, so
+ *  it can still read the exact files named in its task. */
+function scanTightenContent(): CandidateContent {
+  return {
+    taskSuffix: SCAN_TIGHTEN_SUFFIX,
+    disallowedTools: ["Grep", "Glob"],
+  };
+}
 const SCAN_TIGHTEN_SUFFIX =
   " Rely on the context pack + the exact artifact paths named in your task;" +
-  " do NOT scan or grep the wider project tree for context you were already handed.";
+  " Grep/Glob are DISABLED for this turn, so do not try to scan the wider tree ," +
+  " read the named files directly with Read.";
 
 /** Deep-merge a candidate's config overrides onto a base config, returning a
  *  FRESH object (the base is never mutated). Arrays + scalars replace; nested

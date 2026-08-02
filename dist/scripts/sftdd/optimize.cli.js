@@ -6763,7 +6763,7 @@ function defaultLaneCandidates(handoff) {
     out.push({
       id: `${role}-${turn}-scan-tight`,
       configOverrides: {},
-      content: { taskSuffix: SCAN_TIGHTEN_SUFFIX }
+      content: scanTightenContent()
     });
     return out;
   }
@@ -6782,11 +6782,17 @@ function defaultLaneCandidates(handoff) {
   out.push({
     id: `${role}-scan-tight`,
     configOverrides: {},
-    content: { taskSuffix: SCAN_TIGHTEN_SUFFIX }
+    content: scanTightenContent()
   });
   return out;
 }
-var SCAN_TIGHTEN_SUFFIX = " Rely on the context pack + the exact artifact paths named in your task; do NOT scan or grep the wider project tree for context you were already handed.";
+function scanTightenContent() {
+  return {
+    taskSuffix: SCAN_TIGHTEN_SUFFIX,
+    disallowedTools: ["Grep", "Glob"]
+  };
+}
+var SCAN_TIGHTEN_SUFFIX = " Rely on the context pack + the exact artifact paths named in your task; Grep/Glob are DISABLED for this turn, so do not try to scan the wider tree , read the named files directly with Read.";
 function applyCandidateConfig(base, candidate) {
   return deepMerge(base, candidate.configOverrides);
 }
@@ -12597,6 +12603,22 @@ function claudeToolArgs(cmd) {
   if (cmd.disallowedTools && cmd.disallowedTools.length) out.push("--disallowed-tools", cmd.disallowedTools.join(","));
   return out;
 }
+function claudeBaseArgs(cmd) {
+  return [
+    "-p",
+    cmd.task,
+    "--agent",
+    cmd.role,
+    "--model",
+    cmd.model,
+    "--permission-mode",
+    "acceptEdits",
+    "--strict-mcp-config",
+    "--output-format",
+    "stream-json",
+    "--verbose"
+  ];
+}
 function execRunner(cfg) {
   const sessions = /* @__PURE__ */ new Map();
   const sessionContext = /* @__PURE__ */ new Map();
@@ -12670,7 +12692,7 @@ function execRunner(cfg) {
             `[drive] REPLAY CORPUS MISS: no recorded artifact for design turn '${where}' under ${replayDir} (features/${cfg.featureId}/...). The deterministic pipeline dispatched this turn but the corpus lacks its output. Replay will NOT run the agent live , put the recorded artifact in the corpus (check .gitignore is not dropping it).`
           );
         }
-        const baseArgs = ["-p", cmd.task, "--agent", cmd.role, "--model", cmd.model, "--strict-mcp-config", "--output-format", "stream-json", "--verbose"];
+        const baseArgs = claudeBaseArgs(cmd);
         if (cmd.effort) baseArgs.push("--effort", cmd.effort);
         if (cmd.fallbackModel) baseArgs.push("--fallback-model", cmd.fallbackModel);
         if (typeof cmd.maxBudgetUsd === "number") baseArgs.push("--max-budget-usd", String(cmd.maxBudgetUsd));
