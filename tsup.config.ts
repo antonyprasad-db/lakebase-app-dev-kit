@@ -40,6 +40,7 @@ export default defineConfig({
     "scripts/sftdd/imports-clean.cli": "scripts/sftdd/imports-clean.cli.ts",
     "scripts/sftdd/layering-clean.cli": "scripts/sftdd/layering-clean.cli.ts",
     "scripts/sftdd/ux-clean.cli": "scripts/sftdd/ux-clean.cli.ts",
+    "scripts/sftdd/optimize.cli": "scripts/sftdd/optimize.cli.ts",
     "scripts/sftdd/agent-models.cli": "scripts/sftdd/agent-models.cli.ts",
     "scripts/sftdd/story-pipeline.cli": "scripts/sftdd/story-pipeline.cli.ts",
     "scripts/sftdd/cycle.cli": "scripts/sftdd/cycle.cli.ts",

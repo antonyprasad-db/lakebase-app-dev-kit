@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+# Run a per-handoff optimization sweep (the champion walk) against a scenario's
+# feature: at the handoff the drive is currently positioned on, try config +
+# content/scope candidates, keep the FASTEST gate-passing turn, and emit a
+# before/after report. Only the WINNER survives in the recorded corpus; every
+# discarded attempt lands under <project>/experiments/.
+#
+# This is the "optimize" sibling of capture-scenario.sh: same kit-single-source
+# pinning (no split-brain), same recorder env, same teardown discipline. It is a
+# thin wrapper around the kit optimize bin (lakebase-sftdd-optimize), which drives
+# the champion walk via optimize-harness + optimize-live.
+#
+# Usage:
+#   # Optimize the handoff the drive is positioned on (advance the drive first with
+#   # lakebase-sftdd-drive, or --pause-before, to reach the target build turn):
+#   optimize-scenario.sh --scenario <name> --project-dir <dir> --feature <id> \
+#     --candidates '<sweep-spec>' [--trials N] [--only design|build] [--dry-run]
+#
+# Sweep spec grammar (see optimize.cli parseSweepSpec), ';'-separated dimensions:
+#   driver.green.model=haiku,sonnet         per-turn model tiering
+#   navigator.review.effort=low,medium      per-turn effort
+#   build.sessionScope=story,cycle          session warmth (scope)
+#   build.loopGranularity=story,ac          loop granularity
+#   env.CONTEXT_FREE_FRACTION=0.3,0.5        session warmth (fraction)
+#
+# Env: DATABRICKS_HOST, DATABRICKS_CONFIG_PROFILE (build turns are LIVE CLOUD:
+#      real OAuth + self-hosted runner + Lakebase child branches). Design-handoff
+#      sweeps are hermetic (no cloud). Do NOT set LAKEBASE_KIT_DIR (split-brain);
+#      the script pins ONE dev ref for everyone. NEVER set
+#      LAKEBASE_SFTDD_REPLAY_BUILD_DIR (it would fake GREEN).
+# Exit: 0 ok; 2 bad args.
+#
+# SAFETY: the harness only forks/drops throwaway child branches, NEVER pushes,
+# merges, or releases. Every build trial runs the REAL honest-GREEN verifier.
+# TEAR DOWN every per-candidate Lakebase branch + the standing project when done
+# (the drive's own teardown path); the sweep leaves the project standing so the
+# winner corpus can be finalized.
+set -euo pipefail
+
+SCEN_DIR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCENARIO=""
+PROJECT_DIR=""
+FEATURE=""
+CANDIDATES=""
+TRIALS="3"
+ONLY=""
+DRY_RUN=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --scenario) SCENARIO="$2"; shift 2 ;;
+    --project-dir) PROJECT_DIR="$2"; shift 2 ;;
+    --feature) FEATURE="$2"; shift 2 ;;
+    --candidates) CANDIDATES="$2"; shift 2 ;;
+    --trials) TRIALS="$2"; shift 2 ;;
+    --only) ONLY="$2"; shift 2 ;;
+    --dry-run) DRY_RUN="1"; shift ;;
+    *) echo "optimize-scenario: unknown arg '$1'" >&2; exit 2 ;;
+  esac
+done
+
+[[ -n "$SCENARIO" ]] || { echo "optimize-scenario: --scenario is required" >&2; exit 2; }
+[[ -n "$PROJECT_DIR" ]] || { echo "optimize-scenario: --project-dir is required" >&2; exit 2; }
+[[ -n "$FEATURE" ]] || { echo "optimize-scenario: --feature is required" >&2; exit 2; }
+
+SCEN="${SCEN_DIR_ROOT}/${SCENARIO}"
+
+# ── Single-source kit resolution (identical discipline to capture-scenario.sh) ──
+source "${SCEN_DIR_ROOT}/lib/pin-local-kit.sh"
+KIT_ROOT="$(cd "${SCEN_DIR_ROOT}/../.." && pwd)"
+CAPTURE_KIT_REF="${CAPTURE_KIT_REF:-$LOCAL_KIT_REF_DEFAULT}"
+
+if [[ -n "${LAKEBASE_KIT_DIR:-}" ]]; then
+  echo "optimize-scenario: refuse to run with LAKEBASE_KIT_DIR set (split-brain: it redirects only the orchestrator, not the claude -p agents). Unset it; this script pins ref '${CAPTURE_KIT_REF}' for everyone." >&2
+  exit 2
+fi
+if [[ -n "${LAKEBASE_SFTDD_REPLAY_BUILD_DIR:-}" ]]; then
+  echo "optimize-scenario: refuse to run with LAKEBASE_SFTDD_REPLAY_BUILD_DIR set , it swaps in the trust-verifier and would FAKE a GREEN. Every trial must run the real honest-GREEN verifier." >&2
+  exit 2
+fi
+
+pin_local_kit_cache "$KIT_ROOT" "$CAPTURE_KIT_REF" || exit 2
+export LAKEBASE_KIT_REF="$CAPTURE_KIT_REF"
+echo "[optimize-scenario] kit pinned , ref '${CAPTURE_KIT_REF}' -> ${KIT_ROOT}" >&2
+
+PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd -P)"
+record_local_kit_hint "$PROJECT_DIR" "$KIT_ROOT" "$CAPTURE_KIT_REF"
+want="$(cd "$KIT_ROOT" && pwd -P)"
+got="$("$PROJECT_DIR/scripts/lk" lakebase-resolve-sftdd-dir --project-dir "$PROJECT_DIR" >/dev/null 2>&1 && cd "$KIT_ROOT" && pwd -P || true)"
+[[ "$want" == "$got" || -z "$got" ]] || { echo "optimize-scenario: kit resolution drift; aborting." >&2; exit 2; }
+
+# The surviving winner turns record into the scenario corpus, exactly like a
+# capture (turns/ + recorded-artifacts/ + recorded-build/); discarded attempts go
+# to <project>/experiments/ (written by optimize-live, never into the corpus).
+mkdir -p "$SCEN"
+export LAKEBASE_SFTDD_RECORD_DIR="$SCEN"
+export LAKEBASE_SFTDD_RECORD_BUILD_DIR="${SCEN}/recorded-build"
+
+cd "$PROJECT_DIR"
+lk() { "$PROJECT_DIR/scripts/lk" "$@"; }
+
+dry_args=(); [[ -n "$DRY_RUN" ]] && dry_args=( --dry-run )
+only_args=(); [[ -n "$ONLY" ]] && only_args=( --only "$ONLY" )
+
+echo "[optimize-scenario] sweeping the next handoff of ${FEATURE} (trials=${TRIALS}) with candidates: ${CANDIDATES}" >&2
+lk lakebase-sftdd-optimize \
+  --scenario "$SCENARIO" \
+  --feature "$FEATURE" \
+  --project-dir "$PROJECT_DIR" \
+  --trials "$TRIALS" \
+  --candidates "$CANDIDATES" \
+  ${only_args[@]+"${only_args[@]}"} \
+  ${dry_args[@]+"${dry_args[@]}"}
+
+echo "[optimize-scenario] done. Winner recorded into ${SCEN}; discarded attempts under ${PROJECT_DIR}/experiments/." >&2
+echo "[optimize-scenario] REMEMBER to tear down the standing project + any per-candidate Lakebase branches when the corpus is finalized." >&2

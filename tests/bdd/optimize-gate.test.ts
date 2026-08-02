@@ -48,17 +48,30 @@ describe("evaluateDesignGate", () => {
     expect(r.reason).toBeTruthy();
   });
 
-  it("FAILS when the self-check passes but the design gate rejects the artifact", () => {
-    // Write a minimal conformant per-AC so the self-check passes, but leave
-    // feature-spec.json/md absent so the spec GATE (resolveArtifactInputs) fails.
+  it("PASSES the per-turn bar when the role self-check is clean (>=1 conformant AC)", () => {
+    // A single conformant AC satisfies the per-story spec-author self-check , the
+    // SAME bar the drive's verify-artifact step enforces after the turn.
     const acDir = join(sftddDir, "features", featureId, "stories", "S1", "acs");
     mkdirSync(acDir, { recursive: true });
     writeFileSync(
       join(acDir, "AC1.json"),
-      JSON.stringify({ id: "AC1", title: "t", given: "g", when: "w", then: "t" }),
+      JSON.stringify({ id: "AC1", layer: "API", given: "g", when: "w", then: "t", status: "draft" }),
     );
     const r = evaluateDesignGate({ sftddDir, featureId, handoff: { role: "spec-author", story: "S1" } });
-    // Either the self-check or the gate blocks; the point is it does NOT pass.
+    expect(r.passed).toBe(true);
+  });
+
+  it("with requireGate, ALSO enforces the stricter feature-scope milestone gate", () => {
+    // Self-check passes (one conformant AC) but the whole-feature spec gate needs
+    // feature-spec.json/md, which are absent , so requireGate blocks it.
+    const acDir = join(sftddDir, "features", featureId, "stories", "S1", "acs");
+    mkdirSync(acDir, { recursive: true });
+    writeFileSync(
+      join(acDir, "AC1.json"),
+      JSON.stringify({ id: "AC1", layer: "API", given: "g", when: "w", then: "t", status: "draft" }),
+    );
+    const r = evaluateDesignGate({ sftddDir, featureId, handoff: { role: "spec-author", story: "S1" }, requireGate: true });
     expect(r.passed).toBe(false);
+    expect(r.reason).toMatch(/gate spec/);
   });
 });

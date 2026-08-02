@@ -1,0 +1,201 @@
+// optimize-live: assemble the REAL champion-walk deps (snapshot + runTrial +
+// recordWinner) over the drive, with only the cloud/model LEAVES injected. Every
+// other step , candidate config write, agent overlay, gate evaluation, state
+// restore, experiment-record write , is real, so the full composition is validated
+// HERMETICALLY on a design handoff (no cloud): a fake spawnTurn that seeds the
+// artifact + a fake clock prove the walk applies each candidate, gates it, keeps
+// the fastest, and restores between candidates. The live CLI supplies the real
+// spawnTurn (a `claude -p` role subprocess via execRunner) + forkBranch
+// (cutExperiment re-fork).
+//
+// SAFETY: a trial NEVER sets LAKEBASE_SFTDD_REPLAY_BUILD_DIR (that fakes GREEN);
+// every build trial runs the real honest-GREEN verifier via the drive's own cycle
+// commands. The harness only forks/drops throwaway branches , never pushes/merges.
+
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { applyCandidateConfig, type Candidate } from "./optimize-candidates.js";
+import { overlayAgent } from "./optimize-agent-overlay.js";
+import { evaluateDesignGate, type GateOutcome } from "./optimize-gate.js";
+import { snapshotDesign, snapshotBuild, turnMutatesDb, type BuildSnapshotDeps } from "./optimize-snapshot.js";
+import type { ChampionWalkDeps, HandoffPlan, HandoffSnapshot, TrialResult } from "./optimize-harness.js";
+import { defaultSftddConfig, loadSftddConfig, writeSftddConfig, type SftddConfigFile } from "./sftdd-config.js";
+import { isBuildHandoff } from "./optimize.cli.js";
+import type { DriveEffectsConfig } from "./orchestrator-effects.js";
+
+/** Spawn ONE role turn for a candidate (the cloud/model leaf). The real impl runs
+ *  the handoff's `claude -p` command through execRunner (applying the candidate's
+ *  taskSuffix / contextPackSuffix / tool-scope via the P2a seams). It throws if the
+ *  turn errors. `record` true => the recorder env is on (winner capture). */
+export type SpawnTurn = (args: {
+  handoff: HandoffPlan;
+  candidate: Candidate;
+  record: boolean;
+}) => Promise<void>;
+
+/** Report a build turn's honest gate outcome (pass/fail + reason). The real impl
+ *  reads the post-turn cycle state (green-failure / escalations). Design turns use
+ *  evaluateDesignGate instead, so this is optional. */
+export type GateBuildTurn = (args: { handoff: HandoffPlan }) => GateOutcome;
+
+export interface OptimizeLiveCtx {
+  projectDir: string;
+  sftddDir: string;
+  featureId: string;
+  /** Where discarded attempts + champion-walk.json are written (never the corpus). */
+  experimentsDir: string;
+  /** The cloud/model leaf: spawn one role turn. */
+  spawnTurn: SpawnTurn;
+  /** Monotonic clock (ms). Injected so timing is deterministic in tests. */
+  now: () => number;
+  /** Build-turn gate (optional; design turns use evaluateDesignGate). */
+  gateBuild?: GateBuildTurn;
+  /** Build-snapshot substrate (git + re-fork). Required only for build handoffs. */
+  buildSnapshotDeps?: BuildSnapshotDeps;
+}
+
+/** The on-disk config path relative to the project root. */
+function readConfig(projectDir: string): SftddConfigFile {
+  return loadSftddConfig(projectDir) ?? defaultSftddConfig();
+}
+
+/** Apply a candidate's config overrides (+ env) to the project for one turn, and
+ *  return a restore() that puts the baseline config + env back. */
+function applyCandidate(ctx: OptimizeLiveCtx, candidate: Candidate): () => void {
+  const baseline = readConfig(ctx.projectDir);
+  const merged = applyCandidateConfig(baseline, candidate);
+  writeSftddConfig(ctx.projectDir, merged, { force: true });
+
+  // Candidate env (e.g. CONTEXT_FREE_FRACTION) rides on process.env for the turn.
+  const priorEnv: Record<string, string | undefined> = {};
+  for (const [k, v] of Object.entries(candidate.env ?? {})) {
+    priorEnv[k] = process.env[k];
+    process.env[k] = v;
+  }
+
+  // Agent overlay (Family-2): swap the role .md for the turn.
+  const overlay = candidate.content?.agentOverlay
+    ? overlayAgent({ projectDir: ctx.projectDir, role: candidate.content.agentOverlay.role, markdown: candidate.content.agentOverlay.markdown })
+    : undefined;
+
+  return () => {
+    writeSftddConfig(ctx.projectDir, baseline, { force: true });
+    for (const [k, v] of Object.entries(priorEnv)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+    overlay?.restore();
+  };
+}
+
+/** Record one trial's audit trail under experiments/<handoff>/<candidate>/trial-<n>. */
+function writeTrialRecord(ctx: OptimizeLiveCtx, handoff: HandoffPlan, candidate: Candidate, trial: number, result: TrialResult): void {
+  const dir = join(ctx.experimentsDir, handoff.id, candidate.id, `trial-${trial}`);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "candidate.json"), JSON.stringify(candidate, null, 2) + "\n");
+  writeFileSync(join(dir, "result.json"), JSON.stringify(result, null, 2) + "\n");
+}
+
+/** Assemble the real champion-walk deps for the drive. */
+export function makeChampionWalkDeps(ctx: OptimizeLiveCtx): ChampionWalkDeps {
+  return {
+    async snapshot(handoff: HandoffPlan): Promise<HandoffSnapshot> {
+      if (isBuildHandoff(handoff)) {
+        if (!ctx.buildSnapshotDeps) throw new Error(`build handoff ${handoff.id} needs buildSnapshotDeps (git + re-fork)`);
+        const reFork = turnMutatesDb(handoff.buildMode, handoff.role);
+        const snap = await snapshotBuild({ projectDir: ctx.projectDir, sftddDir: ctx.sftddDir, story: handoff.story ?? "" }, ctx.buildSnapshotDeps);
+        return {
+          restore: () => snap.restore({ reFork }),
+          dispose: () => {},
+        };
+      }
+      // Design handoff: pure .sftdd copy/replace.
+      const snap = snapshotDesign({ sftddDir: ctx.sftddDir });
+      return { restore: async () => snap.restore(), dispose: () => snap.dispose() };
+    },
+
+    async runTrial({ handoff, candidate, trial }): Promise<TrialResult> {
+      const restoreCandidate = applyCandidate(ctx, candidate);
+      const started = ctx.now();
+      let result: TrialResult;
+      try {
+        await ctx.spawnTurn({ handoff, candidate, record: false });
+        const durationMs = ctx.now() - started;
+        const gate: GateOutcome = isBuildHandoff(handoff)
+          ? (ctx.gateBuild ?? (() => ({ passed: true })))({ handoff })
+          : evaluateDesignGate({ sftddDir: ctx.sftddDir, featureId: ctx.featureId, handoff });
+        result = { gatePassed: gate.passed, durationMs, costUsd: 0, ...(gate.reason ? { gateReason: gate.reason } : {}) };
+      } catch (e) {
+        const durationMs = ctx.now() - started;
+        result = { gatePassed: false, durationMs, costUsd: 0, gateReason: e instanceof Error ? e.message : String(e) };
+      } finally {
+        restoreCandidate();
+      }
+      writeTrialRecord(ctx, handoff, candidate, trial, result);
+      return result;
+    },
+
+    async recordWinner({ handoff, candidate }): Promise<void> {
+      // Re-run the winner with recording ON, applying its levers, and DO NOT
+      // restore , this advances the walk to the winner's state (the surviving turn).
+      const restoreCandidate = applyCandidate(ctx, candidate);
+      try {
+        await ctx.spawnTurn({ handoff, candidate, record: true });
+      } finally {
+        // Restore the config/env/overlay (levers are a per-turn A/B knob, not a
+        // persistent project change); the winner's ARTIFACTS on disk survive.
+        restoreCandidate();
+      }
+      const champ = join(ctx.experimentsDir, "champion-walk.json");
+      const prior = existsSync(champ) ? (JSON.parse(readFileSync(champ, "utf8")) as { winners: unknown[] }) : { winners: [] };
+      prior.winners.push({ handoffId: handoff.id, candidateId: candidate.id });
+      mkdirSync(ctx.experimentsDir, { recursive: true });
+      writeFileSync(champ, JSON.stringify(prior, null, 2) + "\n");
+    },
+  };
+}
+
+/** Best-effort teardown of the experiments/ scratch tree. */
+export function disposeExperiments(experimentsDir: string): void {
+  rmSync(experimentsDir, { recursive: true, force: true });
+}
+
+/** Thread a candidate's Family-2 content variant into a DriveEffectsConfig via the
+ *  P2a default-off hooks, so ONE forked turn sees the injected task/context/tools.
+ *  The overlay agent .md is handled separately (applyCandidate, filesystem). Pure:
+ *  mutates the passed cfg in place and returns it (the drive builds a fresh cfg per
+ *  turn), keeping the seam wiring in one place. */
+export function applyContentSeams(cfg: DriveEffectsConfig, content: Candidate["content"]): DriveEffectsConfig {
+  if (!content) return cfg;
+  if (content.taskSuffix) cfg.taskSuffix = () => content.taskSuffix!;
+  if (content.contextPackSuffix) cfg.contextPackSuffix = () => content.contextPackSuffix!;
+  if (content.allowedTools?.length) cfg.allowedToolsForRole = () => content.allowedTools;
+  if (content.disallowedTools?.length) cfg.disallowedToolsForRole = () => content.disallowedTools;
+  return cfg;
+}
+
+/** The drive seams the live spawn needs, injected so optimize-live has no hard
+ *  dependency on drive.cli (which owns process-level concerns) and stays testable.
+ *  The CLI supplies the real trio. */
+export interface LiveDriveSeams {
+  buildCfg(featureId: string): DriveEffectsConfig;
+  execRunner(cfg: DriveEffectsConfig): { run(cmd: unknown): Promise<void> };
+  planNextAction(cfg: DriveEffectsConfig): Promise<{ action: unknown; commands: unknown[] }>;
+}
+
+/** Build the REAL spawnTurn: for a candidate, construct a fresh drive cfg, thread
+ *  the candidate's content seams, plan the ONE next handoff, and run only that
+ *  handoff's commands through execRunner (which spawns the `claude -p` turn + emits
+ *  turn.usage). `record` toggles the recorder env for the winner capture. NEVER
+ *  sets LAKEBASE_SFTDD_REPLAY_BUILD_DIR (that would fake GREEN). */
+export function makeLiveSpawnTurn(featureId: string, seams: LiveDriveSeams): SpawnTurn {
+  return async ({ candidate }) => {
+    const cfg = applyContentSeams(seams.buildCfg(featureId), candidate.content);
+    const runner = seams.execRunner(cfg);
+    // planNextAction reads the CURRENT disk state, so it returns exactly the handoff
+    // the walk is positioned on (the harness snapshot/restore keeps that position).
+    const { commands } = await seams.planNextAction(cfg);
+    for (const cmd of commands) await runner.run(cmd);
+  };
+}

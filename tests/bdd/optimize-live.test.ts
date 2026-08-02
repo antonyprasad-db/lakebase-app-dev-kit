@@ -1,0 +1,165 @@
+// P2c/P2d optimize-live: the factory that assembles the REAL champion-walk deps
+// (snapshot + runTrial + recordWinner) over the drive, with only the cloud/model
+// LEAVES injected (spawnTurn spawns a role subprocess; forkBranch re-forks a paired
+// branch). Everything else , config write, agent overlay, gate evaluation, state
+// restore , is real, so this validates the full composition HERMETICALLY: a design
+// handoff needs no cloud, so with a fake spawnTurn that seeds the artifact + a fake
+// clock, we prove the walk applies each candidate, gates it, keeps the fastest, and
+// restores byte-identically between candidates.
+
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync, readdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { makeChampionWalkDeps, type OptimizeLiveCtx, type SpawnTurn } from "../../scripts/sftdd/optimize-live";
+import { runChampionWalk } from "../../scripts/sftdd/optimize-harness";
+import { generateCandidates } from "../../scripts/sftdd/optimize-candidates";
+import { writeSftddConfig, defaultSftddConfig, loadSftddConfig } from "../../scripts/sftdd/sftdd-config";
+
+let projectDir: string;
+let sftddDir: string;
+const featureId = "F1";
+
+beforeEach(() => {
+  projectDir = mkdtempSync(join(tmpdir(), "optimize-live-"));
+  sftddDir = join(projectDir, ".sftdd");
+  mkdirSync(join(projectDir, ".claude", "agents"), { recursive: true });
+  writeSftddConfig(projectDir, defaultSftddConfig(), { force: true });
+  // Pre-seed a spec-author story so the design gate can be reached; the fake spawn
+  // will fill in the artifacts that make it pass.
+  mkdirSync(join(sftddDir, "features", featureId, "stories", "S1", "acs"), { recursive: true });
+  writeFileSync(join(sftddDir, "features", featureId, "agent-log.jsonl"), "");
+});
+afterEach(() => {
+  rmSync(projectDir, { recursive: true, force: true });
+});
+
+/** A fake spawn for a spec-author design handoff: writes conformant artifacts so
+ *  evaluateDesignGate passes. Records how long each candidate "took" via a clock. */
+function fakeSpecAuthorSpawn(durationByCandidate: Record<string, number>, clock: { now: number }): SpawnTurn {
+  return async ({ candidate }) => {
+    const candidateId = candidate.id;
+    // Write a minimal conformant spec so both the self-check + the spec gate pass.
+    const fdir = join(sftddDir, "features", featureId);
+    writeFileSync(join(fdir, "feature-spec.json"), JSON.stringify({ stories: ["S1"] }));
+    writeFileSync(join(fdir, "feature-spec.md"), "# spec\n");
+    const acDir = join(fdir, "stories", "S1", "acs");
+    mkdirSync(acDir, { recursive: true });
+    writeFileSync(
+      join(acDir, "AC1.json"),
+      JSON.stringify({ id: "AC1", layer: "API", given: "g", when: "w", then: "t", status: "draft" }),
+    );
+    // Advance the fake clock by this candidate's duration.
+    clock.now += durationByCandidate[candidateId] ?? 1000;
+  };
+}
+
+function ctx(spawnTurn: SpawnTurn, clock: { now: number }): OptimizeLiveCtx {
+  return {
+    projectDir,
+    sftddDir,
+    featureId,
+    experimentsDir: join(projectDir, "experiments"),
+    spawnTurn,
+    now: () => clock.now,
+  };
+}
+
+describe("makeChampionWalkDeps: hermetic DESIGN handoff", () => {
+  it("runs a 2-candidate design walk, gates each, keeps the faster, restores between", async () => {
+    const clock = { now: 0 };
+    const candidates = [
+      { id: "baseline", configOverrides: {} },
+      { id: "content-1", configOverrides: {}, content: { taskSuffix: " terse." } },
+    ];
+    const deps = makeChampionWalkDeps(
+      ctx(fakeSpecAuthorSpawn({ baseline: 2000, "content-1": 800 }, clock), clock),
+    );
+    const handoff = { id: "S1-spec-author", role: "spec-author", story: "S1" };
+
+    const result = await runChampionWalk({ handoffs: [handoff], candidates, trials: 1 }, deps);
+
+    expect(result.walk[0].winner.candidateId).toBe("content-1");
+    expect(result.walk[0].baselineMs).toBe(2000);
+    expect(result.walk[0].winner.medianMs).toBe(800);
+    // Both candidates were gated + qualified.
+    expect(result.walk[0].candidates.every((c) => !c.disqualified)).toBe(true);
+  });
+
+  it("disqualifies a candidate whose turn does NOT satisfy the gate", async () => {
+    const clock = { now: 0 };
+    const candidates = [
+      { id: "baseline", configOverrides: {} },
+      { id: "broken", configOverrides: {} },
+    ];
+    // baseline writes conformant artifacts; broken writes nothing (gate fails).
+    const spawn: SpawnTurn = async ({ candidate }) => {
+      if (candidate.id === "baseline") {
+        const fdir = join(sftddDir, "features", featureId);
+        writeFileSync(join(fdir, "feature-spec.json"), JSON.stringify({ stories: ["S1"] }));
+        writeFileSync(join(fdir, "feature-spec.md"), "# spec\n");
+        writeFileSync(
+          join(fdir, "stories", "S1", "acs", "AC1.json"),
+          JSON.stringify({ id: "AC1", layer: "API", given: "g", when: "w", then: "t", status: "draft" }),
+        );
+      }
+      clock.now += 500;
+    };
+    const deps = makeChampionWalkDeps(ctx(spawn, clock));
+    const handoff = { id: "S1-spec-author", role: "spec-author", story: "S1" };
+
+    const result = await runChampionWalk({ handoffs: [handoff], candidates, trials: 1 }, deps);
+    const broken = result.walk[0].candidates.find((c) => c.candidateId === "broken");
+    expect(broken?.disqualified).toBe(true);
+    expect(result.walk[0].winner.candidateId).toBe("baseline");
+  });
+
+  it("applies the candidate's config override for the turn and restores the baseline config after", async () => {
+    const clock = { now: 0 };
+    const seenConfigs: Array<string | undefined> = [];
+    const spawn: SpawnTurn = async () => {
+      // Capture the driver.green model the config had DURING this turn.
+      const cfg = loadSftddConfig(projectDir);
+      const model = cfg?.roles?.driver?.model;
+      seenConfigs.push(typeof model === "object" ? (model as Record<string, string>).green : (model as string));
+      const fdir = join(sftddDir, "features", featureId);
+      writeFileSync(join(fdir, "feature-spec.json"), JSON.stringify({ stories: ["S1"] }));
+      writeFileSync(join(fdir, "feature-spec.md"), "# spec\n");
+      writeFileSync(
+        join(fdir, "stories", "S1", "acs", "AC1.json"),
+        JSON.stringify({ id: "AC1", layer: "API", given: "g", when: "w", then: "t", status: "draft" }),
+      );
+      clock.now += 100;
+    };
+    const candidates = [
+      { id: "baseline", configOverrides: {} },
+      { id: "haiku-green", configOverrides: { roles: { driver: { model: { green: "haiku" } } } } },
+    ];
+    const deps = makeChampionWalkDeps(ctx(spawn, clock));
+    const handoff = { id: "S1-spec-author", role: "spec-author", story: "S1" };
+
+    await runChampionWalk({ handoffs: [handoff], candidates, trials: 1 }, deps);
+
+    // The override was live during the haiku-green turn...
+    expect(seenConfigs).toContain("haiku");
+    // ...and the on-disk config is back to the baseline (sonnet green) after.
+    const finalCfg = loadSftddConfig(projectDir);
+    const finalModel = finalCfg?.roles?.driver?.model as Record<string, string>;
+    expect(finalModel.green).not.toBe("haiku");
+  });
+
+  it("writes a champion-walk.json + per-candidate experiment records", async () => {
+    const clock = { now: 0 };
+    const candidates = generateCandidates({ contentVariants: [{ taskSuffix: " x." }] });
+    const deps = makeChampionWalkDeps(ctx(fakeSpecAuthorSpawn({}, clock), clock));
+    const handoff = { id: "S1-spec-author", role: "spec-author", story: "S1" };
+
+    await runChampionWalk({ handoffs: [handoff], candidates, trials: 1 }, deps);
+
+    const expDir = join(projectDir, "experiments", "S1-spec-author");
+    expect(existsSync(expDir)).toBe(true);
+    // one subdir per candidate
+    expect(readdirSync(expDir).length).toBeGreaterThanOrEqual(candidates.length);
+  });
+});

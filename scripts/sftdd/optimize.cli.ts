@@ -1,0 +1,220 @@
+#!/usr/bin/env node
+// lakebase-sftdd-optimize: the per-handoff optimization re-record CLI. It drives
+// the champion walk (optimize-harness) over a scenario's handoffs, trying config +
+// content/scope candidates per handoff and keeping the fastest gate-passing turn.
+//
+//   lakebase-sftdd-optimize --scenario <dir> --feature <id> [--handoff <id>]
+//                           [--only design|build] --candidates <spec> --trials N
+//                           [--dry-run]
+//
+// The DETERMINISTIC core (arg + sweep parsing, action -> HandoffPlan mapping) is
+// exported + unit-tested. The LIVE glue wires the harness's injected steps to the
+// real drive: runTrial applies a candidate's config + agent overlay + suffixes,
+// plans the ONE next handoff (planNextAction), runs only that handoff's commands
+// through execRunner, then gates + times it; recordWinner re-runs the winner with
+// recording on. That glue runs against real cloud (build turns) or hermetically
+// (a single design handoff, P2d), so it is exercised by those validations, not by
+// a unit test that would spawn a model.
+//
+// SAFETY: the harness NEVER pushes/merges/releases; it only forks/drops throwaway
+// child branches. It must NEVER set LAKEBASE_SFTDD_REPLAY_BUILD_DIR during a trial
+// (that swaps in the trust-verifier and would FAKE a GREEN); every trial runs the
+// REAL honest-GREEN verifier.
+
+import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
+import { join, resolve } from "node:path";
+import type { WorkflowAction } from "./orchestrator-drive.js";
+import { generateCandidates, type SweepSpec } from "./optimize-candidates.js";
+import { runChampionWalk, type HandoffPlan } from "./optimize-harness.js";
+import type { BuildTurn, EffortLevel } from "./sftdd-config.js";
+import type { SpawnableAgentRole } from "./agent-models.js";
+import { buildCfg, execRunner } from "./drive.cli.js";
+import { planNextAction } from "./orchestrator-effects.js";
+import { resolveSftddDir } from "./sftdd-paths.js";
+import { makeChampionWalkDeps, makeLiveSpawnTurn, type OptimizeLiveCtx } from "./optimize-live.js";
+import { buildChampionWalkReport, formatChampionWalkReport } from "./optimize-report.js";
+
+export interface OptimizeArgs {
+  scenario?: string;
+  feature?: string;
+  /** A single handoff id to optimize (else the whole feature's handoffs). */
+  handoff?: string;
+  /** Restrict to one lane. */
+  only?: "design" | "build";
+  /** The sweep spec string (see parseSweepSpec). */
+  candidates?: string;
+  /** Trials per candidate (median of passing). Default 3. */
+  trials: number;
+  /** Print the plan (handoffs + generated candidates) and exit; no spawns. */
+  dryRun?: boolean;
+  projectDir?: string;
+}
+
+/** Parse the CLI flags. Pure. */
+export function parseOptimizeArgs(argv: string[]): OptimizeArgs {
+  const out: OptimizeArgs = { trials: 3 };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    const next = (): string => argv[++i];
+    switch (a) {
+      case "--scenario": out.scenario = next(); break;
+      case "--feature": out.feature = next(); break;
+      case "--handoff": out.handoff = next(); break;
+      case "--only": {
+        const v = next();
+        if (v === "design" || v === "build") out.only = v;
+        break;
+      }
+      case "--candidates": out.candidates = next(); break;
+      case "--trials": out.trials = Math.max(1, Number(next()) || 3); break;
+      case "--project-dir": out.projectDir = next(); break;
+      case "--dry-run": out.dryRun = true; break;
+    }
+  }
+  return out;
+}
+
+/** Parse a sweep spec string into a SweepSpec. The grammar is `;`-separated
+ *  dimensions, each `key=v1,v2,...`:
+ *    <role>.<turn>.model=<m>,...      per-turn model tiering
+ *    <role>.<turn>.effort=<e>,...     per-turn effort
+ *    build.sessionScope=story,cycle   session warmth (scope)
+ *    build.loopGranularity=story,ac   loop granularity
+ *    env.CONTEXT_FREE_FRACTION=0.3,.. session warmth (fraction, on env)
+ *  All model/effort dimensions share ONE role (the last one named wins); the
+ *  sweep targets a single role's turns, matching the plan's navigator/driver focus.
+ *  Content variants (Family 2) are supplied programmatically, not via this string. */
+export function parseSweepSpec(spec: string): SweepSpec {
+  const out: SweepSpec = {};
+  const trimmed = spec.trim();
+  if (!trimmed) return out;
+  for (const dim of trimmed.split(";")) {
+    const [key, rawVals] = dim.split("=");
+    if (!key || rawVals === undefined) continue;
+    const vals = rawVals.split(",").map((v) => v.trim()).filter(Boolean);
+    if (vals.length === 0) continue;
+    const parts = key.trim().split(".");
+
+    if (parts[0] === "build" && parts[1] === "sessionScope") {
+      out.sessionScopes = vals.filter((v): v is "story" | "cycle" => v === "story" || v === "cycle");
+    } else if (parts[0] === "build" && parts[1] === "loopGranularity") {
+      out.loopGranularities = vals.filter((v): v is "story" | "ac" | "hybrid-a" => v === "story" || v === "ac" || v === "hybrid-a");
+    } else if (parts[0] === "env" && parts[1] === "CONTEXT_FREE_FRACTION") {
+      out.contextFreeFractions = vals.map(Number).filter((n) => !Number.isNaN(n));
+    } else if (parts.length === 3 && (parts[2] === "model" || parts[2] === "effort")) {
+      // <role>.<turn>.<model|effort>
+      out.role = parts[0] as SpawnableAgentRole;
+      const turn = parts[1] as BuildTurn;
+      if (parts[2] === "model") {
+        out.models = { ...(out.models ?? {}), [turn]: vals };
+      } else {
+        out.efforts = { ...(out.efforts ?? {}), [turn]: vals as EffortLevel[] };
+      }
+    }
+  }
+  return out;
+}
+
+/** Map a drive action to a HandoffPlan (the champion walk's unit), or null when
+ *  the action is not an optimizable role turn (a gate / project-notes / dispatch
+ *  step the walk skips). The id is deterministic + filesystem-safe so it names the
+ *  experiments/ subdir + the report row. */
+export function actionToHandoffPlan(action: WorkflowAction): HandoffPlan | null {
+  if (action.kind !== "invoke-role") return null;
+  const role = action.role;
+  const story = "story" in action ? action.story : undefined;
+  const buildMode = "buildMode" in action ? action.buildMode : undefined;
+
+  // Build turns: driver's plain turn is GREEN (no explicit buildMode); navigator's
+  // plain turn is RED. A carried buildMode (review/refactor/...) names itself.
+  if (role === "driver" || role === "navigator") {
+    const mode = buildMode ?? (role === "driver" ? "green" : "red");
+    return { id: `${story}-${role}-${mode}`, role, story, buildMode: mode };
+  }
+
+  // Design turns: story-scoped roles carry a story; feature-scoped (ux-designer)
+  // + planning-mode turns do not.
+  const idParts = [story, role].filter(Boolean);
+  return { id: idParts.join("-"), role, story };
+}
+
+/** Whether a handoff plan is a BUILD turn (navigator/driver with a buildMode). */
+export function isBuildHandoff(plan: HandoffPlan): boolean {
+  return (plan.role === "driver" || plan.role === "navigator") && !!plan.buildMode;
+}
+
+async function main(): Promise<number> {
+  const args = parseOptimizeArgs(process.argv.slice(2));
+  if (!args.scenario || !args.feature) {
+    process.stderr.write("usage: lakebase-sftdd-optimize --scenario <dir> --feature <id> [--handoff <id>] [--only design|build] --candidates <spec> --trials N [--dry-run]\n");
+    return 2;
+  }
+  const projectDir = resolve(args.projectDir ?? process.cwd());
+  const sftddDir = resolveSftddDir(projectDir);
+  const featureId = args.feature;
+  const sweep = parseSweepSpec(args.candidates ?? "");
+  const candidates = generateCandidates(sweep);
+
+  process.stderr.write(
+    `[optimize] scenario=${args.scenario} feature=${featureId} trials=${args.trials}` +
+      `${args.only ? ` only=${args.only}` : ""}${args.handoff ? ` handoff=${args.handoff}` : ""}\n`,
+  );
+  process.stderr.write(`[optimize] ${candidates.length} candidate(s): ${candidates.map((c) => c.id).join(", ")}\n`);
+
+  // The next handoff the drive is positioned on (the harness optimizes ONE handoff
+  // per invocation; the runbook advances the drive between invocations). Read the
+  // current disk state via planNextAction with a throwaway cfg.
+  const probeCfg = buildCfg({ feature: featureId, projectDir } as never, featureId);
+  const { action } = await planNextAction(probeCfg);
+  const handoff = actionToHandoffPlan(action);
+  if (!handoff) {
+    process.stderr.write(`[optimize] the next action (${action.kind}) is not an optimizable role handoff; nothing to sweep.\n`);
+    return 0;
+  }
+  if (args.only === "build" && !isBuildHandoff(handoff)) {
+    process.stderr.write(`[optimize] --only build but the next handoff (${handoff.id}) is a design turn; skipping.\n`);
+    return 0;
+  }
+  if (args.only === "design" && isBuildHandoff(handoff)) {
+    process.stderr.write(`[optimize] --only design but the next handoff (${handoff.id}) is a build turn; skipping.\n`);
+    return 0;
+  }
+
+  if (args.dryRun) {
+    process.stderr.write(`[optimize] --dry-run: next handoff = ${handoff.id} (${handoff.role}${handoff.buildMode ? "/" + handoff.buildMode : ""}); no turns spawned.\n`);
+    return 0;
+  }
+
+  // Assemble the live champion-walk deps over the real drive. spawnTurn runs ONE
+  // handoff's commands through execRunner (the real `claude -p`); build handoffs
+  // additionally need the git + re-fork substrate, which the runbook wires; here we
+  // support the design-handoff sweep directly (hermetic bring-up + design lane).
+  const ctx: OptimizeLiveCtx = {
+    projectDir,
+    sftddDir,
+    featureId,
+    experimentsDir: join(projectDir, "experiments"),
+    spawnTurn: makeLiveSpawnTurn(featureId, {
+      buildCfg: (fid) => buildCfg({ feature: fid, projectDir } as never, fid),
+      execRunner: (cfg) => execRunner(cfg as never) as { run(cmd: unknown): Promise<void> },
+      planNextAction: (cfg) => planNextAction(cfg as never),
+    }),
+    now: () => Date.now(),
+  };
+  const deps = makeChampionWalkDeps(ctx);
+  const result = await runChampionWalk({ handoffs: [handoff], candidates, trials: args.trials }, deps);
+
+  const report = buildChampionWalkReport(result, candidates);
+  process.stdout.write(formatChampionWalkReport(report));
+  return 0;
+}
+
+if (isCliEntry(import.meta.url)) {
+  main().then(
+    (code) => process.exit(code),
+    (err) => {
+      process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+      process.exit(1);
+    },
+  );
+}
