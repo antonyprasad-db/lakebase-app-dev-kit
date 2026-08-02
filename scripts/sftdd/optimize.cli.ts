@@ -31,7 +31,7 @@ import type { SpawnableAgentRole } from "./agent-models.js";
 import { buildCfg, execRunner } from "./drive.cli.js";
 import { planNextAction } from "./orchestrator-effects.js";
 import { resolveSftddDir } from "./sftdd-paths.js";
-import { makeChampionWalkDeps, makeLiveSpawnTurn, makeBuildGate, makeBuildSnapshotDeps, positionToBuildHandoff, positionToNextHandoff, runLaneSweep, type OptimizeLiveCtx } from "./optimize-live.js";
+import { makeChampionWalkDeps, makeLiveSpawnTurn, makeBuildGate, makeBuildSnapshotDeps, positionToBuildHandoff, positionToNextHandoff, runLaneSweep, readLastTurnTokens, type OptimizeLiveCtx } from "./optimize-live.js";
 import { actionLane } from "./orchestrator-drive.js";
 import { readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { buildChampionWalkReport, formatChampionWalkReport } from "./optimize-report.js";
@@ -179,6 +179,9 @@ function buildCtxForHandoff(
       planNextAction: (cfg) => planNextAction(cfg as never),
     }),
     now: () => Date.now(),
+    // Prompt-weight signal for the report's pass-2 trim targeting: the role's last
+    // turn.usage input/cache-read tokens from the project agent-log.
+    readTurnTokens: ({ handoff }) => readLastTurnTokens(sftddDir, handoff.role),
   };
   if (isBuildHandoff(handoff)) {
     const scm = readWorkflowState(projectDir);

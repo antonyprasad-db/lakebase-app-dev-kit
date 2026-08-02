@@ -39,6 +39,13 @@ export interface TrialResult {
   durationMs: number;
   /** Dollar cost of the turn (tie-breaker + report). */
   costUsd: number;
+  /** The turn's INPUT (prompt) tokens , the prompt-weight signal. A role whose
+   *  turns are slow AND input-heavy is prompt-bound (a trim-the-.md candidate). One
+   *  whose input is dominated by cache reads is not. Undefined when unmeasured. */
+  inputTokens?: number;
+  /** Cache-read tokens (input already cached, cheap + fast). High cache-read vs
+   *  input means the prompt weight is amortized , NOT a trim target. */
+  cacheReadTokens?: number;
   /** Why the gate failed (present only when gatePassed is false). */
   gateReason?: string;
 }
@@ -80,6 +87,12 @@ export interface CandidateOutcome {
   medianMs?: number;
   /** Median cost over passing trials (tie-breaker). */
   medianCostUsd?: number;
+  /** Median INPUT (prompt) tokens over passing trials , the prompt-weight signal
+   *  the two-pass plan reads to decide which roles are worth authoring a .md trim
+   *  for. Undefined when unmeasured. */
+  medianInputTokens?: number;
+  /** Median cache-read tokens (amortized prompt weight). */
+  medianCacheReadTokens?: number;
   /** Every trial's raw result (for the experiments/ audit trail). */
   trials: TrialResult[];
   /** True when a gate failure on any trial disqualified this candidate. */
@@ -155,10 +168,14 @@ function summarize(candidateId: string, trials: TrialResult[]): CandidateOutcome
   const disqualified = trials.some((t) => !t.gatePassed);
   if (disqualified) return { candidateId, trials, disqualified: true };
   const passing = trials.filter((t) => t.gatePassed);
+  const inputs = passing.map((t) => t.inputTokens).filter((n): n is number => typeof n === "number");
+  const cacheReads = passing.map((t) => t.cacheReadTokens).filter((n): n is number => typeof n === "number");
   return {
     candidateId,
     medianMs: median(passing.map((t) => t.durationMs)),
     medianCostUsd: median(passing.map((t) => t.costUsd)),
+    ...(inputs.length ? { medianInputTokens: median(inputs) } : {}),
+    ...(cacheReads.length ? { medianCacheReadTokens: median(cacheReads) } : {}),
     trials,
     disqualified: false,
   };

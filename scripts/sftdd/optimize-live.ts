@@ -27,6 +27,7 @@ import type { DriveEffectsConfig } from "./orchestrator-effects.js";
 import { actionLane, type WorkflowAction } from "./orchestrator-drive.js";
 import { cutExperiment, type CutExperimentArgs } from "./experiment.js";
 import { readEscalations } from "./escalation.js";
+import { readAgentLog } from "./agent-log.js";
 
 /** Spawn ONE role turn for a candidate (the cloud/model leaf). The real impl runs
  *  the handoff's `claude -p` command through execRunner (applying the candidate's
@@ -57,6 +58,10 @@ export interface OptimizeLiveCtx {
   gateBuild?: GateBuildTurn;
   /** Build-snapshot substrate (git + re-fork). Required only for build handoffs. */
   buildSnapshotDeps?: BuildSnapshotDeps;
+  /** Read the just-spawned turn's prompt-weight tokens (input + cache-read) from
+   *  the project's turn.usage. Optional; the CLI wires readLastTurnTokens (agent-log
+   *  reader). Absent in the hermetic tests, which don't need real token counts. */
+  readTurnTokens?(args: { handoff: HandoffPlan }): { inputTokens?: number; cacheReadTokens?: number } | undefined;
 }
 
 /** The on-disk config path relative to the project root. */
@@ -129,7 +134,17 @@ export function makeChampionWalkDeps(ctx: OptimizeLiveCtx): ChampionWalkDeps {
         const gate: GateOutcome = isBuildHandoff(handoff)
           ? (ctx.gateBuild ?? (() => ({ passed: true })))({ handoff })
           : evaluateDesignGate({ sftddDir: ctx.sftddDir, featureId: ctx.featureId, handoff });
-        result = { gatePassed: gate.passed, durationMs, costUsd: 0, ...(gate.reason ? { gateReason: gate.reason } : {}) };
+        // Prompt-weight signal (the pass-2 trim-target input): read the turn's
+        // input/cache-read tokens from the just-emitted turn.usage. Best-effort.
+        const tokens = ctx.readTurnTokens?.({ handoff });
+        result = {
+          gatePassed: gate.passed,
+          durationMs,
+          costUsd: 0,
+          ...(tokens?.inputTokens !== undefined ? { inputTokens: tokens.inputTokens } : {}),
+          ...(tokens?.cacheReadTokens !== undefined ? { cacheReadTokens: tokens.cacheReadTokens } : {}),
+          ...(gate.reason ? { gateReason: gate.reason } : {}),
+        };
       } catch (e) {
         const durationMs = ctx.now() - started;
         result = { gatePassed: false, durationMs, costUsd: 0, gateReason: e instanceof Error ? e.message : String(e) };
@@ -350,6 +365,24 @@ export async function runLaneSweep(deps: LaneSweepDeps, opts: { maxHandoffs?: nu
     prevId = handoff.id;
   }
   return { walk };
+}
+
+/** Read the prompt-weight tokens (input + cache-read) of the LAST turn.usage the
+ *  given role emitted, from the project's agent-log. Backs OptimizeLiveCtx.
+ *  readTurnTokens , the pass-2 trim-target signal. Best-effort: returns undefined
+ *  when there is no turn.usage yet (older log / turn errored before usage). A role
+ *  whose last turn had high input_tokens but was slow is prompt-bound; one whose
+ *  input is dominated by cache_read_tokens is not. */
+export function readLastTurnTokens(sftddDir: string, role: string): { inputTokens?: number; cacheReadTokens?: number } | undefined {
+  const events = readAgentLog({ sftddDir, role: role as never }).filter((e) => e.event === "turn.usage");
+  const last = events[events.length - 1];
+  if (!last?.metadata) return undefined;
+  const m = last.metadata as Record<string, unknown>;
+  const num = (k: string): number | undefined => (typeof m[k] === "number" ? (m[k] as number) : undefined);
+  const inputTokens = num("input_tokens");
+  const cacheReadTokens = num("cache_read_tokens");
+  if (inputTokens === undefined && cacheReadTokens === undefined) return undefined;
+  return { ...(inputTokens !== undefined ? { inputTokens } : {}), ...(cacheReadTokens !== undefined ? { cacheReadTokens } : {}) };
 }
 
 /** The build-turn gate: after the handoff's commands ran (the cycle-record CLI

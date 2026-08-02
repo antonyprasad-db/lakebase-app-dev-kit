@@ -48,6 +48,44 @@ const result: ChampionWalkResult = {
   ],
 };
 
+describe("buildChampionWalkReport: prompt-weight signal (two-pass trim targeting)", () => {
+  it("surfaces the baseline's median input tokens + flags a prompt-bound handoff", () => {
+    const promptHeavy: ChampionWalkResult = {
+      walk: [
+        {
+          handoffId: "S1-navigator-red",
+          baselineMs: 200000,
+          candidates: [
+            // input-heavy, little cache -> prompt-bound (a .md-trim target)
+            { candidateId: "baseline", medianMs: 200000, medianCostUsd: 2, medianInputTokens: 90000, medianCacheReadTokens: 5000, trials: [], disqualified: false },
+          ],
+          winner: { candidateId: "baseline", medianMs: 200000, medianCostUsd: 2 },
+        },
+        {
+          handoffId: "S1-dba",
+          baselineMs: 40000,
+          candidates: [
+            // input dominated by cache reads -> NOT prompt-bound
+            { candidateId: "baseline", medianMs: 40000, medianCostUsd: 0.3, medianInputTokens: 8000, medianCacheReadTokens: 70000, trials: [], disqualified: false },
+          ],
+          winner: { candidateId: "baseline", medianMs: 40000, medianCostUsd: 0.3 },
+        },
+      ],
+    };
+    const report = buildChampionWalkReport(promptHeavy, [{ id: "baseline", configOverrides: {} }]);
+    const nav = report.handoffs.find((h) => h.handoffId === "S1-navigator-red")!;
+    const dba = report.handoffs.find((h) => h.handoffId === "S1-dba")!;
+    expect(nav.baselineInputTokens).toBe(90000);
+    expect(nav.promptBound).toBe(true); // input-heavy + not cache-amortized
+    expect(dba.promptBound).toBe(false); // cache-amortized
+  });
+
+  it("promptBound is false/undefined when tokens were not measured", () => {
+    const report = buildChampionWalkReport(result, candidates); // no token fields
+    expect(report.handoffs.every((h) => !h.promptBound)).toBe(true);
+  });
+});
+
 describe("buildChampionWalkReport", () => {
   it("computes per-handoff before/after + savings", () => {
     const report = buildChampionWalkReport(result, candidates);

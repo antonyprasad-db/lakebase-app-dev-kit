@@ -13,6 +13,10 @@ import type { ChampionWalkResult } from "./optimize-harness.js";
 import type { Candidate } from "./optimize-candidates.js";
 import { BASELINE_CANDIDATE_ID } from "./optimize-candidates.js";
 
+/** Fresh (non-cached) input tokens at/above which a slow turn is worth a .md-trim
+ *  candidate in pass 2. Coarse , this only RANKS trim targets, gates nothing. */
+const PROMPT_BOUND_MIN_INPUT_TOKENS = 20000;
+
 /** One handoff's before/after row. */
 export interface HandoffReportRow {
   handoffId: string;
@@ -23,6 +27,14 @@ export interface HandoffReportRow {
   savedPct: number;
   /** Human-readable description of the winning candidate's levers. */
   winnerLevers: string;
+  /** The baseline turn's median INPUT (prompt) tokens, when measured , the
+   *  prompt-weight signal for the two-pass plan. */
+  baselineInputTokens?: number;
+  /** Prompt-bound: the baseline is slow AND its prompt is input-heavy + NOT
+   *  cache-amortized (fresh input > cache reads). These are the roles where
+   *  authoring a trimmed .md (agentOverlay candidate) is worth it in pass 2; a
+   *  cache-amortized or cheap turn is not. False when tokens were not measured. */
+  promptBound: boolean;
 }
 
 export interface ChampionWalkReport {
@@ -42,6 +54,18 @@ export function buildChampionWalkReport(result: ChampionWalkResult, candidates: 
     const savedMs = Math.max(0, baselineMs - winnerMs);
     const savedPct = baselineMs > 0 ? Math.round((savedMs / baselineMs) * 100) : 0;
     const winnerCandidate = byId.get(h.winner.candidateId);
+    // Prompt-weight from the baseline candidate's roll-up (the un-optimized turn).
+    const base = h.candidates.find((c) => c.candidateId === BASELINE_CANDIDATE_ID);
+    const baselineInputTokens = base?.medianInputTokens;
+    const cacheRead = base?.medianCacheReadTokens ?? 0;
+    // Prompt-bound heuristic: fresh input tokens are substantial AND exceed cache
+    // reads (the prompt is NOT amortized by caching), so trimming the .md would cut
+    // real per-turn work. Thresholds are deliberately coarse , this only RANKS
+    // trim targets for pass 2, it does not gate anything.
+    const promptBound =
+      typeof baselineInputTokens === "number" &&
+      baselineInputTokens >= PROMPT_BOUND_MIN_INPUT_TOKENS &&
+      baselineInputTokens > cacheRead;
     return {
       handoffId: h.handoffId,
       baselineMs,
@@ -50,6 +74,8 @@ export function buildChampionWalkReport(result: ChampionWalkResult, candidates: 
       savedMs,
       savedPct,
       winnerLevers: winnerCandidate ? describeCandidateLevers(winnerCandidate) : h.winner.candidateId,
+      ...(typeof baselineInputTokens === "number" ? { baselineInputTokens } : {}),
+      promptBound,
     };
   });
 
@@ -104,22 +130,28 @@ export function describeCandidateLevers(candidate: Candidate): string {
   return parts.length ? parts.join(", ") : candidate.id;
 }
 
-/** Render the report as a markdown table with a TOTAL row. */
+/** Render the report as a markdown table with a TOTAL row + a prompt-bound
+ *  callout (the pass-2 trim targets). */
 export function formatChampionWalkReport(report: ChampionWalkReport): string {
   const s = (ms: number): string => `${(ms / 1000).toFixed(1)}s`;
+  const tok = (n?: number): string => (typeof n === "number" ? `${Math.round(n / 1000)}k` : "-");
   const lines: string[] = [
     "# Champion-walk optimization report",
     "",
-    "| Handoff | Baseline | Optimized | Saved | Winner | Levers |",
-    "| --- | --- | --- | --- | --- | --- |",
+    "| Handoff | Baseline | Optimized | Saved | Winner | Levers | Prompt in | Prompt-bound |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- |",
   ];
   for (const h of report.handoffs) {
     lines.push(
-      `| ${h.handoffId} | ${s(h.baselineMs)} | ${s(h.winnerMs)} | ${s(h.savedMs)} (${h.savedPct}%) | ${h.winnerId} | ${h.winnerLevers} |`,
+      `| ${h.handoffId} | ${s(h.baselineMs)} | ${s(h.winnerMs)} | ${s(h.savedMs)} (${h.savedPct}%) | ${h.winnerId} | ${h.winnerLevers} | ${tok(h.baselineInputTokens)} | ${h.promptBound ? "YES" : ""} |`,
     );
   }
   lines.push(
-    `| **TOTAL** | ${s(report.totalBaselineMs)} | ${s(report.totalOptimizedMs)} | ${s(report.totalSavedMs)} (${report.totalSavedPct}%) | | |`,
+    `| **TOTAL** | ${s(report.totalBaselineMs)} | ${s(report.totalOptimizedMs)} | ${s(report.totalSavedMs)} (${report.totalSavedPct}%) | | | | |`,
   );
+  const trimTargets = report.handoffs.filter((h) => h.promptBound).map((h) => h.handoffId);
+  if (trimTargets.length) {
+    lines.push("", `Pass-2 .md-trim targets (prompt-bound handoffs): ${trimTargets.join(", ")}`);
+  }
   return lines.join("\n") + "\n";
 }

@@ -6850,10 +6850,14 @@ function summarize(candidateId, trials) {
   const disqualified = trials.some((t) => !t.gatePassed);
   if (disqualified) return { candidateId, trials, disqualified: true };
   const passing = trials.filter((t) => t.gatePassed);
+  const inputs = passing.map((t) => t.inputTokens).filter((n) => typeof n === "number");
+  const cacheReads = passing.map((t) => t.cacheReadTokens).filter((n) => typeof n === "number");
   return {
     candidateId,
     medianMs: median(passing.map((t) => t.durationMs)),
     medianCostUsd: median(passing.map((t) => t.costUsd)),
+    ...inputs.length ? { medianInputTokens: median(inputs) } : {},
+    ...cacheReads.length ? { medianCacheReadTokens: median(cacheReads) } : {},
     trials,
     disqualified: false
   };
@@ -8437,6 +8441,7 @@ function renderEventMessage(event, slots = {}) {
 }
 
 // scripts/sftdd/agent-log.ts
+var LEVEL_ORDER = { debug: 0, info: 1, warn: 2, error: 3 };
 function logFilePath(sftddDir) {
   return join14(sftddDir, "agent-log.jsonl");
 }
@@ -8481,6 +8486,27 @@ function emitAgentLogEvent(input, opts = {}) {
   appendFileSync(logFilePath(sftddDir), `${JSON.stringify(event)}
 `, "utf8");
   return event;
+}
+function readAgentLog(opts = {}) {
+  const sftddDir = opts.sftddDir ?? resolveSftddDir();
+  const file = logFilePath(sftddDir);
+  if (!existsSync13(file)) return [];
+  const minRank = opts.minLevel !== void 0 ? LEVEL_ORDER[opts.minLevel] : void 0;
+  const out = [];
+  for (const line of readFileSync11(file, "utf8").split("\n")) {
+    if (line.trim().length === 0) continue;
+    let ev;
+    try {
+      ev = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (opts.role !== void 0 && ev.role !== opts.role) continue;
+    if (opts.featureId !== void 0 && ev.metadata?.feature_id !== opts.featureId) continue;
+    if (minRank !== void 0 && LEVEL_ORDER[ev.level] < minRank) continue;
+    out.push(ev);
+  }
+  return out;
 }
 
 // scripts/sftdd/run-cycle.ts
@@ -13614,7 +13640,15 @@ function makeChampionWalkDeps(ctx) {
         await ctx.spawnTurn({ handoff, candidate, record: false });
         const durationMs = ctx.now() - started;
         const gate = isBuildHandoff(handoff) ? (ctx.gateBuild ?? (() => ({ passed: true })))({ handoff }) : evaluateDesignGate({ sftddDir: ctx.sftddDir, featureId: ctx.featureId, handoff });
-        result = { gatePassed: gate.passed, durationMs, costUsd: 0, ...gate.reason ? { gateReason: gate.reason } : {} };
+        const tokens = ctx.readTurnTokens?.({ handoff });
+        result = {
+          gatePassed: gate.passed,
+          durationMs,
+          costUsd: 0,
+          ...tokens?.inputTokens !== void 0 ? { inputTokens: tokens.inputTokens } : {},
+          ...tokens?.cacheReadTokens !== void 0 ? { cacheReadTokens: tokens.cacheReadTokens } : {},
+          ...gate.reason ? { gateReason: gate.reason } : {}
+        };
       } catch (e) {
         const durationMs = ctx.now() - started;
         result = { gatePassed: false, durationMs, costUsd: 0, gateReason: e instanceof Error ? e.message : String(e) };
@@ -13719,6 +13753,17 @@ async function runLaneSweep(deps, opts = {}) {
   }
   return { walk: walk2 };
 }
+function readLastTurnTokens(sftddDir, role) {
+  const events = readAgentLog({ sftddDir, role }).filter((e) => e.event === "turn.usage");
+  const last = events[events.length - 1];
+  if (!last?.metadata) return void 0;
+  const m = last.metadata;
+  const num = (k) => typeof m[k] === "number" ? m[k] : void 0;
+  const inputTokens = num("input_tokens");
+  const cacheReadTokens = num("cache_read_tokens");
+  if (inputTokens === void 0 && cacheReadTokens === void 0) return void 0;
+  return { ...inputTokens !== void 0 ? { inputTokens } : {}, ...cacheReadTokens !== void 0 ? { cacheReadTokens } : {} };
+}
 function makeBuildGate(sftddDir, featureId) {
   return ({ handoff }) => {
     const story = handoff.story;
@@ -13735,6 +13780,7 @@ import { readWorkflowState as readWorkflowState3 } from "@databricks-solutions/l
 
 // scripts/sftdd/optimize-report.ts
 init_esm_shims();
+var PROMPT_BOUND_MIN_INPUT_TOKENS = 2e4;
 function buildChampionWalkReport(result, candidates) {
   const byId = new Map(candidates.map((c) => [c.id, c]));
   const handoffs = result.walk.map((h) => {
@@ -13743,6 +13789,10 @@ function buildChampionWalkReport(result, candidates) {
     const savedMs = Math.max(0, baselineMs - winnerMs);
     const savedPct = baselineMs > 0 ? Math.round(savedMs / baselineMs * 100) : 0;
     const winnerCandidate = byId.get(h.winner.candidateId);
+    const base = h.candidates.find((c) => c.candidateId === BASELINE_CANDIDATE_ID);
+    const baselineInputTokens = base?.medianInputTokens;
+    const cacheRead = base?.medianCacheReadTokens ?? 0;
+    const promptBound = typeof baselineInputTokens === "number" && baselineInputTokens >= PROMPT_BOUND_MIN_INPUT_TOKENS && baselineInputTokens > cacheRead;
     return {
       handoffId: h.handoffId,
       baselineMs,
@@ -13750,7 +13800,9 @@ function buildChampionWalkReport(result, candidates) {
       winnerMs,
       savedMs,
       savedPct,
-      winnerLevers: winnerCandidate ? describeCandidateLevers(winnerCandidate) : h.winner.candidateId
+      winnerLevers: winnerCandidate ? describeCandidateLevers(winnerCandidate) : h.winner.candidateId,
+      ...typeof baselineInputTokens === "number" ? { baselineInputTokens } : {},
+      promptBound
     };
   });
   const totalBaselineMs = handoffs.reduce((a, h) => a + h.baselineMs, 0);
@@ -13795,20 +13847,25 @@ function describeCandidateLevers(candidate) {
 }
 function formatChampionWalkReport(report) {
   const s = (ms) => `${(ms / 1e3).toFixed(1)}s`;
+  const tok = (n) => typeof n === "number" ? `${Math.round(n / 1e3)}k` : "-";
   const lines = [
     "# Champion-walk optimization report",
     "",
-    "| Handoff | Baseline | Optimized | Saved | Winner | Levers |",
-    "| --- | --- | --- | --- | --- | --- |"
+    "| Handoff | Baseline | Optimized | Saved | Winner | Levers | Prompt in | Prompt-bound |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- |"
   ];
   for (const h of report.handoffs) {
     lines.push(
-      `| ${h.handoffId} | ${s(h.baselineMs)} | ${s(h.winnerMs)} | ${s(h.savedMs)} (${h.savedPct}%) | ${h.winnerId} | ${h.winnerLevers} |`
+      `| ${h.handoffId} | ${s(h.baselineMs)} | ${s(h.winnerMs)} | ${s(h.savedMs)} (${h.savedPct}%) | ${h.winnerId} | ${h.winnerLevers} | ${tok(h.baselineInputTokens)} | ${h.promptBound ? "YES" : ""} |`
     );
   }
   lines.push(
-    `| **TOTAL** | ${s(report.totalBaselineMs)} | ${s(report.totalOptimizedMs)} | ${s(report.totalSavedMs)} (${report.totalSavedPct}%) | | |`
+    `| **TOTAL** | ${s(report.totalBaselineMs)} | ${s(report.totalOptimizedMs)} | ${s(report.totalSavedMs)} (${report.totalSavedPct}%) | | | | |`
   );
+  const trimTargets = report.handoffs.filter((h) => h.promptBound).map((h) => h.handoffId);
+  if (trimTargets.length) {
+    lines.push("", `Pass-2 .md-trim targets (prompt-bound handoffs): ${trimTargets.join(", ")}`);
+  }
   return lines.join("\n") + "\n";
 }
 
@@ -13912,7 +13969,10 @@ function buildCtxForHandoff(handoff, loc) {
       execRunner: (cfg) => execRunner(cfg),
       planNextAction: (cfg) => planNextAction(cfg)
     }),
-    now: () => Date.now()
+    now: () => Date.now(),
+    // Prompt-weight signal for the report's pass-2 trim targeting: the role's last
+    // turn.usage input/cache-read tokens from the project agent-log.
+    readTurnTokens: ({ handoff: handoff2 }) => readLastTurnTokens(sftddDir, handoff2.role)
   };
   if (isBuildHandoff(handoff)) {
     const scm = readWorkflowState3(projectDir);
