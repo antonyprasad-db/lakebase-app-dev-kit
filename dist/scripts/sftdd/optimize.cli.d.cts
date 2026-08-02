@@ -1,64 +1,6 @@
 #!/usr/bin/env node
 import { W as WorkflowAction } from '../../orchestrator-drive-BmzjQ8Tu.cjs';
-
-type AgentRole = "spec-author" | "ux-designer" | "architect-reviewer" | "dba" | "test-strategist" | "orchestrator" | "navigator" | "driver" | "product-owner" | "release-engineer";
-
-/**
- * The SPAWNABLE role agents: the log roles that are real subagents with a
- * <role>.md def + a model. Two log roles are NOT spawnable and are excluded:
- * "orchestrator" (the deterministic driver emits orchestration events under it)
- * and "release-engineer" (the deploy + promote phases are deterministic - the
- * driver runs lakebase-sftdd-deploy + lakebase-scm-merge - and log under this
- * label; there is no release-engineer agent). Both are code, with no .md + no
- * model, so they are excluded here.
- */
-type SpawnableAgentRole = Exclude<AgentRole, "orchestrator" | "release-engineer">;
-
-/** The turns whose effort can differ within a multi-turn build role. Single-turn
- *  roles ignore the turn and use their scalar effort. */
-type BuildTurn = "red" | "green" | "review" | "refactor";
-/** `--effort` levels `claude -p` accepts, plus "default" (omit the flag). */
-type EffortLevel = "default" | "low" | "medium" | "high" | "xhigh" | "max";
-
-/** A Family-2 content/scope variant: what the agent SEES + CAN DO for one turn.
- *  All fields optional; the harness feeds each into the P2a seams (agent overlay
- *  copied into .claude/agents/, suffixes via DriveEffectsConfig hooks, tool scope
- *  via allowed/disallowedToolsForRole). */
-interface CandidateContent {
-    /** Overlay a variant role definition for the forked turn (the big lever: the
-     *  role's instructions + its skills:/tools: frontmatter + scan-scope wording). */
-    agentOverlay?: {
-        role: string;
-        markdown: string;
-    };
-    /** Appended to the role's task AFTER the terse suffix (a trailing directive). */
-    taskSuffix?: string;
-    /** Extra pre-extracted context appended BEFORE the terse suffix (inject-more/scan-less). */
-    contextPackSuffix?: string;
-    /** Restrict the turn's tool scope (--allowed-tools). */
-    allowedTools?: string[];
-    /** Deny specific tools for the turn (--disallowed-tools). */
-    disallowedTools?: string[];
-}
-/** The sweep spec: each dimension is optional; the generator crosses whichever
- *  are present with the baseline. Model / effort maps are keyed by build turn so a
- *  sweep can target, e.g., just the driver's GREEN turn. */
-interface SweepSpec {
-    /** The role the model/effort maps target (defaults to "driver"). */
-    role?: SpawnableAgentRole;
-    /** Per-turn candidate models to try, e.g. { green: ["haiku", "sonnet"] }. */
-    models?: Partial<Record<BuildTurn, string[]>>;
-    /** Per-turn candidate efforts to try, e.g. { green: ["low", "medium"] }. */
-    efforts?: Partial<Record<BuildTurn, EffortLevel[]>>;
-    /** build.sessionScope values to try. */
-    sessionScopes?: Array<"story" | "cycle">;
-    /** CONTEXT_FREE_FRACTION values to try (ride on env). */
-    contextFreeFractions?: number[];
-    /** build.loopGranularity values to try. */
-    loopGranularities?: Array<"story" | "ac" | "hybrid-a">;
-    /** Family-2 content variants to try (each becomes its own candidate). */
-    contentVariants?: CandidateContent[];
-}
+import { S as SweepSpec } from '../../optimize-candidates-DzyV6JOj.cjs';
 
 /** One handoff to optimize (a single role turn at a point in the walk). */
 interface HandoffPlan {
@@ -83,6 +25,9 @@ interface OptimizeArgs {
     trials: number;
     /** Print the plan (handoffs + generated candidates) and exit; no spawns. */
     dryRun?: boolean;
+    /** Propose-only: run + rank + report, but do NOT overlay/record a winner. The
+     *  human reviews the ranked candidates and runs optimize-apply to persist one. */
+    proposeOnly?: boolean;
     projectDir?: string;
 }
 /** Parse the CLI flags. Pure. */

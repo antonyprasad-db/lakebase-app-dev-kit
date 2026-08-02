@@ -66,6 +66,11 @@ export interface ChampionWalkArgs {
   candidates: Candidate[];
   /** Trials per candidate (median of passing trials damps model variance). */
   trials: number;
+  /** Propose-only: run + gate + rank every candidate and report the winner, but do
+   *  NOT call recordWinner (no overlay, no advance). The human then reviews the
+   *  ranked outcomes and approves before optimize-apply persists the winner. Default
+   *  false (auto-select: the winner is recorded + the walk advances). */
+  proposeOnly?: boolean;
 }
 
 /** Per-candidate roll-up at one handoff. */
@@ -103,7 +108,7 @@ export interface ChampionWalkResult {
 
 /** Run the champion walk over the given handoffs + candidates. */
 export async function runChampionWalk(args: ChampionWalkArgs, deps: ChampionWalkDeps): Promise<ChampionWalkResult> {
-  const { handoffs, candidates, trials } = args;
+  const { handoffs, candidates, trials, proposeOnly } = args;
   const walk: HandoffResult[] = [];
 
   for (const handoff of handoffs) {
@@ -126,9 +131,14 @@ export async function runChampionWalk(args: ChampionWalkArgs, deps: ChampionWalk
       const baseline = outcomes.find((o) => o.candidateId === BASELINE_CANDIDATE_ID);
       const baselineMs = baseline?.medianMs ?? winner.medianMs;
 
-      // Overlay the winner once more, recorded, and advance to its state.
-      const winnerCandidate = candidates.find((c) => c.id === winner.candidateId)!;
-      await deps.recordWinner({ handoff, candidate: winnerCandidate });
+      // Overlay the winner once more, recorded, and advance to its state , UNLESS
+      // propose-only, where the human approves the ranked winner first (then
+      // optimize-apply persists it). Propose-only leaves the corpus + state
+      // untouched: only the experiments/ audit trail + the ranked report are produced.
+      if (!proposeOnly) {
+        const winnerCandidate = candidates.find((c) => c.id === winner.candidateId)!;
+        await deps.recordWinner({ handoff, candidate: winnerCandidate });
+      }
 
       walk.push({ handoffId: handoff.id, baselineMs, candidates: outcomes, winner });
     } finally {

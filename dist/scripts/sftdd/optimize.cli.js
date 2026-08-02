@@ -6731,7 +6731,7 @@ function clone(v) {
 // scripts/sftdd/optimize-harness.ts
 init_esm_shims();
 async function runChampionWalk(args, deps) {
-  const { handoffs, candidates, trials } = args;
+  const { handoffs, candidates, trials, proposeOnly } = args;
   const walk2 = [];
   for (const handoff of handoffs) {
     const snap = await deps.snapshot(handoff);
@@ -6749,8 +6749,10 @@ async function runChampionWalk(args, deps) {
       const winner = selectWinner(outcomes);
       const baseline = outcomes.find((o) => o.candidateId === BASELINE_CANDIDATE_ID);
       const baselineMs = baseline?.medianMs ?? winner.medianMs;
-      const winnerCandidate = candidates.find((c) => c.id === winner.candidateId);
-      await deps.recordWinner({ handoff, candidate: winnerCandidate });
+      if (!proposeOnly) {
+        const winnerCandidate = candidates.find((c) => c.id === winner.candidateId);
+        await deps.recordWinner({ handoff, candidate: winnerCandidate });
+      }
       walk2.push({ handoffId: handoff.id, baselineMs, candidates: outcomes, winner });
     } finally {
       snap.dispose();
@@ -13620,6 +13622,9 @@ function parseOptimizeArgs(argv) {
       case "--dry-run":
         out.dryRun = true;
         break;
+      case "--propose-only":
+        out.proposeOnly = true;
+        break;
     }
   }
   return out;
@@ -13720,9 +13725,18 @@ async function main2() {
     now: () => Date.now()
   };
   const deps = makeChampionWalkDeps(ctx);
-  const result = await runChampionWalk({ handoffs: [handoff], candidates, trials: args.trials }, deps);
+  const result = await runChampionWalk(
+    { handoffs: [handoff], candidates, trials: args.trials, proposeOnly: args.proposeOnly },
+    deps
+  );
   const report = buildChampionWalkReport(result, candidates);
   process.stdout.write(formatChampionWalkReport(report));
+  if (args.proposeOnly) {
+    process.stderr.write(
+      `[optimize] propose-only: no winner recorded. Review the ranked candidates + experiments/${handoff.id}/, then persist your choice with: lakebase-sftdd-optimize-apply --project-dir ${projectDir} --handoff ${handoff.id} --candidate <id>
+`
+    );
+  }
   return 0;
 }
 if (isCliEntry2(import.meta.url)) {

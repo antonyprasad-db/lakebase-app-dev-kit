@@ -47,6 +47,9 @@ export interface OptimizeArgs {
   trials: number;
   /** Print the plan (handoffs + generated candidates) and exit; no spawns. */
   dryRun?: boolean;
+  /** Propose-only: run + rank + report, but do NOT overlay/record a winner. The
+   *  human reviews the ranked candidates and runs optimize-apply to persist one. */
+  proposeOnly?: boolean;
   projectDir?: string;
 }
 
@@ -69,6 +72,7 @@ export function parseOptimizeArgs(argv: string[]): OptimizeArgs {
       case "--trials": out.trials = Math.max(1, Number(next()) || 3); break;
       case "--project-dir": out.projectDir = next(); break;
       case "--dry-run": out.dryRun = true; break;
+      case "--propose-only": out.proposeOnly = true; break;
     }
   }
   return out;
@@ -202,10 +206,19 @@ async function main(): Promise<number> {
     now: () => Date.now(),
   };
   const deps = makeChampionWalkDeps(ctx);
-  const result = await runChampionWalk({ handoffs: [handoff], candidates, trials: args.trials }, deps);
+  const result = await runChampionWalk(
+    { handoffs: [handoff], candidates, trials: args.trials, proposeOnly: args.proposeOnly },
+    deps,
+  );
 
   const report = buildChampionWalkReport(result, candidates);
   process.stdout.write(formatChampionWalkReport(report));
+  if (args.proposeOnly) {
+    process.stderr.write(
+      `[optimize] propose-only: no winner recorded. Review the ranked candidates + experiments/${handoff.id}/, ` +
+        `then persist your choice with: lakebase-sftdd-optimize-apply --project-dir ${projectDir} --handoff ${handoff.id} --candidate <id>\n`,
+    );
+  }
   return 0;
 }
 

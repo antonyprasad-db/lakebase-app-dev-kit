@@ -14,7 +14,18 @@
 #   # Optimize the handoff the drive is positioned on (advance the drive first with
 #   # lakebase-sftdd-drive, or --pause-before, to reach the target build turn):
 #   optimize-scenario.sh --scenario <name> --project-dir <dir> --feature <id> \
-#     --candidates '<sweep-spec>' [--trials N] [--only design|build] [--dry-run]
+#     --candidates '<sweep-spec>' [--trials N] [--only design|build] [--dry-run] \
+#     [--propose-only]
+#
+# Review + persist flow (recommended): run with --propose-only so the sweep ranks
+# every candidate + writes <project>/experiments/<handoff>/ but records NO winner.
+# Inspect the printed report + experiments tree, then persist your chosen winner so
+# the NEXT invocation of that role uses it:
+#   lakebase-sftdd-optimize-apply --project-dir <dir> --handoff <id> --candidate <id>
+# That applies the winner's agent-.md levers (prompt / tool scope / directive) to
+# skills/consort/agents/<role>.md directly, and PRINTS any typed-source default
+# edits (model/effort/scope/loop) for a reviewed change. Kit edits are LOCAL;
+# pushing them to consumers is a separate gated step.
 #
 # Sweep spec grammar (see optimize.cli parseSweepSpec), ';'-separated dimensions:
 #   driver.green.model=haiku,sonnet         per-turn model tiering
@@ -45,6 +56,7 @@ CANDIDATES=""
 TRIALS="3"
 ONLY=""
 DRY_RUN=""
+PROPOSE_ONLY=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -55,6 +67,7 @@ while [[ $# -gt 0 ]]; do
     --trials) TRIALS="$2"; shift 2 ;;
     --only) ONLY="$2"; shift 2 ;;
     --dry-run) DRY_RUN="1"; shift ;;
+    --propose-only) PROPOSE_ONLY="1"; shift ;;
     *) echo "optimize-scenario: unknown arg '$1'" >&2; exit 2 ;;
   esac
 done
@@ -101,6 +114,7 @@ lk() { "$PROJECT_DIR/scripts/lk" "$@"; }
 
 dry_args=(); [[ -n "$DRY_RUN" ]] && dry_args=( --dry-run )
 only_args=(); [[ -n "$ONLY" ]] && only_args=( --only "$ONLY" )
+propose_args=(); [[ -n "$PROPOSE_ONLY" ]] && propose_args=( --propose-only )
 
 echo "[optimize-scenario] sweeping the next handoff of ${FEATURE} (trials=${TRIALS}) with candidates: ${CANDIDATES}" >&2
 lk lakebase-sftdd-optimize \
@@ -110,6 +124,7 @@ lk lakebase-sftdd-optimize \
   --trials "$TRIALS" \
   --candidates "$CANDIDATES" \
   ${only_args[@]+"${only_args[@]}"} \
+  ${propose_args[@]+"${propose_args[@]}"} \
   ${dry_args[@]+"${dry_args[@]}"}
 
 echo "[optimize-scenario] done. Winner recorded into ${SCEN}; discarded attempts under ${PROJECT_DIR}/experiments/." >&2

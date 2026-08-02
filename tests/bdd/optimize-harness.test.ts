@@ -156,6 +156,27 @@ describe("runChampionWalk: state discipline", () => {
     expect(log).toContain("dispose:S1-green");
   });
 
+  it("propose-only: ranks + reports the winner but does NOT record/advance", async () => {
+    const cands = [
+      { id: "baseline", configOverrides: {} },
+      { id: "fast", configOverrides: {} },
+    ];
+    const { deps, log } = scriptedDeps({
+      "S1-green": {
+        baseline: [pass(1000)],
+        fast: [pass(400)],
+      },
+    });
+    const result = await runChampionWalk({ handoffs: [handoff], candidates: cands, trials: 1, proposeOnly: true }, deps);
+    // The winner is still selected + reported...
+    expect(result.walk[0].winner.candidateId).toBe("fast");
+    // ...but recordWinner is NEVER called (no overlay, no advance).
+    expect(log.some((l) => l.startsWith("recordWinner"))).toBe(false);
+    // trials + restores still ran, and the snapshot was disposed.
+    expect(log.filter((l) => l === "restore:S1-green")).toHaveLength(2);
+    expect(log).toContain("dispose:S1-green");
+  });
+
   it("runs handoffs sequentially, each with its own snapshot", async () => {
     const h2: HandoffPlan = { id: "S1-review", role: "navigator", story: "S1", buildMode: "review" };
     const cands = [{ id: "baseline", configOverrides: {} }];
