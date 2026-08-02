@@ -367,6 +367,32 @@ export function claudeToolArgs(cmd: Extract<DriveCommand, { kind: "claude" }>): 
   return out;
 }
 
+/**
+ * The base `claude -p` spawn args for a role turn. Pure + exported so the flag set
+ * is guardable. Headless essentials: -p (print), --agent/--model, --strict-mcp-config,
+ * stream-json + --verbose (to capture turn.usage while teeing text).
+ *
+ * --permission-mode acceptEdits is LOAD-BEARING: a scaffolded project ships no
+ * .claude/settings.json, so without an explicit mode a headless role agent DEFAULTS
+ * TO PROMPTING for file writes , and there is no one to answer, so every Write/mkdir
+ * of the role's artifact (feature-spec.json, story stubs, ...) is refused and the
+ * role produces nothing. acceptEdits is the MINIMAL grant that lets role agents
+ * write their own artifacts autonomously (file edits/writes only), NOT the dangerous
+ * full bypass. This is why prior captures depended on an ambient permissive default;
+ * declaring it here makes the drive self-sufficient in any headless environment.
+ */
+export function claudeBaseArgs(cmd: Extract<DriveCommand, { kind: "claude" }>): string[] {
+  return [
+    "-p", cmd.task,
+    "--agent", cmd.role,
+    "--model", cmd.model,
+    "--permission-mode", "acceptEdits",
+    "--strict-mcp-config",
+    "--output-format", "stream-json",
+    "--verbose",
+  ];
+}
+
 export function execRunner(cfg: DriveEffectsConfig): CommandRunner {
   // Per-role Claude session ids, scoped to this runner (one feature drive). A
   // role's first invocation creates a session (--session-id); later invocations
@@ -495,7 +521,7 @@ export function execRunner(cfg: DriveEffectsConfig): CommandRunner {
         }
         // stream-json (requires --verbose with --print) lets us capture the turn's
         // token usage from the result event while teeing readable text to the console.
-        const baseArgs = ["-p", cmd.task, "--agent", cmd.role, "--model", cmd.model, "--strict-mcp-config", "--output-format", "stream-json", "--verbose"];
+        const baseArgs = claudeBaseArgs(cmd);
         // Per-role/turn model-side knobs (sftdd-config.json): effort (set on judgment
         // turns to run fast), fallback model (auto-failover when the primary is
         // overloaded), and a per-invocation dollar cap.

@@ -12,6 +12,10 @@ var __esm = (fn, res) => function __init() {
 var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
@@ -6647,6 +6651,12 @@ var require_ajv = __commonJS({
 
 // scripts/sftdd/drive.cli.ts
 var drive_cli_exports = {};
+__export(drive_cli_exports, {
+  buildCfg: () => buildCfg,
+  claudeBaseArgs: () => claudeBaseArgs,
+  claudeToolArgs: () => claudeToolArgs,
+  execRunner: () => execRunner
+});
 module.exports = __toCommonJS(drive_cli_exports);
 init_cjs_shims();
 var import_node_child_process4 = require("child_process");
@@ -7627,21 +7637,24 @@ function nextBuildAction(story, b) {
   if (!b.accepted) return { kind: "accept", story };
   return { kind: "complete", story };
 }
-function nextTransition(state) {
-  if (state.escalation) {
-    const e = state.escalation;
-    if (e.routable) {
-      return {
-        kind: "revise-route",
-        story: e.routable.story,
-        role: e.routable.owning_role,
-        gate: e.routable.gate,
-        reason: e.reason,
-        source: e.source
-      };
-    }
-    return { kind: "raise-to-hil", reason: e.reason, source: e.source, ...e.story_id ? { story: e.story_id } : {} };
+function escalationPreempt(state) {
+  if (!state.escalation) return void 0;
+  const e = state.escalation;
+  if (e.routable) {
+    return {
+      kind: "revise-route",
+      story: e.routable.story,
+      role: e.routable.owning_role,
+      gate: e.routable.gate,
+      reason: e.reason,
+      source: e.source
+    };
   }
+  return { kind: "raise-to-hil", reason: e.reason, source: e.source, ...e.story_id ? { story: e.story_id } : {} };
+}
+function nextTransition(state) {
+  const preempt = escalationPreempt(state);
+  if (preempt) return preempt;
   if (state.phase === "planning") {
     const p = state.planning ?? { proposed: false, estimated: false, requestsAuthored: false };
     if (!p.proposed) return { kind: "invoke-role", role: "spec-author", mode: "propose" };
@@ -7698,6 +7711,8 @@ function toDesignView(state) {
   };
 }
 function nextDesignOnlyTransition(state) {
+  const preempt = escalationPreempt(state);
+  if (preempt) return preempt;
   return nextDesignAction(toDesignView(state));
 }
 function pauseBeforeMilestone(m) {
@@ -10272,10 +10287,23 @@ function commandsForAction(action, cfg) {
         ...effort && effort !== "default" ? { effort } : {},
         ...fallbackModel ? { fallbackModel } : {},
         ...typeof maxBudgetUsd === "number" ? { maxBudgetUsd } : {},
+        // Optimize harness content/scope levers (all default-off): extra context
+        // is injected BEFORE the terse suffix (reads as context), the task suffix
+        // AFTER it (reads as a trailing directive), and the tool scope is carried
+        // on the command for the runner to translate to spawn flags. When the cfg
+        // sets none, this is byte-identical to `roleTask(...) + AGENT_TERSE_SUFFIX`.
+        ...(() => {
+          const allowed = cfg.allowedToolsForRole?.(action.role);
+          const disallowed = cfg.disallowedToolsForRole?.(action.role);
+          return {
+            ...allowed && allowed.length ? { allowedTools: allowed } : {},
+            ...disallowed && disallowed.length ? { disallowedTools: disallowed } : {}
+          };
+        })(),
         task: roleTask(action, f, cfg.uiTrack ?? false, cfg.sftddDir, {
           loop: storyLoop,
           cap: cfg.batchCap
-        }) + AGENT_TERSE_SUFFIX,
+        }) + (cfg.contextPackSuffix?.(action.role, buildTurn) ?? "") + AGENT_TERSE_SUFFIX + (cfg.taskSuffix?.(action.role, buildTurn) ?? ""),
         replay: {
           mode: "mode" in action ? action.mode : void 0,
           // The build turn's mode (reflect / review / refactor / assess / repair),
@@ -11218,6 +11246,7 @@ function kitVersion2() {
 
 // scripts/sftdd/drive.cli.ts
 var import_lakebase10 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_util4 = require("@databricks-solutions/lakebase-scm-utils/util");
 
 // scripts/sftdd/drive-auth-preflight.ts
 init_cjs_shims();
@@ -11471,6 +11500,28 @@ function spawnClaudeStreaming(args, cwd) {
     });
   });
 }
+function claudeToolArgs(cmd) {
+  const out = [];
+  if (cmd.allowedTools && cmd.allowedTools.length) out.push("--allowed-tools", cmd.allowedTools.join(","));
+  if (cmd.disallowedTools && cmd.disallowedTools.length) out.push("--disallowed-tools", cmd.disallowedTools.join(","));
+  return out;
+}
+function claudeBaseArgs(cmd) {
+  return [
+    "-p",
+    cmd.task,
+    "--agent",
+    cmd.role,
+    "--model",
+    cmd.model,
+    "--permission-mode",
+    "acceptEdits",
+    "--strict-mcp-config",
+    "--output-format",
+    "stream-json",
+    "--verbose"
+  ];
+}
 function execRunner(cfg) {
   const sessions = /* @__PURE__ */ new Map();
   const sessionContext = /* @__PURE__ */ new Map();
@@ -11544,10 +11595,11 @@ function execRunner(cfg) {
             `[drive] REPLAY CORPUS MISS: no recorded artifact for design turn '${where}' under ${replayDir} (features/${cfg.featureId}/...). The deterministic pipeline dispatched this turn but the corpus lacks its output. Replay will NOT run the agent live , put the recorded artifact in the corpus (check .gitignore is not dropping it).`
           );
         }
-        const baseArgs = ["-p", cmd.task, "--agent", cmd.role, "--model", cmd.model, "--strict-mcp-config", "--output-format", "stream-json", "--verbose"];
+        const baseArgs = claudeBaseArgs(cmd);
         if (cmd.effort) baseArgs.push("--effort", cmd.effort);
         if (cmd.fallbackModel) baseArgs.push("--fallback-model", cmd.fallbackModel);
         if (typeof cmd.maxBudgetUsd === "number") baseArgs.push("--max-budget-usd", String(cmd.maxBudgetUsd));
+        baseArgs.push(...claudeToolArgs(cmd));
         const sessionArgsFor = (forceFresh) => {
           if (!cmd.resumeKey) return [];
           if (startsFreshEachTurn(cmd.role)) {
@@ -12296,12 +12348,21 @@ then re-run.
     }
   }
 }
-main().then(
-  (code) => process.exit(code),
-  (err) => {
-    process.stderr.write(`${err instanceof Error ? err.message : String(err)}
+if ((0, import_util4.isCliEntry)(importMetaUrl)) {
+  main().then(
+    (code) => process.exit(code),
+    (err) => {
+      process.stderr.write(`${err instanceof Error ? err.message : String(err)}
 `);
-    process.exit(1);
-  }
-);
+      process.exit(1);
+    }
+  );
+}
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  buildCfg,
+  claudeBaseArgs,
+  claudeToolArgs,
+  execRunner
+});
 //# sourceMappingURL=drive.cli.cjs.map
