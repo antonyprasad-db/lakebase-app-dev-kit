@@ -50,12 +50,14 @@ done
 
 [[ -n "$SCENARIO" ]] || { echo "optimize-live-run: --scenario is required" >&2; exit 2; }
 [[ -n "$FEATURE" ]] || { echo "optimize-live-run: --feature is required" >&2; exit 2; }
-[[ -n "$CANDIDATES" ]] || { echo "optimize-live-run: --candidates is required (e.g. 'navigator.red.model=sonnet,haiku')" >&2; exit 2; }
+# --candidates is OPTIONAL: the lane sweep uses per-role default candidates
+# (defaultLaneCandidates). It is accepted only as an escape hatch and is currently
+# unused by the lane-sweep path below.
 
-# ── Step 1: scaffold + drive the DESIGN lane live, stop at the build boundary ──
-# capture-scenario --only design creates the project, stages intake, claims the
-# feature, and drives design -> gate, stopping cleanly before the first build turn
-# (the design-complete bound). It PRINTS the scaffolded project dir.
+# ── Step 1: scaffold + stage + CLAIM (no drive; the sweep owns the drive) ──
+# capture-scenario --no-drive creates the project, stages intake, and claims the
+# feature, but does NOT drive, so the lane sweep below owns + experiments on every
+# design + build role turn. The scaffolded project dir is derived below.
 if [[ -z "$PROJECT_DIR" ]]; then
   [[ -n "$HOST" ]] || { echo "optimize-live-run: --databricks-host required to scaffold (or pass --project-dir for an already-scaffolded+claimed project)" >&2; exit 2; }
   [[ -n "$OWNER" ]] || { echo "optimize-live-run: --github-owner required to scaffold" >&2; exit 2; }
