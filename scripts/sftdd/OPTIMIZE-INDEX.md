@@ -34,6 +34,75 @@ deps.spawnTurn = makeLiveSpawnTurn:
   → buildCfg → execRunner → planNextAction → run the handoff's commands (real `claude -p`)
 ```
 
+## VERIFIED runtime truth (2026-08-02) — reconcile the design against what actually runs
+
+Three live diagnostic runs (all exit 3) forced reading the COMPILED bin, not the
+source structure. The findings, written down so they are not re-derived:
+
+1. **`spawnTurn` for one design turn is NOT one `claude -p` , it is a multi-command
+   list run through `execRunner`.** `commandsForAction(invoke-role spec-author/breakdown)`
+   returns `[reset-breakdown (cli), claude, verify-artifact, sync-breakdown (cli),
+   test-list (cli)]` (orchestrator-effects.ts ~1230-1290). `execRunner.run` executes
+   each: cli commands `spawnCmd("node", <kit-bin>)`, the claude command spawns the
+   agent. **`verify-artifact` throws `ArtifactOutOfRootError` IN-PROCESS** when the
+   agent wrote its artifact to the malformed hyphen-joined sibling root and the stray
+   relocation found nothing (stray-artifact-recovery.ts).
+
+2. **The optimize bin BUNDLES `runDriver` + the `[drive] NNN dispatch` onAction logger
+   + `padStart(3)`** (7 `runDriver` refs, 13 `lakebase-sftdd-drive` refs, `[drive] ${`
+   template, all in dist/scripts/sftdd/optimize.cli.js). The live run's numbered
+   `[drive] 000 dispatch spec-author`, `001 dispatch ux-designer` lines are the
+   runDriver `onAction` narration , i.e. a **runDriver-style action loop is executing
+   inside the optimize process**, even though optimize-live's `makeLiveSpawnTurn` is
+   supposed to run exactly ONE `planNextAction` result per spawn. The design says
+   "one handoff per spawn"; the runtime says "a drive loop ran (000→001→…→deploy)".
+
+3. **The observed crash sequence (single-handoff spec-author sweep, trials=2):**
+   turn1 spec-author 97s (trial-0, recorded, gate ok) → turn2 spec-author 129s
+   (trial-1, recorded, gate ok) → turn3 spec-author 103s (recordWinner, advances, NO
+   restore) → **turn4 ux-designer 165s** (a turn NOBODY in the harness intended) →
+   its `verify-artifact` throws ArtifactOutOfRootError → the drive `main()` catch
+   (`[drive] ${err.message}` + `return 3`) fires → exit 3. Neither the per-trial catch
+   (#1) nor the drift guard printed, because turn4 did not go through
+   `runChampionWalk`'s trial loop OR `makeLiveSpawnTurn`'s guard , it ran on a code
+   path the harness does not wrap.
+
+### THE STRUCTURAL PROBLEM (the actual root cause)
+
+The harness was built as "inject thin seams (`execRunner`, `planNextAction`) and run
+ONE turn per spawn." But `execRunner`/`buildCfg` were extracted from the SAME drive
+`cfg` that also carries the full runDriver loop (`onAction`, the numbered dispatch,
+`commandsForAction` that appends verify + sync + test-list, the `main()` exit-3
+handler). Through many refactors the "one turn" seam and the "whole drive loop"
+machinery were never actually separated , they share `cfg` and the same command list.
+So the harness cannot run one isolated turn: whatever it invokes drags the drive's
+loop + its own top-level exit-3 error handling, which lands OUTSIDE every guard the
+harness added. That is why each fix (crash-catch, drift-guard, record-gate) is correct
+in isolation yet the sweep still exits 3: the crash happens on the drive's loop/main
+path, not the harness's.
+
+**Fix direction (not yet done) , frame it as INTERFACE vs IMPLEMENTATION:**
+
+Each handoff obeys a well-defined interface (a contract): *role R, given its inputs
+(the upstream artifacts on disk), produces artifact A that passes gate G.* That
+contract is all the optimize harness needs , it should invoke the role against the
+contract and check the produced artifact, timing the wall-clock. Everything else the
+drive does around a turn , `reset-breakdown`, `sync-breakdown`, `test-list`,
+`verify-artifact`, the numbered `onAction` narration, the runDriver loop, the `main()`
+exit-3 handler , is ROLE-SPECIFIC IMPLEMENTATION DETAIL that lives INSIDE the drive.
+The harness must not re-run the drive's loop + appendix per trial; it drags in exactly
+the machinery (verify-artifact throw, main() return 3) that crashes outside the
+harness's guards.
+
+Concretely: give the harness a single-turn entry keyed on the handoff CONTRACT , run
+role R's `claude` command from the current (snapshot-pinned) inputs, then evaluate the
+contract (artifact A present + gate G) as the harness's OWN check , NOT by replaying
+the drive's command list (which appends verify/sync/test-list and routes failures
+through the drive's process-level exit-3). The candidate levers (model/effort/prompt/
+tool-scope) are the implementation knobs swept WITHIN that one contract-satisfying
+turn. This makes each trial "one role satisfying one interface," which is what the
+champion walk was always meant to measure.
+
 ## Source modules (scripts/sftdd/)
 
 | File | Lines | What it is |
