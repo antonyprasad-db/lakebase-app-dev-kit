@@ -1,0 +1,10 @@
+{
+  "id": "spec-author-e-low",
+  "configOverrides": {
+    "roles": {
+      "spec-author": {
+        "effort": "low"
+      }
+    }
+  }
+}

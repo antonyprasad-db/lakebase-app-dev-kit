@@ -1,0 +1,10 @@
+{
+  "id": "spec-author-e-medium",
+  "configOverrides": {
+    "roles": {
+      "spec-author": {
+        "effort": "medium"
+      }
+    }
+  }
+}

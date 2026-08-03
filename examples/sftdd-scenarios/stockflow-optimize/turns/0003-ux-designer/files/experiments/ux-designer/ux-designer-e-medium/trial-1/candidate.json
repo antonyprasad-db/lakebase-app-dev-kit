@@ -1,0 +1,10 @@
+{
+  "id": "ux-designer-e-medium",
+  "configOverrides": {
+    "roles": {
+      "ux-designer": {
+        "effort": "medium"
+      }
+    }
+  }
+}
