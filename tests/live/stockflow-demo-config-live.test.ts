@@ -42,13 +42,15 @@ function instructionsFor(manifest: StepManifest): { prompt: string; guidelines: 
     prompt:
       `Break feature ${FEATURE} into its stories from the provided inputs. WRITE ${SPEC_REL} ` +
       `(id, name, status "draft", tdd_mode, NON-EMPTY stories[]) + a stub dir per story under ` +
-      `.sftdd/features/${FEATURE}/stories/<S>/. Then run your self-check: ./scripts/lk ` +
-      `lakebase-sftdd-response-formatter --role spec-author --feature ${FEATURE} --tdd-dir .sftdd , ` +
-      `fix anything it flags. Then log: ./scripts/lk lakebase-sftdd-log --role spec-author --level ` +
-      `info --event artifact.written --message "<what you wrote>" --tdd-dir .sftdd. Read ONLY the provided inputs.`,
+      `.sftdd/features/${FEATURE}/stories/<S>/. Then WRITE a file .agent-report.json at the ` +
+      `workspace root recording what you did , a JSON object (or array of objects) with fields ` +
+      `{ "level": "info"|"warn"|"error", "event": "artifact.written"|"open.question"|..., ` +
+      `"message": "<one line>" }. Use level "warn" + event "open.question" to surface any ` +
+      `ambiguity. Do NOT run any shell command or npx; just write the two files. Read ONLY the ` +
+      `provided inputs.`,
     guidelines: [
       "feature-spec.json is REQUIRED and must have a non-empty stories[].",
-      "The self-check must pass before you return; log at least one spec-author event.",
+      ".agent-report.json is REQUIRED , author at least one entry describing what you wrote (the orchestrator formats it into the conformant agent log).",
     ],
   };
 }
@@ -76,6 +78,9 @@ describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE: stockflow demo end-to-end fro
       cfg: { projectDir: workspaceDir, sftddDir: join(workspaceDir, ".sftdd"), featureId: FEATURE } as DriveEffectsConfig,
       agentContext: { corpusRoot: INTAKE, kitDir: KIT },
       instructionsFor,
+      // The sandboxed live agent authors .agent-report.json; the orchestrator formats it into
+      // the conformant agent-log.jsonl before validate-outputs (no lk subprocess needed).
+      formatAgentReports: true,
       provisionWorkspace: (m) =>
         m.role === "spec-author"
           ? { workspaceDir, outputPaths: { "feature-spec": SPEC_REL, "agent-log": LOG_REL } }

@@ -70,6 +70,14 @@ export interface StepExecutorDeps {
   provisionWorkspace(action: WorkflowAction, cfg: DriveEffectsConfig): ProvisionedWorkspace;
   /** Phase 3 input: the instruction bundle the orchestrator sourced for this step. */
   instructionsFor(action: WorkflowAction, cfg: DriveEffectsConfig): StepInstructions;
+  /** Between capture (4) and validate (5): the orchestrator MATERIALIZES any output the
+   *  agent authored as raw content but could not produce in conformant form itself (a
+   *  sandboxed spawned agent cannot run the shared formatter subprocess). Concretely: format
+   *  the agent-authored .agent-report.json into a conformant agent-log.jsonl. Runs
+   *  orchestrator-side (unsandboxed), so validate-outputs then sees the real, conformant
+   *  file. Optional , default no-op, so the byte-identical default + existing steps are
+   *  unaffected. */
+  materializeOutputs?(workspaceDir: string, action: WorkflowAction, cfg: DriveEffectsConfig): void;
   /** Phase 6: emit the turn record (usage/progress/violations). Optional (tests may omit). */
   onRecord?(record: StepRecord): void;
 }
@@ -114,6 +122,11 @@ export async function execute(step: RunnableStep, ctx: StepCtx, deps: StepExecut
   const instructions = deps.instructionsFor(action, cfg);
   const runResult = await step.run({ action, workspaceDir, inputs: resolved, instructions, outputPaths });
   const producedPaths = runResult.producedPaths ?? [];
+
+  // Between capture (4) and validate (5): materialize orchestrator-formatted outputs from
+  // the agent's raw authored content (e.g. .agent-report.json -> conformant agent-log.jsonl),
+  // so validate-outputs below sees the real file. No-op unless the orchestrator supplies it.
+  deps.materializeOutputs?.(workspaceDir, action, cfg);
 
   // Phase 5: validate-outputs , run each output's in-code validator on its produced path.
   // A missing primary artifact (run reported produced:false) or any validator failure is a

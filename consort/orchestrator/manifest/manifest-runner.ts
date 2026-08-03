@@ -21,6 +21,7 @@ import { manifestForAction, type StepManifest } from "./step-manifest.js";
 import { ManifestStep } from "./manifest-step.js";
 import { buildAgent, type AgentBuildContext } from "../agents/agent-catalogue.js";
 import { execute, type StepExecutorDeps, type StepCtx, type StepResult } from "../execution/step-executor.js";
+import { formatAgentReport } from "../execution/agent-report-formatter.js";
 import type { StepAgent, StepInstructions } from "../agents/spec-author-breakdown-step-types.js";
 import type { DriveEffectsConfig } from "../../../scripts/sftdd/orchestrator-effects.js";
 import type { WorkflowAction, DriveState } from "../../../scripts/sftdd/orchestrator-drive.js";
@@ -50,6 +51,12 @@ export interface ManifestRunnerDeps {
    *  spec-author's `.sftdd/features/<F>/`) overrides this to declare those outputPaths + set
    *  up the kit env. Returns the workspace + where each output id lands within it. */
   provisionWorkspace?(manifest: StepManifest, action: WorkflowAction): { workspaceDir: string; outputPaths?: Record<string, string> };
+  /** Optional: format the agent-authored .agent-report.json into a conformant
+   *  agent-log.jsonl before validate-outputs , so a SANDBOXED spawned agent (which cannot run
+   *  the shared log subprocess) still satisfies the agent-log requirement. Default OFF; a
+   *  step whose agent authors a report (a live claude turn) turns it on. When true, every turn
+   *  materializes with the manifest's role. */
+  formatAgentReports?: boolean;
   /** Optional: the drive state passed to route() (diagnostic scope only; default a stub). */
   state?: DriveState;
   /** Optional: turn-record sink (default no-op). */
@@ -129,6 +136,12 @@ function executorWiring(
     resolveInputs: () => resolveInputsFromWorkspace(manifest, deps.workspaceDir),
     provisionWorkspace: () => (deps.provisionWorkspace ? deps.provisionWorkspace(manifest, action) : { workspaceDir: deps.workspaceDir }),
     instructionsFor: () => (deps.instructionsFor ? deps.instructionsFor(manifest, action) : defaultInstructions(manifest)),
+    // When enabled, format the agent-authored .agent-report.json into a conformant
+    // agent-log.jsonl (orchestrator-side) before validate-outputs , so a sandboxed agent
+    // that cannot run the shared log subprocess still satisfies the agent-log requirement.
+    ...(deps.formatAgentReports
+      ? { materializeOutputs: (workspaceDir: string) => { formatAgentReport({ workspaceDir, role: manifest.role }); } }
+      : {}),
     onRecord: deps.onRecord,
   };
 
