@@ -640,9 +640,22 @@ function roleTaskBody(
     return (
       `Translate the HIL design brief (${root}/design/design-brief.md) into the project design system:` +
       ` write design-guide.md (visual + interaction standards), design-guide.json (the machine-checkable` +
-      ` tokens: typography, colors, spacing, radius, shadows, breakpoints), and ia.md (the information` +
-      ` architecture: screens, navigation, flows). This is the project-level style guide the Navigator` +
-      ` and Driver build the UI against; author it once from the brief + product-overview.md.`
+      ` tokens + components), and ia.md (the information architecture: screens, navigation, flows). This is the` +
+      ` project-level style guide the Navigator and Driver build the UI against; author it once from the brief +` +
+      ` product-overview.md.` +
+      // EXHAUSTIVE BRIEF COVERAGE (generic, not app-specific): the brief is the
+      // contract. The design-guide must realize EVERY element the brief + product-
+      // overview name , dropping any is an incomplete artifact. This is enforced,
+      // not suggested, because a partial design-guide silently under-builds the UI.
+      ` COVER THE BRIEF EXHAUSTIVELY , read design-brief.md + product-overview.md and enumerate, then realize,` +
+      ` EVERY named element. In particular: (a) EVERY status/state variant the brief lists (e.g. each badge/pill` +
+      ` state) , include ALL of them, not a representative subset; (b) EVERY asset the brief names (app icon,` +
+      ` favicon/browser-tab icon, logos) as an explicit entry; (c) EVERY level of each scalar token the brief` +
+      ` enumerates (if it says shadows sm/md/lg, define all three; likewise every spacing/radius/type step); and` +
+      ` (d) a design-guide.json "components" block with an entry for EACH reusable UI component the brief describes` +
+      ` (navbar, page, card, button, form field, table, status badge, empty state, toast, app icon, and any others` +
+      ` the brief names), each with its class + notes. Before finishing, re-read the brief and confirm nothing it` +
+      ` names is missing from the design-guide , a missing status state, asset, token level, or component is a defect.`
     );
   }
   const s = action.story;

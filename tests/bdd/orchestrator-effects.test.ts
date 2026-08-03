@@ -554,6 +554,13 @@ describe("commandsForAction: state transitions -> kit CLIs", () => {
     expect(task).toMatch(/design-brief\.md/);
     expect(task).toMatch(/design-guide\.md/);
     expect(task).toMatch(/design-guide\.json/);
+    // Exhaustive brief coverage (the fix for intermittent 0.80 semantic scores): the
+    // task forces enumerating + realizing EVERY brief element , status states, assets,
+    // token levels, components , not a representative subset.
+    expect(task).toMatch(/EXHAUSTIV/i);
+    expect(task).toMatch(/every status\/state variant|each badge\/pill state/i);
+    expect(task).toMatch(/favicon/i);
+    expect(task).toMatch(/components/i);
   });
 
   it("navigator + driver get the design guide as a build input only when the UI track is on", () => {
