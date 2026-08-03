@@ -1,0 +1,10 @@
+{
+  "id": "ux-designer-m-haiku",
+  "configOverrides": {
+    "roles": {
+      "ux-designer": {
+        "model": "haiku"
+      }
+    }
+  }
+}

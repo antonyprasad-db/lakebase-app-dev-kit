@@ -1,0 +1,16 @@
+{
+  "winners": [
+    {
+      "handoffId": "spec-author",
+      "candidateId": "spec-author-scan-tight"
+    },
+    {
+      "handoffId": "spec-author",
+      "candidateId": "spec-author-m-haiku-e-low"
+    },
+    {
+      "handoffId": "ux-designer",
+      "candidateId": "ux-designer-m-opus-e-low"
+    }
+  ]
+}

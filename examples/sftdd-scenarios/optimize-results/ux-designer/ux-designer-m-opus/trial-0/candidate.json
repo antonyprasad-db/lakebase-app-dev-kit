@@ -1,0 +1,10 @@
+{
+  "id": "ux-designer-m-opus",
+  "configOverrides": {
+    "roles": {
+      "ux-designer": {
+        "model": "opus"
+      }
+    }
+  }
+}

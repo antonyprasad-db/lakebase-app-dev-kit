@@ -1,0 +1,10 @@
+{
+  "id": "ux-designer-e-low",
+  "configOverrides": {
+    "roles": {
+      "ux-designer": {
+        "effort": "low"
+      }
+    }
+  }
+}

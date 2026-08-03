@@ -10659,8 +10659,16 @@ var optimized_defaults_default = {
   _comment: "Auto-applied optimization winners, deep-merged onto defaultSftddConfig()'s base. Written by optimize-apply (data, never a TS rewrite) so an unattended champion walk can bake each winner into the kit default; inlined into dist at build time. roles.<role>.{model,effort} may be a scalar or a per-turn/step map keyed by TurnKey (breakdown/acs/architect/dba/test-list/ux for design; red/green/review/refactor/assess/repair for build). Edit via the apply path, not by hand.",
   roles: {
     "spec-author": {
-      model: { breakdown: "haiku" },
-      effort: { breakdown: "low" }
+      model: {
+        breakdown: "haiku"
+      },
+      effort: {
+        breakdown: "low"
+      }
+    },
+    "ux-designer": {
+      model: "opus",
+      effort: "low"
     }
   }
 };
