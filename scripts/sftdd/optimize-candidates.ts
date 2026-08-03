@@ -153,19 +153,30 @@ export interface HandoffLike {
   buildMode?: string;
 }
 
-/** A cheaper model than `model` for a downgrade candidate: opus->sonnet->haiku.
- *  Returns undefined when already at the floor (no downgrade to try). */
-function cheaperModel(model: string): string | undefined {
-  const tier: Record<string, string> = { opus: "sonnet", sonnet: "haiku" };
-  return tier[model];
+/** The model tiers cheaper than `model`, cheapest last: opus->[sonnet,haiku],
+ *  sonnet->[haiku], haiku->[]. Each is a downgrade candidate worth trying (a
+ *  smaller model that still passes the gate is pure wall-clock/cost savings). */
+function cheaperModels(model: string): string[] {
+  const below: Record<string, string[]> = { opus: ["sonnet", "haiku"], sonnet: ["haiku"], haiku: [] };
+  return below[model] ?? [];
 }
 
-/** Per-role default candidates for a LANE sweep (the "model + effort + a
- *  prompt/scope variant" axis). DESIGN roles carry a SCALAR model/effort, so their
- *  candidates set `roles.<role>.model`/`.effort` as scalars; BUILD roles
- *  (navigator/driver) use the per-turn map keyed by the turn. The navigator REFLECT
- *  turn is a critic GATE (it flags defects, does not author an artifact), so it is
- *  never swept , baseline only. Baseline is always first. */
+/** The cheaper effort rungs worth trying below the model default: `low` (the
+ *  floor) + `medium` (a safety rung, in case low under-thinks and degrades the
+ *  artifact but medium is still faster than the default). `low` is the lowest
+ *  rung EffortLevel offers , there is no "minimal" below it. */
+const CHEAPER_EFFORTS: EffortLevel[] = ["low", "medium"];
+
+/** Per-role default candidates for a LANE sweep. The lever families tried, from an
+ *  identical pre-turn state, are: (1) each cheaper MODEL tier, (2) each cheaper
+ *  EFFORT rung, (3) the model x effort CROSS at the cheapest effort (cheaper model
+ *  AND less thinking together , usually the biggest single win, invisible when the
+ *  two are only tried in isolation), (4) a HARD scan-tighten content variant (deny
+ *  Grep/Glob). DESIGN roles carry a SCALAR model/effort; BUILD roles
+ *  (navigator/driver) use the per-turn map keyed by the turn. Both get the IDENTICAL
+ *  lever set (design uses scalar overrides, build wraps each in `{ [turn]: v }`).
+ *  The navigator REFLECT turn is a critic GATE (flags defects, authors nothing), so
+ *  it is never swept , baseline only. Baseline is always first. */
 export function defaultLaneCandidates(handoff: HandoffLike): Candidate[] {
   const baseline: Candidate = { id: BASELINE_CANDIDATE_ID, configOverrides: {} };
 
@@ -174,50 +185,38 @@ export function defaultLaneCandidates(handoff: HandoffLike): Candidate[] {
 
   const role = handoff.role;
   const isBuild = (role === "navigator" || role === "driver") && (handoff.buildMode === undefined || handoff.buildMode === "green" || handoff.buildMode === "red");
+  // BUILD roles set model/effort under a per-turn key ({ green: "haiku" }); DESIGN
+  // roles set them as scalars ("haiku"). `wrap` bridges the two so one lever list
+  // serves both. `turn` is the build turn (GREEN for driver, RED for navigator).
+  const turn: BuildTurn = role === "driver" ? "green" : "red";
+  const wrapModel = (m: string) => (isBuild ? { [turn]: m } : m);
+  const wrapEffort = (e: EffortLevel) => (isBuild ? { [turn]: e } : e);
+  const idPrefix = isBuild ? `${role}-${turn}` : role;
+  const roleOverride = (settings: RoleSettingsFile): Candidate["configOverrides"] => ({
+    roles: { [role]: settings } as DeepPartial<SftddConfigFile>["roles"],
+  });
+
+  const base = RECOMMENDED_MODELS[role as SpawnableAgentRole] ?? (isBuild ? "sonnet" : "opus");
+  const cheapers = cheaperModels(base);
   const out: Candidate[] = [baseline];
 
-  if (isBuild) {
-    // Build turn: per-turn model map keyed by the turn (RED for navigator, GREEN
-    // for driver). Sweep the recommended base vs a cheaper tier.
-    const turn: BuildTurn = role === "driver" ? "green" : "red";
-    const base = RECOMMENDED_MODELS[role as SpawnableAgentRole] ?? "sonnet";
-    const cheaper = cheaperModel(base);
-    if (cheaper) {
-      out.push({
-        id: `${role}-${turn}-m-${cheaper}`,
-        configOverrides: { roles: { [role]: { model: { [turn]: cheaper } } } as DeepPartial<SftddConfigFile>["roles"] },
-      });
-    }
-    out.push({
-      id: `${role}-${turn}-e-low`,
-      configOverrides: { roles: { [role]: { effort: { [turn]: "low" } } } as DeepPartial<SftddConfigFile>["roles"] },
-    });
-    out.push({
-      id: `${role}-${turn}-scan-tight`,
-      configOverrides: {},
-      content: scanTightenContent(),
-    });
-    return out;
+  // (1) each cheaper model tier
+  for (const m of cheapers) {
+    out.push({ id: `${idPrefix}-m-${m}`, configOverrides: roleOverride({ model: wrapModel(m) as RoleSettingsFile["model"] }) });
   }
-
-  // Design role: SCALAR model/effort.
-  const base = RECOMMENDED_MODELS[role as SpawnableAgentRole] ?? "opus";
-  const cheaper = cheaperModel(base);
-  if (cheaper) {
+  // (2) each cheaper effort rung
+  for (const e of CHEAPER_EFFORTS) {
+    out.push({ id: `${idPrefix}-e-${e}`, configOverrides: roleOverride({ effort: wrapEffort(e) as RoleSettingsFile["effort"] }) });
+  }
+  // (3) model x effort cross at the cheapest effort (low)
+  for (const m of cheapers) {
     out.push({
-      id: `${role}-m-${cheaper}`,
-      configOverrides: { roles: { [role]: { model: cheaper } } as DeepPartial<SftddConfigFile>["roles"] },
+      id: `${idPrefix}-m-${m}-e-low`,
+      configOverrides: roleOverride({ model: wrapModel(m) as RoleSettingsFile["model"], effort: wrapEffort("low") as RoleSettingsFile["effort"] }),
     });
   }
-  out.push({
-    id: `${role}-e-low`,
-    configOverrides: { roles: { [role]: { effort: "low" } } as DeepPartial<SftddConfigFile>["roles"] },
-  });
-  out.push({
-    id: `${role}-scan-tight`,
-    configOverrides: {},
-    content: scanTightenContent(),
-  });
+  // (4) hard scan-tighten content variant (deny Grep/Glob)
+  out.push({ id: `${idPrefix}-scan-tight`, configOverrides: {}, content: scanTightenContent() });
   return out;
 }
 

@@ -6747,54 +6747,39 @@ function generateCandidates(sweep) {
   });
   return out;
 }
-function cheaperModel(model) {
-  const tier = { opus: "sonnet", sonnet: "haiku" };
-  return tier[model];
+function cheaperModels(model) {
+  const below = { opus: ["sonnet", "haiku"], sonnet: ["haiku"], haiku: [] };
+  return below[model] ?? [];
 }
+var CHEAPER_EFFORTS = ["low", "medium"];
 function defaultLaneCandidates(handoff) {
   const baseline = { id: BASELINE_CANDIDATE_ID, configOverrides: {} };
   if (handoff.role === "navigator" && handoff.buildMode === "reflect") return [baseline];
   const role = handoff.role;
   const isBuild = (role === "navigator" || role === "driver") && (handoff.buildMode === void 0 || handoff.buildMode === "green" || handoff.buildMode === "red");
+  const turn = role === "driver" ? "green" : "red";
+  const wrapModel = (m) => isBuild ? { [turn]: m } : m;
+  const wrapEffort = (e) => isBuild ? { [turn]: e } : e;
+  const idPrefix = isBuild ? `${role}-${turn}` : role;
+  const roleOverride = (settings) => ({
+    roles: { [role]: settings }
+  });
+  const base = RECOMMENDED_MODELS[role] ?? (isBuild ? "sonnet" : "opus");
+  const cheapers = cheaperModels(base);
   const out = [baseline];
-  if (isBuild) {
-    const turn = role === "driver" ? "green" : "red";
-    const base2 = RECOMMENDED_MODELS[role] ?? "sonnet";
-    const cheaper2 = cheaperModel(base2);
-    if (cheaper2) {
-      out.push({
-        id: `${role}-${turn}-m-${cheaper2}`,
-        configOverrides: { roles: { [role]: { model: { [turn]: cheaper2 } } } }
-      });
-    }
-    out.push({
-      id: `${role}-${turn}-e-low`,
-      configOverrides: { roles: { [role]: { effort: { [turn]: "low" } } } }
-    });
-    out.push({
-      id: `${role}-${turn}-scan-tight`,
-      configOverrides: {},
-      content: scanTightenContent()
-    });
-    return out;
+  for (const m of cheapers) {
+    out.push({ id: `${idPrefix}-m-${m}`, configOverrides: roleOverride({ model: wrapModel(m) }) });
   }
-  const base = RECOMMENDED_MODELS[role] ?? "opus";
-  const cheaper = cheaperModel(base);
-  if (cheaper) {
+  for (const e of CHEAPER_EFFORTS) {
+    out.push({ id: `${idPrefix}-e-${e}`, configOverrides: roleOverride({ effort: wrapEffort(e) }) });
+  }
+  for (const m of cheapers) {
     out.push({
-      id: `${role}-m-${cheaper}`,
-      configOverrides: { roles: { [role]: { model: cheaper } } }
+      id: `${idPrefix}-m-${m}-e-low`,
+      configOverrides: roleOverride({ model: wrapModel(m), effort: wrapEffort("low") })
     });
   }
-  out.push({
-    id: `${role}-e-low`,
-    configOverrides: { roles: { [role]: { effort: "low" } } }
-  });
-  out.push({
-    id: `${role}-scan-tight`,
-    configOverrides: {},
-    content: scanTightenContent()
-  });
+  out.push({ id: `${idPrefix}-scan-tight`, configOverrides: {}, content: scanTightenContent() });
   return out;
 }
 function scanTightenContent() {

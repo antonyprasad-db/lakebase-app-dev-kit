@@ -16,18 +16,34 @@ function h(role: string, story?: string, buildMode?: string): HandoffPlan {
 }
 
 describe("defaultLaneCandidates: design roles (scalar model/effort)", () => {
-  it("baseline first, then a scalar model downgrade (opus->sonnet)", () => {
+  it("baseline first, then EVERY cheaper model tier as a scalar (opus->sonnet AND opus->haiku)", () => {
     const cands = defaultLaneCandidates(h("architect-reviewer", "S1"));
     expect(cands[0].id).toBe("baseline");
-    const model = cands.find((c) => typeof c.configOverrides.roles?.["architect-reviewer"]?.model === "string");
-    expect(model).toBeDefined();
-    expect(model!.configOverrides.roles!["architect-reviewer"]!.model).toBe("sonnet");
+    // A scalar model-only downgrade candidate for each tier below opus.
+    const models = cands
+      .filter((c) => typeof c.configOverrides.roles?.["architect-reviewer"]?.model === "string" && c.configOverrides.roles?.["architect-reviewer"]?.effort === undefined)
+      .map((c) => c.configOverrides.roles!["architect-reviewer"]!.model);
+    expect(models).toEqual(expect.arrayContaining(["sonnet", "haiku"]));
   });
 
-  it("includes an effort-drop candidate (default->low) as a scalar effort", () => {
+  it("includes effort-drop candidates as scalars (low AND medium)", () => {
     const cands = defaultLaneCandidates(h("dba", "S1"));
-    const effort = cands.find((c) => c.configOverrides.roles?.dba?.effort === "low");
-    expect(effort).toBeDefined();
+    const efforts = cands
+      .filter((c) => c.configOverrides.roles?.dba?.effort !== undefined && c.configOverrides.roles?.dba?.model === undefined)
+      .map((c) => c.configOverrides.roles!.dba!.effort);
+    expect(efforts).toEqual(expect.arrayContaining(["low", "medium"]));
+  });
+
+  it("includes a model x effort CROSS at low (cheaper model AND less thinking together)", () => {
+    const cands = defaultLaneCandidates(h("architect-reviewer", "S1"));
+    const cross = cands.find(
+      (c) =>
+        typeof c.configOverrides.roles?.["architect-reviewer"]?.model === "string" &&
+        c.configOverrides.roles?.["architect-reviewer"]?.effort === "low",
+    );
+    expect(cross).toBeDefined();
+    expect(cross!.configOverrides.roles!["architect-reviewer"]!.model).toBe("sonnet");
+    expect(cross!.id).toMatch(/m-sonnet-e-low/);
   });
 
   it("includes a HARD scan-tightening content variant: deny Grep/Glob + a directive (enforced, not just requested)", () => {
