@@ -19,7 +19,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { claudeBaseArgs } from "../../scripts/sftdd/drive.cli";
+import { claudeBaseArgs } from "../../scripts/sftdd/drive-runner.js";
 
 describe("claudeBaseArgs: headless permission mode", () => {
   it("uses --permission-mode acceptEdits (bypassPermissions is disabled by managed-settings policy and downgrades to default)", () => {

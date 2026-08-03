@@ -53,8 +53,13 @@ describe("driver kit-bin resolution is backed by package.json bin (no hardcoded 
     expect(missing, `these bins are emitted by the driver but resolve in neither the kit nor the substrate bin map (would ENOENT under lk)`).toEqual([]);
   });
 
-  it("drive.cli no longer carries a hardcoded bin->js map (resolves via package.json)", () => {
-    const src = readFileSync(new URL("../../scripts/sftdd/drive.cli.ts", import.meta.url), "utf8");
+  it("the drive runner no longer carries a hardcoded bin->js map (resolves via package.json)", () => {
+    // execRunner (which resolves + spawns each cli bin via resolveKitBinJs) now lives
+    // in drive-runner.ts, extracted from drive.cli.ts so the optimize harness imports
+    // the spawn engine WITHOUT dragging drive.cli's main()/isCliEntry entry block into
+    // its bundle (tsup splitting:false inlines modules; a bundled isCliEntry block
+    // would fire the drive's main() as a phantom side effect).
+    const src = readFileSync(new URL("../../scripts/sftdd/drive-runner.ts", import.meta.url), "utf8");
     expect(src).not.toMatch(/KIT_CLI_JS/);
     expect(src).toMatch(/resolveKitBinJs/);
   });

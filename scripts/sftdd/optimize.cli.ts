@@ -28,7 +28,7 @@ import { generateCandidates, defaultLaneCandidates, type SweepSpec, type Candida
 import { runChampionWalk, type HandoffPlan, type HandoffResult } from "./optimize-harness.js";
 import type { BuildTurn, EffortLevel } from "./sftdd-config.js";
 import type { SpawnableAgentRole } from "./agent-models.js";
-import { buildCfg, execRunner } from "./drive.cli.js";
+import { buildCfg, execRunner } from "./drive-runner.js";
 import { planNextAction, commandsForAction } from "./orchestrator-effects.js";
 import { resolveSftddDir } from "./sftdd-paths.js";
 import { makeChampionWalkDeps, makeLiveSpawnTurn, makeBuildGate, makeBuildSnapshotDeps, positionToBuildHandoff, positionToNextHandoff, runLaneSweep, readLastTurnTokens, type OptimizeLiveCtx } from "./optimize-live.js";

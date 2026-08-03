@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+"use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -10,6 +10,10 @@ var __esm = (fn, res) => function __init() {
 };
 var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
@@ -27,35 +31,33 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// node_modules/tsup/assets/esm_shims.js
-import path from "path";
-import { fileURLToPath } from "url";
-var getFilename, getDirname, __dirname;
-var init_esm_shims = __esm({
-  "node_modules/tsup/assets/esm_shims.js"() {
+// node_modules/tsup/assets/cjs_shims.js
+var getImportMetaUrl, importMetaUrl;
+var init_cjs_shims = __esm({
+  "node_modules/tsup/assets/cjs_shims.js"() {
     "use strict";
-    getFilename = () => fileURLToPath(import.meta.url);
-    getDirname = () => path.dirname(getFilename());
-    __dirname = /* @__PURE__ */ getDirname();
+    getImportMetaUrl = () => typeof document === "undefined" ? new URL(`file:${__filename}`).href : document.currentScript && document.currentScript.tagName.toUpperCase() === "SCRIPT" ? document.currentScript.src : new URL("main.js", document.baseURI).href;
+    importMetaUrl = /* @__PURE__ */ getImportMetaUrl();
   }
 });
 
 // node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
-  "node_modules/ajv/dist/compile/codegen/code.js"(exports) {
+  "node_modules/ajv/dist/compile/codegen/code.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.regexpCode = exports.getEsmExportName = exports.getProperty = exports.safeStringify = exports.stringify = exports.strConcat = exports.addCodeArg = exports.str = exports._ = exports.nil = exports._Code = exports.Name = exports.IDENTIFIER = exports._CodeOrName = void 0;
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.regexpCode = exports2.getEsmExportName = exports2.getProperty = exports2.safeStringify = exports2.stringify = exports2.strConcat = exports2.addCodeArg = exports2.str = exports2._ = exports2.nil = exports2._Code = exports2.Name = exports2.IDENTIFIER = exports2._CodeOrName = void 0;
     var _CodeOrName = class {
     };
-    exports._CodeOrName = _CodeOrName;
-    exports.IDENTIFIER = /^[a-z$_][a-z$_0-9]*$/i;
+    exports2._CodeOrName = _CodeOrName;
+    exports2.IDENTIFIER = /^[a-z$_][a-z$_0-9]*$/i;
     var Name = class extends _CodeOrName {
       constructor(s) {
         super();
-        if (!exports.IDENTIFIER.test(s))
+        if (!exports2.IDENTIFIER.test(s))
           throw new Error("CodeGen: name must be a valid identifier");
         this.str = s;
       }
@@ -69,7 +71,7 @@ var require_code = __commonJS({
         return { [this.str]: 1 };
       }
     };
-    exports.Name = Name;
+    exports2.Name = Name;
     var _Code = class extends _CodeOrName {
       constructor(code) {
         super();
@@ -97,8 +99,8 @@ var require_code = __commonJS({
         }, {});
       }
     };
-    exports._Code = _Code;
-    exports.nil = new _Code("");
+    exports2._Code = _Code;
+    exports2.nil = new _Code("");
     function _(strs, ...args) {
       const code = [strs[0]];
       let i = 0;
@@ -108,7 +110,7 @@ var require_code = __commonJS({
       }
       return new _Code(code);
     }
-    exports._ = _;
+    exports2._ = _;
     var plus = new _Code("+");
     function str(strs, ...args) {
       const expr = [safeStringify(strs[0])];
@@ -121,7 +123,7 @@ var require_code = __commonJS({
       optimize(expr);
       return new _Code(expr);
     }
-    exports.str = str;
+    exports2.str = str;
     function addCodeArg(code, arg) {
       if (arg instanceof _Code)
         code.push(...arg._items);
@@ -130,7 +132,7 @@ var require_code = __commonJS({
       else
         code.push(interpolate(arg));
     }
-    exports.addCodeArg = addCodeArg;
+    exports2.addCodeArg = addCodeArg;
     function optimize(expr) {
       let i = 1;
       while (i < expr.length - 1) {
@@ -166,43 +168,43 @@ var require_code = __commonJS({
     function strConcat(c1, c2) {
       return c2.emptyStr() ? c1 : c1.emptyStr() ? c2 : str`${c1}${c2}`;
     }
-    exports.strConcat = strConcat;
+    exports2.strConcat = strConcat;
     function interpolate(x) {
       return typeof x == "number" || typeof x == "boolean" || x === null ? x : safeStringify(Array.isArray(x) ? x.join(",") : x);
     }
     function stringify(x) {
       return new _Code(safeStringify(x));
     }
-    exports.stringify = stringify;
+    exports2.stringify = stringify;
     function safeStringify(x) {
       return JSON.stringify(x).replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
     }
-    exports.safeStringify = safeStringify;
+    exports2.safeStringify = safeStringify;
     function getProperty(key) {
-      return typeof key == "string" && exports.IDENTIFIER.test(key) ? new _Code(`.${key}`) : _`[${key}]`;
+      return typeof key == "string" && exports2.IDENTIFIER.test(key) ? new _Code(`.${key}`) : _`[${key}]`;
     }
-    exports.getProperty = getProperty;
+    exports2.getProperty = getProperty;
     function getEsmExportName(key) {
-      if (typeof key == "string" && exports.IDENTIFIER.test(key)) {
+      if (typeof key == "string" && exports2.IDENTIFIER.test(key)) {
         return new _Code(`${key}`);
       }
       throw new Error(`CodeGen: invalid export name: ${key}, use explicit $id name mapping`);
     }
-    exports.getEsmExportName = getEsmExportName;
+    exports2.getEsmExportName = getEsmExportName;
     function regexpCode(rx) {
       return new _Code(rx.toString());
     }
-    exports.regexpCode = regexpCode;
+    exports2.regexpCode = regexpCode;
   }
 });
 
 // node_modules/ajv/dist/compile/codegen/scope.js
 var require_scope = __commonJS({
-  "node_modules/ajv/dist/compile/codegen/scope.js"(exports) {
+  "node_modules/ajv/dist/compile/codegen/scope.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.ValueScope = exports.ValueScopeName = exports.Scope = exports.varKinds = exports.UsedValueState = void 0;
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.ValueScope = exports2.ValueScopeName = exports2.Scope = exports2.varKinds = exports2.UsedValueState = void 0;
     var code_1 = require_code();
     var ValueError = class extends Error {
       constructor(name) {
@@ -214,8 +216,8 @@ var require_scope = __commonJS({
     (function(UsedValueState2) {
       UsedValueState2[UsedValueState2["Started"] = 0] = "Started";
       UsedValueState2[UsedValueState2["Completed"] = 1] = "Completed";
-    })(UsedValueState || (exports.UsedValueState = UsedValueState = {}));
-    exports.varKinds = {
+    })(UsedValueState || (exports2.UsedValueState = UsedValueState = {}));
+    exports2.varKinds = {
       const: new code_1.Name("const"),
       let: new code_1.Name("let"),
       var: new code_1.Name("var")
@@ -244,7 +246,7 @@ var require_scope = __commonJS({
         return this._names[prefix] = { prefix, index: 0 };
       }
     };
-    exports.Scope = Scope;
+    exports2.Scope = Scope;
     var ValueScopeName = class extends code_1.Name {
       constructor(prefix, nameStr) {
         super(nameStr);
@@ -255,7 +257,7 @@ var require_scope = __commonJS({
         this.scopePath = (0, code_1._)`.${new code_1.Name(property)}[${itemIndex}]`;
       }
     };
-    exports.ValueScopeName = ValueScopeName;
+    exports2.ValueScopeName = ValueScopeName;
     var line = (0, code_1._)`\n`;
     var ValueScope = class extends Scope {
       constructor(opts) {
@@ -325,7 +327,7 @@ var require_scope = __commonJS({
             nameSet.set(name, UsedValueState.Started);
             let c = valueCode(name);
             if (c) {
-              const def = this.opts.es5 ? exports.varKinds.var : exports.varKinds.const;
+              const def = this.opts.es5 ? exports2.varKinds.var : exports2.varKinds.const;
               code = (0, code_1._)`${code}${def} ${name} = ${c};${this.opts._n}`;
             } else if (c = getCode === null || getCode === void 0 ? void 0 : getCode(name)) {
               code = (0, code_1._)`${code}${c}${this.opts._n}`;
@@ -338,58 +340,58 @@ var require_scope = __commonJS({
         return code;
       }
     };
-    exports.ValueScope = ValueScope;
+    exports2.ValueScope = ValueScope;
   }
 });
 
 // node_modules/ajv/dist/compile/codegen/index.js
 var require_codegen = __commonJS({
-  "node_modules/ajv/dist/compile/codegen/index.js"(exports) {
+  "node_modules/ajv/dist/compile/codegen/index.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.or = exports.and = exports.not = exports.CodeGen = exports.operators = exports.varKinds = exports.ValueScopeName = exports.ValueScope = exports.Scope = exports.Name = exports.regexpCode = exports.stringify = exports.getProperty = exports.nil = exports.strConcat = exports.str = exports._ = void 0;
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.or = exports2.and = exports2.not = exports2.CodeGen = exports2.operators = exports2.varKinds = exports2.ValueScopeName = exports2.ValueScope = exports2.Scope = exports2.Name = exports2.regexpCode = exports2.stringify = exports2.getProperty = exports2.nil = exports2.strConcat = exports2.str = exports2._ = void 0;
     var code_1 = require_code();
     var scope_1 = require_scope();
     var code_2 = require_code();
-    Object.defineProperty(exports, "_", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "_", { enumerable: true, get: function() {
       return code_2._;
     } });
-    Object.defineProperty(exports, "str", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "str", { enumerable: true, get: function() {
       return code_2.str;
     } });
-    Object.defineProperty(exports, "strConcat", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "strConcat", { enumerable: true, get: function() {
       return code_2.strConcat;
     } });
-    Object.defineProperty(exports, "nil", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "nil", { enumerable: true, get: function() {
       return code_2.nil;
     } });
-    Object.defineProperty(exports, "getProperty", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "getProperty", { enumerable: true, get: function() {
       return code_2.getProperty;
     } });
-    Object.defineProperty(exports, "stringify", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "stringify", { enumerable: true, get: function() {
       return code_2.stringify;
     } });
-    Object.defineProperty(exports, "regexpCode", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "regexpCode", { enumerable: true, get: function() {
       return code_2.regexpCode;
     } });
-    Object.defineProperty(exports, "Name", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "Name", { enumerable: true, get: function() {
       return code_2.Name;
     } });
     var scope_2 = require_scope();
-    Object.defineProperty(exports, "Scope", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "Scope", { enumerable: true, get: function() {
       return scope_2.Scope;
     } });
-    Object.defineProperty(exports, "ValueScope", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "ValueScope", { enumerable: true, get: function() {
       return scope_2.ValueScope;
     } });
-    Object.defineProperty(exports, "ValueScopeName", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "ValueScopeName", { enumerable: true, get: function() {
       return scope_2.ValueScopeName;
     } });
-    Object.defineProperty(exports, "varKinds", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "varKinds", { enumerable: true, get: function() {
       return scope_2.varKinds;
     } });
-    exports.operators = {
+    exports2.operators = {
       GT: new code_1._Code(">"),
       GTE: new code_1._Code(">="),
       LT: new code_1._Code("<"),
@@ -802,7 +804,7 @@ var require_codegen = __commonJS({
       }
       // `+=` code
       add(lhs, rhs) {
-        return this._leafNode(new AssignOp(lhs, exports.operators.ADD, rhs));
+        return this._leafNode(new AssignOp(lhs, exports2.operators.ADD, rhs));
       }
       // appends passed SafeExpr to code or executes Block
       code(c) {
@@ -1002,7 +1004,7 @@ var require_codegen = __commonJS({
         ns[ns.length - 1] = node;
       }
     };
-    exports.CodeGen = CodeGen;
+    exports2.CodeGen = CodeGen;
     function addNames(names, from) {
       for (const n in from)
         names[n] = (names[n] || 0) + (from[n] || 0);
@@ -1043,17 +1045,17 @@ var require_codegen = __commonJS({
     function not(x) {
       return typeof x == "boolean" || typeof x == "number" || x === null ? !x : (0, code_1._)`!${par(x)}`;
     }
-    exports.not = not;
-    var andCode = mappend(exports.operators.AND);
+    exports2.not = not;
+    var andCode = mappend(exports2.operators.AND);
     function and(...args) {
       return args.reduce(andCode);
     }
-    exports.and = and;
-    var orCode = mappend(exports.operators.OR);
+    exports2.and = and;
+    var orCode = mappend(exports2.operators.OR);
     function or(...args) {
       return args.reduce(orCode);
     }
-    exports.or = or;
+    exports2.or = or;
     function mappend(op) {
       return (x, y) => x === code_1.nil ? y : y === code_1.nil ? x : (0, code_1._)`${par(x)} ${op} ${par(y)}`;
     }
@@ -1065,11 +1067,11 @@ var require_codegen = __commonJS({
 
 // node_modules/ajv/dist/compile/util.js
 var require_util = __commonJS({
-  "node_modules/ajv/dist/compile/util.js"(exports) {
+  "node_modules/ajv/dist/compile/util.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.checkStrictMode = exports.getErrorPath = exports.Type = exports.useFunc = exports.setEvaluated = exports.evaluatedPropsToName = exports.mergeEvaluated = exports.eachItem = exports.unescapeJsonPointer = exports.escapeJsonPointer = exports.escapeFragment = exports.unescapeFragment = exports.schemaRefOrVal = exports.schemaHasRulesButRef = exports.schemaHasRules = exports.checkUnknownRules = exports.alwaysValidSchema = exports.toHash = void 0;
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.checkStrictMode = exports2.getErrorPath = exports2.Type = exports2.useFunc = exports2.setEvaluated = exports2.evaluatedPropsToName = exports2.mergeEvaluated = exports2.eachItem = exports2.unescapeJsonPointer = exports2.escapeJsonPointer = exports2.escapeFragment = exports2.unescapeFragment = exports2.schemaRefOrVal = exports2.schemaHasRulesButRef = exports2.schemaHasRules = exports2.checkUnknownRules = exports2.alwaysValidSchema = exports2.toHash = void 0;
     var codegen_1 = require_codegen();
     var code_1 = require_code();
     function toHash(arr) {
@@ -1078,7 +1080,7 @@ var require_util = __commonJS({
         hash[item] = true;
       return hash;
     }
-    exports.toHash = toHash;
+    exports2.toHash = toHash;
     function alwaysValidSchema(it, schema) {
       if (typeof schema == "boolean")
         return schema;
@@ -1087,7 +1089,7 @@ var require_util = __commonJS({
       checkUnknownRules(it, schema);
       return !schemaHasRules(schema, it.self.RULES.all);
     }
-    exports.alwaysValidSchema = alwaysValidSchema;
+    exports2.alwaysValidSchema = alwaysValidSchema;
     function checkUnknownRules(it, schema = it.schema) {
       const { opts, self } = it;
       if (!opts.strictSchema)
@@ -1100,7 +1102,7 @@ var require_util = __commonJS({
           checkStrictMode(it, `unknown keyword: "${key}"`);
       }
     }
-    exports.checkUnknownRules = checkUnknownRules;
+    exports2.checkUnknownRules = checkUnknownRules;
     function schemaHasRules(schema, rules) {
       if (typeof schema == "boolean")
         return !schema;
@@ -1109,7 +1111,7 @@ var require_util = __commonJS({
           return true;
       return false;
     }
-    exports.schemaHasRules = schemaHasRules;
+    exports2.schemaHasRules = schemaHasRules;
     function schemaHasRulesButRef(schema, RULES) {
       if (typeof schema == "boolean")
         return !schema;
@@ -1118,7 +1120,7 @@ var require_util = __commonJS({
           return true;
       return false;
     }
-    exports.schemaHasRulesButRef = schemaHasRulesButRef;
+    exports2.schemaHasRulesButRef = schemaHasRulesButRef;
     function schemaRefOrVal({ topSchemaRef, schemaPath }, schema, keyword, $data) {
       if (!$data) {
         if (typeof schema == "number" || typeof schema == "boolean")
@@ -1128,25 +1130,25 @@ var require_util = __commonJS({
       }
       return (0, codegen_1._)`${topSchemaRef}${schemaPath}${(0, codegen_1.getProperty)(keyword)}`;
     }
-    exports.schemaRefOrVal = schemaRefOrVal;
+    exports2.schemaRefOrVal = schemaRefOrVal;
     function unescapeFragment(str) {
       return unescapeJsonPointer(decodeURIComponent(str));
     }
-    exports.unescapeFragment = unescapeFragment;
+    exports2.unescapeFragment = unescapeFragment;
     function escapeFragment(str) {
       return encodeURIComponent(escapeJsonPointer(str));
     }
-    exports.escapeFragment = escapeFragment;
+    exports2.escapeFragment = escapeFragment;
     function escapeJsonPointer(str) {
       if (typeof str == "number")
         return `${str}`;
       return str.replace(/~/g, "~0").replace(/\//g, "~1");
     }
-    exports.escapeJsonPointer = escapeJsonPointer;
+    exports2.escapeJsonPointer = escapeJsonPointer;
     function unescapeJsonPointer(str) {
       return str.replace(/~1/g, "/").replace(/~0/g, "~");
     }
-    exports.unescapeJsonPointer = unescapeJsonPointer;
+    exports2.unescapeJsonPointer = unescapeJsonPointer;
     function eachItem(xs, f) {
       if (Array.isArray(xs)) {
         for (const x of xs)
@@ -1155,14 +1157,14 @@ var require_util = __commonJS({
         f(xs);
       }
     }
-    exports.eachItem = eachItem;
+    exports2.eachItem = eachItem;
     function makeMergeEvaluated({ mergeNames, mergeToName, mergeValues, resultToName }) {
       return (gen, from, to, toName) => {
         const res = to === void 0 ? from : to instanceof codegen_1.Name ? (from instanceof codegen_1.Name ? mergeNames(gen, from, to) : mergeToName(gen, from, to), to) : from instanceof codegen_1.Name ? (mergeToName(gen, to, from), from) : mergeValues(from, to);
         return toName === codegen_1.Name && !(res instanceof codegen_1.Name) ? resultToName(gen, res) : res;
       };
     }
-    exports.mergeEvaluated = {
+    exports2.mergeEvaluated = {
       props: makeMergeEvaluated({
         mergeNames: (gen, from, to) => gen.if((0, codegen_1._)`${to} !== true && ${from} !== undefined`, () => {
           gen.if((0, codegen_1._)`${from} === true`, () => gen.assign(to, true), () => gen.assign(to, (0, codegen_1._)`${to} || {}`).code((0, codegen_1._)`Object.assign(${to}, ${from})`));
@@ -1193,11 +1195,11 @@ var require_util = __commonJS({
         setEvaluated(gen, props, ps);
       return props;
     }
-    exports.evaluatedPropsToName = evaluatedPropsToName;
+    exports2.evaluatedPropsToName = evaluatedPropsToName;
     function setEvaluated(gen, props, ps) {
       Object.keys(ps).forEach((p) => gen.assign((0, codegen_1._)`${props}${(0, codegen_1.getProperty)(p)}`, true));
     }
-    exports.setEvaluated = setEvaluated;
+    exports2.setEvaluated = setEvaluated;
     var snippets = {};
     function useFunc(gen, f) {
       return gen.scopeValue("func", {
@@ -1205,12 +1207,12 @@ var require_util = __commonJS({
         code: snippets[f.code] || (snippets[f.code] = new code_1._Code(f.code))
       });
     }
-    exports.useFunc = useFunc;
+    exports2.useFunc = useFunc;
     var Type;
     (function(Type2) {
       Type2[Type2["Num"] = 0] = "Num";
       Type2[Type2["Str"] = 1] = "Str";
-    })(Type || (exports.Type = Type = {}));
+    })(Type || (exports2.Type = Type = {}));
     function getErrorPath(dataProp, dataPropType, jsPropertySyntax) {
       if (dataProp instanceof codegen_1.Name) {
         const isNumber = dataPropType === Type.Num;
@@ -1218,7 +1220,7 @@ var require_util = __commonJS({
       }
       return jsPropertySyntax ? (0, codegen_1.getProperty)(dataProp).toString() : "/" + escapeJsonPointer(dataProp);
     }
-    exports.getErrorPath = getErrorPath;
+    exports2.getErrorPath = getErrorPath;
     function checkStrictMode(it, msg, mode = it.opts.strictSchema) {
       if (!mode)
         return;
@@ -1227,16 +1229,16 @@ var require_util = __commonJS({
         throw new Error(msg);
       it.self.logger.warn(msg);
     }
-    exports.checkStrictMode = checkStrictMode;
+    exports2.checkStrictMode = checkStrictMode;
   }
 });
 
 // node_modules/ajv/dist/compile/names.js
 var require_names = __commonJS({
-  "node_modules/ajv/dist/compile/names.js"(exports) {
+  "node_modules/ajv/dist/compile/names.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var names = {
       // validation function arguments
@@ -1267,27 +1269,27 @@ var require_names = __commonJS({
       jsonLen: new codegen_1.Name("jsonLen"),
       jsonPart: new codegen_1.Name("jsonPart")
     };
-    exports.default = names;
+    exports2.default = names;
   }
 });
 
 // node_modules/ajv/dist/compile/errors.js
 var require_errors = __commonJS({
-  "node_modules/ajv/dist/compile/errors.js"(exports) {
+  "node_modules/ajv/dist/compile/errors.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.extendErrors = exports.resetErrorsCount = exports.reportExtraError = exports.reportError = exports.keyword$DataError = exports.keywordError = void 0;
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.extendErrors = exports2.resetErrorsCount = exports2.reportExtraError = exports2.reportError = exports2.keyword$DataError = exports2.keywordError = void 0;
     var codegen_1 = require_codegen();
     var util_1 = require_util();
     var names_1 = require_names();
-    exports.keywordError = {
+    exports2.keywordError = {
       message: ({ keyword }) => (0, codegen_1.str)`must pass "${keyword}" keyword validation`
     };
-    exports.keyword$DataError = {
+    exports2.keyword$DataError = {
       message: ({ keyword, schemaType }) => schemaType ? (0, codegen_1.str)`"${keyword}" keyword must be ${schemaType} ($data)` : (0, codegen_1.str)`"${keyword}" keyword is invalid ($data)`
     };
-    function reportError(cxt, error = exports.keywordError, errorPaths, overrideAllErrors) {
+    function reportError(cxt, error = exports2.keywordError, errorPaths, overrideAllErrors) {
       const { it } = cxt;
       const { gen, compositeRule, allErrors } = it;
       const errObj = errorObjectCode(cxt, error, errorPaths);
@@ -1297,8 +1299,8 @@ var require_errors = __commonJS({
         returnErrors(it, (0, codegen_1._)`[${errObj}]`);
       }
     }
-    exports.reportError = reportError;
-    function reportExtraError(cxt, error = exports.keywordError, errorPaths) {
+    exports2.reportError = reportError;
+    function reportExtraError(cxt, error = exports2.keywordError, errorPaths) {
       const { it } = cxt;
       const { gen, compositeRule, allErrors } = it;
       const errObj = errorObjectCode(cxt, error, errorPaths);
@@ -1307,12 +1309,12 @@ var require_errors = __commonJS({
         returnErrors(it, names_1.default.vErrors);
       }
     }
-    exports.reportExtraError = reportExtraError;
+    exports2.reportExtraError = reportExtraError;
     function resetErrorsCount(gen, errsCount) {
       gen.assign(names_1.default.errors, errsCount);
       gen.if((0, codegen_1._)`${names_1.default.vErrors} !== null`, () => gen.if(errsCount, () => gen.assign((0, codegen_1._)`${names_1.default.vErrors}.length`, errsCount), () => gen.assign(names_1.default.vErrors, null)));
     }
-    exports.resetErrorsCount = resetErrorsCount;
+    exports2.resetErrorsCount = resetErrorsCount;
     function extendErrors({ gen, keyword, schemaValue, data, errsCount, it }) {
       if (errsCount === void 0)
         throw new Error("ajv implementation error");
@@ -1327,7 +1329,7 @@ var require_errors = __commonJS({
         }
       });
     }
-    exports.extendErrors = extendErrors;
+    exports2.extendErrors = extendErrors;
     function addError(gen, errObj) {
       const err = gen.const("err", errObj);
       gen.if((0, codegen_1._)`${names_1.default.vErrors} === null`, () => gen.assign(names_1.default.vErrors, (0, codegen_1._)`[${err}]`), (0, codegen_1._)`${names_1.default.vErrors}.push(${err})`);
@@ -1396,11 +1398,11 @@ var require_errors = __commonJS({
 
 // node_modules/ajv/dist/compile/validate/boolSchema.js
 var require_boolSchema = __commonJS({
-  "node_modules/ajv/dist/compile/validate/boolSchema.js"(exports) {
+  "node_modules/ajv/dist/compile/validate/boolSchema.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.boolOrEmptySchema = exports.topBoolOrEmptySchema = void 0;
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.boolOrEmptySchema = exports2.topBoolOrEmptySchema = void 0;
     var errors_1 = require_errors();
     var codegen_1 = require_codegen();
     var names_1 = require_names();
@@ -1418,7 +1420,7 @@ var require_boolSchema = __commonJS({
         gen.return(true);
       }
     }
-    exports.topBoolOrEmptySchema = topBoolOrEmptySchema;
+    exports2.topBoolOrEmptySchema = topBoolOrEmptySchema;
     function boolOrEmptySchema(it, valid) {
       const { gen, schema } = it;
       if (schema === false) {
@@ -1428,7 +1430,7 @@ var require_boolSchema = __commonJS({
         gen.var(valid, true);
       }
     }
-    exports.boolOrEmptySchema = boolOrEmptySchema;
+    exports2.boolOrEmptySchema = boolOrEmptySchema;
     function falseSchemaError(it, overrideAllErrors) {
       const { gen, data } = it;
       const cxt = {
@@ -1448,17 +1450,17 @@ var require_boolSchema = __commonJS({
 
 // node_modules/ajv/dist/compile/rules.js
 var require_rules = __commonJS({
-  "node_modules/ajv/dist/compile/rules.js"(exports) {
+  "node_modules/ajv/dist/compile/rules.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.getRules = exports.isJSONType = void 0;
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.getRules = exports2.isJSONType = void 0;
     var _jsonTypes = ["string", "number", "integer", "boolean", "null", "object", "array"];
     var jsonTypes = new Set(_jsonTypes);
     function isJSONType(x) {
       return typeof x == "string" && jsonTypes.has(x);
     }
-    exports.isJSONType = isJSONType;
+    exports2.isJSONType = isJSONType;
     function getRules() {
       const groups = {
         number: { type: "number", rules: [] },
@@ -1474,41 +1476,41 @@ var require_rules = __commonJS({
         keywords: {}
       };
     }
-    exports.getRules = getRules;
+    exports2.getRules = getRules;
   }
 });
 
 // node_modules/ajv/dist/compile/validate/applicability.js
 var require_applicability = __commonJS({
-  "node_modules/ajv/dist/compile/validate/applicability.js"(exports) {
+  "node_modules/ajv/dist/compile/validate/applicability.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.shouldUseRule = exports.shouldUseGroup = exports.schemaHasRulesForType = void 0;
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.shouldUseRule = exports2.shouldUseGroup = exports2.schemaHasRulesForType = void 0;
     function schemaHasRulesForType({ schema, self }, type) {
       const group = self.RULES.types[type];
       return group && group !== true && shouldUseGroup(schema, group);
     }
-    exports.schemaHasRulesForType = schemaHasRulesForType;
+    exports2.schemaHasRulesForType = schemaHasRulesForType;
     function shouldUseGroup(schema, group) {
       return group.rules.some((rule) => shouldUseRule(schema, rule));
     }
-    exports.shouldUseGroup = shouldUseGroup;
+    exports2.shouldUseGroup = shouldUseGroup;
     function shouldUseRule(schema, rule) {
       var _a;
       return schema[rule.keyword] !== void 0 || ((_a = rule.definition.implements) === null || _a === void 0 ? void 0 : _a.some((kwd) => schema[kwd] !== void 0));
     }
-    exports.shouldUseRule = shouldUseRule;
+    exports2.shouldUseRule = shouldUseRule;
   }
 });
 
 // node_modules/ajv/dist/compile/validate/dataType.js
 var require_dataType = __commonJS({
-  "node_modules/ajv/dist/compile/validate/dataType.js"(exports) {
+  "node_modules/ajv/dist/compile/validate/dataType.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.reportTypeError = exports.checkDataTypes = exports.checkDataType = exports.coerceAndCheckDataType = exports.getJSONTypes = exports.getSchemaTypes = exports.DataType = void 0;
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.reportTypeError = exports2.checkDataTypes = exports2.checkDataType = exports2.coerceAndCheckDataType = exports2.getJSONTypes = exports2.getSchemaTypes = exports2.DataType = void 0;
     var rules_1 = require_rules();
     var applicability_1 = require_applicability();
     var errors_1 = require_errors();
@@ -1518,7 +1520,7 @@ var require_dataType = __commonJS({
     (function(DataType2) {
       DataType2[DataType2["Correct"] = 0] = "Correct";
       DataType2[DataType2["Wrong"] = 1] = "Wrong";
-    })(DataType || (exports.DataType = DataType = {}));
+    })(DataType || (exports2.DataType = DataType = {}));
     function getSchemaTypes(schema) {
       const types = getJSONTypes(schema.type);
       const hasNull = types.includes("null");
@@ -1534,14 +1536,14 @@ var require_dataType = __commonJS({
       }
       return types;
     }
-    exports.getSchemaTypes = getSchemaTypes;
+    exports2.getSchemaTypes = getSchemaTypes;
     function getJSONTypes(ts) {
       const types = Array.isArray(ts) ? ts : ts ? [ts] : [];
       if (types.every(rules_1.isJSONType))
         return types;
       throw new Error("type must be JSONType or JSONType[]: " + types.join(","));
     }
-    exports.getJSONTypes = getJSONTypes;
+    exports2.getJSONTypes = getJSONTypes;
     function coerceAndCheckDataType(it, types) {
       const { gen, data, opts } = it;
       const coerceTo = coerceToTypes(types, opts.coerceTypes);
@@ -1557,7 +1559,7 @@ var require_dataType = __commonJS({
       }
       return checkTypes;
     }
-    exports.coerceAndCheckDataType = coerceAndCheckDataType;
+    exports2.coerceAndCheckDataType = coerceAndCheckDataType;
     var COERCIBLE = /* @__PURE__ */ new Set(["string", "number", "integer", "boolean", "null"]);
     function coerceToTypes(types, coerceTypes) {
       return coerceTypes ? types.filter((t) => COERCIBLE.has(t) || coerceTypes === "array" && t === "array") : [];
@@ -1637,7 +1639,7 @@ var require_dataType = __commonJS({
         return (0, codegen_1.and)((0, codegen_1._)`typeof ${data} == "number"`, _cond, strictNums ? (0, codegen_1._)`isFinite(${data})` : codegen_1.nil);
       }
     }
-    exports.checkDataType = checkDataType;
+    exports2.checkDataType = checkDataType;
     function checkDataTypes(dataTypes, data, strictNums, correct) {
       if (dataTypes.length === 1) {
         return checkDataType(dataTypes[0], data, strictNums, correct);
@@ -1659,7 +1661,7 @@ var require_dataType = __commonJS({
         cond = (0, codegen_1.and)(cond, checkDataType(t, data, strictNums, correct));
       return cond;
     }
-    exports.checkDataTypes = checkDataTypes;
+    exports2.checkDataTypes = checkDataTypes;
     var typeError = {
       message: ({ schema }) => `must be ${schema}`,
       params: ({ schema, schemaValue }) => typeof schema == "string" ? (0, codegen_1._)`{type: ${schema}}` : (0, codegen_1._)`{type: ${schemaValue}}`
@@ -1668,7 +1670,7 @@ var require_dataType = __commonJS({
       const cxt = getTypeErrorContext(it);
       (0, errors_1.reportError)(cxt, typeError);
     }
-    exports.reportTypeError = reportTypeError;
+    exports2.reportTypeError = reportTypeError;
     function getTypeErrorContext(it) {
       const { gen, data, schema } = it;
       const schemaCode = (0, util_1.schemaRefOrVal)(it, schema, "type");
@@ -1689,11 +1691,11 @@ var require_dataType = __commonJS({
 
 // node_modules/ajv/dist/compile/validate/defaults.js
 var require_defaults = __commonJS({
-  "node_modules/ajv/dist/compile/validate/defaults.js"(exports) {
+  "node_modules/ajv/dist/compile/validate/defaults.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.assignDefaults = void 0;
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.assignDefaults = void 0;
     var codegen_1 = require_codegen();
     var util_1 = require_util();
     function assignDefaults(it, ty) {
@@ -1706,7 +1708,7 @@ var require_defaults = __commonJS({
         items.forEach((sch, i) => assignDefault(it, i, sch.default));
       }
     }
-    exports.assignDefaults = assignDefaults;
+    exports2.assignDefaults = assignDefaults;
     function assignDefault(it, prop, defaultValue) {
       const { gen, compositeRule, data, opts } = it;
       if (defaultValue === void 0)
@@ -1727,11 +1729,11 @@ var require_defaults = __commonJS({
 
 // node_modules/ajv/dist/vocabularies/code.js
 var require_code2 = __commonJS({
-  "node_modules/ajv/dist/vocabularies/code.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/code.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.validateUnion = exports.validateArray = exports.usePattern = exports.callValidateCode = exports.schemaProperties = exports.allSchemaProperties = exports.noPropertyInData = exports.propertyInData = exports.isOwnProperty = exports.hasPropFunc = exports.reportMissingProp = exports.checkMissingProp = exports.checkReportMissingProp = void 0;
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.validateUnion = exports2.validateArray = exports2.usePattern = exports2.callValidateCode = exports2.schemaProperties = exports2.allSchemaProperties = exports2.noPropertyInData = exports2.propertyInData = exports2.isOwnProperty = exports2.hasPropFunc = exports2.reportMissingProp = exports2.checkMissingProp = exports2.checkReportMissingProp = void 0;
     var codegen_1 = require_codegen();
     var util_1 = require_util();
     var names_1 = require_names();
@@ -1743,16 +1745,16 @@ var require_code2 = __commonJS({
         cxt.error();
       });
     }
-    exports.checkReportMissingProp = checkReportMissingProp;
+    exports2.checkReportMissingProp = checkReportMissingProp;
     function checkMissingProp({ gen, data, it: { opts } }, properties, missing) {
       return (0, codegen_1.or)(...properties.map((prop) => (0, codegen_1.and)(noPropertyInData(gen, data, prop, opts.ownProperties), (0, codegen_1._)`${missing} = ${prop}`)));
     }
-    exports.checkMissingProp = checkMissingProp;
+    exports2.checkMissingProp = checkMissingProp;
     function reportMissingProp(cxt, missing) {
       cxt.setParams({ missingProperty: missing }, true);
       cxt.error();
     }
-    exports.reportMissingProp = reportMissingProp;
+    exports2.reportMissingProp = reportMissingProp;
     function hasPropFunc(gen) {
       return gen.scopeValue("func", {
         // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -1760,29 +1762,29 @@ var require_code2 = __commonJS({
         code: (0, codegen_1._)`Object.prototype.hasOwnProperty`
       });
     }
-    exports.hasPropFunc = hasPropFunc;
+    exports2.hasPropFunc = hasPropFunc;
     function isOwnProperty(gen, data, property) {
       return (0, codegen_1._)`${hasPropFunc(gen)}.call(${data}, ${property})`;
     }
-    exports.isOwnProperty = isOwnProperty;
+    exports2.isOwnProperty = isOwnProperty;
     function propertyInData(gen, data, property, ownProperties) {
       const cond = (0, codegen_1._)`${data}${(0, codegen_1.getProperty)(property)} !== undefined`;
       return ownProperties ? (0, codegen_1._)`${cond} && ${isOwnProperty(gen, data, property)}` : cond;
     }
-    exports.propertyInData = propertyInData;
+    exports2.propertyInData = propertyInData;
     function noPropertyInData(gen, data, property, ownProperties) {
       const cond = (0, codegen_1._)`${data}${(0, codegen_1.getProperty)(property)} === undefined`;
       return ownProperties ? (0, codegen_1.or)(cond, (0, codegen_1.not)(isOwnProperty(gen, data, property))) : cond;
     }
-    exports.noPropertyInData = noPropertyInData;
+    exports2.noPropertyInData = noPropertyInData;
     function allSchemaProperties(schemaMap) {
       return schemaMap ? Object.keys(schemaMap).filter((p) => p !== "__proto__") : [];
     }
-    exports.allSchemaProperties = allSchemaProperties;
+    exports2.allSchemaProperties = allSchemaProperties;
     function schemaProperties(it, schemaMap) {
       return allSchemaProperties(schemaMap).filter((p) => !(0, util_1.alwaysValidSchema)(it, schemaMap[p]));
     }
-    exports.schemaProperties = schemaProperties;
+    exports2.schemaProperties = schemaProperties;
     function callValidateCode({ schemaCode, data, it: { gen, topSchemaRef, schemaPath, errorPath }, it }, func, context, passSchema) {
       const dataAndSchema = passSchema ? (0, codegen_1._)`${schemaCode}, ${data}, ${topSchemaRef}${schemaPath}` : data;
       const valCxt = [
@@ -1796,7 +1798,7 @@ var require_code2 = __commonJS({
       const args = (0, codegen_1._)`${dataAndSchema}, ${gen.object(...valCxt)}`;
       return context !== codegen_1.nil ? (0, codegen_1._)`${func}.call(${context}, ${args})` : (0, codegen_1._)`${func}(${args})`;
     }
-    exports.callValidateCode = callValidateCode;
+    exports2.callValidateCode = callValidateCode;
     var newRegExp = (0, codegen_1._)`new RegExp`;
     function usePattern({ gen, it: { opts } }, pattern) {
       const u = opts.unicodeRegExp ? "u" : "";
@@ -1808,7 +1810,7 @@ var require_code2 = __commonJS({
         code: (0, codegen_1._)`${regExp.code === "new RegExp" ? newRegExp : (0, util_2.useFunc)(gen, regExp)}(${pattern}, ${u})`
       });
     }
-    exports.usePattern = usePattern;
+    exports2.usePattern = usePattern;
     function validateArray(cxt) {
       const { gen, data, keyword, it } = cxt;
       const valid = gen.name("valid");
@@ -1832,7 +1834,7 @@ var require_code2 = __commonJS({
         });
       }
     }
-    exports.validateArray = validateArray;
+    exports2.validateArray = validateArray;
     function validateUnion(cxt) {
       const { gen, schema, keyword, it } = cxt;
       if (!Array.isArray(schema))
@@ -1855,17 +1857,17 @@ var require_code2 = __commonJS({
       }));
       cxt.result(valid, () => cxt.reset(), () => cxt.error(true));
     }
-    exports.validateUnion = validateUnion;
+    exports2.validateUnion = validateUnion;
   }
 });
 
 // node_modules/ajv/dist/compile/validate/keyword.js
 var require_keyword = __commonJS({
-  "node_modules/ajv/dist/compile/validate/keyword.js"(exports) {
+  "node_modules/ajv/dist/compile/validate/keyword.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.validateKeywordUsage = exports.validSchemaType = exports.funcKeywordCode = exports.macroKeywordCode = void 0;
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.validateKeywordUsage = exports2.validSchemaType = exports2.funcKeywordCode = exports2.macroKeywordCode = void 0;
     var codegen_1 = require_codegen();
     var names_1 = require_names();
     var code_1 = require_code2();
@@ -1886,7 +1888,7 @@ var require_keyword = __commonJS({
       }, valid);
       cxt.pass(valid, () => cxt.error(true));
     }
-    exports.macroKeywordCode = macroKeywordCode;
+    exports2.macroKeywordCode = macroKeywordCode;
     function funcKeywordCode(cxt, def) {
       var _a;
       const { gen, keyword, schema, parentSchema, $data, it } = cxt;
@@ -1930,7 +1932,7 @@ var require_keyword = __commonJS({
         gen.if((0, codegen_1.not)((_a2 = def.valid) !== null && _a2 !== void 0 ? _a2 : valid), errors);
       }
     }
-    exports.funcKeywordCode = funcKeywordCode;
+    exports2.funcKeywordCode = funcKeywordCode;
     function modifyData(cxt) {
       const { gen, data, it } = cxt;
       gen.if(it.parentData, () => gen.assign(data, (0, codegen_1._)`${it.parentData}[${it.parentDataProperty}]`));
@@ -1954,7 +1956,7 @@ var require_keyword = __commonJS({
     function validSchemaType(schema, schemaType, allowUndefined = false) {
       return !schemaType.length || schemaType.some((st) => st === "array" ? Array.isArray(schema) : st === "object" ? schema && typeof schema == "object" && !Array.isArray(schema) : typeof schema == st || allowUndefined && typeof schema == "undefined");
     }
-    exports.validSchemaType = validSchemaType;
+    exports2.validSchemaType = validSchemaType;
     function validateKeywordUsage({ schema, opts, self, errSchemaPath }, def, keyword) {
       if (Array.isArray(def.keyword) ? !def.keyword.includes(keyword) : def.keyword !== keyword) {
         throw new Error("ajv implementation error");
@@ -1974,17 +1976,17 @@ var require_keyword = __commonJS({
         }
       }
     }
-    exports.validateKeywordUsage = validateKeywordUsage;
+    exports2.validateKeywordUsage = validateKeywordUsage;
   }
 });
 
 // node_modules/ajv/dist/compile/validate/subschema.js
 var require_subschema = __commonJS({
-  "node_modules/ajv/dist/compile/validate/subschema.js"(exports) {
+  "node_modules/ajv/dist/compile/validate/subschema.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.extendSubschemaMode = exports.extendSubschemaData = exports.getSubschema = void 0;
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.extendSubschemaMode = exports2.extendSubschemaData = exports2.getSubschema = void 0;
     var codegen_1 = require_codegen();
     var util_1 = require_util();
     function getSubschema(it, { keyword, schemaProp, schema, schemaPath, errSchemaPath, topSchemaRef }) {
@@ -2016,7 +2018,7 @@ var require_subschema = __commonJS({
       }
       throw new Error('either "keyword" or "schema" must be passed');
     }
-    exports.getSubschema = getSubschema;
+    exports2.getSubschema = getSubschema;
     function extendSubschemaData(subschema, it, { dataProp, dataPropType: dpType, data, dataTypes, propertyName }) {
       if (data !== void 0 && dataProp !== void 0) {
         throw new Error('both "data" and "dataProp" passed, only one allowed');
@@ -2047,7 +2049,7 @@ var require_subschema = __commonJS({
         subschema.dataNames = [...it.dataNames, _nextData];
       }
     }
-    exports.extendSubschemaData = extendSubschemaData;
+    exports2.extendSubschemaData = extendSubschemaData;
     function extendSubschemaMode(subschema, { jtdDiscriminator, jtdMetadata, compositeRule, createErrors, allErrors }) {
       if (compositeRule !== void 0)
         subschema.compositeRule = compositeRule;
@@ -2058,16 +2060,16 @@ var require_subschema = __commonJS({
       subschema.jtdDiscriminator = jtdDiscriminator;
       subschema.jtdMetadata = jtdMetadata;
     }
-    exports.extendSubschemaMode = extendSubschemaMode;
+    exports2.extendSubschemaMode = extendSubschemaMode;
   }
 });
 
 // node_modules/fast-deep-equal/index.js
 var require_fast_deep_equal = __commonJS({
-  "node_modules/fast-deep-equal/index.js"(exports, module) {
+  "node_modules/fast-deep-equal/index.js"(exports2, module2) {
     "use strict";
-    init_esm_shims();
-    module.exports = function equal(a, b) {
+    init_cjs_shims();
+    module2.exports = function equal(a, b) {
       if (a === b) return true;
       if (a && b && typeof a == "object" && typeof b == "object") {
         if (a.constructor !== b.constructor) return false;
@@ -2100,10 +2102,10 @@ var require_fast_deep_equal = __commonJS({
 
 // node_modules/json-schema-traverse/index.js
 var require_json_schema_traverse = __commonJS({
-  "node_modules/json-schema-traverse/index.js"(exports, module) {
+  "node_modules/json-schema-traverse/index.js"(exports2, module2) {
     "use strict";
-    init_esm_shims();
-    var traverse = module.exports = function(schema, opts, cb) {
+    init_cjs_shims();
+    var traverse = module2.exports = function(schema, opts, cb) {
       if (typeof opts == "function") {
         cb = opts;
         opts = {};
@@ -2189,11 +2191,11 @@ var require_json_schema_traverse = __commonJS({
 
 // node_modules/ajv/dist/compile/resolve.js
 var require_resolve = __commonJS({
-  "node_modules/ajv/dist/compile/resolve.js"(exports) {
+  "node_modules/ajv/dist/compile/resolve.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.getSchemaRefs = exports.resolveUrl = exports.normalizeId = exports._getFullPath = exports.getFullPath = exports.inlineRef = void 0;
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.getSchemaRefs = exports2.resolveUrl = exports2.normalizeId = exports2._getFullPath = exports2.getFullPath = exports2.inlineRef = void 0;
     var util_1 = require_util();
     var equal = require_fast_deep_equal();
     var traverse = require_json_schema_traverse();
@@ -2224,7 +2226,7 @@ var require_resolve = __commonJS({
         return false;
       return countKeys(schema) <= limit;
     }
-    exports.inlineRef = inlineRef;
+    exports2.inlineRef = inlineRef;
     var REF_KEYWORDS = /* @__PURE__ */ new Set([
       "$ref",
       "$recursiveRef",
@@ -2266,22 +2268,22 @@ var require_resolve = __commonJS({
       const p = resolver.parse(id);
       return _getFullPath(resolver, p);
     }
-    exports.getFullPath = getFullPath;
+    exports2.getFullPath = getFullPath;
     function _getFullPath(resolver, p) {
       const serialized = resolver.serialize(p);
       return serialized.split("#")[0] + "#";
     }
-    exports._getFullPath = _getFullPath;
+    exports2._getFullPath = _getFullPath;
     var TRAILING_SLASH_HASH = /#\/?$/;
     function normalizeId(id) {
       return id ? id.replace(TRAILING_SLASH_HASH, "") : "";
     }
-    exports.normalizeId = normalizeId;
+    exports2.normalizeId = normalizeId;
     function resolveUrl(resolver, baseId, id) {
       id = normalizeId(id);
       return resolver.resolve(baseId, id);
     }
-    exports.resolveUrl = resolveUrl;
+    exports2.resolveUrl = resolveUrl;
     var ANCHOR = /^[a-z_][-a-z0-9._]*$/i;
     function getSchemaRefs(schema, baseId) {
       if (typeof schema == "boolean")
@@ -2340,17 +2342,17 @@ var require_resolve = __commonJS({
         return new Error(`reference "${ref}" resolves to more than one schema`);
       }
     }
-    exports.getSchemaRefs = getSchemaRefs;
+    exports2.getSchemaRefs = getSchemaRefs;
   }
 });
 
 // node_modules/ajv/dist/compile/validate/index.js
 var require_validate = __commonJS({
-  "node_modules/ajv/dist/compile/validate/index.js"(exports) {
+  "node_modules/ajv/dist/compile/validate/index.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.getData = exports.KeywordCxt = exports.validateFunctionCode = void 0;
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.getData = exports2.KeywordCxt = exports2.validateFunctionCode = void 0;
     var boolSchema_1 = require_boolSchema();
     var dataType_1 = require_dataType();
     var applicability_1 = require_applicability();
@@ -2373,7 +2375,7 @@ var require_validate = __commonJS({
       }
       validateFunction(it, () => (0, boolSchema_1.topBoolOrEmptySchema)(it));
     }
-    exports.validateFunctionCode = validateFunctionCode;
+    exports2.validateFunctionCode = validateFunctionCode;
     function validateFunction({ gen, validateName, schema, schemaEnv, opts }, body) {
       if (opts.code.es5) {
         gen.func(validateName, (0, codegen_1._)`${names_1.default.data}, ${names_1.default.valCxt}`, schemaEnv.$async, () => {
@@ -2794,7 +2796,7 @@ var require_validate = __commonJS({
         }
       }
     };
-    exports.KeywordCxt = KeywordCxt;
+    exports2.KeywordCxt = KeywordCxt;
     function keywordCode(it, keyword, def, ruleType) {
       const cxt = new KeywordCxt(it, def, keyword);
       if ("code" in def) {
@@ -2849,16 +2851,16 @@ var require_validate = __commonJS({
         return `Cannot access ${pointerType} ${up} levels up, current level is ${dataLevel}`;
       }
     }
-    exports.getData = getData;
+    exports2.getData = getData;
   }
 });
 
 // node_modules/ajv/dist/runtime/validation_error.js
 var require_validation_error = __commonJS({
-  "node_modules/ajv/dist/runtime/validation_error.js"(exports) {
+  "node_modules/ajv/dist/runtime/validation_error.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var ValidationError = class extends Error {
       constructor(errors) {
         super("validation failed");
@@ -2866,16 +2868,16 @@ var require_validation_error = __commonJS({
         this.ajv = this.validation = true;
       }
     };
-    exports.default = ValidationError;
+    exports2.default = ValidationError;
   }
 });
 
 // node_modules/ajv/dist/compile/ref_error.js
 var require_ref_error = __commonJS({
-  "node_modules/ajv/dist/compile/ref_error.js"(exports) {
+  "node_modules/ajv/dist/compile/ref_error.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var resolve_1 = require_resolve();
     var MissingRefError = class extends Error {
       constructor(resolver, baseId, ref, msg) {
@@ -2884,17 +2886,17 @@ var require_ref_error = __commonJS({
         this.missingSchema = (0, resolve_1.normalizeId)((0, resolve_1.getFullPath)(resolver, this.missingRef));
       }
     };
-    exports.default = MissingRefError;
+    exports2.default = MissingRefError;
   }
 });
 
 // node_modules/ajv/dist/compile/index.js
 var require_compile = __commonJS({
-  "node_modules/ajv/dist/compile/index.js"(exports) {
+  "node_modules/ajv/dist/compile/index.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.resolveSchema = exports.getCompilingSchema = exports.resolveRef = exports.compileSchema = exports.SchemaEnv = void 0;
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.resolveSchema = exports2.getCompilingSchema = exports2.resolveRef = exports2.compileSchema = exports2.SchemaEnv = void 0;
     var codegen_1 = require_codegen();
     var validation_error_1 = require_validation_error();
     var names_1 = require_names();
@@ -2920,7 +2922,7 @@ var require_compile = __commonJS({
         this.refs = {};
       }
     };
-    exports.SchemaEnv = SchemaEnv;
+    exports2.SchemaEnv = SchemaEnv;
     function compileSchema(sch) {
       const _sch = getCompilingSchema.call(this, sch);
       if (_sch)
@@ -3006,14 +3008,14 @@ var require_compile = __commonJS({
         this._compilations.delete(sch);
       }
     }
-    exports.compileSchema = compileSchema;
+    exports2.compileSchema = compileSchema;
     function resolveRef(root, baseId, ref) {
       var _a;
       ref = (0, resolve_1.resolveUrl)(this.opts.uriResolver, baseId, ref);
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve4.call(this, root, ref);
+      let _sch = resolve3.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref];
         const { schemaId } = this.opts;
@@ -3024,7 +3026,7 @@ var require_compile = __commonJS({
         return;
       return root.refs[ref] = inlineOrCompile.call(this, _sch);
     }
-    exports.resolveRef = resolveRef;
+    exports2.resolveRef = resolveRef;
     function inlineOrCompile(sch) {
       if ((0, resolve_1.inlineRef)(sch.schema, this.opts.inlineRefs))
         return sch.schema;
@@ -3036,11 +3038,11 @@ var require_compile = __commonJS({
           return sch;
       }
     }
-    exports.getCompilingSchema = getCompilingSchema;
+    exports2.getCompilingSchema = getCompilingSchema;
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve4(root, ref) {
+    function resolve3(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3075,7 +3077,7 @@ var require_compile = __commonJS({
       }
       return getJsonPointer.call(this, p, schOrRef);
     }
-    exports.resolveSchema = resolveSchema;
+    exports2.resolveSchema = resolveSchema;
     var PREVENT_SCOPE_CHANGE = /* @__PURE__ */ new Set([
       "properties",
       "patternProperties",
@@ -3115,8 +3117,8 @@ var require_compile = __commonJS({
 
 // node_modules/ajv/dist/refs/data.json
 var require_data = __commonJS({
-  "node_modules/ajv/dist/refs/data.json"(exports, module) {
-    module.exports = {
+  "node_modules/ajv/dist/refs/data.json"(exports2, module2) {
+    module2.exports = {
       $id: "https://raw.githubusercontent.com/ajv-validator/ajv/master/lib/refs/data.json#",
       description: "Meta-schema for $data reference (JSON AnySchema extension proposal)",
       type: "object",
@@ -3134,9 +3136,9 @@ var require_data = __commonJS({
 
 // node_modules/fast-uri/lib/utils.js
 var require_utils = __commonJS({
-  "node_modules/fast-uri/lib/utils.js"(exports, module) {
+  "node_modules/fast-uri/lib/utils.js"(exports2, module2) {
     "use strict";
-    init_esm_shims();
+    init_cjs_shims();
     var isUUID = RegExp.prototype.test.bind(/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/iu);
     var isIPv4 = RegExp.prototype.test.bind(/^(?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)$/u);
     var isHexPair = RegExp.prototype.test.bind(/^[\da-f]{2}$/iu);
@@ -3259,8 +3261,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path10) {
-      let input = path10;
+    function removeDotSegments(path6) {
+      let input = path6;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3430,7 +3432,7 @@ var require_utils = __commonJS({
       }
       return uriTokens.length ? uriTokens.join("") : void 0;
     }
-    module.exports = {
+    module2.exports = {
       nonSimpleDomain,
       recomposeAuthority,
       reescapeHostDelimiters,
@@ -3448,9 +3450,9 @@ var require_utils = __commonJS({
 
 // node_modules/fast-uri/lib/schemes.js
 var require_schemes = __commonJS({
-  "node_modules/fast-uri/lib/schemes.js"(exports, module) {
+  "node_modules/fast-uri/lib/schemes.js"(exports2, module2) {
     "use strict";
-    init_esm_shims();
+    init_cjs_shims();
     var { isUUID } = require_utils();
     var URN_REG = /([\da-z][\d\-a-z]{0,31}):((?:[\w!$'()*+,\-.:;=@]|%[\da-f]{2})+)/iu;
     var supportedSchemeNames = (
@@ -3513,8 +3515,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path10, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path10 && path10 !== "/" ? path10 : void 0;
+        const [path6, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path6 && path6 !== "/" ? path6 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -3648,7 +3650,7 @@ var require_schemes = __commonJS({
         scheme.toLowerCase()
       ]) || void 0;
     }
-    module.exports = {
+    module2.exports = {
       wsIsSecure,
       SCHEMES,
       isValidSchemeName,
@@ -3659,9 +3661,9 @@ var require_schemes = __commonJS({
 
 // node_modules/fast-uri/index.js
 var require_fast_uri = __commonJS({
-  "node_modules/fast-uri/index.js"(exports, module) {
+  "node_modules/fast-uri/index.js"(exports2, module2) {
     "use strict";
-    init_esm_shims();
+    init_cjs_shims();
     var { normalizeIPv6, removeDotSegments, recomposeAuthority, normalizePercentEncoding, normalizePathEncoding, escapePreservingEscapes, reescapeHostDelimiters, isIPv4, nonSimpleDomain } = require_utils();
     var { SCHEMES, getSchemeHandler } = require_schemes();
     function normalize(uri, options) {
@@ -3674,55 +3676,55 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve4(baseURI, relativeURI, options) {
+    function resolve3(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const resolved = resolveComponent(parse(baseURI, schemelessOptions), parse(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
-    function resolveComponent(base, relative3, options, skipNormalization) {
+    function resolveComponent(base, relative, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
         base = parse(serialize(base, options), options);
-        relative3 = parse(serialize(relative3, options), options);
+        relative = parse(serialize(relative, options), options);
       }
       options = options || {};
-      if (!options.tolerant && relative3.scheme) {
-        target.scheme = relative3.scheme;
-        target.userinfo = relative3.userinfo;
-        target.host = relative3.host;
-        target.port = relative3.port;
-        target.path = removeDotSegments(relative3.path || "");
-        target.query = relative3.query;
+      if (!options.tolerant && relative.scheme) {
+        target.scheme = relative.scheme;
+        target.userinfo = relative.userinfo;
+        target.host = relative.host;
+        target.port = relative.port;
+        target.path = removeDotSegments(relative.path || "");
+        target.query = relative.query;
       } else {
-        if (relative3.userinfo !== void 0 || relative3.host !== void 0 || relative3.port !== void 0) {
-          target.userinfo = relative3.userinfo;
-          target.host = relative3.host;
-          target.port = relative3.port;
-          target.path = removeDotSegments(relative3.path || "");
-          target.query = relative3.query;
+        if (relative.userinfo !== void 0 || relative.host !== void 0 || relative.port !== void 0) {
+          target.userinfo = relative.userinfo;
+          target.host = relative.host;
+          target.port = relative.port;
+          target.path = removeDotSegments(relative.path || "");
+          target.query = relative.query;
         } else {
-          if (!relative3.path) {
+          if (!relative.path) {
             target.path = base.path;
-            if (relative3.query !== void 0) {
-              target.query = relative3.query;
+            if (relative.query !== void 0) {
+              target.query = relative.query;
             } else {
               target.query = base.query;
             }
           } else {
-            if (relative3.path[0] === "/") {
-              target.path = removeDotSegments(relative3.path);
+            if (relative.path[0] === "/") {
+              target.path = removeDotSegments(relative.path);
             } else {
               if ((base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0) && !base.path) {
-                target.path = "/" + relative3.path;
+                target.path = "/" + relative.path;
               } else if (!base.path) {
-                target.path = relative3.path;
+                target.path = relative.path;
               } else {
-                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative3.path;
+                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative.path;
               }
               target.path = removeDotSegments(target.path);
             }
-            target.query = relative3.query;
+            target.query = relative.query;
           }
           target.userinfo = base.userinfo;
           target.host = base.host;
@@ -3730,7 +3732,7 @@ var require_fast_uri = __commonJS({
         }
         target.scheme = base.scheme;
       }
-      target.fragment = relative3.fragment;
+      target.fragment = relative.fragment;
       return target;
     }
     function equal(uriA, uriB, options) {
@@ -3932,58 +3934,58 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve4,
+      resolve: resolve3,
       resolveComponent,
       equal,
       serialize,
       parse
     };
-    module.exports = fastUri;
-    module.exports.default = fastUri;
-    module.exports.fastUri = fastUri;
+    module2.exports = fastUri;
+    module2.exports.default = fastUri;
+    module2.exports.fastUri = fastUri;
   }
 });
 
 // node_modules/ajv/dist/runtime/uri.js
 var require_uri = __commonJS({
-  "node_modules/ajv/dist/runtime/uri.js"(exports) {
+  "node_modules/ajv/dist/runtime/uri.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var uri = require_fast_uri();
     uri.code = 'require("ajv/dist/runtime/uri").default';
-    exports.default = uri;
+    exports2.default = uri;
   }
 });
 
 // node_modules/ajv/dist/core.js
 var require_core = __commonJS({
-  "node_modules/ajv/dist/core.js"(exports) {
+  "node_modules/ajv/dist/core.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.CodeGen = exports.Name = exports.nil = exports.stringify = exports.str = exports._ = exports.KeywordCxt = void 0;
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.CodeGen = exports2.Name = exports2.nil = exports2.stringify = exports2.str = exports2._ = exports2.KeywordCxt = void 0;
     var validate_1 = require_validate();
-    Object.defineProperty(exports, "KeywordCxt", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "KeywordCxt", { enumerable: true, get: function() {
       return validate_1.KeywordCxt;
     } });
     var codegen_1 = require_codegen();
-    Object.defineProperty(exports, "_", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "_", { enumerable: true, get: function() {
       return codegen_1._;
     } });
-    Object.defineProperty(exports, "str", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "str", { enumerable: true, get: function() {
       return codegen_1.str;
     } });
-    Object.defineProperty(exports, "stringify", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "stringify", { enumerable: true, get: function() {
       return codegen_1.stringify;
     } });
-    Object.defineProperty(exports, "nil", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "nil", { enumerable: true, get: function() {
       return codegen_1.nil;
     } });
-    Object.defineProperty(exports, "Name", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "Name", { enumerable: true, get: function() {
       return codegen_1.Name;
     } });
-    Object.defineProperty(exports, "CodeGen", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "CodeGen", { enumerable: true, get: function() {
       return codegen_1.CodeGen;
     } });
     var validation_error_1 = require_validation_error();
@@ -4437,7 +4439,7 @@ var require_core = __commonJS({
     };
     Ajv2.ValidationError = validation_error_1.default;
     Ajv2.MissingRefError = ref_error_1.default;
-    exports.default = Ajv2;
+    exports2.default = Ajv2;
     function checkOptions(checkOpts, options, msg, log = "error") {
       for (const key in checkOpts) {
         const opt = key;
@@ -4570,27 +4572,27 @@ var require_core = __commonJS({
 
 // node_modules/ajv/dist/vocabularies/core/id.js
 var require_id = __commonJS({
-  "node_modules/ajv/dist/vocabularies/core/id.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/core/id.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var def = {
       keyword: "id",
       code() {
         throw new Error('NOT SUPPORTED: keyword "id", use "$id" for schema ID');
       }
     };
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/core/ref.js
 var require_ref = __commonJS({
-  "node_modules/ajv/dist/vocabularies/core/ref.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/core/ref.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.callRef = exports.getValidate = void 0;
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.callRef = exports2.getValidate = void 0;
     var ref_error_1 = require_ref_error();
     var code_1 = require_code2();
     var codegen_1 = require_codegen();
@@ -4641,7 +4643,7 @@ var require_ref = __commonJS({
       const { gen } = cxt;
       return sch.validate ? gen.scopeValue("validate", { ref: sch.validate }) : (0, codegen_1._)`${gen.scopeValue("wrapper", { ref: sch })}.validate`;
     }
-    exports.getValidate = getValidate;
+    exports2.getValidate = getValidate;
     function callRef(cxt, v, sch, $async) {
       const { gen, it } = cxt;
       const { allErrors, schemaEnv: env, opts } = it;
@@ -4702,17 +4704,17 @@ var require_ref = __commonJS({
         }
       }
     }
-    exports.callRef = callRef;
-    exports.default = def;
+    exports2.callRef = callRef;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/core/index.js
 var require_core2 = __commonJS({
-  "node_modules/ajv/dist/vocabularies/core/index.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/core/index.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var id_1 = require_id();
     var ref_1 = require_ref();
     var core = [
@@ -4725,16 +4727,16 @@ var require_core2 = __commonJS({
       id_1.default,
       ref_1.default
     ];
-    exports.default = core;
+    exports2.default = core;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/validation/limitNumber.js
 var require_limitNumber = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/limitNumber.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/validation/limitNumber.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var ops = codegen_1.operators;
     var KWDs = {
@@ -4758,16 +4760,16 @@ var require_limitNumber = __commonJS({
         cxt.fail$data((0, codegen_1._)`${data} ${KWDs[keyword].fail} ${schemaCode} || isNaN(${data})`);
       }
     };
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/validation/multipleOf.js
 var require_multipleOf = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/multipleOf.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/validation/multipleOf.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var error = {
       message: ({ schemaCode }) => (0, codegen_1.str)`must be multiple of ${schemaCode}`,
@@ -4787,16 +4789,16 @@ var require_multipleOf = __commonJS({
         cxt.fail$data((0, codegen_1._)`(${schemaCode} === 0 || (${res} = ${data}/${schemaCode}, ${invalid}))`);
       }
     };
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/runtime/ucs2length.js
 var require_ucs2length = __commonJS({
-  "node_modules/ajv/dist/runtime/ucs2length.js"(exports) {
+  "node_modules/ajv/dist/runtime/ucs2length.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     function ucs2length(str) {
       const len = str.length;
       let length = 0;
@@ -4813,17 +4815,17 @@ var require_ucs2length = __commonJS({
       }
       return length;
     }
-    exports.default = ucs2length;
+    exports2.default = ucs2length;
     ucs2length.code = 'require("ajv/dist/runtime/ucs2length").default';
   }
 });
 
 // node_modules/ajv/dist/vocabularies/validation/limitLength.js
 var require_limitLength = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/limitLength.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/validation/limitLength.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util();
     var ucs2length_1 = require_ucs2length();
@@ -4847,16 +4849,16 @@ var require_limitLength = __commonJS({
         cxt.fail$data((0, codegen_1._)`${len} ${op} ${schemaCode}`);
       }
     };
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/validation/pattern.js
 var require_pattern = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/pattern.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/validation/pattern.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var code_1 = require_code2();
     var util_1 = require_util();
     var codegen_1 = require_codegen();
@@ -4885,16 +4887,16 @@ var require_pattern = __commonJS({
         }
       }
     };
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/validation/limitProperties.js
 var require_limitProperties = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/limitProperties.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/validation/limitProperties.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var error = {
       message({ keyword, schemaCode }) {
@@ -4915,16 +4917,16 @@ var require_limitProperties = __commonJS({
         cxt.fail$data((0, codegen_1._)`Object.keys(${data}).length ${op} ${schemaCode}`);
       }
     };
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/validation/required.js
 var require_required = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/required.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/validation/required.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var code_1 = require_code2();
     var codegen_1 = require_codegen();
     var util_1 = require_util();
@@ -4998,16 +5000,16 @@ var require_required = __commonJS({
         }
       }
     };
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/validation/limitItems.js
 var require_limitItems = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/limitItems.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/validation/limitItems.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var error = {
       message({ keyword, schemaCode }) {
@@ -5028,28 +5030,28 @@ var require_limitItems = __commonJS({
         cxt.fail$data((0, codegen_1._)`${data}.length ${op} ${schemaCode}`);
       }
     };
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/runtime/equal.js
 var require_equal = __commonJS({
-  "node_modules/ajv/dist/runtime/equal.js"(exports) {
+  "node_modules/ajv/dist/runtime/equal.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var equal = require_fast_deep_equal();
     equal.code = 'require("ajv/dist/runtime/equal").default';
-    exports.default = equal;
+    exports2.default = equal;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/validation/uniqueItems.js
 var require_uniqueItems = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/uniqueItems.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/validation/uniqueItems.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var dataType_1 = require_dataType();
     var codegen_1 = require_codegen();
     var util_1 = require_util();
@@ -5108,16 +5110,16 @@ var require_uniqueItems = __commonJS({
         }
       }
     };
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/validation/const.js
 var require_const = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/const.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/validation/const.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util();
     var equal_1 = require_equal();
@@ -5138,16 +5140,16 @@ var require_const = __commonJS({
         }
       }
     };
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/validation/enum.js
 var require_enum = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/enum.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/validation/enum.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util();
     var equal_1 = require_equal();
@@ -5188,16 +5190,16 @@ var require_enum = __commonJS({
         }
       }
     };
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/validation/index.js
 var require_validation = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/index.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/validation/index.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var limitNumber_1 = require_limitNumber();
     var multipleOf_1 = require_multipleOf();
     var limitLength_1 = require_limitLength();
@@ -5227,17 +5229,17 @@ var require_validation = __commonJS({
       const_1.default,
       enum_1.default
     ];
-    exports.default = validation;
+    exports2.default = validation;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/applicator/additionalItems.js
 var require_additionalItems = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/additionalItems.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/additionalItems.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.validateAdditionalItems = void 0;
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.validateAdditionalItems = void 0;
     var codegen_1 = require_codegen();
     var util_1 = require_util();
     var error = {
@@ -5280,18 +5282,18 @@ var require_additionalItems = __commonJS({
         });
       }
     }
-    exports.validateAdditionalItems = validateAdditionalItems;
-    exports.default = def;
+    exports2.validateAdditionalItems = validateAdditionalItems;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/applicator/items.js
 var require_items = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/items.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/items.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.validateTuple = void 0;
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.validateTuple = void 0;
     var codegen_1 = require_codegen();
     var util_1 = require_util();
     var code_1 = require_code2();
@@ -5338,17 +5340,17 @@ var require_items = __commonJS({
         }
       }
     }
-    exports.validateTuple = validateTuple;
-    exports.default = def;
+    exports2.validateTuple = validateTuple;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/applicator/prefixItems.js
 var require_prefixItems = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/prefixItems.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/prefixItems.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var items_1 = require_items();
     var def = {
       keyword: "prefixItems",
@@ -5357,16 +5359,16 @@ var require_prefixItems = __commonJS({
       before: "uniqueItems",
       code: (cxt) => (0, items_1.validateTuple)(cxt, "items")
     };
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/applicator/items2020.js
 var require_items2020 = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/items2020.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/items2020.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util();
     var code_1 = require_code2();
@@ -5393,16 +5395,16 @@ var require_items2020 = __commonJS({
           cxt.ok((0, code_1.validateArray)(cxt));
       }
     };
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/applicator/contains.js
 var require_contains = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/contains.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/contains.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util();
     var error = {
@@ -5488,21 +5490,21 @@ var require_contains = __commonJS({
         }
       }
     };
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/applicator/dependencies.js
 var require_dependencies = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/dependencies.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/dependencies.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.validateSchemaDeps = exports.validatePropertyDeps = exports.error = void 0;
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.validateSchemaDeps = exports2.validatePropertyDeps = exports2.error = void 0;
     var codegen_1 = require_codegen();
     var util_1 = require_util();
     var code_1 = require_code2();
-    exports.error = {
+    exports2.error = {
       message: ({ params: { property, depsCount, deps } }) => {
         const property_ies = depsCount === 1 ? "property" : "properties";
         return (0, codegen_1.str)`must have ${property_ies} ${deps} when property ${property} is present`;
@@ -5517,7 +5519,7 @@ var require_dependencies = __commonJS({
       keyword: "dependencies",
       type: "object",
       schemaType: "object",
-      error: exports.error,
+      error: exports2.error,
       code(cxt) {
         const [propDeps, schDeps] = splitDependencies(cxt);
         validatePropertyDeps(cxt, propDeps);
@@ -5563,7 +5565,7 @@ var require_dependencies = __commonJS({
         }
       }
     }
-    exports.validatePropertyDeps = validatePropertyDeps;
+    exports2.validatePropertyDeps = validatePropertyDeps;
     function validateSchemaDeps(cxt, schemaDeps = cxt.schema) {
       const { gen, data, keyword, it } = cxt;
       const valid = gen.name("valid");
@@ -5582,17 +5584,17 @@ var require_dependencies = __commonJS({
         cxt.ok(valid);
       }
     }
-    exports.validateSchemaDeps = validateSchemaDeps;
-    exports.default = def;
+    exports2.validateSchemaDeps = validateSchemaDeps;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/applicator/propertyNames.js
 var require_propertyNames = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/propertyNames.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/propertyNames.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util();
     var error = {
@@ -5627,16 +5629,16 @@ var require_propertyNames = __commonJS({
         cxt.ok(valid);
       }
     };
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/applicator/additionalProperties.js
 var require_additionalProperties = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/additionalProperties.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/additionalProperties.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var code_1 = require_code2();
     var codegen_1 = require_codegen();
     var names_1 = require_names();
@@ -5734,16 +5736,16 @@ var require_additionalProperties = __commonJS({
         }
       }
     };
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/applicator/properties.js
 var require_properties = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/properties.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/properties.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var validate_1 = require_validate();
     var code_1 = require_code2();
     var util_1 = require_util();
@@ -5793,16 +5795,16 @@ var require_properties = __commonJS({
         }
       }
     };
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/applicator/patternProperties.js
 var require_patternProperties = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/patternProperties.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/patternProperties.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var code_1 = require_code2();
     var codegen_1 = require_codegen();
     var util_1 = require_util();
@@ -5868,16 +5870,16 @@ var require_patternProperties = __commonJS({
         }
       }
     };
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/applicator/not.js
 var require_not = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/not.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/not.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var util_1 = require_util();
     var def = {
       keyword: "not",
@@ -5900,16 +5902,16 @@ var require_not = __commonJS({
       },
       error: { message: "must NOT be valid" }
     };
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/applicator/anyOf.js
 var require_anyOf = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/anyOf.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/anyOf.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var code_1 = require_code2();
     var def = {
       keyword: "anyOf",
@@ -5918,16 +5920,16 @@ var require_anyOf = __commonJS({
       code: code_1.validateUnion,
       error: { message: "must match a schema in anyOf" }
     };
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/applicator/oneOf.js
 var require_oneOf = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/oneOf.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/oneOf.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util();
     var error = {
@@ -5977,16 +5979,16 @@ var require_oneOf = __commonJS({
         }
       }
     };
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/applicator/allOf.js
 var require_allOf = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/allOf.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/allOf.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var util_1 = require_util();
     var def = {
       keyword: "allOf",
@@ -6005,16 +6007,16 @@ var require_allOf = __commonJS({
         });
       }
     };
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/applicator/if.js
 var require_if = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/if.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/if.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util();
     var error = {
@@ -6075,16 +6077,16 @@ var require_if = __commonJS({
       const schema = it.schema[keyword];
       return schema !== void 0 && !(0, util_1.alwaysValidSchema)(it, schema);
     }
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/applicator/thenElse.js
 var require_thenElse = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/thenElse.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/thenElse.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var util_1 = require_util();
     var def = {
       keyword: ["then", "else"],
@@ -6094,16 +6096,16 @@ var require_thenElse = __commonJS({
           (0, util_1.checkStrictMode)(it, `"${keyword}" without "if" is ignored`);
       }
     };
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/applicator/index.js
 var require_applicator = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/index.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/applicator/index.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var additionalItems_1 = require_additionalItems();
     var prefixItems_1 = require_prefixItems();
     var items_1 = require_items();
@@ -6143,16 +6145,16 @@ var require_applicator = __commonJS({
       applicator.push(contains_1.default);
       return applicator;
     }
-    exports.default = getApplicator;
+    exports2.default = getApplicator;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/format/format.js
 var require_format = __commonJS({
-  "node_modules/ajv/dist/vocabularies/format/format.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/format/format.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var error = {
       message: ({ schemaCode }) => (0, codegen_1.str)`must match format "${schemaCode}"`,
@@ -6234,30 +6236,30 @@ var require_format = __commonJS({
         }
       }
     };
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/format/index.js
 var require_format2 = __commonJS({
-  "node_modules/ajv/dist/vocabularies/format/index.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/format/index.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var format_1 = require_format();
     var format = [format_1.default];
-    exports.default = format;
+    exports2.default = format;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/metadata.js
 var require_metadata = __commonJS({
-  "node_modules/ajv/dist/vocabularies/metadata.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/metadata.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.contentVocabulary = exports.metadataVocabulary = void 0;
-    exports.metadataVocabulary = [
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.contentVocabulary = exports2.metadataVocabulary = void 0;
+    exports2.metadataVocabulary = [
       "title",
       "description",
       "default",
@@ -6266,7 +6268,7 @@ var require_metadata = __commonJS({
       "writeOnly",
       "examples"
     ];
-    exports.contentVocabulary = [
+    exports2.contentVocabulary = [
       "contentMediaType",
       "contentEncoding",
       "contentSchema"
@@ -6276,10 +6278,10 @@ var require_metadata = __commonJS({
 
 // node_modules/ajv/dist/vocabularies/draft7.js
 var require_draft7 = __commonJS({
-  "node_modules/ajv/dist/vocabularies/draft7.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/draft7.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var core_1 = require_core2();
     var validation_1 = require_validation();
     var applicator_1 = require_applicator();
@@ -6293,31 +6295,31 @@ var require_draft7 = __commonJS({
       metadata_1.metadataVocabulary,
       metadata_1.contentVocabulary
     ];
-    exports.default = draft7Vocabularies;
+    exports2.default = draft7Vocabularies;
   }
 });
 
 // node_modules/ajv/dist/vocabularies/discriminator/types.js
 var require_types = __commonJS({
-  "node_modules/ajv/dist/vocabularies/discriminator/types.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/discriminator/types.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.DiscrError = void 0;
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.DiscrError = void 0;
     var DiscrError;
     (function(DiscrError2) {
       DiscrError2["Tag"] = "tag";
       DiscrError2["Mapping"] = "mapping";
-    })(DiscrError || (exports.DiscrError = DiscrError = {}));
+    })(DiscrError || (exports2.DiscrError = DiscrError = {}));
   }
 });
 
 // node_modules/ajv/dist/vocabularies/discriminator/index.js
 var require_discriminator = __commonJS({
-  "node_modules/ajv/dist/vocabularies/discriminator/index.js"(exports) {
+  "node_modules/ajv/dist/vocabularies/discriminator/index.js"(exports2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var types_1 = require_types();
     var compile_1 = require_compile();
@@ -6414,14 +6416,14 @@ var require_discriminator = __commonJS({
         }
       }
     };
-    exports.default = def;
+    exports2.default = def;
   }
 });
 
 // node_modules/ajv/dist/refs/json-schema-draft-07.json
 var require_json_schema_draft_07 = __commonJS({
-  "node_modules/ajv/dist/refs/json-schema-draft-07.json"(exports, module) {
-    module.exports = {
+  "node_modules/ajv/dist/refs/json-schema-draft-07.json"(exports2, module2) {
+    module2.exports = {
       $schema: "http://json-schema.org/draft-07/schema#",
       $id: "http://json-schema.org/draft-07/schema#",
       title: "Core schema meta-schema",
@@ -6577,11 +6579,11 @@ var require_json_schema_draft_07 = __commonJS({
 
 // node_modules/ajv/dist/ajv.js
 var require_ajv = __commonJS({
-  "node_modules/ajv/dist/ajv.js"(exports, module) {
+  "node_modules/ajv/dist/ajv.js"(exports2, module2) {
     "use strict";
-    init_esm_shims();
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.MissingRefError = exports.ValidationError = exports.CodeGen = exports.Name = exports.nil = exports.stringify = exports.str = exports._ = exports.KeywordCxt = exports.Ajv = void 0;
+    init_cjs_shims();
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.MissingRefError = exports2.ValidationError = exports2.CodeGen = exports2.Name = exports2.nil = exports2.stringify = exports2.str = exports2._ = exports2.KeywordCxt = exports2.Ajv = void 0;
     var core_1 = require_core();
     var draft7_1 = require_draft7();
     var discriminator_1 = require_discriminator();
@@ -6607,57 +6609,101 @@ var require_ajv = __commonJS({
         return this.opts.defaultMeta = super.defaultMeta() || (this.getSchema(META_SCHEMA_ID) ? META_SCHEMA_ID : void 0);
       }
     };
-    exports.Ajv = Ajv2;
-    module.exports = exports = Ajv2;
-    module.exports.Ajv = Ajv2;
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.default = Ajv2;
+    exports2.Ajv = Ajv2;
+    module2.exports = exports2 = Ajv2;
+    module2.exports.Ajv = Ajv2;
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.default = Ajv2;
     var validate_1 = require_validate();
-    Object.defineProperty(exports, "KeywordCxt", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "KeywordCxt", { enumerable: true, get: function() {
       return validate_1.KeywordCxt;
     } });
     var codegen_1 = require_codegen();
-    Object.defineProperty(exports, "_", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "_", { enumerable: true, get: function() {
       return codegen_1._;
     } });
-    Object.defineProperty(exports, "str", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "str", { enumerable: true, get: function() {
       return codegen_1.str;
     } });
-    Object.defineProperty(exports, "stringify", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "stringify", { enumerable: true, get: function() {
       return codegen_1.stringify;
     } });
-    Object.defineProperty(exports, "nil", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "nil", { enumerable: true, get: function() {
       return codegen_1.nil;
     } });
-    Object.defineProperty(exports, "Name", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "Name", { enumerable: true, get: function() {
       return codegen_1.Name;
     } });
-    Object.defineProperty(exports, "CodeGen", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "CodeGen", { enumerable: true, get: function() {
       return codegen_1.CodeGen;
     } });
     var validation_error_1 = require_validation_error();
-    Object.defineProperty(exports, "ValidationError", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "ValidationError", { enumerable: true, get: function() {
       return validation_error_1.default;
     } });
     var ref_error_1 = require_ref_error();
-    Object.defineProperty(exports, "MissingRefError", { enumerable: true, get: function() {
+    Object.defineProperty(exports2, "MissingRefError", { enumerable: true, get: function() {
       return ref_error_1.default;
     } });
   }
 });
 
-// scripts/sftdd/optimize.cli.ts
-init_esm_shims();
-import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
-import { join as join32, resolve as resolve3 } from "path";
+// scripts/sftdd/drive-runner.ts
+var drive_runner_exports = {};
+__export(drive_runner_exports, {
+  ArtifactOutOfRootError: () => ArtifactOutOfRootError,
+  ClaudeTurnError: () => ClaudeTurnError,
+  ReplayCorpusMissError: () => ReplayCorpusMissError,
+  buildCfg: () => buildCfg,
+  claudeBaseArgs: () => claudeBaseArgs,
+  claudeToolArgs: () => claudeToolArgs,
+  execRunner: () => execRunner,
+  spawnClaudeStreaming: () => spawnClaudeStreaming,
+  spawnCmd: () => spawnCmd,
+  takeLastAgentTranscript: () => takeLastAgentTranscript
+});
+module.exports = __toCommonJS(drive_runner_exports);
+init_cjs_shims();
+var import_node_child_process2 = require("child_process");
 
-// scripts/sftdd/optimize-candidates.ts
-init_esm_shims();
+// scripts/sftdd/sftdd-env.ts
+init_cjs_shims();
+function sftddEnv(suffix, env = process.env) {
+  return env[`LAKEBASE_SFTDD_${suffix}`] ?? env[`LAKEBASE_TDD_${suffix}`];
+}
+
+// scripts/sftdd/project-sftdd-setup.ts
+init_cjs_shims();
+var fs4 = __toESM(require("fs"), 1);
+var path3 = __toESM(require("path"), 1);
+var import_node_url2 = require("url");
+
+// scripts/sftdd/sftdd-paths.ts
+init_cjs_shims();
+var fs = __toESM(require("fs"), 1);
+var import_node_path = require("path");
+var ARTIFACT_ROOT = ".sftdd";
+var LEGACY_ARTIFACT_ROOT = ".tdd";
+function resolveSftddDir(projectDir = process.cwd()) {
+  const next = (0, import_node_path.join)(projectDir, ARTIFACT_ROOT);
+  if (fs.existsSync(next)) return next;
+  const legacy = (0, import_node_path.join)(projectDir, LEGACY_ARTIFACT_ROOT);
+  if (fs.existsSync(legacy)) return legacy;
+  return next;
+}
+var featuresDir = (tdd) => (0, import_node_path.join)(tdd, "features");
+var cyclesRootDir = (tdd) => (0, import_node_path.join)(tdd, "cycles");
+var workflowStateJson = (tdd) => (0, import_node_path.join)(tdd, "workflow-state.json");
+
+// scripts/sftdd/sftdd-config.ts
+init_cjs_shims();
+var import_fs2 = require("fs");
+var import_path2 = require("path");
 
 // scripts/sftdd/agent-models.ts
-init_esm_shims();
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
-import { dirname, join } from "path";
+init_cjs_shims();
+var import_fs = require("fs");
+var import_path = require("path");
 var RECOMMENDED_MODELS = {
   "spec-author": "opus",
   "architect-reviewer": "opus",
@@ -6669,11 +6715,11 @@ var RECOMMENDED_MODELS = {
   "product-owner": "opus"
 };
 var ALL_AGENT_ROLES = Object.keys(RECOMMENDED_MODELS);
-var AGENT_CONFIG_REL = join(".lakebase", "agent-config.json");
+var AGENT_CONFIG_REL = (0, import_path.join)(".lakebase", "agent-config.json");
 function readAgentConfig(projectDir) {
-  const p = join(projectDir, AGENT_CONFIG_REL);
-  if (!existsSync(p)) return void 0;
-  return JSON.parse(readFileSync(p, "utf8"));
+  const p = (0, import_path.join)(projectDir, AGENT_CONFIG_REL);
+  if (!(0, import_fs.existsSync)(p)) return void 0;
+  return JSON.parse((0, import_fs.readFileSync)(p, "utf8"));
 }
 function resolveModelForRole(role, projectDir) {
   const spawnable = role;
@@ -6681,406 +6727,15 @@ function resolveModelForRole(role, projectDir) {
   return entry?.override ?? entry?.recommended ?? RECOMMENDED_MODELS[spawnable] ?? "inherit";
 }
 
-// scripts/sftdd/optimize-candidates.ts
-var BASELINE_CANDIDATE_ID = "baseline";
-function generateCandidates(sweep) {
-  const role = sweep.role ?? "driver";
-  const out = [{ id: BASELINE_CANDIDATE_ID, configOverrides: {} }];
-  const modelTurns = Object.keys(sweep.models ?? {});
-  const effortTurns = Object.keys(sweep.efforts ?? {});
-  if (modelTurns.length || effortTurns.length) {
-    for (const turn of /* @__PURE__ */ new Set([...modelTurns, ...effortTurns])) {
-      const models = sweep.models?.[turn] ?? [void 0];
-      const efforts = sweep.efforts?.[turn] ?? [void 0];
-      for (const model of models) {
-        for (const effort of efforts) {
-          if (model === void 0 && effort === void 0) continue;
-          const roleSettings = {};
-          if (model !== void 0) roleSettings.model = { [turn]: model };
-          if (effort !== void 0) roleSettings.effort = { [turn]: effort };
-          const parts = [
-            model !== void 0 ? `m-${model}` : "",
-            effort !== void 0 ? `e-${effort}` : ""
-          ].filter(Boolean);
-          out.push({
-            id: `${role}-${turn}-${parts.join("-")}`,
-            configOverrides: { roles: { [role]: roleSettings } }
-          });
-        }
-      }
-    }
-  }
-  const scopes = sweep.sessionScopes ?? [void 0];
-  const fractions = sweep.contextFreeFractions ?? [void 0];
-  if (sweep.sessionScopes?.length || sweep.contextFreeFractions?.length) {
-    for (const scope of scopes) {
-      for (const frac of fractions) {
-        if (scope === void 0 && frac === void 0) continue;
-        const parts = [
-          scope !== void 0 ? `s-${scope}` : "",
-          frac !== void 0 ? `cff-${frac}` : ""
-        ].filter(Boolean);
-        out.push({
-          id: `warmth-${parts.join("-")}`,
-          configOverrides: scope !== void 0 ? { build: { sessionScope: scope } } : {},
-          ...frac !== void 0 ? { env: { CONTEXT_FREE_FRACTION: String(frac) } } : {}
-        });
-      }
-    }
-  }
-  for (const loop of sweep.loopGranularities ?? []) {
-    out.push({ id: `loop-${loop}`, configOverrides: { build: { loopGranularity: loop } } });
-  }
-  (sweep.contentVariants ?? []).forEach((content, i) => {
-    out.push({ id: `content-${i + 1}`, configOverrides: {}, content });
-  });
-  return out;
-}
-function cheaperModel(model) {
-  const tier = { opus: "sonnet", sonnet: "haiku" };
-  return tier[model];
-}
-function defaultLaneCandidates(handoff) {
-  const baseline = { id: BASELINE_CANDIDATE_ID, configOverrides: {} };
-  if (handoff.role === "navigator" && handoff.buildMode === "reflect") return [baseline];
-  const role = handoff.role;
-  const isBuild = (role === "navigator" || role === "driver") && (handoff.buildMode === void 0 || handoff.buildMode === "green" || handoff.buildMode === "red");
-  const out = [baseline];
-  if (isBuild) {
-    const turn = role === "driver" ? "green" : "red";
-    const base2 = RECOMMENDED_MODELS[role] ?? "sonnet";
-    const cheaper2 = cheaperModel(base2);
-    if (cheaper2) {
-      out.push({
-        id: `${role}-${turn}-m-${cheaper2}`,
-        configOverrides: { roles: { [role]: { model: { [turn]: cheaper2 } } } }
-      });
-    }
-    out.push({
-      id: `${role}-${turn}-e-low`,
-      configOverrides: { roles: { [role]: { effort: { [turn]: "low" } } } }
-    });
-    out.push({
-      id: `${role}-${turn}-scan-tight`,
-      configOverrides: {},
-      content: scanTightenContent()
-    });
-    return out;
-  }
-  const base = RECOMMENDED_MODELS[role] ?? "opus";
-  const cheaper = cheaperModel(base);
-  if (cheaper) {
-    out.push({
-      id: `${role}-m-${cheaper}`,
-      configOverrides: { roles: { [role]: { model: cheaper } } }
-    });
-  }
-  out.push({
-    id: `${role}-e-low`,
-    configOverrides: { roles: { [role]: { effort: "low" } } }
-  });
-  out.push({
-    id: `${role}-scan-tight`,
-    configOverrides: {},
-    content: scanTightenContent()
-  });
-  return out;
-}
-function scanTightenContent() {
-  return {
-    taskSuffix: SCAN_TIGHTEN_SUFFIX,
-    disallowedTools: ["Grep", "Glob"]
-  };
-}
-var SCAN_TIGHTEN_SUFFIX = " Rely on the context pack + the exact artifact paths named in your task; Grep/Glob are DISABLED for this turn, so do not try to scan the wider tree , read the named files directly with Read.";
-function applyCandidateConfig(base, candidate) {
-  return deepMerge(base, candidate.configOverrides);
-}
-function isPlainObject(v) {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
-}
-function deepMerge(base, over) {
-  if (!isPlainObject(base) || !isPlainObject(over)) {
-    return over === void 0 ? clone(base) : clone(over);
-  }
-  const out = {};
-  for (const k of Object.keys(base)) out[k] = clone(base[k]);
-  for (const k of Object.keys(over)) {
-    out[k] = k in base ? deepMerge(base[k], over[k]) : clone(over[k]);
-  }
-  return out;
-}
-function clone(v) {
-  return isPlainObject(v) || Array.isArray(v) ? JSON.parse(JSON.stringify(v)) : v;
-}
-
-// scripts/sftdd/optimize-harness.ts
-init_esm_shims();
-async function runChampionWalk(args, deps) {
-  const { handoffs, candidates, trials, proposeOnly, alwaysAdvance } = args;
-  const walk = [];
-  for (const handoff of handoffs) {
-    const snap = await deps.snapshot(handoff);
-    const outcomes = [];
-    try {
-      for (const candidate of candidates) {
-        const results = [];
-        for (let t = 0; t < trials; t++) {
-          let r;
-          try {
-            r = await deps.runTrial({ handoff, candidate, trial: t });
-          } catch (e) {
-            process.stderr.write(
-              `[optimize] runTrial threw for ${handoff.id}/${candidate.id} trial ${t}: ${e instanceof Error ? e.stack ?? e.message : String(e)}
-`
-            );
-            r = { gatePassed: false, durationMs: 0, costUsd: 0, gateReason: e instanceof Error ? e.message : String(e) };
-          }
-          results.push(r);
-          try {
-            await snap.restore();
-          } catch (e) {
-            process.stderr.write(
-              `[optimize] snap.restore threw after ${handoff.id}/${candidate.id} trial ${t}: ${e instanceof Error ? e.stack ?? e.message : String(e)}
-`
-            );
-          }
-        }
-        outcomes.push(summarize(candidate.id, results));
-      }
-      const winner = selectWinner(outcomes);
-      const baseline = outcomes.find((o) => o.candidateId === BASELINE_CANDIDATE_ID);
-      const baselineMs = baseline?.medianMs ?? winner.medianMs;
-      if (!proposeOnly || alwaysAdvance) {
-        const winnerCandidate = candidates.find((c) => c.id === winner.candidateId);
-        await deps.recordWinner({ handoff, candidate: winnerCandidate });
-      }
-      walk.push({ handoffId: handoff.id, baselineMs, candidates: outcomes, winner });
-    } finally {
-      snap.dispose();
-    }
-  }
-  return { walk };
-}
-function summarize(candidateId, trials) {
-  const disqualified = trials.some((t) => !t.gatePassed);
-  if (disqualified) return { candidateId, trials, disqualified: true };
-  const passing = trials.filter((t) => t.gatePassed);
-  const inputs = passing.map((t) => t.inputTokens).filter((n) => typeof n === "number");
-  const cacheReads = passing.map((t) => t.cacheReadTokens).filter((n) => typeof n === "number");
-  return {
-    candidateId,
-    medianMs: median(passing.map((t) => t.durationMs)),
-    medianCostUsd: median(passing.map((t) => t.costUsd)),
-    ...inputs.length ? { medianInputTokens: median(inputs) } : {},
-    ...cacheReads.length ? { medianCacheReadTokens: median(cacheReads) } : {},
-    trials,
-    disqualified: false
-  };
-}
-function selectWinner(outcomes) {
-  const qualified = outcomes.filter((o) => !o.disqualified && o.medianMs !== void 0);
-  if (qualified.length === 0) {
-    return { candidateId: BASELINE_CANDIDATE_ID, medianMs: 0, medianCostUsd: 0 };
-  }
-  qualified.sort((a, b) => {
-    if (a.medianMs !== b.medianMs) return a.medianMs - b.medianMs;
-    if (a.medianCostUsd !== b.medianCostUsd) return a.medianCostUsd - b.medianCostUsd;
-    if (a.candidateId === BASELINE_CANDIDATE_ID) return -1;
-    if (b.candidateId === BASELINE_CANDIDATE_ID) return 1;
-    return 0;
-  });
-  const w = qualified[0];
-  return { candidateId: w.candidateId, medianMs: w.medianMs, medianCostUsd: w.medianCostUsd };
-}
-function median(xs) {
-  if (xs.length === 0) return 0;
-  const sorted = [...xs].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
-}
-
-// scripts/sftdd/drive-runner.ts
-init_esm_shims();
-import { spawn } from "child_process";
-
-// scripts/sftdd/sftdd-env.ts
-init_esm_shims();
-function sftddEnv(suffix, env = process.env) {
-  return env[`LAKEBASE_SFTDD_${suffix}`] ?? env[`LAKEBASE_TDD_${suffix}`];
-}
-
-// scripts/sftdd/project-sftdd-setup.ts
-init_esm_shims();
-import * as fs4 from "fs";
-import * as path4 from "path";
-import { fileURLToPath as fileURLToPath3 } from "url";
-
-// scripts/sftdd/sftdd-paths.ts
-init_esm_shims();
-import * as fs from "fs";
-import { join as join2 } from "path";
-var ARTIFACT_ROOT = ".sftdd";
-var LEGACY_ARTIFACT_ROOT = ".tdd";
-function resolveSftddDir(projectDir = process.cwd()) {
-  const next = join2(projectDir, ARTIFACT_ROOT);
-  if (fs.existsSync(next)) return next;
-  const legacy = join2(projectDir, LEGACY_ARTIFACT_ROOT);
-  if (fs.existsSync(legacy)) return legacy;
-  return next;
-}
-var featuresDir = (tdd) => join2(tdd, "features");
-var planningDir = (tdd) => join2(tdd, "planning");
-var cyclesRootDir = (tdd) => join2(tdd, "cycles");
-var escalationsDir = (tdd) => join2(tdd, "escalations");
-var acReviewJson = (tdd, f, s, ac) => join2(cyclesRootDir(tdd), f, s, ac, "review.json");
-var storyReviewJson = (tdd, f, s) => join2(cyclesRootDir(tdd), f, s, "review.json");
-var workflowStateJson = (tdd) => join2(tdd, "workflow-state.json");
-var nfrsMd = (tdd) => join2(tdd, "nfrs.md");
-var designGuideJson = (tdd) => join2(tdd, "design", "design-guide.json");
-var architectureDir = (tdd) => join2(tdd, "architecture");
-var architectureConventionsJson = (tdd) => join2(architectureDir(tdd), "conventions.json");
-var architectureCanonJson = (tdd) => join2(architectureDir(tdd), "canon.json");
-var featureProposalsMd = (tdd) => join2(planningDir(tdd), "feature-proposals.md");
-var featureDir = (tdd, featureId) => join2(featuresDir(tdd), featureId);
-var featureResolved = (tdd, f) => findFeatureDir(tdd, f) ?? featureDir(tdd, f);
-var featureSpecJson = (tdd, f) => join2(featureResolved(tdd, f), "feature-spec.json");
-var featureRequestMd = (tdd, f) => join2(featureResolved(tdd, f), "feature-request.md");
-var architectureJson = (tdd, f) => join2(featureResolved(tdd, f), "architecture.json");
-var dbDesignJson = (tdd, f) => join2(featureResolved(tdd, f), "db-design.json");
-var featureTestListJson = (tdd, f) => join2(featureResolved(tdd, f), "test-list.json");
-var pipelineJson = (tdd, f) => join2(featureResolved(tdd, f), "pipeline.json");
-var featureNfrsMd = (tdd, f) => join2(featureResolved(tdd, f), "nfrs.md");
-var featureDeployEvidenceJson = (tdd, f) => join2(featureResolved(tdd, f), "deploy-evidence.json");
-var storiesDir = (tdd, f) => join2(featureResolved(tdd, f), "stories");
-var storyDir = (tdd, f, s) => join2(storiesDir(tdd, f), s);
-function findStoryDir(tdd, f, s) {
-  const root = storiesDir(tdd, f);
-  if (!fs.existsSync(root)) return void 0;
-  const exact = join2(root, s);
-  if (fs.existsSync(exact)) return exact;
-  const matches = fs.readdirSync(root).filter((d) => d === s || d.startsWith(`${s}-`));
-  return matches.length === 1 ? join2(root, matches[0]) : void 0;
-}
-var storyResolved = (tdd, f, s) => findStoryDir(tdd, f, s) ?? storyDir(tdd, f, s);
-var storyJson = (tdd, f, s) => join2(storyResolved(tdd, f, s), "story.json");
-var acsDir = (tdd, f, s) => join2(storyResolved(tdd, f, s), "acs");
-var acJson = (tdd, f, s, ac) => join2(acsDir(tdd, f, s), `${ac}.json`);
-var storyTestListJson = (tdd, f, s) => join2(storyResolved(tdd, f, s), "test-list-per-story.json");
-var reflectVerdictJson = (tdd, f, s) => join2(storyResolved(tdd, f, s), "reflect-verdict.json");
-var handbackFile = (tdd, f, role, story) => join2(featureDir(tdd, f), ".handback", `${role}${story ? `.${story}` : ""}.md`);
-var cycleDir = (tdd, f, s, ac) => join2(cyclesRootDir(tdd), f, s, ac);
-function findFeatureDir(tdd, featureId) {
-  const root = featuresDir(tdd);
-  if (!fs.existsSync(root)) return void 0;
-  const exact = join2(root, featureId);
-  if (fs.existsSync(exact)) return exact;
-  const matches = fs.readdirSync(root).filter((d) => d === featureId || d.startsWith(`${featureId}-`));
-  return matches.length === 1 ? join2(root, matches[0]) : void 0;
-}
-function requireFeatureDir(tdd, featureId) {
-  const dir = findFeatureDir(tdd, featureId);
-  if (!dir) throw new Error(`feature ${featureId} not found (or ambiguous) under ${featuresDir(tdd)}`);
-  return dir;
-}
-function storyAcIds(tdd, f, s) {
-  const ids = /* @__PURE__ */ new Set();
-  const sj = storyJson(tdd, f, s);
-  if (fs.existsSync(sj)) {
-    try {
-      const data = JSON.parse(fs.readFileSync(sj, "utf8"));
-      if (Array.isArray(data.acs)) {
-        for (const a of data.acs) {
-          const id = typeof a === "string" ? a : a?.id;
-          if (typeof id === "string" && id.length > 0) ids.add(id);
-        }
-      }
-    } catch {
-    }
-  }
-  const dir = acsDir(tdd, f, s);
-  if (fs.existsSync(dir)) {
-    try {
-      for (const file of fs.readdirSync(dir)) {
-        const m = /^(.+)\.json$/.exec(file);
-        if (!m) continue;
-        const base = m[1];
-        try {
-          const obj = JSON.parse(fs.readFileSync(join2(dir, file), "utf8"));
-          if (obj && typeof obj.id === "string" && obj.id === base) ids.add(base);
-        } catch {
-        }
-      }
-    } catch {
-    }
-  }
-  return [...ids];
-}
-function readAcLayer(tdd, f, acId) {
-  const stories = storiesDir(tdd, f);
-  if (!fs.existsSync(stories)) return void 0;
-  for (const s of fs.readdirSync(stories)) {
-    const file = acJson(tdd, f, s, acId);
-    if (!fs.existsSync(file)) continue;
-    try {
-      const ac = JSON.parse(fs.readFileSync(file, "utf8"));
-      if (ac.layer === "API" || ac.layer === "E2E" || ac.layer === "Infra") return ac.layer;
-    } catch {
-    }
-  }
-  return void 0;
-}
-function readAcArchitecturalNotes(tdd, f, acId) {
-  const stories = storiesDir(tdd, f);
-  if (!fs.existsSync(stories)) return void 0;
-  for (const s of fs.readdirSync(stories)) {
-    const file = acJson(tdd, f, s, acId);
-    if (!fs.existsSync(file)) continue;
-    try {
-      const ac = JSON.parse(fs.readFileSync(file, "utf8"));
-      if (typeof ac.architectural_notes === "string" && ac.architectural_notes.trim().length > 0) {
-        return ac.architectural_notes;
-      }
-    } catch {
-    }
-  }
-  return void 0;
-}
-var TSHIRT_SIZES = /* @__PURE__ */ new Set(["XS", "S", "M", "L", "XL"]);
-var isTshirtSize = (x) => typeof x === "string" && TSHIRT_SIZES.has(x);
-var planningEstimatesJson = (tdd) => join2(planningDir(tdd), "estimates.json");
-function readEstimates(tdd) {
-  const file = planningEstimatesJson(tdd);
-  if (!fs.existsSync(file)) return [];
-  try {
-    const data = JSON.parse(fs.readFileSync(file, "utf8"));
-    if (!Array.isArray(data.estimates)) return [];
-    return data.estimates.flatMap((e) => {
-      const id = e?.feature_id;
-      const size = e?.size;
-      if (typeof id !== "string" || !id || !isTshirtSize(size)) return [];
-      const rationale = e?.rationale;
-      return [{ feature_id: id, size, ...typeof rationale === "string" ? { rationale } : {} }];
-    });
-  } catch {
-    return [];
-  }
-}
-var hasEstimates = (tdd) => readEstimates(tdd).length > 0;
-
 // scripts/sftdd/sftdd-config.ts
-init_esm_shims();
-import { existsSync as existsSync3, readFileSync as readFileSync3, mkdirSync as mkdirSync3, writeFileSync as writeFileSync3 } from "fs";
-import { dirname as dirname2, join as join3 } from "path";
-var SFTDD_CONFIG_REL = join3(".lakebase", "sftdd-config.json");
-var LEGACY_TDD_CONFIG_REL = join3(".lakebase", "tdd-config.json");
-var TDD_CONFIG_REL = SFTDD_CONFIG_REL;
+var SFTDD_CONFIG_REL = (0, import_path2.join)(".lakebase", "sftdd-config.json");
+var LEGACY_TDD_CONFIG_REL = (0, import_path2.join)(".lakebase", "tdd-config.json");
 function loadSftddConfig(projectDir) {
   for (const rel of [SFTDD_CONFIG_REL, LEGACY_TDD_CONFIG_REL]) {
-    const f = join3(projectDir, rel);
-    if (!existsSync3(f)) continue;
+    const f = (0, import_path2.join)(projectDir, rel);
+    if (!(0, import_fs2.existsSync)(f)) continue;
     try {
-      return JSON.parse(readFileSync3(f, "utf8"));
+      return JSON.parse((0, import_fs2.readFileSync)(f, "utf8"));
     } catch {
       return void 0;
     }
@@ -7134,52 +6789,23 @@ function resolveSftddSettings(inputs) {
   const plan = { sizing: file?.plan?.sizing ?? true };
   return { models, modelFor, fallbackModels, budgets, effortFor, build, plan, project };
 }
-function defaultSftddConfig() {
-  const roles = {};
-  for (const role of ALL_AGENT_ROLES) {
-    roles[role] = role === "navigator" ? { model: RECOMMENDED_MODELS[role], effort: { review: "low" } } : role === "driver" ? (
-      // Model tiering: RED (test authoring) + GREEN (implementation) keep the
-      // recommended model; only the mechanical REFACTOR turn drops to a fast
-      // model. GREEN was on haiku, but the recorded worst GREEN turn thrashed
-      // 93 tool round-trips (haiku's trial-and-error), so wall-clock, not token
-      // cost, dominated. Sonnet finishes GREEN in far fewer round-trips, faster
-      // even at a higher per-token price. Overridable per project by editing
-      // sftdd-config.json (a project can flatten to a scalar `model`).
-      { model: { red: RECOMMENDED_MODELS[role], green: RECOMMENDED_MODELS[role], refactor: "haiku" } }
-    ) : { model: RECOMMENDED_MODELS[role] };
-  }
-  return {
-    version: 1,
-    roles,
-    build: { loopGranularity: "story", batchCap: 3, sessionScope: "story" },
-    plan: { sizing: true },
-    project: { uiTrack: false, gates: "interactive", deployTarget: "local", clientFramework: "none" }
-  };
-}
-function writeSftddConfig(projectDir, config, opts) {
-  const f = join3(projectDir, TDD_CONFIG_REL);
-  if (existsSync3(f) && !opts?.force) return false;
-  mkdirSync3(dirname2(f), { recursive: true });
-  writeFileSync3(f, JSON.stringify(config, null, 2) + "\n");
-  return true;
-}
 
 // scripts/lakebase/adopt-sftdd.ts
-init_esm_shims();
-import * as fs2 from "fs";
-import * as path2 from "path";
-import { fileURLToPath as fileURLToPath2 } from "url";
+init_cjs_shims();
+var fs2 = __toESM(require("fs"), 1);
+var path = __toESM(require("path"), 1);
+var import_node_url = require("url");
 
 // scripts/lakebase/update-agents.ts
-init_esm_shims();
-import * as fs3 from "fs";
-import * as path3 from "path";
+init_cjs_shims();
+var fs3 = __toESM(require("fs"), 1);
+var path2 = __toESM(require("path"), 1);
 function findKitAgentsDir(start) {
   let dir = start;
   for (let i = 0; i < 6; i++) {
-    const candidate = path3.join(dir, "skills", "consort", "agents");
+    const candidate = path2.join(dir, "skills", "consort", "agents");
     if (fs3.existsSync(candidate)) return candidate;
-    const parent = path3.dirname(dir);
+    const parent = path2.dirname(dir);
     if (parent === dir) break;
     dir = parent;
   }
@@ -7188,9 +6814,9 @@ function findKitAgentsDir(start) {
   );
 }
 function updateAgents(args) {
-  const projectAgentsDir = path3.join(args.projectDir, ".claude", "agents");
-  const here = path3.dirname(new URL(import.meta.url).pathname);
-  const kitAgentsDir = args.kitDir ? path3.join(args.kitDir, "skills", "consort", "agents") : findKitAgentsDir(here);
+  const projectAgentsDir = path2.join(args.projectDir, ".claude", "agents");
+  const here = path2.dirname(new URL(importMetaUrl).pathname);
+  const kitAgentsDir = args.kitDir ? path2.join(args.kitDir, "skills", "consort", "agents") : findKitAgentsDir(here);
   const dryRun = args.dryRun === true;
   const force = args.force !== false;
   const sourceFiles = fs3.existsSync(kitAgentsDir) ? fs3.readdirSync(kitAgentsDir).filter((f) => f.endsWith(".md")) : [];
@@ -7200,8 +6826,8 @@ function updateAgents(args) {
   const files = [];
   let changed = false;
   for (const name of sourceFiles) {
-    const projectPath = path3.join(projectAgentsDir, name);
-    const desired = fs3.readFileSync(path3.join(kitAgentsDir, name), "utf-8");
+    const projectPath = path2.join(projectAgentsDir, name);
+    const desired = fs3.readFileSync(path2.join(kitAgentsDir, name), "utf-8");
     if (!fs3.existsSync(projectPath)) {
       files.push({ name, outcome: "added" });
       changed = true;
@@ -7225,14 +6851,14 @@ function updateAgents(args) {
 }
 
 // scripts/sftdd/project-sftdd-setup.ts
-var __dirname2 = path4.dirname(fileURLToPath3(import.meta.url));
+var __dirname2 = path3.dirname((0, import_node_url2.fileURLToPath)(importMetaUrl));
 function resolveKitRoot() {
   const candidates = [
-    path4.resolve(__dirname2, "../.."),
-    path4.resolve(__dirname2, "../../..")
+    path3.resolve(__dirname2, "../.."),
+    path3.resolve(__dirname2, "../../..")
   ];
   for (const c of candidates) {
-    if (fs4.existsSync(path4.join(c, "package.json")) && fs4.existsSync(path4.join(c, "skills", "consort", "agents"))) {
+    if (fs4.existsSync(path3.join(c, "package.json")) && fs4.existsSync(path3.join(c, "skills", "consort", "agents"))) {
       return c;
     }
   }
@@ -7242,26 +6868,26 @@ function resolveKitRoot() {
 }
 function kitVersion(root) {
   try {
-    return JSON.parse(fs4.readFileSync(path4.join(root, "package.json"), "utf8")).version ?? "";
+    return JSON.parse(fs4.readFileSync(path3.join(root, "package.json"), "utf8")).version ?? "";
   } catch {
     return "";
   }
 }
-var AGENT_SYNC_MARKER = path4.join(".claude", "agents", ".kit-version");
+var AGENT_SYNC_MARKER = path3.join(".claude", "agents", ".kit-version");
 function resyncAgentsOnKitDrift(projectDir) {
   try {
     const root = resolveKitRoot();
     const current = kitVersion(root);
-    const markerPath3 = path4.join(projectDir, AGENT_SYNC_MARKER);
+    const markerPath = path3.join(projectDir, AGENT_SYNC_MARKER);
     let last = "";
     try {
-      last = fs4.readFileSync(markerPath3, "utf8").trim();
+      last = fs4.readFileSync(markerPath, "utf8").trim();
     } catch {
     }
     if (last === current) return { refreshed: false };
     updateAgents({ projectDir, kitDir: root, force: true });
-    fs4.mkdirSync(path4.dirname(markerPath3), { recursive: true });
-    fs4.writeFileSync(markerPath3, current + "\n");
+    fs4.mkdirSync(path3.dirname(markerPath), { recursive: true });
+    fs4.writeFileSync(markerPath, current + "\n");
     return { refreshed: true, from: last || void 0, to: current };
   } catch {
     return { refreshed: false };
@@ -7269,15 +6895,15 @@ function resyncAgentsOnKitDrift(projectDir) {
 }
 
 // scripts/sftdd/drive-runner.ts
-import { randomUUID } from "crypto";
-import * as fs7 from "fs";
-import * as path6 from "path";
-import * as readline from "readline";
+var import_node_crypto = require("crypto");
+var fs7 = __toESM(require("fs"), 1);
+var path5 = __toESM(require("path"), 1);
+var readline = __toESM(require("readline"), 1);
 
 // scripts/sftdd/replay-artifacts.ts
-init_esm_shims();
-import { existsSync as existsSync7, mkdirSync as mkdirSync7, readdirSync as readdirSync5, copyFileSync as copyFileSync3, statSync as statSync3 } from "fs";
-import { join as join7, dirname as dirname6 } from "path";
+init_cjs_shims();
+var import_fs3 = require("fs");
+var import_path3 = require("path");
 var REPLAYABLE_DESIGN_ROLES = /* @__PURE__ */ new Set([
   "spec-author",
   "architect-reviewer",
@@ -7287,76 +6913,76 @@ var REPLAYABLE_DESIGN_ROLES = /* @__PURE__ */ new Set([
   "product-owner"
 ]);
 function cp(src, dst) {
-  if (!existsSync7(src)) return false;
-  mkdirSync7(dirname6(dst), { recursive: true });
-  copyFileSync3(src, dst);
+  if (!(0, import_fs3.existsSync)(src)) return false;
+  (0, import_fs3.mkdirSync)((0, import_path3.dirname)(dst), { recursive: true });
+  (0, import_fs3.copyFileSync)(src, dst);
   return true;
 }
 function cpDir(srcDir, dstDir) {
-  if (!existsSync7(srcDir)) return false;
+  if (!(0, import_fs3.existsSync)(srcDir)) return false;
   let copied = false;
-  mkdirSync7(dstDir, { recursive: true });
-  for (const name of readdirSync5(srcDir)) {
-    const s = join7(srcDir, name);
-    if (!statSync3(s).isFile()) continue;
-    copyFileSync3(s, join7(dstDir, name));
+  (0, import_fs3.mkdirSync)(dstDir, { recursive: true });
+  for (const name of (0, import_fs3.readdirSync)(srcDir)) {
+    const s = (0, import_path3.join)(srcDir, name);
+    if (!(0, import_fs3.statSync)(s).isFile()) continue;
+    (0, import_fs3.copyFileSync)(s, (0, import_path3.join)(dstDir, name));
     copied = true;
   }
   return copied;
 }
 function replayDesignTurn(args) {
   const { turn, replayDir, sftddDir, featureId } = args;
-  const cf = join7(featuresDir(replayDir), featureId);
-  const tf = join7(featuresDir(sftddDir), featureId);
+  const cf = (0, import_path3.join)(featuresDir(replayDir), featureId);
+  const tf = (0, import_path3.join)(featuresDir(sftddDir), featureId);
   switch (turn.role) {
     case "spec-author": {
       if (turn.mode === "propose") {
-        return cp(join7(replayDir, "planning", "feature-proposals.md"), join7(sftddDir, "planning", "feature-proposals.md"));
+        return cp((0, import_path3.join)(replayDir, "planning", "feature-proposals.md"), (0, import_path3.join)(sftddDir, "planning", "feature-proposals.md"));
       }
       if (turn.mode === "breakdown") {
-        let ok = cp(join7(cf, "feature-spec.json"), join7(tf, "feature-spec.json"));
-        cp(join7(cf, "feature-spec.md"), join7(tf, "feature-spec.md"));
-        const storiesSrc = join7(cf, "stories");
-        if (existsSync7(storiesSrc)) {
-          for (const s of readdirSync5(storiesSrc)) {
-            cp(join7(storiesSrc, s, "story.json"), join7(tf, "stories", s, "story.json"));
-            cp(join7(storiesSrc, s, "story.md"), join7(tf, "stories", s, "story.md"));
+        let ok = cp((0, import_path3.join)(cf, "feature-spec.json"), (0, import_path3.join)(tf, "feature-spec.json"));
+        cp((0, import_path3.join)(cf, "feature-spec.md"), (0, import_path3.join)(tf, "feature-spec.md"));
+        const storiesSrc = (0, import_path3.join)(cf, "stories");
+        if ((0, import_fs3.existsSync)(storiesSrc)) {
+          for (const s of (0, import_fs3.readdirSync)(storiesSrc)) {
+            cp((0, import_path3.join)(storiesSrc, s, "story.json"), (0, import_path3.join)(tf, "stories", s, "story.json"));
+            cp((0, import_path3.join)(storiesSrc, s, "story.md"), (0, import_path3.join)(tf, "stories", s, "story.md"));
           }
         }
         return ok;
       }
       if (turn.story) {
-        return cpDir(join7(cf, "stories", turn.story, "acs"), join7(tf, "stories", turn.story, "acs"));
+        return cpDir((0, import_path3.join)(cf, "stories", turn.story, "acs"), (0, import_path3.join)(tf, "stories", turn.story, "acs"));
       }
       return false;
     }
     case "architect-reviewer": {
-      let ok = cp(join7(cf, "architecture.json"), join7(tf, "architecture.json"));
-      cp(join7(cf, "architecture.md"), join7(tf, "architecture.md"));
+      let ok = cp((0, import_path3.join)(cf, "architecture.json"), (0, import_path3.join)(tf, "architecture.json"));
+      cp((0, import_path3.join)(cf, "architecture.md"), (0, import_path3.join)(tf, "architecture.md"));
       if (turn.story) {
-        const acs = cpDir(join7(cf, "stories", turn.story, "acs"), join7(tf, "stories", turn.story, "acs"));
+        const acs = cpDir((0, import_path3.join)(cf, "stories", turn.story, "acs"), (0, import_path3.join)(tf, "stories", turn.story, "acs"));
         ok = ok || acs;
       }
       return ok;
     }
     case "dba": {
-      let ok = cp(join7(cf, "db-design.json"), join7(tf, "db-design.json"));
-      cp(join7(cf, "db-design.md"), join7(tf, "db-design.md"));
+      let ok = cp((0, import_path3.join)(cf, "db-design.json"), (0, import_path3.join)(tf, "db-design.json"));
+      cp((0, import_path3.join)(cf, "db-design.md"), (0, import_path3.join)(tf, "db-design.md"));
       return ok;
     }
     case "test-strategist": {
-      let ok = cp(join7(cf, "test-list.json"), join7(tf, "test-list.json"));
-      cp(join7(cf, "test-list.md"), join7(tf, "test-list.md"));
+      let ok = cp((0, import_path3.join)(cf, "test-list.json"), (0, import_path3.join)(tf, "test-list.json"));
+      cp((0, import_path3.join)(cf, "test-list.md"), (0, import_path3.join)(tf, "test-list.md"));
       const story = turn.story;
       if (story) {
-        cp(join7(cf, "stories", story, "test-list-per-ac.json"), join7(tf, "stories", story, "test-list-per-ac.json"));
+        cp((0, import_path3.join)(cf, "stories", story, "test-list-per-ac.json"), (0, import_path3.join)(tf, "stories", story, "test-list-per-ac.json"));
       }
       return ok;
     }
     case "ux-designer": {
-      let ok = cp(join7(replayDir, "design", "design-guide.json"), join7(sftddDir, "design", "design-guide.json"));
-      cp(join7(replayDir, "design", "design-guide.md"), join7(sftddDir, "design", "design-guide.md"));
-      cp(join7(replayDir, "design", "ia.md"), join7(sftddDir, "design", "ia.md"));
+      let ok = cp((0, import_path3.join)(replayDir, "design", "design-guide.json"), (0, import_path3.join)(sftddDir, "design", "design-guide.json"));
+      cp((0, import_path3.join)(replayDir, "design", "design-guide.md"), (0, import_path3.join)(sftddDir, "design", "design-guide.md"));
+      cp((0, import_path3.join)(replayDir, "design", "ia.md"), (0, import_path3.join)(sftddDir, "design", "ia.md"));
       return ok;
     }
     default:
@@ -7366,15 +6992,15 @@ function replayDesignTurn(args) {
 function restoreReflectVerdict(args) {
   const { replayDir, sftddDir, featureId, story } = args;
   return cp(
-    join7(featuresDir(replayDir), featureId, "stories", story, "reflect-verdict.json"),
-    join7(featuresDir(sftddDir), featureId, "stories", story, "reflect-verdict.json")
+    (0, import_path3.join)(featuresDir(replayDir), featureId, "stories", story, "reflect-verdict.json"),
+    (0, import_path3.join)(featuresDir(sftddDir), featureId, "stories", story, "reflect-verdict.json")
   );
 }
 
 // scripts/sftdd/replay-build.ts
-init_esm_shims();
-import { existsSync as existsSync8, cpSync as cpSync2, readdirSync as readdirSync6, statSync as statSync4 } from "fs";
-import { join as join8 } from "path";
+init_cjs_shims();
+var import_fs4 = require("fs");
+var import_path4 = require("path");
 var SCAFFOLD_OWNED = /* @__PURE__ */ new Set([
   ".git",
   ".sftdd",
@@ -7417,12 +7043,12 @@ function codeTreeFilter(root) {
   };
 }
 function storyTurnsDir(replayBuildDir, featureId, story) {
-  return join8(featuresDir(replayBuildDir), featureId, "stories", story, "turns");
+  return (0, import_path4.join)(featuresDir(replayBuildDir), featureId, "stories", story, "turns");
 }
 function listBuildTurns(replayBuildDir, featureId, story) {
   const dir = storyTurnsDir(replayBuildDir, featureId, story);
-  if (!existsSync8(dir)) return [];
-  return readdirSync6(dir).filter((n) => !n.startsWith(".")).sort();
+  if (!(0, import_fs4.existsSync)(dir)) return [];
+  return (0, import_fs4.readdirSync)(dir).filter((n) => !n.startsWith(".")).sort();
 }
 function replayBuildTurn(args) {
   const { replayBuildDir, projectDir, sftddDir, featureId, story, turnIndex } = args;
@@ -7430,37 +7056,37 @@ function replayBuildTurn(args) {
     (n) => !/reflect|assess|repair|superseded/i.test(n)
   );
   if (turnIndex < 1 || turnIndex > turns.length) return false;
-  const turnDir = join8(storyTurnsDir(replayBuildDir, featureId, story), turns[turnIndex - 1]);
-  const codeSrc = join8(turnDir, "code");
-  if (!existsSync8(codeSrc)) return false;
-  cpSync2(codeSrc, projectDir, { recursive: true, force: true, filter: codeTreeFilter(codeSrc) });
-  const cyclesSrc = join8(turnDir, "tdd", "cycles");
-  if (existsSync8(cyclesSrc)) {
-    cpSync2(cyclesSrc, cyclesRootDir(sftddDir), {
+  const turnDir = (0, import_path4.join)(storyTurnsDir(replayBuildDir, featureId, story), turns[turnIndex - 1]);
+  const codeSrc = (0, import_path4.join)(turnDir, "code");
+  if (!(0, import_fs4.existsSync)(codeSrc)) return false;
+  (0, import_fs4.cpSync)(codeSrc, projectDir, { recursive: true, force: true, filter: codeTreeFilter(codeSrc) });
+  const cyclesSrc = (0, import_path4.join)(turnDir, "tdd", "cycles");
+  if ((0, import_fs4.existsSync)(cyclesSrc)) {
+    (0, import_fs4.cpSync)(cyclesSrc, cyclesRootDir(sftddDir), {
       recursive: true,
       force: true,
-      filter: (src) => statSync4(src).isDirectory() || src.endsWith("review-verdict.json")
+      filter: (src) => (0, import_fs4.statSync)(src).isDirectory() || src.endsWith("review-verdict.json")
     });
   }
   return true;
 }
 
 // scripts/sftdd/agent-log.ts
-init_esm_shims();
-import { appendFileSync, existsSync as existsSync9, readFileSync as readFileSync8 } from "fs";
-import { join as join10 } from "path";
+init_cjs_shims();
+var import_fs6 = require("fs");
+var import_path6 = require("path");
 
 // scripts/sftdd/schema-loader.ts
-init_esm_shims();
+init_cjs_shims();
+var import_fs5 = require("fs");
+var import_path5 = require("path");
 var import_ajv = __toESM(require_ajv(), 1);
-import { readFileSync as readFileSync7 } from "fs";
-import { join as join9 } from "path";
-var SCHEMA_DIR = join9(__dirname, "schemas");
+var SCHEMA_DIR = (0, import_path5.join)(__dirname, "schemas");
 var ajv = new import_ajv.default({ allErrors: true, strict: false });
 ajv.addFormat("date-time", true);
 var validatorCache = /* @__PURE__ */ new Map();
 function loadSchema(name) {
-  return JSON.parse(readFileSync7(join9(SCHEMA_DIR, name), "utf8"));
+  return JSON.parse((0, import_fs5.readFileSync)((0, import_path5.join)(SCHEMA_DIR, name), "utf8"));
 }
 function getValidator(name) {
   const cached = validatorCache.get(name);
@@ -7479,7 +7105,7 @@ function formatSchemaErrors(validate) {
 }
 
 // scripts/sftdd/agent-log-events.ts
-init_esm_shims();
+init_cjs_shims();
 var EVENT_TEMPLATES = {
   // Orchestration lifecycle (code-emitted)
   "handoff": { template: "dispatch {{to_role}} for {{phase}}" },
@@ -7552,9 +7178,8 @@ function renderEventMessage(event, slots = {}) {
 }
 
 // scripts/sftdd/agent-log.ts
-var LEVEL_ORDER = { debug: 0, info: 1, warn: 2, error: 3 };
 function logFilePath(sftddDir) {
-  return join10(sftddDir, "agent-log.jsonl");
+  return (0, import_path6.join)(sftddDir, "agent-log.jsonl");
 }
 function buildAgentLogEvent(input, now) {
   const slots = input.slots ?? {};
@@ -7594,35 +7219,14 @@ function emitAgentLogEvent(input, opts = {}) {
   const sftddDir = opts.sftddDir ?? resolveSftddDir();
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const event = buildAgentLogEvent(input, now);
-  appendFileSync(logFilePath(sftddDir), `${JSON.stringify(event)}
+  (0, import_fs6.appendFileSync)(logFilePath(sftddDir), `${JSON.stringify(event)}
 `, "utf8");
   return event;
 }
-function readAgentLog(opts = {}) {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
-  const file = logFilePath(sftddDir);
-  if (!existsSync9(file)) return [];
-  const minRank = opts.minLevel !== void 0 ? LEVEL_ORDER[opts.minLevel] : void 0;
-  const out = [];
-  for (const line of readFileSync8(file, "utf8").split("\n")) {
-    if (line.trim().length === 0) continue;
-    let ev;
-    try {
-      ev = JSON.parse(line);
-    } catch {
-      continue;
-    }
-    if (opts.role !== void 0 && ev.role !== opts.role) continue;
-    if (opts.featureId !== void 0 && ev.metadata?.feature_id !== opts.featureId) continue;
-    if (minRank !== void 0 && LEVEL_ORDER[ev.level] < minRank) continue;
-    out.push(ev);
-  }
-  return out;
-}
 
 // scripts/sftdd/workflow-phase.ts
-init_esm_shims();
-import * as fs5 from "fs";
+init_cjs_shims();
+var fs5 = __toESM(require("fs"), 1);
 var PHASE_OWNER_KEY = "phase_feature_id";
 function writeWorkflowPhase(sftddDir, phase, featureId) {
   const file = workflowStateJson(sftddDir);
@@ -7641,7 +7245,7 @@ function writeWorkflowPhase(sftddDir, phase, featureId) {
 }
 
 // scripts/sftdd/claude-usage.ts
-init_esm_shims();
+init_cjs_shims();
 function numOr(v, fallback) {
   return typeof v === "number" && Number.isFinite(v) ? v : fallback;
 }
@@ -7716,7 +7320,7 @@ function assistantEventSummary(line) {
 }
 
 // scripts/sftdd/context-budget.ts
-init_esm_shims();
+init_cjs_shims();
 var CONTEXT_FREE_FRACTION_REQUIRED = 0.4;
 function requiredFreeFraction(env = process.env) {
   const raw = env.LAKEBASE_SFTDD_CONTEXT_FREE_FRACTION ?? env.SFTDD_CONTEXT_FREE_FRACTION;
@@ -7754,7 +7358,7 @@ function isTransientApiErrorSignal(line) {
 }
 
 // scripts/sftdd/orchestrator-logging.ts
-init_esm_shims();
+init_cjs_shims();
 var BUILD_TURNS = /* @__PURE__ */ new Set(["red", "green", "review", "refactor"]);
 function turnSettings(ctx, role, phase) {
   const turn = BUILD_TURNS.has(phase) ? phase : void 0;
@@ -7864,11 +7468,11 @@ function makeOnAction(opts) {
 }
 
 // scripts/sftdd/kit-bin.ts
-init_esm_shims();
-import { spawnSync } from "child_process";
-import * as fs6 from "fs";
-import * as path5 from "path";
-var KIT_ROOT = path5.resolve(__dirname, "..", "..", "..");
+init_cjs_shims();
+var import_node_child_process = require("child_process");
+var fs6 = __toESM(require("fs"), 1);
+var path4 = __toESM(require("path"), 1);
+var KIT_ROOT = path4.resolve(__dirname, "..", "..", "..");
 var SUBSTRATE_PKG = "@databricks-solutions/lakebase-scm-utils";
 var kitBinMap = null;
 var substrateRoot;
@@ -7877,12 +7481,12 @@ function resolveSubstrateRoot() {
   if (substrateRoot !== void 0) return substrateRoot;
   let dir = KIT_ROOT;
   for (; ; ) {
-    const cand = path5.join(dir, "node_modules", SUBSTRATE_PKG);
-    if (fs6.existsSync(path5.join(cand, "package.json"))) {
+    const cand = path4.join(dir, "node_modules", SUBSTRATE_PKG);
+    if (fs6.existsSync(path4.join(cand, "package.json"))) {
       substrateRoot = cand;
       return cand;
     }
-    const parent = path5.dirname(dir);
+    const parent = path4.dirname(dir);
     if (parent === dir) break;
     dir = parent;
   }
@@ -7892,48 +7496,48 @@ function resolveSubstrateRoot() {
 function resolveKitBinJs(bin) {
   if (kitBinMap === null) {
     try {
-      const pkg = JSON.parse(fs6.readFileSync(path5.join(KIT_ROOT, "package.json"), "utf8"));
+      const pkg = JSON.parse(fs6.readFileSync(path4.join(KIT_ROOT, "package.json"), "utf8"));
       kitBinMap = pkg.bin ?? {};
     } catch {
       kitBinMap = {};
     }
   }
   const rel = kitBinMap[bin];
-  if (rel) return path5.join(KIT_ROOT, rel);
+  if (rel) return path4.join(KIT_ROOT, rel);
   const subRoot = resolveSubstrateRoot();
   if (subRoot) {
     if (substrateBinMap === null) {
       try {
-        const pkg = JSON.parse(fs6.readFileSync(path5.join(subRoot, "package.json"), "utf8"));
+        const pkg = JSON.parse(fs6.readFileSync(path4.join(subRoot, "package.json"), "utf8"));
         substrateBinMap = pkg.bin ?? {};
       } catch {
         substrateBinMap = {};
       }
     }
     const subRel = substrateBinMap[bin];
-    if (subRel) return path5.join(subRoot, subRel);
+    if (subRel) return path4.join(subRoot, subRel);
   }
   return null;
 }
 
 // scripts/sftdd/drive-runner.ts
-import { readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
+var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // scripts/sftdd/stray-artifact-recovery.ts
-init_esm_shims();
-import { existsSync as existsSync12, mkdirSync as mkdirSync9, cpSync as cpSync3, rmSync, readdirSync as readdirSync7, statSync as statSync5 } from "fs";
-import { join as join12, dirname as dirname8, basename } from "path";
+init_cjs_shims();
+var import_node_fs = require("fs");
+var import_node_path2 = require("path");
 function malformedSiblingRoot(projectDir) {
   const p = projectDir.replace(/\/+$/, "");
-  return `${dirname8(p)}-${basename(p)}`;
+  return `${(0, import_node_path2.dirname)(p)}-${(0, import_node_path2.basename)(p)}`;
 }
 function listFilesRel(dir) {
   const out = [];
   const walk = (abs, rel) => {
-    for (const entry of readdirSync7(abs)) {
-      const childAbs = join12(abs, entry);
-      const childRel = rel ? join12(rel, entry) : entry;
-      if (statSync5(childAbs).isDirectory()) walk(childAbs, childRel);
+    for (const entry of (0, import_node_fs.readdirSync)(abs)) {
+      const childAbs = (0, import_node_path2.join)(abs, entry);
+      const childRel = rel ? (0, import_node_path2.join)(rel, entry) : entry;
+      if ((0, import_node_fs.statSync)(childAbs).isDirectory()) walk(childAbs, childRel);
       else out.push(childRel);
     }
   };
@@ -7942,19 +7546,19 @@ function listFilesRel(dir) {
 }
 function relocateStrayDesignArtifacts(projectDir) {
   const sibling = malformedSiblingRoot(projectDir);
-  if (!existsSync12(sibling)) return { relocated: false, moved: [] };
+  if (!(0, import_node_fs.existsSync)(sibling)) return { relocated: false, moved: [] };
   const moved = [];
   for (const artRoot of [".sftdd", ".tdd"]) {
-    const strayRoot = join12(sibling, artRoot);
-    if (!existsSync12(strayRoot)) continue;
-    for (const rel of listFilesRel(strayRoot)) moved.push(join12(artRoot, rel));
-    const realRoot = join12(projectDir, artRoot);
-    mkdirSync9(realRoot, { recursive: true });
-    cpSync3(strayRoot, realRoot, { recursive: true, force: true });
-    rmSync(strayRoot, { recursive: true, force: true });
+    const strayRoot = (0, import_node_path2.join)(sibling, artRoot);
+    if (!(0, import_node_fs.existsSync)(strayRoot)) continue;
+    for (const rel of listFilesRel(strayRoot)) moved.push((0, import_node_path2.join)(artRoot, rel));
+    const realRoot = (0, import_node_path2.join)(projectDir, artRoot);
+    (0, import_node_fs.mkdirSync)(realRoot, { recursive: true });
+    (0, import_node_fs.cpSync)(strayRoot, realRoot, { recursive: true, force: true });
+    (0, import_node_fs.rmSync)(strayRoot, { recursive: true, force: true });
   }
   try {
-    if (readdirSync7(sibling).length === 0) rmSync(sibling, { recursive: true, force: true });
+    if ((0, import_node_fs.readdirSync)(sibling).length === 0) (0, import_node_fs.rmSync)(sibling, { recursive: true, force: true });
   } catch {
   }
   return moved.length > 0 ? { relocated: true, from: sibling, moved } : { relocated: false, moved: [] };
@@ -7965,10 +7569,10 @@ var MAX_PROMPT_TOO_LONG_RETRIES = 2;
 var MAX_TRANSIENT_RETRIES = Number(sftddEnv("MAX_TRANSIENT_RETRIES") ?? "5");
 var TRANSIENT_BACKOFF_MS = Number(sftddEnv("TRANSIENT_BACKOFF_MS") ?? "5000");
 function spawnCmd(bin, args, cwd) {
-  return new Promise((resolve4, reject) => {
-    const child = spawn(bin, args, { cwd, stdio: "inherit" });
+  return new Promise((resolve3, reject) => {
+    const child = (0, import_node_child_process2.spawn)(bin, args, { cwd, stdio: "inherit" });
     child.on("error", (err) => reject(err));
-    child.on("close", (code) => code === 0 ? resolve4() : reject(new Error(`${bin} exited ${code}`)));
+    child.on("close", (code) => code === 0 ? resolve3() : reject(new Error(`${bin} exited ${code}`)));
   });
 }
 var ClaudeTurnError = class extends Error {
@@ -7990,7 +7594,7 @@ var ReplayCorpusMissError = class extends Error {
 var ArtifactOutOfRootError = class extends Error {
   constructor(role, label, anyOf, sftddDir, checkedSibling) {
     super(
-      `role '${role}' produced no ${label} under ${path6.basename(sftddDir)}/ (expected one of: ${anyOf.join(", ")}).
+      `role '${role}' produced no ${label} under ${path5.basename(sftddDir)}/ (expected one of: ${anyOf.join(", ")}).
         The subagent likely resolved the project root wrong and wrote outside it. ` + (checkedSibling ? `Checked (and tried to relocate from) the malformed sibling ${checkedSibling}; nothing there either. ` : `(check $HOME and other dirs for a stray copy). `) + `Nothing downstream can consume the absent artifact. Re-run to re-dispatch the role.`
     );
     this.role = role;
@@ -8007,9 +7611,14 @@ var ArtifactOutOfRootError = class extends Error {
   checkedSibling;
 };
 var lastAgentTranscript;
+function takeLastAgentTranscript() {
+  const t = lastAgentTranscript;
+  lastAgentTranscript = void 0;
+  return t;
+}
 function spawnClaudeStreaming(args, cwd) {
-  return new Promise((resolve4, reject) => {
-    const child = spawn("claude", args, { cwd, stdio: ["inherit", "pipe", "pipe"] });
+  return new Promise((resolve3, reject) => {
+    const child = (0, import_node_child_process2.spawn)("claude", args, { cwd, stdio: ["inherit", "pipe", "pipe"] });
     const lines = [];
     let sawTooLong = false;
     let sawTransient = false;
@@ -8059,7 +7668,7 @@ function spawnClaudeStreaming(args, cwd) {
         finalText: lastText,
         tools: allTools
       };
-      resolve4(parseTurnUsage(lines));
+      resolve3(parseTurnUsage(lines));
     });
   });
 }
@@ -8165,7 +7774,7 @@ function execRunner(cfg) {
         const sessionArgsFor = (forceFresh) => {
           if (!cmd.resumeKey) return [];
           if (startsFreshEachTurn(cmd.role)) {
-            const id2 = randomUUID();
+            const id2 = (0, import_node_crypto.randomUUID)();
             sessions.set(cmd.resumeKey, id2);
             sessionContext.delete(cmd.resumeKey);
             return ["--session-id", id2];
@@ -8180,7 +7789,7 @@ function execRunner(cfg) {
 `
             );
           }
-          const id = randomUUID();
+          const id = (0, import_node_crypto.randomUUID)();
           sessions.set(cmd.resumeKey, id);
           sessionContext.delete(cmd.resumeKey);
           return ["--session-id", id];
@@ -8302,7 +7911,7 @@ function buildCfg(args, featureId) {
   const projectDir = args.projectDir ?? process.cwd();
   const sftddDir = args.sftddDir ?? resolveSftddDir(projectDir);
   maybeResyncAgents(projectDir);
-  const scm = readWorkflowState(projectDir);
+  const scm = (0, import_lakebase.readWorkflowState)(projectDir);
   const settings = resolveSftddSettings({ projectDir });
   return {
     projectDir,
@@ -8383,3964 +7992,17 @@ function composeOnAction(...hooks) {
     for (const h of hooks) h(action, i);
   };
 }
-
-// scripts/sftdd/orchestrator-effects.ts
-init_esm_shims();
-import * as fs13 from "fs";
-import { dirname as dirname16 } from "path";
-
-// scripts/sftdd/orchestrator-drive.ts
-init_esm_shims();
-function uxDesignerPending(s) {
-  return !!s.uiTrack && s.breakdownDone && !s.designGuideReady;
-}
-function nextDesignAction(state) {
-  if (!state.breakdownDone) {
-    return { kind: "invoke-role", role: "spec-author", mode: "breakdown" };
-  }
-  if (uxDesignerPending(state)) {
-    return { kind: "invoke-role", role: "ux-designer" };
-  }
-  for (const story of state.storyOrder) {
-    const v = state.stories[story];
-    if (v?.gateApproved) continue;
-    const design = v?.design ?? {
-      hasAcs: false,
-      architectAnnotated: false,
-      architectProjectable: false,
-      dbaDesigned: false,
-      testListReady: false,
-      reflectionPassed: false,
-      reflectionVerdictWritten: false
-    };
-    if (!design.hasAcs) return { kind: "invoke-role", role: "spec-author", story };
-    if (!design.architectAnnotated) {
-      if (design.architectProjectable) return { kind: "project-architect-notes", story };
-      return { kind: "invoke-role", role: "architect-reviewer", story };
-    }
-    if (!design.dbaDesigned) return { kind: "invoke-role", role: "dba", story };
-    if (!design.testListReady) return { kind: "invoke-role", role: "test-strategist", story };
-    if (!design.reflectionPassed) return { kind: "invoke-role", role: "navigator", story, buildMode: "reflect" };
-    if (!v?.gateSurfaced) return { kind: "surface-gate", story };
-    return { kind: "approve-gate", story };
-  }
-  return { kind: "design-complete" };
-}
-function nextBuildAction(story, b) {
-  if (!b.experimentCut) {
-    return b.experimentDiscarded ? { kind: "cut-experiment", story, resetStaleBranch: true } : { kind: "cut-experiment", story };
-  }
-  if (b.refactorVerifyAssessEligible) return { kind: "invoke-role", role: "navigator", story, buildMode: "assess-refactor" };
-  if (b.refactorVerifyRefactorPending) return { kind: "invoke-role", role: "driver", story, buildMode: "refactor-superseded" };
-  if ((b.loop ?? "story") === "story") {
-    if (b.reviewStoryPending) return { kind: "invoke-role", role: "navigator", story, buildMode: "review" };
-    if (b.refactorStoryPending) return { kind: "invoke-role", role: "driver", story, buildMode: "refactor" };
-  } else {
-    if (b.reviewAc) return { kind: "invoke-role", role: "navigator", story, buildMode: "review", ac: b.reviewAc };
-    if (b.refactorAc) return { kind: "invoke-role", role: "driver", story, buildMode: "refactor", ac: b.refactorAc };
-  }
-  if (b.assessGreenAc) return { kind: "invoke-role", role: "navigator", story, buildMode: "assess", ac: b.assessGreenAc };
-  if (b.repairRegressionAc) return { kind: "invoke-role", role: "driver", story, buildMode: "repair", ac: b.repairRegressionAc };
-  if (b.greenSupersededAc) return { kind: "invoke-role", role: "driver", story, buildMode: "green-superseded" };
-  if (!b.testsWritten) return { kind: "invoke-role", role: "navigator", story };
-  if (!b.codeWritten) return { kind: "invoke-role", role: "driver", story };
-  if (!b.awaitingAcceptance) return { kind: "await-acceptance", story };
-  if (b.deployVerifyAssessEligible) return { kind: "invoke-role", role: "navigator", story, buildMode: "assess-deploy" };
-  if (b.deployVerifyRefactorPending) return { kind: "invoke-role", role: "driver", story, buildMode: "refactor-deploy" };
-  if (!b.deployVerified) return { kind: "await-acceptance", story };
-  if (!b.accepted) return { kind: "accept", story };
-  return { kind: "complete", story };
-}
-function escalationPreempt(state) {
-  if (!state.escalation) return void 0;
-  const e = state.escalation;
-  if (e.routable) {
-    return {
-      kind: "revise-route",
-      story: e.routable.story,
-      role: e.routable.owning_role,
-      gate: e.routable.gate,
-      reason: e.reason,
-      source: e.source
-    };
-  }
-  return { kind: "raise-to-hil", reason: e.reason, source: e.source, ...e.story_id ? { story: e.story_id } : {} };
-}
-function nextTransition(state) {
-  const preempt = escalationPreempt(state);
-  if (preempt) return preempt;
-  if (state.phase === "planning") {
-    const p = state.planning ?? { proposed: false, estimated: false, requestsAuthored: false };
-    if (!p.proposed) return { kind: "invoke-role", role: "spec-author", mode: "propose" };
-    if (!p.skipSizing && !p.estimated) return { kind: "invoke-role", role: "architect-reviewer", mode: "estimate" };
-    if (!p.requestsAuthored) return { kind: "invoke-role", role: "product-owner", mode: "author-requests" };
-    if (!p.skipSizing && p.committedEstimated === false)
-      return { kind: "invoke-role", role: "architect-reviewer", mode: "estimate-committed" };
-    if (!p.gateApproved) return { kind: "approve-plan-gate" };
-    return { kind: "planning-complete" };
-  }
-  if (state.phase === "deploy") {
-    const d = state.deploy ?? { deployed: false, gateApproved: false };
-    if (!d.deployed) return { kind: "deploy" };
-    if (d.verifyAssessEligible) return { kind: "deploy-verify-heal", role: "navigator", mode: "assess-deploy" };
-    if (d.verifyRefactorPending) return { kind: "deploy-verify-heal", role: "driver", mode: "refactor-deploy" };
-    if (!d.gateApproved) return { kind: "approve-deploy-gate" };
-    return { kind: "deploy-complete" };
-  }
-  if (state.phase === "promote") {
-    const pr = state.promote ?? { prReady: false, ciGreen: false, prApproved: false, merged: false };
-    if (!pr.prReady) return { kind: "prepare-pr" };
-    if (!pr.ciGreen) return { kind: "wait-ci" };
-    if (!pr.prApproved) return { kind: "approve-promote-gate" };
-    if (!pr.merged) return { kind: "merge" };
-    return { kind: "done" };
-  }
-  if (state.phase === "done") return { kind: "done" };
-  if (uxDesignerPending(state)) {
-    return { kind: "invoke-role", role: "ux-designer" };
-  }
-  if (state.buildActive) {
-    return nextBuildAction(state.buildActive, state.stories[state.buildActive].build);
-  }
-  for (const story of state.storyOrder) {
-    const v = state.stories[story];
-    if (v?.gateApproved && !v.build.accepted) return { kind: "dispatch", story };
-  }
-  const design = nextDesignAction(toDesignView(state));
-  if (design.kind === "design-complete") return { kind: "feature-complete" };
-  return design;
-}
-function toDesignView(state) {
-  return {
-    breakdownDone: state.breakdownDone,
-    storyOrder: state.storyOrder,
-    uiTrack: state.uiTrack,
-    designGuideReady: state.designGuideReady,
-    stories: Object.fromEntries(
-      Object.entries(state.stories).map(([id, v]) => [
-        id,
-        { gateApproved: v.gateApproved, gateSurfaced: v.gateSurfaced, design: v.design }
-      ])
-    )
-  };
-}
-function actionLane(action) {
-  switch (action.kind) {
-    case "invoke-role": {
-      if ("mode" in action) {
-        return action.mode === "breakdown" ? "design" : "planning";
-      }
-      return action.role === "navigator" || action.role === "driver" ? "build" : "design";
-    }
-    case "approve-plan-gate":
-    case "planning-complete":
-      return "planning";
-    case "project-architect-notes":
-    case "surface-gate":
-    case "approve-gate":
-    case "design-complete":
-      return "design";
-    case "dispatch":
-    case "cut-experiment":
-    case "await-acceptance":
-    case "accept":
-    case "complete":
-      return "build";
-    case "feature-complete":
-      return "coarse";
-    case "deploy":
-    case "approve-deploy-gate":
-    case "deploy-verify-heal":
-      return "deploy";
-    case "deploy-complete":
-    case "prepare-pr":
-    case "wait-ci":
-    case "approve-promote-gate":
-    case "merge":
-      return "promote";
-    case "raise-to-hil":
-      return "done";
-    case "revise-route":
-      return "design";
-    case "done":
-      return "done";
-  }
-}
-
-// scripts/sftdd/orchestrator-derive.ts
-init_esm_shims();
-function isContractStory(storyId) {
-  return /(^|[-_])(drop|remove|delete|rename|deprecate|cleanup|retire)([-_]|$)|dropp|remov|delet|renam|deprecat/i.test(
-    storyId
-  );
-}
-function effectiveLoopForStory(runLoop, storyId) {
-  return isContractStory(storyId) ? "ac" : runLoop;
-}
-function storyView(id, e, probe, loop) {
-  const gateApproved = e.gate?.status === "approved";
-  const accepted = e.acceptance?.decision === "accepted" || e.status === "done";
-  return {
-    gateApproved,
-    // The gate record exists once the story has been surfaced for review;
-    // awaiting-gate is the pre-record surfaced state.
-    gateSurfaced: e.gate != null || e.status === "awaiting-gate",
-    design: {
-      hasAcs: probe.hasAcs(id),
-      architectAnnotated: probe.architectAnnotated(id),
-      architectProjectable: probe.architectProjectable(id),
-      dbaDesigned: probe.dbaDesigned(id),
-      testListReady: probe.testListReady(id),
-      reflectionPassed: probe.reflectionPassed(id),
-      reflectionVerdictWritten: probe.reflectionVerdictWritten(id)
-    },
-    build: {
-      // An experiment that was discarded is no longer cut (a fresh one is cut
-      // on revise); merged/active both count as cut.
-      experimentCut: e.experiment != null && e.experiment.status !== "discarded",
-      experimentDiscarded: e.experiment != null && e.experiment.status === "discarded",
-      testsWritten: probe.testsWritten(id),
-      codeWritten: probe.codeWritten(id),
-      loop,
-      reviewAc: probe.reviewPendingAc(id),
-      refactorAc: probe.refactorPendingAc(id),
-      reviewStoryPending: probe.reviewPending(id),
-      refactorStoryPending: probe.refactorPending(id),
-      assessGreenAc: probe.assessGreenFailureAc(id),
-      repairRegressionAc: probe.repairRegressionFixAc(id),
-      greenSupersededAc: probe.greenSupersededFailureAc(id),
-      awaitingAcceptance: e.status === "awaiting-acceptance",
-      deployVerified: probe.storyDeployVerified(id),
-      deployVerifyAssessEligible: probe.deployVerifyAssessEligible(id),
-      deployVerifyRefactorPending: probe.deployVerifyRefactorPending(id),
-      refactorVerifyAssessEligible: probe.refactorVerifyAssessEligible(id),
-      refactorVerifyRefactorPending: probe.refactorVerifyRefactorPending(id),
-      accepted
-    }
-  };
-}
-function deriveDriveState(pipeline, probe, ctx) {
-  const loop = ctx.loop ?? "story";
-  const stories = {};
-  for (const [id, entry] of Object.entries(pipeline.stories)) {
-    stories[id] = storyView(id, entry, probe, effectiveLoopForStory(loop, id));
-  }
-  const storyOrder = ctx.storyOrder ?? Object.keys(pipeline.stories);
-  const breakdownDone = ctx.breakdownDone || storyOrder.length > 0;
-  return {
-    phase: ctx.phase,
-    planning: ctx.planning,
-    deploy: ctx.deploy,
-    promote: ctx.promote,
-    breakdownDone,
-    storyOrder,
-    stories,
-    buildActive: pipeline.build_active,
-    escalation: probe.pendingEscalation()
-  };
-}
-function driverPhaseForTdd(tddPhase) {
-  switch (tddPhase) {
-    case "planning":
-      return "planning";
-    case "deploy":
-      return "deploy";
-    case "promote":
-      return "promote";
-    case "shipped":
-    case "done":
-      return "done";
-    default:
-      return "feature";
-  }
-}
-
-// scripts/sftdd/orchestrator-probe.ts
-init_esm_shims();
-import * as fs12 from "fs";
-import * as path9 from "path";
-
-// scripts/sftdd/run-cycle.ts
-init_esm_shims();
-import { getConnection } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-
-// scripts/sftdd/experiment.ts
-init_esm_shims();
-import { existsSync as existsSync13, mkdirSync as mkdirSync10, readdirSync as readdirSync9, readFileSync as readFileSync11, statSync as statSync7, writeFileSync as writeFileSync7 } from "fs";
-import { join as join13 } from "path";
-import { createPairedBranch, deletePairedBranch } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-function branchIdOf(info) {
-  const leaf = info.name.split("/").pop();
-  if (!leaf) throw new Error(`could not derive branch_id from ${info.name}`);
-  return leaf;
-}
-function experimentsRoot(sftddDir, featureId, storyId) {
-  return join13(sftddDir, "experiments", featureId, storyId);
-}
-function experimentDir(sftddDir, featureId, storyId, slug) {
-  return join13(experimentsRoot(sftddDir, featureId, storyId), slug);
-}
-async function cutExperiment(args, deps = {}) {
-  const { sftddDir, projectDir, featureId, storyId, experimentSlug, branch, parentBranch, ttl, notes, resetStaleBranch, ...lookup } = args;
-  const create = deps.createPairedBranch ?? createPairedBranch;
-  const dropBranch = deps.deletePairedBranch ?? deletePairedBranch;
-  if (resetStaleBranch) {
-    try {
-      await dropBranch({ instance: lookup.instance, branch, cwd: projectDir });
-    } catch {
-    }
-  }
-  const paired = await create({
-    instance: lookup.instance,
-    branch,
-    parentBranch,
-    cwd: projectDir,
-    createGitBranch: true,
-    syncEnv: true,
-    ...ttl ? { ttl } : { noExpiry: true }
-  });
-  if (!paired.envSynced) {
-    throw new Error(
-      `Experiment cut for "${branch}" did not populate .env with the branch's database connection` + (paired.warnings.length ? ` (${paired.warnings.join("; ")})` : "") + `. The build's honest-GREEN verify needs DATABASE_URL; aborting the cut so this is caught now, not at verify time.`
-    );
-  }
-  const branchId = branchIdOf(paired.branch);
-  const dir = experimentDir(sftddDir, featureId, storyId, experimentSlug);
-  mkdirSync10(dir, { recursive: true });
-  writeFileSync7(join13(dir, "branch.txt"), branchId);
-  writeFileSync7(
-    join13(dir, "notes.md"),
-    notes ?? `# ${experimentSlug}
-
-Experiment cut from \`${parentBranch ?? "staging"}\`. Strategy + learning notes go here.
-`
-  );
-  const outcomes = { status: "running" };
-  writeFileSync7(join13(dir, "outcomes.json"), JSON.stringify(outcomes, null, 2) + "\n");
-  writeFileSync7(
-    join13(dir, "timeline.json"),
-    JSON.stringify(
-      { entries: [{ ts: (/* @__PURE__ */ new Date()).toISOString(), kind: "cut", branch: branchId }] },
-      null,
-      2
-    ) + "\n"
-  );
-  return {
-    feature_id: featureId,
-    story_id: storyId,
-    experiment_slug: experimentSlug,
-    branch_id: branchId,
-    created_at: (/* @__PURE__ */ new Date()).toISOString(),
-    dir
-  };
-}
-
-// scripts/sftdd/run-cycle.ts
-function readAcLayer2(sftddDir, featureId, acId) {
-  return readAcLayer(sftddDir, featureId, acId);
-}
-function coveredTestIds(c) {
-  if (c.test_ids && c.test_ids.length > 0) return c.test_ids;
-  return c.test_id ? [c.test_id] : [];
-}
-
-// scripts/sftdd/cycle-record.ts
-init_esm_shims();
-import { existsSync as existsSync24, readFileSync as readFileSync23, readdirSync as readdirSync17, statSync as statSync12, writeFileSync as writeFileSync15, mkdirSync as mkdirSync17, rmSync as rmSync6 } from "fs";
-import { join as join24, dirname as dirname13 } from "path";
-
-// scripts/sftdd/test-list.ts
-init_esm_shims();
-import { readFileSync as readFileSync12, writeFileSync as writeFileSync8, existsSync as existsSync14, mkdirSync as mkdirSync11, readdirSync as readdirSync10, statSync as statSync8 } from "fs";
-import { join as join14, dirname as dirname9 } from "path";
-function acIdsInStoryDir(storyDir2) {
-  const dir = join14(storyDir2, "acs");
-  if (!existsSync14(dir)) return [];
-  const out = [];
-  for (const f of readdirSync10(dir)) {
-    if (!f.endsWith(".json")) continue;
-    const base = f.slice(0, -".json".length);
-    try {
-      const obj = JSON.parse(readFileSync12(join14(dir, f), "utf8"));
-      if (obj && typeof obj.id === "string" && obj.id === base) out.push(base);
-    } catch {
-    }
-  }
-  return out.sort();
-}
-function acsForStory(tddDir, featureId, storyId) {
-  const storyDir2 = findStoryDir(tddDir, featureId, storyId);
-  return storyDir2 ? acIdsInStoryDir(storyDir2) : [];
-}
-
-// scripts/sftdd/deploy.ts
-init_esm_shims();
-import { execSync, spawn as spawn2 } from "child_process";
-import { randomBytes } from "crypto";
-import { existsSync as existsSync18, mkdirSync as mkdirSync14, readFileSync as readFileSync17, rmSync as rmSync3, writeFileSync as writeFileSync12 } from "fs";
-import { dirname as dirname11, join as join18 } from "path";
-import { readTargets } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-import { pollUntil } from "@databricks-solutions/lakebase-scm-utils/util";
-
-// scripts/sftdd/escalation.ts
-init_esm_shims();
-import * as fs8 from "fs";
-
-// scripts/sftdd/smells.ts
-init_esm_shims();
-import { existsSync as existsSync15, readFileSync as readFileSync13, writeFileSync as writeFileSync9 } from "fs";
-import { createHash } from "crypto";
-import { join as join15 } from "path";
-var SMELL_CATALOG = [
-  {
-    name: "test-list-drift",
-    description: "Test list grew by >25% since cycle start without HITL approval.",
-    proposed_remediation: "PO refinement on spec.",
-    // A drifted/non-orderable test list is a test-strategist decomposition
-    // defect: route the remediation back to Gate 3 on `revise`.
-    level: "spec",
-    owning_role: "test-strategist",
-    gate_to_rerun: "test_list"
-  },
-  {
-    name: "superseded-tests",
-    description: "A new AC intentionally supersedes behavior encoded in PRIOR tests (often from earlier features); the Navigator flagged them in a superseded-tests allowlist. NOT a contradiction to block (that is test-list-drift), the latest AC wins and the accumulated tests must follow it.",
-    proposed_remediation: "Driver permissively refactors ONLY the flagged tests (and the code) to the new AC, then the honest-GREEN verify re-runs. Bounded to one attempt; an unflagged regression escalates.",
-    level: "build"
-  },
-  {
-    name: "cycle-stall",
-    description: "N cycles in a row with no GREEN.",
-    proposed_remediation: "Re-examine test ordering or spec ambiguity."
-  },
-  {
-    name: "api-coherence-drift",
-    description: "Same concept named differently across two consecutive PASS reviews.",
-    proposed_remediation: "Rename refactor before next test."
-  },
-  {
-    name: "fragility-ratio",
-    description: "One behavior change failed >3 tests.",
-    proposed_remediation: "Refactor + flag tests-mirror-implementation anti-pattern."
-  },
-  {
-    name: "test-cost-spiral",
-    description: "Each subsequent test takes >2x the lines of the prior one.",
-    proposed_remediation: "Reconsider boundary; outer-loop tests probably needed."
-  },
-  {
-    name: "cross-experiment-divergence",
-    description: "Two parallel experiments are solving different problems.",
-    proposed_remediation: "Was an opinion gap hidden? Re-run design-spec gate."
-  },
-  {
-    name: "dead-requirement-signal",
-    description: "An AC has had no scenarios written in N cycles while others mature.",
-    proposed_remediation: "Deprecate or clarify via PO refinement."
-  },
-  {
-    name: "test-deletion-attempt",
-    description: "Driver or human attempts to remove or weaken an existing test.",
-    proposed_remediation: "Hard block. Tests are immutable until the test list itself is renegotiated."
-  },
-  {
-    name: "boundary-violation",
-    description: "Test references a private method or internal helper.",
-    proposed_remediation: "Refactor to public boundary or move to inner-loop list."
-  },
-  {
-    name: "import-time-build-coupling",
-    description: "The app entry module requires an optional build artifact (e.g. client/dist) at module load time, an unconditional StaticFiles mount / asset read at import scope. It greens where the artifact happens to exist and crashes at import everywhere it does not (backend-only test runs, CI before the client build, fresh clones). Caught deterministically by the `lakebase-sftdd-imports-clean` gate; the Navigator may also flag it in REVIEW.",
-    proposed_remediation: "Guard the coupling: mount the compiled client ONLY when its directory exists, and serve a clear 503 from the SPA route when index.html is absent, so the module imports without the artifact. See the dev/prod-parity rule in software-design-principles."
-  },
-  {
-    name: "scaffold-defect",
-    description: "A test cannot run because the project scaffold is missing a piece the kit owns (e.g. tests/e2e/conftest.py + the live_server fixture for an E2E AC, or an absent runner). The role flags it instead of fabricating the missing scaffold itself. Blocking: a fabricated fixture diverges from the shipped one + reintroduces the CI-parity bugs the kit template prevents.",
-    proposed_remediation: "Halt + surface to the HIL. Fix the scaffold (re-run the kit's wiring, e.g. --enable-e2e for the project's language), never hand-author the missing piece in the build."
-  },
-  {
-    name: "ac-overlap",
-    description: "Two acceptance criteria in a story are not independent: satisfying one's `then` inherently satisfies (or contradicts) another, so the dependent AC's test can never go RED without deleting shipped code. A spec/test-list decomposition defect. Blocking, and flagged at the design gate (Gate 3) so it halts BEFORE a build cycle is wasted, rather than surfacing mid-build as a cycle-stall.",
-    proposed_remediation: "Surface to the PO at the gate. Merge the overlapping ACs, differentiate their observable behavior, or (PO decision) accept the dependent AC as already-satisfied. Do not order both as separate cycles.",
-    // An AC overlap is a spec-author decomposition defect: route back to Gate 1.
-    level: "spec",
-    owning_role: "spec-author",
-    gate_to_rerun: "spec"
-  },
-  {
-    name: "reflect-spec-defect",
-    description: "The pre-build reflection critic (Navigator, reflect mode) found a defect in the story's SPEC before the build lane: an internal contradiction between ACs, a spec-vs-architecture layer conflict, or an untestable/vacuous AC (no observable outcome). Caught on the cheap design artifacts so it is fixed BEFORE any RED/GREEN/REVIEW cycle runs, the reflection gate is a speed play (a spec fix is far cheaper than re-running build cycles).",
-    proposed_remediation: "Route back to the Spec Author (Gate 1): resolve the contradiction, make the AC observable, or realign the AC with the architecture. Bounded to one automatic revise per story; if the critic still finds the defect after the re-spec, it escalates to the human.",
-    // A spec defect the critic surfaces is a spec-author fix: route back to Gate 1.
-    level: "spec",
-    owning_role: "spec-author",
-    gate_to_rerun: "spec"
-  },
-  {
-    name: "reflect-testlist-defect",
-    description: "The pre-build reflection critic (Navigator, reflect mode) found a defect in the story's TEST-LIST before the build lane: a test that contradicts its AC, an AC with no covering test (coverage gap), an NFR with no fitness test, or a test that asserts at a layer the architecture forbids. Caught on the cheap artifacts so it is fixed BEFORE the build lane.",
-    proposed_remediation: "Route back to the Test Strategist (Gate 3): align the test with its AC, add the missing coverage, or move the assertion to the correct layer. Bounded to one automatic revise per story; if the critic still finds the defect after the re-scope, it escalates to the human.",
-    // A test-list defect the critic surfaces is a test-strategist fix: route back to Gate 3.
-    level: "spec",
-    owning_role: "test-strategist",
-    gate_to_rerun: "test_list"
-  },
-  {
-    name: "shared-state-aggregate-assertion",
-    description: "A test asserts an ABSOLUTE aggregate over the WHOLE store (an integrity/consistency probe, a global COUNT/SUM , e.g. 'the probe reports exactly 0/2/1 nonconforming rows') without owning the table state it asserts. It passes in the per-cycle build verify (an ISOLATED ephemeral branch holding only its seeded rows) but the honest-GREEN full-feature deploy-verify FAILS it, because that runs the whole suite against the SHARED feature-branch DB where other stories' rows (same nullable columns) inflate the count. A real probe over a real deployed DB can never assert an exact global total anyway.",
-    proposed_remediation: "Route back to the Test Strategist (Gate 3): scope BOTH the seed AND the assertion to the test's own rows (filter the probe/count by the test's SKUs or a marker column, or assert a before-vs-after DELTA), never an absolute whole-table total. Bounded to one automatic revise per story; a second escape escalates to the human.",
-    // A contamination-fragile aggregate assertion is a test-strategist fix: route back to Gate 3.
-    level: "spec",
-    owning_role: "test-strategist",
-    gate_to_rerun: "test_list"
-  },
-  {
-    name: "architect-canon-gap",
-    description: "The deterministic architect-notes projection (FEIP-7902) found a story whose AC layers or architecture.json dimensions (a persistence-invariant type or an NFR category) the project canon does not yet cover. Projecting a blind architectural_note would guess at placement the canon cannot justify, so the story is routed to the Architect instead: re-annotate the story AND amend the canon so the next feature inherits the new rule. Spec-level + architect-owned; the projection is the default path and this is its reactive self-heal.",
-    proposed_remediation: "Route to the Architect Reviewer (Gate 2 architecture): annotate the uncovered ACs with real architectural_notes and declare the new dimension in architecture.json so reconcile amends the canon. Bounded to one automatic revise per story; a second escape hard-halts to the human.",
-    level: "spec",
-    owning_role: "architect-reviewer",
-    gate_to_rerun: "architecture"
-  },
-  {
-    name: "layering-violation",
-    description: "The boundary/routes layer touches persistence directly (calls the DB session: .query/.add/.commit/.delete on a route handler) or business logic lives in the boundary/templates, instead of delegating to a service + repository. A fat controller violates the layered-architecture contract the architect declared in architecture.json `layers`. Distinct from `boundary-violation` (which is a TEST reaching a private method). Caught deterministically by `lakebase-sftdd-layering-clean`; the Navigator may also flag it in REVIEW.",
-    proposed_remediation: "Extract a service (business logic) + a repository (the ONLY layer that touches the ORM/session); the route handler validates input + delegates. Defended by the layering fitness test (tests/architecture/test_layering.py)."
-  },
-  {
-    name: "ux-adherence",
-    description: "The rendered UI defines the design tokens on :root yet does not USE them at the element level: hardcoded hex colors / raw px where a var(--token) belongs, an ia.md data-testid seam that was never rendered, or an action surface (form/submit) with no feedback affordance (no silent failure / unacknowledged success). Token-level adherence (assertDesignAdherence) cannot see this; the element-level checks in design-adherence.ts do, and the UX Designer flags it in REVIEW. Distinct from `layering-violation` (engineering layering): this is the experience-lens gate.",
-    proposed_remediation: "Consume tokens via var(--token) (no hardcoded hex/px), render every ia.md screen with its data-testid seams, and give every action a perceivable result. Refactor the UI to the design guide; do not weaken the guide to match the drift."
-  },
-  {
-    name: "ui-style-implementation-test",
-    description: "A test for a design-guide-governed styling property asserts the IMPLEMENTATION in the page SOURCE (an inline `style=` attr or raw CSS text, e.g. grepping the HTML for `text-align: right`) instead of the rendered SEAM (the element carries the design-guide class / data-testid) or the design-adherence gate. It greens only while the style stays inline, so the moment the design lane refactors that ad-hoc inline style into a token-driven theme.css class (as the design guide requires), the test breaks and the REFACTOR dead-locks with no valid SUPERSEDED-TESTS path (the test and the design guide cannot both be satisfied). A test-list decomposition defect the pre-build reflection critic flags (routes to the Test Strategist), so it is fixed before a build cycle wastes on it.",
-    proposed_remediation: "Test the SEAM, not the implementation: assert the quantity/styled cell carries its design-guide class or data-testid (the stable contract), and leave the visual property (alignment, tabular-nums, color) to the design-adherence gate / a rendered-output check. Never assert an inline `style=` string the design guide will move into a token-driven class.",
-    // A styling test asserting implementation is a test-strategist decomposition
-    // defect: route back to Gate 3 (test_list) on `revise`.
-    level: "spec",
-    owning_role: "test-strategist",
-    gate_to_rerun: "test_list"
-  },
-  {
-    name: "e2e-inline-regex-flag",
-    description: "An E2E Playwright matcher (to_contain_text/to_have_text/to_have_url/get_by_text) is built from a Python regex carrying INLINE FLAGS , re.compile(r\"(?i)summary\") and the like. Playwright forwards the pattern's `.pattern` string verbatim to the browser's JavaScript regex engine, which does NOT support inline-flag syntax `(?i)`/`(?s)`/`(?m)`, so the regex is invalid and the assertion can never match the running app. The test is structurally un-greenable: the honest-GREEN verify rejects it and the build raises to HIL. Caught deterministically + cheaply (no browser run) by the e2e-regex-clean static lint, which enriches the GREEN-verify failure with the exact file:line + fix.",
-    proposed_remediation: 'Pass the flag as a kwarg, not inline: re.compile("summary", re.IGNORECASE) emits the valid JS regex /summary/i. Or, for a plain case-insensitive substring, use the bare string form Playwright already matches loosely. See the E2E rule in the Navigator role.'
-  },
-  {
-    name: "e2e-row-perma-red",
-    description: "An E2E-tagged test row has failed or had zero recorded runs for N or more consecutive cycles.",
-    proposed_remediation: "Surface to PO: either fix the runner wiring (BASE_URL, paired-branch endpoint, playwright.config), narrow the failing scenario, or retag the AC to a layer with a working runner."
-  },
-  {
-    name: "contract-incompleteness",
-    description: 'A migration DROPPED (or renamed) a column the running code still references , the ORM model field, a query/repository, a serializer/DTO, or a template/view , so the app emits SQL for a column the migrated database no longer has and crashes at runtime ("column X does not exist") even though the migration itself succeeded. The contract half of expand/contract (software-design-principles hard rule 9) was left incomplete: the schema shrank but the code did not follow in the SAME change. Caught DETERMINISTICALLY by the `lakebase-sftdd-contract-clean` gate (it parses the migration\'s net column drops and greps the code tree for residual references), which enriches the GREEN-verify failure with the exact file:line list , no model judgment needed to notice OR localize it.',
-    proposed_remediation: "Driver REPAIR: remove or replace EVERY residual reference (model field, queries, serializers/DTOs, templates/views) in the same change so the code matches the migrated schema. Never edit the migration or a test to hide it. The green-failure fixDirective carries the precise file:line list, so this self-heals without a Navigator assess."
-  },
-  {
-    name: "migration-app-coupling",
-    description: "A migration module imports application code at import scope (e.g. `from app.services... import parse_x`) to reuse app logic in a data migration. A migration is an IMMUTABLE historical artifact; the app is mutable. Coupling the two means a later rename/move/removal of that app symbol breaks replaying the migration from base (the historical revision can no longer import), and every alembic subcommand that builds the revision map (history/heads, not just upgrade) must load the module. It greens under `upgrade` (env.py puts the project root on sys.path) yet fails in CI's `alembic history`/`heads`. Caught DETERMINISTICALLY by the `lakebase-sftdd-migration-clean` gate (it scans the migration files for module-scope app imports), which runs proactively at GREEN even when the local verify passes, so it is fixed before the PR; the Navigator may also flag it in REVIEW.",
-    proposed_remediation: "Driver REPAIR: make the migration self-contained: inline a frozen copy of the needed logic in the migration file (or express the data change in raw SQL). Do not import from app.* at module scope, so the migration stays stable as the app evolves and loads under every alembic subcommand."
-  }
-];
-function specLevelSmell(name) {
-  const def = SMELL_CATALOG.find((s) => s.name === name);
-  if (!def || def.level !== "spec" || !def.owning_role || !def.gate_to_rerun) return null;
-  return { owning_role: def.owning_role, gate_to_rerun: def.gate_to_rerun };
-}
-var BUILD_REFACTOR_ROUTABLE = /* @__PURE__ */ new Set([
-  "layering-violation",
-  "ux-adherence",
-  "import-time-build-coupling",
-  // A new AC supersedes behavior encoded in PRIOR tests the Navigator flagged
-  // (superseded-tests allowlist). The Driver's refactor turn permissively
-  // refactors ONLY those flagged tests + the code, then the honest-GREEN verify
-  // re-runs. Bounded to one attempt by supersession.refactored; an unflagged
-  // regression never reaches here (it escalates), so the backstop stays intact.
-  "superseded-tests"
-]);
-function isBuildRefactorRoutableSmell(name) {
-  return BUILD_REFACTOR_ROUTABLE.has(name);
-}
-function hasOpenBuildRefactorRoutableSmell(sftddDir, story_id) {
-  return readSmellsLog(sftddDir).detected.some(
-    (d) => !d.resolution && isBuildRefactorRoutableSmell(d.smell) && (story_id === void 0 || d.story_id === void 0 || d.story_id === story_id)
-  );
-}
-function readSmellsLog(sftddDir) {
-  const file = join15(sftddDir, "smells.json");
-  if (!existsSync15(file)) return { detected: [] };
-  return JSON.parse(readFileSync13(file, "utf8"));
-}
-function smellMatches(entry, smell, story_id) {
-  if (entry.smell !== smell) return false;
-  if (story_id === void 0) return true;
-  return entry.story_id === void 0 || entry.story_id === story_id;
-}
-function priorReviseCount(sftddDir, smell, story_id) {
-  return readSmellsLog(sftddDir).detected.filter(
-    (d) => d.resolution_kind === "revised" && smellMatches(d, smell, story_id)
-  ).length;
-}
-var REFLECT_SMELL_NAMES = /* @__PURE__ */ new Set([
-  "reflect-spec-defect",
-  "reflect-testlist-defect"
-]);
-function isReflectSmell(name) {
-  return REFLECT_SMELL_NAMES.has(name);
-}
-var REFLECT_REVISE_CAP = 4;
-function priorReflectReviseCount(sftddDir, story_id) {
-  return readSmellsLog(sftddDir).detected.filter(
-    (d) => d.resolution_kind === "revised" && isReflectSmell(d.smell) && d.story_id === story_id
-  ).length;
-}
-function storyTestListFingerprint(sftddDir, featureId, story_id) {
-  const f = storyTestListJson(sftddDir, featureId, story_id);
-  if (!existsSync15(f)) return "";
-  try {
-    return createHash("sha1").update(readFileSync13(f)).digest("hex");
-  } catch {
-    return "";
-  }
-}
-function lastReflectReviseFingerprint(sftddDir, story_id) {
-  const reflects = readSmellsLog(sftddDir).detected.filter(
-    (d) => d.resolution_kind === "revised" && isReflectSmell(d.smell) && d.story_id === story_id
-  );
-  if (reflects.length === 0) return null;
-  const last = reflects[reflects.length - 1];
-  return typeof last.revised_artifact_sha === "string" ? last.revised_artifact_sha : null;
-}
-
-// scripts/sftdd/escalation.ts
-var BLOCKING_SMELLS = /* @__PURE__ */ new Set([
-  "test-list-drift",
-  "cycle-stall",
-  "boundary-violation",
-  "test-deletion-attempt",
-  // A missing kit-owned scaffold piece (e.g. the E2E conftest/live_server) must
-  // halt to the HIL, not let the build fabricate it. The driver-wrote-its-own-
-  // conftest defect (2026-06-11 smoke) traced to this not being blocking.
-  "scaffold-defect",
-  // Non-independent ACs (one AC's `then` implied by another) make a faithful RED
-  // impossible. Flagged by the test-strategist at the design gate so it halts
-  // BEFORE a build cycle, not mid-build as a cycle-stall (the 2026-06-11 AC2/AC3
-  // overlap that stalled S1).
-  "ac-overlap",
-  // Pre-build reflection gate: the Navigator (reflect mode) found a spec or
-  // test-list defect BEFORE the build lane. Blocking + spec-level, so it routes
-  // to the owning author (bounded one revise) then HITL, via the revise-route
-  // machinery. Halts the build until the design defect is resolved.
-  "reflect-spec-defect",
-  "reflect-testlist-defect",
-  // The boundary/routes layer touching persistence directly (a fat controller),
-  // instead of delegating to a service + repository. A build-level structural
-  // defect; the Navigator flags it in REVIEW and the layering fitness test
-  // defends it. Build-level (not spec-level), so it hard-halts to the HIL rather
-  // than routing to a design author.
-  "layering-violation",
-  // The rendered UI does not USE the design tokens at the element level (hardcoded
-  // hex/px, a missing ia.md data-testid seam, or an action with no feedback), even
-  // though the :root tokens exist. The UX Designer flags it in REVIEW and the
-  // element-level design-adherence checks defend it. Build-level (a UI-quality
-  // defect to refactor), so it hard-halts to the HIL rather than routing to an author.
-  "ux-adherence",
-  // The architect-notes projection found a story the canon does not cover
-  // (FEIP-7902). Blocking + spec-level + architect-owned: it routes to the
-  // Architect (re-annotate + amend the canon) via revise-routing, bounded one
-  // revise then HITL. Halts the design lane until the gap is resolved.
-  "architect-canon-gap"
-]);
-function escalationId(parts) {
-  return [parts.source, parts.feature_id, parts.story_id, parts.ac_id].filter(Boolean).join("__").replace(/[^A-Za-z0-9_.-]/g, "-");
-}
-function readEscalationFile(file) {
-  if (!fs8.existsSync(file)) return void 0;
-  try {
-    return JSON.parse(fs8.readFileSync(file, "utf8"));
-  } catch {
-    return void 0;
-  }
-}
-function readEscalations(sftddDir) {
-  const dir = escalationsDir(sftddDir);
-  if (!fs8.existsSync(dir)) return [];
-  const out = [];
-  for (const f of fs8.readdirSync(dir)) {
-    if (!f.endsWith(".json")) continue;
-    const e = readEscalationFile(`${dir}/${f}`);
-    if (e) out.push(e);
-  }
-  return out;
-}
-function escalationsFromSmells(sftddDir, featureId) {
-  const log = readSmellsLog(sftddDir);
-  return log.detected.filter((d) => !d.resolution && BLOCKING_SMELLS.has(d.smell)).filter((d) => {
-    if (d.smell !== "cycle-stall" || !featureId || !d.story_id) {
-      return true;
-    }
-    return pendingItemKind(sftddDir, featureId, d.story_id) !== "fitness";
-  }).map((d) => ({
-    id: escalationId({ source: `smell:${d.smell}`, feature_id: featureId, story_id: d.story_id }),
-    source: `smell:${d.smell}`,
-    reason: `blocking smell "${d.smell}": ${d.detail}`,
-    ...featureId ? { feature_id: featureId } : {},
-    ...d.story_id ? { story_id: d.story_id } : {},
-    ...d.ac_id ? { ac_id: d.ac_id } : {},
-    raised_at: d.detected_at
-  }));
-}
-function firstPendingEscalation(sftddDir, featureId) {
-  const explicit = readEscalations(sftddDir).filter((e) => !e.resolved_at);
-  const scoped = featureId ? explicit.filter((e) => !e.feature_id || e.feature_id === featureId) : explicit;
-  if (scoped.length > 0) {
-    return [...scoped].sort((a, b) => a.raised_at < b.raised_at ? -1 : 1)[0];
-  }
-  const fromSmells = escalationsFromSmells(sftddDir, featureId);
-  return fromSmells.length > 0 ? fromSmells.sort((a, b) => a.raised_at < b.raised_at ? -1 : 1)[0] : null;
-}
-
-// scripts/sftdd/deploy-verify-assess.ts
-init_esm_shims();
-import * as fs9 from "fs";
-import * as path7 from "path";
-function scopePath(sftddDir, featureId, storyId) {
-  const fdir = findFeatureDir(sftddDir, featureId);
-  if (!fdir) return void 0;
-  return storyId ? path7.join(fdir, "stories", storyId, "deploy-verify-scope.json") : path7.join(fdir, "deploy-verify-scope.json");
-}
-function readDeployVerifyScope(sftddDir, featureId, storyId) {
-  const file = scopePath(sftddDir, featureId, storyId);
-  if (!file || !fs9.existsSync(file)) return void 0;
-  try {
-    return JSON.parse(fs9.readFileSync(file, "utf8"));
-  } catch {
-    return void 0;
-  }
-}
-function markerPath(sftddDir, featureId, storyId) {
-  const fdir = findFeatureDir(sftddDir, featureId);
-  if (!fdir) return void 0;
-  return storyId ? path7.join(fdir, "stories", storyId, "deploy-verify-assess.json") : path7.join(fdir, "deploy-verify-assess.json");
-}
-function readDeployVerifyAssessMarker(sftddDir, featureId, storyId) {
-  const file = markerPath(sftddDir, featureId, storyId);
-  if (!file || !fs9.existsSync(file)) return void 0;
-  try {
-    return JSON.parse(fs9.readFileSync(file, "utf8"));
-  } catch {
-    return void 0;
-  }
-}
-function deployVerifyRefactorPending(sftddDir, featureId, storyId) {
-  const m = readDeployVerifyAssessMarker(sftddDir, featureId, storyId);
-  return !!m && m.assessed === true && (m.flagged_tests?.length ?? 0) > 0 && m.refactored !== true;
-}
-function deployVerifyNeedsAssess(sftddDir, featureId, storyId) {
-  const m = readDeployVerifyAssessMarker(sftddDir, featureId, storyId);
-  return !!m && !m.assessed && m.attempts < 1;
-}
-
-// scripts/sftdd/e2e-regex-clean.ts
-init_esm_shims();
-import { readdirSync as readdirSync12, readFileSync as readFileSync16, statSync as statSync9 } from "fs";
-import { join as join17 } from "path";
-
-// scripts/sftdd/ephemeral-verify.ts
-init_esm_shims();
-import { LAKEBASE_BRANCH_NAME_MAX } from "@databricks-solutions/lakebase-scm-utils/util";
-import { createBranch } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-import { deleteBranch } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-import { getConnection as getConnection2, waitForBranchAuthReady } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-
-// scripts/sftdd/deploy.ts
-function deployEvidencePasses(e) {
-  return e !== void 0 && e.reachable === true && e.verify?.passed === true;
-}
-function readDeployEvidence(file) {
-  if (!existsSync18(file)) return void 0;
-  try {
-    return JSON.parse(readFileSync17(file, "utf8"));
-  } catch {
-    return void 0;
-  }
-}
-function storyDeployVerified(sftddDir, featureId, storyId) {
-  const fdir = findFeatureDir(sftddDir, featureId);
-  if (!fdir) return false;
-  return deployEvidencePasses(readDeployEvidence(join18(fdir, "stories", storyId, "deploy-evidence.json")));
-}
-
-// scripts/sftdd/design-adherence.ts
-init_esm_shims();
-import { existsSync as existsSync19, readFileSync as readFileSync18, readdirSync as readdirSync14 } from "fs";
-import { join as join19 } from "path";
-
-// scripts/sftdd/supersession.ts
-init_esm_shims();
-import * as fs10 from "fs";
-import { join as join20 } from "path";
-function supersededTestsJson(tdd, feature, story, ac) {
-  return join20(cycleDir(tdd, feature, story, ac), "superseded-tests.json");
-}
-function readSupersededTests(tdd, feature, story, ac) {
-  const file = supersededTestsJson(tdd, feature, story, ac);
-  if (!fs10.existsSync(file)) return void 0;
-  try {
-    const parsed = JSON.parse(fs10.readFileSync(file, "utf8"));
-    if (!Array.isArray(parsed.tests) || parsed.tests.length === 0) return void 0;
-    return parsed;
-  } catch {
-    return void 0;
-  }
-}
-function hasPendingSupersession(tdd, feature, story, ac) {
-  const s = readSupersededTests(tdd, feature, story, ac);
-  return s !== void 0 && s.refactored !== true;
-}
-function greenFailureJson(tdd, feature, story, ac) {
-  return join20(cycleDir(tdd, feature, story, ac), "green-failure.json");
-}
-function readGreenFailure(tdd, feature, story, ac) {
-  const file = greenFailureJson(tdd, feature, story, ac);
-  if (!fs10.existsSync(file)) return void 0;
-  try {
-    return JSON.parse(fs10.readFileSync(file, "utf8"));
-  } catch {
-    return void 0;
-  }
-}
-function needsGreenAssess(tdd, feature, story, ac) {
-  const gf = readGreenFailure(tdd, feature, story, ac);
-  return gf !== void 0 && gf.assessed !== true;
-}
-function hasPendingRegressionFix(tdd, feature, story, ac) {
-  const gf = readGreenFailure(tdd, feature, story, ac);
-  return gf !== void 0 && gf.assessed === true && typeof gf.fixDirective === "string" && gf.fixDirective.length > 0 && gf.repairAttempted !== true;
-}
-
-// scripts/sftdd/contract-clean.ts
-init_esm_shims();
-import { existsSync as existsSync21, readFileSync as readFileSync20, readdirSync as readdirSync15, statSync as statSync10 } from "fs";
-import { join as join21, relative, extname } from "path";
-
-// scripts/sftdd/refactor-verify-assess.ts
-init_esm_shims();
-import * as fs11 from "fs";
-import * as path8 from "path";
-function markerPath2(sftddDir, featureId, storyId) {
-  const fdir = findFeatureDir(sftddDir, featureId);
-  if (!fdir) return void 0;
-  return path8.join(fdir, "stories", storyId, "refactor-verify-assess.json");
-}
-function readRefactorVerifyAssessMarker(sftddDir, featureId, storyId) {
-  const file = markerPath2(sftddDir, featureId, storyId);
-  if (!file || !fs11.existsSync(file)) return void 0;
-  try {
-    return JSON.parse(fs11.readFileSync(file, "utf8"));
-  } catch {
-    return void 0;
-  }
-}
-function refactorVerifyNeedsAssess(sftddDir, featureId, storyId) {
-  const m = readRefactorVerifyAssessMarker(sftddDir, featureId, storyId);
-  return !!m && !m.assessed && m.attempts < 1;
-}
-function refactorVerifyRefactorPending(sftddDir, featureId, storyId) {
-  const m = readRefactorVerifyAssessMarker(sftddDir, featureId, storyId);
-  return !!m && m.assessed === true && (m.flagged_tests?.length ?? 0) > 0 && m.refactored !== true;
-}
-
-// scripts/sftdd/migration-app-clean.ts
-init_esm_shims();
-import { existsSync as existsSync23, readFileSync as readFileSync22, readdirSync as readdirSync16, statSync as statSync11 } from "fs";
-import { join as join23, relative as relative2, extname as extname2 } from "path";
-
-// scripts/sftdd/cycle-record.ts
-import { commitAllIfChanged } from "@databricks-solutions/lakebase-scm-utils/git";
-import { assertCommitTargetNotProtected, ProtectedBranchCommitError } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-function readStoryItems(sftddDir, featureId, story) {
-  const file = storyTestListJson(sftddDir, featureId, story);
-  if (!existsSync24(file)) {
-    throw new Error(`per-story test-list not found for ${featureId}/${story} at ${file}`);
-  }
-  const data = JSON.parse(readFileSync23(file, "utf8"));
-  return Array.isArray(data.items) ? data.items : [];
-}
-function storyCycles(sftddDir, featureId, story) {
-  const base = join24(cyclesRootDir(sftddDir), featureId, story);
-  if (!existsSync24(base)) return [];
-  const out = [];
-  for (const acDir of readdirSync17(base)) {
-    const dir = join24(base, acDir);
-    try {
-      if (!statSync12(dir).isDirectory()) continue;
-    } catch {
-      continue;
-    }
-    for (const f of readdirSync17(dir)) {
-      if (!/^cycle-\d+\.json$/.test(f)) continue;
-      try {
-        out.push(JSON.parse(readFileSync23(join24(dir, f), "utf8")));
-      } catch {
-      }
-    }
-  }
-  return out;
-}
-function storyTestProgress(sftddDir, featureId, story) {
-  let items = [];
-  try {
-    items = readStoryItems(sftddDir, featureId, story);
-  } catch {
-    items = [];
-  }
-  const cycles = storyCycles(sftddDir, featureId, story);
-  const cycledTestIds = new Set(cycles.flatMap((c) => coveredTestIds(c)));
-  const greenTestIds = new Set(cycles.filter((c) => c.green_at).flatMap((c) => coveredTestIds(c)));
-  const pending = items.filter((i) => !cycledTestIds.has(i.id));
-  const openRed = cycles.filter((c) => c.red_at && !c.green_at);
-  const allGreen = items.length > 0 && items.every((i) => greenTestIds.has(i.id));
-  return { total: items.length, pending, openRed, allGreen };
-}
-function pendingItemKind(sftddDir, featureId, story) {
-  return storyTestProgress(sftddDir, featureId, story).pending[0]?.kind;
-}
-var DEFAULT_BATCH_CAP = 3;
-function nextPendingBatch(sftddDir, featureId, story, cap = DEFAULT_BATCH_CAP) {
-  const effCap = cap > 0 ? cap : DEFAULT_BATCH_CAP;
-  const pending = storyTestProgress(sftddDir, featureId, story).pending;
-  if (pending.length === 0) return [];
-  const layerOf = (acId) => readAcLayer2(sftddDir, featureId, acId) ?? "_nolayer";
-  const headLayer = layerOf(pending[0].ac_id);
-  return pending.filter((it) => layerOf(it.ac_id) === headLayer).slice(0, effCap);
-}
-function readReview(sftddDir, featureId, story, acId) {
-  const f = acReviewJson(sftddDir, featureId, story, acId);
-  if (!existsSync24(f)) return {};
-  try {
-    return JSON.parse(readFileSync23(f, "utf8"));
-  } catch {
-    return {};
-  }
-}
-function acReviewStates(sftddDir, featureId, story) {
-  let items = [];
-  try {
-    items = readStoryItems(sftddDir, featureId, story);
-  } catch {
-    items = [];
-  }
-  const greenTestIds = new Set(
-    storyCycles(sftddDir, featureId, story).filter((c) => c.green_at).flatMap((c) => coveredTestIds(c))
-  );
-  const acOrder = [];
-  const acTests = /* @__PURE__ */ new Map();
-  for (const it of items) {
-    if (!acTests.has(it.ac_id)) {
-      acTests.set(it.ac_id, []);
-      acOrder.push(it.ac_id);
-    }
-    acTests.get(it.ac_id).push(it.id);
-  }
-  return acOrder.map((acId) => {
-    const tests = acTests.get(acId);
-    const r = readReview(sftddDir, featureId, story, acId);
-    return {
-      acId,
-      allTestsGreen: tests.length > 0 && tests.every((t) => greenTestIds.has(t)),
-      reviewed: Boolean(r.reviewed_at),
-      refactorRequested: Boolean(r.refactor_requested),
-      refactored: Boolean(r.refactored_at)
-    };
-  });
-}
-function firstReviewPendingAc(sftddDir, featureId, story) {
-  return acReviewStates(sftddDir, featureId, story).find((a) => a.allTestsGreen && !a.reviewed)?.acId ?? null;
-}
-function firstRefactorPendingAc(sftddDir, featureId, story) {
-  const states = acReviewStates(sftddDir, featureId, story);
-  const explicit = states.find((a) => a.reviewed && a.refactorRequested && !a.refactored);
-  if (explicit) return explicit.acId;
-  if (hasOpenBuildRefactorRoutableSmell(sftddDir, story)) {
-    return states.find((a) => a.reviewed && !a.refactored)?.acId ?? null;
-  }
-  return null;
-}
-function readStoryReview(sftddDir, featureId, story) {
-  const f = storyReviewJson(sftddDir, featureId, story);
-  if (!existsSync24(f)) return {};
-  try {
-    return JSON.parse(readFileSync23(f, "utf8"));
-  } catch {
-    return {};
-  }
-}
-function storyAllTestsGreen(sftddDir, featureId, story) {
-  const p = storyTestProgress(sftddDir, featureId, story);
-  if (p.total === 0) {
-    const reds = storyCycles(sftddDir, featureId, story).filter((c) => Boolean(c.red_at));
-    return reds.length > 0 && reds.every((c) => Boolean(c.green_at));
-  }
-  return p.allGreen;
-}
-function storyReviewState(sftddDir, featureId, story) {
-  const r = readStoryReview(sftddDir, featureId, story);
-  return {
-    allTestsGreen: storyAllTestsGreen(sftddDir, featureId, story),
-    reviewed: Boolean(r.reviewed_at),
-    refactorRequested: Boolean(r.refactor_requested),
-    refactored: Boolean(r.refactored_at)
-  };
-}
-function reviewPending(sftddDir, featureId, story) {
-  const s = storyReviewState(sftddDir, featureId, story);
-  return s.allTestsGreen && !s.reviewed;
-}
-function refactorPending(sftddDir, featureId, story) {
-  const s = storyReviewState(sftddDir, featureId, story);
-  if (!s.reviewed || s.refactored) return false;
-  if (s.refactorRequested) return true;
-  return hasOpenBuildRefactorRoutableSmell(sftddDir, story);
-}
-
-// scripts/sftdd/gates.ts
-init_esm_shims();
-import { existsSync as existsSync25, readFileSync as readFileSync24, renameSync, unlinkSync, writeFileSync as writeFileSync16 } from "fs";
-import { join as join25 } from "path";
-var GATES_SCHEMA_VERSION = 1;
-var GATE_STATUSES = ["open", "approved", "superseded", "withdrawn"];
-function defaultGatesState(featureId) {
-  return {
-    feature_id: featureId,
-    schema_version: GATES_SCHEMA_VERSION,
-    gates: {
-      spec: { status: "open", history: [] },
-      plan: { status: "open", history: [] },
-      test_list: { status: "open", history: [] },
-      promote: { status: "open", history: [] },
-      deploy: { status: "open", history: [] }
-    }
-  };
-}
-function readGates(featureId, opts = {}) {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
-  const file = gatesFilePath(sftddDir, featureId);
-  if (!existsSync25(file)) {
-    return defaultGatesState(featureId);
-  }
-  const raw = readFileSync24(file, "utf8");
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (err) {
-    const cause = err instanceof Error ? err.message : String(err);
-    throw new Error(`gates.json at ${file} is not valid JSON: ${cause}`);
-  }
-  return validateGatesState(parsed, file);
-}
-function gatesFilePath(sftddDir, featureId) {
-  return join25(requireFeatureDir(sftddDir, featureId), "gates.json");
-}
-function validateGatesState(parsed, file) {
-  if (typeof parsed !== "object" || parsed === null) {
-    throw new Error(`gates.json at ${file} is not an object`);
-  }
-  const obj = parsed;
-  if (typeof obj.feature_id !== "string" || obj.feature_id.length === 0) {
-    throw new Error(`gates.json at ${file}: missing or invalid feature_id`);
-  }
-  if (typeof obj.schema_version !== "number") {
-    throw new Error(`gates.json at ${file}: missing or invalid schema_version`);
-  }
-  if (typeof obj.gates !== "object" || obj.gates === null) {
-    throw new Error(`gates.json at ${file}: missing or invalid gates`);
-  }
-  const gates = obj.gates;
-  const out = {
-    spec: validateGateRecord(gates.spec, "spec", file),
-    plan: validateGateRecord(gates.plan, "plan", file),
-    test_list: validateGateRecord(gates.test_list, "test_list", file),
-    promote: validateGateRecord(gates.promote, "promote", file),
-    // The deploy gate (working-software) was added after the original four.
-    // A gates.json written before it lacks the key, so backfill a default-open
-    // record rather than reject the file (forward-compatible read).
-    deploy: gates.deploy !== void 0 ? validateGateRecord(gates.deploy, "deploy", file) : { status: "open", history: [] }
-  };
-  return {
-    feature_id: obj.feature_id,
-    schema_version: obj.schema_version,
-    gates: out
-  };
-}
-function validateGateRecord(parsed, gateName, file) {
-  if (typeof parsed !== "object" || parsed === null) {
-    throw new Error(`gates.json at ${file}: gate ${gateName} is not an object`);
-  }
-  const obj = parsed;
-  const status = obj.status;
-  if (typeof status !== "string" || !GATE_STATUSES.includes(status)) {
-    throw new Error(
-      `gates.json at ${file}: gate ${gateName} has invalid status (${String(status)}); expected one of ${GATE_STATUSES.join(", ")}`
-    );
-  }
-  const history = obj.history;
-  if (history !== void 0 && !Array.isArray(history)) {
-    throw new Error(`gates.json at ${file}: gate ${gateName} history must be an array`);
-  }
-  return {
-    status,
-    approver: typeof obj.approver === "string" ? obj.approver : void 0,
-    approved_at: typeof obj.approved_at === "string" ? obj.approved_at : void 0,
-    artifact_hashes: obj.artifact_hashes && typeof obj.artifact_hashes === "object" ? obj.artifact_hashes : void 0,
-    withdrawal_reason: typeof obj.withdrawal_reason === "string" ? obj.withdrawal_reason : void 0,
-    history: history ?? []
-  };
-}
-
-// scripts/sftdd/orchestrator-probe.ts
-import { readWorkflowState as readWorkflowState2, SCM_STATES } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-
-// scripts/sftdd/reflection.ts
-init_esm_shims();
-import { existsSync as existsSync26, readFileSync as readFileSync25, writeFileSync as writeFileSync17, mkdirSync as mkdirSync18, rmSync as rmSync7 } from "fs";
-var SMELL_FOR_OWNER = {
-  "spec-author": "reflect-spec-defect",
-  "test-strategist": "reflect-testlist-defect"
-};
-function readReflectVerdict(sftddDir, feature, story) {
-  const p = reflectVerdictJson(sftddDir, feature, story);
-  if (!existsSync26(p)) return void 0;
-  try {
-    return JSON.parse(readFileSync25(p, "utf8"));
-  } catch {
-    return void 0;
-  }
-}
-function reflectionPassed(sftddDir, feature, story) {
-  return readReflectVerdict(sftddDir, feature, story)?.passed === true;
-}
-function reflectionVerdictWritten(sftddDir, feature, story) {
-  return readReflectVerdict(sftddDir, feature, story) !== void 0;
-}
-var REFLECT_SMELLS = Object.values(SMELL_FOR_OWNER);
-
-// scripts/sftdd/architecture-canon.ts
-init_esm_shims();
-import { existsSync as existsSync27, readFileSync as readFileSync26, writeFileSync as writeFileSync18, mkdirSync as mkdirSync19, readdirSync as readdirSync19 } from "fs";
-function uniq(xs) {
-  return [...new Set(xs.filter((x) => typeof x === "string" && x.length > 0))];
-}
-function readCanon(sftddDir) {
-  const f = architectureCanonJson(sftddDir);
-  if (!existsSync27(f)) return void 0;
-  try {
-    return JSON.parse(readFileSync26(f, "utf8"));
-  } catch {
-    return void 0;
-  }
-}
-function architectNovelty(canon, storyAcs, storyArchitectureJsonContent) {
-  const reasons = [];
-  const knownLayers = new Set(canon.ac_layers);
-  const unknownLayers = uniq(
-    storyAcs.map((a) => a.layer).filter((l) => typeof l === "string" && !knownLayers.has(l))
-  );
-  for (const l of unknownLayers) {
-    reasons.push(`AC layer "${l}" is not in the project canon (${canon.ac_layers.join(", ") || "none"})`);
-  }
-  if (storyArchitectureJsonContent) {
-    let doc;
-    try {
-      doc = JSON.parse(storyArchitectureJsonContent);
-    } catch {
-      doc = void 0;
-    }
-    if (doc) {
-      const knownInv = new Set(canon.invariant_patterns.map((p) => p.type));
-      for (const t of uniq((doc.persistence_invariants ?? []).map((p) => p.type ?? ""))) {
-        if (!knownInv.has(t)) reasons.push(`persistence-invariant type "${t}" is not a canon pattern`);
-      }
-      const knownCat = new Set(canon.nfr_posture.map((n) => n.category));
-      for (const c of uniq((doc.nfrs ?? []).map((n) => n.category ?? ""))) {
-        if (!knownCat.has(c)) reasons.push(`NFR category "${c}" is not in the canon posture`);
-      }
-    }
-  }
-  return { novel: reasons.length > 0, reasons };
-}
-
-// scripts/sftdd/artifact-conformance.ts
-init_esm_shims();
-import { existsSync as existsSync28, readFileSync as readFileSync27, readdirSync as readdirSync20, statSync as statSync13 } from "fs";
-import { join as join26, basename as basename3, dirname as dirname14 } from "path";
-var ARTIFACT_FORMATS = {
-  "feature-spec.json": { kind: "json-schema", schema: "feature.schema.json" },
-  "story.json": { kind: "json-schema", schema: "story.schema.json" },
-  "ac.json": { kind: "json-schema", schema: "ac.schema.json" },
-  "test-list.json": { kind: "json-schema", schema: "test-list.schema.json" },
-  "plan.json": { kind: "json-schema", schema: "plan.schema.json" },
-  "architecture.json": { kind: "json-schema", schema: "architecture.schema.json" },
-  // DBA's physical schema (tables/DDL + per-story migration plan) that realizes
-  // the architect's persistence_invariants.
-  "db-design.json": { kind: "json-schema", schema: "db-design.schema.json" },
-  "workflow-state.json": { kind: "json-schema", schema: "workflow-state.schema.json" },
-  // Release Engineer's deploy-gate evidence (reachability + feature-verify).
-  "deploy-evidence.json": { kind: "json-schema", schema: "deploy-evidence.schema.json" },
-  // UX Designer (UI projects only): the machine-checkable design tokens.
-  "design-guide.json": { kind: "json-schema", schema: "design-guide.schema.json" },
-  // Architect Reviewer's section 6 + Gate 2 adjudication surface.
-  "architecture.md": {
-    kind: "md-sections",
-    sections: [
-      { label: "Architectural Concerns Mapping", match: "architectural concerns mapping" },
-      { label: "Pattern proposals", match: "pattern proposal" },
-      { label: "Risks", match: "risk" },
-      { label: "Gate decisions", match: "decision" },
-      { label: "Sign-off", match: "sign-off" }
-    ]
-  },
-  // Spec Author's draft-spec narrative.
-  "feature-spec.md": {
-    kind: "md-sections",
-    sections: [
-      { label: "Summary", match: "summary" },
-      { label: "Stories", match: "stories" },
-      { label: "Out of scope", match: "out of scope" },
-      { label: "Open questions", match: "open question" }
-    ]
-  },
-  // Feature Requester's original ask: the Spec Author's INPUT. Free-form
-  // narrative; only H1 + non-empty body required. Never overwritten.
-  "feature-request.md": { kind: "md-narrative" },
-  // Spec Author's sprint backlog proposal: the artifact the sprint PLAN gate
-  // locks. Free-form narrative; H1 + non-empty body required.
-  "feature-proposals.md": { kind: "md-narrative" },
-  // Product Owner's project-level overview (replaces the old spec.md).
-  "product-overview.md": { kind: "md-narrative" },
-  // HIL non-functional-requirements brief (the Architect's intake). The HIL
-  // states required NFRs (each with a stable R<n> id), preferences, and
-  // out-of-bounds items. The Architect must carry every Required item into
-  // architecture.json via a matching brief_ref (see checkNfrCoverage). Project
-  // -level (.tdd/nfrs.md) or per-feature (.tdd/features/<F>/nfrs.md).
-  "nfrs.md": {
-    kind: "md-sections",
-    sections: [
-      { label: "Required", match: "required" },
-      { label: "Preferences", match: "preference" },
-      { label: "Out of bounds", match: "out of bounds" }
-    ]
-  },
-  // HIL design brief (UI projects): the human's reference sites + what to take
-  // from each. The design analogue of product-overview.md, the source the UX
-  // Designer teases the design out of. A brief with no references is
-  // meaningless, so a
-  // References section is the one hard requirement.
-  "design-brief.md": {
-    kind: "md-sections",
-    sections: [{ label: "References", match: "reference" }]
-  },
-  // UX Designer narrative artifacts (UI projects only). design-guide.md
-  // sections are grounded in a real shipped guide (partner-asset-tracker
-  // STYLE_GUIDE.md); design-guide.json carries the machine-checkable tokens.
-  "design-guide.md": {
-    kind: "md-sections",
-    sections: [
-      { label: "Design Philosophy", match: "philosophy" },
-      { label: "UI Framework", match: "framework" },
-      { label: "Typography", match: "typography" },
-      { label: "Color Palette", match: "color" },
-      { label: "Spacing", match: "spacing" },
-      { label: "Components", match: "components" },
-      { label: "User Feedback Principles", match: "feedback" }
-    ]
-  },
-  "ia.md": {
-    kind: "md-sections",
-    sections: [
-      { label: "Screens", match: "screens" },
-      { label: "Navigation", match: "navigation" },
-      { label: "User flows", match: "flow" }
-    ]
-  },
-  // Beck-style ordered list rendered from test-list.json.
-  "test-list.md": { kind: "test-list-md" }
-};
-function checkArtifactConformance(name, content) {
-  const spec = ARTIFACT_FORMATS[name];
-  if (spec === void 0) return { ok: true };
-  switch (spec.kind) {
-    case "json-schema":
-      return checkJsonSchema(name, content, spec.schema);
-    case "md-narrative":
-      return finalize(checkMdNarrative(name, content));
-    case "md-sections":
-      return finalize(checkMdSections(name, content, spec.sections));
-    case "test-list-md":
-      return finalize(checkTestListMd(content));
-  }
-}
-function finalize(violations) {
-  return violations.length === 0 ? { ok: true } : { ok: false, violations };
-}
-function checkJsonSchema(name, content, schemaFile) {
-  let parsed;
-  try {
-    parsed = JSON.parse(content);
-  } catch (err) {
-    const cause = err instanceof Error ? err.message : String(err);
-    return { ok: false, violations: [`${name} is not valid JSON: ${cause}`] };
-  }
-  const validate = getValidator(schemaFile);
-  if (validate(parsed)) return { ok: true };
-  return { ok: false, violations: formatSchemaErrors(validate).map((e) => `${name} ${e}`) };
-}
-var HEADING_RE = /^(#{1,6})\s+(.*\S)\s*$/;
-function parseHeadings(content) {
-  const out = [];
-  for (const line of content.split("\n")) {
-    const m = HEADING_RE.exec(line);
-    if (m) out.push({ level: m[1].length, text: m[2] });
-  }
-  return out;
-}
-function hasH1(headings) {
-  return headings.some((h) => h.level === 1);
-}
-function hasBody(content) {
-  return content.split("\n").some((line) => {
-    const t = line.trim();
-    return t.length > 0 && !HEADING_RE.test(line);
-  });
-}
-function checkMdNarrative(name, content) {
-  const violations = [];
-  const headings = parseHeadings(content);
-  if (!hasH1(headings)) violations.push(`${name} has no H1 title`);
-  if (!hasBody(content)) violations.push(`${name} has an empty body (title only)`);
-  return violations;
-}
-function checkMdSections(name, content, sections) {
-  const violations = [];
-  const headings = parseHeadings(content);
-  if (!hasH1(headings)) violations.push(`${name} has no H1 title`);
-  const headingText = headings.map((h) => h.text.toLowerCase());
-  for (const section of sections) {
-    if (!headingText.some((t) => t.includes(section.match))) {
-      violations.push(`${name} missing required section: ${section.label}`);
-    }
-  }
-  return violations;
-}
-var TEST_ITEM_RE = /^\s*[-*]\s*\[[ xX]?\]\s*T\d/;
-var AC_REF_RE = /\bAC\s*\d/i;
-function checkTestListMd(content) {
-  const violations = [];
-  const headings = parseHeadings(content);
-  if (!hasH1(headings)) violations.push("test-list.md has no H1 title");
-  if (!/ordered for\s*:/i.test(content)) {
-    violations.push('test-list.md missing "Ordered for:" ordering rationale');
-  }
-  if (!headings.some((h) => h.text.toLowerCase().includes("deferred"))) {
-    violations.push("test-list.md missing required section: Deferred / skipped");
-  }
-  for (const line of content.split("\n")) {
-    if (TEST_ITEM_RE.test(line) && !AC_REF_RE.test(line)) {
-      violations.push(`test-list.md has a test item with no AC reference (orphan): ${line.trim()}`);
-    }
-  }
-  return violations;
-}
-var REQUIRED_NFR_ITEM_RE = /^\s*[-*]\s+\*{0,2}(R\d+)\*{0,2}\s*[:.)\-]?\s*(.*)$/;
-var PLAIN_LIST_ITEM_RE = /^\s*[-*]\s+(.*\S)\s*$/;
-function parseRequiredNfrs(nfrsMd2) {
-  const lines = nfrsMd2.split("\n");
-  const out = [];
-  let inRequired = false;
-  for (const line of lines) {
-    const h = HEADING_RE.exec(line);
-    if (h) {
-      inRequired = h[2].trim().toLowerCase().startsWith("required");
-      continue;
-    }
-    if (!inRequired) continue;
-    const withId = REQUIRED_NFR_ITEM_RE.exec(line);
-    if (withId) {
-      out.push({ id: withId[1], text: withId[2].trim() });
-      continue;
-    }
-    const plain = PLAIN_LIST_ITEM_RE.exec(line);
-    if (plain) out.push({ id: null, text: plain[1].trim() });
-  }
-  return out;
-}
-function checkNfrCoverage(nfrsMd2, architectureJson2, otherFeatureBriefRefs = /* @__PURE__ */ new Set()) {
-  const required = parseRequiredNfrs(nfrsMd2);
-  if (required.length === 0) return { ok: true };
-  let parsed;
-  try {
-    parsed = JSON.parse(architectureJson2);
-  } catch (err) {
-    const cause = err instanceof Error ? err.message : String(err);
-    return { ok: false, violations: [`architecture.json is not valid JSON: ${cause}`] };
-  }
-  const briefRefs = new Set(
-    (parsed.nfrs ?? []).map((n) => n.brief_ref).filter((r) => typeof r === "string" && r.length > 0)
-  );
-  const scopedOut = new Set(
-    (parsed.nfr_out_of_scope ?? []).map((s) => s.ref).filter((r) => typeof r === "string" && r.length > 0)
-  );
-  const violations = [];
-  for (const item of required) {
-    if (item.id === null) {
-      const preview = item.text.length > 50 ? `${item.text.slice(0, 50)}...` : item.text;
-      violations.push(`nfrs.md Required item has no R<n> id (cannot be coverage-tracked): "${preview}"`);
-      continue;
-    }
-    const covered = briefRefs.has(item.id) || otherFeatureBriefRefs.has(item.id) || scopedOut.has(item.id);
-    if (!covered) {
-      violations.push(
-        `Required NFR ${item.id} from nfrs.md is not covered by this feature, any sibling feature, or an explicit nfr_out_of_scope declaration (no matching brief_ref)`
-      );
-    }
-  }
-  return finalize(violations);
-}
-function projectBriefRefs(sftddDir) {
-  const refs = /* @__PURE__ */ new Set();
-  const fdir = featuresDir(sftddDir);
-  if (!existsSync28(fdir)) return refs;
-  for (const feature of readdirSync20(fdir)) {
-    const archPath = join26(fdir, feature, "architecture.json");
-    if (!existsSync28(archPath)) continue;
-    try {
-      const parsed = JSON.parse(readFileSync27(archPath, "utf8"));
-      for (const n of parsed.nfrs ?? []) {
-        if (typeof n.brief_ref === "string" && n.brief_ref.length > 0) refs.add(n.brief_ref);
-      }
-    } catch {
-    }
-  }
-  return refs;
-}
-var PERSISTENCE_EVIDENCE_RE = /\b(migrat\w*|schema|persist\w*|stored|store|tables?|database|repositor\w*|\bORM\b)\b/i;
-function checkServiceBackedDeclaration(architectureJson2, evidence) {
-  let parsed;
-  try {
-    parsed = JSON.parse(architectureJson2);
-  } catch (err) {
-    return { ok: false, violations: [`architecture.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`] };
-  }
-  const infraAc = (evidence.acLayers ?? []).some((l) => l === "Infra");
-  const persistNfr = (evidence.nfrsText ?? []).some((t) => PERSISTENCE_EVIDENCE_RE.test(t));
-  const why = [
-    infraAc ? "an AC is tagged layer:Infra (a data-store contract)" : "",
-    persistNfr ? "an NFR references persistence (migration/schema/storage)" : ""
-  ].filter(Boolean).join(" and ");
-  if (parsed.service_backed === true) {
-    if (!infraAc && !persistNfr) return { ok: true };
-    const hasInvariants = (parsed.persistence_invariants ?? []).some((i) => i && typeof i.id === "string" && i.id.length > 0);
-    if (hasInvariants) return { ok: true };
-    return {
-      ok: false,
-      violations: [
-        `architecture.json is service_backed and shows persistence evidence (${why}) but declares NO persistence_invariants[]; a feature that persists data must name its DB-level guarantees (unique/FK/CHECK/NOT NULL/transactional/migration-reversible) so the schema gets a real-branch test, OR remove the misleading persistence signal if this service does not actually persist`
-      ]
-    };
-  }
-  if (!infraAc && !persistNfr) return { ok: true };
-  return {
-    ok: false,
-    violations: [
-      `architecture.json is not service_backed but shows persistence evidence (${why}); set service_backed:true + declare boundary/service/repository layers (a data-persisting feature MUST be layered), or remove the misleading signal if the feature is genuinely trivial`
-    ]
-  };
-}
-function checkLayeringDeclared(architectureJson2) {
-  let parsed;
-  try {
-    parsed = JSON.parse(architectureJson2);
-  } catch (err) {
-    return { ok: false, violations: [`architecture.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`] };
-  }
-  if (parsed.service_backed !== true) return { ok: true };
-  const roles = new Set(
-    (parsed.layers ?? []).map((l) => l.role).filter((r) => typeof r === "string")
-  );
-  const missing = ["boundary", "service", "repository"].filter((r) => !roles.has(r));
-  if (missing.length) {
-    return {
-      ok: false,
-      violations: [
-        `service_backed feature must declare layers [${missing.join(", ")}] in architecture.json (layered architecture: boundary -> service -> repository -> ORM; the boundary never touches the DB session)`
-      ]
-    };
-  }
-  return { ok: true };
-}
-function checkFitnessCoverage(testListJson, architectureJson2) {
-  let arch;
-  try {
-    arch = JSON.parse(architectureJson2);
-  } catch {
-    return { ok: true };
-  }
-  const declaresConstraint = arch.service_backed === true || Array.isArray(arch.layers) && arch.layers.length > 0;
-  if (!declaresConstraint) return { ok: true };
-  let tl;
-  try {
-    tl = JSON.parse(testListJson);
-  } catch (err) {
-    return { ok: false, violations: [`test-list.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`] };
-  }
-  const hasFitness = (tl.items ?? []).some((i) => i.kind === "fitness");
-  if (!hasFitness) {
-    return {
-      ok: false,
-      violations: [
-        `architecture is service-backed/layered but the test-list has no kind:"fitness" item (every architectural constraint needs a fitness test, e.g. the layering contract; see test-strategy.md)`
-      ]
-    };
-  }
-  return { ok: true };
-}
-function checkPersistenceCoverage(testListJson, architectureJson2) {
-  let arch;
-  try {
-    arch = JSON.parse(architectureJson2);
-  } catch {
-    return { ok: true };
-  }
-  if (arch.service_backed !== true) return { ok: true };
-  const invariants = (arch.persistence_invariants ?? []).filter((i) => i && typeof i.id === "string" && i.id.length > 0);
-  if (invariants.length === 0) return { ok: true };
-  let tl;
-  try {
-    tl = JSON.parse(testListJson);
-  } catch (err) {
-    return { ok: false, violations: [`test-list.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`] };
-  }
-  const covered = new Set((tl.items ?? []).map((i) => i.invariant_id).filter((x) => typeof x === "string" && x.length > 0));
-  const uncovered = invariants.map((i) => i.id).filter((id) => !covered.has(id));
-  if (uncovered.length > 0) {
-    return {
-      ok: false,
-      violations: [
-        `persistence_invariant(s) with no covering test-list item (invariant_id): ${uncovered.join(", ")} (each declared invariant needs >=1 test that verifies the migration realized it against the real branch , NOT a test of the ORM's generic round-trip; see test-strategy.md)`
-      ]
-    };
-  }
-  return { ok: true };
-}
-function checkDbDesign(dbDesignJson2, architectureJson2) {
-  let arch;
-  try {
-    arch = JSON.parse(architectureJson2);
-  } catch {
-    return { ok: true };
-  }
-  if (arch.service_backed !== true) return { ok: true };
-  const invariants = (arch.persistence_invariants ?? []).filter((i) => i && typeof i.id === "string" && i.id.length > 0).map((i) => i.id);
-  if (invariants.length === 0) return { ok: true };
-  if (dbDesignJson2 === void 0) {
-    return {
-      ok: false,
-      violations: [
-        `feature declares persistence_invariants but has no db-design.json (the DBA runs after the architect and before the test-strategist to realize the schema; declare >=1 table and realize every persistence_invariant; see db-design.schema.json + agents/dba.md)`
-      ]
-    };
-  }
-  let db;
-  try {
-    db = JSON.parse(dbDesignJson2);
-  } catch (err) {
-    return { ok: false, violations: [`db-design.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`] };
-  }
-  const violations = [];
-  if (!Array.isArray(db.tables) || db.tables.length === 0) {
-    violations.push(
-      `db-design.json declares no tables[] but the feature declares persistence_invariants (it persists data, so it has >=1 table; see agents/dba.md)`
-    );
-  }
-  const realized = new Set((db.realizes_invariants ?? []).filter((x) => typeof x === "string" && x.length > 0));
-  const uncovered = invariants.filter((id) => !realized.has(id));
-  if (uncovered.length > 0) {
-    violations.push(
-      `persistence_invariant(s) not realized by db-design.json realizes_invariants[]: ${uncovered.join(", ")} (the DBA must physically realize every invariant the architect declared , a table/column/constraint/index , and list its id here; see agents/dba.md)`
-    );
-  }
-  return violations.length > 0 ? { ok: false, violations } : { ok: true };
-}
-function checkStoryIndependence(stories, targetStory) {
-  const parsed = [];
-  for (const s of stories) {
-    let obj;
-    try {
-      obj = JSON.parse(s.content);
-    } catch {
-      continue;
-    }
-    const idForNum = typeof obj.id === "string" ? obj.id : s.name;
-    const m = /^S(\d+)/.exec(idForNum);
-    if (!m) continue;
-    parsed.push({ name: s.name, id: idForNum, num: parseInt(m[1], 10), indep: obj.independence });
-  }
-  if (parsed.length < 2) return { ok: true };
-  const firstNum = Math.min(...parsed.map((p) => p.num));
-  const violations = [];
-  for (const p of parsed) {
-    if (targetStory !== void 0 && p.name !== targetStory && p.id !== targetStory) continue;
-    if (p.num === firstNum) continue;
-    const i = p.indep;
-    if (!i || typeof i !== "object") {
-      violations.push(
-        `${p.name}: missing independence determination (every story after the first must record independence.distinct_from_prior + rationale; apply the story-independence test, or fold/re-scope it)`
-      );
-    } else if (i.distinct_from_prior !== true) {
-      violations.push(
-        `${p.name}: independence.distinct_from_prior is not true (this story's behavior is a subset of an earlier story; fold it into that story or re-scope it to a distinct, independently-RED-able slice)`
-      );
-    } else if (typeof i.rationale !== "string" || i.rationale.trim().length === 0) {
-      violations.push(`${p.name}: independence.rationale is empty (state the distinct behavior this story adds beyond the prior stories)`);
-    }
-  }
-  return violations.length === 0 ? { ok: true } : { ok: false, violations };
-}
-function checkAcIndependence(acs) {
-  const parsed = [];
-  for (const a of acs) {
-    let obj;
-    try {
-      obj = JSON.parse(a.content);
-    } catch {
-      continue;
-    }
-    const idForNum = typeof obj.id === "string" ? obj.id : a.name;
-    const m = /^AC(\d+)/.exec(idForNum);
-    if (!m) continue;
-    parsed.push({ name: typeof obj.id === "string" ? obj.id : a.name, num: parseInt(m[1], 10), indep: obj.independence });
-  }
-  if (parsed.length < 2) return { ok: true };
-  const firstNum = Math.min(...parsed.map((p) => p.num));
-  const violations = [];
-  for (const p of parsed) {
-    if (p.num === firstNum) continue;
-    const i = p.indep;
-    if (!i || typeof i !== "object") {
-      violations.push(
-        `${p.name}: missing independence determination (every AC after the first must record independence.distinct_from_prior + rationale; apply the AC-independence test, or fold/re-scope it)`
-      );
-    } else if (i.distinct_from_prior !== true) {
-      violations.push(
-        `${p.name}: independence.distinct_from_prior is not true (this AC's outcome is already delivered by an earlier AC; fold it into that AC or re-scope it to a distinct, independently-RED-able outcome)`
-      );
-    } else if (typeof i.rationale !== "string" || i.rationale.trim().length === 0) {
-      violations.push(`${p.name}: independence.rationale is empty (state the distinct outcome this AC adds beyond the earlier ACs)`);
-    }
-  }
-  return violations.length === 0 ? { ok: true } : { ok: false, violations };
-}
-function checkInvariantCoverageDistinct(perStory) {
-  const carriers = /* @__PURE__ */ new Map();
-  for (const s of perStory) {
-    const m = /^S(\d+)/.exec(s.story);
-    const num = m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER;
-    for (const inv of new Set(s.invariantIds)) {
-      if (!inv) continue;
-      const arr = carriers.get(inv) ?? [];
-      arr.push({ story: s.story, num });
-      carriers.set(inv, arr);
-    }
-  }
-  const violations = [];
-  for (const [inv, stories] of carriers) {
-    if (stories.length < 2) continue;
-    const sorted = [...stories].sort((a, b) => a.num - b.num || a.story.localeCompare(b.story));
-    const owner = sorted[0].story;
-    for (const later of sorted.slice(1)) {
-      violations.push(
-        `${later.story} re-tests persistence invariant ${inv} already covered by ${owner}. A persistence invariant is realized once per feature and belongs to exactly one story's fitness tests; drop the duplicate fitness item(s) from ${later.story}. If ${later.story}'s migration adds a NEW invariant, cover that new invariant instead.`
-      );
-    }
-  }
-  return violations.length === 0 ? { ok: true } : { ok: false, violations };
-}
-function canonicalArtifactName(path10) {
-  const base = basename3(path10);
-  if (basename3(dirname14(path10)) === "acs" && base.endsWith(".json")) return "ac.json";
-  return base;
-}
-
-// scripts/sftdd/orchestrator-probe.ts
-function storyCycles2(sftddDir, featureId, story) {
-  const base = path9.join(cyclesRootDir(sftddDir), featureId, story);
-  if (!fs12.existsSync(base)) return [];
-  const out = [];
-  for (const acDir of fs12.readdirSync(base)) {
-    const dir = path9.join(base, acDir);
-    let isDir = false;
-    try {
-      isDir = fs12.statSync(dir).isDirectory();
-    } catch {
-      isDir = false;
-    }
-    if (!isDir) continue;
-    for (const f of fs12.readdirSync(dir)) {
-      if (!/^cycle-\d+\.json$/.test(f)) continue;
-      try {
-        out.push(JSON.parse(fs12.readFileSync(path9.join(dir, f), "utf8")));
-      } catch {
-      }
-    }
-  }
-  return out;
-}
-function readJson(file) {
-  if (!fs12.existsSync(file)) return void 0;
-  try {
-    return JSON.parse(fs12.readFileSync(file, "utf8"));
-  } catch {
-    return void 0;
-  }
-}
-function readDriveContext(sftddDir, featureId, projectDir) {
-  const ws = readJson(workflowStateJson(sftddDir));
-  const phaseOwner = typeof ws?.[PHASE_OWNER_KEY] === "string" ? ws[PHASE_OWNER_KEY] : void 0;
-  const rawPhase = typeof ws?.phase === "string" ? ws.phase : void 0;
-  const honorPhase = rawPhase === "planning" || phaseOwner === featureId;
-  const tddPhase = honorPhase && rawPhase ? rawPhase : "feature";
-  const spec = readJson(featureSpecJson(sftddDir, featureId));
-  const proposed = spec !== void 0;
-  const breakdownDone = Array.isArray(spec?.stories) && spec.stories.length > 0;
-  const requestsAuthored = fs12.existsSync(featureRequestMd(sftddDir, featureId));
-  const deployed = fs12.existsSync(featureDeployEvidenceJson(sftddDir, featureId));
-  const gateApproved = readGateApproved(featureId, sftddDir, "deploy");
-  const verifyAssessEligible = deployVerifyNeedsAssess(sftddDir, featureId);
-  const verifyRefactorPending = deployVerifyRefactorPending(sftddDir, featureId);
-  const proj = projectDir ?? path9.dirname(sftddDir);
-  let scmState;
-  try {
-    scmState = readWorkflowState2(proj)?.state;
-  } catch {
-    scmState = void 0;
-  }
-  const atOrPast = (target) => {
-    if (!scmState) return false;
-    const i = SCM_STATES.indexOf(scmState);
-    const t = SCM_STATES.indexOf(target);
-    return i >= 0 && t >= 0 && i >= t;
-  };
-  const promote = {
-    prReady: atOrPast("pr-ready"),
-    ciGreen: atOrPast("ci-green"),
-    prApproved: readGateApproved(featureId, sftddDir, "promote"),
-    merged: scmState === "merged"
-  };
-  return {
-    phase: driverPhaseForTdd(tddPhase),
-    breakdownDone,
-    planning: { proposed, estimated: hasEstimates(sftddDir), requestsAuthored },
-    deploy: { deployed, gateApproved, verifyAssessEligible, verifyRefactorPending },
-    promote
-  };
-}
-function readGateApproved(featureId, sftddDir, gate) {
-  try {
-    return readGates(featureId, { sftddDir }).gates[gate].status === "approved";
-  } catch {
-    return false;
-  }
-}
-function diskArtifactProbe(sftddDir, featureId, buildActive) {
-  return {
-    hasAcs(story) {
-      return storyAcIds(sftddDir, featureId, story).length > 0;
-    },
-    architectAnnotated(story) {
-      const acs = storyAcIds(sftddDir, featureId, story);
-      if (acs.length === 0) return false;
-      const everyAcNoted = acs.every((ac) => readAcArchitecturalNotes(sftddDir, featureId, ac) !== void 0);
-      return everyAcNoted && fs12.existsSync(architectureJson(sftddDir, featureId));
-    },
-    dbaDesigned() {
-      const archFile = architectureJson(sftddDir, featureId);
-      if (!fs12.existsSync(archFile)) return false;
-      let archContent;
-      try {
-        archContent = fs12.readFileSync(archFile, "utf8");
-      } catch {
-        return false;
-      }
-      const dbFile = dbDesignJson(sftddDir, featureId);
-      let dbContent;
-      if (fs12.existsSync(dbFile)) {
-        try {
-          dbContent = fs12.readFileSync(dbFile, "utf8");
-        } catch {
-          dbContent = void 0;
-        }
-      }
-      return checkDbDesign(dbContent, archContent).ok;
-    },
-    architectProjectable(story) {
-      if (!fs12.existsSync(architectureJson(sftddDir, featureId))) return false;
-      const canon = readCanon(sftddDir);
-      if (!canon) return false;
-      if (canon.established_by === featureId) return false;
-      if (priorReviseCount(sftddDir, "architect-canon-gap", story) > 0) return false;
-      const acs = storyAcIds(sftddDir, featureId, story);
-      if (acs.length === 0) return false;
-      const layers = acs.map((ac) => readAcLayer2(sftddDir, featureId, ac));
-      if (layers.some((l) => !l)) return false;
-      return !architectNovelty(canon, layers.map((l) => ({ layer: l }))).novel;
-    },
-    testListReady(story) {
-      const file = storyTestListJson(sftddDir, featureId, story);
-      if (!fs12.existsSync(file)) return false;
-      try {
-        const data = JSON.parse(fs12.readFileSync(file, "utf8"));
-        return Array.isArray(data.items) && data.items.length > 0;
-      } catch {
-        return false;
-      }
-    },
-    reflectionPassed(story) {
-      return reflectionPassed(sftddDir, featureId, story);
-    },
-    reflectionVerdictWritten(story) {
-      return reflectionVerdictWritten(sftddDir, featureId, story);
-    },
-    // The build loop is TEST-LIST-DRIVEN: the Navigator/Driver hand off ONE test
-    // at a time (write RED -> make GREEN) until EVERY test-list item is green.
-    // `testsWritten` = "the Navigator has nothing to write right now" (a RED
-    // already awaits the Driver, OR all tests are green); `codeWritten` = "every
-    // test-list item has a GREEN cycle". With nextBuildAction's order
-    // (!testsWritten -> navigator; !codeWritten -> driver) this yields the
-    // interleaved per-test handoff: RED T1 -> GREEN T1 -> RED T2 -> ... Without
-    // it the loop advanced after a single test and stalled at await-acceptance
-    // with the rest of the list unbuilt (the live stall).
-    testsWritten(story) {
-      const p = storyTestProgress(sftddDir, featureId, story);
-      if (p.total === 0) {
-        return storyCycles2(sftddDir, featureId, story).some((c) => Boolean(c.red_at));
-      }
-      return p.openRed.length > 0 || p.allGreen;
-    },
-    codeWritten(story) {
-      const p = storyTestProgress(sftddDir, featureId, story);
-      if (p.total === 0) {
-        const reds = storyCycles2(sftddDir, featureId, story).filter((c) => Boolean(c.red_at));
-        return reds.length > 0 && reds.every((c) => Boolean(c.green_at));
-      }
-      return p.allGreen;
-    },
-    reviewPendingAc(story) {
-      return firstReviewPendingAc(sftddDir, featureId, story);
-    },
-    refactorPendingAc(story) {
-      return firstRefactorPendingAc(sftddDir, featureId, story);
-    },
-    reviewPending(story) {
-      return reviewPending(sftddDir, featureId, story);
-    },
-    refactorPending(story) {
-      return refactorPending(sftddDir, featureId, story);
-    },
-    assessGreenFailureAc(story) {
-      let acId;
-      try {
-        acId = storyTestProgress(sftddDir, featureId, story).openRed[0]?.ac_id;
-      } catch {
-        acId = void 0;
-      }
-      if (!acId) return null;
-      return needsGreenAssess(sftddDir, featureId, story, acId) ? acId : null;
-    },
-    repairRegressionFixAc(story) {
-      let acId;
-      try {
-        acId = storyTestProgress(sftddDir, featureId, story).openRed[0]?.ac_id;
-      } catch {
-        acId = void 0;
-      }
-      if (!acId) return null;
-      return hasPendingRegressionFix(sftddDir, featureId, story, acId) ? acId : null;
-    },
-    greenSupersededFailureAc(story) {
-      let acId;
-      try {
-        acId = storyTestProgress(sftddDir, featureId, story).openRed[0]?.ac_id;
-      } catch {
-        acId = void 0;
-      }
-      if (!acId) return null;
-      return hasPendingSupersession(sftddDir, featureId, story, acId) ? acId : null;
-    },
-    storyDeployVerified(story) {
-      return storyDeployVerified(sftddDir, featureId, story);
-    },
-    deployVerifyAssessEligible(story) {
-      return deployVerifyNeedsAssess(sftddDir, featureId, story);
-    },
-    deployVerifyRefactorPending(story) {
-      return deployVerifyRefactorPending(sftddDir, featureId, story);
-    },
-    refactorVerifyAssessEligible(story) {
-      return refactorVerifyNeedsAssess(sftddDir, featureId, story);
-    },
-    refactorVerifyRefactorPending(story) {
-      return refactorVerifyRefactorPending(sftddDir, featureId, story);
-    },
-    pendingEscalation() {
-      const e = firstPendingEscalation(sftddDir, featureId);
-      if (!e) return null;
-      const base = {
-        id: e.id,
-        source: e.source,
-        reason: e.reason,
-        ...e.story_id ? { story_id: e.story_id } : {}
-      };
-      if (e.source.startsWith("smell:")) {
-        const name = e.source.slice("smell:".length);
-        const story = e.story_id ?? buildActive ?? void 0;
-        if (isBuildRefactorRoutableSmell(name) && story && firstRefactorPendingAc(sftddDir, featureId, story)) {
-          return null;
-        }
-        const spec = specLevelSmell(name);
-        if (spec && story) {
-          let budgetSpent;
-          if (isReflectSmell(name)) {
-            const revises = priorReflectReviseCount(sftddDir, story);
-            if (revises >= REFLECT_REVISE_CAP) {
-              budgetSpent = true;
-            } else if (revises === 0) {
-              budgetSpent = false;
-            } else {
-              const lastSha = lastReflectReviseFingerprint(sftddDir, story);
-              const curSha = storyTestListFingerprint(sftddDir, featureId, story);
-              budgetSpent = lastSha !== null && lastSha === curSha;
-            }
-          } else {
-            budgetSpent = priorReviseCount(sftddDir, name, story) >= 1;
-          }
-          if (!budgetSpent) {
-            base.routable = { story, owning_role: spec.owning_role, gate: spec.gate_to_rerun };
-          }
-        }
-      }
-      return base;
-    }
-  };
-}
-
-// scripts/sftdd/story-pipeline.ts
-init_esm_shims();
-import { existsSync as existsSync32, readFileSync as readFileSync31, writeFileSync as writeFileSync20, mkdirSync as mkdirSync21, readdirSync as readdirSync23, statSync as statSync16, rmSync as rmSync8 } from "fs";
-
-// scripts/sftdd/gate-conformance-guard.ts
-init_esm_shims();
-import { existsSync as existsSync31, readFileSync as readFileSync30, readdirSync as readdirSync22, statSync as statSync15 } from "fs";
-import { join as join28 } from "path";
-
-// scripts/sftdd/architecture-conventions.ts
-init_esm_shims();
-import { existsSync as existsSync30, readFileSync as readFileSync29, writeFileSync as writeFileSync19, mkdirSync as mkdirSync20 } from "fs";
-function normModule(m) {
-  return m.replace(/\/+$/, "");
-}
-function readConventions(sftddDir) {
-  const f = architectureConventionsJson(sftddDir);
-  if (!existsSync30(f)) return void 0;
-  try {
-    return JSON.parse(readFileSync29(f, "utf8"));
-  } catch {
-    return void 0;
-  }
-}
-function assertArchitectureConforms(conventions, architectureJsonContent) {
-  let doc;
-  try {
-    doc = JSON.parse(architectureJsonContent);
-  } catch (err) {
-    return { ok: false, violations: [`architecture.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`] };
-  }
-  if (doc.service_backed !== true) return { ok: true };
-  const featureLayers = (doc.layers ?? []).filter(
-    (l) => typeof l.role === "string" && typeof l.module === "string"
-  );
-  if (featureLayers.length === 0) return { ok: true };
-  const violations = [];
-  for (const conv of conventions.layers) {
-    const match = featureLayers.find((l) => l.role === conv.role);
-    if (!match) {
-      violations.push(
-        `architecture.json does not realize the established ${conv.role} layer (project convention pins ${conv.role} -> ${conv.module}, set by ${conventions.established_by})`
-      );
-      continue;
-    }
-    if (normModule(match.module) !== conv.module) {
-      violations.push(
-        `architecture.json remaps the ${conv.role} layer to "${normModule(match.module)}" but the project convention pins ${conv.role} -> "${conv.module}" (set by ${conventions.established_by}); reuse the established module path, do not diverge`
-      );
-    }
-    if (conv.renders_via && match.renders_via && match.renders_via !== conv.renders_via) {
-      violations.push(
-        `architecture.json renders the ${conv.role} layer via "${match.renders_via}" but the project convention pins "${conv.renders_via}" (set by ${conventions.established_by})`
-      );
-    }
-  }
-  return violations.length === 0 ? { ok: true } : { ok: false, violations };
-}
-
-// scripts/sftdd/gate-conformance-guard.ts
-function featureDir2(sftddDir, featureId) {
-  return featureResolved(sftddDir, featureId);
-}
-function conformanceReason(inputs) {
-  const problems = [];
-  for (const [name, content] of Object.entries(inputs)) {
-    const result = checkArtifactConformance(name, content);
-    if (!result.ok) problems.push(...result.violations);
-  }
-  return problems.length === 0 ? null : `format conformance failed: ${problems.join("; ")}`;
-}
-function storyAcProblems(fdir, story) {
-  const acsDir2 = join28(fdir, "stories", story, "acs");
-  if (!existsSync31(acsDir2)) return [];
-  const problems = [];
-  const acs = [];
-  for (const f of readdirSync22(acsDir2)) {
-    if (!f.endsWith(".json")) continue;
-    const p = join28(acsDir2, f);
-    let content;
-    try {
-      content = readFileSync30(p, "utf8");
-    } catch {
-      continue;
-    }
-    acs.push({ name: f.replace(/\.json$/, ""), content });
-    const r = checkArtifactConformance(canonicalArtifactName(p), content);
-    if (!r.ok) problems.push(`${story}/acs/${f}: ${r.violations.join("; ")}`);
-  }
-  const indep = checkAcIndependence(acs);
-  if (!indep.ok) problems.push(...indep.violations.map((v) => `${story}/acs: ${v}`));
-  return problems;
-}
-function acsConformanceReason(fdir) {
-  const stories = join28(fdir, "stories");
-  if (!existsSync31(stories)) return null;
-  const problems = readdirSync22(stories).flatMap((s) => storyAcProblems(fdir, s));
-  return problems.length === 0 ? null : `AC conformance failed: ${problems.join("; ")}`;
-}
-function collectStoryJsons(fdir) {
-  const stories = join28(fdir, "stories");
-  if (!existsSync31(stories)) return [];
-  const out = [];
-  for (const s of readdirSync22(stories)) {
-    const p = join28(stories, s, "story.json");
-    if (!existsSync31(p)) continue;
-    try {
-      out.push({ name: s, content: readFileSync30(p, "utf8") });
-    } catch {
-      continue;
-    }
-  }
-  return out;
-}
-function storyIndependenceReason(fdir) {
-  const r = checkStoryIndependence(collectStoryJsons(fdir));
-  return r.ok ? null : `story independence failed: ${r.violations.join("; ")}`;
-}
-function architectureConventionsReason(sftddDir, featureId) {
-  const conventions = readConventions(sftddDir);
-  if (!conventions) return null;
-  const archFile = architectureJson(sftddDir, featureId);
-  if (!existsSync31(archFile)) return null;
-  let content;
-  try {
-    content = readFileSync30(archFile, "utf8");
-  } catch {
-    return null;
-  }
-  const r = assertArchitectureConforms(conventions, content);
-  return r.ok ? null : `architecture conventions failed: ${r.violations.join("; ")}`;
-}
-function readArchitecture(sftddDir, featureId) {
-  const f = architectureJson(sftddDir, featureId);
-  if (!existsSync31(f)) return void 0;
-  try {
-    return readFileSync30(f, "utf8");
-  } catch {
-    return void 0;
-  }
-}
-function layeringDeclaredReason(sftddDir, featureId) {
-  const arch = readArchitecture(sftddDir, featureId);
-  if (arch === void 0) return null;
-  const r = checkLayeringDeclared(arch);
-  return r.ok ? null : `layering declaration failed: ${r.violations.join("; ")}`;
-}
-function dbDesignReason(sftddDir, featureId) {
-  const arch = readArchitecture(sftddDir, featureId);
-  if (arch === void 0) return null;
-  const dbFile = dbDesignJson(sftddDir, featureId);
-  const db = existsSync31(dbFile) ? (() => {
-    try {
-      return readFileSync30(dbFile, "utf8");
-    } catch {
-      return void 0;
-    }
-  })() : void 0;
-  const r = checkDbDesign(db, arch);
-  return r.ok ? null : `db-design failed: ${r.violations.join("; ")}`;
-}
-function nfrCoverageReason(sftddDir, featureId) {
-  const arch = readArchitecture(sftddDir, featureId);
-  if (arch === void 0) return null;
-  const featureNfrs = featureNfrsMd(sftddDir, featureId);
-  const projectNfrs = nfrsMd(sftddDir);
-  const nfrsFile = existsSync31(featureNfrs) ? featureNfrs : existsSync31(projectNfrs) ? projectNfrs : void 0;
-  if (nfrsFile === void 0) return null;
-  let nfrsContent;
-  try {
-    nfrsContent = readFileSync30(nfrsFile, "utf8");
-  } catch {
-    return null;
-  }
-  const r = checkNfrCoverage(nfrsContent, arch, projectBriefRefs(sftddDir));
-  return r.ok ? null : `NFR coverage failed: ${r.violations.join("; ")}`;
-}
-function fitnessCoverageReason(sftddDir, featureId, testListJson) {
-  const arch = readArchitecture(sftddDir, featureId);
-  if (arch === void 0) return null;
-  const r = checkFitnessCoverage(testListJson, arch);
-  return r.ok ? null : `fitness coverage failed: ${r.violations.join("; ")}`;
-}
-function persistenceCoverageReason(sftddDir, featureId, testListJson) {
-  const arch = readArchitecture(sftddDir, featureId);
-  if (arch === void 0) return null;
-  const r = checkPersistenceCoverage(testListJson, arch);
-  return r.ok ? null : `persistence coverage failed: ${r.violations.join("; ")}`;
-}
-function invariantCoverageDistinctReason(sftddDir, featureId, testListJson) {
-  let master;
-  try {
-    master = JSON.parse(testListJson);
-  } catch {
-    return null;
-  }
-  const items = master.items ?? [];
-  const storiesDir2 = join28(featureDir2(sftddDir, featureId), "stories");
-  if (!existsSync31(storiesDir2)) return null;
-  const perStory = readdirSync22(storiesDir2).filter((s) => {
-    try {
-      return statSync15(join28(storiesDir2, s)).isDirectory();
-    } catch {
-      return false;
-    }
-  }).map((story) => {
-    const acIds = new Set(acsForStory(sftddDir, featureId, story));
-    const invariantIds = items.filter((it) => typeof it.invariant_id === "string" && it.invariant_id.length > 0 && typeof it.ac_id === "string" && acIds.has(it.ac_id)).map((it) => it.invariant_id);
-    return { story, invariantIds };
-  });
-  const r = checkInvariantCoverageDistinct(perStory);
-  return r.ok ? null : `invariant coverage not distinct across stories: ${r.violations.join("; ")}`;
-}
-function serviceBackedReason(sftddDir, featureId) {
-  const arch = readArchitecture(sftddDir, featureId);
-  if (arch === void 0) return null;
-  const acLayers = [];
-  const fdir = featureDir2(sftddDir, featureId);
-  const stories = join28(fdir, "stories");
-  if (existsSync31(stories)) {
-    for (const s of readdirSync22(stories)) {
-      const ad = join28(stories, s, "acs");
-      if (!existsSync31(ad)) continue;
-      for (const f of readdirSync22(ad)) {
-        if (!f.endsWith(".json")) continue;
-        try {
-          const layer = JSON.parse(readFileSync30(join28(ad, f), "utf8")).layer;
-          if (typeof layer === "string") acLayers.push(layer);
-        } catch {
-        }
-      }
-    }
-  }
-  const nfrsText = [];
-  try {
-    const nfrs = JSON.parse(arch).nfrs ?? [];
-    for (const n of nfrs) nfrsText.push(n.brief ?? "", n.requirement ?? "", n.notes ?? "");
-  } catch {
-  }
-  const r = checkServiceBackedDeclaration(arch, { acLayers, nfrsText });
-  return r.ok ? null : `service_backed declaration failed: ${r.violations.join("; ")}`;
-}
-function resolveArtifactInputs(gate, fdir, promoteRef, sftddDir, featureId) {
-  const readIfPresent = (name) => {
-    const p = join28(fdir, name);
-    try {
-      return existsSync31(p) ? readFileSync30(p, "utf8") : void 0;
-    } catch {
-      return void 0;
-    }
-  };
-  const withConformance = (inputs) => {
-    const reason = conformanceReason(inputs);
-    return reason === null ? { inputs } : { reason };
-  };
-  switch (gate) {
-    case "spec": {
-      const featureJson = readIfPresent("feature-spec.json");
-      if (featureJson === void 0) {
-        return { reason: "feature-spec.json not found (spec phase not complete)" };
-      }
-      const featureMd = readIfPresent("feature-spec.md");
-      if (featureMd === void 0) {
-        return { reason: "feature-spec.md not found (structured draft spec incomplete)" };
-      }
-      const inputs = {
-        "feature-spec.json": featureJson,
-        "feature-spec.md": featureMd
-      };
-      const conf = withConformance(inputs);
-      if ("reason" in conf) return conf;
-      const acReason = acsConformanceReason(fdir);
-      if (acReason !== null) return { reason: acReason };
-      const indepReason = storyIndependenceReason(fdir);
-      if (indepReason !== null) return { reason: indepReason };
-      const conventionsReason = architectureConventionsReason(sftddDir, featureId);
-      if (conventionsReason !== null) return { reason: conventionsReason };
-      const serviceBacked = serviceBackedReason(sftddDir, featureId);
-      if (serviceBacked !== null) return { reason: serviceBacked };
-      const layeringReason = layeringDeclaredReason(sftddDir, featureId);
-      if (layeringReason !== null) return { reason: layeringReason };
-      const dbReason = dbDesignReason(sftddDir, featureId);
-      if (dbReason !== null) return { reason: dbReason };
-      const nfrReason = nfrCoverageReason(sftddDir, featureId);
-      return nfrReason === null ? conf : { reason: nfrReason };
-    }
-    case "plan": {
-      const planJson = readIfPresent("plan.json");
-      if (planJson === void 0) {
-        return { reason: "plan.json not found (plan phase not produced)" };
-      }
-      return withConformance({ "plan.json": planJson });
-    }
-    case "test_list": {
-      const tlJson = readIfPresent("test-list.json");
-      const tlMd = readIfPresent("test-list.md");
-      if (tlJson === void 0 && tlMd === void 0) {
-        return { reason: "test-list.json/md not found (test-strategist phase not complete)" };
-      }
-      const inputs = {};
-      if (tlJson !== void 0) inputs["test-list.json"] = tlJson;
-      if (tlMd !== void 0) inputs["test-list.md"] = tlMd;
-      const conf = withConformance(inputs);
-      if ("reason" in conf) return conf;
-      if (tlJson !== void 0) {
-        const fitnessReason = fitnessCoverageReason(sftddDir, featureId, tlJson);
-        if (fitnessReason !== null) return { reason: fitnessReason };
-        const persistenceReason = persistenceCoverageReason(sftddDir, featureId, tlJson);
-        if (persistenceReason !== null) return { reason: persistenceReason };
-        const distinctReason = invariantCoverageDistinctReason(sftddDir, featureId, tlJson);
-        if (distinctReason !== null) return { reason: distinctReason };
-      }
-      return conf;
-    }
-    case "promote": {
-      if (promoteRef === void 0 || promoteRef.length === 0) {
-        return { reason: "no promote_ref supplied (nothing to promote)" };
-      }
-      return withConformance({ promote_ref: promoteRef });
-    }
-    case "deploy": {
-      const evidence = readIfPresent("deploy-evidence.json");
-      if (evidence === void 0) {
-        return { reason: "deploy-evidence.json not found (feature not deployed + verified)" };
-      }
-      let parsed;
-      try {
-        parsed = JSON.parse(evidence);
-      } catch {
-        return { reason: "deploy-evidence.json is not valid JSON" };
-      }
-      if (parsed.reachable !== true) {
-        return { reason: "deploy-evidence records reachable=false (app not reachable on the target)" };
-      }
-      if (parsed.verify?.passed !== true) {
-        return { reason: "deploy-evidence records verify.passed=false (feature-verify did not pass against the running app)" };
-      }
-      return withConformance({ "deploy-evidence.json": evidence });
-    }
-  }
-}
-
-// scripts/sftdd/story-pipeline.ts
-function initPipeline(featureId) {
-  return { version: 1, feature_id: featureId, stories: {}, build_queue: [], build_active: null };
-}
-function pipelinePath(sftddDir, featureId) {
-  return pipelineJson(sftddDir, featureId);
-}
-function readPipeline(sftddDir, featureId) {
-  const p = pipelinePath(sftddDir, featureId);
-  if (!existsSync32(p)) return initPipeline(featureId);
-  return JSON.parse(readFileSync31(p, "utf8"));
-}
-
-// scripts/sftdd/response-formatter.ts
-init_esm_shims();
-import { existsSync as existsSync33, readFileSync as readFileSync32, readdirSync as readdirSync24 } from "fs";
-function needStory(role, story, violations) {
-  if (!story) {
-    violations.push({ artifact: role, problem: `--story is required to validate ${role} output` });
-    return false;
-  }
-  return true;
-}
-function checkSpecAuthorBreakdown(sftddDir, featureId, v) {
-  const specPath = featureSpecJson(sftddDir, featureId);
-  if (!existsSync33(specPath)) {
-    v.push({ artifact: "feature-spec.json", problem: "breakdown deliverable missing (write feature-spec.json with a non-empty stories[] array of the story ids)" });
-    return;
-  }
-  try {
-    const spec = JSON.parse(readFileSync32(specPath, "utf8"));
-    if (!Array.isArray(spec.stories) || spec.stories.length === 0) {
-      v.push({ artifact: "feature-spec.json", problem: "stories[] is missing or empty (the breakdown must enumerate >=1 story id)" });
-    }
-  } catch (err) {
-    v.push({ artifact: "feature-spec.json", problem: `not valid JSON: ${err instanceof Error ? err.message : String(err)}` });
-    return;
-  }
-  const sdir = storiesDir(sftddDir, featureId);
-  if (!existsSync33(sdir)) return;
-  const storyJsons = [];
-  for (const s of readdirSync24(sdir)) {
-    const p = `${sdir}/${s}/story.json`;
-    if (!existsSync33(p)) continue;
-    try {
-      storyJsons.push({ name: s, content: readFileSync32(p, "utf8") });
-    } catch {
-      continue;
-    }
-  }
-  const indep = checkStoryIndependence(storyJsons);
-  if (!indep.ok) {
-    for (const problem of indep.violations) v.push({ artifact: "stories/*/story.json", problem });
-  }
-}
-function checkSpecAuthor(args, v) {
-  const { sftddDir, featureId, story } = args;
-  if (story === void 0) {
-    checkSpecAuthorBreakdown(sftddDir, featureId, v);
-    return;
-  }
-  const dir = acsDir(sftddDir, featureId, story);
-  const ids = storyAcIds(sftddDir, featureId, story);
-  if (ids.length === 0) {
-    v.push({ artifact: `stories/${story}/acs`, problem: "no acceptance criteria written (expected >=1 AC<n>.json)" });
-    return;
-  }
-  if (!existsSync33(dir)) return;
-  const thenById = /* @__PURE__ */ new Map();
-  for (const f of readdirSync24(dir)) {
-    if (!f.endsWith(".json")) continue;
-    let content;
-    try {
-      content = readFileSync32(`${dir}/${f}`, "utf8");
-    } catch {
-      continue;
-    }
-    const r = checkArtifactConformance(canonicalArtifactName(`${dir}/${f}`), content);
-    if (!r.ok) v.push({ artifact: `stories/${story}/acs/${f}`, problem: r.violations.join("; ") });
-    try {
-      const ac = JSON.parse(content);
-      if (typeof ac.id === "string" && typeof ac.then === "string") {
-        const norm = ac.then.trim().replace(/\s+/g, " ").toLowerCase();
-        if (norm) thenById.set(ac.id, norm);
-      }
-    } catch {
-    }
-  }
-  const byThen = /* @__PURE__ */ new Map();
-  for (const [id, norm] of thenById) (byThen.get(norm) ?? byThen.set(norm, []).get(norm)).push(id);
-  for (const ids2 of byThen.values()) {
-    if (ids2.length > 1) {
-      v.push({
-        artifact: `stories/${story}/acs`,
-        problem: `ACs ${ids2.sort().join(", ")} share an identical \`then\`, each AC must be an independent observable behavior. Merge them or differentiate (ac-overlap).`
-      });
-    }
-  }
-}
-function checkArchitect(args, v) {
-  const { sftddDir, featureId, story } = args;
-  if (!needStory("architect-reviewer", story, v)) return;
-  const ids = storyAcIds(sftddDir, featureId, story);
-  if (ids.length === 0) {
-    v.push({ artifact: `stories/${story}/acs`, problem: "no ACs to annotate (spec-author output missing)" });
-    return;
-  }
-  for (const ac of ids) {
-    if (readAcLayer(sftddDir, featureId, ac) === void 0) {
-      v.push({ artifact: `stories/${story}/acs/${ac}.json`, problem: "missing/invalid `layer` (expected API | E2E | Infra)" });
-    }
-    if (readAcArchitecturalNotes(sftddDir, featureId, ac) === void 0) {
-      v.push({
-        artifact: `stories/${story}/acs/${ac}.json`,
-        problem: "missing non-empty `architectural_notes` (annotate EVERY AC with its layer rationale + how it realizes the design; the spec-author's `layer` field does NOT satisfy this)"
-      });
-    }
-  }
-}
-function checkDba(args, v) {
-  const { sftddDir, featureId } = args;
-  const archFile = architectureJson(sftddDir, featureId);
-  if (!existsSync33(archFile)) {
-    v.push({ artifact: "architecture.json", problem: "architecture.json missing (the architect owns the contract the DBA realizes)" });
-    return;
-  }
-  const archContent = readFileSync32(archFile, "utf8");
-  const dbFile = dbDesignJson(sftddDir, featureId);
-  const dbContent = existsSync33(dbFile) ? readFileSync32(dbFile, "utf8") : void 0;
-  if (dbContent !== void 0) {
-    const conf = checkArtifactConformance("db-design.json", dbContent);
-    if (!conf.ok) v.push({ artifact: "db-design.json", problem: conf.violations.join("; ") });
-  }
-  const r = checkDbDesign(dbContent, archContent);
-  if (!r.ok) v.push({ artifact: "db-design.json", problem: r.violations.join("; ") });
-}
-function checkTestStrategist(args, v) {
-  const { sftddDir, featureId, story } = args;
-  if (!needStory("test-strategist", story, v)) return;
-  const file = storyTestListJson(sftddDir, featureId, story);
-  if (!existsSync33(file)) {
-    v.push({ artifact: `stories/${story}/test-list-per-story.json`, problem: "per-story test list not written" });
-    return;
-  }
-  let parsed;
-  try {
-    parsed = JSON.parse(readFileSync32(file, "utf8"));
-  } catch (e) {
-    v.push({ artifact: `stories/${story}/test-list-per-story.json`, problem: `invalid JSON: ${e instanceof Error ? e.message : String(e)}` });
-    return;
-  }
-  const items = Array.isArray(parsed.items) ? parsed.items : [];
-  if (items.length === 0) {
-    v.push({ artifact: `stories/${story}/test-list-per-story.json`, problem: "empty `items` (expected >=1 test mapped to the story's ACs)" });
-    return;
-  }
-  const acIds = new Set(storyAcIds(sftddDir, featureId, story));
-  const covered = /* @__PURE__ */ new Set();
-  items.forEach((item, i) => {
-    if (item.kind === "fitness" && typeof item.scenario_file === "string" && /\.feature$/.test(item.scenario_file)) {
-      v.push({
-        artifact: `stories/${story}/test-list-per-story.json`,
-        problem: `items[${i}] (${String(item.id)}) is kind:"fitness" but its scenario_file "${item.scenario_file}" is a Gherkin .feature (mutually exclusive). A fitness item is a plain test (drop scenario_file), or make it kind:"behavior".`
-      });
-    }
-    const acId = item.ac_id;
-    if (typeof acId !== "string" || acId.length === 0) {
-      v.push({ artifact: `stories/${story}/test-list-per-story.json`, problem: `items[${i}] (${String(item.id)}) has null/empty ac_id` });
-    } else if (acIds.size > 0 && !acIds.has(acId)) {
-      v.push({
-        artifact: `stories/${story}/test-list-per-story.json`,
-        problem: `items[${i}] ac_id "${acId}" is not one of the story's ACs [${[...acIds].join(", ")}]`
-      });
-    } else if (typeof acId === "string") {
-      covered.add(acId);
-    }
-  });
-  const uncovered = [...acIds].filter((id) => !covered.has(id));
-  if (uncovered.length > 0) {
-    v.push({
-      artifact: `stories/${story}/test-list-per-story.json`,
-      problem: `AC(s) with no covering test: [${uncovered.join(", ")}]. Every AC needs >=1 item (a client AC needs a kind:client item; see the reflect gate).`
-    });
-  }
-}
-function designGuideConformance(sftddDir) {
-  const file = designGuideJson(sftddDir);
-  if (!existsSync33(file)) {
-    return { ok: false, problem: "design-guide.json not written (the machine-checkable token source of truth)" };
-  }
-  let content;
-  try {
-    content = readFileSync32(file, "utf8");
-  } catch (e) {
-    return { ok: false, problem: `unreadable: ${e instanceof Error ? e.message : String(e)}` };
-  }
-  const r = checkArtifactConformance(canonicalArtifactName(file), content);
-  return r.ok ? { ok: true } : { ok: false, problem: r.violations.join("; ") };
-}
-function designGuideHasComponents(sftddDir) {
-  const file = designGuideJson(sftddDir);
-  if (!existsSync33(file)) return { ok: true };
-  try {
-    const parsed = JSON.parse(readFileSync32(file, "utf8"));
-    const comps = parsed.components;
-    if (!comps || typeof comps !== "object" || Object.keys(comps).length === 0) {
-      return {
-        ok: false,
-        problem: "design-guide.json is missing a non-empty `components` object , name the standard components (page, card, button, form_input, table, status_badge, empty_state, toast) each with its CSS `class`, so feature pages apply the design vocabulary instead of bare HTML"
-      };
-    }
-  } catch {
-    return { ok: true };
-  }
-  return { ok: true };
-}
-function checkUxDesigner(args, v) {
-  const r = designGuideConformance(args.sftddDir);
-  if (!r.ok) {
-    v.push({ artifact: "design/design-guide.json", problem: r.problem ?? "design-guide.json is non-conformant" });
-    return;
-  }
-  const c = designGuideHasComponents(args.sftddDir);
-  if (!c.ok) v.push({ artifact: "design/design-guide.json", problem: c.problem ?? "design-guide.json is missing components" });
-}
-var CHECKERS = {
-  "spec-author": checkSpecAuthor,
-  "architect-reviewer": checkArchitect,
-  dba: checkDba,
-  "test-strategist": checkTestStrategist,
-  "ux-designer": checkUxDesigner
-};
-function formatRoleResponse(args) {
-  const violations = [];
-  const checker = CHECKERS[args.role];
-  if (checker) checker(args, violations);
-  return { role: args.role, ...args.story ? { story: args.story } : {}, ok: violations.length === 0, violations };
-}
-
-// scripts/sftdd/orchestrator-effects.ts
-import { sanitizeBranchName } from "@databricks-solutions/lakebase-scm-utils/util";
-var UI_TRACK_PROPOSE = ` UI track is ON: this product has a user-facing UI (a design-brief.md is part of intake), so every user-facing capability must be deliverable end to end as an E2E story, a real browser/screen interaction a user performs, not merely an API. Frame each candidate as a user-facing increment and note which need an E2E (UI) story.`;
-var UI_TRACK_BREAKDOWN = ` UI track is ON: decompose into stories that include the E2E (UI) story for each user-facing capability (a screen the user interacts with), not API-only stories.`;
-function artifactRoot(sftddDir) {
-  return sftddDir;
-}
-function uiTrackBuild(root) {
-  return ` UI track is ON: the UI must adhere to the project design guide at ${root}/design/design-guide.md (+ the design-guide.json tokens). Build to it.`;
-}
-var AGENT_TERSE_SUFFIX = ` Be terse: produce ONLY the required artifact file(s) on disk, then stop with at most a one-line confirmation. Do NOT print a plan, a summary of what you did, rationale, tables, or restate the artifacts to stdout, that output is wasted latency. The files on disk are the deliverable, not your prose.`;
-function storyStubScope(sftddDir, featureId, storyId) {
-  try {
-    const stub = JSON.parse(fs13.readFileSync(storyJson(sftddDir, featureId, storyId), "utf8"));
-    const parts = [
-      stub.asA ? `As a ${stub.asA}` : "",
-      stub.iWantTo ? `I want to ${stub.iWantTo}` : "",
-      stub.soThat ? `so that ${stub.soThat}` : ""
-    ].filter(Boolean);
-    return parts.length ? ` The story: ${parts.join(", ")}.` : "";
-  } catch {
-    return "";
-  }
-}
-function contextRubric(sftddDir, featureId, story, ac) {
-  const parts = [];
-  const layers = /* @__PURE__ */ new Set();
-  const acIds = ac ? [ac] : storyAcIds(sftddDir, featureId, story);
-  for (const id of acIds) {
-    const l = readAcLayer(sftddDir, featureId, id);
-    if (l) layers.add(l);
-  }
-  if (layers.size) parts.push(`layer${layers.size > 1 ? "s" : ""}=${[...layers].join(", ")}`);
-  try {
-    const arch = JSON.parse(fs13.readFileSync(architectureJson(sftddDir, featureId), "utf8"));
-    const nfrs = (arch.nfrs ?? []).filter(
-      (n) => n && typeof n.id === "string" && (n.applies_to === story || n.applies_to === featureId)
-    );
-    if (nfrs.length) {
-      parts.push(`required NFRs, ${nfrs.map((n) => `${n.id}${n.brief ? ` (${n.brief})` : ""}`).join("; ")}`);
-    }
-  } catch {
-  }
-  if (layers.has("E2E")) {
-    try {
-      const dg = JSON.parse(fs13.readFileSync(designGuideJson(sftddDir), "utf8"));
-      const groups = Object.keys(dg.tokens ?? dg);
-      if (groups.length) parts.push(`design-token groups, ${groups.join(", ")}`);
-    } catch {
-    }
-  }
-  return parts.length ? ` RUBRIC (pre-extracted; judge against THIS) :: ${parts.join(" | ")}.` : "";
-}
-function rubricSourcesNote(rubric, featureId, root) {
-  if (!rubric) return "";
-  return ` The rubric above is pre-extracted from ${root}/features/${featureId}/architecture.md, ${root}/nfrs.md, and ${root}/design/design-guide.md, open those full files ONLY if you need more detail than it carries (do not re-read them by default).`;
-}
-function buildContextPack(sftddDir, featureId, story, ac, opts = {}) {
-  const root = artifactRoot(sftddDir);
-  const rubric = contextRubric(sftddDir, featureId, story, ac);
-  const parts = [];
-  if (rubric) parts.push(rubric + rubricSourcesNote(rubric, featureId, root));
-  const conventions = readConventions(sftddDir);
-  if (conventions?.layers?.length) {
-    const layout = conventions.layers.map((l) => `${l.role}=${l.module}${l.renders_via ? ` (${l.renders_via})` : ""}`).join(" | ");
-    parts.push(` LAYOUT (place/judge code at THESE paths, do not scan for them) :: ${layout}.`);
-  }
-  if (!opts.skipTestLoop) {
-    parts.push(
-      ` TESTS :: this story's tests are under tests/step_defs/ (behavior, one file per story) and tests/architecture/ (fitness: layering, persistence invariants, migration reversibility). Read those named paths directly; do NOT find/grep/ls to locate them. Iterate against the single failing test while fixing; the honest-GREEN verify is the authoritative full run.`
-    );
-  }
-  return parts.join("");
-}
-function nextPendingTestDirective(sftddDir, featureId, story, loop, cap) {
-  if ((loop ?? "story") === "story") {
-    let batch = [];
-    try {
-      batch = nextPendingBatch(sftddDir, featureId, story, Number.MAX_SAFE_INTEGER);
-    } catch {
-      batch = [];
-    }
-    if (batch.length === 0) {
-      return `Write the failing tests (RED) for story ${story}: every test-list item for the story that has no cycle yet.`;
-    }
-    const list = batch.map((b) => `${b.id} [ac ${b.ac_id}]: "${b.description}"`).join("; ");
-    return `Write the failing tests (RED) for the WHOLE story ${story} in this one turn, EXACTLY these ${batch.length} item(s) across all its ACs, in order: ${list}. Write ALL of them now and ONLY these; do NOT add or drop items, the orchestration stamps ONE whole-story batch RED cycle for exactly these ids, and any mismatch is a defect.`;
-  }
-  if (loop === "hybrid-a") {
-    let batch = [];
-    try {
-      batch = nextPendingBatch(sftddDir, featureId, story, cap ?? DEFAULT_BATCH_CAP);
-    } catch {
-      batch = [];
-    }
-    if (batch.length === 0) {
-      return `Write the next failing tests (RED) for story ${story}: the next un-cycled layer-batch in the test list.`;
-    }
-    const list = batch.map((b) => `${b.id} [ac ${b.ac_id}]: "${b.description}"`).join("; ");
-    return `Write the failing tests (RED) for story ${story}'s next layer-batch, EXACTLY these ${batch.length} item(s), in order: ${list}. Write ALL of them this turn and ONLY these (they share one layer/runner); do NOT skip ahead to another layer, do NOT add or drop items, the orchestration stamps ONE batch RED cycle for exactly these ids, and any mismatch is a defect.`;
-  }
-  let next;
-  try {
-    next = storyTestProgress(sftddDir, featureId, story).pending[0];
-  } catch {
-    next = void 0;
-  }
-  if (!next) {
-    return `Write the next failing test (RED) for story ${story}: the next un-cycled item in the test list.`;
-  }
-  return `Write EXACTLY ONE failing test (RED) for story ${story}: the next test in order, ${next.id} [ac ${next.ac_id}]: "${next.description}". Write ONLY this test. Do NOT skip ahead, do NOT combine tests, do NOT pick a different item, the orchestration stamps the RED cycle for ${next.id}, and a mismatch between the test you write and ${next.id} is a defect.`;
-}
-function supersededTestsDirective(sftddDir, featureId, story) {
-  let acId;
-  try {
-    const prog = storyTestProgress(sftddDir, featureId, story);
-    acId = (prog.openRed[0] ?? prog.pending[0])?.ac_id;
-  } catch {
-    acId = void 0;
-  }
-  if (!acId) return "";
-  const sup = readSupersededTests(sftddDir, featureId, story, acId);
-  if (!sup) return "";
-  const list = sup.tests.map((t) => `  - ${t}`).join("\n");
-  return `
-
-SUPERSEDED TESTS: this AC (${acId}) supersedes behavior encoded in PRIOR tests the Navigator flagged (${sup.reason}). The latest AC wins. You MAY refactor ONLY these flagged tests to the new behavior (alongside the production code) so the honest-GREEN verify holds:
-${list}
-Do NOT touch any other test; an UNflagged failing test is a genuine regression that must stay red and escalate.`;
-}
-function regressionRepairDirective(sftddDir, featureId, story) {
-  let acId;
-  try {
-    acId = storyTestProgress(sftddDir, featureId, story).openRed[0]?.ac_id;
-  } catch {
-    acId = void 0;
-  }
-  if (!acId) return "";
-  const gf = readGreenFailure(sftddDir, featureId, story, acId);
-  if (!gf?.fixDirective) return "";
-  return `REPAIR a driver-fixable regression in AC ${acId} (story ${story}). The honest-GREEN verify against the running app FAILED and it was diagnosed (by the Navigator, or deterministically by a gate such as contract-clean) as a genuine regression in the code, NOT a superseded test:
-  DIAGNOSIS: ${gf.diagnosis ?? gf.summary}
-  FIX: ${gf.fixDirective}
-Apply that fix to the PRODUCTION code. Do NOT edit prior tests to force this regression green, fix the code. (EXCEPTION: if a SUPERSEDED TESTS directive follows below, the Navigator flagged those specific prior tests as encoding obsolete behavior, refactor ONLY those alongside this fix , often the regression is collateral from a superseded test erroring on a shared session, so both must land in this one turn.) Keep the AC's own tests green. This is your ONE repair attempt: if the verify still fails after it, the orchestration escalates to a human with the diagnosis.`;
-}
-function consumeHandback(action, featureId, sftddDir) {
-  const story = "story" in action ? action.story : void 0;
-  const file = handbackFile(sftddDir, featureId, action.role, story);
-  if (!fs13.existsSync(file)) return "";
-  let note = "";
-  try {
-    note = fs13.readFileSync(file, "utf8").trim();
-    fs13.rmSync(file, { force: true });
-  } catch {
-    return "";
-  }
-  return note ? `${note}
-
-` : "";
-}
-function roleTask(action, featureId, uiTrack, sftddDir, build) {
-  return consumeHandback(action, featureId, sftddDir) + roleTaskBody(action, featureId, uiTrack, sftddDir, build);
-}
-function architectConventionsDirective(sftddDir) {
-  const conventions = readConventions(sftddDir);
-  if (!conventions) {
-    return ` This is the first feature: the layered layout you declare in architecture.json (the role -> module paths) becomes the PROJECT-WIDE convention every later feature inherits, so choose the canonical layout deliberately.`;
-  }
-  const layout = conventions.layers.map((l) => `${l.role}=${l.module}${l.renders_via ? ` (${l.renders_via})` : ""}`).join(", ");
-  return ` REUSE the established project architecture conventions (set by ${conventions.established_by}): ${layout}. Declare the SAME role -> module paths in architecture.json, do NOT remap or rename an established layer; a divergent layout hard-blocks the spec gate and mismatches the inherited code.`;
-}
-function designRootNote(root, featureId, s) {
-  return ` Write every artifact under the ABSOLUTE artifact root ${root} (this feature: ${root}/features/${featureId}/; this story: ${root}/features/${featureId}/stories/${s}/); use that absolute path and never resolve or guess the project root yourself.`;
-}
-function roleTaskBody(action, featureId, uiTrack, sftddDir, build) {
-  const root = artifactRoot(sftddDir);
-  if ("mode" in action) {
-    switch (action.mode) {
-      case "propose":
-        return `Propose the sprint's candidate features for planning. WRITE the proposal to ${root}/planning/feature-proposals.md , author it FRESH from ${root}/product-overview.md + ${root}/nfrs.md (do NOT assume one already exists), one candidate feature per section, so the Architect can size them and the Product Owner can commit the backlog.${uiTrack ? UI_TRACK_PROPOSE : ""}`;
-      case "estimate":
-        return `Estimate each proposed candidate feature with a t-shirt size (XS/S/M/L/XL) and write planning/estimates.json, so the Product Owner can commit a backlog that fits sprint capacity.`;
-      case "estimate-committed":
-        return `Estimate the sprint's COMMITTED feature(s) with a t-shirt size (XS/S/M/L/XL). Read each committed feature's request at ${root}/features/<F>/feature-request.md, then ADD one entry per committed feature to ${root}/planning/estimates.json keyed by its REAL feature id (e.g. "F1-stock-visibility", not a "FP" candidate id), each {"feature_id":"<F>","size":"<XS|S|M|L|XL>","rationale":"<why>"}. KEEP every existing estimate already in the file (merge, do not overwrite the candidate sizes). This is the size sync-backlog stamps into the per-sprint backlog, so the committed backlog shows real sizing.`;
-      case "author-requests":
-        return `Provide the sprint's feature-requests.`;
-      case "breakdown":
-        return `Break feature ${featureId} down into its stories. WRITE the breakdown to ${root}: first ${root}/features/${featureId}/feature-spec.json (id, name, status "draft", tdd_mode, and a NON-EMPTY stories[] array of the story ids), then a stub dir per story under ${root}/features/${featureId}/stories/<S>/ (story.md + story.json, id + one-line scope; NO acceptance criteria here). ON EVERY STORY AFTER THE FIRST, its story.json MUST include "independence": { "distinct_from_prior": true, "rationale": "<the distinct behavior this story adds beyond the prior stories>" } , apply the story-independence test (could you build the earlier story fully and have this one still genuinely unbuilt?); if not, fold or re-scope it. A later story that omits independence hard-blocks its spec gate, so set it now. Then run the breakdown self-check (./scripts/lk lakebase-sftdd-response-formatter --role spec-author --feature ${featureId}, NO --story) and fix anything it flags before returning. feature-spec.json is REQUIRED , a prose list of stories in your reply is NOT the breakdown, and do NOT claim it "already exists".${uiTrack ? UI_TRACK_BREAKDOWN : ""}`;
-    }
-  }
-  if (action.role === "ux-designer") {
-    return `Translate the HIL design brief (${root}/design/design-brief.md) into the project design system: write design-guide.md (visual + interaction standards), design-guide.json (the machine-checkable tokens: typography, colors, spacing, radius, shadows, breakpoints), and ia.md (the information architecture: screens, navigation, flows). This is the project-level style guide the Navigator and Driver build the UI against; author it once from the brief + product-overview.md.`;
-  }
-  const s = action.story;
-  switch (action.role) {
-    case "spec-author":
-      return `Draft the acceptance criteria for story ${s} and NOTHING else.${storyStubScope(sftddDir, featureId, s)} Write ONE file per AC as acs/<AC>.json (+ optional acs/<AC>.md), and put NOTHING else in acs/ (no test lists, no -tests.json / -test-list.json, no scratch files, the spec gate validates every acs/*.json against the AC schema and rejects non-AC files). The AC id MUST match AC<n>-<slug>: AC1-create-form, AC2-form-accepts-input, ... (an "AC" prefix + a number, then a kebab slug). A bare slug id like "create-form-displays" FAILS the schema and hard-blocks the spec gate. The file's "id" field MUST equal its basename (acs/AC1-foo.json has {"id":"AC1-foo"}). Write only under story ${s}'s acs/ directory. Do not create, draft, or modify acceptance criteria for any other story in this feature, each other story is drafted in its own separate step that you are not performing now, and you will be invoked again, once per story, for the rest. Authoring more than ${s} here delays ${s} reaching its spec gate and build, and is rejected at the gate.` + designRootNote(root, featureId, s);
-    case "architect-reviewer": {
-      const arAcIds = storyAcIds(sftddDir, featureId, s);
-      const arAcScope = arAcIds.length ? ` Story ${s}'s ACs are: ${arAcIds.join(", ")}.` : "";
-      return `Annotate story ${s}'s acceptance criteria + nfrs.md coverage.${arAcScope} For EVERY one of this story's ACs, write a non-empty "architectural_notes" field into its acs/<AC>.json (the layer it lives in + how it realizes the design). This is your distinctive per-AC product; the design gate verifies every AC carries it and the spec-author's "layer" field does NOT count. architectural_notes are per-AC, so annotate this story's ACs even when the feature-level architecture.json already exists from an earlier story. In architecture.json, make an EXPLICIT service_backed call (required): set service_backed:true if the feature persists data (a DB table/migration) or carries business logic, and then you MUST declare boundary, service, and repository layers (plus a "models" PACKAGE app/models/, one module per domain object, NOT a flat app/models.py, when it persists entities); set false ONLY for a trivial static/read-through endpoint. An Infra-layer AC or a migration/schema/storage NFR while service_backed is false hard-blocks the gate. When service_backed:true you MUST also declare architecture.json persistence_invariants[]: the DB-level guarantees the schema enforces (each with id, type one of unique|foreign_key|cascade|not_null|check|transactional|migration_reversible, table, and a one-line brief), covering unique/composite keys, foreign keys + cascade rules, NOT NULL / CHECK constraints, any transactional-atomicity boundary, and migration reversibility. The test-strategist must cover each with a real-branch test; a service_backed feature with no persistence_invariants hard-blocks the gate.${architectConventionsDirective(sftddDir)}` + designRootNote(root, featureId, s);
-    }
-    case "dba": {
-      const dbaAcIds = storyAcIds(sftddDir, featureId, s);
-      const dbaAcScope = dbaAcIds.length ? ` Story ${s}'s ACs are: ${dbaAcIds.join(", ")}.` : "";
-      let contract = "";
-      try {
-        const arch = JSON.parse(fs13.readFileSync(architectureJson(sftddDir, featureId), "utf8"));
-        if (arch.service_backed === true) {
-          const inv = (arch.persistence_invariants ?? []).filter((i) => i && typeof i.id === "string");
-          const invList = inv.length ? ` Realize EVERY declared persistence_invariant and list its id in realizes_invariants[]: ${inv.map((i) => `${i.id}${i.type ? ` [${i.type}${i.table ? ` on ${i.table}` : ""}]` : ""}${i.brief ? ` (${i.brief})` : ""}`).join("; ")}.` : "";
-          const models = (arch.layers ?? []).find((l) => l.role === "models");
-          const modelsNote = models?.module ? ` Mirror the architect's models package (${models.module}), one table per domain object.` : "";
-          const nonPersistingNote = inv.length ? "" : ` This service declares NO persistence_invariants (a non-persisting service , compute/proxy/aggregator); an empty or absent db-design.json is acceptable, do not invent tables.`;
-          contract = ` This feature is service_backed.${modelsNote}${invList}${nonPersistingNote}`;
-        } else if (arch.service_backed === false) {
-          contract = ` This feature is not service_backed (a trivial static/read-through endpoint); an empty or absent db-design.json is acceptable.`;
-        }
-      } catch {
-      }
-      return `Realize the physical database schema for story ${s} into ${root}/features/${featureId}/db-design.json (+ a short db-design.md narrative).${dbaAcScope} Read architecture.json (service_backed, layers, persistence_invariants) , the architect owns that logical contract; you produce the PHYSICAL realization and do NOT re-author the invariants. Declare tables[] (columns with explicit type/nullable/default, primary_key, unique_constraints, foreign_keys, checks, indexes) and this story's schema_changes[] (the per-story migration plan the build lane authors the Alembic migration from; keep an expand/contract column split or drop reversible). Populate realizes_invariants[] as a flat array of the architecture.json persistence_invariant id STRINGS (bare ids, not objects) , an uncovered invariant hard-blocks the spec gate.${contract}` + designRootNote(root, featureId, s);
-    }
-    case "test-strategist": {
-      const acIds = storyAcIds(sftddDir, featureId, s);
-      const acScope = acIds.length ? ` The story's ACs are: ${acIds.join(", ")}. Map every test's ac_id to one of these EXACT ids (verbatim, never a bare slug or an invented id), and cover each AC at least once.` : "";
-      let dbScope = "";
-      try {
-        const arch = JSON.parse(fs13.readFileSync(architectureJson(sftddDir, featureId), "utf8"));
-        if (arch.service_backed === true) {
-          const inv = (arch.persistence_invariants ?? []).filter((i) => i && typeof i.id === "string");
-          const list = inv.length ? ` The declared persistence invariants are: ${inv.map((i) => `${i.id}${i.brief ? ` (${i.brief})` : ""}`).join("; ")}.` : "";
-          dbScope = ` This feature is service-backed. Cover EVERY architecture.json persistence_invariant with >=1 test that sets "invariant_id" to that invariant's id and exercises it DIRECTLY against the branch database (a real DB session, never a mock): verify the MIGRATION actually realized the guarantee (e.g. inserting a duplicate raises an IntegrityError, a NOT NULL/CHECK rejects a bad row, a down-then-up migration round-trips) and that the repository honors it. Do NOT write a test of the ORM's generic add/commit/query round-trip , that tests the library, not your schema.${list} The DBA's db-design.json (features/${featureId}/db-design.json) has the concrete table/column/constraint definitions realizing these invariants , read it for precise schema assertions. EVERY test that WRITES to the DB (a create/POST test, a content-type or validation test that sends a real body, a retrieve test that seeds a fixture) MUST own its state: use a per-run-UNIQUE key (a uuid-suffixed sku/location, e.g. f"SKU-{uuid.uuid4().hex[:8]}"), OR delete/upsert the fixed key before the write AND clean up after. A test that writes a FIXED key with no cleanup passes alone + on its own isolated build branch but COLLIDES in the full-suite deploy-verify against the shared feature-branch DB (a duplicate-key error surfacing as a non-JSON/500), halting the feature ship , the shared-state-write defect. Do NOT assume an empty table or an untouched fixed key.`;
-        }
-      } catch {
-      }
-      return `Produce story ${s}'s ordered tests and APPEND them to the feature master test list ${root}/features/${featureId}/test-list.json, keep every item already there for the other stories and add this story's. Do NOT author any test-list-per-story.json (the orchestration generates the per-story + per-AC views from the master).${acScope}${dbScope}`;
-    }
-    case "navigator":
-      if (action.buildMode === "reflect") {
-        return `REFLECT on story ${s} BEFORE the build lane: independently critique its spec slice (${root}/features/${featureId}/stories/${s}/story.json + acs/*.json) and its test-list (${root}/features/${featureId}/stories/${s}/test-list-per-story.json) against the architecture (${root}/features/${featureId}/architecture.md/.json) + NFRs.` + contextRubric(sftddDir, featureId, s, "") + ` Look ONLY for design-time defects that would waste a build cycle: (1) ACs that contradict each other; (2) an AC with no covering test, or a test that contradicts its AC; (3) an NFR with no fitness test; (4) a test asserting at a layer the architecture forbids; (5) an AC whose declared layer conflicts with the architecture; (6) an untestable/vacuous AC (no observable outcome); (7) a UI-styling test that asserts inline HTML style or raw CSS in the page SOURCE (e.g. a text-align/color/font check inside a style= attr) for a property the design-guide + design-adherence gate govern, instead of the rendered SEAM (the element carries the design-guide class / data-testid): such a test hard-codes the very inline style the design lane then refactors into a token-driven class, so it blocks that refactor (the ui-style-implementation-test smell). Do NOT critique implementation, style, or scope, only buildability + internal consistency of THIS story's artifacts. Write your verdict to ${root}/features/${featureId}/stories/${s}/reflect-verdict.json as {"version":1,"passed":<bool>,"findings":[{"owner":"spec-author"|"test-strategist","detail":"<the defect>"}]}. passed:true with findings:[] when the spec + test-list are consistent + buildable (the common case, do NOT invent defects). Attribute each finding to spec-author (an AC/spec defect) or test-strategist (a test-list/coverage defect). Write ONLY that file; the orchestrator routes any fix deterministically.`;
-      }
-      if (action.buildMode === "assess") {
-        const gfAssess = action.ac ? readGreenFailure(sftddDir, featureId, s, action.ac) : void 0;
-        const contractAdvisory = gfAssess?.contractRefs ? `DETERMINISTIC contract-clean has ALREADY localized the production-code references to the migration-dropped column(s) below , you do NOT need to re-find them. Record EXACTLY these as a driver-fixable regression via assess-regression --fix (path (b)), AND SEPARATELY flag any prior tests that assert the dropped column as superseded (path (a)) , a column drop needs BOTH the code fix and the test refactor in the same repair turn:
-${gfAssess.contractRefs}
-
-` : "";
-        const supersededAdvisory = gfAssess?.supersededTestRefs ? `${gfAssess.supersededTestRefs}
-
-` : "";
-        const hasSupersededAdvisory = !!gfAssess?.supersededTestRefs;
-        const scanDirective = hasSupersededAdvisory ? `(a) If the current AC INTENTIONALLY supersedes behavior those failing tests encode, FLAG them so the Driver may permissively refactor ONLY those. The DETERMINISTIC gate has ALREADY pre-localized the COMPLETE superseded set (the SUPERSEDED-TEST CANDIDATES above , a grep of the migration's dropped symbol across every test, including FITNESS / architecture / migration reversibility tests). TRUST it: flag EXACTLY those file(s) in ONE flag-superseded call and do NOT re-read each candidate to re-verify (that re-verification never converges on a large drop set , it is the assess-spin failure). Only search beyond the list if you have concrete reason to believe it MISSED a failing test; otherwise flag the list as-is:
-` : `Inspect EVERY failing test (the COMPLETE set, not a sample) and decide per test:
-(a) If the current AC INTENTIONALLY supersedes behavior those failing tests encode (the latest AC wins; e.g. a prior feature's test asserts an outcome this AC deliberately changes), FLAG them so the Driver may permissively refactor ONLY those. Scan COMPREHENSIVELY: when this AC drops, removes, or renames a column / field / table / endpoint, the superseded set is NOT only the tests that NAME it in a query/INSERT/assertion , it ALSO includes FITNESS / architecture / migration tests that assert a PROPERTY of the now-gone shape (migration reversibility like "after up() then down(), <col> is reconstructed", schema-shape checks like "<col> exists", invariants over the old column). Those are superseded too , a reversibility/fitness test for an obsoleted column encodes abandoned behavior. Miss one and the verify stays red and escalates, so list ALL of them in ONE flag-superseded call:
-`;
-        return contractAdvisory + supersededAdvisory + `ASSESS a failed honest-GREEN verify for AC ${action.ac} in story ${s}. The Driver made the current test pass, but the full-suite verify against the running app FAILED, some OTHER test(s) now fail.
-` + scanDirective + `   lakebase-sftdd-cycle flag-superseded --feature ${featureId} --story ${s} --ac ${action.ac} --reason "<new AC + what changed>" --test <path_or_nodeid> [--test ...] --tdd-dir ${sftddDir}
-(b) If instead the failure is a GENUINE REGRESSION (the AC does NOT intend to change that behavior; the Driver's code is wrong), record your ROOT-CAUSE diagnosis so it travels to the Driver / the human instead of being lost. When the Driver can fix it, ALSO give a concrete repair directive (this routes a bounded Driver repair turn):
-   lakebase-sftdd-cycle assess-regression --feature ${featureId} --story ${s} --ac ${action.ac} --diagnosis "<the WHY: which behavior broke + the root cause>" [--fix "<what the Driver should change>"] --tdd-dir ${sftddDir}
-   Include --fix ONLY when the fix is clear + within the Driver's reach (e.g. a wrong default, a missing filter, an off-by-one); OMIT --fix when it needs a human / a design or spec change (the orchestration then escalates carrying your diagnosis).
-Flag ONLY tests the new AC truly supersedes; never flag a test just to make a red go away. For a regression, always write a diagnosis , never nothing.`;
-      }
-      if (action.buildMode === "assess-deploy") {
-        const marker = readDeployVerifyAssessMarker(sftddDir, featureId, s);
-        const failing = marker?.failing_node_ids ?? [];
-        return `ASSESS a failed full-feature DEPLOY-VERIFY for story ${s}. The story's own tests are green, but the full-feature verify against the running app FAILED on the tests below. A deterministic classifier RE-RAN each in ISOLATION (a fresh clean DB) and they ALL PASSED alone , so this is shared-state CONTAMINATION, not broken software: a test that does not OWN its DB state (typically a WHOLE-TABLE AGGREGATE , a COUNT/SUM integrity probe , asserting an ABSOLUTE total that holds on the isolated per-cycle branch but breaks once other stories' rows share the table).
-Failing tests:
-${failing.map((n) => `  ${n}`).join("\n")}
-
-For EACH test, prescribe HOW to make it own its state: scope BOTH the seed AND the assertion to the test's own rows (filter by the test's SKUs / a marker column), or assert a DELTA, NEVER an absolute whole-table total. Do NOT weaken the assertion's intent , keep the invariant, just scope it.
-Write your scope directives to ${root}/features/${featureId}/stories/${s}/deploy-verify-scope.json as {"version":1,"story_id":"${s}","directives":[{"node_id":"<path::test>","directive":"<how to scope it>"}]} , one entry per test you confirm is contamination-fragile. If (rarely) you judge the classifier wrong and a failure is a GENUINE regression, OMIT it from directives (write no file, or an empty directives array); the orchestration then raises it to a human instead of scoping. Write ONLY that file.`;
-      }
-      if (action.buildMode === "assess-refactor") {
-        const marker = readRefactorVerifyAssessMarker(sftddDir, featureId, s);
-        return `ASSESS a failed REFACTOR-verify for story ${s}. The story's own tests are green and the requested refactor was applied, but the full suite then FAILED:
-${marker?.summary ?? "(see the refactor verify output)"}
-` + (marker?.superseded_advisory ? `
-Deterministic supersession advisory (prior tests referencing a symbol the refactor removed):
-${marker.superseded_advisory}
-` : "") + `
-Decide, per failing test: is it a PRIOR test this story legitimately SUPERSEDES (it asserts old behavior/fields this story deliberately retired), or a GENUINE regression the refactor introduced?
-Flag ONLY the genuinely superseded prior tests via \`./scripts/lk lakebase-sftdd-cycle flag-superseded --feature ${featureId} --story ${s} --ac <ac> --test <path::test> [--test ...] --reason "<why superseded>"\` , the Driver will then permissively refactor ONLY those. If instead the refactor broke CURRENT behavior (a real regression), flag NOTHING; the orchestration raises it to a human. Never flag a test just to make a red go away. Do NOT edit product code or tests in this turn.`;
-      }
-      if (action.buildMode === "review") {
-        if ((build?.loop ?? "story") === "story") {
-          return `REVIEW the implementation of story ${s} now that ALL its tests are green, the whole story in one pass. Judge the story's diff against the context pack: layer boundaries, naming, cross-cutting concerns, the required NFRs, and (for UI) design-token + IA adherence.` + buildContextPack(sftddDir, featureId, s, "", { skipTestLoop: true }) + ` Write ONE verdict for the whole story to ${root}/cycles/${featureId}/${s}/review-verdict.json as {"refactor": <bool>, "notes": "<why>"}, refactor:true only if a concrete improvement is warranted; otherwise refactor:false. Do NOT change tests.`;
-        }
-        return `REVIEW the implementation of AC ${action.ac} in story ${s} now that its tests are green. Judge the diff against the context pack: layer boundaries, naming, cross-cutting concerns, the required NFRs, and (for UI) design-token + IA adherence.` + buildContextPack(sftddDir, featureId, s, action.ac ?? "", { skipTestLoop: true }) + ` Write your verdict to ${root}/cycles/${featureId}/${s}/${action.ac}/review-verdict.json as {"refactor": <bool>, "notes": "<why>"}, refactor:true only if a concrete improvement is warranted; otherwise refactor:false. Do NOT change tests.`;
-      }
-      {
-        return `${nextPendingTestDirective(sftddDir, featureId, s, build?.loop, build?.cap)}${uiTrack ? uiTrackBuild(root) : ""}` + buildContextPack(sftddDir, featureId, s, action.ac ?? "", { skipTestLoop: true });
-      }
-    case "driver":
-      if (action.buildMode === "refactor-deploy") {
-        const scope = readDeployVerifyScope(sftddDir, featureId, s);
-        const directives = scope?.directives ?? [];
-        return `SCOPE the contamination-fragile tests the Navigator flagged for story ${s}. Each FAILED the full-feature deploy-verify but PASSES in isolation , it asserts an ABSOLUTE whole-table aggregate (or otherwise does not own its DB state), which breaks once other stories' rows share the table. Refactor EACH per its directive so it OWNS its state: scope BOTH the seed AND the assertion to the test's own rows (filter by the test's SKUs / a marker column), or assert a DELTA , NEVER an absolute whole-table total. Keep the invariant; do NOT weaken it, and do NOT change product code.
-` + directives.map((d) => `  ${d.node_id}
-    -> ${d.directive}`).join("\n") + `
-Edit ONLY those test files. The orchestrator re-deploys + re-verifies after your turn.`;
-      }
-      if (action.buildMode === "refactor-superseded") {
-        return `The Navigator flagged prior tests that story ${s}'s refactor SUPERSEDED. Permissively refactor ONLY the flagged superseded tests below so they reflect the retired behavior (update or drop the superseded assertion); do NOT change product code and do NOT weaken any CURRENT (non-superseded) test.
-` + supersededTestsDirective(sftddDir, featureId, s) + `
-Edit ONLY the flagged test files. The orchestrator re-verifies the full suite after your turn.`;
-      }
-      if (action.buildMode === "repair") {
-        return regressionRepairDirective(sftddDir, featureId, s) + supersededTestsDirective(sftddDir, featureId, s);
-      }
-      if (action.buildMode === "refactor") {
-        if ((build?.loop ?? "story") === "story") {
-          return `REFACTOR story ${s} per the Navigator's review (${root}/cycles/${featureId}/${s}/review.json -> refactor_notes), guided by the architecture (${root}/features/${featureId}/architecture.md), the NFRs (${root}/nfrs.md), + design guide (${root}/design/design-guide.md). If review.json has no refactor_notes, this refactor was queued by a BLOCKING build-quality gate (a layering / design-adherence / import-coupling smell in ${root}/smells.json): run that gate to see the violation (e.g. \`lakebase-sftdd-layering-clean --project-dir .\`) and fix exactly what it flags , typically extract the duplicated/misplaced code into one shared helper in its correct layer. Keep ALL the story's tests green and do not change what the outer-boundary tests check, refactor only.` + buildContextPack(sftddDir, featureId, s, "");
-        }
-        return `REFACTOR AC ${action.ac} in story ${s} per the Navigator's review (${root}/cycles/${featureId}/${s}/${action.ac}/review.json -> refactor_notes), guided by the architecture (${root}/features/${featureId}/architecture.md), the NFRs (${root}/nfrs.md), + design guide (${root}/design/design-guide.md). If review.json has no refactor_notes, this refactor was queued by a BLOCKING build-quality gate (a layering / design-adherence / import-coupling smell in ${root}/smells.json): run that gate to see the violation (e.g. \`lakebase-sftdd-layering-clean --project-dir .\`) and fix exactly what it flags , typically extract the duplicated/misplaced code into one shared helper in its correct layer. Keep ALL tests green and do not change what the outer-boundary tests check, refactor only.` + buildContextPack(sftddDir, featureId, s, action.ac ?? "");
-      }
-      {
-        return ((build?.loop ?? "story") === "story" ? `Make ALL of story ${s}'s failing tests GREEN in one pass (simplest honest code); implement until every one of the story's tests passes, then run the story's tests once.` : build?.loop === "hybrid-a" ? `Make the failing tests for story ${s}'s current layer-batch ALL GREEN in one pass (simplest honest code); implement until every test in the open batch passes, then run that layer's runner once.` : `Make the failing test for story ${s} GREEN (simplest honest code).`) + (uiTrack ? uiTrackBuild(root) : "") + buildContextPack(sftddDir, featureId, s, action.ac ?? "") + supersededTestsDirective(sftddDir, featureId, s);
-      }
-    default:
-      return `Work story ${s}.`;
-  }
-}
-var PIPELINE_BIN = "lakebase-sftdd-pipeline";
-var EXPERIMENT_BIN = "lakebase-sftdd-experiment";
-var CYCLE_BIN = "lakebase-sftdd-cycle";
-var HUMAN_PROXY_BIN = "lakebase-sftdd-human-proxy";
-var LOG_BIN = "lakebase-sftdd-log";
-var TEST_LIST_BIN = "lakebase-sftdd-test-list";
-var DEPLOY_BIN = "lakebase-sftdd-deploy";
-var GATE_CONFORMANCE_BIN = "lakebase-sftdd-gate-conformance";
-var CANON_NOTES_BIN = "lakebase-sftdd-canon-notes";
-var SCM_PREPARE_PR_BIN = "lakebase-scm-prepare-pr";
-var SCM_WAIT_CI_BIN = "lakebase-scm-wait-ci";
-var SCM_MERGE_BIN = "lakebase-scm-merge";
-var EXPERIMENT_SLUG = "exp1";
-var experimentBranchName = (storyId) => sanitizeBranchName(`experiment/${storyId}-${EXPERIMENT_SLUG}`);
-function designArtifactExpectation(action, sftddDir, featureId) {
-  if ("mode" in action) {
-    if (action.role === "spec-author" && action.mode === "propose") return { anyOf: [featureProposalsMd(sftddDir)], label: "planning/feature-proposals.md" };
-    if (action.role === "architect-reviewer" && (action.mode === "estimate" || action.mode === "estimate-committed")) return { anyOf: [planningEstimatesJson(sftddDir)], label: "planning/estimates.json" };
-    if (action.role === "spec-author" && action.mode === "breakdown") return { anyOf: [featureSpecJson(sftddDir, featureId)], label: "feature-spec.json" };
-    return null;
-  }
-  if (action.role === "ux-designer") return { anyOf: [designGuideJson(sftddDir)], label: "design/design-guide.json" };
-  const s = action.story;
-  if (!s) return null;
-  if (action.role === "spec-author") return { anyOf: [acsDir(sftddDir, featureId, s)], label: `stories/${s}/acs/*.json` };
-  if (action.role === "architect-reviewer") return { anyOf: [architectureJson(sftddDir, featureId)], label: "architecture.json" };
-  if (action.role === "test-strategist") return { anyOf: [featureTestListJson(sftddDir, featureId)], label: "test-list.json" };
-  return null;
-}
-function commandsForAction(action, cfg) {
-  const f = cfg.featureId;
-  const tdd = ["--feature", f, "--tdd-dir", cfg.sftddDir];
-  const approver = cfg.approver ?? "human-proxy";
-  const deployTarget = cfg.deployTarget ?? "local";
-  switch (action.kind) {
-    case "invoke-role": {
-      if ("mode" in action && action.role === "product-owner" && action.mode === "author-requests") {
-        return [
-          { kind: "cli", bin: HUMAN_PROXY_BIN, args: ["supply-requests", "--tdd-dir", cfg.sftddDir, "--approver", approver, "--sprint", cfg.sprintName ?? "sprint"] },
-          { kind: "sync-backlog", sprint: cfg.sprintName ?? "sprint" }
-        ];
-      }
-      if (cfg.recordedRequests && !cfg.livePropose && "mode" in action && action.role === "spec-author" && action.mode === "propose") {
-        return [
-          {
-            kind: "cli",
-            bin: HUMAN_PROXY_BIN,
-            args: ["supply-proposals", "--tdd-dir", cfg.sftddDir, ...cfg.uiTrack ? ["--ui"] : []]
-          }
-        ];
-      }
-      const BUILD_ROLES = /* @__PURE__ */ new Set(["navigator", "driver"]);
-      const buildScope = cfg.buildSessionScope ?? "story";
-      let resumeKey;
-      if (BUILD_ROLES.has(action.role)) {
-        if (buildScope === "story" && "story" in action && action.story) {
-          resumeKey = `${action.role}:${action.story}`;
-        }
-      } else {
-        resumeKey = action.role;
-      }
-      const buildTurn = "buildMode" in action && action.buildMode === "reflect" ? (
-        // reflect is a DESIGN-lane critique, not a build turn: no per-turn
-        // effort/model override (it runs on the navigator's base model, the
-        // different-model critic), so it maps to no build turn.
-        void 0
-      ) : "buildMode" in action && action.buildMode === "review" ? "review" : "buildMode" in action && (action.buildMode === "refactor" || action.buildMode === "refactor-deploy") ? "refactor" : action.role === "navigator" ? "red" : action.role === "driver" ? "green" : void 0;
-      const isReviewTurn = action.role === "navigator" && buildTurn === "review";
-      const effort = cfg.effortForTurn ? cfg.effortForTurn(action.role, buildTurn) : isReviewTurn ? cfg.reviewEffort ?? "low" : "";
-      const fallbackModel = cfg.fallbackModelForRole?.(action.role);
-      const maxBudgetUsd = cfg.maxBudgetUsdForRole?.(action.role);
-      const storyLoop = "story" in action ? effectiveLoopForStory(cfg.loopGranularity ?? "story", action.story) : cfg.loopGranularity;
-      const claude = {
-        kind: "claude",
-        role: action.role,
-        model: cfg.modelForTurn ? cfg.modelForTurn(action.role, buildTurn) : cfg.modelForRole(action.role),
-        ...resumeKey !== void 0 ? { resumeKey } : {},
-        ...effort && effort !== "default" ? { effort } : {},
-        ...fallbackModel ? { fallbackModel } : {},
-        ...typeof maxBudgetUsd === "number" ? { maxBudgetUsd } : {},
-        // Optimize harness content/scope levers (all default-off): extra context
-        // is injected BEFORE the terse suffix (reads as context), the task suffix
-        // AFTER it (reads as a trailing directive), and the tool scope is carried
-        // on the command for the runner to translate to spawn flags. When the cfg
-        // sets none, this is byte-identical to `roleTask(...) + AGENT_TERSE_SUFFIX`.
-        ...(() => {
-          const allowed = cfg.allowedToolsForRole?.(action.role);
-          const disallowed = cfg.disallowedToolsForRole?.(action.role);
-          return {
-            ...allowed && allowed.length ? { allowedTools: allowed } : {},
-            ...disallowed && disallowed.length ? { disallowedTools: disallowed } : {}
-          };
-        })(),
-        task: roleTask(action, f, cfg.uiTrack ?? false, cfg.sftddDir, {
-          loop: storyLoop,
-          cap: cfg.batchCap
-        }) + (cfg.contextPackSuffix?.(action.role, buildTurn) ?? "") + AGENT_TERSE_SUFFIX + (cfg.taskSuffix?.(action.role, buildTurn) ?? ""),
-        replay: {
-          mode: "mode" in action ? action.mode : void 0,
-          // The build turn's mode (reflect / review / refactor / assess / repair),
-          // distinct from the design-lane `mode` above. The replay path needs it to
-          // recognise the reflect turn (whose recorded output is a .sftdd design
-          // artifact the code-only build restore filters out).
-          buildMode: "buildMode" in action ? action.buildMode : void 0,
-          story: "story" in action ? action.story : void 0
-        }
-      };
-      const cmds = [claude];
-      const expectArtifact = designArtifactExpectation(action, cfg.sftddDir, f);
-      if (expectArtifact) {
-        cmds.push({ kind: "verify-artifact", role: action.role, anyOf: expectArtifact.anyOf, label: expectArtifact.label });
-      }
-      if ("mode" in action && action.role === "spec-author" && action.mode === "breakdown") {
-        cmds.unshift({ kind: "cli", bin: PIPELINE_BIN, args: ["reset-breakdown", ...tdd] });
-        cmds.push({ kind: "cli", bin: PIPELINE_BIN, args: ["sync-breakdown", ...tdd] });
-      }
-      if (!("mode" in action) && action.role === "test-strategist") {
-        cmds.push({ kind: "cli", bin: TEST_LIST_BIN, args: [cfg.sftddDir, f, action.story] });
-      }
-      if (!("mode" in action) && action.role === "navigator" && "buildMode" in action && action.buildMode === "reflect") {
-        cmds.push({ kind: "cli", bin: CYCLE_BIN, args: ["reflect-gate", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] });
-      } else if (!("mode" in action) && action.role === "navigator" && "buildMode" in action && action.buildMode === "assess") {
-        const acFlag = "ac" in action && action.ac ? ["--ac", action.ac] : [];
-        cmds.push({ kind: "cli", bin: CYCLE_BIN, args: ["assess-green", "--feature", f, "--story", action.story, ...acFlag, "--tdd-dir", cfg.sftddDir] });
-      } else if (!("mode" in action) && action.role === "navigator" && "buildMode" in action && action.buildMode === "assess-deploy") {
-        cmds.push({ kind: "cli", bin: CYCLE_BIN, args: ["assess-deploy-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] });
-      } else if (!("mode" in action) && action.role === "navigator" && "buildMode" in action && action.buildMode === "assess-refactor") {
-        cmds.push({ kind: "cli", bin: CYCLE_BIN, args: ["assess-refactor-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] });
-      } else if (!("mode" in action) && action.role === "navigator") {
-        const acFlag = "ac" in action && action.ac ? ["--ac", action.ac] : [];
-        const verb = "buildMode" in action && action.buildMode === "review" ? "review" : "begin";
-        const loop = storyLoop ?? "story";
-        const loopFlag = loop === "story" ? ["--loop", "story"] : verb === "begin" && loop === "hybrid-a" ? ["--loop", "hybrid-a", ...cfg.batchCap ? ["--batch-cap", String(cfg.batchCap)] : []] : [];
-        cmds.push({ kind: "cli", bin: CYCLE_BIN, args: [verb, "--feature", f, "--story", action.story, ...acFlag, "--tdd-dir", cfg.sftddDir, ...loopFlag] });
-      }
-      if (!("mode" in action) && action.role === "driver" && "buildMode" in action && action.buildMode === "refactor-deploy") {
-        cmds.push({ kind: "cli", bin: CYCLE_BIN, args: ["refactor-deploy-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] });
-      } else if (!("mode" in action) && action.role === "driver" && "buildMode" in action && action.buildMode === "refactor-superseded") {
-        cmds.push({ kind: "cli", bin: CYCLE_BIN, args: ["refactor-superseded-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] });
-      } else if (!("mode" in action) && action.role === "driver") {
-        const acFlag = "ac" in action && action.ac ? ["--ac", action.ac] : [];
-        const isRepair = "buildMode" in action && action.buildMode === "repair";
-        const verb = "buildMode" in action && action.buildMode === "refactor" ? "refactor" : "green";
-        const repairFlag = isRepair ? ["--repair"] : [];
-        const loopFlag = verb === "refactor" && (storyLoop ?? "story") === "story" ? ["--loop", "story"] : [];
-        cmds.push({ kind: "cli", bin: CYCLE_BIN, args: [verb, "--feature", f, "--story", action.story, ...acFlag, "--tdd-dir", cfg.sftddDir, ...repairFlag, ...loopFlag] });
-      }
-      if ("mode" in action && action.mode === "estimate-committed" && cfg.sprintName) {
-        cmds.push({ kind: "sync-backlog", sprint: cfg.sprintName });
-      }
-      const isPlanningMode = "mode" in action && (action.mode === "propose" || action.mode === "estimate" || action.mode === "estimate-committed");
-      if (f && !isPlanningMode) cmds.push({ kind: "cli", bin: LOG_BIN, args: ["--reconcile", ...tdd] });
-      return cmds;
-    }
-    case "deploy-verify-heal": {
-      const sftddDir = cfg.sftddDir;
-      const featureId = f;
-      const root = artifactRoot(sftddDir);
-      const marker = readDeployVerifyAssessMarker(sftddDir, featureId);
-      const claude = {
-        kind: "claude",
-        role: action.role,
-        model: cfg.modelForRole(action.role),
-        ...cfg.fallbackModelForRole?.(action.role) ? { fallbackModel: cfg.fallbackModelForRole(action.role) } : {},
-        task: (action.mode === "assess-deploy" ? `ASSESS a failed full-feature DEPLOY-VERIFY for the FEATURE SHIP of ${featureId} (all stories are accepted; this is the merged-increment verify against the running app, no single story). A deterministic classifier RE-RAN each failing test in ISOLATION (a fresh clean DB) and they ALL PASSED alone , shared-state CONTAMINATION, not broken software: a test that does not OWN its DB state (it writes a fixed-key row with no cleanup, or asserts an absolute whole-table total) and so collides with sibling tests' rows on the shared feature-branch DB.
-Failing tests:
-${(marker?.failing_node_ids ?? []).map((n) => `  ${n}`).join("\n")}
-
-For EACH test, prescribe HOW to make it own its state: use a per-run-unique key (a uuid-suffixed sku/location), or delete/upsert the fixed key before the write AND clean up after, or scope a whole-table aggregate to the test's own rows / a delta , NEVER an absolute total. Keep the assertion's intent; just make it self-owning.
-Write your scope directives to ${root}/features/${featureId}/deploy-verify-scope.json as {"version":1,"directives":[{"node_id":"<path::test>","directive":"<how to scope it>"}]} , one entry per test you confirm is contamination-fragile. If (rarely) you judge a failure a GENUINE regression, OMIT it (write no file, or an empty directives array); the orchestration then raises it to a human. Write ONLY that file.` : `SCOPE the contamination-fragile tests the Navigator flagged for the FEATURE SHIP of ${featureId}. Refactor EXACTLY these test files to own their DB state, per the directives , do NOT touch product code, do NOT weaken the assertions' intent:
-` + (readDeployVerifyScope(sftddDir, featureId)?.directives ?? []).map((d) => `  ${d.node_id}
-    -> ${d.directive}`).join("\n") + `
-Edit ONLY those test files. The orchestrator re-deploys + re-verifies the whole feature after your turn.`) + AGENT_TERSE_SUFFIX,
-        replay: { buildMode: action.mode }
-      };
-      const finalizeVerb = action.mode === "assess-deploy" ? "assess-deploy-verify" : "refactor-deploy-verify";
-      return [
-        claude,
-        { kind: "cli", bin: CYCLE_BIN, args: [finalizeVerb, "--feature", f, "--tdd-dir", cfg.sftddDir] },
-        { kind: "cli", bin: LOG_BIN, args: ["--reconcile", ...tdd] }
-      ];
-    }
-    case "project-architect-notes":
-      return [
-        { kind: "cli", bin: CANON_NOTES_BIN, args: ["--story", action.story, ...tdd] },
-        { kind: "cli", bin: LOG_BIN, args: ["--reconcile", ...tdd] }
-      ];
-    case "surface-gate":
-      return [{ kind: "cli", bin: PIPELINE_BIN, args: ["surface", "--story", action.story, ...tdd] }];
-    case "approve-gate":
-      return [
-        { kind: "cli", bin: PIPELINE_BIN, args: ["approve-gate", "--story", action.story, "--approver", approver, ...tdd] }
-      ];
-    case "dispatch":
-      return [{ kind: "cli", bin: PIPELINE_BIN, args: ["dispatch", ...tdd] }];
-    case "cut-experiment":
-      return [
-        {
-          kind: "cli",
-          bin: EXPERIMENT_BIN,
-          args: [
-            "cut",
-            "--feature",
-            f,
-            "--story",
-            action.story,
-            "--slug",
-            EXPERIMENT_SLUG,
-            "--branch",
-            experimentBranchName(action.story),
-            "--parent",
-            cfg.featureBranch ?? "",
-            "--instance",
-            cfg.instance ?? "",
-            "--project-dir",
-            cfg.projectDir,
-            "--tdd-dir",
-            cfg.sftddDir,
-            // A re-cut after a discarded experiment re-forks the stale paired branch
-            // clean (Finding 27); a first cut omits it (nothing to reset).
-            ...action.resetStaleBranch ? ["--reset-stale-branch"] : []
-          ]
-        }
-      ];
-    case "await-acceptance": {
-      return [
-        { kind: "cli", bin: DEPLOY_BIN, args: ["--target", deployTarget, "--project-dir", cfg.projectDir, "--stop"] },
-        {
-          kind: "cli",
-          bin: DEPLOY_BIN,
-          args: [
-            "--target",
-            deployTarget,
-            "--feature",
-            f,
-            "--story",
-            action.story,
-            "--lakebase-branch",
-            experimentBranchName(action.story),
-            "--project-dir",
-            cfg.projectDir,
-            "--tdd-dir",
-            cfg.sftddDir,
-            "--gate"
-          ]
-        },
-        { kind: "cli", bin: PIPELINE_BIN, args: ["await-acceptance", "--story", action.story, ...tdd] }
-      ];
-    }
-    case "accept":
-      return [
-        {
-          kind: "cli",
-          bin: PIPELINE_BIN,
-          args: [
-            "accept",
-            "--story",
-            action.story,
-            "--approver",
-            approver,
-            "--instance",
-            cfg.instance ?? "",
-            "--project-dir",
-            cfg.projectDir,
-            ...tdd
-          ]
-        }
-      ];
-    case "complete":
-      return [{ kind: "cli", bin: PIPELINE_BIN, args: ["complete", ...tdd] }];
-    case "approve-plan-gate":
-      return [
-        {
-          kind: "cli",
-          bin: HUMAN_PROXY_BIN,
-          args: ["--sprint", cfg.sprintName ?? "sprint", "--gate", "plan", "--approver", approver, "--tdd-dir", cfg.sftddDir]
-        }
-      ];
-    case "planning-complete":
-      return [{ kind: "set-phase", phase: "discovery" }];
-    case "feature-complete":
-      return [
-        { kind: "cli", bin: GATE_CONFORMANCE_BIN, args: ["--feature", f, "--tdd-dir", cfg.sftddDir] },
-        { kind: "set-phase", phase: "deploy" }
-      ];
-    case "deploy":
-      return [
-        { kind: "cli", bin: DEPLOY_BIN, args: ["--target", deployTarget, "--project-dir", cfg.projectDir, "--stop"] },
-        {
-          kind: "cli",
-          bin: DEPLOY_BIN,
-          args: [
-            "--target",
-            deployTarget,
-            "--feature",
-            f,
-            ...cfg.featureBranch ? ["--lakebase-branch", cfg.featureBranch] : [],
-            "--project-dir",
-            cfg.projectDir,
-            "--tdd-dir",
-            cfg.sftddDir,
-            "--gate"
-          ]
-        }
-      ];
-    case "approve-deploy-gate":
-      return [
-        { kind: "cli", bin: HUMAN_PROXY_BIN, args: ["--feature", f, "--gate", "deploy", "--approver", approver, "--tdd-dir", cfg.sftddDir] }
-      ];
-    case "deploy-complete":
-      return [{ kind: "set-phase", phase: "promote" }];
-    case "prepare-pr":
-      return [{ kind: "cli", bin: SCM_PREPARE_PR_BIN, args: ["--project-dir", cfg.projectDir] }];
-    case "wait-ci":
-      return [{ kind: "cli", bin: SCM_WAIT_CI_BIN, args: ["--project-dir", cfg.projectDir] }];
-    case "approve-promote-gate": {
-      const promoteRef = cfg.featureBranch ?? f;
-      return [
-        {
-          kind: "cli",
-          bin: HUMAN_PROXY_BIN,
-          args: ["--feature", f, "--gate", "promote", "--approver", approver, "--tdd-dir", cfg.sftddDir, "--promote-ref", promoteRef]
-        }
-      ];
-    }
-    case "merge":
-      return [
-        {
-          kind: "cli",
-          bin: SCM_MERGE_BIN,
-          args: [
-            "--project-dir",
-            cfg.projectDir,
-            "--wait-migrate",
-            "--migrate-timeout-nonfatal",
-            "--migrate-timeout-sec",
-            "600"
-          ]
-        }
-      ];
-    case "done":
-      return [
-        // Force the checkout: at `done` the feature has merged and its code is
-        // committed, but the per-run .tdd/.lakebase metadata (workflow-state.json,
-        // selection-log.md) is dirty + tracked, so a plain `git checkout` aborts
-        // ("local changes would be overwritten"). That churn is disposable here
-        // (the feature is shipped), and landing on the parent is the whole point,
-        // so -f discards it and switches. Mirrors the fork-guard ignoring the same
-        // metadata. (scm-merge attempts this switch too but non-fatally; this is
-        // the deterministic guarantee.)
-        ...cfg.parentBranch ? [{ kind: "cli", bin: "git", args: ["checkout", "-f", cfg.parentBranch] }] : [],
-        { kind: "set-phase", phase: "shipped" }
-      ];
-    case "revise-route": {
-      const smellName = action.source.startsWith("smell:") ? action.source.slice("smell:".length) : action.source;
-      return [
-        {
-          kind: "cli",
-          bin: HUMAN_PROXY_BIN,
-          args: [
-            "decide-escalation",
-            "--feature",
-            f,
-            "--story",
-            action.story,
-            "--smell",
-            smellName,
-            "--routed-to",
-            action.role,
-            "--gate",
-            action.gate,
-            "--reason",
-            action.reason,
-            "--approver",
-            approver,
-            "--project-dir",
-            cfg.projectDir,
-            "--tdd-dir",
-            cfg.sftddDir
-          ]
-        }
-      ];
-    }
-    case "raise-to-hil":
-      return [];
-    case "design-complete":
-      return [];
-  }
-}
-async function planNextAction(cfg, transition = nextTransition) {
-  const state = await buildDriveEffects(cfg).readState();
-  const action = transition(state);
-  return { action, commands: commandsForAction(action, cfg) };
-}
-function readDriveStateFromDisk(sftddDir, featureId, projectDir, opts = {}) {
-  const pipeline = readPipeline(sftddDir, featureId);
-  const probe = diskArtifactProbe(sftddDir, featureId, pipeline.build_active);
-  const ctx = readDriveContext(sftddDir, featureId, projectDir);
-  const state = deriveDriveState(pipeline, probe, ctx);
-  state.uiTrack = opts.uiTrack ?? false;
-  state.designGuideReady = designGuideConformance(sftddDir).ok;
-  return state;
-}
-function buildDriveEffects(cfg) {
-  return {
-    async readState() {
-      return readDriveStateFromDisk(cfg.sftddDir, cfg.featureId, cfg.projectDir, { uiTrack: cfg.uiTrack });
-    },
-    async perform(action) {
-      for (const cmd of commandsForAction(action, cfg)) {
-        await cfg.runner.run(cmd);
-      }
-    },
-    onAction: cfg.onAction,
-    // Hand-back delivery: when a role's prior turn failed its expectation
-    // contract, write the violation detail where THAT role's next prompt will
-    // consume it (consumeHandback in roleTask), so the retry is informed.
-    onHandback(handoff, detail) {
-      const file = handbackFile(cfg.sftddDir, cfg.featureId, handoff.responder, handoff.story);
-      try {
-        fs13.mkdirSync(dirname16(file), { recursive: true });
-        fs13.writeFileSync(file, `${detail}
-`, "utf8");
-      } catch {
-      }
-    }
-  };
-}
-
-// scripts/sftdd/optimize-live.ts
-init_esm_shims();
-import { existsSync as existsSync36, mkdirSync as mkdirSync24, readFileSync as readFileSync35, rmSync as rmSync12, writeFileSync as writeFileSync23 } from "fs";
-import { execFileSync } from "child_process";
-import { join as join31 } from "path";
-
-// scripts/sftdd/optimize-agent-overlay.ts
-init_esm_shims();
-import { existsSync as existsSync35, mkdirSync as mkdirSync23, readFileSync as readFileSync34, rmSync as rmSync10, writeFileSync as writeFileSync22 } from "fs";
-import { dirname as dirname17, join as join29 } from "path";
-function overlayAgent(args) {
-  const { projectDir, role, markdown } = args;
-  const agentPath = join29(projectDir, ".claude", "agents", `${role}.md`);
-  const hadBaseline = existsSync35(agentPath);
-  const baseline = hadBaseline ? readFileSync34(agentPath, "utf8") : void 0;
-  mkdirSync23(dirname17(agentPath), { recursive: true });
-  writeFileSync22(agentPath, markdown);
-  return {
-    restore() {
-      if (hadBaseline) {
-        writeFileSync22(agentPath, baseline);
-      } else if (existsSync35(agentPath)) {
-        rmSync10(agentPath, { force: true });
-      }
-    }
-  };
-}
-
-// scripts/sftdd/optimize-gate.ts
-init_esm_shims();
-function gateForDesignHandoff(handoff) {
-  if ((handoff.role === "driver" || handoff.role === "navigator") && handoff.buildMode) return null;
-  switch (handoff.role) {
-    case "spec-author":
-      return { selfCheckRole: "spec-author", gate: "spec" };
-    case "architect-reviewer":
-      return { selfCheckRole: "architect-reviewer", gate: "spec" };
-    case "test-strategist":
-      return { selfCheckRole: "test-strategist", gate: "test_list" };
-    case "dba":
-      return { selfCheckRole: "dba" };
-    case "ux-designer":
-      return { selfCheckRole: "ux-designer" };
-    default:
-      return null;
-  }
-}
-function evaluateDesignGate(args) {
-  const { sftddDir, featureId, handoff, requireGate } = args;
-  const mapping = gateForDesignHandoff(handoff);
-  if (!mapping) {
-    return { passed: false, reason: `not a design handoff (role=${handoff.role}, buildMode=${handoff.buildMode ?? "none"})` };
-  }
-  const self = formatRoleResponse({ role: mapping.selfCheckRole, sftddDir, featureId, story: handoff.story });
-  if (!self.ok) {
-    const first = self.violations[0];
-    return { passed: false, reason: `self-check: ${first.artifact}: ${first.problem}` };
-  }
-  if (requireGate && mapping.gate) {
-    const fdir = featureDir2(sftddDir, featureId);
-    const resolved = resolveArtifactInputs(mapping.gate, fdir, void 0, sftddDir, featureId);
-    if ("reason" in resolved) {
-      return { passed: false, reason: `gate ${mapping.gate}: ${resolved.reason}` };
-    }
-  }
-  return { passed: true };
-}
-
-// scripts/sftdd/optimize-snapshot.ts
-init_esm_shims();
-import { cpSync as cpSync4, mkdtempSync, rmSync as rmSync11 } from "fs";
-import { tmpdir } from "os";
-import { basename as basename4, dirname as dirname18, join as join30 } from "path";
-function snapshotDesign(args) {
-  const { sftddDir } = args;
-  const backup = mkdtempSync(join30(tmpdir(), "optimize-design-snap-"));
-  const backupTree = join30(backup, basename4(sftddDir));
-  cpSync4(sftddDir, backupTree, { recursive: true });
-  return {
-    restore() {
-      rmSync11(sftddDir, { recursive: true, force: true });
-      cpSync4(backupTree, sftddDir, { recursive: true });
-    },
-    dispose() {
-      rmSync11(backup, { recursive: true, force: true });
-    }
-  };
-}
-async function snapshotBuild(args, deps) {
-  const sha = await deps.captureSha();
-  return {
-    sha,
-    async restore({ reFork }) {
-      await deps.resetHard(sha);
-      if (reFork) await deps.reFork();
-    }
-  };
-}
-function turnMutatesDb(buildMode, role) {
-  if (buildMode === "green" || buildMode === "refactor" || buildMode === "refactor-deploy" || buildMode === "refactor-superseded" || buildMode === "repair") {
-    return true;
-  }
-  return buildMode === void 0 && role === "driver";
-}
-
-// scripts/sftdd/optimize-live.ts
-function readConfig(projectDir) {
-  return loadSftddConfig(projectDir) ?? defaultSftddConfig();
-}
-function applyCandidate(ctx, candidate) {
-  const baseline = readConfig(ctx.projectDir);
-  const merged = applyCandidateConfig(baseline, candidate);
-  writeSftddConfig(ctx.projectDir, merged, { force: true });
-  const priorEnv = {};
-  for (const [k, v] of Object.entries(candidate.env ?? {})) {
-    priorEnv[k] = process.env[k];
-    process.env[k] = v;
-  }
-  const overlay = candidate.content?.agentOverlay ? overlayAgent({ projectDir: ctx.projectDir, role: candidate.content.agentOverlay.role, markdown: candidate.content.agentOverlay.markdown }) : void 0;
-  return () => {
-    writeSftddConfig(ctx.projectDir, baseline, { force: true });
-    for (const [k, v] of Object.entries(priorEnv)) {
-      if (v === void 0) delete process.env[k];
-      else process.env[k] = v;
-    }
-    overlay?.restore();
-  };
-}
-function writeTrialRecord(ctx, handoff, candidate, trial, result) {
-  const dir = join31(ctx.experimentsDir, handoff.id, candidate.id, `trial-${trial}`);
-  mkdirSync24(dir, { recursive: true });
-  writeFileSync23(join31(dir, "candidate.json"), JSON.stringify(candidate, null, 2) + "\n");
-  writeFileSync23(join31(dir, "result.json"), JSON.stringify(result, null, 2) + "\n");
-}
-function makeChampionWalkDeps(ctx) {
-  return {
-    async snapshot(handoff) {
-      if (isBuildHandoff(handoff)) {
-        if (!ctx.buildSnapshotDeps) throw new Error(`build handoff ${handoff.id} needs buildSnapshotDeps (git + re-fork)`);
-        const reFork = turnMutatesDb(handoff.buildMode, handoff.role);
-        const snap2 = await snapshotBuild({ projectDir: ctx.projectDir, sftddDir: ctx.sftddDir, story: handoff.story ?? "" }, ctx.buildSnapshotDeps);
-        return {
-          restore: () => snap2.restore({ reFork }),
-          dispose: () => {
-          }
-        };
-      }
-      const snap = snapshotDesign({ sftddDir: ctx.sftddDir });
-      return { restore: async () => snap.restore(), dispose: () => snap.dispose() };
-    },
-    async runTrial({ handoff, candidate, trial }) {
-      const restoreCandidate = applyCandidate(ctx, candidate);
-      const started = ctx.now();
-      let result;
-      try {
-        await ctx.spawnTurn({ handoff, candidate, record: false });
-        const durationMs = ctx.now() - started;
-        const gate = isBuildHandoff(handoff) ? (ctx.gateBuild ?? (() => ({ passed: true })))({ handoff }) : evaluateDesignGate({ sftddDir: ctx.sftddDir, featureId: ctx.featureId, handoff });
-        const tokens = ctx.readTurnTokens?.({ handoff });
-        result = {
-          gatePassed: gate.passed,
-          durationMs,
-          costUsd: 0,
-          ...tokens?.inputTokens !== void 0 ? { inputTokens: tokens.inputTokens } : {},
-          ...tokens?.cacheReadTokens !== void 0 ? { cacheReadTokens: tokens.cacheReadTokens } : {},
-          ...gate.reason ? { gateReason: gate.reason } : {}
-        };
-      } catch (e) {
-        const durationMs = ctx.now() - started;
-        result = { gatePassed: false, durationMs, costUsd: 0, gateReason: e instanceof Error ? e.message : String(e) };
-      } finally {
-        restoreCandidate();
-      }
-      writeTrialRecord(ctx, handoff, candidate, trial, result);
-      return result;
-    },
-    async recordWinner({ handoff, candidate }) {
-      const restoreCandidate = applyCandidate(ctx, candidate);
-      try {
-        await ctx.spawnTurn({ handoff, candidate, record: true });
-      } finally {
-        restoreCandidate();
-      }
-      const champ = join31(ctx.experimentsDir, "champion-walk.json");
-      const prior = existsSync36(champ) ? JSON.parse(readFileSync35(champ, "utf8")) : { winners: [] };
-      prior.winners.push({ handoffId: handoff.id, candidateId: candidate.id });
-      mkdirSync24(ctx.experimentsDir, { recursive: true });
-      writeFileSync23(champ, JSON.stringify(prior, null, 2) + "\n");
-    }
-  };
-}
-function applyContentSeams(cfg, content) {
-  if (!content) return cfg;
-  if (content.taskSuffix) cfg.taskSuffix = () => content.taskSuffix;
-  if (content.contextPackSuffix) cfg.contextPackSuffix = () => content.contextPackSuffix;
-  if (content.allowedTools?.length) cfg.allowedToolsForRole = () => content.allowedTools;
-  if (content.disallowedTools?.length) cfg.disallowedToolsForRole = () => content.disallowedTools;
-  return cfg;
-}
-var RECORD_DIR_ENV = "LAKEBASE_SFTDD_RECORD_DIR";
-function makeLiveSpawnTurn(featureId, seams) {
-  return async ({ handoff, candidate, record }) => {
-    if (!handoff.action) {
-      throw new Error(
-        `optimize spawnTurn: handoff '${handoff.id}' carries no pinned action , cannot run its turn (actionToHandoffPlan must attach the resolved WorkflowAction).`
-      );
-    }
-    const prior = process.env[RECORD_DIR_ENV];
-    if (record && seams.recordDir) process.env[RECORD_DIR_ENV] = seams.recordDir;
-    else delete process.env[RECORD_DIR_ENV];
-    try {
-      const cfg = applyContentSeams(seams.buildCfg(featureId), candidate.content);
-      const runner = seams.execRunner(cfg);
-      const commands = seams.commandsFor(handoff.action, cfg);
-      const roleTurn = commands.filter((c) => c.kind === "claude");
-      for (const cmd of roleTurn) await runner.run(cmd);
-    } finally {
-      if (prior === void 0) delete process.env[RECORD_DIR_ENV];
-      else process.env[RECORD_DIR_ENV] = prior;
-    }
-  };
-}
-function realBuildGitOps(projectDir) {
-  return {
-    async sha() {
-      return execFileSync("git", ["rev-parse", "HEAD"], { cwd: projectDir, encoding: "utf8" }).trim();
-    },
-    async resetHard(sha) {
-      execFileSync("git", ["reset", "--hard", sha], { cwd: projectDir, stdio: "ignore" });
-    }
-  };
-}
-function makeBuildSnapshotDeps(args) {
-  const git = args.git ?? realBuildGitOps(args.projectDir);
-  const reFork = args.reForkImpl ?? ((a) => cutExperiment(a));
-  return {
-    captureSha: () => git.sha(),
-    resetHard: (sha) => git.resetHard(sha),
-    reFork: async () => {
-      await reFork({
-        ...args.cutArgs,
-        projectDir: args.projectDir,
-        storyId: args.story,
-        resetStaleBranch: true
-      });
-    }
-  };
-}
-async function positionToBuildHandoff(args) {
-  return positionToNextHandoff({ lane: "build", ...args });
-}
-async function positionToNextHandoff(args) {
-  const maxSteps = args.maxSteps ?? 20;
-  for (let i = 0; i < maxSteps; i++) {
-    const { action, commands } = await args.planNext();
-    if (actionLane(action) !== args.lane) return null;
-    if (action.kind === "design-complete") return null;
-    const plan = actionToHandoffPlan(action);
-    if (plan) return plan;
-    await args.perform(commands);
-  }
-  throw new Error(
-    `optimize: could not position on a ${args.lane} role turn within ${maxSteps} steps , the lane is not advancing (a stuck non-role action). Check the drive state.`
-  );
-}
-async function runLaneSweep(deps, opts = {}) {
-  const maxHandoffs = opts.maxHandoffs ?? 50;
-  const walk = [];
-  let prevId;
-  for (let i = 0; ; i++) {
-    if (i >= maxHandoffs) {
-      throw new Error(`optimize lane sweep: exceeded ${maxHandoffs} handoffs without reaching the lane boundary (too many).`);
-    }
-    const handoff = await deps.positionNext();
-    if (!handoff) break;
-    if (handoff.id === prevId) {
-      throw new Error(
-        `optimize lane sweep: handoff "${handoff.id}" did not advance after its winner was recorded , the drive is stuck (a gate the sweep cannot pass, or a winner that does not change readState). Check the drive state.`
-      );
-    }
-    const result = await deps.sweepOne(handoff);
-    walk.push(result);
-    prevId = handoff.id;
-  }
-  return { walk };
-}
-function readLastTurnTokens(sftddDir, role) {
-  const events = readAgentLog({ sftddDir, role }).filter((e) => e.event === "turn.usage");
-  const last = events[events.length - 1];
-  if (!last?.metadata) return void 0;
-  const m = last.metadata;
-  const num = (k) => typeof m[k] === "number" ? m[k] : void 0;
-  const inputTokens = num("input_tokens");
-  const cacheReadTokens = num("cache_read_tokens");
-  if (inputTokens === void 0 && cacheReadTokens === void 0) return void 0;
-  return { ...inputTokens !== void 0 ? { inputTokens } : {}, ...cacheReadTokens !== void 0 ? { cacheReadTokens } : {} };
-}
-function makeBuildGate(sftddDir, featureId) {
-  return ({ handoff }) => {
-    const story = handoff.story;
-    const open = readEscalations(sftddDir).filter(
-      (e) => !e.resolved_at && e.story_id === story && (e.feature_id === void 0 || e.feature_id === featureId)
-    );
-    if (open.length === 0) return { passed: true };
-    return { passed: false, reason: `honest-GREEN halt: ${open.length} unresolved escalation(s) for ${story} (${open.map((e) => e.source).join(", ")})` };
-  };
-}
-
-// scripts/sftdd/optimize.cli.ts
-import { readWorkflowState as readWorkflowState3 } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-
-// scripts/sftdd/optimize-report.ts
-init_esm_shims();
-var PROMPT_BOUND_MIN_INPUT_TOKENS = 1e5;
-var PROMPT_BOUND_MIN_TURN_MS = 6e4;
-function buildChampionWalkReport(result, candidates) {
-  const byId = new Map(candidates.map((c) => [c.id, c]));
-  const handoffs = result.walk.map((h) => {
-    const baselineMs = h.baselineMs;
-    const winnerMs = h.winner.medianMs;
-    const savedMs = Math.max(0, baselineMs - winnerMs);
-    const savedPct = baselineMs > 0 ? Math.round(savedMs / baselineMs * 100) : 0;
-    const winnerCandidate = byId.get(h.winner.candidateId);
-    const base = h.candidates.find((c) => c.candidateId === BASELINE_CANDIDATE_ID);
-    const freshInput = base?.medianInputTokens;
-    const cacheRead = base?.medianCacheReadTokens;
-    const baselineInputTokens = typeof freshInput === "number" || typeof cacheRead === "number" ? (freshInput ?? 0) + (cacheRead ?? 0) : void 0;
-    const promptBound = typeof baselineInputTokens === "number" && baselineInputTokens >= PROMPT_BOUND_MIN_INPUT_TOKENS && baselineMs >= PROMPT_BOUND_MIN_TURN_MS;
-    return {
-      handoffId: h.handoffId,
-      baselineMs,
-      winnerId: h.winner.candidateId,
-      winnerMs,
-      savedMs,
-      savedPct,
-      winnerLevers: winnerCandidate ? describeCandidateLevers(winnerCandidate) : h.winner.candidateId,
-      ...typeof baselineInputTokens === "number" ? { baselineInputTokens } : {},
-      promptBound
-    };
-  });
-  const totalBaselineMs = handoffs.reduce((a, h) => a + h.baselineMs, 0);
-  const totalOptimizedMs = handoffs.reduce((a, h) => a + h.winnerMs, 0);
-  const totalSavedMs = Math.max(0, totalBaselineMs - totalOptimizedMs);
-  const totalSavedPct = totalBaselineMs > 0 ? Math.round(totalSavedMs / totalBaselineMs * 100) : 0;
-  return { handoffs, totalBaselineMs, totalOptimizedMs, totalSavedMs, totalSavedPct };
-}
-function describeCandidateLevers(candidate) {
-  if (candidate.id === BASELINE_CANDIDATE_ID) return "baseline (no overrides)";
-  const parts = [];
-  const roles = candidate.configOverrides.roles ?? {};
-  for (const [role, settings] of Object.entries(roles)) {
-    if (!settings) continue;
-    const model = settings.model;
-    if (typeof model === "string") {
-      parts.push(`${role} model=${model}`);
-    } else if (model && typeof model === "object") {
-      for (const [turn, m] of Object.entries(model)) parts.push(`${role}.${turn} model=${m}`);
-    }
-    const effort = settings.effort;
-    if (typeof effort === "string") {
-      parts.push(`${role} effort=${effort}`);
-    } else if (effort && typeof effort === "object") {
-      for (const [turn, e] of Object.entries(effort)) parts.push(`${role}.${turn} effort=${e}`);
-    }
-  }
-  const build = candidate.configOverrides.build ?? {};
-  if (build.sessionScope) parts.push(`sessionScope=${build.sessionScope}`);
-  if (build.loopGranularity) parts.push(`loop=${build.loopGranularity}`);
-  if (typeof build.batchCap === "number") parts.push(`batchCap=${build.batchCap}`);
-  for (const [k, v] of Object.entries(candidate.env ?? {})) parts.push(`${k}=${v}`);
-  const content = candidate.content;
-  if (content) {
-    if (content.agentOverlay) parts.push(`agent-overlay:${content.agentOverlay.role}`);
-    if (content.taskSuffix) parts.push("taskSuffix");
-    if (content.contextPackSuffix) parts.push("contextPackSuffix");
-    if (content.allowedTools?.length) parts.push(`allowedTools=[${content.allowedTools.join(",")}]`);
-    if (content.disallowedTools?.length) parts.push(`disallowedTools=[${content.disallowedTools.join(",")}]`);
-  }
-  return parts.length ? parts.join(", ") : candidate.id;
-}
-function formatChampionWalkReport(report) {
-  const s = (ms) => `${(ms / 1e3).toFixed(1)}s`;
-  const tok = (n) => typeof n === "number" ? `${Math.round(n / 1e3)}k` : "-";
-  const lines = [
-    "# Champion-walk optimization report",
-    "",
-    "| Handoff | Baseline | Optimized | Saved | Winner | Levers | Prompt in | Prompt-bound |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- |"
-  ];
-  for (const h of report.handoffs) {
-    lines.push(
-      `| ${h.handoffId} | ${s(h.baselineMs)} | ${s(h.winnerMs)} | ${s(h.savedMs)} (${h.savedPct}%) | ${h.winnerId} | ${h.winnerLevers} | ${tok(h.baselineInputTokens)} | ${h.promptBound ? "YES" : ""} |`
-    );
-  }
-  lines.push(
-    `| **TOTAL** | ${s(report.totalBaselineMs)} | ${s(report.totalOptimizedMs)} | ${s(report.totalSavedMs)} (${report.totalSavedPct}%) | | | | |`
-  );
-  const trimTargets = report.handoffs.filter((h) => h.promptBound).map((h) => h.handoffId);
-  if (trimTargets.length) {
-    lines.push("", `Pass-2 .md-trim targets (prompt-bound handoffs): ${trimTargets.join(", ")}`);
-  }
-  return lines.join("\n") + "\n";
-}
-
-// scripts/sftdd/optimize.cli.ts
-function parseOptimizeArgs(argv) {
-  const out = { trials: 3 };
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    const next = () => argv[++i];
-    switch (a) {
-      case "--scenario":
-        out.scenario = next();
-        break;
-      case "--feature":
-        out.feature = next();
-        break;
-      case "--handoff":
-        out.handoff = next();
-        break;
-      case "--only": {
-        const v = next();
-        if (v === "design" || v === "build") out.only = v;
-        break;
-      }
-      case "--candidates":
-        out.candidates = next();
-        break;
-      case "--trials":
-        out.trials = Math.max(1, Number(next()) || 3);
-        break;
-      case "--project-dir":
-        out.projectDir = next();
-        break;
-      case "--dry-run":
-        out.dryRun = true;
-        break;
-      case "--propose-only":
-        out.proposeOnly = true;
-        break;
-      case "--sweep-lane": {
-        const v = next();
-        if (v === "design" || v === "build") out.sweepLane = v;
-        break;
-      }
-    }
-  }
-  return out;
-}
-function parseSweepSpec(spec) {
-  const out = {};
-  const trimmed = spec.trim();
-  if (!trimmed) return out;
-  for (const dim of trimmed.split(";")) {
-    const [key, rawVals] = dim.split("=");
-    if (!key || rawVals === void 0) continue;
-    const vals = rawVals.split(",").map((v) => v.trim()).filter(Boolean);
-    if (vals.length === 0) continue;
-    const parts = key.trim().split(".");
-    if (parts[0] === "build" && parts[1] === "sessionScope") {
-      out.sessionScopes = vals.filter((v) => v === "story" || v === "cycle");
-    } else if (parts[0] === "build" && parts[1] === "loopGranularity") {
-      out.loopGranularities = vals.filter((v) => v === "story" || v === "ac" || v === "hybrid-a");
-    } else if (parts[0] === "env" && parts[1] === "CONTEXT_FREE_FRACTION") {
-      out.contextFreeFractions = vals.map(Number).filter((n) => !Number.isNaN(n));
-    } else if (parts.length === 3 && (parts[2] === "model" || parts[2] === "effort")) {
-      out.role = parts[0];
-      const turn = parts[1];
-      if (parts[2] === "model") {
-        out.models = { ...out.models ?? {}, [turn]: vals };
-      } else {
-        out.efforts = { ...out.efforts ?? {}, [turn]: vals };
-      }
-    }
-  }
-  return out;
-}
-function actionToHandoffPlan(action) {
-  if (action.kind !== "invoke-role") return null;
-  const role = action.role;
-  const story = "story" in action ? action.story : void 0;
-  const buildMode = "buildMode" in action ? action.buildMode : void 0;
-  if (role === "driver" || role === "navigator") {
-    const mode = buildMode ?? (role === "driver" ? "green" : "red");
-    return { id: `${story}-${role}-${mode}`, role, story, buildMode: mode, action };
-  }
-  const idParts = [story, role].filter(Boolean);
-  return { id: idParts.join("-"), role, story, action };
-}
-function isBuildHandoff(plan) {
-  return (plan.role === "driver" || plan.role === "navigator") && !!plan.buildMode;
-}
-function buildCtxForHandoff(handoff, loc) {
-  const { projectDir, sftddDir, featureId } = loc;
-  const ctx = {
-    projectDir,
-    sftddDir,
-    featureId,
-    experimentsDir: join32(projectDir, "experiments"),
-    spawnTurn: makeLiveSpawnTurn(featureId, {
-      buildCfg: (fid) => buildCfg({ feature: fid, projectDir }, fid),
-      execRunner: (cfg) => execRunner(cfg),
-      // Build the PINNED action's command list (commandsForAction), so the spawn runs
-      // the handoff's OWN role turn , NOT planNextAction's "what's next" (which would
-      // advance to the next role once the artifact lands).
-      commandsFor: (action, cfg) => commandsForAction(action, cfg),
-      // Only the WINNER capture records into the corpus. makeLiveSpawnTurn sets
-      // RECORD_DIR for record:true and clears it for trials, so a losing candidate
-      // never pollutes the shippable corpus. The corpus dir is the runbook's
-      // LAKEBASE_SFTDD_RECORD_DIR (read ONCE here, not left ambient), so the
-      // recorder never fires for a trial even if the shell exported it.
-      ...loc.recordDir ? { recordDir: loc.recordDir } : {}
-    }),
-    now: () => Date.now(),
-    // Prompt-weight signal for the report's pass-2 trim targeting: the role's last
-    // turn.usage input/cache-read tokens from the project agent-log.
-    readTurnTokens: ({ handoff: handoff2 }) => readLastTurnTokens(sftddDir, handoff2.role)
-  };
-  if (isBuildHandoff(handoff)) {
-    const scm = readWorkflowState3(projectDir);
-    if (!scm?.project_id || !scm.branch) {
-      return { error: "[optimize] build handoff needs a claimed feature (project_id + branch in .lakebase/workflow-state.json); claim + drive to the build turn first.\n" };
-    }
-    ctx.gateBuild = makeBuildGate(sftddDir, featureId);
-    ctx.buildSnapshotDeps = makeBuildSnapshotDeps({
-      projectDir,
-      story: handoff.story ?? "",
-      cutArgs: {
-        instance: scm.project_id,
-        sftddDir,
-        featureId,
-        experimentSlug: `${handoff.story}-optimize`,
-        branch: scm.branch,
-        ...scm.parent_branch ? { parentBranch: scm.parent_branch } : {}
-      }
-    });
-  }
-  return { ctx };
-}
-async function main() {
-  const args = parseOptimizeArgs(process.argv.slice(2));
-  if (!args.scenario || !args.feature) {
-    process.stderr.write("usage: lakebase-sftdd-optimize --scenario <dir> --feature <id> [--handoff <id>] [--only design|build] --candidates <spec> --trials N [--dry-run]\n");
-    return 2;
-  }
-  const projectDir = resolve3(args.projectDir ?? process.cwd());
-  const sftddDir = resolveSftddDir(projectDir);
-  const featureId = args.feature;
-  const sweep = parseSweepSpec(args.candidates ?? "");
-  const candidates = generateCandidates(sweep);
-  const recordDir = process.env.LAKEBASE_SFTDD_RECORD_DIR?.trim() || void 0;
-  delete process.env.LAKEBASE_SFTDD_RECORD_DIR;
-  process.stderr.write(
-    `[optimize] scenario=${args.scenario} feature=${featureId} trials=${args.trials}${args.only ? ` only=${args.only}` : ""}${args.handoff ? ` handoff=${args.handoff}` : ""}
-`
-  );
-  process.stderr.write(`[optimize] ${candidates.length} candidate(s): ${candidates.map((c) => c.id).join(", ")}
-`);
-  if (args.sweepLane) {
-    const lane = args.sweepLane;
-    process.stderr.write(`[optimize] SWEEP LANE '${lane}': optimizing every role handoff sequentially (propose-only=${!!args.proposeOnly}).
-`);
-    const laneWalk = [];
-    const allCandidates = [];
-    const result2 = await runLaneSweep({
-      positionNext: () => positionToNextHandoff({
-        lane,
-        planNext: async () => {
-          const cfg = buildCfg({ feature: featureId, projectDir }, featureId);
-          const { action: a, commands } = await planNextAction(cfg);
-          return { action: a, commands };
-        },
-        perform: async (commands) => {
-          const cfg = buildCfg({ feature: featureId, projectDir }, featureId);
-          const runner = execRunner(cfg);
-          for (const cmd of commands) await runner.run(cmd);
-        }
-      }),
-      sweepOne: async (h) => {
-        const hCands = defaultLaneCandidates(h);
-        allCandidates.push(...hCands);
-        const ctxRes = buildCtxForHandoff(h, { projectDir, sftddDir, featureId, recordDir });
-        if ("error" in ctxRes) throw new Error(ctxRes.error.trim());
-        process.stderr.write(`[optimize] handoff ${h.id}: ${hCands.length} candidate(s)
-`);
-        const walk = await runChampionWalk(
-          { handoffs: [h], candidates: hCands, trials: args.trials, proposeOnly: args.proposeOnly, alwaysAdvance: true },
-          makeChampionWalkDeps(ctxRes.ctx)
-        );
-        return walk.walk[0];
-      }
-    });
-    laneWalk.push(...result2.walk);
-    const report2 = buildChampionWalkReport({ walk: laneWalk }, allCandidates);
-    process.stdout.write(formatChampionWalkReport(report2));
-    if (args.proposeOnly) {
-      process.stderr.write(
-        `[optimize] propose-only lane sweep: no winners recorded. Review the ranked report + experiments/, then persist per handoff with lakebase-sftdd-optimize-apply --project-dir ${projectDir} --handoff <id> --candidate <id>
-`
-      );
-    }
-    return 0;
-  }
-  const probeCfg = buildCfg({ feature: featureId, projectDir }, featureId);
-  const { action } = await planNextAction(probeCfg);
-  let handoff = actionToHandoffPlan(action);
-  if (!handoff && actionLane(action) === "build" && args.only !== "design") {
-    handoff = await positionToBuildHandoff({
-      planNext: async () => {
-        const cfg = buildCfg({ feature: featureId, projectDir }, featureId);
-        const { action: a, commands } = await planNextAction(cfg);
-        return { action: a, commands };
-      },
-      perform: async (commands) => {
-        const cfg = buildCfg({ feature: featureId, projectDir }, featureId);
-        const runner = execRunner(cfg);
-        for (const cmd of commands) await runner.run(cmd);
-      }
-    });
-  }
-  if (!handoff) {
-    process.stderr.write(`[optimize] the next action (${action.kind}) is not an optimizable role handoff; nothing to sweep. Drive design + gates first (or use --only build once past the gate).
-`);
-    return 0;
-  }
-  if (args.only === "build" && !isBuildHandoff(handoff)) {
-    process.stderr.write(`[optimize] --only build but the next handoff (${handoff.id}) is a design turn; skipping.
-`);
-    return 0;
-  }
-  if (args.only === "design" && isBuildHandoff(handoff)) {
-    process.stderr.write(`[optimize] --only design but the next handoff (${handoff.id}) is a build turn; skipping.
-`);
-    return 0;
-  }
-  if (args.dryRun) {
-    process.stderr.write(`[optimize] --dry-run: next handoff = ${handoff.id} (${handoff.role}${handoff.buildMode ? "/" + handoff.buildMode : ""}); no turns spawned.
-`);
-    return 0;
-  }
-  const handoffCandidates = args.candidates?.trim() ? candidates : defaultLaneCandidates(handoff);
-  const ctxResult = buildCtxForHandoff(handoff, { projectDir, sftddDir, featureId, recordDir });
-  if ("error" in ctxResult) {
-    process.stderr.write(ctxResult.error);
-    return 2;
-  }
-  const deps = makeChampionWalkDeps(ctxResult.ctx);
-  const result = await runChampionWalk(
-    { handoffs: [handoff], candidates: handoffCandidates, trials: args.trials, proposeOnly: args.proposeOnly },
-    deps
-  );
-  const report = buildChampionWalkReport(result, candidates);
-  process.stdout.write(formatChampionWalkReport(report));
-  if (args.proposeOnly) {
-    process.stderr.write(
-      `[optimize] propose-only: no winner recorded. Review the ranked candidates + experiments/${handoff.id}/, then persist your choice with: lakebase-sftdd-optimize-apply --project-dir ${projectDir} --handoff ${handoff.id} --candidate <id>
-`
-    );
-  }
-  return 0;
-}
-if (isCliEntry(import.meta.url)) {
-  main().then(
-    (code) => process.exit(code),
-    (err) => {
-      process.stderr.write(`${err instanceof Error ? err.message : String(err)}
-`);
-      process.exit(1);
-    }
-  );
-}
-export {
-  actionToHandoffPlan,
-  isBuildHandoff,
-  parseOptimizeArgs,
-  parseSweepSpec
-};
-//# sourceMappingURL=optimize.cli.js.map
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  ArtifactOutOfRootError,
+  ClaudeTurnError,
+  ReplayCorpusMissError,
+  buildCfg,
+  claudeBaseArgs,
+  claudeToolArgs,
+  execRunner,
+  spawnClaudeStreaming,
+  spawnCmd,
+  takeLastAgentTranscript
+});
+//# sourceMappingURL=drive-runner.cjs.map

@@ -49,6 +49,7 @@ export default defineConfig({
     "scripts/sftdd/scenario-conditions.cli": "scripts/sftdd/scenario-conditions.cli.ts",
     "scripts/sftdd/story-experiment.cli": "scripts/sftdd/story-experiment.cli.ts",
     "scripts/sftdd/drive.cli": "scripts/sftdd/drive.cli.ts",
+    "scripts/sftdd/drive-runner": "scripts/sftdd/drive-runner.ts",
     "scripts/sftdd/spike.cli": "scripts/sftdd/spike.cli.ts",
     "apps/mcp-server/index": "apps/mcp-server/index.ts",
     "apps/mcp-server/dump-tools": "apps/mcp-server/dump-tools.ts",

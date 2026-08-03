@@ -12,7 +12,7 @@ import {
   type DriveCommand,
   type DriveEffectsConfig,
 } from "../../scripts/sftdd/orchestrator-effects";
-import { claudeToolArgs } from "../../scripts/sftdd/drive.cli";
+import { claudeToolArgs } from "../../scripts/sftdd/drive-runner.js";
 
 function cfg(over: Partial<DriveEffectsConfig> = {}): DriveEffectsConfig {
   return {
