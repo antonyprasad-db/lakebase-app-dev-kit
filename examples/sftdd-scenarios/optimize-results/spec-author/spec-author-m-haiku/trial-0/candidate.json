@@ -1,0 +1,10 @@
+{
+  "id": "spec-author-m-haiku",
+  "configOverrides": {
+    "roles": {
+      "spec-author": {
+        "model": "haiku"
+      }
+    }
+  }
+}

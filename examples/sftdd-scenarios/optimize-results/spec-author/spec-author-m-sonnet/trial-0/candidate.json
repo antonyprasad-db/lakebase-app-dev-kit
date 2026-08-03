@@ -1,0 +1,10 @@
+{
+  "id": "spec-author-m-sonnet",
+  "configOverrides": {
+    "roles": {
+      "spec-author": {
+        "model": "sonnet"
+      }
+    }
+  }
+}

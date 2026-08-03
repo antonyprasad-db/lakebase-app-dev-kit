@@ -1,0 +1,63 @@
+{
+  "handoff": "spec-author",
+  "winner": "spec-author-m-haiku-e-low",
+  "capturedAt": "2026-08-03T04:48:36.362Z",
+  "candidates": [
+    {
+      "candidate": "baseline",
+      "trials": 2,
+      "gatePassed": true,
+      "medianMs": 66977.5,
+      "medianCostUsd": 0
+    },
+    {
+      "candidate": "spec-author-e-low",
+      "trials": 2,
+      "gatePassed": true,
+      "medianMs": 55486.5,
+      "medianCostUsd": 0
+    },
+    {
+      "candidate": "spec-author-e-medium",
+      "trials": 2,
+      "gatePassed": true,
+      "medianMs": 106985.5,
+      "medianCostUsd": 0
+    },
+    {
+      "candidate": "spec-author-m-haiku",
+      "trials": 2,
+      "gatePassed": true,
+      "medianMs": 41058.5,
+      "medianCostUsd": 0
+    },
+    {
+      "candidate": "spec-author-m-haiku-e-low",
+      "trials": 2,
+      "gatePassed": true,
+      "medianMs": 37376.5,
+      "medianCostUsd": 0
+    },
+    {
+      "candidate": "spec-author-m-sonnet",
+      "trials": 2,
+      "gatePassed": true,
+      "medianMs": 73758.5,
+      "medianCostUsd": 0
+    },
+    {
+      "candidate": "spec-author-m-sonnet-e-low",
+      "trials": 2,
+      "gatePassed": true,
+      "medianMs": 53520,
+      "medianCostUsd": 0
+    },
+    {
+      "candidate": "spec-author-scan-tight",
+      "trials": 2,
+      "gatePassed": true,
+      "medianMs": 52932,
+      "medianCostUsd": 0
+    }
+  ]
+}
