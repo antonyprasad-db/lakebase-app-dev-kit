@@ -19,6 +19,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { manifestForAction, type StepManifest } from "./step-manifest.js";
 import { ManifestStep } from "./manifest-step.js";
+import { buildAgent, type AgentBuildContext } from "../agents/agent-catalogue.js";
 import { execute, type StepExecutorDeps, type StepCtx, type StepResult } from "../execution/step-executor.js";
 import type { StepAgent, StepInstructions } from "../agents/spec-author-breakdown-step-types.js";
 import type { DriveEffectsConfig } from "../../../scripts/sftdd/orchestrator-effects.js";
@@ -27,15 +28,20 @@ import type { RouteProposal, ValidateBoundDeps } from "../contract/step-contract
 
 /** What the caller provides so the runner can drive a manifest through the executor. */
 export interface ManifestRunnerDeps {
-  /** Build the agent for a manifest (keyed by role/id) , the PO mock, a ClaudeStepAgent,
-   *  a test double. INJECTED so the runner stays contract-agnostic. */
-  agentFor(manifest: StepManifest): StepAgent;
   /** The single shared workspace every turn reads inputs from + writes outputs into (the
    *  design tree). One workspace across the chain is what lets turn N+1 consume turn N's
    *  outputs. */
   workspaceDir: string;
   /** The drive config (projectDir/sftddDir/featureId + model/effort resolution). */
   cfg: DriveEffectsConfig;
+  /** The ENV the agent catalogue needs to build a step's agent from manifest.agent , corpus
+   *  root, kit dir (workspaceDir is filled from above). Supplied by the runner, NOT the
+   *  manifest, so manifests stay portable. */
+  agentContext?: Omit<AgentBuildContext, "workspaceDir">;
+  /** OPTIONAL override: build the agent for a manifest imperatively instead of resolving
+   *  manifest.agent via the catalogue. For tests/back-compat. When set it WINS; otherwise the
+   *  runner requires manifest.agent and resolves it from the catalogue. */
+  agentFor?(manifest: StepManifest): StepAgent;
   /** Optional: source the instruction bundle for a turn (default: a generic prompt naming
    *  the role + its declared outputs). The full orchestrator sources these from disk/interactive. */
   instructionsFor?(manifest: StepManifest, action: WorkflowAction): StepInstructions;
@@ -77,12 +83,24 @@ function defaultInstructions(manifest: StepManifest): StepInstructions {
 }
 
 /** Build the StepCtx + StepExecutorDeps for one manifest turn against the shared workspace. */
+function resolveAgent(manifest: StepManifest, deps: ManifestRunnerDeps): StepAgent {
+  // An explicit agentFor override wins (tests/back-compat); otherwise the agent is DATA in
+  // the manifest, resolved from the catalogue with the runner's env context.
+  if (deps.agentFor) return deps.agentFor(manifest);
+  if (!manifest.agent) {
+    throw new Error(
+      `manifest-runner: manifest "${manifest.id}" declares no \`agent\` and no agentFor override was provided , cannot build a StepAgent.`,
+    );
+  }
+  return buildAgent(manifest.agent, { workspaceDir: deps.workspaceDir, ...(deps.agentContext ?? {}) });
+}
+
 function executorWiring(
   manifest: StepManifest,
   action: WorkflowAction,
   deps: ManifestRunnerDeps,
 ): { step: ManifestStep; ctx: StepCtx; execDeps: StepExecutorDeps } {
-  const step = new ManifestStep(manifest, deps.agentFor(manifest));
+  const step = new ManifestStep(manifest, resolveAgent(manifest, deps));
 
   // The manifest routing is the transition authority for a standalone runner: `allowed`
   // returns the step's OWN proposed next, so validateAndBound honors the manifest's route.

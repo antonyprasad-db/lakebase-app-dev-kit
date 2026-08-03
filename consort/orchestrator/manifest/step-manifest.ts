@@ -67,6 +67,18 @@ export interface StepManifestPostTurn {
 }
 
 /**
+ * WHICH concrete StepAgent this step uses + that agent's config , DATA in the manifest, so
+ * the choice of agent is not hardcoded in any script. `kind` names a catalogue entry
+ * (claude | replay | mock); `config` is that kind's knobs (claude levers / replay seeds /
+ * mock fixtures). The ENV a kind needs (corpus root, kit dir) is supplied by the runner as a
+ * build context, NOT here.
+ */
+export interface StepManifestAgent {
+  kind: string;
+  config: Record<string, unknown>;
+}
+
+/**
  * The DATA face of one step. `match` is a STRICT SUBSET of a WorkflowAction: every field it
  * carries must equal the action's field for a match. The loader rejects an ambiguous overlap
  * (two manifests matching one action).
@@ -85,6 +97,10 @@ export interface StepManifest {
   };
   agentOptions: StepManifestAgentOptions;
   postTurn?: StepManifestPostTurn[];
+  /** WHICH agent this step uses (kind + config), resolved via the agent catalogue. Optional
+   *  so legacy manifests (agent injected by the caller) still validate; the runner requires
+   *  one OR an explicit agentFor override. */
+  agent?: StepManifestAgent;
 }
 
 /** The result of a shape validation , shape mirrors OutputValidationResult for consistency. */
