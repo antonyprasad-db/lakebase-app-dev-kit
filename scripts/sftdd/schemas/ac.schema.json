@@ -4,7 +4,7 @@
   "title": "AcceptanceCriterion",
   "description": "One observable behavior. Tagged API / E2E / Infra. Maps to one or more scenarios in the test list.",
   "type": "object",
-  "required": ["id", "layer", "given", "when", "then", "status"],
+  "required": ["id", "given", "when", "then", "status"],
   "properties": {
     "id": {
       "type": "string",
@@ -13,7 +13,7 @@
     "layer": {
       "type": "string",
       "enum": ["API", "E2E", "Infra"],
-      "description": "Which layer the AC exercises. Assigned by Architect Reviewer in phase 7.1."
+      "description": "Which layer the AC exercises. Assigned by the Architect Reviewer in phase 7.1 (NOT written by the spec-author, so it is optional at spec time; the architect self-check and the design gate require it once the architect has run)."
     },
     "given": {
       "type": "string",

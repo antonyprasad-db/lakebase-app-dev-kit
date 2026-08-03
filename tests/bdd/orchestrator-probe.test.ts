@@ -88,15 +88,17 @@ describe("diskArtifactProbe: design facts", () => {
     expect(probe.hasAcs("S3")).toBe(true);
   });
 
-  it("architectAnnotated requires the architect's OWN output (architectural_notes + architecture.json), NOT the spec-author's schema-required `layer`", () => {
-    // The bug this guards: `layer` is a REQUIRED ac.schema field the SPEC-AUTHOR
-    // fills, so keying architectAnnotated on `layer` made it true the instant the
-    // spec-author wrote the ACs , the architect-reviewer was ALWAYS skipped, so
-    // no architecture.json + no layering/service_backed enforcement ever ran.
+  it("architectAnnotated requires the architect's OWN output (architectural_notes + architecture.json), NOT a bare `layer`", () => {
+    // The bug this guards: keying architectAnnotated on `layer` alone made it true
+    // the instant `layer` appeared, so if anything wrote `layer` early the
+    // architect-reviewer was skipped , no architecture.json + no layering/
+    // service_backed enforcement ever ran. `layer` is the architect's field
+    // (optional in ac.schema, stamped in phase 7.1), so this keys on the
+    // architect's DISTINCTIVE output instead.
     const probe = diskArtifactProbe(sftddDir, FEATURE);
     writeStory("S1", ["AC1", "AC2"]);
     expect(probe.architectAnnotated("S1")).toBe(false);
-    // Spec-author wrote ACs WITH the required layer , architect has NOT run yet.
+    // Even WITH a layer on each AC, the architect has NOT run yet (no notes / arch).
     writeAcLayer("S1", "AC1", "API");
     writeAcLayer("S1", "AC2", "Infra");
     expect(probe.architectAnnotated("S1")).toBe(false); // layer alone != annotated

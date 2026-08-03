@@ -256,6 +256,26 @@ describe("checkArtifactConformance: JSON artifacts (schema-validated)", () => {
     expect(checkArtifactConformance("test-list.json", bad).ok).toBe(false);
   });
 
+  it("validates ac.json: a layer-less AC conforms (layer is the architect's field, not required at spec time)", () => {
+    // The spec-author writes ACs WITHOUT `layer` (spec-author.md forbids it,
+    // "Architect's, next phase"); the schema must not require what the author
+    // is told not to write. A bad enum value, when present, still fails.
+    const specAuthored = JSON.stringify({
+      id: "AC1-record-stock",
+      given: "an operator on the record-stock form",
+      when: "they submit a valid SKU and quantity",
+      then: "the stock record is persisted",
+      status: "draft",
+    });
+    expect(checkArtifactConformance("ac.json", specAuthored).ok).toBe(true);
+    // Missing a truly-required field (then) still fails.
+    const missingThen = JSON.stringify({ id: "AC1-x", given: "g", when: "w", status: "draft" });
+    expect(checkArtifactConformance("ac.json", missingThen).ok).toBe(false);
+    // A present-but-invalid layer enum still fails (architect must use API|E2E|Infra).
+    const badLayer = JSON.stringify({ id: "AC1-x", layer: "UI", given: "g", when: "w", then: "t", status: "draft" });
+    expect(checkArtifactConformance("ac.json", badLayer).ok).toBe(false);
+  });
+
   it("validates architecture.json (NFRs live here; service_backed is required)", () => {
     const arch = JSON.stringify({
       feature_id: "F1-initial-domain",

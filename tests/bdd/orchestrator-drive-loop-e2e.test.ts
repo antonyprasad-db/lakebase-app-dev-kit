@@ -107,11 +107,12 @@ function replayEffects(feature: string, stories: string[]) {
             mkdirSync(join(storyDir(feature, s), "acs"), { recursive: true });
             writeJson(join(storyDir(feature, s), "acs", `${ac(s)}.json`), { id: ac(s) });
           } else if (action.role === "architect-reviewer") {
-            // The architect's distinctive output: architectural_notes on each AC
-            // (the spec-author already fills the schema-required `layer`) + the
-            // feature architecture.json. architectAnnotated keys on these, NOT on
-            // `layer`, so the architect actually runs (it was silently skipped
-            // when the probe keyed on the spec-author-provided layer).
+            // The architect's distinctive output: `layer` + architectural_notes
+            // on each AC (both the architect's, stamped in phase 7.1; the
+            // spec-author writes neither) + the feature architecture.json.
+            // architectAnnotated keys on notes + architecture.json, NOT on `layer`
+            // alone, so the architect actually runs (it was silently skipped when
+            // the probe keyed on a bare layer).
             writeJson(join(storyDir(feature, s), "acs", `${ac(s)}.json`), {
               id: ac(s),
               layer: "API",

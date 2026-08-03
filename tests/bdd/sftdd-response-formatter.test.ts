@@ -140,6 +140,25 @@ describe("response-formatter: spec-author + architect-reviewer contracts", () =>
     expect(r.ok).toBe(true);
   });
 
+  // Prose-vs-schema drift regression: spec-author.md FORBIDS the spec-author
+  // from writing `layer` ("Architect's, next phase") , yet ac.schema once listed
+  // `layer` in `required`, so the spec-author's OWN conformance self-check
+  // rejected every prompt-obedient (layer-less) AC. In a single-role run (before
+  // the architect stamps layer) that DQ'd the spec-author uniformly. `layer` is
+  // the architect's field; the spec-author's self-check must PASS a layer-less AC.
+  it("spec-author PASSES a prompt-obedient AC that omits `layer` (architect's field)", () => {
+    writeJson(join(acsDir(), "AC1-create-form.json"), {
+      id: "AC1-create-form",
+      given: "g",
+      when: "w",
+      then: "t",
+      status: "draft",
+      // NO layer / architectural_notes , those are the architect's, next phase.
+    });
+    const r = formatRoleResponse({ role: "spec-author", sftddDir: tdd, featureId: F, story: S });
+    expect(r.ok).toBe(true);
+  });
+
   it("architect-reviewer FLAGS an AC missing its layer", () => {
     // No `layer` -> architect contract unmet. (Write a raw AC w/o layer.)
     writeJson(join(acsDir(), "AC1-form.json"), { id: "AC1-form", given: "g", when: "w", then: "t", status: "draft" });
