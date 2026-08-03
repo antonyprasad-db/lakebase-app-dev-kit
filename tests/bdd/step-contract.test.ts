@@ -12,7 +12,7 @@ import {
   type RouteProposal,
   type StepContract,
   type ValidateBoundDeps,
-} from "../../scripts/sftdd/step-contract";
+} from "../../consort/orchestrator/contract/step-contract";
 import type { DriveState, WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
 
 const STATE = { phase: "feature" } as unknown as DriveState;

@@ -10,9 +10,9 @@
 // that file now re-exports them so existing importers keep working.
 
 import { readFileSync } from "node:fs";
-import { checkArtifactConformance } from "./artifact-conformance.js";
-import { getValidator, formatSchemaErrors } from "./schema-loader.js";
-import type { OutputValidator, OutputValidationResult } from "./step-contract.js";
+import { checkArtifactConformance } from "../../../../scripts/sftdd/artifact-conformance.js";
+import { getValidator, formatSchemaErrors } from "../../../../scripts/sftdd/schema-loader.js";
+import type { OutputValidator, OutputValidationResult } from "../../contract/step-contract.js";
 
 /**
  * feature-spec validator: the produced feature-spec.json must parse + conform to

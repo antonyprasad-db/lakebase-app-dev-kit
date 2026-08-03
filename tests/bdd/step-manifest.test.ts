@@ -9,11 +9,11 @@
 import { describe, it, expect } from "vitest";
 import {
   validateStepManifest,
-  loadStepManifests,
+  SHIPPED_MANIFESTS,
   manifestForAction,
   matchesAction,
-} from "../../scripts/sftdd/step-manifest";
-import type { StepManifest } from "../../scripts/sftdd/step-manifest";
+} from "../../consort/orchestrator/manifest/step-manifest";
+import type { StepManifest } from "../../consort/orchestrator/manifest/step-manifest";
 import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
 
 /** A minimal, shape-conformant manifest builder for negative tests. */
@@ -76,17 +76,16 @@ describe("step-manifest schema (shape)", () => {
   });
 });
 
-describe("step-manifest loader: the real breakdown manifest ships + validates", () => {
-  it("loads every step-manifests/*.json and they all conform to the schema", () => {
-    const manifests = loadStepManifests();
-    expect(manifests.length).toBeGreaterThanOrEqual(1);
-    for (const m of manifests) {
+describe("step-manifest loader: the shipped manifests are inlined + validate", () => {
+  it("every SHIPPED manifest (inlined via JSON import) conforms to the schema", () => {
+    expect(SHIPPED_MANIFESTS.length).toBeGreaterThanOrEqual(1);
+    for (const m of SHIPPED_MANIFESTS) {
       expect(validateStepManifest(m)).toEqual({ ok: true, violations: [] });
     }
   });
 
   it("ships the spec-author-breakdown manifest", () => {
-    const ids = loadStepManifests().map((m) => m.id);
+    const ids = SHIPPED_MANIFESTS.map((m) => m.id);
     expect(ids).toContain("spec-author-breakdown");
   });
 });

@@ -19,11 +19,11 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { manifestForAction, type StepManifest } from "./step-manifest.js";
 import { ManifestStep } from "./manifest-step.js";
-import { execute, type StepExecutorDeps, type StepCtx, type StepResult } from "./step-executor.js";
-import type { StepAgent, StepInstructions } from "./spec-author-breakdown-step-types.js";
-import type { DriveEffectsConfig } from "./orchestrator-effects.js";
-import type { WorkflowAction, DriveState } from "./orchestrator-drive.js";
-import type { RouteProposal, ValidateBoundDeps } from "./step-contract.js";
+import { execute, type StepExecutorDeps, type StepCtx, type StepResult } from "../execution/step-executor.js";
+import type { StepAgent, StepInstructions } from "../agents/spec-author-breakdown-step-types.js";
+import type { DriveEffectsConfig } from "../../../scripts/sftdd/orchestrator-effects.js";
+import type { WorkflowAction, DriveState } from "../../../scripts/sftdd/orchestrator-drive.js";
+import type { RouteProposal, ValidateBoundDeps } from "../contract/step-contract.js";
 
 /** What the caller provides so the runner can drive a manifest through the executor. */
 export interface ManifestRunnerDeps {

@@ -19,7 +19,7 @@
 import * as fs from "node:fs";
 import { dirname } from "node:path";
 import { nextTransition, type WorkflowAction } from "./orchestrator-drive.js";
-import { manifestForAction } from "./step-manifest.js";
+import { manifestForAction } from "../../consort/orchestrator/manifest/step-manifest.js";
 import type { DriveEffects } from "./orchestrator-run.js";
 import { deriveDriveState, effectiveLoopForStory } from "./orchestrator-derive.js";
 import { diskArtifactProbe, readDriveContext } from "./orchestrator-probe.js";

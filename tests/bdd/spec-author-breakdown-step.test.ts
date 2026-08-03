@@ -11,8 +11,8 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { SpecAuthorBreakdownStep } from "../../scripts/sftdd/spec-author-breakdown-step";
-import type { StepAgent, AgentInvocation } from "../../scripts/sftdd/spec-author-breakdown-step-types";
+import { SpecAuthorBreakdownStep } from "../../consort/orchestrator/steps/spec-author-breakdown-step";
+import type { StepAgent, AgentInvocation } from "../../consort/orchestrator/agents/spec-author-breakdown-step-types";
 import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
 
 let ws: string;

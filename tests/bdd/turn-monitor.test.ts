@@ -7,8 +7,8 @@
 // byte-identical default).
 
 import { describe, it, expect, vi } from "vitest";
-import { createMonitorController } from "../../scripts/sftdd/turn-monitor";
-import type { TurnMonitor, TurnProgress, MonitorClock } from "../../scripts/sftdd/turn-monitor";
+import { createMonitorController } from "../../consort/orchestrator/execution/turn-monitor";
+import type { TurnMonitor, TurnProgress, MonitorClock } from "../../consort/orchestrator/execution/turn-monitor";
 
 /** A fake clock: manual `now`, and timers we fire explicitly by advancing time. */
 function fakeClock() {

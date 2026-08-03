@@ -17,10 +17,10 @@
 //                finds THERE. No .sftdd, no conformance check (the orchestrator does that).
 //   route()   -> emits the routing proposal.
 
-import { featureSpecNonEmptyStories, agentLogHasRoleEvent } from "./validator-registry.js";
-import type { WorkflowAction } from "./orchestrator-drive.js";
-import type { StepContract, StepInputSpec, StepOutputSpec, RouteProposal, StepRouteContext, ConformanceValidator } from "./step-contract.js";
-import type { StepInstructions } from "./spec-author-breakdown-step-types.js";
+import { featureSpecNonEmptyStories, agentLogHasRoleEvent } from "../validators/conformance/validator-registry.js";
+import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.js";
+import type { StepContract, StepInputSpec, StepOutputSpec, RouteProposal, StepRouteContext, ConformanceValidator } from "../contract/step-contract.js";
+import type { StepInstructions } from "../agents/spec-author-breakdown-step-types.js";
 
 // The two breakdown validators now live in the shared validator-registry (one source of truth,
 // referenced by name from step manifests). Keep the original local names as thin aliases so
@@ -29,8 +29,8 @@ const checkFeatureSpecOutput = featureSpecNonEmptyStories;
 const checkAgentLogOutput = agentLogHasRoleEvent;
 
 // Re-export the shared step-run types so existing importers keep working.
-export type { StepInstructions, StepAgent, AgentInvocation } from "./spec-author-breakdown-step-types.js";
-import type { StepAgent } from "./spec-author-breakdown-step-types.js";
+export type { StepInstructions, StepAgent, AgentInvocation } from "../agents/spec-author-breakdown-step-types.js";
+import type { StepAgent } from "../agents/spec-author-breakdown-step-types.js";
 
 /** The logical inputs the breakdown step needs , the 3 PO artifacts, by id. */
 const BREAKDOWN_INPUTS: StepInputSpec[] = [

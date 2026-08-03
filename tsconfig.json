@@ -17,6 +17,6 @@
     "sourceMap": true,
     "types": ["node"]
   },
-  "include": ["scripts/**/*.ts", "tests/**/*.ts", "apps/**/*.ts"],
+  "include": ["scripts/**/*.ts", "tests/**/*.ts", "apps/**/*.ts", "consort/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

@@ -12,10 +12,10 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync, existsSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { ManifestStep } from "../../scripts/sftdd/manifest-step";
-import { VALIDATOR_REGISTRY, resolveValidator } from "../../scripts/sftdd/validator-registry";
-import { manifestForAction } from "../../scripts/sftdd/step-manifest";
-import type { StepAgent, AgentInvocation } from "../../scripts/sftdd/spec-author-breakdown-step-types";
+import { ManifestStep } from "../../consort/orchestrator/manifest/manifest-step";
+import { VALIDATOR_REGISTRY, resolveValidator } from "../../consort/orchestrator/validators/conformance/validator-registry";
+import { manifestForAction } from "../../consort/orchestrator/manifest/step-manifest";
+import type { StepAgent, AgentInvocation } from "../../consort/orchestrator/agents/spec-author-breakdown-step-types";
 import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
 
 let ws: string;

@@ -26,12 +26,12 @@ import { mkdtempSync, mkdirSync, cpSync, readFileSync, existsSync, chmodSync } f
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { SpecAuthorBreakdownStep } from "../../scripts/sftdd/spec-author-breakdown-step.js";
-import { ClaudeStepAgent, type AgentLevers } from "../../scripts/sftdd/claude-step-agent.js";
-import { ManifestStep } from "../../scripts/sftdd/manifest-step.js";
-import { manifestForAction } from "../../scripts/sftdd/step-manifest.js";
-import { execute, type StepExecutorDeps, type StepCtx } from "../../scripts/sftdd/step-executor.js";
-import type { ValidateBoundDeps } from "../../scripts/sftdd/step-contract.js";
+import { SpecAuthorBreakdownStep } from "../../consort/orchestrator/steps/spec-author-breakdown-step.js";
+import { ClaudeStepAgent, type AgentLevers } from "../../consort/orchestrator/agents/claude-step-agent.js";
+import { ManifestStep } from "../../consort/orchestrator/manifest/manifest-step.js";
+import { manifestForAction } from "../../consort/orchestrator/manifest/step-manifest.js";
+import { execute, type StepExecutorDeps, type StepCtx } from "../../consort/orchestrator/execution/step-executor.js";
+import type { ValidateBoundDeps } from "../../consort/orchestrator/contract/step-contract.js";
 import type { DriveState } from "../../scripts/sftdd/orchestrator-drive.js";
 import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive.js";
 

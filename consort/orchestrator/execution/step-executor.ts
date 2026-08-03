@@ -19,12 +19,12 @@
 // hooks. Phases 3+4 are the step's run(); 5+7 use the step's outputs()/route(); the rest is
 // orchestrator-owned. Nothing here reaches outside what the deps provide.
 
-import { validateAndBound } from "./step-contract.js";
-import type { WorkflowAction, DriveState } from "./orchestrator-drive.js";
-import type { DriveEffectsConfig } from "./orchestrator-effects.js";
-import type { StepContract, BoundedRoute, ValidateBoundDeps, RouteProposal } from "./step-contract.js";
-import type { StepInstructions } from "./spec-author-breakdown-step-types.js";
-import type { ProvidedStepRun, ProvidedStepResult } from "./spec-author-breakdown-step.js";
+import { validateAndBound } from "../contract/step-contract.js";
+import type { WorkflowAction, DriveState } from "../../../scripts/sftdd/orchestrator-drive.js";
+import type { DriveEffectsConfig } from "../../../scripts/sftdd/orchestrator-effects.js";
+import type { StepContract, BoundedRoute, ValidateBoundDeps, RouteProposal } from "../contract/step-contract.js";
+import type { StepInstructions } from "../agents/spec-author-breakdown-step-types.js";
+import type { ProvidedStepRun, ProvidedStepResult } from "../steps/spec-author-breakdown-step.js";
 
 /** A step the executor can run: the routing/IO contract PLUS the contained run() body that
  *  the concrete step (ManifestStep, or a bespoke class) implements. */

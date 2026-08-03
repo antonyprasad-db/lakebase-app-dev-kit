@@ -53,29 +53,10 @@ describe("shipped release artifact: every package.json bin is git-tracked in dis
   });
 });
 
-// Same failure class as the bins, one layer down: the step MANIFESTS are runtime
-// DATA (not TS, not *.schema.json), read at runtime by step-manifest.ts relative to
-// its compiled location. copy-build-assets.mjs copies them into dist/ and the tag
-// force-adds the built dist, so a consumer install (which never rebuilds) must find
-// every manifest already git-tracked in dist/. A disk check would pass in the dev
-// clone; only asking git catches a manifest that was authored but never shipped.
-describe("shipped release artifact: every step manifest is git-tracked in dist/", () => {
-  it("no scripts/sftdd/step-manifests/*.json is missing from the shipped (git-tracked) dist", () => {
-    const srcDir = join(REPO_ROOT, "scripts", "sftdd", "step-manifests");
-    const manifests = readdirSync(srcDir).filter((f) => f.endsWith(".json")).sort();
-    expect(manifests.length).toBeGreaterThan(0);
-
-    const tracked = trackedDistFiles();
-    const missing = manifests
-      .map((f) => `dist/scripts/sftdd/step-manifests/${f}`)
-      .filter((p) => !tracked.has(p));
-
-    expect(
-      missing,
-      `these step manifests exist in source but their dist twin is NOT git-tracked, so a ` +
-        `consumer install (which skips the build) will ENOENT loading them. Run ` +
-        `\`npm run build\` then \`git add -f dist/scripts/sftdd/step-manifests\`:\n` +
-        missing.map((p) => `  ${p}`).join("\n"),
-    ).toEqual([]);
-  });
-});
+// The shipped step MANIFESTS are runtime DATA, but unlike the bins they are NOT
+// standalone dist files: step-manifest.ts imports them as JSON modules, so the bundler
+// INLINES them into the built dist/scripts/sftdd/*.cli.js. There is therefore no
+// per-manifest dist twin to track , the guarantee that a consumer install can load them
+// is that they are inlined into the shipped bundle. That is asserted where it belongs:
+// step-manifest.test.ts loads SHIPPED_MANIFESTS + validates each against the schema.
+// (A directory-scan guard here would be checking a path that no longer exists.)

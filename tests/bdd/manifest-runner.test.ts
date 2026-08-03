@@ -12,11 +12,11 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { runManifestStep, runManifestChain, type ManifestRunnerDeps } from "../../scripts/sftdd/manifest-runner";
-import { loadStepManifests } from "../../scripts/sftdd/step-manifest";
-import { makeReplayPoMockAgent } from "../../scripts/sftdd/replay-po-mock-agent";
-import type { StepAgent } from "../../scripts/sftdd/spec-author-breakdown-step-types";
-import type { StepManifest } from "../../scripts/sftdd/step-manifest";
+import { runManifestStep, runManifestChain, type ManifestRunnerDeps } from "../../consort/orchestrator/manifest/manifest-runner";
+import { loadStepManifests } from "../../consort/orchestrator/manifest/step-manifest";
+import { makeReplayPoMockAgent } from "../../consort/orchestrator/agents/replay-po-mock-agent";
+import type { StepAgent } from "../../consort/orchestrator/agents/spec-author-breakdown-step-types";
+import type { StepManifest } from "../../consort/orchestrator/manifest/step-manifest";
 import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
 
 const KIT = process.cwd();

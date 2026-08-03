@@ -13,8 +13,14 @@
 
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { getValidator, formatSchemaErrors } from "./schema-loader.js";
-import type { WorkflowAction } from "./orchestrator-drive.js";
+import { getValidator, formatSchemaErrors } from "../../../scripts/sftdd/schema-loader.js";
+import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.js";
+// The SHIPPED manifests are imported as JSON modules so the bundler INLINES them into
+// the build , no runtime fs read, no __dirname/dist path to keep in sync, no copy step.
+// (resolveJsonModule is on.) External/scenario manifests are still loaded from a directory
+// the caller passes explicitly (loadStepManifests(dir)).
+import specAuthorBreakdownManifest from "../config/step-manifests/spec-author-breakdown.json" with { type: "json" };
+import driverGreenManifest from "../config/step-manifests/driver-green.json" with { type: "json" };
 
 /** A step's logical input , resolved from .sftdd by the orchestrator and provided by id. */
 export interface StepManifestInput {
@@ -96,15 +102,24 @@ export function validateStepManifest(manifest: StepManifest): ManifestValidateRe
   return { ok: false, violations: formatSchemaErrors(validate) };
 }
 
-/** The directory shipped step manifests live in. */
-const MANIFEST_DIR = join(__dirname, "step-manifests");
+/**
+ * The SHIPPED step manifests , inlined at build time via the JSON imports above. This is the
+ * default manifest set the orchestrator resolves against; adding a shipped step = add a JSON
+ * file under config/step-manifests/ AND an import line here. No runtime fs, no dist path.
+ */
+export const SHIPPED_MANIFESTS: StepManifest[] = [
+  specAuthorBreakdownManifest as StepManifest,
+  driverGreenManifest as StepManifest,
+];
 
 /**
- * Load every shipped step-manifests/*.json. Missing dir -> empty (the feature is opt-in;
- * absence must not throw). Each file is parsed but NOT shape-validated here , callers
- * validate (the loader test asserts every shipped manifest conforms).
+ * Load step manifests from a DIRECTORY , for EXTERNAL manifest sets (scenario/demo manifests
+ * a caller keeps outside the shipped set, e.g. examples/.../step-manifests). The shipped
+ * manifests are NOT loaded this way (they are inlined; see SHIPPED_MANIFESTS). Passing a dir
+ * is required , there is no default. Missing dir -> empty (absence must not throw). Each file
+ * is parsed but NOT shape-validated here , callers validate.
  */
-export function loadStepManifests(dir: string = MANIFEST_DIR): StepManifest[] {
+export function loadStepManifests(dir: string): StepManifest[] {
   if (!existsSync(dir)) return [];
   return readdirSync(dir)
     .filter((f) => f.endsWith(".json"))
@@ -158,7 +173,7 @@ function deepEqual(a: unknown, b: unknown): boolean {
  */
 export function manifestForAction(
   action: WorkflowAction,
-  manifests: StepManifest[] = loadStepManifests(),
+  manifests: StepManifest[] = SHIPPED_MANIFESTS,
 ): StepManifest | undefined {
   const hits = manifests.filter((m) => matchesAction(m.match, action));
   if (hits.length > 1) {

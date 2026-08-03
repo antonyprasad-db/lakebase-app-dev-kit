@@ -349,7 +349,7 @@ describe("runDriver: output-driven routing seam (options.contract)", () => {
   // same path as state-derivation, so the drive must converge to `done` identically. This
   // proves the contract seam is consumed AND that an aligned proposal changes nothing.
   // (inputs/outputs default to empty/null; only the routing face is exercised here.)
-  const passthroughContract = (transition: (s: DriveState) => WorkflowAction): import("../../scripts/sftdd/step-contract").StepContract => ({
+  const passthroughContract = (transition: (s: DriveState) => WorkflowAction): import("../../consort/orchestrator/contract/step-contract").StepContract => ({
     inputs: () => [],
     outputs: () => [],
     route(_completed, ctx) {
@@ -388,7 +388,7 @@ describe("runDriver: output-driven routing seam (options.contract)", () => {
     // must NOT follow it off the allowed graph , it falls back to the pure transition
     // every step and still reaches done. (The bound cases are exhaustive in
     // step-contract.test.ts.)
-    const offGraphContract: import("../../scripts/sftdd/step-contract").StepContract = {
+    const offGraphContract: import("../../consort/orchestrator/contract/step-contract").StepContract = {
       inputs: () => [],
       outputs: () => [],
       route() {

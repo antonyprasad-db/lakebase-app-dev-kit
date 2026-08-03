@@ -24,7 +24,7 @@ import {
   type WorkflowAction,
 } from "./orchestrator-drive.js";
 import { ExpectationLedger, expectationFor } from "./orchestrator-expect.js";
-import { validateAndBound, type StepContract, type RouteProposal } from "./step-contract.js";
+import { validateAndBound, type StepContract, type RouteProposal } from "../../consort/orchestrator/contract/step-contract.js";
 export { ProtocolViolationError, UnexpectedCallbackError } from "./orchestrator-expect.js";
 
 export interface DriveEffects {
