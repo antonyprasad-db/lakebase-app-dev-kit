@@ -84,22 +84,30 @@ describe("parseSweepSpec", () => {
 describe("actionToHandoffPlan", () => {
   it("maps a build GREEN (driver) turn", () => {
     const p = actionToHandoffPlan({ kind: "invoke-role", role: "driver", story: "S1" });
-    expect(p).toEqual({ id: "S1-driver-green", role: "driver", story: "S1", buildMode: "green" });
+    expect(p).toMatchObject({ id: "S1-driver-green", role: "driver", story: "S1", buildMode: "green" });
   });
 
   it("maps a navigator REVIEW turn", () => {
     const p = actionToHandoffPlan({ kind: "invoke-role", role: "navigator", story: "S1", buildMode: "review" });
-    expect(p).toEqual({ id: "S1-navigator-review", role: "navigator", story: "S1", buildMode: "review" });
+    expect(p).toMatchObject({ id: "S1-navigator-review", role: "navigator", story: "S1", buildMode: "review" });
   });
 
   it("maps a design story turn (spec-author)", () => {
     const p = actionToHandoffPlan({ kind: "invoke-role", role: "spec-author", story: "S1" });
-    expect(p).toEqual({ id: "S1-spec-author", role: "spec-author", story: "S1" });
+    expect(p).toMatchObject({ id: "S1-spec-author", role: "spec-author", story: "S1" });
   });
 
   it("maps a design feature turn (ux-designer, no story)", () => {
     const p = actionToHandoffPlan({ kind: "invoke-role", role: "ux-designer" });
-    expect(p).toEqual({ id: "ux-designer", role: "ux-designer" });
+    expect(p).toMatchObject({ id: "ux-designer", role: "ux-designer" });
+  });
+
+  it("carries the resolved action so the walk runs the PINNED turn (never re-plans)", () => {
+    const action = { kind: "invoke-role", role: "spec-author", story: "S1" } as const;
+    const p = actionToHandoffPlan(action);
+    // The plan pins the exact action, so makeLiveSpawnTurn runs THIS role turn , not
+    // whatever planNextAction would return for the current (possibly-advanced) disk.
+    expect(p?.action).toEqual(action);
   });
 
   it("returns null for a non-invoke-role action (a gate / project-notes step)", () => {

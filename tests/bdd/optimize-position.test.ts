@@ -38,7 +38,7 @@ describe("positionToBuildHandoff", () => {
         performed.push(cmds as string[]);
       },
     });
-    expect(plan).toEqual({ id: "S1-navigator-red", role: "navigator", story: "S1", buildMode: "red" });
+    expect(plan).toMatchObject({ id: "S1-navigator-red", role: "navigator", story: "S1", buildMode: "red" });
     // it performed the two substrate steps (fork happened) but NOT the navigator turn
     expect(performed).toEqual([["dispatch-cmd"], ["cut-cmd"]]);
   });
@@ -48,7 +48,7 @@ describe("positionToBuildHandoff", () => {
       { action: { kind: "invoke-role", role: "driver", story: "S1" }, commands: ["driver-cmd"] },
     ]);
     const plan = await positionToBuildHandoff({ planNext, perform: async (c) => void performed.push(c as string[]) });
-    expect(plan).toEqual({ id: "S1-driver-green", role: "driver", story: "S1", buildMode: "green" });
+    expect(plan).toMatchObject({ id: "S1-driver-green", role: "driver", story: "S1", buildMode: "green" });
     expect(performed).toEqual([]);
   });
 

@@ -28,7 +28,7 @@ describe("positionToNextHandoff: design lane", () => {
       { action: { kind: "invoke-role", role: "architect-reviewer", story: "S1" }, commands: ["arch-cmd"] },
     ]);
     const plan = await positionToNextHandoff({ lane: "design", planNext, perform: async (c) => void performed.push(c as string[]) });
-    expect(plan).toEqual({ id: "S1-architect-reviewer", role: "architect-reviewer", story: "S1" });
+    expect(plan).toMatchObject({ id: "S1-architect-reviewer", role: "architect-reviewer", story: "S1" });
     expect(performed).toEqual([["surface-cmd"]]); // gate performed, role turn NOT
   });
 
@@ -47,7 +47,7 @@ describe("positionToNextHandoff: design lane", () => {
   it("lands on a design role turn immediately when already positioned", async () => {
     const { planNext, performed } = scripted([{ action: { kind: "invoke-role", role: "dba", story: "S1" }, commands: ["dba-cmd"] }]);
     const plan = await positionToNextHandoff({ lane: "design", planNext, perform: async (c) => void performed.push(c as string[]) });
-    expect(plan).toEqual({ id: "S1-dba", role: "dba", story: "S1" });
+    expect(plan).toMatchObject({ id: "S1-dba", role: "dba", story: "S1" });
     expect(performed).toEqual([]);
   });
 });
@@ -60,7 +60,7 @@ describe("positionToNextHandoff: build lane (unchanged behavior)", () => {
       { action: { kind: "invoke-role", role: "navigator", story: "S1" }, commands: ["nav"] },
     ]);
     const plan = await positionToNextHandoff({ lane: "build", planNext, perform: async (c) => void performed.push(c as string[]) });
-    expect(plan).toEqual({ id: "S1-navigator-red", role: "navigator", story: "S1", buildMode: "red" });
+    expect(plan).toMatchObject({ id: "S1-navigator-red", role: "navigator", story: "S1", buildMode: "red" });
     expect(performed).toEqual([["dispatch"], ["cut"]]);
   });
 });

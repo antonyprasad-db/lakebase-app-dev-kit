@@ -20,6 +20,7 @@
 
 import type { Candidate } from "./optimize-candidates.js";
 import { BASELINE_CANDIDATE_ID } from "./optimize-candidates.js";
+import type { WorkflowAction } from "./orchestrator-drive.js";
 
 /** One handoff to optimize (a single role turn at a point in the walk). */
 export interface HandoffPlan {
@@ -29,6 +30,12 @@ export interface HandoffPlan {
   story?: string;
   /** The build turn mode (green/review/refactor/...); absent for design turns. */
   buildMode?: string;
+  /** The resolved orchestrator action this handoff PINS. The walk runs THIS action's
+   *  role turn every trial , it never re-asks the orchestrator "what's next" (which
+   *  reads current disk state and, after the turn's artifact lands, returns the NEXT
+   *  role, running the wrong turn). Carrying the action makes the pinned turn explicit
+   *  and lossless (actionToHandoffPlan otherwise drops it). */
+  action?: WorkflowAction;
 }
 
 /** The measured outcome of running one candidate once. */

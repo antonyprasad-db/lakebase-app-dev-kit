@@ -13702,20 +13702,20 @@ function applyContentSeams(cfg, content) {
 var RECORD_DIR_ENV = "LAKEBASE_SFTDD_RECORD_DIR";
 function makeLiveSpawnTurn(featureId, seams) {
   return async ({ handoff, candidate, record }) => {
+    if (!handoff.action) {
+      throw new Error(
+        `optimize spawnTurn: handoff '${handoff.id}' carries no pinned action , cannot run its turn (actionToHandoffPlan must attach the resolved WorkflowAction).`
+      );
+    }
     const prior = process.env[RECORD_DIR_ENV];
     if (record && seams.recordDir) process.env[RECORD_DIR_ENV] = seams.recordDir;
     else delete process.env[RECORD_DIR_ENV];
     try {
       const cfg = applyContentSeams(seams.buildCfg(featureId), candidate.content);
       const runner = seams.execRunner(cfg);
-      const { action, commands } = await seams.planNextAction(cfg);
-      const planned = actionToHandoffPlan(action);
-      if (!planned || planned.id !== handoff.id) {
-        throw new Error(
-          `optimize spawnTurn: state drift , the walk is pinned on handoff '${handoff.id}' (${handoff.role}${handoff.buildMode ? "/" + handoff.buildMode : ""}) but planNextAction returned '${planned?.id ?? action.kind}'. Disk is not positioned on the pinned handoff (a snapshot/restore leak or a stray advance); refusing to run the wrong turn.`
-        );
-      }
-      for (const cmd of commands) await runner.run(cmd);
+      const commands = seams.commandsFor(handoff.action, cfg);
+      const roleTurn = commands.filter((c) => c.kind === "claude");
+      for (const cmd of roleTurn) await runner.run(cmd);
     } finally {
       if (prior === void 0) delete process.env[RECORD_DIR_ENV];
       else process.env[RECORD_DIR_ENV] = prior;
@@ -13984,10 +13984,10 @@ function actionToHandoffPlan(action) {
   const buildMode = "buildMode" in action ? action.buildMode : void 0;
   if (role === "driver" || role === "navigator") {
     const mode = buildMode ?? (role === "driver" ? "green" : "red");
-    return { id: `${story}-${role}-${mode}`, role, story, buildMode: mode };
+    return { id: `${story}-${role}-${mode}`, role, story, buildMode: mode, action };
   }
   const idParts = [story, role].filter(Boolean);
-  return { id: idParts.join("-"), role, story };
+  return { id: idParts.join("-"), role, story, action };
 }
 function isBuildHandoff(plan) {
   return (plan.role === "driver" || plan.role === "navigator") && !!plan.buildMode;
@@ -14002,7 +14002,10 @@ function buildCtxForHandoff(handoff, loc) {
     spawnTurn: makeLiveSpawnTurn(featureId, {
       buildCfg: (fid) => buildCfg({ feature: fid, projectDir }, fid),
       execRunner: (cfg) => execRunner(cfg),
-      planNextAction: (cfg) => planNextAction(cfg),
+      // Build the PINNED action's command list (commandsForAction), so the spawn runs
+      // the handoff's OWN role turn , NOT planNextAction's "what's next" (which would
+      // advance to the next role once the artifact lands).
+      commandsFor: (action, cfg) => commandsForAction(action, cfg),
       // Only the WINNER capture records into the corpus. makeLiveSpawnTurn sets
       // RECORD_DIR for record:true and clears it for trials, so a losing candidate
       // never pollutes the shippable corpus. The corpus dir is the runbook's

@@ -10,6 +10,12 @@ interface HandoffPlan {
     story?: string;
     /** The build turn mode (green/review/refactor/...); absent for design turns. */
     buildMode?: string;
+    /** The resolved orchestrator action this handoff PINS. The walk runs THIS action's
+     *  role turn every trial , it never re-asks the orchestrator "what's next" (which
+     *  reads current disk state and, after the turn's artifact lands, returns the NEXT
+     *  role, running the wrong turn). Carrying the action makes the pinned turn explicit
+     *  and lossless (actionToHandoffPlan otherwise drops it). */
+    action?: WorkflowAction;
 }
 
 interface OptimizeArgs {

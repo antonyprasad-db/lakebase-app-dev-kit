@@ -200,7 +200,12 @@ export function applyContentSeams(cfg: DriveEffectsConfig, content: Candidate["c
 export interface LiveDriveSeams {
   buildCfg(featureId: string): DriveEffectsConfig;
   execRunner(cfg: DriveEffectsConfig): { run(cmd: unknown): Promise<void> };
-  planNextAction(cfg: DriveEffectsConfig): Promise<{ action: unknown; commands: unknown[] }>;
+  /** Build the drive command list for a SPECIFIC (pinned) action, i.e.
+   *  orchestrator-effects `commandsForAction`. The walk runs the PINNED handoff's
+   *  action , it does NOT call planNextAction (which reads current disk state and,
+   *  once the turn's artifact lands, returns the NEXT role, running the wrong turn).
+   *  Injected (not imported) so optimize-live stays hermetically testable. */
+  commandsFor(action: WorkflowAction, cfg: DriveEffectsConfig): unknown[];
   /** The corpus dir a WINNER capture records into (turns/ + recorded-artifacts/).
    *  A TRIAL (record:false) must NOT record , only the winner. When absent, no turn
    *  records (a pure-timing sweep). This is the single door for "does this turn land
@@ -213,9 +218,22 @@ export interface LiveDriveSeams {
 const RECORD_DIR_ENV = "LAKEBASE_SFTDD_RECORD_DIR";
 
 /** Build the REAL spawnTurn: for a candidate, construct a fresh drive cfg, thread
- *  the candidate's content seams, plan the ONE next handoff, and run only that
- *  handoff's commands through execRunner (which spawns the `claude -p` turn + emits
- *  turn.usage).
+ *  the candidate's content seams, and run the PINNED handoff's ROLE TURN through
+ *  execRunner (which spawns the `claude -p` turn + emits turn.usage).
+ *
+ *  It runs the handoff's OWN action (handoff.action), NOT "whatever planNextAction
+ *  says is next". planNextAction reads current disk state, so once the turn's artifact
+ *  lands it returns the NEXT role , a spec-author sweep would then run ux-designer,
+ *  which flakes and crashes the whole sweep on the drive's exit path. Each handoff is
+ *  a well-defined interface (role + inputs -> artifact passing a gate); the walk runs
+ *  THAT interface. From the pinned action's command list we run ONLY the `claude`
+ *  command , the role satisfying its interface. The drive-bookkeeping commands
+ *  (reset-breakdown / verify-artifact / sync-breakdown / test-list / reconcile) are
+ *  role-specific IMPLEMENTATION DETAIL of a full drive turn; they are NOT needed here
+ *  (the harness's own gate, evaluateDesignGate in runTrial, reads the raw artifact the
+ *  agent wrote) and verify-artifact in particular throws on the drive's process-level
+ *  exit-3 path, OUTSIDE the walk's guards. Running just the agent's turn keeps the
+ *  crash-handling inside the harness.
  *
  *  Recording is gated on the `record` flag , the load-bearing anti-pollution fix.
  *  A champion walk runs N candidates x M TRIALS per handoff; only the WINNER (a
@@ -228,6 +246,14 @@ const RECORD_DIR_ENV = "LAKEBASE_SFTDD_RECORD_DIR";
  *  LAKEBASE_SFTDD_REPLAY_BUILD_DIR (that would fake GREEN). */
 export function makeLiveSpawnTurn(featureId: string, seams: LiveDriveSeams): SpawnTurn {
   return async ({ handoff, candidate, record }) => {
+    // The walk pins the action at positioning; a HandoffPlan without one is a caller
+    // bug (never re-plan to recover it , that is the wrong-role trap this fixes).
+    if (!handoff.action) {
+      throw new Error(
+        `optimize spawnTurn: handoff '${handoff.id}' carries no pinned action , cannot run its turn ` +
+          `(actionToHandoffPlan must attach the resolved WorkflowAction).`,
+      );
+    }
     // Set the recorder env for THIS spawn only: the winner capture records into
     // seams.recordDir; a trial clears it so nothing lands in the corpus. Restore the
     // prior value in a finally so a winner never leaks recording into later trials.
@@ -237,27 +263,12 @@ export function makeLiveSpawnTurn(featureId: string, seams: LiveDriveSeams): Spa
     try {
       const cfg = applyContentSeams(seams.buildCfg(featureId), candidate.content);
       const runner = seams.execRunner(cfg);
-      // planNextAction reads the CURRENT disk state to find the next turn. The walk's
-      // snapshot/restore is SUPPOSED to keep disk positioned on the pinned handoff,
-      // but if any state leaks (a restore that missed, a recordWinner that advanced
-      // then a stray spawn), planNextAction silently returns a DIFFERENT role's turn
-      // , which then runs the wrong agent, flakes, and its throw escapes to kill the
-      // whole sweep (observed: a spec-author sweep spawned a ux-designer turn that
-      // errored). GUARD: the planned action MUST match the pinned handoff. On a
-      // mismatch throw a clear error , runChampionWalk's per-trial catch turns that
-      // into a disqualification instead of a cryptic wrong-role crash, and the guard
-      // NAMES the drift (pinned vs planned) so the real cause is visible.
-      const { action, commands } = await seams.planNextAction(cfg);
-      const planned = actionToHandoffPlan(action as WorkflowAction);
-      if (!planned || planned.id !== handoff.id) {
-        throw new Error(
-          `optimize spawnTurn: state drift , the walk is pinned on handoff '${handoff.id}' ` +
-            `(${handoff.role}${handoff.buildMode ? "/" + handoff.buildMode : ""}) but planNextAction ` +
-            `returned '${planned?.id ?? (action as WorkflowAction).kind}'. Disk is not positioned on the ` +
-            `pinned handoff (a snapshot/restore leak or a stray advance); refusing to run the wrong turn.`,
-        );
-      }
-      for (const cmd of commands) await runner.run(cmd);
+      // Build the PINNED action's command list, then run ONLY the role's `claude`
+      // command (the role satisfying its interface) , not the drive bookkeeping
+      // appendix. No planNextAction: we run the turn we pinned, not the next one.
+      const commands = seams.commandsFor(handoff.action, cfg) as Array<{ kind?: string }>;
+      const roleTurn = commands.filter((c) => c.kind === "claude");
+      for (const cmd of roleTurn) await runner.run(cmd);
     } finally {
       if (prior === undefined) delete process.env[RECORD_DIR_ENV];
       else process.env[RECORD_DIR_ENV] = prior;

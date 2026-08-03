@@ -173,9 +173,10 @@ describe("makeLiveSpawnTurn: recording is gated on the `record` flag (only winne
   // the moment the runner runs a command.
   const RECORD_ENV = "LAKEBASE_SFTDD_RECORD_DIR";
 
-  // planNextAction returns the spec-author breakdown action, so it MATCHES the
-  // pinned handoff (id "S1-spec-author") , the guard passes and the run proceeds.
-  const specAuthorAction = { kind: "invoke-role", role: "spec-author", story: "S1" };
+  // The pinned handoff carries its action; commandsFor returns that action's command
+  // list (a claude turn + the drive appendix). The spawn runs ONLY the claude turn.
+  const specAuthorAction = { kind: "invoke-role", role: "spec-author", story: "S1" } as never;
+  const pinnedHandoff = { id: "S1-spec-author", role: "spec-author", action: specAuthorAction };
   function seams(recordDir: string, seenEnv: (v: string | undefined) => void) {
     return {
       recordDir,
@@ -185,7 +186,7 @@ describe("makeLiveSpawnTurn: recording is gated on the `record` flag (only winne
           seenEnv(process.env[RECORD_ENV]);
         },
       }),
-      planNextAction: async () => ({ action: specAuthorAction, commands: [{ kind: "claude" }] }),
+      commandsFor: () => [{ kind: "claude" }],
     };
   }
 
@@ -199,7 +200,7 @@ describe("makeLiveSpawnTurn: recording is gated on the `record` flag (only winne
     delete process.env[RECORD_ENV];
     let seen: string | undefined = "unset-sentinel";
     const spawn = makeLiveSpawnTurn(featureId, seams("/corpus/dir", (v) => (seen = v)) as never);
-    await spawn({ handoff: { id: "S1-spec-author", role: "spec-author" }, candidate: { id: "baseline", configOverrides: {} }, record: false });
+    await spawn({ handoff: pinnedHandoff, candidate: { id: "baseline", configOverrides: {} }, record: false });
     expect(seen).toBeUndefined(); // no record dir visible to the turn
   });
 
@@ -207,46 +208,65 @@ describe("makeLiveSpawnTurn: recording is gated on the `record` flag (only winne
     delete process.env[RECORD_ENV];
     let seen: string | undefined;
     const spawn = makeLiveSpawnTurn(featureId, seams("/corpus/dir", (v) => (seen = v)) as never);
-    await spawn({ handoff: { id: "S1-spec-author", role: "spec-author" }, candidate: { id: "baseline", configOverrides: {} }, record: true });
+    await spawn({ handoff: pinnedHandoff, candidate: { id: "baseline", configOverrides: {} }, record: true });
     expect(seen).toBe("/corpus/dir");
   });
 
   it("restores the ambient RECORD_DIR after a winner capture (no leak to later trials)", async () => {
     delete process.env[RECORD_ENV];
     const spawn = makeLiveSpawnTurn(featureId, seams("/corpus/dir", () => {}) as never);
-    await spawn({ handoff: { id: "S1-spec-author", role: "spec-author" }, candidate: { id: "baseline", configOverrides: {} }, record: true });
+    await spawn({ handoff: pinnedHandoff, candidate: { id: "baseline", configOverrides: {} }, record: true });
     expect(process.env[RECORD_ENV]).toBeUndefined(); // restored after the spawn
   });
 });
 
-describe("makeLiveSpawnTurn: state-drift guard (never run the wrong role's turn)", () => {
-  // The wrong-role bug: planNextAction reads CURRENT disk state, so if the walk's
-  // snapshot/restore leaks state, it silently returns a DIFFERENT role's turn (a
-  // spec-author sweep spawned a ux-designer turn, which flaked and killed the whole
-  // sweep). The spawn must REFUSE to run a turn that does not match the pinned handoff
-  // , surfacing the drift instead of running the wrong agent + crashing cryptically.
-  let ran = false;
-  function seams(plannedAction: unknown) {
+describe("makeLiveSpawnTurn: runs the PINNED turn's interface, never re-plans", () => {
+  // The wrong-role bug: the spawn used to call planNextAction, which reads CURRENT
+  // disk state and, once the turn's artifact lands, returns the NEXT role , a
+  // spec-author sweep then ran a ux-designer turn that flaked + crashed the sweep.
+  // Fix: the spawn runs handoff.action's OWN command list (commandsFor), and only its
+  // `claude` command (the role satisfying its interface) , not the drive-bookkeeping
+  // appendix (reset/verify/sync/test), and never a re-planned "next" turn.
+  const specAuthorAction = { kind: "invoke-role", role: "spec-author", story: "S1" } as never;
+
+  function seams(ran: Array<{ kind?: string }>, commands: Array<{ kind?: string }>, sawAction: (a: unknown) => void) {
     return {
       buildCfg: () => ({ projectDir, sftddDir, featureId }) as never,
-      execRunner: () => ({ async run() { ran = true; } }),
-      planNextAction: async () => ({ action: plannedAction, commands: [{ kind: "claude" }] }),
+      execRunner: () => ({ async run(cmd: unknown) { ran.push(cmd as { kind?: string }); } }),
+      commandsFor: (action: unknown) => { sawAction(action); return commands; },
     };
   }
 
-  it("throws (does not run) when planNextAction returns a DIFFERENT handoff than pinned", async () => {
-    ran = false;
-    const spawn = makeLiveSpawnTurn(featureId, seams({ kind: "invoke-role", role: "ux-designer" }) as never);
-    await expect(
-      spawn({ handoff: { id: "S1-spec-author", role: "spec-author" }, candidate: { id: "baseline", configOverrides: {} }, record: false }),
-    ).rejects.toThrow(/state drift|pinned on handoff 'S1-spec-author'/);
-    expect(ran).toBe(false); // the wrong turn NEVER ran
+  it("runs ONLY the pinned action's `claude` command , not the verify/sync/test appendix", async () => {
+    const ran: Array<{ kind?: string }> = [];
+    let passedAction: unknown;
+    // commandsFor returns a full drive command list; the spawn must run only claude.
+    const fullList = [
+      { kind: "cli", bin: "reset-breakdown" },
+      { kind: "claude", role: "spec-author" },
+      { kind: "verify-artifact", role: "spec-author" },
+      { kind: "cli", bin: "sync-breakdown" },
+      { kind: "cli", bin: "test-list" },
+    ];
+    const spawn = makeLiveSpawnTurn(featureId, seams(ran, fullList, (a) => (passedAction = a)) as never);
+    await spawn({
+      handoff: { id: "S1-spec-author", role: "spec-author", action: specAuthorAction },
+      candidate: { id: "baseline", configOverrides: {} },
+      record: false,
+    });
+    // Exactly one command ran, and it was the claude turn , NO verify-artifact (the
+    // command that threw ArtifactOutOfRootError on the drive's exit-3 path).
+    expect(ran).toEqual([{ kind: "claude", role: "spec-author" }]);
+    // commandsFor was asked for the PINNED action, not a re-planned "next" one.
+    expect(passedAction).toBe(specAuthorAction);
   });
 
-  it("runs normally when the planned action matches the pinned handoff", async () => {
-    ran = false;
-    const spawn = makeLiveSpawnTurn(featureId, seams({ kind: "invoke-role", role: "spec-author", story: "S1" }) as never);
-    await spawn({ handoff: { id: "S1-spec-author", role: "spec-author" }, candidate: { id: "baseline", configOverrides: {} }, record: false });
-    expect(ran).toBe(true);
+  it("throws if the handoff carries no pinned action (never re-plans to recover it)", async () => {
+    const ran: Array<{ kind?: string }> = [];
+    const spawn = makeLiveSpawnTurn(featureId, seams(ran, [{ kind: "claude" }], () => {}) as never);
+    await expect(
+      spawn({ handoff: { id: "S1-spec-author", role: "spec-author" }, candidate: { id: "baseline", configOverrides: {} }, record: false }),
+    ).rejects.toThrow(/no pinned action|actionToHandoffPlan/);
+    expect(ran).toEqual([]); // nothing ran
   });
 });

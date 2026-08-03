@@ -29,7 +29,7 @@ import { runChampionWalk, type HandoffPlan, type HandoffResult } from "./optimiz
 import type { BuildTurn, EffortLevel } from "./sftdd-config.js";
 import type { SpawnableAgentRole } from "./agent-models.js";
 import { buildCfg, execRunner } from "./drive.cli.js";
-import { planNextAction } from "./orchestrator-effects.js";
+import { planNextAction, commandsForAction } from "./orchestrator-effects.js";
 import { resolveSftddDir } from "./sftdd-paths.js";
 import { makeChampionWalkDeps, makeLiveSpawnTurn, makeBuildGate, makeBuildSnapshotDeps, positionToBuildHandoff, positionToNextHandoff, runLaneSweep, readLastTurnTokens, type OptimizeLiveCtx } from "./optimize-live.js";
 import { actionLane } from "./orchestrator-drive.js";
@@ -142,15 +142,16 @@ export function actionToHandoffPlan(action: WorkflowAction): HandoffPlan | null 
 
   // Build turns: driver's plain turn is GREEN (no explicit buildMode); navigator's
   // plain turn is RED. A carried buildMode (review/refactor/...) names itself.
+  // The `action` is carried so the walk runs THIS pinned turn (never re-plans).
   if (role === "driver" || role === "navigator") {
     const mode = buildMode ?? (role === "driver" ? "green" : "red");
-    return { id: `${story}-${role}-${mode}`, role, story, buildMode: mode };
+    return { id: `${story}-${role}-${mode}`, role, story, buildMode: mode, action };
   }
 
   // Design turns: story-scoped roles carry a story; feature-scoped (ux-designer)
   // + planning-mode turns do not.
   const idParts = [story, role].filter(Boolean);
-  return { id: idParts.join("-"), role, story };
+  return { id: idParts.join("-"), role, story, action };
 }
 
 /** Whether a handoff plan is a BUILD turn (navigator/driver with a buildMode). */
@@ -176,7 +177,10 @@ function buildCtxForHandoff(
     spawnTurn: makeLiveSpawnTurn(featureId, {
       buildCfg: (fid) => buildCfg({ feature: fid, projectDir } as never, fid),
       execRunner: (cfg) => execRunner(cfg as never) as { run(cmd: unknown): Promise<void> },
-      planNextAction: (cfg) => planNextAction(cfg as never),
+      // Build the PINNED action's command list (commandsForAction), so the spawn runs
+      // the handoff's OWN role turn , NOT planNextAction's "what's next" (which would
+      // advance to the next role once the artifact lands).
+      commandsFor: (action, cfg) => commandsForAction(action as never, cfg as never),
       // Only the WINNER capture records into the corpus. makeLiveSpawnTurn sets
       // RECORD_DIR for record:true and clears it for trials, so a losing candidate
       // never pollutes the shippable corpus. The corpus dir is the runbook's
