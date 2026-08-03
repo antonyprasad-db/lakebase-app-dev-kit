@@ -1,10 +1,9 @@
 # Optimize harness — index (where things are + what they do)
 
-## ★ ROOT CAUSE: design lane stalls at feature-complete with an EMPTY pipeline ★
-Symptom: after breakdown (+ ux-designer), the drive reports `feature-complete` and 0 per-story handoffs (architect/dba/test-strategist never reached); pipeline.json has no stories. NOT a scenario/kit bug.
-CAUSE: `makeLiveSpawnTurn` (optimize-live.ts:~305) runs ONLY the `claude` command of a turn's command list and DROPS the drive appendix. For a plain design/build turn that appendix is bookkeeping (verify/sync/test) that the harness re-checks itself — fine. BUT spec-author BREAKDOWN's appendix includes `sync-breakdown` (orchestrator-effects.ts:1356), which is LOAD-BEARING: it projects pipeline.json from the stories/ stubs. Dropping it => empty pipeline => nextDesignAction's per-story loop is empty => design-complete => feature-complete. recordWinner restores the artifact but NOT the pipeline.
-PROOF: run `sync-breakdown` manually after a swept breakdown -> `+3 (...); 3 tracked` and the drive immediately advances to the per-story spec-author turn. sync-breakdown itself is 100% fine; it was just never run.
-FIX DIRECTION: a swept/advanced BREAKDOWN turn must ALSO run sync-breakdown (its appendix), not just claude. advanceOne already runs the FULL command list (commit c8be6128); the SWEEP/record path (makeLiveSpawnTurn + recordWinner) still needs breakdown's sync-breakdown to run so the winner-record advances the pipeline. Options: (a) after recordWinner for a breakdown turn, run sync-breakdown; (b) don't claude-only-filter substrate commands whose absence blocks lane progression (reset-breakdown/sync-breakdown), keep filtering only the ones that throw on the exit-3 path (verify-artifact).
+## ★ ROOT CAUSE (FIXED c1c4a7f1): design lane stalled at feature-complete with an EMPTY pipeline ★
+Symptom (was): after breakdown (+ ux-designer), the drive reported `feature-complete` with 0 per-story handoffs (architect/dba/test-strategist never reached); pipeline.json had no stories. NOT a scenario/kit bug.
+CAUSE: `makeLiveSpawnTurn` (optimize-live.ts) used to run ONLY the `claude` command and DROP the turn's appendix. spec-author BREAKDOWN's appendix includes `sync-breakdown` (orchestrator-effects.ts:1356), which is LOAD-BEARING: it projects pipeline.json from the stories/ stubs. Dropping it => empty pipeline => nextDesignAction's per-story loop empty => design-complete => feature-complete. (recordWinner restored the artifact but not the pipeline.) Proven: manual `sync-breakdown` after a swept breakdown -> `+3; 3 tracked` and the drive immediately advanced to the per-story spec-author turn.
+FIX (DONE, c1c4a7f1, option b): `makeLiveSpawnTurn` now runs claude + the load-bearing substrate (cli/sync-backlog/set-phase), filtering out ONLY `verify-artifact` (the exit-3 ArtifactOutOfRootError thrower; the harness gates the artifact itself via evaluateDesignGate). The design snapshot restores the whole .sftdd between trials, so substrate mutations (pipeline.json) are undone per candidate. advanceOne also runs the full list (c8be6128). Test: optimize-live.test.ts "runs the claude turn AND its load-bearing substrate ... EXCLUDING only verify-artifact".
 
 ## Kit bin names (exact , do not guess)
 - pipeline CLI = `lakebase-sftdd-pipeline` (PIPELINE_BIN, orchestrator-effects.ts:1095). Subcommands: `sync-breakdown`, `reset-breakdown`, `accept`, ... Invoke via the PROJECT's `./scripts/lk lakebase-sftdd-pipeline <sub> --feature <F> --tdd-dir .sftdd` (run from the project dir; NOT from the kit dir).
@@ -48,89 +47,29 @@ deps.runTrial (optimize-live.ts):
    is what recordWinner RESTORES to advance — no re-spawn. commit d22f1cd1.)
 deps.spawnTurn = makeLiveSpawnTurn:
   record?RECORD_DIR=recordDir:delete RECORD_DIR  ← #3 fix: only winners record
-  → buildCfg → commandsFor(handoff.action) → run ONLY the `claude` cmd (real `claude -p`)
-    ← #2 PINNED-TURN fix (12a55dd2): the spawn runs the handoff's OWN action, filtered to
-      kind==="claude" (drops the drive verify/sync/test appendix); it NEVER calls
-      planNextAction (which re-plans to the NEXT role once the artifact lands = wrong-role
-      turn → verify-artifact throw → phantom drive main() → exit 3). HandoffPlan carries `action`.
+  → buildCfg → commandsFor(handoff.action) → run all cmds EXCEPT verify-artifact (real `claude -p`
+    + load-bearing substrate like sync-breakdown; c1c4a7f1)
+    ← PINNED-TURN (12a55dd2): the spawn runs the handoff's OWN action (never planNextAction,
+      which would re-plan to the NEXT role = wrong-role turn). verify-artifact is excluded
+      (it throws ArtifactOutOfRootError → phantom drive main() → exit 3); sync-breakdown etc.
+      are KEPT (load-bearing , they advance the pipeline). HandoffPlan carries `action`.
 ```
 NOTE: the phantom drive main() came from tsup `splitting:false` inlining drive.cli.ts into
 optimize.cli.js; fixed by extracting the seams to drive-runner.ts (no main()), commit
 96b1ea98. See memory `reference_tsup_inlined_isclientry_double_main`.
 
-## VERIFIED runtime truth (2026-08-02) — reconcile the design against what actually runs
+## Exit-3 arc (RESOLVED , provenance only)
 
-> **STATUS: RESOLVED.** The root cause below (harness dragged in the drive loop + its
-> exit-3 main) was fixed by the pinned-turn change (`12a55dd2`) + the drive-runner
-> extraction (`96b1ea98`). The narrative is kept for provenance; "Fix direction (not yet
-> done)" at the end is now DONE. Do not treat this as open work.
-
-Three live diagnostic runs (all exit 3) forced reading the COMPILED bin, not the
-source structure. The findings, written down so they are not re-derived:
-
-1. **`spawnTurn` for one design turn is NOT one `claude -p` , it is a multi-command
-   list run through `execRunner`.** `commandsForAction(invoke-role spec-author/breakdown)`
-   returns `[reset-breakdown (cli), claude, verify-artifact, sync-breakdown (cli),
-   test-list (cli)]` (orchestrator-effects.ts ~1230-1290). `execRunner.run` executes
-   each: cli commands `spawnCmd("node", <kit-bin>)`, the claude command spawns the
-   agent. **`verify-artifact` throws `ArtifactOutOfRootError` IN-PROCESS** when the
-   agent wrote its artifact to the malformed hyphen-joined sibling root and the stray
-   relocation found nothing (stray-artifact-recovery.ts).
-
-2. **The optimize bin BUNDLES `runDriver` + the `[drive] NNN dispatch` onAction logger
-   + `padStart(3)`** (7 `runDriver` refs, 13 `lakebase-sftdd-drive` refs, `[drive] ${`
-   template, all in dist/scripts/sftdd/optimize.cli.js). The live run's numbered
-   `[drive] 000 dispatch spec-author`, `001 dispatch ux-designer` lines are the
-   runDriver `onAction` narration , i.e. a **runDriver-style action loop is executing
-   inside the optimize process**, even though optimize-live's `makeLiveSpawnTurn` is
-   supposed to run exactly ONE `planNextAction` result per spawn. The design says
-   "one handoff per spawn"; the runtime says "a drive loop ran (000→001→…→deploy)".
-
-3. **The observed crash sequence (single-handoff spec-author sweep, trials=2):**
-   turn1 spec-author 97s (trial-0, recorded, gate ok) → turn2 spec-author 129s
-   (trial-1, recorded, gate ok) → turn3 spec-author 103s (recordWinner, advances, NO
-   restore) → **turn4 ux-designer 165s** (a turn NOBODY in the harness intended) →
-   its `verify-artifact` throws ArtifactOutOfRootError → the drive `main()` catch
-   (`[drive] ${err.message}` + `return 3`) fires → exit 3. Neither the per-trial catch
-   (#1) nor the drift guard printed, because turn4 did not go through
-   `runChampionWalk`'s trial loop OR `makeLiveSpawnTurn`'s guard , it ran on a code
-   path the harness does not wrap.
-
-### THE STRUCTURAL PROBLEM (the actual root cause)
-
-The harness was built as "inject thin seams (`execRunner`, `planNextAction`) and run
-ONE turn per spawn." But `execRunner`/`buildCfg` were extracted from the SAME drive
-`cfg` that also carries the full runDriver loop (`onAction`, the numbered dispatch,
-`commandsForAction` that appends verify + sync + test-list, the `main()` exit-3
-handler). Through many refactors the "one turn" seam and the "whole drive loop"
-machinery were never actually separated , they share `cfg` and the same command list.
-So the harness cannot run one isolated turn: whatever it invokes drags the drive's
-loop + its own top-level exit-3 error handling, which lands OUTSIDE every guard the
-harness added. That is why each fix (crash-catch, drift-guard, record-gate) is correct
-in isolation yet the sweep still exits 3: the crash happens on the drive's loop/main
-path, not the harness's.
-
-**Fix direction (not yet done) , frame it as INTERFACE vs IMPLEMENTATION:**
-
-Each handoff obeys a well-defined interface (a contract): *role R, given its inputs
-(the upstream artifacts on disk), produces artifact A that passes gate G.* That
-contract is all the optimize harness needs , it should invoke the role against the
-contract and check the produced artifact, timing the wall-clock. Everything else the
-drive does around a turn , `reset-breakdown`, `sync-breakdown`, `test-list`,
-`verify-artifact`, the numbered `onAction` narration, the runDriver loop, the `main()`
-exit-3 handler , is ROLE-SPECIFIC IMPLEMENTATION DETAIL that lives INSIDE the drive.
-The harness must not re-run the drive's loop + appendix per trial; it drags in exactly
-the machinery (verify-artifact throw, main() return 3) that crashes outside the
-harness's guards.
-
-Concretely: give the harness a single-turn entry keyed on the handoff CONTRACT , run
-role R's `claude` command from the current (snapshot-pinned) inputs, then evaluate the
-contract (artifact A present + gate G) as the harness's OWN check , NOT by replaying
-the drive's command list (which appends verify/sync/test-list and routes failures
-through the drive's process-level exit-3). The candidate levers (model/effort/prompt/
-tool-scope) are the implementation knobs swept WITHIN that one contract-satisfying
-turn. This makes each trial "one role satisfying one interface," which is what the
-champion walk was always meant to measure.
+The first ~5 live runs all died exit 3. Root cause was TWO things, both fixed:
+(1) the spawn called `planNextAction` and re-planned to the NEXT role once the artifact
+landed (wrong-role turn) → its `verify-artifact` threw ArtifactOutOfRootError; fixed by
+PINNED-TURN (`12a55dd2`) , the spawn runs the handoff's OWN action, never re-plans.
+(2) tsup `splitting:false` inlined drive.cli's `if(isCliEntry)main()` into optimize.cli.js
+→ a PHANTOM drive `main()` fired every turn and returned 3 on that throw; fixed by
+extracting the seams to drive-runner.ts (no main()), `96b1ea98`.
+Then a SEPARATE issue: the pinned spawn ran claude-ONLY, dropping the load-bearing
+sync-breakdown → empty pipeline → feature-complete stall (see the ROOT CAUSE section at
+top; fixed c1c4a7f1 by running all cmds except verify-artifact). All resolved; not open work.
 
 ## THE LOOP I RUN (rinse-repeat, one role at a time, start to end) — FOLLOW THIS EXACTLY
 
@@ -157,12 +96,14 @@ Per role:
    Earlier I scrubbed it (git checkout+clean) , that was the mistake; it deleted the very
    corpus that avoids re-running. Only the PROJECT's experiments/ scratch is disposable.
 4. **APPLY the winner INTO THE KIT** (the mandatory pause before the next role):
-   - If the winning lever is model/effort/scope: make the typed-source default edit in
-     `sftdd-config.ts` (defaultEffort/defaultSftddConfig or modelForRole) + a regression
-     test asserting it; OR run `node dist/scripts/sftdd/optimize-apply.cli.js --project-dir $P --handoff <id> --candidate <id> --kit-dir <consort>` and hand-verify the edit.
+   - If a CONFIG lever won (model/effort, scalar or per-turn/step): `applyWinnerToOverlay`
+     writes it into `optimized-defaults.json` (DATA, deep-merged by defaultSftddConfig ,
+     NEVER a TS source rewrite; that is the single-source rule). See optimize-apply.ts.
+   - If a CONTENT lever won (scan-tight/taskSuffix/tool-scope): `applyAgentMdLevers` edits
+     the role's `skills/consort/agents/<role>.md` (directive / `tools:` frontmatter).
    - If the winner is BASELINE (no lever beat it): nothing to apply; note it and move on.
-   - `npm run typecheck && npx vitest run tests/bdd/optimize-*.test.ts <the regression test>`
-   - `npm run build` + `git add -f dist` + `git add <source>` + commit.
+   - `npm run build` (inlines optimized-defaults.json into dist) + `git add -f dist` +
+     `git add <the overlay / agent md>` + LOCAL commit (never push).
 5. **MOVE FORWARD:** the drive already advanced in step 1; the next `optimize-scenario.sh`
    run positions on the next role automatically. Repeat 1-5 down the design lane
    (spec-author -> architect-reviewer[or projected, no turn] -> dba -> test-strategist ->
@@ -264,13 +205,15 @@ auto-deny. acceptEdits is honored + grants Write AND Bash headless. See memory
 
 ## Runbooks + tests
 
-- `examples/sftdd-scenarios/optimize-scenario.sh` — the run wrapper (single-handoff or `--sweep-lane`).
-- `examples/sftdd-scenarios/watch-artifacts.sh` — Monitor-friendly artifact watcher (ART/GROW/DIR/HALT/DONE); judges a run by what lands on disk, not log strings.
-- Tests: `tests/bdd/optimize-*.test.ts` (16 files, 125 tests). Live: `tests/live/*`.
+- `examples/sftdd-scenarios/optimize-scenario.sh` — the run wrapper. USE single-handoff (no `--sweep-lane`).
+- `examples/sftdd-scenarios/archive-optimize-results.sh` — copies a role's results into the committed optimize-results/<handoff>/ (summary.json + report.md + champion-walk.json + per-candidate trials) so metrics survive project teardown.
+- `examples/sftdd-scenarios/watch-artifacts.sh` — Monitor-friendly artifact watcher.
+- Tests: `tests/bdd/optimize-*.test.ts`. Live: `tests/live/*`.
 
-## Scenario corpus
-
-`examples/sftdd-scenarios/stockflow-optimize/` — intake/ + recorded-artifacts/features/F1-stock-visibility/feature-request.md + scenario.json.pending (tiers 2, uiTrack, python, self-hosted). Corpus dirs (turns/, recorded-artifacts/design/) are PRODUCED by a run (winners only).
+## Scenario corpus + where results/metrics live
+- `examples/sftdd-scenarios/stockflow-optimize/` — intake/ + scenario.json.pending (tiers 2, uiTrack, python, self-hosted). `recorded-artifacts/` + `turns/` are the KEPT, COMMITTED REPLAY CORPUS (winners' .sftdd output); set LAKEBASE_SFTDD_REPLAY_DIR to it to fast-forward. Do NOT scrub it.
+- `examples/sftdd-scenarios/optimize-results/<handoff>/` — COMMITTED run metrics: summary.json (per-candidate median/gate/cost + winner), report.md (champion-walk table), champion-walk.json, per-candidate trial result.json. The source of truth for metrics; survives teardown.
+- `<project>/experiments/` — raw per-candidate trial scratch (disposable, dies with the project). Run logs: /tmp/optimize-*.log.
 
 ## CLI scope: `--sweep-lane` vs single-handoff, and `--from`
 
@@ -283,51 +226,17 @@ auto-deny. acceptEdits is honored + grants Write AND Bash headless. See memory
 > exits; re-run for the next role. The reference below is kept only to explain WHY the lane
 > path is off , not as a thing to run.
 
-Two mutually exclusive paths in `main()`:
+`main()` has two paths: **single-handoff (default)** , sweeps the ONE handoff the drive
+sits on (`planNextAction` → `actionToHandoffPlan`; candidates = `--candidates` spec or
+`defaultLaneCandidates(handoff)`), records the winner (advances the drive), exits. This is
+the one to use. **`--sweep-lane design|build` + `--from`** , walks the whole lane via
+`runLaneSweep`/`positionToNextHandoff`/`advanceOne`; BROKEN in practice (stalls at
+feature-complete, empty pipeline), so do not use it. The code still exists (and its unit
+tests pass) but the live path is unreliable; the single-handoff loop is the proven method.
 
-- **Single-handoff (default, no `--sweep-lane`):** sweeps EXACTLY the one handoff the
-  drive is currently positioned on (`planNextAction` → `actionToHandoffPlan`). Candidates
-  = `--candidates` spec if given, else `defaultLaneCandidates(handoff)` fallback (so a
-  design role's scalar model/effort/scan levers get swept without the lane loop). To
-  sweep JUST architect-reviewer this way you must first advance the drive to sit on it.
-  `--from` is IGNORED here (it's parsed but only consumed by the lane path).
-- **`--sweep-lane design|build`:** `runLaneSweep` walks EVERY role handoff in the lane
-  sequentially (`positionToNextHandoff` advances + performs substrate between handoffs),
-  champion-walking each with `defaultLaneCandidates`, `alwaysAdvance:true` (records each
-  winner locally so the next handoff plans from it — the design lane's inter-turn dep).
-  `proposeOnly` here gates only KIT persistence, never the local advance.
-
-**`--from <handoff|role>` (lane-sweep only, optimize.cli.ts:301-310 `advanceOne`):** every
-handoff BEFORE the match is a settled upstream role — `advanceOne` runs its BASELINE once
-(trials=1, alwaysAdvance) to move the drive forward WITHOUT sweeping its candidates; the
-target handoff and everything AFTER it are champion-walked. Matches an exact id OR a bare
-role (`optimize-lane-sweep.test.ts` startFrom cases). **Consequence:** `--sweep-lane design
---from architect-reviewer` sweeps architect-reviewer → dba → test-strategist → ux-designer
-in ONE run (advancing spec-author at baseline), NOT just architect-reviewer. This is the
-right tool for "sweep the remaining design roles" — one scaffold, one teardown, spec-author
-advanced once. (There is no per-role `--from` that isolates a single downstream role; use
-the single-handoff path positioned on that role for that.)
-
-## Design-lane role order (what a `--from architect-reviewer` sweep covers)
-
-Per `defaultLaneCandidates` + the design sub-machine, the story's design handoffs are:
-spec-author → architect-reviewer → dba → test-strategist → ux-designer, then
-navigator-reflect (baseline-only critic, not an authoring turn). **Open question carried
-from memory:** for the stockflow-optimize scenario, architect-reviewer MAY be canon-
-projected (design goes complete without an architect LLM turn) → the sweep finds no
-architect handoff to walk and starts at the first role that does have a turn. If the run's
-`[optimize] handoff <id>: N candidate(s)` lines skip architect-reviewer, that's expected.
-
-## Resolved (was "open") — the exit-3 arc, now fixed
-
-The exit-3 that recurred through the first ~5 live runs is FIXED (this session, newest
-last): `12a55dd2` pinned-turn (run `handoff.action`'s own `claude` command, never
-`planNextAction` → no wrong-role turn) + `96b1ea98` drive-runner extraction (tsup
-`splitting:false` was inlining drive.cli's `if(isCliEntry)main()` into optimize.cli.js → a
-PHANTOM drive `main()` fired every turn + returned 3 on the wrong-role verify-artifact
-throw). A clean single-handoff spec-author sweep then completed (4 candidates ×2 trials, no
-crash). See the fix chain in memory `project_optimize_harness` ★RESUME POINT★.
-
-**Lever data so far:** spec-author winner = **effort-low, 34% faster** (99.4s→66.0s median,
-same gate); opus stays the model (sonnet ~2× slower); scan-tighten slower. APPLIED to kit
-(`88713ccc`: `defaultEffort` + `defaultSftddConfig` set spec-author effort:low).
+Design-lane role order (`nextDesignAction`, orchestrator-drive.ts): spec-author breakdown →
+ux-designer (once, UI track) → per story [spec-author ACs → architect-reviewer (or
+`project-architect-notes`, NO LLM turn, when canon-projectable) → dba (skipped w/o a turn
+for non-service_backed) → test-strategist → navigator reflect (baseline-only) → surface/
+approve gate] → design-complete. So a per-story sweep may find architect/dba SKIPPED (no
+turn); that's expected , the drive just advances.
