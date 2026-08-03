@@ -8,7 +8,7 @@
 //   3. dispatch-agent      invoke the step's injected agent, contained to the workspace
 //                          (wait; the monitor/timeout envelope wires in at the spawn seam).
 //   4. capture-outputs     the step reports the produced artifact path(s) it found.
-//   5. validate-outputs    run each output's in-code checker; a failure is a HARD reject
+//   5. validate-outputs    run each output's in-code validator; a failure is a HARD reject
 //                          with named violations, NOT an agent follow-up.
 //   6. record/log          emit the turn record (deps.onRecord) + any post-turn effects.
 //   7. route               ask the step where it proposes to go, then reconcile through
@@ -80,7 +80,7 @@ export interface StepResult {
   bounded: BoundedRoute;
   /** Absolute path(s) to the produced artifact(s) in the workspace. */
   producedPaths: string[];
-  /** Non-empty => at least one output failed its in-code checker (a hard reject). */
+  /** Non-empty => at least one output failed its in-code validator (a hard reject). */
   violations: string[];
 }
 
@@ -115,8 +115,8 @@ export async function execute(step: RunnableStep, ctx: StepCtx, deps: StepExecut
   const runResult = await step.run({ action, workspaceDir, inputs: resolved, instructions, outputPaths });
   const producedPaths = runResult.producedPaths ?? [];
 
-  // Phase 5: validate-outputs , run each output's in-code checker on its produced path.
-  // A missing primary artifact (run reported produced:false) or any checker failure is a
+  // Phase 5: validate-outputs , run each output's in-code validator on its produced path.
+  // A missing primary artifact (run reported produced:false) or any validator failure is a
   // HARD reject with named violations , never an agent follow-up.
   const violations: string[] = [];
   if (!runResult.produced) {
@@ -137,8 +137,8 @@ export async function execute(step: RunnableStep, ctx: StepCtx, deps: StepExecut
       if (runResult.produced) violations.push(`declared output "${spec.id}" (${spec.filename}) was not produced`);
       continue;
     }
-    const check = spec.check(abs);
-    if (!check.ok) violations.push(...check.violations.map((v) => `${spec.id}: ${v}`));
+    const res = spec.validate(abs);
+    if (!res.ok) violations.push(...res.violations.map((v) => `${spec.id}: ${v}`));
   }
 
   // Phase 6: record/log , always runs (records the outcome incl. any violations).

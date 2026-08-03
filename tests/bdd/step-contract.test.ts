@@ -42,13 +42,13 @@ describe("MockStepContract: the ONE contract's first implementation (inputs + ou
   it("declares a step's OUTPUT as LOGICAL specs (id + workspace filename + in-code checker)", () => {
     const check = () => ({ ok: true, violations: [] });
     const c = new MockStepContract({
-      outputs: { [sig(architectS1)]: [{ id: "architecture", description: "the feature architecture", filename: "architecture.json", check }] },
+      outputs: { [sig(architectS1)]: [{ id: "architecture", description: "the feature architecture", filename: "architecture.json", validate: check }] },
     });
     const out = c.outputs(architectS1);
     expect(out).toHaveLength(1);
     expect(out[0]).toMatchObject({ id: "architecture", filename: "architecture.json" });
     // Every output carries an in-code conformance checker (deterministic accept/reject).
-    expect(out[0].check("/any/path")).toEqual({ ok: true, violations: [] });
+    expect(out[0].validate("/any/path")).toEqual({ ok: true, violations: [] });
   });
 
   it("emits a ROUTING proposal on completion, keyed by the completed action", () => {

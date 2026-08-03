@@ -107,13 +107,13 @@ describe("SpecAuthorBreakdownStep: run() within the provided workspace", () => {
   });
 });
 
-describe("SpecAuthorBreakdownStep: in-code output conformance checkers (no agent round-trip)", () => {
+describe("SpecAuthorBreakdownStep: in-code output conformance validators (no agent round-trip)", () => {
   function outputCheck(id: string) {
     const step = new SpecAuthorBreakdownStep(mockAgent({ writes: true }).agent);
-    return step.outputs(BREAKDOWN).find((o) => o.id === id)!.check;
+    return step.outputs(BREAKDOWN).find((o) => o.id === id)!.validate;
   }
 
-  it("feature-spec checker ACCEPTS a conformant feature-spec.json and REJECTS a storyless one", () => {
+  it("feature-spec validator ACCEPTS a conformant feature-spec.json and REJECTS a storyless one", () => {
     const check = outputCheck("feature-spec");
     const good = join(ws, "good-spec.json");
     writeFileSync(good, JSON.stringify({ id: "F1-x", name: "Feature X", status: "draft", tdd_mode: "N=1", stories: ["S1-a"] }));
@@ -126,7 +126,7 @@ describe("SpecAuthorBreakdownStep: in-code output conformance checkers (no agent
     expect(r.violations.join(" ")).toMatch(/stories/i);
   });
 
-  it("agent-log checker ACCEPTS a conformant spec-author log line and REJECTS an empty log", () => {
+  it("agent-log validator ACCEPTS a conformant spec-author log line and REJECTS an empty log", () => {
     const check = outputCheck("agent-log");
     const good = join(ws, "good-log.jsonl");
     writeFileSync(good, JSON.stringify({
@@ -143,12 +143,12 @@ describe("SpecAuthorBreakdownStep: in-code output conformance checkers (no agent
   });
 });
 
-describe("SpecAuthorBreakdownStep: conformanceCheckers() (checkers exposed to the agent, part of the step definition)", () => {
-  it("exposes one checker per output, each with a docstring + the same in-code fn", () => {
+describe("SpecAuthorBreakdownStep: conformanceValidators() (validators exposed to the agent, part of the step definition)", () => {
+  it("exposes one validator per output, each with a docstring + the same in-code fn", () => {
     const step = new SpecAuthorBreakdownStep(mockAgent({ writes: true }).agent);
-    const provided = step.conformanceCheckers(BREAKDOWN);
+    const provided = step.conformanceValidators(BREAKDOWN);
     const byId = Object.fromEntries(provided.map((p) => [p.outputId, p]));
-    // Every output the agent must produce has an agent-callable checker with guidance.
+    // Every output the agent must produce has an agent-callable validator with guidance.
     expect(byId["feature-spec"].docstring).toMatch(/feature-spec\.json|stories\[\]/);
     expect(byId["agent-log"].docstring).toMatch(/agent-log\.jsonl|spec-author event/);
     // The exposed fn is the SAME deterministic check the orchestrator runs (reject a bad one).

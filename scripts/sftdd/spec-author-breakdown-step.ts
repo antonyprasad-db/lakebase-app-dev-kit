@@ -17,12 +17,12 @@
 //                finds THERE. No .sftdd, no conformance check (the orchestrator does that).
 //   route()   -> emits the routing proposal.
 
-import { featureSpecNonEmptyStories, agentLogHasRoleEvent } from "./checker-registry.js";
+import { featureSpecNonEmptyStories, agentLogHasRoleEvent } from "./validator-registry.js";
 import type { WorkflowAction } from "./orchestrator-drive.js";
-import type { StepContract, StepInputSpec, StepOutputSpec, RouteProposal, StepRouteContext, ConformanceChecker } from "./step-contract.js";
+import type { StepContract, StepInputSpec, StepOutputSpec, RouteProposal, StepRouteContext, ConformanceValidator } from "./step-contract.js";
 import type { StepInstructions } from "./spec-author-breakdown-step-types.js";
 
-// The two breakdown checkers now live in the shared checker-registry (one source of truth,
+// The two breakdown validators now live in the shared validator-registry (one source of truth,
 // referenced by name from step manifests). Keep the original local names as thin aliases so
 // this file's remaining references + any importer reading them here keep working.
 const checkFeatureSpecOutput = featureSpecNonEmptyStories;
@@ -53,13 +53,13 @@ const BREAKDOWN_OUTPUTS: StepOutputSpec[] = [
     id: "feature-spec",
     description: "The feature breakdown index (feature-spec.json + a story stub per story).",
     filename: "feature-spec.json",
-    check: checkFeatureSpecOutput,
+    validate: checkFeatureSpecOutput,
   },
   {
     id: "agent-log",
     description: "The agent's structured log of what it did + any issue surfaced (shared agent-log script; agent-log-event.schema.json).",
     filename: "agent-log.jsonl",
-    check: checkAgentLogOutput,
+    validate: checkAgentLogOutput,
   },
 ];
 
@@ -132,13 +132,13 @@ export class SpecAuthorBreakdownStep implements StepContract {
   }
 
   /**
-   * The conformance checkers EXPOSED TO THE AGENT , part of the step's definition. Each
+   * The conformance validators EXPOSED TO THE AGENT , part of the step's definition. Each
    * carries a docstring telling the agent what it checks + how to call it, so the agent can
    * self-check its draft IN-TURN (catching a fixable defect before returning, no
    * orchestrator round-trip). Same deterministic `fn` the orchestrator runs on the
    * produced artifact. The prompt adds any further instruction on when to call them.
    */
-  conformanceCheckers(_action: WorkflowAction): ConformanceChecker[] {
+  conformanceValidators(_action: WorkflowAction): ConformanceValidator[] {
     return [
       {
         outputId: "feature-spec",
@@ -186,7 +186,7 @@ export class SpecAuthorBreakdownStep implements StepContract {
     // (c) report what the agent produced IN THE WORKSPACE (path only, no conformance
     //     judgment). The orchestrator reads + validates + persists it to .sftdd. The
     //     PRIMARY output (feature-spec) must be present; the agent-log is validated by
-    //     the orchestrator via its conformance checker too.
+    //     the orchestrator via its conformance validator too.
     const producedPaths: string[] = [];
     let primaryPresent = false;
     for (const spec of this.outputs(action)) {

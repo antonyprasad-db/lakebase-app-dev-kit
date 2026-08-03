@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://databricks-solutions.github.io/consort/schemas/step-manifest.schema.json",
   "title": "StepManifest",
-  "description": "The DATA face of one step in the orchestrator's standard (Template Method) execution: its logical inputs, its outputs (with checker NAMES resolved from the code registry), its routing map, its agent levers, and any post-turn CLIs. The StepExecutor reads this to drive the fixed phases; only checker fn bodies and the agent spawn stay code.",
+  "description": "The DATA face of one step in the orchestrator's standard (Template Method) execution: its logical inputs, its outputs (with validator NAMES resolved from the code registry), its routing map, its agent levers, and any post-turn CLIs. The StepExecutor reads this to drive the fixed phases; only validator fn bodies and the agent spawn stay code.",
   "type": "object",
   "required": ["id", "role", "match", "inputs", "outputs", "routing", "agentOptions"],
   "properties": {
@@ -41,14 +41,14 @@
     },
     "outputs": {
       "type": "array",
-      "description": "The logical outputs the step produces into its workspace. Each declares an in-code conformance checker BY NAME (resolved from checker-registry.ts). May be empty for a turn verified by cycle records rather than a static artifact.",
+      "description": "The logical outputs the step produces into its workspace. Each declares an in-code conformance validator BY NAME (resolved from validator-registry.ts). May be empty for a turn verified by cycle records rather than a static artifact.",
       "items": {
         "type": "object",
-        "required": ["id", "filename", "checker"],
+        "required": ["id", "filename", "validator"],
         "properties": {
           "id": { "type": "string", "minLength": 1 },
           "filename": { "type": "string", "minLength": 1, "description": "Artifact filename within the provided workspace." },
-          "checker": { "type": "string", "minLength": 1, "description": "Registered OutputChecker name (checker-registry.ts). resolveChecker throws loud on an unknown name." },
+          "validator": { "type": "string", "minLength": 1, "description": "Registered OutputValidator name (validator-registry.ts). resolveValidator throws loud on an unknown name." },
           "description": { "type": "string" }
         },
         "additionalProperties": false

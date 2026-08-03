@@ -1,6 +1,6 @@
 // ManifestStep: the GENERIC StepContract, driven entirely by a step manifest (DATA) + the
-// checker registry (CODE) + an injected agent. This is the NORM , a step is one JSON
-// manifest + (only if a new output type appears) one registered checker fn. A bespoke
+// validator registry (CODE) + an injected agent. This is the NORM , a step is one JSON
+// manifest + (only if a new output type appears) one registered validator fn. A bespoke
 // StepContract class is the escape hatch, for a step whose run() logic is genuinely custom.
 //
 // Containment is unchanged from SpecAuthorBreakdownStep: the ORCHESTRATOR owns .sftdd,
@@ -11,15 +11,15 @@
 // .sftdd or reaches outside what it was handed.
 //
 //   inputs()  -> manifest.inputs (logical ids; the orchestrator resolves + provides).
-//   outputs() -> manifest.outputs, each with check = resolveChecker(name).
-//   conformanceCheckers() -> the same checkers, with a docstring, exposed to the agent.
+//   outputs() -> manifest.outputs, each with check = resolveValidator(name).
+//   conformanceValidators() -> the same validators, with a docstring, exposed to the agent.
 //   route()   -> manifest.routing[outcome] (a produced proposal by default).
 //   run()     -> verify provided inputs (fail loud), invoke the agent contained to the
 //                workspace, report the produced path(s) at the declared output locations.
 
 import { join } from "node:path";
 import { existsSync } from "node:fs";
-import { resolveChecker } from "./checker-registry.js";
+import { resolveValidator } from "./validator-registry.js";
 import type { WorkflowAction } from "./orchestrator-drive.js";
 import type { StepManifest } from "./step-manifest.js";
 import type {
@@ -29,7 +29,7 @@ import type {
   RouteProposal,
   StepRouteContext,
   StepOutcome,
-  ConformanceChecker,
+  ConformanceValidator,
 } from "./step-contract.js";
 import type { StepAgent } from "./spec-author-breakdown-step-types.js";
 import type { ProvidedStepRun, ProvidedStepResult, ExistsFn } from "./spec-author-breakdown-step.js";
@@ -59,27 +59,27 @@ export class ManifestStep implements StepContract {
     }));
   }
 
-  /** WHAT this step produces (logical), from the manifest. Each output's in-code checker is
+  /** WHAT this step produces (logical), from the manifest. Each output's in-code validator is
    *  resolved from the registry by NAME (an unknown name throws loud). */
   outputs(_action: WorkflowAction): StepOutputSpec[] {
     return this.manifest.outputs.map((o) => ({
       id: o.id,
       description: o.description ?? o.id,
       filename: o.filename,
-      check: resolveChecker(o.checker),
+      validate: resolveValidator(o.validator),
     }));
   }
 
-  /** The conformance checkers EXPOSED TO THE AGENT, so it self-checks its draft in-turn.
-   *  Same deterministic fn the orchestrator runs; the docstring names the output + checker. */
-  conformanceCheckers(_action: WorkflowAction): ConformanceChecker[] {
+  /** The conformance validators EXPOSED TO THE AGENT, so it self-checks its draft in-turn.
+   *  Same deterministic fn the orchestrator runs; the docstring names the output + validator. */
+  conformanceValidators(_action: WorkflowAction): ConformanceValidator[] {
     return this.manifest.outputs.map((o) => ({
       outputId: o.id,
       docstring:
-        `check ${o.filename} (checker "${o.checker}"): ${o.description ?? o.id}. ` +
+        `check ${o.filename} (validator "${o.validator}"): ${o.description ?? o.id}. ` +
         `Returns {ok, violations[]}. Run it on your written ${o.filename} and fix every ` +
         `violation before returning , no orchestrator round-trip.`,
-      fn: resolveChecker(o.checker),
+      fn: resolveValidator(o.validator),
     }));
   }
 

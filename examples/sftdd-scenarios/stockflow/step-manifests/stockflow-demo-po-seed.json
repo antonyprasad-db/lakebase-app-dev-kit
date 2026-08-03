@@ -4,10 +4,10 @@
   "match": { "kind": "invoke-role", "role": "product-owner", "mode": "author-requests" },
   "inputs": [],
   "outputs": [
-    { "id": "product-overview", "filename": "product-overview.md", "checker": "nonEmptyFile", "description": "The PO's product overview , what StockFlow is + who uses it." },
-    { "id": "nfrs", "filename": "nfrs.md", "checker": "nonEmptyFile", "description": "The PO's non-functional requirements brief (durability, etc.)." },
-    { "id": "design-guideline", "filename": "design-brief.md", "checker": "nonEmptyFile", "description": "The PO's design guideline / brief the UX + build must honor." },
-    { "id": "agent-log", "filename": "agent-log.jsonl", "checker": "productOwnerLoggedAuthoring", "description": "The PO mock logs what it authored (shared agent-log; agent-log-event.schema.json)." }
+    { "id": "product-overview", "filename": "product-overview.md", "validator": "nonEmptyFile", "description": "The PO's product overview , what StockFlow is + who uses it." },
+    { "id": "nfrs", "filename": "nfrs.md", "validator": "nonEmptyFile", "description": "The PO's non-functional requirements brief (durability, etc.)." },
+    { "id": "design-guideline", "filename": "design-brief.md", "validator": "nonEmptyFile", "description": "The PO's design guideline / brief the UX + build must honor." },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "productOwnerLoggedAuthoring", "description": "The PO mock logs what it authored (shared agent-log; agent-log-event.schema.json)." }
   ],
   "routing": {
     "produced": { "next": { "kind": "invoke-role", "role": "spec-author", "mode": "breakdown" } }

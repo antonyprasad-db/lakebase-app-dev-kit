@@ -91,7 +91,7 @@ describe("stockflow-demo: 2-turn replay orchestration through the StepExecutor",
 
     const result = await execute(step, ctx, deps);
 
-    // The recorded files landed + each passed its in-code checker (violations empty).
+    // The recorded files landed + each passed its in-code validator (violations empty).
     expect(result.violations).toEqual([]);
     expect(existsSync(join(ws, "product-overview.md"))).toBe(true);
     expect(existsSync(join(ws, "nfrs.md"))).toBe(true);

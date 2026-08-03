@@ -1,25 +1,25 @@
-// checker-registry: the CODE face of a step's outputs , named, deterministic
-// OutputChecker fns a manifest references BY NAME. The manifest is DATA (it carries the
-// checker's name); this registry maps that name to the actual in-code check. A manifest
+// validator-registry: the CODE face of a step's outputs , named, deterministic
+// OutputValidator fns a manifest references BY NAME. The manifest is DATA (it carries the
+// validator name); this registry maps that name to the actual in-code check. A manifest
 // typo (an unknown name) is a HARD failure at resolve time, never a silent skip , the
 // same fail-loud philosophy as MockStepContract's missing-route throw.
 //
-// The checkers themselves live here so both the orchestrator (validate-outputs phase) and
-// the agent (via a step's conformanceCheckers, self-check in-turn) run the SAME fn. The
-// first two are the breakdown step's checkers, lifted from spec-author-breakdown-step.ts;
+// The validators themselves live here so both the orchestrator (validate-outputs phase) and
+// the agent (via a step's conformanceValidators, self-check in-turn) run the SAME fn. The
+// first two are the breakdown step's validators, lifted from spec-author-breakdown-step.ts;
 // that file now re-exports them so existing importers keep working.
 
 import { readFileSync } from "node:fs";
 import { checkArtifactConformance } from "./artifact-conformance.js";
 import { getValidator, formatSchemaErrors } from "./schema-loader.js";
-import type { OutputChecker, OutputCheckResult } from "./step-contract.js";
+import type { OutputValidator, OutputValidationResult } from "./step-contract.js";
 
 /**
- * feature-spec checker: the produced feature-spec.json must parse + conform to
+ * feature-spec validator: the produced feature-spec.json must parse + conform to
  * feature.schema.json AND carry a non-empty stories[] (the breakdown deliverable).
  * Deterministic , the orchestrator ACCEPTS/REJECTS on this, never a follow-up to the agent.
  */
-export function featureSpecNonEmptyStories(producedPath: string): OutputCheckResult {
+export function featureSpecNonEmptyStories(producedPath: string): OutputValidationResult {
   let content: string;
   try {
     content = readFileSync(producedPath, "utf8");
@@ -40,12 +40,12 @@ export function featureSpecNonEmptyStories(producedPath: string): OutputCheckRes
 }
 
 /**
- * agent-log checker: the produced agent-log.jsonl must have >=1 line, each a JSON object
+ * agent-log validator: the produced agent-log.jsonl must have >=1 line, each a JSON object
  * conforming to agent-log-event.schema.json, and at least one line from THIS role recording
  * what it did. This is how "the agent logs what it did + surfaces issues" is enforced
  * deterministically. Parameterized by the role that must appear.
  */
-export function agentLogHasRoleEvent(producedPath: string, role = "spec-author"): OutputCheckResult {
+export function agentLogHasRoleEvent(producedPath: string, role = "spec-author"): OutputValidationResult {
   let raw: string;
   try {
     raw = readFileSync(producedPath, "utf8");
@@ -80,12 +80,12 @@ export function agentLogHasRoleEvent(producedPath: string, role = "spec-author")
 }
 
 /**
- * nonEmptyFile checker: the produced file exists and carries non-whitespace content. The
+ * nonEmptyFile validator: the produced file exists and carries non-whitespace content. The
  * generic "the human/agent actually authored something here" check , used for the PO's
  * seed markdown (product-overview.md / nfrs.md / design-brief.md), where the deliverable is
  * prose, not a schema-validated artifact.
  */
-export function nonEmptyFile(producedPath: string): OutputCheckResult {
+export function nonEmptyFile(producedPath: string): OutputValidationResult {
   let content: string;
   try {
     content = readFileSync(producedPath, "utf8");
@@ -99,11 +99,11 @@ export function nonEmptyFile(producedPath: string): OutputCheckResult {
 }
 
 /**
- * The named-checker registry a manifest resolves against. Add an entry here (code) and
- * reference it by name in a manifest (data). Every OutputChecker is (path) => result , the
- * role-parameterized agent-log checker binds its default role so it matches the signature.
+ * The named-validator registry a manifest resolves against. Add an entry here (code) and
+ * reference it by name in a manifest (data). Every OutputValidator is (path) => result , the
+ * role-parameterized agent-log validator binds its default role so it matches the signature.
  */
-export const CHECKER_REGISTRY: Record<string, OutputChecker> = {
+export const VALIDATOR_REGISTRY: Record<string, OutputValidator> = {
   featureSpecNonEmptyStories,
   agentLogHasRoleEvent: (p: string) => agentLogHasRoleEvent(p),
   // The PO's structured log event is authored as product-owner; bind that role.
@@ -112,14 +112,14 @@ export const CHECKER_REGISTRY: Record<string, OutputChecker> = {
 };
 
 /**
- * Resolve a checker name to its fn. THROWS loud on an unknown name , a manifest typo is a
+ * Resolve a validator name to its fn. THROWS loud on an unknown name , a manifest typo is a
  * hard failure surfaced at load/validate time, not a silently-skipped output check.
  */
-export function resolveChecker(name: string): OutputChecker {
-  const fn = CHECKER_REGISTRY[name];
+export function resolveValidator(name: string): OutputValidator {
+  const fn = VALIDATOR_REGISTRY[name];
   if (!fn) {
-    const known = Object.keys(CHECKER_REGISTRY).sort().join(", ");
-    throw new Error(`checker-registry: unknown checker "${name}" (a manifest referenced a checker not in the registry). Known: ${known}.`);
+    const known = Object.keys(VALIDATOR_REGISTRY).sort().join(", ");
+    throw new Error(`validator-registry: unknown validator "${name}" (a manifest referenced a validator not in the registry). Known: ${known}.`);
   }
   return fn;
 }

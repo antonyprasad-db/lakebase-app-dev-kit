@@ -36,42 +36,42 @@ export interface StepInputSpec {
 }
 
 /**
- * A conformance checker EXPOSED TO THE AGENT as a callable it can invoke on its own draft
+ * A conformance validator EXPOSED TO THE AGENT as a callable it can invoke on its own draft
  * output before returning , so a fixable defect is caught IN-TURN instead of round-tripping
  * back to the agent with follow-up instructions. The `docstring` tells the agent what the
  * function checks + how to call it; the prompt adds any further instruction. `fn` is the
  * same deterministic in-code check the orchestrator also runs on the produced artifact.
  */
-export interface ConformanceChecker {
-  /** The output id this checker validates (matches a StepOutputSpec.id). */
+export interface ConformanceValidator {
+  /** The output id this validator validates (matches a StepOutputSpec.id). */
   outputId: string;
-  /** What the checker verifies + how to call it , handed to the agent verbatim. */
+  /** What the validator verifies + how to call it , handed to the agent verbatim. */
   docstring: string;
   /** The deterministic check (given the artifact's path in the workspace). */
-  fn: OutputChecker;
+  fn: OutputValidator;
 }
 
 /** The result of an in-code output conformance check , deterministic, no agent round-trip. */
-export interface OutputCheckResult {
+export interface OutputValidationResult {
   ok: boolean;
   /** Specific, actionable violations when !ok (empty when ok). */
   violations: string[];
 }
 
 /**
- * An IN-CODE conformance checker for one produced output. Given the produced artifact's
+ * An IN-CODE conformance validator for one produced output. Given the produced artifact's
  * absolute path (in the provided workspace), it deterministically validates the artifact
  * against the output's contract and returns pass/fail + specific violations. This is what
  * lets the orchestrator ACCEPT or REJECT an output without going back to the agent for a
- * follow-up , every expected output ships its checker.
+ * follow-up , every expected output ships its validator.
  */
-export type OutputChecker = (producedPath: string) => OutputCheckResult;
+export type OutputValidator = (producedPath: string) => OutputValidationResult;
 
 /**
  * A step's OUTPUT declaration, also LOGICAL. The step produces "the feature breakdown
  * index" into its provided workspace; the ORCHESTRATOR maps that id to a .sftdd path,
  * runs the output's `check` (in-code conformance), and PERSISTS it on pass. The step
- * never resolves .sftdd or validates , the checker is code the orchestrator runs.
+ * never resolves .sftdd or validates , the validator is code the orchestrator runs.
  */
 export interface StepOutputSpec {
   /** Stable logical id (e.g. "feature-spec"). */
@@ -80,10 +80,10 @@ export interface StepOutputSpec {
   description: string;
   /** The artifact's filename WITHIN the provided workspace (what the agent writes). */
   filename: string;
-  /** In-code conformance checker for this output. The orchestrator runs it on the
+  /** In-code conformance validator for this output. The orchestrator runs it on the
    *  produced artifact; a failure is a hard reject with named violations, NOT an
    *  agent follow-up. Every expected output declares one. */
-  check: OutputChecker;
+  validate: OutputValidator;
 }
 
 /** What a step reports about its own completion , the routing intent, not the action. */

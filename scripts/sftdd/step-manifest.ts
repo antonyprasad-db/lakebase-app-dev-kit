@@ -2,13 +2,13 @@
 // and index an action to its SINGLE manifest.
 //
 // A manifest is the data the orchestrator's standard (Template Method) execution reads to
-// drive the fixed phases: the logical inputs it resolves + provides, the outputs (+ checker
+// drive the fixed phases: the logical inputs it resolves + provides, the outputs (+ validator
 // NAMES) it validates, the routing map, the agent levers, and any post-turn CLIs. Only the
-// checker fn bodies (checker-registry.ts) and the agent spawn (ClaudeStepAgent) stay code.
+// validator fn bodies (validator-registry.ts) and the agent spawn (ClaudeStepAgent) stay code.
 //
 // Validation reuses the shared Ajv loader (getValidator) , the SAME compilation truth every
-// other artifact uses, no new Ajv instance. Resolving a checker NAME to its fn is the
-// registry's job (resolveChecker); an unknown name is caught THERE, not here (the schema
+// other artifact uses, no new Ajv instance. Resolving a validator NAME to its fn is the
+// registry's job (resolveValidator); an unknown name is caught THERE, not here (the schema
 // cannot know registry contents).
 
 import { readFileSync, readdirSync, existsSync } from "node:fs";
@@ -24,13 +24,13 @@ export interface StepManifestInput {
   description?: string;
 }
 
-/** A step's produced output , validated by an in-code checker resolved from the registry. */
+/** A step's produced output , validated by an in-code validator resolved from the registry. */
 export interface StepManifestOutput {
   id: string;
   /** Filename within the provided workspace the agent writes. */
   filename: string;
-  /** Registered OutputChecker name (checker-registry.ts). */
-  checker: string;
+  /** Registered OutputValidator name (validator-registry.ts). */
+  validator: string;
   description?: string;
 }
 
@@ -81,7 +81,7 @@ export interface StepManifest {
   postTurn?: StepManifestPostTurn[];
 }
 
-/** The result of a shape validation , shape mirrors OutputCheckResult for consistency. */
+/** The result of a shape validation , shape mirrors OutputValidationResult for consistency. */
 export interface ManifestValidateResult {
   ok: boolean;
   violations: string[];

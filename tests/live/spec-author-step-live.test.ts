@@ -117,7 +117,7 @@ describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE: SpecAuthorBreakdownStep produ
 
     // ── ORCHESTRATOR VALIDATES via the output's OWN in-code checker ──────────────────
     const featureSpecOutput = step.outputs(BREAKDOWN).find((o) => o.id === "feature-spec")!;
-    const check = featureSpecOutput.check(specPath);
+    const check = featureSpecOutput.validate(specPath);
     expect(check.ok, `feature-spec.json failed its in-code checker: ${check.violations.join("; ")}`).toBe(true);
 
     const spec = JSON.parse(readFileSync(specPath, "utf8")) as { stories?: string[] };

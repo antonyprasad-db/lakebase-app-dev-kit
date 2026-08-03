@@ -1,10 +1,10 @@
 // step-manifest: a per-step JSON manifest is the DATA face of a step , its logical
-// inputs, its outputs (+ checker NAMES), its routing map, its agent levers, and any
+// inputs, its outputs (+ validator NAMES), its routing map, its agent levers, and any
 // post-turn CLIs. The Template Method (StepExecutor) reads the manifest to drive the
-// fixed phases; only checker fn bodies + the agent spawn stay code. This slice pins the
+// fixed phases; only validator fn bodies + the agent spawn stay code. This slice pins the
 // schema (shape) + the loader (indexing an action -> its single manifest, rejecting an
-// ambiguous overlap). Resolving a checker NAME to its fn is the registry's job (Slice 1),
-// so an unknown checker name is validated THERE, not here.
+// ambiguous overlap). Resolving a validator NAME to its fn is the registry's job (Slice 1),
+// so an unknown validator name is validated THERE, not here.
 
 import { describe, it, expect } from "vitest";
 import {
@@ -28,8 +28,8 @@ function manifest(over: Partial<StepManifest> = {}): StepManifest {
       { id: "feature-request", source: "feature:feature-request.md", description: "PO feature request" },
     ],
     outputs: [
-      { id: "feature-spec", filename: "feature-spec.json", checker: "featureSpecNonEmptyStories" },
-      { id: "agent-log", filename: "agent-log.jsonl", checker: "agentLogHasRoleEvent" },
+      { id: "feature-spec", filename: "feature-spec.json", validator: "featureSpecNonEmptyStories" },
+      { id: "agent-log", filename: "agent-log.jsonl", validator: "agentLogHasRoleEvent" },
     ],
     routing: { produced: { next: { kind: "design-complete" } } },
     agentOptions: { model: "sonnet", effort: "low", session: "fresh", resumeKeyFrom: "role" },
@@ -52,13 +52,13 @@ describe("step-manifest schema (shape)", () => {
     expect(r.violations.join(" ")).toMatch(/role/i);
   });
 
-  it("rejects an output missing its checker name (every output ships a checker)", () => {
+  it("rejects an output missing its validator name (every output ships a validator)", () => {
     const bad = manifest({
       outputs: [{ id: "feature-spec", filename: "feature-spec.json" } as never],
     });
     const r = validateStepManifest(bad);
     expect(r.ok).toBe(false);
-    expect(r.violations.join(" ")).toMatch(/checker/i);
+    expect(r.violations.join(" ")).toMatch(/validator/i);
   });
 
   it("rejects an input missing its .sftdd source", () => {

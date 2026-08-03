@@ -41,14 +41,14 @@
     },
     "outputs": {
       "type": "array",
-      "description": "The logical outputs the step produces into its workspace. Each declares an in-code conformance checker BY NAME (resolved from checker-registry.ts). May be empty for a turn verified by cycle records rather than a static artifact.",
+      "description": "The logical outputs the step produces into its workspace. Each declares an in-code conformance validator BY NAME (resolved from validator-registry.ts). May be empty for a turn verified by cycle records rather than a static artifact.",
       "items": {
         "type": "object",
-        "required": ["id", "filename", "checker"],
+        "required": ["id", "filename", "validator"],
         "properties": {
           "id": { "type": "string", "minLength": 1 },
           "filename": { "type": "string", "minLength": 1, "description": "Artifact filename within the provided workspace." },
-          "checker": { "type": "string", "minLength": 1, "description": "Registered OutputChecker name (checker-registry.ts). resolveChecker throws loud on an unknown name." },
+          "validator": { "type": "string", "minLength": 1, "description": "Registered OutputValidator name (validator-registry.ts). resolveValidator throws loud on an unknown name." },
           "description": { "type": "string" }
         },
         "additionalProperties": false

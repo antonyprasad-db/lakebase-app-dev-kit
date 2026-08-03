@@ -8,8 +8,8 @@
     { "id": "design-guideline", "source": "feature:design-brief.md", "description": "The PO design guideline produced in turn 1." }
   ],
   "outputs": [
-    { "id": "feature-spec", "filename": "feature-spec.json", "checker": "featureSpecNonEmptyStories", "description": "The feature breakdown index built from the PO seed (id, name, status, tdd_mode, non-empty stories[])." },
-    { "id": "agent-log", "filename": "agent-log.jsonl", "checker": "agentLogHasRoleEvent", "description": "The spec-author logs what it did (shared agent-log; agent-log-event.schema.json)." }
+    { "id": "feature-spec", "filename": "feature-spec.json", "validator": "featureSpecNonEmptyStories", "description": "The feature breakdown index built from the PO seed (id, name, status, tdd_mode, non-empty stories[])." },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "agentLogHasRoleEvent", "description": "The spec-author logs what it did (shared agent-log; agent-log-event.schema.json)." }
   ],
   "routing": {
     "produced": { "next": { "kind": "design-complete" } }

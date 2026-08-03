@@ -1,11 +1,11 @@
-// ManifestStep: the GENERIC StepContract driven ENTIRELY by a manifest + the checker
+// ManifestStep: the GENERIC StepContract driven ENTIRELY by a manifest + the validator
 // registry + an injected agent. It is the norm; a bespoke StepContract class is the escape
 // hatch. This slice proves ManifestStep(breakdownManifest, mockAgent) is behaviorally
 // EQUIVALENT to the hand-written SpecAuthorBreakdownStep , same inputs/outputs/
-// conformanceCheckers/route/run assertions , so the bespoke class can collapse to it.
+// conformanceValidators/route/run assertions , so the bespoke class can collapse to it.
 //
-// It also pins the checker registry: the two breakdown checkers are registered by name,
-// resolveChecker returns the SAME deterministic fn, and an unknown name throws loud (a
+// It also pins the validator registry: the two breakdown validators are registered by name,
+// resolveValidator returns the SAME deterministic fn, and an unknown name throws loud (a
 // manifest typo is a hard failure, never a silent skip).
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -13,7 +13,7 @@ import { mkdtempSync, writeFileSync, rmSync, existsSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { ManifestStep } from "../../scripts/sftdd/manifest-step";
-import { CHECKER_REGISTRY, resolveChecker } from "../../scripts/sftdd/checker-registry";
+import { VALIDATOR_REGISTRY, resolveValidator } from "../../scripts/sftdd/validator-registry";
 import { manifestForAction } from "../../scripts/sftdd/step-manifest";
 import type { StepAgent, AgentInvocation } from "../../scripts/sftdd/spec-author-breakdown-step-types";
 import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
@@ -56,22 +56,22 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
-describe("checker registry", () => {
-  it("registers the two breakdown checkers by name", () => {
-    expect(Object.keys(CHECKER_REGISTRY)).toEqual(
+describe("validator registry", () => {
+  it("registers the two breakdown validators by name", () => {
+    expect(Object.keys(VALIDATOR_REGISTRY)).toEqual(
       expect.arrayContaining(["featureSpecNonEmptyStories", "agentLogHasRoleEvent"]),
     );
   });
 
-  it("resolveChecker returns the deterministic fn (rejects a storyless spec)", () => {
-    const check = resolveChecker("featureSpecNonEmptyStories");
+  it("resolveValidator returns the deterministic fn (rejects a storyless spec)", () => {
+    const check = resolveValidator("featureSpecNonEmptyStories");
     const bad = join(ws, "storyless.json");
     writeFileSync(bad, JSON.stringify({ id: "F1-x", name: "Feature X", status: "draft", tdd_mode: "N=1", stories: [] }));
     expect(check(bad).ok).toBe(false);
   });
 
-  it("resolveChecker THROWS loud on an unknown name (a manifest typo is not a silent skip)", () => {
-    expect(() => resolveChecker("noSuchChecker")).toThrow(/noSuchChecker|unknown|not registered/i);
+  it("resolveValidator THROWS loud on an unknown name (a manifest typo is not a silent skip)", () => {
+    expect(() => resolveValidator("noSuchChecker")).toThrow(/noSuchChecker|unknown|not registered/i);
   });
 });
 
@@ -123,13 +123,13 @@ describe("ManifestStep: run() within the provided workspace", () => {
   });
 });
 
-describe("ManifestStep: in-code output conformance checkers (resolved from the registry by name)", () => {
+describe("ManifestStep: in-code output conformance validators (resolved from the registry by name)", () => {
   function outputCheck(id: string) {
     const step = breakdownStep(mockAgent({ writes: true }).agent);
-    return step.outputs(BREAKDOWN).find((o) => o.id === id)!.check;
+    return step.outputs(BREAKDOWN).find((o) => o.id === id)!.validate;
   }
 
-  it("feature-spec checker ACCEPTS a conformant spec and REJECTS a storyless one", () => {
+  it("feature-spec validator ACCEPTS a conformant spec and REJECTS a storyless one", () => {
     const check = outputCheck("feature-spec");
     const good = join(ws, "good-spec.json");
     writeFileSync(good, JSON.stringify({ id: "F1-x", name: "Feature X", status: "draft", tdd_mode: "N=1", stories: ["S1-a"] }));
@@ -141,7 +141,7 @@ describe("ManifestStep: in-code output conformance checkers (resolved from the r
     expect(r.violations.join(" ")).toMatch(/stories/i);
   });
 
-  it("agent-log checker ACCEPTS a conformant line and REJECTS an empty log", () => {
+  it("agent-log validator ACCEPTS a conformant line and REJECTS an empty log", () => {
     const check = outputCheck("agent-log");
     const good = join(ws, "good-log.jsonl");
     writeFileSync(good, JSON.stringify({
@@ -155,10 +155,10 @@ describe("ManifestStep: in-code output conformance checkers (resolved from the r
   });
 });
 
-describe("ManifestStep: conformanceCheckers() (exposed to the agent)", () => {
-  it("exposes one checker per output, each with a docstring + the same in-code fn", () => {
+describe("ManifestStep: conformanceValidators() (exposed to the agent)", () => {
+  it("exposes one validator per output, each with a docstring + the same in-code fn", () => {
     const step = breakdownStep(mockAgent({ writes: true }).agent);
-    const byId = Object.fromEntries(step.conformanceCheckers(BREAKDOWN).map((p) => [p.outputId, p]));
+    const byId = Object.fromEntries(step.conformanceValidators(BREAKDOWN).map((p) => [p.outputId, p]));
     expect(byId["feature-spec"].docstring.length).toBeGreaterThan(0);
     expect(byId["agent-log"].docstring.length).toBeGreaterThan(0);
     const bad = join(ws, "storyless.json");

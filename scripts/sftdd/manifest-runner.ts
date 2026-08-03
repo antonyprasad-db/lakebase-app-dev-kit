@@ -1,6 +1,6 @@
 // manifest-runner: the bridge from a step MANIFEST to the orchestrator (the StepExecutor /
 // Template Method). It resolves the action to its manifest, builds the generic ManifestStep
-// (manifest + injected agent + checker registry), assembles the orchestrator-owned seams the
+// (manifest + injected agent + validator registry), assembles the orchestrator-owned seams the
 // executor drives (resolve inputs from the shared workspace, provision it, source
 // instructions, reconcile routing), and runs the fixed 7 phases , so a caller drives a
 // manifest end to end without hand-wiring StepCtx/StepExecutorDeps every turn.
