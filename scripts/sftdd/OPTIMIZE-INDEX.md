@@ -199,9 +199,22 @@ path (NO re-run, NO dispose — the capture stays for audit). Tests: optimize-sn
 - REUSABLE CORPUS: every candidate's output persists under experiments/ until
   disposeExperiments tears down the scratch tree at end of run.
 
-## OPEN: architecture.json nfr shape drift — the reference does NOT conform to its own schema
+## RESOLVED (commit follows): architecture.json nfr shape drift + fitness_function enforcement
 
-Discovered auditing the architect winner. TWO nfr shapes exist:
+Reconciled to ONE source of truth = the shape the architect prompt teaches, the
+reference uses, and the runtime rubric reads (the RICH shape). architecture.schema.json nfr
+item now: defines `id`/`brief`/`fitness_function`, `category` is a free string (was a 6-value
+enum that excluded the reference's durability/correctness/testability/usability/
+configurability), requires one of `brief`/`requirement` via `anyOf` (legacy `requirement`
+kept for back-compat). The canonical stockflow reference now CONFORMS (regression-locked by
+a test). ENFORCEMENT: checkArchitect (response-formatter.ts) now hard-flags any declared NFR
+missing a non-empty `fitness_function` — closing the hole that let the cheap-model architect
+winner drop every fitness_function + still pass the ≥0.85 semantic gate. Tests: sftdd-
+artifact-conformance (rich/lean/neither/reference-conforms) + sftdd-response-formatter
+(fitness_function flag/pass). The historical detail below is kept for context.
+
+### Historical: how the drift presented (auditing the architect winner)
+TWO nfr shapes existed:
 - RICH (what the canonical stockflow reference architecture.json uses, and what the semantic
   gate + downstream roles were written around): `{id, category, applies_to, brief, brief_ref,
   fitness_function, hil_status}`, category values like "durability".

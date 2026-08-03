@@ -181,6 +181,36 @@ function checkArchitect(args: FormatArgs, v: FormatViolation[]): void {
       });
     }
   }
+  // Every DECLARED NFR must NAME the fitness function that defends it
+  // (architect-reviewer.md: "every architectural constraint names the fitness
+  // function that defends it, recorded so the Test Strategist authors them as RED
+  // tests"). The schema DEFINES fitness_function but cannot make it conditionally
+  // required per NFR, so enforce it HERE, or a cheap model silently drops it +
+  // still passes every gate (the regression the architect optimize-sweep surfaced:
+  // a semantic-gate-passing architecture.json with 0 fitness_functions).
+  checkNfrFitnessFunctions(sftddDir, featureId, v);
+}
+
+/** Every NFR in the feature's architecture.json must carry a non-empty
+ *  `fitness_function`. No architecture.json yet (per-story ordering) or no NFRs =
+ *  no-op. Feature-scoped, run from the per-story architect self-check. */
+function checkNfrFitnessFunctions(sftddDir: string, featureId: string, v: FormatViolation[]): void {
+  const archFile = architectureJson(sftddDir, featureId);
+  if (!existsSync(archFile)) return;
+  let nfrs: Array<{ id?: string; fitness_function?: string }>;
+  try {
+    nfrs = (JSON.parse(readFileSync(archFile, "utf8")) as { nfrs?: Array<{ id?: string; fitness_function?: string }> }).nfrs ?? [];
+  } catch {
+    return; // architecture.json schema conformance is checked elsewhere
+  }
+  for (const [i, n] of nfrs.entries()) {
+    if (typeof n.fitness_function !== "string" || n.fitness_function.trim() === "") {
+      v.push({
+        artifact: "architecture.json",
+        problem: `NFR ${n.id ?? `#${i}`} is missing a non-empty \`fitness_function\` (name the concrete real-branch test that defends this NFR, so the Test Strategist authors it as a RED test). "N/A – reason" is allowed only when the NFR genuinely has no machine-checkable defense.`,
+      });
+    }
+  }
 }
 
 /** dba (per feature): db-design.json conforms + realizes every architecture.json

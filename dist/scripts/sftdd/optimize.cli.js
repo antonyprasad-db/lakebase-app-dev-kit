@@ -10857,6 +10857,25 @@ function checkArchitect(args, v) {
       });
     }
   }
+  checkNfrFitnessFunctions(sftddDir, featureId, v);
+}
+function checkNfrFitnessFunctions(sftddDir, featureId, v) {
+  const archFile = architectureJson(sftddDir, featureId);
+  if (!existsSync33(archFile)) return;
+  let nfrs;
+  try {
+    nfrs = JSON.parse(readFileSync32(archFile, "utf8")).nfrs ?? [];
+  } catch {
+    return;
+  }
+  for (const [i, n] of nfrs.entries()) {
+    if (typeof n.fitness_function !== "string" || n.fitness_function.trim() === "") {
+      v.push({
+        artifact: "architecture.json",
+        problem: `NFR ${n.id ?? `#${i}`} is missing a non-empty \`fitness_function\` (name the concrete real-branch test that defends this NFR, so the Test Strategist authors it as a RED test). "N/A \u2013 reason" is allowed only when the NFR genuinely has no machine-checkable defense.`
+      });
+    }
+  }
 }
 function checkDba(args, v) {
   const { sftddDir, featureId } = args;

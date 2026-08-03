@@ -74,16 +74,37 @@
     },
     "nfrs": {
       "type": "array",
-      "description": "Non-functional requirements proposed by the architect, adjudicated by the HIL at Gate 2. An empty array is valid (a feature may have no NFRs), but every entry that exists must be HIL-considered, not unconsidered.",
+      "description": "Non-functional requirements proposed by the architect, adjudicated by the HIL at Gate 2. An empty array is valid (a feature may have no NFRs), but every entry that exists must be HIL-considered, not unconsidered. Each NFR states its requirement (via `brief`, or the legacy `requirement`) and, per @architectural-design-principles, NAMES the fitness function that defends it (`fitness_function`) so the Test Strategist authors it as a RED test.",
       "items": {
         "type": "object",
-        "required": ["category", "requirement"],
+        "anyOf": [
+          { "required": ["brief"] },
+          { "required": ["requirement"] }
+        ],
         "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable NFR id, e.g. \"NFR-F1-durability-migrations\". Read by the context rubric + downstream roles."
+          },
           "category": {
             "type": "string",
-            "enum": ["performance", "scalability", "security", "observability", "operability", "resilience"]
+            "minLength": 1,
+            "description": "The NFR quality attribute, e.g. performance / scalability / security / observability / operability / resilience / durability / correctness / testability / usability / configurability. A free string (the quality-attribute set is open), not a fixed enum."
           },
-          "requirement": { "type": "string", "minLength": 1 },
+          "requirement": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Legacy field for the requirement statement. Prefer `brief`. One of `brief`/`requirement` is required."
+          },
+          "brief": {
+            "type": "string",
+            "minLength": 1,
+            "description": "One line stating the requirement (e.g. \"existing rows survive every additive migration\"). The field the context rubric + downstream roles read; one of `brief`/`requirement` is required."
+          },
+          "fitness_function": {
+            "type": "string",
+            "description": "The concrete, real-branch test that DEFENDS this NFR (e.g. \"integration test applies the Alembic revision over seeded rows and asserts survival + clean down\"). Per @architectural-design-principles every architectural constraint names the fitness function that defends it, recorded so the Test Strategist authors it as a RED test. Omit only for an NFR with no machine-checkable defense."
+          },
           "notes": { "type": "string" },
           "applies_to": {
             "type": "string",

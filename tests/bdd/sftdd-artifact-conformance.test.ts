@@ -291,6 +291,58 @@ describe("checkArtifactConformance: JSON artifacts (schema-validated)", () => {
     expect(checkArtifactConformance("architecture.json", JSON.stringify({ feature_id: "F1", nfrs: [] })).ok).toBe(false);
   });
 
+  it("accepts the RICH nfr shape the architect prompt teaches (id/brief/brief_ref/fitness_function, free category)", () => {
+    // architect-reviewer.md mandates a fitness_function per architectural constraint
+    // ("every constraint names the fitness function that defends it"), uses `brief`
+    // + `brief_ref`, and real NFR categories (durability/correctness/testability/...).
+    // The schema had drifted LEAN (category enum, `requirement`, no id/brief/fitness),
+    // so the canonical stockflow reference did NOT conform to its own schema. The
+    // schema is reconciled to the shape the prompt + reference + runtime rubric use.
+    const rich = JSON.stringify({
+      feature_id: "F1-stock-visibility",
+      service_backed: true,
+      layers: [{ role: "service", module: "app/services" }],
+      nfrs: [{
+        id: "NFR-F1-durability-migrations",
+        category: "durability",
+        applies_to: "F1-stock-visibility",
+        brief: "Existing rows survive every additive migration; created_at immutable.",
+        brief_ref: "R1",
+        fitness_function: "Real-branch integration test: apply the revision over seeded rows, assert survival, down reverses cleanly.",
+        hil_status: "accepted",
+      }],
+    });
+    expect(checkArtifactConformance("architecture.json", rich).ok).toBe(true);
+  });
+
+  it("still accepts the LEAN nfr shape (category/requirement) for back-compat", () => {
+    const lean = JSON.stringify({
+      feature_id: "F1", service_backed: false,
+      nfrs: [{ category: "security", requirement: "all writes authn'd", hil_status: "accepted" }],
+    });
+    expect(checkArtifactConformance("architecture.json", lean).ok).toBe(true);
+  });
+
+  it("rejects an nfr carrying NEITHER brief NOR requirement (must state the requirement somehow)", () => {
+    const empty = JSON.stringify({
+      feature_id: "F1", service_backed: false,
+      nfrs: [{ category: "security", hil_status: "accepted" }],
+    });
+    expect(checkArtifactConformance("architecture.json", empty).ok).toBe(false);
+  });
+
+  it("the canonical stockflow reference architecture.json conforms to its own schema", () => {
+    // The regression this locks: the reference is the semantic-gate target + what
+    // downstream roles read; it MUST validate against the schema the gate enforces.
+    const ref = readFileSync(
+      join(__dirname, "../../examples/sftdd-scenarios/stockflow/recorded-artifacts/features/F1-stock-visibility/architecture.json"),
+      "utf8",
+    );
+    const r = checkArtifactConformance("architecture.json", ref);
+    expect(r.ok ? "" : r.violations.join("; ")).toBe("");
+    expect(r.ok).toBe(true);
+  });
+
   it("accepts architecture.json with service_backed + layers; rejects a bad layer role", () => {
     const layered = JSON.stringify({
       feature_id: "F1-initial-domain",

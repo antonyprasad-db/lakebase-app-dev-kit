@@ -188,6 +188,38 @@ describe("response-formatter: spec-author + architect-reviewer contracts", () =>
     expect(r.ok).toBe(true);
   });
 
+  // fitness_function enforcement: architect-reviewer.md mandates every architectural
+  // constraint / NFR name the fitness function that defends it (so the Test
+  // Strategist authors it as a RED test). The schema now DEFINES fitness_function;
+  // the self-check REQUIRES it per declared NFR, so a cheap model can't silently drop
+  // it and still pass the gate (the exact regression the architect sweep surfaced).
+  function writeArchitecture(nfrs: unknown[]): void {
+    writeJson(join(tdd, "features", F, "architecture.json"), {
+      feature_id: F, service_backed: true,
+      layers: [{ role: "service", module: "app/services" }],
+      nfrs,
+    });
+  }
+  it("architect-reviewer FLAGS a declared NFR missing its fitness_function", () => {
+    writeJson(join(acsDir(), "AC1-form.json"), { id: "AC1-form", layer: "E2E", given: "g", when: "w", then: "t", status: "draft", architectural_notes: "E2E boundary." });
+    writeArchitecture([
+      { id: "NFR1", category: "durability", brief: "rows survive migration", fitness_function: "real-branch test asserts survival" },
+      { id: "NFR2", category: "security", brief: "writes authn'd" }, // no fitness_function
+    ]);
+    const r = formatRoleResponse({ role: "architect-reviewer", sftddDir: tdd, featureId: F, story: S });
+    expect(r.ok).toBe(false);
+    expect(r.violations.some((v) => /fitness_function/.test(v.problem))).toBe(true);
+  });
+  it("architect-reviewer PASSES when every declared NFR names a fitness_function", () => {
+    writeJson(join(acsDir(), "AC1-form.json"), { id: "AC1-form", layer: "E2E", given: "g", when: "w", then: "t", status: "draft", architectural_notes: "E2E boundary." });
+    writeArchitecture([
+      { id: "NFR1", category: "durability", brief: "rows survive migration", fitness_function: "real-branch test asserts survival" },
+      { id: "NFR2", category: "security", brief: "writes authn'd", fitness_function: "integration test asserts 401 on anon write" },
+    ]);
+    const r = formatRoleResponse({ role: "architect-reviewer", sftddDir: tdd, featureId: F, story: S });
+    expect(r.ok).toBe(true);
+  });
+
   it("spec-author FLAGS two ACs with an identical `then` (ac-independence backstop)", () => {
     // The AC2/AC3 overlap that stalled the 2026-06-11 smoke: a non-independent
     // AC whose `then` matches another's can never go RED. Normalization is
