@@ -2,11 +2,7 @@
   "winners": [
     {
       "handoffId": "spec-author",
-      "candidateId": "spec-author-scan-tight"
-    },
-    {
-      "handoffId": "spec-author",
-      "candidateId": "spec-author-m-haiku-e-low"
+      "candidateId": "spec-author-m-haiku"
     }
   ]
 }
