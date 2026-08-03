@@ -71,52 +71,70 @@ Then a SEPARATE issue: the pinned spawn ran claude-ONLY, dropping the load-beari
 sync-breakdown → empty pipeline → feature-complete stall (see the ROOT CAUSE section at
 top; fixed c1c4a7f1 by running all cmds except verify-artifact). All resolved; not open work.
 
-## THE LOOP I RUN (rinse-repeat, one role at a time, start to end) — FOLLOW THIS EXACTLY
+## THE ONE WAY THROUGH — FOLLOW THIS EXACTLY (do NOT re-run a recorded winner)
 
-Uniform for every role the orchestrator points at, from spec-author onward. No special-
-casing, no shortcuts, no `--sweep-lane`, no `--from`, no `--propose-only`.
+TWO ABSOLUTE RULES (both learned the hard way; violating either WASTES LIVE-CLOUD TOKENS):
+- **A recorded winner is REPLAYED, never re-run.** Once a handoff's winner artifact is in the
+  replay corpus (`examples/sftdd-scenarios/stockflow-optimize/recorded-artifacts/`), you NEVER
+  sweep it AND NEVER spawn its model again — not even to "advance the drive past it". Set
+  `LAKEBASE_SFTDD_REPLAY_DIR=<corpus>` and the drive-runner (drive-runner.ts:403) COPIES the
+  recorded artifact from disk in ~0s for any `REPLAYABLE_DESIGN_ROLES` role (spec-author,
+  architect-reviewer, dba, test-strategist, ux-designer, product-owner). It fast-forwards
+  through EVERY recorded role and STOPS at the first UN-recorded one.
+- **Sweep ONLY a handoff that has NO recorded artifact AND whose prior result is invalid.** A
+  settled/applied winner is done forever.
 
-Per role:
-1. **STUDY + ADVANCE in ONE run** (single-handoff, NON-propose-only):
-   `optimize-scenario.sh --scenario stockflow-optimize --project-dir $P --feature F1-stock-visibility --trials 1`
-   (drop --trials to sweep with more trials only if a result is ambiguous). This sweeps
-   all defaultLaneCandidates (baseline + cheaper-model + effort-low + scan-tight), gates
-   each, keeps the fastest passing, and `recordWinner` RESTORES the winning trial's actual
-   artifacts to the project = the advance. `planNextAction` then points at the next role.
-   - **NEVER `--propose-only` in this loop.** Propose-only ranks but does NOT advance and the
-     between-trial restore WIPES the role's output -> no artifact for the next role. (That
-     was the mistake: spec-author was left with no spec on disk.)
-2. **READ the report** (`# Champion-walk optimization report` table + per-candidate
-   `experiments/<role>/*/trial-*/result.json`). Winner = fastest gate-passing.
-3. **KEEP + COMMIT the recorded winner artifacts (do NOT scrub):** the runbook exports
-   RECORD_DIR=$SCEN (examples/sftdd-scenarios/stockflow-optimize), so recordWinner writes
-   the winning turn's .sftdd output into recorded-artifacts/. This IS the REPLAY CORPUS ,
-   `git add` + commit it. A future run sets LAKEBASE_SFTDD_REPLAY_DIR to that corpus to
-   FAST-FORWARD past already-recorded roles (replayDesignTurn restores them, no re-spawn).
-   Earlier I scrubbed it (git checkout+clean) , that was the mistake; it deleted the very
-   corpus that avoids re-running. Only the PROJECT's experiments/ scratch is disposable.
-4. **APPLY the winner INTO THE KIT** (the mandatory pause before the next role):
-   - If a CONFIG lever won (model/effort, scalar or per-turn/step): `applyWinnerToOverlay`
-     writes it into `optimized-defaults.json` (DATA, deep-merged by defaultSftddConfig ,
-     NEVER a TS source rewrite; that is the single-source rule). See optimize-apply.ts.
-   - If a CONTENT lever won (scan-tight/taskSuffix/tool-scope): `applyAgentMdLevers` edits
-     the role's `skills/consort/agents/<role>.md` (directive / `tools:` frontmatter).
-   - If the winner is BASELINE (no lever beat it): nothing to apply; note it and move on.
+Recorded in the corpus NOW (these REPLAY, never sweep/spawn): breakdown (`feature-spec.json`,
+winner haiku+low), ux-designer (`design/design-guide.*`, winner scan-tight), the 3 story stubs.
+NOT recorded (these still need ONE real sweep — prior result invalid): S1 `acs/` (spec-author
+per-story; the old sweep was voided by the ac.schema `layer` bug) and `architecture.json`
+(architect-reviewer; the old winner was structurally degraded + rejected).
+
+Per handoff-that-needs-a-sweep:
+1. **POSITION via REPLAY (no model runs):** launch the single-handoff run with
+   `LAKEBASE_SFTDD_REPLAY_DIR` pointed at the corpus. Recorded roles replay from disk (~0s,
+   no `claude -p`); the drive halts at the first un-recorded role = the one to sweep. NEVER
+   drive a recorded role "at its winner" without REPLAY_DIR — that spawns the model (the
+   mistake: "drive breakdown once at winner").
+2. **STUDY + ADVANCE in ONE run** (single-handoff, NON-propose-only; NO `--sweep-lane`, NO
+   `--from`, NO `--propose-only`):
+   `optimize-scenario.sh --scenario stockflow-optimize --project-dir $P --feature F1-stock-visibility --trials 2`
+   Sweeps all defaultLaneCandidates, gates each, keeps the fastest passing; `recordWinner`
+   RESTORES the winning trial's actual DURABLE artifact (experiments/<h>/<c>/trial-N/artifacts,
+   via restoreDesignArtifacts) = the advance. `planNextAction` then points at the next role.
+   - **NEVER `--propose-only`.** It ranks but does NOT advance; the between-trial restore wipes
+     the output -> no artifact for the next role.
+3. **READ the report** (`# Champion-walk optimization report` + per-candidate
+   `experiments/<handoff>/*/trial-*/result.json`). Winner = fastest gate-passing.
+4. **AUDIT the winner's DURABLE artifact BEFORE applying** (now possible, artifacts persist
+   under experiments/.../trial-N/artifacts/): a semantic-gate PASS is necessary but not
+   sufficient. For architect, confirm the winner's architecture.json has invariant parity +
+   a `fitness_function` per NFR vs the reference (the checkArchitect gate now enforces the
+   latter, so a cheap model that drops them is DQ'd — but still audit). If the winner is
+   structurally degraded, REJECT it and restore the best complete runner-up's trial artifact
+   (restoreDesignArtifacts) instead — do NOT re-run.
+5. **KEEP + COMMIT the recorded winner artifact (do NOT scrub):** RECORD_DIR=$SCEN makes
+   recordWinner write the winning .sftdd output into recorded-artifacts/ = the REPLAY CORPUS.
+   `git add` + commit it. That is what lets the NEXT run replay it (rule A). Only the PROJECT's
+   experiments/ scratch is disposable.
+6. **APPLY the winner INTO THE KIT** (mandatory pause before the next handoff):
+   - CONFIG lever (model/effort, scalar or per-turn/step): `applyWinnerToOverlay` writes it
+     into `optimized-defaults.json` (DATA, deep-merged by defaultSftddConfig, NEVER a TS
+     rewrite). CONTENT lever (scan-tight/taskSuffix/tool-scope): `applyAgentMdLevers` edits
+     `skills/consort/agents/<role>.md`. BASELINE winner: nothing to apply; note it.
    - `npm run build` (inlines optimized-defaults.json into dist) + `git add -f dist` +
-     `git add <the overlay / agent md>` + LOCAL commit (never push).
-5. **MOVE FORWARD:** the drive already advanced in step 1; the next `optimize-scenario.sh`
-   run positions on the next role automatically. Repeat 1-5 down the design lane
-   (spec-author -> architect-reviewer[or projected, no turn] -> dba -> test-strategist ->
-   ux-designer/reflect -> gate) then the build lane, to the end.
+     `git add <overlay / agent md + the new recorded-artifacts>` + LOCAL commit (never push).
+7. **MOVE FORWARD:** re-run step 1 (REPLAY_DIR set) — it now replays the just-recorded winner
+   too and halts at the NEXT un-recorded role. Repeat until the design lane has no un-recorded
+   handoff left, then the build lane.
 
-Run each sweep BACKGROUNDED (nohup) + Monitor the log for the report/winner/failure; a
-design sweep is hermetic-ish (no branch forks) but spends tokens. Project + logs tracked in
-/tmp/optimize-current-project.txt + /tmp/optimize-current-role-log.txt + /tmp/optimize-role-pid.txt.
+Run each sweep BACKGROUNDED (nohup) + Monitor the log for report/winner/failure. Project +
+logs: /tmp/optimize-current-project.txt + /tmp/optimize-current-role-log.txt +
+/tmp/optimize-role-pid.txt.
 
-APPLIED SO FAR (via optimized-defaults.json overlay, deep-merged by defaultSftddConfig):
-spec-author BREAKDOWN = haiku+low (~24-44%); ux-designer = scan-tight (deny Grep/Glob,
--20%; prompt-bound role , scanning was the cost, beat even the opus upgrade). Winners are
-DATA in optimized-defaults.json (never a TS rewrite); rebuild inlines them into dist.
+APPLIED + RECORDED SO FAR (replay these, never re-run): spec-author BREAKDOWN = haiku+low
+(optimized-defaults.json); ux-designer = scan-tight (agents/ux-designer.md). Both artifacts
+are in recorded-artifacts/, so a REPLAY_DIR run fast-forwards through them with no model call.
 
 ## The orchestrator's normal progression (what the sweep FOLLOWS, never bypasses)
 
@@ -362,11 +380,14 @@ auto-deny. acceptEdits is honored + grants Write AND Bash headless. See memory
 > **USE SINGLE-HANDOFF. `--sweep-lane` (and `--from`) is BROKEN in practice , do NOT use
 > it.** Every lane-sweep attempt stalled at feature-complete with 0 handoffs swept
 > (positionToNextHandoff + advanceOne don't reliably run breakdown's sync-breakdown, so
-> pipeline.json stays empty). The PROVEN method is one single-handoff invocation per role
-> (see "THE LOOP I RUN" above): `optimize-scenario.sh ... --trials N` with NO --sweep-lane,
-> which sweeps the ONE role the drive sits on, records the winner (advances the drive), and
-> exits; re-run for the next role. The reference below is kept only to explain WHY the lane
-> path is off , not as a thing to run.
+> pipeline.json stays empty). The PROVEN method is one single-handoff invocation per
+> UN-RECORDED role (see "THE ONE WAY THROUGH" above): `optimize-scenario.sh ... --trials N`
+> with NO --sweep-lane, which sweeps the ONE role the drive sits on, records the winner
+> (advances the drive), and exits. To reach that role WITHOUT re-running the recorded roles
+> before it, set `LAKEBASE_SFTDD_REPLAY_DIR` so they replay from disk (rule A above) and the
+> drive halts at the first un-recorded role. NEVER sweep or re-run a role whose winner is
+> already recorded. The reference below is kept only to explain WHY the lane path is off ,
+> not as a thing to run.
 
 `main()` has two paths: **single-handoff (default)** , sweeps the ONE handoff the drive
 sits on (`planNextAction` → `actionToHandoffPlan`; candidates = `--candidates` spec or
