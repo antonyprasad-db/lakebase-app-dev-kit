@@ -73,6 +73,13 @@ export interface OptimizeLiveCtx {
    *  restored winning-trial artifacts (via recordTurn, no re-spawn) when the ambient
    *  RECORD_DIR env is not set. Optional; absent in hermetic tests. */
   recordDir?: string;
+  /** SEMANTIC quality bar: after the structural gate PASSES on a design turn, judge
+   *  whether the candidate's artifact is semantically comparable to the recorded
+   *  reference at that step (LLM-as-judge on a fixed model). Runs AFTER the clock is
+   *  stopped, so it never inflates wall-clock. A below-threshold verdict disqualifies
+   *  the candidate regardless of speed. Optional: absent (hermetic tests, or a build
+   *  turn) => the semantic bar is not applied and the structural gate stands alone. */
+  semanticGate?(args: { handoff: HandoffPlan }): Promise<import("./optimize-semantic-gate.js").SemanticGateOutcome>;
 }
 
 /** The on-disk config path relative to the project root. */
@@ -141,10 +148,19 @@ export function makeChampionWalkDeps(ctx: OptimizeLiveCtx): ChampionWalkDeps {
       let result: TrialResult;
       try {
         await ctx.spawnTurn({ handoff, candidate, record: false });
-        const durationMs = ctx.now() - started;
-        const gate: GateOutcome = isBuildHandoff(handoff)
+        const durationMs = ctx.now() - started; // clock STOPS here , judging is untimed
+        let gate: GateOutcome = isBuildHandoff(handoff)
           ? (ctx.gateBuild ?? (() => ({ passed: true })))({ handoff })
           : evaluateDesignGate({ sftddDir: ctx.sftddDir, featureId: ctx.featureId, handoff });
+        // SEMANTIC bar: only for a design turn that CLEARED the structural floor, and
+        // only when a judge is wired (a recorded reference exists). Runs after the
+        // clock stopped, so it does not affect durationMs. A below-threshold verdict
+        // (candidate dropped material intent vs the recorded artifact) overrides the
+        // structural pass and disqualifies the candidate.
+        if (gate.passed && !isBuildHandoff(handoff) && ctx.semanticGate) {
+          const sem = await ctx.semanticGate({ handoff });
+          if (!sem.passed) gate = { passed: false, reason: sem.reason ?? "semantic: below threshold" };
+        }
         // Prompt-weight signal (the pass-2 trim-target input): read the turn's
         // input/cache-read tokens from the just-emitted turn.usage. Best-effort.
         const tokens = ctx.readTurnTokens?.({ handoff });

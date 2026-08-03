@@ -1152,7 +1152,7 @@ function designArtifactExpectation(
  *  the base model, so no key). DESIGN steps: spec-author breakdown|propose|acs,
  *  architect-reviewer estimate|architect, dba, test-strategist test-list, ux-designer
  *  ux. Returns undefined only for actions with no distinct step (fall back to scalar). */
-function turnKeyForAction(action: WorkflowAction): TurnKey | undefined {
+export function turnKeyForAction(action: WorkflowAction): TurnKey | undefined {
   if (action.kind !== "invoke-role") return undefined;
   // Build turns first (buildMode-carrying navigator/driver turns).
   if ("buildMode" in action) {

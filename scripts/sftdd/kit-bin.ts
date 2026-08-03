@@ -13,6 +13,14 @@ import * as path from "node:path";
 // (which holds package.json + its bin map) is three directories up.
 const KIT_ROOT = path.resolve(__dirname, "..", "..", "..");
 const SUBSTRATE_PKG = "@databricks-solutions/lakebase-scm-utils";
+
+/** The kit repo root (holds package.json + examples/sftdd-scenarios/). Exposed so a
+ *  bin that needs kit-relative assets (e.g. the recorded reference corpora the
+ *  optimize semantic gate compares against) resolves them the same way, regardless
+ *  of dev-clone vs installed-package layout. */
+export function kitRoot(): string {
+  return KIT_ROOT;
+}
 let kitBinMap: Record<string, string> | null = null;
 let substrateRoot: string | null | undefined; // undefined = not yet resolved
 let substrateBinMap: Record<string, string> | null = null;

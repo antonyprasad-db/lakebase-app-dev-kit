@@ -29,8 +29,10 @@ import { runChampionWalk, type HandoffPlan, type HandoffResult } from "./optimiz
 import type { BuildTurn, EffortLevel } from "./sftdd-config.js";
 import type { SpawnableAgentRole } from "./agent-models.js";
 import { buildCfg, execRunner } from "./drive-runner.js";
-import { planNextAction, commandsForAction } from "./orchestrator-effects.js";
+import { planNextAction, commandsForAction, turnKeyForAction } from "./orchestrator-effects.js";
 import { resolveSftddDir } from "./sftdd-paths.js";
+import { kitRoot } from "./kit-bin.js";
+import { evaluateSemanticGate, makeOpusJudge } from "./optimize-semantic-gate.js";
 import { makeChampionWalkDeps, makeLiveSpawnTurn, makeBuildGate, makeBuildSnapshotDeps, positionToBuildHandoff, positionToNextHandoff, runLaneSweep, readLastTurnTokens, type OptimizeLiveCtx } from "./optimize-live.js";
 import { actionLane } from "./orchestrator-drive.js";
 import { readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
@@ -192,6 +194,20 @@ function buildCtxForHandoff(
     // Prompt-weight signal for the report's pass-2 trim targeting: the role's last
     // turn.usage input/cache-read tokens from the project agent-log.
     readTurnTokens: ({ handoff }) => readLastTurnTokens(sftddDir, handoff.role),
+    // SEMANTIC quality bar (design turns only): after the structural gate passes, judge
+    // the candidate's artifact against the recorded reference at this step with a FIXED
+    // opus judge (constant across candidates). Wired only when the step has a recorded
+    // reference (turnKeyForAction resolves a design step); build turns / no-reference
+    // steps get undefined and fall through to the structural gate alone.
+    ...((): Pick<OptimizeLiveCtx, "semanticGate"> => {
+      const step = handoff.action ? turnKeyForAction(handoff.action) : undefined;
+      if (!step) return {};
+      const judge = makeOpusJudge({ cwd: projectDir });
+      return {
+        semanticGate: () =>
+          evaluateSemanticGate({ kitRoot: kitRoot(), sftddDir, featureId, step, judge }),
+      };
+    })(),
     // The corpus dir recordWinner records the restored winning-trial artifacts into
     // (recordTurn from state, no re-spawn) when the ambient RECORD_DIR env is unset.
     ...(loc.recordDir ? { recordDir: loc.recordDir } : {}),

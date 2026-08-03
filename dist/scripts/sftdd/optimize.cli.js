@@ -6649,7 +6649,7 @@ var require_ajv = __commonJS({
 // scripts/sftdd/optimize.cli.ts
 init_esm_shims();
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
-import { join as join33, resolve as resolve3 } from "path";
+import { join as join34, resolve as resolve3 } from "path";
 
 // scripts/sftdd/optimize-candidates.ts
 init_esm_shims();
@@ -7875,6 +7875,9 @@ import * as fs6 from "fs";
 import * as path5 from "path";
 var KIT_ROOT = path5.resolve(__dirname, "..", "..", "..");
 var SUBSTRATE_PKG = "@databricks-solutions/lakebase-scm-utils";
+function kitRoot() {
+  return KIT_ROOT;
+}
 var kitBinMap = null;
 var substrateRoot;
 var substrateBinMap = null;
@@ -11691,28 +11694,184 @@ function buildDriveEffects(cfg) {
   };
 }
 
+// scripts/sftdd/optimize-semantic-gate.ts
+init_esm_shims();
+import { execFile } from "child_process";
+import { existsSync as existsSync35, readFileSync as readFileSync34, readdirSync as readdirSync25 } from "fs";
+import { join as join29 } from "path";
+function stepArtifactPath(base, step, featureId) {
+  switch (step) {
+    case "ux":
+      return designGuideJson(base);
+    case "breakdown":
+      return featureSpecJson(base, featureId);
+    case "architect":
+    case "estimate":
+      return architectureJson(base, featureId);
+    case "test-list":
+      return featureTestListJson(base, featureId);
+    case "dba":
+      return dbDesignJson(base, featureId);
+    default:
+      return null;
+  }
+}
+var SCENARIOS_REL = "examples/sftdd-scenarios";
+var CANONICAL = "stockflow";
+var RERECORD = "stockflow-rerecord";
+var SEMANTIC_THRESHOLD = 0.85;
+function corpusForStep(step) {
+  switch (step) {
+    case "dba":
+      return RERECORD;
+    case "breakdown":
+    case "acs":
+    case "architect":
+    case "estimate":
+    case "test-list":
+    case "ux":
+      return CANONICAL;
+    default:
+      return void 0;
+  }
+}
+function resolveStepReference(args) {
+  const { kitRoot: kitRoot2, step, featureId } = args;
+  const corpus = corpusForStep(step);
+  if (!corpus) return null;
+  const root = join29(kitRoot2, SCENARIOS_REL, corpus, "recorded-artifacts");
+  if (!existsSync35(root)) return null;
+  if (step === "acs") {
+    const sdir = storiesDir(root, featureId);
+    if (!existsSync35(sdir)) return null;
+    const paths = [];
+    for (const story of readdirSync25(sdir)) {
+      const adir = acsDir(root, featureId, story);
+      if (!existsSync35(adir)) continue;
+      for (const ac of readdirSync25(adir)) if (ac.endsWith(".json")) paths.push(join29(adir, ac));
+    }
+    return paths.length ? { corpus, paths, label: "stories/*/acs/*.json (feature-aggregate)" } : null;
+  }
+  const p = stepArtifactPath(root, step, featureId);
+  if (!p || !existsSync35(p)) return null;
+  return { corpus, paths: [p], label: p.slice(root.length + 1) };
+}
+function readCandidateArtifact(args) {
+  const { sftddDir, step, featureId } = args;
+  const readIf = (p2) => existsSync35(p2) ? readFileSync34(p2, "utf8") : null;
+  if (step === "acs") {
+    const sdir = storiesDir(sftddDir, featureId);
+    if (!existsSync35(sdir)) return null;
+    const parts = [];
+    for (const story of readdirSync25(sdir)) {
+      const adir = acsDir(sftddDir, featureId, story);
+      if (!existsSync35(adir)) continue;
+      for (const ac of readdirSync25(adir)) if (ac.endsWith(".json")) parts.push(readFileSync34(join29(adir, ac), "utf8"));
+    }
+    return parts.length ? parts.join("\n---\n") : null;
+  }
+  const p = stepArtifactPath(sftddDir, step, featureId);
+  return p ? readIf(p) : null;
+}
+async function evaluateSemanticGate(args) {
+  const { kitRoot: kitRoot2, sftddDir, featureId, step, judge } = args;
+  const threshold = args.threshold ?? SEMANTIC_THRESHOLD;
+  const ref = resolveStepReference({ kitRoot: kitRoot2, step, featureId });
+  if (!ref) return { passed: true, skipped: true };
+  const candidate = readCandidateArtifact({ sftddDir, step, featureId });
+  if (candidate === null) {
+    return { passed: false, reason: `semantic: candidate produced no artifact for step '${step}' to compare against ${ref.label}` };
+  }
+  const reference = ref.paths.map((p) => readFileSync34(p, "utf8")).join("\n---\n");
+  const verdict = await judge({ step, reference, candidate });
+  if (verdict.score >= threshold) return { passed: true, score: verdict.score };
+  const missing = verdict.missing?.length ? ` missing: ${verdict.missing.join("; ")}` : "";
+  return {
+    passed: false,
+    score: verdict.score,
+    reason: `semantic: score ${verdict.score.toFixed(2)} < ${threshold} vs ${ref.corpus} ${ref.label}.${missing}`
+  };
+}
+function buildJudgePrompt(step, reference, candidate) {
+  return [
+    `You are a strict design reviewer scoring SEMANTIC similarity for a "${step}" design-step artifact.`,
+    `The REFERENCE is a known-good artifact recorded at this step. The CANDIDATE is a newly produced artifact for the same step.`,
+    `Judge whether the CANDIDATE conveys the SAME design intent and behavioral coverage as the REFERENCE.`,
+    `Judge MEANING, not wording: different phrasing, different ids/slugs, or a different split of the same content across sections is FINE.`,
+    `What matters: every material behavior, entity, component, decision, or constraint the REFERENCE expresses is present (equivalently) in the CANDIDATE. Extra content in the CANDIDATE is fine and not penalized.`,
+    `Return ONLY a JSON object on a single line: {"score": <0..1 float>, "missing": ["<material intent the CANDIDATE dropped>", ...]}. score 1.0 = full semantic coverage; lower as material intent is missing. missing lists ONLY dropped items (empty array when none).`,
+    ``,
+    `REFERENCE:`,
+    "```json",
+    reference,
+    "```",
+    ``,
+    `CANDIDATE:`,
+    "```json",
+    candidate,
+    "```"
+  ].join("\n");
+}
+function parseJudgeReply(reply) {
+  const m = reply.match(/\{[\s\S]*?"score"[\s\S]*?\}/);
+  if (m) {
+    try {
+      const obj = JSON.parse(m[0]);
+      const score = typeof obj.score === "number" ? Math.max(0, Math.min(1, obj.score)) : 0;
+      const missing = Array.isArray(obj.missing) ? obj.missing.map(String) : void 0;
+      return { score, missing, raw: reply };
+    } catch {
+    }
+  }
+  return { score: 0, missing: ["judge reply not parseable as a score"], raw: reply };
+}
+function makeOpusJudge(opts) {
+  const model = opts.model ?? "opus";
+  return ({ step, reference, candidate }) => new Promise((resolve4) => {
+    const prompt = buildJudgePrompt(step, reference, candidate);
+    execFile(
+      "claude",
+      ["-p", prompt, "--model", model, "--permission-mode", "acceptEdits", "--strict-mcp-config", "--output-format", "json"],
+      { cwd: opts.cwd, maxBuffer: 32 * 1024 * 1024, timeout: 5 * 6e4 },
+      (err, stdout) => {
+        if (err && !stdout) {
+          resolve4({ score: 0, missing: [`judge spawn failed: ${err.message}`] });
+          return;
+        }
+        let text = stdout;
+        try {
+          const parsed = JSON.parse(stdout);
+          if (typeof parsed.result === "string") text = parsed.result;
+        } catch {
+        }
+        resolve4(parseJudgeReply(text));
+      }
+    );
+  });
+}
+
 // scripts/sftdd/optimize-live.ts
 init_esm_shims();
-import { existsSync as existsSync37, mkdirSync as mkdirSync25, readFileSync as readFileSync36, rmSync as rmSync13, writeFileSync as writeFileSync24 } from "fs";
+import { existsSync as existsSync38, mkdirSync as mkdirSync25, readFileSync as readFileSync37, rmSync as rmSync13, writeFileSync as writeFileSync24 } from "fs";
 import { execFileSync } from "child_process";
-import { join as join32 } from "path";
+import { join as join33 } from "path";
 
 // scripts/sftdd/optimize-agent-overlay.ts
 init_esm_shims();
-import { existsSync as existsSync35, mkdirSync as mkdirSync23, readFileSync as readFileSync34, rmSync as rmSync10, writeFileSync as writeFileSync22 } from "fs";
-import { dirname as dirname17, join as join29 } from "path";
+import { existsSync as existsSync36, mkdirSync as mkdirSync23, readFileSync as readFileSync35, rmSync as rmSync10, writeFileSync as writeFileSync22 } from "fs";
+import { dirname as dirname17, join as join30 } from "path";
 function overlayAgent(args) {
   const { projectDir, role, markdown } = args;
-  const agentPath = join29(projectDir, ".claude", "agents", `${role}.md`);
-  const hadBaseline = existsSync35(agentPath);
-  const baseline = hadBaseline ? readFileSync34(agentPath, "utf8") : void 0;
+  const agentPath = join30(projectDir, ".claude", "agents", `${role}.md`);
+  const hadBaseline = existsSync36(agentPath);
+  const baseline = hadBaseline ? readFileSync35(agentPath, "utf8") : void 0;
   mkdirSync23(dirname17(agentPath), { recursive: true });
   writeFileSync22(agentPath, markdown);
   return {
     restore() {
       if (hadBaseline) {
         writeFileSync22(agentPath, baseline);
-      } else if (existsSync35(agentPath)) {
+      } else if (existsSync36(agentPath)) {
         rmSync10(agentPath, { force: true });
       }
     }
@@ -11763,11 +11922,11 @@ function evaluateDesignGate(args) {
 init_esm_shims();
 import { cpSync as cpSync4, mkdtempSync, rmSync as rmSync11 } from "fs";
 import { tmpdir } from "os";
-import { basename as basename4, dirname as dirname18, join as join30 } from "path";
+import { basename as basename4, dirname as dirname18, join as join31 } from "path";
 function snapshotDesign(args) {
   const { sftddDir } = args;
-  const backup = mkdtempSync(join30(tmpdir(), "optimize-design-snap-"));
-  const backupTree = join30(backup, basename4(sftddDir));
+  const backup = mkdtempSync(join31(tmpdir(), "optimize-design-snap-"));
+  const backupTree = join31(backup, basename4(sftddDir));
   cpSync4(sftddDir, backupTree, { recursive: true });
   return {
     restore() {
@@ -11801,15 +11960,15 @@ init_esm_shims();
 import { createHash as createHash2 } from "crypto";
 import {
   cpSync as cpSync5,
-  existsSync as existsSync36,
+  existsSync as existsSync37,
   mkdirSync as mkdirSync24,
-  readFileSync as readFileSync35,
-  readdirSync as readdirSync25,
+  readFileSync as readFileSync36,
+  readdirSync as readdirSync26,
   rmSync as rmSync12,
   statSync as statSync17,
   writeFileSync as writeFileSync23
 } from "fs";
-import { dirname as dirname19, join as join31, relative as relative3 } from "path";
+import { dirname as dirname19, join as join32, relative as relative3 } from "path";
 var NON_ARTIFACT_TDD = /* @__PURE__ */ new Set(["agent-log.jsonl"]);
 function labelForAction(action) {
   const a = action;
@@ -11829,7 +11988,7 @@ function labelForAction(action) {
   return kind;
 }
 function sha1(abs) {
-  return createHash2("sha1").update(readFileSync35(abs)).digest("hex");
+  return createHash2("sha1").update(readFileSync36(abs)).digest("hex");
 }
 function renderTranscriptMd(t, label) {
   const lines = [];
@@ -11846,10 +12005,10 @@ function renderTranscriptMd(t, label) {
   return lines.join("\n");
 }
 function walk(dir, keep) {
-  if (!existsSync36(dir)) return [];
+  if (!existsSync37(dir)) return [];
   const out = [];
-  for (const entry of readdirSync25(dir)) {
-    const abs = join31(dir, entry);
+  for (const entry of readdirSync26(dir)) {
+    const abs = join32(dir, entry);
     if (keep && !keep(abs)) continue;
     let st;
     try {
@@ -11881,27 +12040,27 @@ function writeRecorderState(recordDir, cur) {
   const files = {};
   for (const [rel, f] of cur) files[rel] = f.sha;
   mkdirSync24(recordDir, { recursive: true });
-  writeFileSync23(join31(recordDir, ".recorder-state.json"), JSON.stringify({ files }, null, 2) + "\n");
+  writeFileSync23(join32(recordDir, ".recorder-state.json"), JSON.stringify({ files }, null, 2) + "\n");
 }
 function seedRecorderBaseline(args) {
-  if (existsSync36(join31(args.recordDir, ".recorder-state.json"))) return false;
+  if (existsSync37(join32(args.recordDir, ".recorder-state.json"))) return false;
   writeRecorderState(args.recordDir, scan(args.projectDir, args.sftddDir));
   return true;
 }
 function readState(recordDir) {
-  const f = join31(recordDir, ".recorder-state.json");
-  if (!existsSync36(f)) return { files: {} };
+  const f = join32(recordDir, ".recorder-state.json");
+  if (!existsSync37(f)) return { files: {} };
   try {
-    return JSON.parse(readFileSync35(f, "utf8"));
+    return JSON.parse(readFileSync36(f, "utf8"));
   } catch {
     return { files: {} };
   }
 }
 function readIndex(recordDir) {
-  const f = join31(recordDir, "turns", "index.json");
-  if (!existsSync36(f)) return [];
+  const f = join32(recordDir, "turns", "index.json");
+  if (!existsSync37(f)) return [];
   try {
-    const data = JSON.parse(readFileSync35(f, "utf8"));
+    const data = JSON.parse(readFileSync36(f, "utf8"));
     return Array.isArray(data.turns) ? data.turns : [];
   } catch {
     return [];
@@ -11928,30 +12087,30 @@ function recordTurn(args) {
   const ordinal = readIndex(recordDir).length;
   const label = labelForAction(action);
   const dirName = `${pad(ordinal)}-${label}`;
-  const turnDir = join31(recordDir, "turns", dirName);
-  mkdirSync24(join31(turnDir, "files"), { recursive: true });
-  const artifactsDir = join31(recordDir, "recorded-artifacts");
+  const turnDir = join32(recordDir, "turns", dirName);
+  mkdirSync24(join32(turnDir, "files"), { recursive: true });
+  const artifactsDir = join32(recordDir, "recorded-artifacts");
   for (const rel of produced) {
     const f = cur.get(rel);
-    const dst = join31(turnDir, "files", rel);
+    const dst = join32(turnDir, "files", rel);
     mkdirSync24(dirname19(dst), { recursive: true });
     cpSync5(f.abs, dst);
     if (f.underTdd) {
-      const mirror = join31(artifactsDir, relative3(sftddDir, f.abs));
+      const mirror = join32(artifactsDir, relative3(sftddDir, f.abs));
       mkdirSync24(dirname19(mirror), { recursive: true });
       cpSync5(f.abs, mirror);
     }
   }
   for (const rel of deleted) {
-    const abs = join31(projectDir, rel);
+    const abs = join32(projectDir, rel);
     if (abs.startsWith(sftddDir)) {
-      const mirror = join31(artifactsDir, relative3(sftddDir, abs));
-      if (existsSync36(mirror)) rmSync12(mirror, { force: true });
+      const mirror = join32(artifactsDir, relative3(sftddDir, abs));
+      if (existsSync37(mirror)) rmSync12(mirror, { force: true });
     }
   }
   let transcriptSummary;
   if (transcript) {
-    writeFileSync23(join31(turnDir, "transcript.md"), renderTranscriptMd(transcript, label));
+    writeFileSync23(join32(turnDir, "transcript.md"), renderTranscriptMd(transcript, label));
     transcriptSummary = {
       role: transcript.role,
       model: transcript.model,
@@ -11973,7 +12132,7 @@ function recordTurn(args) {
     deleted,
     ...transcriptSummary ? { transcript: transcriptSummary } : {}
   };
-  writeFileSync23(join31(turnDir, "turn.json"), JSON.stringify(manifest, null, 2) + "\n");
+  writeFileSync23(join32(turnDir, "turn.json"), JSON.stringify(manifest, null, 2) + "\n");
   const index = readIndex(recordDir);
   const entry = {
     ordinal,
@@ -11990,8 +12149,8 @@ function recordTurn(args) {
     ...transcript ? { hasTranscript: true } : {}
   };
   index.push(entry);
-  mkdirSync24(join31(recordDir, "turns"), { recursive: true });
-  writeFileSync23(join31(recordDir, "turns", "index.json"), JSON.stringify({ turns: index }, null, 2) + "\n");
+  mkdirSync24(join32(recordDir, "turns"), { recursive: true });
+  writeFileSync23(join32(recordDir, "turns", "index.json"), JSON.stringify({ turns: index }, null, 2) + "\n");
   writeRecorderState(recordDir, cur);
   return { ordinal, dir: dirName, produced, deleted };
 }
@@ -12021,10 +12180,10 @@ function applyCandidate(ctx, candidate) {
   };
 }
 function writeTrialRecord(ctx, handoff, candidate, trial, result) {
-  const dir = join32(ctx.experimentsDir, handoff.id, candidate.id, `trial-${trial}`);
+  const dir = join33(ctx.experimentsDir, handoff.id, candidate.id, `trial-${trial}`);
   mkdirSync25(dir, { recursive: true });
-  writeFileSync24(join32(dir, "candidate.json"), JSON.stringify(candidate, null, 2) + "\n");
-  writeFileSync24(join32(dir, "result.json"), JSON.stringify(result, null, 2) + "\n");
+  writeFileSync24(join33(dir, "candidate.json"), JSON.stringify(candidate, null, 2) + "\n");
+  writeFileSync24(join33(dir, "result.json"), JSON.stringify(result, null, 2) + "\n");
 }
 function makeChampionWalkDeps(ctx) {
   return {
@@ -12049,7 +12208,11 @@ function makeChampionWalkDeps(ctx) {
       try {
         await ctx.spawnTurn({ handoff, candidate, record: false });
         const durationMs = ctx.now() - started;
-        const gate = isBuildHandoff(handoff) ? (ctx.gateBuild ?? (() => ({ passed: true })))({ handoff }) : evaluateDesignGate({ sftddDir: ctx.sftddDir, featureId: ctx.featureId, handoff });
+        let gate = isBuildHandoff(handoff) ? (ctx.gateBuild ?? (() => ({ passed: true })))({ handoff }) : evaluateDesignGate({ sftddDir: ctx.sftddDir, featureId: ctx.featureId, handoff });
+        if (gate.passed && !isBuildHandoff(handoff) && ctx.semanticGate) {
+          const sem = await ctx.semanticGate({ handoff });
+          if (!sem.passed) gate = { passed: false, reason: sem.reason ?? "semantic: below threshold" };
+        }
         const tokens = ctx.readTurnTokens?.({ handoff });
         const artifactsRef = gate.passed && !isBuildHandoff(handoff) ? snapshotDesign({ sftddDir: ctx.sftddDir }) : void 0;
         result = {
@@ -12093,8 +12256,8 @@ function makeChampionWalkDeps(ctx) {
           restoreCandidate();
         }
       }
-      const champ = join32(ctx.experimentsDir, "champion-walk.json");
-      const prior = existsSync37(champ) ? JSON.parse(readFileSync36(champ, "utf8")) : { winners: [] };
+      const champ = join33(ctx.experimentsDir, "champion-walk.json");
+      const prior = existsSync38(champ) ? JSON.parse(readFileSync37(champ, "utf8")) : { winners: [] };
       prior.winners.push({ handoffId: handoff.id, candidateId: candidate.id });
       mkdirSync25(ctx.experimentsDir, { recursive: true });
       writeFileSync24(champ, JSON.stringify(prior, null, 2) + "\n");
@@ -12407,7 +12570,7 @@ function buildCtxForHandoff(handoff, loc) {
     projectDir,
     sftddDir,
     featureId,
-    experimentsDir: join33(projectDir, "experiments"),
+    experimentsDir: join34(projectDir, "experiments"),
     spawnTurn: makeLiveSpawnTurn(featureId, {
       buildCfg: (fid) => buildCfg({ feature: fid, projectDir }, fid),
       execRunner: (cfg) => execRunner(cfg),
@@ -12426,6 +12589,19 @@ function buildCtxForHandoff(handoff, loc) {
     // Prompt-weight signal for the report's pass-2 trim targeting: the role's last
     // turn.usage input/cache-read tokens from the project agent-log.
     readTurnTokens: ({ handoff: handoff2 }) => readLastTurnTokens(sftddDir, handoff2.role),
+    // SEMANTIC quality bar (design turns only): after the structural gate passes, judge
+    // the candidate's artifact against the recorded reference at this step with a FIXED
+    // opus judge (constant across candidates). Wired only when the step has a recorded
+    // reference (turnKeyForAction resolves a design step); build turns / no-reference
+    // steps get undefined and fall through to the structural gate alone.
+    ...(() => {
+      const step = handoff.action ? turnKeyForAction(handoff.action) : void 0;
+      if (!step) return {};
+      const judge = makeOpusJudge({ cwd: projectDir });
+      return {
+        semanticGate: () => evaluateSemanticGate({ kitRoot: kitRoot(), sftddDir, featureId, step, judge })
+      };
+    })(),
     // The corpus dir recordWinner records the restored winning-trial artifacts into
     // (recordTurn from state, no re-spawn) when the ambient RECORD_DIR env is unset.
     ...loc.recordDir ? { recordDir: loc.recordDir } : {}

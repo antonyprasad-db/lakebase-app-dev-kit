@@ -161,6 +161,49 @@ describe("makeChampionWalkDeps: hermetic DESIGN handoff", () => {
     expect(spawnCount).toBe(2);
   });
 
+  it("disqualifies a structurally-PASSING candidate when the SEMANTIC gate rejects it (judge after timing)", async () => {
+    // The semantic bar sits ON TOP of the structural self-check: a candidate whose
+    // artifact is well-formed (structural pass) but semantically thin vs the recorded
+    // reference must be disqualified regardless of speed. The semanticGate seam runs
+    // after the clock stops, so it never inflates durationMs.
+    const clock = { now: 0 };
+    const candidates = [
+      { id: "baseline", configOverrides: {} },
+      { id: "thin", configOverrides: {} },
+    ];
+    // Both write a structurally-conformant spec (structural gate passes for both).
+    const spawn: SpawnTurn = async () => {
+      const fdir = join(sftddDir, "features", featureId);
+      writeFileSync(join(fdir, "feature-spec.json"), JSON.stringify({ stories: ["S1"] }));
+      writeFileSync(join(fdir, "feature-spec.md"), "# spec\n");
+      writeFileSync(
+        join(fdir, "stories", "S1", "acs", "AC1.json"),
+        JSON.stringify({ id: "AC1", layer: "API", given: "g", when: "w", then: "t", status: "draft" }),
+      );
+      clock.now += 500;
+    };
+    const base = ctx(spawn, clock);
+    // Semantic gate: baseline is comparable; "thin" drops material intent.
+    const semanticCtx: OptimizeLiveCtx = {
+      ...base,
+      semanticGate: async () => ({ passed: true }), // set per-candidate below via closure swap
+    };
+    // Route the verdict by which candidate applied its config last (the spec is the
+    // same, so key off a module-level flag the spawn sets). Simpler: judge by call order.
+    let call = 0;
+    semanticCtx.semanticGate = async () => {
+      call++;
+      // first candidate (baseline) passes; second ("thin") fails semantic.
+      return call === 1 ? { passed: true, score: 0.95 } : { passed: false, score: 0.3, reason: "semantic: score 0.30 < 0.85 vs stockflow ... missing: refile behavior" };
+    };
+    const deps = makeChampionWalkDeps(semanticCtx);
+    const handoff = { id: "S1-spec-author", role: "spec-author", story: "S1" };
+    const result = await runChampionWalk({ handoffs: [handoff], candidates, trials: 1 }, deps);
+    const thin = result.walk[0].candidates.find((c) => c.candidateId === "thin");
+    expect(thin?.disqualified).toBe(true);
+    expect(result.walk[0].winner.candidateId).toBe("baseline");
+  });
+
   it("disqualifies a candidate whose turn does NOT satisfy the gate", async () => {
     const clock = { now: 0 };
     const candidates = [

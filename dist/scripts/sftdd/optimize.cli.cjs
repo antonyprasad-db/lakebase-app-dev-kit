@@ -6660,7 +6660,7 @@ __export(optimize_cli_exports, {
 module.exports = __toCommonJS(optimize_cli_exports);
 init_cjs_shims();
 var import_util4 = require("@databricks-solutions/lakebase-scm-utils/util");
-var import_node_path15 = require("path");
+var import_node_path16 = require("path");
 
 // scripts/sftdd/optimize-candidates.ts
 init_cjs_shims();
@@ -7886,6 +7886,9 @@ var fs6 = __toESM(require("fs"), 1);
 var path4 = __toESM(require("path"), 1);
 var KIT_ROOT = path4.resolve(__dirname, "..", "..", "..");
 var SUBSTRATE_PKG = "@databricks-solutions/lakebase-scm-utils";
+function kitRoot() {
+  return KIT_ROOT;
+}
 var kitBinMap = null;
 var substrateRoot;
 var substrateBinMap = null;
@@ -11702,29 +11705,185 @@ function buildDriveEffects(cfg) {
   };
 }
 
+// scripts/sftdd/optimize-semantic-gate.ts
+init_cjs_shims();
+var import_node_child_process4 = require("child_process");
+var import_node_fs9 = require("fs");
+var import_node_path11 = require("path");
+function stepArtifactPath(base, step, featureId) {
+  switch (step) {
+    case "ux":
+      return designGuideJson(base);
+    case "breakdown":
+      return featureSpecJson(base, featureId);
+    case "architect":
+    case "estimate":
+      return architectureJson(base, featureId);
+    case "test-list":
+      return featureTestListJson(base, featureId);
+    case "dba":
+      return dbDesignJson(base, featureId);
+    default:
+      return null;
+  }
+}
+var SCENARIOS_REL = "examples/sftdd-scenarios";
+var CANONICAL = "stockflow";
+var RERECORD = "stockflow-rerecord";
+var SEMANTIC_THRESHOLD = 0.85;
+function corpusForStep(step) {
+  switch (step) {
+    case "dba":
+      return RERECORD;
+    case "breakdown":
+    case "acs":
+    case "architect":
+    case "estimate":
+    case "test-list":
+    case "ux":
+      return CANONICAL;
+    default:
+      return void 0;
+  }
+}
+function resolveStepReference(args) {
+  const { kitRoot: kitRoot2, step, featureId } = args;
+  const corpus = corpusForStep(step);
+  if (!corpus) return null;
+  const root = (0, import_node_path11.join)(kitRoot2, SCENARIOS_REL, corpus, "recorded-artifacts");
+  if (!(0, import_node_fs9.existsSync)(root)) return null;
+  if (step === "acs") {
+    const sdir = storiesDir(root, featureId);
+    if (!(0, import_node_fs9.existsSync)(sdir)) return null;
+    const paths = [];
+    for (const story of (0, import_node_fs9.readdirSync)(sdir)) {
+      const adir = acsDir(root, featureId, story);
+      if (!(0, import_node_fs9.existsSync)(adir)) continue;
+      for (const ac of (0, import_node_fs9.readdirSync)(adir)) if (ac.endsWith(".json")) paths.push((0, import_node_path11.join)(adir, ac));
+    }
+    return paths.length ? { corpus, paths, label: "stories/*/acs/*.json (feature-aggregate)" } : null;
+  }
+  const p = stepArtifactPath(root, step, featureId);
+  if (!p || !(0, import_node_fs9.existsSync)(p)) return null;
+  return { corpus, paths: [p], label: p.slice(root.length + 1) };
+}
+function readCandidateArtifact(args) {
+  const { sftddDir, step, featureId } = args;
+  const readIf = (p2) => (0, import_node_fs9.existsSync)(p2) ? (0, import_node_fs9.readFileSync)(p2, "utf8") : null;
+  if (step === "acs") {
+    const sdir = storiesDir(sftddDir, featureId);
+    if (!(0, import_node_fs9.existsSync)(sdir)) return null;
+    const parts = [];
+    for (const story of (0, import_node_fs9.readdirSync)(sdir)) {
+      const adir = acsDir(sftddDir, featureId, story);
+      if (!(0, import_node_fs9.existsSync)(adir)) continue;
+      for (const ac of (0, import_node_fs9.readdirSync)(adir)) if (ac.endsWith(".json")) parts.push((0, import_node_fs9.readFileSync)((0, import_node_path11.join)(adir, ac), "utf8"));
+    }
+    return parts.length ? parts.join("\n---\n") : null;
+  }
+  const p = stepArtifactPath(sftddDir, step, featureId);
+  return p ? readIf(p) : null;
+}
+async function evaluateSemanticGate(args) {
+  const { kitRoot: kitRoot2, sftddDir, featureId, step, judge } = args;
+  const threshold = args.threshold ?? SEMANTIC_THRESHOLD;
+  const ref = resolveStepReference({ kitRoot: kitRoot2, step, featureId });
+  if (!ref) return { passed: true, skipped: true };
+  const candidate = readCandidateArtifact({ sftddDir, step, featureId });
+  if (candidate === null) {
+    return { passed: false, reason: `semantic: candidate produced no artifact for step '${step}' to compare against ${ref.label}` };
+  }
+  const reference = ref.paths.map((p) => (0, import_node_fs9.readFileSync)(p, "utf8")).join("\n---\n");
+  const verdict = await judge({ step, reference, candidate });
+  if (verdict.score >= threshold) return { passed: true, score: verdict.score };
+  const missing = verdict.missing?.length ? ` missing: ${verdict.missing.join("; ")}` : "";
+  return {
+    passed: false,
+    score: verdict.score,
+    reason: `semantic: score ${verdict.score.toFixed(2)} < ${threshold} vs ${ref.corpus} ${ref.label}.${missing}`
+  };
+}
+function buildJudgePrompt(step, reference, candidate) {
+  return [
+    `You are a strict design reviewer scoring SEMANTIC similarity for a "${step}" design-step artifact.`,
+    `The REFERENCE is a known-good artifact recorded at this step. The CANDIDATE is a newly produced artifact for the same step.`,
+    `Judge whether the CANDIDATE conveys the SAME design intent and behavioral coverage as the REFERENCE.`,
+    `Judge MEANING, not wording: different phrasing, different ids/slugs, or a different split of the same content across sections is FINE.`,
+    `What matters: every material behavior, entity, component, decision, or constraint the REFERENCE expresses is present (equivalently) in the CANDIDATE. Extra content in the CANDIDATE is fine and not penalized.`,
+    `Return ONLY a JSON object on a single line: {"score": <0..1 float>, "missing": ["<material intent the CANDIDATE dropped>", ...]}. score 1.0 = full semantic coverage; lower as material intent is missing. missing lists ONLY dropped items (empty array when none).`,
+    ``,
+    `REFERENCE:`,
+    "```json",
+    reference,
+    "```",
+    ``,
+    `CANDIDATE:`,
+    "```json",
+    candidate,
+    "```"
+  ].join("\n");
+}
+function parseJudgeReply(reply) {
+  const m = reply.match(/\{[\s\S]*?"score"[\s\S]*?\}/);
+  if (m) {
+    try {
+      const obj = JSON.parse(m[0]);
+      const score = typeof obj.score === "number" ? Math.max(0, Math.min(1, obj.score)) : 0;
+      const missing = Array.isArray(obj.missing) ? obj.missing.map(String) : void 0;
+      return { score, missing, raw: reply };
+    } catch {
+    }
+  }
+  return { score: 0, missing: ["judge reply not parseable as a score"], raw: reply };
+}
+function makeOpusJudge(opts) {
+  const model = opts.model ?? "opus";
+  return ({ step, reference, candidate }) => new Promise((resolve4) => {
+    const prompt = buildJudgePrompt(step, reference, candidate);
+    (0, import_node_child_process4.execFile)(
+      "claude",
+      ["-p", prompt, "--model", model, "--permission-mode", "acceptEdits", "--strict-mcp-config", "--output-format", "json"],
+      { cwd: opts.cwd, maxBuffer: 32 * 1024 * 1024, timeout: 5 * 6e4 },
+      (err, stdout) => {
+        if (err && !stdout) {
+          resolve4({ score: 0, missing: [`judge spawn failed: ${err.message}`] });
+          return;
+        }
+        let text = stdout;
+        try {
+          const parsed = JSON.parse(stdout);
+          if (typeof parsed.result === "string") text = parsed.result;
+        } catch {
+        }
+        resolve4(parseJudgeReply(text));
+      }
+    );
+  });
+}
+
 // scripts/sftdd/optimize-live.ts
 init_cjs_shims();
-var import_node_fs12 = require("fs");
-var import_node_child_process4 = require("child_process");
-var import_node_path14 = require("path");
+var import_node_fs13 = require("fs");
+var import_node_child_process5 = require("child_process");
+var import_node_path15 = require("path");
 
 // scripts/sftdd/optimize-agent-overlay.ts
 init_cjs_shims();
-var import_node_fs9 = require("fs");
-var import_node_path11 = require("path");
+var import_node_fs10 = require("fs");
+var import_node_path12 = require("path");
 function overlayAgent(args) {
   const { projectDir, role, markdown } = args;
-  const agentPath = (0, import_node_path11.join)(projectDir, ".claude", "agents", `${role}.md`);
-  const hadBaseline = (0, import_node_fs9.existsSync)(agentPath);
-  const baseline = hadBaseline ? (0, import_node_fs9.readFileSync)(agentPath, "utf8") : void 0;
-  (0, import_node_fs9.mkdirSync)((0, import_node_path11.dirname)(agentPath), { recursive: true });
-  (0, import_node_fs9.writeFileSync)(agentPath, markdown);
+  const agentPath = (0, import_node_path12.join)(projectDir, ".claude", "agents", `${role}.md`);
+  const hadBaseline = (0, import_node_fs10.existsSync)(agentPath);
+  const baseline = hadBaseline ? (0, import_node_fs10.readFileSync)(agentPath, "utf8") : void 0;
+  (0, import_node_fs10.mkdirSync)((0, import_node_path12.dirname)(agentPath), { recursive: true });
+  (0, import_node_fs10.writeFileSync)(agentPath, markdown);
   return {
     restore() {
       if (hadBaseline) {
-        (0, import_node_fs9.writeFileSync)(agentPath, baseline);
-      } else if ((0, import_node_fs9.existsSync)(agentPath)) {
-        (0, import_node_fs9.rmSync)(agentPath, { force: true });
+        (0, import_node_fs10.writeFileSync)(agentPath, baseline);
+      } else if ((0, import_node_fs10.existsSync)(agentPath)) {
+        (0, import_node_fs10.rmSync)(agentPath, { force: true });
       }
     }
   };
@@ -11772,21 +11931,21 @@ function evaluateDesignGate(args) {
 
 // scripts/sftdd/optimize-snapshot.ts
 init_cjs_shims();
-var import_node_fs10 = require("fs");
+var import_node_fs11 = require("fs");
 var import_node_os = require("os");
-var import_node_path12 = require("path");
+var import_node_path13 = require("path");
 function snapshotDesign(args) {
   const { sftddDir } = args;
-  const backup = (0, import_node_fs10.mkdtempSync)((0, import_node_path12.join)((0, import_node_os.tmpdir)(), "optimize-design-snap-"));
-  const backupTree = (0, import_node_path12.join)(backup, (0, import_node_path12.basename)(sftddDir));
-  (0, import_node_fs10.cpSync)(sftddDir, backupTree, { recursive: true });
+  const backup = (0, import_node_fs11.mkdtempSync)((0, import_node_path13.join)((0, import_node_os.tmpdir)(), "optimize-design-snap-"));
+  const backupTree = (0, import_node_path13.join)(backup, (0, import_node_path13.basename)(sftddDir));
+  (0, import_node_fs11.cpSync)(sftddDir, backupTree, { recursive: true });
   return {
     restore() {
-      (0, import_node_fs10.rmSync)(sftddDir, { recursive: true, force: true });
-      (0, import_node_fs10.cpSync)(backupTree, sftddDir, { recursive: true });
+      (0, import_node_fs11.rmSync)(sftddDir, { recursive: true, force: true });
+      (0, import_node_fs11.cpSync)(backupTree, sftddDir, { recursive: true });
     },
     dispose() {
-      (0, import_node_fs10.rmSync)(backup, { recursive: true, force: true });
+      (0, import_node_fs11.rmSync)(backup, { recursive: true, force: true });
     }
   };
 }
@@ -11810,8 +11969,8 @@ function turnMutatesDb(buildMode, role) {
 // scripts/sftdd/turn-recorder.ts
 init_cjs_shims();
 var import_node_crypto3 = require("crypto");
-var import_node_fs11 = require("fs");
-var import_node_path13 = require("path");
+var import_node_fs12 = require("fs");
+var import_node_path14 = require("path");
 var NON_ARTIFACT_TDD = /* @__PURE__ */ new Set(["agent-log.jsonl"]);
 function labelForAction(action) {
   const a = action;
@@ -11831,7 +11990,7 @@ function labelForAction(action) {
   return kind;
 }
 function sha1(abs) {
-  return (0, import_node_crypto3.createHash)("sha1").update((0, import_node_fs11.readFileSync)(abs)).digest("hex");
+  return (0, import_node_crypto3.createHash)("sha1").update((0, import_node_fs12.readFileSync)(abs)).digest("hex");
 }
 function renderTranscriptMd(t, label) {
   const lines = [];
@@ -11848,14 +12007,14 @@ function renderTranscriptMd(t, label) {
   return lines.join("\n");
 }
 function walk(dir, keep) {
-  if (!(0, import_node_fs11.existsSync)(dir)) return [];
+  if (!(0, import_node_fs12.existsSync)(dir)) return [];
   const out = [];
-  for (const entry of (0, import_node_fs11.readdirSync)(dir)) {
-    const abs = (0, import_node_path13.join)(dir, entry);
+  for (const entry of (0, import_node_fs12.readdirSync)(dir)) {
+    const abs = (0, import_node_path14.join)(dir, entry);
     if (keep && !keep(abs)) continue;
     let st;
     try {
-      st = (0, import_node_fs11.statSync)(abs);
+      st = (0, import_node_fs12.statSync)(abs);
     } catch {
       continue;
     }
@@ -11867,13 +12026,13 @@ function walk(dir, keep) {
 function scan(projectDir, sftddDir) {
   const map = /* @__PURE__ */ new Map();
   for (const abs of walk(sftddDir)) {
-    const rel = (0, import_node_path13.relative)(projectDir, abs);
-    if (NON_ARTIFACT_TDD.has((0, import_node_path13.relative)(sftddDir, abs))) continue;
+    const rel = (0, import_node_path14.relative)(projectDir, abs);
+    if (NON_ARTIFACT_TDD.has((0, import_node_path14.relative)(sftddDir, abs))) continue;
     map.set(rel, { abs, rel, underTdd: true, sha: sha1(abs) });
   }
   const keep = codeTreeFilter(projectDir);
   for (const abs of walk(projectDir, keep)) {
-    const rel = (0, import_node_path13.relative)(projectDir, abs);
+    const rel = (0, import_node_path14.relative)(projectDir, abs);
     if (map.has(rel)) continue;
     map.set(rel, { abs, rel, underTdd: false, sha: sha1(abs) });
   }
@@ -11882,28 +12041,28 @@ function scan(projectDir, sftddDir) {
 function writeRecorderState(recordDir, cur) {
   const files = {};
   for (const [rel, f] of cur) files[rel] = f.sha;
-  (0, import_node_fs11.mkdirSync)(recordDir, { recursive: true });
-  (0, import_node_fs11.writeFileSync)((0, import_node_path13.join)(recordDir, ".recorder-state.json"), JSON.stringify({ files }, null, 2) + "\n");
+  (0, import_node_fs12.mkdirSync)(recordDir, { recursive: true });
+  (0, import_node_fs12.writeFileSync)((0, import_node_path14.join)(recordDir, ".recorder-state.json"), JSON.stringify({ files }, null, 2) + "\n");
 }
 function seedRecorderBaseline(args) {
-  if ((0, import_node_fs11.existsSync)((0, import_node_path13.join)(args.recordDir, ".recorder-state.json"))) return false;
+  if ((0, import_node_fs12.existsSync)((0, import_node_path14.join)(args.recordDir, ".recorder-state.json"))) return false;
   writeRecorderState(args.recordDir, scan(args.projectDir, args.sftddDir));
   return true;
 }
 function readState(recordDir) {
-  const f = (0, import_node_path13.join)(recordDir, ".recorder-state.json");
-  if (!(0, import_node_fs11.existsSync)(f)) return { files: {} };
+  const f = (0, import_node_path14.join)(recordDir, ".recorder-state.json");
+  if (!(0, import_node_fs12.existsSync)(f)) return { files: {} };
   try {
-    return JSON.parse((0, import_node_fs11.readFileSync)(f, "utf8"));
+    return JSON.parse((0, import_node_fs12.readFileSync)(f, "utf8"));
   } catch {
     return { files: {} };
   }
 }
 function readIndex(recordDir) {
-  const f = (0, import_node_path13.join)(recordDir, "turns", "index.json");
-  if (!(0, import_node_fs11.existsSync)(f)) return [];
+  const f = (0, import_node_path14.join)(recordDir, "turns", "index.json");
+  if (!(0, import_node_fs12.existsSync)(f)) return [];
   try {
-    const data = JSON.parse((0, import_node_fs11.readFileSync)(f, "utf8"));
+    const data = JSON.parse((0, import_node_fs12.readFileSync)(f, "utf8"));
     return Array.isArray(data.turns) ? data.turns : [];
   } catch {
     return [];
@@ -11930,30 +12089,30 @@ function recordTurn(args) {
   const ordinal = readIndex(recordDir).length;
   const label = labelForAction(action);
   const dirName = `${pad(ordinal)}-${label}`;
-  const turnDir = (0, import_node_path13.join)(recordDir, "turns", dirName);
-  (0, import_node_fs11.mkdirSync)((0, import_node_path13.join)(turnDir, "files"), { recursive: true });
-  const artifactsDir = (0, import_node_path13.join)(recordDir, "recorded-artifacts");
+  const turnDir = (0, import_node_path14.join)(recordDir, "turns", dirName);
+  (0, import_node_fs12.mkdirSync)((0, import_node_path14.join)(turnDir, "files"), { recursive: true });
+  const artifactsDir = (0, import_node_path14.join)(recordDir, "recorded-artifacts");
   for (const rel of produced) {
     const f = cur.get(rel);
-    const dst = (0, import_node_path13.join)(turnDir, "files", rel);
-    (0, import_node_fs11.mkdirSync)((0, import_node_path13.dirname)(dst), { recursive: true });
-    (0, import_node_fs11.cpSync)(f.abs, dst);
+    const dst = (0, import_node_path14.join)(turnDir, "files", rel);
+    (0, import_node_fs12.mkdirSync)((0, import_node_path14.dirname)(dst), { recursive: true });
+    (0, import_node_fs12.cpSync)(f.abs, dst);
     if (f.underTdd) {
-      const mirror = (0, import_node_path13.join)(artifactsDir, (0, import_node_path13.relative)(sftddDir, f.abs));
-      (0, import_node_fs11.mkdirSync)((0, import_node_path13.dirname)(mirror), { recursive: true });
-      (0, import_node_fs11.cpSync)(f.abs, mirror);
+      const mirror = (0, import_node_path14.join)(artifactsDir, (0, import_node_path14.relative)(sftddDir, f.abs));
+      (0, import_node_fs12.mkdirSync)((0, import_node_path14.dirname)(mirror), { recursive: true });
+      (0, import_node_fs12.cpSync)(f.abs, mirror);
     }
   }
   for (const rel of deleted) {
-    const abs = (0, import_node_path13.join)(projectDir, rel);
+    const abs = (0, import_node_path14.join)(projectDir, rel);
     if (abs.startsWith(sftddDir)) {
-      const mirror = (0, import_node_path13.join)(artifactsDir, (0, import_node_path13.relative)(sftddDir, abs));
-      if ((0, import_node_fs11.existsSync)(mirror)) (0, import_node_fs11.rmSync)(mirror, { force: true });
+      const mirror = (0, import_node_path14.join)(artifactsDir, (0, import_node_path14.relative)(sftddDir, abs));
+      if ((0, import_node_fs12.existsSync)(mirror)) (0, import_node_fs12.rmSync)(mirror, { force: true });
     }
   }
   let transcriptSummary;
   if (transcript) {
-    (0, import_node_fs11.writeFileSync)((0, import_node_path13.join)(turnDir, "transcript.md"), renderTranscriptMd(transcript, label));
+    (0, import_node_fs12.writeFileSync)((0, import_node_path14.join)(turnDir, "transcript.md"), renderTranscriptMd(transcript, label));
     transcriptSummary = {
       role: transcript.role,
       model: transcript.model,
@@ -11975,7 +12134,7 @@ function recordTurn(args) {
     deleted,
     ...transcriptSummary ? { transcript: transcriptSummary } : {}
   };
-  (0, import_node_fs11.writeFileSync)((0, import_node_path13.join)(turnDir, "turn.json"), JSON.stringify(manifest, null, 2) + "\n");
+  (0, import_node_fs12.writeFileSync)((0, import_node_path14.join)(turnDir, "turn.json"), JSON.stringify(manifest, null, 2) + "\n");
   const index = readIndex(recordDir);
   const entry = {
     ordinal,
@@ -11992,8 +12151,8 @@ function recordTurn(args) {
     ...transcript ? { hasTranscript: true } : {}
   };
   index.push(entry);
-  (0, import_node_fs11.mkdirSync)((0, import_node_path13.join)(recordDir, "turns"), { recursive: true });
-  (0, import_node_fs11.writeFileSync)((0, import_node_path13.join)(recordDir, "turns", "index.json"), JSON.stringify({ turns: index }, null, 2) + "\n");
+  (0, import_node_fs12.mkdirSync)((0, import_node_path14.join)(recordDir, "turns"), { recursive: true });
+  (0, import_node_fs12.writeFileSync)((0, import_node_path14.join)(recordDir, "turns", "index.json"), JSON.stringify({ turns: index }, null, 2) + "\n");
   writeRecorderState(recordDir, cur);
   return { ordinal, dir: dirName, produced, deleted };
 }
@@ -12023,10 +12182,10 @@ function applyCandidate(ctx, candidate) {
   };
 }
 function writeTrialRecord(ctx, handoff, candidate, trial, result) {
-  const dir = (0, import_node_path14.join)(ctx.experimentsDir, handoff.id, candidate.id, `trial-${trial}`);
-  (0, import_node_fs12.mkdirSync)(dir, { recursive: true });
-  (0, import_node_fs12.writeFileSync)((0, import_node_path14.join)(dir, "candidate.json"), JSON.stringify(candidate, null, 2) + "\n");
-  (0, import_node_fs12.writeFileSync)((0, import_node_path14.join)(dir, "result.json"), JSON.stringify(result, null, 2) + "\n");
+  const dir = (0, import_node_path15.join)(ctx.experimentsDir, handoff.id, candidate.id, `trial-${trial}`);
+  (0, import_node_fs13.mkdirSync)(dir, { recursive: true });
+  (0, import_node_fs13.writeFileSync)((0, import_node_path15.join)(dir, "candidate.json"), JSON.stringify(candidate, null, 2) + "\n");
+  (0, import_node_fs13.writeFileSync)((0, import_node_path15.join)(dir, "result.json"), JSON.stringify(result, null, 2) + "\n");
 }
 function makeChampionWalkDeps(ctx) {
   return {
@@ -12051,7 +12210,11 @@ function makeChampionWalkDeps(ctx) {
       try {
         await ctx.spawnTurn({ handoff, candidate, record: false });
         const durationMs = ctx.now() - started;
-        const gate = isBuildHandoff(handoff) ? (ctx.gateBuild ?? (() => ({ passed: true })))({ handoff }) : evaluateDesignGate({ sftddDir: ctx.sftddDir, featureId: ctx.featureId, handoff });
+        let gate = isBuildHandoff(handoff) ? (ctx.gateBuild ?? (() => ({ passed: true })))({ handoff }) : evaluateDesignGate({ sftddDir: ctx.sftddDir, featureId: ctx.featureId, handoff });
+        if (gate.passed && !isBuildHandoff(handoff) && ctx.semanticGate) {
+          const sem = await ctx.semanticGate({ handoff });
+          if (!sem.passed) gate = { passed: false, reason: sem.reason ?? "semantic: below threshold" };
+        }
         const tokens = ctx.readTurnTokens?.({ handoff });
         const artifactsRef = gate.passed && !isBuildHandoff(handoff) ? snapshotDesign({ sftddDir: ctx.sftddDir }) : void 0;
         result = {
@@ -12095,11 +12258,11 @@ function makeChampionWalkDeps(ctx) {
           restoreCandidate();
         }
       }
-      const champ = (0, import_node_path14.join)(ctx.experimentsDir, "champion-walk.json");
-      const prior = (0, import_node_fs12.existsSync)(champ) ? JSON.parse((0, import_node_fs12.readFileSync)(champ, "utf8")) : { winners: [] };
+      const champ = (0, import_node_path15.join)(ctx.experimentsDir, "champion-walk.json");
+      const prior = (0, import_node_fs13.existsSync)(champ) ? JSON.parse((0, import_node_fs13.readFileSync)(champ, "utf8")) : { winners: [] };
       prior.winners.push({ handoffId: handoff.id, candidateId: candidate.id });
-      (0, import_node_fs12.mkdirSync)(ctx.experimentsDir, { recursive: true });
-      (0, import_node_fs12.writeFileSync)(champ, JSON.stringify(prior, null, 2) + "\n");
+      (0, import_node_fs13.mkdirSync)(ctx.experimentsDir, { recursive: true });
+      (0, import_node_fs13.writeFileSync)(champ, JSON.stringify(prior, null, 2) + "\n");
     }
   };
 }
@@ -12136,10 +12299,10 @@ function makeLiveSpawnTurn(featureId, seams) {
 function realBuildGitOps(projectDir) {
   return {
     async sha() {
-      return (0, import_node_child_process4.execFileSync)("git", ["rev-parse", "HEAD"], { cwd: projectDir, encoding: "utf8" }).trim();
+      return (0, import_node_child_process5.execFileSync)("git", ["rev-parse", "HEAD"], { cwd: projectDir, encoding: "utf8" }).trim();
     },
     async resetHard(sha) {
-      (0, import_node_child_process4.execFileSync)("git", ["reset", "--hard", sha], { cwd: projectDir, stdio: "ignore" });
+      (0, import_node_child_process5.execFileSync)("git", ["reset", "--hard", sha], { cwd: projectDir, stdio: "ignore" });
     }
   };
 }
@@ -12409,7 +12572,7 @@ function buildCtxForHandoff(handoff, loc) {
     projectDir,
     sftddDir,
     featureId,
-    experimentsDir: (0, import_node_path15.join)(projectDir, "experiments"),
+    experimentsDir: (0, import_node_path16.join)(projectDir, "experiments"),
     spawnTurn: makeLiveSpawnTurn(featureId, {
       buildCfg: (fid) => buildCfg({ feature: fid, projectDir }, fid),
       execRunner: (cfg) => execRunner(cfg),
@@ -12428,6 +12591,19 @@ function buildCtxForHandoff(handoff, loc) {
     // Prompt-weight signal for the report's pass-2 trim targeting: the role's last
     // turn.usage input/cache-read tokens from the project agent-log.
     readTurnTokens: ({ handoff: handoff2 }) => readLastTurnTokens(sftddDir, handoff2.role),
+    // SEMANTIC quality bar (design turns only): after the structural gate passes, judge
+    // the candidate's artifact against the recorded reference at this step with a FIXED
+    // opus judge (constant across candidates). Wired only when the step has a recorded
+    // reference (turnKeyForAction resolves a design step); build turns / no-reference
+    // steps get undefined and fall through to the structural gate alone.
+    ...(() => {
+      const step = handoff.action ? turnKeyForAction(handoff.action) : void 0;
+      if (!step) return {};
+      const judge = makeOpusJudge({ cwd: projectDir });
+      return {
+        semanticGate: () => evaluateSemanticGate({ kitRoot: kitRoot(), sftddDir, featureId, step, judge })
+      };
+    })(),
     // The corpus dir recordWinner records the restored winning-trial artifacts into
     // (recordTurn from state, no re-spawn) when the ambient RECORD_DIR env is unset.
     ...loc.recordDir ? { recordDir: loc.recordDir } : {}
@@ -12459,7 +12635,7 @@ async function main() {
     process.stderr.write("usage: lakebase-sftdd-optimize --scenario <dir> --feature <id> [--handoff <id>] [--only design|build] --candidates <spec> --trials N [--dry-run]\n");
     return 2;
   }
-  const projectDir = (0, import_node_path15.resolve)(args.projectDir ?? process.cwd());
+  const projectDir = (0, import_node_path16.resolve)(args.projectDir ?? process.cwd());
   const sftddDir = resolveSftddDir(projectDir);
   const featureId = args.feature;
   const sweep = parseSweepSpec(args.candidates ?? "");
