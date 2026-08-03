@@ -6736,9 +6736,9 @@ function generateCandidates(sweep) {
   });
   return out;
 }
-function cheaperModels(model) {
-  const below = { opus: ["sonnet", "haiku"], sonnet: ["haiku"], haiku: [] };
-  return below[model] ?? [];
+var MODEL_TIERS = ["haiku", "sonnet", "opus"];
+function otherModels(model) {
+  return MODEL_TIERS.filter((m) => m !== model);
 }
 var CHEAPER_EFFORTS = ["low", "medium"];
 function defaultLaneCandidates(handoff) {
@@ -6754,15 +6754,15 @@ function defaultLaneCandidates(handoff) {
     roles: { [role]: settings }
   });
   const base = RECOMMENDED_MODELS[role] ?? (isBuild ? "sonnet" : "opus");
-  const cheapers = cheaperModels(base);
+  const others = otherModels(base);
   const out = [baseline];
-  for (const m of cheapers) {
+  for (const m of others) {
     out.push({ id: `${idPrefix}-m-${m}`, configOverrides: roleOverride({ model: wrapModel(m) }) });
   }
   for (const e of CHEAPER_EFFORTS) {
     out.push({ id: `${idPrefix}-e-${e}`, configOverrides: roleOverride({ effort: wrapEffort(e) }) });
   }
-  for (const m of cheapers) {
+  for (const m of others) {
     out.push({
       id: `${idPrefix}-m-${m}-e-low`,
       configOverrides: roleOverride({ model: wrapModel(m), effort: wrapEffort("low") })

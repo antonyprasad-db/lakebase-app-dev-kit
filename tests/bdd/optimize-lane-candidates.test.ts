@@ -16,14 +16,34 @@ function h(role: string, story?: string, buildMode?: string): HandoffPlan {
 }
 
 describe("defaultLaneCandidates: design roles (scalar model/effort)", () => {
-  it("baseline first, then EVERY cheaper model tier as a scalar (opus->sonnet AND opus->haiku)", () => {
+  it("baseline first, then EVERY OTHER model tier as a scalar (opus base -> sonnet AND haiku)", () => {
     const cands = defaultLaneCandidates(h("architect-reviewer", "S1"));
     expect(cands[0].id).toBe("baseline");
-    // A scalar model-only downgrade candidate for each tier below opus.
+    // A scalar model-only candidate for each OTHER tier (base opus -> the two below).
     const models = cands
       .filter((c) => typeof c.configOverrides.roles?.["architect-reviewer"]?.model === "string" && c.configOverrides.roles?.["architect-reviewer"]?.effort === undefined)
       .map((c) => c.configOverrides.roles!["architect-reviewer"]!.model);
     expect(models).toEqual(expect.arrayContaining(["sonnet", "haiku"]));
+    expect(models).not.toContain("opus"); // never re-try the base model
+  });
+
+  it("tries a MORE-capable model too: a sonnet-based role (ux-designer) gets an opus candidate", () => {
+    // "Try all possibilities" , a bigger model can win wall-clock via fewer round-trips.
+    const cands = defaultLaneCandidates(h("ux-designer"));
+    const models = cands
+      .filter((c) => typeof c.configOverrides.roles?.["ux-designer"]?.model === "string" && c.configOverrides.roles?.["ux-designer"]?.effort === undefined)
+      .map((c) => c.configOverrides.roles!["ux-designer"]!.model);
+    expect(models).toEqual(expect.arrayContaining(["haiku", "opus"])); // cheaper AND more capable
+    expect(models).not.toContain("sonnet"); // never re-try the base
+  });
+
+  it("every role gets the SAME candidate count (2 other models x {alone, x-low} + 2 efforts + scan + baseline = 8)", () => {
+    // With all-tiers, an opus base and a sonnet base both have exactly 2 other models,
+    // so the sweep is uniform: no role is under-swept for being mid-tier.
+    for (const role of ["spec-author", "architect-reviewer", "dba", "test-strategist"]) {
+      expect(defaultLaneCandidates(h(role, "S1")).length).toBe(8);
+    }
+    expect(defaultLaneCandidates(h("ux-designer")).length).toBe(8);
   });
 
   it("includes effort-drop candidates as scalars (low AND medium)", () => {
@@ -34,16 +54,19 @@ describe("defaultLaneCandidates: design roles (scalar model/effort)", () => {
     expect(efforts).toEqual(expect.arrayContaining(["low", "medium"]));
   });
 
-  it("includes a model x effort CROSS at low (cheaper model AND less thinking together)", () => {
+  it("includes a model x effort CROSS at low for EVERY other model (model change AND less thinking)", () => {
     const cands = defaultLaneCandidates(h("architect-reviewer", "S1"));
-    const cross = cands.find(
-      (c) =>
-        typeof c.configOverrides.roles?.["architect-reviewer"]?.model === "string" &&
-        c.configOverrides.roles?.["architect-reviewer"]?.effort === "low",
-    );
-    expect(cross).toBeDefined();
-    expect(cross!.configOverrides.roles!["architect-reviewer"]!.model).toBe("sonnet");
-    expect(cross!.id).toMatch(/m-sonnet-e-low/);
+    const crosses = cands
+      .filter(
+        (c) =>
+          typeof c.configOverrides.roles?.["architect-reviewer"]?.model === "string" &&
+          c.configOverrides.roles?.["architect-reviewer"]?.effort === "low",
+      )
+      .map((c) => c.configOverrides.roles!["architect-reviewer"]!.model);
+    // opus base -> a cross at low for each of the two other tiers.
+    expect(crosses).toEqual(expect.arrayContaining(["sonnet", "haiku"]));
+    expect(cands.some((c) => c.id.match(/m-sonnet-e-low/))).toBe(true);
+    expect(cands.some((c) => c.id.match(/m-haiku-e-low/))).toBe(true);
   });
 
   it("includes a HARD scan-tightening content variant: deny Grep/Glob + a directive (enforced, not just requested)", () => {

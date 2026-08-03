@@ -153,12 +153,16 @@ export interface HandoffLike {
   buildMode?: string;
 }
 
-/** The model tiers cheaper than `model`, cheapest last: opus->[sonnet,haiku],
- *  sonnet->[haiku], haiku->[]. Each is a downgrade candidate worth trying (a
- *  smaller model that still passes the gate is pure wall-clock/cost savings). */
-function cheaperModels(model: string): string[] {
-  const below: Record<string, string[]> = { opus: ["sonnet", "haiku"], sonnet: ["haiku"], haiku: [] };
-  return below[model] ?? [];
+/** The model tiers to try against `model`: EVERY OTHER tier, both cheaper AND more
+ *  capable. A cheaper model that still passes the gate is a wall-clock/cost win; a
+ *  MORE capable model can ALSO be a wall-clock win , it may finish in far fewer
+ *  round-trips (the driver-GREEN lesson: haiku thrashed 93 tool calls where sonnet
+ *  finished quickly, so a "more expensive" model was faster in wall-clock). The gate
+ *  is the same structural bar either way, so try all possibilities and let wall-clock
+ *  decide. Ordered cheapest->most-capable for stable, readable candidate ids. */
+const MODEL_TIERS = ["haiku", "sonnet", "opus"] as const;
+function otherModels(model: string): string[] {
+  return MODEL_TIERS.filter((m) => m !== model);
 }
 
 /** The cheaper effort rungs worth trying below the model default: `low` (the
@@ -167,14 +171,16 @@ function cheaperModels(model: string): string[] {
  *  rung EffortLevel offers , there is no "minimal" below it. */
 const CHEAPER_EFFORTS: EffortLevel[] = ["low", "medium"];
 
-/** Per-role default candidates for a LANE sweep. The lever families tried, from an
- *  identical pre-turn state, are: (1) each cheaper MODEL tier, (2) each cheaper
- *  EFFORT rung, (3) the model x effort CROSS at the cheapest effort (cheaper model
- *  AND less thinking together , usually the biggest single win, invisible when the
- *  two are only tried in isolation), (4) a HARD scan-tighten content variant (deny
- *  Grep/Glob). DESIGN roles carry a SCALAR model/effort; BUILD roles
- *  (navigator/driver) use the per-turn map keyed by the turn. Both get the IDENTICAL
- *  lever set (design uses scalar overrides, build wraps each in `{ [turn]: v }`).
+/** Per-role default candidates for a LANE sweep , TRY ALL POSSIBILITIES from an
+ *  identical pre-turn state: (1) EVERY OTHER MODEL tier (cheaper AND more capable ,
+ *  a bigger model can win wall-clock via fewer round-trips), (2) each cheaper EFFORT
+ *  rung (low, medium), (3) the model x effort CROSS at low for EVERY other model
+ *  (model change AND less thinking together , often the biggest single win, invisible
+ *  when tried in isolation), (4) a HARD scan-tighten content variant (deny Grep/Glob).
+ *  DESIGN roles carry a SCALAR model/effort; BUILD roles (navigator/driver) use the
+ *  per-turn map keyed by the turn. Both get the IDENTICAL lever set (design uses
+ *  scalar overrides, build wraps each in `{ [turn]: v }`). The gate is the same
+ *  structural bar for every candidate, so wall-clock alone decides among gate-passers.
  *  The navigator REFLECT turn is a critic GATE (flags defects, authors nothing), so
  *  it is never swept , baseline only. Baseline is always first. */
 export function defaultLaneCandidates(handoff: HandoffLike): Candidate[] {
@@ -197,19 +203,19 @@ export function defaultLaneCandidates(handoff: HandoffLike): Candidate[] {
   });
 
   const base = RECOMMENDED_MODELS[role as SpawnableAgentRole] ?? (isBuild ? "sonnet" : "opus");
-  const cheapers = cheaperModels(base);
+  const others = otherModels(base);
   const out: Candidate[] = [baseline];
 
-  // (1) each cheaper model tier
-  for (const m of cheapers) {
+  // (1) every OTHER model tier (cheaper AND more capable)
+  for (const m of others) {
     out.push({ id: `${idPrefix}-m-${m}`, configOverrides: roleOverride({ model: wrapModel(m) as RoleSettingsFile["model"] }) });
   }
   // (2) each cheaper effort rung
   for (const e of CHEAPER_EFFORTS) {
     out.push({ id: `${idPrefix}-e-${e}`, configOverrides: roleOverride({ effort: wrapEffort(e) as RoleSettingsFile["effort"] }) });
   }
-  // (3) model x effort cross at the cheapest effort (low)
-  for (const m of cheapers) {
+  // (3) model x effort cross at low, for EVERY other model
+  for (const m of others) {
     out.push({
       id: `${idPrefix}-m-${m}-e-low`,
       configOverrides: roleOverride({ model: wrapModel(m) as RoleSettingsFile["model"], effort: wrapEffort("low") as RoleSettingsFile["effort"] }),
