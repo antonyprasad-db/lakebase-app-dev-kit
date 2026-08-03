@@ -1,52 +1,40 @@
-// LIVE, config-driven stockflow orchestration (gated behind RUN_LIVE_STEP=1):
+// LIVE, fully config-driven stockflow orchestration (gated behind RUN_LIVE_STEP=1):
 //
 //   RUN_LIVE_STEP=1 npx vitest run tests/live/stockflow-demo-config-live.test.ts
 //
-// Drives the 2-turn stockflow chain through the manifest runner with EVERY agent chosen from
-// config (manifest.agent), no agentFor:
-//   turn 1  stockflow-demo-po-seed    , agent.kind = "replay" , replays the recorded intake
-//           files (offline mock of the human PO).
-//   turn 2  stockflow-demo-spec-author , agent.kind = "claude" , the REAL agent spawns and
-//           AUTHORS feature-spec.json from the PO inputs (this is the point: turn 2 does real
-//           work, not a replay).
+// Everything comes from config , NOTHING hardcoded in this file:
+//   - the RUN-CONFIG (examples/.../stockflow/stockflow-demo.run.json) supplies setup
+//     (scaffold a REAL project) + teardown (remove it), with DEFAULTS anyone overrides via env
+//     (DATABRICKS_HOST, STOCKFLOW_DEMO_GH_OWNER, STOCKFLOW_DEMO_TIERS, ...).
+//   - the STEP MANIFESTS pick the agents: po-seed -> replay (mock the human PO from the
+//     recorded intake), spec-author -> claude (the REAL agent authors feature-spec.json).
+// The runner runs scaffold-project -> chain -> remove-project (finally). Scaffolding a real
+// project is what makes ./scripts/lk resolve so the live spec-author's self-check + log work.
 //
-// The test supplies only ENV (agentContext: corpusRoot=intake, kitDir) + the kit-env
-// workspace the live claude turn needs + the spec-author's .sftdd output path. Runs through
-// vitest so ESM resolution is correct (a raw tsx/CJS run trips over @octokit/app's ESM-only
-// exports on the claude agent's transitive import path).
+// CLOUD: this creates a real GitHub repo + Lakebase project (per the run-config defaults) and
+// deletes them in teardown. It needs Databricks + gh creds present. Anyone runs it against
+// their own workspace by setting the env overrides.
 
 import { describe, it, expect } from "vitest";
-import { mkdtempSync, mkdirSync, cpSync, chmodSync, readFileSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, cpSync, chmodSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { loadRunConfig } from "../../consort/orchestrator/manifest/run-config-loader.js";
 import { loadStepManifests, type StepManifest } from "../../consort/orchestrator/manifest/step-manifest.js";
-import { runManifestChain, type ManifestRunnerDeps } from "../../consort/orchestrator/manifest/manifest-runner.js";
+import { runOrchestration } from "../../consort/orchestrator/manifest/orchestration-runner.js";
+import { catalogueLifecycleDeps } from "../../consort/orchestrator/manifest/lifecycle-catalogue.js";
+import type { ManifestRunnerDeps } from "../../consort/orchestrator/manifest/manifest-runner.js";
 import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive.js";
 import type { DriveEffectsConfig } from "../../scripts/sftdd/orchestrator-effects.js";
 
 const KIT = process.cwd();
 const CORPUS = join(KIT, "examples/sftdd-scenarios/stockflow");
+const RUN_CONFIG = join(CORPUS, "stockflow-demo.run.json");
 const MANIFEST_DIR = join(CORPUS, "step-manifests");
 const INTAKE = join(CORPUS, "intake");
 const FEATURE = "F1-stock-visibility";
 const SPEC_REL = `.sftdd/features/${FEATURE}/feature-spec.json`;
 const LOG_REL = ".sftdd/agent-log.jsonl";
-const PO_SEED: WorkflowAction = { kind: "invoke-role", role: "product-owner", mode: "author-requests" };
-
-function setupWorkspace(): string {
-  const ws = mkdtempSync(join(tmpdir(), "stockflow-cfg-live-"));
-  mkdirSync(join(ws, ".sftdd", "features", FEATURE), { recursive: true });
-  mkdirSync(join(ws, ".claude", "agents"), { recursive: true });
-  cpSync(join(KIT, "skills/consort/agents/spec-author.md"), join(ws, ".claude", "agents", "spec-author.md"));
-  mkdirSync(join(ws, "scripts"), { recursive: true });
-  const lkSrc = join(KIT, "templates/project/common/scripts/lk");
-  if (existsSync(lkSrc)) {
-    cpSync(lkSrc, join(ws, "scripts", "lk"));
-    chmodSync(join(ws, "scripts", "lk"), 0o755);
-  }
-  process.env.LAKEBASE_KIT_DIR = KIT;
-  return ws;
-}
 
 function instructionsFor(manifest: StepManifest): { prompt: string; guidelines: string[] } {
   if (manifest.role !== "spec-author") return { prompt: `Run ${manifest.role} step ${manifest.id}.`, guidelines: [] };
@@ -65,15 +53,25 @@ function instructionsFor(manifest: StepManifest): { prompt: string; guidelines: 
   };
 }
 
-describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE: stockflow 2-turn chain, agents from config (replay PO + live claude spec-author)", () => {
-  it("PO replays the recorded seed, then the LIVE spec-author authors a conformant feature-spec.json", async () => {
-    const workspaceDir = setupWorkspace();
+describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE: stockflow demo end-to-end from config (scaffold -> replay PO -> live claude -> teardown)", () => {
+  it("runs the shipped run-config: scaffolds a real project, drives the 2-turn chain, tears it down", async () => {
+    const runConfig = loadRunConfig(RUN_CONFIG);
     const manifests = loadStepManifests(MANIFEST_DIR);
-    // sanity: the manifests pick the agents (not this test).
+    // The agents are chosen by the MANIFESTS, not this test.
     expect(manifests.find((m) => m.role === "product-owner")?.agent?.kind).toBe("replay");
     expect(manifests.find((m) => m.role === "spec-author")?.agent?.kind).toBe("claude");
+    // setup/teardown come from the RUN-CONFIG.
+    expect(runConfig.setup?.kind).toBe("scaffold-project");
+    expect(runConfig.teardown?.kind).toBe("remove-project");
 
-    const deps: ManifestRunnerDeps = {
+    // The runner works inside the scaffolded project. scaffold-project creates it under this
+    // parentDir; the chain + the live claude agent run there so ./scripts/lk resolves.
+    const parentDir = mkdtempSync(join(tmpdir(), "stockflow-demo-parent-"));
+    (runConfig.setup!.config as Record<string, unknown>).parentDir = parentDir;
+    const projectName = String((runConfig.setup!.config as Record<string, unknown>).projectName);
+    const workspaceDir = join(parentDir, projectName);
+
+    const runnerDeps: ManifestRunnerDeps = {
       workspaceDir,
       cfg: { projectDir: workspaceDir, sftddDir: join(workspaceDir, ".sftdd"), featureId: FEATURE } as DriveEffectsConfig,
       agentContext: { corpusRoot: INTAKE, kitDir: KIT },
@@ -83,21 +81,20 @@ describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE: stockflow 2-turn chain, agent
           ? { workspaceDir, outputPaths: { "feature-spec": SPEC_REL, "agent-log": LOG_REL } }
           : { workspaceDir },
     };
+    // The scaffolded project provides scripts/lk; point the agent's kit resolution at the kit.
+    process.env.LAKEBASE_KIT_DIR = KIT;
 
-    const turns = await runManifestChain(PO_SEED, manifests, deps);
+    const result = await runOrchestration(runConfig, manifests, runnerDeps, catalogueLifecycleDeps);
 
-    expect(turns.map((t) => t.manifestId)).toEqual(["stockflow-demo-po-seed", "stockflow-demo-spec-author"]);
-    for (const t of turns) {
-      expect(t.result.violations, `${t.manifestId} violations: ${t.result.violations.join("; ")}`).toEqual([]);
+    // Setup scaffolded a project; teardown removed it.
+    expect(result.setup?.ok, `scaffold failed: ${result.setup?.error}`).toBe(true);
+    // Chain: PO replayed, then the LIVE spec-author authored a conformant feature-spec.
+    expect(result.turns.map((t) => t.manifestId)).toEqual(["stockflow-demo-po-seed", "stockflow-demo-spec-author"]);
+    for (const t of result.turns) {
+      expect(t.result.violations, `${t.manifestId}: ${t.result.violations.join("; ")}`).toEqual([]);
     }
-    // Turn 1 replayed the PO seed.
-    expect(existsSync(join(workspaceDir, "product-overview.md"))).toBe(true);
-    // Turn 2 (LIVE) authored the feature-spec at its .sftdd path + it passed its validator.
-    const specPath = join(workspaceDir, SPEC_REL);
-    expect(existsSync(specPath), "live spec-author did not produce feature-spec.json").toBe(true);
-    const spec = JSON.parse(readFileSync(specPath, "utf8")) as { stories?: string[] };
-    expect(Array.isArray(spec.stories) && spec.stories.length >= 1).toBe(true);
-    // Chain terminated cleanly at design-complete.
-    expect(turns[turns.length - 1].result.bounded.action).toEqual({ kind: "design-complete" });
-  }, 300_000);
+    expect(existsSync(join(workspaceDir, SPEC_REL))).toBe(true);
+    expect(result.turns[result.turns.length - 1].result.bounded.action).toEqual({ kind: "design-complete" });
+    expect(result.teardown?.ok, `teardown failed: ${result.teardown?.error}`).toBe(true);
+  }, 900_000);
 });
