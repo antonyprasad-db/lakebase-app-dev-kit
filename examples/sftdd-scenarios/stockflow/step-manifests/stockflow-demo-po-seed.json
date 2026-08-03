@@ -15,5 +15,16 @@
   "agentOptions": {
     "session": "fresh",
     "resumeKeyFrom": "none"
+  },
+  "agent": {
+    "kind": "replay",
+    "config": {
+      "role": "product-owner",
+      "seeds": [
+        { "outputId": "product-overview", "from": "product-overview.md", "to": "product-overview.md" },
+        { "outputId": "nfrs", "from": "nfrs.md", "to": "nfrs.md" },
+        { "outputId": "design-guideline", "from": "design-brief.md", "to": "design-brief.md" }
+      ]
+    }
   }
 }

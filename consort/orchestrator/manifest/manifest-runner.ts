@@ -45,6 +45,11 @@ export interface ManifestRunnerDeps {
   /** Optional: source the instruction bundle for a turn (default: a generic prompt naming
    *  the role + its declared outputs). The full orchestrator sources these from disk/interactive. */
   instructionsFor?(manifest: StepManifest, action: WorkflowAction): StepInstructions;
+  /** Optional: provision the workspace per turn (default: the shared workspaceDir, no
+   *  output-path remap). A real agent that writes to a baked cwd-relative path (e.g. the
+   *  spec-author's `.sftdd/features/<F>/`) overrides this to declare those outputPaths + set
+   *  up the kit env. Returns the workspace + where each output id lands within it. */
+  provisionWorkspace?(manifest: StepManifest, action: WorkflowAction): { workspaceDir: string; outputPaths?: Record<string, string> };
   /** Optional: the drive state passed to route() (diagnostic scope only; default a stub). */
   state?: DriveState;
   /** Optional: turn-record sink (default no-op). */
@@ -122,7 +127,7 @@ function executorWiring(
 
   const execDeps: StepExecutorDeps = {
     resolveInputs: () => resolveInputsFromWorkspace(manifest, deps.workspaceDir),
-    provisionWorkspace: () => ({ workspaceDir: deps.workspaceDir }),
+    provisionWorkspace: () => (deps.provisionWorkspace ? deps.provisionWorkspace(manifest, action) : { workspaceDir: deps.workspaceDir }),
     instructionsFor: () => (deps.instructionsFor ? deps.instructionsFor(manifest, action) : defaultInstructions(manifest)),
     onRecord: deps.onRecord,
   };

@@ -19,5 +19,14 @@
     "effort": "low",
     "session": "fresh",
     "resumeKeyFrom": "role"
+  },
+  "agent": {
+    "kind": "claude",
+    "config": {
+      "role": "spec-author",
+      "model": "sonnet",
+      "effort": "low",
+      "session": "fresh"
+    }
   }
 }
