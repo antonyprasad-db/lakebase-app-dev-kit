@@ -4,7 +4,7 @@
   "setup": {
     "kind": "scaffold-project",
     "config": {
-      "projectName": "${STOCKFLOW_DEMO_PROJECT:-stockflow-demo}",
+      "projectName": "${STOCKFLOW_DEMO_PROJECT:-stockflow-demo-{{TS}}}",
       "databricksHost": "${DATABRICKS_HOST:-https://fevm-serverless-stable-ecparr.cloud.databricks.com}",
       "githubOwner": "${STOCKFLOW_DEMO_GH_OWNER:-kevin-hartman}",
       "createGithubRepo": "${STOCKFLOW_DEMO_CREATE_REPO:-true}",

@@ -37,13 +37,28 @@ export function resolveEnvTemplate(value: string): string {
   return value;
 }
 
+/** A compact UTC timestamp (YYYYMMDD-HHMMSS) for the `{{TS}}` token , so a default project
+ *  name is collision-free per run without the operator having to set anything. */
+function compactTimestamp(): string {
+  // "2026-08-03T23:07:19.123Z" -> "20260803-230719"
+  const [date, time] = new Date().toISOString().split("T");
+  return `${date.replace(/-/g, "")}-${time.slice(0, 8).replace(/:/g, "")}`;
+}
+
+/** Expand built-in tokens in a resolved string. Currently `{{TS}}` -> a compact timestamp,
+ *  so e.g. "stockflow-demo-{{TS}}" becomes a unique name every run. */
+function expandTokens(s: string): string {
+  return s.includes("{{TS}}") ? s.replaceAll("{{TS}}", compactTimestamp()) : s;
+}
+
 /** Coerce a resolved string leaf to number/boolean when it clearly is one (so tiers is a
- *  number + uiTrack is a boolean in the typed config), else leave the string. */
+ *  number + uiTrack is a boolean in the typed config), else leave the (token-expanded) string. */
 function coerceLeaf(s: string): string | number | boolean {
-  if (s === "true") return true;
-  if (s === "false") return false;
-  if (/^-?\d+$/.test(s)) return Number(s);
-  return s;
+  const t = expandTokens(s);
+  if (t === "true") return true;
+  if (t === "false") return false;
+  if (/^-?\d+$/.test(t)) return Number(t);
+  return t;
 }
 
 /** Recursively resolve every string leaf's env markers + coerce. Arrays/objects walked. */

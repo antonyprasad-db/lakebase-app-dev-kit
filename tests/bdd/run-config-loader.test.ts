@@ -79,10 +79,11 @@ describe("loadRunConfig: resolves markers + coerces types", () => {
     expect(cfg.start).toEqual({ kind: "invoke-role", role: "product-owner", mode: "author-requests" });
   });
 
-  it("loads the shipped stockflow-demo.run.json with its defaults", () => {
+  it("loads the shipped stockflow-demo.run.json with its defaults (project name timestamped, collision-free)", () => {
     // env unset => the shipped defaults resolve (host = fevm-... , owner = kevin-hartman).
     setEnv("DATABRICKS_HOST", undefined);
     setEnv("STOCKFLOW_DEMO_GH_OWNER", undefined);
+    setEnv("STOCKFLOW_DEMO_PROJECT", undefined);
     const shipped = join(process.cwd(), "examples/sftdd-scenarios/stockflow/stockflow-demo.run.json");
     const cfg = loadRunConfig(shipped);
     expect(cfg.id).toBe("stockflow-demo");
@@ -91,5 +92,18 @@ describe("loadRunConfig: resolves markers + coerces types", () => {
     expect(c.githubOwner).toBe("kevin-hartman");
     expect(c.tiers).toBe(1);
     expect(c.uiTrack).toBe(true);
+    // {{TS}} expanded to a compact timestamp so the default name never collides.
+    expect(String(c.projectName)).toMatch(/^stockflow-demo-\d{8}-\d{6}$/);
+  });
+
+  it("expands the {{TS}} token to a compact timestamp (collision-free default names)", () => {
+    setEnv("DEMO_NAME", undefined);
+    const r = String(resolveEnvTemplate("${DEMO_NAME:-proj-{{TS}}}"));
+    // resolveEnvTemplate returns the raw default; loadRunConfig's coercion expands {{TS}}.
+    expect(r).toBe("proj-{{TS}}");
+    // via the loader (which coerces + expands):
+    writeFileSync(join(dir, "ts.run.json"), JSON.stringify({ id: "t", start: { kind: "done" }, setup: { kind: "scaffold-project", config: { projectName: "${DEMO_NAME:-proj-{{TS}}}" } } }));
+    const cfg = loadRunConfig(join(dir, "ts.run.json"));
+    expect(String((cfg.setup!.config as Record<string, unknown>).projectName)).toMatch(/^proj-\d{8}-\d{6}$/);
   });
 });
