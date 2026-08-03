@@ -1,0 +1,127 @@
+// agent-catalogue: the catalogue of concrete StepAgent KINDS a user assembles into a step
+// manifest BY NAME. A manifest declares `agent: { kind, config }`; the runner resolves the
+// kind against this catalogue and builds the agent from `config` + a build CONTEXT.
+//
+// The split that keeps manifests portable:
+//   - config  (in the manifest, DATA): the agent's own knobs , claude levers, replay seeds,
+//              mock fixtures. Part of the step's definition; travels with it.
+//   - context (from the runner, ENV): corpusRoot / kitDir / workspaceDir , per-run,
+//              per-machine paths. NOT in the manifest.
+//
+// Catalogued kinds (each documented so a user can pick when authoring a manifest):
+//   - claude : the REAL agent , spawns `claude -p --agent <role>` from the config levers.
+//   - replay : emits RECORDED artifacts (copies configured seeds from the corpus) , the
+//              offline/headless agent. No model, no cloud.
+//   - mock   : a test double that writes configured fixture outputs , for unit tests.
+//
+// resolveAgentKind / buildAgent throw loud on an unknown kind (a manifest typo is a hard
+// failure surfaced at build time, never a silent default).
+
+import { join } from "node:path";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { ClaudeStepAgent, type AgentLevers } from "./claude-step-agent.js";
+import { makeReplayPoMockAgent, type RecordedSeed } from "./replay-po-mock-agent.js";
+import type { StepAgent, AgentInvocation } from "./spec-author-breakdown-step-types.js";
+
+/**
+ * The ENV a builder needs but the manifest must NOT carry (per-run / per-machine paths).
+ * Supplied by the runner. A builder uses only what its kind needs (claude -> kitDir;
+ * replay -> corpusRoot; mock -> nothing).
+ */
+export interface AgentBuildContext {
+  /** The contained workspace the agent reads/writes within (also on the invocation). */
+  workspaceDir: string;
+  /** Root the `replay` kind resolves its recorded seed files under. */
+  corpusRoot?: string;
+  /** The kit checkout the `claude` kind resolves bins/agent-defs from (LAKEBASE_KIT_DIR). */
+  kitDir?: string;
+}
+
+/** A manifest's agent declaration: WHICH kind + that kind's config (both DATA). */
+export interface AgentSpec {
+  kind: string;
+  config: Record<string, unknown>;
+}
+
+/** One catalogue entry: a human description + the builder that turns (config, context) into
+ *  a StepAgent. The description is what a user reads when assembling a manifest. */
+export interface AgentCatalogueEntry {
+  /** One-line summary of what this kind does + when to pick it. */
+  description: string;
+  /** A short summary of the config shape this kind expects (for docs/diagnostics). */
+  configSummary: string;
+  /** Build the concrete StepAgent from the manifest config + the runner's env context. */
+  build(config: Record<string, unknown>, context: AgentBuildContext): StepAgent;
+}
+
+/** The `claude` kind's config = the AgentLevers (role required; the rest optional). */
+function buildClaude(config: Record<string, unknown>, _context: AgentBuildContext): StepAgent {
+  const c = config as Partial<AgentLevers> & { role?: string };
+  if (!c.role) throw new Error(`agent-catalogue: kind "claude" requires config.role.`);
+  return new ClaudeStepAgent(c as AgentLevers);
+}
+
+/** The `replay` kind's config = { role?, seeds[] }; corpusRoot comes from the context. */
+function buildReplay(config: Record<string, unknown>, context: AgentBuildContext): StepAgent {
+  const c = config as { role?: string; seeds?: RecordedSeed[] };
+  if (!Array.isArray(c.seeds) || c.seeds.length === 0) {
+    throw new Error(`agent-catalogue: kind "replay" requires a non-empty config.seeds[].`);
+  }
+  if (!context.corpusRoot) {
+    throw new Error(`agent-catalogue: kind "replay" requires context.corpusRoot (the runner supplies it).`);
+  }
+  return makeReplayPoMockAgent({ corpusRoot: context.corpusRoot, role: c.role, seeds: c.seeds });
+}
+
+/** The `mock` kind's config = { outputs: { filename: contents } }; a test double writing
+ *  those fixtures into the provided workspace (+ an authoring log line so log validators pass). */
+function buildMock(config: Record<string, unknown>, _context: AgentBuildContext): StepAgent {
+  const outputs = (config.outputs as Record<string, string> | undefined) ?? {};
+  const role = (config.role as string | undefined) ?? "mock";
+  return {
+    async invoke(invocation: AgentInvocation): Promise<void> {
+      for (const [filename, contents] of Object.entries(outputs)) {
+        writeFileSync(join(invocation.workspaceDir, filename), contents);
+      }
+      const logPath = join(invocation.workspaceDir, "agent-log.jsonl");
+      const prior = existsSync(logPath) ? readFileSync(logPath, "utf8") : "";
+      const event = { timestamp: new Date().toISOString(), level: "info", role, event: "artifact.written", message: `mock wrote ${Object.keys(outputs).join(", ") || "(nothing)"}` };
+      writeFileSync(logPath, prior + JSON.stringify(event) + "\n");
+    },
+  };
+}
+
+/** The catalogue: kind -> entry. Add a kind here (code) and reference it by name from a
+ *  manifest (data). This is the assemble-from surface a user picks from. */
+export const AGENT_CATALOGUE: Record<string, AgentCatalogueEntry> = {
+  claude: {
+    description: "The REAL agent: spawns `claude -p --agent <role>` and lets the model produce the step's artifact. Pick for a live run.",
+    configSummary: "{ role (required), model?, effort?, session?('fresh'|'resume'), resumeKey?, allowedTools?, disallowedTools?, fallbackModel?, maxBudgetUsd? }",
+    build: buildClaude,
+  },
+  replay: {
+    description: "Emits RECORDED artifacts by copying configured seed files from the corpus (context.corpusRoot). Offline/headless , no model, no cloud.",
+    configSummary: "{ role?, seeds: [{ outputId, from (corpus-relative), to (workspace-relative) }] }",
+    build: buildReplay,
+  },
+  mock: {
+    description: "A test double that writes configured fixture outputs into the workspace. For unit tests / hermetic runs.",
+    configSummary: "{ role?, outputs: { <filename>: <contents> } }",
+    build: buildMock,
+  },
+};
+
+/** Resolve a kind to its catalogue entry. THROWS loud on an unknown kind. */
+export function resolveAgentKind(kind: string): AgentCatalogueEntry {
+  const entry = AGENT_CATALOGUE[kind];
+  if (!entry) {
+    const known = Object.keys(AGENT_CATALOGUE).sort().join(", ");
+    throw new Error(`agent-catalogue: unknown agent kind "${kind}" (a manifest referenced a kind not in the catalogue). Known: ${known}.`);
+  }
+  return entry;
+}
+
+/** Build the concrete StepAgent for a manifest's agent spec + the runner's env context. */
+export function buildAgent(spec: AgentSpec, context: AgentBuildContext): StepAgent {
+  return resolveAgentKind(spec.kind).build(spec.config ?? {}, context);
+}
