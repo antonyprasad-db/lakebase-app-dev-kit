@@ -149,9 +149,13 @@ Per role:
      was the mistake: spec-author was left with no spec on disk.)
 2. **READ the report** (`# Champion-walk optimization report` table + per-candidate
    `experiments/<role>/*/trial-*/result.json`). Winner = fastest gate-passing.
-3. **CLEAN the incidental corpus write:** the runbook exports RECORD_DIR=$SCEN
-   (examples/sftdd-scenarios/stockflow-optimize), so recordWinner writes one turn there.
-   This is study+apply, NOT re-record -> `git -C <consort> checkout -- examples/sftdd-scenarios/stockflow-optimize && git -C <consort> clean -fd examples/sftdd-scenarios/stockflow-optimize`.
+3. **KEEP + COMMIT the recorded winner artifacts (do NOT scrub):** the runbook exports
+   RECORD_DIR=$SCEN (examples/sftdd-scenarios/stockflow-optimize), so recordWinner writes
+   the winning turn's .sftdd output into recorded-artifacts/. This IS the REPLAY CORPUS ,
+   `git add` + commit it. A future run sets LAKEBASE_SFTDD_REPLAY_DIR to that corpus to
+   FAST-FORWARD past already-recorded roles (replayDesignTurn restores them, no re-spawn).
+   Earlier I scrubbed it (git checkout+clean) , that was the mistake; it deleted the very
+   corpus that avoids re-running. Only the PROJECT's experiments/ scratch is disposable.
 4. **APPLY the winner INTO THE KIT** (the mandatory pause before the next role):
    - If the winning lever is model/effort/scope: make the typed-source default edit in
      `sftdd-config.ts` (defaultEffort/defaultSftddConfig or modelForRole) + a regression
@@ -168,7 +172,10 @@ Run each sweep BACKGROUNDED (nohup) + Monitor the log for the report/winner/fail
 design sweep is hermetic-ish (no branch forks) but spends tokens. Project + logs tracked in
 /tmp/optimize-current-project.txt + /tmp/optimize-current-role-log.txt + /tmp/optimize-role-pid.txt.
 
-APPLIED SO FAR: spec-author = effort-low (12-34% faster, same gate), committed 88713ccc.
+APPLIED SO FAR (via optimized-defaults.json overlay, deep-merged by defaultSftddConfig):
+spec-author BREAKDOWN = haiku+low (~24-44%); ux-designer = scan-tight (deny Grep/Glob,
+-20%; prompt-bound role , scanning was the cost, beat even the opus upgrade). Winners are
+DATA in optimized-defaults.json (never a TS rewrite); rebuild inlines them into dist.
 
 ## The orchestrator's normal progression (what the sweep FOLLOWS, never bypasses)
 
@@ -265,7 +272,16 @@ auto-deny. acceptEdits is honored + grants Write AND Bash headless. See memory
 
 `examples/sftdd-scenarios/stockflow-optimize/` — intake/ + recorded-artifacts/features/F1-stock-visibility/feature-request.md + scenario.json.pending (tiers 2, uiTrack, python, self-hosted). Corpus dirs (turns/, recorded-artifacts/design/) are PRODUCED by a run (winners only).
 
-## CLI scope: `--sweep-lane` vs single-handoff, and `--from` (verified optimize.cli.ts:258-397)
+## CLI scope: `--sweep-lane` vs single-handoff, and `--from`
+
+> **USE SINGLE-HANDOFF. `--sweep-lane` (and `--from`) is BROKEN in practice , do NOT use
+> it.** Every lane-sweep attempt stalled at feature-complete with 0 handoffs swept
+> (positionToNextHandoff + advanceOne don't reliably run breakdown's sync-breakdown, so
+> pipeline.json stays empty). The PROVEN method is one single-handoff invocation per role
+> (see "THE LOOP I RUN" above): `optimize-scenario.sh ... --trials N` with NO --sweep-lane,
+> which sweeps the ONE role the drive sits on, records the winner (advances the drive), and
+> exits; re-run for the next role. The reference below is kept only to explain WHY the lane
+> path is off , not as a thing to run.
 
 Two mutually exclusive paths in `main()`:
 
