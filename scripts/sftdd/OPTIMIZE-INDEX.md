@@ -117,6 +117,44 @@ tool-scope) are the implementation knobs swept WITHIN that one contract-satisfyi
 turn. This makes each trial "one role satisfying one interface," which is what the
 champion walk was always meant to measure.
 
+## THE LOOP I RUN (rinse-repeat, one role at a time, start to end) — FOLLOW THIS EXACTLY
+
+Uniform for every role the orchestrator points at, from spec-author onward. No special-
+casing, no shortcuts, no `--sweep-lane`, no `--from`, no `--propose-only`.
+
+Per role:
+1. **STUDY + ADVANCE in ONE run** (single-handoff, NON-propose-only):
+   `optimize-scenario.sh --scenario stockflow-optimize --project-dir $P --feature F1-stock-visibility --trials 1`
+   (drop --trials to sweep with more trials only if a result is ambiguous). This sweeps
+   all defaultLaneCandidates (baseline + cheaper-model + effort-low + scan-tight), gates
+   each, keeps the fastest passing, and `recordWinner` RESTORES the winning trial's actual
+   artifacts to the project = the advance. `planNextAction` then points at the next role.
+   - **NEVER `--propose-only` in this loop.** Propose-only ranks but does NOT advance and the
+     between-trial restore WIPES the role's output -> no artifact for the next role. (That
+     was the mistake: spec-author was left with no spec on disk.)
+2. **READ the report** (`# Champion-walk optimization report` table + per-candidate
+   `experiments/<role>/*/trial-*/result.json`). Winner = fastest gate-passing.
+3. **CLEAN the incidental corpus write:** the runbook exports RECORD_DIR=$SCEN
+   (examples/sftdd-scenarios/stockflow-optimize), so recordWinner writes one turn there.
+   This is study+apply, NOT re-record -> `git -C <consort> checkout -- examples/sftdd-scenarios/stockflow-optimize && git -C <consort> clean -fd examples/sftdd-scenarios/stockflow-optimize`.
+4. **APPLY the winner INTO THE KIT** (the mandatory pause before the next role):
+   - If the winning lever is model/effort/scope: make the typed-source default edit in
+     `sftdd-config.ts` (defaultEffort/defaultSftddConfig or modelForRole) + a regression
+     test asserting it; OR run `node dist/scripts/sftdd/optimize-apply.cli.js --project-dir $P --handoff <id> --candidate <id> --kit-dir <consort>` and hand-verify the edit.
+   - If the winner is BASELINE (no lever beat it): nothing to apply; note it and move on.
+   - `npm run typecheck && npx vitest run tests/bdd/optimize-*.test.ts <the regression test>`
+   - `npm run build` + `git add -f dist` + `git add <source>` + commit.
+5. **MOVE FORWARD:** the drive already advanced in step 1; the next `optimize-scenario.sh`
+   run positions on the next role automatically. Repeat 1-5 down the design lane
+   (spec-author -> architect-reviewer[or projected, no turn] -> dba -> test-strategist ->
+   ux-designer/reflect -> gate) then the build lane, to the end.
+
+Run each sweep BACKGROUNDED (nohup) + Monitor the log for the report/winner/failure; a
+design sweep is hermetic-ish (no branch forks) but spends tokens. Project + logs tracked in
+/tmp/optimize-current-project.txt + /tmp/optimize-current-role-log.txt + /tmp/optimize-role-pid.txt.
+
+APPLIED SO FAR: spec-author = effort-low (12-34% faster, same gate), committed 88713ccc.
+
 ## The orchestrator's normal progression (what the sweep FOLLOWS, never bypasses)
 
 The sweep follows the orchestrator's own state machine role by role. It does NOT skip,
