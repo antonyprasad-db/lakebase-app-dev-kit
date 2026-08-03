@@ -354,10 +354,14 @@ describe("makeLiveSpawnTurn: runs the PINNED turn's interface, never re-plans", 
     };
   }
 
-  it("runs ONLY the pinned action's `claude` command , not the verify/sync/test appendix", async () => {
-    const ran: Array<{ kind?: string }> = [];
+  it("runs the claude turn AND its load-bearing substrate (sync-breakdown etc.), EXCLUDING only verify-artifact", async () => {
+    const ran: Array<{ kind?: string; bin?: string }> = [];
     let passedAction: unknown;
-    // commandsFor returns a full drive command list; the spawn must run only claude.
+    // commandsFor returns a full drive command list. The spawn must run the claude
+    // turn + the substrate (reset-breakdown/sync-breakdown/test-list , sync-breakdown
+    // is LOAD-BEARING: it projects pipeline.json so the per-story design lane can
+    // progress). It must EXCLUDE only verify-artifact (the exit-3 thrower; the harness
+    // re-checks the artifact via its own gate).
     const fullList = [
       { kind: "cli", bin: "reset-breakdown" },
       { kind: "claude", role: "spec-author" },
@@ -371,9 +375,14 @@ describe("makeLiveSpawnTurn: runs the PINNED turn's interface, never re-plans", 
       candidate: { id: "baseline", configOverrides: {} },
       record: false,
     });
-    // Exactly one command ran, and it was the claude turn , NO verify-artifact (the
-    // command that threw ArtifactOutOfRootError on the drive's exit-3 path).
-    expect(ran).toEqual([{ kind: "claude", role: "spec-author" }]);
+    // Everything BUT verify-artifact ran, in order , crucially sync-breakdown is present.
+    expect(ran).toEqual([
+      { kind: "cli", bin: "reset-breakdown" },
+      { kind: "claude", role: "spec-author" },
+      { kind: "cli", bin: "sync-breakdown" },
+      { kind: "cli", bin: "test-list" },
+    ]);
+    expect(ran.some((c) => c.kind === "verify-artifact")).toBe(false); // the exit-3 thrower excluded
     // commandsFor was asked for the PINNED action, not a re-planned "next" one.
     expect(passedAction).toBe(specAuthorAction);
   });

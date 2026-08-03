@@ -12379,8 +12379,8 @@ function makeLiveSpawnTurn(featureId, seams) {
       const cfg = applyContentSeams(seams.buildCfg(featureId), candidate.content);
       const runner = seams.execRunner(cfg);
       const commands = seams.commandsFor(handoff.action, cfg);
-      const roleTurn = commands.filter((c) => c.kind === "claude");
-      for (const cmd of roleTurn) await runner.run(cmd);
+      const toRun = commands.filter((c) => c.kind !== "verify-artifact");
+      for (const cmd of toRun) await runner.run(cmd);
     } finally {
       if (prior === void 0) delete process.env[RECORD_DIR_ENV];
       else process.env[RECORD_DIR_ENV] = prior;

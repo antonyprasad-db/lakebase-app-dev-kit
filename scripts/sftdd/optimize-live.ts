@@ -321,12 +321,18 @@ export function makeLiveSpawnTurn(featureId: string, seams: LiveDriveSeams): Spa
     try {
       const cfg = applyContentSeams(seams.buildCfg(featureId), candidate.content);
       const runner = seams.execRunner(cfg);
-      // Build the PINNED action's command list, then run ONLY the role's `claude`
-      // command (the role satisfying its interface) , not the drive bookkeeping
-      // appendix. No planNextAction: we run the turn we pinned, not the next one.
+      // Build the PINNED action's command list. Run the role's `claude` turn AND its
+      // LOAD-BEARING substrate (cli/sync-backlog/set-phase , e.g. breakdown's
+      // sync-breakdown, which projects pipeline.json from the stories/ stubs; without
+      // it the per-story design loop is empty and the lane stalls at feature-complete).
+      // EXCLUDE only `verify-artifact`: that is the drive's post-turn precheck which
+      // throws ArtifactOutOfRootError on the exit-3 path, and the harness re-checks the
+      // artifact itself via its own gate (evaluateDesignGate). The design snapshot
+      // restores the whole .sftdd between trials, so substrate mutations (pipeline.json)
+      // are undone for the next candidate. No planNextAction: run the pinned turn only.
       const commands = seams.commandsFor(handoff.action, cfg) as Array<{ kind?: string }>;
-      const roleTurn = commands.filter((c) => c.kind === "claude");
-      for (const cmd of roleTurn) await runner.run(cmd);
+      const toRun = commands.filter((c) => c.kind !== "verify-artifact");
+      for (const cmd of toRun) await runner.run(cmd);
     } finally {
       if (prior === undefined) delete process.env[RECORD_DIR_ENV];
       else process.env[RECORD_DIR_ENV] = prior;

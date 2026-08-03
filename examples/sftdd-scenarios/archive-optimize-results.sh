@@ -47,7 +47,18 @@ cp -R "$SRC/." "$DEST/"
 
 # 2. the report table from the run log, if given.
 if [[ -n "$LOG" && -f "$LOG" ]]; then
-  sed -n '/# Champion-walk optimization report/,/^$/p' "$LOG" > "$DEST/report.md" || true
+  # Capture the report: from the header through the LAST table row (a line starting
+  # with "|"). The old `,/^$/` range stopped at the blank line right after the header,
+  # saving only the title. awk keeps everything from the header, and trims trailing
+  # blank lines after the final table row.
+  awk '
+    /# Champion-walk optimization report/ { grab=1 }
+    grab {
+      buf[++n]=$0
+      if ($0 ~ /^\|/) last=n   # remember the last table row
+    }
+    END { if (grab) for (i=1; i<=last; i++) print buf[i] }
+  ' "$LOG" > "$DEST/report.md" || true
 fi
 
 # 3. a computed summary.json (per-candidate median ms + gate + winner).

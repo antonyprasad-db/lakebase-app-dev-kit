@@ -1,5 +1,20 @@
 # Optimize harness — index (where things are + what they do)
 
+## ★ ROOT CAUSE: design lane stalls at feature-complete with an EMPTY pipeline ★
+Symptom: after breakdown (+ ux-designer), the drive reports `feature-complete` and 0 per-story handoffs (architect/dba/test-strategist never reached); pipeline.json has no stories. NOT a scenario/kit bug.
+CAUSE: `makeLiveSpawnTurn` (optimize-live.ts:~305) runs ONLY the `claude` command of a turn's command list and DROPS the drive appendix. For a plain design/build turn that appendix is bookkeeping (verify/sync/test) that the harness re-checks itself — fine. BUT spec-author BREAKDOWN's appendix includes `sync-breakdown` (orchestrator-effects.ts:1356), which is LOAD-BEARING: it projects pipeline.json from the stories/ stubs. Dropping it => empty pipeline => nextDesignAction's per-story loop is empty => design-complete => feature-complete. recordWinner restores the artifact but NOT the pipeline.
+PROOF: run `sync-breakdown` manually after a swept breakdown -> `+3 (...); 3 tracked` and the drive immediately advances to the per-story spec-author turn. sync-breakdown itself is 100% fine; it was just never run.
+FIX DIRECTION: a swept/advanced BREAKDOWN turn must ALSO run sync-breakdown (its appendix), not just claude. advanceOne already runs the FULL command list (commit c8be6128); the SWEEP/record path (makeLiveSpawnTurn + recordWinner) still needs breakdown's sync-breakdown to run so the winner-record advances the pipeline. Options: (a) after recordWinner for a breakdown turn, run sync-breakdown; (b) don't claude-only-filter substrate commands whose absence blocks lane progression (reset-breakdown/sync-breakdown), keep filtering only the ones that throw on the exit-3 path (verify-artifact).
+
+## Kit bin names (exact , do not guess)
+- pipeline CLI = `lakebase-sftdd-pipeline` (PIPELINE_BIN, orchestrator-effects.ts:1095). Subcommands: `sync-breakdown`, `reset-breakdown`, `accept`, ... Invoke via the PROJECT's `./scripts/lk lakebase-sftdd-pipeline <sub> --feature <F> --tdd-dir .sftdd` (run from the project dir; NOT from the kit dir).
+- there is NO `lakebase-sftdd-story-pipeline` bin (that name errors "unknown bin"). The source file is story-pipeline.ts but the bin is `lakebase-sftdd-pipeline`.
+- design steps -> pipeline: breakdown writes stories/<S>/story.{json,md} + feature-spec.json; sync-breakdown reads storiesDir subdirs (storiesDirOf) and setStoryStatus "designing" for each -> pipeline.json.stories. The per-story design loop (architect/dba/test-strategist) only runs when pipeline.stories is non-empty.
+
+## Archive report.md extraction (fixed)
+archive-optimize-results.sh's report.md used `sed -n '/# Champion-walk.../,/^$/p'` which stopped at the blank line right after the header (saving only the title). Now uses awk: from the header through the LAST `^\|` table row. summary.json (per-candidate median/gate/winner, computed independently) was always complete; only report.md was truncated.
+
+
 The per-handoff optimization re-record ("champion walk"): at each role handoff, run
 candidate config/content levers from an identical snapshot, keep the fastest
 gate-passing turn, record only winners, emit a before/after report. ~90% orchestration
