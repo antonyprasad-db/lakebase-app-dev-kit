@@ -59,6 +59,17 @@ var RECOMMENDED_MODELS = {
 var ALL_AGENT_ROLES = Object.keys(RECOMMENDED_MODELS);
 var AGENT_CONFIG_REL = (0, import_path.join)(".lakebase", "agent-config.json");
 
+// scripts/sftdd/optimized-defaults.json
+var optimized_defaults_default = {
+  _comment: "Auto-applied optimization winners, deep-merged onto defaultSftddConfig()'s base. Written by optimize-apply (data, never a TS rewrite) so an unattended champion walk can bake each winner into the kit default; inlined into dist at build time. roles.<role>.{model,effort} may be a scalar or a per-turn/step map keyed by TurnKey (breakdown/acs/architect/dba/test-list/ux for design; red/green/review/refactor/assess/repair for build). Edit via the apply path, not by hand.",
+  roles: {
+    "spec-author": {
+      model: { breakdown: "haiku" },
+      effort: { breakdown: "low" }
+    }
+  }
+};
+
 // scripts/sftdd/sftdd-config.ts
 var SFTDD_CONFIG_REL = (0, import_path2.join)(".lakebase", "sftdd-config.json");
 var LEGACY_TDD_CONFIG_REL = (0, import_path2.join)(".lakebase", "tdd-config.json");
@@ -75,26 +86,34 @@ function defaultSftddConfig() {
       // even at a higher per-token price. Overridable per project by editing
       // sftdd-config.json (a project can flatten to a scalar `model`).
       { model: { red: RECOMMENDED_MODELS[role], green: RECOMMENDED_MODELS[role], refactor: "haiku" } }
-    ) : role === "spec-author" ? (
-      // Spec-author's BREAKDOWN step is optimized per-step (not per-role): the
-      // optimize sweep measured the breakdown ~44% faster on haiku+low, still
-      // passing the identical self-check + spec gate. Applied keyed to
-      // `breakdown` ONLY , the per-story AC-authoring step is a different task
-      // and keeps the recommended model + default effort until its own sweep.
-      // The base model stays recommended (opus) for the un-keyed AC step.
-      {
-        model: { breakdown: "haiku" },
-        effort: { breakdown: "low" }
-      }
-    ) : { model: RECOMMENDED_MODELS[role] };
+    ) : (
+      // Every other role's base is just its recommended model. Optimization
+      // winners (e.g. spec-author breakdown -> haiku+low) are NOT hardcoded here;
+      // they live in optimized-defaults.json and are deep-merged below, so the
+      // champion walk's auto-apply is the single writer of applied winners.
+      { model: RECOMMENDED_MODELS[role] }
+    );
   }
-  return {
+  const base = {
     version: 1,
     roles,
     build: { loopGranularity: "story", batchCap: 3, sessionScope: "story" },
     plan: { sizing: true },
     project: { uiTrack: false, gates: "interactive", deployTarget: "local", clientFramework: "none" }
   };
+  return mergeOptimizedDefaults(base, optimized_defaults_default);
+}
+function mergeOptimizedDefaults(base, overlay) {
+  if (overlay === null || typeof overlay !== "object" || Array.isArray(overlay)) {
+    return overlay === void 0 ? base : overlay;
+  }
+  const out = Array.isArray(base) ? [...base] : { ...base };
+  for (const [k, v] of Object.entries(overlay)) {
+    if (k === "_comment") continue;
+    const b = out[k];
+    out[k] = b && typeof b === "object" && !Array.isArray(b) && v && typeof v === "object" && !Array.isArray(v) ? mergeOptimizedDefaults(b, v) : v;
+  }
+  return out;
 }
 function writeSftddConfig(projectDir, config, opts) {
   const f = (0, import_path2.join)(projectDir, TDD_CONFIG_REL);

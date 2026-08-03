@@ -185,6 +185,49 @@ export function applyAgentMdLevers(kitDir: string, plan: ApplyPlan): string[] {
   return [...changed];
 }
 
+/** Deep-merge helper for the overlay (plain objects merge; scalars/arrays from the
+ *  overlay win). Kept local so optimize-apply has no cross-module dependency. */
+function mergeOverlay(base: unknown, over: unknown): unknown {
+  if (over === null || typeof over !== "object" || Array.isArray(over)) return over;
+  const b = base && typeof base === "object" && !Array.isArray(base) ? (base as Record<string, unknown>) : {};
+  const out: Record<string, unknown> = { ...b };
+  for (const [k, v] of Object.entries(over as Record<string, unknown>)) {
+    out[k] = mergeOverlay(out[k], v);
+  }
+  return out;
+}
+
+/** AUTO-APPLY a winning candidate's CONFIG levers (model/effort per turn/step, build
+ *  knobs) into the kit's optimized-defaults.json , the data overlay defaultSftddConfig
+ *  deep-merges. This is the unattended champion walk's persistence path: it writes
+ *  DATA (never a TS regex-rewrite, so the single-source rule holds), and a rebuild
+ *  inlines it into dist. Agent-.md (content) levers are applied separately by
+ *  applyAgentMdLevers. A BASELINE winner has no config overrides -> no-op (returns
+ *  false). Returns true when the overlay changed. Idempotent: re-applying the same
+ *  winner is a no-op. Kit edits are LOCAL; committing/pushing is the caller's job. */
+export function applyWinnerToOverlay(kitDir: string, candidate: Candidate): boolean {
+  const overlayPath = join(kitDir, "scripts", "sftdd", "optimized-defaults.json");
+  const overlay = existsSync(overlayPath)
+    ? (JSON.parse(readFileSync(overlayPath, "utf8")) as Record<string, unknown>)
+    : { roles: {} };
+
+  // Build the overlay delta from the candidate's CONFIG overrides (roles + build).
+  const delta: Record<string, unknown> = {};
+  const roles = candidate.configOverrides.roles ?? {};
+  if (Object.keys(roles).length) delta.roles = roles;
+  const build = candidate.configOverrides.build ?? {};
+  if (Object.keys(build).length) delta.build = build;
+  if (!Object.keys(delta).length) return false; // baseline / content-only winner
+
+  const merged = mergeOverlay(overlay, delta) as Record<string, unknown>;
+  const before = JSON.stringify(overlay);
+  const after = JSON.stringify(merged);
+  if (before === after) return false; // idempotent no-op
+  // Preserve the leading _comment if present; write stable 2-space JSON.
+  writeFileSync(overlayPath, JSON.stringify(merged, null, 2) + "\n");
+  return true;
+}
+
 /** Human-readable summary: what applied directly + what needs a reviewed source edit. */
 export function formatApplyPlan(plan: ApplyPlan): string {
   const lines: string[] = [`# Apply plan for role: ${plan.role}`, ""];

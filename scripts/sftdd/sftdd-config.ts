@@ -18,6 +18,10 @@ import {
   readAgentConfig,
   type SpawnableAgentRole,
 } from "./agent-models.js";
+// Auto-applied optimization winners, deep-merged onto the base default (see
+// defaultSftddConfig). Static import so tsup inlines it into dist at build time; the
+// champion walk's auto-apply writes this file as DATA, never a TS rewrite.
+import OPTIMIZED_DEFAULTS from "./optimized-defaults.json";
 
 /** Project-relative path of the unified config (canonical name post-SFTDD rename). */
 export const SFTDD_CONFIG_REL = join(".lakebase", "sftdd-config.json");
@@ -233,26 +237,45 @@ export function defaultSftddConfig(): SftddConfigFile {
             // even at a higher per-token price. Overridable per project by editing
             // sftdd-config.json (a project can flatten to a scalar `model`).
             { model: { red: RECOMMENDED_MODELS[role], green: RECOMMENDED_MODELS[role], refactor: "haiku" } }
-          : role === "spec-author"
-            ? // Spec-author's BREAKDOWN step is optimized per-step (not per-role): the
-              // optimize sweep measured the breakdown ~44% faster on haiku+low, still
-              // passing the identical self-check + spec gate. Applied keyed to
-              // `breakdown` ONLY , the per-story AC-authoring step is a different task
-              // and keeps the recommended model + default effort until its own sweep.
-              // The base model stays recommended (opus) for the un-keyed AC step.
-              {
-                model: { breakdown: "haiku" } as Partial<Record<TurnKey, string>>,
-                effort: { breakdown: "low" } as Partial<Record<TurnKey, EffortLevel>>,
-              }
-            : { model: RECOMMENDED_MODELS[role] };
+          : // Every other role's base is just its recommended model. Optimization
+            // winners (e.g. spec-author breakdown -> haiku+low) are NOT hardcoded here;
+            // they live in optimized-defaults.json and are deep-merged below, so the
+            // champion walk's auto-apply is the single writer of applied winners.
+            { model: RECOMMENDED_MODELS[role] };
   }
-  return {
+  const base: SftddConfigFile = {
     version: 1,
     roles,
     build: { loopGranularity: "story", batchCap: 3, sessionScope: "story" },
     plan: { sizing: true },
     project: { uiTrack: false, gates: "interactive", deployTarget: "local", clientFramework: "none" },
   };
+  // Deep-merge the auto-applied optimization winners (optimized-defaults.json) on top.
+  // The champion walk's auto-apply writes DATA into that file (never a TS rewrite, so
+  // the "one source of truth / no source regex" rule holds); it is inlined into dist at
+  // build time. A winner keyed per-turn/step (e.g. spec-author.breakdown -> haiku) is
+  // merged element-wise so it augments the base rather than replacing a whole map.
+  return mergeOptimizedDefaults(base, OPTIMIZED_DEFAULTS as Partial<SftddConfigFile>);
+}
+
+/** Element-wise deep-merge of the optimized-defaults overlay onto the base config.
+ *  Plain objects merge recursively (so a per-turn `model`/`effort` map is augmented,
+ *  not clobbered); scalars + arrays from the overlay win. Ignores the `_comment` key. */
+function mergeOptimizedDefaults<T>(base: T, overlay: unknown): T {
+  if (overlay === null || typeof overlay !== "object" || Array.isArray(overlay)) {
+    return (overlay === undefined ? base : (overlay as T));
+  }
+  const out: Record<string, unknown> = Array.isArray(base)
+    ? [...(base as unknown[])] as unknown as Record<string, unknown>
+    : { ...(base as Record<string, unknown>) };
+  for (const [k, v] of Object.entries(overlay as Record<string, unknown>)) {
+    if (k === "_comment") continue;
+    const b = out[k];
+    out[k] = b && typeof b === "object" && !Array.isArray(b) && v && typeof v === "object" && !Array.isArray(v)
+      ? mergeOptimizedDefaults(b, v)
+      : v;
+  }
+  return out as T;
 }
 
 /** Write a sftdd-config.json (scaffold/init). Does not overwrite unless force. */
