@@ -471,7 +471,10 @@ export async function runLaneSweep(
         `optimize lane sweep: handoff "${handoff.id}" did not advance after its winner was recorded , the drive is stuck (a gate the sweep cannot pass, or a winner that does not change readState). Check the drive state.`,
       );
     }
-    if (!reachedTarget && handoff.id === opts.startFrom) reachedTarget = true;
+    // startFrom matches the exact handoff id OR the role , so a caller can say
+    // "--from architect-reviewer" without knowing the per-story handoff id (design
+    // handoff ids are story-scoped, e.g. "S1-record-stock-architect-reviewer").
+    if (!reachedTarget && (handoff.id === opts.startFrom || handoff.role === opts.startFrom)) reachedTarget = true;
     if (reachedTarget) {
       const result = await deps.sweepOne(handoff);
       walk.push(result);

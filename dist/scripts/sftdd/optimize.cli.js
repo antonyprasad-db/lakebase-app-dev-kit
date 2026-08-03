@@ -12180,7 +12180,7 @@ async function runLaneSweep(deps, opts = {}) {
         `optimize lane sweep: handoff "${handoff.id}" did not advance after its winner was recorded , the drive is stuck (a gate the sweep cannot pass, or a winner that does not change readState). Check the drive state.`
       );
     }
-    if (!reachedTarget && handoff.id === opts.startFrom) reachedTarget = true;
+    if (!reachedTarget && (handoff.id === opts.startFrom || handoff.role === opts.startFrom)) reachedTarget = true;
     if (reachedTarget) {
       const result = await deps.sweepOne(handoff);
       walk2.push(result);

@@ -90,4 +90,24 @@ describe("runLaneSweep", () => {
     // The report only carries the SWEPT handoffs (the advanced ones produced no result).
     expect(result.walk.map((w) => w.handoffId)).toEqual(["S1-architect-reviewer", "S1-dba"]);
   });
+
+  it("startFrom matches a ROLE too (so --from architect-reviewer works without the story-scoped id)", async () => {
+    const handoffs: (HandoffPlan | null)[] = [
+      { id: "S1-spec-author", role: "spec-author", story: "S1" },
+      { id: "S1-architect-reviewer", role: "architect-reviewer", story: "S1" },
+      null,
+    ];
+    let i = 0;
+    const advanced: string[] = [];
+    const swept: string[] = [];
+    const deps: LaneSweepDeps = {
+      positionNext: async () => handoffs[Math.min(i++, handoffs.length - 1)],
+      sweepOne: async (h) => { swept.push(h.id); return res(h.id, "baseline"); },
+      advanceOne: async (h) => { advanced.push(h.id); },
+    };
+    // Match by ROLE, not the story-scoped id.
+    await runLaneSweep(deps, { startFrom: "architect-reviewer" });
+    expect(advanced).toEqual(["S1-spec-author"]);
+    expect(swept).toEqual(["S1-architect-reviewer"]);
+  });
 });
