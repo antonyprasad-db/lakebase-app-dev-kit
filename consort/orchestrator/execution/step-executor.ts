@@ -19,6 +19,8 @@
 // hooks. Phases 3+4 are the step's run(); 5+7 use the step's outputs()/route(); the rest is
 // orchestrator-owned. Nothing here reaches outside what the deps provide.
 
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { validateAndBound } from "../contract/step-contract.js";
 import type { WorkflowAction, DriveState } from "../../../scripts/sftdd/orchestrator-drive.js";
 import type { DriveEffectsConfig } from "../../../scripts/sftdd/orchestrator-effects.js";
@@ -140,11 +142,15 @@ export async function execute(step: RunnableStep, ctx: StepCtx, deps: StepExecut
       violations.push("the step's primary output was not produced in the workspace");
     }
   }
-  const produced = new Set(producedPaths);
   for (const spec of step.outputs(action)) {
     const rel = outputPaths?.[spec.id] ?? spec.filename;
-    const abs = producedPaths.find((p) => p.endsWith(rel));
-    if (!abs || !produced.has(abs)) {
+    // An output EXISTS if its declared file is on disk , regardless of whether the AGENT
+    // wrote it (producedPaths) or the ORCHESTRATOR materialized it in phase 4.5 (e.g. the
+    // formatted agent-log.jsonl). Prefer the path the agent reported; else the declared
+    // workspace-relative path. Checking the filesystem (not just producedPaths) is what lets
+    // an orchestrator-materialized output count as produced.
+    const abs = producedPaths.find((p) => p.endsWith(rel)) ?? join(workspaceDir, rel);
+    if (!existsSync(abs)) {
       // A declared output that never appeared , only a violation when the primary is
       // otherwise present (a wholly-empty run is already flagged above, don't double-count).
       if (runResult.produced) violations.push(`declared output "${spec.id}" (${spec.filename}) was not produced`);

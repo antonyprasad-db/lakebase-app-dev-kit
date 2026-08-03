@@ -114,10 +114,16 @@ function agentFinalText(agent: StepAgent): string | undefined {
   return lr?.finalText;
 }
 
+/** Max sanctioned re-issues of the SAME step before a blocked outcome is a hard failure ,
+ *  mirrors the ExpectationLedger's maxRetries=1. Bounds the blocked -> re-spawn loop so a
+ *  step that keeps failing validation aborts fast instead of re-running forever. */
+const MAX_STEP_RETRIES = 1;
+
 function executorWiring(
   manifest: StepManifest,
   action: WorkflowAction,
   deps: ManifestRunnerDeps,
+  retries: Map<string, number>,
 ): { step: ManifestStep; ctx: StepCtx; execDeps: StepExecutorDeps } {
   const agent = resolveAgent(manifest, deps);
   const step = new ManifestStep(manifest, agent);
@@ -130,7 +136,19 @@ function executorWiring(
       return proposal.proposedNext;
     },
     reviseBudgetAvailable: () => true,
-    recordRetry: () => ({ sanctioned: true }),
+    // Bound the blocked retry across the whole chain (retries persists per action signature):
+    // one sanctioned re-issue, then THROW , no infinite re-spawn on a persistently-failing step.
+    recordRetry: (completed: WorkflowAction) => {
+      const key = JSON.stringify(completed);
+      const n = (retries.get(key) ?? 0) + 1;
+      if (n > MAX_STEP_RETRIES) {
+        throw new Error(
+          `manifest-runner: step ${key} emitted "blocked" past its retry budget (${MAX_STEP_RETRIES}) , aborting instead of re-spawning forever.`,
+        );
+      }
+      retries.set(key, n);
+      return { sanctioned: true };
+    },
   };
 
   const ctx: StepCtx = {
@@ -173,7 +191,7 @@ export async function runManifestStep(
   if (!manifest) {
     throw new Error(`manifest-runner: no step manifest matches action ${JSON.stringify(action)} , cannot run it.`);
   }
-  const { step, ctx, execDeps } = executorWiring(manifest, action, deps);
+  const { step, ctx, execDeps } = executorWiring(manifest, action, deps, new Map());
   return execute(step, ctx, execDeps);
 }
 
@@ -198,12 +216,16 @@ export async function runManifestChain(
 ): Promise<ManifestTurn[]> {
   const maxTurns = options.maxTurns ?? 20;
   const turns: ManifestTurn[] = [];
+  // Retry budget shared ACROSS the chain (per action signature), so a blocked step's
+  // sanctioned re-issue is bounded , not reset each iteration. This is what stops a
+  // persistently-failing step from re-spawning forever.
+  const retries = new Map<string, number>();
   let action: WorkflowAction | undefined = start;
 
   while (action && turns.length < maxTurns) {
     const manifest = manifestForAction(action, manifests);
     if (!manifest) break; // the next action left the manifest set , terminal, stop cleanly.
-    const { step, ctx, execDeps } = executorWiring(manifest, action, deps);
+    const { step, ctx, execDeps } = executorWiring(manifest, action, deps, retries);
     const result = await execute(step, ctx, execDeps);
     turns.push({ manifestId: manifest.id, action, result });
     action = result.bounded.action;
