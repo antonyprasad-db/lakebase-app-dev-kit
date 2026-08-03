@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://databricks-solutions.github.io/consort/schemas/step-manifest.schema.json",
+  "title": "StepManifest",
+  "description": "The DATA face of one step in the orchestrator's standard (Template Method) execution: its logical inputs, its outputs (with checker NAMES resolved from the code registry), its routing map, its agent levers, and any post-turn CLIs. The StepExecutor reads this to drive the fixed phases; only checker fn bodies and the agent spawn stay code.",
+  "type": "object",
+  "required": ["id", "role", "match", "inputs", "outputs", "routing", "agentOptions"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable manifest id (e.g. spec-author-breakdown)."
+    },
+    "role": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The --agent role this step invokes."
+    },
+    "match": {
+      "type": "object",
+      "description": "How an action maps to this manifest: a STRICT SUBSET of a WorkflowAction. Every field present here must equal the action's field for a match. The loader rejects an ambiguous overlap (two manifests matching one action).",
+      "minProperties": 1,
+      "properties": {
+        "kind": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "inputs": {
+      "type": "array",
+      "description": "The logical inputs the orchestrator resolves from .sftdd and PROVIDES to the step (contents, keyed by id).",
+      "items": {
+        "type": "object",
+        "required": ["id", "source"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "description": "Logical input id the contents are handed back under." },
+          "source": { "type": "string", "minLength": 1, "description": ".sftdd source locator, e.g. feature:product-overview.md." },
+          "description": { "type": "string", "description": "Human description for diagnostics." }
+        },
+        "additionalProperties": false
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "description": "The logical outputs the step produces into its workspace. Each declares an in-code conformance checker BY NAME (resolved from checker-registry.ts). May be empty for a turn verified by cycle records rather than a static artifact.",
+      "items": {
+        "type": "object",
+        "required": ["id", "filename", "checker"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "filename": { "type": "string", "minLength": 1, "description": "Artifact filename within the provided workspace." },
+          "checker": { "type": "string", "minLength": 1, "description": "Registered OutputChecker name (checker-registry.ts). resolveChecker throws loud on an unknown name." },
+          "description": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "routing": {
+      "type": "object",
+      "description": "The routing proposal map keyed by StepOutcome. Each outcome maps to a next-move descriptor the contract's route() emits; the orchestrator's validateAndBound reconciles it with the pure allowed transition. A produced route of \"state-derived\" defers entirely to the pure transition.",
+      "required": ["produced"],
+      "properties": {
+        "produced": { "$ref": "#/definitions/routeTarget" },
+        "blocked": { "$ref": "#/definitions/routeTarget" },
+        "revise": { "$ref": "#/definitions/routeTarget" },
+        "escalate": { "$ref": "#/definitions/routeTarget" }
+      },
+      "additionalProperties": false
+    },
+    "agentOptions": {
+      "type": "object",
+      "description": "The agent levers the StepExecutor builds AgentLevers from for the dispatch-agent phase.",
+      "required": ["session"],
+      "properties": {
+        "model": { "type": "string" },
+        "effort": { "type": "string", "enum": ["low", "default", "high"] },
+        "session": { "type": "string", "enum": ["fresh", "resume"] },
+        "resumeKeyFrom": { "type": "string", "enum": ["role", "story", "feature", "none"] },
+        "toolScope": {
+          "type": "object",
+          "properties": {
+            "allowed": { "type": "array", "items": { "type": "string" } },
+            "disallowed": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": false
+        },
+        "fallbackModel": { "type": "string" },
+        "maxBudgetUsd": { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "postTurn": {
+      "type": "array",
+      "description": "Role-specific deterministic CLIs run in the record/log phase (reset/sync-breakdown, test-list, cycle stamps).",
+      "items": {
+        "type": "object",
+        "required": ["bin", "args"],
+        "properties": {
+          "bin": { "type": "string", "minLength": 1 },
+          "args": { "type": "array", "items": { "type": "string" } },
+          "when": { "type": "string", "enum": ["before", "after"] }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "routeTarget": {
+      "description": "Where an outcome proposes to go. Either a concrete WorkflowAction under `next`, the sentinel string \"state-derived\" (defer to the pure transition), or a bare flag object (retry/gate) the contract interprets.",
+      "type": "object",
+      "properties": {
+        "next": {},
+        "retry": { "type": "boolean" },
+        "gate": { "type": "string" }
+      },
+      "additionalProperties": true
+    }
+  }
+}

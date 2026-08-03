@@ -1,0 +1,23 @@
+{
+  "id": "stockflow-demo-spec-author",
+  "role": "spec-author",
+  "match": { "kind": "invoke-role", "role": "spec-author", "mode": "breakdown" },
+  "inputs": [
+    { "id": "product-overview", "source": "feature:product-overview.md", "description": "The PO seed produced in turn 1." },
+    { "id": "nfrs", "source": "feature:nfrs.md", "description": "The PO seed produced in turn 1." },
+    { "id": "design-guideline", "source": "feature:design-brief.md", "description": "The PO design guideline produced in turn 1." }
+  ],
+  "outputs": [
+    { "id": "feature-spec", "filename": "feature-spec.json", "checker": "featureSpecNonEmptyStories", "description": "The feature breakdown index built from the PO seed (id, name, status, tdd_mode, non-empty stories[])." },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "checker": "agentLogHasRoleEvent", "description": "The spec-author logs what it did (shared agent-log; agent-log-event.schema.json)." }
+  ],
+  "routing": {
+    "produced": { "next": { "kind": "design-complete" } }
+  },
+  "agentOptions": {
+    "model": "sonnet",
+    "effort": "low",
+    "session": "fresh",
+    "resumeKeyFrom": "role"
+  }
+}

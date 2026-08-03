@@ -80,6 +80,25 @@ export function agentLogHasRoleEvent(producedPath: string, role = "spec-author")
 }
 
 /**
+ * nonEmptyFile checker: the produced file exists and carries non-whitespace content. The
+ * generic "the human/agent actually authored something here" check , used for the PO's
+ * seed markdown (product-overview.md / nfrs.md / design-brief.md), where the deliverable is
+ * prose, not a schema-validated artifact.
+ */
+export function nonEmptyFile(producedPath: string): OutputCheckResult {
+  let content: string;
+  try {
+    content = readFileSync(producedPath, "utf8");
+  } catch {
+    return { ok: false, violations: [`file not readable at ${producedPath}`] };
+  }
+  if (content.trim().length === 0) {
+    return { ok: false, violations: [`file at ${producedPath} is empty (expected authored content)`] };
+  }
+  return { ok: true, violations: [] };
+}
+
+/**
  * The named-checker registry a manifest resolves against. Add an entry here (code) and
  * reference it by name in a manifest (data). Every OutputChecker is (path) => result , the
  * role-parameterized agent-log checker binds its default role so it matches the signature.
@@ -87,6 +106,9 @@ export function agentLogHasRoleEvent(producedPath: string, role = "spec-author")
 export const CHECKER_REGISTRY: Record<string, OutputChecker> = {
   featureSpecNonEmptyStories,
   agentLogHasRoleEvent: (p: string) => agentLogHasRoleEvent(p),
+  // The PO's structured log event is authored as product-owner; bind that role.
+  productOwnerLoggedAuthoring: (p: string) => agentLogHasRoleEvent(p, "product-owner"),
+  nonEmptyFile,
 };
 
 /**
