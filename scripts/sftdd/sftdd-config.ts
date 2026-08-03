@@ -101,11 +101,15 @@ export function loadSftddConfig(projectDir: string): SftddConfigFile | undefined
   return undefined;
 }
 
-/** Code default effort: the navigator REVIEW turn runs fast (low), everything
- *  else uses the model default. This preserves the P6 behavior when no config /
- *  env says otherwise. */
+/** Code default effort: the navigator REVIEW turn runs fast (low), and the
+ *  spec-author breakdown runs at low effort , the per-handoff optimization sweep
+ *  (stockflow-optimize) measured spec-author at low effort ~34% faster (99.4s ->
+ *  66.0s median over 2 trials) while still passing the identical self-check + spec
+ *  gate; opus stays the model (sonnet was ~2x slower). Everything else uses the
+ *  model default. This preserves the P6 behavior when no config / env says otherwise. */
 function defaultEffort(role: string, turn?: BuildTurn): EffortLevel {
   if (role === "navigator" && turn === "review") return "low";
+  if (role === "spec-author") return "low";
   return "default";
 }
 
@@ -194,7 +198,13 @@ export function defaultSftddConfig(): SftddConfigFile {
             // even at a higher per-token price. Overridable per project by editing
             // sftdd-config.json (a project can flatten to a scalar `model`).
             { model: { red: RECOMMENDED_MODELS[role], green: RECOMMENDED_MODELS[role], refactor: "haiku" } }
-          : { model: RECOMMENDED_MODELS[role] };
+          : role === "spec-author"
+            ? // Spec-author runs at low effort: the optimize sweep measured it ~34%
+              // faster at low effort while still passing the identical gate (opus
+              // stays the model). Made explicit here so a scaffolded project's config
+              // matches the code default in defaultEffort().
+              { model: RECOMMENDED_MODELS[role], effort: "low" }
+            : { model: RECOMMENDED_MODELS[role] };
   }
   return {
     version: 1,

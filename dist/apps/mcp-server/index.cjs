@@ -6782,6 +6782,12 @@ function defaultSftddConfig() {
       // even at a higher per-token price. Overridable per project by editing
       // sftdd-config.json (a project can flatten to a scalar `model`).
       { model: { red: RECOMMENDED_MODELS[role], green: RECOMMENDED_MODELS[role], refactor: "haiku" } }
+    ) : role === "spec-author" ? (
+      // Spec-author runs at low effort: the optimize sweep measured it ~34%
+      // faster at low effort while still passing the identical gate (opus
+      // stays the model). Made explicit here so a scaffolded project's config
+      // matches the code default in defaultEffort().
+      { model: RECOMMENDED_MODELS[role], effort: "low" }
     ) : { model: RECOMMENDED_MODELS[role] };
   }
   return {

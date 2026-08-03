@@ -66,6 +66,9 @@ describe("resolveSftddSettings: defaults when no file + no env", () => {
     expect(s.effortFor("navigator", "review")).toBe("low");
     expect(s.effortFor("navigator", "red")).toBe("default");
     expect(s.effortFor("driver", "green")).toBe("default");
+    // spec-author defaults to low effort: the optimize sweep measured it ~34% faster
+    // at low effort while still passing the identical gate (opus stays the model).
+    expect(s.effortFor("spec-author")).toBe("low");
     expect(s.build.loopGranularity).toBe("story"); // default is story-scoped Navigator/Driver turns
     expect(s.build.sessionScope).toBe("story");
     expect(s.plan.sizing).toBe(true);
