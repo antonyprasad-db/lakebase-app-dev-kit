@@ -1,0 +1,23 @@
+{
+  "id": "spec-author-breakdown",
+  "role": "spec-author",
+  "match": { "kind": "invoke-role", "role": "spec-author", "mode": "breakdown" },
+  "inputs": [
+    { "id": "product-overview", "source": "feature:product-overview.md", "description": "The PO's product overview (product-overview.md)." },
+    { "id": "nfrs", "source": "feature:nfrs.md", "description": "The PO's non-functional requirements brief (nfrs.md)." },
+    { "id": "feature-request", "source": "feature:feature-request.md", "description": "The PO's feature request for this feature (feature-request.md)." }
+  ],
+  "outputs": [
+    { "id": "feature-spec", "filename": "feature-spec.json", "checker": "featureSpecNonEmptyStories", "description": "The feature breakdown index (feature-spec.json + a story stub per story)." },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "checker": "agentLogHasRoleEvent", "description": "The agent's structured log of what it did + any issue surfaced (shared agent-log script; agent-log-event.schema.json)." }
+  ],
+  "routing": {
+    "produced": { "next": { "kind": "design-complete" } }
+  },
+  "agentOptions": {
+    "model": "sonnet",
+    "effort": "low",
+    "session": "fresh",
+    "resumeKeyFrom": "role"
+  }
+}
