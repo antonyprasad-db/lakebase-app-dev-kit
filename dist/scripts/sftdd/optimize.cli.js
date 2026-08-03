@@ -13699,14 +13699,20 @@ function applyContentSeams(cfg, content) {
 }
 var RECORD_DIR_ENV = "LAKEBASE_SFTDD_RECORD_DIR";
 function makeLiveSpawnTurn(featureId, seams) {
-  return async ({ candidate, record }) => {
+  return async ({ handoff, candidate, record }) => {
     const prior = process.env[RECORD_DIR_ENV];
     if (record && seams.recordDir) process.env[RECORD_DIR_ENV] = seams.recordDir;
     else delete process.env[RECORD_DIR_ENV];
     try {
       const cfg = applyContentSeams(seams.buildCfg(featureId), candidate.content);
       const runner = seams.execRunner(cfg);
-      const { commands } = await seams.planNextAction(cfg);
+      const { action, commands } = await seams.planNextAction(cfg);
+      const planned = actionToHandoffPlan(action);
+      if (!planned || planned.id !== handoff.id) {
+        throw new Error(
+          `optimize spawnTurn: state drift , the walk is pinned on handoff '${handoff.id}' (${handoff.role}${handoff.buildMode ? "/" + handoff.buildMode : ""}) but planNextAction returned '${planned?.id ?? action.kind}'. Disk is not positioned on the pinned handoff (a snapshot/restore leak or a stray advance); refusing to run the wrong turn.`
+        );
+      }
       for (const cmd of commands) await runner.run(cmd);
     } finally {
       if (prior === void 0) delete process.env[RECORD_DIR_ENV];

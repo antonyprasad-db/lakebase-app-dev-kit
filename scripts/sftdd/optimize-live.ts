@@ -227,7 +227,7 @@ const RECORD_DIR_ENV = "LAKEBASE_SFTDD_RECORD_DIR";
  *  corpus even if the ambient shell exported RECORD_DIR. NEVER sets
  *  LAKEBASE_SFTDD_REPLAY_BUILD_DIR (that would fake GREEN). */
 export function makeLiveSpawnTurn(featureId: string, seams: LiveDriveSeams): SpawnTurn {
-  return async ({ candidate, record }) => {
+  return async ({ handoff, candidate, record }) => {
     // Set the recorder env for THIS spawn only: the winner capture records into
     // seams.recordDir; a trial clears it so nothing lands in the corpus. Restore the
     // prior value in a finally so a winner never leaks recording into later trials.
@@ -237,9 +237,26 @@ export function makeLiveSpawnTurn(featureId: string, seams: LiveDriveSeams): Spa
     try {
       const cfg = applyContentSeams(seams.buildCfg(featureId), candidate.content);
       const runner = seams.execRunner(cfg);
-      // planNextAction reads the CURRENT disk state, so it returns exactly the handoff
-      // the walk is positioned on (the harness snapshot/restore keeps that position).
-      const { commands } = await seams.planNextAction(cfg);
+      // planNextAction reads the CURRENT disk state to find the next turn. The walk's
+      // snapshot/restore is SUPPOSED to keep disk positioned on the pinned handoff,
+      // but if any state leaks (a restore that missed, a recordWinner that advanced
+      // then a stray spawn), planNextAction silently returns a DIFFERENT role's turn
+      // , which then runs the wrong agent, flakes, and its throw escapes to kill the
+      // whole sweep (observed: a spec-author sweep spawned a ux-designer turn that
+      // errored). GUARD: the planned action MUST match the pinned handoff. On a
+      // mismatch throw a clear error , runChampionWalk's per-trial catch turns that
+      // into a disqualification instead of a cryptic wrong-role crash, and the guard
+      // NAMES the drift (pinned vs planned) so the real cause is visible.
+      const { action, commands } = await seams.planNextAction(cfg);
+      const planned = actionToHandoffPlan(action as WorkflowAction);
+      if (!planned || planned.id !== handoff.id) {
+        throw new Error(
+          `optimize spawnTurn: state drift , the walk is pinned on handoff '${handoff.id}' ` +
+            `(${handoff.role}${handoff.buildMode ? "/" + handoff.buildMode : ""}) but planNextAction ` +
+            `returned '${planned?.id ?? (action as WorkflowAction).kind}'. Disk is not positioned on the ` +
+            `pinned handoff (a snapshot/restore leak or a stray advance); refusing to run the wrong turn.`,
+        );
+      }
       for (const cmd of commands) await runner.run(cmd);
     } finally {
       if (prior === undefined) delete process.env[RECORD_DIR_ENV];

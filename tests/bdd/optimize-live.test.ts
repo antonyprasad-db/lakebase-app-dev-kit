@@ -173,6 +173,9 @@ describe("makeLiveSpawnTurn: recording is gated on the `record` flag (only winne
   // the moment the runner runs a command.
   const RECORD_ENV = "LAKEBASE_SFTDD_RECORD_DIR";
 
+  // planNextAction returns the spec-author breakdown action, so it MATCHES the
+  // pinned handoff (id "S1-spec-author") , the guard passes and the run proceeds.
+  const specAuthorAction = { kind: "invoke-role", role: "spec-author", story: "S1" };
   function seams(recordDir: string, seenEnv: (v: string | undefined) => void) {
     return {
       recordDir,
@@ -182,7 +185,7 @@ describe("makeLiveSpawnTurn: recording is gated on the `record` flag (only winne
           seenEnv(process.env[RECORD_ENV]);
         },
       }),
-      planNextAction: async () => ({ action: {}, commands: [{ kind: "claude" }] }),
+      planNextAction: async () => ({ action: specAuthorAction, commands: [{ kind: "claude" }] }),
     };
   }
 
@@ -213,5 +216,37 @@ describe("makeLiveSpawnTurn: recording is gated on the `record` flag (only winne
     const spawn = makeLiveSpawnTurn(featureId, seams("/corpus/dir", () => {}) as never);
     await spawn({ handoff: { id: "S1-spec-author", role: "spec-author" }, candidate: { id: "baseline", configOverrides: {} }, record: true });
     expect(process.env[RECORD_ENV]).toBeUndefined(); // restored after the spawn
+  });
+});
+
+describe("makeLiveSpawnTurn: state-drift guard (never run the wrong role's turn)", () => {
+  // The wrong-role bug: planNextAction reads CURRENT disk state, so if the walk's
+  // snapshot/restore leaks state, it silently returns a DIFFERENT role's turn (a
+  // spec-author sweep spawned a ux-designer turn, which flaked and killed the whole
+  // sweep). The spawn must REFUSE to run a turn that does not match the pinned handoff
+  // , surfacing the drift instead of running the wrong agent + crashing cryptically.
+  let ran = false;
+  function seams(plannedAction: unknown) {
+    return {
+      buildCfg: () => ({ projectDir, sftddDir, featureId }) as never,
+      execRunner: () => ({ async run() { ran = true; } }),
+      planNextAction: async () => ({ action: plannedAction, commands: [{ kind: "claude" }] }),
+    };
+  }
+
+  it("throws (does not run) when planNextAction returns a DIFFERENT handoff than pinned", async () => {
+    ran = false;
+    const spawn = makeLiveSpawnTurn(featureId, seams({ kind: "invoke-role", role: "ux-designer" }) as never);
+    await expect(
+      spawn({ handoff: { id: "S1-spec-author", role: "spec-author" }, candidate: { id: "baseline", configOverrides: {} }, record: false }),
+    ).rejects.toThrow(/state drift|pinned on handoff 'S1-spec-author'/);
+    expect(ran).toBe(false); // the wrong turn NEVER ran
+  });
+
+  it("runs normally when the planned action matches the pinned handoff", async () => {
+    ran = false;
+    const spawn = makeLiveSpawnTurn(featureId, seams({ kind: "invoke-role", role: "spec-author", story: "S1" }) as never);
+    await spawn({ handoff: { id: "S1-spec-author", role: "spec-author" }, candidate: { id: "baseline", configOverrides: {} }, record: false });
+    expect(ran).toBe(true);
   });
 });
