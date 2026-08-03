@@ -87,6 +87,45 @@ describe("makeChampionWalkDeps: hermetic DESIGN handoff", () => {
     expect(result.walk[0].candidates.every((c) => !c.disqualified)).toBe(true);
   });
 
+  it("CHAIN: each handoff's winner artifacts are preserved as the input to the NEXT handoff", async () => {
+    // The load-bearing invariant: role A's winning output must be on disk when role B
+    // runs, and survive B's own winner-restore. Two sequential handoffs, each with a
+    // winner that APPENDS a distinct artifact building on what's already there; after
+    // the walk BOTH winners' artifacts must coexist (A's fed B AND survived).
+    const clock = { now: 0 };
+    const fdir = join(sftddDir, "features", featureId);
+    const acDir = join(fdir, "stories", "S1", "acs");
+    const seedSpec = () => {
+      mkdirSync(acDir, { recursive: true });
+      writeFileSync(join(fdir, "feature-spec.json"), JSON.stringify({ stories: ["S1"] }));
+      writeFileSync(join(fdir, "feature-spec.md"), "# spec\n");
+      writeFileSync(join(acDir, "AC1.json"), JSON.stringify({ id: "AC1", layer: "API", given: "g", when: "w", then: "t", status: "draft" }));
+    };
+    // spawn writes a marker file named for the handoff+candidate, ON TOP of whatever
+    // is already on disk (never wipes) , so a surviving marker proves that winner's
+    // artifacts persisted. Faster candidate ("fast") wins each handoff.
+    const spawn: SpawnTurn = async ({ handoff, candidate }) => {
+      seedSpec(); // keep the spec conformant so evaluateDesignGate passes each turn
+      writeFileSync(join(fdir, `mark-${handoff.id}-${candidate.id}.txt`), "x");
+      clock.now += candidate.id === "fast" ? 300 : 900;
+    };
+    const deps = makeChampionWalkDeps(ctx(spawn, clock));
+    const cands = [{ id: "baseline", configOverrides: {} }, { id: "fast", configOverrides: {} }];
+    // Two sequential handoffs (same role/gate; the point is the chain, not the role).
+    const h1 = { id: "H1-spec-author", role: "spec-author", story: "S1" };
+    const h2 = { id: "H2-spec-author", role: "spec-author", story: "S1" };
+
+    await runChampionWalk({ handoffs: [h1, h2], candidates: cands, trials: 1, alwaysAdvance: true }, deps);
+
+    // H1's WINNER (fast) marker survived through H2's sweep + its winner-restore...
+    expect(existsSync(join(fdir, "mark-H1-spec-author-fast.txt"))).toBe(true);
+    // ...and H2's winner (fast) marker is present too , the chain preserved BOTH.
+    expect(existsSync(join(fdir, "mark-H2-spec-author-fast.txt"))).toBe(true);
+    // The LOSER's marker (baseline) must NOT survive as the winner state (it was a
+    // discarded trial, restored away).
+    expect(existsSync(join(fdir, "mark-H2-spec-author-baseline.txt"))).toBe(false);
+  });
+
   it("advances with the WINNER's ACTUAL artifacts (restores the winning trial, does not re-run)", async () => {
     // Each candidate writes DISTINGUISHABLE spec content; after the walk, the winner's
     // content must be what's on disk (so the next role sees the winner's real output),
