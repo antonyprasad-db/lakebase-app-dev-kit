@@ -1,5 +1,5 @@
 import { W as WorkflowAction } from '../../orchestrator-drive-BmzjQ8Tu.cjs';
-import { T as TurnKey } from '../../sftdd-config-DITjGDWO.cjs';
+import { T as TurnKey } from '../../sftdd-config-CICEjaSW.cjs';
 
 type DriveCommand = {
     kind: "claude";

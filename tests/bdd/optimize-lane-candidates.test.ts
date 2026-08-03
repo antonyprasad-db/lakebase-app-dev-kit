@@ -8,8 +8,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import { defaultLaneCandidates } from "../../scripts/sftdd/optimize-candidates";
+import { defaultLaneCandidates, buildTurnForHandoff } from "../../scripts/sftdd/optimize-candidates";
 import type { HandoffPlan } from "../../scripts/sftdd/optimize-harness";
+import type { BuildTurn as BuildTurnKey } from "../../scripts/sftdd/sftdd-config";
 
 function h(role: string, story?: string, buildMode?: string): HandoffPlan {
   return { id: `${story ? story + "-" : ""}${role}${buildMode ? "-" + buildMode : ""}`, role, story, buildMode };
@@ -105,5 +106,40 @@ describe("defaultLaneCandidates: build roles (per-turn map)", () => {
       return m && typeof m === "object";
     });
     expect(model).toBeDefined();
+  });
+
+  it("sweeps EVERY build turn type per-turn (review/refactor/assess/repair), not just red/green", () => {
+    // Each specialized build turn is a distinct kind of work and must be swept with a
+    // per-turn keyed override so it can pick its OWN model/effort. Pre-fix, only
+    // red/green were swept; review/refactor/assess/repair fell into the design scalar
+    // branch (wrong shape) and were effectively un-optimized.
+    const cases: Array<[string, string | undefined, string, BuildTurnKey]> = [
+      ["navigator", "review", "navigator", "review"],
+      ["driver", "refactor", "driver", "refactor"],
+      ["navigator", "assess", "navigator", "assess"],
+      ["driver", "repair", "driver", "repair"],
+    ];
+    for (const [role, mode, r, turn] of cases) {
+      const cands = defaultLaneCandidates(h(role, "S1", mode));
+      expect(cands.length).toBe(8); // full lever set, same as red/green
+      // a model candidate carries a per-TURN map keyed on this exact turn.
+      const m = cands.find((c) => {
+        const mv = (c.configOverrides.roles as Record<string, { model?: unknown }> | undefined)?.[r]?.model;
+        return mv && typeof mv === "object" && (mv as Record<string, unknown>)[turn] !== undefined;
+      });
+      expect(m, `${role}/${mode} should sweep a per-turn '${turn}' model`).toBeDefined();
+    }
+  });
+
+  it("collapses specialized buildModes onto their base family (refactor-superseded->refactor, green-superseded->green)", () => {
+    expect(buildTurnForHandoff(h("driver", "S1", "refactor-superseded"))).toBe("refactor");
+    expect(buildTurnForHandoff(h("driver", "S1", "refactor-deploy"))).toBe("refactor");
+    expect(buildTurnForHandoff(h("navigator", "S1", "assess-deploy"))).toBe("assess");
+    expect(buildTurnForHandoff(h("navigator", "S1", "assess-refactor"))).toBe("assess");
+    expect(buildTurnForHandoff(h("driver", "S1", "green-superseded"))).toBe("green");
+    // reflect is the design-lane critic , no build turn (baseline-only).
+    expect(buildTurnForHandoff(h("navigator", "S1", "reflect"))).toBeUndefined();
+    // a design role has no build turn.
+    expect(buildTurnForHandoff(h("spec-author", "S1"))).toBeUndefined();
   });
 });

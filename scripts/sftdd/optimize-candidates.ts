@@ -183,6 +183,39 @@ const CHEAPER_EFFORTS: EffortLevel[] = ["low", "medium"];
  *  structural bar for every candidate, so wall-clock alone decides among gate-passers.
  *  The navigator REFLECT turn is a critic GATE (flags defects, authors nothing), so
  *  it is never swept , baseline only. Baseline is always first. */
+/** The BuildTurn a navigator/driver handoff optimizes, or undefined for a non-build
+ *  (design) role or the reflect critic. Mirrors turnKeyForAction's build-mode collapse
+ *  so the sweep keys the SAME turn the drive will resolve: specialized buildModes fold
+ *  onto their base family (refactor-* -> refactor, assess-* -> assess,
+ *  green-superseded -> green), a plain navigator turn is RED, a plain driver turn is
+ *  GREEN. reflect returns undefined (baseline-only critic). */
+export function buildTurnForHandoff(handoff: HandoffLike): BuildTurn | undefined {
+  const { role, buildMode } = handoff;
+  if (role !== "navigator" && role !== "driver") return undefined;
+  switch (buildMode) {
+    case "reflect":
+      return undefined;
+    case "review":
+      return "review";
+    case "refactor":
+    case "refactor-deploy":
+    case "refactor-superseded":
+      return "refactor";
+    case "assess":
+    case "assess-deploy":
+    case "assess-refactor":
+      return "assess";
+    case "repair":
+      return "repair";
+    case "green-superseded":
+      return "green";
+    case undefined:
+      return role === "driver" ? "green" : "red";
+    default:
+      return role === "driver" ? "green" : "red";
+  }
+}
+
 export function defaultLaneCandidates(handoff: HandoffLike): Candidate[] {
   const baseline: Candidate = { id: BASELINE_CANDIDATE_ID, configOverrides: {} };
 
@@ -190,13 +223,14 @@ export function defaultLaneCandidates(handoff: HandoffLike): Candidate[] {
   if (handoff.role === "navigator" && handoff.buildMode === "reflect") return [baseline];
 
   const role = handoff.role;
-  const isBuild = (role === "navigator" || role === "driver") && (handoff.buildMode === undefined || handoff.buildMode === "green" || handoff.buildMode === "red");
+  const turn = buildTurnForHandoff(handoff); // undefined for a design role
+  const isBuild = turn !== undefined;
   // BUILD roles set model/effort under a per-turn key ({ green: "haiku" }); DESIGN
   // roles set them as scalars ("haiku"). `wrap` bridges the two so one lever list
-  // serves both. `turn` is the build turn (GREEN for driver, RED for navigator).
-  const turn: BuildTurn = role === "driver" ? "green" : "red";
-  const wrapModel = (m: string) => (isBuild ? { [turn]: m } : m);
-  const wrapEffort = (e: EffortLevel) => (isBuild ? { [turn]: e } : e);
+  // serves both. `turn` is the resolved build turn (review/refactor/assess/repair/
+  // green/red), so EVERY build turn type , not just red/green , is swept per-turn.
+  const wrapModel = (m: string) => (isBuild ? { [turn as BuildTurn]: m } : m);
+  const wrapEffort = (e: EffortLevel) => (isBuild ? { [turn as BuildTurn]: e } : e);
   const idPrefix = isBuild ? `${role}-${turn}` : role;
   const roleOverride = (settings: RoleSettingsFile): Candidate["configOverrides"] => ({
     roles: { [role]: settings } as DeepPartial<SftddConfigFile>["roles"],

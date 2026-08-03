@@ -9859,9 +9859,25 @@ function designArtifactExpectation(action, sftddDir, featureId) {
 function turnKeyForAction(action) {
   if (action.kind !== "invoke-role") return void 0;
   if ("buildMode" in action) {
-    if (action.buildMode === "reflect") return void 0;
-    if (action.buildMode === "review") return "review";
-    if (action.buildMode === "refactor" || action.buildMode === "refactor-deploy") return "refactor";
+    switch (action.buildMode) {
+      case "reflect":
+        return void 0;
+      // design-lane critic, runs on the base model
+      case "review":
+        return "review";
+      case "refactor":
+      case "refactor-deploy":
+      case "refactor-superseded":
+        return "refactor";
+      case "assess":
+      case "assess-deploy":
+      case "assess-refactor":
+        return "assess";
+      case "repair":
+        return "repair";
+      case "green-superseded":
+        return "green";
+    }
   }
   if ("mode" in action) {
     if (action.role === "spec-author" && action.mode === "breakdown") return "breakdown";

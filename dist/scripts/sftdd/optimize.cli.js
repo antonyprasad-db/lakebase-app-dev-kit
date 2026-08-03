@@ -6741,12 +6741,38 @@ function otherModels(model) {
   return MODEL_TIERS.filter((m) => m !== model);
 }
 var CHEAPER_EFFORTS = ["low", "medium"];
+function buildTurnForHandoff(handoff) {
+  const { role, buildMode } = handoff;
+  if (role !== "navigator" && role !== "driver") return void 0;
+  switch (buildMode) {
+    case "reflect":
+      return void 0;
+    case "review":
+      return "review";
+    case "refactor":
+    case "refactor-deploy":
+    case "refactor-superseded":
+      return "refactor";
+    case "assess":
+    case "assess-deploy":
+    case "assess-refactor":
+      return "assess";
+    case "repair":
+      return "repair";
+    case "green-superseded":
+      return "green";
+    case void 0:
+      return role === "driver" ? "green" : "red";
+    default:
+      return role === "driver" ? "green" : "red";
+  }
+}
 function defaultLaneCandidates(handoff) {
   const baseline = { id: BASELINE_CANDIDATE_ID, configOverrides: {} };
   if (handoff.role === "navigator" && handoff.buildMode === "reflect") return [baseline];
   const role = handoff.role;
-  const isBuild = (role === "navigator" || role === "driver") && (handoff.buildMode === void 0 || handoff.buildMode === "green" || handoff.buildMode === "red");
-  const turn = role === "driver" ? "green" : "red";
+  const turn = buildTurnForHandoff(handoff);
+  const isBuild = turn !== void 0;
   const wrapModel = (m) => isBuild ? { [turn]: m } : m;
   const wrapEffort = (e) => isBuild ? { [turn]: e } : e;
   const idPrefix = isBuild ? `${role}-${turn}` : role;
@@ -11277,9 +11303,25 @@ function designArtifactExpectation(action, sftddDir, featureId) {
 function turnKeyForAction(action) {
   if (action.kind !== "invoke-role") return void 0;
   if ("buildMode" in action) {
-    if (action.buildMode === "reflect") return void 0;
-    if (action.buildMode === "review") return "review";
-    if (action.buildMode === "refactor" || action.buildMode === "refactor-deploy") return "refactor";
+    switch (action.buildMode) {
+      case "reflect":
+        return void 0;
+      // design-lane critic, runs on the base model
+      case "review":
+        return "review";
+      case "refactor":
+      case "refactor-deploy":
+      case "refactor-superseded":
+        return "refactor";
+      case "assess":
+      case "assess-deploy":
+      case "assess-refactor":
+        return "assess";
+      case "repair":
+        return "repair";
+      case "green-superseded":
+        return "green";
+    }
   }
   if ("mode" in action) {
     if (action.role === "spec-author" && action.mode === "breakdown") return "breakdown";

@@ -11,9 +11,20 @@ type AgentRole = "spec-author" | "ux-designer" | "architect-reviewer" | "dba" | 
  */
 type SpawnableAgentRole = Exclude<AgentRole, "orchestrator" | "release-engineer">;
 
-/** The BUILD turns whose effort/model can differ within the navigator/driver
- *  RED/GREEN/REVIEW/REFACTOR loop. */
-type BuildTurn = "red" | "green" | "review" | "refactor";
+/** The BUILD turns whose effort/model can differ within the navigator/driver loop.
+ *  Each is a DISTINCT kind of work, so each can pick its own model/effort ("apply to
+ *  the turn, not the role"):
+ *   navigator (judgment): red (author tests), review (critique code), assess (scope
+ *     contamination-fragile tests before a refactor/deploy).
+ *   driver (code): green (implement), refactor (restructure code), repair (fix a
+ *     regression a prior story's build broke).
+ *  The specialized drive buildModes collapse onto these base families , they are the
+ *  same KIND of work, differing only in what triggered them:
+ *   refactor-deploy / refactor-superseded -> refactor;  assess-deploy / assess-refactor
+ *   -> assess;  green-superseded -> green.
+ *  (reflect is the design-lane critic, keyed as its own DesignStep-adjacent case in
+ *  turnKeyForAction, never a build turn here.) */
+type BuildTurn = "red" | "green" | "review" | "refactor" | "assess" | "repair";
 /** The DESIGN/planning steps a role can be invoked for. A role runs different
  *  TASKS across these steps (spec-author BREAKDOWN vs per-story AC authoring;
  *  architect ESTIMATE vs per-story ARCHITECT notes), so a lever that wins on one

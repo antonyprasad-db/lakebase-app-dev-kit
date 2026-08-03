@@ -1,4 +1,4 @@
-import { a as SpawnableAgentRole, B as BuildTurn, E as EffortLevel, S as SftddConfigFile } from './sftdd-config-DITjGDWO.js';
+import { a as SpawnableAgentRole, B as BuildTurn, E as EffortLevel, S as SftddConfigFile } from './sftdd-config-CICEjaSW.js';
 
 /** A Family-2 content/scope variant: what the agent SEES + CAN DO for one turn.
  *  All fields optional; the harness feeds each into the P2a seams (agent overlay

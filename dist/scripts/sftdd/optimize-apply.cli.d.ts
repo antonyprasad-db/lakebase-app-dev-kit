@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { C as Candidate } from '../../optimize-candidates-DanUO2bR.js';
-import '../../sftdd-config-DITjGDWO.js';
+import { C as Candidate } from '../../optimize-candidates-DDMD8l7_.js';
+import '../../sftdd-config-CICEjaSW.js';
 
 interface ApplyCliArgs {
     projectDir?: string;

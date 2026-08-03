@@ -1167,11 +1167,28 @@ function designArtifactExpectation(
  *  ux. Returns undefined only for actions with no distinct step (fall back to scalar). */
 export function turnKeyForAction(action: WorkflowAction): TurnKey | undefined {
   if (action.kind !== "invoke-role") return undefined;
-  // Build turns first (buildMode-carrying navigator/driver turns).
+  // Build turns first (buildMode-carrying navigator/driver turns). Each specialized
+  // buildMode collapses onto its base BuildTurn family , the same KIND of work, so it
+  // picks that family's model/effort. (reflect is the design-lane critic, no build key.)
   if ("buildMode" in action) {
-    if (action.buildMode === "reflect") return undefined; // critic on base model
-    if (action.buildMode === "review") return "review";
-    if (action.buildMode === "refactor" || action.buildMode === "refactor-deploy") return "refactor";
+    switch (action.buildMode) {
+      case "reflect":
+        return undefined; // design-lane critic, runs on the base model
+      case "review":
+        return "review";
+      case "refactor":
+      case "refactor-deploy":
+      case "refactor-superseded": // BUGFIX: previously fell through to undefined
+        return "refactor";
+      case "assess":
+      case "assess-deploy":
+      case "assess-refactor":
+        return "assess";
+      case "repair":
+        return "repair";
+      case "green-superseded":
+        return "green";
+    }
   }
   // Planning-mode design steps.
   if ("mode" in action) {
