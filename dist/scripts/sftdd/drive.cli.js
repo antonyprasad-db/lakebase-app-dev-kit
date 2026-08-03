@@ -7431,8 +7431,8 @@ function expectationFor(action) {
   if (action.kind !== "invoke-role") return null;
   const responder = action.role;
   const story = storyOf(action);
-  const signature = sig(action);
-  const base = { signature, responder, ...story ? { story } : {} };
+  const signature2 = sig(action);
+  const base = { signature: signature2, responder, ...story ? { story } : {} };
   const storyView2 = (s) => story ? s.stories[story] : void 0;
   if (responder === "spec-author" && "mode" in action && action.mode === "breakdown") {
     return {
@@ -7580,6 +7580,66 @@ var ExpectationLedger = class {
   }
 };
 
+// scripts/sftdd/step-router.ts
+init_esm_shims();
+var signature = (a) => JSON.stringify(a);
+var raiseToHil = (reason, source, story) => ({
+  kind: "raise-to-hil",
+  reason,
+  source,
+  ...story ? { story } : {}
+});
+function validateAndBound(proposal, completed, state, deps) {
+  switch (proposal.outcome) {
+    case "escalate":
+      return {
+        action: raiseToHil(proposal.reason ?? "step requested escalation", stepSource(completed), storyOf2(completed)),
+        sanctionedRetry: false
+      };
+    case "revise": {
+      if (proposal.proposedNext.kind !== "revise-route") {
+        const allowed = deps.allowed(state);
+        return { action: allowed, sanctionedRetry: false, note: "revise proposal was not a revise-route; fell back to allowed transition" };
+      }
+      if (deps.reviseBudgetAvailable(proposal, state)) {
+        return { action: proposal.proposedNext, sanctionedRetry: false };
+      }
+      return {
+        action: raiseToHil(
+          proposal.reason ?? "revise budget exhausted",
+          stepSource(completed),
+          storyOf2(proposal.proposedNext)
+        ),
+        sanctionedRetry: false,
+        note: "revise budget exhausted; converted to raise-to-hil"
+      };
+    }
+    case "blocked": {
+      const { sanctioned } = deps.recordRetry(completed, state);
+      return { action: completed, sanctionedRetry: sanctioned };
+    }
+    case "produced":
+    default: {
+      const allowed = deps.allowed(state);
+      if (signature(proposal.proposedNext) === signature(allowed)) {
+        return { action: proposal.proposedNext, sanctionedRetry: false };
+      }
+      return {
+        action: allowed,
+        sanctionedRetry: false,
+        note: `proposal ${signature(proposal.proposedNext)} not the allowed transition; fell back to ${signature(allowed)}`
+      };
+    }
+  }
+}
+function stepSource(completed) {
+  if (completed.kind === "invoke-role") return `step:${completed.role}`;
+  return `step:${completed.kind}`;
+}
+function storyOf2(a) {
+  return "story" in a && typeof a.story === "string" ? a.story : void 0;
+}
+
 // scripts/sftdd/orchestrator-run.ts
 var DriverStalledError = class extends Error {
   constructor(action, iteration) {
@@ -7611,6 +7671,24 @@ async function runDriver(effects, options = {}) {
   let pausedAlready = false;
   const enforceExpectations = options.enforceExpectations !== false;
   const expectations = new ExpectationLedger();
+  const transitionFn = options.transition ?? nextTransition;
+  let pendingProposal;
+  const routerRetries = /* @__PURE__ */ new Map();
+  const routerDeps = {
+    allowed: (s) => transitionFn(s),
+    // Reuse the EXISTING revise budget: escalationPreempt returns a revise-route only
+    // while the budget has room (priorReviseCount / REFLECT_REVISE_CAP), else raise-to-hil.
+    reviseBudgetAvailable: (_p, s) => escalationPreempt(s)?.kind === "revise-route",
+    recordRetry: (completed) => {
+      const key = JSON.stringify(completed);
+      const attempt = (routerRetries.get(key) ?? 0) + 1;
+      if (attempt > 1) {
+        throw new Error(`PROTOCOL VIOLATION: step ${key} emitted "blocked" past its retry budget. Aborting workflow.`);
+      }
+      routerRetries.set(key, attempt);
+      return { sanctioned: true };
+    }
+  };
   for (let i = 0; ; i++) {
     if (options.maxSteps !== void 0 && i >= options.maxSteps) {
       return { iterations: i, stoppedAtMax: true };
@@ -7627,8 +7705,15 @@ async function runDriver(effects, options = {}) {
         effects.onHandback?.(rec.handoff, rec.detail);
       }
     }
-    const transition = options.transition ?? nextTransition;
-    const action = transition(state);
+    let action;
+    if (options.router && pendingProposal) {
+      const bounded = validateAndBound(pendingProposal.proposal, pendingProposal.completed, state, routerDeps);
+      action = bounded.action;
+      if (bounded.sanctionedRetry) retrying = true;
+      pendingProposal = void 0;
+    } else {
+      action = transitionFn(state);
+    }
     if (action.kind === "done") {
       effects.onAction?.(action, i);
       await effects.perform(action);
@@ -7646,18 +7731,25 @@ async function runDriver(effects, options = {}) {
       pausedAlready = true;
       await options.confirmContinue(action);
     }
-    const signature = JSON.stringify(action);
-    if (!retrying && signature === previousSignature) {
+    const signature2 = JSON.stringify(action);
+    if (!retrying && signature2 === previousSignature) {
       throw new DriverStalledError(action, i);
     }
-    previousSignature = signature;
+    previousSignature = signature2;
     if (enforceExpectations && !retrying) {
       const handoff = expectationFor(action);
       if (handoff) expectations.push(handoff);
     }
     effects.onAction?.(action, i);
     await effects.perform(action);
+    if (options.router) {
+      const post = await effects.readState();
+      pendingProposal = { proposal: options.router.route(action, { state: post, feature: featureOf(post) }), completed: action };
+    }
   }
+}
+function featureOf(state) {
+  return state.featureId ?? "";
 }
 
 // scripts/sftdd/escalation.ts
@@ -8507,12 +8599,12 @@ function turnSettings(ctx, role, phase) {
     ...effort && effort !== "default" ? { effort } : {}
   };
 }
-function storyOf2(action) {
+function storyOf3(action) {
   return "story" in action ? action.story : void 0;
 }
 function orchestratorLogEvents(action, ctx = {}) {
   const feature_id = ctx.featureId;
-  const story = storyOf2(action);
+  const story = storyOf3(action);
   const base = { role: "orchestrator", level: "info", feature_id };
   const withStory = story ? { story } : {};
   switch (action.kind) {
@@ -10305,7 +10397,7 @@ function holdOption() {
     enact: null
   };
 }
-function storyOf3(action) {
+function storyOf4(action) {
   return "story" in action ? action.story : void 0;
 }
 function buildNextOptions(action, ctx) {
@@ -10319,7 +10411,7 @@ function buildNextOptions(action, ctx) {
   });
   switch (action.kind) {
     case "accept": {
-      const story = storyOf3(action) ?? "<story>";
+      const story = storyOf4(action) ?? "<story>";
       return [
         {
           id: "acceptance.accept",
@@ -10361,8 +10453,8 @@ function buildNextOptions(action, ctx) {
       return [
         {
           id: "spec.approve",
-          title: `Approve story ${storyOf3(action) ?? "<story>"}'s spec`,
-          hil_prompt: `Approve story ${storyOf3(action) ?? "<story>"}'s spec so its build can start? (To send it back, edit the spec and re-run the design lane.)`,
+          title: `Approve story ${storyOf4(action) ?? "<story>"}'s spec`,
+          hil_prompt: `Approve story ${storyOf4(action) ?? "<story>"}'s spec so its build can start? (To send it back, edit the spec and re-run the design lane.)`,
           kind: "gate",
           enact: gateEnact
         },

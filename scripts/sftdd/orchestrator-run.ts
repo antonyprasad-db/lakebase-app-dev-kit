@@ -18,11 +18,13 @@
 import {
   nextTransition,
   nextDesignOnlyTransition,
+  escalationPreempt,
   actionLane,
   type DriveState,
   type WorkflowAction,
 } from "./orchestrator-drive.js";
 import { ExpectationLedger, expectationFor } from "./orchestrator-expect.js";
+import { validateAndBound, type StepRouter, type RouteProposal } from "./step-router.js";
 export { ProtocolViolationError, UnexpectedCallbackError } from "./orchestrator-expect.js";
 
 export interface DriveEffects {
@@ -115,6 +117,16 @@ export interface RunDriverOptions {
    * states without a responder delivering.
    */
   enforceExpectations?: boolean;
+  /**
+   * OPTIONAL output-driven routing (the ONE routing contract). When set, AFTER a
+   * step is performed the router emits a RouteProposal (where the step thinks the
+   * orchestrator should go); `validateAndBound` VALIDATES it against the pure
+   * transition and BOUNDS re-routes/retries with the existing limits before the
+   * next iteration acts on it. When ABSENT (the default + current behavior), routing
+   * is purely state-derived via `transition(state)` , byte-identical to before this
+   * seam. Real roles do not emit proposals yet; this is consumed mock-first.
+   */
+  router?: StepRouter;
 }
 
 // Backstop against a runaway loop (an effect that advances but never converges).
@@ -167,6 +179,32 @@ export async function runDriver(
   let pausedAlready = false;
   const enforceExpectations = options.enforceExpectations !== false;
   const expectations = new ExpectationLedger();
+  const transitionFn = options.transition ?? nextTransition;
+  // Output-driven routing state (only used when options.router is set): the proposal
+  // the just-performed step emitted, consumed at the TOP of the next iteration through
+  // validateAndBound. Undefined on the first pass + whenever we fell through to the
+  // pure transition, so the default (no-router) path never touches it.
+  let pendingProposal: { proposal: RouteProposal; completed: WorkflowAction } | undefined;
+  // Retry bound for router-emitted "blocked" outcomes, mirroring ExpectationLedger's
+  // maxRetries=1: one sanctioned re-issue per action signature, then a hard abort. Kept
+  // here (not the ledger, which is driven by disk callbacks) because a router "blocked"
+  // is an EMITTED signal, not a disk-derived unmet contract; same limit, same failure.
+  const routerRetries = new Map<string, number>();
+  const routerDeps = {
+    allowed: (s: DriveState) => transitionFn(s),
+    // Reuse the EXISTING revise budget: escalationPreempt returns a revise-route only
+    // while the budget has room (priorReviseCount / REFLECT_REVISE_CAP), else raise-to-hil.
+    reviseBudgetAvailable: (_p: RouteProposal, s: DriveState) => escalationPreempt(s)?.kind === "revise-route",
+    recordRetry: (completed: WorkflowAction) => {
+      const key = JSON.stringify(completed);
+      const attempt = (routerRetries.get(key) ?? 0) + 1;
+      if (attempt > 1) {
+        throw new Error(`PROTOCOL VIOLATION: step ${key} emitted "blocked" past its retry budget. Aborting workflow.`);
+      }
+      routerRetries.set(key, attempt);
+      return { sanctioned: true };
+    },
+  };
   for (let i = 0; ; i++) {
     if (options.maxSteps !== undefined && i >= options.maxSteps) {
       return { iterations: i, stoppedAtMax: true };
@@ -188,8 +226,21 @@ export async function runDriver(
         effects.onHandback?.(rec.handoff, rec.detail);
       }
     }
-    const transition = options.transition ?? nextTransition;
-    const action = transition(state);
+    // Routing: by default the pure transition derives the next action from state
+    // (byte-identical to before this seam). When a router is wired AND the previous
+    // step emitted a proposal, validateAndBound resolves the next action from that
+    // proposal (validated against the same pure transition + bounded by the existing
+    // revise/retry limits). `retrying` is OR'd with a sanctioned router retry so the
+    // stall check treats a bounded re-issue as intentional.
+    let action: WorkflowAction;
+    if (options.router && pendingProposal) {
+      const bounded = validateAndBound(pendingProposal.proposal, pendingProposal.completed, state, routerDeps);
+      action = bounded.action;
+      if (bounded.sanctionedRetry) retrying = true;
+      pendingProposal = undefined;
+    } else {
+      action = transitionFn(state);
+    }
 
     if (action.kind === "done") {
       effects.onAction?.(action, i);
@@ -242,5 +293,19 @@ export async function runDriver(
 
     effects.onAction?.(action, i);
     await effects.perform(action);
+
+    // Output-driven routing: after the step ran, ask the router where it proposes to
+    // go next; the NEXT iteration's top consumes it via validateAndBound. No router =>
+    // no proposal => next iteration derives from state (the default path). The router
+    // reads the post-perform state so its proposal reflects what the step produced.
+    if (options.router) {
+      const post = await effects.readState();
+      pendingProposal = { proposal: options.router.route(action, { state: post, feature: featureOf(post) }), completed: action };
+    }
   }
+}
+
+/** Best-effort feature id for the router context (diagnostic scope only). */
+function featureOf(state: DriveState): string {
+  return (state as { featureId?: string }).featureId ?? "";
 }
