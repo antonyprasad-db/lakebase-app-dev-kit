@@ -350,8 +350,8 @@ describe("runDriver: output-driven routing seam (options.contract)", () => {
   // proves the contract seam is consumed AND that an aligned proposal changes nothing.
   // (inputs/outputs default to empty/null; only the routing face is exercised here.)
   const passthroughContract = (transition: (s: DriveState) => WorkflowAction): import("../../scripts/sftdd/step-contract").StepContract => ({
-    inputs: () => ({ requires: [] }),
-    outputs: () => null,
+    inputs: () => [],
+    outputs: () => [],
     route(_completed, ctx) {
       return { outcome: "produced", proposedNext: transition(ctx.state) };
     },
@@ -389,8 +389,8 @@ describe("runDriver: output-driven routing seam (options.contract)", () => {
     // every step and still reaches done. (The bound cases are exhaustive in
     // step-contract.test.ts.)
     const offGraphContract: import("../../scripts/sftdd/step-contract").StepContract = {
-      inputs: () => ({ requires: [] }),
-      outputs: () => null,
+      inputs: () => [],
+      outputs: () => [],
       route() {
         return { outcome: "produced", proposedNext: { kind: "merge" } }; // never allowed mid-design
       },

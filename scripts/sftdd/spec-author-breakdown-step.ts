@@ -1,162 +1,279 @@
-// SpecAuthorBreakdownStep: the FIRST concrete StepContract implementation.
+// SpecAuthorBreakdownStep: the FIRST concrete StepContract , dumb + CONTAINED.
 //
-// The spec-author breakdown step, as a self-contained, isolated, unit-testable unit:
-//   INPUT contract  (inputs)  : the 3 PO artifacts , product-overview.md, nfrs.md,
-//                               features/<F>/feature-request.md (the PO's inputs).
-//   OUTPUT expectation (outputs): features/<F>/feature-spec.json (the breakdown index).
-//   the AGENT (injected)      : inside the step, an agent is invoked with a passed-through
-//                               instruction bundle (prompt + guidelines). The step does
-//                               NOT source those instructions , the ORCHESTRATOR resolves
-//                               them (interactive, or from the filesystem) and hands them
-//                               to the step, which passes them straight to the agent.
-//   ROUTING (route)           : on completion, emits where it proposes to go next.
+// Containment boundary (the load-bearing rule): the ORCHESTRATOR owns .sftdd. It knows
+// what this concrete step needs (via inputs()), READS those artifacts from .sftdd,
+// PROVISIONS a workspace, and hands the step the input CONTENTS + the workspace dir. The
+// step is dumb: it declares its logical inputs/outputs, forwards the provided instructions
+// to its injected agent, and points the agent at the PROVIDED workspace. Neither the step
+// NOR its agent resolves .sftdd, reads global paths, or reaches outside what it was given.
+// The orchestrator VALIDATES + PERSISTS the produced output back to .sftdd , not the step.
 //
-// run(): verify inputs exist (fail loud, no agent call) -> invoke the agent with the
-// orchestrator-supplied instructions -> validate the output with the SAME self-check the
-// drive uses (formatRoleResponse). Because the agent is injected, the whole step is
-// unit-tested with no cloud/model: a fake agent writes the fixture output and the real
-// output validation runs against it.
+//   inputs()  -> logical input specs (product-overview, nfrs, feature-request). WHAT it
+//                needs, not WHERE , the orchestrator resolves + provides.
+//   outputs() -> logical output specs (feature-spec, with the filename to produce in the
+//                provided workspace).
+//   run()     -> given the provided workspace + input contents + instructions, invoke the
+//                agent within the workspace and return the produced artifact path(s) it
+//                finds THERE. No .sftdd, no conformance check (the orchestrator does that).
+//   route()   -> emits the routing proposal.
 
-import { formatRoleResponse } from "./response-formatter.js";
-import { productOverviewMd, nfrsMd, featureRequestMd, featureSpecJson } from "./sftdd-paths.js";
+import { readFileSync } from "node:fs";
+import { checkArtifactConformance } from "./artifact-conformance.js";
+import { getValidator, formatSchemaErrors } from "./schema-loader.js";
 import type { WorkflowAction } from "./orchestrator-drive.js";
-import type { StepContract, StepInputs, StepOutputs, RouteProposal, StepRouteContext } from "./step-contract.js";
+import type { StepContract, StepInputSpec, StepOutputSpec, RouteProposal, StepRouteContext, OutputCheckResult, ConformanceChecker } from "./step-contract.js";
+import type { StepInstructions } from "./spec-author-breakdown-step-types.js";
+
+// Re-export the shared step-run types so existing importers keep working.
+export type { StepInstructions, StepAgent, AgentInvocation } from "./spec-author-breakdown-step-types.js";
+import type { StepAgent } from "./spec-author-breakdown-step-types.js";
+
+/** The logical inputs the breakdown step needs , the 3 PO artifacts, by id. */
+const BREAKDOWN_INPUTS: StepInputSpec[] = [
+  { id: "product-overview", description: "The PO's product overview (product-overview.md)." },
+  { id: "nfrs", description: "The PO's non-functional requirements brief (nfrs.md)." },
+  { id: "feature-request", description: "The PO's feature request for this feature (feature-request.md)." },
+];
 
 /**
- * The instruction bundle the orchestrator passes THROUGH to the step's agent: the
- * prompt (the task text) plus any guidelines / instructions. The orchestrator sources
- * these , from an interactive process or the filesystem , and the step forwards them
- * verbatim. The step never invents them.
+ * The logical outputs the breakdown step produces:
+ *  - feature-spec: the breakdown index written into the provided workspace.
+ *  - agent-log: the agent MUST log what it did + surface any issue (a smell/ambiguity as
+ *    a `warn`, a refusal as an `error`) via the SHARED agent-log script every role uses
+ *    (`lakebase-sftdd-log`), appended to the workspace's agent-log.jsonl. This is a
+ *    REQUIRED, conformance-checked output , the orchestrator validates the log line
+ *    against agent-log-event.schema.json, exactly as for any other artifact.
  */
-export interface StepInstructions {
-  prompt: string;
-  guidelines?: string[];
-}
-
-/** One invocation of a step's agent: the pinned action + the passed-through instructions. */
-export interface AgentInvocation {
-  action: WorkflowAction;
-  sftddDir: string;
-  featureId: string;
-  instructions: StepInstructions;
+/**
+ * IN-CODE conformance checker for the feature-spec output: the produced feature-spec.json
+ * must parse + conform to feature.schema.json AND carry a non-empty stories[] (the
+ * breakdown deliverable). Deterministic , the orchestrator ACCEPTS/REJECTS on this, never
+ * a follow-up to the agent.
+ */
+function checkFeatureSpecOutput(producedPath: string): OutputCheckResult {
+  let content: string;
+  try {
+    content = readFileSync(producedPath, "utf8");
+  } catch {
+    return { ok: false, violations: [`feature-spec.json not readable at ${producedPath}`] };
+  }
+  const conf = checkArtifactConformance("feature-spec.json", content);
+  if (!conf.ok) return { ok: false, violations: conf.violations };
+  try {
+    const spec = JSON.parse(content) as { stories?: unknown };
+    if (!Array.isArray(spec.stories) || spec.stories.length === 0) {
+      return { ok: false, violations: ["feature-spec.json has an empty or missing stories[] (the breakdown must enumerate >=1 story)"] };
+    }
+  } catch (e) {
+    return { ok: false, violations: [`feature-spec.json is not valid JSON: ${e instanceof Error ? e.message : String(e)}`] };
+  }
+  return { ok: true, violations: [] };
 }
 
 /**
- * The agent seam a step invokes. INJECTED into the step so the step is unit-tested with
- * no cloud/model. The real implementation spawns `claude -p --agent spec-author ...`
- * (drive-runner's execRunner); a test double writes fixture artifacts. The agent's job
- * is to produce the step's output artifacts on disk from the instructions it is handed.
+ * IN-CODE conformance checker for the agent-log output: the produced agent-log.jsonl must
+ * have >=1 line, each a JSON object conforming to agent-log-event.schema.json, and at
+ * least one line from THIS role recording what it did (an info/warn/error event). This is
+ * how "the agent logs what it did + surfaces issues" is enforced deterministically.
  */
-export interface StepAgent {
-  invoke(invocation: AgentInvocation): Promise<void>;
+function checkAgentLogOutput(producedPath: string): OutputCheckResult {
+  let raw: string;
+  try {
+    raw = readFileSync(producedPath, "utf8");
+  } catch {
+    return { ok: false, violations: [`agent-log.jsonl not readable at ${producedPath} (the agent must log what it did via the shared agent-log script)`] };
+  }
+  const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean);
+  if (lines.length === 0) {
+    return { ok: false, violations: ["agent-log.jsonl is empty (the agent must log at least one event: what it did / any issue surfaced)"] };
+  }
+  const validate = getValidator("agent-log-event.schema.json");
+  const violations: string[] = [];
+  let sawSpecAuthorEvent = false;
+  for (const [i, line] of lines.entries()) {
+    let obj: unknown;
+    try {
+      obj = JSON.parse(line);
+    } catch {
+      violations.push(`agent-log.jsonl line ${i + 1} is not valid JSON`);
+      continue;
+    }
+    if (!validate(obj)) {
+      violations.push(`agent-log.jsonl line ${i + 1}: ${formatSchemaErrors(validate).join("; ")}`);
+      continue;
+    }
+    if ((obj as { role?: string }).role === "spec-author") sawSpecAuthorEvent = true;
+  }
+  if (!sawSpecAuthorEvent && violations.length === 0) {
+    violations.push("agent-log.jsonl has no spec-author event (the role must log what it did)");
+  }
+  return { ok: violations.length === 0, violations };
 }
 
-/** The scope a step is constructed for: the project's .sftdd dir + the feature it runs
- *  against. Fixing scope at construction lets inputs()/outputs() return CONCRETE paths
- *  (the StepContract signature takes only the action), so a step is a fully self-
- *  describing unit: given its scope it knows its exact input + output artifact paths. */
-export interface StepScope {
-  sftddDir: string;
-  featureId: string;
-}
+const BREAKDOWN_OUTPUTS: StepOutputSpec[] = [
+  {
+    id: "feature-spec",
+    description: "The feature breakdown index (feature-spec.json + a story stub per story).",
+    filename: "feature-spec.json",
+    check: checkFeatureSpecOutput,
+  },
+  {
+    id: "agent-log",
+    description: "The agent's structured log of what it did + any issue surfaced (shared agent-log script; agent-log-event.schema.json).",
+    filename: "agent-log.jsonl",
+    check: checkAgentLogOutput,
+  },
+];
 
-/** The arguments to run one step in isolation. `instructions` are orchestrator-supplied. */
-export interface StepRunArgs {
+/**
+ * What the orchestrator PROVIDES to run this step , everything the step is allowed to
+ * touch. The step reaches outside NONE of this.
+ */
+export interface ProvidedStepRun {
   action: WorkflowAction;
+  /** The directory the step + its agent may read/write within. Provisioned by the
+   *  orchestrator (a copy of the feature's design tree, or a sandbox); the agent writes
+   *  its output artifact HERE, never into .sftdd directly. */
+  workspaceDir: string;
+  /** The resolved input CONTENTS, keyed by StepInputSpec.id. The orchestrator read these
+   *  from .sftdd (interactive or filesystem) and hands them over; the step never fetches. */
+  inputs: Record<string, string>;
+  /** The instruction bundle (prompt + guidelines) the orchestrator sourced + passes
+   *  through to the agent. */
   instructions: StepInstructions;
+  /** WHERE (workspace-relative) each declared output lands, keyed by StepOutputSpec.id.
+   *  The ORCHESTRATOR declares this because it knows the step's on-disk layout (the
+   *  spec-author agent writes into `.sftdd/features/<F>/`, cwd-relative). Absent id ->
+   *  the step falls back to the spec's bare `filename` at the workspace root. This is why
+   *  the step stays dumb: it does not know the feature id or the .sftdd shape, the
+   *  orchestrator tells it exactly where the produced artifact will be. */
+  outputPaths?: Record<string, string>;
 }
 
-/** The structured result of running a step in isolation. */
-export interface StepRunResult {
-  ok: boolean;
-  /** Which stage failed (when !ok): the input contract, or the output validation. */
-  stage?: "input" | "output";
-  /** The missing input path (stage === "input"). */
-  missing?: string;
-  /** The output-validation reason (stage === "output"). */
-  reason?: string;
-  /** The produced output descriptor (when ok). */
-  output?: StepOutputs;
+/** The contained result the step returns to the orchestrator (no validation verdict). */
+export interface ProvidedStepResult {
+  /** True iff every declared input was provided AND the agent produced its output file
+   *  in the workspace. NOT a conformance verdict , the orchestrator validates that. */
+  produced: boolean;
+  /** Missing provided-input id (when !produced because an input was not supplied). */
+  missingInput?: string;
+  /** Absolute path(s) to the produced artifact WITHIN the provided workspace, for the
+   *  orchestrator to validate + persist to .sftdd. */
+  producedPaths?: string[];
 }
 
-/** Existence check seam , overridable in tests; defaults to fs.existsSync. */
+/** Existence check seam (over the provided workspace only); defaults to fs.existsSync. */
 export type ExistsFn = (path: string) => boolean;
 
 /**
- * The spec-author breakdown step. Constructed with the agent it invokes (injected) and
- * an optional existence check (defaults to fs). Implements the ONE StepContract so it is
- * addressable + runnable + unit-testable in isolation, and consumable by the orchestrator
- * through the same interface every other step will use.
+ * The spec-author breakdown step. Constructed with ONLY the injected agent (+ an optional
+ * existence check). It holds no .sftdd knowledge, no feature id, no paths , everything it
+ * operates on is PROVIDED per run. This is what "the StepContract is dumb + contained"
+ * means concretely: given a workspace + input contents + instructions, it runs its agent
+ * and reports what appeared in the workspace.
  */
 export class SpecAuthorBreakdownStep implements StepContract {
   private readonly exists: ExistsFn;
 
   constructor(
     private readonly agent: StepAgent,
-    private readonly scope: StepScope,
     exists?: ExistsFn,
   ) {
-    // Lazy require so the module stays pure/importable without node fs in a browser-y
-    // context; tests inject their own or rely on this default.
     this.exists = exists ?? ((p: string) => require("fs").existsSync(p));
   }
 
-  /** INPUT contract: the 3 PO artifacts the breakdown reads (concrete, over its scope). */
-  inputs(_action: WorkflowAction): StepInputs {
-    const { sftddDir, featureId } = this.scope;
-    return { requires: [productOverviewMd(sftddDir), nfrsMd(sftddDir), featureRequestMd(sftddDir, featureId)] };
+  /** WHAT this step needs (logical). The orchestrator resolves these from .sftdd. */
+  inputs(_action: WorkflowAction): StepInputSpec[] {
+    return BREAKDOWN_INPUTS;
   }
 
-  /** OUTPUT expectation: feature-spec.json (concrete, over its scope). */
-  outputs(_action: WorkflowAction): StepOutputs {
-    const { sftddDir, featureId } = this.scope;
-    return { produces: [featureSpecJson(sftddDir, featureId)], label: "feature-spec.json" };
+  /** WHAT this step produces (logical): the breakdown index + the required agent log.
+   *  The orchestrator maps + validates + persists them. */
+  outputs(_action: WorkflowAction): StepOutputSpec[] {
+    return BREAKDOWN_OUTPUTS;
   }
 
   /**
-   * Run the step in isolation: input contract -> agent (with the orchestrator's passed-
-   * through instructions) -> output validation. Fails loud at the input stage (naming the
-   * missing artifact) BEFORE invoking the agent, so a step never runs on absent inputs.
+   * The conformance checkers EXPOSED TO THE AGENT , part of the step's definition. Each
+   * carries a docstring telling the agent what it checks + how to call it, so the agent can
+   * self-check its draft IN-TURN (catching a fixable defect before returning, no
+   * orchestrator round-trip). Same deterministic `fn` the orchestrator runs on the
+   * produced artifact. The prompt adds any further instruction on when to call them.
    */
-  async run(args: StepRunArgs): Promise<StepRunResult> {
-    const { action, instructions } = args;
-    const { sftddDir, featureId } = this.scope;
+  conformanceCheckers(_action: WorkflowAction): ConformanceChecker[] {
+    return [
+      {
+        outputId: "feature-spec",
+        docstring:
+          "checkFeatureSpec(path): the feature-spec.json at `path` must parse, conform to " +
+          "feature.schema.json, and carry a NON-EMPTY stories[]. Returns {ok, violations[]}. " +
+          "Run it on your written feature-spec.json and fix every violation before returning.",
+        fn: checkFeatureSpecOutput,
+      },
+      {
+        outputId: "agent-log",
+        docstring:
+          "checkAgentLog(path): the agent-log.jsonl at `path` must have >=1 line, each a JSON " +
+          "object conforming to agent-log-event.schema.json, including >=1 spec-author event " +
+          "recording what you did. Returns {ok, violations[]}. Log via the shared agent-log " +
+          "script, then this passes.",
+        fn: checkAgentLogOutput,
+      },
+    ];
+  }
 
-    // (a) INPUT contract , every required PO artifact must exist. Fail loud, no agent call.
-    for (const path of this.inputs(action).requires) {
-      if (!this.exists(path)) {
-        return { ok: false, stage: "input", missing: path };
+  /**
+   * Run the step within the PROVIDED workspace. Verify every declared input was supplied
+   * (fail loud, naming the missing one, WITHOUT invoking the agent), invoke the injected
+   * agent pointed at the workspace with the provided instructions + input contents, then
+   * report the produced artifact path(s) found in the workspace. The step does NOT
+   * validate conformance and does NOT touch .sftdd , that is the orchestrator's job.
+   */
+  async run(provided: ProvidedStepRun): Promise<ProvidedStepResult> {
+    const { action, workspaceDir, inputs, instructions } = provided;
+    const join = require("node:path").join as (...p: string[]) => string;
+
+    // (a) INPUT contract , every declared logical input must have been PROVIDED. The step
+    //     checks what it was HANDED (the inputs map), not .sftdd.
+    for (const spec of this.inputs(action)) {
+      if (!(spec.id in inputs)) {
+        return { produced: false, missingInput: spec.id };
       }
     }
 
-    // (b) invoke the injected agent with the ORCHESTRATOR-SUPPLIED instruction bundle.
-    //     The step forwards `instructions` verbatim; it never sources them itself.
-    await this.agent.invoke({ action, sftddDir, featureId, instructions });
+    // (b) invoke the injected agent, CONTAINED to the provided workspace + inputs +
+    //     instructions. The agent writes its output artifact into workspaceDir.
+    await this.agent.invoke({ action, workspaceDir, inputs, instructions });
 
-    // (c) OUTPUT validation , the SAME self-check the drive enforces (breakdown mode:
-    //     no --story). Failure names the specific violation.
-    const check = formatRoleResponse({ role: "spec-author", sftddDir, featureId });
-    if (!check.ok) {
-      return { ok: false, stage: "output", reason: check.violations.map((v) => `${v.artifact}: ${v.problem}`).join("; ") };
+    // (c) report what the agent produced IN THE WORKSPACE (path only, no conformance
+    //     judgment). The orchestrator reads + validates + persists it to .sftdd. The
+    //     PRIMARY output (feature-spec) must be present; the agent-log is validated by
+    //     the orchestrator via its conformance checker too.
+    const producedPaths: string[] = [];
+    let primaryPresent = false;
+    for (const spec of this.outputs(action)) {
+      // The orchestrator declares WHERE each output lands (workspace-relative); fall back
+      // to the bare filename at the workspace root when it does not. The step never
+      // computes a .sftdd path itself , it uses what it was told.
+      const rel = provided.outputPaths?.[spec.id] ?? spec.filename;
+      const p = join(workspaceDir, rel);
+      if (this.exists(p)) {
+        producedPaths.push(p);
+        if (spec.id === "feature-spec") primaryPresent = true;
+      }
     }
-    return { ok: true, output: this.outputs(action) };
+    if (!primaryPresent) {
+      return { produced: false, producedPaths: producedPaths.length ? producedPaths : undefined };
+    }
+    return { produced: true, producedPaths };
   }
 
   /**
-   * Routing: on completion, propose where to go next. This step proposes `produced` (the
-   * breakdown is done, the design lane proceeds to the first story). The orchestrator
-   * VALIDATES this against the pure transition + BOUNDS it (validateAndBound); the step
-   * does not decide the concrete next action, it reports its outcome. `proposedNext` is
-   * a best-effort hint the orchestrator reconciles with the allowed transition.
+   * Routing: on completion, propose where to go next. Proposes `produced` (the breakdown
+   * is done). The orchestrator's validateAndBound reconciles this with the pure allowed
+   * transition , the step reports its outcome, it does not decide the concrete next move.
    */
   route(_completed: WorkflowAction, _ctx: StepRouteContext): RouteProposal {
-    return {
-      outcome: "produced",
-      // The step's hint: the breakdown is complete; proceed into the design lane. The
-      // orchestrator's validateAndBound resolves this to the actual allowed next action
-      // (the first story's spec-author, or ux-designer on a UI track), so this need only
-      // be a truthful "produced" signal , the allowlist decides the concrete move.
-      proposedNext: { kind: "design-complete" },
-    };
+    return { outcome: "produced", proposedNext: { kind: "design-complete" } };
   }
 }

@@ -21,15 +21,69 @@
 
 import type { DriveState, WorkflowAction } from "./orchestrator-drive.js";
 
-/** A step's INPUT contract: the upstream-output paths that MUST exist before it runs. */
-export interface StepInputs {
-  requires: string[];
+/**
+ * A step's INPUT contract, declared as LOGICAL descriptors , NOT filesystem paths. The
+ * step is dumb + contained: it knows it needs "the PO's product overview", not WHERE that
+ * lives. The ORCHESTRATOR (which owns .sftdd) reads the descriptor, resolves it to the
+ * real artifact, and PROVIDES its contents to the step. `id` is the key the provided
+ * contents are handed back under.
+ */
+export interface StepInputSpec {
+  /** Stable logical id (e.g. "product-overview", "nfrs", "feature-request"). */
+  id: string;
+  /** Human description of what the step needs (for the orchestrator + diagnostics). */
+  description: string;
 }
 
-/** A step's OUTPUT expectation: the artifact path(s) it MUST have produced (anyOf). */
-export interface StepOutputs {
-  produces: string[];
-  label: string;
+/**
+ * A conformance checker EXPOSED TO THE AGENT as a callable it can invoke on its own draft
+ * output before returning , so a fixable defect is caught IN-TURN instead of round-tripping
+ * back to the agent with follow-up instructions. The `docstring` tells the agent what the
+ * function checks + how to call it; the prompt adds any further instruction. `fn` is the
+ * same deterministic in-code check the orchestrator also runs on the produced artifact.
+ */
+export interface ConformanceChecker {
+  /** The output id this checker validates (matches a StepOutputSpec.id). */
+  outputId: string;
+  /** What the checker verifies + how to call it , handed to the agent verbatim. */
+  docstring: string;
+  /** The deterministic check (given the artifact's path in the workspace). */
+  fn: OutputChecker;
+}
+
+/** The result of an in-code output conformance check , deterministic, no agent round-trip. */
+export interface OutputCheckResult {
+  ok: boolean;
+  /** Specific, actionable violations when !ok (empty when ok). */
+  violations: string[];
+}
+
+/**
+ * An IN-CODE conformance checker for one produced output. Given the produced artifact's
+ * absolute path (in the provided workspace), it deterministically validates the artifact
+ * against the output's contract and returns pass/fail + specific violations. This is what
+ * lets the orchestrator ACCEPT or REJECT an output without going back to the agent for a
+ * follow-up , every expected output ships its checker.
+ */
+export type OutputChecker = (producedPath: string) => OutputCheckResult;
+
+/**
+ * A step's OUTPUT declaration, also LOGICAL. The step produces "the feature breakdown
+ * index" into its provided workspace; the ORCHESTRATOR maps that id to a .sftdd path,
+ * runs the output's `check` (in-code conformance), and PERSISTS it on pass. The step
+ * never resolves .sftdd or validates , the checker is code the orchestrator runs.
+ */
+export interface StepOutputSpec {
+  /** Stable logical id (e.g. "feature-spec"). */
+  id: string;
+  /** Human description of the produced artifact. */
+  description: string;
+  /** The artifact's filename WITHIN the provided workspace (what the agent writes). */
+  filename: string;
+  /** In-code conformance checker for this output. The orchestrator runs it on the
+   *  produced artifact; a failure is a hard reject with named violations, NOT an
+   *  agent follow-up. Every expected output declares one. */
+  check: OutputChecker;
 }
 
 /** What a step reports about its own completion , the routing intent, not the action. */
@@ -71,8 +125,10 @@ export interface StepRouteContext {
  * The first implementation is `MockStepContract` (below); real roles implement this next.
  */
 export interface StepContract {
-  inputs(action: WorkflowAction): StepInputs;
-  outputs(action: WorkflowAction): StepOutputs | null;
+  /** The logical inputs this step needs. The orchestrator resolves + provides them. */
+  inputs(action: WorkflowAction): StepInputSpec[];
+  /** The logical output(s) this step produces. The orchestrator maps + validates them. */
+  outputs(action: WorkflowAction): StepOutputSpec[];
   route(completed: WorkflowAction, ctx: StepRouteContext): RouteProposal;
 }
 
@@ -89,18 +145,18 @@ const signature = (a: WorkflowAction): string => JSON.stringify(a);
 export class MockStepContract implements StepContract {
   constructor(
     private readonly script: {
-      inputs?: Record<string, StepInputs>;
-      outputs?: Record<string, StepOutputs>;
+      inputs?: Record<string, StepInputSpec[]>;
+      outputs?: Record<string, StepOutputSpec[]>;
       route?: Record<string, RouteProposal>;
     },
   ) {}
 
-  inputs(action: WorkflowAction): StepInputs {
-    return this.script.inputs?.[signature(action)] ?? { requires: [] };
+  inputs(action: WorkflowAction): StepInputSpec[] {
+    return this.script.inputs?.[signature(action)] ?? [];
   }
 
-  outputs(action: WorkflowAction): StepOutputs | null {
-    return this.script.outputs?.[signature(action)] ?? null;
+  outputs(action: WorkflowAction): StepOutputSpec[] {
+    return this.script.outputs?.[signature(action)] ?? [];
   }
 
   route(completed: WorkflowAction, _ctx: StepRouteContext): RouteProposal {

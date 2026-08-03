@@ -32,18 +32,23 @@ function deps(over: Partial<ValidateBoundDeps> = {}): ValidateBoundDeps {
 }
 
 describe("MockStepContract: the ONE contract's first implementation (inputs + outputs + route)", () => {
-  it("declares a step's INPUT contract (what must exist before it runs)", () => {
+  it("declares a step's INPUT contract as LOGICAL specs (ids, not paths)", () => {
     const c: StepContract = new MockStepContract({
-      inputs: { [sig(architectS1)]: { requires: ["/f/features/F1/stories/S1/acs"] } },
+      inputs: { [sig(architectS1)]: [{ id: "acs", description: "the story's acceptance criteria" }] },
     });
-    expect(c.inputs(architectS1)).toEqual({ requires: ["/f/features/F1/stories/S1/acs"] });
+    expect(c.inputs(architectS1)).toEqual([{ id: "acs", description: "the story's acceptance criteria" }]);
   });
 
-  it("declares a step's OUTPUT expectation (what it must produce)", () => {
+  it("declares a step's OUTPUT as LOGICAL specs (id + workspace filename + in-code checker)", () => {
+    const check = () => ({ ok: true, violations: [] });
     const c = new MockStepContract({
-      outputs: { [sig(architectS1)]: { produces: ["/f/features/F1/architecture.json"], label: "architecture.json" } },
+      outputs: { [sig(architectS1)]: [{ id: "architecture", description: "the feature architecture", filename: "architecture.json", check }] },
     });
-    expect(c.outputs(architectS1)).toEqual({ produces: ["/f/features/F1/architecture.json"], label: "architecture.json" });
+    const out = c.outputs(architectS1);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ id: "architecture", filename: "architecture.json" });
+    // Every output carries an in-code conformance checker (deterministic accept/reject).
+    expect(out[0].check("/any/path")).toEqual({ ok: true, violations: [] });
   });
 
   it("emits a ROUTING proposal on completion, keyed by the completed action", () => {
@@ -52,10 +57,10 @@ describe("MockStepContract: the ONE contract's first implementation (inputs + ou
     expect(c.route(architectS1, { state: STATE, feature: "F1" })).toEqual(proposal);
   });
 
-  it("defaults to empty input contract + null output + throws on an unscripted route", () => {
+  it("defaults to empty input + output specs + throws on an unscripted route", () => {
     const c = new MockStepContract({});
-    expect(c.inputs(specAuthorS1)).toEqual({ requires: [] });
-    expect(c.outputs(specAuthorS1)).toBeNull();
+    expect(c.inputs(specAuthorS1)).toEqual([]);
+    expect(c.outputs(specAuthorS1)).toEqual([]);
     expect(() => c.route(specAuthorS1, { state: STATE, feature: "F1" })).toThrow(/no scripted proposal/i);
   });
 });
