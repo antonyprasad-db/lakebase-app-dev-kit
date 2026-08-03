@@ -117,6 +117,40 @@ tool-scope) are the implementation knobs swept WITHIN that one contract-satisfyi
 turn. This makes each trial "one role satisfying one interface," which is what the
 champion walk was always meant to measure.
 
+## The orchestrator's normal progression (what the sweep FOLLOWS, never bypasses)
+
+The sweep follows the orchestrator's own state machine role by role. It does NOT skip,
+reorder, or batch roles. `planNextAction(cfg)` (orchestrator-effects.ts:1782) returns the
+ONE next action from disk state; `commandsForAction` builds its command list; after a
+role's artifact lands, the machine's next call returns the next role. Preserving a winner's
+artifacts on disk (recordWinner) is exactly how the machine hands them to the next role.
+
+**Design lane** — `nextDesignAction` (orchestrator-drive.ts:118), `DesignRole` order =
+spec-author → architect-reviewer → dba → test-strategist (line 19):
+1. `spec-author` mode=breakdown (feature-level, until `breakdownDone`)
+2. `ux-designer` once (UI track, `uxDesignerPending`, before any story architected)
+3. Per story, gated on the story's design flags:
+   - `!hasAcs` → spec-author (story ACs)
+   - `!architectAnnotated` → if `architectProjectable` (maps cleanly to canon) →
+     `project-architect-notes` (**NO LLM turn — nothing to sweep for architect here**);
+     else → architect-reviewer LLM turn. ← this is the "architect may be projected" case.
+   - `!dbaDesigned` → dba (skipped w/o a turn for a non-service_backed feature)
+   - `!testListReady` → test-strategist
+   - `!reflectionPassed` → navigator buildMode=reflect (design-lane critic; baseline-only)
+   - `!gateSurfaced` → surface-gate; then approve-gate
+4. all stories gateApproved → `design-complete`
+
+**Where the candidate levers apply** — `commandsForAction` invoke-role (orchestrator-
+effects.ts:1241): the `claude` command carries `model` (modelForTurn/modelForRole),
+`effort` (effortForTurn), `allowedTools`/`disallowedTools`, and
+`task = roleTask(action,...) + contextPackSuffix + AGENT_TERSE_SUFFIX + taskSuffix`.
+`roleTask`/`roleTaskBody` (~523/569) assemble the role's INPUTS + injected guidance from
+the upstream artifacts on disk. A candidate varies ONLY these knobs (model/effort/tool-
+scope/prompt-suffix); the role's output artifact is the inter-role channel the machine
+feeds to the next role. So "retry the role across levers, keep the cheapest same-quality
+output, hand its artifacts to the next role" == sweep these knobs, gate the artifact, let
+recordWinner persist the winner's artifacts, then let planNextAction advance.
+
 ## Source modules (scripts/sftdd/)
 
 | File | Lines | What it is |
