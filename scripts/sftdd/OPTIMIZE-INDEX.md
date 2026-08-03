@@ -29,12 +29,26 @@ runChampionWalk (optimize-harness.ts)  ← the engine, PURE over injected deps
 
 deps.runTrial (optimize-live.ts):
   applyCandidate (config/env/overlay) → ctx.spawnTurn({record:false}) → gate → writeTrialRecord
+  (design trials snapshot .sftdd → TrialResult.artifactsRef; winner's fastest passing ref
+   is what recordWinner RESTORES to advance — no re-spawn. commit d22f1cd1.)
 deps.spawnTurn = makeLiveSpawnTurn:
   record?RECORD_DIR=recordDir:delete RECORD_DIR  ← #3 fix: only winners record
-  → buildCfg → execRunner → planNextAction → run the handoff's commands (real `claude -p`)
+  → buildCfg → commandsFor(handoff.action) → run ONLY the `claude` cmd (real `claude -p`)
+    ← #2 PINNED-TURN fix (12a55dd2): the spawn runs the handoff's OWN action, filtered to
+      kind==="claude" (drops the drive verify/sync/test appendix); it NEVER calls
+      planNextAction (which re-plans to the NEXT role once the artifact lands = wrong-role
+      turn → verify-artifact throw → phantom drive main() → exit 3). HandoffPlan carries `action`.
 ```
+NOTE: the phantom drive main() came from tsup `splitting:false` inlining drive.cli.ts into
+optimize.cli.js; fixed by extracting the seams to drive-runner.ts (no main()), commit
+96b1ea98. See memory `reference_tsup_inlined_isclientry_double_main`.
 
 ## VERIFIED runtime truth (2026-08-02) — reconcile the design against what actually runs
+
+> **STATUS: RESOLVED.** The root cause below (harness dragged in the drive loop + its
+> exit-3 main) was fixed by the pinned-turn change (`12a55dd2`) + the drive-runner
+> extraction (`96b1ea98`). The narrative is kept for provenance; "Fix direction (not yet
+> done)" at the end is now DONE. Do not treat this as open work.
 
 Three live diagnostic runs (all exit 3) forced reading the COMPILED bin, not the
 source structure. The findings, written down so they are not re-derived:
@@ -164,17 +178,53 @@ auto-deny. acceptEdits is honored + grants Write AND Bash headless. See memory
 
 `examples/sftdd-scenarios/stockflow-optimize/` — intake/ + recorded-artifacts/features/F1-stock-visibility/feature-request.md + scenario.json.pending (tiers 2, uiTrack, python, self-hosted). Corpus dirs (turns/, recorded-artifacts/design/) are PRODUCED by a run (winners only).
 
-## Open / unresolved (as of this session)
+## CLI scope: `--sweep-lane` vs single-handoff, and `--from` (verified optimize.cli.ts:258-397)
 
-- **Exit-3 recurs live even with fix #1 compiled in.** The `try/catch` around
-  `deps.runTrial` IS in the running bin (verified in `optimize.cli.js`), yet a live
-  spec-author sweep still died exit 3 after `baseline/trial-0` with "produced no
-  feature-spec.json". Since the catch covers `runTrial`→`spawnTurn`→`execRunner`, the
-  throw must escape a DIFFERENT path (candidate: `snap.restore()` after the trial, or a
-  path in `execRunner` that calls `process.exit`/spawns the drive bin which returns 3).
-  Needs pinning with a stack, not more grep.
-- **Deferred #4:** `--sweep-lane design` bled past `design-complete` into a build/deploy
-  turn (needs cloud DB the local tiers-1 probe lacks). Single-handoff path avoids it.
-- **Lever data so far:** spec-author opus ~79–94s vs sonnet ~186–188s (2.2× SLOWER) —
-  cheaper-model lever LOSES for spec-author. effort-low/scan-tighten never got a clean
-  measurement (runs crashed first).
+Two mutually exclusive paths in `main()`:
+
+- **Single-handoff (default, no `--sweep-lane`):** sweeps EXACTLY the one handoff the
+  drive is currently positioned on (`planNextAction` → `actionToHandoffPlan`). Candidates
+  = `--candidates` spec if given, else `defaultLaneCandidates(handoff)` fallback (so a
+  design role's scalar model/effort/scan levers get swept without the lane loop). To
+  sweep JUST architect-reviewer this way you must first advance the drive to sit on it.
+  `--from` is IGNORED here (it's parsed but only consumed by the lane path).
+- **`--sweep-lane design|build`:** `runLaneSweep` walks EVERY role handoff in the lane
+  sequentially (`positionToNextHandoff` advances + performs substrate between handoffs),
+  champion-walking each with `defaultLaneCandidates`, `alwaysAdvance:true` (records each
+  winner locally so the next handoff plans from it — the design lane's inter-turn dep).
+  `proposeOnly` here gates only KIT persistence, never the local advance.
+
+**`--from <handoff|role>` (lane-sweep only, optimize.cli.ts:301-310 `advanceOne`):** every
+handoff BEFORE the match is a settled upstream role — `advanceOne` runs its BASELINE once
+(trials=1, alwaysAdvance) to move the drive forward WITHOUT sweeping its candidates; the
+target handoff and everything AFTER it are champion-walked. Matches an exact id OR a bare
+role (`optimize-lane-sweep.test.ts` startFrom cases). **Consequence:** `--sweep-lane design
+--from architect-reviewer` sweeps architect-reviewer → dba → test-strategist → ux-designer
+in ONE run (advancing spec-author at baseline), NOT just architect-reviewer. This is the
+right tool for "sweep the remaining design roles" — one scaffold, one teardown, spec-author
+advanced once. (There is no per-role `--from` that isolates a single downstream role; use
+the single-handoff path positioned on that role for that.)
+
+## Design-lane role order (what a `--from architect-reviewer` sweep covers)
+
+Per `defaultLaneCandidates` + the design sub-machine, the story's design handoffs are:
+spec-author → architect-reviewer → dba → test-strategist → ux-designer, then
+navigator-reflect (baseline-only critic, not an authoring turn). **Open question carried
+from memory:** for the stockflow-optimize scenario, architect-reviewer MAY be canon-
+projected (design goes complete without an architect LLM turn) → the sweep finds no
+architect handoff to walk and starts at the first role that does have a turn. If the run's
+`[optimize] handoff <id>: N candidate(s)` lines skip architect-reviewer, that's expected.
+
+## Resolved (was "open") — the exit-3 arc, now fixed
+
+The exit-3 that recurred through the first ~5 live runs is FIXED (this session, newest
+last): `12a55dd2` pinned-turn (run `handoff.action`'s own `claude` command, never
+`planNextAction` → no wrong-role turn) + `96b1ea98` drive-runner extraction (tsup
+`splitting:false` was inlining drive.cli's `if(isCliEntry)main()` into optimize.cli.js → a
+PHANTOM drive `main()` fired every turn + returned 3 on the wrong-role verify-artifact
+throw). A clean single-handoff spec-author sweep then completed (4 candidates ×2 trials, no
+crash). See the fix chain in memory `project_optimize_harness` ★RESUME POINT★.
+
+**Lever data so far:** spec-author winner = **effort-low, 34% faster** (99.4s→66.0s median,
+same gate); opus stays the model (sonnet ~2× slower); scan-tighten slower. APPLIED to kit
+(`88713ccc`: `defaultEffort` + `defaultSftddConfig` set spec-author effort:low).
