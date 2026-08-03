@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { W as WorkflowAction } from '../../orchestrator-drive-BmzjQ8Tu.cjs';
-import { S as SweepSpec } from '../../optimize-candidates-DzyV6JOj.cjs';
+import { S as SweepSpec } from '../../optimize-candidates-BQRmxLSO.cjs';
+import '../../sftdd-config-DITjGDWO.cjs';
 
 /** One handoff to optimize (a single role turn at a point in the walk). */
 interface HandoffPlan {

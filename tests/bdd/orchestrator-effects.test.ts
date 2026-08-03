@@ -58,6 +58,33 @@ describe("commandsForAction: invoke-role -> claude", () => {
     expect((cmds[2] as { args: string[] }).args).toContain("--reconcile");
   });
 
+  it("keys effort/model on the STEP: spec-author BREAKDOWN and AC-authoring resolve independently", () => {
+    // "Apply to the step, not the role." commandsForAction derives a TurnKey per
+    // action (breakdown vs acs) and passes it to effortForTurn/modelForTurn, so a
+    // lever applied to breakdown does NOT leak onto the per-story AC-authoring turn.
+    const seen: Array<{ role: string; turn?: string }> = [];
+    const c = cfg({
+      modelForTurn: (role, turn) => {
+        seen.push({ role, turn });
+        return role === "spec-author" && turn === "breakdown" ? "haiku" : "opus";
+      },
+      effortForTurn: (role, turn) => (role === "spec-author" && turn === "breakdown" ? "low" : "default"),
+    });
+    const breakdown = commandsForAction({ kind: "invoke-role", role: "spec-author", mode: "breakdown" }, c);
+    const bClaude = breakdown.find((x) => (x as { kind?: string }).kind === "claude") as { model: string; effort?: string };
+    expect(bClaude.model).toBe("haiku");
+    expect(bClaude.effort).toBe("low");
+    // The breakdown turn was keyed "breakdown", not the role with no turn.
+    expect(seen).toContainEqual({ role: "spec-author", turn: "breakdown" });
+
+    const acs = commandsForAction({ kind: "invoke-role", role: "spec-author", story: "S1" }, c);
+    const aClaude = acs.find((x) => (x as { kind?: string }).kind === "claude") as { model: string; effort?: string };
+    // AC-authoring keyed "acs" -> the breakdown lever does NOT apply.
+    expect(aClaude.model).toBe("opus");
+    expect(aClaude.effort).toBeUndefined(); // "default" => flag omitted
+    expect(seen).toContainEqual({ role: "spec-author", turn: "acs" });
+  });
+
   it("a reflect turn's command carries replay.buildMode='reflect' (so the replay restores its .sftdd verdict)", () => {
     const cmds = commandsForAction({ kind: "invoke-role", role: "navigator", story: "S1", buildMode: "reflect" }, cfg());
     const claude = cmds.find((c) => (c as { kind?: string }).kind === "claude") as { replay?: { buildMode?: string } };

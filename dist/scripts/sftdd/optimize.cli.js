@@ -7082,7 +7082,7 @@ function loadSftddConfig(projectDir) {
 }
 function defaultEffort(role, turn) {
   if (role === "navigator" && turn === "review") return "low";
-  if (role === "spec-author") return "low";
+  if (role === "spec-author" && turn === "breakdown") return "low";
   return "default";
 }
 function resolveSftddSettings(inputs) {
@@ -7141,11 +7141,16 @@ function defaultSftddConfig() {
       // sftdd-config.json (a project can flatten to a scalar `model`).
       { model: { red: RECOMMENDED_MODELS[role], green: RECOMMENDED_MODELS[role], refactor: "haiku" } }
     ) : role === "spec-author" ? (
-      // Spec-author runs at low effort: the optimize sweep measured it ~34%
-      // faster at low effort while still passing the identical gate (opus
-      // stays the model). Made explicit here so a scaffolded project's config
-      // matches the code default in defaultEffort().
-      { model: RECOMMENDED_MODELS[role], effort: "low" }
+      // Spec-author's BREAKDOWN step is optimized per-step (not per-role): the
+      // optimize sweep measured the breakdown ~44% faster on haiku+low, still
+      // passing the identical self-check + spec gate. Applied keyed to
+      // `breakdown` ONLY , the per-story AC-authoring step is a different task
+      // and keeps the recommended model + default effort until its own sweep.
+      // The base model stays recommended (opus) for the un-keyed AC step.
+      {
+        model: { breakdown: "haiku" },
+        effort: { breakdown: "low" }
+      }
     ) : { model: RECOMMENDED_MODELS[role] };
   }
   return {
@@ -11266,6 +11271,30 @@ function designArtifactExpectation(action, sftddDir, featureId) {
   if (action.role === "test-strategist") return { anyOf: [featureTestListJson(sftddDir, featureId)], label: "test-list.json" };
   return null;
 }
+function turnKeyForAction(action) {
+  if (action.kind !== "invoke-role") return void 0;
+  if ("buildMode" in action) {
+    if (action.buildMode === "reflect") return void 0;
+    if (action.buildMode === "review") return "review";
+    if (action.buildMode === "refactor" || action.buildMode === "refactor-deploy") return "refactor";
+  }
+  if ("mode" in action) {
+    if (action.role === "spec-author" && action.mode === "breakdown") return "breakdown";
+    if (action.role === "spec-author" && action.mode === "propose") return "propose";
+    if (action.role === "architect-reviewer" && (action.mode === "estimate" || action.mode === "estimate-committed")) return "estimate";
+    return void 0;
+  }
+  if (action.role === "ux-designer") return "ux";
+  if ("story" in action && action.story) {
+    if (action.role === "spec-author") return "acs";
+    if (action.role === "architect-reviewer") return "architect";
+    if (action.role === "dba") return "dba";
+    if (action.role === "test-strategist") return "test-list";
+  }
+  if (action.role === "navigator") return "red";
+  if (action.role === "driver") return "green";
+  return void 0;
+}
 function commandsForAction(action, cfg) {
   const f = cfg.featureId;
   const tdd = ["--feature", f, "--tdd-dir", cfg.sftddDir];
@@ -11298,14 +11327,10 @@ function commandsForAction(action, cfg) {
       } else {
         resumeKey = action.role;
       }
-      const buildTurn = "buildMode" in action && action.buildMode === "reflect" ? (
-        // reflect is a DESIGN-lane critique, not a build turn: no per-turn
-        // effort/model override (it runs on the navigator's base model, the
-        // different-model critic), so it maps to no build turn.
-        void 0
-      ) : "buildMode" in action && action.buildMode === "review" ? "review" : "buildMode" in action && (action.buildMode === "refactor" || action.buildMode === "refactor-deploy") ? "refactor" : action.role === "navigator" ? "red" : action.role === "driver" ? "green" : void 0;
-      const isReviewTurn = action.role === "navigator" && buildTurn === "review";
-      const effort = cfg.effortForTurn ? cfg.effortForTurn(action.role, buildTurn) : isReviewTurn ? cfg.reviewEffort ?? "low" : "";
+      const turnKey = turnKeyForAction(action);
+      const buildTurn = turnKey;
+      const isReviewTurn = action.role === "navigator" && turnKey === "review";
+      const effort = cfg.effortForTurn ? cfg.effortForTurn(action.role, turnKey) : isReviewTurn ? cfg.reviewEffort ?? "low" : "";
       const fallbackModel = cfg.fallbackModelForRole?.(action.role);
       const maxBudgetUsd = cfg.maxBudgetUsdForRole?.(action.role);
       const storyLoop = "story" in action ? effectiveLoopForStory(cfg.loopGranularity ?? "story", action.story) : cfg.loopGranularity;

@@ -27,6 +27,7 @@ import {
   storyJson, designGuideJson, handbackFile, storyAcIds, architectureJson, readAcLayer,
   featureProposalsMd, featureSpecJson, featureTestListJson, acsDir, planningEstimatesJson,
 } from "./sftdd-paths.js";
+import type { TurnKey } from "./sftdd-config.js";
 import { designGuideConformance } from "./response-formatter.js";
 import { storyTestProgress, nextPendingBatch, DEFAULT_BATCH_CAP } from "./cycle-record.js";
 import { readSupersededTests, readGreenFailure } from "./supersession.js";
@@ -81,7 +82,7 @@ export interface DriveEffectsConfig {
   /** Unified config: resolve the model for a role+turn (model tiering). A per-turn
    *  `model` map entry (e.g. driver GREEN on haiku) wins for that turn; absent, the
    *  role's base model applies. When unset, the caller falls back to modelForRole. */
-  modelForTurn?(role: string, turn?: "red" | "green" | "review" | "refactor"): string;
+  modelForTurn?(role: string, turn?: TurnKey): string;
   /** Approver name for headless gate approvals (the Human Proxy). */
   approver?: string;
   /** Sprint name, threaded to the sprint plan gate in the planning phase. */
@@ -133,7 +134,7 @@ export interface DriveEffectsConfig {
   /** Unified config: resolve `--effort` for ANY role+turn ("" / "default" => omit
    *  the flag). When set it governs every turn; absent, the review-only
    *  reviewEffort fallback applies. (sftdd-config.json, file -> env -> default.) */
-  effortForTurn?(role: string, turn?: "red" | "green" | "review" | "refactor"): string;
+  effortForTurn?(role: string, turn?: TurnKey): string;
   /** Unified config: a role's `--fallback-model` (auto-failover), or undefined. */
   fallbackModelForRole?(role: string): string | undefined;
   /** Unified config: a role's `--max-budget-usd` per-invocation cap, or undefined. */
@@ -155,12 +156,12 @@ export interface DriveEffectsConfig {
    *
    *  taskSuffix: extra directive APPENDED to a role's task (after the terse
    *  suffix), the per-turn task-injection lever. Return "" for no-op. */
-  taskSuffix?(role: string, turn?: "red" | "green" | "review" | "refactor"): string;
+  taskSuffix?(role: string, turn?: TurnKey): string;
   /** contextPackSuffix: extra pre-extracted CONTEXT appended to a build turn's
    *  task, BEFORE the terse suffix, so it reads as context, not a trailing order.
    *  The inject-more/scan-less lever (module map, code snippets, exact refs).
    *  Return "" for no-op. */
-  contextPackSuffix?(role: string, turn?: "red" | "green" | "review" | "refactor"): string;
+  contextPackSuffix?(role: string, turn?: TurnKey): string;
   /** allowedToolsForRole/disallowedToolsForRole: per-role tool-scope restriction
    *  (--allowed-tools / --disallowed-tools), the cap-what-the-agent-scans lever.
    *  Return undefined (or an empty list) to leave the tool scope unrestricted. */
@@ -1145,6 +1146,43 @@ function designArtifactExpectation(
   return null; // navigator/driver build turns: not a design artifact
 }
 
+/** Map an invoke-role action to its TurnKey , the per-invocation step the config's
+ *  effort/model can be keyed on ("apply to the step, not the role"). BUILD turns:
+ *  navigator review|red, driver refactor|green (reflect is a design-lane critic on
+ *  the base model, so no key). DESIGN steps: spec-author breakdown|propose|acs,
+ *  architect-reviewer estimate|architect, dba, test-strategist test-list, ux-designer
+ *  ux. Returns undefined only for actions with no distinct step (fall back to scalar). */
+function turnKeyForAction(action: WorkflowAction): TurnKey | undefined {
+  if (action.kind !== "invoke-role") return undefined;
+  // Build turns first (buildMode-carrying navigator/driver turns).
+  if ("buildMode" in action) {
+    if (action.buildMode === "reflect") return undefined; // critic on base model
+    if (action.buildMode === "review") return "review";
+    if (action.buildMode === "refactor" || action.buildMode === "refactor-deploy") return "refactor";
+  }
+  // Planning-mode design steps.
+  if ("mode" in action) {
+    if (action.role === "spec-author" && action.mode === "breakdown") return "breakdown";
+    if (action.role === "spec-author" && action.mode === "propose") return "propose";
+    if (action.role === "architect-reviewer" && (action.mode === "estimate" || action.mode === "estimate-committed")) return "estimate";
+    // author-requests is human input, no agent turn , no key.
+    return undefined;
+  }
+  // Feature-scoped design role.
+  if (action.role === "ux-designer") return "ux";
+  // Story-scoped design steps (no mode/buildMode, has a story).
+  if ("story" in action && action.story) {
+    if (action.role === "spec-author") return "acs";
+    if (action.role === "architect-reviewer") return "architect";
+    if (action.role === "dba") return "dba";
+    if (action.role === "test-strategist") return "test-list";
+  }
+  // Plain build turns (no buildMode): navigator RED, driver GREEN.
+  if (action.role === "navigator") return "red";
+  if (action.role === "driver") return "green";
+  return undefined;
+}
+
 export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfig): DriveCommand[] {
   const f = cfg.featureId;
   const tdd = ["--feature", f, "--tdd-dir", cfg.sftddDir];
@@ -1202,29 +1240,19 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
       } else {
         resumeKey = action.role;
       }
-      // Per-role + per-turn `--effort` (unified config). Derive the build turn from
-      // the action: navigator review|red, driver refactor|green; design roles have
-      // no turn (scalar effort). When `effortForTurn` is provided (sftdd-config.json)
-      // it governs EVERY turn; absent, fall back to the review-only `reviewEffort`
-      // (P6 default low on the navigator REVIEW, model-default elsewhere).
-      const buildTurn: "red" | "green" | "review" | "refactor" | undefined =
-        "buildMode" in action && action.buildMode === "reflect"
-          ? // reflect is a DESIGN-lane critique, not a build turn: no per-turn
-            // effort/model override (it runs on the navigator's base model, the
-            // different-model critic), so it maps to no build turn.
-            undefined
-          : "buildMode" in action && action.buildMode === "review"
-            ? "review"
-            : "buildMode" in action && (action.buildMode === "refactor" || action.buildMode === "refactor-deploy")
-              ? "refactor"
-              : action.role === "navigator"
-                ? "red"
-                : action.role === "driver"
-                  ? "green"
-                  : undefined;
-      const isReviewTurn = action.role === "navigator" && buildTurn === "review";
+      // Per-role + per-STEP `--effort`/model (unified config). Derive the invocation
+      // KEY from the action , a BUILD turn (navigator review|red, driver
+      // refactor|green) OR a DESIGN step (spec-author breakdown|propose|acs,
+      // architect estimate|architect, dba, test-list, ux-designer ux). This is the
+      // "apply to the step, not the role" axis: effort/model are keyed on WHICH task
+      // the role is doing this invocation. When `effortForTurn` is provided
+      // (sftdd-config.json) it governs every step; absent, fall back to the
+      // review-only `reviewEffort` (P6 default low on the navigator REVIEW).
+      const turnKey = turnKeyForAction(action);
+      const buildTurn = turnKey; // legacy name used below for contextPackSuffix
+      const isReviewTurn = action.role === "navigator" && turnKey === "review";
       const effort = cfg.effortForTurn
-        ? cfg.effortForTurn(action.role, buildTurn)
+        ? cfg.effortForTurn(action.role, turnKey)
         : isReviewTurn
           ? cfg.reviewEffort ?? "low"
           : "";

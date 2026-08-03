@@ -27,9 +27,29 @@ export const LEGACY_TDD_CONFIG_REL = join(".lakebase", "tdd-config.json");
 /** @deprecated use SFTDD_CONFIG_REL. Kept as an alias for callers not yet updated. */
 export const TDD_CONFIG_REL = SFTDD_CONFIG_REL;
 
-/** The turns whose effort can differ within a multi-turn build role. Single-turn
- *  roles ignore the turn and use their scalar effort. */
+/** The BUILD turns whose effort/model can differ within the navigator/driver
+ *  RED/GREEN/REVIEW/REFACTOR loop. */
 export type BuildTurn = "red" | "green" | "review" | "refactor";
+
+/** The DESIGN/planning steps a role can be invoked for. A role runs different
+ *  TASKS across these steps (spec-author BREAKDOWN vs per-story AC authoring;
+ *  architect ESTIMATE vs per-story ARCHITECT notes), so a lever that wins on one
+ *  step need not win on another , effort/model are keyed on the step, not the role. */
+export type DesignStep =
+  | "breakdown" // spec-author: enumerate the feature's stories
+  | "propose" // spec-author: project feature-proposals (planning)
+  | "acs" // spec-author: author a story's acceptance criteria
+  | "estimate" // architect-reviewer: planning estimates
+  | "architect" // architect-reviewer: per-story architecture notes
+  | "dba" // dba: per-story physical schema
+  | "test-list" // test-strategist: per-story test list
+  | "ux"; // ux-designer: the project style guide (once)
+
+/** The full per-invocation key effort/model can be applied on: a BUILD turn OR a
+ *  DESIGN step. This is the "apply to the step, not the role" axis , the champion
+ *  walk sweeps per invocation, so a winner is persisted keyed on the exact step it
+ *  was measured on. A single-turn role with no key falls back to its scalar. */
+export type TurnKey = BuildTurn | DesignStep;
 
 /** `--effort` levels `claude -p` accepts, plus "default" (omit the flag). */
 export type EffortLevel = "default" | "low" | "medium" | "high" | "xhigh" | "max";
@@ -39,10 +59,10 @@ export type EffortLevel = "default" | "low" | "medium" | "high" | "xhigh" | "max
  *  turns). A per-turn `model` map is how the Driver's mechanical GREEN/REFACTOR runs
  *  on a cheaper/faster model than its RED (test authoring), the model-tiering lever. */
 export interface RoleSettingsFile {
-  model?: string | Partial<Record<BuildTurn, string>>;
+  model?: string | Partial<Record<TurnKey, string>>;
   fallbackModel?: string;
   maxBudgetUsd?: number;
-  effort?: EffortLevel | Partial<Record<BuildTurn, EffortLevel>>;
+  effort?: EffortLevel | Partial<Record<TurnKey, EffortLevel>>;
 }
 
 export interface SftddConfigFile {
@@ -69,12 +89,13 @@ export interface ResolvedSettings {
   models: Record<string, string>;
   fallbackModels: Record<string, string | undefined>;
   budgets: Record<string, number | undefined>;
-  /** Resolve the model to spawn a role's turn with: a per-turn `model` map entry
-   *  (e.g. driver GREEN on haiku) when present, else the role's base model. This is
-   *  the model-tiering lever, mechanical turns run cheaper than authoring turns. */
-  modelFor(role: string, turn?: BuildTurn): string;
-  /** Resolve a role's effort for a turn ("default" => omit --effort). */
-  effortFor(role: string, turn?: BuildTurn): EffortLevel;
+  /** Resolve the model to spawn a role's turn/step with: a per-key `model` map entry
+   *  (e.g. driver GREEN on haiku, or spec-author BREAKDOWN on haiku) when present,
+   *  else the role's base model. The model-tiering lever, applied per invocation
+   *  step, not per role. */
+  modelFor(role: string, turn?: TurnKey): string;
+  /** Resolve a role's effort for a turn/step ("default" => omit --effort). */
+  effortFor(role: string, turn?: TurnKey): EffortLevel;
   build: { loopGranularity: "story" | "ac" | "hybrid-a"; batchCap?: number; sessionScope: "story" | "cycle" };
   plan: { sizing: boolean };
   project: {
@@ -101,15 +122,17 @@ export function loadSftddConfig(projectDir: string): SftddConfigFile | undefined
   return undefined;
 }
 
-/** Code default effort: the navigator REVIEW turn runs fast (low), and the
- *  spec-author breakdown runs at low effort , the per-handoff optimization sweep
- *  (stockflow-optimize) measured spec-author at low effort ~34% faster (99.4s ->
- *  66.0s median over 2 trials) while still passing the identical self-check + spec
- *  gate; opus stays the model (sonnet was ~2x slower). Everything else uses the
- *  model default. This preserves the P6 behavior when no config / env says otherwise. */
-function defaultEffort(role: string, turn?: BuildTurn): EffortLevel {
+/** Code default effort, keyed on the invocation STEP (not the whole role): the
+ *  navigator REVIEW turn runs fast (low), and the spec-author BREAKDOWN step runs at
+ *  low effort , the per-handoff optimization sweep (stockflow-optimize) measured the
+ *  breakdown step ~44% faster on haiku+low (and ~17% on low alone) while still
+ *  passing the identical self-check + spec gate. It is keyed to `breakdown` ONLY:
+ *  the per-story AC-authoring step is a different task, swept separately, and keeps
+ *  the model default until its own winner is applied. Everything else uses the model
+ *  default. Preserves the P6 behavior when no config / env says otherwise. */
+function defaultEffort(role: string, turn?: TurnKey): EffortLevel {
   if (role === "navigator" && turn === "review") return "low";
-  if (role === "spec-author") return "low";
+  if (role === "spec-author" && turn === "breakdown") return "low";
   return "default";
 }
 
@@ -143,16 +166,17 @@ export function resolveSftddSettings(inputs: ResolveInputs): ResolvedSettings {
     budgets[role] = typeof rc?.maxBudgetUsd === "number" ? rc.maxBudgetUsd : undefined;
   }
 
-  const modelFor = (role: string, turn?: BuildTurn): string => {
+  const modelFor = (role: string, turn?: TurnKey): string => {
     const m = file?.roles?.[role as SpawnableAgentRole]?.model;
-    // A per-turn map wins for the turn it names (driver GREEN/REFACTOR on haiku);
-    // a scalar (or an absent turn in the map) falls to the role's base model.
+    // A per-key map wins for the turn/step it names (driver GREEN on haiku,
+    // spec-author BREAKDOWN on haiku); a scalar (or an absent key in the map) falls
+    // to the role's base model.
     if (m && typeof m !== "string" && turn && m[turn]) return m[turn] as string;
     return models[role] ?? "inherit";
   };
 
-  const effortFor = (role: string, turn?: BuildTurn): EffortLevel => {
-    // The file is the single source: a scalar applies to all turns; a map is per-turn.
+  const effortFor = (role: string, turn?: TurnKey): EffortLevel => {
+    // The file is the single source: a scalar applies to all steps; a map is per-step.
     const rc = file?.roles?.[role as SpawnableAgentRole];
     const e = rc?.effort;
     if (typeof e === "string") return e;
@@ -199,11 +223,16 @@ export function defaultSftddConfig(): SftddConfigFile {
             // sftdd-config.json (a project can flatten to a scalar `model`).
             { model: { red: RECOMMENDED_MODELS[role], green: RECOMMENDED_MODELS[role], refactor: "haiku" } }
           : role === "spec-author"
-            ? // Spec-author runs at low effort: the optimize sweep measured it ~34%
-              // faster at low effort while still passing the identical gate (opus
-              // stays the model). Made explicit here so a scaffolded project's config
-              // matches the code default in defaultEffort().
-              { model: RECOMMENDED_MODELS[role], effort: "low" }
+            ? // Spec-author's BREAKDOWN step is optimized per-step (not per-role): the
+              // optimize sweep measured the breakdown ~44% faster on haiku+low, still
+              // passing the identical self-check + spec gate. Applied keyed to
+              // `breakdown` ONLY , the per-story AC-authoring step is a different task
+              // and keeps the recommended model + default effort until its own sweep.
+              // The base model stays recommended (opus) for the un-keyed AC step.
+              {
+                model: { breakdown: "haiku" } as Partial<Record<TurnKey, string>>,
+                effort: { breakdown: "low" } as Partial<Record<TurnKey, EffortLevel>>,
+              }
             : { model: RECOMMENDED_MODELS[role] };
   }
   return {

@@ -66,9 +66,13 @@ describe("resolveSftddSettings: defaults when no file + no env", () => {
     expect(s.effortFor("navigator", "review")).toBe("low");
     expect(s.effortFor("navigator", "red")).toBe("default");
     expect(s.effortFor("driver", "green")).toBe("default");
-    // spec-author defaults to low effort: the optimize sweep measured it ~34% faster
-    // at low effort while still passing the identical gate (opus stays the model).
-    expect(s.effortFor("spec-author")).toBe("low");
+    // spec-author's effort is keyed on the STEP, not the role: the optimize sweep
+    // measured the BREAKDOWN step faster at low effort, so ONLY breakdown defaults
+    // low; the per-story AC-authoring step (a different task) keeps the model default
+    // until its own sweep. "Apply to the step, not the role."
+    expect(s.effortFor("spec-author", "breakdown")).toBe("low");
+    expect(s.effortFor("spec-author", "acs")).toBe("default");
+    expect(s.effortFor("spec-author")).toBe("default"); // no key -> scalar default
     expect(s.build.loopGranularity).toBe("story"); // default is story-scoped Navigator/Driver turns
     expect(s.build.sessionScope).toBe("story");
     expect(s.plan.sizing).toBe(true);
@@ -159,6 +163,23 @@ describe("resolveSftddSettings: per-turn model tiering (driver GREEN/REFACTOR ch
     // navigator + design roles keep their scalar recommended model.
     expect(s.modelFor("navigator", "red")).toBe("sonnet");
     expect(s.modelFor("architect-reviewer")).toBe("opus");
+  });
+
+  it("defaultSftddConfig applies the spec-author winner PER STEP: breakdown haiku+low, AC-authoring untouched", () => {
+    // The optimize sweep measured the BREAKDOWN step (haiku+low, -44%). The winner is
+    // applied keyed to `breakdown` ONLY , the per-story AC-authoring step is a
+    // different task and keeps the recommended model + default effort until its own
+    // sweep. This is the "apply to the step, not the role" invariant.
+    writeSftddConfig(proj, defaultSftddConfig());
+    const s = resolveSftddSettings({ projectDir: proj });
+    // breakdown step: the applied winner.
+    expect(s.modelFor("spec-author", "breakdown")).toBe("haiku");
+    expect(s.effortFor("spec-author", "breakdown")).toBe("low");
+    // AC-authoring step: NOT the breakdown winner , recommended model, default effort.
+    expect(s.modelFor("spec-author", "acs")).toBe("opus");
+    expect(s.effortFor("spec-author", "acs")).toBe("default");
+    // base (no key) also stays recommended , the breakdown lever does not leak.
+    expect(s.modelFor("spec-author")).toBe("opus");
   });
 });
 

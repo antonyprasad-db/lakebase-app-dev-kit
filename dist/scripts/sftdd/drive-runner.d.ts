@@ -1,4 +1,5 @@
 import { W as WorkflowAction } from '../../orchestrator-drive-BmzjQ8Tu.js';
+import { T as TurnKey } from '../../sftdd-config-DITjGDWO.js';
 
 type DriveCommand = {
     kind: "claude";
@@ -45,7 +46,7 @@ interface DriveEffectsConfig {
     /** Unified config: resolve the model for a role+turn (model tiering). A per-turn
      *  `model` map entry (e.g. driver GREEN on haiku) wins for that turn; absent, the
      *  role's base model applies. When unset, the caller falls back to modelForRole. */
-    modelForTurn?(role: string, turn?: "red" | "green" | "review" | "refactor"): string;
+    modelForTurn?(role: string, turn?: TurnKey): string;
     /** Approver name for headless gate approvals (the Human Proxy). */
     approver?: string;
     /** Sprint name, threaded to the sprint plan gate in the planning phase. */
@@ -97,7 +98,7 @@ interface DriveEffectsConfig {
     /** Unified config: resolve `--effort` for ANY role+turn ("" / "default" => omit
      *  the flag). When set it governs every turn; absent, the review-only
      *  reviewEffort fallback applies. (sftdd-config.json, file -> env -> default.) */
-    effortForTurn?(role: string, turn?: "red" | "green" | "review" | "refactor"): string;
+    effortForTurn?(role: string, turn?: TurnKey): string;
     /** Unified config: a role's `--fallback-model` (auto-failover), or undefined. */
     fallbackModelForRole?(role: string): string | undefined;
     /** Unified config: a role's `--max-budget-usd` per-invocation cap, or undefined. */
@@ -119,12 +120,12 @@ interface DriveEffectsConfig {
      *
      *  taskSuffix: extra directive APPENDED to a role's task (after the terse
      *  suffix), the per-turn task-injection lever. Return "" for no-op. */
-    taskSuffix?(role: string, turn?: "red" | "green" | "review" | "refactor"): string;
+    taskSuffix?(role: string, turn?: TurnKey): string;
     /** contextPackSuffix: extra pre-extracted CONTEXT appended to a build turn's
      *  task, BEFORE the terse suffix, so it reads as context, not a trailing order.
      *  The inject-more/scan-less lever (module map, code snippets, exact refs).
      *  Return "" for no-op. */
-    contextPackSuffix?(role: string, turn?: "red" | "green" | "review" | "refactor"): string;
+    contextPackSuffix?(role: string, turn?: TurnKey): string;
     /** allowedToolsForRole/disallowedToolsForRole: per-role tool-scope restriction
      *  (--allowed-tools / --disallowed-tools), the cap-what-the-agent-scans lever.
      *  Return undefined (or an empty list) to leave the tool scope unrestricted. */

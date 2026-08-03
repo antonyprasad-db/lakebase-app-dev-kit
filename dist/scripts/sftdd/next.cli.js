@@ -6862,7 +6862,7 @@ function loadSftddConfig(projectDir) {
 }
 function defaultEffort(role, turn) {
   if (role === "navigator" && turn === "review") return "low";
-  if (role === "spec-author") return "low";
+  if (role === "spec-author" && turn === "breakdown") return "low";
   return "default";
 }
 function resolveSftddSettings(inputs) {

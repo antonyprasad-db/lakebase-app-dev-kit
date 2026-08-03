@@ -51,11 +51,16 @@ function defaultSftddConfig() {
       // sftdd-config.json (a project can flatten to a scalar `model`).
       { model: { red: RECOMMENDED_MODELS[role], green: RECOMMENDED_MODELS[role], refactor: "haiku" } }
     ) : role === "spec-author" ? (
-      // Spec-author runs at low effort: the optimize sweep measured it ~34%
-      // faster at low effort while still passing the identical gate (opus
-      // stays the model). Made explicit here so a scaffolded project's config
-      // matches the code default in defaultEffort().
-      { model: RECOMMENDED_MODELS[role], effort: "low" }
+      // Spec-author's BREAKDOWN step is optimized per-step (not per-role): the
+      // optimize sweep measured the breakdown ~44% faster on haiku+low, still
+      // passing the identical self-check + spec gate. Applied keyed to
+      // `breakdown` ONLY , the per-story AC-authoring step is a different task
+      // and keeps the recommended model + default effort until its own sweep.
+      // The base model stays recommended (opus) for the un-keyed AC step.
+      {
+        model: { breakdown: "haiku" },
+        effort: { breakdown: "low" }
+      }
     ) : { model: RECOMMENDED_MODELS[role] };
   }
   return {
