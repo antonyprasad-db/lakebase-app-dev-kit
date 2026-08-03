@@ -30,14 +30,31 @@ export interface AgentReportEntry {
 }
 
 export interface FormatAgentReportArgs {
-  /** The workspace the agent wrote .agent-report.json into (also where agent-log.jsonl lands). */
+  /** The workspace the agent-log.jsonl lands in (and, absent `reportText`, where the
+   *  .agent-report.json report file is read from). */
   workspaceDir: string;
   /** The role the orchestrator stamps on every formatted entry (the agent never sets it). */
   role: string;
-  /** The report filename within the workspace. Default ".agent-report.json". */
+  /** The agent's FINAL STDOUT TEXT , the containment-proof channel: when provided, the report
+   *  is extracted from a fenced ```agent-report ... ``` block in this text (no file, no cwd
+   *  dependency, nothing the agent can misplace). Falls back to the report FILE when absent. */
+  reportText?: string;
+  /** The report filename within the workspace (file fallback). Default ".agent-report.json". */
   reportFile?: string;
   /** The log filename within the workspace. Default "agent-log.jsonl". */
   logFile?: string;
+}
+
+/** Extract the JSON payload from a fenced ```agent-report ... ``` block in the agent's final
+ *  text. Returns the raw JSON string, or undefined when no block is present. Tolerant of an
+ *  unlabeled ``` fence too, and of surrounding prose. */
+export function extractReportBlock(text: string): string | undefined {
+  // Prefer an explicitly-labeled agent-report fence; fall back to the first fenced block.
+  const labeled = text.match(/```agent-report\s*\n([\s\S]*?)```/);
+  if (labeled) return labeled[1].trim();
+  const anyFence = text.match(/```(?:json)?\s*\n([\s\S]*?)```/);
+  if (anyFence && /[[{]/.test(anyFence[1])) return anyFence[1].trim();
+  return undefined;
 }
 
 export interface FormatAgentReportResult {
@@ -55,18 +72,32 @@ export interface FormatAgentReportResult {
  * "the agent surfaced nothing" stays a failure the output validator will catch.
  */
 export function formatAgentReport(args: FormatAgentReportArgs): FormatAgentReportResult {
-  const reportPath = join(args.workspaceDir, args.reportFile ?? ".agent-report.json");
   const logPath = join(args.workspaceDir, args.logFile ?? "agent-log.jsonl");
 
-  if (!existsSync(reportPath)) {
-    return { ok: false, entries: 0, error: `agent report absent at ${reportPath} , the agent surfaced nothing about what it did.` };
+  // Prefer the STDOUT channel (the agent's final text) , containment-proof, no file path to
+  // miss. Fall back to the report FILE only when no reportText was captured.
+  let reportJson: string | undefined;
+  let source: string;
+  if (args.reportText !== undefined) {
+    reportJson = extractReportBlock(args.reportText);
+    source = "agent final message";
+    if (reportJson === undefined) {
+      return { ok: false, entries: 0, error: `no \`\`\`agent-report block in the agent's final message , it surfaced nothing about what it did.` };
+    }
+  } else {
+    const reportPath = join(args.workspaceDir, args.reportFile ?? ".agent-report.json");
+    source = reportPath;
+    if (!existsSync(reportPath)) {
+      return { ok: false, entries: 0, error: `agent report absent at ${reportPath} , the agent surfaced nothing about what it did.` };
+    }
+    reportJson = readFileSync(reportPath, "utf8");
   }
 
   let raw: unknown;
   try {
-    raw = JSON.parse(readFileSync(reportPath, "utf8"));
+    raw = JSON.parse(reportJson);
   } catch (e) {
-    return { ok: false, entries: 0, error: `agent report is not valid JSON: ${e instanceof Error ? e.message : String(e)}` };
+    return { ok: false, entries: 0, error: `agent report (${source}) is not valid JSON: ${e instanceof Error ? e.message : String(e)}` };
   }
 
   const rawEntries: unknown[] = Array.isArray(raw) ? raw : [raw];

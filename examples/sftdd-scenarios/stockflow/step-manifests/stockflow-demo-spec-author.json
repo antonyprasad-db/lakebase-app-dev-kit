@@ -26,7 +26,9 @@
       "role": "spec-author",
       "model": "sonnet",
       "effort": "low",
-      "session": "fresh"
+      "session": "fresh",
+      "allowedTools": ["Write", "Read"],
+      "disallowedTools": ["Bash", "Glob", "Grep", "WebFetch", "WebSearch", "Task"]
     }
   }
 }

@@ -40,17 +40,22 @@ function instructionsFor(manifest: StepManifest): { prompt: string; guidelines: 
   if (manifest.role !== "spec-author") return { prompt: `Run ${manifest.role} step ${manifest.id}.`, guidelines: [] };
   return {
     prompt:
-      `Break feature ${FEATURE} into its stories from the provided inputs. WRITE ${SPEC_REL} ` +
-      `(id, name, status "draft", tdd_mode, NON-EMPTY stories[]) + a stub dir per story under ` +
-      `.sftdd/features/${FEATURE}/stories/<S>/. Then WRITE a file .agent-report.json at the ` +
-      `workspace root recording what you did , a JSON object (or array of objects) with fields ` +
-      `{ "level": "info"|"warn"|"error", "event": "artifact.written"|"open.question"|..., ` +
-      `"message": "<one line>" }. Use level "warn" + event "open.question" to surface any ` +
-      `ambiguity. Do NOT run any shell command or npx; just write the two files. Read ONLY the ` +
-      `provided inputs.`,
+      `Break feature ${FEATURE} into its stories from the provided inputs (they are in this ` +
+      `prompt , do NOT search the filesystem or read other projects). WRITE exactly these ` +
+      `files, relative to your current working directory:\n` +
+      `  - ${SPEC_REL}  (JSON: id, name, status "draft", tdd_mode, NON-EMPTY stories[])\n` +
+      `  - a stub dir per story under .sftdd/features/${FEATURE}/stories/<S>/ (story.md + story.json)\n` +
+      `Then STOP , do NOT run any shell command, do NOT run npx or ./scripts/lk, do NOT ` +
+      `self-verify (the orchestrator validates your work). As the LAST thing in your reply, ` +
+      `emit a fenced report block describing what you did:\n` +
+      "```agent-report\n" +
+      `[{ "level": "info", "event": "artifact.written", "message": "<one line: what you wrote>" }]\n` +
+      "```\n" +
+      `Add extra entries with level "warn" + event "open.question" for any ambiguity you surfaced.`,
     guidelines: [
       "feature-spec.json is REQUIRED and must have a non-empty stories[].",
-      ".agent-report.json is REQUIRED , author at least one entry describing what you wrote (the orchestrator formats it into the conformant agent log).",
+      "End your reply with the ```agent-report block , the orchestrator formats it into the conformant agent log.",
+      "Do NOT verify your own work or run any command; write the files, emit the report, stop.",
     ],
   };
 }

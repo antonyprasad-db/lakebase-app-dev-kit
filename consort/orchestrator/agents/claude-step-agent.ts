@@ -24,7 +24,7 @@
 // managed-settings policy honors headlessly (see drive-runner claudeBaseArgs docs).
 
 import { randomUUID } from "node:crypto";
-import { claudeBaseArgs, claudeToolArgs, spawnClaudeStreaming } from "../../../scripts/sftdd/drive-runner.js";
+import { claudeBaseArgs, claudeToolArgs, spawnClaudeStreaming, takeLastAgentTranscript } from "../../../scripts/sftdd/drive-runner.js";
 import type { TurnUsage } from "../../../scripts/sftdd/claude-usage.js";
 import type { DriveCommand } from "../../../scripts/sftdd/orchestrator-effects.js";
 import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.js";
@@ -60,6 +60,10 @@ export type SpawnFn = (args: string[], cwd: string) => Promise<TurnUsage | undef
 /** The usage the last invocation reported (tokens), surfaced for observability. */
 export interface AgentTurnResult {
   usage?: TurnUsage;
+  /** The turn's FINAL assistant text (stdout). The orchestrator reads a fenced
+   *  ```agent-report block from this , the containment-proof log channel (no file path the
+   *  agent can misplace). Undefined when the spawn captured no final text. */
+  finalText?: string;
 }
 
 /**
@@ -148,7 +152,10 @@ export class ClaudeStepAgent implements StepAgent {
     // CONTAINED: spawn with the PROVIDED workspace as cwd, so the agent's Write/Bash tools
     // land inside the workspace the orchestrator gave it , never elsewhere.
     const usage = await this.spawn(args, invocation.workspaceDir);
-    this.lastResult = { usage };
+    // Capture the turn's final assistant text (the report channel). takeLastAgentTranscript
+    // is set by spawnClaudeStreaming on close; undefined under an injected test spawn.
+    const finalText = takeLastAgentTranscript()?.finalText;
+    this.lastResult = { usage, finalText };
   }
 }
 

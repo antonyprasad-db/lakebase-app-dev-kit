@@ -107,12 +107,20 @@ function resolveAgent(manifest: StepManifest, deps: ManifestRunnerDeps): StepAge
   return buildAgent(manifest.agent, { workspaceDir: deps.workspaceDir, ...(deps.agentContext ?? {}) });
 }
 
+/** Read the agent's captured final assistant text, when the agent exposes one (ClaudeStepAgent
+ *  sets lastResult.finalText). Duck-typed so the runner stays agnostic to the agent kind. */
+function agentFinalText(agent: StepAgent): string | undefined {
+  const lr = (agent as { lastResult?: { finalText?: string } }).lastResult;
+  return lr?.finalText;
+}
+
 function executorWiring(
   manifest: StepManifest,
   action: WorkflowAction,
   deps: ManifestRunnerDeps,
 ): { step: ManifestStep; ctx: StepCtx; execDeps: StepExecutorDeps } {
-  const step = new ManifestStep(manifest, resolveAgent(manifest, deps));
+  const agent = resolveAgent(manifest, deps);
+  const step = new ManifestStep(manifest, agent);
 
   // The manifest routing is the transition authority for a standalone runner: `allowed`
   // returns the step's OWN proposed next, so validateAndBound honors the manifest's route.
@@ -136,11 +144,13 @@ function executorWiring(
     resolveInputs: () => resolveInputsFromWorkspace(manifest, deps.workspaceDir),
     provisionWorkspace: () => (deps.provisionWorkspace ? deps.provisionWorkspace(manifest, action) : { workspaceDir: deps.workspaceDir }),
     instructionsFor: () => (deps.instructionsFor ? deps.instructionsFor(manifest, action) : defaultInstructions(manifest)),
-    // When enabled, format the agent-authored .agent-report.json into a conformant
-    // agent-log.jsonl (orchestrator-side) before validate-outputs , so a sandboxed agent
-    // that cannot run the shared log subprocess still satisfies the agent-log requirement.
+    // When enabled, format the agent's report into a conformant agent-log.jsonl
+    // (orchestrator-side) before validate-outputs , so a sandboxed agent that cannot run the
+    // shared log subprocess still satisfies the agent-log requirement. The report travels as
+    // the agent's FINAL MESSAGE (a ```agent-report block) , containment-proof, no file path
+    // to misplace , with the .agent-report.json file as a fallback for agents that write one.
     ...(deps.formatAgentReports
-      ? { materializeOutputs: (workspaceDir: string) => { formatAgentReport({ workspaceDir, role: manifest.role }); } }
+      ? { materializeOutputs: (workspaceDir: string) => { formatAgentReport({ workspaceDir, role: manifest.role, reportText: agentFinalText(agent) }); } }
       : {}),
     onRecord: deps.onRecord,
   };

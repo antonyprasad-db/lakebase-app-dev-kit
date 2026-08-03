@@ -10,7 +10,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { formatAgentReport } from "../../consort/orchestrator/execution/agent-report-formatter";
+import { formatAgentReport, extractReportBlock } from "../../consort/orchestrator/execution/agent-report-formatter";
 import { getValidator } from "../../scripts/sftdd/schema-loader";
 
 let ws: string;
@@ -80,6 +80,46 @@ describe("formatAgentReport: agent-authored report -> conformant agent-log.jsonl
     writeFileSync(join(ws, ".agent-report.json"), JSON.stringify({ level: "info", event: "made-it-up", message: "x" }));
     const r = formatAgentReport({ workspaceDir: ws, role: "spec-author" });
     expect(r.ok).toBe(false);
+  });
+
+  describe("STDOUT channel (containment-proof: report in the agent's final message)", () => {
+    it("extracts a ```agent-report block from the final text and formats it , NO file needed", () => {
+      const finalText = [
+        "I broke the feature into 2 stories. Here is my report:",
+        "```agent-report",
+        JSON.stringify({ level: "info", event: "artifact.written", message: "wrote feature-spec.json + 2 stories" }),
+        "```",
+        "Done.",
+      ].join("\n");
+      const r = formatAgentReport({ workspaceDir: ws, role: "spec-author", reportText: finalText });
+      expect(r.ok).toBe(true);
+      expect(r.entries).toBe(1);
+      const obj = JSON.parse(readFileSync(join(ws, "agent-log.jsonl"), "utf8").trim());
+      expect(validate(obj)).toBe(true);
+      expect(obj.role).toBe("spec-author");
+      expect(obj.message).toBe("wrote feature-spec.json + 2 stories");
+    });
+
+    it("reportText wins over any file (the stdout channel is authoritative)", () => {
+      writeFileSync(join(ws, ".agent-report.json"), JSON.stringify({ level: "info", event: "artifact.written", message: "from FILE" }));
+      const finalText = "```agent-report\n" + JSON.stringify({ level: "info", event: "artifact.written", message: "from STDOUT" }) + "\n```";
+      formatAgentReport({ workspaceDir: ws, role: "spec-author", reportText: finalText });
+      const obj = JSON.parse(readFileSync(join(ws, "agent-log.jsonl"), "utf8").trim());
+      expect(obj.message).toBe("from STDOUT");
+    });
+
+    it("FAILS when the final text has no agent-report block (agent surfaced nothing)", () => {
+      const r = formatAgentReport({ workspaceDir: ws, role: "spec-author", reportText: "I did some stuff but forgot to report it." });
+      expect(r.ok).toBe(false);
+      expect(r.error).toMatch(/agent-report|surfaced nothing/i);
+      expect(existsSync(join(ws, "agent-log.jsonl"))).toBe(false);
+    });
+
+    it("extractReportBlock: labeled fence, unlabeled json fence, or none", () => {
+      expect(extractReportBlock("```agent-report\n{\"a\":1}\n```")).toBe('{"a":1}');
+      expect(extractReportBlock("x\n```json\n[{\"a\":1}]\n```\ny")).toBe('[{"a":1}]');
+      expect(extractReportBlock("no fence here")).toBeUndefined();
+    });
   });
 
   it("appends to an existing agent-log.jsonl rather than clobbering it", () => {
