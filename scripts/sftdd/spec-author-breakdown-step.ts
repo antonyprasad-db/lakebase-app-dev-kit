@@ -17,12 +17,16 @@
 //                finds THERE. No .sftdd, no conformance check (the orchestrator does that).
 //   route()   -> emits the routing proposal.
 
-import { readFileSync } from "node:fs";
-import { checkArtifactConformance } from "./artifact-conformance.js";
-import { getValidator, formatSchemaErrors } from "./schema-loader.js";
+import { featureSpecNonEmptyStories, agentLogHasRoleEvent } from "./checker-registry.js";
 import type { WorkflowAction } from "./orchestrator-drive.js";
-import type { StepContract, StepInputSpec, StepOutputSpec, RouteProposal, StepRouteContext, OutputCheckResult, ConformanceChecker } from "./step-contract.js";
+import type { StepContract, StepInputSpec, StepOutputSpec, RouteProposal, StepRouteContext, ConformanceChecker } from "./step-contract.js";
 import type { StepInstructions } from "./spec-author-breakdown-step-types.js";
+
+// The two breakdown checkers now live in the shared checker-registry (one source of truth,
+// referenced by name from step manifests). Keep the original local names as thin aliases so
+// this file's remaining references + any importer reading them here keep working.
+const checkFeatureSpecOutput = featureSpecNonEmptyStories;
+const checkAgentLogOutput = agentLogHasRoleEvent;
 
 // Re-export the shared step-run types so existing importers keep working.
 export type { StepInstructions, StepAgent, AgentInvocation } from "./spec-author-breakdown-step-types.js";
@@ -44,72 +48,6 @@ const BREAKDOWN_INPUTS: StepInputSpec[] = [
  *    REQUIRED, conformance-checked output , the orchestrator validates the log line
  *    against agent-log-event.schema.json, exactly as for any other artifact.
  */
-/**
- * IN-CODE conformance checker for the feature-spec output: the produced feature-spec.json
- * must parse + conform to feature.schema.json AND carry a non-empty stories[] (the
- * breakdown deliverable). Deterministic , the orchestrator ACCEPTS/REJECTS on this, never
- * a follow-up to the agent.
- */
-function checkFeatureSpecOutput(producedPath: string): OutputCheckResult {
-  let content: string;
-  try {
-    content = readFileSync(producedPath, "utf8");
-  } catch {
-    return { ok: false, violations: [`feature-spec.json not readable at ${producedPath}`] };
-  }
-  const conf = checkArtifactConformance("feature-spec.json", content);
-  if (!conf.ok) return { ok: false, violations: conf.violations };
-  try {
-    const spec = JSON.parse(content) as { stories?: unknown };
-    if (!Array.isArray(spec.stories) || spec.stories.length === 0) {
-      return { ok: false, violations: ["feature-spec.json has an empty or missing stories[] (the breakdown must enumerate >=1 story)"] };
-    }
-  } catch (e) {
-    return { ok: false, violations: [`feature-spec.json is not valid JSON: ${e instanceof Error ? e.message : String(e)}`] };
-  }
-  return { ok: true, violations: [] };
-}
-
-/**
- * IN-CODE conformance checker for the agent-log output: the produced agent-log.jsonl must
- * have >=1 line, each a JSON object conforming to agent-log-event.schema.json, and at
- * least one line from THIS role recording what it did (an info/warn/error event). This is
- * how "the agent logs what it did + surfaces issues" is enforced deterministically.
- */
-function checkAgentLogOutput(producedPath: string): OutputCheckResult {
-  let raw: string;
-  try {
-    raw = readFileSync(producedPath, "utf8");
-  } catch {
-    return { ok: false, violations: [`agent-log.jsonl not readable at ${producedPath} (the agent must log what it did via the shared agent-log script)`] };
-  }
-  const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean);
-  if (lines.length === 0) {
-    return { ok: false, violations: ["agent-log.jsonl is empty (the agent must log at least one event: what it did / any issue surfaced)"] };
-  }
-  const validate = getValidator("agent-log-event.schema.json");
-  const violations: string[] = [];
-  let sawSpecAuthorEvent = false;
-  for (const [i, line] of lines.entries()) {
-    let obj: unknown;
-    try {
-      obj = JSON.parse(line);
-    } catch {
-      violations.push(`agent-log.jsonl line ${i + 1} is not valid JSON`);
-      continue;
-    }
-    if (!validate(obj)) {
-      violations.push(`agent-log.jsonl line ${i + 1}: ${formatSchemaErrors(validate).join("; ")}`);
-      continue;
-    }
-    if ((obj as { role?: string }).role === "spec-author") sawSpecAuthorEvent = true;
-  }
-  if (!sawSpecAuthorEvent && violations.length === 0) {
-    violations.push("agent-log.jsonl has no spec-author event (the role must log what it did)");
-  }
-  return { ok: violations.length === 0, violations };
-}
-
 const BREAKDOWN_OUTPUTS: StepOutputSpec[] = [
   {
     id: "feature-spec",
