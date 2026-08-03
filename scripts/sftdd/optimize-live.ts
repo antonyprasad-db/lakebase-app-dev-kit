@@ -452,6 +452,11 @@ export async function positionToNextHandoff(args: {
 export interface LaneSweepDeps {
   positionNext(): Promise<HandoffPlan | null>;
   sweepOne(handoff: HandoffPlan): Promise<HandoffResult>;
+  /** ADVANCE a settled upstream handoff WITHOUT sweeping it: run its baseline turn once
+   *  + record it, so the drive moves to the next handoff. Used with startFrom to skip
+   *  past roles whose winner is ALREADY applied to the kit (re-sweeping them is waste).
+   *  Required only when startFrom is set. */
+  advanceOne?(handoff: HandoffPlan): Promise<void>;
 }
 
 /** Sweep EVERY role handoff in a lane, in order, until its boundary. The design
@@ -459,14 +464,22 @@ export interface LaneSweepDeps {
  *  this is strictly SEQUENTIAL: position on the next handoff, sweep + record its
  *  winner (which advances the drive), then re-position. Guards against a lane that
  *  does not advance (the same handoff id twice running, or exceeding maxHandoffs)
- *  by throwing rather than spinning. */
+ *  by throwing rather than spinning.
+ *
+ *  startFrom: the handoff id OR role to START sweeping at. Handoffs BEFORE it are
+ *  already-settled (their winner applied to the kit) , they are ADVANCED once at
+ *  baseline (advanceOne) to reach the target, NOT re-swept. Lets a lane resume at the
+ *  next unsettled role without re-paying decided ones. */
 export async function runLaneSweep(
   deps: LaneSweepDeps,
-  opts: { maxHandoffs?: number } = {},
+  opts: { maxHandoffs?: number; startFrom?: string } = {},
 ): Promise<ChampionWalkResult> {
   const maxHandoffs = opts.maxHandoffs ?? 50;
   const walk: HandoffResult[] = [];
   let prevId: string | undefined;
+  // Before startFrom's handoff is reached, upstream handoffs are settled -> advance
+  // them at baseline instead of sweeping. Flips true at the target (id OR role match).
+  let reachedTarget = opts.startFrom === undefined;
   for (let i = 0; ; i++) {
     if (i >= maxHandoffs) {
       throw new Error(`optimize lane sweep: exceeded ${maxHandoffs} handoffs without reaching the lane boundary (too many).`);
@@ -478,8 +491,18 @@ export async function runLaneSweep(
         `optimize lane sweep: handoff "${handoff.id}" did not advance after its winner was recorded , the drive is stuck (a gate the sweep cannot pass, or a winner that does not change readState). Check the drive state.`,
       );
     }
-    const result = await deps.sweepOne(handoff);
-    walk.push(result);
+    // startFrom matches the exact handoff id OR the role, so a caller can say
+    // "--from architect-reviewer" without the story-scoped id.
+    if (!reachedTarget && (handoff.id === opts.startFrom || handoff.role === opts.startFrom)) reachedTarget = true;
+    if (reachedTarget) {
+      const result = await deps.sweepOne(handoff);
+      walk.push(result);
+    } else {
+      if (!deps.advanceOne) {
+        throw new Error(`optimize lane sweep: startFrom "${opts.startFrom}" needs an advanceOne dep to skip past the settled upstream handoff "${handoff.id}".`);
+      }
+      await deps.advanceOne(handoff);
+    }
     prevId = handoff.id;
   }
   return { walk };

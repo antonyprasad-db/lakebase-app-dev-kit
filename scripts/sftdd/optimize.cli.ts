@@ -24,7 +24,7 @@
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 import { join, resolve } from "node:path";
 import type { WorkflowAction } from "./orchestrator-drive.js";
-import { generateCandidates, defaultLaneCandidates, type SweepSpec, type Candidate } from "./optimize-candidates.js";
+import { generateCandidates, defaultLaneCandidates, BASELINE_CANDIDATE_ID, type SweepSpec, type Candidate } from "./optimize-candidates.js";
 import { runChampionWalk, type HandoffPlan, type HandoffResult } from "./optimize-harness.js";
 import type { BuildTurn, EffortLevel } from "./sftdd-config.js";
 import type { SpawnableAgentRole } from "./agent-models.js";
@@ -58,6 +58,10 @@ export interface OptimizeArgs {
    *  default candidates (defaultLaneCandidates) , not just the one handoff the drive
    *  sits on. Overrides the single-handoff path. */
   sweepLane?: "design" | "build";
+  /** With --sweep-lane: the handoff id OR role to START sweeping from. Handoffs before
+   *  it are already-settled (winner applied to the kit) , ADVANCED once at baseline to
+   *  reach the target, NOT re-swept. Lets a lane resume at the next unsettled role. */
+  from?: string;
   projectDir?: string;
 }
 
@@ -86,6 +90,7 @@ export function parseOptimizeArgs(argv: string[]): OptimizeArgs {
         if (v === "design" || v === "build") out.sweepLane = v;
         break;
       }
+      case "--from": out.from = next(); break;
     }
   }
   return out;
@@ -304,7 +309,20 @@ async function main(): Promise<number> {
         );
         return walk.walk[0];
       },
-    });
+      // advanceOne: a settled upstream handoff (before --from) whose winner is already
+      // applied to the kit , run its BASELINE once + record it to advance the drive,
+      // do NOT re-sweep. Baseline-only candidate + alwaysAdvance records the turn and
+      // moves the lane forward to reach the --from target.
+      advanceOne: async (h) => {
+        const ctxRes = buildCtxForHandoff(h, { projectDir, sftddDir, featureId, recordDir });
+        if ("error" in ctxRes) throw new Error(ctxRes.error.trim());
+        process.stderr.write(`[optimize] handoff ${h.id}: ADVANCE (settled upstream; baseline only, not swept)\n`);
+        await runChampionWalk(
+          { handoffs: [h], candidates: [{ id: BASELINE_CANDIDATE_ID, configOverrides: {} }], trials: 1, proposeOnly: args.proposeOnly, alwaysAdvance: true },
+          makeChampionWalkDeps(ctxRes.ctx),
+        );
+      },
+    }, args.from ? { startFrom: args.from } : {});
     laneWalk.push(...result.walk);
     const report = buildChampionWalkReport({ walk: laneWalk }, allCandidates);
     process.stdout.write(formatChampionWalkReport(report));

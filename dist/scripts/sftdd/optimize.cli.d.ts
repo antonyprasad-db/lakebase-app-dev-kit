@@ -39,6 +39,10 @@ interface OptimizeArgs {
      *  default candidates (defaultLaneCandidates) , not just the one handoff the drive
      *  sits on. Overrides the single-handoff path. */
     sweepLane?: "design" | "build";
+    /** With --sweep-lane: the handoff id OR role to START sweeping from. Handoffs before
+     *  it are already-settled (winner applied to the kit) , ADVANCED once at baseline to
+     *  reach the target, NOT re-swept. Lets a lane resume at the next unsettled role. */
+    from?: string;
     projectDir?: string;
 }
 /** Parse the CLI flags. Pure. */

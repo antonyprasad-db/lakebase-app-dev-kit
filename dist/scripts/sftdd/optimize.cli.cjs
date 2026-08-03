@@ -12434,6 +12434,7 @@ async function runLaneSweep(deps, opts = {}) {
   const maxHandoffs = opts.maxHandoffs ?? 50;
   const walk2 = [];
   let prevId;
+  let reachedTarget = opts.startFrom === void 0;
   for (let i = 0; ; i++) {
     if (i >= maxHandoffs) {
       throw new Error(`optimize lane sweep: exceeded ${maxHandoffs} handoffs without reaching the lane boundary (too many).`);
@@ -12445,8 +12446,16 @@ async function runLaneSweep(deps, opts = {}) {
         `optimize lane sweep: handoff "${handoff.id}" did not advance after its winner was recorded , the drive is stuck (a gate the sweep cannot pass, or a winner that does not change readState). Check the drive state.`
       );
     }
-    const result = await deps.sweepOne(handoff);
-    walk2.push(result);
+    if (!reachedTarget && (handoff.id === opts.startFrom || handoff.role === opts.startFrom)) reachedTarget = true;
+    if (reachedTarget) {
+      const result = await deps.sweepOne(handoff);
+      walk2.push(result);
+    } else {
+      if (!deps.advanceOne) {
+        throw new Error(`optimize lane sweep: startFrom "${opts.startFrom}" needs an advanceOne dep to skip past the settled upstream handoff "${handoff.id}".`);
+      }
+      await deps.advanceOne(handoff);
+    }
     prevId = handoff.id;
   }
   return { walk: walk2 };
@@ -12610,6 +12619,9 @@ function parseOptimizeArgs(argv) {
         if (v === "design" || v === "build") out.sweepLane = v;
         break;
       }
+      case "--from":
+        out.from = next();
+        break;
     }
   }
   return out;
@@ -12771,8 +12783,22 @@ async function main() {
           makeChampionWalkDeps(ctxRes.ctx)
         );
         return walk2.walk[0];
+      },
+      // advanceOne: a settled upstream handoff (before --from) whose winner is already
+      // applied to the kit , run its BASELINE once + record it to advance the drive,
+      // do NOT re-sweep. Baseline-only candidate + alwaysAdvance records the turn and
+      // moves the lane forward to reach the --from target.
+      advanceOne: async (h) => {
+        const ctxRes = buildCtxForHandoff(h, { projectDir, sftddDir, featureId, recordDir });
+        if ("error" in ctxRes) throw new Error(ctxRes.error.trim());
+        process.stderr.write(`[optimize] handoff ${h.id}: ADVANCE (settled upstream; baseline only, not swept)
+`);
+        await runChampionWalk(
+          { handoffs: [h], candidates: [{ id: BASELINE_CANDIDATE_ID, configOverrides: {} }], trials: 1, proposeOnly: args.proposeOnly, alwaysAdvance: true },
+          makeChampionWalkDeps(ctxRes.ctx)
+        );
       }
-    });
+    }, args.from ? { startFrom: args.from } : {});
     laneWalk.push(...result2.walk);
     const report2 = buildChampionWalkReport({ walk: laneWalk }, allCandidates);
     process.stdout.write(formatChampionWalkReport(report2));

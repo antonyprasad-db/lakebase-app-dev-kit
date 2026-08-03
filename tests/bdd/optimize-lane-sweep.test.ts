@@ -63,4 +63,60 @@ describe("runLaneSweep", () => {
     };
     await expect(runLaneSweep(deps, { maxHandoffs: 4 })).rejects.toThrow(/did not advance|too many/i);
   });
+
+  it("startFrom: ADVANCES already-settled upstream handoffs (baseline, no sweep), SWEEPS only from the target on", async () => {
+    // spec-author + ux-designer winners are already applied to the kit; re-sweeping
+    // them to REACH architect is waste. startFrom advances the settled upstream at
+    // baseline (advanceOne) and champion-walks only from the target onward.
+    const handoffs: (HandoffPlan | null)[] = [
+      { id: "S1-spec-author", role: "spec-author", story: "S1" },
+      { id: "ux-designer", role: "ux-designer" },
+      { id: "S1-architect-reviewer", role: "architect-reviewer", story: "S1" },
+      { id: "S1-dba", role: "dba", story: "S1" },
+      null,
+    ];
+    let i = 0;
+    const advanced: string[] = [];
+    const swept: string[] = [];
+    const deps: LaneSweepDeps = {
+      positionNext: async () => handoffs[Math.min(i++, handoffs.length - 1)],
+      sweepOne: async (h) => { swept.push(h.id); return res(h.id, `${h.role}-win`); },
+      advanceOne: async (h) => { advanced.push(h.id); },
+    };
+    const result = await runLaneSweep(deps, { startFrom: "architect-reviewer" });
+    // spec-author + ux-designer advanced (not swept); architect + dba swept.
+    expect(advanced).toEqual(["S1-spec-author", "ux-designer"]);
+    expect(swept).toEqual(["S1-architect-reviewer", "S1-dba"]);
+    // The report carries only the SWEPT handoffs.
+    expect(result.walk.map((w) => w.handoffId)).toEqual(["S1-architect-reviewer", "S1-dba"]);
+  });
+
+  it("startFrom matches an exact handoff id too (not only a role)", async () => {
+    const handoffs: (HandoffPlan | null)[] = [
+      { id: "S1-spec-author", role: "spec-author", story: "S1" },
+      { id: "S1-architect-reviewer", role: "architect-reviewer", story: "S1" },
+      null,
+    ];
+    let i = 0;
+    const advanced: string[] = [];
+    const swept: string[] = [];
+    const deps: LaneSweepDeps = {
+      positionNext: async () => handoffs[Math.min(i++, handoffs.length - 1)],
+      sweepOne: async (h) => { swept.push(h.id); return res(h.id, "w"); },
+      advanceOne: async (h) => { advanced.push(h.id); },
+    };
+    await runLaneSweep(deps, { startFrom: "S1-architect-reviewer" });
+    expect(advanced).toEqual(["S1-spec-author"]);
+    expect(swept).toEqual(["S1-architect-reviewer"]);
+  });
+
+  it("throws if startFrom is set but no advanceOne dep is provided (cannot skip)", async () => {
+    const handoffs: (HandoffPlan | null)[] = [{ id: "S1-spec-author", role: "spec-author", story: "S1" }, null];
+    let i = 0;
+    const deps: LaneSweepDeps = {
+      positionNext: async () => handoffs[Math.min(i++, handoffs.length - 1)],
+      sweepOne: async (h) => res(h.id, "w"),
+    };
+    await expect(runLaneSweep(deps, { startFrom: "architect-reviewer" })).rejects.toThrow(/advanceOne/);
+  });
 });
