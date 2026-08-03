@@ -150,15 +150,27 @@ export async function runChampionWalk(args: ChampionWalkArgs, deps: ChampionWalk
           try {
             r = await deps.runTrial({ handoff, candidate, trial: t });
           } catch (e) {
+            // Instrumented: a runTrial that throws is a disqualifying fail-result, not
+            // fatal. Log the stack so a live run names EXACTLY where the throw came
+            // from (the escape path is otherwise invisible in the bundled bin).
+            process.stderr.write(
+              `[optimize] runTrial threw for ${handoff.id}/${candidate.id} trial ${t}: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}\n`,
+            );
             r = { gatePassed: false, durationMs: 0, costUsd: 0, gateReason: e instanceof Error ? e.message : String(e) };
           }
           results.push(r);
           // Restore the pre-turn state so the NEXT trial/candidate forks from the
           // identical point (the champion-walk invariant). A crashing trial may have
-          // left partial writes, so this restore matters most exactly then; a restore
-          // failure IS fatal (the fork point is corrupt , continuing would compare
-          // candidates from inconsistent states).
-          await snap.restore();
+          // left partial writes, so this restore matters most exactly then. A restore
+          // failure would corrupt the fork point, but it must NOT kill the whole walk
+          // either , log its stack + carry on (the next candidate re-snapshots).
+          try {
+            await snap.restore();
+          } catch (e) {
+            process.stderr.write(
+              `[optimize] snap.restore threw after ${handoff.id}/${candidate.id} trial ${t}: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}\n`,
+            );
+          }
         }
         outcomes.push(summarize(candidate.id, results));
       }

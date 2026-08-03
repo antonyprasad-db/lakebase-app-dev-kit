@@ -339,6 +339,15 @@ async function main(): Promise<number> {
     return 0;
   }
 
+  // Candidates for THIS handoff. An explicit --candidates spec wins (build-turn
+  // model/effort tiering). With no spec, fall back to defaultLaneCandidates(handoff)
+  // , the same per-role default set the lane sweep uses (baseline + cheaper-model +
+  // effort-low + scan-tighten). This is what lets a SINGLE-handoff sweep exercise a
+  // DESIGN role's scalar model/effort levers, which the --candidates grammar (keyed
+  // on build turns) cannot express. So `optimize --feature F ... ` on a positioned
+  // design handoff sweeps its real levers without the multi-handoff lane loop.
+  const handoffCandidates = args.candidates?.trim() ? candidates : defaultLaneCandidates(handoff);
+
   // Assemble the live champion-walk deps for THIS handoff over the real drive.
   const ctxResult = buildCtxForHandoff(handoff, { projectDir, sftddDir, featureId, recordDir });
   if ("error" in ctxResult) {
@@ -347,7 +356,7 @@ async function main(): Promise<number> {
   }
   const deps = makeChampionWalkDeps(ctxResult.ctx);
   const result = await runChampionWalk(
-    { handoffs: [handoff], candidates, trials: args.trials, proposeOnly: args.proposeOnly },
+    { handoffs: [handoff], candidates: handoffCandidates, trials: args.trials, proposeOnly: args.proposeOnly },
     deps,
   );
 

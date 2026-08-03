@@ -6841,10 +6841,21 @@ async function runChampionWalk(args, deps) {
           try {
             r = await deps.runTrial({ handoff, candidate, trial: t });
           } catch (e) {
+            process.stderr.write(
+              `[optimize] runTrial threw for ${handoff.id}/${candidate.id} trial ${t}: ${e instanceof Error ? e.stack ?? e.message : String(e)}
+`
+            );
             r = { gatePassed: false, durationMs: 0, costUsd: 0, gateReason: e instanceof Error ? e.message : String(e) };
           }
           results.push(r);
-          await snap.restore();
+          try {
+            await snap.restore();
+          } catch (e) {
+            process.stderr.write(
+              `[optimize] snap.restore threw after ${handoff.id}/${candidate.id} trial ${t}: ${e instanceof Error ? e.stack ?? e.message : String(e)}
+`
+            );
+          }
         }
         outcomes.push(summarize(candidate.id, results));
       }
@@ -14120,6 +14131,7 @@ async function main2() {
 `);
     return 0;
   }
+  const handoffCandidates = args.candidates?.trim() ? candidates : defaultLaneCandidates(handoff);
   const ctxResult = buildCtxForHandoff(handoff, { projectDir, sftddDir, featureId, recordDir });
   if ("error" in ctxResult) {
     process.stderr.write(ctxResult.error);
@@ -14127,7 +14139,7 @@ async function main2() {
   }
   const deps = makeChampionWalkDeps(ctxResult.ctx);
   const result = await runChampionWalk(
-    { handoffs: [handoff], candidates, trials: args.trials, proposeOnly: args.proposeOnly },
+    { handoffs: [handoff], candidates: handoffCandidates, trials: args.trials, proposeOnly: args.proposeOnly },
     deps
   );
   const report = buildChampionWalkReport(result, candidates);
