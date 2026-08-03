@@ -20,10 +20,10 @@
 // bar and fall through to the structural floor alone.
 
 import { execFile } from "node:child_process";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { TurnKey } from "./sftdd-config.js";
-import { designGuideJson, featureSpecJson, architectureJson, featureTestListJson, dbDesignJson, acsDir, storiesDir } from "./sftdd-paths.js";
+import { designGuideJson, featureSpecJson, architectureJson, featureTestListJson, dbDesignJson, acsDir, storiesDir, featureDir } from "./sftdd-paths.js";
 
 /** The .tdd-layout artifact path for a step, built via sftdd-paths (the single source
  *  of truth for the layout). `base` is a .tdd-shaped root: the live project's .sftdd
@@ -53,8 +53,21 @@ const SCENARIOS_REL = "examples/sftdd-scenarios";
 const CANONICAL = "stockflow";
 const RERECORD = "stockflow-rerecord";
 
-/** Threshold on the judge's 0..1 semantic-coverage score. At/above => comparable. */
+/** Threshold on the judge's 0..1 score. DESIGN artifacts (prose/tokens) demand tight
+ *  semantic coverage; BUILD artifacts (code/tests) get a LOOSER functional bar since
+ *  code structure legitimately varies more than prose. */
 export const SEMANTIC_THRESHOLD = 0.85;
+export const FUNCTIONAL_THRESHOLD = 0.75;
+
+/** A BUILD turn's role output kind, for functional-similarity comparison against the
+ *  recorded-build reference: navigator authors TESTS (red/review), driver writes CODE
+ *  (green/refactor/repair). Used to scope the comparison to the turn's OWN output. */
+export type BuildOutputKind = "tests" | "code";
+export function buildOutputKind(role: string): BuildOutputKind | undefined {
+  if (role === "navigator") return "tests";
+  if (role === "driver") return "code";
+  return undefined;
+}
 
 /** The recorded reference for a step: which corpus + the artifact path(s) under its
  *  recorded-artifacts/ tree, and a human label. `perStoryGlob` marks steps whose
@@ -160,6 +173,9 @@ export type SemanticJudge = (args: {
   step: TurnKey;
   reference: string;
   candidate: string;
+  /** When set, this is a BUILD-output comparison: score FUNCTIONAL equivalence of
+   *  code/tests (looser bar) rather than design-artifact semantic intent. */
+  functional?: BuildOutputKind;
 }) => Promise<SemanticVerdict>;
 
 export interface SemanticGateOutcome {
@@ -211,6 +227,115 @@ export async function evaluateSemanticGate(args: {
   };
 }
 
+/** Read + concatenate all source files under a dir subtree matching an extension set,
+ *  each prefixed with its relative path (so the judge sees file boundaries). Skips
+ *  node_modules / dist / __pycache__. Bounded so a runaway tree cannot blow the buffer:
+ *  stops after maxBytes, appending a truncation marker. */
+function readTree(root: string, exts: string[], maxBytes = 200_000): string {
+  if (!existsSync(root)) return "";
+  const parts: string[] = [];
+  let total = 0;
+  const walk = (dir: string): void => {
+    for (const name of readdirSync(dir).sort()) {
+      if (name === "node_modules" || name === "dist" || name === "__pycache__" || name === ".git") continue;
+      const p = join(dir, name);
+      const st = statSync(p);
+      if (st.isDirectory()) {
+        walk(p);
+      } else if (exts.some((e) => name.endsWith(e))) {
+        if (total >= maxBytes) return;
+        const body = readFileSync(p, "utf8");
+        const rel = p.slice(root.length + 1);
+        const chunk = `// FILE: ${rel}\n${body}\n`;
+        parts.push(chunk);
+        total += chunk.length;
+      }
+    }
+  };
+  walk(root);
+  const joined = parts.join("\n");
+  return joined.length > maxBytes ? joined.slice(0, maxBytes) + "\n// ...[truncated]\n" : joined;
+}
+
+/** The recorded-build reference for a BUILD turn's output: the LAST recorded turn dir
+ *  for the story under recorded-build (its terminal-good code tree), scoped to the
+ *  role's output subtree , tests/ for a navigator (tests) turn, app/ for a driver
+ *  (code) turn. Story matched POSITIONALLY (slugs differ across corpora), by the
+ *  story's index in storyOrder, since the reference and candidate feature decompose
+ *  the same way. Returns null when no recorded-build reference exists. */
+export function resolveBuildReference(args: {
+  kitRoot: string;
+  featureId: string;
+  storyIndex: number;
+  kind: BuildOutputKind;
+}): { paths: string[]; label: string; text: string } | null {
+  const { kitRoot, featureId, storyIndex, kind } = args;
+  // The recorded-build tree is .tdd-shaped (features/<F>/stories/...), so route its
+  // paths through the sftdd-paths builders too (single-source layout rule). The
+  // recorded-build root plays the `tdd` role; featureDir/storiesDir take it from there.
+  const rbRoot = join(kitRoot, SCENARIOS_REL, CANONICAL, "recorded-build");
+  const rbFeature = join(featureDir(rbRoot, featureId), "stories");
+  if (!existsSync(rbFeature)) return null;
+  const stories = readdirSync(rbFeature).filter((d) => statSync(join(rbFeature, d)).isDirectory()).sort();
+  const story = stories[storyIndex];
+  if (!story) return null;
+  const turnsDir = join(rbFeature, story, "turns");
+  if (!existsSync(turnsDir)) return null;
+  const turns = readdirSync(turnsDir).filter((d) => statSync(join(turnsDir, d)).isDirectory()).sort();
+  const lastTurn = turns[turns.length - 1];
+  if (!lastTurn) return null;
+  const codeRoot = join(turnsDir, lastTurn, "code");
+  const sub = kind === "tests" ? join(codeRoot, "tests") : join(codeRoot, "app");
+  if (!existsSync(sub)) return null;
+  const text = readTree(sub, kind === "tests" ? [".py", ".tsx", ".ts"] : [".py"]);
+  if (!text.trim()) return null;
+  return { paths: [sub], label: `${CANONICAL} recorded-build/${story}/${lastTurn}/code/${kind === "tests" ? "tests" : "app"}`, text };
+}
+
+/** Read the candidate's BUILD output from the live experiment tree: tests/ (navigator)
+ *  or app/ (driver), under the project dir (the experiment branch is checked out
+ *  there). Returns "" when the subtree is absent. */
+export function readCandidateBuildOutput(args: { projectDir: string; kind: BuildOutputKind }): string {
+  const sub = join(args.projectDir, args.kind === "tests" ? "tests" : "app");
+  return readTree(sub, args.kind === "tests" ? [".py", ".tsx", ".ts"] : [".py"]);
+}
+
+/** Evaluate a BUILD turn's produced output for FUNCTIONAL similarity to the recorded-
+ *  build reference. This is Layer 2 (the Layer 1 honest-GREEN floor is the trial's own
+ *  gate). Skips (passes) when no recorded-build reference exists. Below FUNCTIONAL_
+ *  THRESHOLD => not viable, name the dropped/changed functionality. */
+export async function evaluateBuildFunctionalGate(args: {
+  kitRoot: string;
+  projectDir: string;
+  featureId: string;
+  storyIndex: number;
+  role: string;
+  judge: SemanticJudge;
+  threshold?: number;
+}): Promise<SemanticGateOutcome> {
+  const { kitRoot, projectDir, featureId, storyIndex, role, judge } = args;
+  const threshold = args.threshold ?? FUNCTIONAL_THRESHOLD;
+  const kind = buildOutputKind(role);
+  if (!kind) return { passed: true, skipped: true }; // non build-authoring role
+
+  const ref = resolveBuildReference({ kitRoot, featureId, storyIndex, kind });
+  if (!ref) return { passed: true, skipped: true };
+
+  const candidate = readCandidateBuildOutput({ projectDir, kind });
+  if (!candidate.trim()) {
+    return { passed: false, reason: `functional: candidate produced no ${kind} to compare against ${ref.label}` };
+  }
+
+  const verdict = await judge({ step: kind as unknown as TurnKey, reference: ref.text, candidate, functional: kind });
+  if (verdict.score >= threshold) return { passed: true, score: verdict.score };
+  const missing = verdict.missing?.length ? ` missing: ${verdict.missing.join("; ")}` : "";
+  return {
+    passed: false,
+    score: verdict.score,
+    reason: `functional: ${kind} score ${verdict.score.toFixed(2)} < ${threshold} vs ${ref.label}.${missing}`,
+  };
+}
+
 /** Build the judge prompt: ask a FIXED model whether the candidate artifact conveys
  *  the SAME design/behavior as the recorded reference at this step. Meaning, not
  *  wording/slug/split. Demands a strict JSON verdict so the score is machine-read. */
@@ -230,6 +355,35 @@ export function buildJudgePrompt(step: TurnKey, reference: string, candidate: st
     ``,
     `CANDIDATE:`,
     "```json",
+    candidate,
+    "```",
+  ].join("\n");
+}
+
+/** Build the FUNCTIONAL-similarity judge prompt for a BUILD turn's output (code or
+ *  tests). Unlike the design prompt (same intent), this asks for FUNCTIONAL
+ *  equivalence: same behaviors tested / same functionality implemented / same layer
+ *  responsibilities , explicitly ignoring naming, formatting, and structural
+ *  arrangement (code varies more than prose, hence the looser bar). */
+export function buildFunctionalJudgePrompt(kind: BuildOutputKind, reference: string, candidate: string): string {
+  const what =
+    kind === "tests"
+      ? `These are TEST files. Judge whether the CANDIDATE tests assert the SAME behaviors / acceptance criteria as the REFERENCE tests , the same things are verified (endpoints, validations, persistence invariants, edge/empty cases, migration reversibility).`
+      : `These are CODE files. Judge whether the CANDIDATE code implements the SAME functionality as the REFERENCE , the same operations/endpoints, the same layer responsibilities (boundary/route, service, repository, model), the same persistence behavior.`;
+  return [
+    `You are a strict senior engineer scoring FUNCTIONAL similarity of ${kind} produced for one build turn.`,
+    `The REFERENCE is the known-good ${kind} recorded for this story in a prior build. The CANDIDATE is newly produced ${kind} for the same story.`,
+    what,
+    `Judge FUNCTION, not form: different file names, symbol names, ordering, formatting, or a different structural split of the SAME behavior/functionality is FINE and must NOT lower the score. Only MISSING or CHANGED behavior/functionality lowers it. Extra behavior in the CANDIDATE is fine and not penalized.`,
+    `Return ONLY a JSON object on a single line: {"score": <0..1 float>, "missing": ["<behavior/functionality the CANDIDATE dropped or changed>", ...]}. score 1.0 = full functional coverage; lower as material behavior/functionality is missing or altered. missing lists ONLY dropped/changed items (empty array when none).`,
+    ``,
+    `REFERENCE ${kind}:`,
+    "```",
+    reference,
+    "```",
+    ``,
+    `CANDIDATE ${kind}:`,
+    "```",
     candidate,
     "```",
   ].join("\n");
@@ -260,9 +414,13 @@ export function parseJudgeReply(reply: string): SemanticVerdict {
  *  json result and parses the verdict. cwd is the project dir. */
 export function makeOpusJudge(opts: { cwd: string; model?: string }): SemanticJudge {
   const model = opts.model ?? "opus";
-  return ({ step, reference, candidate }) =>
+  return ({ step, reference, candidate, functional }) =>
     new Promise<SemanticVerdict>((resolve) => {
-      const prompt = buildJudgePrompt(step, reference, candidate);
+      // A build-output comparison uses the FUNCTIONAL-equivalence prompt (looser, code/
+      // tests); a design artifact uses the semantic-intent prompt.
+      const prompt = functional
+        ? buildFunctionalJudgePrompt(functional, reference, candidate)
+        : buildJudgePrompt(step, reference, candidate);
       execFile(
         "claude",
         ["-p", prompt, "--model", model, "--permission-mode", "acceptEdits", "--strict-mcp-config", "--output-format", "json"],

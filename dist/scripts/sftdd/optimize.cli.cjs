@@ -11894,6 +11894,26 @@ function buildJudgePrompt(step, reference, candidate) {
     "```"
   ].join("\n");
 }
+function buildFunctionalJudgePrompt(kind, reference, candidate) {
+  const what = kind === "tests" ? `These are TEST files. Judge whether the CANDIDATE tests assert the SAME behaviors / acceptance criteria as the REFERENCE tests , the same things are verified (endpoints, validations, persistence invariants, edge/empty cases, migration reversibility).` : `These are CODE files. Judge whether the CANDIDATE code implements the SAME functionality as the REFERENCE , the same operations/endpoints, the same layer responsibilities (boundary/route, service, repository, model), the same persistence behavior.`;
+  return [
+    `You are a strict senior engineer scoring FUNCTIONAL similarity of ${kind} produced for one build turn.`,
+    `The REFERENCE is the known-good ${kind} recorded for this story in a prior build. The CANDIDATE is newly produced ${kind} for the same story.`,
+    what,
+    `Judge FUNCTION, not form: different file names, symbol names, ordering, formatting, or a different structural split of the SAME behavior/functionality is FINE and must NOT lower the score. Only MISSING or CHANGED behavior/functionality lowers it. Extra behavior in the CANDIDATE is fine and not penalized.`,
+    `Return ONLY a JSON object on a single line: {"score": <0..1 float>, "missing": ["<behavior/functionality the CANDIDATE dropped or changed>", ...]}. score 1.0 = full functional coverage; lower as material behavior/functionality is missing or altered. missing lists ONLY dropped/changed items (empty array when none).`,
+    ``,
+    `REFERENCE ${kind}:`,
+    "```",
+    reference,
+    "```",
+    ``,
+    `CANDIDATE ${kind}:`,
+    "```",
+    candidate,
+    "```"
+  ].join("\n");
+}
 function parseJudgeReply(reply) {
   const m = reply.match(/\{[\s\S]*?"score"[\s\S]*?\}/);
   if (m) {
@@ -11909,8 +11929,8 @@ function parseJudgeReply(reply) {
 }
 function makeOpusJudge(opts) {
   const model = opts.model ?? "opus";
-  return ({ step, reference, candidate }) => new Promise((resolve4) => {
-    const prompt = buildJudgePrompt(step, reference, candidate);
+  return ({ step, reference, candidate, functional }) => new Promise((resolve4) => {
+    const prompt = functional ? buildFunctionalJudgePrompt(functional, reference, candidate) : buildJudgePrompt(step, reference, candidate);
     (0, import_node_child_process4.execFile)(
       "claude",
       ["-p", prompt, "--model", model, "--permission-mode", "acceptEdits", "--strict-mcp-config", "--output-format", "json"],
