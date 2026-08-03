@@ -58,7 +58,6 @@ ONLY=""
 DRY_RUN=""
 PROPOSE_ONLY=""
 SWEEP_LANE=""
-FROM=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -69,7 +68,6 @@ while [[ $# -gt 0 ]]; do
     --trials) TRIALS="$2"; shift 2 ;;
     --only) ONLY="$2"; shift 2 ;;
     --sweep-lane) SWEEP_LANE="$2"; shift 2 ;;
-    --from) FROM="$2"; shift 2 ;;
     --dry-run) DRY_RUN="1"; shift ;;
     --propose-only) PROPOSE_ONLY="1"; shift ;;
     *) echo "optimize-scenario: unknown arg '$1'" >&2; exit 2 ;;
@@ -127,9 +125,6 @@ propose_args=(); [[ -n "$PROPOSE_ONLY" ]] && propose_args=( --propose-only )
 # --sweep-lane uses per-role default candidates, so --candidates is optional there.
 lane_args=(); [[ -n "$SWEEP_LANE" ]] && lane_args=( --sweep-lane "$SWEEP_LANE" )
 cand_args=(); [[ -n "$CANDIDATES" ]] && cand_args=( --candidates "$CANDIDATES" )
-# --from: start sweeping at this handoff; settled upstream handoffs are advanced
-# once at baseline (not re-swept) to reach it.
-from_args=(); [[ -n "$FROM" ]] && from_args=( --from "$FROM" )
 
 if [[ -n "$SWEEP_LANE" ]]; then
   echo "[optimize-scenario] sweeping the ENTIRE '${SWEEP_LANE}' lane of ${FEATURE} (trials=${TRIALS}, per-role default candidates)" >&2
@@ -143,7 +138,6 @@ lk lakebase-sftdd-optimize \
   --trials "$TRIALS" \
   ${cand_args[@]+"${cand_args[@]}"} \
   ${lane_args[@]+"${lane_args[@]}"} \
-  ${from_args[@]+"${from_args[@]}"} \
   ${only_args[@]+"${only_args[@]}"} \
   ${propose_args[@]+"${propose_args[@]}"} \
   ${dry_args[@]+"${dry_args[@]}"}

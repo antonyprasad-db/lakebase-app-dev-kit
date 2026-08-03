@@ -436,11 +436,6 @@ export async function positionToNextHandoff(args: {
 export interface LaneSweepDeps {
   positionNext(): Promise<HandoffPlan | null>;
   sweepOne(handoff: HandoffPlan): Promise<HandoffResult>;
-  /** ADVANCE a handoff WITHOUT sweeping it: run its baseline turn once + record it, so
-   *  the drive moves to the next handoff. Used with startFrom to cheaply skip past
-   *  already-settled upstream handoffs (whose winner is already applied to the kit)
-   *  instead of re-sweeping their candidates. Required only when startFrom is set. */
-  advanceOne?(handoff: HandoffPlan): Promise<void>;
 }
 
 /** Sweep EVERY role handoff in a lane, in order, until its boundary. The design
@@ -451,15 +446,11 @@ export interface LaneSweepDeps {
  *  by throwing rather than spinning. */
 export async function runLaneSweep(
   deps: LaneSweepDeps,
-  opts: { maxHandoffs?: number; startFrom?: string } = {},
+  opts: { maxHandoffs?: number } = {},
 ): Promise<ChampionWalkResult> {
   const maxHandoffs = opts.maxHandoffs ?? 50;
   const walk: HandoffResult[] = [];
   let prevId: string | undefined;
-  // Before startFrom's handoff is reached, upstream handoffs are ALREADY settled (their
-  // winner is applied to the kit) , advance them once at baseline instead of re-sweeping.
-  // Flips to true when the target handoff id is seen; from then on everything is swept.
-  let reachedTarget = opts.startFrom === undefined;
   for (let i = 0; ; i++) {
     if (i >= maxHandoffs) {
       throw new Error(`optimize lane sweep: exceeded ${maxHandoffs} handoffs without reaching the lane boundary (too many).`);
@@ -471,22 +462,8 @@ export async function runLaneSweep(
         `optimize lane sweep: handoff "${handoff.id}" did not advance after its winner was recorded , the drive is stuck (a gate the sweep cannot pass, or a winner that does not change readState). Check the drive state.`,
       );
     }
-    // startFrom matches the exact handoff id OR the role , so a caller can say
-    // "--from architect-reviewer" without knowing the per-story handoff id (design
-    // handoff ids are story-scoped, e.g. "S1-record-stock-architect-reviewer").
-    if (!reachedTarget && (handoff.id === opts.startFrom || handoff.role === opts.startFrom)) reachedTarget = true;
-    if (reachedTarget) {
-      const result = await deps.sweepOne(handoff);
-      walk.push(result);
-    } else {
-      // A settled upstream handoff: advance it (baseline, no sweep) to reach the target.
-      if (!deps.advanceOne) {
-        throw new Error(
-          `optimize lane sweep: startFrom "${opts.startFrom}" needs an advanceOne dep to skip past the upstream handoff "${handoff.id}".`,
-        );
-      }
-      await deps.advanceOne(handoff);
-    }
+    const result = await deps.sweepOne(handoff);
+    walk.push(result);
     prevId = handoff.id;
   }
   return { walk };
