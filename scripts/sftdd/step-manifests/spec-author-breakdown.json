@@ -19,5 +19,9 @@
     "effort": "low",
     "session": "fresh",
     "resumeKeyFrom": "role"
-  }
+  },
+  "postTurn": [
+    { "bin": "PIPELINE_BIN", "args": ["reset-breakdown", "--tdd"], "when": "before" },
+    { "bin": "PIPELINE_BIN", "args": ["sync-breakdown", "--tdd"], "when": "after" }
+  ]
 }

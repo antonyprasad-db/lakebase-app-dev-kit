@@ -19,6 +19,7 @@
 import * as fs from "node:fs";
 import { dirname } from "node:path";
 import { nextTransition, type WorkflowAction } from "./orchestrator-drive.js";
+import { manifestForAction } from "./step-manifest.js";
 import type { DriveEffects } from "./orchestrator-run.js";
 import { deriveDriveState, effectiveLoopForStory } from "./orchestrator-derive.js";
 import { diskArtifactProbe, readDriveContext } from "./orchestrator-probe.js";
@@ -167,6 +168,13 @@ export interface DriveEffectsConfig {
    *  Return undefined (or an empty list) to leave the tool scope unrestricted. */
   allowedToolsForRole?(role: string): string[] | undefined;
   disallowedToolsForRole?(role: string): string[] | undefined;
+  /** OPT-IN (default off): route an action's command assembly through its step
+   *  manifest (commandsFromManifest) when one matches, instead of the legacy
+   *  per-role branch of commandsForAction. The two are golden-equivalent per
+   *  migrated action (byte-identical DriveCommand[]), so this changes nothing
+   *  observable , it is the migration switch that lets a legacy branch be retired
+   *  once its manifest + golden test are proven. Unset => the legacy path runs. */
+  useManifestSteps?: boolean;
   onAction?(action: WorkflowAction, iteration: number): void;
 }
 
@@ -1213,6 +1221,153 @@ export function turnKeyForAction(action: WorkflowAction): TurnKey | undefined {
   return undefined;
 }
 
+/**
+ * Assemble the `claude` DriveCommand for an invoke-role action , the per-invocation agent
+ * spawn (role/model/effort/session/tool-scope/task). Extracted verbatim from the invoke-role
+ * branch of commandsForAction so BOTH the legacy branch and the manifest-driven
+ * commandsFromManifest build the SAME command (one source of truth for the spawn; the full
+ * suite + the golden-equivalence test guard the extraction). All cfg levers (modelForTurn,
+ * effortForTurn, contextPackSuffix, taskSuffix, tool scope, resume scope) are honored exactly
+ * as before , this is a pure move, not a behavior change.
+ */
+function buildClaudeCommand(action: Extract<WorkflowAction, { kind: "invoke-role" }>, cfg: DriveEffectsConfig): DriveCommand {
+  const f = cfg.featureId;
+  const BUILD_ROLES = new Set(["navigator", "driver"]);
+  const buildScope = cfg.buildSessionScope ?? "story";
+  let resumeKey: string | undefined;
+  if (BUILD_ROLES.has(action.role)) {
+    if (buildScope === "story" && "story" in action && action.story) {
+      resumeKey = `${action.role}:${action.story}`;
+    } // else "cycle" -> undefined (cold per turn)
+  } else {
+    resumeKey = action.role;
+  }
+  // Per-role + per-STEP `--effort`/model (unified config). Derive the invocation
+  // KEY from the action , a BUILD turn (navigator review|red, driver
+  // refactor|green) OR a DESIGN step (spec-author breakdown|propose|acs,
+  // architect estimate|architect, dba, test-list, ux-designer ux). This is the
+  // "apply to the step, not the role" axis: effort/model are keyed on WHICH task
+  // the role is doing this invocation. When `effortForTurn` is provided
+  // (sftdd-config.json) it governs every step; absent, fall back to the
+  // review-only `reviewEffort` (P6 default low on the navigator REVIEW).
+  const turnKey = turnKeyForAction(action);
+  const buildTurn = turnKey; // legacy name used below for contextPackSuffix
+  const isReviewTurn = action.role === "navigator" && turnKey === "review";
+  const effort = cfg.effortForTurn
+    ? cfg.effortForTurn(action.role, turnKey)
+    : isReviewTurn
+      ? cfg.reviewEffort ?? "low"
+      : "";
+  const fallbackModel = cfg.fallbackModelForRole?.(action.role);
+  const maxBudgetUsd = cfg.maxBudgetUsdForRole?.(action.role);
+  // Per-story granularity: a contract/cleanup story (drop column / remove
+  // endpoint / rename) auto-drops to the finest `ac` loop, since its lockstep
+  // DB+code change is too heavy for one story-level GREEN turn. This must reach
+  // the PROMPT (the RED/GREEN/REFACTOR task text) AND the cycle CLI loop flag,
+  // not only the routing in deriveDriveState; otherwise the driver is told to
+  // "make ALL of the story GREEN in one pass" while the substrate stamps per-AC.
+  const storyLoop: "ac" | "hybrid-a" | "story" | undefined =
+    "story" in action ? effectiveLoopForStory(cfg.loopGranularity ?? "story", action.story) : cfg.loopGranularity;
+  return {
+    kind: "claude",
+    role: action.role,
+    model: cfg.modelForTurn ? cfg.modelForTurn(action.role, buildTurn) : cfg.modelForRole(action.role),
+    ...(resumeKey !== undefined ? { resumeKey } : {}),
+    ...(effort && effort !== "default" ? { effort } : {}),
+    ...(fallbackModel ? { fallbackModel } : {}),
+    ...(typeof maxBudgetUsd === "number" ? { maxBudgetUsd } : {}),
+    // Optimize harness content/scope levers (all default-off): extra context
+    // is injected BEFORE the terse suffix (reads as context), the task suffix
+    // AFTER it (reads as a trailing directive), and the tool scope is carried
+    // on the command for the runner to translate to spawn flags. When the cfg
+    // sets none, this is byte-identical to `roleTask(...) + AGENT_TERSE_SUFFIX`.
+    ...(((): { allowedTools?: string[]; disallowedTools?: string[] } => {
+      const allowed = cfg.allowedToolsForRole?.(action.role);
+      const disallowed = cfg.disallowedToolsForRole?.(action.role);
+      return {
+        ...(allowed && allowed.length ? { allowedTools: allowed } : {}),
+        ...(disallowed && disallowed.length ? { disallowedTools: disallowed } : {}),
+      };
+    })()),
+    task:
+      roleTask(action, f, cfg.uiTrack ?? false, cfg.sftddDir, {
+        loop: storyLoop,
+        cap: cfg.batchCap,
+      }) +
+      (cfg.contextPackSuffix?.(action.role, buildTurn) ?? "") +
+      AGENT_TERSE_SUFFIX +
+      (cfg.taskSuffix?.(action.role, buildTurn) ?? ""),
+    replay: {
+      mode: "mode" in action ? action.mode : undefined,
+      // The build turn's mode (reflect / review / refactor / assess / repair),
+      // distinct from the design-lane `mode` above. The replay path needs it to
+      // recognise the reflect turn (whose recorded output is a .sftdd design
+      // artifact the code-only build restore filters out).
+      buildMode: "buildMode" in action ? action.buildMode : undefined,
+      story: "story" in action ? action.story : undefined,
+    },
+  };
+}
+
+/**
+ * Assemble an action's DriveCommand[] FROM its step manifest , the manifest-driven half of
+ * the Template Method's record/log phase. Returns undefined when no manifest matches the
+ * action (the caller falls back to the legacy commandsForAction branch), so this is purely
+ * additive: the default drive never sees it unless the opt-in cfg flag turns it on AND a
+ * manifest exists. The assembled list is [before-postTurn CLIs, claude, verify-artifact,
+ * after-postTurn CLIs, log-reconcile], mirroring the legacy branch's structural commands.
+ * The golden-equivalence test asserts it deep-equals commandsForAction for the migrated
+ * action; a legacy branch is only retired once its golden passes.
+ */
+export function commandsFromManifest(action: WorkflowAction, cfg: DriveEffectsConfig): DriveCommand[] | undefined {
+  if (action.kind !== "invoke-role") return undefined;
+  const manifest = manifestForAction(action);
+  if (!manifest) return undefined;
+
+  const f = cfg.featureId;
+  const tdd = ["--feature", f, "--tdd-dir", cfg.sftddDir];
+
+  // Map a manifest postTurn bin token to its resolved CLI bin. The manifest carries a
+  // stable symbolic token (PIPELINE_BIN, CYCLE_BIN, ...) so the resolved bin name stays
+  // one source of truth in code, not duplicated across every manifest.
+  const BIN_TOKENS: Record<string, string> = {
+    PIPELINE_BIN,
+    CYCLE_BIN,
+    HUMAN_PROXY_BIN,
+    LOG_BIN,
+    TEST_LIST_BIN,
+  };
+  const resolveBin = (token: string): string => BIN_TOKENS[token] ?? token;
+  const expandArgs = (args: string[]): string[] =>
+    args.flatMap((a) => (a === "--tdd" ? tdd : [a]));
+
+  const before = (manifest.postTurn ?? [])
+    .filter((p) => p.when === "before")
+    .map<DriveCommand>((p) => ({ kind: "cli", bin: resolveBin(p.bin), args: expandArgs(p.args) }));
+  const after = (manifest.postTurn ?? [])
+    .filter((p) => p.when === "after")
+    .map<DriveCommand>((p) => ({ kind: "cli", bin: resolveBin(p.bin), args: expandArgs(p.args) }));
+
+  const cmds: DriveCommand[] = [...before, buildClaudeCommand(action, cfg)];
+
+  // Post-turn out-of-root guard, from the manifest's declared outputs (same anyOf/label the
+  // legacy designArtifactExpectation produces for this action).
+  const expectArtifact = designArtifactExpectation(action, cfg.sftddDir, f);
+  if (expectArtifact) {
+    cmds.push({ kind: "verify-artifact", role: action.role, anyOf: expectArtifact.anyOf, label: expectArtifact.label });
+  }
+
+  cmds.push(...after);
+
+  // reconcile logs whatever landed (skipped for the sprint-scoped planning modes that
+  // write no feature artifacts , none of which are manifest-driven yet).
+  const isPlanningMode =
+    "mode" in action && (action.mode === "propose" || action.mode === "estimate" || action.mode === "estimate-committed");
+  if (f && !isPlanningMode) cmds.push({ kind: "cli", bin: LOG_BIN, args: ["--reconcile", ...tdd] });
+
+  return cmds;
+}
+
 export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfig): DriveCommand[] {
   const f = cfg.featureId;
   const tdd = ["--feature", f, "--tdd-dir", cfg.sftddDir];
@@ -1260,82 +1415,13 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
       // the window ("Prompt is too long", the live smoke's S2 death). Other roles
       // resume across the whole feature (keyed by role); they are invoked a handful
       // of times so accumulation is bounded.
-      const BUILD_ROLES = new Set(["navigator", "driver"]);
-      const buildScope = cfg.buildSessionScope ?? "story";
-      let resumeKey: string | undefined;
-      if (BUILD_ROLES.has(action.role)) {
-        if (buildScope === "story" && "story" in action && action.story) {
-          resumeKey = `${action.role}:${action.story}`;
-        } // else "cycle" -> undefined (cold per turn)
-      } else {
-        resumeKey = action.role;
-      }
-      // Per-role + per-STEP `--effort`/model (unified config). Derive the invocation
-      // KEY from the action , a BUILD turn (navigator review|red, driver
-      // refactor|green) OR a DESIGN step (spec-author breakdown|propose|acs,
-      // architect estimate|architect, dba, test-list, ux-designer ux). This is the
-      // "apply to the step, not the role" axis: effort/model are keyed on WHICH task
-      // the role is doing this invocation. When `effortForTurn` is provided
-      // (sftdd-config.json) it governs every step; absent, fall back to the
-      // review-only `reviewEffort` (P6 default low on the navigator REVIEW).
-      const turnKey = turnKeyForAction(action);
-      const buildTurn = turnKey; // legacy name used below for contextPackSuffix
-      const isReviewTurn = action.role === "navigator" && turnKey === "review";
-      const effort = cfg.effortForTurn
-        ? cfg.effortForTurn(action.role, turnKey)
-        : isReviewTurn
-          ? cfg.reviewEffort ?? "low"
-          : "";
-      const fallbackModel = cfg.fallbackModelForRole?.(action.role);
-      const maxBudgetUsd = cfg.maxBudgetUsdForRole?.(action.role);
-      // Per-story granularity: a contract/cleanup story (drop column / remove
-      // endpoint / rename) auto-drops to the finest `ac` loop, since its lockstep
-      // DB+code change is too heavy for one story-level GREEN turn. This must reach
-      // the PROMPT (the RED/GREEN/REFACTOR task text) AND the cycle CLI loop flag,
-      // not only the routing in deriveDriveState; otherwise the driver is told to
-      // "make ALL of the story GREEN in one pass" while the substrate stamps per-AC.
+      const claude = buildClaudeCommand(action, cfg);
+      const cmds: DriveCommand[] = [claude];
+      // The per-story loop granularity is still needed BELOW for the cycle CLI loop
+      // flags (the claude command computes its own copy internally; this drives the
+      // navigator/driver begin/review/refactor --loop args). Same derivation.
       const storyLoop: "ac" | "hybrid-a" | "story" | undefined =
         "story" in action ? effectiveLoopForStory(cfg.loopGranularity ?? "story", action.story) : cfg.loopGranularity;
-      const claude: DriveCommand = {
-        kind: "claude",
-        role: action.role,
-        model: cfg.modelForTurn ? cfg.modelForTurn(action.role, buildTurn) : cfg.modelForRole(action.role),
-        ...(resumeKey !== undefined ? { resumeKey } : {}),
-        ...(effort && effort !== "default" ? { effort } : {}),
-        ...(fallbackModel ? { fallbackModel } : {}),
-        ...(typeof maxBudgetUsd === "number" ? { maxBudgetUsd } : {}),
-        // Optimize harness content/scope levers (all default-off): extra context
-        // is injected BEFORE the terse suffix (reads as context), the task suffix
-        // AFTER it (reads as a trailing directive), and the tool scope is carried
-        // on the command for the runner to translate to spawn flags. When the cfg
-        // sets none, this is byte-identical to `roleTask(...) + AGENT_TERSE_SUFFIX`.
-        ...(((): { allowedTools?: string[]; disallowedTools?: string[] } => {
-          const allowed = cfg.allowedToolsForRole?.(action.role);
-          const disallowed = cfg.disallowedToolsForRole?.(action.role);
-          return {
-            ...(allowed && allowed.length ? { allowedTools: allowed } : {}),
-            ...(disallowed && disallowed.length ? { disallowedTools: disallowed } : {}),
-          };
-        })()),
-        task:
-          roleTask(action, f, cfg.uiTrack ?? false, cfg.sftddDir, {
-            loop: storyLoop,
-            cap: cfg.batchCap,
-          }) +
-          (cfg.contextPackSuffix?.(action.role, buildTurn) ?? "") +
-          AGENT_TERSE_SUFFIX +
-          (cfg.taskSuffix?.(action.role, buildTurn) ?? ""),
-        replay: {
-          mode: "mode" in action ? action.mode : undefined,
-          // The build turn's mode (reflect / review / refactor / assess / repair),
-          // distinct from the design-lane `mode` above. The replay path needs it to
-          // recognise the reflect turn (whose recorded output is a .sftdd design
-          // artifact the code-only build restore filters out).
-          buildMode: "buildMode" in action ? action.buildMode : undefined,
-          story: "story" in action ? action.story : undefined,
-        },
-      };
-      const cmds: DriveCommand[] = [claude];
       // Post-turn out-of-root guard (FEIP-8006): assert the role wrote its
       // artifact under the project's sftddDir BEFORE any effect below consumes it,
       // so a stray write (agent resolved the project root wrong) fails loud +
@@ -1886,7 +1972,13 @@ export function buildDriveEffects(cfg: DriveEffectsConfig): DriveEffects {
       return readDriveStateFromDisk(cfg.sftddDir, cfg.featureId, cfg.projectDir, { uiTrack: cfg.uiTrack });
     },
     async perform(action) {
-      for (const cmd of commandsForAction(action, cfg)) {
+      // Opt-in manifest path (default off): when a step manifest matches this action,
+      // assemble its commands from the manifest (golden-equivalent to the legacy branch).
+      // Falls back to commandsForAction when the flag is off OR no manifest matches, so
+      // the default drive is byte-identical.
+      const cmds =
+        (cfg.useManifestSteps ? commandsFromManifest(action, cfg) : undefined) ?? commandsForAction(action, cfg);
+      for (const cmd of cmds) {
         await cfg.runner.run(cmd);
       }
     },
