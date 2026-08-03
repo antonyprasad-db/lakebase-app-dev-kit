@@ -55,6 +55,12 @@ export interface TrialResult {
   cacheReadTokens?: number;
   /** Why the gate failed (present only when gatePassed is false). */
   gateReason?: string;
+  /** An opaque handle to THIS trial's produced artifacts (the .sftdd it wrote),
+   *  captured before the between-trial restore wipes them. When this trial's candidate
+   *  wins, the walk RESTORES these exact artifacts to advance the drive , so the next
+   *  role runs against the winner's ACTUAL, measured, gated output, not a fresh re-run.
+   *  Opaque to the pure engine; the live deps produce + consume it. */
+  artifactsRef?: unknown;
 }
 
 /** A restorable handoff snapshot (design or build), abstracted so the walk does
@@ -70,9 +76,12 @@ export interface ChampionWalkDeps {
   snapshot(handoff: HandoffPlan): Promise<HandoffSnapshot>;
   /** Run ONE candidate ONE time from the current (restored) state, gate + time it. */
   runTrial(args: { handoff: HandoffPlan; candidate: Candidate; trial: number }): Promise<TrialResult>;
-  /** Re-run the winning candidate with recording ON, so the surviving corpus
-   *  captures the winner turn. Advances the walk to the winner's state. */
-  recordWinner(args: { handoff: HandoffPlan; candidate: Candidate }): Promise<void>;
+  /** Advance the walk to the winner's state + record it to the corpus. Given the
+   *  WINNING TRIAL's artifactsRef, the live impl RESTORES those exact artifacts (the
+   *  measured, gated output) , it does NOT re-run the turn, so the next role consumes
+   *  the winner's ACTUAL output. artifactsRef is undefined only in degenerate cases
+   *  (no passing trial captured); the impl may then fall back to a re-run. */
+  recordWinner(args: { handoff: HandoffPlan; candidate: Candidate; artifactsRef?: unknown }): Promise<void>;
 }
 
 export interface ChampionWalkArgs {
@@ -196,7 +205,14 @@ export async function runChampionWalk(args: ChampionWalkArgs, deps: ChampionWalk
       //     lane stalls after handoff #1. propose-only still gates kit persistence.
       if (!proposeOnly || alwaysAdvance) {
         const winnerCandidate = candidates.find((c) => c.id === winner.candidateId)!;
-        await deps.recordWinner({ handoff, candidate: winnerCandidate });
+        // Hand recordWinner the WINNING TRIAL's captured artifacts so it restores the
+        // exact measured/gated output (the next role runs against the winner's ACTUAL
+        // artifacts), not a re-run. Pick the fastest passing trial of the winning
+        // candidate , the representative that its median reflects. Undefined only if
+        // no passing trial captured artifacts (degenerate; impl falls back to re-run).
+        const winnerOutcome = outcomes.find((o) => o.candidateId === winner.candidateId);
+        const artifactsRef = bestPassingTrial(winnerOutcome)?.artifactsRef;
+        await deps.recordWinner({ handoff, candidate: winnerCandidate, artifactsRef });
       }
 
       walk.push({ handoffId: handoff.id, baselineMs, candidates: outcomes, winner });
@@ -206,6 +222,16 @@ export async function runChampionWalk(args: ChampionWalkArgs, deps: ChampionWalk
   }
 
   return { walk };
+}
+
+/** The fastest PASSING trial of a candidate outcome , the representative whose
+ *  artifacts should survive as the winner (its wall-clock is what the median
+ *  reflects). Returns undefined for a disqualified/absent outcome. */
+function bestPassingTrial(outcome: CandidateOutcome | undefined): TrialResult | undefined {
+  if (!outcome || outcome.disqualified) return undefined;
+  const passing = outcome.trials.filter((t) => t.gatePassed);
+  if (passing.length === 0) return undefined;
+  return passing.reduce((best, t) => (t.durationMs < best.durationMs ? t : best), passing[0]);
 }
 
 /** Roll up one candidate's trials: median wall-clock + cost over PASSING trials;

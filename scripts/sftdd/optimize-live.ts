@@ -28,6 +28,13 @@ import { actionLane, type WorkflowAction } from "./orchestrator-drive.js";
 import { cutExperiment, type CutExperimentArgs } from "./experiment.js";
 import { readEscalations } from "./escalation.js";
 import { readAgentLog } from "./agent-log.js";
+import { recordTurn, seedRecorderBaseline } from "./turn-recorder.js";
+
+/** The env var the drive recorder + agent subprocess read for the corpus dir. Also
+ *  the fallback for recordWinner's from-restored-state corpus record. Defined at
+ *  module top so both makeChampionWalkDeps (recordWinner) and makeLiveSpawnTurn can
+ *  reference it (a `const` is not hoisted). */
+const RECORD_DIR_ENV = "LAKEBASE_SFTDD_RECORD_DIR";
 
 /** Spawn ONE role turn for a candidate (the cloud/model leaf). The real impl runs
  *  the handoff's `claude -p` command through execRunner (applying the candidate's
@@ -62,6 +69,10 @@ export interface OptimizeLiveCtx {
    *  the project's turn.usage. Optional; the CLI wires readLastTurnTokens (agent-log
    *  reader). Absent in the hermetic tests, which don't need real token counts. */
   readTurnTokens?(args: { handoff: HandoffPlan }): { inputTokens?: number; cacheReadTokens?: number } | undefined;
+  /** The corpus dir a WINNER capture records into. recordWinner uses it to record the
+   *  restored winning-trial artifacts (via recordTurn, no re-spawn) when the ambient
+   *  RECORD_DIR env is not set. Optional; absent in hermetic tests. */
+  recordDir?: string;
 }
 
 /** The on-disk config path relative to the project root. */
@@ -137,6 +148,15 @@ export function makeChampionWalkDeps(ctx: OptimizeLiveCtx): ChampionWalkDeps {
         // Prompt-weight signal (the pass-2 trim-target input): read the turn's
         // input/cache-read tokens from the just-emitted turn.usage. Best-effort.
         const tokens = ctx.readTurnTokens?.({ handoff });
+        // Capture THIS trial's produced .sftdd artifacts NOW, before the caller's
+        // between-trial restore wipes them , but only for a PASSING design trial
+        // (the winner is chosen among passing; a failed trial's output is not
+        // restorable-as-winner). When this trial's candidate wins, recordWinner
+        // restores this exact snapshot so the next role runs against the winner's
+        // real, measured output (no re-run). Build handoffs advance via git/branch
+        // state, not a .sftdd copy, so they carry no artifactsRef (impl re-runs).
+        const artifactsRef =
+          gate.passed && !isBuildHandoff(handoff) ? snapshotDesign({ sftddDir: ctx.sftddDir }) : undefined;
         result = {
           gatePassed: gate.passed,
           durationMs,
@@ -144,6 +164,7 @@ export function makeChampionWalkDeps(ctx: OptimizeLiveCtx): ChampionWalkDeps {
           ...(tokens?.inputTokens !== undefined ? { inputTokens: tokens.inputTokens } : {}),
           ...(tokens?.cacheReadTokens !== undefined ? { cacheReadTokens: tokens.cacheReadTokens } : {}),
           ...(gate.reason ? { gateReason: gate.reason } : {}),
+          ...(artifactsRef ? { artifactsRef } : {}),
         };
       } catch (e) {
         const durationMs = ctx.now() - started;
@@ -155,16 +176,40 @@ export function makeChampionWalkDeps(ctx: OptimizeLiveCtx): ChampionWalkDeps {
       return result;
     },
 
-    async recordWinner({ handoff, candidate }): Promise<void> {
-      // Re-run the winner with recording ON, applying its levers, and DO NOT
-      // restore , this advances the walk to the winner's state (the surviving turn).
-      const restoreCandidate = applyCandidate(ctx, candidate);
-      try {
-        await ctx.spawnTurn({ handoff, candidate, record: true });
-      } finally {
-        // Restore the config/env/overlay (levers are a per-turn A/B knob, not a
-        // persistent project change); the winner's ARTIFACTS on disk survive.
-        restoreCandidate();
+    async recordWinner({ handoff, candidate, artifactsRef }): Promise<void> {
+      // Advance to the winner's state using the WINNING TRIAL's ACTUAL artifacts , the
+      // exact output that was measured + gated , so the next role runs against what
+      // truly won, NOT a fresh re-run that would produce different artifacts. The ref
+      // is that trial's DesignSnapshot (captured in runTrial before the between-trial
+      // restore wiped it); restoring it makes the live .sftdd the winner's output.
+      const snap = artifactsRef as { restore(): void; dispose(): void } | undefined;
+      if (snap) {
+        snap.restore();
+        // Record the (now-restored) winner state into the corpus without a re-spawn:
+        // recordTurn diffs the current .sftdd against the recorder baseline. Only when
+        // a corpus record dir is set (a winner capture); best-effort so a recorder
+        // hiccup never loses the advance. No transcript , this is a restored artifact,
+        // not a fresh agent turn.
+        const recordDir = process.env[RECORD_DIR_ENV]?.trim() || ctx.recordDir;
+        if (recordDir && handoff.action) {
+          try {
+            seedRecorderBaseline({ recordDir, projectDir: ctx.projectDir, sftddDir: ctx.sftddDir });
+            recordTurn({ recordDir, projectDir: ctx.projectDir, sftddDir: ctx.sftddDir, action: handoff.action, step: 0 });
+          } catch (e) {
+            process.stderr.write(`[optimize] recordWinner: corpus record best-effort failed for ${handoff.id}: ${e instanceof Error ? e.message : String(e)}\n`);
+          }
+        }
+        snap.dispose();
+      } else {
+        // No captured artifacts (a BUILD handoff advances via git/branch state, not a
+        // .sftdd copy; or a degenerate no-passing-trial case): fall back to re-running
+        // the winner with recording on, applying its levers, and NOT restoring after.
+        const restoreCandidate = applyCandidate(ctx, candidate);
+        try {
+          await ctx.spawnTurn({ handoff, candidate, record: true });
+        } finally {
+          restoreCandidate();
+        }
       }
       const champ = join(ctx.experimentsDir, "champion-walk.json");
       const prior = existsSync(champ) ? (JSON.parse(readFileSync(champ, "utf8")) as { winners: unknown[] }) : { winners: [] };
@@ -213,9 +258,6 @@ export interface LiveDriveSeams {
   recordDir?: string;
 }
 
-/** The env var the drive's recorder wrapper + the agent subprocess read to decide
- *  whether (and where) a turn records into the corpus. */
-const RECORD_DIR_ENV = "LAKEBASE_SFTDD_RECORD_DIR";
 
 /** Build the REAL spawnTurn: for a candidate, construct a fresh drive cfg, thread
  *  the candidate's content seams, and run the PINNED handoff's ROLE TURN through
@@ -394,6 +436,11 @@ export async function positionToNextHandoff(args: {
 export interface LaneSweepDeps {
   positionNext(): Promise<HandoffPlan | null>;
   sweepOne(handoff: HandoffPlan): Promise<HandoffResult>;
+  /** ADVANCE a handoff WITHOUT sweeping it: run its baseline turn once + record it, so
+   *  the drive moves to the next handoff. Used with startFrom to cheaply skip past
+   *  already-settled upstream handoffs (whose winner is already applied to the kit)
+   *  instead of re-sweeping their candidates. Required only when startFrom is set. */
+  advanceOne?(handoff: HandoffPlan): Promise<void>;
 }
 
 /** Sweep EVERY role handoff in a lane, in order, until its boundary. The design
@@ -402,10 +449,17 @@ export interface LaneSweepDeps {
  *  winner (which advances the drive), then re-position. Guards against a lane that
  *  does not advance (the same handoff id twice running, or exceeding maxHandoffs)
  *  by throwing rather than spinning. */
-export async function runLaneSweep(deps: LaneSweepDeps, opts: { maxHandoffs?: number } = {}): Promise<ChampionWalkResult> {
+export async function runLaneSweep(
+  deps: LaneSweepDeps,
+  opts: { maxHandoffs?: number; startFrom?: string } = {},
+): Promise<ChampionWalkResult> {
   const maxHandoffs = opts.maxHandoffs ?? 50;
   const walk: HandoffResult[] = [];
   let prevId: string | undefined;
+  // Before startFrom's handoff is reached, upstream handoffs are ALREADY settled (their
+  // winner is applied to the kit) , advance them once at baseline instead of re-sweeping.
+  // Flips to true when the target handoff id is seen; from then on everything is swept.
+  let reachedTarget = opts.startFrom === undefined;
   for (let i = 0; ; i++) {
     if (i >= maxHandoffs) {
       throw new Error(`optimize lane sweep: exceeded ${maxHandoffs} handoffs without reaching the lane boundary (too many).`);
@@ -417,8 +471,19 @@ export async function runLaneSweep(deps: LaneSweepDeps, opts: { maxHandoffs?: nu
         `optimize lane sweep: handoff "${handoff.id}" did not advance after its winner was recorded , the drive is stuck (a gate the sweep cannot pass, or a winner that does not change readState). Check the drive state.`,
       );
     }
-    const result = await deps.sweepOne(handoff);
-    walk.push(result);
+    if (!reachedTarget && handoff.id === opts.startFrom) reachedTarget = true;
+    if (reachedTarget) {
+      const result = await deps.sweepOne(handoff);
+      walk.push(result);
+    } else {
+      // A settled upstream handoff: advance it (baseline, no sweep) to reach the target.
+      if (!deps.advanceOne) {
+        throw new Error(
+          `optimize lane sweep: startFrom "${opts.startFrom}" needs an advanceOne dep to skip past the upstream handoff "${handoff.id}".`,
+        );
+      }
+      await deps.advanceOne(handoff);
+    }
     prevId = handoff.id;
   }
   return { walk };

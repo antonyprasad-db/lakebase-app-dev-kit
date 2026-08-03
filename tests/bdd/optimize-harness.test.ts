@@ -52,8 +52,8 @@ function scriptedDeps(
         if (outcome === THROWS) throw new Error("simulated candidate crash (ArtifactOutOfRootError)");
         return outcome;
       },
-      async recordWinner({ handoff, candidate }) {
-        log.push(`recordWinner:${handoff.id}:${candidate.id}`);
+      async recordWinner({ handoff, candidate, artifactsRef }) {
+        log.push(`recordWinner:${handoff.id}:${candidate.id}${artifactsRef !== undefined ? `:artifacts=${String(artifactsRef)}` : ""}`);
       },
     },
   };
@@ -61,6 +61,11 @@ function scriptedDeps(
 
 function pass(ms: number): TrialResult {
   return { gatePassed: true, durationMs: ms, costUsd: ms / 1000 };
+}
+/** A passing trial that CAPTURED artifacts (tagged so the test can see which trial's
+ *  artifacts recordWinner received). */
+function passA(ms: number, ref: string): TrialResult {
+  return { gatePassed: true, durationMs: ms, costUsd: ms / 1000, artifactsRef: ref };
 }
 function fail(ms: number): TrialResult {
   return { gatePassed: false, durationMs: ms, costUsd: ms / 1000, gateReason: "gate failed" };
@@ -88,6 +93,27 @@ describe("runChampionWalk: winner selection", () => {
     expect(result.walk[0].winner.medianMs).toBe(500);
     // baseline is reported for the before/after diff
     expect(result.walk[0].baselineMs).toBe(1000);
+  });
+
+  it("advances with the WINNING TRIAL's captured artifacts (its fastest passing trial), not a re-run", async () => {
+    // Once a winner is selected, the next role must run against the winner's ACTUAL
+    // output. runChampionWalk hands recordWinner the winning candidate's fastest
+    // passing trial's artifactsRef, so the live impl restores those exact artifacts
+    // instead of re-spawning (which would produce different output).
+    const cands = [
+      { id: "baseline", configOverrides: {} },
+      { id: "fast", configOverrides: {} },
+    ];
+    const { deps, log } = scriptedDeps({
+      "S1-green": {
+        baseline: [passA(1000, "base-t0"), passA(1000, "base-t1")],
+        // fast wins; its fastest passing trial is t1 (400 < 600) -> its artifacts win.
+        fast: [passA(600, "fast-t0"), passA(400, "fast-t1")],
+      },
+    });
+    const result = await runChampionWalk({ handoffs: [handoff], candidates: cands, trials: 2 }, deps);
+    expect(result.walk[0].winner.candidateId).toBe("fast");
+    expect(log).toContain("recordWinner:S1-green:fast:artifacts=fast-t1");
   });
 
   it("a candidate that fails the gate on ANY trial is discarded (never wins)", async () => {

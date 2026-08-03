@@ -63,4 +63,31 @@ describe("runLaneSweep", () => {
     };
     await expect(runLaneSweep(deps, { maxHandoffs: 4 })).rejects.toThrow(/did not advance|too many/i);
   });
+
+  it("startFrom: ADVANCES already-settled upstream handoffs (baseline, no sweep) and SWEEPS only from the target on", async () => {
+    // spec-author is already optimized + applied to the kit; re-sweeping its 4
+    // candidates to REACH architect is pure waste. startFrom advances the settled
+    // upstream handoffs cheaply (one baseline run each, to move the drive forward)
+    // and champion-walks only the target handoff onward.
+    const handoffs: (HandoffPlan | null)[] = [
+      { id: "S1-spec-author", role: "spec-author", story: "S1" },
+      { id: "S1-architect-reviewer", role: "architect-reviewer", story: "S1" },
+      { id: "S1-dba", role: "dba", story: "S1" },
+      null,
+    ];
+    let i = 0;
+    const advanced: string[] = [];
+    const swept: string[] = [];
+    const deps: LaneSweepDeps = {
+      positionNext: async () => handoffs[Math.min(i++, handoffs.length - 1)],
+      sweepOne: async (h) => { swept.push(h.id); return res(h.id, `${h.role}-e-low`); },
+      advanceOne: async (h) => { advanced.push(h.id); },
+    };
+    const result = await runLaneSweep(deps, { startFrom: "S1-architect-reviewer" });
+    // spec-author was advanced (not swept); architect + dba were swept.
+    expect(advanced).toEqual(["S1-spec-author"]);
+    expect(swept).toEqual(["S1-architect-reviewer", "S1-dba"]);
+    // The report only carries the SWEPT handoffs (the advanced ones produced no result).
+    expect(result.walk.map((w) => w.handoffId)).toEqual(["S1-architect-reviewer", "S1-dba"]);
+  });
 });

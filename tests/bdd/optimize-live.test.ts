@@ -87,6 +87,41 @@ describe("makeChampionWalkDeps: hermetic DESIGN handoff", () => {
     expect(result.walk[0].candidates.every((c) => !c.disqualified)).toBe(true);
   });
 
+  it("advances with the WINNER's ACTUAL artifacts (restores the winning trial, does not re-run)", async () => {
+    // Each candidate writes DISTINGUISHABLE spec content; after the walk, the winner's
+    // content must be what's on disk (so the next role sees the winner's real output),
+    // and the winner must NOT have been re-spawned (spawn count == trials only).
+    const clock = { now: 0 };
+    let spawnCount = 0;
+    const candidates = [
+      { id: "baseline", configOverrides: {} },
+      { id: "fast", configOverrides: {} },
+    ];
+    const spawn: SpawnTurn = async ({ candidate }) => {
+      spawnCount++;
+      const fdir = join(sftddDir, "features", featureId);
+      mkdirSync(join(fdir, "stories", "S1", "acs"), { recursive: true });
+      // Tag the spec with WHICH candidate wrote it, so we can see whose survived.
+      writeFileSync(join(fdir, "feature-spec.json"), JSON.stringify({ stories: ["S1"], by: candidate.id }));
+      writeFileSync(join(fdir, "feature-spec.md"), `# spec by ${candidate.id}\n`);
+      writeFileSync(
+        join(fdir, "stories", "S1", "acs", "AC1.json"),
+        JSON.stringify({ id: "AC1", layer: "API", given: "g", when: "w", then: "t", status: "draft" }),
+      );
+      clock.now += candidate.id === "fast" ? 400 : 1000; // fast wins
+    };
+    const deps = makeChampionWalkDeps(ctx(spawn, clock));
+    const handoff = { id: "S1-spec-author", role: "spec-author", story: "S1" };
+
+    const result = await runChampionWalk({ handoffs: [handoff], candidates, trials: 1, alwaysAdvance: true }, deps);
+    expect(result.walk[0].winner.candidateId).toBe("fast");
+    // The WINNER's artifacts are on disk , restored from the winning trial, NOT a re-run.
+    const spec = JSON.parse(readFileSync(join(sftddDir, "features", featureId, "feature-spec.json"), "utf8"));
+    expect(spec.by).toBe("fast");
+    // Exactly ONE spawn per candidate (2 total) , recordWinner restored, did NOT re-spawn.
+    expect(spawnCount).toBe(2);
+  });
+
   it("disqualifies a candidate whose turn does NOT satisfy the gate", async () => {
     const clock = { now: 0 };
     const candidates = [
