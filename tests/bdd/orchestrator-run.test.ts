@@ -343,30 +343,33 @@ describe("runDriver: Tier-2 phase bounds (driverBoundOptions)", () => {
   });
 });
 
-describe("runDriver: output-driven routing seam (options.router)", () => {
-  // A StepRouter that always emits "produced" proposing the pure transition's own next
-  // action, computed from the post-perform state. Honored proposals = the exact same
-  // path as state-derivation, so the drive must converge to `done` identically. This
-  // proves the router seam is consumed AND that an aligned proposal changes nothing.
-  const passthroughRouter = (transition: (s: DriveState) => WorkflowAction): import("../../scripts/sftdd/step-router").StepRouter => ({
+describe("runDriver: output-driven routing seam (options.contract)", () => {
+  // A StepContract whose routing always emits "produced" proposing the pure transition's
+  // own next action, computed from the post-perform state. Honored proposals = the exact
+  // same path as state-derivation, so the drive must converge to `done` identically. This
+  // proves the contract seam is consumed AND that an aligned proposal changes nothing.
+  // (inputs/outputs default to empty/null; only the routing face is exercised here.)
+  const passthroughContract = (transition: (s: DriveState) => WorkflowAction): import("../../scripts/sftdd/step-contract").StepContract => ({
+    inputs: () => ({ requires: [] }),
+    outputs: () => null,
     route(_completed, ctx) {
       return { outcome: "produced", proposedNext: transition(ctx.state) };
     },
   });
 
-  it("drives a whole feature to done with a passthrough router (proposals honored)", async () => {
-    const withRouter = makeFakeWorld(["S1", "S2"]);
+  it("drives a whole feature to done with a passthrough contract (proposals honored)", async () => {
+    const withContract = makeFakeWorld(["S1", "S2"]);
     const { nextTransition } = await import("../../scripts/sftdd/orchestrator-drive");
-    const result = await runDriver(withRouter.effects, { router: passthroughRouter(nextTransition) });
-    expect(withRouter.state.phase).toBe("done");
+    const result = await runDriver(withContract.effects, { contract: passthroughContract(nextTransition) });
+    expect(withContract.state.phase).toBe("done");
     expect(result.iterations).toBeGreaterThan(0);
     expect(result.escalated).toBeUndefined();
   });
 
-  it("no-router path is byte-identical to the router-with-aligned-proposals path", async () => {
+  it("no-contract path is byte-identical to the contract-with-aligned-proposals path", async () => {
     const { nextTransition } = await import("../../scripts/sftdd/orchestrator-drive");
-    // Same feature, driven twice: once with no router (pure state-derivation), once
-    // with a passthrough router. The performed action logs must be identical.
+    // Same feature, driven twice: once with no contract (pure state-derivation), once
+    // with a passthrough contract. The performed action logs must be identical.
     const plain = makeFakeWorld(["S1", "S2"]);
     const plainLog: WorkflowAction[] = [];
     plain.effects.onAction = (a) => plainLog.push(a);
@@ -375,24 +378,25 @@ describe("runDriver: output-driven routing seam (options.router)", () => {
     const routed = makeFakeWorld(["S1", "S2"]);
     const routedLog: WorkflowAction[] = [];
     routed.effects.onAction = (a) => routedLog.push(a);
-    await runDriver(routed.effects, { router: passthroughRouter(nextTransition) });
+    await runDriver(routed.effects, { contract: passthroughContract(nextTransition) });
 
     expect(routedLog).toEqual(plainLog);
   });
 
-  it("honors a router-proposed revise-route only within the revise budget", async () => {
-    // Minimal state where escalationPreempt would allow a revise (routable escalation):
-    // we assert validateAndBound (via the loop) does not blindly follow an off-graph
-    // proposal. Covered exhaustively in step-router.test.ts; here we only guard that a
-    // router that proposes an OFF-GRAPH action falls back to the pure transition and
-    // still reaches done (never drives off the allowed graph).
-    const offGraphRouter: import("../../scripts/sftdd/step-router").StepRouter = {
+  it("falls back to state-derivation when the contract proposes an OFF-GRAPH action", async () => {
+    // A contract that proposes a never-allowed action; validateAndBound (via the loop)
+    // must NOT follow it off the allowed graph , it falls back to the pure transition
+    // every step and still reaches done. (The bound cases are exhaustive in
+    // step-contract.test.ts.)
+    const offGraphContract: import("../../scripts/sftdd/step-contract").StepContract = {
+      inputs: () => ({ requires: [] }),
+      outputs: () => null,
       route() {
         return { outcome: "produced", proposedNext: { kind: "merge" } }; // never allowed mid-design
       },
     };
     const { state, effects } = makeFakeWorld(["S1"]);
-    const result = await runDriver(effects, { router: offGraphRouter });
+    const result = await runDriver(effects, { contract: offGraphContract });
     expect(state.phase).toBe("done"); // fell back to state-derivation every step
     expect(result.escalated).toBeUndefined();
   });

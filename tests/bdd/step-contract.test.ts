@@ -1,68 +1,81 @@
-// step-router: the ONE routing contract. Each step EMITS a RouteProposal (where it
-// thinks the orchestrator should go next); the orchestrator VALIDATES the proposal
-// against the pure allowed transition and BOUNDS re-routes/retries with the existing
-// limits before honoring it or falling back to state-derivation. This slice is
-// contract + mock + validateAndBound only (no real roles emit yet), so every case
-// here is hermetic: no cloud, no model, no disk.
+// step-contract: the ONE step interface every role/step implements — carrying its
+// INPUT contract (what must exist before it runs), its OUTPUT expectation (what it must
+// produce), and its ROUTING (where it proposes to go next on completion), together. The
+// orchestrator VALIDATES the routing proposal against the pure transition and BOUNDS
+// re-routes/retries with the existing limits (validateAndBound). This slice is contract
+// + mock + validateAndBound (no real roles implement it yet), so every case is hermetic.
 
 import { describe, it, expect } from "vitest";
 import {
-  MockStepRouter,
+  MockStepContract,
   validateAndBound,
   type RouteProposal,
-  type StepRouter,
+  type StepContract,
   type ValidateBoundDeps,
-} from "../../scripts/sftdd/step-router";
+} from "../../scripts/sftdd/step-contract";
 import type { DriveState, WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
 
-// A minimal DriveState is enough: validateAndBound never reads it directly; it hands
-// it to the injected `allowed` (the pure transition) + bound checkers. We stub those.
 const STATE = { phase: "feature" } as unknown as DriveState;
-
 const sig = (a: WorkflowAction): string => JSON.stringify(a);
 
-// Default deps: `allowed` returns a fixed next action (the pure allowlist stand-in);
-// revise budget available; retry ledger accepts one retry then throws.
+const specAuthorS1: WorkflowAction = { kind: "invoke-role", role: "spec-author", story: "S1" };
+const architectS1: WorkflowAction = { kind: "invoke-role", role: "architect-reviewer", story: "S1" };
+const dbaS1: WorkflowAction = { kind: "invoke-role", role: "dba", story: "S1" };
+
 function deps(over: Partial<ValidateBoundDeps> = {}): ValidateBoundDeps {
   return {
-    allowed: () => ({ kind: "invoke-role", role: "dba", story: "S1" }),
+    allowed: () => dbaS1,
     reviseBudgetAvailable: () => true,
     recordRetry: () => ({ sanctioned: true }),
     ...over,
   };
 }
 
-describe("MockStepRouter: the contract's first implementation", () => {
-  it("returns the scripted proposal for a completed action, keyed by its signature", () => {
-    const completed: WorkflowAction = { kind: "invoke-role", role: "architect-reviewer", story: "S1" };
-    const proposal: RouteProposal = { outcome: "produced", proposedNext: { kind: "invoke-role", role: "dba", story: "S1" } };
-    const router: StepRouter = new MockStepRouter({ [sig(completed)]: proposal });
-    expect(router.route(completed, { state: STATE, feature: "F1" })).toEqual(proposal);
+describe("MockStepContract: the ONE contract's first implementation (inputs + outputs + route)", () => {
+  it("declares a step's INPUT contract (what must exist before it runs)", () => {
+    const c: StepContract = new MockStepContract({
+      inputs: { [sig(architectS1)]: { requires: ["/f/features/F1/stories/S1/acs"] } },
+    });
+    expect(c.inputs(architectS1)).toEqual({ requires: ["/f/features/F1/stories/S1/acs"] });
   });
 
-  it("throws for an unscripted completed action (the mock must be told every step)", () => {
-    const router = new MockStepRouter({});
-    expect(() => router.route({ kind: "invoke-role", role: "dba", story: "S1" }, { state: STATE, feature: "F1" })).toThrow(/no scripted proposal/i);
+  it("declares a step's OUTPUT expectation (what it must produce)", () => {
+    const c = new MockStepContract({
+      outputs: { [sig(architectS1)]: { produces: ["/f/features/F1/architecture.json"], label: "architecture.json" } },
+    });
+    expect(c.outputs(architectS1)).toEqual({ produces: ["/f/features/F1/architecture.json"], label: "architecture.json" });
+  });
+
+  it("emits a ROUTING proposal on completion, keyed by the completed action", () => {
+    const proposal: RouteProposal = { outcome: "produced", proposedNext: dbaS1 };
+    const c = new MockStepContract({ route: { [sig(architectS1)]: proposal } });
+    expect(c.route(architectS1, { state: STATE, feature: "F1" })).toEqual(proposal);
+  });
+
+  it("defaults to empty input contract + null output + throws on an unscripted route", () => {
+    const c = new MockStepContract({});
+    expect(c.inputs(specAuthorS1)).toEqual({ requires: [] });
+    expect(c.outputs(specAuthorS1)).toBeNull();
+    expect(() => c.route(specAuthorS1, { state: STATE, feature: "F1" })).toThrow(/no scripted proposal/i);
   });
 });
 
-describe("validateAndBound: step proposes, orchestrator validates + bounds", () => {
-  const completed: WorkflowAction = { kind: "invoke-role", role: "architect-reviewer", story: "S1" };
+describe("validateAndBound: step proposes, orchestrator validates + bounds (routing half of the contract)", () => {
+  const completed = architectS1;
 
   it("HONORS a proposal that matches the pure allowed transition", () => {
-    const proposal: RouteProposal = { outcome: "produced", proposedNext: { kind: "invoke-role", role: "dba", story: "S1" } };
+    const proposal: RouteProposal = { outcome: "produced", proposedNext: dbaS1 };
     const r = validateAndBound(proposal, completed, STATE, deps());
-    expect(r.action).toEqual({ kind: "invoke-role", role: "dba", story: "S1" });
+    expect(r.action).toEqual(dbaS1);
     expect(r.sanctionedRetry).toBe(false);
     expect(r.note).toBeUndefined();
   });
 
   it("FALLS BACK to the pure transition when the proposal is off the allowed graph", () => {
-    // Step proposes jumping straight to merge; the allowlist says dba is next.
     const proposal: RouteProposal = { outcome: "produced", proposedNext: { kind: "merge" } };
     const r = validateAndBound(proposal, completed, STATE, deps());
-    expect(r.action).toEqual({ kind: "invoke-role", role: "dba", story: "S1" }); // the allowed action, not merge
-    expect(r.note).toMatch(/mismatch|fell back|not allowed/i);
+    expect(r.action).toEqual(dbaS1);
+    expect(r.note).toMatch(/mismatch|fell back|not allowed|not the allowed/i);
   });
 
   it("HONORS a revise re-route when the revise budget has room", () => {
@@ -87,11 +100,7 @@ describe("validateAndBound: step proposes, orchestrator validates + bounds", () 
   });
 
   it("routes an escalate outcome straight to raise-to-hil", () => {
-    const proposal: RouteProposal = {
-      outcome: "escalate",
-      proposedNext: { kind: "invoke-role", role: "dba", story: "S1" }, // ignored for escalate
-      reason: "cannot proceed",
-    };
+    const proposal: RouteProposal = { outcome: "escalate", proposedNext: dbaS1, reason: "cannot proceed" };
     const r = validateAndBound(proposal, completed, STATE, deps());
     expect(r.action.kind).toBe("raise-to-hil");
   });

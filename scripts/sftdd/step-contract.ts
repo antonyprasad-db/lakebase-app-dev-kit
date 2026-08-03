@@ -1,20 +1,36 @@
-// step-router: the ONE routing contract for the orchestrator.
+// step-contract: the ONE step interface every role/step implements.
 //
-// Today routing is 100% STATE-DERIVED: after a step runs, the orchestrator re-reads
-// disk and `nextTransition(state)` derives the next action. This module adds the
-// inverse, unified path the whole kit will move to: each STEP, on completion of its
-// agent call, EMITS a `RouteProposal` (where it thinks the orchestrator should go).
-// The orchestrator does NOT blindly follow it , `validateAndBound` VALIDATES the
-// proposal against the pure allowed transition and BOUNDS re-routes/retries with the
+// A step is producers→consumers, inputs→outputs. This module defines the single
+// contract that carries all three faces of a step together, so each step can be
+// invoked and unit-tested in isolation:
+//   - inputs(action)  : the INPUT contract  , what must exist on disk before it runs.
+//   - outputs(action) : the OUTPUT expectation , what artifact it must produce.
+//   - route(completed): the ROUTING proposal , where it proposes to go next on
+//                       completion of its agent call.
+//
+// The orchestrator does NOT blindly follow the routing proposal: `validateAndBound`
+// VALIDATES it against the pure allowed transition and BOUNDS re-routes/retries with the
 // EXISTING limits (revise budget, ExpectationLedger retry, escalation) before honoring
 // it, falling back to state-derivation when the proposal is off the allowed graph.
 //
-// This slice is the CONTRACT + a MOCK implementation + `validateAndBound` only. No real
-// role emits a proposal yet; `runDriver` consumes this behind an optional seam so the
-// default (no-router) path is byte-identical to today. Real roles implement `StepRouter`
-// in a later slice; until then the pure transition is both the validator and the default.
+// This slice is the CONTRACT + a MOCK implementation + `validateAndBound`. No real role
+// implements StepContract yet; `runDriver` consumes the routing face behind an optional
+// seam so the default (no-contract) path is byte-identical to today. Real roles implement
+// StepContract in a later slice; the input/output faces (inputs/outputs) are declared here
+// so the per-step isolated runner + `--step` CLI can consume them next.
 
 import type { DriveState, WorkflowAction } from "./orchestrator-drive.js";
+
+/** A step's INPUT contract: the upstream-output paths that MUST exist before it runs. */
+export interface StepInputs {
+  requires: string[];
+}
+
+/** A step's OUTPUT expectation: the artifact path(s) it MUST have produced (anyOf). */
+export interface StepOutputs {
+  produces: string[];
+  label: string;
+}
 
 /** What a step reports about its own completion , the routing intent, not the action. */
 export type StepOutcome =
@@ -38,38 +54,59 @@ export interface RouteProposal {
   reason?: string;
 }
 
-/** Read-only view a router sees: the state the step produced + the feature scope. */
+/** Read-only view a step's routing sees: the state it produced + the feature scope. */
 export interface StepRouteContext {
   state: DriveState;
   feature: string;
 }
 
 /**
- * The contract EVERY role/step implements. `route` is called AFTER the step's agent
- * call completes, with the completed action + the resulting state, and returns where
- * the step proposes to go next. The first implementation is `MockStepRouter` (below);
- * real roles implement this in a later slice.
+ * The ONE contract EVERY role/step implements. Carries the step's three faces so it can
+ * be invoked and unit-tested in isolation:
+ *   - inputs(action):  the input contract (what must exist before it runs).
+ *   - outputs(action): the output expectation (what it must produce; null when the step
+ *                      produces no static artifact , e.g. a build turn verified by cycle
+ *                      records, or a critic gate).
+ *   - route(completed, ctx): the routing proposal emitted on completion.
+ * The first implementation is `MockStepContract` (below); real roles implement this next.
  */
-export interface StepRouter {
+export interface StepContract {
+  inputs(action: WorkflowAction): StepInputs;
+  outputs(action: WorkflowAction): StepOutputs | null;
   route(completed: WorkflowAction, ctx: StepRouteContext): RouteProposal;
 }
 
 const signature = (a: WorkflowAction): string => JSON.stringify(a);
 
 /**
- * The contract's first implementation: a scripted router keyed by the completed
- * action's signature. Tests (and the mock-only wiring slice) drive exact proposals
- * with no cloud/model/roles. A completed action with no scripted proposal throws , the
- * mock must be told every step, so a missing case is a loud test failure, not a silent
+ * The contract's first implementation: a scripted contract keyed by action signature.
+ * Tests (and the mock-only wiring slice) drive exact inputs/outputs/proposals with no
+ * cloud/model/roles. Missing input contract defaults to `{requires:[]}`; missing output
+ * defaults to `null`; a missing routing proposal THROWS , the mock must be told every
+ * step it is asked to route, so a missing case is a loud test failure, not a silent
  * default.
  */
-export class MockStepRouter implements StepRouter {
-  constructor(private readonly script: Record<string, RouteProposal>) {}
+export class MockStepContract implements StepContract {
+  constructor(
+    private readonly script: {
+      inputs?: Record<string, StepInputs>;
+      outputs?: Record<string, StepOutputs>;
+      route?: Record<string, RouteProposal>;
+    },
+  ) {}
+
+  inputs(action: WorkflowAction): StepInputs {
+    return this.script.inputs?.[signature(action)] ?? { requires: [] };
+  }
+
+  outputs(action: WorkflowAction): StepOutputs | null {
+    return this.script.outputs?.[signature(action)] ?? null;
+  }
 
   route(completed: WorkflowAction, _ctx: StepRouteContext): RouteProposal {
-    const p = this.script[signature(completed)];
+    const p = this.script.route?.[signature(completed)];
     if (!p) {
-      throw new Error(`MockStepRouter: no scripted proposal for completed action ${signature(completed)}`);
+      throw new Error(`MockStepContract: no scripted proposal for completed action ${signature(completed)}`);
     }
     return p;
   }
@@ -108,8 +145,9 @@ const raiseToHil = (reason: string, source: string, story?: string): WorkflowAct
 });
 
 /**
- * The orchestrator's authority over a step's proposal: step PROPOSES, orchestrator
- * VALIDATES + BOUNDS. Never lets a step drive the machine off the allowed graph.
+ * The orchestrator's authority over a step's routing proposal: step PROPOSES,
+ * orchestrator VALIDATES + BOUNDS. Never lets a step drive the machine off the allowed
+ * graph.
  *   - produced: honor `proposedNext` iff it equals the pure allowed transition; else
  *     FALL BACK to the allowed action (recorded mismatch , the step cannot invent a move).
  *   - revise: honor the revise-route iff the revise budget has room; else convert to

@@ -7569,7 +7569,7 @@ var ExpectationLedger = class {
   }
 };
 
-// scripts/sftdd/step-router.ts
+// scripts/sftdd/step-contract.ts
 init_cjs_shims();
 var signature = (a) => JSON.stringify(a);
 var raiseToHil = (reason, source, story) => ({
@@ -7695,7 +7695,7 @@ async function runDriver(effects, options = {}) {
       }
     }
     let action;
-    if (options.router && pendingProposal) {
+    if (options.contract && pendingProposal) {
       const bounded = validateAndBound(pendingProposal.proposal, pendingProposal.completed, state, routerDeps);
       action = bounded.action;
       if (bounded.sanctionedRetry) retrying = true;
@@ -7731,9 +7731,9 @@ async function runDriver(effects, options = {}) {
     }
     effects.onAction?.(action, i);
     await effects.perform(action);
-    if (options.router) {
+    if (options.contract) {
       const post = await effects.readState();
-      pendingProposal = { proposal: options.router.route(action, { state: post, feature: featureOf(post) }), completed: action };
+      pendingProposal = { proposal: options.contract.route(action, { state: post, feature: featureOf(post) }), completed: action };
     }
   }
 }

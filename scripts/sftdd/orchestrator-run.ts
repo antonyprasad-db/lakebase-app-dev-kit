@@ -24,7 +24,7 @@ import {
   type WorkflowAction,
 } from "./orchestrator-drive.js";
 import { ExpectationLedger, expectationFor } from "./orchestrator-expect.js";
-import { validateAndBound, type StepRouter, type RouteProposal } from "./step-router.js";
+import { validateAndBound, type StepContract, type RouteProposal } from "./step-contract.js";
 export { ProtocolViolationError, UnexpectedCallbackError } from "./orchestrator-expect.js";
 
 export interface DriveEffects {
@@ -118,15 +118,15 @@ export interface RunDriverOptions {
    */
   enforceExpectations?: boolean;
   /**
-   * OPTIONAL output-driven routing (the ONE routing contract). When set, AFTER a
-   * step is performed the router emits a RouteProposal (where the step thinks the
-   * orchestrator should go); `validateAndBound` VALIDATES it against the pure
-   * transition and BOUNDS re-routes/retries with the existing limits before the
-   * next iteration acts on it. When ABSENT (the default + current behavior), routing
-   * is purely state-derived via `transition(state)` , byte-identical to before this
-   * seam. Real roles do not emit proposals yet; this is consumed mock-first.
+   * OPTIONAL output-driven routing (the routing face of the StepContract). When set,
+   * AFTER a step is performed the contract emits a RouteProposal (where the step thinks
+   * the orchestrator should go); `validateAndBound` VALIDATES it against the pure
+   * transition and BOUNDS re-routes/retries with the existing limits before the next
+   * iteration acts on it. When ABSENT (the default + current behavior), routing is purely
+   * state-derived via `transition(state)` , byte-identical to before this seam. Real
+   * roles do not implement StepContract yet; this is consumed mock-first.
    */
-  router?: StepRouter;
+  contract?: StepContract;
 }
 
 // Backstop against a runaway loop (an effect that advances but never converges).
@@ -180,10 +180,10 @@ export async function runDriver(
   const enforceExpectations = options.enforceExpectations !== false;
   const expectations = new ExpectationLedger();
   const transitionFn = options.transition ?? nextTransition;
-  // Output-driven routing state (only used when options.router is set): the proposal
+  // Output-driven routing state (only used when options.contract is set): the proposal
   // the just-performed step emitted, consumed at the TOP of the next iteration through
   // validateAndBound. Undefined on the first pass + whenever we fell through to the
-  // pure transition, so the default (no-router) path never touches it.
+  // pure transition, so the default (no-contract) path never touches it.
   let pendingProposal: { proposal: RouteProposal; completed: WorkflowAction } | undefined;
   // Retry bound for router-emitted "blocked" outcomes, mirroring ExpectationLedger's
   // maxRetries=1: one sanctioned re-issue per action signature, then a hard abort. Kept
@@ -233,7 +233,7 @@ export async function runDriver(
     // revise/retry limits). `retrying` is OR'd with a sanctioned router retry so the
     // stall check treats a bounded re-issue as intentional.
     let action: WorkflowAction;
-    if (options.router && pendingProposal) {
+    if (options.contract && pendingProposal) {
       const bounded = validateAndBound(pendingProposal.proposal, pendingProposal.completed, state, routerDeps);
       action = bounded.action;
       if (bounded.sanctionedRetry) retrying = true;
@@ -294,13 +294,13 @@ export async function runDriver(
     effects.onAction?.(action, i);
     await effects.perform(action);
 
-    // Output-driven routing: after the step ran, ask the router where it proposes to
-    // go next; the NEXT iteration's top consumes it via validateAndBound. No router =>
-    // no proposal => next iteration derives from state (the default path). The router
+    // Output-driven routing: after the step ran, ask the contract where it proposes to
+    // go next; the NEXT iteration's top consumes it via validateAndBound. No contract =>
+    // no proposal => next iteration derives from state (the default path). The contract
     // reads the post-perform state so its proposal reflects what the step produced.
-    if (options.router) {
+    if (options.contract) {
       const post = await effects.readState();
-      pendingProposal = { proposal: options.router.route(action, { state: post, feature: featureOf(post) }), completed: action };
+      pendingProposal = { proposal: options.contract.route(action, { state: post, feature: featureOf(post) }), completed: action };
     }
   }
 }
