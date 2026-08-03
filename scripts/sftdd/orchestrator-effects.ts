@@ -1338,8 +1338,20 @@ export function commandsFromManifest(action: WorkflowAction, cfg: DriveEffectsCo
     TEST_LIST_BIN,
   };
   const resolveBin = (token: string): string => BIN_TOKENS[token] ?? token;
+  // Substitute the manifest arg placeholders with this run's concrete values. `--tdd`
+  // expands to the standard [--feature F --tdd-dir D] pair (the common design-lane suffix);
+  // {feature}/{story}/{tddDir} are single-token substitutions for build-turn CLIs that
+  // interleave them (e.g. cycle `green --feature F --story S --tdd-dir D`). A {story} with
+  // no story on the action drops out (build turns always carry one).
+  const story = "story" in action && typeof action.story === "string" ? action.story : undefined;
   const expandArgs = (args: string[]): string[] =>
-    args.flatMap((a) => (a === "--tdd" ? tdd : [a]));
+    args.flatMap((a) => {
+      if (a === "--tdd") return tdd;
+      if (a === "{feature}") return [f];
+      if (a === "{tddDir}") return [cfg.sftddDir];
+      if (a === "{story}") return story ? [story] : [];
+      return [a];
+    });
 
   const before = (manifest.postTurn ?? [])
     .filter((p) => p.when === "before")

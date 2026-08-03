@@ -1,0 +1,21 @@
+{
+  "id": "driver-green",
+  "role": "driver",
+  "match": { "kind": "invoke-role", "role": "driver", "buildMode": null, "ac": null },
+  "inputs": [
+    { "id": "test-list", "source": "story:test-list.json", "description": "The story's ordered failing tests the Driver makes GREEN." }
+  ],
+  "outputs": [],
+  "routing": {
+    "produced": { "next": "state-derived" }
+  },
+  "agentOptions": {
+    "model": "haiku",
+    "effort": "default",
+    "session": "resume",
+    "resumeKeyFrom": "story"
+  },
+  "postTurn": [
+    { "bin": "CYCLE_BIN", "args": ["green", "--feature", "{feature}", "--story", "{story}", "--tdd-dir", "{tddDir}"], "when": "after" }
+  ]
+}

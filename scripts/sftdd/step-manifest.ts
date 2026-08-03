@@ -116,10 +116,20 @@ export function loadStepManifests(dir: string = MANIFEST_DIR): StepManifest[] {
  * Strict subset-match: `match` matches `action` iff every field on `match` is deep-equal to
  * the same field on `action`. Extra action fields are ignored (the match is a subset). A
  * field absent from the action never matches a present match field.
+ *
+ * The `null` sentinel means "this field must be ABSENT (undefined) on the action" , the
+ * minimal, precise way to select a PLAIN turn from a family that adds discriminating fields.
+ * E.g. `{kind:"invoke-role", role:"driver", buildMode:null, ac:null}` matches the default
+ * story-loop driver GREEN turn but NOT a refactor/repair (buildMode present) or per-AC
+ * (ac present) green. Without it a coarse `{kind, role}` match would mis-route those.
  */
 export function matchesAction(match: Record<string, unknown>, action: WorkflowAction): boolean {
   const act = action as unknown as Record<string, unknown>;
   for (const [k, v] of Object.entries(match)) {
+    if (v === null) {
+      if (act[k] !== undefined) return false; // sentinel: the field must be absent
+      continue;
+    }
     if (!deepEqual(v, act[k])) return false;
   }
   return true;

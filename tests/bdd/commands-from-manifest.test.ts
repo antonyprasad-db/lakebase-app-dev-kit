@@ -61,3 +61,35 @@ describe("commandsFromManifest ≡ commandsForAction (golden equivalence)", () =
     expect(commandsFromManifest(noManifest, cfg())).toBeUndefined();
   });
 });
+
+describe("commandsFromManifest ≡ commandsForAction: driver GREEN build turn", () => {
+  const GREEN: WorkflowAction = { kind: "invoke-role", role: "driver", story: "S1-record-stock" };
+
+  it("plain story-loop driver GREEN: byte-identical [claude, cycle green, reconcile]", () => {
+    const c = cfg({ modelForRole: (r) => (r === "driver" ? "haiku" : "sonnet") });
+    const legacy = commandsForAction(GREEN, c);
+    const fromManifest = commandsFromManifest(GREEN, c);
+    expect(fromManifest).toEqual(legacy);
+    expect(fromManifest!.map((cmd) => (cmd.kind === "cli" ? `cli:${cmd.args[0]}` : cmd.kind))).toEqual([
+      "claude",
+      "cli:green",
+      "cli:--reconcile",
+    ]);
+  });
+
+  it("story-scoped resume key + model tiering match the legacy build path", () => {
+    const c = cfg({ modelForRole: (r) => (r === "driver" ? "haiku" : "sonnet") });
+    const fromManifest = commandsFromManifest(GREEN, c)!;
+    expect(fromManifest[0]).toMatchObject({ kind: "claude", role: "driver", model: "haiku", resumeKey: "driver:S1-record-stock" });
+  });
+
+  it("the match sentinel EXCLUDES a refactor turn (buildMode present) , no manifest hijack", () => {
+    const refactor: WorkflowAction = { kind: "invoke-role", role: "driver", story: "S1-record-stock", buildMode: "refactor" };
+    expect(commandsFromManifest(refactor, cfg())).toBeUndefined();
+  });
+
+  it("the match sentinel EXCLUDES a per-AC green turn (ac present)", () => {
+    const perAc: WorkflowAction = { kind: "invoke-role", role: "driver", story: "S1-record-stock", ac: "AC1" };
+    expect(commandsFromManifest(perAc, cfg())).toBeUndefined();
+  });
+});
