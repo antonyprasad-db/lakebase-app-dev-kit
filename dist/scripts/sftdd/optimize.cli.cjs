@@ -12025,6 +12025,17 @@ init_cjs_shims();
 var import_node_fs11 = require("fs");
 var import_node_os = require("os");
 var import_node_path13 = require("path");
+function captureDesignArtifacts(args) {
+  const { sftddDir, destDir } = args;
+  (0, import_node_fs11.rmSync)(destDir, { recursive: true, force: true });
+  (0, import_node_fs11.cpSync)(sftddDir, destDir, { recursive: true });
+  return { path: destDir };
+}
+function restoreDesignArtifacts(args) {
+  const { sftddDir, ref } = args;
+  (0, import_node_fs11.rmSync)(sftddDir, { recursive: true, force: true });
+  (0, import_node_fs11.cpSync)(ref.path, sftddDir, { recursive: true });
+}
 function snapshotDesign(args) {
   const { sftddDir } = args;
   const backup = (0, import_node_fs11.mkdtempSync)((0, import_node_path13.join)((0, import_node_os.tmpdir)(), "optimize-design-snap-"));
@@ -12307,7 +12318,10 @@ function makeChampionWalkDeps(ctx) {
           if (!sem.passed) gate = { passed: false, reason: sem.reason ?? "semantic: below threshold" };
         }
         const tokens = ctx.readTurnTokens?.({ handoff });
-        const artifactsRef = gate.passed && !isBuildHandoff(handoff) ? snapshotDesign({ sftddDir: ctx.sftddDir }) : void 0;
+        const artifactsRef = gate.passed && !isBuildHandoff(handoff) ? captureDesignArtifacts({
+          sftddDir: ctx.sftddDir,
+          destDir: (0, import_node_path15.join)(ctx.experimentsDir, handoff.id, candidate.id, `trial-${trial}`, "artifacts")
+        }) : void 0;
         result = {
           gatePassed: gate.passed,
           durationMs,
@@ -12327,9 +12341,9 @@ function makeChampionWalkDeps(ctx) {
       return result;
     },
     async recordWinner({ handoff, candidate, artifactsRef }) {
-      const snap = artifactsRef;
-      if (snap) {
-        snap.restore();
+      const ref = artifactsRef;
+      if (ref?.path) {
+        restoreDesignArtifacts({ sftddDir: ctx.sftddDir, ref });
         const recordDir = process.env[RECORD_DIR_ENV]?.trim() || ctx.recordDir;
         if (recordDir && handoff.action) {
           try {
@@ -12340,7 +12354,6 @@ function makeChampionWalkDeps(ctx) {
 `);
           }
         }
-        snap.dispose();
       } else {
         const restoreCandidate = applyCandidate(ctx, candidate);
         try {

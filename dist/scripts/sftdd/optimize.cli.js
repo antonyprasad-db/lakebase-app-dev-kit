@@ -12014,6 +12014,17 @@ init_esm_shims();
 import { cpSync as cpSync4, mkdtempSync, rmSync as rmSync11 } from "fs";
 import { tmpdir } from "os";
 import { basename as basename4, dirname as dirname18, join as join31 } from "path";
+function captureDesignArtifacts(args) {
+  const { sftddDir, destDir } = args;
+  rmSync11(destDir, { recursive: true, force: true });
+  cpSync4(sftddDir, destDir, { recursive: true });
+  return { path: destDir };
+}
+function restoreDesignArtifacts(args) {
+  const { sftddDir, ref } = args;
+  rmSync11(sftddDir, { recursive: true, force: true });
+  cpSync4(ref.path, sftddDir, { recursive: true });
+}
 function snapshotDesign(args) {
   const { sftddDir } = args;
   const backup = mkdtempSync(join31(tmpdir(), "optimize-design-snap-"));
@@ -12305,7 +12316,10 @@ function makeChampionWalkDeps(ctx) {
           if (!sem.passed) gate = { passed: false, reason: sem.reason ?? "semantic: below threshold" };
         }
         const tokens = ctx.readTurnTokens?.({ handoff });
-        const artifactsRef = gate.passed && !isBuildHandoff(handoff) ? snapshotDesign({ sftddDir: ctx.sftddDir }) : void 0;
+        const artifactsRef = gate.passed && !isBuildHandoff(handoff) ? captureDesignArtifacts({
+          sftddDir: ctx.sftddDir,
+          destDir: join33(ctx.experimentsDir, handoff.id, candidate.id, `trial-${trial}`, "artifacts")
+        }) : void 0;
         result = {
           gatePassed: gate.passed,
           durationMs,
@@ -12325,9 +12339,9 @@ function makeChampionWalkDeps(ctx) {
       return result;
     },
     async recordWinner({ handoff, candidate, artifactsRef }) {
-      const snap = artifactsRef;
-      if (snap) {
-        snap.restore();
+      const ref = artifactsRef;
+      if (ref?.path) {
+        restoreDesignArtifacts({ sftddDir: ctx.sftddDir, ref });
         const recordDir = process.env[RECORD_DIR_ENV]?.trim() || ctx.recordDir;
         if (recordDir && handoff.action) {
           try {
@@ -12338,7 +12352,6 @@ function makeChampionWalkDeps(ctx) {
 `);
           }
         }
-        snap.dispose();
       } else {
         const restoreCandidate = applyCandidate(ctx, candidate);
         try {

@@ -152,6 +152,135 @@ feeds to the next role. So "retry the role across levers, keep the cheapest same
 output, hand its artifacts to the next role" == sweep these knobs, gate the artifact, let
 recordWinner persist the winner's artifacts, then let planNextAction advance.
 
+## Winner is RESTORED not re-run — but passing artifacts go to /tmp, not experiments/ (FLAW)
+
+CORRECTION to an earlier wrong note: the winner is NOT re-created. `runTrial`
+(optimize-live.ts:174) already captures each PASSING design trial's `.sftdd` output via
+`snapshotDesign` BEFORE the between-trial `restore()` wipes it, stashes it as the trial's
+`artifactsRef`, and `recordWinner` (optimize-live.ts:201) `restore()`s that exact snapshot —
+the winner's real, measured, gated output, NO re-run (task #510). So the artifacts ARE
+produced and the winning one IS reused verbatim.
+
+THE FLAW (user-identified): `snapshotDesign` (optimize-snapshot.ts:34) copies `.sftdd` into
+`mkdtempSync(tmpdir(), "optimize-design-snap-")` — a SYSTEM TEMP dir held only by an
+in-memory `DesignSnapshot` handle, `dispose()`d after the handoff resolves. Consequences:
+1. Passing artifacts exist during the run but are UNREACHABLE for inspection (temp path is
+   recorded nowhere; disposed after). You cannot audit WHY haiku+low passed but solo-haiku
+   failed — the two artifacts are in disposed /tmp dirs.
+2. `result.json`'s `artifactsRef` serializes to `{}` (the handle's methods don't survive
+   JSON) — which looks like "no capture" but is really "capture is a live temp handle."
+3. Every NON-winning candidate's passing output is discarded — no side-by-side comparison,
+   no reusable corpus; a re-sweep re-derives everything.
+
+ARTIFACT CONTINUITY is the deeper cost (not just auditing): the lane advances on EXACTLY ONE
+live artifact. `recordWinner` restores the winner's `.sftdd` snapshot and `planNextAction`
+positions the next role on it (e.g. after architect-reviewer, dba's task literally reads
+`architecture.json`). Because every RUNNER-UP's passing artifact was disposed to /tmp, there
+is NO fallback artifact on disk. So "reject the winner + fall back to the 2nd-best (or to
+opus baseline)" is IMPOSSIBLE without re-running that fallback — the only surviving artifact
+IS the winner's. This bit us live: architect-reviewer's winner (haiku+e-low, 50% faster,
+semantic gate PASS) was structurally degraded (dropped every per-NFR fitness_function + 2
+NFRs vs the reference), but rejecting it left the drive sitting on dba with no complete
+architecture.json to hand forward. You cannot pick up the next step without an artifact, and
+the only one that survived is the one you want to reject.
+
+THE FIX (LANDED): `captureDesignArtifacts({sftddDir, destDir})` + `restoreDesignArtifacts(
+{sftddDir, ref})` in optimize-snapshot.ts write each PASSING design trial's actual `.sftdd`
+output to `experiments/<handoff>/<candidate>/trial-N/artifacts/` (durable, not /tmp) and
+return a plain `{path}` `DesignArtifactRef` (JSON-serializable, survives result.json).
+runTrial (optimize-live.ts) captures into the trial dir; recordWinner restores from the ref's
+path (NO re-run, NO dispose — the capture stays for audit). Tests: optimize-snapshot.test.ts
+(durable-capture group). This delivers:
+- AUDIT: diff any candidate's architecture.json vs the reference with no re-run.
+- CONTINUITY / FALLBACK: a rejected winner can be swapped for a structurally-complete
+  runner-up by restoring ITS retained trial dir (restoreDesignArtifacts) — the next role
+  proceeds, no re-run. (The reject-and-fallback SELECTION policy in the harness is a follow-up;
+  the primitive it needs now exists.)
+- REUSABLE CORPUS: every candidate's output persists under experiments/ until
+  disposeExperiments tears down the scratch tree at end of run.
+
+## OPEN: architecture.json nfr shape drift — the reference does NOT conform to its own schema
+
+Discovered auditing the architect winner. TWO nfr shapes exist:
+- RICH (what the canonical stockflow reference architecture.json uses, and what the semantic
+  gate + downstream roles were written around): `{id, category, applies_to, brief, brief_ref,
+  fitness_function, hil_status}`, category values like "durability".
+- LEAN (what architecture.schema.json actually validates): nfr item `required:[category,
+  requirement]`, `additionalProperties:false`, category enum = performance|scalability|
+  security|observability|operability|resilience, props = category/requirement/notes/applies_to/
+  hil_status/brief_ref. NO `id`, `brief`, or `fitness_function`.
+`checkArtifactConformance("architecture.json", <reference>)` = FALSE (reference nfrs use
+`brief` not `requirement`, `fitness_function`/`id` as additional props, category "durability"
+not in enum). Consumers read a MIX with `??` fallbacks: nfr-coverage keys on `brief_ref`
+(artifact-conformance.ts:348/389); serviceBacked reads `brief??requirement??notes`
+(gate-conformance-guard.ts:349); the context rubric reads `id`+`brief` (orchestrator-
+effects.ts:271). So the lean schema and the rich reference disagree, and nothing enforces
+`fitness_function` — which is why the cheap-model architect winner (lean shape, no
+fitness_function, 2 fewer NFRs) conformed + passed the ≥0.85 semantic gate while dropping
+machine-checkable content the reference carries.
+DO NOT bolt `fitness_function` onto the lean schema in isolation — that builds on sand.
+This needs a dedicated one-source-of-truth reconciliation: pick the canonical nfr shape
+(the rich one the reference + roles already use is the likely target), align architecture.
+schema.json to it, make `fitness_function` a defined (and for service_backed, required)
+property, add the architect self-check + design-gate enforcement, and re-validate the
+reference conforms. THEN the architect turn also needs a structural-completeness check
+(invariant parity + fitness_function presence) beside the semantic score, since ≥0.85 prose
+similarity alone accepted the degraded winner. Until then: do NOT apply a cheap-model architect
+winner on the semantic gate alone; audit its recorded architecture.json for invariant +
+fitness_function parity first (now possible via the durable capture above).
+
+## Session isolation per trial (what makes candidate timings comparable)
+
+Each DESIGN trial is a FRESH `claude -p` subprocess. There is NO session resumption in the
+design spawn path — grep the whole chain (optimize-live.ts → orchestrator-effects.ts →
+drive.cli.ts) for `--resume`/`--continue`/`sessionId`/`-r`: nothing. `makeLiveSpawnTurn`
+calls `seams.buildCfg(featureId)` anew per candidate/trial (optimize-live.ts:321), and the
+command is `claude -p "<task>" --agent <role> --model <m> --strict-mcp-config` — fresh
+context every time. Between trials the harness restores the `.sftdd` design snapshot
+(`snap.restore()`, optimize-harness.ts:184), so every candidate starts from the IDENTICAL
+on-disk inputs; only the model/effort/tool lever differs. That equal-work-from-equal-state
+is what makes the wall-clock numbers comparable.
+- CAVEAT: `resumeKey` / `buildSessionScope` DO exist (DriveCommand.resumeKey, orchestrator-
+  effects.ts:54,1255) — but that is the BUILD lane deliberately WARMING one `claude -p`
+  session across a single story's RED→GREEN→REVIEW cycles (`buildSessionScope`, "resume
+  their claude -p session PER STORY"). Design turns are single, isolated, fresh `-p`
+  invocations. When the sweep reaches the build lane, per-story session warmth is a
+  legitimate shared inheritance for each build candidate (snapshot-restored identically).
+
+## Gotcha: role self-check ≠ the harness gate; the agent flies blind on structure in headless
+
+In headless `--permission-mode acceptEdits`, file Edit/Write is auto-approved but **Bash is
+NOT**. A design role's OWN structural self-check runs `./scripts/lk lakebase-sftdd-response-
+formatter ...` (a Bash cmd), so it is DENIED — the agent logs "self-check command needs
+approval which I can't grant" and returns without validating its own artifact structure.
+This is expected and NOT a run failure: the harness re-checks the artifact itself via
+`evaluateDesignGate` (optimize-gate.ts) right after the timed turn, which runs the SAME
+response-formatter CHECKERS + the design gate deterministically. So the harness gate — not
+the agent's in-turn self-check — is the real quality backstop under headless. Consequence:
+a schema/prompt contradiction the self-check would normally catch surfaces only at the
+harness gate (as a uniform `gatePassed:false`), which is exactly how the layer drift below
+presented.
+
+## Resolved landmine: ac.schema `layer` prose-vs-schema drift (fixed 785353d2)
+
+`ac.schema.json` listed `layer` in `required`, but `layer` is the ARCHITECT-REVIEWER's
+field (schema desc: "Assigned by Architect Reviewer in phase 7.1"); spec-author.md forbids
+the spec-author writing it. The spec-author's conformance self-check validates each AC
+against the full ac.schema, so it demanded a field the author is told not to write. On the
+interactive drive the architect ran next and filled it (masked). But a spec-author-ONLY run
+(the optimize champion-walk sweeping just that role, architect not yet run) DQ'd EVERY
+candidate identically on `must have required property 'layer'` → harness fell back to
+baseline → `0.0s / 1 candidate: baseline` report (a bogus non-ranking). Fix: drop `layer`
+from `required` (keep as optional API|E2E|Infra enum) in BOTH tracked copies (source +
+committed dist). Architect self-check (checkArchitect, response-formatter.ts:159) + the
+design gate (architectAnnotated keys on architectural_notes + architecture.json, NOT bare
+layer; serviceBackedReason reads layer optionally) still require it at phase 7.1, so no
+hole. GENERAL LESSON: a single-role sweep exercises each role IN ISOLATION (upstream roles
+that normally fill later-required fields have NOT run), so any "later role fills this
+required field" schema coupling shows up as a uniform-DQ baseline-fallback. When a sweep
+reports 0.0s baseline-only with candidate dirs present, read a trial `result.json`
+`gateReason` FIRST — do not treat baseline as a real winner.
+
 ## Source modules (scripts/sftdd/)
 
 | File | Lines | What it is |

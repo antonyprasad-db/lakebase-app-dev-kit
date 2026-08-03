@@ -29,6 +29,39 @@ export interface DesignSnapshot {
   dispose(): void;
 }
 
+/** A DURABLE, JSON-serializable reference to one trial's captured .sftdd output.
+ *  Unlike DesignSnapshot (a live temp handle), this is just a path under the
+ *  experiments/ tree, so it survives into result.json and can be inspected,
+ *  diffed against the reference, or restored as a winner/fallback long after the
+ *  run — no live handle, no /tmp, no dispose. */
+export interface DesignArtifactRef {
+  /** Absolute path to the captured .sftdd copy for this trial. */
+  path: string;
+}
+
+/** Capture the live .sftdd tree into an EXPLICIT durable dest dir (a trial's
+ *  `experiments/<handoff>/<candidate>/trial-<n>/artifacts/`), NOT a temp dir.
+ *  Called on a passing design trial BEFORE the between-trial restore wipes
+ *  .sftdd, so every candidate's real output persists for audit + fallback +
+ *  a reusable corpus. Returns a plain path ref (serializable into result.json). */
+export function captureDesignArtifacts(args: { sftddDir: string; destDir: string }): DesignArtifactRef {
+  const { sftddDir, destDir } = args;
+  rmSync(destDir, { recursive: true, force: true });
+  cpSync(sftddDir, destDir, { recursive: true });
+  return { path: destDir };
+}
+
+/** Restore the live .sftdd from a durable capture (wholesale replace, so a file
+ *  the current tree has but the capture does not is removed). Used to promote a
+ *  winner — or a structurally-complete runner-up fallback — as the live artifact
+ *  the next role consumes, with NO re-run. Does NOT delete the capture (it stays
+ *  auditable / reusable). Idempotent. */
+export function restoreDesignArtifacts(args: { sftddDir: string; ref: DesignArtifactRef }): void {
+  const { sftddDir, ref } = args;
+  rmSync(sftddDir, { recursive: true, force: true });
+  cpSync(ref.path, sftddDir, { recursive: true });
+}
+
 /** Snapshot the .sftdd tree so a design candidate can be undone. Copies to a
  *  sibling temp dir; restore removes the live tree and copies the backup back. */
 export function snapshotDesign(args: { sftddDir: string }): DesignSnapshot {

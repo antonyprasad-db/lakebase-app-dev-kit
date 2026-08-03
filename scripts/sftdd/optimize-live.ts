@@ -19,7 +19,7 @@ import { join } from "node:path";
 import { applyCandidateConfig, type Candidate } from "./optimize-candidates.js";
 import { overlayAgent } from "./optimize-agent-overlay.js";
 import { evaluateDesignGate, type GateOutcome } from "./optimize-gate.js";
-import { snapshotDesign, snapshotBuild, turnMutatesDb, type BuildSnapshotDeps } from "./optimize-snapshot.js";
+import { snapshotDesign, snapshotBuild, turnMutatesDb, captureDesignArtifacts, restoreDesignArtifacts, type BuildSnapshotDeps, type DesignArtifactRef } from "./optimize-snapshot.js";
 import type { ChampionWalkDeps, HandoffPlan, HandoffSnapshot, TrialResult, HandoffResult, ChampionWalkResult } from "./optimize-harness.js";
 import { defaultSftddConfig, loadSftddConfig, writeSftddConfig, type SftddConfigFile } from "./sftdd-config.js";
 import { isBuildHandoff, actionToHandoffPlan } from "./optimize.cli.js";
@@ -167,12 +167,20 @@ export function makeChampionWalkDeps(ctx: OptimizeLiveCtx): ChampionWalkDeps {
         // Capture THIS trial's produced .sftdd artifacts NOW, before the caller's
         // between-trial restore wipes them , but only for a PASSING design trial
         // (the winner is chosen among passing; a failed trial's output is not
-        // restorable-as-winner). When this trial's candidate wins, recordWinner
-        // restores this exact snapshot so the next role runs against the winner's
-        // real, measured output (no re-run). Build handoffs advance via git/branch
-        // state, not a .sftdd copy, so they carry no artifactsRef (impl re-runs).
-        const artifactsRef =
-          gate.passed && !isBuildHandoff(handoff) ? snapshotDesign({ sftddDir: ctx.sftddDir }) : undefined;
+        // restorable-as-winner). The capture is DURABLE, under this trial's own
+        // experiments dir (NOT /tmp), so: (a) recordWinner restores the winner's
+        // exact measured output with no re-run; (b) a rejected winner can fall back
+        // to a structurally-complete runner-up by restoring ITS retained capture;
+        // (c) every candidate's output persists for side-by-side audit + a reusable
+        // corpus. Build handoffs advance via git/branch state, not a .sftdd copy, so
+        // they carry no artifactsRef (recordWinner re-runs them).
+        const artifactsRef: DesignArtifactRef | undefined =
+          gate.passed && !isBuildHandoff(handoff)
+            ? captureDesignArtifacts({
+                sftddDir: ctx.sftddDir,
+                destDir: join(ctx.experimentsDir, handoff.id, candidate.id, `trial-${trial}`, "artifacts"),
+              })
+            : undefined;
         result = {
           gatePassed: gate.passed,
           durationMs,
@@ -198,9 +206,9 @@ export function makeChampionWalkDeps(ctx: OptimizeLiveCtx): ChampionWalkDeps {
       // truly won, NOT a fresh re-run that would produce different artifacts. The ref
       // is that trial's DesignSnapshot (captured in runTrial before the between-trial
       // restore wiped it); restoring it makes the live .sftdd the winner's output.
-      const snap = artifactsRef as { restore(): void; dispose(): void } | undefined;
-      if (snap) {
-        snap.restore();
+      const ref = artifactsRef as DesignArtifactRef | undefined;
+      if (ref?.path) {
+        restoreDesignArtifacts({ sftddDir: ctx.sftddDir, ref });
         // Record the (now-restored) winner state into the corpus without a re-spawn:
         // recordTurn diffs the current .sftdd against the recorder baseline. Only when
         // a corpus record dir is set (a winner capture); best-effort so a recorder
@@ -215,7 +223,9 @@ export function makeChampionWalkDeps(ctx: OptimizeLiveCtx): ChampionWalkDeps {
             process.stderr.write(`[optimize] recordWinner: corpus record best-effort failed for ${handoff.id}: ${e instanceof Error ? e.message : String(e)}\n`);
           }
         }
-        snap.dispose();
+        // NOTE: the durable capture is intentionally NOT deleted , it stays under
+        // experiments/ for audit + reusable corpus (disposeExperiments tears down
+        // the whole scratch tree at end of run).
       } else {
         // No captured artifacts (a BUILD handoff advances via git/branch state, not a
         // .sftdd copy; or a degenerate no-passing-trial case): fall back to re-running
