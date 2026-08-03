@@ -310,17 +310,19 @@ async function main(): Promise<number> {
         return walk.walk[0];
       },
       // advanceOne: a settled upstream handoff (before --from) whose winner is already
-      // applied to the kit , run its BASELINE once + record it to advance the drive,
-      // do NOT re-sweep. Baseline-only candidate + alwaysAdvance records the turn and
-      // moves the lane forward to reach the --from target.
+      // applied to the kit , run its baseline turn to move the drive forward, do NOT
+      // re-sweep. This must run the FULL command list (the claude turn AND the drive
+      // appendix , sync-breakdown, gates), exactly as a normal drive turn would, so the
+      // substrate advances (e.g. breakdown's sync-breakdown populates pipeline.json). A
+      // sweep TRIAL runs only the claude command (isolated measurement); advancing is
+      // real progression, so it runs the whole turn through the real runner.
       advanceOne: async (h) => {
-        const ctxRes = buildCtxForHandoff(h, { projectDir, sftddDir, featureId, recordDir });
-        if ("error" in ctxRes) throw new Error(ctxRes.error.trim());
-        process.stderr.write(`[optimize] handoff ${h.id}: ADVANCE (settled upstream; baseline only, not swept)\n`);
-        await runChampionWalk(
-          { handoffs: [h], candidates: [{ id: BASELINE_CANDIDATE_ID, configOverrides: {} }], trials: 1, proposeOnly: args.proposeOnly, alwaysAdvance: true },
-          makeChampionWalkDeps(ctxRes.ctx),
-        );
+        if (!h.action) throw new Error(`optimize advanceOne: handoff '${h.id}' has no pinned action to advance.`);
+        process.stderr.write(`[optimize] handoff ${h.id}: ADVANCE (settled upstream; full baseline turn, not swept)\n`);
+        const cfg = buildCfg({ feature: featureId, projectDir } as never, featureId);
+        const runner = execRunner(cfg as never) as { run(cmd: unknown): Promise<void> };
+        const commands = commandsForAction(h.action as never, cfg as never) as unknown[];
+        for (const cmd of commands) await runner.run(cmd);
       },
     }, args.from ? { startFrom: args.from } : {});
     laneWalk.push(...result.walk);
