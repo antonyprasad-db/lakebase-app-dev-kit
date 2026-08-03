@@ -1,62 +1,62 @@
 {
   "handoff": "ux-designer",
-  "winner": "ux-designer-m-opus-e-low",
-  "capturedAt": "2026-08-03T06:39:04.761Z",
+  "winner": "ux-designer-scan-tight",
+  "capturedAt": "2026-08-03T14:01:21.257Z",
   "candidates": [
     {
       "candidate": "baseline",
       "trials": 2,
       "gatePassed": true,
-      "medianMs": 132337.5,
+      "medianMs": 96303,
       "medianCostUsd": 0
     },
     {
       "candidate": "ux-designer-e-low",
       "trials": 2,
       "gatePassed": true,
-      "medianMs": 139260,
+      "medianMs": 111599.5,
       "medianCostUsd": 0
     },
     {
       "candidate": "ux-designer-e-medium",
       "trials": 2,
       "gatePassed": true,
-      "medianMs": 108658,
+      "medianMs": 124709.5,
       "medianCostUsd": 0
     },
     {
       "candidate": "ux-designer-m-haiku",
       "trials": 2,
       "gatePassed": true,
-      "medianMs": 149852,
+      "medianMs": 121011.5,
       "medianCostUsd": 0
     },
     {
       "candidate": "ux-designer-m-haiku-e-low",
       "trials": 2,
       "gatePassed": true,
-      "medianMs": 114610,
+      "medianMs": 121983,
       "medianCostUsd": 0
     },
     {
       "candidate": "ux-designer-m-opus",
       "trials": 2,
       "gatePassed": true,
-      "medianMs": 106246.5,
+      "medianMs": 89259.5,
       "medianCostUsd": 0
     },
     {
       "candidate": "ux-designer-m-opus-e-low",
       "trials": 2,
       "gatePassed": true,
-      "medianMs": 93184.5,
+      "medianMs": 92559,
       "medianCostUsd": 0
     },
     {
       "candidate": "ux-designer-scan-tight",
       "trials": 2,
       "gatePassed": true,
-      "medianMs": 135311,
+      "medianMs": 76686.5,
       "medianCostUsd": 0
     }
   ]

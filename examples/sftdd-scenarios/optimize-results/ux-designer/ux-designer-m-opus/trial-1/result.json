@@ -1,8 +1,8 @@
 {
   "gatePassed": true,
-  "durationMs": 102253,
+  "durationMs": 85964,
   "costUsd": 0,
-  "inputTokens": 20,
-  "cacheReadTokens": 200026,
+  "inputTokens": 14,
+  "cacheReadTokens": 141940,
   "artifactsRef": {}
 }
