@@ -23,7 +23,7 @@ import { execFile } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { TurnKey } from "./sftdd-config.js";
-import { designGuideJson, featureSpecJson, architectureJson, featureTestListJson, dbDesignJson, acsDir, storiesDir, featureDir } from "./sftdd-paths.js";
+import { designGuideJson, featureSpecJson, architectureJson, featureTestListJson, dbDesignJson, featureProposalsMd, planningEstimatesJson, acsDir, storiesDir, featureDir } from "./sftdd-paths.js";
 
 /** The .tdd-layout artifact path for a step, built via sftdd-paths (the single source
  *  of truth for the layout). `base` is a .tdd-shaped root: the live project's .sftdd
@@ -36,9 +36,15 @@ function stepArtifactPath(base: string, step: TurnKey, featureId: string): strin
       return designGuideJson(base);
     case "breakdown":
       return featureSpecJson(base, featureId);
+    case "propose":
+      // The Spec Author's sprint proposal , a project-level (not per-feature) artifact.
+      return featureProposalsMd(base);
     case "architect":
-    case "estimate":
       return architectureJson(base, featureId);
+    case "estimate":
+      // The Architect's feature-level t-shirt sizes , planning/estimates.json (NOT
+      // architecture.json). estimate + architect are distinct artifacts by distinct actions.
+      return planningEstimatesJson(base);
     case "test-list":
       return featureTestListJson(base, featureId);
     case "dba":
@@ -88,6 +94,7 @@ function corpusForStep(step: TurnKey): string | undefined {
     case "dba":
       return RERECORD;
     case "breakdown":
+    case "propose":
     case "acs":
     case "architect":
     case "estimate":

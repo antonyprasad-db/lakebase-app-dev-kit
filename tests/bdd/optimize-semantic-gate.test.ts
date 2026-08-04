@@ -71,8 +71,44 @@ describe("resolveStepReference: which corpus + artifact backs each step", () => 
     expect(ref?.paths).toHaveLength(3); // union across stories
   });
 
+  it("propose -> canonical stockflow planning/feature-proposals.md (was a silent-skip GAP)", () => {
+    // Regression: `propose` produces planning/feature-proposals.md and a baseline exists in
+    // BOTH corpora, but it used to fall into corpusForStep/stepArtifactPath's `default` case
+    // -> null -> the quality gate silently skipped, running the propose sweep scoreless.
+    seedRef("stockflow", "planning/feature-proposals.md", "# Sprint 1 proposal\n- F1\n");
+    const ref = resolveStepReference({ kitRoot, step: "propose", featureId });
+    expect(ref?.corpus).toBe("stockflow");
+    expect(ref?.paths[0]).toMatch(/planning\/feature-proposals\.md$/);
+  });
+
+  it("estimate -> canonical stockflow planning/estimates.json (NOT architecture.json)", () => {
+    // Regression: `estimate` produces planning/estimates.json, but stepArtifactPath returned
+    // architectureJson -> the estimate gate compared an estimates candidate against an
+    // architecture reference (wrong artifact entirely). It must resolve estimates.json.
+    seedRef("stockflow", `features/${featureId}/architecture.json`, { feature_id: featureId });
+    seedRef("stockflow", "planning/estimates.json", { estimates: [{ feature_id: featureId, size: "M" }] });
+    const ref = resolveStepReference({ kitRoot, step: "estimate", featureId });
+    expect(ref?.corpus).toBe("stockflow");
+    expect(ref?.paths[0]).toMatch(/planning\/estimates\.json$/);
+  });
+
   it("returns null when the corpus/artifact is not on disk (bar not applicable)", () => {
     expect(resolveStepReference({ kitRoot, step: "ux", featureId })).toBeNull();
+  });
+});
+
+describe("readCandidateArtifact: reads the SAME artifact the reference resolves (parity)", () => {
+  it("propose reads planning/feature-proposals.md from the candidate .sftdd", () => {
+    seedCandidate("planning/feature-proposals.md", "# candidate proposal\n");
+    expect(readCandidateArtifact({ sftddDir, step: "propose", featureId })).toContain("candidate proposal");
+  });
+
+  it("estimate reads planning/estimates.json from the candidate .sftdd (not architecture.json)", () => {
+    seedCandidate(`features/${featureId}/architecture.json`, { feature_id: featureId });
+    seedCandidate("planning/estimates.json", { estimates: [{ feature_id: featureId, size: "L" }] });
+    const body = readCandidateArtifact({ sftddDir, step: "estimate", featureId });
+    expect(body).toContain('"size":"L"'); // estimates.json content (compact), not architecture
+    expect(body).toContain("estimates");
   });
 });
 
