@@ -16,7 +16,7 @@
 // their own workspace by setting the env overrides.
 
 import { describe, it, expect } from "vitest";
-import { mkdtempSync, mkdirSync, cpSync, chmodSync, existsSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadRunConfig } from "../../consort/orchestrator/manifest/run-config-loader.js";
@@ -103,8 +103,17 @@ describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE: stockflow demo end-to-end fro
     for (const t of result.turns) {
       expect(t.result.violations, `${t.manifestId}: ${t.result.violations.join("; ")}`).toEqual([]);
     }
-    expect(existsSync(join(workspaceDir, SPEC_REL))).toBe(true);
-    expect(result.turns[result.turns.length - 1].result.bounded.action).toEqual({ kind: "design-complete" });
+    // The spec-author turn PRODUCED the feature-spec at its declared path. Assert on the turn's
+    // producedPaths (which survives teardown), NOT existsSync on disk , teardown intentionally
+    // removes the project dir in its finally, so an on-disk check here races the cleanup and
+    // fails even on a fully-successful run.
+    const specTurn = result.turns[result.turns.length - 1];
+    expect(specTurn.manifestId).toBe("stockflow-demo-spec-author");
+    expect(
+      specTurn.result.producedPaths.some((p) => p.endsWith(SPEC_REL)),
+      `spec-author produced: ${specTurn.result.producedPaths.join(", ")}`,
+    ).toBe(true);
+    expect(specTurn.result.bounded.action).toEqual({ kind: "design-complete" });
     expect(result.teardown?.ok, `teardown failed: ${result.teardown?.error}`).toBe(true);
   }, 900_000);
 });
