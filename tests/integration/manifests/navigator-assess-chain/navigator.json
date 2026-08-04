@@ -20,8 +20,8 @@
       "role": "navigator",
       "model": "sonnet",
       "session": "fresh",
-      "allowedTools": ["Write", "Read"],
-      "disallowedTools": ["Bash", "Glob", "Grep", "WebFetch", "WebSearch", "Task"]
+      "allowedTools": ["Write", "Read", "Grep", "Glob"],
+      "disallowedTools": ["Bash", "WebFetch", "WebSearch", "Task"]
     }
   }
 }

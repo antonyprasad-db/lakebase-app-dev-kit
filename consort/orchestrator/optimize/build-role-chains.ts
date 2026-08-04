@@ -99,9 +99,13 @@ export const BUILD_ROLE_CHAINS: Record<string, BuildRoleChain> = {
     prompt:
       `You are the Navigator ASSESSING a failed honest-GREEN verify for AC ${BUILD_AC} in story ` +
       `${BUILD_STORY}. The Driver made the current test pass, but the full-suite verify FAILED , some ` +
-      `test(s) now fail (see green-failure.json in your AC cycle dir + the code the Driver wrote). ` +
-      `Inspect the failing tests + the Driver's code and DECIDE, writing EXACTLY ONE marker file ` +
-      `(relative to your current working directory), into ${AC_CYCLE_DIR}/:\n` +
+      `test(s) now fail. START from green-failure.json in your AC cycle dir (${AC_CYCLE_DIR}/) , its ` +
+      `summary already localizes WHICH suite failed. LAYOUT (go straight to these, do NOT scan the ` +
+      `whole tree): backend app under app/ (models/services/repositories/routes), backend tests under ` +
+      `tests/, the React client under client/src/ with client tests under client/tests/. Use Grep/Glob ` +
+      `to jump to the named failing test + the symbol it imports , do NOT Read every file. In a few ` +
+      `targeted lookups confirm the root cause, then DECIDE, writing EXACTLY ONE marker file (relative ` +
+      `to your current working directory), into ${AC_CYCLE_DIR}/:\n` +
       `  (a) SUPERSEDED , if this AC intentionally supersedes behavior the failing PRIOR tests ` +
       `encode (the latest AC wins), write superseded-tests.json = {"tests":["<path>", ...], "reason":"<new AC + what changed>"}.\n` +
       `  (b) REGRESSION , if the failure is a genuine bug in the Driver's code (this AC does NOT ` +
