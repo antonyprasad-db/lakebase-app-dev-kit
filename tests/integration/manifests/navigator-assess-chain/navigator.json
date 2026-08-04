@@ -1,13 +1,13 @@
 {
   "id": "navigator-assess-chain-live",
   "role": "navigator",
-  "match": { "kind": "invoke-role", "role": "navigator", "story": "S3-stock-shows-split-fields", "buildMode": "assess", "ac": "AC1-split-fields-shown" },
+  "match": { "kind": "invoke-role", "role": "navigator", "story": "S1-split-columns-migration", "buildMode": "assess", "ac": "AC1-batch-serial-columns-added" },
   "inputs": [
-    { "id": "green-failure", "source": "feature:.sftdd/cycles/F6-split-tracking-code/S3-stock-shows-split-fields/AC1-split-fields-shown/green-failure.json", "description": "The failed-GREEN marker (+ pre-localized supersededTestRefs) the Navigator discriminates." },
-    { "id": "ac", "source": "feature:.sftdd/features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/acs/AC1-split-fields-shown.json", "description": "The AC whose intent decides superseded vs genuine regression." }
+    { "id": "green-failure", "source": "feature:.sftdd/cycles/F6-split-tracking-code/S1-split-columns-migration/AC1-batch-serial-columns-added/green-failure.json", "description": "The failed-GREEN marker (+ pre-localized supersededTestRefs) the Navigator discriminates." },
+    { "id": "ac", "source": "feature:.sftdd/features/F6-split-tracking-code/stories/S1-split-columns-migration/acs/AC1-batch-serial-columns-added.json", "description": "The AC whose intent decides superseded vs genuine regression." }
   ],
   "outputs": [
-    { "id": "assess-marker", "filename": ".sftdd/cycles/F6-split-tracking-code/S3-stock-shows-split-fields/AC1-split-fields-shown", "validator": "assessMarkerWritten", "description": "The discriminator marker: superseded-tests.json OR regression-assessment.json." },
+    { "id": "assess-marker", "filename": ".sftdd/cycles/F6-split-tracking-code/S1-split-columns-migration/AC1-batch-serial-columns-added", "validator": "assessMarkerWritten", "description": "The discriminator marker: superseded-tests.json OR regression-assessment.json." },
     { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "navigatorLoggedAuthoring", "description": "The Navigator's authoring log." }
   ],
   "routing": {

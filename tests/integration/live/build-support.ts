@@ -23,6 +23,8 @@ import {
   BUILD_FEATURE,
   BUILD_STORY,
   BUILD_AC,
+  ASSESS_STORY,
+  ASSESS_AC,
   type BuildRoleChain,
 } from "../../../consort/orchestrator/optimize/build-role-chains.js";
 import {
@@ -43,7 +45,8 @@ export const TELEMETRY_DIR = process.env.LAKEBASE_ROLE_TELEMETRY_DIR ?? join(KIT
 export { BUILD_ROLE_CHAINS, type BuildRoleChain };
 
 /** The recorded 003-driver code (the driver work the navigator ASSESS turn judged), read as the
- *  independent oracle's input. app/ + client/ + tests/ concatenated (the whole produced tree). */
+ *  independent oracle's input. app/ + client/ + tests/ concatenated (the whole produced tree).
+ *  ASSESS runs on S1 (the pure-supersession case), so read S1's 003-driver tree. */
 function recordedDriverCode(): string {
   const codeRoot = join(
     KIT,
@@ -51,7 +54,7 @@ function recordedDriverCode(): string {
     "recorded-build/features",
     BUILD_FEATURE,
     "stories",
-    BUILD_STORY,
+    ASSESS_STORY,
     "turns/003-driver/code",
   );
   return readTree(codeRoot, [".py", ".ts", ".tsx"]);
@@ -123,7 +126,7 @@ async function runAssessAlignmentGate(produced: Record<string, string>): Promise
   const oracleVerdict = await oracleJudge({ kind: "code", reference: "", candidate: recordedDriverCode() });
 
   // 2. Materialize the navigator's marker (from the preserved tree) into a temp dir the parser reads.
-  const markerRel = `.sftdd/cycles/${BUILD_FEATURE}/${BUILD_STORY}/${BUILD_AC}`;
+  const markerRel = `.sftdd/cycles/${BUILD_FEATURE}/${ASSESS_STORY}/${ASSESS_AC}`;
   const markerDir = join(TELEMETRY_DIR, "assess-marker", `${Date.now()}`);
   mkdirSync(markerDir, { recursive: true });
   for (const name of ["superseded-tests.json", "regression-assessment.json"]) {

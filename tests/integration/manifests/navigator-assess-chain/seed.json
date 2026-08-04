@@ -4,14 +4,14 @@
   "match": { "kind": "invoke-role", "role": "product-owner", "mode": "author-requests" },
   "inputs": [],
   "outputs": [
-    { "id": "green-failure", "filename": ".sftdd/cycles/F6-split-tracking-code/S3-stock-shows-split-fields/AC1-split-fields-shown/green-failure.json", "validator": "nonEmptyFile", "description": "The DETERMINISTIC failed-GREEN marker (assessed:false + summary + the pre-localized supersededTestRefs the orchestrator writes BEFORE dispatch). NOT the navigator's own diagnosis/fixDirective." },
+    { "id": "green-failure", "filename": ".sftdd/cycles/F6-split-tracking-code/S1-split-columns-migration/AC1-batch-serial-columns-added/green-failure.json", "validator": "nonEmptyFile", "description": "The DETERMINISTIC failed-GREEN marker (assessed:false + summary + the pre-localized supersededTestRefs the orchestrator writes BEFORE dispatch). NOT the navigator's own diagnosis/fixDirective. S1 is the pure-supersession (column-drop) case the pre-localization covers." },
     { "id": "architecture", "filename": ".sftdd/features/F6-split-tracking-code/architecture.json", "validator": "architectureConformant", "description": "The architect contract buildContextPack reads for the RUBRIC." },
-    { "id": "ac", "filename": ".sftdd/features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/acs/AC1-split-fields-shown.json", "validator": "acConformant", "description": "The story AC whose intent decides superseded vs regression." },
+    { "id": "ac", "filename": ".sftdd/features/F6-split-tracking-code/stories/S1-split-columns-migration/acs/AC1-batch-serial-columns-added.json", "validator": "acConformant", "description": "The story AC whose intent decides superseded vs regression." },
     { "id": "conventions", "filename": ".sftdd/architecture/conventions.json", "validator": "nonEmptyFile", "description": "The module-layout projection buildContextPack reads for the real LAYOUT." },
     { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "productOwnerLoggedAuthoring", "description": "The replay seed's authoring log." }
   ],
   "routing": {
-    "produced": { "next": { "kind": "invoke-role", "role": "navigator", "story": "S3-stock-shows-split-fields", "buildMode": "assess", "ac": "AC1-split-fields-shown" } }
+    "produced": { "next": { "kind": "invoke-role", "role": "navigator", "story": "S1-split-columns-migration", "buildMode": "assess", "ac": "AC1-batch-serial-columns-added" } }
   },
   "agentOptions": { "session": "fresh", "resumeKeyFrom": "none" },
   "agent": {
@@ -19,10 +19,10 @@
     "config": {
       "role": "product-owner",
       "seeds": [
-        { "outputId": "post-green-code", "kind": "tree", "from": "recorded-build/features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/turns/003-driver/code", "to": "." },
-        { "outputId": "green-failure", "from": "recorded-build/features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/turns/003-driver/tdd/cycles/F6-split-tracking-code/S3-stock-shows-split-fields/AC1-split-fields-shown/green-failure.json", "to": ".sftdd/cycles/F6-split-tracking-code/S3-stock-shows-split-fields/AC1-split-fields-shown/green-failure.json" },
+        { "outputId": "post-green-code", "kind": "tree", "from": "recorded-build/features/F6-split-tracking-code/stories/S1-split-columns-migration/turns/003-driver/code", "to": "." },
+        { "outputId": "green-failure", "from": "recorded-build/features/F6-split-tracking-code/stories/S1-split-columns-migration/turns/003-driver/tdd/cycles/F6-split-tracking-code/S1-split-columns-migration/AC1-batch-serial-columns-added/green-failure.json", "to": ".sftdd/cycles/F6-split-tracking-code/S1-split-columns-migration/AC1-batch-serial-columns-added/green-failure.json" },
         { "outputId": "architecture", "from": "recorded-artifacts/features/F6-split-tracking-code/architecture.json", "to": ".sftdd/features/F6-split-tracking-code/architecture.json" },
-        { "outputId": "ac", "from": "recorded-artifacts/features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/acs/AC1-split-fields-shown.json", "to": ".sftdd/features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/acs/AC1-split-fields-shown.json" },
+        { "outputId": "ac", "from": "recorded-artifacts/features/F6-split-tracking-code/stories/S1-split-columns-migration/acs/AC1-batch-serial-columns-added.json", "to": ".sftdd/features/F6-split-tracking-code/stories/S1-split-columns-migration/acs/AC1-batch-serial-columns-added.json" },
         { "outputId": "conventions", "from": "recorded-artifacts/architecture/conventions.json", "to": ".sftdd/architecture/conventions.json" }
       ]
     }

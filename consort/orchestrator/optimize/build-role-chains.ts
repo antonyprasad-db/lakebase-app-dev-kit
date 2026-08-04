@@ -30,11 +30,22 @@ import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.j
 export const BUILD_MANIFESTS_REL = "tests/integration/manifests";
 export const BUILD_CORPUS_REL = "examples/sftdd-scenarios/stockflow-rerecord";
 export const BUILD_FEATURE = "F6-split-tracking-code";
+// RED runs on S3 (the richest test-authoring story). Its live green is proven there.
 export const BUILD_STORY = "S3-stock-shows-split-fields";
 export const BUILD_AC = "AC1-split-fields-shown";
 /** S3 is the 3rd of F6's 3 stories (S1, S2, S3) , the recorded-build reference is matched
  *  positionally by this index (slugs differ across corpora). */
 export const BUILD_STORY_INDEX = 2;
+
+// ASSESS runs on S1 , the PURE-SUPERSESSION case the deterministic pre-localization was built
+// for (its green-failure carries supersededTestRefs; the failure IS the column-drop, fully
+// pre-localizable). S3's assess is inherently NON-pre-localizable (a missing CLIENT component the
+// gate cannot localize), so the navigator must read the client tree , the expensive open-ended
+// path, not the fast flag-the-pre-localized-set path this chain is meant to exercise.
+export const ASSESS_STORY = "S1-split-columns-migration";
+export const ASSESS_AC = "AC1-batch-serial-columns-added";
+/** S1 is the 1st of F6's 3 stories , positional index 0 for the recorded-build reference. */
+export const ASSESS_STORY_INDEX = 0;
 
 /** The build chains start from the PO seed (the replay seed manifest matches it + overlays the
  *  recorded pre-turn state), then route to the live build action. Same PO_SEED as the design
@@ -67,8 +78,9 @@ export interface BuildRoleChain {
   prompt: string;
 }
 
-/** The AC cycle dir (workspace-relative) the assess marker lands in, mirroring cycleDir(). */
-const AC_CYCLE_DIR = `.sftdd/cycles/${BUILD_FEATURE}/${BUILD_STORY}/${BUILD_AC}`;
+/** The AC cycle dir (workspace-relative) the assess marker lands in, mirroring cycleDir().
+ *  Assess runs on S1, so the cycle dir is S1's. */
+const AC_CYCLE_DIR = `.sftdd/cycles/${BUILD_FEATURE}/${ASSESS_STORY}/${ASSESS_AC}`;
 
 /** The per-BUILD-role chain catalogue. Navigator turns only (lean); driver turns are the gated
  *  cloud phase (seam below). Keyed by a short handle. */
@@ -93,13 +105,13 @@ export const BUILD_ROLE_CHAINS: Record<string, BuildRoleChain> = {
   "navigator-assess": {
     name: "navigator ASSESS (discriminate a failed GREEN)",
     dir: "navigator-assess-chain",
-    start: { kind: "invoke-role", role: "navigator", story: BUILD_STORY, buildMode: "assess", ac: BUILD_AC } as WorkflowAction,
+    start: { kind: "invoke-role", role: "navigator", story: ASSESS_STORY, buildMode: "assess", ac: ASSESS_AC } as WorkflowAction,
     assertKind: "assess",
     outputFile: AC_CYCLE_DIR,
     extraSnapshotRoots: ["tests", "app", "client"],
     prompt:
-      `You are the Navigator ASSESSING a failed honest-GREEN verify for AC ${BUILD_AC} in story ` +
-      `${BUILD_STORY}. The Driver made the current test pass, but the full-suite verify FAILED , some ` +
+      `You are the Navigator ASSESSING a failed honest-GREEN verify for AC ${ASSESS_AC} in story ` +
+      `${ASSESS_STORY}. The Driver made the current test pass, but the full-suite verify FAILED , some ` +
       `test(s) now fail. START from green-failure.json in your AC cycle dir (${AC_CYCLE_DIR}/) , its ` +
       `summary localizes WHICH suite failed, and if it carries a supersededTestRefs / contractRefs ` +
       `advisory, TRUST that pre-localized set (flag EXACTLY those; do NOT re-search the test tree). ` +
@@ -156,9 +168,14 @@ export async function runBuildRoleChainLive(chain: BuildRoleChain, opts: RunBuil
             // (skipTestLoop drops the test-location line); assess judges existing code (full pack).
             prompt:
               chain.prompt +
-              buildContextPack(join(ws, ".sftdd"), BUILD_FEATURE, BUILD_STORY, chain.assertKind === "assess" ? BUILD_AC : "", {
-                skipTestLoop: chain.assertKind === "red",
-              }),
+              // RED runs on S3, ASSESS on S1 , compute the pack for the chain's OWN story/ac.
+              buildContextPack(
+                join(ws, ".sftdd"),
+                BUILD_FEATURE,
+                chain.assertKind === "assess" ? ASSESS_STORY : BUILD_STORY,
+                chain.assertKind === "assess" ? ASSESS_AC : "",
+                { skipTestLoop: chain.assertKind === "red" },
+              ),
             guidelines: [`Author your output as instructed; end with the agent-report block; run no command.`],
           }
         : { prompt: `Replay-seed the pre-turn state for ${chain.name}.`, guidelines: [] },
