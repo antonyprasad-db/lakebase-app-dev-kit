@@ -89,7 +89,13 @@ describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE (lean): mock PO -> live spec-a
     process.env.LAKEBASE_KIT_DIR = KIT;
 
     try {
-      const turns = await runManifestChain(PO_SEED, manifests, runnerDeps);
+      // Cap at the 2 turns this test is about (PO seed -> live spec-author breakdown). The
+      // route-scenarios/ dir also carries the downstream ux-designer manifest (a bare mock that
+      // writes no design-guide, for the ROUTE suite), so an uncapped chain would flow into it and
+      // block on its missing artifact. maxTurns:2 stops after the breakdown , the same cap the
+      // hermetic manifest-runner 2-turn-chain test uses; the breakdown's honest next hop
+      // (ux-designer) is still asserted below via specTurn.result.bounded.action.
+      const turns = await runManifestChain(PO_SEED, manifests, runnerDeps, { maxTurns: 2 });
 
       // PO replayed, then the LIVE spec-author authored a conformant feature-spec.
       expect(turns.map((t) => t.manifestId)).toEqual(["po-seed", "spec-author"]);
