@@ -42,6 +42,7 @@ export default defineConfig({
     "scripts/sftdd/ux-clean.cli": "scripts/sftdd/ux-clean.cli.ts",
     "scripts/sftdd/optimize.cli": "scripts/sftdd/optimize.cli.ts",
     "scripts/sftdd/optimize-apply.cli": "scripts/sftdd/optimize-apply.cli.ts",
+    "scripts/sftdd/optimize-role.cli": "scripts/sftdd/optimize-role.cli.ts",
     "scripts/sftdd/agent-models.cli": "scripts/sftdd/agent-models.cli.ts",
     "scripts/sftdd/story-pipeline.cli": "scripts/sftdd/story-pipeline.cli.ts",
     "scripts/sftdd/cycle.cli": "scripts/sftdd/cycle.cli.ts",

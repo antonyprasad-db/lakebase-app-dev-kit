@@ -102,6 +102,7 @@
     "lakebase-sftdd-ux-clean": "./dist/scripts/sftdd/ux-clean.cli.js",
     "lakebase-sftdd-optimize": "./dist/scripts/sftdd/optimize.cli.js",
     "lakebase-sftdd-optimize-apply": "./dist/scripts/sftdd/optimize-apply.cli.js",
+    "lakebase-sftdd-optimize-role": "./dist/scripts/sftdd/optimize-role.cli.js",
     "lakebase-sftdd-log": "./dist/scripts/sftdd/agent-log.cli.js",
     "lakebase-sftdd-next": "./dist/scripts/sftdd/next.cli.js",
     "lakebase-sftdd-pipeline": "./dist/scripts/sftdd/story-pipeline.cli.js",

@@ -14,7 +14,7 @@ import { loadStepManifests, type StepManifest } from "../manifest/step-manifest.
 import type { StepInstructions } from "../agents/agent-types.js";
 import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.js";
 import type { DriveEffectsConfig } from "../../../scripts/sftdd/orchestrator-effects.js";
-import type { AgentBuildContext } from "../agents/agent-catalogue.js";
+import { buildAgent, type AgentBuildContext } from "../agents/agent-catalogue.js";
 
 /** Copy the kit's role agent definitions (skills/consort/agents/*.md) into
  *  <workspaceDir>/.claude/agents/ so a spawned `claude --agent <role>` resolves them. The kit's
@@ -44,6 +44,13 @@ export interface IntegrationChainConfig {
   outputPathsByRole?: Record<string, Record<string, string>>;
   /** Per-role instruction bundle (the live agent's prompt). */
   instructionsFor?(manifest: StepManifest): StepInstructions;
+  /** OPTIONAL agent override , build the StepAgent for a manifest imperatively instead of
+   *  resolving manifest.agent via the catalogue. This is the LEVER-INJECTION seam the per-role
+   *  optimize sweep uses: return a ClaudeStepAgent built from patched levers (model/effort/tool
+   *  scope) for the live role's manifest, and undefined for the others (so they fall through to
+   *  the catalogue = the replay seed). When absent, every manifest resolves via the catalogue
+   *  (the default live run). */
+  agentFor?(manifest: StepManifest): import("../agents/agent-types.js").StepAgent | undefined;
 }
 
 /** What one integration-chain run reports. */
@@ -85,6 +92,17 @@ export async function runIntegrationChain(config: IntegrationChainConfig): Promi
     agentContext,
     formatAgentReports: true,
     ...(config.instructionsFor ? { instructionsFor: (m: StepManifest) => config.instructionsFor!(m) } : {}),
+    // Lever-injection seam: when a config.agentFor returns an override for a manifest, use it;
+    // otherwise fall back to the catalogue (manifest.agent) so the seed/other steps are unchanged.
+    // Only wired when config.agentFor is set, so the default run is byte-identical.
+    ...(config.agentFor
+      ? {
+          agentFor: (m: StepManifest) => {
+            const override = config.agentFor!(m);
+            return override ?? buildAgent(m.agent!, { workspaceDir, ...agentContext });
+          },
+        }
+      : {}),
     provisionWorkspace: (m: StepManifest) => {
       const outputPaths = config.outputPathsByRole?.[m.role];
       return outputPaths ? { workspaceDir, outputPaths } : { workspaceDir };
