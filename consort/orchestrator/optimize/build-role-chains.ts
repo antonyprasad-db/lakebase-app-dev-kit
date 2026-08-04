@@ -18,6 +18,7 @@
 
 import { join } from "node:path";
 import { runIntegrationChain } from "../scenarios/integration-chain.js";
+import { buildContextPack } from "../build/build-context.js";
 import type { StepManifest } from "../manifest/step-manifest.js";
 import type { StepAgent } from "../agents/agent-types.js";
 import type { ManifestTurn } from "../manifest/manifest-runner.js";
@@ -100,12 +101,12 @@ export const BUILD_ROLE_CHAINS: Record<string, BuildRoleChain> = {
       `You are the Navigator ASSESSING a failed honest-GREEN verify for AC ${BUILD_AC} in story ` +
       `${BUILD_STORY}. The Driver made the current test pass, but the full-suite verify FAILED , some ` +
       `test(s) now fail. START from green-failure.json in your AC cycle dir (${AC_CYCLE_DIR}/) , its ` +
-      `summary already localizes WHICH suite failed. LAYOUT (go straight to these, do NOT scan the ` +
-      `whole tree): backend app under app/ (models/services/repositories/routes), backend tests under ` +
-      `tests/, the React client under client/src/ with client tests under client/tests/. Use Grep/Glob ` +
-      `to jump to the named failing test + the symbol it imports , do NOT Read every file. In a few ` +
-      `targeted lookups confirm the root cause, then DECIDE, writing EXACTLY ONE marker file (relative ` +
-      `to your current working directory), into ${AC_CYCLE_DIR}/:\n` +
+      `summary localizes WHICH suite failed, and if it carries a supersededTestRefs / contractRefs ` +
+      `advisory, TRUST that pre-localized set (flag EXACTLY those; do NOT re-search the test tree). ` +
+      `Otherwise use Grep/Glob to jump to the named failing test + the symbol it imports (the LAYOUT ` +
+      `below names the paths) , do NOT Read every file. In a few targeted lookups confirm the root ` +
+      `cause, then DECIDE, writing EXACTLY ONE marker file (relative to your current working ` +
+      `directory), into ${AC_CYCLE_DIR}/:\n` +
       `  (a) SUPERSEDED , if this AC intentionally supersedes behavior the failing PRIOR tests ` +
       `encode (the latest AC wins), write superseded-tests.json = {"tests":["<path>", ...], "reason":"<new AC + what changed>"}.\n` +
       `  (b) REGRESSION , if the failure is a genuine bug in the Driver's code (this AC does NOT ` +
@@ -145,9 +146,21 @@ export async function runBuildRoleChainLive(chain: BuildRoleChain, opts: RunBuil
     feature: BUILD_FEATURE,
     start: BUILD_PO_SEED,
     extraSnapshotRoots: chain.extraSnapshotRoots,
-    instructionsFor: (m: StepManifest) =>
+    instructionsFor: (m: StepManifest, ws: string) =>
       m.agent?.kind === "claude"
-        ? { prompt: chain.prompt, guidelines: [`Author your output as instructed; end with the agent-report block; run no command.`] }
+        ? {
+            // Append the REAL buildContextPack (the SAME deterministic RUBRIC + LAYOUT +
+            // test-locations the orchestrator injects into a dispatched build turn), computed
+            // against the SEEDED workspace .sftdd , so the isolated turn is pre-conditioned
+            // exactly as production, not from a hand-written approximation. RED has no code yet
+            // (skipTestLoop drops the test-location line); assess judges existing code (full pack).
+            prompt:
+              chain.prompt +
+              buildContextPack(join(ws, ".sftdd"), BUILD_FEATURE, BUILD_STORY, chain.assertKind === "assess" ? BUILD_AC : "", {
+                skipTestLoop: chain.assertKind === "red",
+              }),
+            guidelines: [`Author your output as instructed; end with the agent-report block; run no command.`],
+          }
         : { prompt: `Replay-seed the pre-turn state for ${chain.name}.`, guidelines: [] },
     ...(opts.agentFor ? { agentFor: opts.agentFor } : {}),
   });

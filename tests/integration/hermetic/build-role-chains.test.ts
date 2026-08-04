@@ -13,7 +13,7 @@
 // The live execution is exercised by ../live/navigator-*-live.test.ts (gated on RUN_LIVE_STEP).
 
 import { describe, it, expect } from "vitest";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadStepManifests, manifestForAction, validateStepManifest } from "../../../consort/orchestrator/manifest/step-manifest";
 import { resolveValidator } from "../../../consort/orchestrator/validators/conformance/validator-registry";
@@ -87,5 +87,24 @@ describe("per-build-role chain: the recorded-build story baseline exists", () =>
   it("F6/S3 recorded-build turns are present (the functional/discriminator reference)", () => {
     const turns = join(CORPUS, "recorded-build/features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/turns");
     expect(existsSync(turns), `missing recorded-build baseline at ${turns}`).toBe(true);
+  });
+});
+
+// FIDELITY: the assess chain must seed the DETERMINISTIC failed-GREEN marker (the orchestrator's
+// pre-localized supersededTestRefs written BEFORE dispatch), NOT a later navigator-assessed marker
+// (which adds diagnosis/fixDirective = the ANSWER). Seeding the answer would make the turn trivial +
+// unfaithful; seeding the bare {assessed,summary} makes the navigator brute-force-scan (the slow
+// assess-spin). Assert the seed's green-failure source is the deterministic marker: has
+// supersededTestRefs, does NOT have fixDirective.
+describe("navigator-assess seed uses the DETERMINISTIC green-failure (pre-localized, not the navigator's verdict)", () => {
+  it("the seeded green-failure.json carries supersededTestRefs and NOT fixDirective/diagnosis", () => {
+    const manifests = loadStepManifests(join(MANIFESTS, "navigator-assess-chain"));
+    const seed = manifests.find((m) => m.id === "navigator-assess-chain-seed")!;
+    const gfSeed = (seed.agent!.config.seeds as { outputId: string; from: string }[]).find((s) => s.outputId === "green-failure")!;
+    const gf = JSON.parse(readFileSync(join(CORPUS, gfSeed.from), "utf8")) as Record<string, unknown>;
+    expect(gf.assessed).toBe(false); // pre-navigator (a navigator-assessed marker sets assessed:true)
+    expect(typeof gf.supersededTestRefs, "the deterministic gate's pre-localization must be present").toBe("string");
+    expect("fixDirective" in gf, "must NOT seed the navigator's own verdict (fixDirective)").toBe(false);
+    expect("diagnosis" in gf, "must NOT seed the navigator's own verdict (diagnosis)").toBe(false);
   });
 });
