@@ -15,6 +15,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { loadStepManifests, manifestForAction, validateStepManifest, type StepManifest } from "../../../consort/orchestrator/manifest/step-manifest";
 import { resolveValidator } from "../../../consort/orchestrator/validators/conformance/validator-registry";
+import { ROLE_CHAINS } from "../../../consort/orchestrator/optimize/role-chains";
 import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive";
 
 const KIT = process.cwd();
@@ -83,4 +84,19 @@ describe.each(CHAINS)("design-role LIVE chain: $dir", ({ dir, liveRole }) => {
       for (const o of m.outputs) expect(typeof resolveValidator(o.validator)).toBe("function");
     }
   });
+});
+
+// EVERY per-role sweep must be able to QUALITY-score its candidates, which requires a recorded
+// baseline artifact for the role's primary output. Preservation is always-on (the whole .sftdd
+// tree is snapshotted), but the quality gate SKIPS silently when no baseline exists , so a role
+// added without one would run scoreless. Assert every chain in ROLE_CHAINS has its baseline on
+// disk under intake, so that gap fails a test rather than passing unnoticed.
+describe("per-role sweep: every role has a recorded baseline for the quality gate", () => {
+  const INTAKE = join(KIT, "tests/integration/intake");
+  it.each(Object.values(ROLE_CHAINS).map((c) => [c.dir, c.outputFile] as const))(
+    "%s has a baseline at intake/%s",
+    (_dir, outputFile) => {
+      expect(existsSync(join(INTAKE, outputFile)), `missing recorded baseline for ${outputFile} , the quality gate would silently skip this role`).toBe(true);
+    },
+  );
 });
