@@ -21,7 +21,7 @@ import { join } from "node:path";
 import { existsSync } from "node:fs";
 import { resolveValidator } from "../validators/conformance/validator-registry.js";
 import { escalationPreempt, type WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.js";
-import type { StepManifest } from "./step-manifest.js";
+import type { StepManifest } from "../manifest/step-manifest.js";
 import type {
   StepContract,
   StepInputSpec,
@@ -32,7 +32,7 @@ import type {
   ConformanceValidator,
 } from "../contract/step-contract.js";
 import type { StepAgent } from "../agents/spec-author-breakdown-step-types.js";
-import type { ProvidedStepRun, ProvidedStepResult, ExistsFn } from "../steps/step-run-types.js";
+import type { ProvidedStepRun, ProvidedStepResult, ExistsFn } from "./step-run-types.js";
 
 /** Which output id is the PRIMARY artifact (the one that must be present for produced:true).
  *  Convention: the first declared output. */

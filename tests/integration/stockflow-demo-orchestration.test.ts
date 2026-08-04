@@ -16,7 +16,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync
 import { tmpdir } from "os";
 import { join } from "path";
 import { loadStepManifests, manifestForAction, validateStepManifest } from "../../consort/orchestrator/manifest/step-manifest";
-import { ManifestStep } from "../../consort/orchestrator/manifest/manifest-step";
+import { ManifestStep } from "../../consort/orchestrator/steps/manifest-step";
 import { execute, type StepExecutorDeps, type StepCtx } from "../../consort/orchestrator/execution/step-executor";
 import { makeReplayPoMockAgent } from "../../consort/orchestrator/agents/replay-po-mock-agent";
 import type { StepAgent } from "../../consort/orchestrator/agents/spec-author-breakdown-step-types";

@@ -27,7 +27,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { ClaudeStepAgent } from "../../consort/orchestrator/agents/claude-step-agent.js";
-import { ManifestStep } from "../../consort/orchestrator/manifest/manifest-step.js";
+import { ManifestStep } from "../../consort/orchestrator/steps/manifest-step.js";
 import { manifestForAction } from "../../consort/orchestrator/manifest/step-manifest.js";
 import { execute, type StepExecutorDeps, type StepCtx } from "../../consort/orchestrator/execution/step-executor.js";
 import type { ValidateBoundDeps } from "../../consort/orchestrator/contract/step-contract.js";

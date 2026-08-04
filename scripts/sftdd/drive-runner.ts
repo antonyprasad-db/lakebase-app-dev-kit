@@ -263,6 +263,15 @@ export function claudeToolArgs(cmd: Extract<DriveCommand, { kind: "claude" }>): 
  * is guardable. Headless essentials: -p (print), --agent/--model, --strict-mcp-config,
  * stream-json + --verbose (to capture turn.usage while teeing text).
  *
+ * --setting-sources project is LOAD-BEARING: headless `claude -p` does NOT load a
+ * directory's project settings (incl. its `.claude/agents/*.md` role definitions) by
+ * default, so `--agent <role>` fails with "agent not found" unless project settings are
+ * explicitly sourced. The kit's role agents live at `<projectDir>/.claude/agents/`
+ * (laid down by the scaffolder's deployClaudeAgents, or into a throwaway workspace for a
+ * lean live run); `--setting-sources project` is what makes `--agent spec-author` /
+ * `--agent ux-designer` / ... resolve. (Verified: the child init event's `agents` list
+ * includes the role only when this flag + the .claude/agents file are both present.)
+ *
  * --permission-mode acceptEdits is LOAD-BEARING: a scaffolded project ships no
  * .claude/settings.json, so without an explicit mode a headless role agent DEFAULTS
  * TO PROMPTING , and there is no one to answer. A role agent must both WRITE its
@@ -288,6 +297,7 @@ export function claudeBaseArgs(cmd: Extract<DriveCommand, { kind: "claude" }>): 
     "--agent", cmd.role,
     "--model", cmd.model,
     "--permission-mode", "acceptEdits",
+    "--setting-sources", "project",
     "--strict-mcp-config",
     "--output-format", "stream-json",
     "--verbose",

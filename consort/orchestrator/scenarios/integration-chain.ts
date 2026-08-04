@@ -6,7 +6,7 @@
 // workspace, no cloud project (a chain with one live agent still only needs a temp dir + the
 // agent-report channel).
 
-import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, cpSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runManifestChain, type ManifestRunnerDeps, type ManifestTurn } from "../manifest/manifest-runner.js";
@@ -15,6 +15,19 @@ import type { StepInstructions } from "../agents/spec-author-breakdown-step-type
 import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.js";
 import type { DriveEffectsConfig } from "../../../scripts/sftdd/orchestrator-effects.js";
 import type { AgentBuildContext } from "../agents/agent-catalogue.js";
+
+/** Copy the kit's role agent definitions (skills/consort/agents/*.md) into
+ *  <workspaceDir>/.claude/agents/ so a spawned `claude --agent <role>` resolves them. The kit's
+ *  agents live in the repo (NOT in the scm-utils package's deployClaudeAgents), so this copies
+ *  from there directly. A plain file copy , the load-bearing bit a live agent needs from the
+ *  workspace, with no cloud project. */
+export function layDownKitAgents(workspaceDir: string, kitDir: string = process.cwd()): void {
+  const src = join(kitDir, "skills", "consort", "agents");
+  if (!existsSync(src)) throw new Error(`layDownKitAgents: kit agents dir not found at ${src}`);
+  const dest = join(workspaceDir, ".claude", "agents");
+  mkdirSync(dest, { recursive: true });
+  cpSync(src, dest, { recursive: true });
+}
 
 /** What the caller supplies to run an integration chain from a manifest folder. */
 export interface IntegrationChainConfig {
@@ -50,6 +63,12 @@ export async function runIntegrationChain(config: IntegrationChainConfig): Promi
   const manifests = loadStepManifests(config.manifestDir);
   const workspaceDir = mkdtempSync(join(tmpdir(), "integration-chain-"));
   mkdirSync(join(workspaceDir, ".sftdd"), { recursive: true });
+  // Lay the kit's role agent definitions into <workspaceDir>/.claude/agents/ so a LIVE claude
+  // step can resolve `--agent <role>` (spec-author / ux-designer / ...). This is the ONE thing a
+  // live agent needs from the workspace that a bare temp dir lacks , a plain file copy from the
+  // kit's own agent defs, NOT a cloud project. (claudeBaseArgs passes --setting-sources project
+  // so the CLI loads these project-local agents.)
+  layDownKitAgents(workspaceDir);
 
   const agentContext: Omit<AgentBuildContext, "workspaceDir"> = {
     corpusRoot: config.intakeDir,

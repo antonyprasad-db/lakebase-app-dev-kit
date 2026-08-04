@@ -42,4 +42,14 @@ describe("claudeBaseArgs: headless permission mode", () => {
     expect(args).toContain("--output-format");
     expect(args).toContain("stream-json");
   });
+
+  it("sources PROJECT settings so `--agent <role>` resolves the kit's .claude/agents/ defs", () => {
+    // Headless `claude -p` does not load a directory's project settings (incl. its
+    // .claude/agents/*.md role defs) unless explicitly told to. Without this flag,
+    // `--agent spec-author` fails with "agent not found" in any workspace.
+    const args = claudeBaseArgs({ kind: "claude", role: "ux-designer", model: "sonnet", task: "t" });
+    const i = args.indexOf("--setting-sources");
+    expect(i).toBeGreaterThan(-1);
+    expect(args[i + 1]).toBe("project");
+  });
 });

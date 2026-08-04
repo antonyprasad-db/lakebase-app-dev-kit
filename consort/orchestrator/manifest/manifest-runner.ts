@@ -18,7 +18,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { manifestForAction, type StepManifest } from "./step-manifest.js";
-import { ManifestStep } from "./manifest-step.js";
+import { ManifestStep } from "../steps/manifest-step.js";
 import { buildAgent, type AgentBuildContext } from "../agents/agent-catalogue.js";
 import { probeDriveState } from "../state/escalation-probe.js";
 import { execute, type StepExecutorDeps, type StepCtx, type StepResult } from "../execution/step-executor.js";

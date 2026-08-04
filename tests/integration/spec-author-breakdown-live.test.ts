@@ -16,6 +16,7 @@ import { describe, it, expect } from "vitest";
 import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { layDownKitAgents } from "../../consort/orchestrator/scenarios/integration-chain.js";
 import { runManifestChain, type ManifestRunnerDeps } from "../../consort/orchestrator/manifest/manifest-runner.js";
 import { loadStepManifests, type StepManifest } from "../../consort/orchestrator/manifest/step-manifest.js";
 import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive.js";
@@ -66,6 +67,9 @@ describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE (lean): mock PO -> live spec-a
     // Bash + reports via the agent-report channel, so ./scripts/lk is never called.
     const workspaceDir = mkdtempSync(join(tmpdir(), "po-spec-author-"));
     mkdirSync(join(workspaceDir, ".sftdd"), { recursive: true });
+    // Lay the kit's role agent defs into <workspaceDir>/.claude/agents/ so the live spec-author
+    // resolves `--agent spec-author` , a plain file copy, no cloud project.
+    layDownKitAgents(workspaceDir);
 
     const runnerDeps: ManifestRunnerDeps = {
       workspaceDir,
