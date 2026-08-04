@@ -28,7 +28,12 @@ import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.j
  *  recorded-build code trees) lives under the rerecord scenario, NOT tests/integration/intake
  *  (which holds only the F1 design artifacts). */
 export const BUILD_MANIFESTS_REL = "tests/integration/manifests";
-export const BUILD_CORPUS_REL = "examples/sftdd-scenarios/stockflow-rerecord";
+// The experiments read their seeds + references from a SELF-CONTAINED evaluation-fixtures dir , a
+// snapshot of exactly the recorded artifacts these chains need (recorded-artifacts/ design +
+// recorded-build/ code trees + the ground-truth assess marker), copied out of the live corpus. So
+// a durable experiment re-run / evidence review does NOT depend on the scenario corpus being
+// present (the corpus is a moving reference; the fixtures are pinned). See evaluation/README.md.
+export const BUILD_CORPUS_REL = "consort/orchestrator/optimize/evaluation/fixtures";
 export const BUILD_FEATURE = "F6-split-tracking-code";
 // RED runs on S3 (the richest test-authoring story). Its live green is proven there.
 export const BUILD_STORY = "S3-stock-shows-split-fields";

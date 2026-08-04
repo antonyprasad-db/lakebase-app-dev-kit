@@ -28,13 +28,14 @@ import {
   type BuildRoleChain,
 } from "../../../consort/orchestrator/optimize/build-role-chains.js";
 import {
-  makeBuildDiscriminatorJudge,
   buildRedCoverageJudgePrompt,
   parseJudgeReply,
   evaluateNavigatorAssessAlignment,
   parseNavigatorAssessMarker,
+  makeSupersessionDeltaJudge,
   readTree,
   FUNCTIONAL_THRESHOLD,
+  type DiscriminatorVerdict,
 } from "../../../scripts/sftdd/optimize-semantic-gate.js";
 import { formatRoleTelemetry, writeRoleTelemetry, type RoleTelemetry } from "../../../consort/orchestrator/optimize/role-telemetry.js";
 import type { ManifestTurn } from "../../../consort/orchestrator/manifest/manifest-runner.js";
@@ -44,20 +45,26 @@ export const TELEMETRY_DIR = process.env.LAKEBASE_ROLE_TELEMETRY_DIR ?? join(KIT
 
 export { BUILD_ROLE_CHAINS, type BuildRoleChain };
 
-/** The recorded 003-driver code (the driver work the navigator ASSESS turn judged), read as the
- *  independent oracle's input. app/ + client/ + tests/ concatenated (the whole produced tree).
- *  ASSESS runs on S1 (the pure-supersession case), so read S1's 003-driver tree. */
-function recordedDriverCode(): string {
-  const codeRoot = join(
+/** The RECORDED GROUND-TRUTH assess verdict , the canonical navigator's marker for this turn,
+ *  parsed into a discriminator-shaped verdict. This is the alignment reference (the navigator's
+ *  live verdict is judged against THIS, not a cold re-derivation). ASSESS runs on S1; its
+ *  ground-truth marker is the 004-navigator-assess turn's superseded-tests.json in the fixtures. */
+function recordedGroundTruthVerdict(): DiscriminatorVerdict {
+  const cycleDir = join(
     KIT,
     BUILD_CORPUS_REL,
     "recorded-build/features",
     BUILD_FEATURE,
     "stories",
     ASSESS_STORY,
-    "turns/003-driver/code",
+    "turns/004-navigator-assess-AC1-batch-serial-columns-added/tdd/cycles",
+    BUILD_FEATURE,
+    ASSESS_STORY,
+    ASSESS_AC,
   );
-  return readTree(codeRoot, [".py", ".ts", ".tsx"]);
+  // parseNavigatorAssessMarker reads superseded-tests.json / regression-assessment.json from a dir
+  // into {classification, supersededTests, ...} , exactly the shape the alignment gate compares.
+  return parseNavigatorAssessMarker(cycleDir);
 }
 
 /** The seeded test-list spec (the RED coverage bar) + the story AC, read from the recorded
@@ -118,14 +125,14 @@ async function runRedCoverageGate(chain: BuildRoleChain, produced: Record<string
   ).toBe(true);
 }
 
-/** ASSESS gate: the navigator's marker verdict must ALIGN with an independent opus oracle's read
- *  of the SAME driver code. */
+/** ASSESS gate: the navigator's marker verdict must ALIGN with the RECORDED GROUND TRUTH. The
+ *  classification is the hard gate; for superseded-shift the navigator's flagged SET is delta-
+ *  judged against the recorded set (coverage-equivalent vs materially different). No cold oracle. */
 async function runAssessAlignmentGate(produced: Record<string, string>): Promise<void> {
-  // 1. Independent oracle: judge the recorded driver code the navigator assessed.
-  const oracleJudge = makeBuildDiscriminatorJudge({ cwd: KIT });
-  const oracleVerdict = await oracleJudge({ kind: "code", reference: "", candidate: recordedDriverCode() });
+  // The reference is the canonical navigator's recorded verdict for this turn (not a re-derivation).
+  const recordedVerdict = recordedGroundTruthVerdict();
 
-  // 2. Materialize the navigator's marker (from the preserved tree) into a temp dir the parser reads.
+  // Materialize the navigator's LIVE marker (from the preserved tree) into a temp dir the parser reads.
   const markerRel = `.sftdd/cycles/${BUILD_FEATURE}/${ASSESS_STORY}/${ASSESS_AC}`;
   const markerDir = join(TELEMETRY_DIR, "assess-marker", `${Date.now()}`);
   mkdirSync(markerDir, { recursive: true });
@@ -135,12 +142,18 @@ async function runAssessAlignmentGate(produced: Record<string, string>): Promise
   }
 
   const navVerdict = parseNavigatorAssessMarker(markerDir);
-  const alignment = evaluateNavigatorAssessAlignment({ oracleVerdict, navigatorMarkerDir: markerDir });
+  const deltaJudge = makeSupersessionDeltaJudge({ cwd: KIT });
+  const alignment = await evaluateNavigatorAssessAlignment({ recordedVerdict, navigatorMarkerDir: markerDir, deltaJudge });
+  // PRESERVE the evidence (both sets + the verdict), so a review does not need to re-derive.
+  writeFileSync(
+    join(markerDir, "alignment-evidence.json"),
+    JSON.stringify({ navigator: navVerdict, groundTruth: recordedVerdict, alignment }, null, 2),
+  );
   // eslint-disable-next-line no-console
   console.log(
-    `[navigator-assess] navigator=${navVerdict.classification} oracle=${oracleVerdict.classification} -> ${alignment.passed ? "ALIGNED" : "MISALIGNED"} (${alignment.reason})`,
+    `[navigator-assess] navigator=${navVerdict.classification} groundTruth=${recordedVerdict.classification} -> ${alignment.passed ? "ALIGNED" : "MISALIGNED"} (${alignment.reason})`,
   );
-  expect(alignment.passed, `navigator ASSESS misaligned with the independent oracle: ${alignment.reason}`).toBe(true);
+  expect(alignment.passed, `navigator ASSESS misaligned with the recorded ground truth: ${alignment.reason}`).toBe(true);
 }
 
 /** Spawn the fixed-opus judge on a raw prompt (the RED coverage prompt isn't a functional/design

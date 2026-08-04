@@ -399,14 +399,33 @@ export async function evaluateBuildFunctionalGate(args: {
   };
 }
 
-/** Alignment of a navigator ASSESS turn's verdict against an independent oracle. */
+/** Alignment of a navigator ASSESS turn's verdict against the RECORDED GROUND TRUTH. */
 export interface AssessAlignment {
   passed: boolean;
+  /** The navigator's classification matched the recorded ground-truth classification. */
   classificationMatch: boolean;
-  /** Jaccard overlap of the superseded-test sets (only meaningful for superseded-shift). */
-  overlap: number;
+  /** For superseded-shift: whether the navigator's flagged set is coverage-equivalent to the
+   *  recorded set (delta-judged; true when identical without a judge call). Undefined for the
+   *  non-superseded classifications (classification-match is the whole gate there). */
+  setEquivalent?: boolean;
   reason: string;
 }
+
+/** The delta judge's verdict: are two supersession sets coverage-equivalent, and if not, what
+ *  material differences (a real miss / over-flag) separate them? */
+export interface SupersessionDeltaVerdict {
+  equivalent: boolean;
+  materialDifferences?: string[];
+}
+
+/** Injected delta judge: given the navigator's flagged set + the recorded ground-truth set (+ the
+ *  supersession reason), decide if they are COVERAGE-EQUIVALENT (benign non-determinism) or differ
+ *  MATERIALLY (a real miss / over-flag). Real impl spawns fixed-opus; stubbable in tests. */
+export type SupersessionDeltaJudge = (args: {
+  navigatorSet: string[];
+  recordedSet: string[];
+  reason?: string;
+}) => Promise<SupersessionDeltaVerdict>;
 
 /** Parse the navigator's ASSESS marker files (in an AC cycle dir) into a discriminator-
  *  shaped verdict, so it can be diffed against the independent oracle. The markers:
@@ -442,43 +461,100 @@ export function parseNavigatorAssessMarker(markerDir: string): DiscriminatorVerd
   return { score: 1, classification: "equivalent", nextStep: "accept" };
 }
 
-/** Evaluate whether the navigator's ASSESS verdict ALIGNS with an independent opus
- *  oracle's read of the SAME driver code. This measures whether the navigator did its
- *  evaluation job WELL (not just produced a conformant artifact). PASS iff the
- *  classifications match AND, for a superseded-shift, the flagged-test sets overlap
- *  (Jaccard >= 0.5); FAIL on any misclassification (e.g. a real regression called
- *  "superseded", or real coverage flagged as superseded). */
-export function evaluateNavigatorAssessAlignment(args: {
-  oracleVerdict: DiscriminatorVerdict;
+/** Evaluate whether the navigator's ASSESS verdict aligns with the RECORDED GROUND TRUTH , the
+ *  canonical answer the corpus navigator produced for this turn. This is the right reference: a
+ *  cold oracle re-deriving a verdict from raw code (WITHOUT the deterministic pre-localization the
+ *  navigator had) is a NOISIER estimator than the navigator it judges , it can diverge from ground
+ *  truth even when the navigator matches it exactly (the S1 finding). So:
+ *   - classification-match vs the recorded verdict is the HARD gate (a misclassification always fails);
+ *   - for superseded-shift, the navigator's flagged SET is compared to the recorded SET, and a
+ *     DELTA JUDGE decides if the difference is MATERIAL (a real miss / over-flag) or benign
+ *     (coverage-equivalent) , identical sets short-circuit to PASS with no judge call.
+ *  This judges two CONCRETE answers against each other (well-grounded), not a re-derivation. */
+export async function evaluateNavigatorAssessAlignment(args: {
+  recordedVerdict: DiscriminatorVerdict;
   navigatorMarkerDir: string;
-}): AssessAlignment {
+  deltaJudge: SupersessionDeltaJudge;
+}): Promise<AssessAlignment> {
   const nav = parseNavigatorAssessMarker(args.navigatorMarkerDir);
-  const oracle = args.oracleVerdict;
-  const classificationMatch = nav.classification === oracle.classification;
+  const recorded = args.recordedVerdict;
+  const classificationMatch = nav.classification === recorded.classification;
   if (!classificationMatch) {
     return {
       passed: false,
       classificationMatch: false,
-      overlap: 0,
-      reason: `misclassification: navigator said "${nav.classification}" (${nav.nextStep}), oracle said "${oracle.classification}" (${oracle.nextStep})`,
+      reason: `misclassification: navigator said "${nav.classification}" (${nav.nextStep}), ground truth is "${recorded.classification}" (${recorded.nextStep})`,
     };
   }
-  // Classifications agree. For superseded-shift, the flagged test sets must overlap.
+  // For superseded-shift, compare the flagged SET to the recorded set. Identical => trivially
+  // equivalent (no judge). Otherwise the delta judge rules material-vs-benign.
   if (nav.classification === "superseded-shift") {
-    const a = new Set(nav.supersededTests ?? []);
-    const b = new Set(oracle.supersededTests ?? []);
-    const inter = [...a].filter((t) => b.has(t)).length;
-    const union = new Set([...a, ...b]).size;
-    const overlap = union === 0 ? 1 : inter / union;
+    const navSet = [...(nav.supersededTests ?? [])].sort();
+    const recSet = [...(recorded.supersededTests ?? [])].sort();
+    const identical = navSet.length === recSet.length && navSet.every((t, i) => t === recSet[i]);
+    if (identical) {
+      return { passed: true, classificationMatch: true, setEquivalent: true, reason: `aligned: navigator's superseded set is identical to the recorded ground truth (${navSet.length} tests)` };
+    }
+    const verdict = await args.deltaJudge({ navigatorSet: navSet, recordedSet: recSet, reason: (nav as { reason?: string }).reason });
     return {
-      passed: overlap >= 0.5,
+      passed: verdict.equivalent,
       classificationMatch: true,
-      overlap,
-      reason: overlap >= 0.5 ? `aligned: superseded sets overlap ${overlap.toFixed(2)}` : `superseded sets diverge (Jaccard ${overlap.toFixed(2)} < 0.5)`,
+      setEquivalent: verdict.equivalent,
+      reason: verdict.equivalent
+        ? `aligned: navigator's superseded set is coverage-equivalent to the recorded ground truth (delta-judged)`
+        : `material difference vs the recorded ground truth: ${(verdict.materialDifferences ?? []).join("; ") || "sets not coverage-equivalent"}`,
     };
   }
-  // equivalent / regression / insufficient: classification match is sufficient alignment.
-  return { passed: true, classificationMatch: true, overlap: 1, reason: `aligned: both "${nav.classification}"` };
+  // equivalent / regression / insufficient: classification match IS the whole gate (no set to diff).
+  return { passed: true, classificationMatch: true, reason: `aligned: both "${nav.classification}"` };
+}
+
+/** Build the delta-judge prompt: given the navigator's flagged supersession set + the RECORDED
+ *  ground-truth set, decide if they are COVERAGE-EQUIVALENT (supersede the same behaviors / cover
+ *  the same dropped-symbol references, tolerating a borderline test either way) or differ
+ *  MATERIALLY (the navigator MISSED a test the ground truth flags for the actual dropped symbol,
+ *  or OVER-FLAGGED a still-valid test). Judges two CONCRETE answers , it does NOT re-derive. */
+export function buildSupersessionDeltaPrompt(navigatorSet: string[], recordedSet: string[], reason?: string): string {
+  return [
+    `You are a strict senior engineer comparing two SUPERSESSION answers for the same failed build turn , a Navigator's flagged set of prior tests it judged superseded by an intentional change (e.g. a dropped column), and the RECORDED GROUND-TRUTH set the canonical navigator produced for the same turn.`,
+    reason ? `The supersession reason (why these tests are retired): ${reason}` : ``,
+    `Decide whether the two sets are COVERAGE-EQUIVALENT: do they supersede the SAME behaviors / cover the SAME dropped-symbol references? Two correct assessors legitimately differ at the margin (a fitness test that only INDIRECTLY references the dropped symbol may reasonably be flagged or not) , such a difference is BENIGN. A MATERIAL difference is: the navigator MISSED a test the ground truth flags for the ACTUAL dropped symbol (an under-flag that would leave the verify red), or OVER-FLAGGED a still-valid test the ground truth keeps (which would wrongly retire live coverage).`,
+    `Return ONLY a JSON object on a single line: {"equivalent": <bool>, "materialDifferences": ["<a real miss or over-flag, empty when none>", ...]}. equivalent:true when the difference is only benign/borderline; equivalent:false with the specific material difference(s) named otherwise.`,
+    ``,
+    `NAVIGATOR set (${navigatorSet.length}):`,
+    ...navigatorSet.map((t) => `  ${t}`),
+    ``,
+    `RECORDED GROUND-TRUTH set (${recordedSet.length}):`,
+    ...recordedSet.map((t) => `  ${t}`),
+  ].join("\n");
+}
+
+/** Parse a delta-judge reply into a verdict (tolerant; unparseable => NOT equivalent, fail-safe,
+ *  so a judge that cannot answer never silently passes a divergent navigator set). */
+export function parseSupersessionDeltaReply(reply: string): SupersessionDeltaVerdict {
+  const m = reply.match(/\{[\s\S]*"equivalent"[\s\S]*\}/);
+  if (m) {
+    try {
+      const obj = JSON.parse(m[0]) as { equivalent?: unknown; materialDifferences?: unknown };
+      const equivalent = obj.equivalent === true;
+      const materialDifferences = Array.isArray(obj.materialDifferences) ? obj.materialDifferences.map(String) : undefined;
+      return { equivalent, ...(materialDifferences ? { materialDifferences } : {}) };
+    } catch {
+      /* fall through */
+    }
+  }
+  return { equivalent: false, materialDifferences: ["delta-judge reply not parseable"] };
+}
+
+/** The real delta judge: fixed-opus, judges the two concrete sets. */
+export function makeSupersessionDeltaJudge(opts: { cwd: string }): SupersessionDeltaJudge {
+  return ({ navigatorSet, recordedSet, reason }) =>
+    spawnOpusJudge(
+      opts.cwd,
+      buildSupersessionDeltaPrompt(navigatorSet, recordedSet, reason),
+      parseSupersessionDeltaReply,
+      (msg) => ({ equivalent: false, materialDifferences: [msg] }),
+    );
 }
 
 /** Build the judge prompt: ask a FIXED model whether the candidate artifact conveys

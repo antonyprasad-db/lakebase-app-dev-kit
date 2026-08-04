@@ -22,6 +22,7 @@ import {
   parseDiscriminatorReply,
   buildRedCoverageJudgePrompt,
   evaluateNavigatorAssessAlignment,
+  buildSupersessionDeltaPrompt,
   type DiscriminatorVerdict,
 } from "../../scripts/sftdd/optimize-semantic-gate";
 
@@ -294,53 +295,88 @@ describe("build discriminator gate: clean verdict is a PASS (best), only insuffi
   });
 });
 
-describe("evaluateNavigatorAssessAlignment: navigator verdict must align with the independent oracle", () => {
-  const oracleVerdict = (over: Partial<DiscriminatorVerdict>): DiscriminatorVerdict => ({
-    score: 0.9,
-    classification: "regression",
-    nextStep: "driver-repair-with-directive",
+describe("evaluateNavigatorAssessAlignment: navigator verdict vs the RECORDED GROUND TRUTH (delta-judged)", () => {
+  // The gate no longer re-derives a verdict from raw code (a noisy cold oracle worse-grounded
+  // than the navigator it judged). It compares the navigator's flagged set against the RECORDED
+  // ground-truth set and asks a delta judge whether the difference is MATERIAL (a real miss /
+  // over-flag) or benign (coverage-equivalent). Classification-match stays the hard gate.
+  const recorded = (over: Partial<DiscriminatorVerdict>): DiscriminatorVerdict => ({
+    score: 1,
+    classification: "superseded-shift",
+    nextStep: "permissive-refactor-superseded",
+    supersededTests: ["tests/a.py", "tests/b.py", "tests/c.py"],
     ...over,
   });
+  // Delta judges: one says the sets are coverage-equivalent, one says the difference is material.
+  const equivalentJudge = async () => ({ equivalent: true, materialDifferences: [] });
+  const materialJudge = async () => ({ equivalent: false, materialDifferences: ["navigator missed tests/core_drop.py , the actual dropped-symbol test"] });
 
-  it("PASSES when the navigator's regression-assessment matches the oracle's regression call", () => {
-    // Navigator wrote regression-assessment.json (a genuine regression + a fix directive).
-    const markerDir = mkdtempSync(join(tmpdir(), "assess-marker-"));
-    writeFileSync(join(markerDir, "regression-assessment.json"), JSON.stringify({ diagnosis: "missing page", fixDirective: "create StockViewPage" }));
-    const r = evaluateNavigatorAssessAlignment({ oracleVerdict: oracleVerdict({}), navigatorMarkerDir: markerDir });
-    expect(r.passed).toBe(true);
-    expect(r.classificationMatch).toBe(true);
-    rmSync(markerDir, { recursive: true, force: true });
-  });
-
-  it("FAILS when the navigator called a genuine regression 'superseded' (misclassification)", () => {
+  it("FAILS on misclassification (navigator 'superseded', ground truth 'regression') , the hard gate", async () => {
     const markerDir = mkdtempSync(join(tmpdir(), "assess-marker-"));
     writeFileSync(join(markerDir, "superseded-tests.json"), JSON.stringify({ tests: ["tests/a.py"], reason: "retired" }));
-    const r = evaluateNavigatorAssessAlignment({ oracleVerdict: oracleVerdict({}), navigatorMarkerDir: markerDir });
+    const r = await evaluateNavigatorAssessAlignment({
+      recordedVerdict: recorded({ classification: "regression", nextStep: "driver-repair-with-directive", supersededTests: undefined }),
+      navigatorMarkerDir: markerDir,
+      deltaJudge: equivalentJudge,
+    });
     expect(r.passed).toBe(false);
     expect(r.classificationMatch).toBe(false);
     rmSync(markerDir, { recursive: true, force: true });
   });
 
-  it("PASSES the clean case: oracle says equivalent/accept and the navigator wrote no marker", () => {
+  it("PASSES the exact-match case WITHOUT calling the judge (identical sets are trivially equivalent)", async () => {
     const markerDir = mkdtempSync(join(tmpdir(), "assess-marker-"));
-    const r = evaluateNavigatorAssessAlignment({
-      oracleVerdict: oracleVerdict({ classification: "equivalent", nextStep: "accept" }),
-      navigatorMarkerDir: markerDir,
-    });
+    writeFileSync(join(markerDir, "superseded-tests.json"), JSON.stringify({ tests: ["tests/a.py", "tests/b.py", "tests/c.py"], reason: "retired" }));
+    let judged = false;
+    const spy = async () => { judged = true; return { equivalent: false, materialDifferences: ["x"] }; };
+    const r = await evaluateNavigatorAssessAlignment({ recordedVerdict: recorded({}), navigatorMarkerDir: markerDir, deltaJudge: spy });
     expect(r.passed).toBe(true);
+    expect(judged).toBe(false); // identical sets short-circuit , no judge spawn needed
     rmSync(markerDir, { recursive: true, force: true });
   });
 
-  it("PASSES a superseded match only when the flagged-test set overlaps the oracle's (>= 0.5 Jaccard)", () => {
+  it("PASSES a near-match the delta judge rules COVERAGE-EQUIVALENT (benign non-determinism)", async () => {
+    // The S1 case: navigator flagged a set differing by one borderline file; judge says benign.
     const markerDir = mkdtempSync(join(tmpdir(), "assess-marker-"));
-    writeFileSync(join(markerDir, "superseded-tests.json"), JSON.stringify({ tests: ["tests/a.py", "tests/b.py"], reason: "retired" }));
-    const r = evaluateNavigatorAssessAlignment({
-      oracleVerdict: { score: 0.8, classification: "superseded-shift", nextStep: "permissive-refactor-superseded", supersededTests: ["tests/a.py", "tests/b.py"] },
+    writeFileSync(join(markerDir, "superseded-tests.json"), JSON.stringify({ tests: ["tests/a.py", "tests/b.py", "tests/d.py"], reason: "retired" }));
+    const r = await evaluateNavigatorAssessAlignment({ recordedVerdict: recorded({}), navigatorMarkerDir: markerDir, deltaJudge: equivalentJudge });
+    expect(r.passed).toBe(true);
+    expect(r.reason).toMatch(/equivalent/i);
+    rmSync(markerDir, { recursive: true, force: true });
+  });
+
+  it("FAILS when the delta judge finds a MATERIAL difference (a real miss / over-flag)", async () => {
+    const markerDir = mkdtempSync(join(tmpdir(), "assess-marker-"));
+    writeFileSync(join(markerDir, "superseded-tests.json"), JSON.stringify({ tests: ["tests/x.py"], reason: "retired" }));
+    const r = await evaluateNavigatorAssessAlignment({ recordedVerdict: recorded({}), navigatorMarkerDir: markerDir, deltaJudge: materialJudge });
+    expect(r.passed).toBe(false);
+    expect(r.reason).toMatch(/core_drop|material/i);
+    rmSync(markerDir, { recursive: true, force: true });
+  });
+
+  it("PASSES the clean case: ground truth equivalent/accept + navigator wrote no marker (no judge needed)", async () => {
+    const markerDir = mkdtempSync(join(tmpdir(), "assess-marker-"));
+    let judged = false;
+    const spy = async () => { judged = true; return { equivalent: false, materialDifferences: ["x"] }; };
+    const r = await evaluateNavigatorAssessAlignment({
+      recordedVerdict: recorded({ classification: "equivalent", nextStep: "accept", supersededTests: undefined }),
       navigatorMarkerDir: markerDir,
+      deltaJudge: spy,
     });
     expect(r.passed).toBe(true);
-    expect(r.overlap).toBeGreaterThanOrEqual(0.5);
+    expect(judged).toBe(false); // non-superseded classification => classification-match is the whole gate
     rmSync(markerDir, { recursive: true, force: true });
+  });
+});
+
+describe("buildSupersessionDeltaPrompt: judge the DELTA between two concrete sets, not re-derive", () => {
+  it("asks whether the two flagged sets are coverage-equivalent + names material differences", () => {
+    const p = buildSupersessionDeltaPrompt(["tests/a.py", "tests/d.py"], ["tests/a.py", "tests/b.py"], "AC drops inventory_code");
+    expect(p).toMatch(/equivalent/i);
+    expect(p).toMatch(/material/i);
+    expect(p).toMatch(/tests\/d\.py/); // the navigator set is IN the prompt
+    expect(p).toMatch(/tests\/b\.py/); // the recorded ground-truth set is IN the prompt
+    expect(p).toMatch(/"equivalent"/); // demands a JSON verdict
   });
 });
 
