@@ -9,6 +9,7 @@ import { describe, it, expect } from "vitest";
 import {
   commandsForAction,
   commandsFromManifest,
+  type DriveCommand,
   type DriveEffectsConfig,
 } from "../../scripts/sftdd/orchestrator-effects";
 import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
@@ -89,6 +90,133 @@ describe("commandsFromManifest ≡ commandsForAction: ux-designer design turn (e
     const fromManifest = commandsFromManifest(UX_DESIGNER, c);
     expect(fromManifest).toEqual(legacy);
     expect((fromManifest![0] as { model: string }).model).toBe("opus");
+  });
+});
+
+// The 4 remaining design roles migrated to shipped golden manifests. Each is a
+// story-scoped design turn (featureId from cfg + a story on the action). The golden
+// is byte-identity vs the legacy branch; the structural-order assertion pins WHICH
+// commands each role emits, which differs by role:
+//   - spec-author (per-story ACs) + architect-reviewer: [claude, verify-artifact, reconcile]
+//   - dba: [claude, reconcile]  (designArtifactExpectation returns null for dba, so NO verify)
+//   - test-strategist: [claude, verify-artifact, cli:lakebase-sftdd-test-list, reconcile]
+//     (the test-list CLI is an `after` postTurn, between verify and reconcile)
+const STORY = "S1-stock-list";
+function kinds(cmds: DriveCommand[] | undefined): string[] {
+  return (cmds ?? []).map((c) => (c.kind === "cli" ? `cli:${c.bin}` : c.kind === "verify-artifact" ? "verify-artifact" : c.kind));
+}
+
+describe("commandsFromManifest ≡ commandsForAction: spec-author per-story ACs", () => {
+  const ACS: WorkflowAction = { kind: "invoke-role", role: "spec-author", story: STORY };
+
+  it("spec-author story ACs: byte-identical command list", () => {
+    expect(commandsFromManifest(ACS, cfg())).toEqual(commandsForAction(ACS, cfg()));
+  });
+
+  it("structural order: [claude, verify-artifact, reconcile]", () => {
+    expect(kinds(commandsFromManifest(ACS, cfg()))).toEqual(["claude", "verify-artifact", "cli:lakebase-sftdd-log"]);
+  });
+
+  it("the match sentinel EXCLUDES the breakdown turn (mode present)", () => {
+    const breakdown: WorkflowAction = { kind: "invoke-role", role: "spec-author", mode: "breakdown" };
+    // Both a breakdown manifest AND the story manifest could theoretically hit; the null
+    // sentinel keeps the story manifest off the breakdown action (breakdown routes to its own).
+    expect(commandsFromManifest(breakdown, cfg())).toEqual(commandsForAction(breakdown, cfg()));
+    expect(kinds(commandsFromManifest(breakdown, cfg()))).toContain("cli:lakebase-sftdd-pipeline");
+  });
+});
+
+describe("commandsFromManifest ≡ commandsForAction: architect-reviewer per-story", () => {
+  const ARCH: WorkflowAction = { kind: "invoke-role", role: "architect-reviewer", story: STORY };
+
+  it("architect-reviewer: byte-identical command list", () => {
+    expect(commandsFromManifest(ARCH, cfg())).toEqual(commandsForAction(ARCH, cfg()));
+  });
+
+  it("structural order: [claude, verify-artifact, reconcile]", () => {
+    expect(kinds(commandsFromManifest(ARCH, cfg()))).toEqual(["claude", "verify-artifact", "cli:lakebase-sftdd-log"]);
+  });
+
+  it("the mode:null sentinel keeps the PER-STORY manifest off the estimate turn , estimate routes to architect-estimator instead (byte-identical), not the per-story manifest", () => {
+    const estimate: WorkflowAction = { kind: "invoke-role", role: "architect-reviewer", mode: "estimate" };
+    // estimate now maps to a DIFFERENT shipped manifest (architect-estimator), so it is not
+    // undefined , but the per-story manifest (mode:null) does NOT hijack it (no ambiguous
+    // double-match; manifestForAction throws on that, so this resolving at all proves it).
+    const cmds = commandsFromManifest(estimate, cfg());
+    expect(cmds).toEqual(commandsForAction(estimate, cfg()));
+    // The estimate shape is the planning shape [claude, verify-artifact], NOT the per-story
+    // [claude, verify, reconcile] , which confirms the estimator manifest matched, not the story one.
+    expect(kinds(cmds)).toEqual(["claude", "verify-artifact"]);
+  });
+});
+
+describe("commandsFromManifest ≡ commandsForAction: dba per-story (no verify-artifact)", () => {
+  const DBA: WorkflowAction = { kind: "invoke-role", role: "dba", story: STORY };
+
+  it("dba: byte-identical command list", () => {
+    expect(commandsFromManifest(DBA, cfg())).toEqual(commandsForAction(DBA, cfg()));
+  });
+
+  it("structural order: [claude, reconcile] , NO verify-artifact (an empty db-design is valid)", () => {
+    expect(kinds(commandsFromManifest(DBA, cfg()))).toEqual(["claude", "cli:lakebase-sftdd-log"]);
+  });
+});
+
+describe("commandsFromManifest ≡ commandsForAction: test-strategist per-story (test-list postTurn)", () => {
+  const TS: WorkflowAction = { kind: "invoke-role", role: "test-strategist", story: STORY };
+
+  it("test-strategist: byte-identical command list", () => {
+    expect(commandsFromManifest(TS, cfg())).toEqual(commandsForAction(TS, cfg()));
+  });
+
+  it("structural order: [claude, verify-artifact, cli:test-list, reconcile]", () => {
+    expect(kinds(commandsFromManifest(TS, cfg()))).toEqual([
+      "claude",
+      "verify-artifact",
+      "cli:lakebase-sftdd-test-list",
+      "cli:lakebase-sftdd-log",
+    ]);
+  });
+
+  it("the test-list CLI carries the positional [tddDir, feature, story] args", () => {
+    const cmds = commandsFromManifest(TS, cfg())!;
+    const testList = cmds.find((c) => c.kind === "cli" && c.bin === "lakebase-sftdd-test-list");
+    expect(testList).toBeDefined();
+    expect((testList as { args: string[] }).args).toEqual(["/p/.tdd", "F1-stock-visibility", STORY]);
+  });
+});
+
+// The sprint/plan lane's two design steps. Planning modes (propose/estimate) write
+// SPRINT-scoped artifacts (planning/*), so commandsFromManifest SKIPS the reconcile
+// (isPlanningMode) , the shape is just [claude, verify-artifact]. The default cfg has
+// no recordedRequests, so commandsForAction takes the LIVE propose path (not the
+// deterministic supply-proposals branch), which the golden byte-matches.
+describe("commandsFromManifest ≡ commandsForAction: spec-author propose (sprint plan lane)", () => {
+  const PROPOSE: WorkflowAction = { kind: "invoke-role", role: "spec-author", mode: "propose" };
+
+  it("spec-author propose: byte-identical command list", () => {
+    expect(commandsFromManifest(PROPOSE, cfg())).toEqual(commandsForAction(PROPOSE, cfg()));
+  });
+
+  it("structural order: [claude, verify-artifact] , NO reconcile (a sprint-scoped planning artifact)", () => {
+    expect(kinds(commandsFromManifest(PROPOSE, cfg()))).toEqual(["claude", "verify-artifact"]);
+  });
+});
+
+describe("commandsFromManifest ≡ commandsForAction: architect t-shirt sizer (estimate)", () => {
+  const ESTIMATE: WorkflowAction = { kind: "invoke-role", role: "architect-reviewer", mode: "estimate" };
+
+  it("architect estimate: byte-identical command list", () => {
+    expect(commandsFromManifest(ESTIMATE, cfg())).toEqual(commandsForAction(ESTIMATE, cfg()));
+  });
+
+  it("structural order: [claude, verify-artifact] , NO reconcile", () => {
+    expect(kinds(commandsFromManifest(ESTIMATE, cfg()))).toEqual(["claude", "verify-artifact"]);
+  });
+
+  it("the match sentinel EXCLUDES estimate-committed (a separate legacy branch that re-syncs the backlog)", () => {
+    const committed: WorkflowAction = { kind: "invoke-role", role: "architect-reviewer", mode: "estimate-committed" };
+    expect(commandsFromManifest(committed, cfg())).toBeUndefined();
   });
 });
 

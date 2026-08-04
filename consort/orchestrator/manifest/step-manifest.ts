@@ -20,6 +20,12 @@ import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.j
 // (resolveJsonModule is on.) External/scenario manifests are still loaded from a directory
 // the caller passes explicitly (loadStepManifests(dir)).
 import specAuthorBreakdownManifest from "../config/step-manifests/spec-author-breakdown.json" with { type: "json" };
+import specAuthorProposeManifest from "../config/step-manifests/spec-author-propose.json" with { type: "json" };
+import specAuthorStoryManifest from "../config/step-manifests/spec-author-story.json" with { type: "json" };
+import architectEstimatorManifest from "../config/step-manifests/architect-estimator.json" with { type: "json" };
+import architectReviewerManifest from "../config/step-manifests/architect-reviewer.json" with { type: "json" };
+import dbaManifest from "../config/step-manifests/dba.json" with { type: "json" };
+import testStrategistManifest from "../config/step-manifests/test-strategist.json" with { type: "json" };
 import driverGreenManifest from "../config/step-manifests/driver-green.json" with { type: "json" };
 import uxDesignerManifest from "../config/step-manifests/ux-designer.json" with { type: "json" };
 
@@ -126,6 +132,12 @@ export function validateStepManifest(manifest: StepManifest): ManifestValidateRe
  */
 export const SHIPPED_MANIFESTS: StepManifest[] = [
   specAuthorBreakdownManifest as StepManifest,
+  specAuthorProposeManifest as StepManifest,
+  specAuthorStoryManifest as StepManifest,
+  architectEstimatorManifest as StepManifest,
+  architectReviewerManifest as StepManifest,
+  dbaManifest as StepManifest,
+  testStrategistManifest as StepManifest,
   driverGreenManifest as StepManifest,
   uxDesignerManifest as StepManifest,
 ];

@@ -127,10 +127,12 @@ export const VALIDATOR_REGISTRY: Record<string, OutputValidator> = {
   productOwnerLoggedAuthoring: (p: string) => agentLogHasRoleEvent(p, "product-owner"),
   // The UX Designer's structured log event is authored as ux-designer; bind that role.
   uxDesignerLoggedAuthoring: (p: string) => agentLogHasRoleEvent(p, "ux-designer"),
-  // The Test Strategist's + Architect Reviewer's log events, role-bound (used by the
-  // route-scenario manifests that exercise those roles' escalation/produced routes).
+  // The Test Strategist's + Architect Reviewer's + DBA's log events, role-bound (used by the
+  // route-scenario manifests that exercise those roles' escalation/produced routes, and by the
+  // shipped design-role manifests whose logged-authoring output is the role's agent-log line).
   testStrategistLoggedAuthoring: (p: string) => agentLogHasRoleEvent(p, "test-strategist"),
   architectReviewerLoggedAuthoring: (p: string) => agentLogHasRoleEvent(p, "architect-reviewer"),
+  dbaLoggedAuthoring: (p: string) => agentLogHasRoleEvent(p, "dba"),
   nonEmptyFile,
   designGuideConformant,
 };
