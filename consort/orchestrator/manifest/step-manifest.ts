@@ -21,6 +21,7 @@ import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.j
 // the caller passes explicitly (loadStepManifests(dir)).
 import specAuthorBreakdownManifest from "../config/step-manifests/spec-author-breakdown.json" with { type: "json" };
 import driverGreenManifest from "../config/step-manifests/driver-green.json" with { type: "json" };
+import uxDesignerManifest from "../config/step-manifests/ux-designer.json" with { type: "json" };
 
 /** A step's logical input , resolved from .sftdd by the orchestrator and provided by id. */
 export interface StepManifestInput {
@@ -126,6 +127,7 @@ export function validateStepManifest(manifest: StepManifest): ManifestValidateRe
 export const SHIPPED_MANIFESTS: StepManifest[] = [
   specAuthorBreakdownManifest as StepManifest,
   driverGreenManifest as StepManifest,
+  uxDesignerManifest as StepManifest,
 ];
 
 /**

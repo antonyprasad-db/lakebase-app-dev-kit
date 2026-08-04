@@ -62,6 +62,36 @@ describe("commandsFromManifest ≡ commandsForAction (golden equivalence)", () =
   });
 });
 
+describe("commandsFromManifest ≡ commandsForAction: ux-designer design turn (empty-postTurn shape)", () => {
+  const UX_DESIGNER: WorkflowAction = { kind: "invoke-role", role: "ux-designer" };
+
+  it("ux-designer: byte-identical command list", () => {
+    const legacy = commandsForAction(UX_DESIGNER, cfg());
+    const fromManifest = commandsFromManifest(UX_DESIGNER, cfg());
+    expect(fromManifest).toEqual(legacy);
+  });
+
+  it("reproduces the ux-designer structural commands in order , NO reset/sync postTurn (the empty-postTurn case)", () => {
+    const cmds = commandsFromManifest(UX_DESIGNER, cfg());
+    expect(cmds).toBeDefined();
+    // Unlike breakdown ([reset, claude, verify, sync, reconcile]), a design role with no
+    // postTurn CLIs is just [claude, verify-artifact, log-reconcile].
+    expect(cmds!.map((c) => (c.kind === "cli" ? `cli:${c.args[0]}` : c.kind))).toEqual([
+      "claude",
+      "verify-artifact",
+      "cli:--reconcile",
+    ]);
+  });
+
+  it("honors the same model lever as the legacy path (ux-designer -> sonnet by default)", () => {
+    const c = cfg({ modelForRole: (r) => (r === "ux-designer" ? "opus" : "sonnet") });
+    const legacy = commandsForAction(UX_DESIGNER, c);
+    const fromManifest = commandsFromManifest(UX_DESIGNER, c);
+    expect(fromManifest).toEqual(legacy);
+    expect((fromManifest![0] as { model: string }).model).toBe("opus");
+  });
+});
+
 describe("commandsFromManifest ≡ commandsForAction: driver GREEN build turn", () => {
   const GREEN: WorkflowAction = { kind: "invoke-role", role: "driver", story: "S1-record-stock" };
 
