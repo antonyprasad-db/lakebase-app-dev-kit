@@ -2,9 +2,14 @@
 # Run the kit's live integration tests against a real Databricks workspace.
 #
 # Usage:
-#   scripts/run-live-tests.sh              # migrate-live (alembic + flyway + knex), default
-#   scripts/run-live-tests.sh --read-only  # tier 1 read-only suite against an existing branch
-#   scripts/run-live-tests.sh --all        # both of the above + any other live suites
+#   scripts/run-live-tests.sh                 # migrate-live (alembic + flyway + knex), default
+#   scripts/run-live-tests.sh --read-only     # tier 1 read-only suite against an existing branch
+#   scripts/run-live-tests.sh --orchestration # config-driven orchestration demo (scaffolds a
+#                                             #   real project, drives the live-claude 2-turn
+#                                             #   design chain, tears it down). The lean route-
+#                                             #   pathway suite (produced/revise/escalate) needs
+#                                             #   no cloud and runs under plain `npm test`.
+#   scripts/run-live-tests.sh --all           # all of the above + any other live suites
 #
 # For the comprehensive "everything live, auto-provision everything"
 # entry point, use scripts/run-all-live-tests.sh instead. That driver
@@ -44,11 +49,12 @@ FLYWAY_VERSION="10.20.1"
 
 MODE="migrate"
 case "${1:-}" in
-  --read-only)  MODE="read-only" ;;
-  --scenarios)  MODE="scenarios" ;;
-  --all)        MODE="all" ;;
-  "")           MODE="migrate" ;;
-  *)            echo "Unknown flag: $1. Use --read-only / --scenarios / --all, or no flag for migrate-live." >&2; exit 2 ;;
+  --read-only)    MODE="read-only" ;;
+  --scenarios)    MODE="scenarios" ;;
+  --orchestration) MODE="orchestration" ;;
+  --all)          MODE="all" ;;
+  "")             MODE="migrate" ;;
+  *)              echo "Unknown flag: $1. Use --read-only / --scenarios / --orchestration / --all, or no flag for migrate-live." >&2; exit 2 ;;
 esac
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -106,6 +112,21 @@ blue "==> Validating environment for mode: $MODE"
 if [[ "$MODE" == "scenarios" || "$MODE" == "all" ]]; then
   require_env DATABRICKS_HOST
   require_env GITHUB_OWNER
+fi
+
+# The orchestration suite scaffolds a REAL project (repo + runner + Lakebase) per scenario and
+# tears it down. It resolves the workspace host from the databricks profile (like the tests do),
+# so it needs the profile authenticated + gh auth for the repo/runner. GITHUB_OWNER is read by
+# the scenario config (STOCKFLOW_DEMO_GH_OWNER overrides it).
+if [[ "$MODE" == "orchestration" || "$MODE" == "all" ]]; then
+  require_cmd databricks "install: https://docs.databricks.com/dev-tools/cli/install.html"
+  require_cmd gh         "install: https://cli.github.com/  (needed to create + delete the scenario repo)"
+  if [[ -z "${DATABRICKS_CONFIG_PROFILE:-}" && -z "${DATABRICKS_HOST:-}" ]]; then
+    red "  set DATABRICKS_CONFIG_PROFILE (or DATABRICKS_HOST) so scaffold-project can reach a workspace"
+    missing=1
+  else
+    green "  DATABRICKS_CONFIG_PROFILE = ${DATABRICKS_CONFIG_PROFILE:-<using DATABRICKS_HOST>}"
+  fi
 fi
 
 if [[ "$MODE" == "migrate" || "$MODE" == "all" ]]; then
@@ -240,8 +261,15 @@ case "$MODE" in
   scenarios)
     run_scenarios
     ;;
+  orchestration)
+    # The config-driven orchestration demo: scaffolds a real project (repo + runner + Lakebase),
+    # drives the live-claude 2-turn design chain, tears it down. RUN_LIVE_STEP gates the
+    # describe. (The route-pathway suite , produced/revise/escalate , is LEAN + needs no cloud,
+    # so it runs in the normal `npm test` hermetic suite: tests/bdd/route-scenarios.test.ts.)
+    RUN_LIVE_STEP=1 npx vitest run tests/live/stockflow-demo-config-live.test.ts
+    ;;
   all)
-    npx vitest run
+    RUN_LIVE_STEP=1 npx vitest run
     run_scenarios
     ;;
 esac

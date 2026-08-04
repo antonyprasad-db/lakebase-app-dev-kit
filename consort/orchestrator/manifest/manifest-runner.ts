@@ -20,6 +20,7 @@ import { join } from "node:path";
 import { manifestForAction, type StepManifest } from "./step-manifest.js";
 import { ManifestStep } from "./manifest-step.js";
 import { buildAgent, type AgentBuildContext } from "../agents/agent-catalogue.js";
+import { probeDriveState } from "../state/escalation-probe.js";
 import { execute, type StepExecutorDeps, type StepCtx, type StepResult } from "../execution/step-executor.js";
 import { formatAgentReport } from "../execution/agent-report-formatter.js";
 import type { StepAgent, StepInstructions } from "../agents/spec-author-breakdown-step-types.js";
@@ -57,8 +58,15 @@ export interface ManifestRunnerDeps {
    *  step whose agent authors a report (a live claude turn) turns it on. When true, every turn
    *  materializes with the manifest's role. */
   formatAgentReports?: boolean;
-  /** Optional: the drive state passed to route() (diagnostic scope only; default a stub). */
+  /** Optional: the drive state passed to route() (diagnostic scope only; default a stub). An
+   *  explicit `state` here WINS over probeEscalation (tests inject an exact state). */
   state?: DriveState;
+  /** Optional: derive route()'s DriveState.escalation from the workspace `.sftdd` on disk (via
+   *  the legacy disk probe) instead of the { phase: "feature" } stub. Default OFF ,
+   *  byte-identical to today. Turn ON so a real reflect-gate escalation planted in the
+   *  workspace drives a revise-route / raise-to-hil through the manifest path (the full route
+   *  space), matching what nextTransition would do. */
+  probeEscalation?: boolean;
   /** Optional: turn-record sink (default no-op). */
   onRecord?: StepExecutorDeps["onRecord"];
 }
@@ -151,10 +159,20 @@ function executorWiring(
     },
   };
 
+  // ctx.state authority: an explicit deps.state wins (tests inject an exact one); else, when
+  // probeEscalation is on, DERIVE it from the workspace .sftdd (real disk escalation -> the
+  // revise/escalate route space); else the minimal { phase: "feature" } stub (byte-identical
+  // to before this seam).
+  const state: DriveState =
+    deps.state ??
+    (deps.probeEscalation
+      ? probeDriveState(deps.cfg.sftddDir, deps.cfg.featureId)
+      : ({ phase: "feature" } as unknown as DriveState));
+
   const ctx: StepCtx = {
     action,
     cfg: deps.cfg,
-    state: deps.state ?? ({ phase: "feature" } as unknown as DriveState),
+    state,
     validateBoundDeps,
   };
 

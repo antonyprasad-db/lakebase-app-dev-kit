@@ -15,6 +15,7 @@ import {
   removeProject,
   type RemoveProjectEffects,
 } from "../../consort/orchestrator/manifest/lifecycle-catalogue";
+import { readEscalations } from "../../scripts/sftdd/escalation";
 
 let root: string;
 beforeEach(() => {
@@ -23,8 +24,8 @@ beforeEach(() => {
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("lifecycle-catalogue", () => {
-  it("catalogues scaffold-project + remove-project, each with a description + config summary", () => {
-    expect(Object.keys(LIFECYCLE_CATALOGUE).sort()).toEqual(["remove-project", "scaffold-project"]);
+  it("catalogues scaffold-project + remove-project + inject-escalation, each with a description + config summary", () => {
+    expect(Object.keys(LIFECYCLE_CATALOGUE).sort()).toEqual(["inject-escalation", "remove-project", "scaffold-project"]);
     for (const k of Object.keys(LIFECYCLE_CATALOGUE)) {
       expect(LIFECYCLE_CATALOGUE[k].description.length).toBeGreaterThan(0);
       expect(typeof LIFECYCLE_CATALOGUE[k].run).toBe("function");
@@ -143,5 +144,27 @@ describe("lifecycle-catalogue", () => {
     expect(r.error).toMatch(/repo boom/);
     expect(calls).toEqual(["deleteLakebaseProject:y"]);
     expect(existsSync(projectDir)).toBe(false);
+  });
+
+  it("inject-escalation writes a conformant escalation into the workspace .sftdd (drives revise/escalate)", async () => {
+    mkdirSync(join(root, ".sftdd"), { recursive: true });
+    const r = await catalogueLifecycleDeps.run(
+      {
+        kind: "inject-escalation",
+        config: { source: "smell:reflect-spec-defect", reason: "AC2 untestable", feature_id: "F1-x", story_id: "S1-a" },
+      },
+      { workspaceDir: root },
+    );
+    expect(r.ok, r.error).toBe(true);
+    const escalations = readEscalations(join(root, ".sftdd"));
+    expect(escalations).toHaveLength(1);
+    expect(escalations[0].source).toBe("smell:reflect-spec-defect");
+    expect(escalations[0].story_id).toBe("S1-a");
+  });
+
+  it("inject-escalation fails cleanly (ok:false) without a source/reason , no throw", async () => {
+    const r = await catalogueLifecycleDeps.run({ kind: "inject-escalation", config: {} }, { workspaceDir: root });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/source|reason/i);
   });
 });

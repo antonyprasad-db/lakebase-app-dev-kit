@@ -15,6 +15,7 @@ import { join } from "path";
 import { runManifestStep, runManifestChain, type ManifestRunnerDeps } from "../../consort/orchestrator/manifest/manifest-runner";
 import { loadStepManifests } from "../../consort/orchestrator/manifest/step-manifest";
 import { makeReplayPoMockAgent } from "../../consort/orchestrator/agents/replay-po-mock-agent";
+import { writeEscalation } from "../../scripts/sftdd/escalation";
 import type { StepAgent } from "../../consort/orchestrator/agents/spec-author-breakdown-step-types";
 import type { StepManifest } from "../../consort/orchestrator/manifest/step-manifest";
 import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
@@ -122,5 +123,50 @@ describe("runManifestChain: follow the routing across turns", () => {
     const turns = await runManifestChain(PO_SEED, manifests, deps(), { maxTurns: 1 });
     expect(turns).toHaveLength(1);
     expect(turns[0].manifestId).toBe("stockflow-demo-po-seed");
+  });
+});
+
+describe("runManifestStep: probeEscalation reaches the revise/escalate route space", () => {
+  const STORY = "S1-stock-list";
+  function seedWorkspace() {
+    for (const f of ["product-overview.md", "nfrs.md", "design-brief.md"]) {
+      writeFileSync(join(ws, f), readFileSync(join(INTAKE, f), "utf8"));
+    }
+  }
+
+  it("with NO escalation on disk, probeEscalation:true still routes produced -> ux-designer (byte-identical)", async () => {
+    seedWorkspace();
+    const manifests = loadStepManifests(MANIFEST_DIR);
+    const res = await runManifestStep(SPEC_AUTHOR, manifests, { ...deps(), probeEscalation: true });
+    expect(res.violations).toEqual([]);
+    expect(res.bounded.action).toEqual({ kind: "invoke-role", role: "ux-designer" });
+  });
+
+  it("a ROUTABLE spec smell on disk routes the spec-author turn to a revise-route (Gate 1)", async () => {
+    seedWorkspace();
+    // Plant a real reflect-spec-defect escalation in the workspace .sftdd , the disk probe
+    // classifies it routable (spec-author owns it, first revise allowed).
+    writeEscalation(join(ws, ".sftdd"), {
+      source: "smell:reflect-spec-defect",
+      reason: "AC2 is untestable as written",
+      feature_id: "F1-stock-visibility",
+      story_id: STORY,
+    });
+    const manifests = loadStepManifests(MANIFEST_DIR);
+    const res = await runManifestStep(SPEC_AUTHOR, manifests, { ...deps(), probeEscalation: true });
+    expect(res.bounded.action).toMatchObject({ kind: "revise-route", role: "spec-author", gate: "spec", story: STORY });
+  });
+
+  it("a NON-routable (explicit) escalation routes the turn to raise-to-hil", async () => {
+    seedWorkspace();
+    writeEscalation(join(ws, ".sftdd"), {
+      source: "honest-green",
+      reason: "verify failed on main",
+      feature_id: "F1-stock-visibility",
+      story_id: STORY,
+    });
+    const manifests = loadStepManifests(MANIFEST_DIR);
+    const res = await runManifestStep(SPEC_AUTHOR, manifests, { ...deps(), probeEscalation: true });
+    expect(res.bounded.action).toMatchObject({ kind: "raise-to-hil", reason: "verify failed on main" });
   });
 });

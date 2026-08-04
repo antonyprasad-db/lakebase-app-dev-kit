@@ -9,13 +9,19 @@
 //                      lakebaseProjectId, repo url) teardown consumes.
 //   remove-project   : delete what scaffold-project created (Lakebase project + local dir; the
 //                      GitHub repo is left unless config.deleteRepo). Reads the setup handle.
+//   inject-escalation: plant a REAL escalation into the workspace `.sftdd/escalations/` (via the
+//                      shared writeEscalation), so a scenario can deterministically drive the
+//                      revise/escalate route space , no flaky live navigator turn needed. The
+//                      manifest runner's probeEscalation seam then derives it back off disk.
 //
 // resolveLifecycleKind throws loud on an unknown kind. The builders are pure (no cloud at
 // import); the cloud calls happen only when a run actually invokes them (a gated live run).
 
 import { rmSync } from "node:fs";
+import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { createProject } from "../../../scripts/lakebase/create-project.js";
+import { writeEscalation } from "../../../scripts/sftdd/escalation.js";
 import type { LifecycleOp, LifecycleResult, LifecycleRunContext, LifecycleDeps } from "./orchestration-runner.js";
 
 /** One catalogue entry: a description + the executor for that op kind. */
@@ -172,6 +178,29 @@ export async function removeProject(
   return errors.length ? { ok: false, error: errors.join("; ") } : { ok: true };
 }
 
+/** inject-escalation: write a REAL escalation into the workspace `.sftdd/escalations/` so a
+ *  scenario can deterministically exercise the revise/escalate route space. Reuses the shared
+ *  writeEscalation (the same fn the live orchestrator uses), so the planted file is byte-shaped
+ *  exactly like a real one and the disk probe classifies it identically. A `smell:<name>` source
+ *  with a story_id is what makes a SPEC-level smell routable (-> revise-route); a plain source
+ *  (or no story) stays terminal (-> raise-to-hil). Pure filesystem, no cloud. */
+async function injectEscalation(config: Record<string, unknown>, context: LifecycleRunContext): Promise<LifecycleResult> {
+  const c = config as { source?: string; reason?: string; story_id?: string; feature_id?: string };
+  if (!c.source) return { ok: false, error: "inject-escalation requires config.source (e.g. \"smell:reflect-spec-defect\")" };
+  if (!c.reason) return { ok: false, error: "inject-escalation requires config.reason" };
+  try {
+    const esc = writeEscalation(join(context.workspaceDir, ".sftdd"), {
+      source: c.source,
+      reason: c.reason,
+      ...(c.feature_id ? { feature_id: c.feature_id } : {}),
+      ...(c.story_id ? { story_id: c.story_id } : {}),
+    });
+    return { ok: true, handle: { escalationId: esc.id } };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 /** The lifecycle catalogue: kind -> entry. */
 export const LIFECYCLE_CATALOGUE: Record<string, LifecycleCatalogueEntry> = {
   "scaffold-project": {
@@ -183,6 +212,11 @@ export const LIFECYCLE_CATALOGUE: Record<string, LifecycleCatalogueEntry> = {
     description: "Delete what scaffold-project created (Lakebase project + local dir), reading the setup handle. Best-effort.",
     configSummary: "{ } (consumes the scaffold-project handle from the run context)",
     run: removeProject,
+  },
+  "inject-escalation": {
+    description: "Plant a REAL escalation into the workspace .sftdd/escalations/ (via writeEscalation) so a scenario deterministically drives the revise/escalate route space. Pure filesystem.",
+    configSummary: "{ source (required, e.g. \"smell:reflect-spec-defect\"), reason (required), story_id?, feature_id? }",
+    run: injectEscalation,
   },
 };
 

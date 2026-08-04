@@ -1,0 +1,61 @@
+// route-scenarios: the CATALOGUE of route pathways out of a spec-author breakdown, each an
+// isolated scenario the suite runs in its own throwaway `.sftdd` workspace (LEAN , no cloud
+// project). One entry per outcome of the StepOutcome space:
+//   produced  -> the honest next hop (ux-designer) , the happy path.
+//   revise    -> a routable spec smell routes back to the spec-author at Gate 1.
+//   escalate  -> a non-routable blocking escalation halts to the HIL.
+//
+// Every scenario shares the demo's PO-seed + spec-author-breakdown manifests + intake; they
+// differ only in whether an escalation is injected before the step under test and what route is
+// expected. No env/cloud needed , the route depends on `.sftdd` state, which the driver builds
+// on a temp dir.
+
+import { join } from "node:path";
+import type { RouteScenario } from "./route-scenario.js";
+import type { LifecycleOp } from "../manifest/orchestration-runner.js";
+import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.js";
+
+const KIT = process.cwd();
+const CORPUS = join(KIT, "examples/sftdd-scenarios/stockflow");
+const MANIFEST_DIR = join(CORPUS, "step-manifests");
+const INTAKE = join(CORPUS, "intake");
+const FEATURE = "F1-stock-visibility";
+const STORY = "S1-stock-list";
+
+const PO_SEED: WorkflowAction = { kind: "invoke-role", role: "product-owner", mode: "author-requests" };
+const SPEC_AUTHOR: WorkflowAction = { kind: "invoke-role", role: "spec-author", mode: "breakdown" };
+
+/** An inject-escalation op scoped to the demo story , the config-driven mechanism that plants a
+ *  real escalation on disk so a scenario deterministically drives revise/escalate. */
+function inject(source: string, reason: string): LifecycleOp {
+  return { kind: "inject-escalation", config: { source, reason, feature_id: FEATURE, story_id: STORY } };
+}
+
+/** Base scenario shell shared by all three pathways (same manifests/intake). */
+function base(id: string, description: string): Pick<RouteScenario, "id" | "description" | "feature" | "manifestDir" | "intakeDir"> {
+  return { id, description, feature: FEATURE, manifestDir: MANIFEST_DIR, intakeDir: INTAKE };
+}
+
+/** The route-scenario catalogue. */
+export const ROUTE_SCENARIOS: RouteScenario[] = [
+  {
+    ...base("produced-uxdesigner", "clean breakdown routes forward to the UX Designer (produced)"),
+    seedActions: [PO_SEED],
+    stepUnderTest: SPEC_AUTHOR,
+    expectedRoute: { kind: "invoke-role", role: "ux-designer" },
+  },
+  {
+    ...base("revise-specauthor", "a routable spec smell routes the breakdown back to the Spec Author (revise -> Gate 1)"),
+    seedActions: [PO_SEED, SPEC_AUTHOR],
+    injectEscalation: inject("smell:reflect-spec-defect", "AC2 is untestable as written (no observable outcome)"),
+    stepUnderTest: SPEC_AUTHOR,
+    expectedRoute: { kind: "revise-route", role: "spec-author", gate: "spec", story: STORY },
+  },
+  {
+    ...base("escalate-hil", "a non-routable blocking escalation halts the breakdown to the HIL (escalate)"),
+    seedActions: [PO_SEED, SPEC_AUTHOR],
+    injectEscalation: inject("honest-green", "verify failed on main , not recoverable by a re-spec"),
+    stepUnderTest: SPEC_AUTHOR,
+    expectedRoute: { kind: "raise-to-hil" },
+  },
+];
