@@ -749,6 +749,17 @@ function roleTaskBody(
         // TESTS that reference the dropped symbol, so the Navigator flags EXACTLY
         // these as superseded (path (a)) instead of searching the test tree.
         const supersededAdvisory = gfAssess?.supersededTestRefs ? `${gfAssess.supersededTestRefs}\n\n` : "";
+        // The verify's OWN captured failure output (failing node-ids + top error, e.g. "Cannot
+        // find module ../../src/pages/StockViewPage"). The general pre-localization for failures
+        // the deterministic column-drop gates CANNOT localize (a missing client component, a
+        // broken import) , so the Navigator starts from the REAL failure instead of re-scanning
+        // the tree to rediscover what the verify already reported (the assess-spin on S3-class
+        // client regressions). Present whenever the verify captured output.
+        const failureAdvisory = gfAssess?.failureOutput
+          ? `THE VERIFY'S OWN FAILURE OUTPUT (start HERE , it names the failing test(s) + the root error; do NOT re-run` +
+            ` or re-scan the tree to rediscover this). Read the referenced file(s) directly to confirm the cause:\n` +
+            `\`\`\`\n${gfAssess.failureOutput}\n\`\`\`\n\n`
+          : "";
         // When the deterministic gate ALREADY pre-localized the superseded set
         // (supersededTestRefs present), the set above is authoritative , it is a
         // grep of the migration's net-dropped symbol across the test tree. Telling
@@ -778,6 +789,7 @@ function roleTaskBody(
             ` reversibility/fitness test for an obsoleted column encodes abandoned behavior. Miss one and the verify` +
             ` stays red and escalates, so list ALL of them in ONE flag-superseded call:\n`;
         return (
+          failureAdvisory +
           contractAdvisory +
           supersededAdvisory +
           `ASSESS a failed honest-GREEN verify for AC ${action.ac} in story ${s}. The Driver made the current` +

@@ -454,11 +454,13 @@ export type GreenVerifier = (args: {
   featureId: string;
   story: string;
   branchId?: string;
-}) => Promise<{ passed: boolean; summary: string }>;
+}) => Promise<{ passed: boolean; summary: string; failureOutput?: string }>;
 
 const defaultGreenVerifier: GreenVerifier = async ({ projectDir, branchId }) => {
   const r = await ensureDeployedAndVerify({ projectDir, lakebaseBranch: branchId });
-  return { passed: r.passed, summary: r.summary };
+  // Surface the verify's captured failure output so greenOpenCycle can record it into
+  // green-failure.json , the ASSESS turn then starts from the real failure, not a re-scan.
+  return { passed: r.passed, summary: r.summary, ...(r.failureOutput ? { failureOutput: r.failureOutput } : {}) };
 };
 
 /**
@@ -593,6 +595,10 @@ export async function greenOpenCycle(
       writeGreenFailure(sftddDir, featureId, story, open.ac_id, {
         assessed: false,
         summary: result.summary,
+        // The verify's captured failure output (failing node-ids + top error) , the general
+        // pre-localization for failures the deterministic gates cannot localize (a missing
+        // client component, a broken import), so the ASSESS turn starts from the real failure.
+        ...(result.failureOutput ? { failureOutput: result.failureOutput } : {}),
         ...(contractRefs ? { contractRefs } : {}),
         ...(supersededTestRefs ? { supersededTestRefs } : {}),
       });

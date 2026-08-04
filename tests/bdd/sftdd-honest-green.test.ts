@@ -49,6 +49,14 @@ const S = "S1";
 const writeJson = (file: string, obj: unknown): void => writeFileSync(file, JSON.stringify(obj, null, 2) + "\n");
 const pass: GreenVerifier = async () => ({ passed: true, summary: "ok" });
 const fail: GreenVerifier = async () => ({ passed: false, summary: "T2 returns 201, sibling test T1 expects 303 (contradiction)" });
+// A failing verifier that surfaces the verify's OWN captured output (the pytest/vitest failure
+// tail), the way defaultGreenVerifier now does. greenOpenCycle must record this into the
+// green-failure marker so the ASSESS turn starts from the real failure , not a re-scan.
+const failWithOutput: GreenVerifier = async () => ({
+  passed: false,
+  summary: "GREEN verify FAILED on the client pass (the client Vitest suite failed; the backend suite passed)",
+  failureOutput: "FAIL client/tests/pages/StockView.test.tsx > renders split fields\n  Error: Cannot find module '../../src/pages/StockViewPage'",
+});
 
 beforeEach(() => {
   tdd = mkdtempSync(join(tmpdir(), "tdd-honest-"));
@@ -87,6 +95,17 @@ describe("honest GREEN: greenOpenCycle runs a real verify before stamping green"
     expect(storyTestProgress(tdd, F, S).allGreen).toBe(false);
     // No escalation yet (the Navigator has not assessed).
     expect(readEscalations(tdd).filter((e) => !e.resolved_at).length).toBe(0);
+  });
+
+  it("records the verify's captured failureOutput into green-failure.json (the ASSESS pre-localizer)", async () => {
+    beginNextPendingCycle({ sftddDir: tdd, featureId: F, story: S });
+    const r = await greenOpenCycle({ sftddDir: tdd, featureId: F, story: S, verify: failWithOutput });
+    expect(r.needsAssess).toBe(true);
+    const gf = readGreenFailure(tdd, F, S, "AC1")!;
+    // The real failure lines are now in the marker , the assess turn starts from them
+    // instead of re-scanning the tree to rediscover the missing module.
+    expect(gf.failureOutput).toMatch(/Cannot find module '\.\.\/\.\.\/src\/pages\/StockViewPage'/);
+    expect(gf.failureOutput).toMatch(/StockView\.test\.tsx/);
   });
 
   it("a still-failing repair round RE-ARMS for another assess (refactor-until-clean), not an immediate escalation", async () => {

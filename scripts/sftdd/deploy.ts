@@ -729,6 +729,10 @@ export interface CycleVerifyResult {
   passed: boolean;
   reachable: boolean;
   summary: string;
+  /** On a FAILED verify: the captured tail of the verify command's own output (failing
+   *  node-ids + top error). Empty/absent when passed. Recorded into green-failure.json so the
+   *  ASSESS turn starts from the real failure instead of re-scanning. Bounded in length. */
+  failureOutput?: string;
 }
 
 /**
@@ -801,28 +805,36 @@ export async function ensureDeployedAndVerify(args: CycleVerifyArgs): Promise<Cy
   let passed: boolean;
   let migrationFailed = false;
   let clientFailed = false;
+  // The combined output of whichever verify pass FAILED , the pytest/vitest failure lines
+  // (failing node-ids + top error). Captured so the assess turn can start from the real
+  // failure; empty when everything passed. Best-effort , only the failing pass's output.
+  let failOut = "";
   try {
     if (isPython) {
-      const mainPassed = (await runVerifyMaybeEphemeral(
+      const mainRun = await runVerifyMaybeEphemeral(
         runVerify,
         cfg.verify,
         args.projectDir,
         { ...env, SFTDD_PYTEST_MARKER: "not migration" },
         args.lakebaseBranch,
         nowFn,
-      )).passed;
+      );
+      const mainPassed = mainRun.passed;
+      if (!mainPassed) failOut = mainRun.output;
       // Only isolate the migration pass if the main suite is green (else the
       // failure is already surfaced; skip the extra branch cut).
-      const migPassed = mainPassed
-        ? (await runVerifyMaybeEphemeral(
+      const migRun = mainPassed
+        ? await runVerifyMaybeEphemeral(
             runVerify,
             cfg.verify,
             args.projectDir,
             { ...env, SFTDD_PYTEST_MARKER: "migration" },
             args.lakebaseBranch,
             nowFn,
-          )).passed
-        : true;
+          )
+        : { passed: true, output: "" };
+      const migPassed = migRun.passed;
+      if (mainPassed && !migPassed) failOut = migRun.output;
       migrationFailed = mainPassed && !migPassed;
       const backendPassed = mainPassed && migPassed;
       // Finding 26: the marked pytest passes are BACKEND-ONLY (run-tests.sh's
@@ -833,19 +845,23 @@ export async function ensureDeployedAndVerify(args: CycleVerifyArgs): Promise<Cy
       // run-tests.sh skips the backend and runs only `cd client && npm test`) so build
       // GREEN gates on the SAME client tests. No DB, so no ephemeral branch; a failing
       // client test refuses GREEN. Only when a client/ workspace exists.
-      const clientPassed =
+      const clientRun =
         backendPassed && hasClientWorkspace(args.projectDir)
           ? normalizeVerifyRun(
               runVerify(cfg.verify, args.projectDir, {
                 ...(env ?? process.env),
                 SFTDD_CLIENT_ONLY: "1",
               }),
-            ).passed
-          : true;
+            )
+          : { passed: true, output: "" };
+      const clientPassed = clientRun.passed;
+      if (backendPassed && !clientPassed) failOut = clientRun.output;
       clientFailed = backendPassed && !clientPassed;
       passed = backendPassed && clientPassed;
     } else {
-      passed = (await runVerifyMaybeEphemeral(runVerify, cfg.verify, args.projectDir, env, args.lakebaseBranch, nowFn)).passed;
+      const run = await runVerifyMaybeEphemeral(runVerify, cfg.verify, args.projectDir, env, args.lakebaseBranch, nowFn);
+      passed = run.passed;
+      if (!passed) failOut = run.output;
     }
   } finally {
     stop(args.projectDir, targetName); // never leave the app on the port
@@ -867,7 +883,10 @@ export async function ensureDeployedAndVerify(args: CycleVerifyArgs): Promise<Cy
   const summary = regexLint.clean
     ? base
     : `${base}: e2e-inline-regex-flag , ${summarizeE2eRegexViolations(regexLint.violations)}. ${E2E_REGEX_REMEDIATION}`;
-  return { passed, reachable: true, summary };
+  // Carry the failing pass's captured output (bounded) so the ASSESS turn starts from the real
+  // failure lines. Tail-bounded: the last ~4000 chars hold the failing node-ids + top error.
+  const failureOutput = failOut ? failOut.slice(-4000) : undefined;
+  return { passed, reachable: true, summary, ...(failureOutput ? { failureOutput } : {}) };
 }
 
 /** Tear down a previously-deployed local target (kills its process group). */

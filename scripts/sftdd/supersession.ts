@@ -107,6 +107,14 @@ export interface GreenFailure {
   assessed: boolean;
   /** The verify failure summary the Navigator assesses. */
   summary: string;
+  /** The captured tail of the honest-GREEN verify's OWN output (the pytest/vitest failure
+   *  lines: failing node-ids + the top error, e.g. "Cannot find module ../../src/pages/X").
+   *  The verify already produced this at fail time; recording it here lets the ASSESS turn
+   *  START from the real failure instead of re-scanning the tree to rediscover it. This is the
+   *  general pre-localization for failures the deterministic gates cannot localize (a missing
+   *  client component, a broken import) , the symmetric counterpart to supersededTestRefs/
+   *  contractRefs (which only fire for backend column-drops). Advisory; bounded in length. */
+  failureOutput?: string;
   /** The Navigator's root-cause diagnosis recorded at assess time (the WHY the
    *  verify failed), so a regression escalation , and any Driver repair , carries
    *  the finding instead of the generic "verify FAILED". */

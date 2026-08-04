@@ -1094,6 +1094,28 @@ describe("commandsForAction: assess directive scans fitness/migration tests for 
     rmSync(tmp, { recursive: true, force: true });
   });
 
+  it("injects the verify's failureOutput as the ASSESS pre-localizer (start-here failure lines)", () => {
+    // The general pre-localization for failures the deterministic column-drop gates cannot
+    // localize (a missing client component): the verify's OWN captured output is in the marker,
+    // and the assess prompt injects it as the START-HERE failure so the navigator does not re-scan.
+    const tmp = mkdtempSync(join(tmpdir(), "effects-assess-failout-"));
+    const tdd = join(tmp, ".tdd");
+    mkdirSync(join(tdd, "features", "F1", "stories", "S3", "acs"), { recursive: true });
+    writeGreenFailure(tdd, "F1", "S3", "AC1", {
+      assessed: false,
+      summary: "GREEN verify FAILED on the client pass",
+      failureOutput: "FAIL client/tests/pages/StockView.test.tsx\n  Error: Cannot find module '../../src/pages/StockViewPage'",
+    });
+    const t = (commandsForAction(
+      { kind: "invoke-role", role: "navigator", story: "S3", buildMode: "assess", ac: "AC1" },
+      cfg({ sftddDir: tdd, featureId: "F1" }),
+    )[0] as { task: string }).task;
+    expect(t).toMatch(/Cannot find module '\.\.\/\.\.\/src\/pages\/StockViewPage'/);
+    expect(t).toMatch(/VERIFY.S OWN FAILURE OUTPUT|start HERE/i);
+    expect(t).toMatch(/do NOT re-run|do NOT re-scan|do not re-scan/i);
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
   it("WITHOUT an advisory, keeps the comprehensive-scan directive (agent must search itself)", () => {
     // No pre-localization (not a contract/drop story, or gate found nothing): the
     // agent still needs the COMPREHENSIVE scan guidance.
