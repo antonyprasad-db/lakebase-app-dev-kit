@@ -1,0 +1,14 @@
+{
+  "id": "stockflow-demo-architect-reviewer",
+  "role": "architect-reviewer",
+  "match": { "kind": "invoke-role", "role": "architect-reviewer", "story": "S1-stock-list" },
+  "inputs": [],
+  "outputs": [
+    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "architectReviewerLoggedAuthoring", "description": "The Architect Reviewer logs the per-AC architectural notes + architecture.json it authored." }
+  ],
+  "routing": {
+    "produced": { "next": { "kind": "invoke-role", "role": "dba", "story": "S1-stock-list" } }
+  },
+  "agentOptions": { "model": "sonnet", "effort": "low", "session": "fresh", "resumeKeyFrom": "story" },
+  "agent": { "kind": "mock", "config": { "role": "architect-reviewer" } }
+}

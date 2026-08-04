@@ -1,0 +1,14 @@
+{
+  "id": "stockflow-demo-test-strategist",
+  "role": "test-strategist",
+  "match": { "kind": "invoke-role", "role": "test-strategist", "story": "S1-stock-list" },
+  "inputs": [],
+  "outputs": [
+    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "testStrategistLoggedAuthoring", "description": "The Test Strategist logs the test-list it authored for the story." }
+  ],
+  "routing": {
+    "produced": { "next": { "kind": "invoke-role", "role": "navigator", "story": "S1-stock-list", "buildMode": "reflect" } }
+  },
+  "agentOptions": { "model": "sonnet", "effort": "low", "session": "fresh", "resumeKeyFrom": "story" },
+  "agent": { "kind": "mock", "config": { "role": "test-strategist" } }
+}

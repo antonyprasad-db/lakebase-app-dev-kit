@@ -57,10 +57,12 @@ describe("stockflow-demo manifests: shape + loader", () => {
     // spec-author + ux-designer invocation the orchestrator can emit). Each maps to exactly one
     // action (no ambiguous overlap).
     expect(manifests.map((m) => m.id).sort()).toEqual([
+      "stockflow-demo-architect-reviewer",
       "stockflow-demo-po-seed",
       "stockflow-demo-spec-author",
       "stockflow-demo-spec-author-propose",
       "stockflow-demo-spec-author-story",
+      "stockflow-demo-test-strategist",
       "stockflow-demo-ux-designer",
     ]);
     for (const m of manifests) expect(validateStepManifest(m)).toEqual({ ok: true, violations: [] });

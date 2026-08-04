@@ -36,6 +36,11 @@ const SPEC_AUTHOR_PROPOSE: WorkflowAction = { kind: "invoke-role", role: "spec-a
 // smell is a build-lane driver refactor, not a design revise-route back to it). So: produced ->
 // the first story's design (spec-author ACs), escalate -> raise-to-hil, blocked -> bounded retry.
 const UX_DESIGNER: WorkflowAction = { kind: "invoke-role", role: "ux-designer" };
+// The OTHER two revise-owning design roles (owning_role = spec-author | test-strategist |
+// architect-reviewer). Each per-story action's produced next-hop is the next design step; each
+// has its OWN revise smell routing back to it at its OWN gate.
+const TEST_STRATEGIST: WorkflowAction = { kind: "invoke-role", role: "test-strategist", story: STORY } as WorkflowAction;
+const ARCHITECT_REVIEWER: WorkflowAction = { kind: "invoke-role", role: "architect-reviewer", story: STORY } as WorkflowAction;
 
 /** An inject-escalation op scoped to the demo story , the config-driven mechanism that plants a
  *  real escalation on disk so a scenario deterministically drives revise/escalate. */
@@ -120,5 +125,33 @@ export const ROUTE_SCENARIOS: RouteScenario[] = [
     stepUnderTest: UX_DESIGNER,
     nonconformantPrimary: true,
     expectedRoute: UX_DESIGNER,
+  },
+  // ── Test Strategist (the 2nd revise-owning role): revise -> test_list gate + produced ───────
+  {
+    ...base("teststrategist-revise", "a routable test-list smell routes back to the Test Strategist (revise -> test_list gate)"),
+    seedActions: [],
+    injectEscalation: inject("smell:reflect-testlist-defect", "the test list asserts shared aggregate state (not story-isolated)"),
+    stepUnderTest: TEST_STRATEGIST,
+    expectedRoute: { kind: "revise-route", role: "test-strategist", gate: "test_list", story: STORY },
+  },
+  {
+    ...base("teststrategist-produced-reflect", "the Test Strategist's test-list routes forward to the Navigator reflect gate (produced)"),
+    seedActions: [],
+    stepUnderTest: TEST_STRATEGIST,
+    expectedRoute: { kind: "invoke-role", role: "navigator", story: STORY, buildMode: "reflect" },
+  },
+  // ── Architect Reviewer (the 3rd revise-owning role): revise -> architecture gate + produced ─
+  {
+    ...base("architect-revise", "a routable architecture smell routes back to the Architect Reviewer (revise -> architecture gate)"),
+    seedActions: [],
+    injectEscalation: inject("smell:architect-canon-gap", "the story maps to no project canon layer; the architecture needs amending"),
+    stepUnderTest: ARCHITECT_REVIEWER,
+    expectedRoute: { kind: "revise-route", role: "architect-reviewer", gate: "architecture", story: STORY },
+  },
+  {
+    ...base("architect-produced-dba", "the Architect Reviewer's annotations route forward to the DBA (produced)"),
+    seedActions: [],
+    stepUnderTest: ARCHITECT_REVIEWER,
+    expectedRoute: { kind: "invoke-role", role: "dba", story: STORY },
   },
 ];
