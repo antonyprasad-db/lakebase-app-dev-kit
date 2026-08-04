@@ -21,8 +21,8 @@ import type { StepManifest } from "../../consort/orchestrator/manifest/step-mani
 import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
 
 const KIT = process.cwd();
-const CORPUS = join(KIT, "examples/sftdd-scenarios/stockflow");
-const MANIFEST_DIR = join(CORPUS, "step-manifests");
+const CORPUS = join(KIT, "tests/integration");
+const MANIFEST_DIR = join(CORPUS, "manifests");
 const INTAKE = join(CORPUS, "intake");
 
 const PO_SEED: WorkflowAction = { kind: "invoke-role", role: "product-owner", mode: "author-requests" };

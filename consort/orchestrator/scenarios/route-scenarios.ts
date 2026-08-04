@@ -16,8 +16,10 @@ import type { LifecycleOp } from "../manifest/orchestration-runner.js";
 import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.js";
 
 const KIT = process.cwd();
-const CORPUS = join(KIT, "examples/sftdd-scenarios/stockflow");
-const MANIFEST_DIR = join(CORPUS, "step-manifests");
+// The demo manifests + recorded intake live in the integration-test corpus (a manifest dropped
+// there participates in the folder-discovery integration runner). See tests/integration/.
+const CORPUS = join(KIT, "tests/integration");
+const MANIFEST_DIR = join(CORPUS, "manifests");
 const INTAKE = join(CORPUS, "intake");
 const FEATURE = "F1-stock-visibility";
 const STORY = "S1-stock-list";

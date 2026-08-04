@@ -1,0 +1,33 @@
+{
+  "id": "uxchain-ux-designer",
+  "role": "ux-designer",
+  "match": { "kind": "invoke-role", "role": "ux-designer" },
+  "inputs": [
+    { "id": "design-guideline", "source": "feature:design-brief.md", "description": "The PO's design brief , the source the UX Designer extracts the look FROM." },
+    { "id": "feature-spec", "source": "feature:feature-spec.json", "description": "The spec-author's feature breakdown , which stories produce screens." }
+  ],
+  "outputs": [
+    { "id": "design-guide", "filename": "design-guide.json", "validator": "designGuideConformant", "description": "The machine-checkable design tokens + component standards (design-guide.schema.json)." },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "uxDesignerLoggedAuthoring", "description": "The UX Designer logs what it authored." }
+  ],
+  "routing": {
+    "produced": { "next": { "kind": "design-complete" } }
+  },
+  "agentOptions": {
+    "model": "sonnet",
+    "effort": "low",
+    "session": "fresh",
+    "resumeKeyFrom": "role"
+  },
+  "agent": {
+    "kind": "claude",
+    "config": {
+      "role": "ux-designer",
+      "model": "sonnet",
+      "effort": "low",
+      "session": "fresh",
+      "allowedTools": ["Write", "Read"],
+      "disallowedTools": ["Bash", "Glob", "Grep", "WebFetch", "WebSearch", "Task"]
+    }
+  }
+}

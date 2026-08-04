@@ -6,9 +6,9 @@
 //   Turn 2 , Spec Author: takes those three PO files as INPUTS and produces feature-spec.json
 //     (a mock agent stands in for the model; the PO mock is the piece under demonstration).
 //
-// The demo manifests live in the scenario corpus (examples/.../stockflow/step-manifests/) ,
-// NOT the shipped step-manifests/ , because turn 2 shares its `match` with the production
-// spec-author-breakdown manifest; keeping them scenario-local avoids an ambiguous overlap in
+// The demo manifests live in the integration corpus (tests/integration/manifests/) , NOT the
+// shipped step-manifests/ , because turn 2 shares its `match` with the production
+// spec-author-breakdown manifest; keeping them integration-local avoids an ambiguous overlap in
 // the shipped set while still exercising the exact loader/ManifestStep/StepExecutor path.
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -24,8 +24,8 @@ import type { WorkflowAction, DriveState } from "../../scripts/sftdd/orchestrato
 import type { ValidateBoundDeps } from "../../consort/orchestrator/contract/step-contract";
 
 const KIT = process.cwd();
-const CORPUS = join(KIT, "examples/sftdd-scenarios/stockflow");
-const MANIFEST_DIR = join(CORPUS, "step-manifests");
+const CORPUS = join(KIT, "tests/integration");
+const MANIFEST_DIR = join(CORPUS, "manifests");
 const INTAKE = join(CORPUS, "intake"); // where the recorded human PO authoring lives
 
 const PO_SEED: WorkflowAction = { kind: "invoke-role", role: "product-owner", mode: "author-requests" };

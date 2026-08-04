@@ -99,6 +99,23 @@ export function nonEmptyFile(producedPath: string): OutputValidationResult {
 }
 
 /**
+ * design-guide validator: the produced design-guide.json must parse + conform to
+ * design-guide.schema.json (the token + component shape the UX Designer emits, which the
+ * downstream design-adherence gate checks). Deterministic , the same conformance the response
+ * self-check runs. Used for the ux-designer step's output.
+ */
+export function designGuideConformant(producedPath: string): OutputValidationResult {
+  let content: string;
+  try {
+    content = readFileSync(producedPath, "utf8");
+  } catch {
+    return { ok: false, violations: [`design-guide.json not readable at ${producedPath}`] };
+  }
+  const conf = checkArtifactConformance("design-guide.json", content);
+  return conf.ok ? { ok: true, violations: [] } : { ok: false, violations: conf.violations };
+}
+
+/**
  * The named-validator registry a manifest resolves against. Add an entry here (code) and
  * reference it by name in a manifest (data). Every OutputValidator is (path) => result , the
  * role-parameterized agent-log validator binds its default role so it matches the signature.
@@ -108,7 +125,10 @@ export const VALIDATOR_REGISTRY: Record<string, OutputValidator> = {
   agentLogHasRoleEvent: (p: string) => agentLogHasRoleEvent(p),
   // The PO's structured log event is authored as product-owner; bind that role.
   productOwnerLoggedAuthoring: (p: string) => agentLogHasRoleEvent(p, "product-owner"),
+  // The UX Designer's structured log event is authored as ux-designer; bind that role.
+  uxDesignerLoggedAuthoring: (p: string) => agentLogHasRoleEvent(p, "ux-designer"),
   nonEmptyFile,
+  designGuideConformant,
 };
 
 /**

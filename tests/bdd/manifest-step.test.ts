@@ -1,8 +1,8 @@
 // ManifestStep: the GENERIC StepContract driven ENTIRELY by a manifest + the validator
-// registry + an injected agent. It is the norm; a bespoke StepContract class is the escape
-// hatch. This slice proves ManifestStep(breakdownManifest, mockAgent) is behaviorally
-// EQUIVALENT to the hand-written SpecAuthorBreakdownStep , same inputs/outputs/
-// conformanceValidators/route/run assertions , so the bespoke class can collapse to it.
+// registry + an injected agent. It is the ONLY step implementation , the runner path builds
+// `new ManifestStep(manifest, agent)` for every turn; there is no bespoke concrete StepContract
+// class (the original SpecAuthorBreakdownStep was proven equivalent to this and then removed).
+// This slice pins ManifestStep's inputs/outputs/conformanceValidators/route/run contract.
 //
 // It also pins the validator registry: the two breakdown validators are registered by name,
 // resolveValidator returns the SAME deterministic fn, and an unknown name throws loud (a

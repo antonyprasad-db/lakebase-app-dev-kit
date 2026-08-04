@@ -26,8 +26,7 @@ import { mkdtempSync, mkdirSync, cpSync, readFileSync, existsSync, chmodSync } f
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { SpecAuthorBreakdownStep } from "../../consort/orchestrator/steps/spec-author-breakdown-step.js";
-import { ClaudeStepAgent, type AgentLevers } from "../../consort/orchestrator/agents/claude-step-agent.js";
+import { ClaudeStepAgent } from "../../consort/orchestrator/agents/claude-step-agent.js";
 import { ManifestStep } from "../../consort/orchestrator/manifest/manifest-step.js";
 import { manifestForAction } from "../../consort/orchestrator/manifest/step-manifest.js";
 import { execute, type StepExecutorDeps, type StepCtx } from "../../consort/orchestrator/execution/step-executor.js";
@@ -91,43 +90,8 @@ function setupLiveBreakdown(): { workspaceDir: string; inputs: Record<string, st
   return { workspaceDir, inputs, instructions };
 }
 
-describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE: SpecAuthorBreakdownStep produces a conformant feature-spec.json", () => {
-  it("3 PO inputs + provided checker + a lever-built ClaudeStepAgent -> feature-spec.json that passes its in-code checker", async () => {
-    const { workspaceDir, inputs, instructions } = setupLiveBreakdown();
-
-    // ── The AGENT built from the LEVERS ──────────────────────────────────────────────
-    const levers: AgentLevers = { role: "spec-author", model: "sonnet", effort: "low", session: "fresh" };
-    const agent = new ClaudeStepAgent(levers);
-
-    // ── The STEP: dumb + contained. Orchestrator DECLARES the output paths. ──────────
-    const step = new SpecAuthorBreakdownStep(agent);
-
-    // RUN , contained. The orchestrator declares WHERE the outputs land.
-    const result = await step.run({
-      action: BREAKDOWN,
-      workspaceDir,
-      inputs,
-      instructions,
-      outputPaths: { "feature-spec": SPEC_REL, "agent-log": LOG_REL },
-    });
-
-    expect(result.produced, `step did not produce feature-spec.json; result: ${JSON.stringify(result)}`).toBe(true);
-    const specPath = join(workspaceDir, SPEC_REL);
-    expect(result.producedPaths).toContain(specPath);
-
-    // ── ORCHESTRATOR VALIDATES via the output's OWN in-code checker ──────────────────
-    const featureSpecOutput = step.outputs(BREAKDOWN).find((o) => o.id === "feature-spec")!;
-    const check = featureSpecOutput.validate(specPath);
-    expect(check.ok, `feature-spec.json failed its in-code checker: ${check.violations.join("; ")}`).toBe(true);
-
-    const spec = JSON.parse(readFileSync(specPath, "utf8")) as { stories?: string[] };
-    expect(Array.isArray(spec.stories) && spec.stories.length >= 1).toBe(true);
-
-    const proposal = step.route(BREAKDOWN, { state: { phase: "feature" } as never, feature: FEATURE });
-    expect(proposal.outcome).toBe("produced");
-  }, 300_000);
-
-  it("drives the SAME breakdown through the StepExecutor (7-phase Template Method) with ManifestStep + ClaudeStepAgent", async () => {
+describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE: ManifestStep + ClaudeStepAgent produce a conformant feature-spec.json", () => {
+  it("drives the breakdown through the StepExecutor (7-phase Template Method) with ManifestStep + ClaudeStepAgent", async () => {
     const { workspaceDir, inputs, instructions } = setupLiveBreakdown();
 
     // The generic step from the shipped manifest + the real lever-built agent , no bespoke class.

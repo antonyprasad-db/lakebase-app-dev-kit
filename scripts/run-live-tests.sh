@@ -262,11 +262,17 @@ case "$MODE" in
     run_scenarios
     ;;
   orchestration)
-    # The config-driven orchestration demo: scaffolds a real project (repo + runner + Lakebase),
-    # drives the live-claude 2-turn design chain, tears it down. RUN_LIVE_STEP gates the
-    # describe. (The route-pathway suite , produced/revise/escalate , is LEAN + needs no cloud,
-    # so it runs in the normal `npm test` hermetic suite: tests/bdd/route-scenarios.test.ts.)
-    RUN_LIVE_STEP=1 npx vitest run tests/live/stockflow-demo-config-live.test.ts
+    # The LEAN live orchestration suites (tests/integration/), each driven entirely from step
+    # manifests with a SINGLE live claude agent per chain and NO cloud project (throwaway .sftdd
+    # workspace; the live agent is tool-scoped + reports via the agent-report channel):
+    #   - spec-author-breakdown-live : mock PO -> LIVE spec-author authors feature-spec.
+    #   - ux-designer-chain-live    : mock PO -> mock spec-author -> LIVE ux-designer authors
+    #                                 a schema-conformant design-guide.
+    # (The route-pathway suite , produced/revise/escalate/blocked , is LEAN + needs no live
+    # agent, so it runs in the normal `npm test` hermetic suite: tests/bdd/route-scenarios.test.ts.)
+    RUN_LIVE_STEP=1 npx vitest run \
+      tests/integration/spec-author-breakdown-live.test.ts \
+      tests/integration/ux-designer-chain-live.test.ts
     ;;
   all)
     RUN_LIVE_STEP=1 npx vitest run
