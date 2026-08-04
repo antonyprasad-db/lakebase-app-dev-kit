@@ -17,7 +17,7 @@ import { execute } from "../../consort/orchestrator/execution/step-executor";
 import type { StepExecutorDeps, StepCtx } from "../../consort/orchestrator/execution/step-executor";
 import { ManifestStep } from "../../consort/orchestrator/steps/manifest-step";
 import { manifestForAction } from "../../consort/orchestrator/manifest/step-manifest";
-import type { StepAgent, AgentInvocation } from "../../consort/orchestrator/agents/spec-author-breakdown-step-types";
+import type { StepAgent, AgentInvocation } from "../../consort/orchestrator/agents/agent-types";
 import type { WorkflowAction, DriveState } from "../../scripts/sftdd/orchestrator-drive";
 import type { ValidateBoundDeps } from "../../consort/orchestrator/contract/step-contract";
 

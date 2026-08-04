@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runManifestChain, type ManifestRunnerDeps, type ManifestTurn } from "../manifest/manifest-runner.js";
 import { loadStepManifests, type StepManifest } from "../manifest/step-manifest.js";
-import type { StepInstructions } from "../agents/spec-author-breakdown-step-types.js";
+import type { StepInstructions } from "../agents/agent-types.js";
 import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.js";
 import type { DriveEffectsConfig } from "../../../scripts/sftdd/orchestrator-effects.js";
 import type { AgentBuildContext } from "../agents/agent-catalogue.js";

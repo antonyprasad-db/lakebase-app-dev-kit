@@ -25,7 +25,7 @@ import { validateAndBound } from "../contract/step-contract.js";
 import type { WorkflowAction, DriveState } from "../../../scripts/sftdd/orchestrator-drive.js";
 import type { DriveEffectsConfig } from "../../../scripts/sftdd/orchestrator-effects.js";
 import type { StepContract, BoundedRoute, ValidateBoundDeps, RouteProposal } from "../contract/step-contract.js";
-import type { StepInstructions } from "../agents/spec-author-breakdown-step-types.js";
+import type { StepInstructions } from "../agents/agent-types.js";
 import type { ProvidedStepRun, ProvidedStepResult } from "../steps/step-run-types.js";
 
 /** A step the executor can run: the routing/IO contract PLUS the contained run() body that

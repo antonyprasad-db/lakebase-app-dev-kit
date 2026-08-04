@@ -15,7 +15,7 @@ import { join } from "path";
 import { ManifestStep } from "../../consort/orchestrator/steps/manifest-step";
 import { VALIDATOR_REGISTRY, resolveValidator } from "../../consort/orchestrator/validators/conformance/validator-registry";
 import { manifestForAction } from "../../consort/orchestrator/manifest/step-manifest";
-import type { StepAgent, AgentInvocation } from "../../consort/orchestrator/agents/spec-author-breakdown-step-types";
+import type { StepAgent, AgentInvocation } from "../../consort/orchestrator/agents/agent-types";
 import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
 
 let ws: string;

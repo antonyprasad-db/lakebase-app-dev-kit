@@ -23,7 +23,7 @@ import { buildAgent, type AgentBuildContext } from "../agents/agent-catalogue.js
 import { probeDriveState } from "../state/escalation-probe.js";
 import { execute, type StepExecutorDeps, type StepCtx, type StepResult } from "../execution/step-executor.js";
 import { formatAgentReport } from "../execution/agent-report-formatter.js";
-import type { StepAgent, StepInstructions } from "../agents/spec-author-breakdown-step-types.js";
+import type { StepAgent, StepInstructions } from "../agents/agent-types.js";
 import type { DriveEffectsConfig } from "../../../scripts/sftdd/orchestrator-effects.js";
 import type { WorkflowAction, DriveState } from "../../../scripts/sftdd/orchestrator-drive.js";
 import type { RouteProposal, ValidateBoundDeps } from "../contract/step-contract.js";

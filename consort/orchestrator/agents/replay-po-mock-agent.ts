@@ -12,7 +12,7 @@
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import type { StepAgent, AgentInvocation } from "./spec-author-breakdown-step-types.js";
+import type { StepAgent, AgentInvocation } from "./agent-types.js";
 
 /** One recorded file to materialize: copy corpus `from` -> workspace `to` under `outputId`. */
 export interface RecordedSeed {

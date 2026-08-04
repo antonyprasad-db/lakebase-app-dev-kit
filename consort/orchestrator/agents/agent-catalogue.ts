@@ -21,7 +21,7 @@ import { join } from "node:path";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { ClaudeStepAgent, type AgentLevers } from "./claude-step-agent.js";
 import { makeReplayPoMockAgent, type RecordedSeed } from "./replay-po-mock-agent.js";
-import type { StepAgent, AgentInvocation } from "./spec-author-breakdown-step-types.js";
+import type { StepAgent, AgentInvocation } from "./agent-types.js";
 
 /**
  * The ENV a builder needs but the manifest must NOT carry (per-run / per-machine paths).

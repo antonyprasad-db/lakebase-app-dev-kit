@@ -31,7 +31,7 @@ import type {
   StepOutcome,
   ConformanceValidator,
 } from "../contract/step-contract.js";
-import type { StepAgent } from "../agents/spec-author-breakdown-step-types.js";
+import type { StepAgent } from "../agents/agent-types.js";
 import type { ProvidedStepRun, ProvidedStepResult, ExistsFn } from "./step-run-types.js";
 
 /** Which output id is the PRIMARY artifact (the one that must be present for produced:true).

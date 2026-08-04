@@ -17,7 +17,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { runManifestStep, runManifestChain, type ManifestRunnerDeps } from "../../consort/orchestrator/manifest/manifest-runner";
 import type { StepManifest } from "../../consort/orchestrator/manifest/step-manifest";
-import type { StepAgent } from "../../consort/orchestrator/agents/spec-author-breakdown-step-types";
+import type { StepAgent } from "../../consort/orchestrator/agents/agent-types";
 import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
 
 let ws: string;

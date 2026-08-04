@@ -6,7 +6,7 @@
 // removed bespoke SpecAuthorBreakdownStep; lifted here so the types outlive that class.)
 
 import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.js";
-import type { StepInstructions } from "../agents/spec-author-breakdown-step-types.js";
+import type { StepInstructions } from "../agents/agent-types.js";
 
 /**
  * What the orchestrator PROVIDES to run a step , everything the step is allowed to touch. The

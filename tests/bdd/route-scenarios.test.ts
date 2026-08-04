@@ -14,7 +14,7 @@ import { join } from "node:path";
 import { runRouteScenario, routeMatches, type RouteScenarioHooks } from "../../consort/orchestrator/scenarios/route-scenario";
 import { ROUTE_SCENARIOS } from "../../consort/orchestrator/scenarios/route-scenarios";
 import { makeReplayPoMockAgent } from "../../consort/orchestrator/agents/replay-po-mock-agent";
-import type { StepAgent } from "../../consort/orchestrator/agents/spec-author-breakdown-step-types";
+import type { StepAgent } from "../../consort/orchestrator/agents/agent-types";
 import type { StepManifest } from "../../consort/orchestrator/manifest/step-manifest";
 import type { ManifestRunnerDeps } from "../../consort/orchestrator/manifest/manifest-runner";
 import type { DriveEffectsConfig } from "../../scripts/sftdd/orchestrator-effects";

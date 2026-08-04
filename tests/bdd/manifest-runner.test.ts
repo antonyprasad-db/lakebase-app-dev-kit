@@ -16,7 +16,7 @@ import { runManifestStep, runManifestChain, type ManifestRunnerDeps } from "../.
 import { loadStepManifests } from "../../consort/orchestrator/manifest/step-manifest";
 import { makeReplayPoMockAgent } from "../../consort/orchestrator/agents/replay-po-mock-agent";
 import { writeEscalation } from "../../scripts/sftdd/escalation";
-import type { StepAgent } from "../../consort/orchestrator/agents/spec-author-breakdown-step-types";
+import type { StepAgent } from "../../consort/orchestrator/agents/agent-types";
 import type { StepManifest } from "../../consort/orchestrator/manifest/step-manifest";
 import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
 

@@ -19,7 +19,7 @@ import { loadStepManifests, manifestForAction, validateStepManifest } from "../.
 import { ManifestStep } from "../../consort/orchestrator/steps/manifest-step";
 import { execute, type StepExecutorDeps, type StepCtx } from "../../consort/orchestrator/execution/step-executor";
 import { makeReplayPoMockAgent } from "../../consort/orchestrator/agents/replay-po-mock-agent";
-import type { StepAgent } from "../../consort/orchestrator/agents/spec-author-breakdown-step-types";
+import type { StepAgent } from "../../consort/orchestrator/agents/agent-types";
 import type { WorkflowAction, DriveState } from "../../scripts/sftdd/orchestrator-drive";
 import type { ValidateBoundDeps } from "../../consort/orchestrator/contract/step-contract";
 
