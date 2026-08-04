@@ -12,7 +12,7 @@ const STREAM = [
   '{"type":"assistant","message":{"content":[{"type":"text","text":"Writing the failing test."}]}}',
   '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Write","input":{}}]}}',
   '{"type":"user","message":{"content":[{"type":"tool_result"}]}}',
-  '{"type":"result","subtype":"success","is_error":false,"total_cost_usd":0.0948,"usage":{"input_tokens":11623,"output_tokens":4,"cache_read_input_tokens":10172,"cache_creation_input_tokens":3150}}',
+  '{"type":"result","subtype":"success","is_error":false,"num_turns":7,"duration_ms":42000,"total_cost_usd":0.0948,"usage":{"input_tokens":11623,"output_tokens":4,"cache_read_input_tokens":10172,"cache_creation_input_tokens":3150}}',
 ].join("\n");
 
 describe("parseTurnUsage", () => {
@@ -24,6 +24,11 @@ describe("parseTurnUsage", () => {
     expect(u!.cacheReadTokens).toBe(10172);
     expect(u!.cacheCreationTokens).toBe(3150);
     expect(u!.costUsd).toBeCloseTo(0.0948, 4);
+    // num_turns + duration_ms from the result event , the agent-side turn count + wall-clock
+    // the CLI reports (num_turns is what distinguishes a one-shot turn from a retry-heavy one,
+    // e.g. why a role's turn was slow).
+    expect(u!.numTurns).toBe(7);
+    expect(u!.durationMs).toBe(42000);
   });
 
   it("accepts an array of lines + skips non-JSON / partial lines", () => {

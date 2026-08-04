@@ -18,11 +18,20 @@ export interface TurnUsage {
   cacheCreationTokens?: number;
   /** Dollar cost of the turn, if reported. */
   costUsd?: number;
+  /** Agent-side turn count the CLI reports on the result event (`num_turns`), if present. A
+   *  one-shot design turn is ~a handful; a retry-heavy / thrashing turn is many , the signal
+   *  that distinguishes "slow because big" from "slow because it looped". */
+  numTurns?: number;
+  /** The CLI-reported wall-clock for the whole turn (`duration_ms`), if present. The agent's
+   *  own measure, distinct from the orchestrator's outer step timer. */
+  durationMs?: number;
 }
 
 interface ResultEvent {
   type?: string;
   total_cost_usd?: number;
+  num_turns?: number;
+  duration_ms?: number;
   usage?: {
     input_tokens?: number;
     output_tokens?: number;
@@ -46,6 +55,8 @@ export function usageFromResultEvent(ev: ResultEvent): TurnUsage | undefined {
   if (typeof u.cache_read_input_tokens === "number") usage.cacheReadTokens = u.cache_read_input_tokens;
   if (typeof u.cache_creation_input_tokens === "number") usage.cacheCreationTokens = u.cache_creation_input_tokens;
   if (typeof ev.total_cost_usd === "number") usage.costUsd = ev.total_cost_usd;
+  if (typeof ev.num_turns === "number") usage.numTurns = ev.num_turns;
+  if (typeof ev.duration_ms === "number") usage.durationMs = ev.duration_ms;
   return usage;
 }
 
