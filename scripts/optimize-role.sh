@@ -15,4 +15,9 @@
 # CLI always runs live).
 set -euo pipefail
 cd "$(dirname "$0")/.."
-exec npx tsx scripts/sftdd/optimize-role.cli.ts "$@"
+# Run the BUILT dist bin (CJS), not the .ts via tsx: the shared schema-loader uses __dirname,
+# which is undefined under tsx's ESM loader. The kit ships committed dist, so the bin normally
+# exists; build it if this is a fresh/dirty tree.
+BIN="dist/scripts/sftdd/optimize-role.cli.js"
+[ -f "$BIN" ] || npm run build >/dev/null
+exec node "$BIN" "$@"
