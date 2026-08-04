@@ -52,14 +52,16 @@ function chainBoundDeps(allowedNext: WorkflowAction): ValidateBoundDeps {
 describe("stockflow-demo manifests: shape + loader", () => {
   it("all demo manifests conform to the step-manifest schema", () => {
     const manifests = loadStepManifests(MANIFEST_DIR);
-    // The 2-turn replay pair (po-seed + spec-author breakdown) PLUS the per-story and propose
-    // spec-author manifests the route-scenario suite drives (each spec-author invocation the
-    // orchestrator can emit). Each maps to exactly one action (no ambiguous overlap).
+    // The 2-turn replay pair (po-seed + spec-author breakdown) PLUS the per-story + propose
+    // spec-author manifests AND the ux-designer manifest the route-scenario suite drives (every
+    // spec-author + ux-designer invocation the orchestrator can emit). Each maps to exactly one
+    // action (no ambiguous overlap).
     expect(manifests.map((m) => m.id).sort()).toEqual([
       "stockflow-demo-po-seed",
       "stockflow-demo-spec-author",
       "stockflow-demo-spec-author-propose",
       "stockflow-demo-spec-author-story",
+      "stockflow-demo-ux-designer",
     ]);
     for (const m of manifests) expect(validateStepManifest(m)).toEqual({ ok: true, violations: [] });
   });

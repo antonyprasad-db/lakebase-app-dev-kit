@@ -19,10 +19,20 @@ import type { StepManifest } from "../../consort/orchestrator/manifest/step-mani
 import type { ManifestRunnerDeps } from "../../consort/orchestrator/manifest/manifest-runner";
 import type { DriveEffectsConfig } from "../../scripts/sftdd/orchestrator-effects";
 
+/** A minimal design-guide.json that conforms to design-guide.schema.json (typography +
+ *  font_family/scale, colors.brand, spacing). The ux-designer route scenarios need a conformant
+ *  primary for the produced/escalate paths; the blocked path skips it. */
+const CONFORMANT_DESIGN_GUIDE = JSON.stringify({
+  typography: { font_family: "DM Sans", scale: { "text-base": "15px" } },
+  colors: { brand: { "navy-900": "#0b1a2b" } },
+  spacing: { "space-4": "16px" },
+}) + "\n";
+
 /** Deterministic agents: PO replays the recorded intake; the spec-author writes a conformant
- *  feature-spec + log , UNLESS the scenario asks for a nonconformant primary (to drive the
- *  blocked outcome), in which case it writes only the log and NO feature-spec. The route (not
- *  authoring) is under test, so these are fixtures. */
+ *  feature-spec + log, the ux-designer a conformant design-guide + log , UNLESS the scenario
+ *  asks for a nonconformant primary (to drive the blocked outcome), in which case it writes only
+ *  the log and NO primary artifact. The route (not authoring) is under test, so these are
+ *  fixtures. */
 function makeAgentFor(intakeDir: string, nonconformantPrimary: boolean) {
   return (manifest: StepManifest): StepAgent => {
     if (manifest.role === "product-owner") {
@@ -35,16 +45,21 @@ function makeAgentFor(intakeDir: string, nonconformantPrimary: boolean) {
         ],
       });
     }
+    const role = manifest.role;
     return {
       async invoke(inv) {
-        // The log is the primary for the story/propose manifests; feature-spec is the primary
-        // for breakdown. Always write the log; write feature-spec unless we're forcing a
-        // nonconformant/absent primary (blocked scenario).
+        // Always write the role's log line (agentLogHasRoleEvent binds the role per manifest).
         writeFileSync(
           join(inv.workspaceDir, "agent-log.jsonl"),
-          JSON.stringify({ timestamp: "2026-08-03T12:00:00Z", level: "info", role: "spec-author", event: "artifact.written", message: "wrote artifacts" }) + "\n",
+          JSON.stringify({ timestamp: "2026-08-03T12:00:00Z", level: "info", role, event: "artifact.written", message: "wrote artifacts" }) + "\n",
         );
-        if (!nonconformantPrimary) {
+        if (nonconformantPrimary) return; // skip the primary -> validate fails -> blocked
+        // The primary artifact differs by role: ux-designer -> design-guide.json; everyone else
+        // (spec-author breakdown) -> feature-spec.json. (story/propose manifests have agent-log
+        // as their primary, already written above.)
+        if (role === "ux-designer") {
+          writeFileSync(join(inv.workspaceDir, "design-guide.json"), CONFORMANT_DESIGN_GUIDE);
+        } else {
           writeFileSync(
             join(inv.workspaceDir, "feature-spec.json"),
             JSON.stringify({ id: "F1-stock-visibility", name: "Stock Visibility", status: "draft", tdd_mode: "N>=2", stories: ["S1-stock-list"] }) + "\n",
@@ -61,7 +76,7 @@ const hooks: RouteScenarioHooks = {
   },
 };
 
-describe("route-scenario suite: each pathway isolated (produced / revise / escalate)", () => {
+describe("route-scenario suite: each pathway isolated (spec-author + ux-designer; produced / revise / escalate / blocked)", () => {
   for (const scenario of ROUTE_SCENARIOS) {
     it(`${scenario.id}: ${scenario.description}`, async () => {
       const result = await runRouteScenario(scenario, hooks);

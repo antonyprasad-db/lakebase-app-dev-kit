@@ -31,6 +31,11 @@ const SPEC_AUTHOR: WorkflowAction = { kind: "invoke-role", role: "spec-author", 
 //   sprint-planning propose      , produced -> the architect-reviewer estimate turn.
 const SPEC_AUTHOR_STORY: WorkflowAction = { kind: "invoke-role", role: "spec-author", story: STORY } as WorkflowAction;
 const SPEC_AUTHOR_PROPOSE: WorkflowAction = { kind: "invoke-role", role: "spec-author", mode: "propose" };
+// The UX Designer turn (UI track, once, after breakdown). Its route SPACE is only 3: it is NEVER
+// a revise owning_role (only spec-author/test-strategist/architect-reviewer are; its ux-adherence
+// smell is a build-lane driver refactor, not a design revise-route back to it). So: produced ->
+// the first story's design (spec-author ACs), escalate -> raise-to-hil, blocked -> bounded retry.
+const UX_DESIGNER: WorkflowAction = { kind: "invoke-role", role: "ux-designer" };
 
 /** An inject-escalation op scoped to the demo story , the config-driven mechanism that plants a
  *  real escalation on disk so a scenario deterministically drives revise/escalate. */
@@ -89,5 +94,31 @@ export const ROUTE_SCENARIOS: RouteScenario[] = [
     seedActions: [],
     stepUnderTest: SPEC_AUTHOR_PROPOSE,
     expectedRoute: { kind: "invoke-role", role: "architect-reviewer", mode: "estimate" },
+  },
+  // ── UX Designer route space (3 outcomes; ux-designer is never a revise target) ──────────────
+  {
+    // produced: once the design guide exists, the lane advances to the first story's design ,
+    // the per-story spec-author (ACs). (nextDesignAction after uxDesignerPending clears.)
+    ...base("uxdesigner-produced-story", "the UX Designer's guide routes forward to the first story's design (produced)"),
+    seedActions: [],
+    stepUnderTest: UX_DESIGNER,
+    expectedRoute: { kind: "invoke-role", role: "spec-author", story: STORY },
+  },
+  {
+    // escalate: a non-routable blocking escalation halts the UX turn to the HIL.
+    ...base("uxdesigner-escalate-hil", "a non-routable blocking escalation halts the UX Designer turn to the HIL (escalate)"),
+    seedActions: [],
+    injectEscalation: inject("honest-green", "verify failed on main , not recoverable by a re-design"),
+    stepUnderTest: UX_DESIGNER,
+    expectedRoute: { kind: "raise-to-hil" },
+  },
+  {
+    // blocked: a nonconformant design-guide.json fails validate-outputs -> bounded retry of the
+    // SAME ux-designer turn (ux-designer has no revise owning_role, so a bad artifact re-issues).
+    ...base("uxdesigner-blocked-retry", "a nonconformant design-guide blocks the UX Designer turn into a bounded retry of itself"),
+    seedActions: [],
+    stepUnderTest: UX_DESIGNER,
+    nonconformantPrimary: true,
+    expectedRoute: UX_DESIGNER,
   },
 ];

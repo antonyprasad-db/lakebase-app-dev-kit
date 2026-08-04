@@ -101,9 +101,13 @@ describe("runManifestStep: one manifest -> the orchestrator (StepExecutor)", () 
 });
 
 describe("runManifestChain: follow the routing across turns", () => {
-  it("drives the full 2-turn stockflow demo from the PO seed to the UX-designer hand-off", async () => {
+  it("drives the 2-turn stockflow demo from the PO seed to the UX-designer hand-off", async () => {
     const manifests = loadStepManifests(MANIFEST_DIR);
-    const turns = await runManifestChain(PO_SEED, manifests, deps());
+    // Cap at the 2 turns under test (PO seed -> spec-author breakdown). The manifest set now
+    // ALSO carries a ux-designer manifest (for the route-scenario suite), so an uncapped chain
+    // would continue into it; this test is about the PO->spec-author hand-off, so it stops at 2
+    // and asserts the spec-author's produced route points at the UX Designer.
+    const turns = await runManifestChain(PO_SEED, manifests, deps(), { maxTurns: 2 });
 
     // Two turns ran, in order, each clean.
     expect(turns.map((t) => t.manifestId)).toEqual(["stockflow-demo-po-seed", "stockflow-demo-spec-author"]);
@@ -113,8 +117,8 @@ describe("runManifestChain: follow the routing across turns", () => {
     expect(existsSync(join(ws, "product-overview.md"))).toBe(true);
     expect(existsSync(join(ws, "feature-spec.json"))).toBe(true);
 
-    // It stopped at the terminal: the honest next hop is the UX Designer (real nextDesignAction
-    // for a uiTrack project), and no ux-designer manifest is shipped for this 2-turn demo.
+    // The spec-author's honest next hop is the UX Designer (real nextDesignAction for a uiTrack
+    // project).
     expect(turns[turns.length - 1].result.bounded.action).toEqual({ kind: "invoke-role", role: "ux-designer" });
   });
 

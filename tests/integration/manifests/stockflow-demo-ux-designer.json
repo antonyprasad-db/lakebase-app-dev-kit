@@ -1,0 +1,18 @@
+{
+  "id": "stockflow-demo-ux-designer",
+  "role": "ux-designer",
+  "match": { "kind": "invoke-role", "role": "ux-designer" },
+  "inputs": [],
+  "outputs": [
+    { "id": "design-guide", "filename": "design-guide.json", "validator": "designGuideConformant", "description": "The machine-checkable design tokens + component standards (design-guide.schema.json)." },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "uxDesignerLoggedAuthoring", "description": "The UX Designer logs what it authored." }
+  ],
+  "routing": {
+    "produced": { "next": { "kind": "invoke-role", "role": "spec-author", "story": "S1-stock-list" } }
+  },
+  "agentOptions": { "model": "sonnet", "effort": "low", "session": "fresh", "resumeKeyFrom": "role" },
+  "agent": {
+    "kind": "mock",
+    "config": { "role": "ux-designer" }
+  }
+}
