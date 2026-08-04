@@ -1,0 +1,22 @@
+{
+  "id": "stockflow-demo-spec-author-story",
+  "role": "spec-author",
+  "match": { "kind": "invoke-role", "role": "spec-author", "mode": null, "buildMode": null },
+  "inputs": [],
+  "outputs": [
+    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "agentLogHasRoleEvent", "description": "The spec-author logs the story ACs it authored (shared agent-log; agent-log-event.schema.json)." }
+  ],
+  "routing": {
+    "produced": { "next": { "kind": "invoke-role", "role": "architect-reviewer", "story": "S1-stock-list" } }
+  },
+  "agentOptions": {
+    "model": "sonnet",
+    "effort": "low",
+    "session": "fresh",
+    "resumeKeyFrom": "story"
+  },
+  "agent": {
+    "kind": "mock",
+    "config": { "role": "spec-author" }
+  }
+}

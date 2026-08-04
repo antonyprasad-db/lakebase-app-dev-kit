@@ -47,6 +47,11 @@ export interface RouteScenario {
   stepUnderTest: WorkflowAction;
   /** The bounded action the step under test MUST route to (subset match via routeMatches). */
   expectedRoute: WorkflowAction | Partial<WorkflowAction>;
+  /** Optional: the step under test's agent should produce a NONCONFORMANT primary output (or
+   *  none), so validate-outputs fails and the step is BLOCKED (a bounded retry of the same
+   *  action). The suite's agent factory reads this to drive the `blocked` outcome without
+   *  hardcoding scenario ids. Default false (a conformant produced turn). */
+  nonconformantPrimary?: boolean;
 }
 
 /** What one scenario run reports. */

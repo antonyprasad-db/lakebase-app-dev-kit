@@ -1,0 +1,22 @@
+{
+  "id": "stockflow-demo-spec-author-propose",
+  "role": "spec-author",
+  "match": { "kind": "invoke-role", "role": "spec-author", "mode": "propose" },
+  "inputs": [],
+  "outputs": [
+    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "agentLogHasRoleEvent", "description": "The spec-author logs the candidate sprint backlog it proposed (shared agent-log; agent-log-event.schema.json)." }
+  ],
+  "routing": {
+    "produced": { "next": { "kind": "invoke-role", "role": "architect-reviewer", "mode": "estimate" } }
+  },
+  "agentOptions": {
+    "model": "sonnet",
+    "effort": "low",
+    "session": "fresh",
+    "resumeKeyFrom": "none"
+  },
+  "agent": {
+    "kind": "mock",
+    "config": { "role": "spec-author" }
+  }
+}

@@ -19,9 +19,11 @@ import type { StepManifest } from "../../consort/orchestrator/manifest/step-mani
 import type { ManifestRunnerDeps } from "../../consort/orchestrator/manifest/manifest-runner";
 import type { DriveEffectsConfig } from "../../scripts/sftdd/orchestrator-effects";
 
-/** Deterministic agents: PO replays the recorded intake; spec-author writes a conformant
- *  feature-spec + log. The route (not authoring) is under test, so these are fixtures. */
-function makeAgentFor(intakeDir: string) {
+/** Deterministic agents: PO replays the recorded intake; the spec-author writes a conformant
+ *  feature-spec + log , UNLESS the scenario asks for a nonconformant primary (to drive the
+ *  blocked outcome), in which case it writes only the log and NO feature-spec. The route (not
+ *  authoring) is under test, so these are fixtures. */
+function makeAgentFor(intakeDir: string, nonconformantPrimary: boolean) {
   return (manifest: StepManifest): StepAgent => {
     if (manifest.role === "product-owner") {
       return makeReplayPoMockAgent({
@@ -35,14 +37,19 @@ function makeAgentFor(intakeDir: string) {
     }
     return {
       async invoke(inv) {
-        writeFileSync(
-          join(inv.workspaceDir, "feature-spec.json"),
-          JSON.stringify({ id: "F1-stock-visibility", name: "Stock Visibility", status: "draft", tdd_mode: "N>=2", stories: ["S1-stock-list"] }) + "\n",
-        );
+        // The log is the primary for the story/propose manifests; feature-spec is the primary
+        // for breakdown. Always write the log; write feature-spec unless we're forcing a
+        // nonconformant/absent primary (blocked scenario).
         writeFileSync(
           join(inv.workspaceDir, "agent-log.jsonl"),
-          JSON.stringify({ timestamp: "2026-08-03T12:00:00Z", level: "info", role: "spec-author", event: "artifact.written", message: "wrote feature-spec.json" }) + "\n",
+          JSON.stringify({ timestamp: "2026-08-03T12:00:00Z", level: "info", role: "spec-author", event: "artifact.written", message: "wrote artifacts" }) + "\n",
         );
+        if (!nonconformantPrimary) {
+          writeFileSync(
+            join(inv.workspaceDir, "feature-spec.json"),
+            JSON.stringify({ id: "F1-stock-visibility", name: "Stock Visibility", status: "draft", tdd_mode: "N>=2", stories: ["S1-stock-list"] }) + "\n",
+          );
+        }
       },
     };
   };
@@ -50,7 +57,7 @@ function makeAgentFor(intakeDir: string) {
 
 const hooks: RouteScenarioHooks = {
   runnerDeps(scenario, workspaceDir, cfg: DriveEffectsConfig): ManifestRunnerDeps {
-    return { agentFor: makeAgentFor(scenario.intakeDir), workspaceDir, cfg };
+    return { agentFor: makeAgentFor(scenario.intakeDir, scenario.nonconformantPrimary ?? false), workspaceDir, cfg };
   },
 };
 

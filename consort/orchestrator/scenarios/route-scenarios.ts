@@ -24,6 +24,11 @@ const STORY = "S1-stock-list";
 
 const PO_SEED: WorkflowAction = { kind: "invoke-role", role: "product-owner", mode: "author-requests" };
 const SPEC_AUTHOR: WorkflowAction = { kind: "invoke-role", role: "spec-author", mode: "breakdown" };
+// The two OTHER spec-author invocations the orchestrator emits (see orchestrator-drive.ts):
+//   per-story ACs (mode absent) , produced -> the architect-reviewer for that story.
+//   sprint-planning propose      , produced -> the architect-reviewer estimate turn.
+const SPEC_AUTHOR_STORY: WorkflowAction = { kind: "invoke-role", role: "spec-author", story: STORY } as WorkflowAction;
+const SPEC_AUTHOR_PROPOSE: WorkflowAction = { kind: "invoke-role", role: "spec-author", mode: "propose" };
 
 /** An inject-escalation op scoped to the demo story , the config-driven mechanism that plants a
  *  real escalation on disk so a scenario deterministically drives revise/escalate. */
@@ -57,5 +62,30 @@ export const ROUTE_SCENARIOS: RouteScenario[] = [
     injectEscalation: inject("honest-green", "verify failed on main , not recoverable by a re-spec"),
     stepUnderTest: SPEC_AUTHOR,
     expectedRoute: { kind: "raise-to-hil" },
+  },
+  {
+    // The 4th outcome: a nonconformant primary output fails validate-outputs -> the step is
+    // BLOCKED (a bounded retry of the SAME action). No escalation involved.
+    ...base("blocked-retry", "a nonconformant output blocks the breakdown into a bounded retry of itself"),
+    seedActions: [PO_SEED],
+    stepUnderTest: SPEC_AUTHOR,
+    nonconformantPrimary: true,
+    expectedRoute: SPEC_AUTHOR, // bounded retry re-issues the same action.
+  },
+  {
+    // The per-story ACs invocation , its distinct produced next-hop is the architect for the
+    // story. (revise/escalate/blocked are the SAME shared machinery proven via breakdown.)
+    ...base("story-produced-architect", "per-story ACs route forward to the Architect for that story (produced)"),
+    seedActions: [],
+    stepUnderTest: SPEC_AUTHOR_STORY,
+    expectedRoute: { kind: "invoke-role", role: "architect-reviewer", story: STORY },
+  },
+  {
+    // The sprint-planning propose invocation , its distinct produced next-hop is the architect
+    // estimate turn.
+    ...base("propose-produced-estimate", "sprint-planning propose routes forward to the Architect estimate (produced)"),
+    seedActions: [],
+    stepUnderTest: SPEC_AUTHOR_PROPOSE,
+    expectedRoute: { kind: "invoke-role", role: "architect-reviewer", mode: "estimate" },
   },
 ];
