@@ -118,6 +118,18 @@ export class ManifestStep implements StepContract {
   }
 
   /**
+   * The injected agent's result for its most recent turn (usage tokens/cost/num_turns + final
+   * text), read duck-typed , a live ClaudeStepAgent sets `lastResult` after each invoke; a
+   * mock/replay agent has none (returns undefined). The executor calls this in phase 6 so the
+   * turn's telemetry travels on the StepRecord + survives the (thrown-away) workspace. Read-only,
+   * never affects routing or validation.
+   */
+  lastAgentResult(): { usage?: import("../../../scripts/sftdd/claude-usage.js").TurnUsage; finalText?: string } | undefined {
+    const lr = (this.agent as { lastResult?: { usage?: import("../../../scripts/sftdd/claude-usage.js").TurnUsage; finalText?: string } }).lastResult;
+    return lr ? { ...(lr.usage ? { usage: lr.usage } : {}), ...(lr.finalText ? { finalText: lr.finalText } : {}) } : undefined;
+  }
+
+  /**
    * Routing: emit the routing proposal the executor's validateAndBound reconciles. The step
    * only reports intent; the orchestrator holds authority (validateAndBound bounds the move).
    *

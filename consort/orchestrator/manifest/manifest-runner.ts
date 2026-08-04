@@ -21,7 +21,7 @@ import { manifestForAction, type StepManifest } from "./step-manifest.js";
 import { ManifestStep } from "../steps/manifest-step.js";
 import { buildAgent, type AgentBuildContext } from "../agents/agent-catalogue.js";
 import { probeDriveState } from "../state/escalation-probe.js";
-import { execute, type StepExecutorDeps, type StepCtx, type StepResult } from "../execution/step-executor.js";
+import { execute, type StepExecutorDeps, type StepCtx, type StepResult, type StepRecord } from "../execution/step-executor.js";
 import { formatAgentReport } from "../execution/agent-report-formatter.js";
 import type { StepAgent, StepInstructions } from "../agents/agent-types.js";
 import type { DriveEffectsConfig } from "../../../scripts/sftdd/orchestrator-effects.js";
@@ -76,6 +76,10 @@ export interface ManifestTurn {
   manifestId: string;
   action: WorkflowAction;
   result: StepResult;
+  /** The turn's measured telemetry (outer wall-clock always; the agent's usage/finalText when
+   *  it exposed one), captured from the executor's phase-6 record. Present for every turn; the
+   *  live per-role tests survive + print it. `role` is the manifest's role (for the report). */
+  telemetry?: { role: string; outerDurationMs?: number; agentResult?: StepRecord["agentResult"] };
 }
 
 /** Resolve a manifest input's `source` (e.g. "feature:product-overview.md") to a workspace
@@ -127,14 +131,21 @@ function agentFinalText(agent: StepAgent): string | undefined {
  *  step that keeps failing validation aborts fast instead of re-running forever. */
 const MAX_STEP_RETRIES = 1;
 
+/** A mutable holder the wiring populates from phase 6's record, so the run functions can attach
+ *  the turn's telemetry to the ManifestTurn (execute() itself returns only the StepResult). */
+interface TelemetryCapture {
+  record?: StepRecord;
+}
+
 function executorWiring(
   manifest: StepManifest,
   action: WorkflowAction,
   deps: ManifestRunnerDeps,
   retries: Map<string, number>,
-): { step: ManifestStep; ctx: StepCtx; execDeps: StepExecutorDeps } {
+): { step: ManifestStep; ctx: StepCtx; execDeps: StepExecutorDeps; captured: TelemetryCapture } {
   const agent = resolveAgent(manifest, deps);
   const step = new ManifestStep(manifest, agent);
+  const captured: TelemetryCapture = {};
 
   // The manifest routing is the transition authority for a standalone runner: `allowed`
   // returns the step's OWN proposed next, so validateAndBound honors the manifest's route.
@@ -199,10 +210,27 @@ function executorWiring(
           },
         }
       : {}),
-    onRecord: deps.onRecord,
+    // Capture the phase-6 record (telemetry: outer wall-clock + the agent's usage/finalText)
+    // into the holder so the run functions can attach it to the turn, then forward to any
+    // caller-supplied onRecord.
+    onRecord: (record: StepRecord) => {
+      captured.record = record;
+      deps.onRecord?.(record);
+    },
   };
 
-  return { step, ctx, execDeps };
+  return { step, ctx, execDeps, captured };
+}
+
+/** Build a ManifestTurn's telemetry from the captured phase-6 record + the manifest role. */
+function turnTelemetry(manifest: StepManifest, captured: TelemetryCapture): ManifestTurn["telemetry"] {
+  const r = captured.record;
+  if (!r) return undefined;
+  return {
+    role: manifest.role,
+    ...(r.outerDurationMs !== undefined ? { outerDurationMs: r.outerDurationMs } : {}),
+    ...(r.agentResult ? { agentResult: r.agentResult } : {}),
+  };
 }
 
 /**
@@ -222,6 +250,22 @@ export async function runManifestStep(
   }
   const { step, ctx, execDeps } = executorWiring(manifest, action, deps, new Map());
   return execute(step, ctx, execDeps);
+}
+
+/** Run ONE manifest and return BOTH its StepResult and the turn's telemetry (the single-step
+ *  analogue of a chain turn), for a caller that wants the per-step instrumentation directly. */
+export async function runManifestTurn(
+  action: WorkflowAction,
+  manifests: StepManifest[],
+  deps: ManifestRunnerDeps,
+): Promise<ManifestTurn> {
+  const manifest = manifestForAction(action, manifests);
+  if (!manifest) {
+    throw new Error(`manifest-runner: no step manifest matches action ${JSON.stringify(action)} , cannot run it.`);
+  }
+  const { step, ctx, execDeps, captured } = executorWiring(manifest, action, deps, new Map());
+  const result = await execute(step, ctx, execDeps);
+  return { manifestId: manifest.id, action, result, telemetry: turnTelemetry(manifest, captured) };
 }
 
 /** Options for a chain run. */
@@ -254,9 +298,9 @@ export async function runManifestChain(
   while (action && turns.length < maxTurns) {
     const manifest = manifestForAction(action, manifests);
     if (!manifest) break; // the next action left the manifest set , terminal, stop cleanly.
-    const { step, ctx, execDeps } = executorWiring(manifest, action, deps, retries);
+    const { step, ctx, execDeps, captured } = executorWiring(manifest, action, deps, retries);
     const result = await execute(step, ctx, execDeps);
-    turns.push({ manifestId: manifest.id, action, result });
+    turns.push({ manifestId: manifest.id, action, result, telemetry: turnTelemetry(manifest, captured) });
     action = result.bounded.action;
   }
   return turns;

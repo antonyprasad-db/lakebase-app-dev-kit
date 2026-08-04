@@ -57,6 +57,15 @@ export interface StepRecord {
   action: WorkflowAction;
   producedPaths: string[];
   violations: string[];
+  /** The orchestrator's OUTER wall-clock for the step's dispatch+capture (phases 3+4), ms.
+   *  Always present. Distinct from the agent's self-reported duration (which lives on
+   *  agentResult.usage.durationMs when the agent reported it). */
+  outerDurationMs?: number;
+  /** The step's agent result for the turn (usage tokens/cost/num_turns + final text), when the
+   *  step exposes one (a live ClaudeStepAgent does; a mock/replay agent does not). Read
+   *  duck-typed via the step's optional lastAgentResult(), so the record carries the telemetry
+   *  the per-role live tests survive + print. */
+  agentResult?: { usage?: import("../../../scripts/sftdd/claude-usage.js").TurnUsage; finalText?: string };
 }
 
 /**
@@ -121,9 +130,16 @@ export async function execute(step: RunnableStep, ctx: StepCtx, deps: StepExecut
   const { workspaceDir, outputPaths } = deps.provisionWorkspace(action, cfg);
 
   // Phase 3+4: dispatch-agent (contained) + capture-outputs , both inside the step's run().
+  // Time the outer wall-clock across run() (the orchestrator's own measure of the turn, which
+  // always exists, vs the agent's self-reported duration which only a live agent emits).
   const instructions = deps.instructionsFor(action, cfg);
+  const startedMs = Date.now();
   const runResult = await step.run({ action, workspaceDir, inputs: resolved, instructions, outputPaths });
+  const outerDurationMs = Date.now() - startedMs;
   const producedPaths = runResult.producedPaths ?? [];
+  // Read the step's agent result (usage + final text) duck-typed via an optional accessor , a
+  // ManifestStep backed by a live ClaudeStepAgent exposes it; a mock/replay step does not.
+  const agentResult = (step as { lastAgentResult?: () => StepRecord["agentResult"] }).lastAgentResult?.();
 
   // Between capture (4) and validate (5): materialize orchestrator-formatted outputs from
   // the agent's raw authored content (e.g. .agent-report.json -> conformant agent-log.jsonl),
@@ -160,8 +176,9 @@ export async function execute(step: RunnableStep, ctx: StepCtx, deps: StepExecut
     if (!res.ok) violations.push(...res.violations.map((v) => `${spec.id}: ${v}`));
   }
 
-  // Phase 6: record/log , always runs (records the outcome incl. any violations).
-  deps.onRecord?.({ action, producedPaths, violations });
+  // Phase 6: record/log , always runs (records the outcome incl. any violations + the turn's
+  // measured telemetry: outer wall-clock always, the agent's usage/finalText when it exposed one).
+  deps.onRecord?.({ action, producedPaths, violations, outerDurationMs, ...(agentResult ? { agentResult } : {}) });
 
   // Phase 7: route , the step proposes; validateAndBound reconciles vs the pure transition +
   // the existing revise/retry bounds. A validation failure overrides the step's proposal to

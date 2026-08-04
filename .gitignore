@@ -39,3 +39,6 @@ tests/agent-capability/timings.jsonl
 # this can never over-match. To promote one to a shipped scenario, git add -f it.
 examples/sftdd-scenarios/stockflow-live/
 examples/sftdd-scenarios/stockflow-s3-selfheal-verify/
+
+# Per-role live-run telemetry output (survives the workspace; not source)
+.role-telemetry/

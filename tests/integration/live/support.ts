@@ -12,9 +12,11 @@
 // wiring guard is ../hermetic/design-role-chains.test.ts.
 
 import { expect } from "vitest";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { runIntegrationChain } from "../../../consort/orchestrator/scenarios/integration-chain.js";
-import type { StepManifest } from "../../../consort/orchestrator/manifest/step-manifest.js";
+import { loadStepManifests, type StepManifest } from "../../../consort/orchestrator/manifest/step-manifest.js";
+import { formatRoleTelemetry, writeRoleTelemetry, type RoleLevers, type RoleTelemetry } from "../../../consort/orchestrator/telemetry/role-telemetry.js";
 import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.js";
 
 export const KIT = process.cwd();
@@ -22,6 +24,9 @@ export const MANIFESTS = join(KIT, "tests/integration/manifests");
 export const INTAKE = join(KIT, "tests/integration/intake");
 export const FEATURE = "F1-stock-visibility";
 export const STORY = "S1-file-stock";
+/** Where per-role telemetry records survive the (thrown-away) workspace. Overridable via
+ *  LAKEBASE_ROLE_TELEMETRY_DIR so a sweep points it at its own run dir. */
+export const TELEMETRY_DIR = process.env.LAKEBASE_ROLE_TELEMETRY_DIR ?? join(KIT, ".role-telemetry");
 
 /** The chain always starts from the PO seed action (the replay seed manifest matches it). */
 export const PO_SEED: WorkflowAction = { kind: "invoke-role", role: "product-owner", mode: "author-requests" };
@@ -172,4 +177,72 @@ export async function runRoleChain(chain: RoleChain): Promise<void> {
     `${chain.name} produced: ${liveTurn.result.producedPaths.join(", ")}`,
   ).toBe(true);
   expect(liveTurn.result.bounded.action).toEqual({ kind: "design-complete" });
+
+  // SURVIVE + PRINT the live turn's telemetry (the point of the isolation substrate): the
+  // agent-reported num_turns/cost/tokens (why a role was slow) + the outer wall-clock + which
+  // levers were in effect, from the live manifest. Best-effort , telemetry is observability,
+  // never gates the assertion above.
+  emitRoleTelemetry(chain, liveTurn.telemetry, liveTurn.result);
+}
+
+/** Read the live manifest's agentOptions/agent config as the levers in effect for the record. */
+function leversFor(chain: RoleChain): RoleLevers & { model?: string } {
+  try {
+    const manifests = loadStepManifests(join(MANIFESTS, chain.dir));
+    const live = manifests.find((m) => m.id === `${chain.dir}-live`);
+    const cfg = (live?.agent?.config ?? {}) as Record<string, unknown>;
+    const opts = live?.agentOptions ?? ({} as StepManifest["agentOptions"]);
+    return {
+      model: (cfg.model as string) ?? opts.model,
+      effort: opts.effort,
+      session: opts.session,
+      resumeKeyFrom: opts.resumeKeyFrom,
+      allowedTools: cfg.allowedTools as string[] | undefined,
+      disallowedTools: cfg.disallowedTools as string[] | undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+/** Build the RoleTelemetry from the live turn + persist + print it. */
+function emitRoleTelemetry(
+  chain: RoleChain,
+  telemetry: { role: string; outerDurationMs?: number; agentResult?: { usage?: import("../../../scripts/sftdd/claude-usage.js").TurnUsage; finalText?: string } } | undefined,
+  result: { bounded: { action: { kind: string } } },
+): void {
+  const levers = leversFor(chain);
+  const usage = telemetry?.agentResult?.usage;
+  const rec: RoleTelemetry = {
+    role: telemetry?.role ?? chain.name,
+    chain: chain.dir,
+    model: levers.model,
+    levers,
+    outerDurationMs: telemetry?.outerDurationMs ?? 0,
+    ...(usage
+      ? {
+          agent: {
+            ...(usage.numTurns !== undefined ? { numTurns: usage.numTurns } : {}),
+            ...(usage.durationMs !== undefined ? { durationMs: usage.durationMs } : {}),
+            ...(usage.costUsd !== undefined ? { costUsd: usage.costUsd } : {}),
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
+            ...(usage.cacheReadTokens !== undefined ? { cacheReadTokens: usage.cacheReadTokens } : {}),
+            ...(usage.cacheCreationTokens !== undefined ? { cacheCreationTokens: usage.cacheCreationTokens } : {}),
+          },
+        }
+      : {}),
+    outcome: result.bounded.action.kind === "design-complete" ? "produced" : result.bounded.action.kind,
+    producedFile: chain.outputFile,
+    ...(telemetry?.agentResult?.finalText ? { transcript: { prompt: chain.prompt, finalText: telemetry.agentResult.finalText, tools: [] } } : {}),
+  };
+  try {
+    mkdirSync(TELEMETRY_DIR, { recursive: true });
+    const path = writeRoleTelemetry(TELEMETRY_DIR, rec);
+    // eslint-disable-next-line no-console
+    console.log(formatRoleTelemetry(rec) + ` | -> ${path}`);
+  } catch {
+    // eslint-disable-next-line no-console
+    console.log(formatRoleTelemetry(rec));
+  }
 }
