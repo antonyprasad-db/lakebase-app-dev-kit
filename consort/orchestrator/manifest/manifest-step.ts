@@ -20,7 +20,7 @@
 import { join } from "node:path";
 import { existsSync } from "node:fs";
 import { resolveValidator } from "../validators/conformance/validator-registry.js";
-import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.js";
+import { escalationPreempt, type WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.js";
 import type { StepManifest } from "./step-manifest.js";
 import type {
   StepContract,
@@ -118,20 +118,52 @@ export class ManifestStep implements StepContract {
   }
 
   /**
-   * Routing: read the manifest routing map. Default outcome is `produced` with the mapped
-   * `next`. The sentinel string "state-derived" for `next` leaves proposedNext as a
-   * state-derived marker the orchestrator's validateAndBound resolves to the pure transition.
-   * The orchestrator always reconciles the proposal , the step only reports its intent.
+   * Routing: emit the routing proposal the executor's validateAndBound reconciles. The step
+   * only reports intent; the orchestrator holds authority (validateAndBound bounds the move).
+   *
+   * The full route space out of a completed step (matching the legacy nextTransition):
+   *   - escalate: an unresolved BLOCKING problem the turn surfaced (a failed run, a
+   *     build-level smell, an explicit escalation file, or a spec smell with its revise budget
+   *     spent) -> raise-to-hil.
+   *   - revise:   a ROUTABLE spec-level smell (revise budget left) -> revise-route back to the
+   *     owning author at its gate, re-gate, resume.
+   *   - produced: no escalation -> the manifest's mapped `next` (a concrete WorkflowAction),
+   *     or "state-derived" to defer entirely to the pure transition.
+   *
+   * The escalate/revise split is NOT re-derived here , it reuses the real machine's
+   * escalationPreempt(state) (the same authority nextTransition uses), so the manifest path
+   * and the legacy transition agree by construction. A manifest MAY still declare explicit
+   * `routing.revise` / `routing.escalate` targets to override where those outcomes point; when
+   * absent the escalationPreempt result is used verbatim.
    */
-  route(_completed: WorkflowAction, _ctx: StepRouteContext): RouteProposal {
-    const outcome: StepOutcome = "produced";
-    const target = this.manifest.routing.produced;
-    const next = target?.next;
-    if (next && next !== "state-derived") {
-      return { outcome, proposedNext: next as WorkflowAction };
+  route(_completed: WorkflowAction, ctx: StepRouteContext): RouteProposal {
+    // 1. Escalation pre-empt: reuse the pure state machine's authority. A routable spec smell
+    //    becomes a revise-route; anything else blocking becomes raise-to-hil.
+    const preempt = escalationPreempt(ctx.state);
+    if (preempt) {
+      if (preempt.kind === "revise-route") {
+        const target = this.manifest.routing.revise;
+        const next = (target?.next as WorkflowAction | undefined) ?? preempt;
+        return { outcome: "revise", proposedNext: next, reason: this.escalationReason(ctx) };
+      }
+      // raise-to-hil (or any non-revise pre-empt): a hard escalation.
+      const target = this.manifest.routing.escalate;
+      const next = (target?.next as WorkflowAction | undefined) ?? preempt;
+      return { outcome: "escalate", proposedNext: next, reason: this.escalationReason(ctx) };
     }
-    // Defer to the pure transition: a state-derived sentinel validateAndBound resolves to
-    // the allowed action (its `produced` branch falls back to deps.allowed on mismatch).
+
+    // 2. No escalation: the produced route from the manifest map (or state-derived).
+    const outcome: StepOutcome = "produced";
+    const producedNext = this.manifest.routing.produced?.next;
+    if (producedNext && producedNext !== "state-derived") {
+      return { outcome, proposedNext: producedNext as WorkflowAction };
+    }
     return { outcome, proposedNext: { kind: "state-derived" } as unknown as WorkflowAction };
+  }
+
+  /** The escalation's own reason, when the state carries one (fed into the revise/hil move). */
+  private escalationReason(ctx: StepRouteContext): string | undefined {
+    const e = (ctx.state as { escalation?: { reason?: string } }).escalation;
+    return e?.reason;
   }
 }

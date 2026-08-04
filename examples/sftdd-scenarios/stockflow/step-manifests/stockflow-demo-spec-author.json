@@ -12,7 +12,7 @@
     { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "agentLogHasRoleEvent", "description": "The spec-author logs what it did (shared agent-log; agent-log-event.schema.json)." }
   ],
   "routing": {
-    "produced": { "next": { "kind": "design-complete" } }
+    "produced": { "next": { "kind": "invoke-role", "role": "ux-designer" } }
   },
   "agentOptions": {
     "model": "sonnet",

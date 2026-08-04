@@ -113,7 +113,10 @@ describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE: stockflow demo end-to-end fro
       specTurn.result.producedPaths.some((p) => p.endsWith(SPEC_REL)),
       `spec-author produced: ${specTurn.result.producedPaths.join(", ")}`,
     ).toBe(true);
-    expect(specTurn.result.bounded.action).toEqual({ kind: "design-complete" });
+    // After breakdown the HONEST next hop (matching the real nextDesignAction for a uiTrack
+    // project) is the UX Designer , the demo manifest routes there, and the 2-turn chain
+    // terminates because no ux-designer manifest is shipped for this demo.
+    expect(specTurn.result.bounded.action).toEqual({ kind: "invoke-role", role: "ux-designer" });
     expect(result.teardown?.ok, `teardown failed: ${result.teardown?.error}`).toBe(true);
   }, 900_000);
 });

@@ -168,10 +168,45 @@ describe("ManifestStep: conformanceValidators() (exposed to the agent)", () => {
 });
 
 describe("ManifestStep: route()", () => {
-  it("emits a produced proposal from the manifest routing map", () => {
+  const cleanState = { phase: "feature", escalation: null } as never;
+
+  it("emits a produced proposal from the manifest routing map (shipped breakdown = state-derived)", () => {
+    // The shipped breakdown manifest defers its next hop to the pure transition (the real next
+    // hop after breakdown depends on uiTrack/story state), so route() emits the state-derived
+    // marker validateAndBound resolves to the allowed transition.
     const step = breakdownStep(mockAgent({ writes: true }).agent);
-    const proposal = step.route(BREAKDOWN, { state: { phase: "feature" } as never, feature: "F1-stock-visibility" });
+    const proposal = step.route(BREAKDOWN, { state: cleanState, feature: "F1-stock-visibility" });
     expect(proposal.outcome).toBe("produced");
-    expect(proposal.proposedNext).toEqual({ kind: "design-complete" });
+    expect(proposal.proposedNext).toEqual({ kind: "state-derived" });
+  });
+
+  it("emits a REVISE proposal when the state carries a ROUTABLE spec smell (escalationPreempt)", () => {
+    // A routable spec-level smell (revise budget left) routes the verdict back to the owning
+    // author , the same authority nextTransition uses (escalationPreempt), not re-derived.
+    const state = {
+      phase: "feature",
+      escalation: {
+        id: "smell-1",
+        source: "navigator/reflect",
+        reason: "AC2 is untestable as written",
+        routable: { story: "S1-stock-list", owning_role: "spec-author", gate: "spec" },
+      },
+    } as never;
+    const step = breakdownStep(mockAgent({ writes: true }).agent);
+    const proposal = step.route(BREAKDOWN, { state, feature: "F1-stock-visibility" });
+    expect(proposal.outcome).toBe("revise");
+    expect(proposal.proposedNext).toMatchObject({ kind: "revise-route", role: "spec-author", gate: "spec", story: "S1-stock-list" });
+    expect(proposal.reason).toBe("AC2 is untestable as written");
+  });
+
+  it("emits an ESCALATE proposal for a NON-routable blocking escalation (-> raise-to-hil)", () => {
+    const state = {
+      phase: "feature",
+      escalation: { id: "halt-1", source: "honest-green", reason: "verify failed on main", story_id: "S1-stock-list" },
+    } as never;
+    const step = breakdownStep(mockAgent({ writes: true }).agent);
+    const proposal = step.route(BREAKDOWN, { state, feature: "F1-stock-visibility" });
+    expect(proposal.outcome).toBe("escalate");
+    expect(proposal.proposedNext).toMatchObject({ kind: "raise-to-hil", reason: "verify failed on main" });
   });
 });

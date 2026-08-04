@@ -12,7 +12,7 @@
     { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "agentLogHasRoleEvent", "description": "The agent's structured log of what it did + any issue surfaced (shared agent-log script; agent-log-event.schema.json)." }
   ],
   "routing": {
-    "produced": { "next": { "kind": "design-complete" } }
+    "produced": { "next": "state-derived" }
   },
   "agentOptions": {
     "model": "sonnet",

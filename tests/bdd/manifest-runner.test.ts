@@ -89,7 +89,8 @@ describe("runManifestStep: one manifest -> the orchestrator (StepExecutor)", () 
     const res = await runManifestStep(SPEC_AUTHOR, manifests, deps());
     expect(res.violations).toEqual([]);
     expect(existsSync(join(ws, "feature-spec.json"))).toBe(true);
-    expect(res.bounded.action).toEqual({ kind: "design-complete" });
+    // Honest next hop after breakdown for the uiTrack demo: the UX Designer (real nextDesignAction).
+    expect(res.bounded.action).toEqual({ kind: "invoke-role", role: "ux-designer" });
   });
 
   it("THROWS when no manifest matches the action (the runner never silently no-ops)", async () => {
@@ -99,7 +100,7 @@ describe("runManifestStep: one manifest -> the orchestrator (StepExecutor)", () 
 });
 
 describe("runManifestChain: follow the routing across turns", () => {
-  it("drives the full 2-turn stockflow demo from the PO seed to design-complete", async () => {
+  it("drives the full 2-turn stockflow demo from the PO seed to the UX-designer hand-off", async () => {
     const manifests = loadStepManifests(MANIFEST_DIR);
     const turns = await runManifestChain(PO_SEED, manifests, deps());
 
@@ -111,8 +112,9 @@ describe("runManifestChain: follow the routing across turns", () => {
     expect(existsSync(join(ws, "product-overview.md"))).toBe(true);
     expect(existsSync(join(ws, "feature-spec.json"))).toBe(true);
 
-    // It stopped at the terminal (design-complete has no matching manifest).
-    expect(turns[turns.length - 1].result.bounded.action).toEqual({ kind: "design-complete" });
+    // It stopped at the terminal: the honest next hop is the UX Designer (real nextDesignAction
+    // for a uiTrack project), and no ux-designer manifest is shipped for this 2-turn demo.
+    expect(turns[turns.length - 1].result.bounded.action).toEqual({ kind: "invoke-role", role: "ux-designer" });
   });
 
   it("stops at a maxTurns guard rather than looping forever", async () => {
