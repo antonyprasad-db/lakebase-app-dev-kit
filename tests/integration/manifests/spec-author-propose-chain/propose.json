@@ -1,0 +1,27 @@
+{
+  "id": "propose-live",
+  "role": "spec-author",
+  "match": { "kind": "invoke-role", "role": "spec-author", "mode": "propose" },
+  "inputs": [
+    { "id": "product-overview", "source": "feature:product-overview.md", "description": "The PO product overview." },
+    { "id": "nfrs", "source": "feature:nfrs.md", "description": "The PO NFR brief." }
+  ],
+  "outputs": [
+    { "id": "feature-proposals", "filename": "planning/feature-proposals.md", "validator": "nonEmptyFile", "description": "The sprint's candidate features, one per section (prose; nonEmptyFile is the gate , the propose deliverable has no JSON schema)." },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "agentLogHasRoleEvent", "description": "The spec-author's authoring log." }
+  ],
+  "routing": {
+    "produced": { "next": { "kind": "design-complete" } }
+  },
+  "agentOptions": { "model": "opus", "effort": "default", "session": "fresh", "resumeKeyFrom": "role" },
+  "agent": {
+    "kind": "claude",
+    "config": {
+      "role": "spec-author",
+      "model": "opus",
+      "session": "fresh",
+      "allowedTools": ["Write", "Read"],
+      "disallowedTools": ["Bash", "Glob", "Grep", "WebFetch", "WebSearch", "Task"]
+    }
+  }
+}

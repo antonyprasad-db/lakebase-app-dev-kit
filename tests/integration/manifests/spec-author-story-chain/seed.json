@@ -1,0 +1,25 @@
+{
+  "id": "sa-story-seed",
+  "role": "product-owner",
+  "match": { "kind": "invoke-role", "role": "product-owner", "mode": "author-requests" },
+  "inputs": [],
+  "outputs": [
+    { "id": "product-overview", "filename": "product-overview.md", "validator": "nonEmptyFile", "description": "The PO product overview the spec-author frames the ACs against." },
+    { "id": "story-stub", "filename": "features/F1-stock-visibility/stories/S1-file-stock/story.json", "validator": "nonEmptyFile", "description": "The recorded story stub the spec-author drafts ACs for." },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "productOwnerLoggedAuthoring", "description": "The replay seed's authoring log." }
+  ],
+  "routing": {
+    "produced": { "next": { "kind": "invoke-role", "role": "spec-author", "story": "S1-file-stock" } }
+  },
+  "agentOptions": { "session": "fresh", "resumeKeyFrom": "none" },
+  "agent": {
+    "kind": "replay",
+    "config": {
+      "role": "product-owner",
+      "seeds": [
+        { "outputId": "product-overview", "from": "product-overview.md", "to": "product-overview.md" },
+        { "outputId": "story-stub", "from": "features/F1-stock-visibility/stories/S1-file-stock/story.json", "to": "features/F1-stock-visibility/stories/S1-file-stock/story.json" }
+      ]
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "id": "ts-seed",
+  "role": "product-owner",
+  "match": { "kind": "invoke-role", "role": "product-owner", "mode": "author-requests" },
+  "inputs": [],
+  "outputs": [
+    { "id": "ac1", "filename": "features/F1-stock-visibility/stories/S1-file-stock/acs/AC1-file-stock-record.json", "validator": "acConformant", "description": "A recorded story AC each test maps its ac_id to." },
+    { "id": "architecture", "filename": "features/F1-stock-visibility/architecture.json", "validator": "architectureConformant", "description": "The architecture (persistence_invariants) the fitness tests cover." },
+    { "id": "db-design", "filename": "features/F1-stock-visibility/db-design.json", "validator": "dbDesignConformant", "description": "The DBA's concrete schema the invariant tests assert against." },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "productOwnerLoggedAuthoring", "description": "The replay seed's authoring log." }
+  ],
+  "routing": {
+    "produced": { "next": { "kind": "invoke-role", "role": "test-strategist", "story": "S1-file-stock" } }
+  },
+  "agentOptions": { "session": "fresh", "resumeKeyFrom": "none" },
+  "agent": {
+    "kind": "replay",
+    "config": {
+      "role": "product-owner",
+      "seeds": [
+        { "outputId": "ac1", "from": "features/F1-stock-visibility/stories/S1-file-stock/acs/AC1-file-stock-record.json", "to": "features/F1-stock-visibility/stories/S1-file-stock/acs/AC1-file-stock-record.json" },
+        { "outputId": "architecture", "from": "features/F1-stock-visibility/architecture.json", "to": "features/F1-stock-visibility/architecture.json" },
+        { "outputId": "db-design", "from": "features/F1-stock-visibility/db-design.json", "to": "features/F1-stock-visibility/db-design.json" }
+      ]
+    }
+  }
+}

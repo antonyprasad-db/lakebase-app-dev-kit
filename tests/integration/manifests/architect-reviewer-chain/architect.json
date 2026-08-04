@@ -1,0 +1,27 @@
+{
+  "id": "arch-live",
+  "role": "architect-reviewer",
+  "match": { "kind": "invoke-role", "role": "architect-reviewer", "story": "S1-file-stock" },
+  "inputs": [
+    { "id": "nfrs", "source": "feature:nfrs.md", "description": "The PO NFR brief." },
+    { "id": "ac1", "source": "feature:features/F1-stock-visibility/stories/S1-file-stock/acs/AC1-file-stock-record.json", "description": "The story AC the architect annotates." }
+  ],
+  "outputs": [
+    { "id": "architecture", "filename": "features/F1-stock-visibility/architecture.json", "validator": "architectureConformant", "description": "The feature architecture (architecture.schema.json): service_backed, layers, persistence_invariants." },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "architectReviewerLoggedAuthoring", "description": "The Architect Reviewer's authoring log." }
+  ],
+  "routing": {
+    "produced": { "next": { "kind": "design-complete" } }
+  },
+  "agentOptions": { "model": "opus", "effort": "default", "session": "fresh", "resumeKeyFrom": "role" },
+  "agent": {
+    "kind": "claude",
+    "config": {
+      "role": "architect-reviewer",
+      "model": "opus",
+      "session": "fresh",
+      "allowedTools": ["Write", "Read"],
+      "disallowedTools": ["Bash", "Glob", "Grep", "WebFetch", "WebSearch", "Task"]
+    }
+  }
+}

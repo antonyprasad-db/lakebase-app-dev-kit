@@ -1,0 +1,28 @@
+{
+  "id": "ts-live",
+  "role": "test-strategist",
+  "match": { "kind": "invoke-role", "role": "test-strategist", "story": "S1-file-stock" },
+  "inputs": [
+    { "id": "ac1", "source": "feature:features/F1-stock-visibility/stories/S1-file-stock/acs/AC1-file-stock-record.json", "description": "The story AC each test maps its ac_id to." },
+    { "id": "architecture", "source": "feature:features/F1-stock-visibility/architecture.json", "description": "The persistence_invariants each fitness test covers." },
+    { "id": "db-design", "source": "feature:features/F1-stock-visibility/db-design.json", "description": "The concrete schema the invariant tests assert against." }
+  ],
+  "outputs": [
+    { "id": "test-list", "filename": "features/F1-stock-visibility/test-list.json", "validator": "testListConformant", "description": "The feature master test list (test-list.schema.json), the story's ordered tests." },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "testStrategistLoggedAuthoring", "description": "The Test Strategist's authoring log." }
+  ],
+  "routing": {
+    "produced": { "next": { "kind": "design-complete" } }
+  },
+  "agentOptions": { "model": "sonnet", "effort": "default", "session": "fresh", "resumeKeyFrom": "role" },
+  "agent": {
+    "kind": "claude",
+    "config": {
+      "role": "test-strategist",
+      "model": "sonnet",
+      "session": "fresh",
+      "allowedTools": ["Write", "Read"],
+      "disallowedTools": ["Bash", "Glob", "Grep", "WebFetch", "WebSearch", "Task"]
+    }
+  }
+}

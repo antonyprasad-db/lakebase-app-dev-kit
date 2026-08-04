@@ -1,0 +1,27 @@
+{
+  "id": "sa-story-live",
+  "role": "spec-author",
+  "match": { "kind": "invoke-role", "role": "spec-author", "story": "S1-file-stock" },
+  "inputs": [
+    { "id": "product-overview", "source": "feature:product-overview.md", "description": "The PO product overview." },
+    { "id": "story-stub", "source": "feature:features/F1-stock-visibility/stories/S1-file-stock/story.json", "description": "The story stub the ACs are drafted for." }
+  ],
+  "outputs": [
+    { "id": "ac", "filename": "features/F1-stock-visibility/stories/S1-file-stock/acs/AC1-file-stock-record.json", "validator": "acConformant", "description": "One conformant acceptance criterion (ac.schema.json). The live spec-author authors the story's ACs; this asserts AC1 is schema-conformant." },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "agentLogHasRoleEvent", "description": "The spec-author's authoring log." }
+  ],
+  "routing": {
+    "produced": { "next": { "kind": "design-complete" } }
+  },
+  "agentOptions": { "model": "opus", "effort": "default", "session": "fresh", "resumeKeyFrom": "role" },
+  "agent": {
+    "kind": "claude",
+    "config": {
+      "role": "spec-author",
+      "model": "opus",
+      "session": "fresh",
+      "allowedTools": ["Write", "Read"],
+      "disallowedTools": ["Bash", "Glob", "Grep", "WebFetch", "WebSearch", "Task"]
+    }
+  }
+}

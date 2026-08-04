@@ -1,0 +1,26 @@
+{
+  "id": "dba-live",
+  "role": "dba",
+  "match": { "kind": "invoke-role", "role": "dba", "story": "S1-file-stock" },
+  "inputs": [
+    { "id": "architecture", "source": "feature:features/F1-stock-visibility/architecture.json", "description": "The architect's logical contract the DBA physically realizes , NOT re-authored." }
+  ],
+  "outputs": [
+    { "id": "db-design", "filename": "features/F1-stock-visibility/db-design.json", "validator": "dbDesignConformant", "description": "The physical schema (db-design.schema.json): tables + schema_changes + realizes_invariants." },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "dbaLoggedAuthoring", "description": "The DBA's authoring log." }
+  ],
+  "routing": {
+    "produced": { "next": { "kind": "design-complete" } }
+  },
+  "agentOptions": { "model": "opus", "effort": "default", "session": "fresh", "resumeKeyFrom": "role" },
+  "agent": {
+    "kind": "claude",
+    "config": {
+      "role": "dba",
+      "model": "opus",
+      "session": "fresh",
+      "allowedTools": ["Write", "Read"],
+      "disallowedTools": ["Bash", "Glob", "Grep", "WebFetch", "WebSearch", "Task"]
+    }
+  }
+}

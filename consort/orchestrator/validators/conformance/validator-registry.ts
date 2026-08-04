@@ -116,6 +116,33 @@ export function designGuideConformant(producedPath: string): OutputValidationRes
 }
 
 /**
+ * Generic schema-conformance validator factory: read the produced file and check it against
+ * one of the kit's canonical artifact schemas (via the SAME checkArtifactConformance the design
+ * gate + response self-check use, so a manifest output is gated to the exact schema its role
+ * ships). Used for the design-role INTEGRATION live chains, where a real agent authors the
+ * artifact and the orchestrator must reject a non-conformant one (not merely a non-empty file).
+ */
+function conformsTo(artifactName: string): OutputValidator {
+  return (producedPath: string): OutputValidationResult => {
+    let content: string;
+    try {
+      content = readFileSync(producedPath, "utf8");
+    } catch {
+      return { ok: false, violations: [`${artifactName} not readable at ${producedPath}`] };
+    }
+    const conf = checkArtifactConformance(artifactName, content);
+    return conf.ok ? { ok: true, violations: [] } : { ok: false, violations: conf.violations };
+  };
+}
+
+/** Per-artifact schema-conformance validators (the design roles' primary outputs), each
+ *  gated to its canonical schema via checkArtifactConformance. */
+export const acConformant = conformsTo("ac.json");
+export const architectureConformant = conformsTo("architecture.json");
+export const dbDesignConformant = conformsTo("db-design.json");
+export const testListConformant = conformsTo("test-list.json");
+
+/**
  * The named-validator registry a manifest resolves against. Add an entry here (code) and
  * reference it by name in a manifest (data). Every OutputValidator is (path) => result , the
  * role-parameterized agent-log validator binds its default role so it matches the signature.
@@ -135,6 +162,12 @@ export const VALIDATOR_REGISTRY: Record<string, OutputValidator> = {
   dbaLoggedAuthoring: (p: string) => agentLogHasRoleEvent(p, "dba"),
   nonEmptyFile,
   designGuideConformant,
+  // Schema-conformance validators for the design roles' primary artifacts (the integration
+  // live chains gate the real agent's output to its canonical schema, not just non-emptiness).
+  acConformant,
+  architectureConformant,
+  dbDesignConformant,
+  testListConformant,
 };
 
 /**

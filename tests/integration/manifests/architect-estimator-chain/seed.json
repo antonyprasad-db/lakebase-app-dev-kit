@@ -1,0 +1,23 @@
+{
+  "id": "estimator-seed",
+  "role": "product-owner",
+  "match": { "kind": "invoke-role", "role": "product-owner", "mode": "author-requests" },
+  "inputs": [],
+  "outputs": [
+    { "id": "feature-proposals", "filename": "planning/feature-proposals.md", "validator": "nonEmptyFile", "description": "The recorded candidate features the Architect estimates." },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "productOwnerLoggedAuthoring", "description": "The replay seed's authoring log." }
+  ],
+  "routing": {
+    "produced": { "next": { "kind": "invoke-role", "role": "architect-reviewer", "mode": "estimate" } }
+  },
+  "agentOptions": { "session": "fresh", "resumeKeyFrom": "none" },
+  "agent": {
+    "kind": "replay",
+    "config": {
+      "role": "product-owner",
+      "seeds": [
+        { "outputId": "feature-proposals", "from": "planning/feature-proposals.md", "to": "planning/feature-proposals.md" }
+      ]
+    }
+  }
+}

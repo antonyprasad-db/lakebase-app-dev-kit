@@ -1,0 +1,25 @@
+{
+  "id": "propose-seed",
+  "role": "product-owner",
+  "match": { "kind": "invoke-role", "role": "product-owner", "mode": "author-requests" },
+  "inputs": [],
+  "outputs": [
+    { "id": "product-overview", "filename": "product-overview.md", "validator": "nonEmptyFile", "description": "The PO product overview the propose frames candidates from." },
+    { "id": "nfrs", "filename": "nfrs.md", "validator": "nonEmptyFile", "description": "The PO NFR brief the propose accounts for." },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "productOwnerLoggedAuthoring", "description": "The replay seed's authoring log." }
+  ],
+  "routing": {
+    "produced": { "next": { "kind": "invoke-role", "role": "spec-author", "mode": "propose" } }
+  },
+  "agentOptions": { "session": "fresh", "resumeKeyFrom": "none" },
+  "agent": {
+    "kind": "replay",
+    "config": {
+      "role": "product-owner",
+      "seeds": [
+        { "outputId": "product-overview", "from": "product-overview.md", "to": "product-overview.md" },
+        { "outputId": "nfrs", "from": "nfrs.md", "to": "nfrs.md" }
+      ]
+    }
+  }
+}

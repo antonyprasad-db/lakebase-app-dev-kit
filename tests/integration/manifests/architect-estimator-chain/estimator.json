@@ -1,0 +1,26 @@
+{
+  "id": "estimator-live",
+  "role": "architect-reviewer",
+  "match": { "kind": "invoke-role", "role": "architect-reviewer", "mode": "estimate" },
+  "inputs": [
+    { "id": "feature-proposals", "source": "feature:planning/feature-proposals.md", "description": "The candidate features the Architect estimates." }
+  ],
+  "outputs": [
+    { "id": "estimates", "filename": "planning/estimates.json", "validator": "nonEmptyFile", "description": "The per-candidate t-shirt sizes (planning/estimates.json). nonEmptyFile is the gate , the estimates artifact has no canonical JSON schema in the conformance registry." },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "architectReviewerLoggedAuthoring", "description": "The Architect Reviewer's authoring log." }
+  ],
+  "routing": {
+    "produced": { "next": { "kind": "design-complete" } }
+  },
+  "agentOptions": { "model": "opus", "effort": "default", "session": "fresh", "resumeKeyFrom": "role" },
+  "agent": {
+    "kind": "claude",
+    "config": {
+      "role": "architect-reviewer",
+      "model": "opus",
+      "session": "fresh",
+      "allowedTools": ["Write", "Read"],
+      "disallowedTools": ["Bash", "Glob", "Grep", "WebFetch", "WebSearch", "Task"]
+    }
+  }
+}

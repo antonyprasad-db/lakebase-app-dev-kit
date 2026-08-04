@@ -1,0 +1,23 @@
+{
+  "id": "dba-seed",
+  "role": "product-owner",
+  "match": { "kind": "invoke-role", "role": "product-owner", "mode": "author-requests" },
+  "inputs": [],
+  "outputs": [
+    { "id": "architecture", "filename": "features/F1-stock-visibility/architecture.json", "validator": "architectureConformant", "description": "The recorded architect contract (service_backed, layers, persistence_invariants) the DBA physically realizes." },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "productOwnerLoggedAuthoring", "description": "The replay seed's authoring log." }
+  ],
+  "routing": {
+    "produced": { "next": { "kind": "invoke-role", "role": "dba", "story": "S1-file-stock" } }
+  },
+  "agentOptions": { "session": "fresh", "resumeKeyFrom": "none" },
+  "agent": {
+    "kind": "replay",
+    "config": {
+      "role": "product-owner",
+      "seeds": [
+        { "outputId": "architecture", "from": "features/F1-stock-visibility/architecture.json", "to": "features/F1-stock-visibility/architecture.json" }
+      ]
+    }
+  }
+}

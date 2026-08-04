@@ -1,0 +1,25 @@
+{
+  "id": "arch-seed",
+  "role": "product-owner",
+  "match": { "kind": "invoke-role", "role": "product-owner", "mode": "author-requests" },
+  "inputs": [],
+  "outputs": [
+    { "id": "nfrs", "filename": "nfrs.md", "validator": "nonEmptyFile", "description": "The PO NFR brief the architecture must cover." },
+    { "id": "ac1", "filename": "features/F1-stock-visibility/stories/S1-file-stock/acs/AC1-file-stock-record.json", "validator": "acConformant", "description": "A recorded story AC the architect annotates." },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "productOwnerLoggedAuthoring", "description": "The replay seed's authoring log." }
+  ],
+  "routing": {
+    "produced": { "next": { "kind": "invoke-role", "role": "architect-reviewer", "story": "S1-file-stock" } }
+  },
+  "agentOptions": { "session": "fresh", "resumeKeyFrom": "none" },
+  "agent": {
+    "kind": "replay",
+    "config": {
+      "role": "product-owner",
+      "seeds": [
+        { "outputId": "nfrs", "from": "nfrs.md", "to": "nfrs.md" },
+        { "outputId": "ac1", "from": "features/F1-stock-visibility/stories/S1-file-stock/acs/AC1-file-stock-record.json", "to": "features/F1-stock-visibility/stories/S1-file-stock/acs/AC1-file-stock-record.json" }
+      ]
+    }
+  }
+}
