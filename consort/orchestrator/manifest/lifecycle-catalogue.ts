@@ -14,6 +14,7 @@
 // import); the cloud calls happen only when a run actually invokes them (a gated live run).
 
 import { rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { createProject } from "../../../scripts/lakebase/create-project.js";
 import type { LifecycleOp, LifecycleResult, LifecycleRunContext, LifecycleDeps } from "./orchestration-runner.js";
 
@@ -34,6 +35,7 @@ async function scaffoldProject(config: Record<string, unknown>, context: Lifecyc
     databricksHost?: string;
     githubOwner?: string;
     createGithubRepo?: boolean;
+    runnerType?: "self-hosted" | "github-hosted";
     tiers?: 1 | 2 | 3;
     uiTrack?: boolean;
     language?: "java" | "kotlin" | "python" | "nodejs";
@@ -48,16 +50,28 @@ async function scaffoldProject(config: Record<string, unknown>, context: Lifecyc
       databricksHost: c.databricksHost,
       githubOwner: c.githubOwner,
       createGithubRepo: c.createGithubRepo,
+      runnerType: c.runnerType,
       tiers: c.tiers,
       uiTrack: c.uiTrack,
       language: c.language,
     });
+    // The full repo name teardown needs (gh repo delete + removeRunner both key off it). Prefer
+    // deriving from the URL createProject returned; else owner/name.
+    const repoFullName =
+      (res.githubRepoUrl ? res.githubRepoUrl.replace(/^https?:\/\/github\.com\//, "").replace(/\.git$/, "") : undefined) ??
+      (c.githubOwner && c.createGithubRepo !== false ? `${c.githubOwner}/${c.projectName}` : undefined);
+    // createProject registers a SELF-HOSTED runner when it creates a repo (runnerType defaults
+    // to self-hosted). Record whether teardown must de-register one.
+    const runnerRegistered = !!repoFullName && (c.runnerType ?? "self-hosted") === "self-hosted";
     return {
       ok: true,
       handle: {
         projectDir: res.projectDir,
+        projectName: c.projectName,
         lakebaseProjectId: res.lakebaseProjectId,
         githubRepoUrl: res.githubRepoUrl ?? null,
+        githubRepoFullName: repoFullName ?? null,
+        runnerRegistered,
         databricksHost: c.databricksHost,
       },
     };
@@ -66,32 +80,95 @@ async function scaffoldProject(config: Record<string, unknown>, context: Lifecyc
   }
 }
 
-/** remove-project: tear down what scaffold-project created , delete the Lakebase project and
- *  remove the local project dir. Reads the setup handle from the run context. Best-effort:
- *  reports ok:false with the error but never throws (teardown must not mask a chain error). */
-async function removeProject(config: Record<string, unknown>, context: LifecycleRunContext): Promise<LifecycleResult> {
-  const handle = context.setupHandle as { projectDir?: string; lakebaseProjectId?: string; databricksHost?: string } | undefined;
+/** The scaffold handle remove-project consumes. scaffold-project populates every field; a
+ *  hand-built handle (tests) may omit the ones that don't apply. */
+export interface ScaffoldHandle {
+  projectDir?: string;
+  projectName?: string;
+  lakebaseProjectId?: string;
+  databricksHost?: string;
+  githubRepoUrl?: string | null;
+  /** "<owner>/<name>" , what gh repo delete + removeRunner both key off. */
+  githubRepoFullName?: string | null;
+  /** True when scaffold registered a self-hosted runner that must be de-registered. */
+  runnerRegistered?: boolean;
+}
+
+/** The cloud/side effects remove-project performs, injected so the teardown ORDER is pinned
+ *  hermetically (tests pass fakes; production wires the real scm-utils + gh calls). This is the
+ *  SAME never-leaking sequence create-project.test.ts uses: de-register the runner, delete the
+ *  repo, delete the Lakebase project. */
+export interface RemoveProjectEffects {
+  stopRunner(projectName: string): void;
+  removeRunner(args: { fullRepoName: string; projectName: string }): Promise<void>;
+  deleteGithubRepo(fullRepoName: string): void;
+  deleteLakebaseProject(args: { projectId: string; host: string }): Promise<void>;
+}
+
+/** The real effects , scm-utils runner/Lakebase ops + `gh repo delete`. Imported lazily so the
+ *  hermetic tests + no-cloud paths never pull the cloud client at module load. */
+async function realRemoveProjectEffects(): Promise<RemoveProjectEffects> {
+  const scm = await import("@databricks-solutions/lakebase-scm-utils/lakebase");
+  return {
+    stopRunner: (name) => scm.stopRunner(name),
+    removeRunner: (a) => scm.removeRunner(a as never),
+    deleteGithubRepo: (repo) => {
+      execFileSync("gh", ["repo", "delete", repo, "--yes"], { stdio: "ignore", timeout: 30_000 });
+    },
+    deleteLakebaseProject: (a) => scm.deleteLakebaseProject({ projectId: a.projectId, host: a.host } as never),
+  };
+}
+
+/**
+ * remove-project: tear down EVERYTHING scaffold-project created , the self-hosted runner, the
+ * GitHub repo, the Lakebase project, and the local dir. This is the proven teardown ported from
+ * create-project.test.ts + scm-utils; the earlier version only deleted Lakebase + dir, which
+ * leaked the repo + runner on every run.
+ *
+ * ORDER matters: de-register the runner BEFORE deleting the repo (the GitHub API call needs the
+ * repo to still exist), then delete the repo, then the Lakebase project, then the dir. Every
+ * step is best-effort , a failure is collected, not thrown, and the remaining steps still run,
+ * so one broken step never strands the rest (teardown must not mask a chain error). Reports
+ * ok:false with the joined errors if anything failed.
+ */
+export async function removeProject(
+  config: Record<string, unknown>,
+  context: LifecycleRunContext,
+  effectsOverride?: RemoveProjectEffects,
+): Promise<LifecycleResult> {
+  const handle = context.setupHandle as ScaffoldHandle | undefined;
   if (!handle) return { ok: false, error: "remove-project: no setup handle (nothing to tear down)" };
-  const errors: string[] = [];
-  // Delete the Lakebase project (best-effort). Imported lazily so the hermetic tests + the
-  // no-cloud paths never pull the cloud client at module load.
-  if (handle.lakebaseProjectId && handle.databricksHost) {
-    try {
-      const { deleteLakebaseProject } = await import("@databricks-solutions/lakebase-scm-utils/lakebase");
-      await deleteLakebaseProject({ projectId: handle.lakebaseProjectId, databricksHost: handle.databricksHost } as never);
-    } catch (e) {
-      errors.push(`Lakebase delete: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  }
-  // Remove the local project dir.
-  if (handle.projectDir) {
-    try {
-      rmSync(handle.projectDir, { recursive: true, force: true });
-    } catch (e) {
-      errors.push(`dir remove: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  }
   void config;
+
+  // Only build the (cloud) effects when there is real cloud work to do , a pure local-dir
+  // teardown (tests, no-cloud runs) stays hermetic and never imports the cloud client.
+  const needsCloud = !!(handle.runnerRegistered || handle.githubRepoFullName || (handle.lakebaseProjectId && handle.databricksHost));
+  const fx = effectsOverride ?? (needsCloud ? await realRemoveProjectEffects() : undefined);
+  const errors: string[] = [];
+
+  // 1. De-register the self-hosted runner (before the repo is gone). Both scm-utils calls key
+  //    off the repo/project name the scaffold recorded.
+  if (fx && handle.runnerRegistered && handle.githubRepoFullName && handle.projectName) {
+    try { fx.stopRunner(handle.projectName); } catch (e) { errors.push(`stopRunner: ${e instanceof Error ? e.message : String(e)}`); }
+    try { await fx.removeRunner({ fullRepoName: handle.githubRepoFullName, projectName: handle.projectName }); }
+    catch (e) { errors.push(`removeRunner: ${e instanceof Error ? e.message : String(e)}`); }
+  }
+  // 2. Delete the GitHub repo.
+  if (fx && handle.githubRepoFullName) {
+    try { fx.deleteGithubRepo(handle.githubRepoFullName); }
+    catch (e) { errors.push(`gh repo delete: ${e instanceof Error ? e.message : String(e)}`); }
+  }
+  // 3. Delete the Lakebase project.
+  if (fx && handle.lakebaseProjectId && handle.databricksHost) {
+    try { await fx.deleteLakebaseProject({ projectId: handle.lakebaseProjectId, host: handle.databricksHost }); }
+    catch (e) { errors.push(`Lakebase delete: ${e instanceof Error ? e.message : String(e)}`); }
+  }
+  // 4. Remove the local project dir (always, even if a cloud step failed).
+  if (handle.projectDir) {
+    try { rmSync(handle.projectDir, { recursive: true, force: true }); }
+    catch (e) { errors.push(`dir remove: ${e instanceof Error ? e.message : String(e)}`); }
+  }
+
   return errors.length ? { ok: false, error: errors.join("; ") } : { ok: true };
 }
 

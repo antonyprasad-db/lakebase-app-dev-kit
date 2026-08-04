@@ -11,7 +11,8 @@
 // spawn , and would have caught the live failure.
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from "fs";
+import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync, mkdirSync } from "fs";
+import { dirname } from "path";
 import { tmpdir } from "os";
 import { join } from "path";
 import { runManifestStep, runManifestChain, type ManifestRunnerDeps } from "../../consort/orchestrator/manifest/manifest-runner";
@@ -90,6 +91,36 @@ describe("runner: orchestrator-materialized agent-log counts as produced (no fal
     expect(invocations).toBe(1);           // exactly one spawn , the live bug spawned 9
     expect(turns).toHaveLength(1);
     expect(turns[0].result.violations).toEqual([]);
+  });
+
+  it("materializes the agent-log at the DECLARED nested path (outputPaths remap), not the workspace root", async () => {
+    // The exact live-run bug: provisionWorkspace remaps agent-log -> .sftdd/agent-log.jsonl
+    // (a real spec-author turn nests its outputs). The formatter must write THERE, not at the
+    // workspace root, or validate-outputs looks under .sftdd/ , misses it , and wrongly blocks.
+    const SPEC_REL = ".sftdd/features/F1-x/feature-spec.json";
+    const LOG_REL = ".sftdd/agent-log.jsonl";
+    const nestedAgent = reportingAgent(goodReport, { writeSpec: false });
+    // write the spec at the nested declared path (mirrors the live agent's cwd-relative write).
+    const wrappingAgent: StepAgent & { lastResult?: { finalText?: string } } = {
+      async invoke(inv) {
+        const p = join(inv.workspaceDir, SPEC_REL);
+        mkdirSync(dirname(p), { recursive: true });
+        writeFileSync(p, GOOD_SPEC);
+        await nestedAgent.invoke(inv);
+        wrappingAgent.lastResult = nestedAgent.lastResult;
+      },
+    };
+    const manifest = specAuthorManifest();
+    const d: ManifestRunnerDeps = {
+      ...deps(wrappingAgent),
+      provisionWorkspace: () => ({ workspaceDir: ws, outputPaths: { "feature-spec": SPEC_REL, "agent-log": LOG_REL } }),
+    };
+    const res = await runManifestStep(SPEC_AUTHOR, [manifest], d);
+    expect(res.violations, `unexpected violations: ${res.violations.join("; ")}`).toEqual([]);
+    // the log landed at the declared nested path (the formatter mkdir'd .sftdd/), NOT the root.
+    expect(existsSync(join(ws, LOG_REL))).toBe(true);
+    expect(existsSync(join(ws, "agent-log.jsonl"))).toBe(false);
+    expect(res.bounded.action).toEqual({ kind: "design-complete" });
   });
 
   it("a PERSISTENTLY failing step aborts after the retry budget , does NOT re-spawn forever", async () => {

@@ -13,8 +13,8 @@
 // Authorship is still real: an ABSENT or empty-message report FAILS (the agent surfaced
 // nothing), so the "did the agent log what it did" signal is preserved, not rubber-stamped.
 
-import { readFileSync, writeFileSync, existsSync, appendFileSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, writeFileSync, existsSync, appendFileSync, mkdirSync } from "node:fs";
+import { join, dirname } from "node:path";
 import { getValidator, formatSchemaErrors } from "../../../scripts/sftdd/schema-loader.js";
 
 /** One raw entry the agent authors (no timestamp/role , the orchestrator stamps those). */
@@ -129,10 +129,16 @@ export function formatAgentReport(args: FormatAgentReportArgs): FormatAgentRepor
     formatted.push(JSON.stringify(obj));
   }
 
-  // Append (never clobber a prior log , e.g. an orchestrator phase.start line).
+  // Append (never clobber a prior log , e.g. an orchestrator phase.start line). Ensure the log's
+  // parent dir exists first , the declared path may be nested (e.g. .sftdd/agent-log.jsonl) and
+  // writeFileSync will not create intermediate dirs.
   const payload = formatted.join("\n") + "\n";
-  if (existsSync(logPath)) appendFileSync(logPath, payload);
-  else writeFileSync(logPath, payload);
+  if (existsSync(logPath)) {
+    appendFileSync(logPath, payload);
+  } else {
+    mkdirSync(dirname(logPath), { recursive: true });
+    writeFileSync(logPath, payload);
+  }
 
   return { ok: true, entries: formatted.length };
 }

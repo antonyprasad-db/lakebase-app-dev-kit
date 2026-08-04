@@ -8,6 +8,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from "fs";
+import { dirname } from "path";
 import { tmpdir } from "os";
 import { join } from "path";
 import { formatAgentReport, extractReportBlock } from "../../consort/orchestrator/execution/agent-report-formatter";
@@ -120,6 +121,19 @@ describe("formatAgentReport: agent-authored report -> conformant agent-log.jsonl
       expect(extractReportBlock("x\n```json\n[{\"a\":1}]\n```\ny")).toBe('[{"a":1}]');
       expect(extractReportBlock("no fence here")).toBeUndefined();
     });
+  });
+
+  it("writes the log at a NESTED logFile, creating the parent dir (the live .sftdd/ path)", () => {
+    // The live-run block: the declared agent-log path is nested (.sftdd/agent-log.jsonl) and
+    // writeFileSync does not create intermediate dirs. The formatter must mkdir the parent, or
+    // the write throws and validate-outputs never finds the log , wrongly blocking the turn.
+    writeFileSync(join(ws, ".agent-report.json"), JSON.stringify({ message: "wrote it" }));
+    const r = formatAgentReport({ workspaceDir: ws, role: "spec-author", logFile: ".sftdd/agent-log.jsonl" });
+    expect(r.ok, r.error).toBe(true);
+    const p = join(ws, ".sftdd/agent-log.jsonl");
+    expect(existsSync(p)).toBe(true);
+    expect(existsSync(dirname(p))).toBe(true);
+    expect(existsSync(join(ws, "agent-log.jsonl"))).toBe(false); // NOT at the root
   });
 
   it("appends to an existing agent-log.jsonl rather than clobbering it", () => {

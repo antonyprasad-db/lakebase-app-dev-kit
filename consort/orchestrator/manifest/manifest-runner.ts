@@ -167,8 +167,19 @@ function executorWiring(
     // shared log subprocess still satisfies the agent-log requirement. The report travels as
     // the agent's FINAL MESSAGE (a ```agent-report block) , containment-proof, no file path
     // to misplace , with the .agent-report.json file as a fallback for agents that write one.
+    // CRUCIAL: write the log at the SAME relative path validate-outputs will check , the
+    // manifest's agent-log output filename, remapped by any provisionWorkspace outputPaths (a
+    // real turn nests it under .sftdd/). Otherwise the formatter writes agent-log.jsonl at the
+    // workspace root while validation looks under .sftdd/ and the turn wrongly blocks.
     ...(deps.formatAgentReports
-      ? { materializeOutputs: (workspaceDir: string) => { formatAgentReport({ workspaceDir, role: manifest.role, reportText: agentFinalText(agent) }); } }
+      ? {
+          materializeOutputs: (workspaceDir: string) => {
+            const provisioned = deps.provisionWorkspace ? deps.provisionWorkspace(manifest, action) : { outputPaths: undefined as Record<string, string> | undefined };
+            const logSpec = manifest.outputs.find((o) => o.id === "agent-log");
+            const logFile = logSpec ? (provisioned.outputPaths?.[logSpec.id] ?? logSpec.filename) : undefined;
+            formatAgentReport({ workspaceDir, role: manifest.role, reportText: agentFinalText(agent), ...(logFile ? { logFile } : {}) });
+          },
+        }
       : {}),
     onRecord: deps.onRecord,
   };
