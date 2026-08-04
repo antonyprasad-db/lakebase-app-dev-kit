@@ -1,5 +1,5 @@
 {
-  "id": "uxchain-po-seed",
+  "id": "ux-designer-chain-seed",
   "role": "product-owner",
   "match": { "kind": "invoke-role", "role": "product-owner", "mode": "author-requests" },
   "inputs": [],

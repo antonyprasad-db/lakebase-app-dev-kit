@@ -1,5 +1,5 @@
 {
-  "id": "stockflow-demo-ux-designer",
+  "id": "ux-designer",
   "role": "ux-designer",
   "match": { "kind": "invoke-role", "role": "ux-designer" },
   "inputs": [],

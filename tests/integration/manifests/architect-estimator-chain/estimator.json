@@ -1,5 +1,5 @@
 {
-  "id": "estimator-live",
+  "id": "architect-estimator-chain-live",
   "role": "architect-reviewer",
   "match": { "kind": "invoke-role", "role": "architect-reviewer", "mode": "estimate" },
   "inputs": [

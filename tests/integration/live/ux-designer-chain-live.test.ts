@@ -15,9 +15,9 @@
 
 import { describe, it, expect } from "vitest";
 import { join } from "node:path";
-import { runIntegrationChain } from "../../consort/orchestrator/scenarios/integration-chain.js";
-import type { StepManifest } from "../../consort/orchestrator/manifest/step-manifest.js";
-import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive.js";
+import { runIntegrationChain } from "../../../consort/orchestrator/scenarios/integration-chain.js";
+import type { StepManifest } from "../../../consort/orchestrator/manifest/step-manifest.js";
+import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.js";
 
 const KIT = process.cwd();
 const CHAIN_DIR = join(KIT, "tests/integration/manifests/ux-designer-chain");
@@ -71,7 +71,7 @@ describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE (lean): mock PO -> mock spec-a
     });
 
     // All three turns ran, in order, each clean.
-    expect(turns.map((t) => t.manifestId)).toEqual(["uxchain-po-seed", "uxchain-spec-author", "uxchain-ux-designer"]);
+    expect(turns.map((t) => t.manifestId)).toEqual(["ux-designer-chain-seed", "ux-designer-chain-spec-author", "ux-designer-chain-live"]);
     for (const t of turns) {
       expect(t.result.violations, `${t.manifestId}: ${t.result.violations.join("; ")}`).toEqual([]);
     }
@@ -79,7 +79,7 @@ describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE (lean): mock PO -> mock spec-a
     // The mock spec-author delivered a feature-spec; the LIVE ux-designer produced a
     // schema-conformant design-guide.json (validated by designGuideConformant, no violations).
     const uxTurn = turns[turns.length - 1];
-    expect(uxTurn.manifestId).toBe("uxchain-ux-designer");
+    expect(uxTurn.manifestId).toBe("ux-designer-chain-live");
     expect(
       uxTurn.result.producedPaths.some((p) => p.endsWith(GUIDE_REL)),
       `ux-designer produced: ${uxTurn.result.producedPaths.join(", ")}`,

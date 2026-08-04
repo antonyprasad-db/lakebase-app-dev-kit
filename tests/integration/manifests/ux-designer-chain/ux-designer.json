@@ -1,5 +1,5 @@
 {
-  "id": "uxchain-ux-designer",
+  "id": "ux-designer-chain-live",
   "role": "ux-designer",
   "match": { "kind": "invoke-role", "role": "ux-designer" },
   "inputs": [

@@ -19,7 +19,9 @@ const KIT = process.cwd();
 // The demo manifests + recorded intake live in the integration-test corpus (a manifest dropped
 // there participates in the folder-discovery integration runner). See tests/integration/.
 const CORPUS = join(KIT, "tests/integration");
-const MANIFEST_DIR = join(CORPUS, "manifests");
+// The route-scenario manifest set lives in its own subdir (manifests/ now holds only per-purpose
+// subdirs). loadStepManifests is non-recursive, so this loads exactly that set.
+const MANIFEST_DIR = join(CORPUS, "manifests", "route-scenarios");
 const INTAKE = join(CORPUS, "intake");
 const FEATURE = "F1-stock-visibility";
 const STORY = "S1-stock-list";

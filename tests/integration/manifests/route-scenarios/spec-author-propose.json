@@ -1,5 +1,5 @@
 {
-  "id": "stockflow-demo-spec-author-propose",
+  "id": "spec-author-propose",
   "role": "spec-author",
   "match": { "kind": "invoke-role", "role": "spec-author", "mode": "propose" },
   "inputs": [],

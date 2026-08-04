@@ -7,32 +7,35 @@
 //   3. the seed is `replay` and the role step is `claude` (the ONE live agent per chain),
 //   4. every declared replay seed file + input exists in the recorded intake corpus, and
 //   5. each chain's actions map to exactly one manifest in that chain (no ambiguity).
-// The live execution itself is exercised by design-roles-live.test.ts (gated on RUN_LIVE_STEP).
+// The live execution itself is exercised by the per-role tests under ../live/ (gated on
+// RUN_LIVE_STEP). Chain ids follow the uniform <role>-chain-seed / <role>-chain-live convention.
 
 import { describe, it, expect } from "vitest";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { loadStepManifests, manifestForAction, validateStepManifest, type StepManifest } from "../../consort/orchestrator/manifest/step-manifest";
-import { resolveValidator } from "../../consort/orchestrator/validators/conformance/validator-registry";
-import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
+import { loadStepManifests, manifestForAction, validateStepManifest, type StepManifest } from "../../../consort/orchestrator/manifest/step-manifest";
+import { resolveValidator } from "../../../consort/orchestrator/validators/conformance/validator-registry";
+import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive";
 
 const KIT = process.cwd();
 const MANIFESTS = join(KIT, "tests/integration/manifests");
 const INTAKE = join(KIT, "tests/integration/intake");
 
-// Each per-role chain: its dir + the live role it exercises.
-const CHAINS: { dir: string; liveRole: string; seedId: string; liveId: string }[] = [
-  { dir: "spec-author-story-chain", liveRole: "spec-author", seedId: "sa-story-seed", liveId: "sa-story-live" },
-  { dir: "architect-reviewer-chain", liveRole: "architect-reviewer", seedId: "arch-seed", liveId: "arch-live" },
-  { dir: "dba-chain", liveRole: "dba", seedId: "dba-seed", liveId: "dba-live" },
-  { dir: "test-strategist-chain", liveRole: "test-strategist", seedId: "ts-seed", liveId: "ts-live" },
-  { dir: "spec-author-propose-chain", liveRole: "spec-author", seedId: "propose-seed", liveId: "propose-live" },
-  { dir: "architect-estimator-chain", liveRole: "architect-reviewer", seedId: "estimator-seed", liveId: "estimator-live" },
+// Each per-role chain: its dir + the live role it exercises. Ids are <dir>-seed / <dir>-live.
+const CHAINS: { dir: string; liveRole: string }[] = [
+  { dir: "spec-author-story-chain", liveRole: "spec-author" },
+  { dir: "architect-reviewer-chain", liveRole: "architect-reviewer" },
+  { dir: "dba-chain", liveRole: "dba" },
+  { dir: "test-strategist-chain", liveRole: "test-strategist" },
+  { dir: "spec-author-propose-chain", liveRole: "spec-author" },
+  { dir: "architect-estimator-chain", liveRole: "architect-reviewer" },
 ];
 
 const PO_SEED: WorkflowAction = { kind: "invoke-role", role: "product-owner", mode: "author-requests" };
 
-describe.each(CHAINS)("design-role LIVE chain: $dir", ({ dir, liveRole, seedId, liveId }) => {
+describe.each(CHAINS)("design-role LIVE chain: $dir", ({ dir, liveRole }) => {
+  const seedId = `${dir}-seed`;
+  const liveId = `${dir}-live`;
   const manifests = loadStepManifests(join(MANIFESTS, dir));
   const seed = manifests.find((m) => m.id === seedId)!;
   const live = manifests.find((m) => m.id === liveId)!;

@@ -1,5 +1,5 @@
 {
-  "id": "stockflow-demo-architect-reviewer",
+  "id": "architect-reviewer",
   "role": "architect-reviewer",
   "match": { "kind": "invoke-role", "role": "architect-reviewer", "story": "S1-stock-list" },
   "inputs": [],

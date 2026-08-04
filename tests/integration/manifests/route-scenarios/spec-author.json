@@ -1,5 +1,5 @@
 {
-  "id": "stockflow-demo-spec-author",
+  "id": "spec-author",
   "role": "spec-author",
   "match": { "kind": "invoke-role", "role": "spec-author", "mode": "breakdown" },
   "inputs": [

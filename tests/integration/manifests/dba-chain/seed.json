@@ -1,5 +1,5 @@
 {
-  "id": "dba-seed",
+  "id": "dba-chain-seed",
   "role": "product-owner",
   "match": { "kind": "invoke-role", "role": "product-owner", "mode": "author-requests" },
   "inputs": [],

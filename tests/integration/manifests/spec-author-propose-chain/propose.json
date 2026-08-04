@@ -1,5 +1,5 @@
 {
-  "id": "propose-live",
+  "id": "spec-author-propose-chain-live",
   "role": "spec-author",
   "match": { "kind": "invoke-role", "role": "spec-author", "mode": "propose" },
   "inputs": [

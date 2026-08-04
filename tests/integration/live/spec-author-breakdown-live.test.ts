@@ -16,15 +16,17 @@ import { describe, it, expect } from "vitest";
 import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { layDownKitAgents } from "../../consort/orchestrator/scenarios/integration-chain.js";
-import { runManifestChain, type ManifestRunnerDeps } from "../../consort/orchestrator/manifest/manifest-runner.js";
-import { loadStepManifests, type StepManifest } from "../../consort/orchestrator/manifest/step-manifest.js";
-import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive.js";
-import type { DriveEffectsConfig } from "../../scripts/sftdd/orchestrator-effects.js";
+import { layDownKitAgents } from "../../../consort/orchestrator/scenarios/integration-chain.js";
+import { runManifestChain, type ManifestRunnerDeps } from "../../../consort/orchestrator/manifest/manifest-runner.js";
+import { loadStepManifests, type StepManifest } from "../../../consort/orchestrator/manifest/step-manifest.js";
+import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.js";
+import type { DriveEffectsConfig } from "../../../scripts/sftdd/orchestrator-effects.js";
 
 const KIT = process.cwd();
 const CORPUS = join(KIT, "tests/integration");
-const MANIFEST_DIR = join(CORPUS, "manifests");
+// The PO-seed + spec-author-breakdown pair this chain drives lives in the route-scenario set's
+// own subdir (manifests/ now holds only per-purpose subdirs).
+const MANIFEST_DIR = join(CORPUS, "manifests", "route-scenarios");
 const INTAKE = join(CORPUS, "intake");
 const FEATURE = "F1-stock-visibility";
 const SPEC_REL = `.sftdd/features/${FEATURE}/feature-spec.json`;
@@ -90,7 +92,7 @@ describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE (lean): mock PO -> live spec-a
       const turns = await runManifestChain(PO_SEED, manifests, runnerDeps);
 
       // PO replayed, then the LIVE spec-author authored a conformant feature-spec.
-      expect(turns.map((t) => t.manifestId)).toEqual(["stockflow-demo-po-seed", "stockflow-demo-spec-author"]);
+      expect(turns.map((t) => t.manifestId)).toEqual(["po-seed", "spec-author"]);
       for (const t of turns) {
         expect(t.result.violations, `${t.manifestId}: ${t.result.violations.join("; ")}`).toEqual([]);
       }

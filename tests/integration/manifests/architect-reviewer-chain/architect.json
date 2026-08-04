@@ -1,5 +1,5 @@
 {
-  "id": "arch-live",
+  "id": "architect-reviewer-chain-live",
   "role": "architect-reviewer",
   "match": { "kind": "invoke-role", "role": "architect-reviewer", "story": "S1-file-stock" },
   "inputs": [

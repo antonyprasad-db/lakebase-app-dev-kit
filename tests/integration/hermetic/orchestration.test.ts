@@ -15,17 +15,20 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { loadStepManifests, manifestForAction, validateStepManifest } from "../../consort/orchestrator/manifest/step-manifest";
-import { ManifestStep } from "../../consort/orchestrator/steps/manifest-step";
-import { execute, type StepExecutorDeps, type StepCtx } from "../../consort/orchestrator/execution/step-executor";
-import { makeMockReplayAgent } from "../../consort/orchestrator/agents/mock-replay-agent";
-import type { StepAgent } from "../../consort/orchestrator/agents/agent-types";
-import type { WorkflowAction, DriveState } from "../../scripts/sftdd/orchestrator-drive";
-import type { ValidateBoundDeps } from "../../consort/orchestrator/contract/step-contract";
+import { loadStepManifests, manifestForAction, validateStepManifest } from "../../../consort/orchestrator/manifest/step-manifest";
+import { ManifestStep } from "../../../consort/orchestrator/steps/manifest-step";
+import { execute, type StepExecutorDeps, type StepCtx } from "../../../consort/orchestrator/execution/step-executor";
+import { makeMockReplayAgent } from "../../../consort/orchestrator/agents/mock-replay-agent";
+import type { StepAgent } from "../../../consort/orchestrator/agents/agent-types";
+import type { WorkflowAction, DriveState } from "../../../scripts/sftdd/orchestrator-drive";
+import type { ValidateBoundDeps } from "../../../consort/orchestrator/contract/step-contract";
 
 const KIT = process.cwd();
 const CORPUS = join(KIT, "tests/integration");
-const MANIFEST_DIR = join(CORPUS, "manifests");
+// The route-scenario + 2-turn-orchestration manifest set lives in its OWN subdir (no longer flat
+// in manifests/, which now holds only per-purpose subdirs). loadStepManifests is non-recursive,
+// so this loads exactly the route-scenario set (the per-role live chains are separate subdirs).
+const MANIFEST_DIR = join(CORPUS, "manifests", "route-scenarios");
 const INTAKE = join(CORPUS, "intake"); // where the recorded human PO authoring lives
 
 const PO_SEED: WorkflowAction = { kind: "invoke-role", role: "product-owner", mode: "author-requests" };
@@ -57,13 +60,13 @@ describe("stockflow-demo manifests: shape + loader", () => {
     // spec-author + ux-designer invocation the orchestrator can emit). Each maps to exactly one
     // action (no ambiguous overlap).
     expect(manifests.map((m) => m.id).sort()).toEqual([
-      "stockflow-demo-architect-reviewer",
-      "stockflow-demo-po-seed",
-      "stockflow-demo-spec-author",
-      "stockflow-demo-spec-author-propose",
-      "stockflow-demo-spec-author-story",
-      "stockflow-demo-test-strategist",
-      "stockflow-demo-ux-designer",
+      "architect-reviewer",
+      "po-seed",
+      "spec-author",
+      "spec-author-propose",
+      "spec-author-story",
+      "test-strategist",
+      "ux-designer",
     ]);
     for (const m of manifests) expect(validateStepManifest(m)).toEqual({ ok: true, violations: [] });
   });

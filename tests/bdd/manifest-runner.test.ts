@@ -22,7 +22,8 @@ import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
 
 const KIT = process.cwd();
 const CORPUS = join(KIT, "tests/integration");
-const MANIFEST_DIR = join(CORPUS, "manifests");
+// The route-scenario / 2-turn-orchestration manifest set lives in its own subdir now.
+const MANIFEST_DIR = join(CORPUS, "manifests", "route-scenarios");
 const INTAKE = join(CORPUS, "intake");
 
 const PO_SEED: WorkflowAction = { kind: "invoke-role", role: "product-owner", mode: "author-requests" };
@@ -110,7 +111,7 @@ describe("runManifestChain: follow the routing across turns", () => {
     const turns = await runManifestChain(PO_SEED, manifests, deps(), { maxTurns: 2 });
 
     // Two turns ran, in order, each clean.
-    expect(turns.map((t) => t.manifestId)).toEqual(["stockflow-demo-po-seed", "stockflow-demo-spec-author"]);
+    expect(turns.map((t) => t.manifestId)).toEqual(["po-seed", "spec-author"]);
     for (const t of turns) expect(t.result.violations).toEqual([]);
 
     // The chain produced BOTH turns' artifacts in the one shared workspace.
@@ -126,7 +127,7 @@ describe("runManifestChain: follow the routing across turns", () => {
     const manifests = loadStepManifests(MANIFEST_DIR);
     const turns = await runManifestChain(PO_SEED, manifests, deps(), { maxTurns: 1 });
     expect(turns).toHaveLength(1);
-    expect(turns[0].manifestId).toBe("stockflow-demo-po-seed");
+    expect(turns[0].manifestId).toBe("po-seed");
   });
 });
 

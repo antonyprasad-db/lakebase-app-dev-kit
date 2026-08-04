@@ -1,5 +1,5 @@
 {
-  "id": "stockflow-demo-po-seed",
+  "id": "po-seed",
   "role": "product-owner",
   "match": { "kind": "invoke-role", "role": "product-owner", "mode": "author-requests" },
   "inputs": [],

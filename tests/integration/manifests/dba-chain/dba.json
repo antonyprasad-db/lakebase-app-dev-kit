@@ -1,5 +1,5 @@
 {
-  "id": "dba-live",
+  "id": "dba-chain-live",
   "role": "dba",
   "match": { "kind": "invoke-role", "role": "dba", "story": "S1-file-stock" },
   "inputs": [

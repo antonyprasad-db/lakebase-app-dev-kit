@@ -1,5 +1,5 @@
 {
-  "id": "uxchain-spec-author",
+  "id": "ux-designer-chain-spec-author",
   "role": "spec-author",
   "match": { "kind": "invoke-role", "role": "spec-author", "mode": "breakdown" },
   "inputs": [

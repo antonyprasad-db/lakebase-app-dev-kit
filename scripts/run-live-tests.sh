@@ -268,19 +268,17 @@ case "$MODE" in
     #   - spec-author-breakdown-live : mock PO -> LIVE spec-author authors feature-spec.
     #   - ux-designer-chain-live    : mock PO -> mock spec-author -> LIVE ux-designer authors
     #                                 a schema-conformant design-guide.
-    #   - design-roles-live         : one lean seed(replay) -> LIVE role chain PER design/plan
+    #   - live/<role>-live          : one lean seed(replay) -> LIVE role chain PER design/plan
     #                                 role (spec-author per-story ACs, architect-reviewer, dba,
     #                                 test-strategist, spec-author propose, architect estimate),
     #                                 each authoring its schema-gated artifact from recorded
-    #                                 inputs, on the CURRENT DEFAULT LEVERS.
+    #                                 inputs, on the CURRENT DEFAULT LEVERS. One file per role.
     # (The route-pathway suite , produced/revise/escalate/blocked , is LEAN + needs no live
     # agent, so it runs in the normal `npm test` hermetic suite: tests/bdd/route-scenarios.test.ts.
     # The per-role chain WIRING is likewise guarded hermetically in
-    # tests/integration/design-role-chains.test.ts.)
-    RUN_LIVE_STEP=1 npx vitest run \
-      tests/integration/spec-author-breakdown-live.test.ts \
-      tests/integration/ux-designer-chain-live.test.ts \
-      tests/integration/design-roles-live.test.ts
+    # tests/integration/hermetic/design-role-chains.test.ts. Everything under
+    # tests/integration/live/ is a real-agent chain, so the whole dir is the live suite.)
+    RUN_LIVE_STEP=1 npx vitest run tests/integration/live/
     ;;
   all)
     RUN_LIVE_STEP=1 npx vitest run

@@ -1,5 +1,5 @@
 {
-  "id": "ts-live",
+  "id": "test-strategist-chain-live",
   "role": "test-strategist",
   "match": { "kind": "invoke-role", "role": "test-strategist", "story": "S1-file-stock" },
   "inputs": [

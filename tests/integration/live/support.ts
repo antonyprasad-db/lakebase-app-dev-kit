@@ -1,58 +1,59 @@
-// LIVE, LEAN per-role design + plan-lane chains (gated behind RUN_LIVE_STEP=1):
-//
-//   RUN_LIVE_STEP=1 npx vitest run tests/integration/design-roles-live.test.ts
-//
-// One lean 2-turn chain per design/plan role: a REPLAY seed lays the role's RECORDED input
-// artifacts into a throwaway `.sftdd` workspace, then the REAL agent (claude) authors that
-// role's artifact from those inputs and emits an agent-report the orchestrator formats into a
-// conformant agent-log. Each artifact is gated to its canonical schema (acConformant /
-// architectureConformant / dbDesignConformant / testListConformant) or nonEmptyFile for the
-// prose/plan artifacts. USES THE CURRENT DEFAULT LEVERS (model from the manifest; no overrides).
+// Shared support for the per-role LIVE design + plan-lane chains. Each per-role test file
+// (architect-reviewer-live.test.ts, spec-author-story-live.test.ts, dba-live.test.ts, ...) is a
+// thin wrapper that names its role and calls runRoleChain(ROLE_CHAINS[<name>]) so the file stays
+// a few lines. This is the ISOLATION substrate the whole manifest/chain refactor exists for:
+// exercise ONE role's turn on its own (recorded inputs replayed in, the real agent authoring its
+// artifact), with no full-project scaffold, so each role can be instrumented + lever-swept
+// independently. NOT a .test.ts itself (no vitest include match), so importing it adds no suite.
 //
 // LEAN , NO cloud project. Every live role is tool-scoped out of Bash (never runs ./scripts/lk)
-// and reports via the agent-report channel, so nothing a scaffolded Databricks/GitHub/Lakebase
-// project would provide is needed , the whole chain runs in a temp dir. The seed + live steps
-// are the DATA in the chain manifests (tests/integration/manifests/<role>-chain/); the hermetic
-// wiring guard is design-role-chains.test.ts (runs under `npm test`).
+// and reports via the agent-report channel; the chain runs in a throwaway `.sftdd` temp dir. The
+// seed + live steps are the DATA in tests/integration/manifests/<role>-chain/; the hermetic
+// wiring guard is ../hermetic/design-role-chains.test.ts.
 
-import { describe, it, expect } from "vitest";
+import { expect } from "vitest";
 import { join } from "node:path";
-import { runIntegrationChain } from "../../consort/orchestrator/scenarios/integration-chain.js";
-import type { StepManifest } from "../../consort/orchestrator/manifest/step-manifest.js";
-import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive.js";
+import { runIntegrationChain } from "../../../consort/orchestrator/scenarios/integration-chain.js";
+import type { StepManifest } from "../../../consort/orchestrator/manifest/step-manifest.js";
+import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.js";
 
-const KIT = process.cwd();
-const MANIFESTS = join(KIT, "tests/integration/manifests");
-const INTAKE = join(KIT, "tests/integration/intake");
-const FEATURE = "F1-stock-visibility";
-const STORY = "S1-file-stock";
+export const KIT = process.cwd();
+export const MANIFESTS = join(KIT, "tests/integration/manifests");
+export const INTAKE = join(KIT, "tests/integration/intake");
+export const FEATURE = "F1-stock-visibility";
+export const STORY = "S1-file-stock";
 
-const PO_SEED: WorkflowAction = { kind: "invoke-role", role: "product-owner", mode: "author-requests" };
+/** The chain always starts from the PO seed action (the replay seed manifest matches it). */
+export const PO_SEED: WorkflowAction = { kind: "invoke-role", role: "product-owner", mode: "author-requests" };
 
 const REPORT_BLOCK =
   "As the LAST thing in your reply, emit a fenced report block:\n" +
   "```agent-report\n" +
   `[{ "level": "info", "event": "artifact.written", "message": "<one line: what you wrote>" }]\n` +
   "```\n";
-const NO_SHELL = ` Then STOP , do NOT run any shell command, do NOT run npx or ./scripts/lk, do NOT self-verify (the orchestrator validates your work). `;
+const NO_SHELL =
+  ` Then STOP , do NOT run any shell command, do NOT run npx or ./scripts/lk, do NOT self-verify (the orchestrator validates your work). `;
 
-/** One live chain: its manifest dir, the live role's id, its seed id, the expected output file
- *  (workspace-relative, the manifest output filename), and the per-live-turn prompt. */
-interface LiveChain {
+/** One live chain's definition: its manifest dir (which carries the seed + live-role manifests,
+ *  with uniform ids `<dir>-seed` / `<dir>-live`), the file the live role must produce
+ *  (workspace-relative = the manifest output filename), and the live-turn prompt. */
+export interface RoleChain {
+  /** Human name for the test title. */
   name: string;
+  /** The chain dir under tests/integration/manifests/; its manifest ids are <dir>-seed/-live. */
   dir: string;
-  seedId: string;
-  liveId: string;
+  /** The artifact the live role writes (workspace-relative), asserted in producedPaths. */
   outputFile: string;
+  /** The live-turn prompt handed to the real agent. */
   prompt: string;
 }
 
-const CHAINS: LiveChain[] = [
-  {
+/** The per-role chain catalogue, keyed by a short handle the per-role test file names. Each
+ *  matches a manifest dir 1:1; the ids are derived (<dir>-seed / <dir>-live). */
+export const ROLE_CHAINS: Record<string, RoleChain> = {
+  "spec-author-story": {
     name: "spec-author per-story ACs",
     dir: "spec-author-story-chain",
-    seedId: "sa-story-seed",
-    liveId: "sa-story-live",
     outputFile: `features/${FEATURE}/stories/${STORY}/acs/AC1-file-stock-record.json`,
     prompt:
       `You are the Spec Author. From the provided inputs (the product overview + the story stub, ` +
@@ -63,11 +64,9 @@ const CHAINS: LiveChain[] = [
       `given/when/then and a status. Author real, testable criteria from the story stub.` +
       NO_SHELL + REPORT_BLOCK,
   },
-  {
+  "architect-reviewer": {
     name: "architect-reviewer per-story",
     dir: "architect-reviewer-chain",
-    seedId: "arch-seed",
-    liveId: "arch-live",
     outputFile: `features/${FEATURE}/architecture.json`,
     prompt:
       `You are the Architect Reviewer. From the provided inputs (the NFR brief + the story AC, in ` +
@@ -79,11 +78,9 @@ const CHAINS: LiveChain[] = [
       `This feature persists stock records, so it is service_backed with a real schema.` +
       NO_SHELL + REPORT_BLOCK,
   },
-  {
+  dba: {
     name: "dba per-story schema",
     dir: "dba-chain",
-    seedId: "dba-seed",
-    liveId: "dba-live",
     outputFile: `features/${FEATURE}/db-design.json`,
     prompt:
       `You are the DBA. From the provided architecture.json (in this prompt , the architect owns ` +
@@ -96,11 +93,9 @@ const CHAINS: LiveChain[] = [
       `Do NOT re-author the invariants; physically realize them.` +
       NO_SHELL + REPORT_BLOCK,
   },
-  {
+  "test-strategist": {
     name: "test-strategist per-story",
     dir: "test-strategist-chain",
-    seedId: "ts-seed",
-    liveId: "ts-live",
     outputFile: `features/${FEATURE}/test-list.json`,
     prompt:
       `You are the Test Strategist. From the provided inputs (the story AC + architecture.json + ` +
@@ -113,11 +108,9 @@ const CHAINS: LiveChain[] = [
       `test-list.schema.json.` +
       NO_SHELL + REPORT_BLOCK,
   },
-  {
+  "spec-author-propose": {
     name: "spec-author propose (sprint plan lane)",
     dir: "spec-author-propose-chain",
-    seedId: "propose-seed",
-    liveId: "propose-live",
     outputFile: `planning/feature-proposals.md`,
     prompt:
       `You are the Spec Author in the sprint plan lane. From the provided product overview + NFR ` +
@@ -128,11 +121,9 @@ const CHAINS: LiveChain[] = [
       `them and the PO can commit a backlog.` +
       NO_SHELL + REPORT_BLOCK,
   },
-  {
+  "architect-estimator": {
     name: "architect-estimator (estimate)",
     dir: "architect-estimator-chain",
-    seedId: "estimator-seed",
-    liveId: "estimator-live",
     outputFile: `planning/estimates.json`,
     prompt:
       `You are the Architect estimating the sprint's candidate features. From the provided ` +
@@ -143,41 +134,42 @@ const CHAINS: LiveChain[] = [
       `rationale}. Size every candidate the proposals name.` +
       NO_SHELL + REPORT_BLOCK,
   },
-];
+};
 
-describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE (lean): per-role seed -> live agent design chains (default levers)", () => {
-  for (const chain of CHAINS) {
-    it(
-      `${chain.name}: replay-seeds inputs, then the REAL agent authors a conformant artifact`,
-      async () => {
-        const { turns } = await runIntegrationChain({
-          manifestDir: join(MANIFESTS, chain.dir),
-          intakeDir: INTAKE,
-          feature: FEATURE,
-          start: PO_SEED,
-          instructionsFor: (m: StepManifest) =>
-            m.agent?.kind === "claude"
-              ? { prompt: chain.prompt, guidelines: [`Write ONLY ${chain.outputFile}; end with the agent-report block; run no command.`] }
-              : { prompt: `Replay-seed for ${chain.name}.`, guidelines: [] },
-        });
+/**
+ * Run ONE role's isolated seed -> live chain end to end and assert it produced a conformant
+ * artifact + terminated cleanly. Shared by every per-role live test file. The seed replays the
+ * role's recorded inputs; only the role's own turn is a live claude spawn. The manifest ids are
+ * derived from the dir (<dir>-seed / <dir>-live), matching the uniform convention.
+ */
+export async function runRoleChain(chain: RoleChain): Promise<void> {
+  const seedId = `${chain.dir}-seed`;
+  const liveId = `${chain.dir}-live`;
 
-        // Both turns ran in order (seed replay, then the live role), each clean.
-        expect(turns.map((t) => t.manifestId)).toEqual([chain.seedId, chain.liveId]);
-        for (const t of turns) {
-          expect(t.result.violations, `${t.manifestId}: ${t.result.violations.join("; ")}`).toEqual([]);
-        }
+  const { turns } = await runIntegrationChain({
+    manifestDir: join(MANIFESTS, chain.dir),
+    intakeDir: INTAKE,
+    feature: FEATURE,
+    start: PO_SEED,
+    instructionsFor: (m: StepManifest) =>
+      m.agent?.kind === "claude"
+        ? { prompt: chain.prompt, guidelines: [`Write ONLY ${chain.outputFile}; end with the agent-report block; run no command.`] }
+        : { prompt: `Replay-seed for ${chain.name}.`, guidelines: [] },
+  });
 
-        // The live role produced its (schema-gated) artifact at the declared path, and the chain
-        // terminated cleanly (design-complete has no matching manifest in the chain).
-        const liveTurn = turns[turns.length - 1];
-        expect(liveTurn.manifestId).toBe(chain.liveId);
-        expect(
-          liveTurn.result.producedPaths.some((p) => p.endsWith(chain.outputFile)),
-          `${chain.name} produced: ${liveTurn.result.producedPaths.join(", ")}`,
-        ).toBe(true);
-        expect(liveTurn.result.bounded.action).toEqual({ kind: "design-complete" });
-      },
-      900_000,
-    );
+  // Both turns ran in order (seed replay, then the live role), each clean.
+  expect(turns.map((t) => t.manifestId)).toEqual([seedId, liveId]);
+  for (const t of turns) {
+    expect(t.result.violations, `${t.manifestId}: ${t.result.violations.join("; ")}`).toEqual([]);
   }
-});
+
+  // The live role produced its (schema-gated) artifact at the declared path, and the chain
+  // terminated cleanly (design-complete has no matching manifest in the chain).
+  const liveTurn = turns[turns.length - 1];
+  expect(liveTurn.manifestId).toBe(liveId);
+  expect(
+    liveTurn.result.producedPaths.some((p) => p.endsWith(chain.outputFile)),
+    `${chain.name} produced: ${liveTurn.result.producedPaths.join(", ")}`,
+  ).toBe(true);
+  expect(liveTurn.result.bounded.action).toEqual({ kind: "design-complete" });
+}
