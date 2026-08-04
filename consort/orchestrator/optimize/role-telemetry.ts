@@ -72,6 +72,11 @@ export interface RoleTelemetry {
   producedFile?: string;
   /** The agent's trace, when captured. */
   transcript?: RoleTranscript;
+  /** The QUALITY score (0..1) of the produced artifact vs the recorded baseline, from the
+   *  semantic/functional judge , present only when a sweep ran the quality gate. A fast candidate
+   *  with a LOW score produced a conformant-but-thinner artifact than the baseline (the coverage
+   *  the conformance gate can't see). Undefined = quality not judged (conformance-only run). */
+  semanticScore?: number;
 }
 
 /** Format one record as a single human-scannable line for the run output. Omits any number the
@@ -90,6 +95,7 @@ export function formatRoleTelemetry(t: RoleTelemetry): string {
     parts.push(`in=${t.agent.inputTokens}${cache}`);
   }
   if (t.agent?.outputTokens !== undefined) parts.push(`out=${t.agent.outputTokens}`);
+  if (t.semanticScore !== undefined) parts.push(`quality=${t.semanticScore.toFixed(2)}`);
   return parts.join(" | ");
 }
 

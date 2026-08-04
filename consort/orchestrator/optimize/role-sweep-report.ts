@@ -58,19 +58,27 @@ export function reportRoleSweep(trials: SweepTrial[]): SweepReport {
   const baselineCost = baseline?.telemetry?.agent?.costUsd;
   const role = baseline?.telemetry?.role ?? trials.find((t) => t.telemetry)?.telemetry?.role ?? "unknown";
 
-  const passers = trials.filter((t) => t.gatePassed && t.telemetry);
-  const ranked = passers
+  // Winner-eligible = conformance PASSED and (no quality gate ran OR quality PASSED). A candidate
+  // that is conformant but FAILED the quality gate is conformant-but-thinner-than-baseline , it
+  // must NOT win on speed alone (the whole point of the quality gate). It still appears ranked
+  // (with its score) for transparency, but is excluded from winner selection + flagged rejected.
+  const eligible = trials.filter((t) => t.gatePassed && t.telemetry && t.qualityPassed !== false);
+  const ranked = eligible
     .map((t) => rowFrom(t.telemetry!, baselineMs, baselineCost))
     .sort((a, b) => a.outerDurationMs - b.outerDurationMs);
 
-  // The winner: fastest gate-passer that is NOT the baseline AND is strictly faster than it.
+  // The winner: fastest ELIGIBLE candidate that is NOT the baseline AND is strictly faster than it.
   const winner = ranked.find((r) => r.candidateId !== "baseline" && r.outerDurationMs < baselineMs);
 
   const rejected = trials
-    .filter((t) => !t.gatePassed)
+    .filter((t) => !t.gatePassed || t.qualityPassed === false)
     .map((t) => ({
       candidateId: t.candidateId,
-      reason: t.disqualified ? `disqualified: ${t.reason ?? "crashed"}` : `gate failed (${t.telemetry?.outcome ?? "no live turn"})`,
+      reason: t.disqualified
+        ? `disqualified: ${t.reason ?? "crashed"}`
+        : !t.gatePassed
+          ? `gate failed (${t.telemetry?.outcome ?? "no live turn"})`
+          : `quality below baseline (score ${t.telemetry?.semanticScore?.toFixed(2) ?? "?"})`,
     }));
 
   return {

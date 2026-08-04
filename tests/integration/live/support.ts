@@ -40,7 +40,7 @@ export async function runRoleChain(chain: RoleChain): Promise<void> {
   const seedId = `${chain.dir}-seed`;
   const liveId = `${chain.dir}-live`;
 
-  const turns = await runRoleChainLive(chain);
+  const { turns } = await runRoleChainLive(chain);
 
   // Both turns ran in order (seed replay, then the live role), each clean.
   expect(turns.map((t) => t.manifestId)).toEqual([seedId, liveId]);

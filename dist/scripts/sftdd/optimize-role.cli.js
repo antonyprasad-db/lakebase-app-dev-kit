@@ -3680,49 +3680,49 @@ var require_fast_uri = __commonJS({
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
-    function resolveComponent(base, relative3, options, skipNormalization) {
+    function resolveComponent(base, relative4, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
         base = parse(serialize(base, options), options);
-        relative3 = parse(serialize(relative3, options), options);
+        relative4 = parse(serialize(relative4, options), options);
       }
       options = options || {};
-      if (!options.tolerant && relative3.scheme) {
-        target.scheme = relative3.scheme;
-        target.userinfo = relative3.userinfo;
-        target.host = relative3.host;
-        target.port = relative3.port;
-        target.path = removeDotSegments(relative3.path || "");
-        target.query = relative3.query;
+      if (!options.tolerant && relative4.scheme) {
+        target.scheme = relative4.scheme;
+        target.userinfo = relative4.userinfo;
+        target.host = relative4.host;
+        target.port = relative4.port;
+        target.path = removeDotSegments(relative4.path || "");
+        target.query = relative4.query;
       } else {
-        if (relative3.userinfo !== void 0 || relative3.host !== void 0 || relative3.port !== void 0) {
-          target.userinfo = relative3.userinfo;
-          target.host = relative3.host;
-          target.port = relative3.port;
-          target.path = removeDotSegments(relative3.path || "");
-          target.query = relative3.query;
+        if (relative4.userinfo !== void 0 || relative4.host !== void 0 || relative4.port !== void 0) {
+          target.userinfo = relative4.userinfo;
+          target.host = relative4.host;
+          target.port = relative4.port;
+          target.path = removeDotSegments(relative4.path || "");
+          target.query = relative4.query;
         } else {
-          if (!relative3.path) {
+          if (!relative4.path) {
             target.path = base.path;
-            if (relative3.query !== void 0) {
-              target.query = relative3.query;
+            if (relative4.query !== void 0) {
+              target.query = relative4.query;
             } else {
               target.query = base.query;
             }
           } else {
-            if (relative3.path[0] === "/") {
-              target.path = removeDotSegments(relative3.path);
+            if (relative4.path[0] === "/") {
+              target.path = removeDotSegments(relative4.path);
             } else {
               if ((base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0) && !base.path) {
-                target.path = "/" + relative3.path;
+                target.path = "/" + relative4.path;
               } else if (!base.path) {
-                target.path = relative3.path;
+                target.path = relative4.path;
               } else {
-                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative3.path;
+                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative4.path;
               }
               target.path = removeDotSegments(target.path);
             }
-            target.query = relative3.query;
+            target.query = relative4.query;
           }
           target.userinfo = base.userinfo;
           target.host = base.host;
@@ -3730,7 +3730,7 @@ var require_fast_uri = __commonJS({
         }
         target.scheme = base.scheme;
       }
-      target.fragment = relative3.fragment;
+      target.fragment = relative4.fragment;
       return target;
     }
     function equal(uriA, uriB, options) {
@@ -6649,8 +6649,8 @@ var require_ajv = __commonJS({
 // scripts/sftdd/optimize-role.cli.ts
 init_esm_shims();
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
-import { mkdirSync as mkdirSync18 } from "fs";
-import { join as join31 } from "path";
+import { mkdirSync as mkdirSync18, writeFileSync as writeFileSync18, readFileSync as readFileSync30, existsSync as existsSync30 } from "fs";
+import { join as join32, dirname as dirname15 } from "path";
 
 // consort/orchestrator/optimize/role-chains.ts
 init_esm_shims();
@@ -6658,9 +6658,9 @@ import { join as join29 } from "path";
 
 // consort/orchestrator/scenarios/integration-chain.ts
 init_esm_shims();
-import { mkdtempSync, mkdirSync as mkdirSync17, rmSync as rmSync8, cpSync as cpSync3, existsSync as existsSync28 } from "fs";
+import { mkdtempSync, mkdirSync as mkdirSync17, rmSync as rmSync8, cpSync as cpSync3, existsSync as existsSync28, readFileSync as readFileSync28, readdirSync as readdirSync17 } from "fs";
 import { tmpdir } from "os";
-import { join as join28 } from "path";
+import { join as join28, relative as relative3 } from "path";
 
 // consort/orchestrator/manifest/manifest-runner.ts
 init_esm_shims();
@@ -9370,10 +9370,24 @@ async function runIntegrationChain(config) {
   process.env.LAKEBASE_KIT_DIR = process.cwd();
   try {
     const turns = await runManifestChain(config.start, manifests, runnerDeps);
-    return { turns, workspaceDir };
+    const producedArtifacts = snapshotTree(join28(workspaceDir, ".sftdd"), workspaceDir);
+    return { turns, workspaceDir, producedArtifacts };
   } finally {
     rmSync8(workspaceDir, { recursive: true, force: true });
   }
+}
+function snapshotTree(root, relTo) {
+  const out = {};
+  if (!existsSync28(root)) return out;
+  const walk = (dir) => {
+    for (const entry of readdirSync17(dir, { withFileTypes: true })) {
+      const abs = join28(dir, entry.name);
+      if (entry.isDirectory()) walk(abs);
+      else if (entry.isFile()) out[relative3(relTo, abs)] = readFileSync28(abs, "utf8");
+    }
+  };
+  walk(root);
+  return out;
 }
 
 // consort/orchestrator/optimize/role-chains.ts
@@ -9440,7 +9454,7 @@ A JSON array (or object) of per-candidate {feature_id/name, size (one of XS/S/M/
 };
 async function runRoleChainLive(chain, opts = {}) {
   const kit = opts.kitDir ?? process.cwd();
-  const { turns } = await runIntegrationChain({
+  const { turns, producedArtifacts } = await runIntegrationChain({
     manifestDir: join29(kit, MANIFESTS_REL, chain.dir),
     intakeDir: join29(kit, INTAKE_REL),
     feature: FEATURE,
@@ -9450,7 +9464,7 @@ async function runRoleChainLive(chain, opts = {}) {
     instructionsFor: (m) => m.agent?.kind === "claude" ? { prompt: chain.prompt, guidelines: [`Write ONLY ${chain.outputFile}; end with the agent-report block; run no command.`] } : { prompt: `Replay-seed for ${chain.name}.`, guidelines: [] },
     ...opts.agentFor ? { agentFor: opts.agentFor } : {}
   });
-  return turns;
+  return { turns, producedArtifacts };
 }
 
 // consort/orchestrator/optimize/role-levers.ts
@@ -9476,6 +9490,93 @@ function roleCandidates(baseModel) {
 
 // consort/orchestrator/optimize/role-sweep.ts
 init_esm_shims();
+
+// scripts/sftdd/optimize-semantic-gate.ts
+init_esm_shims();
+import { execFile } from "child_process";
+import { existsSync as existsSync29, readFileSync as readFileSync29, readdirSync as readdirSync18, statSync as statSync10 } from "fs";
+import { join as join30 } from "path";
+var SEMANTIC_THRESHOLD = 0.85;
+var FUNCTIONAL_THRESHOLD = 0.75;
+function buildJudgePrompt(step, reference, candidate) {
+  return [
+    `You are a strict design reviewer scoring SEMANTIC similarity for a "${step}" design-step artifact.`,
+    `The REFERENCE is a known-good artifact recorded at this step. The CANDIDATE is a newly produced artifact for the same step.`,
+    `Judge whether the CANDIDATE conveys the SAME design intent and behavioral coverage as the REFERENCE.`,
+    `Judge MEANING, not wording: different phrasing, different ids/slugs, or a different split of the same content across sections is FINE.`,
+    `What matters: every material behavior, entity, component, decision, or constraint the REFERENCE expresses is present (equivalently) in the CANDIDATE. Extra content in the CANDIDATE is fine and not penalized.`,
+    `Return ONLY a JSON object on a single line: {"score": <0..1 float>, "missing": ["<material intent the CANDIDATE dropped>", ...]}. score 1.0 = full semantic coverage; lower as material intent is missing. missing lists ONLY dropped items (empty array when none).`,
+    ``,
+    `REFERENCE:`,
+    "```json",
+    reference,
+    "```",
+    ``,
+    `CANDIDATE:`,
+    "```json",
+    candidate,
+    "```"
+  ].join("\n");
+}
+function buildFunctionalJudgePrompt(kind, reference, candidate) {
+  const what = kind === "tests" ? `These are TEST files. Judge whether the CANDIDATE tests assert the SAME behaviors / acceptance criteria as the REFERENCE tests , the same things are verified (endpoints, validations, persistence invariants, edge/empty cases, migration reversibility).` : `These are CODE files. Judge whether the CANDIDATE code implements the SAME functionality as the REFERENCE , the same operations/endpoints, the same layer responsibilities (boundary/route, service, repository, model), the same persistence behavior.`;
+  return [
+    `You are a strict senior engineer scoring FUNCTIONAL similarity of ${kind} produced for one build turn.`,
+    `The REFERENCE is the known-good ${kind} recorded for this story in a prior build. The CANDIDATE is newly produced ${kind} for the same story.`,
+    what,
+    `Judge FUNCTION, not form: different file names, symbol names, ordering, formatting, or a different structural split of the SAME behavior/functionality is FINE and must NOT lower the score. Only MISSING or CHANGED behavior/functionality lowers it. Extra behavior in the CANDIDATE is fine and not penalized.`,
+    `Return ONLY a JSON object on a single line: {"score": <0..1 float>, "missing": ["<behavior/functionality the CANDIDATE dropped or changed>", ...]}. score 1.0 = full functional coverage; lower as material behavior/functionality is missing or altered. missing lists ONLY dropped/changed items (empty array when none).`,
+    ``,
+    `REFERENCE ${kind}:`,
+    "```",
+    reference,
+    "```",
+    ``,
+    `CANDIDATE ${kind}:`,
+    "```",
+    candidate,
+    "```"
+  ].join("\n");
+}
+function parseJudgeReply(reply) {
+  const m = reply.match(/\{[\s\S]*?"score"[\s\S]*?\}/);
+  if (m) {
+    try {
+      const obj = JSON.parse(m[0]);
+      const score = typeof obj.score === "number" ? Math.max(0, Math.min(1, obj.score)) : 0;
+      const missing = Array.isArray(obj.missing) ? obj.missing.map(String) : void 0;
+      return { score, missing, raw: reply };
+    } catch {
+    }
+  }
+  return { score: 0, missing: ["judge reply not parseable as a score"], raw: reply };
+}
+function makeOpusJudge(opts) {
+  const model = opts.model ?? "opus";
+  return ({ step, reference, candidate, functional }) => new Promise((resolve3) => {
+    const prompt = functional ? buildFunctionalJudgePrompt(functional, reference, candidate) : buildJudgePrompt(step, reference, candidate);
+    execFile(
+      "claude",
+      ["-p", prompt, "--model", model, "--permission-mode", "acceptEdits", "--strict-mcp-config", "--output-format", "json"],
+      { cwd: opts.cwd, maxBuffer: 32 * 1024 * 1024, timeout: 5 * 6e4 },
+      (err, stdout) => {
+        if (err && !stdout) {
+          resolve3({ score: 0, missing: [`judge spawn failed: ${err.message}`] });
+          return;
+        }
+        let text = stdout;
+        try {
+          const parsed = JSON.parse(stdout);
+          if (typeof parsed.result === "string") text = parsed.result;
+        } catch {
+        }
+        resolve3(parseJudgeReply(text));
+      }
+    );
+  });
+}
+
+// consort/orchestrator/optimize/role-sweep.ts
 function agentForCandidate(chain, patch) {
   const liveId = `${chain.dir}-live`;
   return (m) => {
@@ -9530,7 +9631,9 @@ function trialTelemetry(chain, candidate, turns) {
   };
   return { gatePassed, telemetry };
 }
-async function runRoleSweep(chain, candidates, runChain, hooks = {}) {
+async function runRoleSweep(chain, candidates, runChain, options = {}) {
+  const hooks = options;
+  const quality = options.quality;
   const trials = [];
   let index = 0;
   for (const candidate of candidates) {
@@ -9538,9 +9641,21 @@ async function runRoleSweep(chain, candidates, runChain, hooks = {}) {
     hooks.onStart?.(candidate, index, candidates.length);
     let trial;
     try {
-      const turns = await runChain(chain, agentForCandidate(chain, candidate.levers));
+      const { turns, producedArtifacts } = await runChain(chain, agentForCandidate(chain, candidate.levers), candidate.id);
       const { gatePassed, telemetry } = trialTelemetry(chain, candidate, turns);
-      trial = { candidateId: candidate.id, levers: candidate.levers, gatePassed, telemetry };
+      trial = { candidateId: candidate.id, levers: candidate.levers, gatePassed, telemetry, producedArtifacts };
+      const primary = producedArtifacts[chain.outputFile];
+      if (quality && gatePassed && primary !== void 0) {
+        const threshold = quality.threshold ?? (quality.kind ? FUNCTIONAL_THRESHOLD : SEMANTIC_THRESHOLD);
+        const verdict = await quality.judge({
+          step: "test-list",
+          reference: quality.referenceText,
+          candidate: primary,
+          ...quality.kind ? { functional: quality.kind } : {}
+        });
+        trial.qualityPassed = verdict.score >= threshold;
+        if (trial.telemetry) trial.telemetry.semanticScore = verdict.score;
+      }
     } catch (e) {
       trial = {
         candidateId: candidate.id,
@@ -9562,12 +9677,7 @@ init_esm_shims();
 // consort/orchestrator/optimize/role-telemetry.ts
 init_esm_shims();
 import { writeFileSync as writeFileSync17 } from "fs";
-import { join as join30 } from "path";
-function writeRoleTelemetry(dir, record) {
-  const path10 = join30(dir, `${record.chain}.telemetry.json`);
-  writeFileSync17(path10, JSON.stringify(record, null, 2) + "\n");
-  return path10;
-}
+import { join as join31 } from "path";
 
 // consort/orchestrator/optimize/role-sweep-report.ts
 function rowFrom(t, baselineMs, baselineCost) {
@@ -9587,12 +9697,12 @@ function reportRoleSweep(trials) {
   const baselineMs = baseline?.telemetry?.outerDurationMs ?? 0;
   const baselineCost = baseline?.telemetry?.agent?.costUsd;
   const role = baseline?.telemetry?.role ?? trials.find((t) => t.telemetry)?.telemetry?.role ?? "unknown";
-  const passers = trials.filter((t) => t.gatePassed && t.telemetry);
-  const ranked = passers.map((t) => rowFrom(t.telemetry, baselineMs, baselineCost)).sort((a, b) => a.outerDurationMs - b.outerDurationMs);
+  const eligible = trials.filter((t) => t.gatePassed && t.telemetry && t.qualityPassed !== false);
+  const ranked = eligible.map((t) => rowFrom(t.telemetry, baselineMs, baselineCost)).sort((a, b) => a.outerDurationMs - b.outerDurationMs);
   const winner = ranked.find((r) => r.candidateId !== "baseline" && r.outerDurationMs < baselineMs);
-  const rejected = trials.filter((t) => !t.gatePassed).map((t) => ({
+  const rejected = trials.filter((t) => !t.gatePassed || t.qualityPassed === false).map((t) => ({
     candidateId: t.candidateId,
-    reason: t.disqualified ? `disqualified: ${t.reason ?? "crashed"}` : `gate failed (${t.telemetry?.outcome ?? "no live turn"})`
+    reason: t.disqualified ? `disqualified: ${t.reason ?? "crashed"}` : !t.gatePassed ? `gate failed (${t.telemetry?.outcome ?? "no live turn"})` : `quality below baseline (score ${t.telemetry?.semanticScore?.toFixed(2) ?? "?"})`
   }));
   return {
     role,
@@ -9662,31 +9772,68 @@ async function runOptimizeRole(args) {
   const chain = ROLE_CHAINS[args.role];
   const baseModel = baseModelFor(args.role, args.baseModel);
   const candidates = roleCandidates(baseModel);
-  const telemetryDir = args.telemetryDir ?? join31(process.cwd(), ".role-telemetry", `sweep-${args.role}`);
-  mkdirSync18(telemetryDir, { recursive: true });
-  console.log(`[optimize-role] ${args.role}: baseline model=${baseModel}, ${candidates.length} candidates (baseline + ${candidates.length - 1}).`);
+  const runDir = args.telemetryDir ?? join32(process.cwd(), ".role-telemetry", `sweep-${args.role}-${runStamp()}`);
+  mkdirSync18(runDir, { recursive: true });
+  const referenceText = readReference(chain, args.role);
+  const quality = referenceText ? { referenceText, judge: makeOpusJudge({ cwd: process.cwd() }), kind: "tests" } : void 0;
+  console.log(
+    `[optimize-role] ${args.role}: baseline model=${baseModel}, ${candidates.length} candidates. quality gate: ${quality ? "ON (functional vs recorded baseline)" : "OFF (no reference on disk)"}. run dir: ${runDir}`
+  );
   const trials = await runRoleSweep(
     chain,
     candidates,
     async (c, agentFor) => runRoleChainLive(c, { agentFor }),
     {
+      ...quality ? { quality } : {},
       onStart: (candidate, i, total) => {
         console.log(`[optimize-role] (${i}/${total}) running ${candidate.id} , levers ${JSON.stringify(candidate.levers)} ...`);
       },
-      // Persist each trial's telemetry AS IT COMPLETES (not batched at the end), so an
-      // interrupted long sweep still leaves every finished candidate's record on disk.
+      // PRESERVE each candidate's full result AS IT COMPLETES (not batched at the end): its
+      // telemetry, its produced artifacts (the actual files), and a replay.json (levers + seed
+      // corpus ref) , so the experiment is reproducible + re-judgeable, and an interrupted sweep
+      // still leaves every finished candidate's evidence on disk.
       onDone: (trial, i, total) => {
-        if (trial.telemetry) writeRoleTelemetry(telemetryDir, trial.telemetry);
+        persistTrial(runDir, chain, baseModel, trial);
+        const q = trial.qualityPassed === void 0 ? "" : trial.qualityPassed ? " quality PASSED" : ` quality FAILED (${trial.telemetry?.semanticScore?.toFixed(2)})`;
         const status = trial.disqualified ? `DISQUALIFIED (${trial.reason})` : trial.gatePassed ? "gate PASSED" : "gate failed";
-        console.log(`[optimize-role] (${i}/${total}) ${trial.candidateId}: ${status}${trial.telemetry?.outerDurationMs ? ` , ${(trial.telemetry.outerDurationMs / 1e3).toFixed(1)}s` : ""}`);
+        console.log(`[optimize-role] (${i}/${total}) ${trial.candidateId}: ${status}${q}${trial.telemetry?.outerDurationMs ? ` , ${(trial.telemetry.outerDurationMs / 1e3).toFixed(1)}s` : ""}`);
       }
     }
   );
   const report = reportRoleSweep(trials);
+  writeFileSync18(join32(runDir, "report.txt"), formatRoleSweepReport(report) + "\n");
   console.log("\n" + formatRoleSweepReport(report) + `
 
-(telemetry records -> ${telemetryDir})`);
+(full evidence , telemetry + produced artifacts + replay.json per candidate -> ${runDir})`);
   return report;
+}
+function runStamp() {
+  return (/* @__PURE__ */ new Date()).toISOString().replace(/[-:T]/g, "").slice(0, 15);
+}
+function readReference(chain, _role) {
+  const p = join32(process.cwd(), INTAKE_REL, chain.outputFile);
+  return existsSync30(p) ? readFileSync30(p, "utf8") : void 0;
+}
+function persistTrial(runDir, chain, baseModel, trial) {
+  const dir = join32(runDir, trial.candidateId);
+  mkdirSync18(dir, { recursive: true });
+  if (trial.telemetry) writeFileSync18(join32(dir, "telemetry.json"), JSON.stringify(trial.telemetry, null, 2) + "\n");
+  for (const [rel, contents] of Object.entries(trial.producedArtifacts ?? {})) {
+    const dest = join32(dir, "artifacts", rel);
+    mkdirSync18(dirname15(dest), { recursive: true });
+    writeFileSync18(dest, contents);
+  }
+  const replay = {
+    role: chain.dir,
+    candidateId: trial.candidateId,
+    baseModel,
+    levers: trial.levers,
+    seedCorpus: `${INTAKE_REL} (recorded intake replayed into the chain)`,
+    gatePassed: trial.gatePassed,
+    ...trial.qualityPassed !== void 0 ? { qualityPassed: trial.qualityPassed } : {},
+    ...trial.disqualified ? { disqualified: true, reason: trial.reason } : {}
+  };
+  writeFileSync18(join32(dir, "replay.json"), JSON.stringify(replay, null, 2) + "\n");
 }
 if (isCliEntry(import.meta.url)) {
   runOptimizeRole(parseArgs(process.argv.slice(2))).then((r) => process.exit(r.winner ? 0 : 0)).catch((e) => {

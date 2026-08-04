@@ -65,6 +65,11 @@ interface RoleTelemetry {
     producedFile?: string;
     /** The agent's trace, when captured. */
     transcript?: RoleTranscript;
+    /** The QUALITY score (0..1) of the produced artifact vs the recorded baseline, from the
+     *  semantic/functional judge , present only when a sweep ran the quality gate. A fast candidate
+     *  with a LOW score produced a conformant-but-thinner artifact than the baseline (the coverage
+     *  the conformance gate can't see). Undefined = quality not judged (conformance-only run). */
+    semanticScore?: number;
 }
 
 /** The candidate's lever patch on the live role's AgentLevers. All optional; absent = the role's
@@ -77,13 +82,19 @@ interface RoleLeverPatch {
 }
 
 /** One candidate's measured outcome. `gatePassed` is the conformance bar (no violations + the
- *  artifact produced + the chain terminated at design-complete); `telemetry` is the trial record;
+ *  artifact produced + the chain terminated at design-complete); `qualityPassed` is the
+ *  quality-vs-baseline bar (undefined when no quality gate ran); `telemetry` is the trial record;
  *  `disqualified` (+ reason) marks a crash or a chain that never reached the live turn. */
 interface SweepTrial {
     candidateId: string;
     levers: RoleLeverPatch;
     gatePassed: boolean;
+    qualityPassed?: boolean;
     telemetry?: RoleTelemetry;
+    /** The PRESERVED produced-artifact tree for this candidate ({relpath -> contents}), so the
+     *  caller persists the actual outputs to a durable per-candidate dir , not just telemetry.
+     *  Empty on a disqualified/crashed candidate that produced nothing. */
+    producedArtifacts?: Record<string, string>;
     disqualified?: boolean;
     reason?: string;
 }

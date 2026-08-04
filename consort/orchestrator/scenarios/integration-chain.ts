@@ -6,9 +6,9 @@
 // workspace, no cloud project (a chain with one live agent still only needs a temp dir + the
 // agent-report channel).
 
-import { mkdtempSync, mkdirSync, rmSync, cpSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, cpSync, existsSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { runManifestChain, type ManifestRunnerDeps, type ManifestTurn } from "../manifest/manifest-runner.js";
 import { loadStepManifests, type StepManifest } from "../manifest/step-manifest.js";
 import type { StepInstructions } from "../agents/agent-types.js";
@@ -58,6 +58,12 @@ export interface IntegrationChainResult {
   turns: ManifestTurn[];
   /** The workspace the chain ran in (already removed by the time this returns). */
   workspaceDir: string;
+  /** ALWAYS-ON artifact preservation: a snapshot of the produced `.sftdd` tree ({workspace-
+   *  relative path -> file contents}), read BEFORE the workspace is torn down. Every run keeps
+   *  its produced outputs , telemetry alone cannot reproduce or re-judge a result, so this is
+   *  not optional (see the preserve-experiment-artifacts rule). A caller (the sweep) persists
+   *  this to a durable per-experiment dir + can score any file in it. */
+  producedArtifacts: Record<string, string>;
 }
 
 /**
@@ -113,8 +119,30 @@ export async function runIntegrationChain(config: IntegrationChainConfig): Promi
 
   try {
     const turns = await runManifestChain(config.start, manifests, runnerDeps);
-    return { turns, workspaceDir };
+    // ALWAYS preserve the produced outputs BEFORE teardown: snapshot the whole `.sftdd` tree
+    // (every file the run wrote) into a {relpath -> contents} map. A run's produced artifacts
+    // must survive the throwaway workspace , telemetry alone cannot reproduce or re-judge a
+    // result (see the preserve-experiment-artifacts rule). A caller persists this to a durable
+    // per-experiment dir. Never optional.
+    const producedArtifacts = snapshotTree(join(workspaceDir, ".sftdd"), workspaceDir);
+    return { turns, workspaceDir, producedArtifacts };
   } finally {
     rmSync(workspaceDir, { recursive: true, force: true });
   }
+}
+
+/** Snapshot every file under `root` into a { path-relative-to-`relTo` : contents } map. Used to
+ *  preserve a run's produced artifacts before the workspace is torn down. Absent root -> {}. */
+function snapshotTree(root: string, relTo: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!existsSync(root)) return out;
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const abs = join(dir, entry.name);
+      if (entry.isDirectory()) walk(abs);
+      else if (entry.isFile()) out[relative(relTo, abs)] = readFileSync(abs, "utf8");
+    }
+  };
+  walk(root);
+  return out;
 }

@@ -147,16 +147,24 @@ export interface RunRoleChainOptions {
   agentFor?(manifest: StepManifest): StepAgent | undefined;
 }
 
+/** What a role chain run returns: the turns PLUS the preserved produced-artifact tree (every
+ *  file the run wrote, {relpath -> contents}), so the caller keeps the actual outputs, not just
+ *  telemetry. */
+export interface RoleChainRun {
+  turns: ManifestTurn[];
+  producedArtifacts: Record<string, string>;
+}
+
 /**
- * Run ONE role chain end to end (seed replay -> live role) and return every turn. Shared by the
- * live tests (no agentFor = default levers from the manifest) and the sweep (agentFor patches the
- * live role's levers per candidate). The last turn is the live role's; its .telemetry carries the
- * measured usage. Assertions live in the caller (the live test asserts conformance; the sweep
- * gates on it), so this stays a pure runner.
+ * Run ONE role chain end to end (seed replay -> live role) and return every turn + the preserved
+ * produced-artifact tree. Shared by the live tests (no agentFor = default levers from the manifest)
+ * and the sweep (agentFor patches the live role's levers per candidate). The last turn is the live
+ * role's; its .telemetry carries the measured usage; producedArtifacts holds the actual files it
+ * wrote (captured before teardown). Assertions live in the caller.
  */
-export async function runRoleChainLive(chain: RoleChain, opts: RunRoleChainOptions = {}): Promise<ManifestTurn[]> {
+export async function runRoleChainLive(chain: RoleChain, opts: RunRoleChainOptions = {}): Promise<RoleChainRun> {
   const kit = opts.kitDir ?? process.cwd();
-  const { turns } = await runIntegrationChain({
+  const { turns, producedArtifacts } = await runIntegrationChain({
     manifestDir: join(kit, MANIFESTS_REL, chain.dir),
     intakeDir: join(kit, INTAKE_REL),
     feature: FEATURE,
@@ -169,5 +177,5 @@ export async function runRoleChainLive(chain: RoleChain, opts: RunRoleChainOptio
         : { prompt: `Replay-seed for ${chain.name}.`, guidelines: [] },
     ...(opts.agentFor ? { agentFor: opts.agentFor } : {}),
   });
-  return turns;
+  return { turns, producedArtifacts };
 }

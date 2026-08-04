@@ -13,6 +13,7 @@
 // falls through to its replay).
 
 import { ClaudeStepAgent, type AgentLevers } from "../agents/claude-step-agent.js";
+import { FUNCTIONAL_THRESHOLD, SEMANTIC_THRESHOLD, type SemanticJudge, type BuildOutputKind } from "../../../scripts/sftdd/optimize-semantic-gate.js";
 import type { StepManifest } from "../manifest/step-manifest.js";
 import type { StepAgent } from "../agents/agent-types.js";
 import type { ManifestTurn } from "../manifest/manifest-runner.js";
@@ -20,21 +21,49 @@ import type { RoleChain } from "./role-chains.js";
 import type { RoleCandidate, RoleLeverPatch } from "./role-levers.js";
 import type { RoleTelemetry } from "./role-telemetry.js";
 
-/** The runner seam: run ONE chain with an optional per-manifest agent override + return the turns.
- *  The live CLI binds runRoleChainLive; tests bind a fake. */
+/** What one chain run returns: the turns PLUS the PRESERVED produced-artifact tree ({relpath ->
+ *  contents}, every file the run wrote, captured before teardown). The whole tree is kept , a
+ *  run's outputs must survive so the result is reproducible + re-judgeable, not just its
+ *  telemetry (the preserve-experiment-artifacts rule). The quality gate scores the primary file. */
+export interface ChainRunResult {
+  turns: ManifestTurn[];
+  producedArtifacts: Record<string, string>;
+}
+
+/** The runner seam: run ONE chain with an optional per-manifest agent override + return the
+ *  turns + the preserved artifact tree. The candidateId is passed for logging/routing. The live
+ *  CLI binds runRoleChainLive; tests bind a fake. */
 export type ChainRunner = (
   chain: RoleChain,
   agentFor: (m: StepManifest) => StepAgent | undefined,
-) => Promise<ManifestTurn[]>;
+  candidateId: string,
+) => Promise<ChainRunResult>;
+
+/** The QUALITY gate config: score the candidate's captured artifact against a recorded baseline
+ *  via the injected judge (reuses optimize-semantic-gate's SemanticJudge). `kind` picks the
+ *  functional-equivalence prompt (tests/code) vs the semantic-intent prompt (undefined). A
+ *  candidate below `threshold` is conformant but THINNER than the baseline , not winner-eligible. */
+export interface QualityGate {
+  referenceText: string;
+  judge: SemanticJudge;
+  kind?: BuildOutputKind;
+  threshold?: number;
+}
 
 /** One candidate's measured outcome. `gatePassed` is the conformance bar (no violations + the
- *  artifact produced + the chain terminated at design-complete); `telemetry` is the trial record;
+ *  artifact produced + the chain terminated at design-complete); `qualityPassed` is the
+ *  quality-vs-baseline bar (undefined when no quality gate ran); `telemetry` is the trial record;
  *  `disqualified` (+ reason) marks a crash or a chain that never reached the live turn. */
 export interface SweepTrial {
   candidateId: string;
   levers: RoleLeverPatch;
   gatePassed: boolean;
+  qualityPassed?: boolean;
   telemetry?: RoleTelemetry;
+  /** The PRESERVED produced-artifact tree for this candidate ({relpath -> contents}), so the
+   *  caller persists the actual outputs to a durable per-candidate dir , not just telemetry.
+   *  Empty on a disqualified/crashed candidate that produced nothing. */
+  producedArtifacts?: Record<string, string>;
   disqualified?: boolean;
   reason?: string;
 }
@@ -115,12 +144,21 @@ export interface SweepHooks {
   onDone?(trial: SweepTrial, index: number, total: number): void;
 }
 
+/** Options for a sweep: progress hooks + an OPTIONAL quality gate (score each conformant
+ *  candidate's produced artifact against a recorded baseline). Both optional , omitting quality
+ *  is the conformance-only sweep (prior behavior). Back-compat: a bare SweepHooks is accepted. */
+export interface SweepOptions extends SweepHooks {
+  quality?: QualityGate;
+}
+
 export async function runRoleSweep(
   chain: RoleChain,
   candidates: RoleCandidate[],
   runChain: ChainRunner,
-  hooks: SweepHooks = {},
+  options: SweepOptions = {},
 ): Promise<SweepTrial[]> {
+  const hooks = options;
+  const quality = options.quality;
   const trials: SweepTrial[] = [];
   let index = 0;
   for (const candidate of candidates) {
@@ -128,9 +166,25 @@ export async function runRoleSweep(
     hooks.onStart?.(candidate, index, candidates.length);
     let trial: SweepTrial;
     try {
-      const turns = await runChain(chain, agentForCandidate(chain, candidate.levers));
+      const { turns, producedArtifacts } = await runChain(chain, agentForCandidate(chain, candidate.levers), candidate.id);
       const { gatePassed, telemetry } = trialTelemetry(chain, candidate, turns);
-      trial = { candidateId: candidate.id, levers: candidate.levers, gatePassed, telemetry };
+      // PRESERVE the produced artifacts on the trial so the caller persists the actual outputs.
+      trial = { candidateId: candidate.id, levers: candidate.levers, gatePassed, telemetry, producedArtifacts };
+      // QUALITY gate: for a conformant candidate whose PRIMARY artifact is present + a gate is
+      // configured. Score the primary file vs the baseline; below threshold = conformant-but-
+      // thinner, not winner-eligible. The primary is chain.outputFile within the preserved tree.
+      const primary = producedArtifacts[chain.outputFile];
+      if (quality && gatePassed && primary !== undefined) {
+        const threshold = quality.threshold ?? (quality.kind ? FUNCTIONAL_THRESHOLD : SEMANTIC_THRESHOLD);
+        const verdict = await quality.judge({
+          step: "test-list" as never,
+          reference: quality.referenceText,
+          candidate: primary,
+          ...(quality.kind ? { functional: quality.kind } : {}),
+        });
+        trial.qualityPassed = verdict.score >= threshold;
+        if (trial.telemetry) trial.telemetry.semanticScore = verdict.score;
+      }
     } catch (e) {
       trial = {
         candidateId: candidate.id,
