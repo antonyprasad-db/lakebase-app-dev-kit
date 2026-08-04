@@ -85,18 +85,22 @@ export async function runOptimizeRole(args: OptimizeRoleArgs): Promise<ReturnTyp
     chain,
     candidates,
     async (c, agentFor) => runRoleChainLive(c, { agentFor: agentFor as (m: StepManifest) => StepAgent | undefined }),
-    (candidate, i, total) => {
-      // eslint-disable-next-line no-console
-      console.log(`[optimize-role] (${i}/${total}) running ${candidate.id} , levers ${JSON.stringify(candidate.levers)} ...`);
+    {
+      onStart: (candidate, i, total) => {
+        // eslint-disable-next-line no-console
+        console.log(`[optimize-role] (${i}/${total}) running ${candidate.id} , levers ${JSON.stringify(candidate.levers)} ...`);
+      },
+      // Persist each trial's telemetry AS IT COMPLETES (not batched at the end), so an
+      // interrupted long sweep still leaves every finished candidate's record on disk.
+      onDone: (trial, i, total) => {
+        if (trial.telemetry) writeRoleTelemetry(telemetryDir, trial.telemetry);
+        const status = trial.disqualified ? `DISQUALIFIED (${trial.reason})` : trial.gatePassed ? "gate PASSED" : "gate failed";
+        // eslint-disable-next-line no-console
+        console.log(`[optimize-role] (${i}/${total}) ${trial.candidateId}: ${status}${trial.telemetry?.outerDurationMs ? ` , ${(trial.telemetry.outerDurationMs / 1000).toFixed(1)}s` : ""}`);
+      },
     },
   );
 
-  // Persist every trial's telemetry (survives beyond the run) + print its one-line summary.
-  for (const trial of trials) {
-    if (trial.telemetry) {
-      writeRoleTelemetry(telemetryDir, trial.telemetry);
-    }
-  }
   const report = reportRoleSweep(trials);
   // eslint-disable-next-line no-console
   console.log("\n" + formatRoleSweepReport(report) + `\n\n(telemetry records -> ${telemetryDir})`);

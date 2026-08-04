@@ -106,30 +106,42 @@ function trialTelemetry(chain: RoleChain, candidate: RoleCandidate, turns: Manif
  * candidate. A candidate whose run THROWS (a crash, an infra error) is disqualified with the
  * error message + the sweep continues , never aborts the whole run on one bad candidate.
  */
+export interface SweepHooks {
+  /** Called BEFORE each candidate runs (progress logging). */
+  onStart?(candidate: RoleCandidate, index: number, total: number): void;
+  /** Called AFTER each candidate completes (pass, gate-fail, or disqualify), with its trial.
+   *  The CLI persists the trial's telemetry HERE , incrementally , so a long sweep that is
+   *  interrupted still has every completed candidate's record on disk (not batched at the end). */
+  onDone?(trial: SweepTrial, index: number, total: number): void;
+}
+
 export async function runRoleSweep(
   chain: RoleChain,
   candidates: RoleCandidate[],
   runChain: ChainRunner,
-  onTrialStart?: (candidate: RoleCandidate, index: number, total: number) => void,
+  hooks: SweepHooks = {},
 ): Promise<SweepTrial[]> {
   const trials: SweepTrial[] = [];
   let index = 0;
   for (const candidate of candidates) {
     index += 1;
-    onTrialStart?.(candidate, index, candidates.length);
+    hooks.onStart?.(candidate, index, candidates.length);
+    let trial: SweepTrial;
     try {
       const turns = await runChain(chain, agentForCandidate(chain, candidate.levers));
       const { gatePassed, telemetry } = trialTelemetry(chain, candidate, turns);
-      trials.push({ candidateId: candidate.id, levers: candidate.levers, gatePassed, telemetry });
+      trial = { candidateId: candidate.id, levers: candidate.levers, gatePassed, telemetry };
     } catch (e) {
-      trials.push({
+      trial = {
         candidateId: candidate.id,
         levers: candidate.levers,
         gatePassed: false,
         disqualified: true,
         reason: e instanceof Error ? e.message : String(e),
-      });
+      };
     }
+    trials.push(trial);
+    hooks.onDone?.(trial, index, candidates.length);
   }
   return trials;
 }

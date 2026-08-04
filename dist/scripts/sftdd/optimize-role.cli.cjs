@@ -9539,25 +9539,28 @@ function trialTelemetry(chain, candidate, turns) {
   };
   return { gatePassed, telemetry };
 }
-async function runRoleSweep(chain, candidates, runChain, onTrialStart) {
+async function runRoleSweep(chain, candidates, runChain, hooks = {}) {
   const trials = [];
   let index = 0;
   for (const candidate of candidates) {
     index += 1;
-    onTrialStart?.(candidate, index, candidates.length);
+    hooks.onStart?.(candidate, index, candidates.length);
+    let trial;
     try {
       const turns = await runChain(chain, agentForCandidate(chain, candidate.levers));
       const { gatePassed, telemetry } = trialTelemetry(chain, candidate, turns);
-      trials.push({ candidateId: candidate.id, levers: candidate.levers, gatePassed, telemetry });
+      trial = { candidateId: candidate.id, levers: candidate.levers, gatePassed, telemetry };
     } catch (e) {
-      trials.push({
+      trial = {
         candidateId: candidate.id,
         levers: candidate.levers,
         gatePassed: false,
         disqualified: true,
         reason: e instanceof Error ? e.message : String(e)
-      });
+      };
     }
+    trials.push(trial);
+    hooks.onDone?.(trial, index, candidates.length);
   }
   return trials;
 }
@@ -9675,15 +9678,19 @@ async function runOptimizeRole(args) {
     chain,
     candidates,
     async (c, agentFor) => runRoleChainLive(c, { agentFor }),
-    (candidate, i, total) => {
-      console.log(`[optimize-role] (${i}/${total}) running ${candidate.id} , levers ${JSON.stringify(candidate.levers)} ...`);
+    {
+      onStart: (candidate, i, total) => {
+        console.log(`[optimize-role] (${i}/${total}) running ${candidate.id} , levers ${JSON.stringify(candidate.levers)} ...`);
+      },
+      // Persist each trial's telemetry AS IT COMPLETES (not batched at the end), so an
+      // interrupted long sweep still leaves every finished candidate's record on disk.
+      onDone: (trial, i, total) => {
+        if (trial.telemetry) writeRoleTelemetry(telemetryDir, trial.telemetry);
+        const status = trial.disqualified ? `DISQUALIFIED (${trial.reason})` : trial.gatePassed ? "gate PASSED" : "gate failed";
+        console.log(`[optimize-role] (${i}/${total}) ${trial.candidateId}: ${status}${trial.telemetry?.outerDurationMs ? ` , ${(trial.telemetry.outerDurationMs / 1e3).toFixed(1)}s` : ""}`);
+      }
     }
   );
-  for (const trial of trials) {
-    if (trial.telemetry) {
-      writeRoleTelemetry(telemetryDir, trial.telemetry);
-    }
-  }
   const report = reportRoleSweep(trials);
   console.log("\n" + formatRoleSweepReport(report) + `
 
