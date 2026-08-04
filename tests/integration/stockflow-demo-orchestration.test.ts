@@ -18,7 +18,7 @@ import { join } from "path";
 import { loadStepManifests, manifestForAction, validateStepManifest } from "../../consort/orchestrator/manifest/step-manifest";
 import { ManifestStep } from "../../consort/orchestrator/steps/manifest-step";
 import { execute, type StepExecutorDeps, type StepCtx } from "../../consort/orchestrator/execution/step-executor";
-import { makeReplayPoMockAgent } from "../../consort/orchestrator/agents/replay-po-mock-agent";
+import { makeMockReplayAgent } from "../../consort/orchestrator/agents/mock-replay-agent";
 import type { StepAgent } from "../../consort/orchestrator/agents/agent-types";
 import type { WorkflowAction, DriveState } from "../../scripts/sftdd/orchestrator-drive";
 import type { ValidateBoundDeps } from "../../consort/orchestrator/contract/step-contract";
@@ -78,7 +78,7 @@ describe("stockflow-demo: 2-turn replay orchestration through the StepExecutor",
   it("turn 1 (PO Human Mock) materializes the 3 recorded PO files + routes to spec-author", async () => {
     const manifest = manifestForAction(PO_SEED, loadStepManifests(MANIFEST_DIR))!;
     // The PO Human Mock: replays the RECORDED human authoring from the corpus intake dir.
-    const agent = makeReplayPoMockAgent({
+    const agent = makeMockReplayAgent({
       corpusRoot: INTAKE,
       seeds: [
         { outputId: "product-overview", from: "product-overview.md", to: "product-overview.md" },

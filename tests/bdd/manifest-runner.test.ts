@@ -14,7 +14,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { runManifestStep, runManifestChain, type ManifestRunnerDeps } from "../../consort/orchestrator/manifest/manifest-runner";
 import { loadStepManifests } from "../../consort/orchestrator/manifest/step-manifest";
-import { makeReplayPoMockAgent } from "../../consort/orchestrator/agents/replay-po-mock-agent";
+import { makeMockReplayAgent } from "../../consort/orchestrator/agents/mock-replay-agent";
 import { writeEscalation } from "../../scripts/sftdd/escalation";
 import type { StepAgent } from "../../consort/orchestrator/agents/agent-types";
 import type { StepManifest } from "../../consort/orchestrator/manifest/step-manifest";
@@ -37,7 +37,7 @@ afterEach(() => rmSync(ws, { recursive: true, force: true }));
 /** The PO mock (turn 1) + a mock spec-author (turn 2), keyed by the manifest's role. */
 function agentFor(manifest: StepManifest): StepAgent {
   if (manifest.role === "product-owner") {
-    return makeReplayPoMockAgent({
+    return makeMockReplayAgent({
       corpusRoot: INTAKE,
       seeds: [
         { outputId: "product-overview", from: "product-overview.md", to: "product-overview.md" },

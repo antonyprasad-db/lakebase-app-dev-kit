@@ -13,7 +13,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runRouteScenario, routeMatches, type RouteScenarioHooks } from "../../consort/orchestrator/scenarios/route-scenario";
 import { ROUTE_SCENARIOS } from "../../consort/orchestrator/scenarios/route-scenarios";
-import { makeReplayPoMockAgent } from "../../consort/orchestrator/agents/replay-po-mock-agent";
+import { makeMockReplayAgent } from "../../consort/orchestrator/agents/mock-replay-agent";
 import type { StepAgent } from "../../consort/orchestrator/agents/agent-types";
 import type { StepManifest } from "../../consort/orchestrator/manifest/step-manifest";
 import type { ManifestRunnerDeps } from "../../consort/orchestrator/manifest/manifest-runner";
@@ -36,7 +36,7 @@ const CONFORMANT_DESIGN_GUIDE = JSON.stringify({
 function makeAgentFor(intakeDir: string, nonconformantPrimary: boolean) {
   return (manifest: StepManifest): StepAgent => {
     if (manifest.role === "product-owner") {
-      return makeReplayPoMockAgent({
+      return makeMockReplayAgent({
         corpusRoot: intakeDir,
         seeds: [
           { outputId: "product-overview", from: "product-overview.md", to: "product-overview.md" },

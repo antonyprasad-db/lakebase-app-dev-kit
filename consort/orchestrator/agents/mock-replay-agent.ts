@@ -1,9 +1,9 @@
-// ReplayPoMockAgent: a PO Human Mock, built off the current mock-step agent pattern (a
-// StepAgent that WRITES its deliverables into the provided workspace, no cloud/model), but
-// for a REPLAY orchestration , instead of inventing content it copies the human PO's
-// RECORDED authoring from a scenario corpus into the workspace. This is exactly how a Human
-// PO's first step is faithfully re-materialized offline: the recorded product-overview.md /
-// nfrs.md / design-brief.md become the turn-1 outputs the spec-author then consumes.
+// mock-replay-agent: a role-agnostic REPLAY mock , a StepAgent (no cloud/model) that, instead
+// of inventing content, copies a role's RECORDED authoring from a scenario corpus into the
+// provided workspace. Its canonical use is the PO Human Mock (the recorded product-overview.md /
+// nfrs.md / design-brief.md become the turn-1 outputs the spec-author then consumes), but the
+// `role` option makes it faithfully re-materialize ANY role's recorded artifacts offline , the
+// catalogue's `replay` kind (agent-catalogue.ts) is a thin wrapper over this.
 //
 // It is a StepAgent (same seam as ClaudeStepAgent + the test mock), so ManifestStep + the
 // StepExecutor drive it identically , the Template Method does not know or care that this
@@ -26,7 +26,7 @@ export interface RecordedSeed {
 
 /** What the PO mock is told to replay: the corpus root + the recorded seed files, plus the
  *  role it stamps its authoring log under (so productOwnerLoggedAuthoring passes). */
-export interface ReplayPoMockOptions {
+export interface MockReplayAgentOptions {
   /** Absolute path to the scenario corpus root the recorded files live under. */
   corpusRoot: string;
   /** The recorded seeds to copy into the workspace. */
@@ -42,7 +42,7 @@ export interface ReplayPoMockOptions {
  * the manifest's log checker passes. Contained: it reads only the corpus + writes only the
  * workspace it was handed.
  */
-export function makeReplayPoMockAgent(opts: ReplayPoMockOptions): StepAgent {
+export function makeMockReplayAgent(opts: MockReplayAgentOptions): StepAgent {
   const role = opts.role ?? "product-owner";
   return {
     async invoke(invocation: AgentInvocation): Promise<void> {

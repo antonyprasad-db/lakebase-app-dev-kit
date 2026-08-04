@@ -20,7 +20,7 @@
 import { join } from "node:path";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { ClaudeStepAgent, type AgentLevers } from "./claude-step-agent.js";
-import { makeReplayPoMockAgent, type RecordedSeed } from "./replay-po-mock-agent.js";
+import { makeMockReplayAgent, type RecordedSeed } from "./mock-replay-agent.js";
 import type { StepAgent, AgentInvocation } from "./agent-types.js";
 
 /**
@@ -70,7 +70,7 @@ function buildReplay(config: Record<string, unknown>, context: AgentBuildContext
   if (!context.corpusRoot) {
     throw new Error(`agent-catalogue: kind "replay" requires context.corpusRoot (the runner supplies it).`);
   }
-  return makeReplayPoMockAgent({ corpusRoot: context.corpusRoot, role: c.role, seeds: c.seeds });
+  return makeMockReplayAgent({ corpusRoot: context.corpusRoot, role: c.role, seeds: c.seeds });
 }
 
 /** The `mock` kind's config = { outputs: { filename: contents } }; a test double writing
