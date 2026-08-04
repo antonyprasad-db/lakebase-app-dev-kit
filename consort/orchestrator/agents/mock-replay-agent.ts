@@ -10,17 +10,24 @@
 // step is a deterministic replay rather than a live model turn. That is the point of the
 // contract: a step is a step.
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, cpSync } from "node:fs";
 import { join, dirname } from "node:path";
+import { codeTreeFilter } from "../../../scripts/sftdd/replay-build.js";
 import type { StepAgent, AgentInvocation } from "./agent-types.js";
 
-/** One recorded file to materialize: copy corpus `from` -> workspace `to` under `outputId`. */
+/** One recorded artifact to materialize into the workspace under `outputId`.
+ *  kind "file" (default) copies a single recorded file corpus `from` -> workspace `to`.
+ *  kind "tree" overlays a recorded CODE TREE (a recorded-build turn's code/ dir) into the
+ *  workspace, filtered by codeTreeFilter (excludes scaffold-owned dirs + junk , the SAME filter
+ *  replayBuildTurn uses), so a build-turn chain can seed a turn's pre-state working tree. */
 export interface RecordedSeed {
   /** The manifest output id this seed satisfies (for diagnostics + mapping). */
   outputId: string;
-  /** Path (relative to the corpus root) of the recorded human authoring. */
+  /** "file" (single file, default) or "tree" (a recorded code tree, codeTreeFilter-filtered). */
+  kind?: "file" | "tree";
+  /** Path (relative to the corpus root) of the recorded artifact (a file, or a tree dir). */
   from: string;
-  /** Path (relative to the workspace) the file is written to (the manifest filename). */
+  /** Path (relative to the workspace) the artifact lands at (the filename, or "." for a tree). */
   to: string;
 }
 
@@ -55,10 +62,18 @@ export function makeMockReplayAgent(opts: MockReplayAgentOptions): StepAgent {
           );
         }
         const dst = join(invocation.workspaceDir, seed.to);
-        // Seeds may land at a NESTED path (e.g. stories/<S>/acs/<AC>.json); writeFileSync does
-        // not create intermediate dirs, so mkdir the parent first.
-        mkdirSync(dirname(dst), { recursive: true });
-        writeFileSync(dst, readFileSync(src, "utf8"));
+        if (seed.kind === "tree") {
+          // Overlay a recorded CODE TREE into the workspace, filtered by codeTreeFilter (the same
+          // filter replayBuildTurn uses: excludes scaffold-owned dirs like .git/.sftdd/scripts +
+          // junk like __pycache__). The dst is the overlay root (usually the workspace itself).
+          mkdirSync(dst, { recursive: true });
+          cpSync(src, dst, { recursive: true, force: true, filter: codeTreeFilter(src) });
+        } else {
+          // A single file. Seeds may land at a NESTED path (e.g. stories/<S>/acs/<AC>.json);
+          // writeFileSync does not create intermediate dirs, so mkdir the parent first.
+          mkdirSync(dirname(dst), { recursive: true });
+          writeFileSync(dst, readFileSync(src, "utf8"));
+        }
         materialized.push(seed.to);
       }
       // Log what the PO "authored" (the shared agent-log line the manifest's log checker

@@ -97,6 +97,29 @@ describe("runRoleSweep with a QUALITY gate: score the captured artifact vs a bas
     const trials = await runRoleSweep(CHAIN, [{ id: "baseline", levers: {} }], runner);
     expect(trials[0].qualityPassed).toBeUndefined();
   });
+
+  it("DISCRIMINATOR gate: a clean 'equivalent' candidate is quality-PASS + records the classification (clean=best, not a miss)", async () => {
+    // The judge returns a classification (build discriminator), driving pass by classification,
+    // NOT score>=threshold. A clean 'equivalent' verdict is the best outcome.
+    const discJudge: SemanticJudge = async ({ candidate }) =>
+      candidate.includes("BROKEN")
+        ? ({ score: 0.2, classification: "insufficient", nextStep: "escalate" } as never)
+        : ({ score: 0.6, classification: "equivalent", nextStep: "accept" } as never);
+    const runner: ChainRunner = async (_c, _a, candidateId) =>
+      fakeRun(CHAIN, { ms: 200, artifact: candidateId === "m-haiku" ? '{"x":"BROKEN"}' : '{"x":"clean"}' });
+    const trials = await runRoleSweep(CHAIN, [{ id: "baseline", levers: {} }, { id: "m-haiku", levers: { model: "haiku" } }], runner, {
+      quality: { referenceText: "ref", judge: discJudge, kind: "code" },
+    });
+    const baseline = trials.find((t) => t.candidateId === "baseline")!;
+    const haiku = trials.find((t) => t.candidateId === "m-haiku")!;
+    // clean 'equivalent' => quality PASS even though score (0.6) is below the usual 0.75 bar.
+    expect(baseline.qualityPassed).toBe(true);
+    expect(baseline.telemetry?.classification).toBe("equivalent");
+    expect(baseline.telemetry?.nextStep).toBe("accept");
+    // 'insufficient' => the only real fail.
+    expect(haiku.qualityPassed).toBe(false);
+    expect(haiku.telemetry?.classification).toBe("insufficient");
+  });
 });
 
 describe("reportRoleSweep: rank winners by wall-clock among QUALITY-HOLDING candidates", () => {
@@ -116,6 +139,17 @@ describe("reportRoleSweep: rank winners by wall-clock among QUALITY-HOLDING cand
     // the thin faster one is surfaced as rejected-for-quality, not silently dropped.
     expect(report).toMatch(/m-haiku/);
     expect(report).toMatch(/quality/i);
+  });
+
+  it("surfaces a clean-converged (equivalent) candidate as a POSITIVE note, not merely 'passed'", () => {
+    const trials = [
+      { candidateId: "baseline", levers: {}, gatePassed: true, qualityPassed: true, telemetry: { role: "driver", chain: "x#baseline", levers: {}, outerDurationMs: 600000, outcome: "produced", classification: "regression", nextStep: "driver-repair-with-directive" } },
+      { candidateId: "m-sonnet", levers: { model: "sonnet" }, gatePassed: true, qualityPassed: true, telemetry: { role: "driver", chain: "x#m-sonnet", levers: { model: "sonnet" }, outerDurationMs: 300000, outcome: "produced", classification: "equivalent", nextStep: "accept" } },
+    ];
+    const r = reportRoleSweep(trials);
+    const report = formatRoleSweepReport(r);
+    expect(report).toMatch(/converged clean/i);
+    expect(report).toMatch(/driver-fixable regression|regression/i);
   });
 
   it("falls back to conformance-only ranking when no candidate has a quality verdict", () => {

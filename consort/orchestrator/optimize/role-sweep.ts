@@ -182,8 +182,23 @@ export async function runRoleSweep(
           candidate: primary,
           ...(quality.kind ? { functional: quality.kind } : {}),
         });
-        trial.qualityPassed = verdict.score >= threshold;
-        if (trial.telemetry) trial.telemetry.semanticScore = verdict.score;
+        // DISCRIMINATOR verdict (a build sweep whose judge returns a classification): the pass is
+        // CLASSIFICATION-driven, not score>=threshold. A clean "equivalent"/accept is the BEST
+        // outcome (converged with no self-heal), viable "superseded-shift"/"regression"+fix also
+        // pass; only "insufficient" fails. Record the classification/nextStep so the report can
+        // surface a clean-converged candidate as a POSITIVE, not merely "passed".
+        const disc = verdict as { classification?: string; nextStep?: string };
+        if (disc.classification) {
+          trial.qualityPassed = disc.classification !== "insufficient";
+          if (trial.telemetry) {
+            trial.telemetry.semanticScore = verdict.score;
+            trial.telemetry.classification = disc.classification;
+            if (disc.nextStep) trial.telemetry.nextStep = disc.nextStep;
+          }
+        } else {
+          trial.qualityPassed = verdict.score >= threshold;
+          if (trial.telemetry) trial.telemetry.semanticScore = verdict.score;
+        }
       }
     } catch (e) {
       trial = {

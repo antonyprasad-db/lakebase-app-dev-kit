@@ -51,6 +51,12 @@ export interface IntegrationChainConfig {
    *  the catalogue = the replay seed). When absent, every manifest resolves via the catalogue
    *  (the default live run). */
   agentFor?(manifest: StepManifest): import("../agents/agent-types.js").StepAgent | undefined;
+  /** OPTIONAL extra workspace-relative roots (besides `.sftdd`) to include in the preserved
+   *  producedArtifacts snapshot. A BUILD-turn chain's navigator/driver writes CODE at the
+   *  workspace root (tests/, app/), which the default `.sftdd`-only snapshot would drop , naming
+   *  those roots here preserves them. Default empty ⇒ design chains snapshot only `.sftdd`
+   *  (byte-identical to before). */
+  extraSnapshotRoots?: string[];
 }
 
 /** What one integration-chain run reports. */
@@ -125,6 +131,12 @@ export async function runIntegrationChain(config: IntegrationChainConfig): Promi
     // result (see the preserve-experiment-artifacts rule). A caller persists this to a durable
     // per-experiment dir. Never optional.
     const producedArtifacts = snapshotTree(join(workspaceDir, ".sftdd"), workspaceDir);
+    // A BUILD chain's navigator/driver writes CODE at the workspace root (tests/, app/); the
+    // default `.sftdd`-only snapshot drops it. Merge in any declared extra roots so the produced
+    // code survives teardown too. Design chains pass none => this is a no-op (byte-identical).
+    for (const root of config.extraSnapshotRoots ?? []) {
+      Object.assign(producedArtifacts, snapshotTree(join(workspaceDir, root), workspaceDir));
+    }
     return { turns, workspaceDir, producedArtifacts };
   } finally {
     rmSync(workspaceDir, { recursive: true, force: true });

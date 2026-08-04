@@ -1,0 +1,26 @@
+{
+  "id": "navigator-assess-chain-seed",
+  "role": "product-owner",
+  "match": { "kind": "invoke-role", "role": "product-owner", "mode": "author-requests" },
+  "inputs": [],
+  "outputs": [
+    { "id": "green-failure", "filename": ".sftdd/cycles/F6-split-tracking-code/S3-stock-shows-split-fields/AC1-split-fields-shown/green-failure.json", "validator": "nonEmptyFile", "description": "The recorded failed-GREEN marker the Navigator assesses (the input state)." },
+    { "id": "ac", "filename": "features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/acs/AC1-split-fields-shown.json", "validator": "acConformant", "description": "The story AC whose intent decides superseded vs regression." },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "productOwnerLoggedAuthoring", "description": "The replay seed's authoring log." }
+  ],
+  "routing": {
+    "produced": { "next": { "kind": "invoke-role", "role": "navigator", "story": "S3-stock-shows-split-fields", "buildMode": "assess", "ac": "AC1-split-fields-shown" } }
+  },
+  "agentOptions": { "session": "fresh", "resumeKeyFrom": "none" },
+  "agent": {
+    "kind": "replay",
+    "config": {
+      "role": "product-owner",
+      "seeds": [
+        { "outputId": "post-green-code", "kind": "tree", "from": "recorded-build/features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/turns/003-driver/code", "to": "." },
+        { "outputId": "green-failure", "from": "recorded-build/features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/turns/004-navigator-assess-AC1-split-fields-shown/tdd/cycles/F6-split-tracking-code/S3-stock-shows-split-fields/AC1-split-fields-shown/green-failure.json", "to": ".sftdd/cycles/F6-split-tracking-code/S3-stock-shows-split-fields/AC1-split-fields-shown/green-failure.json" },
+        { "outputId": "ac", "from": "recorded-artifacts/features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/acs/AC1-split-fields-shown.json", "to": "features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/acs/AC1-split-fields-shown.json" }
+      ]
+    }
+  }
+}

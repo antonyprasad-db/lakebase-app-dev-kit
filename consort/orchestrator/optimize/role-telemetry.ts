@@ -77,6 +77,14 @@ export interface RoleTelemetry {
    *  with a LOW score produced a conformant-but-thinner artifact than the baseline (the coverage
    *  the conformance gate can't see). Undefined = quality not judged (conformance-only run). */
   semanticScore?: number;
+  /** BUILD DISCRIMINATOR classification (build sweeps only): the assess-style verdict on the
+   *  produced code , "equivalent" (clean, converged with NO self-heal , the BEST outcome),
+   *  "superseded-shift", "regression", or "insufficient" (the only failing verdict). Undefined
+   *  on a design sweep (flat semanticScore instead). */
+  classification?: string;
+  /** The NEXT STEP the discriminator classification warrants (accept / permissive-refactor-
+   *  superseded / driver-repair-with-directive / escalate). */
+  nextStep?: string;
 }
 
 /** Format one record as a single human-scannable line for the run output. Omits any number the

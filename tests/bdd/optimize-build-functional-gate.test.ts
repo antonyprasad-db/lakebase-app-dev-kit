@@ -146,6 +146,46 @@ describe("evaluateBuildFunctionalGate: Layer 2 functional bar (0.75)", () => {
   });
 });
 
+describe("evaluateBuildFunctionalGate: DISCRIMINATOR path (classification-driven, clean=best)", () => {
+  beforeEach(() => {
+    seedRecordedBuild("S1-record-stock", "005-navigator-review", { "app/main.py": "def create_stock(): ...", "tests/test_app.py": "def test_x(): ..." });
+    seedCandidate("app/main.py", "def add_stock(): ...");
+  });
+  const disc = (v: Awaited<ReturnType<SemanticJudge>>): SemanticJudge => async () => v;
+
+  it("equivalent/accept => PASS (the clean, best outcome; not scored down)", async () => {
+    const out = await evaluateBuildFunctionalGate({ kitRoot, projectDir, featureId, storyIndex: 0, role: "driver", judge: disc({ score: 0.95, classification: "equivalent", nextStep: "accept" }) });
+    expect(out.passed).toBe(true);
+    expect(out.classification).toBe("equivalent");
+    expect(out.nextStep).toBe("accept");
+  });
+
+  it("superseded-shift => PASS (viable routing)", async () => {
+    const out = await evaluateBuildFunctionalGate({ kitRoot, projectDir, featureId, storyIndex: 0, role: "driver", judge: disc({ score: 0.8, classification: "superseded-shift", nextStep: "permissive-refactor-superseded" }) });
+    expect(out.passed).toBe(true);
+    expect(out.classification).toBe("superseded-shift");
+  });
+
+  it("regression + fixDirective => PASS (driver-fixable), carrying the directive", async () => {
+    const out = await evaluateBuildFunctionalGate({ kitRoot, projectDir, featureId, storyIndex: 0, role: "driver", judge: disc({ score: 0.6, classification: "regression", nextStep: "driver-repair-with-directive", diagnosis: "missing page", fixDirective: "create StockViewPage" }) });
+    expect(out.passed).toBe(true);
+    expect(out.fixDirective).toMatch(/StockViewPage/);
+  });
+
+  it("insufficient/escalate => the ONLY real FAIL", async () => {
+    const out = await evaluateBuildFunctionalGate({ kitRoot, projectDir, featureId, storyIndex: 0, role: "driver", judge: disc({ score: 0.2, classification: "insufficient", nextStep: "escalate" }) });
+    expect(out.passed).toBe(false);
+    expect(out.classification).toBe("insufficient");
+  });
+
+  it("a low SCORE does NOT fail a clean equivalent verdict (classification drives, not score)", async () => {
+    // Even a modest score is a PASS when the classification is equivalent , the point of
+    // the discriminator: clean convergence is the best outcome regardless of the score.
+    const out = await evaluateBuildFunctionalGate({ kitRoot, projectDir, featureId, storyIndex: 0, role: "driver", judge: disc({ score: 0.5, classification: "equivalent", nextStep: "accept" }) });
+    expect(out.passed).toBe(true);
+  });
+});
+
 describe("buildFunctionalJudgePrompt: function not form", () => {
   it("asks for FUNCTIONAL equivalence and to ignore naming/formatting/structure", () => {
     const p = buildFunctionalJudgePrompt("code", "{ref}", "{cand}");

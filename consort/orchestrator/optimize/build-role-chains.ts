@@ -1,0 +1,169 @@
+// build-role-chains: the per-role chain CATALOGUE + runner for BUILD turns (navigator/driver),
+// the build-lane sibling of role-chains.ts (which is design-lane). The build lane is 84% of a
+// run's time (navigator alone 50%), so it is the real optimization target. Each entry names a
+// chain dir (its <dir>-seed replay + <dir>-live claude manifests), the start action, what the
+// live role produces, and the prompt. ONE isolated build turn, the recorded PRE-turn state
+// replayed in as a CODE TREE (+ any markers), the real agent authoring its output.
+//
+// NAVIGATOR turns run LEAN (no cloud): RED authors tests, ASSESS discriminates a failed GREEN and
+// writes a marker , neither needs a running app or DB. That is why navigator turns get the same
+// throwaway-.sftdd substrate as the design roles. DRIVER turns (green/refactor/repair) write code
+// that must pass honest-GREEN against a live Lakebase branch , they DO NOT run lean; see the
+// driver-phase SEAM at the bottom of this file.
+//
+// Starting story: F6-split-tracking-code / S3-stock-shows-split-fields (the richest recorded
+// turn variety , RED, GREEN, three assess heal-turns, repair, two green-supersedes, review,
+// refactor). BUILD_STORY_INDEX=2 (S3 is the 3rd of F6's 3 stories) , the recorded-build
+// reference resolves positionally by that index.
+
+import { join } from "node:path";
+import { runIntegrationChain } from "../scenarios/integration-chain.js";
+import type { StepManifest } from "../manifest/step-manifest.js";
+import type { StepAgent } from "../agents/agent-types.js";
+import type { ManifestTurn } from "../manifest/manifest-runner.js";
+import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.js";
+
+/** Kit-root-relative locations the build chains read from. The build corpus (design artifacts +
+ *  recorded-build code trees) lives under the rerecord scenario, NOT tests/integration/intake
+ *  (which holds only the F1 design artifacts). */
+export const BUILD_MANIFESTS_REL = "tests/integration/manifests";
+export const BUILD_CORPUS_REL = "examples/sftdd-scenarios/stockflow-rerecord";
+export const BUILD_FEATURE = "F6-split-tracking-code";
+export const BUILD_STORY = "S3-stock-shows-split-fields";
+export const BUILD_AC = "AC1-split-fields-shown";
+/** S3 is the 3rd of F6's 3 stories (S1, S2, S3) , the recorded-build reference is matched
+ *  positionally by this index (slugs differ across corpora). */
+export const BUILD_STORY_INDEX = 2;
+
+/** The build chains start from the PO seed (the replay seed manifest matches it + overlays the
+ *  recorded pre-turn state), then route to the live build action. Same PO_SEED as the design
+ *  chains , the seed is a replay, the routing is what reaches the build turn. */
+export const BUILD_PO_SEED: WorkflowAction = { kind: "invoke-role", role: "product-owner", mode: "author-requests" };
+
+const REPORT_BLOCK =
+  "As the LAST thing in your reply, emit a fenced report block:\n" +
+  "```agent-report\n" +
+  `[{ "level": "info", "event": "artifact.written", "message": "<one line: what you wrote>" }]\n` +
+  "```\n";
+const NO_SHELL =
+  ` Then STOP , do NOT run any shell command, do NOT run npx or ./scripts/lk, do NOT self-verify (the orchestrator validates your work). `;
+
+/** One build-role chain's definition. `assertKind` tells the live test/sweep which output shape to
+ *  expect: "red" = a tests/ tree (functional coverage judge), "assess" = a discriminator marker in
+ *  the AC cycle dir (alignment judge). `outputKind` is the build-output kind for the functional
+ *  reference (navigator=tests). `extraSnapshotRoots` names the workspace-root dirs (tests/) the
+ *  navigator writes, so producedArtifacts preserves them past teardown. */
+export interface BuildRoleChain {
+  name: string;
+  dir: string;
+  start: WorkflowAction;
+  assertKind: "red" | "assess";
+  /** The primary output path the live role writes (workspace-relative). For RED = "tests"; for
+   *  ASSESS = the AC cycle dir. Matches the manifest's first output filename. */
+  outputFile: string;
+  /** Workspace-root dirs to also snapshot (the code the navigator writes lives outside .sftdd). */
+  extraSnapshotRoots: string[];
+  prompt: string;
+}
+
+/** The AC cycle dir (workspace-relative) the assess marker lands in, mirroring cycleDir(). */
+const AC_CYCLE_DIR = `.sftdd/cycles/${BUILD_FEATURE}/${BUILD_STORY}/${BUILD_AC}`;
+
+/** The per-BUILD-role chain catalogue. Navigator turns only (lean); driver turns are the gated
+ *  cloud phase (seam below). Keyed by a short handle. */
+export const BUILD_ROLE_CHAINS: Record<string, BuildRoleChain> = {
+  "navigator-red": {
+    name: "navigator RED (author the story's failing tests)",
+    dir: "navigator-red-chain",
+    start: { kind: "invoke-role", role: "navigator", story: BUILD_STORY },
+    assertKind: "red",
+    outputFile: "tests",
+    extraSnapshotRoots: ["tests"],
+    prompt:
+      `You are the Navigator authoring the FAILING (RED) tests for story ${BUILD_STORY}. From the ` +
+      `provided design (the test list + the story's acceptance criteria + architecture + db-design, ` +
+      `in this prompt), WRITE the story's tests under tests/ (relative to your current working ` +
+      `directory). Cover EVERY test-list item for this story; each test must FAITHFULLY assert its ` +
+      `item's requirement (the right behavior/invariant), and any DB-writing test must own its own ` +
+      `state (a per-run-unique key), never an absolute whole-table assertion. Write real, runnable ` +
+      `test code (pytest under tests/, Vitest under client/tests where the item is a UI test).` +
+      NO_SHELL + REPORT_BLOCK,
+  },
+  "navigator-assess": {
+    name: "navigator ASSESS (discriminate a failed GREEN)",
+    dir: "navigator-assess-chain",
+    start: { kind: "invoke-role", role: "navigator", story: BUILD_STORY, buildMode: "assess", ac: BUILD_AC } as WorkflowAction,
+    assertKind: "assess",
+    outputFile: AC_CYCLE_DIR,
+    extraSnapshotRoots: ["tests", "app", "client"],
+    prompt:
+      `You are the Navigator ASSESSING a failed honest-GREEN verify for AC ${BUILD_AC} in story ` +
+      `${BUILD_STORY}. The Driver made the current test pass, but the full-suite verify FAILED , some ` +
+      `test(s) now fail (see green-failure.json in your AC cycle dir + the code the Driver wrote). ` +
+      `Inspect the failing tests + the Driver's code and DECIDE, writing EXACTLY ONE marker file ` +
+      `(relative to your current working directory), into ${AC_CYCLE_DIR}/:\n` +
+      `  (a) SUPERSEDED , if this AC intentionally supersedes behavior the failing PRIOR tests ` +
+      `encode (the latest AC wins), write superseded-tests.json = {"tests":["<path>", ...], "reason":"<new AC + what changed>"}.\n` +
+      `  (b) REGRESSION , if the failure is a genuine bug in the Driver's code (this AC does NOT ` +
+      `intend to change that behavior), write regression-assessment.json = {"diagnosis":"<root cause: which behavior broke + why>", "fixDirective":"<what the Driver should change>"}. ` +
+      `OMIT fixDirective ONLY when it needs a human / a design change.\n` +
+      `Write ONLY the ONE correct marker. Do NOT edit product code or tests in this turn.` +
+      NO_SHELL + REPORT_BLOCK,
+  },
+};
+
+/** Options for one build-chain run: the kit root + an optional per-manifest agent override (the
+ *  sweep's lever-injection seam, same as the design chains). */
+export interface RunBuildRoleChainOptions {
+  kitDir?: string;
+  agentFor?(manifest: StepManifest): StepAgent | undefined;
+}
+
+/** What a build-chain run returns: the turns + the preserved produced-artifact tree (INCLUDING
+ *  the code the navigator wrote at the workspace root, via extraSnapshotRoots). */
+export interface BuildRoleChainRun {
+  turns: ManifestTurn[];
+  producedArtifacts: Record<string, string>;
+}
+
+/**
+ * Run ONE build-role chain end to end (seed replay overlays the pre-turn code + markers -> live
+ * build role) and return every turn + the preserved produced tree. LEAN , navigator only (no
+ * cloud project). Shared by the build live tests (no agentFor = default levers) and the build
+ * sweep (agentFor patches the live role's levers per candidate). Mirrors runRoleChainLive but
+ * threads extraSnapshotRoots so the navigator's tests/ code survives teardown.
+ */
+export async function runBuildRoleChainLive(chain: BuildRoleChain, opts: RunBuildRoleChainOptions = {}): Promise<BuildRoleChainRun> {
+  const kit = opts.kitDir ?? process.cwd();
+  const { turns, producedArtifacts } = await runIntegrationChain({
+    manifestDir: join(kit, BUILD_MANIFESTS_REL, chain.dir),
+    intakeDir: join(kit, BUILD_CORPUS_REL),
+    feature: BUILD_FEATURE,
+    start: BUILD_PO_SEED,
+    extraSnapshotRoots: chain.extraSnapshotRoots,
+    instructionsFor: (m: StepManifest) =>
+      m.agent?.kind === "claude"
+        ? { prompt: chain.prompt, guidelines: [`Author your output as instructed; end with the agent-report block; run no command.`] }
+        : { prompt: `Replay-seed the pre-turn state for ${chain.name}.`, guidelines: [] },
+    ...(opts.agentFor ? { agentFor: opts.agentFor } : {}),
+  });
+  return { turns, producedArtifacts };
+}
+
+// ─── DRIVER-PHASE SEAM (a later, GATED cloud phase , NOT built here) ────────────────────────────
+//
+// Driver turns (green / refactor / repair) plug into THIS catalogue as future entries , e.g.
+// "driver-green" (start {invoke-role, driver, story: S3}) / "driver-repair" ({...buildMode:"repair", ac}).
+// They are additive DATA + manifests. But a driver turn writes CODE that must pass honest-GREEN:
+// cycle-record.ts:defaultGreenVerifier -> ensureDeployedAndVerify runs `alembic upgrade head` +
+// pytest against a LIVE Lakebase branch, and experiment.ts:cutExperiment THROWS if the branch's
+// .env DATABASE_URL is unset. So a driver chain CANNOT run in the lean throwaway .sftdd temp dir.
+//
+// The driver phase (out of scope here) uses ONE shared scaffolded Lakebase environment for all
+// experiments + a reset script between them (see scripts/sftdd/reset-experiment-db , design-only):
+// a future runBuildDriverChainLive swaps runIntegrationChain's temp-dir workspace for the
+// scaffolded project + a cutExperiment before the live driver turn, and resets the shared branch
+// DB to its baseline (one alembic_version row) between candidates so `alembic upgrade head`
+// rebuilds deterministically. The build-code DISCRIMINATOR judge (optimize-semantic-gate
+// makeBuildDiscriminatorJudge) is the driver-turn quality gate , and its independent-oracle reuse
+// is what the navigator-ASSESS alignment gate already calls here.

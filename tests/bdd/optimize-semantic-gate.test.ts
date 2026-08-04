@@ -17,6 +17,12 @@ import {
   buildJudgePrompt,
   SEMANTIC_THRESHOLD,
   type SemanticJudge,
+  // Part 2: the build-code DISCRIMINATOR (mirrors the navigator assess turn).
+  buildDiscriminatorPrompt,
+  parseDiscriminatorReply,
+  buildRedCoverageJudgePrompt,
+  evaluateNavigatorAssessAlignment,
+  type DiscriminatorVerdict,
 } from "../../scripts/sftdd/optimize-semantic-gate";
 
 let kitRoot: string;
@@ -181,5 +187,171 @@ describe("judge prompt + reply parsing", () => {
   it("clamps out-of-range scores to [0,1]", () => {
     expect(parseJudgeReply('{"score": 1.4}').score).toBe(1);
     expect(parseJudgeReply('{"score": -0.2}').score).toBe(0);
+  });
+});
+
+// ── Part 2: the build-code DISCRIMINATOR ───────────────────────────────────────
+// Unlike the flat design/functional similarity score, the discriminator mirrors what
+// the navigator ASSESS turn does: it CLASSIFIES the produced code and names the NEXT
+// STEP the evaluation warrants (accept / permissive-refactor-superseded / driver-repair
+// / escalate). A CLEAN verdict ("equivalent"/"accept" , nothing to refactor, no
+// regression) is the BEST outcome (the candidate converged cleaner than the recorded
+// baseline that needed the assess->repair spiral), NEVER a miss.
+
+describe("build discriminator: prompt asks for a classification + next step, states clean=best", () => {
+  it("code prompt asks to classify + name the next step and marks a clean verdict as best", () => {
+    const p = buildDiscriminatorPrompt("code", "{ref}", "{cand}");
+    expect(p).toMatch(/classif/i);
+    expect(p).toMatch(/next step/i);
+    expect(p).toMatch(/equivalent/);
+    expect(p).toMatch(/superseded-shift/);
+    expect(p).toMatch(/regression/);
+    expect(p).toMatch(/insufficient/);
+    // The refinement: a clean/equivalent verdict is the BEST result, not a low score.
+    expect(p).toMatch(/best|ideal|better than/i);
+    expect(p).toMatch(/REFERENCE/);
+    expect(p).toMatch(/CANDIDATE/);
+  });
+});
+
+describe("parseDiscriminatorReply: classification + next step + optional diagnosis/fixDirective", () => {
+  it("parses a clean equivalent/accept verdict", () => {
+    const v = parseDiscriminatorReply('{"score":0.95,"classification":"equivalent","nextStep":"accept","missing":[]}');
+    expect(v.classification).toBe("equivalent");
+    expect(v.nextStep).toBe("accept");
+    expect(v.score).toBe(0.95);
+  });
+
+  it("parses a superseded-shift verdict", () => {
+    const v = parseDiscriminatorReply('{"score":0.8,"classification":"superseded-shift","nextStep":"permissive-refactor-superseded"}');
+    expect(v.classification).toBe("superseded-shift");
+    expect(v.nextStep).toBe("permissive-refactor-superseded");
+  });
+
+  it("parses a driver-fixable regression with a diagnosis + fixDirective", () => {
+    const v = parseDiscriminatorReply('{"score":0.5,"classification":"regression","nextStep":"driver-repair-with-directive","diagnosis":"missing page","fixDirective":"create StockViewPage.tsx"}');
+    expect(v.classification).toBe("regression");
+    expect(v.nextStep).toBe("driver-repair-with-directive");
+    expect(v.diagnosis).toMatch(/missing page/);
+    expect(v.fixDirective).toMatch(/StockViewPage/);
+  });
+
+  it("an unparseable reply defaults to insufficient/escalate (fail-safe: a judge that cannot answer must NOT pass)", () => {
+    const v = parseDiscriminatorReply("I cannot classify this.");
+    expect(v.classification).toBe("insufficient");
+    expect(v.nextStep).toBe("escalate");
+  });
+
+  it("an unknown classification string defaults to insufficient/escalate", () => {
+    const v = parseDiscriminatorReply('{"score":0.9,"classification":"looks-great","nextStep":"ship-it"}');
+    expect(v.classification).toBe("insufficient");
+    expect(v.nextStep).toBe("escalate");
+  });
+});
+
+describe("build discriminator gate: clean verdict is a PASS (best), only insufficient fails", () => {
+  const oracle = (v: DiscriminatorVerdict): SemanticJudge => async () => v;
+  const runGate = async (verdict: DiscriminatorVerdict) => {
+    // A driver build turn (role=driver => kind=code). Seed a recorded-build ref + a
+    // candidate app/ tree so the gate reaches the judge.
+    seedRef("stockflow", `features/${featureId}/architecture.json`, { feature_id: featureId }); // unrelated; ensure corpus dir exists
+    const rbApp = join(kitRoot, "examples/sftdd-scenarios/stockflow/recorded-build", "features", featureId, "stories", "S1", "turns", "003-driver", "code", "app");
+    mkdirSync(rbApp, { recursive: true });
+    writeFileSync(join(rbApp, "models.py"), "class Stock: pass\n");
+    mkdirSync(join(sftddDir, "..", "app"), { recursive: true });
+    writeFileSync(join(sftddDir, "..", "app", "models.py"), "class Stock: pass\n");
+    const { evaluateBuildFunctionalGate } = await import("../../scripts/sftdd/optimize-semantic-gate");
+    return evaluateBuildFunctionalGate({
+      kitRoot,
+      projectDir: join(sftddDir, ".."),
+      featureId,
+      storyIndex: 0,
+      role: "driver",
+      judge: oracle(verdict),
+    });
+  };
+
+  it("equivalent/accept => PASS (the clean, best outcome)", async () => {
+    const out = await runGate({ score: 0.95, classification: "equivalent", nextStep: "accept" });
+    expect(out.passed).toBe(true);
+    expect(out.classification).toBe("equivalent");
+    expect(out.nextStep).toBe("accept");
+  });
+
+  it("superseded-shift => PASS (viable, mirrors assess flag-superseded)", async () => {
+    const out = await runGate({ score: 0.8, classification: "superseded-shift", nextStep: "permissive-refactor-superseded" });
+    expect(out.passed).toBe(true);
+  });
+
+  it("regression + fixDirective => PASS (viable, driver-fixable)", async () => {
+    const out = await runGate({ score: 0.6, classification: "regression", nextStep: "driver-repair-with-directive", fixDirective: "do X" });
+    expect(out.passed).toBe(true);
+  });
+
+  it("insufficient/escalate => the ONLY real FAIL", async () => {
+    const out = await runGate({ score: 0.2, classification: "insufficient", nextStep: "escalate" });
+    expect(out.passed).toBe(false);
+  });
+});
+
+describe("evaluateNavigatorAssessAlignment: navigator verdict must align with the independent oracle", () => {
+  const oracleVerdict = (over: Partial<DiscriminatorVerdict>): DiscriminatorVerdict => ({
+    score: 0.9,
+    classification: "regression",
+    nextStep: "driver-repair-with-directive",
+    ...over,
+  });
+
+  it("PASSES when the navigator's regression-assessment matches the oracle's regression call", () => {
+    // Navigator wrote regression-assessment.json (a genuine regression + a fix directive).
+    const markerDir = mkdtempSync(join(tmpdir(), "assess-marker-"));
+    writeFileSync(join(markerDir, "regression-assessment.json"), JSON.stringify({ diagnosis: "missing page", fixDirective: "create StockViewPage" }));
+    const r = evaluateNavigatorAssessAlignment({ oracleVerdict: oracleVerdict({}), navigatorMarkerDir: markerDir });
+    expect(r.passed).toBe(true);
+    expect(r.classificationMatch).toBe(true);
+    rmSync(markerDir, { recursive: true, force: true });
+  });
+
+  it("FAILS when the navigator called a genuine regression 'superseded' (misclassification)", () => {
+    const markerDir = mkdtempSync(join(tmpdir(), "assess-marker-"));
+    writeFileSync(join(markerDir, "superseded-tests.json"), JSON.stringify({ tests: ["tests/a.py"], reason: "retired" }));
+    const r = evaluateNavigatorAssessAlignment({ oracleVerdict: oracleVerdict({}), navigatorMarkerDir: markerDir });
+    expect(r.passed).toBe(false);
+    expect(r.classificationMatch).toBe(false);
+    rmSync(markerDir, { recursive: true, force: true });
+  });
+
+  it("PASSES the clean case: oracle says equivalent/accept and the navigator wrote no marker", () => {
+    const markerDir = mkdtempSync(join(tmpdir(), "assess-marker-"));
+    const r = evaluateNavigatorAssessAlignment({
+      oracleVerdict: oracleVerdict({ classification: "equivalent", nextStep: "accept" }),
+      navigatorMarkerDir: markerDir,
+    });
+    expect(r.passed).toBe(true);
+    rmSync(markerDir, { recursive: true, force: true });
+  });
+
+  it("PASSES a superseded match only when the flagged-test set overlaps the oracle's (>= 0.5 Jaccard)", () => {
+    const markerDir = mkdtempSync(join(tmpdir(), "assess-marker-"));
+    writeFileSync(join(markerDir, "superseded-tests.json"), JSON.stringify({ tests: ["tests/a.py", "tests/b.py"], reason: "retired" }));
+    const r = evaluateNavigatorAssessAlignment({
+      oracleVerdict: { score: 0.8, classification: "superseded-shift", nextStep: "permissive-refactor-superseded", supersededTests: ["tests/a.py", "tests/b.py"] },
+      navigatorMarkerDir: markerDir,
+    });
+    expect(r.passed).toBe(true);
+    expect(r.overlap).toBeGreaterThanOrEqual(0.5);
+    rmSync(markerDir, { recursive: true, force: true });
+  });
+});
+
+describe("buildRedCoverageJudgePrompt: RED tests judged vs the test-list SPEC (coverage + faithfulness)", () => {
+  it("asks whether every test-list item is COVERED and FAITHFULLY asserted, not matched to recorded tests", () => {
+    const p = buildRedCoverageJudgePrompt('{"tests":[{"id":"T1"}]}', '[{"id":"AC1"}]', "def test_x(): ...");
+    expect(p).toMatch(/coverage/i);
+    expect(p).toMatch(/faithful/i);
+    expect(p).toMatch(/test-list|test list/i);
+    // The bar is the SPEC. The prompt should make explicit it is NOT matching recorded tests.
+    expect(p).toMatch(/not against any recorded tests|not.*recorded tests/i);
+    expect(p).toMatch(/"score"/);
   });
 });

@@ -45,4 +45,38 @@ describe("makeMockReplayAgent", () => {
       agent.invoke({ action: { kind: "invoke-role", role: "product-owner" } as never, workspaceDir: ws, inputs: {}, instructions: { prompt: "p" } }),
     ).rejects.toThrow(/not found|cannot fabricate/i);
   });
+
+  it("kind:'tree' overlays a recorded CODE tree into the workspace, excluding scaffold-owned dirs", async () => {
+    // A recorded turn's code/ tree: real source under app/ + a scaffold-owned dir (.git) + junk
+    // (__pycache__) that codeTreeFilter must exclude (fresh scaffold owns those).
+    mkdirSync(join(corpus, "003-driver", "code", "app"), { recursive: true });
+    writeFileSync(join(corpus, "003-driver/code/app/models.py"), "class Stock: pass\n");
+    mkdirSync(join(corpus, "003-driver", "code", ".git"), { recursive: true });
+    writeFileSync(join(corpus, "003-driver/code/.git/HEAD"), "ref: refs/heads/main\n");
+    mkdirSync(join(corpus, "003-driver", "code", "app", "__pycache__"), { recursive: true });
+    writeFileSync(join(corpus, "003-driver/code/app/__pycache__/x.pyc"), "junk");
+
+    const agent = makeMockReplayAgent({
+      corpusRoot: corpus,
+      role: "navigator",
+      seeds: [{ outputId: "code", kind: "tree", from: "003-driver/code", to: "." }],
+    });
+    await agent.invoke({ action: { kind: "invoke-role", role: "navigator", story: "S3" } as never, workspaceDir: ws, inputs: {}, instructions: { prompt: "p" } });
+
+    // Real source copied; scaffold-owned + junk excluded (codeTreeFilter).
+    expect(existsSync(join(ws, "app/models.py"))).toBe(true);
+    expect(readFileSync(join(ws, "app/models.py"), "utf8")).toMatch(/class Stock/);
+    expect(existsSync(join(ws, ".git"))).toBe(false);
+    expect(existsSync(join(ws, "app/__pycache__"))).toBe(false);
+    // Still logs one authoring event.
+    const log = JSON.parse(readFileSync(join(ws, "agent-log.jsonl"), "utf8").trim());
+    expect(log.role).toBe("navigator");
+  });
+
+  it("kind:'tree' fails loud when the recorded tree is missing", async () => {
+    const agent = makeMockReplayAgent({ corpusRoot: corpus, role: "navigator", seeds: [{ outputId: "code", kind: "tree", from: "missing/code", to: "." }] });
+    await expect(
+      agent.invoke({ action: { kind: "invoke-role", role: "navigator" } as never, workspaceDir: ws, inputs: {}, instructions: { prompt: "p" } }),
+    ).rejects.toThrow(/not found|cannot fabricate/i);
+  });
 });

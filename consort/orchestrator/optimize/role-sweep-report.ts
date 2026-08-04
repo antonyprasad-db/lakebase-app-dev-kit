@@ -18,6 +18,23 @@ export interface SweepRow {
   speedupPct: number;
   /** Dollar delta vs baseline (negative = cheaper). */
   costDeltaUsd?: number;
+  /** BUILD discriminator classification (build sweeps only), surfaced as a positive note. */
+  classification?: string;
+}
+
+/** A human note for a build discriminator classification (a clean verdict reads as a WIN, not
+ *  merely "passed"). Empty on a design sweep (no classification). */
+function classificationNote(classification?: string): string {
+  switch (classification) {
+    case "equivalent":
+      return "  [converged clean , no self-heal needed]";
+    case "superseded-shift":
+      return "  [superseded-shift , permissive refactor (viable)]";
+    case "regression":
+      return "  [driver-fixable regression (viable)]";
+    default:
+      return "";
+  }
 }
 
 /** The full sweep report. */
@@ -43,6 +60,7 @@ function rowFrom(t: RoleTelemetry, baselineMs: number, baselineCost?: number): S
     ...(cost !== undefined ? { costUsd: cost } : {}),
     speedupPct,
     ...(cost !== undefined && baselineCost !== undefined ? { costDeltaUsd: cost - baselineCost } : {}),
+    ...(t.classification ? { classification: t.classification } : {}),
   };
 }
 
@@ -102,7 +120,10 @@ export function formatRoleSweepReport(r: SweepReport): string {
     const lever = Object.keys(row.levers).length ? JSON.stringify(row.levers) : "(baseline levers)";
     const cost = row.costUsd !== undefined ? ` | $${row.costUsd.toFixed(2)}` : "";
     const delta = row.candidateId === "baseline" ? "" : ` | ${row.speedupPct >= 0 ? "-" : "+"}${Math.abs(row.speedupPct).toFixed(0)}% wall`;
-    lines.push(`  ${row.candidateId}: ${secs(row.outerDurationMs)}${cost}${delta} , ${lever}`);
+    // Surface a BUILD discriminator classification as a POSITIVE: a clean "equivalent" verdict is
+    // the best outcome (converged with no self-heal), not merely "passed". superseded-shift +
+    // regression(+fix) are viable routings; annotate them so the report reads as the assess turn would.
+    lines.push(`  ${row.candidateId}: ${secs(row.outerDurationMs)}${cost}${delta} , ${lever}${classificationNote(row.classification)}`);
   }
   if (r.winner) {
     const cd = r.winner.costDeltaUsd;

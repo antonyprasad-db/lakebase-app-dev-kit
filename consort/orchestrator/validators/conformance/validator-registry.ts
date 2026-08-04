@@ -9,7 +9,8 @@
 // first two are the breakdown step's validators, lifted from spec-author-breakdown-step.ts;
 // that file now re-exports them so existing importers keep working.
 
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync, statSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { checkArtifactConformance } from "../../../../scripts/sftdd/artifact-conformance.js";
 import { getValidator, formatSchemaErrors } from "../../../../scripts/sftdd/schema-loader.js";
 import type { OutputValidator, OutputValidationResult } from "../../contract/step-contract.js";
@@ -135,6 +136,71 @@ function conformsTo(artifactName: string): OutputValidator {
   };
 }
 
+/**
+ * navigatorTestsAuthored validator: the Navigator's RED turn writes TEST code under tests/. The
+ * deterministic floor is "a non-empty tests/ tree exists" (the coverage+faithfulness judgment is
+ * the opus RED-coverage judge, not this check). producedPath is the tests/ dir (existsSync passes
+ * for a dir). Passes iff it is a directory holding >=1 test file (.py/.ts/.tsx).
+ */
+export function navigatorTestsAuthored(producedPath: string): OutputValidationResult {
+  if (!existsSync(producedPath) || !statSync(producedPath).isDirectory()) {
+    return { ok: false, violations: [`navigator RED wrote no tests/ tree at ${producedPath}`] };
+  }
+  const isTest = (n: string): boolean => /\.(py|ts|tsx)$/.test(n);
+  const walk = (dir: string): boolean => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const abs = join(dir, e.name);
+      if (e.isDirectory()) {
+        if (walk(abs)) return true;
+      } else if (isTest(e.name)) {
+        return true;
+      }
+    }
+    return false;
+  };
+  return walk(producedPath)
+    ? { ok: true, violations: [] }
+    : { ok: false, violations: [`navigator RED tests/ tree at ${producedPath} has no test file (.py/.ts/.tsx)`] };
+}
+
+/**
+ * assessMarkerWritten validator: the Navigator's ASSESS turn discriminates the driver's failed
+ * GREEN and writes EXACTLY ONE marker into the AC cycle dir , either superseded-tests.json
+ * {tests,reason} (the AC supersedes prior tests) OR regression-assessment.json {diagnosis,
+ * fixDirective?} (a genuine regression). producedPath is the AC cycle dir. Passes iff one is
+ * present + well-formed (the ALIGNMENT-vs-oracle judgment is the live test's job, not this floor).
+ */
+export function assessMarkerWritten(producedPath: string): OutputValidationResult {
+  const sup = join(producedPath, "superseded-tests.json");
+  const reg = join(producedPath, "regression-assessment.json");
+  const hasSup = existsSync(sup);
+  const hasReg = existsSync(reg);
+  if (!hasSup && !hasReg) {
+    return { ok: false, violations: [`assess wrote no marker (expected superseded-tests.json OR regression-assessment.json) in ${producedPath}`] };
+  }
+  if (hasSup) {
+    try {
+      const j = JSON.parse(readFileSync(sup, "utf8")) as { tests?: unknown; reason?: unknown };
+      if (!Array.isArray(j.tests) || j.tests.length === 0 || typeof j.reason !== "string" || !j.reason.trim()) {
+        return { ok: false, violations: [`superseded-tests.json malformed (need non-empty tests[] + a reason) in ${producedPath}`] };
+      }
+    } catch (e) {
+      return { ok: false, violations: [`superseded-tests.json invalid JSON: ${e instanceof Error ? e.message : String(e)}`] };
+    }
+  }
+  if (hasReg) {
+    try {
+      const j = JSON.parse(readFileSync(reg, "utf8")) as { diagnosis?: unknown };
+      if (typeof j.diagnosis !== "string" || !j.diagnosis.trim()) {
+        return { ok: false, violations: [`regression-assessment.json malformed (need a non-empty diagnosis) in ${producedPath}`] };
+      }
+    } catch (e) {
+      return { ok: false, violations: [`regression-assessment.json invalid JSON: ${e instanceof Error ? e.message : String(e)}`] };
+    }
+  }
+  return { ok: true, violations: [] };
+}
+
 /** Per-artifact schema-conformance validators (the design roles' primary outputs), each
  *  gated to its canonical schema via checkArtifactConformance. */
 export const acConformant = conformsTo("ac.json");
@@ -160,8 +226,13 @@ export const VALIDATOR_REGISTRY: Record<string, OutputValidator> = {
   testStrategistLoggedAuthoring: (p: string) => agentLogHasRoleEvent(p, "test-strategist"),
   architectReviewerLoggedAuthoring: (p: string) => agentLogHasRoleEvent(p, "architect-reviewer"),
   dbaLoggedAuthoring: (p: string) => agentLogHasRoleEvent(p, "dba"),
+  // The Navigator's log event (build turns: RED / assess / review), role-bound.
+  navigatorLoggedAuthoring: (p: string) => agentLogHasRoleEvent(p, "navigator"),
   nonEmptyFile,
   designGuideConformant,
+  // BUILD-turn navigator output validators (the lean per-role build chains).
+  navigatorTestsAuthored,
+  assessMarkerWritten,
   // Schema-conformance validators for the design roles' primary artifacts (the integration
   // live chains gate the real agent's output to its canonical schema, not just non-emptiness).
   acConformant,
