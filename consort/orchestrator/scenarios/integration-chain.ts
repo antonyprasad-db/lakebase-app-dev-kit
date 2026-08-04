@@ -42,8 +42,9 @@ export interface IntegrationChainConfig {
   /** Per-role output-path remap (a live agent writes to a baked cwd-relative path, e.g.
    *  ux-designer -> .sftdd/design/design-guide.json). Keyed by role. */
   outputPathsByRole?: Record<string, Record<string, string>>;
-  /** Per-role instruction bundle (the live agent's prompt). */
-  instructionsFor?(manifest: StepManifest): StepInstructions;
+  /** Per-role instruction bundle (the live agent's prompt). Receives the run's workspace dir so
+   *  a build chain can compute the real buildContextPack against the SEEDED workspace .sftdd. */
+  instructionsFor?(manifest: StepManifest, workspaceDir: string): StepInstructions;
   /** OPTIONAL agent override , build the StepAgent for a manifest imperatively instead of
    *  resolving manifest.agent via the catalogue. This is the LEVER-INJECTION seam the per-role
    *  optimize sweep uses: return a ClaudeStepAgent built from patched levers (model/effort/tool
@@ -103,7 +104,7 @@ export async function runIntegrationChain(config: IntegrationChainConfig): Promi
     } as DriveEffectsConfig,
     agentContext,
     formatAgentReports: true,
-    ...(config.instructionsFor ? { instructionsFor: (m: StepManifest) => config.instructionsFor!(m) } : {}),
+    ...(config.instructionsFor ? { instructionsFor: (m: StepManifest, _a: WorkflowAction, ws: string) => config.instructionsFor!(m, ws) } : {}),
     // Lever-injection seam: when a config.agentFor returns an override for a manifest, use it;
     // otherwise fall back to the catalogue (manifest.agent) so the seed/other steps are unchanged.
     // Only wired when config.agentFor is set, so the default run is byte-identical.

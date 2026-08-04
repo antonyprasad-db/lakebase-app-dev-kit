@@ -46,7 +46,7 @@ export interface ManifestRunnerDeps {
   agentFor?(manifest: StepManifest): StepAgent;
   /** Optional: source the instruction bundle for a turn (default: a generic prompt naming
    *  the role + its declared outputs). The full orchestrator sources these from disk/interactive. */
-  instructionsFor?(manifest: StepManifest, action: WorkflowAction): StepInstructions;
+  instructionsFor?(manifest: StepManifest, action: WorkflowAction, workspaceDir: string): StepInstructions;
   /** Optional: provision the workspace per turn (default: the shared workspaceDir, no
    *  output-path remap). A real agent that writes to a baked cwd-relative path (e.g. the
    *  spec-author's `.sftdd/features/<F>/`) overrides this to declare those outputPaths + set
@@ -190,7 +190,7 @@ function executorWiring(
   const execDeps: StepExecutorDeps = {
     resolveInputs: () => resolveInputsFromWorkspace(manifest, deps.workspaceDir),
     provisionWorkspace: () => (deps.provisionWorkspace ? deps.provisionWorkspace(manifest, action) : { workspaceDir: deps.workspaceDir }),
-    instructionsFor: () => (deps.instructionsFor ? deps.instructionsFor(manifest, action) : defaultInstructions(manifest)),
+    instructionsFor: () => (deps.instructionsFor ? deps.instructionsFor(manifest, action, deps.workspaceDir) : defaultInstructions(manifest)),
     // When enabled, format the agent's report into a conformant agent-log.jsonl
     // (orchestrator-side) before validate-outputs , so a sandboxed agent that cannot run the
     // shared log subprocess still satisfies the agent-log requirement. The report travels as
