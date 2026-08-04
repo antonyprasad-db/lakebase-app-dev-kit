@@ -10,8 +10,8 @@
 // step is a deterministic replay rather than a live model turn. That is the point of the
 // contract: a step is a step.
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { join, dirname } from "node:path";
 import type { StepAgent, AgentInvocation } from "./agent-types.js";
 
 /** One recorded file to materialize: copy corpus `from` -> workspace `to` under `outputId`. */
@@ -55,6 +55,9 @@ export function makeMockReplayAgent(opts: MockReplayAgentOptions): StepAgent {
           );
         }
         const dst = join(invocation.workspaceDir, seed.to);
+        // Seeds may land at a NESTED path (e.g. stories/<S>/acs/<AC>.json); writeFileSync does
+        // not create intermediate dirs, so mkdir the parent first.
+        mkdirSync(dirname(dst), { recursive: true });
         writeFileSync(dst, readFileSync(src, "utf8"));
         materialized.push(seed.to);
       }
