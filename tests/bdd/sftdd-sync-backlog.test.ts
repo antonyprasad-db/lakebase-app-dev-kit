@@ -18,7 +18,7 @@ import {
   syncBacklog,
   backlogFeatureIds,
 } from "../../consort/config/sftdd-paths.js";
-import { deriveSprintPlanningState } from "../../scripts/sftdd/orchestrator-sprint.js";
+import { deriveSprintPlanningState } from "../../consort/intake/orchestrator-sprint.js";
 
 const SPRINT = "s1";
 let tdd: string;

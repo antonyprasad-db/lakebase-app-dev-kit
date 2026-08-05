@@ -50,7 +50,7 @@ import {
   deriveSprintPlanningState,
   type SprintEffects,
   type DriveStepResult,
-} from "./orchestrator-sprint.js";
+} from "../../consort/intake/orchestrator-sprint.js";
 import { resolveSftddSettings, applyProjectOverrides } from "../../consort/orchestrator/settings/project-settings.js";
 import { describeAction, approveHint, makeOnAction } from "../../consort/logging/orchestrator-logging.js";
 import { kitVersion } from "../../consort/config/kit-bin.js";

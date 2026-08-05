@@ -7,7 +7,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { MarkdownAdapter, markdownAdapter } from "../../scripts/sftdd/adapters/markdown";
 import type { AdapterContext } from "../../scripts/sftdd/adapters/types";
-import type { Feature, Story, AC } from "../../scripts/sftdd/spec-sync";
+import type { Feature, Story, AC } from "../../consort/intake/spec-sync";
 
 function mkTempTdd(prefix: string): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), `markdown-adapter-${prefix}-`));

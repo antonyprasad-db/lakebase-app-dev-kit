@@ -14,7 +14,7 @@ import {
   syncBacklog,
   deriveSprintPlanningState,
   type SprintEffects,
-} from "../../scripts/sftdd/orchestrator-sprint";
+} from "../../consort/intake/orchestrator-sprint";
 import { writeEstimates } from "../../consort/config/sftdd-paths";
 import { writeSprintGates } from "../../consort/gates/sprint-gates";
 

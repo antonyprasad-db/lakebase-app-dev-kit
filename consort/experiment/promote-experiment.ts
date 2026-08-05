@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { listExperiments, readOutcomes, writeOutcomes } from "./experiment";
-import { readFeature, writeFeature } from "../../scripts/sftdd/spec-sync.js";
+import { readFeature, writeFeature } from "../intake/spec-sync.js";
 import { archiveExperiment } from "./archive-experiment";
 
 export interface PromoteArgs {

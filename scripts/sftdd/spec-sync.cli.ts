@@ -2,7 +2,7 @@
 // CLI: walk the .tdd/ tree and print drift reports. Exit 0 even when reports
 // exist — warn-only by design (spec-sync surfaces drift; it doesn't fail CI).
 
-import { validateSpec } from "./spec-sync.js";
+import { validateSpec } from "../../consort/intake/spec-sync.js";
 import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
 
 function main(): number {

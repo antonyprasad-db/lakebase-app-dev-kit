@@ -16,7 +16,7 @@
 // non-conformant intake artifact).
 
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
-import { checkIntakePreconditions } from "./intake.js";
+import { checkIntakePreconditions } from "../../consort/intake/intake.js";
 
 export function runIntakeCli(argv: string[]): number {
   let featureId: string | undefined;

@@ -7,7 +7,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { checkIntakePreconditions } from "../../scripts/sftdd/intake";
+import { checkIntakePreconditions } from "../../consort/intake/intake";
 
 const PRODUCT_OVERVIEW = "# Product\n\nWho it is for and what they need to accomplish.\n";
 const NFRS = [

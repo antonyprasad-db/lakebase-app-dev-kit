@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync, readFileSync
 import { tmpdir } from "os";
 import { join } from "path";
 
-import { writeWorkflowState, readWorkflowState, writeFeature } from "../../scripts/sftdd/spec-sync";
+import { writeWorkflowState, readWorkflowState, writeFeature } from "../../consort/intake/spec-sync";
 import { writeMasterTestList } from "../../scripts/sftdd/test-list";
 import { analyzeForGate, recordPlan, writePlan } from "../../consort/gates/design-spec-gate";
 import { beginCycle, markGreen, listCycles } from "../../consort/pipeline/run-cycle";

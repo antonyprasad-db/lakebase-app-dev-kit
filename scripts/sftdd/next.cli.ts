@@ -9,7 +9,7 @@ import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
 import { resolveSftddSettings } from "../../consort/orchestrator/settings/project-settings.js";
 import { readDriveStateFromDisk } from "../../consort/orchestrator/drive/orchestrator-effects.js";
 import { readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-import { deriveSprintPlanningState } from "./orchestrator-sprint.js";
+import { deriveSprintPlanningState } from "../../consort/intake/orchestrator-sprint.js";
 import { summarizeStories } from "./feature-status.js";
 import { kitVersion } from "../../consort/config/kit-bin.js";
 import { buildNextSnapshot, renderNextSnapshot, type NextContext } from "./next.js";

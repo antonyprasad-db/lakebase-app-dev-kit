@@ -1,5 +1,5 @@
 import type { SpecAdapter, AdapterContext, SpecEntity } from "./types";
-import type { Feature, Story, AC } from "../spec-sync";
+import type { Feature, Story, AC } from "../../../consort/intake/spec-sync";
 
 const NOT_IMPLEMENTED = (verb: string) =>
   new Error(`JiraAdapter.${verb} not implemented; tracked under`);

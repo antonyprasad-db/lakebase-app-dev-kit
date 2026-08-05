@@ -1,4 +1,4 @@
-import type { Feature, Story, AC } from "../spec-sync";
+import type { Feature, Story, AC } from "../../../consort/intake/spec-sync";
 
 export type SpecEntity = Feature | Story | AC;
 export type Status = string;

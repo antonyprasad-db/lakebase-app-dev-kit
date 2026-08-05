@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 import type { SpecAdapter, AdapterContext, SpecEntity } from "./types";
-import type { Feature, Story, AC } from "../spec-sync";
+import type { Feature, Story, AC } from "../../../consort/intake/spec-sync";
 import { featuresDir as featuresDirOf } from "../../../consort/config/sftdd-paths.js";
 
 /**

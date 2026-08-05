@@ -11,7 +11,7 @@ import {
   normalizeStoryJson,
   type Feature,
   type WorkflowState,
-} from "../../scripts/sftdd/spec-sync";
+} from "../../consort/intake/spec-sync";
 
 let tdd: string;
 
