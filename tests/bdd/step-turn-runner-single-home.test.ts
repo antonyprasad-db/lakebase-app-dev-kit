@@ -1,13 +1,15 @@
 // Guard: the orchestrator's directories mirror the control hierarchy , a WORKFLOW is run by an
 // ORCHESTRATOR managing TURNS, each TURN executes a STEP, tuned by per-project SETTINGS. This is the
-// anti-recurrence gate for the step/turn/runner/settings reorg: it fails if a layer's definition
+// anti-recurrence gate for the step/turns/runners/settings reorg: it fails if a layer's definition
 // re-scatters outside its home, OR if the killed manifest-step / step-manifest homophone (or the old
 // ambiguous dir names) comes back.
 //
 //   steps/    defines a step (contract + the one impl + run I/O + manifest data + JSON)
-//   turn/     executes ONE step (the Template Method + monitor + report)
-//   runner/   runs a workflow's turns + loads its run-config
+//   turns/    executes ONE step (the Template Method + monitor + report)
+//   runners/  runs a workflow's turns + loads its run-config
 //   settings/ the per-project settings resolver
+// (turns/ + runners/ are PLURAL per the family-naming rule , a catalog of interchangeable members;
+//  the old singular turn/ + runner/ are among the forbidden dir names below.)
 
 import { describe, it, expect } from "vitest";
 import { execFileSync } from "node:child_process";
@@ -48,14 +50,14 @@ const LAYERS: Array<{ home: string; tokens: Record<string, string> }> = [
     },
   },
   {
-    home: "consort/orchestrator/turn/",
+    home: "consort/orchestrator/turns/",
     tokens: {
       "executor deps": "export interface StepExecutorDeps",
       "turn monitor": "export interface TurnMonitor",
     },
   },
   {
-    home: "consort/orchestrator/runner/",
+    home: "consort/orchestrator/runners/",
     tokens: {
       "turn loop": "export async function runManifestChain",
       "run-config loader": "export function loadRunConfig",
@@ -109,14 +111,16 @@ describe("orchestrator layers: step / turn / runner / settings each live in ONE 
     expect(offenders, `the manifest-step/step-manifest homophone returned:\n  ${offenders.join("\n  ")}`).toEqual([]);
   });
 
-  it("the old ambiguous orchestrator dirs are gone (execution/ manifest/ contract/ config/)", () => {
-    const OLD = ["execution/", "manifest/", "contract/", "config/"];
+  it("the old ambiguous / singular orchestrator dirs are gone (execution/ manifest/ contract/ config/ turn/ runner/)", () => {
+    // The singular turn/ + runner/ were renamed to the PLURAL turns/ + runners/ (family-naming
+    // rule). Match them EXACTLY (trailing-slash boundary) so the plural homes don't false-positive.
+    const OLD = ["execution/", "manifest/", "contract/", "config/", "turn/", "runner/"];
     const offenders = orchestratorPaths().filter((p) =>
       OLD.some((d) => p.startsWith(`consort/orchestrator/${d}`)),
     );
     expect(
       offenders,
-      `a file resurfaced under an old orchestrator dir (execution/manifest/contract/config):\n  ${offenders.join("\n  ")}`,
+      `a file resurfaced under an old orchestrator dir (execution/manifest/contract/config/turn/runner):\n  ${offenders.join("\n  ")}`,
     ).toEqual([]);
   });
 

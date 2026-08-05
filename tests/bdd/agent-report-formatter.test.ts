@@ -11,7 +11,7 @@ import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from "fs
 import { dirname } from "path";
 import { tmpdir } from "os";
 import { join } from "path";
-import { formatAgentReport, extractReportBlock } from "../../consort/orchestrator/turn/agent-report-formatter";
+import { formatAgentReport, extractReportBlock } from "../../consort/orchestrator/turns/agent-report-formatter";
 import { getValidator } from "../../consort/orchestrator/validators/schema-loader";
 
 let ws: string;

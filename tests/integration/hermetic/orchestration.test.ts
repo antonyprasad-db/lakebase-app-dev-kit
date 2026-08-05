@@ -17,7 +17,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { loadStepManifests, manifestForAction, validateStepManifest } from "../../../consort/orchestrator/steps/manifest";
 import { Step } from "../../../consort/orchestrator/steps/step";
-import { execute, type StepExecutorDeps, type StepCtx } from "../../../consort/orchestrator/turn/step-executor";
+import { execute, type StepExecutorDeps, type StepCtx } from "../../../consort/orchestrator/turns/step-executor";
 import { makeMockReplayAgent } from "../../../consort/orchestrator/agents/mock-replay-agent";
 import type { StepAgent } from "../../../consort/orchestrator/agents/agent-types";
 import type { WorkflowAction, DriveState } from "../../../consort/orchestrator/drive/orchestrator-drive";

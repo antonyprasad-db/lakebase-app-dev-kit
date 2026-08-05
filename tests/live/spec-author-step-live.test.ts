@@ -29,7 +29,7 @@ import { join } from "node:path";
 import { ClaudeStepAgent } from "../../consort/orchestrator/agents/claude-step-agent.js";
 import { Step } from "../../consort/orchestrator/steps/step.js";
 import { manifestForAction } from "../../consort/orchestrator/steps/manifest.js";
-import { execute, type StepExecutorDeps, type StepCtx } from "../../consort/orchestrator/turn/step-executor.js";
+import { execute, type StepExecutorDeps, type StepCtx } from "../../consort/orchestrator/turns/step-executor.js";
 import type { ValidateBoundDeps } from "../../consort/orchestrator/steps/step-contract.js";
 import type { DriveState } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";

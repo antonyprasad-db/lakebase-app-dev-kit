@@ -15,7 +15,7 @@ import { join } from "node:path";
 import { runIntegrationChain } from "../scenarios/integration-chain.js";
 import type { StepManifest } from "../steps/manifest.js";
 import type { StepAgent } from "../agents/agent-types.js";
-import type { ManifestTurn } from "../runner/manifest-runner.js";
+import type { ManifestTurn } from "../runners/manifest-runner.js";
 import type { WorkflowAction } from "../workflow/workflow-vocabulary.js";
 
 /** Kit-root-relative locations the chains read from. Resolved against process.cwd() (the kit

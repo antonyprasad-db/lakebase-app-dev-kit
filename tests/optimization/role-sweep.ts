@@ -16,7 +16,7 @@ import { ClaudeStepAgent, type AgentLevers } from "../../consort/orchestrator/ag
 import { FUNCTIONAL_THRESHOLD, SEMANTIC_THRESHOLD, type SemanticJudge, type BuildOutputKind } from "../../scripts/sftdd/optimize-semantic-gate.js";
 import type { StepManifest } from "../../consort/orchestrator/steps/manifest.js";
 import type { StepAgent } from "../../consort/orchestrator/agents/agent-types.js";
-import type { ManifestTurn } from "../../consort/orchestrator/runner/manifest-runner.js";
+import type { ManifestTurn } from "../../consort/orchestrator/runners/manifest-runner.js";
 import type { RoleChain } from "../../consort/orchestrator/optimize/role-chains.js";
 import type { RoleCandidate, RoleLeverPatch } from "./role-levers.js";
 import type { RoleTelemetry } from "../../consort/orchestrator/optimize/role-telemetry.js";

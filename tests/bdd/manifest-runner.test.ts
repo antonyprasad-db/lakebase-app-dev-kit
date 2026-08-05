@@ -12,7 +12,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { runManifestStep, runManifestChain, type ManifestRunnerDeps } from "../../consort/orchestrator/runner/manifest-runner";
+import { runManifestStep, runManifestChain, type ManifestRunnerDeps } from "../../consort/orchestrator/runners/manifest-runner";
 import { loadStepManifests } from "../../consort/orchestrator/steps/manifest";
 import { makeMockReplayAgent } from "../../consort/orchestrator/agents/mock-replay-agent";
 import { writeEscalation } from "../../scripts/sftdd/escalation";

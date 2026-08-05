@@ -1,7 +1,7 @@
 // workflow-vocabulary: the WORKFLOW domain vocabulary , the WorkflowAction / DriveState type family
 // (the WHAT a run is made of) plus the PURE predicates over them (escalationPreempt, actionLane,
 // isHitlGateAction, isHumanInputAction, pauseBeforeMilestone). No I/O, no model, no dependency on the
-// drive engine: the lower orchestrator layers (steps/turn/runner/state/agents/scenarios/optimize) and
+// drive engine: the lower orchestrator layers (steps/turns/runners/state/agents/scenarios/optimize) and
 // the drive transition ENGINE all depend DOWN on this. The engine (nextTransition / nextDesignAction /
 // nextBuildAction, in drive/orchestrator-drive.ts) imports its vocabulary from here.
 

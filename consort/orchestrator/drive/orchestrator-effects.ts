@@ -21,7 +21,7 @@ import { dirname, join } from "node:path";
 import { nextTransition, type WorkflowAction } from "./orchestrator-drive.js";
 import { manifestForAction, type StepManifestPostTurn } from "../steps/manifest.js";
 import { performTurnViaExecutor } from "./executor-dispatch.js";
-import { formatAgentReport } from "../turn/agent-report-formatter.js";
+import { formatAgentReport } from "../turns/agent-report-formatter.js";
 import type { DriveEffects } from "./orchestrator-run.js";
 import { deriveDriveState, effectiveLoopForStory } from "../state/orchestrator-derive.js";
 import { diskArtifactProbe, readDriveContext } from "../state/orchestrator-probe.js";

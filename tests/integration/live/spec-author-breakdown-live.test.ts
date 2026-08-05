@@ -17,7 +17,7 @@ import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { layDownKitAgents } from "../../../consort/orchestrator/provisioning/bundle.js";
-import { runManifestChain, type ManifestRunnerDeps } from "../../../consort/orchestrator/runner/manifest-runner.js";
+import { runManifestChain, type ManifestRunnerDeps } from "../../../consort/orchestrator/runners/manifest-runner.js";
 import { loadStepManifests, type StepManifest } from "../../../consort/orchestrator/steps/manifest.js";
 import type { WorkflowAction } from "../../../consort/orchestrator/drive/orchestrator-drive.js";
 import type { DriveEffectsConfig } from "../../../consort/orchestrator/drive/orchestrator-effects.js";

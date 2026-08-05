@@ -19,7 +19,7 @@ import { join } from "node:path";
 import { ROLE_CHAINS, runRoleChainLive, MANIFESTS_REL, type RoleChain } from "../../../consort/orchestrator/optimize/role-chains.js";
 import { loadStepManifests, type StepManifest } from "../../../consort/orchestrator/steps/manifest.js";
 import { formatRoleTelemetry, writeRoleTelemetry, type RoleLevers, type RoleTelemetry } from "../../../consort/orchestrator/optimize/role-telemetry.js";
-import type { ManifestTurn } from "../../../consort/orchestrator/runner/manifest-runner.js";
+import type { ManifestTurn } from "../../../consort/orchestrator/runners/manifest-runner.js";
 
 export const KIT = process.cwd();
 export const MANIFESTS = join(KIT, MANIFESTS_REL);

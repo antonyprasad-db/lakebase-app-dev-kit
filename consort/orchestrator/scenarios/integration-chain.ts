@@ -9,7 +9,7 @@
 import { mkdtempSync, mkdirSync, rmSync, existsSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
-import { runManifestChain, type ManifestRunnerDeps, type ManifestTurn } from "../runner/manifest-runner.js";
+import { runManifestChain, type ManifestRunnerDeps, type ManifestTurn } from "../runners/manifest-runner.js";
 import { loadStepManifests, type StepManifest } from "../steps/manifest.js";
 import type { StepInstructions } from "../agents/agent-types.js";
 import type { WorkflowAction } from "../workflow/workflow-vocabulary.js";

@@ -16,7 +16,7 @@ import { ROUTE_SCENARIOS } from "../../consort/orchestrator/scenarios/route-scen
 import { makeMockReplayAgent } from "../../consort/orchestrator/agents/mock-replay-agent";
 import type { StepAgent } from "../../consort/orchestrator/agents/agent-types";
 import type { StepManifest } from "../../consort/orchestrator/steps/manifest";
-import type { ManifestRunnerDeps } from "../../consort/orchestrator/runner/manifest-runner";
+import type { ManifestRunnerDeps } from "../../consort/orchestrator/runners/manifest-runner";
 import type { DriveEffectsConfig } from "../../consort/orchestrator/drive/orchestrator-effects";
 
 /** A minimal design-guide.json that conforms to design-guide.schema.json (typography +

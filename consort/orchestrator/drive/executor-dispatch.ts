@@ -21,7 +21,7 @@ import * as fs from "node:fs";
 import { join } from "node:path";
 import { storyResolved } from "../../../scripts/sftdd/sftdd-paths.js";
 import { manifestForAction, type StepManifest } from "../steps/manifest.js";
-import { execute, type StepExecutorDeps } from "../turn/step-executor.js";
+import { execute, type StepExecutorDeps } from "../turns/step-executor.js";
 import { Step } from "../steps/step.js";
 import { LiveDriveStepAgent } from "../agents/live-drive-step-agent.js";
 import type { WorkflowAction, DriveState } from "./orchestrator-drive.js";

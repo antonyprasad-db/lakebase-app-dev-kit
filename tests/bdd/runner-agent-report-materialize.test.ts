@@ -15,7 +15,7 @@ import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync, mkdirSync
 import { dirname } from "path";
 import { tmpdir } from "os";
 import { join } from "path";
-import { runManifestStep, runManifestChain, type ManifestRunnerDeps } from "../../consort/orchestrator/runner/manifest-runner";
+import { runManifestStep, runManifestChain, type ManifestRunnerDeps } from "../../consort/orchestrator/runners/manifest-runner";
 import type { StepManifest } from "../../consort/orchestrator/steps/manifest";
 import type { StepAgent } from "../../consort/orchestrator/agents/agent-types";
 import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
