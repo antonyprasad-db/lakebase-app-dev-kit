@@ -135,6 +135,15 @@ describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE: the production drive dispatch
         const e = settings.effortFor(role, turn);
         return e === "default" ? "" : e;
       },
+      // Tool-scope the navigator to Write/Read (the SAME scope the proven navigator-red-chain
+      // manifest declares). RED authors tests from the context pack (rubric + module LAYOUT) baked
+      // into its prompt by buildClaudeCommand -> roleTaskBody; with Bash/Glob/Grep it instead
+      // explores the whole seeded tree open-endedly and never converges within the turn budget.
+      // This matches the isolated chain's starting conditions while exercising the identical
+      // executor-dispatch path (cfg tool scope -> buildClaudeCommand -> claudeToolArgs spawn flags).
+      allowedToolsForRole: (role) => (role === "navigator" ? ["Write", "Read"] : undefined),
+      disallowedToolsForRole: (role) =>
+        role === "navigator" ? ["Bash", "Glob", "Grep", "WebFetch", "WebSearch", "Task"] : undefined,
     } as DriveEffectsConfig;
     cfg.runner = execRunner(cfg);
 
