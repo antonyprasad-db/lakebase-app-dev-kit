@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 
-// scripts/lakebase/adopt-sftdd.ts
+// consort/lakebase/adopt-sftdd.ts
 import * as fs2 from "fs";
 
-// scripts/sftdd/sftdd-paths.ts
+// consort/config/sftdd-paths.ts
 import * as fs from "fs";
 import { join } from "path";
 var ARTIFACT_ROOT = ".sftdd";
 
-// scripts/lakebase/adopt-sftdd.ts
+// consort/lakebase/adopt-sftdd.ts
 import * as path from "path";
 import { fileURLToPath } from "url";
 function adoptTdd(args) {

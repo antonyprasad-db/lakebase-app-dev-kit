@@ -23,7 +23,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
-// scripts/sftdd/sftdd-paths.ts
+// consort/config/sftdd-paths.ts
 var fs = __toESM(require("fs"), 1);
 var import_node_path = require("path");
 var ARTIFACT_ROOT = ".sftdd";

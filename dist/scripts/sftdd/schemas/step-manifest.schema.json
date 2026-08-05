@@ -39,6 +39,21 @@
         "additionalProperties": false
       }
     },
+    "preconditions": {
+      "type": "array",
+      "description": "The pre-conditions the orchestrator PREPARES (via the preparer registry) and appends to the step's prompt before dispatch: the pre-extracted context-pack (rubric + module layout) and, for assess, the green-failure advisory. LOGICAL (by kind), never authored, projected deterministically from on-disk .sftdd. Absent = an affirmative 'nothing'; a declared preparer that yields empty is logged as an anomaly.",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "description": "Key the prepared block is handed back under." },
+          "kind": { "type": "string", "minLength": 1, "description": "Preparer kind resolved from the preparer registry (context-pack | green-failure-advisory)." },
+          "description": { "type": "string" },
+          "options": { "type": "object", "description": "Preparer-specific knobs, e.g. { \"skipTestLoop\": true } for context-pack." }
+        },
+        "additionalProperties": false
+      }
+    },
     "outputs": {
       "type": "array",
       "description": "The logical outputs the step produces into its workspace. Each declares an in-code conformance validator BY NAME (resolved from validator-registry.ts). May be empty for a turn verified by cycle records rather than a static artifact.",
@@ -49,6 +64,7 @@
           "id": { "type": "string", "minLength": 1 },
           "filename": { "type": "string", "minLength": 1, "description": "Artifact filename within the provided workspace." },
           "validator": { "type": "string", "minLength": 1, "description": "Registered OutputValidator name (validator-registry.ts). resolveValidator throws loud on an unknown name." },
+          "channel": { "type": "string", "enum": ["product", "artifact", "meta"], "description": "WHICH channel this output lands in (absent = the primary workspace root, byte-identical to a single-root turn). product = the application deliverable that accumulates across build turns + gets committed/migrated/deployed (app/, tests/, migrations); MUST be uncontained (the real code tree; a per-experiment worktree when experiments run in parallel), since each build turn reads prior turns' code. artifact = the .sftdd design documents (feature-spec/architecture/test-list/design-guide) the design roles author; small + per-feature, so it MAY be contained (resolved under artifactDir when the orchestrator provisions one, else the workspace). meta = the orchestrator's bookkeeping about the turn (raw agent report, reflect verdict, assess marker), whose CONFORMANCE the orchestrator owns; contained (resolved under metaDir when provisioned, else the workspace). Each root defaults to workspaceDir, so an untagged / un-provisioned turn is byte-identical." },
           "description": { "type": "string" }
         },
         "additionalProperties": false
@@ -72,7 +88,7 @@
       "required": ["session"],
       "properties": {
         "model": { "type": "string" },
-        "effort": { "type": "string", "enum": ["low", "default", "high"] },
+        "effort": { "type": "string", "enum": ["default", "low", "medium", "high", "xhigh", "max"] },
         "session": { "type": "string", "enum": ["fresh", "resume"] },
         "resumeKeyFrom": { "type": "string", "enum": ["role", "story", "feature", "none"] },
         "toolScope": {

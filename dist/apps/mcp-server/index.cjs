@@ -6665,17 +6665,17 @@ init_cjs_shims();
 var import_lakebase10 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_lakebase11 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
-// scripts/lakebase/create-project.ts
+// consort/lakebase/create-project.ts
 init_cjs_shims();
 var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
-// scripts/sftdd/project-sftdd-setup.ts
+// consort/setup/project-sftdd-setup.ts
 init_cjs_shims();
 var fs4 = __toESM(require("fs"), 1);
 var path3 = __toESM(require("path"), 1);
 var import_node_url2 = require("url");
 
-// scripts/sftdd/sftdd-paths.ts
+// consort/config/sftdd-paths.ts
 init_cjs_shims();
 var fs = __toESM(require("fs"), 1);
 var import_node_path = require("path");
@@ -6745,12 +6745,12 @@ function readEstimates(tdd) {
 }
 var hasEstimates = (tdd) => readEstimates(tdd).length > 0;
 
-// scripts/sftdd/sftdd-config.ts
+// consort/config/sftdd-config-file.ts
 init_cjs_shims();
 var import_fs = require("fs");
 var import_path2 = require("path");
 
-// scripts/sftdd/agent-models.ts
+// consort/config/agent-models.ts
 init_cjs_shims();
 var import_path = require("path");
 var RECOMMENDED_MODELS = {
@@ -6766,7 +6766,7 @@ var RECOMMENDED_MODELS = {
 var ALL_AGENT_ROLES = Object.keys(RECOMMENDED_MODELS);
 var AGENT_CONFIG_REL = (0, import_path.join)(".lakebase", "agent-config.json");
 
-// scripts/sftdd/optimized-defaults.json
+// consort/config/optimized-defaults.json
 var optimized_defaults_default = {
   _comment: "Auto-applied optimization winners, deep-merged onto defaultSftddConfig()'s base. Written by optimize-apply (data, never a TS rewrite) so an unattended champion walk can bake each winner into the kit default; inlined into dist at build time. roles.<role>.{model,effort} may be a scalar or a per-turn/step map keyed by TurnKey (breakdown/acs/architect/dba/test-list/ux for design; red/green/review/refactor/assess/repair for build). Edit via the apply path, not by hand.",
   roles: {
@@ -6785,7 +6785,7 @@ var optimized_defaults_default = {
   }
 };
 
-// scripts/sftdd/sftdd-config.ts
+// consort/config/sftdd-config-file.ts
 var SFTDD_CONFIG_REL = (0, import_path2.join)(".lakebase", "sftdd-config.json");
 var LEGACY_TDD_CONFIG_REL = (0, import_path2.join)(".lakebase", "tdd-config.json");
 var TDD_CONFIG_REL = SFTDD_CONFIG_REL;
@@ -6838,18 +6838,18 @@ function writeSftddConfig(projectDir, config, opts) {
   return true;
 }
 
-// scripts/lakebase/adopt-sftdd.ts
+// consort/lakebase/adopt-sftdd.ts
 init_cjs_shims();
 var fs2 = __toESM(require("fs"), 1);
 var path = __toESM(require("path"), 1);
 var import_node_url = require("url");
 
-// scripts/lakebase/update-agents.ts
+// consort/lakebase/update-agents.ts
 init_cjs_shims();
 var fs3 = __toESM(require("fs"), 1);
 var path2 = __toESM(require("path"), 1);
 
-// scripts/sftdd/project-sftdd-setup.ts
+// consort/setup/project-sftdd-setup.ts
 var __dirname2 = path3.dirname((0, import_node_url2.fileURLToPath)(importMetaUrl));
 function kitPackageName() {
   const candidates = [
@@ -6968,7 +6968,7 @@ var kitSftddHooks = {
   seedConfig: seedSftddConfig
 };
 
-// scripts/lakebase/create-project.ts
+// consort/lakebase/create-project.ts
 function createProject(input, progress) {
   return (0, import_lakebase.createProject)(
     { ...input, sftddHooks: input.sftddHooks ?? kitSftddHooks },
@@ -6980,21 +6980,21 @@ function createProject(input, progress) {
 var import_github = require("@databricks-solutions/lakebase-scm-utils/github");
 var import_lakebase12 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
-// scripts/sftdd/feature-status.ts
+// consort/orchestrator/status/feature-status.ts
 init_cjs_shims();
-var import_fs8 = require("fs");
+var import_fs9 = require("fs");
 var import_path7 = require("path");
 
-// scripts/sftdd/orchestrator-probe.ts
+// consort/orchestrator/state/orchestrator-probe.ts
 init_cjs_shims();
 var fs10 = __toESM(require("fs"), 1);
 var path6 = __toESM(require("path"), 1);
 
-// scripts/sftdd/run-cycle.ts
+// consort/pipeline/run-cycle.ts
 init_cjs_shims();
 var import_lakebase3 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
-// scripts/sftdd/experiment.ts
+// consort/experiment/experiment.ts
 init_cjs_shims();
 var import_fs2 = require("fs");
 var import_path3 = require("path");
@@ -7036,18 +7036,28 @@ function readOutcomes(sftddDir, featureId, storyId, slug) {
   return JSON.parse((0, import_fs2.readFileSync)(file, "utf8"));
 }
 
-// scripts/sftdd/agent-log.ts
+// consort/logging/agent-log.ts
 init_cjs_shims();
 
-// scripts/sftdd/schema-loader.ts
+// consort/orchestrator/validators/schema-loader.ts
 init_cjs_shims();
+var import_fs3 = require("fs");
 var import_path4 = require("path");
 var import_ajv = __toESM(require_ajv(), 1);
-var SCHEMA_DIR = (0, import_path4.join)(__dirname, "schemas");
+function resolveSchemaDir() {
+  const candidates = [
+    (0, import_path4.join)(__dirname, "schemas"),
+    // dist: inlined consumer sits beside the copied schemas
+    (0, import_path4.join)(__dirname, "..", "..", "..", "scripts", "sftdd", "schemas")
+    // source: consort/orchestrator/validators -> repo root
+  ];
+  return candidates.find((d) => (0, import_fs3.existsSync)(d)) ?? candidates[0];
+}
+var SCHEMA_DIR = resolveSchemaDir();
 var ajv = new import_ajv.default({ allErrors: true, strict: false });
 ajv.addFormat("date-time", true);
 
-// scripts/sftdd/agent-log-events.ts
+// consort/logging/agent-log-events.ts
 init_cjs_shims();
 var EVENT_TEMPLATES = {
   // Orchestration lifecycle (code-emitted)
@@ -7100,26 +7110,26 @@ var EVENT_TEMPLATES = {
 };
 var AGENT_LOG_EVENT_NAMES = Object.keys(EVENT_TEMPLATES);
 
-// scripts/sftdd/cycle-record.ts
+// consort/pipeline/cycle-record.ts
 init_cjs_shims();
 
-// scripts/sftdd/sftdd-env.ts
+// consort/config/sftdd-env.ts
 init_cjs_shims();
 
-// scripts/sftdd/test-list.ts
+// consort/test-list/test-list.ts
 init_cjs_shims();
-var import_fs3 = require("fs");
+var import_fs4 = require("fs");
 function readMasterTestList(tddDir, featureId) {
   requireFeatureDir(tddDir, featureId);
   const file = featureTestListJson(tddDir, featureId);
-  if (!(0, import_fs3.existsSync)(file)) {
+  if (!(0, import_fs4.existsSync)(file)) {
     throw new Error(`master test-list.json not found for ${featureId} at ${file}`);
   }
-  const parsed = JSON.parse((0, import_fs3.readFileSync)(file, "utf8"));
+  const parsed = JSON.parse((0, import_fs4.readFileSync)(file, "utf8"));
   return { ...parsed, items: Array.isArray(parsed.items) ? parsed.items : [] };
 }
 
-// scripts/sftdd/deploy.ts
+// consort/deploy/deploy.ts
 init_cjs_shims();
 var import_node_child_process = require("child_process");
 var import_node_crypto = require("crypto");
@@ -7128,21 +7138,21 @@ var import_node_path3 = require("path");
 var import_lakebase7 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_util2 = require("@databricks-solutions/lakebase-scm-utils/util");
 
-// scripts/sftdd/escalation.ts
+// consort/gates/escalation.ts
 init_cjs_shims();
 var fs5 = __toESM(require("fs"), 1);
 
-// scripts/sftdd/smells.ts
+// consort/smells/smells.ts
 init_cjs_shims();
-var import_fs4 = require("fs");
+var import_fs5 = require("fs");
 var import_path5 = require("path");
 function readSmellsLog(sftddDir) {
   const file = (0, import_path5.join)(sftddDir, "smells.json");
-  if (!(0, import_fs4.existsSync)(file)) return { detected: [] };
-  return JSON.parse((0, import_fs4.readFileSync)(file, "utf8"));
+  if (!(0, import_fs5.existsSync)(file)) return { detected: [] };
+  return JSON.parse((0, import_fs5.readFileSync)(file, "utf8"));
 }
 
-// scripts/sftdd/deploy-verify-assess.ts
+// consort/smells/deploy-verify-assess.ts
 init_cjs_shims();
 var fs6 = __toESM(require("fs"), 1);
 var path4 = __toESM(require("path"), 1);
@@ -7169,48 +7179,48 @@ function deployVerifyNeedsAssess(sftddDir, featureId, storyId) {
   return !!m && !m.assessed && m.attempts < 1;
 }
 
-// scripts/sftdd/e2e-regex-clean.ts
+// consort/architecture/e2e-regex-clean.ts
 init_cjs_shims();
 var import_node_fs = require("fs");
 var import_node_path2 = require("path");
 
-// scripts/sftdd/ephemeral-verify.ts
+// consort/smells/ephemeral-verify.ts
 init_cjs_shims();
 var import_util = require("@databricks-solutions/lakebase-scm-utils/util");
 var import_lakebase4 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_lakebase5 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_lakebase6 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
-// scripts/sftdd/design-adherence.ts
+// consort/architecture/design-adherence.ts
 init_cjs_shims();
 var import_node_fs3 = require("fs");
 var import_node_path4 = require("path");
 
-// scripts/sftdd/supersession.ts
+// consort/smells/supersession.ts
 init_cjs_shims();
 var fs7 = __toESM(require("fs"), 1);
 var import_node_path5 = require("path");
 
-// scripts/sftdd/contract-clean.ts
+// consort/architecture/contract-clean.ts
 init_cjs_shims();
 var import_node_fs4 = require("fs");
 var import_node_path6 = require("path");
 
-// scripts/sftdd/refactor-verify-assess.ts
+// consort/smells/refactor-verify-assess.ts
 init_cjs_shims();
 var fs8 = __toESM(require("fs"), 1);
 var path5 = __toESM(require("path"), 1);
 
-// scripts/sftdd/migration-app-clean.ts
+// consort/architecture/migration-app-clean.ts
 init_cjs_shims();
 var import_node_fs5 = require("fs");
 var import_node_path7 = require("path");
 
-// scripts/sftdd/cycle-record.ts
+// consort/pipeline/cycle-record.ts
 var import_git = require("@databricks-solutions/lakebase-scm-utils/git");
 var import_lakebase8 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
-// scripts/sftdd/orchestrator-derive.ts
+// consort/orchestrator/state/orchestrator-derive.ts
 init_cjs_shims();
 function driverPhaseForTdd(tddPhase) {
   switch (tddPhase) {
@@ -7228,9 +7238,9 @@ function driverPhaseForTdd(tddPhase) {
   }
 }
 
-// scripts/sftdd/gates.ts
+// consort/gates/gates.ts
 init_cjs_shims();
-var import_fs5 = require("fs");
+var import_fs6 = require("fs");
 var import_path6 = require("path");
 var GATES_SCHEMA_VERSION = 1;
 var GATE_NAMES = ["spec", "plan", "test_list", "promote", "deploy"];
@@ -7251,10 +7261,10 @@ function defaultGatesState(featureId) {
 function readGates(featureId, opts = {}) {
   const sftddDir = opts.sftddDir ?? resolveSftddDir();
   const file = gatesFilePath(sftddDir, featureId);
-  if (!(0, import_fs5.existsSync)(file)) {
+  if (!(0, import_fs6.existsSync)(file)) {
     return defaultGatesState(featureId);
   }
-  const raw = (0, import_fs5.readFileSync)(file, "utf8");
+  const raw = (0, import_fs6.readFileSync)(file, "utf8");
   let parsed;
   try {
     parsed = JSON.parse(raw);
@@ -7323,15 +7333,15 @@ function validateGateRecord(parsed, gateName, file) {
   };
 }
 
-// scripts/sftdd/workflow-phase.ts
+// consort/gates/workflow-phase.ts
 init_cjs_shims();
 var fs9 = __toESM(require("fs"), 1);
 var PHASE_OWNER_KEY = "phase_feature_id";
 
-// scripts/sftdd/orchestrator-probe.ts
+// consort/orchestrator/state/orchestrator-probe.ts
 var import_lakebase9 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
-// scripts/sftdd/reflection.ts
+// consort/smells/reflection.ts
 init_cjs_shims();
 var SMELL_FOR_OWNER = {
   "spec-author": "reflect-spec-defect",
@@ -7339,13 +7349,13 @@ var SMELL_FOR_OWNER = {
 };
 var REFLECT_SMELLS = Object.values(SMELL_FOR_OWNER);
 
-// scripts/sftdd/architecture-canon.ts
+// consort/architecture/architecture-canon.ts
 init_cjs_shims();
 
-// scripts/sftdd/artifact-conformance.ts
+// consort/orchestrator/validators/conformance/artifact-conformance.ts
 init_cjs_shims();
 
-// scripts/sftdd/orchestrator-probe.ts
+// consort/orchestrator/state/orchestrator-probe.ts
 function readJson(file) {
   if (!fs10.existsSync(file)) return void 0;
   try {
@@ -7403,33 +7413,33 @@ function readGateApproved(featureId, sftddDir, gate) {
   }
 }
 
-// scripts/sftdd/design-spec-gate.ts
-init_cjs_shims();
-var import_fs6 = require("fs");
-
-// scripts/sftdd/spike-carryforward.ts
-init_cjs_shims();
-
-// scripts/sftdd/design-spec-gate.ts
-function readPlan(sftddDir, featureId, storyId) {
-  const planPath = storyPlanJson(sftddDir, featureId, storyId);
-  if (!(0, import_fs6.existsSync)(planPath)) return null;
-  return JSON.parse((0, import_fs6.readFileSync)(planPath, "utf8"));
-}
-
-// scripts/sftdd/story-pipeline.ts
+// consort/gates/design-spec-gate.ts
 init_cjs_shims();
 var import_fs7 = require("fs");
 
-// scripts/sftdd/gate-conformance-guard.ts
+// consort/experiment/spike-carryforward.ts
+init_cjs_shims();
+
+// consort/gates/design-spec-gate.ts
+function readPlan(sftddDir, featureId, storyId) {
+  const planPath = storyPlanJson(sftddDir, featureId, storyId);
+  if (!(0, import_fs7.existsSync)(planPath)) return null;
+  return JSON.parse((0, import_fs7.readFileSync)(planPath, "utf8"));
+}
+
+// consort/pipeline/story-pipeline.ts
+init_cjs_shims();
+var import_fs8 = require("fs");
+
+// consort/gates/gate-conformance-guard.ts
 init_cjs_shims();
 var import_node_fs6 = require("fs");
 var import_node_path8 = require("path");
 
-// scripts/sftdd/architecture-conventions.ts
+// consort/architecture/architecture-conventions.ts
 init_cjs_shims();
 
-// scripts/sftdd/story-pipeline.ts
+// consort/pipeline/story-pipeline.ts
 function initPipeline(featureId) {
   return { version: 1, feature_id: featureId, stories: {}, build_queue: [], build_active: null };
 }
@@ -7438,20 +7448,20 @@ function pipelinePath(sftddDir, featureId) {
 }
 function readPipeline(sftddDir, featureId) {
   const p = pipelinePath(sftddDir, featureId);
-  if (!(0, import_fs7.existsSync)(p)) return initPipeline(featureId);
-  return JSON.parse((0, import_fs7.readFileSync)(p, "utf8"));
+  if (!(0, import_fs8.existsSync)(p)) return initPipeline(featureId);
+  return JSON.parse((0, import_fs8.readFileSync)(p, "utf8"));
 }
 
-// scripts/sftdd/feature-status.ts
+// consort/orchestrator/status/feature-status.ts
 var MAX_RECENT_LOG_ENTRIES = 5;
 function readJsonIfExists(path7) {
-  if (!(0, import_fs8.existsSync)(path7)) return null;
-  return JSON.parse((0, import_fs8.readFileSync)(path7, "utf8"));
+  if (!(0, import_fs9.existsSync)(path7)) return null;
+  return JSON.parse((0, import_fs9.readFileSync)(path7, "utf8"));
 }
 function listFeatureStories(sftddDir, featureId) {
   const storiesDir2 = storiesDir(sftddDir, featureId);
-  if (!(0, import_fs8.existsSync)(storiesDir2)) return [];
-  return (0, import_fs8.readdirSync)(storiesDir2).filter((d) => (0, import_fs8.statSync)((0, import_path7.join)(storiesDir2, d)).isDirectory()).sort();
+  if (!(0, import_fs9.existsSync)(storiesDir2)) return [];
+  return (0, import_fs9.readdirSync)(storiesDir2).filter((d) => (0, import_fs9.statSync)((0, import_path7.join)(storiesDir2, d)).isDirectory()).sort();
 }
 function timelineCycleCount(experimentDir2) {
   const timeline = readJsonIfExists(
@@ -7483,8 +7493,8 @@ function summarizeTestList(sftddDir, featureId) {
 }
 function readSelectionLogRecent(sftddDir, limit) {
   const path7 = (0, import_path7.join)(sftddDir, "selection-log.md");
-  if (!(0, import_fs8.existsSync)(path7)) return [];
-  const text = (0, import_fs8.readFileSync)(path7, "utf8");
+  if (!(0, import_fs9.existsSync)(path7)) return [];
+  const text = (0, import_fs9.readFileSync)(path7, "utf8");
   const entries = [];
   const headingRe = /^##\s+(\S+T\S+?)\s+–\s+(.+?)$/gm;
   let match;

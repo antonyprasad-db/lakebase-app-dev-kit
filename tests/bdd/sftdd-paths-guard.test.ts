@@ -20,21 +20,30 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// sftdd-paths.ts moved to the low consort/config/ family (foliation); the modules that
-// could hand-build a layout path still live in scripts/sftdd/, so scan BOTH roots.
+// sftdd-paths.ts lives in the low consort/config/ family (foliation); the modules that could
+// hand-build a layout path are the consort/ families + the bin/ CLIs (scripts/sftdd now holds
+// only schemas + docs, no source). Scan the consort/ tree AND bin/ so the single-source rule
+// covers everywhere a layout path could be re-hand-built.
 const SCAN_DIRS = [
-  fileURLToPath(new URL("../../scripts/sftdd", import.meta.url)),
-  fileURLToPath(new URL("../../consort/config", import.meta.url)),
+  fileURLToPath(new URL("../../consort", import.meta.url)),
+  fileURLToPath(new URL("../../bin", import.meta.url)),
 ];
 const SINGLE_SOURCE = "sftdd-paths.ts";
 
+// The optimize family is the champion-walk HARNESS + its recorded corpus, not runtime .sftdd
+// layout code. It legitimately names the top-level artifact roots as a snapshot allow-list
+// (SNAPSHOT_ROOTS = ["features","planning","design"]), which is not a hand-built layout PATH.
+// It was never in this guard's original scripts/sftdd scope, so exclude it (+ its fixtures).
+const SKIP_DIRS = ["optimize", "evaluation"];
+
 /** Every .ts source file under the scanned dirs (recursive), minus tests + the one
- *  module that is allowed to know the layout. */
+ *  module that is allowed to know the layout + the optimize harness/corpus. */
 function tddSourceFiles(dir: string): string[] {
   const out: string[] = [];
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) {
+      if (SKIP_DIRS.includes(entry)) continue;
       out.push(...tddSourceFiles(full));
       continue;
     }

@@ -27,15 +27,15 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 var getImportMetaUrl = () => typeof document === "undefined" ? new URL(`file:${__filename}`).href : document.currentScript && document.currentScript.tagName.toUpperCase() === "SCRIPT" ? document.currentScript.src : new URL("main.js", document.baseURI).href;
 var importMetaUrl = /* @__PURE__ */ getImportMetaUrl();
 
-// scripts/lakebase/adopt-sftdd.ts
+// consort/lakebase/adopt-sftdd.ts
 var fs2 = __toESM(require("fs"), 1);
 
-// scripts/sftdd/sftdd-paths.ts
+// consort/config/sftdd-paths.ts
 var fs = __toESM(require("fs"), 1);
 var import_node_path = require("path");
 var ARTIFACT_ROOT = ".sftdd";
 
-// scripts/lakebase/adopt-sftdd.ts
+// consort/lakebase/adopt-sftdd.ts
 var path = __toESM(require("path"), 1);
 var import_node_url = require("url");
 function adoptTdd(args) {

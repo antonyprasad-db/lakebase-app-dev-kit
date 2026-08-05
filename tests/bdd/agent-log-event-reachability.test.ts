@@ -59,9 +59,9 @@ function grepFiles(pattern: string, dir: string, include?: string): string[] {
  *  true producers register. */
 function hasCodeProducer(name: string): boolean {
   const esc = name.replace(/\./g, "\\.");
-  // Producers live across the orchestration layer: scripts/ (bins + remaining libs) AND consort/
-  // (the foliated function families the emit sites moved into). Search both roots.
-  return ["scripts/", "consort/"]
+  // Producers live across the orchestration layer: consort/ (the foliated function families) +
+  // bin/ (the CLI entrypoints) + scripts/ (any residual). Search all three roots.
+  return ["consort/", "bin/", "scripts/"]
     .flatMap((dir) => grepFiles(`"${esc}"`, dir, "*.ts"))
     .some((f) => !PLUMBING.some((p) => f.endsWith(p)));
 }

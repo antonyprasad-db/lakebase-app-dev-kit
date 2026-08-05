@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// scripts/lakebase/update-agents.ts
+// consort/lakebase/update-agents.ts
 import * as fs from "fs";
 import * as path from "path";
 function findKitAgentsDir(start) {

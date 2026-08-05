@@ -10,7 +10,7 @@ import { join } from "path";
 import { tmpdir } from "os";
 import type { AgentLogEvent } from "../../consort/logging/agent-log";
 import { computeTiming, formatTimingReport, timingReportFromLog } from "../../consort/reports/timing-report";
-import { runTimingCli } from "../../scripts/sftdd/timing-report.cli";
+import { runTimingCli } from "../../bin/sftdd/timing-report.cli";
 
 function ev(timestamp: string, role: string, event: string, metadata?: Record<string, unknown>): AgentLogEvent {
   return { timestamp, level: "info", role: role as AgentLogEvent["role"], event, message: `${role} ${event}`, metadata };

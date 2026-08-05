@@ -34,7 +34,7 @@ var path2 = __toESM(require("path"), 1);
 var import_node_url = require("url");
 var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
-// scripts/lakebase/update-commands.ts
+// consort/lakebase/update-commands.ts
 var fs = __toESM(require("fs"), 1);
 var path = __toESM(require("path"), 1);
 var COMMAND_HOOK_FILE_PATTERN = /\.(pre|post)-hook\.md$/;

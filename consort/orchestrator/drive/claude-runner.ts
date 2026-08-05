@@ -1,6 +1,6 @@
 // The reusable drive spawn engine: buildCfg, execRunner, and their private
 // helpers. Extracted from drive.cli.ts so that drive.cli.ts itself AND the
-// optimize harness (scripts/sftdd/optimize.cli.ts) can import the seams without
+// optimize harness (bin/sftdd/optimize.cli.ts) can import the seams without
 // dragging drive.cli's `main()`/isCliEntry CLI entry block into their bundle.
 //
 // CRITICAL: tsup has splitting:false, which inlines modules into a single bundle.

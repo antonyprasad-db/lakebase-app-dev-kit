@@ -27,24 +27,24 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 var getImportMetaUrl = () => typeof document === "undefined" ? new URL(`file:${__filename}`).href : document.currentScript && document.currentScript.tagName.toUpperCase() === "SCRIPT" ? document.currentScript.src : new URL("main.js", document.baseURI).href;
 var importMetaUrl = /* @__PURE__ */ getImportMetaUrl();
 
-// scripts/lakebase/create-project.ts
+// consort/lakebase/create-project.ts
 var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
-// scripts/sftdd/project-sftdd-setup.ts
+// consort/setup/project-sftdd-setup.ts
 var fs4 = __toESM(require("fs"), 1);
 var path3 = __toESM(require("path"), 1);
 var import_node_url2 = require("url");
 
-// scripts/sftdd/sftdd-paths.ts
+// consort/config/sftdd-paths.ts
 var fs = __toESM(require("fs"), 1);
 var import_node_path = require("path");
 var ARTIFACT_ROOT = ".sftdd";
 
-// scripts/sftdd/sftdd-config.ts
+// consort/config/sftdd-config-file.ts
 var import_fs = require("fs");
 var import_path2 = require("path");
 
-// scripts/sftdd/agent-models.ts
+// consort/config/agent-models.ts
 var import_path = require("path");
 var RECOMMENDED_MODELS = {
   "spec-author": "opus",
@@ -59,7 +59,7 @@ var RECOMMENDED_MODELS = {
 var ALL_AGENT_ROLES = Object.keys(RECOMMENDED_MODELS);
 var AGENT_CONFIG_REL = (0, import_path.join)(".lakebase", "agent-config.json");
 
-// scripts/sftdd/optimized-defaults.json
+// consort/config/optimized-defaults.json
 var optimized_defaults_default = {
   _comment: "Auto-applied optimization winners, deep-merged onto defaultSftddConfig()'s base. Written by optimize-apply (data, never a TS rewrite) so an unattended champion walk can bake each winner into the kit default; inlined into dist at build time. roles.<role>.{model,effort} may be a scalar or a per-turn/step map keyed by TurnKey (breakdown/acs/architect/dba/test-list/ux for design; red/green/review/refactor/assess/repair for build). Edit via the apply path, not by hand.",
   roles: {
@@ -78,7 +78,7 @@ var optimized_defaults_default = {
   }
 };
 
-// scripts/sftdd/sftdd-config.ts
+// consort/config/sftdd-config-file.ts
 var SFTDD_CONFIG_REL = (0, import_path2.join)(".lakebase", "sftdd-config.json");
 var LEGACY_TDD_CONFIG_REL = (0, import_path2.join)(".lakebase", "tdd-config.json");
 var TDD_CONFIG_REL = SFTDD_CONFIG_REL;
@@ -131,16 +131,16 @@ function writeSftddConfig(projectDir, config, opts) {
   return true;
 }
 
-// scripts/lakebase/adopt-sftdd.ts
+// consort/lakebase/adopt-sftdd.ts
 var fs2 = __toESM(require("fs"), 1);
 var path = __toESM(require("path"), 1);
 var import_node_url = require("url");
 
-// scripts/lakebase/update-agents.ts
+// consort/lakebase/update-agents.ts
 var fs3 = __toESM(require("fs"), 1);
 var path2 = __toESM(require("path"), 1);
 
-// scripts/sftdd/project-sftdd-setup.ts
+// consort/setup/project-sftdd-setup.ts
 var __dirname = path3.dirname((0, import_node_url2.fileURLToPath)(importMetaUrl));
 function kitPackageName() {
   const candidates = [
@@ -259,7 +259,7 @@ var kitSftddHooks = {
   seedConfig: seedSftddConfig
 };
 
-// scripts/lakebase/create-project.ts
+// consort/lakebase/create-project.ts
 function createProject(input, progress) {
   return (0, import_lakebase.createProject)(
     { ...input, sftddHooks: input.sftddHooks ?? kitSftddHooks },
@@ -267,7 +267,7 @@ function createProject(input, progress) {
   );
 }
 
-// scripts/lakebase/create-doctor-gate.ts
+// consort/lakebase/create-doctor-gate.ts
 var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var CREATE_GATE_BLOCKING_CHECKS = /* @__PURE__ */ new Set([
   "databricks-cli",

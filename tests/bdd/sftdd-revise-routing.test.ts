@@ -517,7 +517,7 @@ describe("rebuildStory (pipeline rebuild-story)", () => {
 
 describe("story-pipeline CLI wires the self-heal (static)", () => {
   const cliSrc = readFileSyncNode(
-    fileURLToPath(new URL("../../scripts/sftdd/story-pipeline.cli.ts", import.meta.url)),
+    fileURLToPath(new URL("../../bin/sftdd/story-pipeline.cli.ts", import.meta.url)),
     "utf8",
   );
   it("revise delegates to reviseStoryWithSelfHeal (not a hollow reviseStory)", () => {

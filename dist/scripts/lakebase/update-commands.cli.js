@@ -9,7 +9,7 @@ import {
   detectCommandDrift
 } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 
-// scripts/lakebase/update-commands.ts
+// consort/lakebase/update-commands.ts
 import * as fs from "fs";
 import * as path from "path";
 var COMMAND_HOOK_FILE_PATTERN = /\.(pre|post)-hook\.md$/;

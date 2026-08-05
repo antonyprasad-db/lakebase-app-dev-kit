@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// scripts/sftdd/sftdd-paths.ts
+// consort/config/sftdd-paths.ts
 import * as fs from "fs";
 import { join } from "path";
 var ARTIFACT_ROOT = ".sftdd";
