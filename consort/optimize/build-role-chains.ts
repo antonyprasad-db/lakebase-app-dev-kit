@@ -17,11 +17,11 @@
 // reference resolves positionally by that index.
 
 import { join } from "node:path";
-import { runIntegrationChain } from "../scenarios/integration-chain.js";
-import type { StepManifest } from "../steps/manifest.js";
-import type { StepAgent } from "../agents/agent-types.js";
-import type { ManifestTurn } from "../runners/manifest-runner.js";
-import type { WorkflowAction } from "../workflow/workflow-vocabulary.js";
+import { runIntegrationChain } from "../orchestrator/scenarios/integration-chain.js";
+import type { StepManifest } from "../orchestrator/steps/manifest.js";
+import type { StepAgent } from "../orchestrator/agents/agent-types.js";
+import type { ManifestTurn } from "../orchestrator/runners/manifest-runner.js";
+import type { WorkflowAction } from "../orchestrator/workflow/workflow-vocabulary.js";
 
 /** Kit-root-relative locations the build chains read from. The build corpus (design artifacts +
  *  recorded-build code trees) lives under the rerecord scenario, NOT tests/integration/intake
@@ -32,7 +32,7 @@ export const BUILD_MANIFESTS_REL = "tests/integration/manifests";
 // recorded-build/ code trees + the ground-truth assess marker), copied out of the live corpus. So
 // a durable experiment re-run / evidence review does NOT depend on the scenario corpus being
 // present (the corpus is a moving reference; the fixtures are pinned). See evaluation/README.md.
-export const BUILD_CORPUS_REL = "consort/orchestrator/optimize/evaluation/fixtures";
+export const BUILD_CORPUS_REL = "consort/optimize/evaluation/fixtures";
 export const BUILD_FEATURE = "F6-split-tracking-code";
 // RED runs on S3 (the richest test-authoring story). Its live green is proven there.
 export const BUILD_STORY = "S3-stock-shows-split-fields";

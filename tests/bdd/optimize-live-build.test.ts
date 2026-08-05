@@ -11,7 +11,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { makeBuildSnapshotDeps, makeBuildGate } from "../../scripts/sftdd/optimize-live";
+import { makeBuildSnapshotDeps, makeBuildGate } from "../../consort/optimize/optimize-live";
 
 describe("makeBuildSnapshotDeps (git + re-fork injected)", () => {
   it("captureSha delegates to the injected git.sha; resetHard resets to it; reFork re-forks", async () => {

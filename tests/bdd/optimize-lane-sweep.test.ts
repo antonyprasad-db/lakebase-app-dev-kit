@@ -8,8 +8,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import { runLaneSweep, type LaneSweepDeps } from "../../scripts/sftdd/optimize-live";
-import type { HandoffPlan, HandoffResult } from "../../scripts/sftdd/optimize-harness";
+import { runLaneSweep, type LaneSweepDeps } from "../../consort/optimize/optimize-live";
+import type { HandoffPlan, HandoffResult } from "../../consort/optimize/optimize-harness";
 
 function res(handoffId: string, winnerId: string): HandoffResult {
   return {

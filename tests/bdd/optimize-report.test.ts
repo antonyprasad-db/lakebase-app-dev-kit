@@ -9,9 +9,9 @@ import {
   buildChampionWalkReport,
   formatChampionWalkReport,
   describeCandidateLevers,
-} from "../../scripts/sftdd/optimize-report";
-import type { ChampionWalkResult } from "../../scripts/sftdd/optimize-harness";
-import type { Candidate } from "../../scripts/sftdd/optimize-candidates";
+} from "../../consort/optimize/optimize-report";
+import type { ChampionWalkResult } from "../../consort/optimize/optimize-harness";
+import type { Candidate } from "../../consort/optimize/optimize-candidates";
 
 const candidates: Candidate[] = [
   { id: "baseline", configOverrides: {} },

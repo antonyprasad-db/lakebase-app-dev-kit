@@ -13,8 +13,8 @@
 // ux-designer is tool-scoped out of Bash and reports via the agent-report channel).
 
 import { describe, it, expect } from "vitest";
-import { runRoleChainLive } from "../../../consort/orchestrator/optimize/role-chains.js";
-import { ROLE_CHAINS } from "../../../consort/orchestrator/optimize/role-chains.js";
+import { runRoleChainLive } from "../../../consort/optimize/role-chains.js";
+import { ROLE_CHAINS } from "../../../consort/optimize/role-chains.js";
 
 describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE (lean): replay seed -> live ux-designer chain", () => {
   it("seeds the design-brief + product-overview and drives the live ux-designer to a conformant design-guide", async () => {

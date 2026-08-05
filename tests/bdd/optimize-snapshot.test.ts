@@ -19,7 +19,7 @@ import {
   restoreDesignArtifacts,
   snapshotBuild,
   type BuildSnapshotDeps,
-} from "../../scripts/sftdd/optimize-snapshot";
+} from "../../consort/optimize/optimize-snapshot";
 
 let root: string;
 beforeEach(() => {

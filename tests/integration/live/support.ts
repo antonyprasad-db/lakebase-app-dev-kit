@@ -6,7 +6,7 @@
 // artifact), with no full-project scaffold, so each role can be instrumented + lever-swept
 // independently. NOT a .test.ts itself (no vitest include match), so importing it adds no suite.
 //
-// The chain CATALOGUE + runner live in the optimize family (consort/orchestrator/optimize/
+// The chain CATALOGUE + runner live in the optimize family (consort/optimize/
 // role-chains.ts), shared by these live tests AND the per-role sweep. This file adds only the
 // TEST-side concerns: the conformance assertions + surviving/printing the turn's telemetry.
 //
@@ -16,9 +16,9 @@
 import { expect } from "vitest";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { ROLE_CHAINS, runRoleChainLive, MANIFESTS_REL, type RoleChain } from "../../../consort/orchestrator/optimize/role-chains.js";
+import { ROLE_CHAINS, runRoleChainLive, MANIFESTS_REL, type RoleChain } from "../../../consort/optimize/role-chains.js";
 import { loadStepManifests, type StepManifest } from "../../../consort/orchestrator/steps/manifest.js";
-import { formatRoleTelemetry, writeRoleTelemetry, type RoleLevers, type RoleTelemetry } from "../../../consort/orchestrator/optimize/role-telemetry.js";
+import { formatRoleTelemetry, writeRoleTelemetry, type RoleLevers, type RoleTelemetry } from "../../../consort/optimize/role-telemetry.js";
 import type { ManifestTurn } from "../../../consort/orchestrator/runners/manifest-runner.js";
 
 export const KIT = process.cwd();

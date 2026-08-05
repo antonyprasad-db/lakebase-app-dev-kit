@@ -35,7 +35,7 @@ import { writePipeline } from "../../../consort/pipeline/story-pipeline.js";
 import { storyTestProgress } from "../../../consort/pipeline/cycle-record.js";
 
 const KIT = process.cwd();
-const FIXTURES = join(KIT, "consort/orchestrator/optimize/evaluation/fixtures");
+const FIXTURES = join(KIT, "consort/optimize/evaluation/fixtures");
 const REC_ARTIFACTS = join(FIXTURES, "recorded-artifacts/features/F6-split-tracking-code");
 const REC_PRE_RED_CODE = join(
   FIXTURES,

@@ -11,7 +11,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { evaluateDesignGate, gateForDesignHandoff } from "../../scripts/sftdd/optimize-gate";
+import { evaluateDesignGate, gateForDesignHandoff } from "../../consort/optimize/optimize-gate";
 
 let sftddDir: string;
 const featureId = "F1";

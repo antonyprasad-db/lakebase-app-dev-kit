@@ -10,8 +10,8 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { applyWinnerToOverlay } from "../../scripts/sftdd/optimize-apply";
-import type { Candidate } from "../../scripts/sftdd/optimize-candidates";
+import { applyWinnerToOverlay } from "../../consort/optimize/optimize-apply";
+import type { Candidate } from "../../consort/optimize/optimize-candidates";
 
 let kitDir: string;
 let overlayPath: string;

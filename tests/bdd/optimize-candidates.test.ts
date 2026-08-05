@@ -12,7 +12,7 @@ import {
   applyCandidateConfig,
   BASELINE_CANDIDATE_ID,
   type Candidate,
-} from "../../scripts/sftdd/optimize-candidates";
+} from "../../consort/optimize/optimize-candidates";
 import { defaultSftddConfig } from "../../consort/orchestrator/settings/project-settings";
 
 describe("generateCandidates", () => {

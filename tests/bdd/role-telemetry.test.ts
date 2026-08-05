@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync, existsSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { formatRoleTelemetry, writeRoleTelemetry, type RoleTelemetry } from "../../consort/orchestrator/optimize/role-telemetry";
+import { formatRoleTelemetry, writeRoleTelemetry, type RoleTelemetry } from "../../consort/optimize/role-telemetry";
 
 const REC: RoleTelemetry = {
   role: "test-strategist",

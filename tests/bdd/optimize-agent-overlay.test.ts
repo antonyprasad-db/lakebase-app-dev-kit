@@ -11,7 +11,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { overlayAgent } from "../../scripts/sftdd/optimize-agent-overlay";
+import { overlayAgent } from "../../consort/optimize/optimize-agent-overlay";
 
 let projectDir: string;
 let agentsDir: string;

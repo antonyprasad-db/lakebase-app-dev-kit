@@ -19,8 +19,8 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 
-import type { Candidate } from "./optimize-candidates.js";
-import { buildApplyPlan, applyAgentMdLevers, formatApplyPlan } from "./optimize-apply.js";
+import type { Candidate } from "../../consort/optimize/optimize-candidates.js";
+import { buildApplyPlan, applyAgentMdLevers, formatApplyPlan } from "../../consort/optimize/optimize-apply.js";
 
 export interface ApplyCliArgs {
   projectDir?: string;

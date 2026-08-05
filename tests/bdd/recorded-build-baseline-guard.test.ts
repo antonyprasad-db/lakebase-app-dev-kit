@@ -20,7 +20,7 @@
 import { describe, it, expect } from "vitest";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { buildOutputKind, type BuildOutputKind } from "../../scripts/sftdd/optimize-semantic-gate";
+import { buildOutputKind, type BuildOutputKind } from "../../consort/optimize/optimize-semantic-gate";
 
 const KIT = process.cwd();
 const SCENARIOS = join(KIT, "examples/sftdd-scenarios");

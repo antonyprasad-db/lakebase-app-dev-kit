@@ -12,9 +12,9 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { makeChampionWalkDeps, makeLiveSpawnTurn, type OptimizeLiveCtx, type SpawnTurn } from "../../scripts/sftdd/optimize-live";
-import { runChampionWalk } from "../../scripts/sftdd/optimize-harness";
-import { generateCandidates } from "../../scripts/sftdd/optimize-candidates";
+import { makeChampionWalkDeps, makeLiveSpawnTurn, type OptimizeLiveCtx, type SpawnTurn } from "../../consort/optimize/optimize-live";
+import { runChampionWalk } from "../../consort/optimize/optimize-harness";
+import { generateCandidates } from "../../consort/optimize/optimize-candidates";
 import { writeSftddConfig, defaultSftddConfig, loadSftddConfig } from "../../consort/orchestrator/settings/project-settings";
 
 let projectDir: string;

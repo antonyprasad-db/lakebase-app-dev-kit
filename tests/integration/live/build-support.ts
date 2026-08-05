@@ -26,7 +26,7 @@ import {
   ASSESS_STORY,
   ASSESS_AC,
   type BuildRoleChain,
-} from "../../../consort/orchestrator/optimize/build-role-chains.js";
+} from "../../../consort/optimize/build-role-chains.js";
 import {
   buildRedCoverageJudgePrompt,
   parseJudgeReply,
@@ -36,8 +36,8 @@ import {
   readTree,
   FUNCTIONAL_THRESHOLD,
   type DiscriminatorVerdict,
-} from "../../../scripts/sftdd/optimize-semantic-gate.js";
-import { formatRoleTelemetry, writeRoleTelemetry, type RoleTelemetry } from "../../../consort/orchestrator/optimize/role-telemetry.js";
+} from "../../../consort/optimize/optimize-semantic-gate.js";
+import { formatRoleTelemetry, writeRoleTelemetry, type RoleTelemetry } from "../../../consort/optimize/role-telemetry.js";
 import type { ManifestTurn } from "../../../consort/orchestrator/runners/manifest-runner.js";
 
 export const KIT = process.cwd();

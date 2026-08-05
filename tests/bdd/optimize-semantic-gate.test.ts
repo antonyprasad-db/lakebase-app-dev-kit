@@ -24,7 +24,7 @@ import {
   evaluateNavigatorAssessAlignment,
   buildSupersessionDeltaPrompt,
   type DiscriminatorVerdict,
-} from "../../scripts/sftdd/optimize-semantic-gate";
+} from "../../consort/optimize/optimize-semantic-gate";
 
 let kitRoot: string;
 let sftddDir: string;
@@ -261,7 +261,7 @@ describe("build discriminator gate: clean verdict is a PASS (best), only insuffi
     writeFileSync(join(rbApp, "models.py"), "class Stock: pass\n");
     mkdirSync(join(sftddDir, "..", "app"), { recursive: true });
     writeFileSync(join(sftddDir, "..", "app", "models.py"), "class Stock: pass\n");
-    const { evaluateBuildFunctionalGate } = await import("../../scripts/sftdd/optimize-semantic-gate");
+    const { evaluateBuildFunctionalGate } = await import("../../consort/optimize/optimize-semantic-gate");
     return evaluateBuildFunctionalGate({
       kitRoot,
       projectDir: join(sftddDir, ".."),

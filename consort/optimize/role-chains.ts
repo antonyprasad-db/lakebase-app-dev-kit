@@ -12,11 +12,11 @@
 // with no override (default levers from the manifest); the sweep calls it once per candidate.
 
 import { join } from "node:path";
-import { runIntegrationChain } from "../scenarios/integration-chain.js";
-import type { StepManifest } from "../steps/manifest.js";
-import type { StepAgent } from "../agents/agent-types.js";
-import type { ManifestTurn } from "../runners/manifest-runner.js";
-import type { WorkflowAction } from "../workflow/workflow-vocabulary.js";
+import { runIntegrationChain } from "../orchestrator/scenarios/integration-chain.js";
+import type { StepManifest } from "../orchestrator/steps/manifest.js";
+import type { StepAgent } from "../orchestrator/agents/agent-types.js";
+import type { ManifestTurn } from "../orchestrator/runners/manifest-runner.js";
+import type { WorkflowAction } from "../orchestrator/workflow/workflow-vocabulary.js";
 
 /** Kit-root-relative locations the chains read from. Resolved against process.cwd() (the kit
  *  root) by the caller; kept as constants so both the tests and the sweep agree. */

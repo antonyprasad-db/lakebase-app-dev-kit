@@ -18,5 +18,5 @@
     "types": ["node"]
   },
   "include": ["scripts/**/*.ts", "tests/**/*.ts", "apps/**/*.ts", "consort/**/*.ts"],
-  "exclude": ["node_modules", "dist", "consort/orchestrator/optimize/evaluation/fixtures", "tests/integration/live/driver-green-setup/code-assets"]
+  "exclude": ["node_modules", "dist", "consort/optimize/evaluation/fixtures", "tests/integration/live/driver-green-setup/code-assets"]
 }

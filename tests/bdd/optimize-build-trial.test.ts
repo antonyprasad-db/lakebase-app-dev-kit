@@ -4,7 +4,7 @@
 // infra = systemic halt , so it is exhaustively unit-tested.
 
 import { describe, expect, it } from "vitest";
-import { classifyBuildTrial, isViableBuildTrial } from "../../scripts/sftdd/optimize-build-trial";
+import { classifyBuildTrial, isViableBuildTrial } from "../../consort/optimize/optimize-build-trial";
 
 describe("classifyBuildTrial", () => {
   it("self-healed: the loop returned, did not escalate, honest-GREEN passed", () => {

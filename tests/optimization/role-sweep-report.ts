@@ -5,7 +5,7 @@
 // must still produce a conformant artifact). If nothing beats the baseline, there is no winner ,
 // the role's default levers stand.
 
-import { formatRoleTelemetry, type RoleTelemetry } from "../../consort/orchestrator/optimize/role-telemetry.js";
+import { formatRoleTelemetry, type RoleTelemetry } from "../../consort/optimize/role-telemetry.js";
 import type { SweepTrial } from "./role-sweep.js";
 
 /** One ranked row in the report (a gate-passing candidate + its deltas vs baseline). */

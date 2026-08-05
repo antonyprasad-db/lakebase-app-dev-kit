@@ -3,7 +3,7 @@
 This directory is the SETUP BUNDLE for `driver-green-executor-dispatch-live.test.ts` (via
 `driver-build-support.ts`'s `runDriverGreenLive`). It is deliberately SELF-CONTAINED: the live
 driver-GREEN check reaches ONLY here for its pre-step assets, never out to the moving evaluation
-corpus (`consort/orchestrator/optimize/evaluation/fixtures`) or `examples/…`. Copied in once, pinned.
+corpus (`consort/optimize/evaluation/fixtures`) or `examples/…`. Copied in once, pinned.
 
 ## Layout
 - `code-assets/` , the POST-RED F6/S3 application tree the run overlays onto a freshly-scaffolded

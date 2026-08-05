@@ -218,18 +218,18 @@ Ownership model (settled with the user):
 
 What actually moved (a code trace corrected the original blanket plan):
 - **Moved to `tests/optimization/`** (the harness-ONLY files): `role-levers.ts`, `role-sweep.ts`,
-  `role-sweep-report.ts` (from `consort/orchestrator/optimize/`), `optimize-role.cli.ts` (from
+  `role-sweep-report.ts` (from `consort/optimize/`), `optimize-role.cli.ts` (from
   `scripts/sftdd/`), and this README.
 - **UNSHIPPED** `lakebase-sftdd-optimize-role` from `package.json` bin. It is still built to
   `dist/tests/optimization/optimize-role.cli.js` (a tsup entry, NOT a bin) purely so
   `scripts/optimize-role.sh` can run the CJS build (the shared schema-loader needs `__dirname`).
 - **LEFT IN PLACE** (shared or production, NOT harness-only):
-  - `consort/orchestrator/optimize/role-chains.ts` + `role-telemetry.ts` — imported by the
+  - `consort/optimize/role-chains.ts` + `role-telemetry.ts` — imported by the
     per-role LIVE + hermetic **integration** tests (`tests/integration/{live,hermetic}`), not just
     the sweep.
-  - `consort/orchestrator/optimize/build-role-chains.ts` — **production**: `build-context.ts`
+  - `consort/optimize/build-role-chains.ts` — **production**: `build-context.ts`
     (→ `orchestrator-effects.ts`, the live drive) imports it to inject the SAME context pack.
-  - `consort/orchestrator/optimize/evaluation/fixtures/` + `tests/integration/{intake,manifests}` —
+  - `consort/optimize/evaluation/fixtures/` + `tests/integration/{intake,manifests}` —
     the fixture-path constants (`INTAKE_REL`, `BUILD_MANIFESTS_REL`, `BUILD_CORPUS_REL`) live in the
     STAYING files and serve the integration tests too; moving them would make a staying/production
     file reach into `tests/optimization/`. They stay where every consumer already points.

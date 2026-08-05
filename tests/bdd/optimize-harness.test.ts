@@ -17,8 +17,8 @@ import {
   type ChampionWalkDeps,
   type TrialResult,
   type HandoffPlan,
-} from "../../scripts/sftdd/optimize-harness";
-import { generateCandidates } from "../../scripts/sftdd/optimize-candidates";
+} from "../../consort/optimize/optimize-harness";
+import { generateCandidates } from "../../consort/optimize/optimize-candidates";
 
 /** A scripted runTrial: looks up a fixed outcome per (handoff, candidate id, trial). */
 function scriptedDeps(

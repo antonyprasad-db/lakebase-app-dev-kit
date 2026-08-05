@@ -21,8 +21,8 @@ import {
   applyAgentMdLevers,
   formatApplyPlan,
   type ApplyPlan,
-} from "../../scripts/sftdd/optimize-apply";
-import type { Candidate } from "../../scripts/sftdd/optimize-candidates";
+} from "../../consort/optimize/optimize-apply";
+import type { Candidate } from "../../consort/optimize/optimize-candidates";
 
 let kitDir: string;
 let agentsDir: string;

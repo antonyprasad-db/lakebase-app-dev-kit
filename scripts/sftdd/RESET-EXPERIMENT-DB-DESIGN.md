@@ -1,7 +1,7 @@
 # reset-experiment-db + the driver build-turn phase (DESIGN ONLY — not built)
 
 This is the written contract for the **driver** half of the per-role build-turn optimization work.
-The **navigator** half is built and lean (no cloud): see `consort/orchestrator/optimize/build-role-chains.ts`
+The **navigator** half is built and lean (no cloud): see `consort/optimize/build-role-chains.ts`
 (`navigator-red`, `navigator-assess`) + `tests/integration/live/navigator-*-live.test.ts`. This file
 records the driver seam + the shared-environment reset contract so the cloud phase can be built later
 without re-deriving it. **Nothing here is implemented yet.**

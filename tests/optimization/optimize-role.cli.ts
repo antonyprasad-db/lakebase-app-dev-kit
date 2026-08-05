@@ -21,11 +21,11 @@
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { ROLE_CHAINS, runRoleChainLive, INTAKE_REL, type RoleChain } from "../../consort/orchestrator/optimize/role-chains.js";
+import { ROLE_CHAINS, runRoleChainLive, INTAKE_REL, type RoleChain } from "../../consort/optimize/role-chains.js";
 import { roleCandidates } from "./role-levers.js";
 import { runRoleSweep, type SweepTrial } from "./role-sweep.js";
 import { reportRoleSweep, formatRoleSweepReport } from "./role-sweep-report.js";
-import { makeOpusJudge } from "../../scripts/sftdd/optimize-semantic-gate.js";
+import { makeOpusJudge } from "../../consort/optimize/optimize-semantic-gate.js";
 import { RECOMMENDED_MODELS, type SpawnableAgentRole } from "../../consort/config/agent-models.js";
 import type { StepManifest } from "../../consort/orchestrator/steps/manifest.js";
 import type { StepAgent } from "../../consort/orchestrator/agents/agent-types.js";

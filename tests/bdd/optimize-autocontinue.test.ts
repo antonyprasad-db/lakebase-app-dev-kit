@@ -11,8 +11,8 @@ import {
   type AutoContinueDeps,
   type SweepOutcome,
   type AutoContinueJournalEntry,
-} from "../../scripts/sftdd/optimize-autocontinue";
-import type { HandoffPlan, HandoffResult } from "../../scripts/sftdd/optimize-harness";
+} from "../../consort/optimize/optimize-autocontinue";
+import type { HandoffPlan, HandoffResult } from "../../consort/optimize/optimize-harness";
 
 function hp(id: string, role: string, story?: string): HandoffPlan {
   return { id, role, ...(story ? { story } : {}) };

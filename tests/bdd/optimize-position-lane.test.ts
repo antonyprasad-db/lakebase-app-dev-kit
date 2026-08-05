@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { positionToNextHandoff } from "../../scripts/sftdd/optimize-live";
+import { positionToNextHandoff } from "../../consort/optimize/optimize-live";
 import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 
 function scripted(seq: Array<{ action: WorkflowAction; commands: string[] }>) {
