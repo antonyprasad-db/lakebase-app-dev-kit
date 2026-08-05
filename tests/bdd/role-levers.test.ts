@@ -4,7 +4,7 @@
 // machinery as every candidate. Pure , no I/O.
 
 import { describe, it, expect } from "vitest";
-import { roleCandidates, BASELINE_ID } from "../../consort/orchestrator/optimize/role-levers";
+import { roleCandidates, BASELINE_ID } from "../optimization/role-levers";
 
 describe("roleCandidates: model tiers x effort rungs x scan-tight, baseline first", () => {
   it("baseline is always first, with no lever patch", () => {

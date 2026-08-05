@@ -3,7 +3,7 @@
 // agents, so it is exercised by the gated live sweep, not here , this pins only the pure parser.
 
 import { describe, it, expect } from "vitest";
-import { parseArgs } from "../../scripts/sftdd/optimize-role.cli";
+import { parseArgs } from "../optimization/optimize-role.cli";
 
 describe("optimize-role parseArgs", () => {
   it("parses --role + optional --base-model / --telemetry-dir", () => {

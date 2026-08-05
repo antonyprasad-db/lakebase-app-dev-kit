@@ -15,9 +15,9 @@
 # CLI always runs live).
 set -euo pipefail
 cd "$(dirname "$0")/.."
-# Run the BUILT dist bin (CJS), not the .ts via tsx: the shared schema-loader uses __dirname,
-# which is undefined under tsx's ESM loader. The kit ships committed dist, so the bin normally
-# exists; build it if this is a fresh/dirty tree.
-BIN="dist/scripts/sftdd/optimize-role.cli.js"
+# Run the BUILT dist artifact (CJS), not the .ts via tsx: the shared schema-loader uses __dirname,
+# which is undefined under tsx's ESM loader. This is an INTERNAL harness (not a published bin), so
+# it lives under tests/optimization/ and is built to dist purely for this runbook. Build if absent.
+BIN="dist/tests/optimization/optimize-role.cli.js"
 [ -f "$BIN" ] || npm run build >/dev/null
 exec node "$BIN" "$@"

@@ -199,7 +199,7 @@ So: apply `effort=low` to the shipped test-strategist turn; shelve the split unl
 it. Caveat: n=1 per candidate; the WINNER (e-low) is clear of the noise floor, but the exact
 speedup would firm up with a 2-3× repeat of e-low + baseline.
 
-### PLANNED (after this sweep finishes) — relocate the per-role optimize harness under tests/ (#575)
+### 2026-08-04 — relocated the per-role optimize harness under tests/optimization/ (#575, DONE)
 Ownership model (settled with the user):
 - **The recorded corpora are REGRESSION fixtures first.** The canonical, complete copies live in
   `examples/sftdd-scenarios/*` (stockflow-rerecord etc.). Their primary job: a full **agents-off
@@ -212,16 +212,27 @@ Ownership model (settled with the user):
   need — self-contained copies by design (so the isolated tests don't depend on the moving corpus).
   A copy is the correct end state: NO drift guard, NO provenance link back to source.
 - **The per-role optimize machinery is INTERNAL agent perf-tuning tooling**, not shipped product
-  (sole runtime consumer = the `lakebase-sftdd-optimize-role` CLI; the shipped drive-optimize bins
-  `lakebase-sftdd-optimize`/`-apply` are separate and do NOT import it).
+  (the shipped drive-optimize bins `lakebase-sftdd-optimize`/`-apply` are separate and do NOT import
+  it). Note: `consort/` source isn't in the npm package at all (`files:` ships dist/scripts/skills/
+  templates), so the real "unship" lever was the CLI **bin**, not the source location.
 
-Move (deferred until the running sweep completes — it reads these paths live):
-- `consort/orchestrator/optimize/*` + `scripts/sftdd/optimize-role.cli.ts` -> `tests/optimization/`.
-- The COPIED fixtures the isolated tests consume (manifests + intake + the build-corpus copies now
-  under `optimize/evaluation/fixtures/`) -> `tests/optimization/fixtures/`, co-located with the
-  harness that runs them, so what the isolated tests depend on is one obvious place.
-- This README -> `tests/optimization/README.md`.
-- UNSHIP `lakebase-sftdd-optimize-role` from package.json bin (keep the drive-optimize product bins).
+What actually moved (a code trace corrected the original blanket plan):
+- **Moved to `tests/optimization/`** (the harness-ONLY files): `role-levers.ts`, `role-sweep.ts`,
+  `role-sweep-report.ts` (from `consort/orchestrator/optimize/`), `optimize-role.cli.ts` (from
+  `scripts/sftdd/`), and this README.
+- **UNSHIPPED** `lakebase-sftdd-optimize-role` from `package.json` bin. It is still built to
+  `dist/tests/optimization/optimize-role.cli.js` (a tsup entry, NOT a bin) purely so
+  `scripts/optimize-role.sh` can run the CJS build (the shared schema-loader needs `__dirname`).
+- **LEFT IN PLACE** (shared or production, NOT harness-only):
+  - `consort/orchestrator/optimize/role-chains.ts` + `role-telemetry.ts` — imported by the
+    per-role LIVE + hermetic **integration** tests (`tests/integration/{live,hermetic}`), not just
+    the sweep.
+  - `consort/orchestrator/optimize/build-role-chains.ts` — **production**: `build-context.ts`
+    (→ `orchestrator-effects.ts`, the live drive) imports it to inject the SAME context pack.
+  - `consort/orchestrator/optimize/evaluation/fixtures/` + `tests/integration/{intake,manifests}` —
+    the fixture-path constants (`INTAKE_REL`, `BUILD_MANIFESTS_REL`, `BUILD_CORPUS_REL`) live in the
+    STAYING files and serve the integration tests too; moving them would make a staying/production
+    file reach into `tests/optimization/`. They stay where every consumer already points.
 - `examples/sftdd-scenarios/` (the regression corpus) is untouched.
 
 ### 2026-08-04 — ux-designer added as a role chain

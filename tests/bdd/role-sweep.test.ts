@@ -4,9 +4,9 @@
 // ranking , is proven without spawning a model.
 
 import { describe, it, expect } from "vitest";
-import { runRoleSweep, type ChainRunner, type ChainRunResult } from "../../consort/orchestrator/optimize/role-sweep";
-import { reportRoleSweep, formatRoleSweepReport } from "../../consort/orchestrator/optimize/role-sweep-report";
-import { roleCandidates } from "../../consort/orchestrator/optimize/role-levers";
+import { runRoleSweep, type ChainRunner, type ChainRunResult } from "../optimization/role-sweep";
+import { reportRoleSweep, formatRoleSweepReport } from "../optimization/role-sweep-report";
+import { roleCandidates } from "../optimization/role-levers";
 import { ROLE_CHAINS } from "../../consort/orchestrator/optimize/role-chains";
 import type { SemanticJudge } from "../../scripts/sftdd/optimize-semantic-gate";
 import type { ManifestTurn } from "../../consort/orchestrator/manifest/manifest-runner";

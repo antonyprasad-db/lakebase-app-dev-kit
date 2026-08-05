@@ -1,12 +1,14 @@
 #!/usr/bin/env node
-// lakebase-sftdd-optimize-role: the PER-ROLE lever sweep CLI. It runs one design/plan role's
-// isolated chain (recorded inputs replayed in, only that role's turn live) once per candidate
-// lever patch (model tiers x effort rungs x scan-tight), gates each on the role's conformance
-// validator, and reports the fastest gate-passer vs the baseline. This is the lightweight sibling
-// of lakebase-sftdd-optimize (which sweeps a whole scaffolded drive); it needs NO cloud project ,
-// the isolation substrate (tests/integration/manifests/<role>-chain + intake) is the whole thing.
+// optimize-role: the PER-ROLE lever sweep CLI , INTERNAL agent performance-tuning tooling (NOT a
+// published bin; it lives under tests/optimization/ and is invoked via scripts/optimize-role.sh).
+// It runs one design/plan role's isolated chain (recorded inputs replayed in, only that role's turn
+// live) once per candidate lever patch (model tiers x effort rungs x scan-tight), gates each on the
+// role's conformance validator, and reports the fastest gate-passer vs the baseline. This is the
+// lightweight sibling of lakebase-sftdd-optimize (which sweeps a whole scaffolded drive); it needs
+// NO cloud project , the isolation substrate (tests/integration/manifests/<role>-chain + intake) is
+// the whole thing.
 //
-//   lakebase-sftdd-optimize-role --role test-strategist [--base-model sonnet] [--telemetry-dir DIR]
+//   scripts/optimize-role.sh --role test-strategist [--base-model sonnet] [--telemetry-dir DIR]
 //
 // --role is the chain handle (spec-author-story | architect-reviewer | dba | test-strategist |
 //   spec-author-propose | architect-estimator). --base-model defaults to the role's recorded
@@ -20,11 +22,11 @@ import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { ROLE_CHAINS, runRoleChainLive, INTAKE_REL, type RoleChain } from "../../consort/orchestrator/optimize/role-chains.js";
-import { roleCandidates } from "../../consort/orchestrator/optimize/role-levers.js";
-import { runRoleSweep, type SweepTrial } from "../../consort/orchestrator/optimize/role-sweep.js";
-import { reportRoleSweep, formatRoleSweepReport } from "../../consort/orchestrator/optimize/role-sweep-report.js";
-import { makeOpusJudge } from "./optimize-semantic-gate.js";
-import { RECOMMENDED_MODELS, type SpawnableAgentRole } from "./agent-models.js";
+import { roleCandidates } from "./role-levers.js";
+import { runRoleSweep, type SweepTrial } from "./role-sweep.js";
+import { reportRoleSweep, formatRoleSweepReport } from "./role-sweep-report.js";
+import { makeOpusJudge } from "../../scripts/sftdd/optimize-semantic-gate.js";
+import { RECOMMENDED_MODELS, type SpawnableAgentRole } from "../../scripts/sftdd/agent-models.js";
 import type { StepManifest } from "../../consort/orchestrator/manifest/step-manifest.js";
 import type { StepAgent } from "../../consort/orchestrator/agents/agent-types.js";
 

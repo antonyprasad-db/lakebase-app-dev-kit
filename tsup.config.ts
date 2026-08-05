@@ -42,7 +42,10 @@ export default defineConfig({
     "scripts/sftdd/ux-clean.cli": "scripts/sftdd/ux-clean.cli.ts",
     "scripts/sftdd/optimize.cli": "scripts/sftdd/optimize.cli.ts",
     "scripts/sftdd/optimize-apply.cli": "scripts/sftdd/optimize-apply.cli.ts",
-    "scripts/sftdd/optimize-role.cli": "scripts/sftdd/optimize-role.cli.ts",
+    // Internal per-role sweep harness (NOT a published bin , see package.json: no bin entry).
+    // Built to dist only so the scripts/optimize-role.sh runbook can run the CJS build (the
+    // shared schema-loader uses __dirname, which tsx's ESM loader leaves undefined).
+    "tests/optimization/optimize-role.cli": "tests/optimization/optimize-role.cli.ts",
     "scripts/sftdd/agent-models.cli": "scripts/sftdd/agent-models.cli.ts",
     "scripts/sftdd/story-pipeline.cli": "scripts/sftdd/story-pipeline.cli.ts",
     "scripts/sftdd/cycle.cli": "scripts/sftdd/cycle.cli.ts",
