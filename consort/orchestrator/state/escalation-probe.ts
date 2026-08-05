@@ -6,7 +6,7 @@
 // re-derive the escalation-file + smell + revise-budget logic, this wraps the one authority:
 // diskArtifactProbe(...).pendingEscalation() (orchestrator-probe.ts). DRY , one source of truth.
 
-import { diskArtifactProbe } from "../../../scripts/sftdd/orchestrator-probe.js";
+import { diskArtifactProbe } from "./orchestrator-probe.js";
 import type { DriveEscalation, DriveState } from "../drive/orchestrator-drive.js";
 
 /**

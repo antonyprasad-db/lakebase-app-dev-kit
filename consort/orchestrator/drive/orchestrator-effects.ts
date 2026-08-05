@@ -23,8 +23,8 @@ import { manifestForAction, type StepManifestPostTurn } from "../steps/manifest.
 import { performTurnViaExecutor } from "./executor-dispatch.js";
 import { formatAgentReport } from "../turn/agent-report-formatter.js";
 import type { DriveEffects } from "./orchestrator-run.js";
-import { deriveDriveState, effectiveLoopForStory } from "../../../scripts/sftdd/orchestrator-derive.js";
-import { diskArtifactProbe, readDriveContext } from "../../../scripts/sftdd/orchestrator-probe.js";
+import { deriveDriveState, effectiveLoopForStory } from "../state/orchestrator-derive.js";
+import { diskArtifactProbe, readDriveContext } from "../state/orchestrator-probe.js";
 import { readPipeline } from "../../../scripts/sftdd/story-pipeline.js";
 import {
   storyJson, designGuideJson, handbackFile, storyAcIds, architectureJson, readAcLayer,

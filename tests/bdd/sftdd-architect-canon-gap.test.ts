@@ -16,7 +16,7 @@ import {
   markSmellResolved,
 } from "../../scripts/sftdd/smells.js";
 import { BLOCKING_SMELLS, escalationsFromSmells } from "../../scripts/sftdd/escalation.js";
-import { diskArtifactProbe } from "../../scripts/sftdd/orchestrator-probe.js";
+import { diskArtifactProbe } from "../../consort/orchestrator/state/orchestrator-probe.js";
 import { staleStoryArtifactsForRevise, applyReviseSelfHeal } from "../../scripts/sftdd/revise.js";
 import { writePipeline, type StoryPipeline } from "../../scripts/sftdd/story-pipeline.js";
 

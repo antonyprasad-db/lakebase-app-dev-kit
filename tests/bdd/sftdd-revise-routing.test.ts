@@ -27,7 +27,7 @@ import {
 import { recordBlockingSmellFlag, writeEscalation, readEscalations } from "../../scripts/sftdd/escalation";
 import { nextTransition, nextDesignOnlyTransition, actionLane, type DriveState } from "../../consort/orchestrator/drive/orchestrator-drive";
 import { commandsForAction, type DriveEffectsConfig } from "../../consort/orchestrator/drive/orchestrator-effects";
-import { diskArtifactProbe } from "../../scripts/sftdd/orchestrator-probe";
+import { diskArtifactProbe } from "../../consort/orchestrator/state/orchestrator-probe";
 import {
   applyReviseSelfHeal,
   reviseStoryWithSelfHeal,
@@ -41,7 +41,7 @@ import { readFileSync as readFileSyncNode } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { writeReflectVerdict, reflectionVerdictWritten } from "../../scripts/sftdd/reflection";
 import { writePipeline, readPipeline, type StoryPipeline } from "../../scripts/sftdd/story-pipeline";
-import { deriveDriveState } from "../../scripts/sftdd/orchestrator-derive";
+import { deriveDriveState } from "../../consort/orchestrator/state/orchestrator-derive";
 
 const FEATURE = "F1-file-bug";
 const STORY = "S1-file-bug-via-form";

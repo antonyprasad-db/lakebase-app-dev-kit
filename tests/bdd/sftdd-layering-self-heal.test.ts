@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { isBuildRefactorRoutableSmell, writeSmellsLog, readSmellsLog } from "../../scripts/sftdd/smells";
-import { diskArtifactProbe } from "../../scripts/sftdd/orchestrator-probe";
+import { diskArtifactProbe } from "../../consort/orchestrator/state/orchestrator-probe";
 import { reviewAc, refactorAc, firstRefactorPendingAc, type GreenVerifier } from "../../scripts/sftdd/cycle-record";
 import { writeCycleArtifact } from "../../scripts/sftdd/run-cycle";
 

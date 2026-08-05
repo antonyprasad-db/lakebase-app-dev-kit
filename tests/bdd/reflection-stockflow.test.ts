@@ -15,8 +15,8 @@ import { mkdtempSync, rmSync, mkdirSync, cpSync, readFileSync, writeFileSync, re
 import { tmpdir } from "os";
 import { join } from "path";
 
-import { diskArtifactProbe } from "../../scripts/sftdd/orchestrator-probe.js";
-import { deriveDriveState, type DriveContext } from "../../scripts/sftdd/orchestrator-derive.js";
+import { diskArtifactProbe } from "../../consort/orchestrator/state/orchestrator-probe.js";
+import { deriveDriveState, type DriveContext } from "../../consort/orchestrator/state/orchestrator-derive.js";
 import { nextTransition } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 import type { StoryPipeline, StoryEntry } from "../../scripts/sftdd/story-pipeline.js";
 import { writeReflectVerdict } from "../../scripts/sftdd/reflection.js";

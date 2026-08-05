@@ -9,7 +9,7 @@ import {
   assertStoryOrderCoversPipeline,
   type StoryArtifactProbe,
   type DriveContext,
-} from "../../scripts/sftdd/orchestrator-derive";
+} from "../../consort/orchestrator/state/orchestrator-derive";
 import { nextTransition } from "../../consort/orchestrator/drive/orchestrator-drive";
 import type { StoryPipeline, StoryEntry } from "../../scripts/sftdd/story-pipeline";
 

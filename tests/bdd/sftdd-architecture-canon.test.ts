@@ -21,7 +21,7 @@ import {
   writeCanon,
   type ArchitectureCanon,
 } from "../../scripts/sftdd/architecture-canon.js";
-import { diskArtifactProbe } from "../../scripts/sftdd/orchestrator-probe.js";
+import { diskArtifactProbe } from "../../consort/orchestrator/state/orchestrator-probe.js";
 
 let tdd: string;
 const NOW = () => new Date("2026-07-08T00:00:00.000Z");

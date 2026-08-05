@@ -12,33 +12,33 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { readAcLayer, type CycleArtifact } from "./run-cycle.js";
+import { readAcLayer, type CycleArtifact } from "../../../scripts/sftdd/run-cycle.js";
 import {
   storyTestProgress,
   firstReviewPendingAc,
   firstRefactorPendingAc,
   reviewPending,
   refactorPending,
-} from "./cycle-record.js";
-import { needsGreenAssess, hasPendingRegressionFix, hasPendingSupersession } from "./supersession.js";
+} from "../../../scripts/sftdd/cycle-record.js";
+import { needsGreenAssess, hasPendingRegressionFix, hasPendingSupersession } from "../../../scripts/sftdd/supersession.js";
 import { driverPhaseForTdd, type StoryArtifactProbe, type DriveContext } from "./orchestrator-derive.js";
-import type { DriveEscalation } from "../../consort/orchestrator/drive/orchestrator-drive.js";
-import { readGates } from "./gates.js";
-import { PHASE_OWNER_KEY } from "./workflow-phase.js";
-import { storyDeployVerified } from "./deploy.js";
+import type { DriveEscalation } from "../drive/orchestrator-drive.js";
+import { readGates } from "../../../scripts/sftdd/gates.js";
+import { PHASE_OWNER_KEY } from "../../../scripts/sftdd/workflow-phase.js";
+import { storyDeployVerified } from "../../../scripts/sftdd/deploy.js";
 import {
   deployVerifyNeedsAssess,
   deployVerifyRefactorPending as deployVerifyRefactorPendingMarker,
-} from "./deploy-verify-assess.js";
+} from "../../../scripts/sftdd/deploy-verify-assess.js";
 import {
   refactorVerifyNeedsAssess as refactorVerifyNeedsAssessMarker,
   refactorVerifyRefactorPending as refactorVerifyRefactorPendingMarker,
-} from "./refactor-verify-assess.js";
+} from "../../../scripts/sftdd/refactor-verify-assess.js";
 import { readWorkflowState, SCM_STATES } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-import { firstPendingEscalation } from "./escalation.js";
-import { specLevelSmell, priorReviseCount, isBuildRefactorRoutableSmell, isReflectSmell, priorReflectReviseCount, REFLECT_REVISE_CAP, storyTestListFingerprint, lastReflectReviseFingerprint } from "./smells.js";
-import { reflectionPassed, reflectionVerdictWritten } from "./reflection.js";
-import { readCanon, architectNovelty } from "./architecture-canon.js";
+import { firstPendingEscalation } from "../../../scripts/sftdd/escalation.js";
+import { specLevelSmell, priorReviseCount, isBuildRefactorRoutableSmell, isReflectSmell, priorReflectReviseCount, REFLECT_REVISE_CAP, storyTestListFingerprint, lastReflectReviseFingerprint } from "../../../scripts/sftdd/smells.js";
+import { reflectionPassed, reflectionVerdictWritten } from "../../../scripts/sftdd/reflection.js";
+import { readCanon, architectNovelty } from "../../../scripts/sftdd/architecture-canon.js";
 import {
   cyclesRootDir,
   workflowStateJson,
@@ -51,8 +51,8 @@ import {
   readAcArchitecturalNotes,
   architectureJson,
   dbDesignJson,
-} from "./sftdd-paths.js";
-import { checkDbDesign } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
+} from "../../../scripts/sftdd/sftdd-paths.js";
+import { checkDbDesign } from "../validators/conformance/artifact-conformance.js";
 
 /** Every recorded cycle artifact for a story, across all of its ACs. */
 function storyCycles(sftddDir: string, featureId: string, story: string): CycleArtifact[] {

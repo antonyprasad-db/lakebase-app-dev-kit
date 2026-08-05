@@ -4,7 +4,7 @@
 // F6/S3-split-drop-old build ground for 20+ min without converging).
 
 import { describe, it, expect } from "vitest";
-import { isContractStory, effectiveLoopForStory } from "../../scripts/sftdd/orchestrator-derive";
+import { isContractStory, effectiveLoopForStory } from "../../consort/orchestrator/state/orchestrator-derive";
 
 describe("isContractStory", () => {
   it("flags drop/remove/rename/cleanup stories", () => {
