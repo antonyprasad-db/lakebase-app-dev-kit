@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { createProject } from "../../scripts/lakebase/create-project.js";
+import { createProject } from "../../consort/lakebase/create-project.js";
 import { deleteLakebaseProject } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { resolveTestEnv } from "../../consort/orchestrator/provisioning/test-env.js";
 

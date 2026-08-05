@@ -8,7 +8,7 @@ import {
   formatGateBlockers,
   CREATE_GATE_BLOCKING_CHECKS,
   type CheckResult,
-} from "../../scripts/lakebase/create-doctor-gate.js";
+} from "../../consort/lakebase/create-doctor-gate.js";
 import type { HealthDoctorReport } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 
 function report(checks: CheckResult[]): HealthDoctorReport {

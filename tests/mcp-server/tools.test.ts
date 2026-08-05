@@ -26,8 +26,8 @@ vi.mock("@databricks-solutions/lakebase-scm-utils/lakebase", async (importOrigin
     })),
   };
 });
-vi.mock("../../scripts/lakebase/create-project.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../scripts/lakebase/create-project.js")>();
+vi.mock("../../consort/lakebase/create-project.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../consort/lakebase/create-project.js")>();
   return {
     ...actual,
     createProject: vi.fn(async (args: unknown) => ({

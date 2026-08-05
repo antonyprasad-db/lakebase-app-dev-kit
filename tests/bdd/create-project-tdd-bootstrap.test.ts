@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { layDownTddScaffold } from "../../scripts/lakebase/create-project";
+import { layDownTddScaffold } from "../../consort/lakebase/create-project";
 
 let projectDir: string;
 

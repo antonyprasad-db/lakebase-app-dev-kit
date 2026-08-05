@@ -7,7 +7,7 @@
 // Overwrites drifted agent defs by default (the propagation is the point);
 // --dry-run previews, --keep-local preserves a project-edited agent.
 
-import { updateAgents } from "./update-agents.js";
+import { updateAgents } from "../../consort/lakebase/update-agents.js";
 
 interface ParsedArgs {
   projectDir?: string;

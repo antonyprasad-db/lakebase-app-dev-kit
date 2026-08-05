@@ -15,7 +15,7 @@ import {
   detectCommandDrift,
   type CommandFileEntry,
 } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-import { updateCommands } from "./update-commands.js";
+import { updateCommands } from "../../consort/lakebase/update-commands.js";
 
 // The `.claude/commands` templates live in THIS kit (SFTDD), while the
 // drift detector now lives in @databricks-solutions/lakebase-scm-utils. Its

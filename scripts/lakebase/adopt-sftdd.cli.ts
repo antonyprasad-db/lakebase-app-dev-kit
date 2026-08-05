@@ -3,7 +3,7 @@
 // `.tdd/` into an existing repo. Sibling to `lakebase-create-project`,
 // which is the greenfield path. See `adopt-sftdd.ts` for the orchestrator.
 
-import { adoptTdd, type AdoptTddArgs } from "./adopt-sftdd.js";
+import { adoptTdd, type AdoptTddArgs } from "../../consort/lakebase/adopt-sftdd.js";
 
 interface ParsedArgs {
   projectDir?: string;

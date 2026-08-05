@@ -12,7 +12,7 @@
 
 import { getConnection } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { getSchemaDiff } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-import { createProject, type CreateProjectArgs } from "../../scripts/lakebase/create-project.js";
+import { createProject, type CreateProjectArgs } from "../../consort/lakebase/create-project.js";
 import { resolveGitHubToken, diagnoseGitHubAuth } from "@databricks-solutions/lakebase-scm-utils/github";
 import {
   applySchemaMigrations,

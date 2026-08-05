@@ -8,7 +8,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { updateAgents } from "../../scripts/lakebase/update-agents.js";
+import { updateAgents } from "../../consort/lakebase/update-agents.js";
 import { resyncAgentsOnKitDrift } from "../../consort/setup/project-sftdd-setup.js";
 
 const REPO_ROOT = path.resolve(__dirname, "..", "..");

@@ -13,7 +13,7 @@ import * as path from "node:path";
 import {
   assertAdoptionPreflight,
   _testMakeBrownfieldFixture,
-} from "../../scripts/lakebase/adopt-lakebase-project.js";
+} from "../../consort/lakebase/adopt-lakebase-project.js";
 
 function mkTmp(prefix: string): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), `adopt-lakebase-${prefix}-`));

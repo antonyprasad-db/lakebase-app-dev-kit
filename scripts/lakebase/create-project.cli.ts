@@ -6,9 +6,9 @@
 // Output: JSON to stdout containing CreateProjectResult. Progress goes to
 // stderr.
 
-import { createProject, CreateProjectArgs } from "./create-project.js";
+import { createProject, CreateProjectArgs } from "../../consort/lakebase/create-project.js";
 import { ALL_AGENT_ROLES, type SpawnableAgentRole } from "../../consort/config/agent-models.js";
-import { runCreateDoctorGate, formatGateBlockers } from "./create-doctor-gate.js";
+import { runCreateDoctorGate, formatGateBlockers } from "../../consort/lakebase/create-doctor-gate.js";
 
 interface ParsedArgs {
   jsonInput?: string;

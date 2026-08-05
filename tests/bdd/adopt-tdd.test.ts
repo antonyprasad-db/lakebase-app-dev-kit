@@ -7,7 +7,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { adoptTdd } from "../../scripts/lakebase/adopt-sftdd";
+import { adoptTdd } from "../../consort/lakebase/adopt-sftdd";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(here, "..", "..");
