@@ -11,14 +11,24 @@
 //                          failure advisory) without rediscovering context. A declared-but-
 //                          empty preparer is a logged anomaly ("always something"), never a
 //                          hard fail. Skipped entirely when deps.prepare is absent (default).
+//   2.7 pre-turn-effects   deterministic side effects the step declares BEFORE the spawn (e.g.
+//                          reset-breakdown). deps.preTurnEffects; no-op when absent.
 //   3. dispatch-agent      invoke the step's injected agent, contained to the workspace
 //                          (wait; the monitor/timeout envelope wires in at the spawn seam).
 //   4. capture-outputs     the step reports the produced artifact path(s) it found.
 //   5. validate-outputs    run each output's in-code validator; a failure is a HARD reject
 //                          with named violations, NOT an agent follow-up.
-//   6. record/log          emit the turn record (deps.onRecord) + any post-turn effects.
+//   6. record/log          emit the turn record (deps.onRecord).
+//   6.5 post-turn-effects  deterministic side effects the step declares AFTER a CLEAN validation
+//                          (e.g. sync-breakdown + reconcile). deps.postTurnEffects; gated on no
+//                          violations; no-op when absent.
 //   7. route               ask the step where it proposes to go, then reconcile through
 //                          validateAndBound (the orchestrator's authority over routing).
+//
+// The Template Method is EXTENSIBLE: pre/post-turn-effects are added phases, not bolt-ons , the
+// legacy commandsForAction bundled `before`/`after` CLIs with the spawn, and expressing them as
+// their own phases is how execute() owns the WHOLE turn. All added phases default to no-op, so a
+// caller that wires none gets the byte-identical original 7-phase behavior.
 //
 // The phase ORDER, the fail-loud input gate, containment, and validateAndBound's authority
 // are the orchestrator-owned INVARIANT , the StepContract/manifest/registry only fill the
@@ -109,6 +119,19 @@ export interface StepExecutorDeps {
    *  file. Optional , default no-op, so the byte-identical default + existing steps are
    *  unaffected. */
   materializeOutputs?(workspaceDir: string, action: WorkflowAction, cfg: DriveEffectsConfig): void;
+  /** Phase 2.7 PRE-TURN EFFECTS: deterministic side effects the step declares to run BEFORE the
+   *  agent spawn (e.g. the spec-author breakdown's `reset-breakdown` , clear a partial breakdown
+   *  so the re-dispatch regenerates clean). Expands the Template Method: the legacy
+   *  commandsForAction bundled these `before` CLIs with the spawn; making them their own phase is
+   *  how execute() owns the WHOLE turn, not just the spawn. Optional , default no-op (byte-identical). */
+  preTurnEffects?(action: WorkflowAction, cfg: DriveEffectsConfig): Promise<void>;
+  /** Phase 6.5 POST-TURN EFFECTS: deterministic side effects the step declares to run AFTER a
+   *  CLEAN validation (e.g. spec-author breakdown's `sync-breakdown` , seed the pipeline from the
+   *  story dirs the agent wrote; the `reconcile` log). Runs ONLY when validation passed (a blocked
+   *  turn re-issues without side effects), so a nonconformant artifact never triggers downstream
+   *  projection. The other half of the Template-Method expansion , the legacy path's `after` CLIs.
+   *  Optional , default no-op (byte-identical). */
+  postTurnEffects?(action: WorkflowAction, cfg: DriveEffectsConfig): Promise<void>;
   /** Phase 6: emit the turn record (usage/progress/violations). Optional (tests may omit). */
   onRecord?(record: StepRecord): void;
   /** Phase 2.5 anomaly channel: a declared precondition that PREPARED EMPTY (the preparer
@@ -178,6 +201,12 @@ export async function execute(step: RunnableStep, ctx: StepCtx, deps: StepExecut
     }
   }
 
+  // Phase 2.7: PRE-TURN EFFECTS , deterministic side effects the step declares to run BEFORE the
+  // spawn (e.g. reset-breakdown). Part of the Template Method's expanded sequence: the legacy
+  // commandsForAction ran these `before` CLIs ahead of the claude command; here they are their own
+  // phase, so execute() owns them too. No-op unless the orchestrator wired deps.preTurnEffects.
+  await deps.preTurnEffects?.(action, cfg);
+
   // Phase 3+4: dispatch-agent (contained) + capture-outputs , both inside the step's run().
   // Time the outer wall-clock across run() (the orchestrator's own measure of the turn, which
   // always exists, vs the agent's self-reported duration which only a live agent emits).
@@ -232,6 +261,16 @@ export async function execute(step: RunnableStep, ctx: StepCtx, deps: StepExecut
   // Phase 6: record/log , always runs (records the outcome incl. any violations + the turn's
   // measured telemetry: outer wall-clock always, the agent's usage/finalText when it exposed one).
   deps.onRecord?.({ action, producedPaths, violations, outerDurationMs, ...(agentResult ? { agentResult } : {}) });
+
+  // Phase 6.5: POST-TURN EFFECTS , deterministic side effects the step declares to run AFTER a
+  // CLEAN validation (e.g. sync-breakdown to seed the pipeline from the story dirs the agent wrote,
+  // + the reconcile log). Gated on NO violations: a blocked turn re-issues without firing downstream
+  // projection off a nonconformant artifact (the legacy path only reached its `after` CLIs on a
+  // turn that produced its artifact). The Template Method's expanded sequence, mirroring the legacy
+  // `after` CLIs. No-op unless the orchestrator wired deps.postTurnEffects.
+  if (violations.length === 0) {
+    await deps.postTurnEffects?.(action, cfg);
+  }
 
   // Phase 7: route , the step proposes; validateAndBound reconciles vs the pure transition +
   // the existing revise/retry bounds. A validation failure overrides the step's proposal to

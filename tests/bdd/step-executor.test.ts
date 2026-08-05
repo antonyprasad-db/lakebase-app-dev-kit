@@ -250,6 +250,86 @@ describe("phase 2.5 PREPARE-PRECONDITIONS: declared preconditions are prepared +
   });
 });
 
+describe("phases 2.7/6.5 PRE/POST-TURN EFFECTS: the Template Method's expanded deterministic-CLI phases", () => {
+  function ctxFor(): StepCtx {
+    return {
+      action: BREAKDOWN,
+      cfg: { projectDir: root, sftddDir: join(root, ".sftdd"), featureId: "F1-x" } as StepCtx["cfg"],
+      state: { phase: "feature" } as unknown as DriveState,
+      validateBoundDeps: {
+        allowed: () => ({ kind: "design-complete" }) as WorkflowAction,
+        reviseBudgetAvailable: () => true,
+        recordRetry: () => ({ sanctioned: true }),
+      },
+    };
+  }
+
+  it("runs pre-turn-effects BEFORE dispatch and post-turn-effects AFTER record, on a clean produce", async () => {
+    const order: string[] = [];
+    const step = {
+      inputs: () => [],
+      preconditions: () => [],
+      outputs: () => [],
+      route: () => ({ outcome: "produced" as const, proposedNext: { kind: "design-complete" } as WorkflowAction }),
+      async run() { order.push("dispatch"); return { produced: true, producedPaths: [] }; },
+    };
+    const deps: StepExecutorDeps = {
+      resolveInputs: () => ({}),
+      provisionWorkspace: () => ({ workspaceDir: root }),
+      instructionsFor: () => ({ prompt: "breakdown" }),
+      preTurnEffects: async () => { order.push("pre-turn"); },
+      onRecord: () => { order.push("record"); },
+      postTurnEffects: async () => { order.push("post-turn"); },
+    };
+    await execute(step, ctxFor(), deps);
+    // pre-turn before the agent; post-turn after the record (mirrors legacy before/after CLIs).
+    expect(order).toEqual(["pre-turn", "dispatch", "record", "post-turn"]);
+  });
+
+  it("SKIPS post-turn-effects when validation failed (no downstream projection off a bad artifact)", async () => {
+    let postRan = false;
+    let preRan = false;
+    // A step whose declared output never appears => a violation (blocked), so post-turn must NOT fire.
+    const step = {
+      inputs: () => [],
+      preconditions: () => [],
+      outputs: () => [{ id: "spec", description: "x", filename: "missing.json", validate: () => ({ ok: true as const, violations: [] as string[] }) }],
+      route: () => ({ outcome: "produced" as const, proposedNext: { kind: "design-complete" } as WorkflowAction }),
+      async run() { return { produced: true, producedPaths: [] }; }, // claims produced but writes nothing
+    };
+    const deps: StepExecutorDeps = {
+      resolveInputs: () => ({}),
+      provisionWorkspace: () => ({ workspaceDir: root }),
+      instructionsFor: () => ({ prompt: "breakdown" }),
+      preTurnEffects: async () => { preRan = true; },
+      postTurnEffects: async () => { postRan = true; },
+    };
+    const result = await execute(step, ctxFor(), deps);
+    expect(result.violations.length).toBeGreaterThan(0); // the missing declared output blocked it
+    expect(preRan).toBe(true);   // pre-turn always runs (it precedes the agent)
+    expect(postRan).toBe(false); // post-turn gated on clean validation
+  });
+
+  it("byte-identical when NO effect deps are wired (the default 7-phase path)", async () => {
+    let dispatched = false;
+    const step = {
+      inputs: () => [],
+      preconditions: () => [],
+      outputs: () => [],
+      route: () => ({ outcome: "produced" as const, proposedNext: { kind: "design-complete" } as WorkflowAction }),
+      async run() { dispatched = true; return { produced: true, producedPaths: [] }; },
+    };
+    const deps: StepExecutorDeps = {
+      resolveInputs: () => ({}),
+      provisionWorkspace: () => ({ workspaceDir: root }),
+      instructionsFor: () => ({ prompt: "plain" }),
+    };
+    const result = await execute(step, ctxFor(), deps);
+    expect(dispatched).toBe(true);
+    expect(result.violations).toEqual([]);
+  });
+});
+
 describe("three-channel outputs: product->workspace, artifact->artifactDir, meta->metaDir", () => {
   const okValidate = () => ({ ok: true as const, violations: [] as string[] });
   const action: WorkflowAction = { kind: "invoke-role", role: "driver", story: "S1-x" } as WorkflowAction;
