@@ -46,6 +46,13 @@ export interface RoleChain {
   outputFile: string;
   /** The live-turn prompt handed to the real agent. */
   prompt: string;
+  /** OPTIONAL quality-gate reference override (intake-relative). When the recorded `outputFile`
+   *  is a WIDER scope than what the isolated turn is given the inputs to produce (e.g. the
+   *  test-strategist writes the feature MASTER test-list, but a per-story chain is seeded ONE
+   *  story's ACs), the discriminator must score against the matching SLICE, not the full artifact
+   *  , else every candidate scores "thin" for a scope reason, not a quality reason. Absent =>
+   *  score against `outputFile` (the default; the produced artifact IS the whole recorded one). */
+  referenceFile?: string;
 }
 
 /** The per-role chain catalogue, keyed by a short handle (also the live role). Each maps 1:1 to a
@@ -97,15 +104,21 @@ export const ROLE_CHAINS: Record<string, RoleChain> = {
     name: "test-strategist per-story",
     dir: "test-strategist-chain",
     outputFile: `features/${FEATURE}/test-list.json`,
+    // Scored against the S1 SLICE of the recorded master, not the full 32-item/3-story master:
+    // this chain is invoked for story S1 (the real drive's per-story invocation unit) and seeded
+    // S1's ACs, so the faithful reference is the S1-scoped items. All 5 persistence invariants are
+    // covered within S1's slice, so an S1 test-list still passes the coverage gate.
+    referenceFile: `features/${FEATURE}/test-list.S1-slice.json`,
     prompt:
-      `You are the Test Strategist. From the provided inputs (the story AC + architecture.json + ` +
-      `db-design.json, in this prompt), produce the feature master test list. WRITE exactly this ` +
-      `file, relative to your current working directory:\n` +
+      `You are the Test Strategist, invoked for story ${STORY}. From the provided inputs (ALL of ` +
+      `story ${STORY}'s ACs + architecture.json + db-design.json, in this prompt , do NOT search the ` +
+      `filesystem), produce the feature master test list covering EVERY provided AC. WRITE exactly ` +
+      `this file, relative to your current working directory:\n` +
       `  - features/${FEATURE}/test-list.json\n` +
-      `Order the story's tests; map each test's ac_id to the provided AC's exact id. Cover EVERY ` +
-      `architecture.json persistence_invariant with a real-branch fitness test that sets ` +
-      `"invariant_id". Every DB-writing test must own its state (a per-run-unique key). Conform to ` +
-      `test-list.schema.json.` +
+      `Order the story's tests; map each test's ac_id to one of the provided ACs' EXACT ids, and ` +
+      `cover each provided AC at least once. Cover EVERY architecture.json persistence_invariant with ` +
+      `a real-branch fitness test that sets "invariant_id". Every DB-writing test must own its state ` +
+      `(a per-run-unique key). Conform to test-list.schema.json.` +
       NO_SHELL + REPORT_BLOCK,
   },
   "spec-author-propose": {

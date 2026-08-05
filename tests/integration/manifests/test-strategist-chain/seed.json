@@ -4,7 +4,9 @@
   "match": { "kind": "invoke-role", "role": "product-owner", "mode": "author-requests" },
   "inputs": [],
   "outputs": [
-    { "id": "ac1", "filename": "features/F1-stock-visibility/stories/S1-file-stock/acs/AC1-file-stock-record.json", "validator": "acConformant", "description": "A recorded story AC each test maps its ac_id to." },
+    { "id": "ac1", "filename": "features/F1-stock-visibility/stories/S1-file-stock/acs/AC1-file-stock-record.json", "validator": "acConformant", "description": "Story S1's AC1 , each test maps its ac_id to one of the story's ACs." },
+    { "id": "ac2", "filename": "features/F1-stock-visibility/stories/S1-file-stock/acs/AC2-retrieve-stock-record.json", "validator": "acConformant", "description": "Story S1's AC2 (the real drive gives the strategist ALL the story's ACs)." },
+    { "id": "ac3", "filename": "features/F1-stock-visibility/stories/S1-file-stock/acs/AC3-collision-resolved-at-write.json", "validator": "acConformant", "description": "Story S1's AC3 (the real drive gives the strategist ALL the story's ACs)." },
     { "id": "architecture", "filename": "features/F1-stock-visibility/architecture.json", "validator": "architectureConformant", "description": "The architecture (persistence_invariants) the fitness tests cover." },
     { "id": "db-design", "filename": "features/F1-stock-visibility/db-design.json", "validator": "dbDesignConformant", "description": "The DBA's concrete schema the invariant tests assert against." },
     { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "productOwnerLoggedAuthoring", "description": "The replay seed's authoring log." }
@@ -19,6 +21,8 @@
       "role": "product-owner",
       "seeds": [
         { "outputId": "ac1", "from": "features/F1-stock-visibility/stories/S1-file-stock/acs/AC1-file-stock-record.json", "to": "features/F1-stock-visibility/stories/S1-file-stock/acs/AC1-file-stock-record.json" },
+        { "outputId": "ac2", "from": "features/F1-stock-visibility/stories/S1-file-stock/acs/AC2-retrieve-stock-record.json", "to": "features/F1-stock-visibility/stories/S1-file-stock/acs/AC2-retrieve-stock-record.json" },
+        { "outputId": "ac3", "from": "features/F1-stock-visibility/stories/S1-file-stock/acs/AC3-collision-resolved-at-write.json", "to": "features/F1-stock-visibility/stories/S1-file-stock/acs/AC3-collision-resolved-at-write.json" },
         { "outputId": "architecture", "from": "features/F1-stock-visibility/architecture.json", "to": "features/F1-stock-visibility/architecture.json" },
         { "outputId": "db-design", "from": "features/F1-stock-visibility/db-design.json", "to": "features/F1-stock-visibility/db-design.json" }
       ]

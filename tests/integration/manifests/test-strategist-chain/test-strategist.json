@@ -3,7 +3,9 @@
   "role": "test-strategist",
   "match": { "kind": "invoke-role", "role": "test-strategist", "story": "S1-file-stock" },
   "inputs": [
-    { "id": "ac1", "source": "feature:features/F1-stock-visibility/stories/S1-file-stock/acs/AC1-file-stock-record.json", "description": "The story AC each test maps its ac_id to." },
+    { "id": "ac1", "source": "feature:features/F1-stock-visibility/stories/S1-file-stock/acs/AC1-file-stock-record.json", "description": "Story S1 AC1 , each test maps its ac_id to one of the story's ACs." },
+    { "id": "ac2", "source": "feature:features/F1-stock-visibility/stories/S1-file-stock/acs/AC2-retrieve-stock-record.json", "description": "Story S1 AC2 (the real drive hands the strategist ALL the story's ACs)." },
+    { "id": "ac3", "source": "feature:features/F1-stock-visibility/stories/S1-file-stock/acs/AC3-collision-resolved-at-write.json", "description": "Story S1 AC3 (the real drive hands the strategist ALL the story's ACs)." },
     { "id": "architecture", "source": "feature:features/F1-stock-visibility/architecture.json", "description": "The persistence_invariants each fitness test covers." },
     { "id": "db-design", "source": "feature:features/F1-stock-visibility/db-design.json", "description": "The concrete schema the invariant tests assert against." }
   ],

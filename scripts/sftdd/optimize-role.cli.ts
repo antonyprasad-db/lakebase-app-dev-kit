@@ -133,7 +133,9 @@ function runStamp(): string {
  *  primary output as it exists in the RECORDED intake corpus (the seed the chain replays). This
  *  is the known-good reference. Absent -> undefined (gate skipped). */
 function readReference(chain: RoleChain, _role: string): string | undefined {
-  const p = join(process.cwd(), INTAKE_REL, chain.outputFile);
+  // Prefer an explicit reference override (a SLICE of the recorded artifact matching the
+  // isolated turn's scope); else the produced artifact's recorded form. See RoleChain.referenceFile.
+  const p = join(process.cwd(), INTAKE_REL, chain.referenceFile ?? chain.outputFile);
   return existsSync(p) ? readFileSync(p, "utf8") : undefined;
 }
 
