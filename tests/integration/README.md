@@ -135,12 +135,39 @@ so the produced artifact lands in `producedArtifacts` keyed by its `outputFile`;
 asserts every chain's `outputFile` is under a snapshot root (so this can't regress). Sweep will be
 re-launched after the dist rebuild.
 
-### 2026-08-04 — test-strategist sweep (#556, attempt 3): RUNNING, quality gate VALIDATED
-Re-launched after the snapshot-root fix. Candidate 1 (baseline, sonnet) landed
-`gate PASSED quality PASSED , 679.9s` with `semanticScore: 0.85`, `qualityPassed: true`, and the
-produced `test-list.json` PRESERVED on disk , the discriminator genuinely fired and the artifact
-survived (everything #554 lacked). Remaining candidates in flight; results + the quality-holder
-wall-clock ranking will be appended here on completion.
+### 2026-08-04 — test-strategist sweep (#556, attempt 3): quality gate VALIDATED + LIVE (8/8 running)
+Re-launched after the snapshot-root fix. Quality gate confirmed FIRING (contrast attempts 1-2):
+each candidate carries a real `semanticScore` + its produced `test-list.json` is preserved under
+`.role-telemetry/sweep-test-strategist-20260805015529/<candidate>/artifacts/`.
+
+ALL candidates enumerated (verified from persisted telemetry — score + item count + wall-clock):
+
+| # | candidate | levers | quality | score | items | wall-clock |
+|---|---|---|---|---|---|---|
+| 1 | baseline | sonnet, default effort | ✅ PASS | 0.85 | 15 | 679.9s |
+| 2 | m-haiku | model=haiku | ❌ FAIL | 0.70 | 12 | 120.9s |
+| 3 | m-opus | model=opus | ✅ PASS | 0.85 | 16 | 115.9s |
+| 4 | **e-low** | effort=low (sonnet) | ✅ PASS | **0.90** | 16 | **71.5s** |
+| 5 | e-medium | effort=medium (sonnet) | ✅ PASS | 0.80 | 15 | 346.5s |
+| 6 | m-haiku-e-low | haiku + low | ✅ PASS | 0.75 | 12 | 106.1s |
+| 7 | m-opus-e-low | opus + low | ❌ FAIL | 0.72 | 13 | 41.9s |
+| 8 | scan-tight | deny Grep/Glob | _running_ | — | — | — |
+
+Gate threshold for tests = 0.75 (functional). Reading (7 of 8; scan-tight pending; single sample each):
+- **e-low is the front-runner AND the highest quality**: 0.90 / 16 items / 71.5s — ~9.5× faster than
+  baseline with the BEST coverage score, not merely "fast enough". Effort=low is the real lever.
+- The two FAILs track THIN coverage, not judge noise: m-haiku (0.70, **12 items**) and m-opus-e-low
+  (0.72, **13 items**) both produced fewer items; the passers cluster at 15-16. The discriminator is
+  tracking real coverage. (m-haiku-e-low barely passed at 0.75 with the same 12 items as failing
+  m-haiku — the one genuinely borderline candidate; worth a confirm re-run.)
+- So #554's "m-haiku 70% faster, gate-passed" was doubly wrong: m-haiku actually FAILS quality here
+  (0.70, thin), and the real speed-without-quality-loss win is **effort=low on sonnet**, invisible to
+  a conformance-only sweep.
+
+DECISION (test-strategist split): pending the final candidate + the borderline confirm, the data so
+far says the split is **premature** — a quality-holding cheap lever (sonnet effort=low: 0.90 at 71.5s)
+already collapses the output-bound cost ~9.5× WITHOUT the supervisor/analyst machinery. Will finalize
+once scan-tight lands.
 
 ### PLANNED (after this sweep finishes) — relocate the per-role optimize harness under tests/ (#575)
 Ownership model (settled with the user):
