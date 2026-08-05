@@ -31,7 +31,7 @@ import {
   type DriveEffectsConfig,
 } from "./orchestrator-effects.js";
 import { resolveModelForRole } from "../../../scripts/sftdd/agent-models.js";
-import { resolveSftddSettings } from "./sftdd-config.js";
+import { resolveSftddSettings } from "../settings/project-settings.js";
 import { parseTurnUsage, assistantTextFromLine, assistantEventSummary, type TurnUsage } from "../../../scripts/sftdd/claude-usage.js";
 import { resumeFitsBudget, turnContextTokens, CONTEXT_FREE_FRACTION_REQUIRED, isPromptTooLongSignal, isTransientApiErrorSignal, startsFreshEachTurn } from "../../../scripts/sftdd/context-budget.js";
 import { writeRunConfig } from "../../../scripts/sftdd/run-config.js";

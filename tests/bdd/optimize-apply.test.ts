@@ -77,7 +77,7 @@ describe("buildApplyPlan (pure)", () => {
     expect(plan.agentMdEdits).toHaveLength(0);
     expect(plan.sourceEdits.length).toBeGreaterThanOrEqual(1);
     const edit = plan.sourceEdits[0];
-    expect(edit.file).toBe("consort/orchestrator/drive/sftdd-config.ts");
+    expect(edit.file).toBe("consort/orchestrator/settings/project-settings.ts");
     expect(edit.rationale).toMatch(/driver.*green.*haiku/i);
     expect(edit.regressionTest).toBeTruthy();
   });

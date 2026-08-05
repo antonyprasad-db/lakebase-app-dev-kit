@@ -51,7 +51,7 @@ import {
   type SprintEffects,
   type DriveStepResult,
 } from "./orchestrator-sprint.js";
-import { resolveSftddSettings, applyProjectOverrides } from "../../consort/orchestrator/drive/sftdd-config.js";
+import { resolveSftddSettings, applyProjectOverrides } from "../../consort/orchestrator/settings/project-settings.js";
 import { describeAction, approveHint, makeOnAction } from "./orchestrator-logging.js";
 import { kitVersion } from "./kit-bin.js";
 import { isForeignFeatureClaim, readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";

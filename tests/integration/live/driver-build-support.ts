@@ -40,7 +40,7 @@ import { buildDriveEffects } from "../../../consort/orchestrator/drive/orchestra
 import { execRunner } from "../../../consort/orchestrator/drive/drive-runner.js";
 import type { DriveEffectsConfig } from "../../../consort/orchestrator/drive/orchestrator-effects.js";
 import type { WorkflowAction } from "../../../consort/orchestrator/drive/orchestrator-drive.js";
-import { resolveSftddSettings } from "../../../consort/orchestrator/drive/sftdd-config.js";
+import { resolveSftddSettings } from "../../../consort/orchestrator/settings/project-settings.js";
 import { writePipeline, readPipeline } from "../../../scripts/sftdd/story-pipeline.js";
 import { beginNextPendingBatch, storyTestProgress } from "../../../scripts/sftdd/cycle-record.js";
 

@@ -8,7 +8,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { fileURLToPath } from "url";
 
-import { resolveSftddSettings, SFTDD_CONFIG_REL } from "../../consort/orchestrator/drive/sftdd-config.js";
+import { resolveSftddSettings, SFTDD_CONFIG_REL } from "../../consort/orchestrator/settings/project-settings.js";
 
 const RESOLVER_SRC = join(
   fileURLToPath(new URL(".", import.meta.url)),
@@ -16,8 +16,8 @@ const RESOLVER_SRC = join(
   "..",
   "consort",
   "orchestrator",
-  "drive",
-  "sftdd-config.ts",
+  "settings",
+  "project-settings.ts",
 );
 
 describe("single-source guard (SOURCE): the resolver module reads no env", () => {

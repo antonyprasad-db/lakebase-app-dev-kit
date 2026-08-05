@@ -12,7 +12,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { checkArtifactConformance } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
 import { resolveSftddDir, featureRequestMd } from "./sftdd-paths.js";
-import { resolveSftddSettings } from "../../consort/orchestrator/drive/sftdd-config.js";
+import { resolveSftddSettings } from "../../consort/orchestrator/settings/project-settings.js";
 
 export interface IntakeCheckArgs {
   /** Artifact root. Default ./.sftdd (honors a legacy ./.tdd) */

@@ -14,7 +14,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SHIPPED_MANIFESTS } from "../../consort/orchestrator/steps/manifest";
-import { resolveSftddSettings, defaultSftddConfig, writeSftddConfig } from "../../consort/orchestrator/drive/sftdd-config";
+import { resolveSftddSettings, defaultSftddConfig, writeSftddConfig } from "../../consort/orchestrator/settings/project-settings";
 import { turnKeyForAction } from "../../consort/orchestrator/drive/orchestrator-effects";
 import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 

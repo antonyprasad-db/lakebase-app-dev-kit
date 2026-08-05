@@ -23,10 +23,10 @@ import {
 // project file + applied-winners overlay, above RECOMMENDED_MODELS) via agentOptionsForStep, which
 // indexes the shipped manifests by the SAME (role, turnKey) the drive derives.
 import { agentOptionsForStep } from "../steps/manifest.js";
-import { turnKeyForAction, type TurnKey, type EffortLevel, type BuildTurn, type DesignStep } from "./turn-key.js";
+import { turnKeyForAction, type TurnKey, type EffortLevel, type BuildTurn, type DesignStep } from "../drive/turn-key.js";
 // Re-export the turn-key types from their canonical (dependency-light) home so the many callers
 // that have long imported them from sftdd-config keep working unchanged.
-export type { TurnKey, EffortLevel, BuildTurn, DesignStep } from "./turn-key.js";
+export type { TurnKey, EffortLevel, BuildTurn, DesignStep } from "../drive/turn-key.js";
 // Auto-applied optimization winners, deep-merged onto the base default (see
 // defaultSftddConfig). Static import so tsup inlines it into dist at build time; the
 // champion walk's auto-apply writes this file as DATA, never a TS rewrite.

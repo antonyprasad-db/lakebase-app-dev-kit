@@ -26,7 +26,7 @@ import { join, resolve } from "node:path";
 import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 import { generateCandidates, defaultLaneCandidates, BASELINE_CANDIDATE_ID, type SweepSpec, type Candidate } from "./optimize-candidates.js";
 import { runChampionWalk, type HandoffPlan, type HandoffResult } from "./optimize-harness.js";
-import type { BuildTurn, EffortLevel } from "../../consort/orchestrator/drive/sftdd-config.js";
+import type { BuildTurn, EffortLevel } from "../../consort/orchestrator/settings/project-settings.js";
 import type { SpawnableAgentRole } from "./agent-models.js";
 import { buildCfg, execRunner } from "../../consort/orchestrator/drive/drive-runner.js";
 import { planNextAction, commandsForAction, turnKeyForAction } from "../../consort/orchestrator/drive/orchestrator-effects.js";
