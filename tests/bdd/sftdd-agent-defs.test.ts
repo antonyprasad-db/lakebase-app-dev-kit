@@ -5,7 +5,7 @@
 import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { ALL_AGENT_ROLES, RECOMMENDED_MODELS } from "../../scripts/sftdd/agent-models";
+import { ALL_AGENT_ROLES, RECOMMENDED_MODELS } from "../../consort/config/agent-models";
 
 const AGENTS_DIR = path.resolve(
   __dirname,

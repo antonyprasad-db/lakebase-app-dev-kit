@@ -11,7 +11,9 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { dirname, join } from "path";
-import type { AgentRole } from "./agent-log";
+// AgentRole is defined in the logging domain (scripts/sftdd/agent-log.ts, moves in a later stage).
+// Type-only import, so this temporary back-web edge erases at build , no runtime coupling.
+import type { AgentRole } from "../../scripts/sftdd/agent-log.js";
 
 /**
  * The SPAWNABLE role agents: the log roles that are real subagents with a

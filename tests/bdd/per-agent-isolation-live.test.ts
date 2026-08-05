@@ -21,7 +21,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { deployClaudeAgents, deployClaudeSkills } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { checkArtifactConformance } from "../../consort/orchestrator/validators/conformance/artifact-conformance";
-import { resolveModelForRole } from "../../scripts/sftdd/agent-models";
+import { resolveModelForRole } from "../../consort/config/agent-models";
 import { storyAcIds, readAcLayer } from "../../consort/config/sftdd-paths";
 
 // Input fixtures = the LAST live run's real artifacts (snapshotted), not the

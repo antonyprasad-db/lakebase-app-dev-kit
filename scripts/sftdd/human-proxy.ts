@@ -42,7 +42,7 @@
 // belongs in the orchestrator once the phase<->gate<->mode mapping is settled.
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from "node:fs";
-import { sftddEnv } from "./sftdd-env.js";
+import { sftddEnv } from "../../consort/config/sftdd-env.js";
 import { join, dirname, basename } from "node:path";
 import { approveGate } from "./approve-gate.js";
 import { readGates, GATE_NAMES, type GateName, type GatesState } from "./gates.js";

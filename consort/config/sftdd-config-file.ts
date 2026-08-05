@@ -13,10 +13,10 @@
 import { existsSync, readFileSync, mkdirSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
 import type { AgentRole } from "../../scripts/sftdd/agent-log.js";
-import { ALL_AGENT_ROLES, type SpawnableAgentRole } from "../../scripts/sftdd/agent-models.js";
+import { ALL_AGENT_ROLES, type SpawnableAgentRole } from "./agent-models.js";
 import type { TurnKey, EffortLevel } from "./step-key.js";
 // The RECOMMENDED_MODELS base default the scaffold seeds; agent-models is a config-layer module.
-import { RECOMMENDED_MODELS } from "../../scripts/sftdd/agent-models.js";
+import { RECOMMENDED_MODELS } from "./agent-models.js";
 // Auto-applied optimization winners, deep-merged onto the base default (see defaultSftddConfig).
 // Static import so tsup inlines it into dist at build time; the champion walk's auto-apply writes
 // this file as DATA, never a TS rewrite.

@@ -12,23 +12,37 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const SFTDD_DIR = path.resolve(here, "..", "..", "scripts", "sftdd");
+const ROOT = path.resolve(here, "..", "..");
+// The orchestration layer spans scripts/sftdd/ (bins + remaining libs) AND consort/
+// (the foliated function families it moved into), so scan both , coverage follows a
+// module when foliation relocates it out of scripts/sftdd/ into a consort/<domain>/.
+const SCAN_DIRS = [path.join(ROOT, "scripts", "sftdd"), path.join(ROOT, "consort")];
 
 // A kit-relative __dirname join that reaches a `lakebase/*.cli.js` file: the
 // telltale of resolving a substrate CLI from the (now-nonexistent) kit dist.
 const HARDCODED_SUBSTRATE_CLI = /__dirname[\s\S]{0,120}?["']lakebase["'][\s\S]{0,120}?\.cli\.js/;
 
+/** Recursively collect .ts source files (excluding *.test.ts / *.d.ts) under a dir. */
+function sourceFiles(dir: string): string[] {
+  const out: string[] = [];
+  for (const entry of fs.readdirSync(dir)) {
+    const p = path.join(dir, entry);
+    if (fs.statSync(p).isDirectory()) out.push(...sourceFiles(p));
+    else if (entry.endsWith(".ts") && !entry.endsWith(".test.ts") && !entry.endsWith(".d.ts")) out.push(p);
+  }
+  return out;
+}
+
 describe("sftdd never hardcodes a kit-relative path to a substrate CLI", () => {
-  const files = fs
-    .readdirSync(SFTDD_DIR)
-    .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"));
+  const files = SCAN_DIRS.flatMap(sourceFiles);
 
   for (const file of files) {
-    it(`${file} resolves substrate CLIs via lk, not a kit dist path`, () => {
-      const src = fs.readFileSync(path.join(SFTDD_DIR, file), "utf8");
+    const rel = file.slice(ROOT.length + 1);
+    it(`${rel} resolves substrate CLIs via lk, not a kit dist path`, () => {
+      const src = fs.readFileSync(file, "utf8");
       expect(
         HARDCODED_SUBSTRATE_CLI.test(src),
-        `${file} joins __dirname to a lakebase/*.cli.js path; substrate CLIs must be spawned through the project's lk shim (e.g. lakebase-scm-claim-feature-branch)`,
+        `${rel} joins __dirname to a lakebase/*.cli.js path; substrate CLIs must be spawned through the project's lk shim (e.g. lakebase-scm-claim-feature-branch)`,
       ).toBe(false);
     });
   }

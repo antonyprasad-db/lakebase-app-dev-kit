@@ -14,7 +14,7 @@ import {
   deployClaudeSkills,
   scaffoldStaticAll,
 } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-import { ALL_AGENT_ROLES } from "../../scripts/sftdd/agent-models";
+import { ALL_AGENT_ROLES } from "../../consort/config/agent-models";
 
 // The kit owns the set of skills a scaffolded project carries; the substrate no
 // longer enumerates them, it DISCOVERS every skills/<dir>/SKILL.md the resolved

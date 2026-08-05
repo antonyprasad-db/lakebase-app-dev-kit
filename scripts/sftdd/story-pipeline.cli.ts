@@ -60,7 +60,7 @@ import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
 import { reviseStoryWithSelfHeal, clearStoryBlockingSmellOnDiscard, rebuildStory } from "./revise.js";
 import { markSmellResolved } from "./smells.js";
 import { resolveAcceptMergeArgs, experimentMergeArgv } from "./experiment-merge.js";
-import { runKitBinSync } from "./kit-bin.js";
+import { runKitBinSync } from "../../consort/config/kit-bin.js";
 
 interface Args {
   cmd?: string;

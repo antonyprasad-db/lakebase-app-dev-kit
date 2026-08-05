@@ -10,7 +10,7 @@
 // isCliEntry, so importing it NEVER drags a CLI entry point.
 
 import { spawn } from "node:child_process";
-import { sftddEnv } from "../../../scripts/sftdd/sftdd-env.js";
+import { sftddEnv } from "../../config/sftdd-env.js";
 import { resyncAgentsOnKitDrift } from "../../../scripts/sftdd/project-sftdd-setup.js";
 import { resolveSftddDir } from "../../config/sftdd-paths.js";
 import { randomUUID } from "node:crypto";
@@ -30,15 +30,15 @@ import {
   type DriveCommand,
   type DriveEffectsConfig,
 } from "./orchestrator-effects.js";
-import { resolveModelForRole } from "../../../scripts/sftdd/agent-models.js";
+import { resolveModelForRole } from "../../config/agent-models.js";
 import { resolveSftddSettings } from "../settings/project-settings.js";
 import { parseTurnUsage, assistantTextFromLine, assistantEventSummary, type TurnUsage } from "../../../scripts/sftdd/claude-usage.js";
 import { resumeFitsBudget, turnContextTokens, CONTEXT_FREE_FRACTION_REQUIRED, isPromptTooLongSignal, isTransientApiErrorSignal, startsFreshEachTurn } from "../../../scripts/sftdd/context-budget.js";
 import { writeRunConfig } from "../../../scripts/sftdd/run-config.js";
-import { resolveLaunchKitRef, pinRunKitRef, kitRefDriftWarning } from "../../../scripts/sftdd/kit-ref.js";
+import { resolveLaunchKitRef, pinRunKitRef, kitRefDriftWarning } from "../../config/kit-ref.js";
 import type { AgentRole } from "../../../scripts/sftdd/agent-log.js";
 import { makeOnAction, describeAction } from "../../../scripts/sftdd/orchestrator-logging.js";
-import { resolveKitBinJs } from "../../../scripts/sftdd/kit-bin.js";
+import { resolveKitBinJs } from "../../config/kit-bin.js";
 import { readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { relocateStrayDesignArtifacts, malformedSiblingRoot } from "../../../scripts/sftdd/stray-artifact-recovery.js";
 import type { WorkflowAction } from "./orchestrator-drive.js";

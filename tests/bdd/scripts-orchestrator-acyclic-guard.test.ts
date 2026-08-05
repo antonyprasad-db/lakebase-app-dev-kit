@@ -14,7 +14,7 @@
 
 import { describe, it, expect } from "vitest";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 
 /** scripts/sftdd library modules (exclude .cli entrypoints + .test files). */
 function scriptLibModules(): string[] {
@@ -45,6 +45,9 @@ describe("scripts/sftdd → consort/orchestrator is acyclic (temporary Stage-0 g
     const offenders: string[] = [];
     for (const file of scriptLibModules()) {
       if (ALLOWLIST.has(file) || ALLOWLIST_PREFIXES.some((p) => file.startsWith(p))) continue;
+      // git ls-files can list a path that a mid-foliation `git mv` has already moved off
+      // disk but not yet committed; skip anything not present (its new home is scanned there).
+      if (!existsSync(file)) continue;
       const src = readFileSync(file, "utf-8");
       for (const line of src.split("\n")) {
         const m = line.match(/^\s*import\s+(type\s+)?[^;]*?from\s+["']([^"']+)["']/);

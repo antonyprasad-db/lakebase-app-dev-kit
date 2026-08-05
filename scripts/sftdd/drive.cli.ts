@@ -15,9 +15,9 @@
 // --dry-run computes + prints the SINGLE next action and the commands it would
 // run, then exits (no execution) - a safe "what will the driver do next?".
 
-import { sftddEnv } from "./sftdd-env.js";
+import { sftddEnv } from "../../consort/config/sftdd-env.js";
 import { resolveSftddDir, ARTIFACT_ROOT, LEGACY_ARTIFACT_ROOT } from "../../consort/config/sftdd-paths.js";
-import { migrateLegacyArtifactDir } from "./migrate-artifact-dir.js";
+import { migrateLegacyArtifactDir } from "../../consort/config/migrate-artifact-dir.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readline from "node:readline";
@@ -53,12 +53,12 @@ import {
 } from "./orchestrator-sprint.js";
 import { resolveSftddSettings, applyProjectOverrides } from "../../consort/orchestrator/settings/project-settings.js";
 import { describeAction, approveHint, makeOnAction } from "./orchestrator-logging.js";
-import { kitVersion } from "./kit-bin.js";
+import { kitVersion } from "../../consort/config/kit-bin.js";
 import { isForeignFeatureClaim, readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 import { driveAuthPreflight } from "../../consort/orchestrator/provisioning/credentials.js";
 import { writeRunConfig } from "./run-config.js";
-import { resolveLaunchKitRef, pinRunKitRef, kitRefDriftWarning } from "./kit-ref.js";
+import { resolveLaunchKitRef, pinRunKitRef, kitRefDriftWarning } from "../../consort/config/kit-ref.js";
 import {
   buildCfg,
   execRunner,

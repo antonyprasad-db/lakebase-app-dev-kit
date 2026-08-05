@@ -41,7 +41,7 @@ import {
   RECOMMENDED_MODELS,
   readAgentConfig,
   type SpawnableAgentRole,
-} from "../../../scripts/sftdd/agent-models.js";
+} from "../../config/agent-models.js";
 // The per-step config directory (step-manifests/*.json agentOptions) is the SINGLE declared home
 // for per-step model/effort. resolveSftddSettings reads it as the BASE per-step layer (below the
 // project file + applied-winners overlay, above RECOMMENDED_MODELS) via agentOptionsForStep, which

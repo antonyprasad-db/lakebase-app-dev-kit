@@ -31,7 +31,7 @@ import { checkE2eRegexClean, summarizeE2eRegexViolations, E2E_REGEX_REMEDIATION 
 import { emitAgentLogEvent, type AgentLogIoOpts } from "./agent-log.js";
 import type { AgentLogEventName } from "./agent-log-events.js";
 import { withEphemeralVerifyBranch, ephemeralVerifyBranchName } from "./ephemeral-verify.js";
-import { sftddEnv } from "./sftdd-env.js";
+import { sftddEnv } from "../../consort/config/sftdd-env.js";
 
 /** Read the Lakebase project id from the project's .env (LAKEBASE_PROJECT_ID). */
 function readProjectInstance(projectDir: string): string | undefined {

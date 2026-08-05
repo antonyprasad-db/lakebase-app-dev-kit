@@ -12,7 +12,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { layDownKitClaudeAssets } from "../../scripts/sftdd/project-sftdd-setup";
-import { ALL_AGENT_ROLES } from "../../scripts/sftdd/agent-models";
+import { ALL_AGENT_ROLES } from "../../consort/config/agent-models";
 
 describe("kit scaffolds its own .claude assets (agents/skills/commands)", () => {
   let target: string;

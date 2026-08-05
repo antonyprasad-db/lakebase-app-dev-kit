@@ -14,7 +14,7 @@ import {
   resolveLaunchKitRef,
   pinRunKitRef,
   kitRefDriftWarning,
-} from "../../scripts/sftdd/kit-ref";
+} from "../../consort/config/kit-ref";
 
 let dir: string;
 beforeEach(() => {

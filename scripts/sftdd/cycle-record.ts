@@ -19,7 +19,7 @@
 // cycle with `status:"red"` instead of the `red_at` the probe reads).
 
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync, mkdirSync, rmSync } from "fs";
-import { sftddEnv } from "./sftdd-env.js";
+import { sftddEnv } from "../../consort/config/sftdd-env.js";
 import { join, dirname } from "path";
 import {
   storyTestListJson,

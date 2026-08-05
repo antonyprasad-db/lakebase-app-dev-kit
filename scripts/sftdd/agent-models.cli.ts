@@ -15,7 +15,7 @@ import {
   resolveModelForRole,
   readAgentConfig,
   type SpawnableAgentRole,
-} from "./agent-models";
+} from "../../consort/config/agent-models";
 
 interface Args {
   role?: string;

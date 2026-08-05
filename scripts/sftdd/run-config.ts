@@ -15,11 +15,11 @@
 // is mirrored to the corpus root so a replay carries its own provenance.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
-import { sftddEnv } from "./sftdd-env.js";
+import { sftddEnv } from "../../consort/config/sftdd-env.js";
 import { ARTIFACT_ROOT } from "../../consort/config/sftdd-paths.js";
 import { join } from "path";
-import { ALL_AGENT_ROLES } from "./agent-models.js";
-import { resolveLaunchKitRef } from "./kit-ref.js";
+import { ALL_AGENT_ROLES } from "../../consort/config/agent-models.js";
+import { resolveLaunchKitRef } from "../../consort/config/kit-ref.js";
 
 /** The resolved run matrix. Additive fields default to their "off"/"default"
  *  value so an old report reading a new file (or vice versa) stays robust. */

@@ -12,7 +12,7 @@
 // testable without touching the filesystem or the cloud.
 
 import type { SftddConfigFile, RoleSettingsFile, BuildTurn, EffortLevel } from "../../consort/orchestrator/settings/project-settings.js";
-import { type SpawnableAgentRole, RECOMMENDED_MODELS } from "./agent-models.js";
+import { type SpawnableAgentRole, RECOMMENDED_MODELS } from "../../consort/config/agent-models.js";
 
 /** The identity candidate: no overrides, no content variant. Always first in a
  *  generated list so the harness measures the BASELINE turn under the same

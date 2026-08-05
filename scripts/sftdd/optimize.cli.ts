@@ -27,11 +27,11 @@ import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrat
 import { generateCandidates, defaultLaneCandidates, BASELINE_CANDIDATE_ID, type SweepSpec, type Candidate } from "./optimize-candidates.js";
 import { runChampionWalk, type HandoffPlan, type HandoffResult } from "./optimize-harness.js";
 import type { BuildTurn, EffortLevel } from "../../consort/orchestrator/settings/project-settings.js";
-import type { SpawnableAgentRole } from "./agent-models.js";
+import type { SpawnableAgentRole } from "../../consort/config/agent-models.js";
 import { buildCfg, execRunner } from "../../consort/orchestrator/drive/claude-runner.js";
 import { planNextAction, commandsForAction, turnKeyForAction } from "../../consort/orchestrator/drive/orchestrator-effects.js";
 import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
-import { kitRoot } from "./kit-bin.js";
+import { kitRoot } from "../../consort/config/kit-bin.js";
 import { evaluateSemanticGate, makeOpusJudge } from "./optimize-semantic-gate.js";
 import { makeChampionWalkDeps, makeLiveSpawnTurn, makeBuildGate, makeBuildSnapshotDeps, positionToBuildHandoff, positionToNextHandoff, runLaneSweep, readLastTurnTokens, type OptimizeLiveCtx } from "./optimize-live.js";
 import { actionLane } from "../../consort/orchestrator/drive/orchestrator-drive.js";

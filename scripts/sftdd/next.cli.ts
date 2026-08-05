@@ -11,7 +11,7 @@ import { readDriveStateFromDisk } from "../../consort/orchestrator/drive/orchest
 import { readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { deriveSprintPlanningState } from "./orchestrator-sprint.js";
 import { summarizeStories } from "./feature-status.js";
-import { kitVersion } from "./kit-bin.js";
+import { kitVersion } from "../../consort/config/kit-bin.js";
 import { buildNextSnapshot, renderNextSnapshot, type NextContext } from "./next.js";
 
 interface ParsedArgs {

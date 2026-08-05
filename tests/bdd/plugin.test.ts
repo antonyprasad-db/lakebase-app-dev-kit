@@ -8,7 +8,7 @@ import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { ALL_AGENT_ROLES } from "../../scripts/sftdd/agent-models";
+import { ALL_AGENT_ROLES } from "../../consort/config/agent-models";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(here, "..", "..");

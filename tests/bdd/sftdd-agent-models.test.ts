@@ -12,7 +12,7 @@ import {
   writeAgentConfig,
   resolveModelForRole,
   AGENT_CONFIG_REL,
-} from "../../scripts/sftdd/agent-models";
+} from "../../consort/config/agent-models";
 import { getValidator } from "../../consort/orchestrator/validators/schema-loader";
 
 const tmpDirs: string[] = [];

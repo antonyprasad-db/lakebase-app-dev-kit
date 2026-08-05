@@ -10,7 +10,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 
 import { resolveSftddSettings, loadSftddConfig, defaultSftddConfig, writeSftddConfig, applyProjectOverrides, TDD_CONFIG_REL, SFTDD_CONFIG_REL, LEGACY_TDD_CONFIG_REL } from "../../consort/orchestrator/settings/project-settings.js";
-import { sftddEnv } from "../../scripts/sftdd/sftdd-env.js";
+import { sftddEnv } from "../../consort/config/sftdd-env.js";
 
 let proj: string;
 const writeConfig = (obj: unknown): void => {

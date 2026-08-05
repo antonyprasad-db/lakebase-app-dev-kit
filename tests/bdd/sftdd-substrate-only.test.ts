@@ -63,11 +63,14 @@ const FORBIDDEN_IMPORT = /from\s+["'][^"']*\/(?:lakebase\/branch-create|lakebase
 const FORBIDDEN_SYMBOL = /\b(createFeatureBranch|createTestBranch|createUatBranch|createPerfBranch)\b/;
 
 // The TDD orchestration layer. The user's rule: "the TDD kit relies on the SCM
-// kit, period" , so nothing under scripts/tdd may reach a raw Lakebase/git
-// module; it goes through the paired substrate. (The low-level
-// lakebase_branch_create / _delete MCP tools are a separate, deliberate
-// substrate surface and are out of scope for this guard.)
-const GUARDED_DIRS = [join(ROOT, "scripts", "sftdd")];
+// kit, period" , so nothing in it may reach a raw Lakebase/git module; it goes
+// through the paired substrate. (The low-level lakebase_branch_create / _delete
+// MCP tools are a separate, deliberate substrate surface and are out of scope.)
+// The layer now spans BOTH scripts/sftdd/ (the bins + remaining libs) AND
+// consort/ (the foliated function families the orchestration code moved into),
+// so the guard scans both roots , coverage follows a module when foliation
+// relocates it out of scripts/sftdd/ into a consort/<domain>/ family.
+const GUARDED_DIRS = [join(ROOT, "scripts", "sftdd"), join(ROOT, "consort")];
 
 // Files exempt from the unpaired-import guard (deliberate, documented in the
 // header note). The ephemeral verify branch is a transient Lakebase-only child
