@@ -9,8 +9,8 @@ import { describe, expect, it } from "vitest";
 import {
   parseOptimizeArgs,
   parseSweepSpec,
-  actionToHandoffPlan,
 } from "../../scripts/sftdd/optimize.cli";
+import { actionToHandoffPlan } from "../../consort/optimize/handoff.js";
 
 describe("parseOptimizeArgs", () => {
   it("parses the core flags", () => {

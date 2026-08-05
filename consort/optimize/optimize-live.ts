@@ -22,7 +22,7 @@ import { evaluateDesignGate, type GateOutcome } from "./optimize-gate.js";
 import { snapshotDesign, snapshotBuild, turnMutatesDb, captureDesignArtifacts, restoreDesignArtifacts, type BuildSnapshotDeps, type DesignArtifactRef } from "./optimize-snapshot.js";
 import type { ChampionWalkDeps, HandoffPlan, HandoffSnapshot, TrialResult, HandoffResult, ChampionWalkResult } from "./optimize-harness.js";
 import { defaultSftddConfig, loadSftddConfig, writeSftddConfig, type SftddConfigFile } from "../../consort/orchestrator/settings/project-settings.js";
-import { isBuildHandoff, actionToHandoffPlan } from "../../scripts/sftdd/optimize.cli.js";
+import { isBuildHandoff, actionToHandoffPlan } from "./handoff.js";
 import type { DriveEffectsConfig } from "../../consort/orchestrator/drive/orchestrator-effects.js";
 import { actionLane, type WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 import { cutExperiment, type CutExperimentArgs } from "../../consort/experiment/experiment.js";

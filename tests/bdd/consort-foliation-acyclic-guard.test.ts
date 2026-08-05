@@ -43,10 +43,10 @@ function onDisk(dir: string): string[] {
   return out;
 }
 
-// The single allowed consort -> scripts/sftdd value edge (documented lib->bin coupling).
-const ALLOWED_BACKWEB = new Set<string>([
-  "consort/optimize/optimize-live.ts", // -> scripts/sftdd/optimize.cli.js (isBuildHandoff, actionToHandoffPlan)
-]);
+// No consort -> scripts/sftdd value edge is allowed: the graph is fully one-way. (The former
+// optimize-live -> optimize.cli coupling was dissolved by extracting isBuildHandoff /
+// actionToHandoffPlan DOWN into consort/optimize/handoff.ts, which both the bin and the lib import.)
+const ALLOWED_BACKWEB = new Set<string>([]);
 
 describe("consort foliation: scripts/sftdd holds only bins, and no family reaches back up into it", () => {
   it("scripts/sftdd/ contains NO library module (the pile is fully foliated)", () => {
