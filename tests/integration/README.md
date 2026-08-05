@@ -126,13 +126,30 @@ produced `test-list.json` PRESERVED on disk , the discriminator genuinely fired 
 survived (everything #554 lacked). Remaining candidates in flight; results + the quality-holder
 wall-clock ranking will be appended here on completion.
 
-### PLANNED (after this sweep finishes) — relocate the per-role optimize harness under tests/
-Decision: the per-role optimize machinery is INTERNAL performance-tuning tooling for the agents (sole
-consumer = the `lakebase-sftdd-optimize-role` CLI; reads these fixtures; separate from the shipped
-drive-optimize product bins). Move `consort/orchestrator/optimize/*` + `scripts/sftdd/optimize-role.cli.ts`
-under `tests/optimization/`, and UNSHIP `lakebase-sftdd-optimize-role` from package.json bin (keep
-`lakebase-sftdd-optimize` + `-apply`, the drive-optimize product). Deferred until the running sweep
-completes (it reads these paths). manifests/ + intake/ stay as shared test fixtures.
+### PLANNED (after this sweep finishes) — relocate the per-role optimize harness under tests/ (#575)
+Ownership model (settled with the user):
+- **The recorded corpora are REGRESSION fixtures first.** The canonical, complete copies live in
+  `examples/sftdd-scenarios/*` (stockflow-rerecord etc.). Their primary job: a full **agents-off
+  replay** that confirms scaffolding, PR/merge, and the orchestrator's replay path are not broken
+  (no agent doing real work). That standing regression test does not exist yet (only hermetic
+  integrity guards + the manual `replay-scenario.sh`) — filed as **#574**. `examples/sftdd-scenarios/`
+  is the source of truth and stays put.
+- **The optimize harness is a secondary consumer that CHERRY-PICKS COPIES.** Its fixtures are
+  elements picked out of the corpora and COPIED into what the isolated single-turn perf-tuning tests
+  need — self-contained copies by design (so the isolated tests don't depend on the moving corpus).
+  A copy is the correct end state: NO drift guard, NO provenance link back to source.
+- **The per-role optimize machinery is INTERNAL agent perf-tuning tooling**, not shipped product
+  (sole runtime consumer = the `lakebase-sftdd-optimize-role` CLI; the shipped drive-optimize bins
+  `lakebase-sftdd-optimize`/`-apply` are separate and do NOT import it).
+
+Move (deferred until the running sweep completes — it reads these paths live):
+- `consort/orchestrator/optimize/*` + `scripts/sftdd/optimize-role.cli.ts` -> `tests/optimization/`.
+- The COPIED fixtures the isolated tests consume (manifests + intake + the build-corpus copies now
+  under `optimize/evaluation/fixtures/`) -> `tests/optimization/fixtures/`, co-located with the
+  harness that runs them, so what the isolated tests depend on is one obvious place.
+- This README -> `tests/optimization/README.md`.
+- UNSHIP `lakebase-sftdd-optimize-role` from package.json bin (keep the drive-optimize product bins).
+- `examples/sftdd-scenarios/` (the regression corpus) is untouched.
 
 ### 2026-08-04 — ux-designer added as a role chain
 Restructured `ux-designer-chain` from a 3-turn demo (PO → mock spec-author → live ux-designer) to the
