@@ -36,7 +36,7 @@
 import { approveSprintPlanGate } from "./sprint-gates.js";
 import { drainGatesAsHumanProxy } from "./human-proxy.js";
 import { approveStoryGateFromDisk, batchedDraftMessage } from "./story-pipeline.js";
-import { resolveSftddDir } from "./sftdd-paths.js";
+import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
 import type { GateName } from "./gates.js";
 
 interface Parsed {

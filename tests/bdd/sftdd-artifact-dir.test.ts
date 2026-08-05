@@ -12,7 +12,7 @@ import {
   ARTIFACT_ROOT,
   LEGACY_ARTIFACT_ROOT,
   resolveSftddDir,
-} from "../../scripts/sftdd/sftdd-paths";
+} from "../../consort/config/sftdd-paths";
 import { migrateLegacyArtifactDir } from "../../scripts/sftdd/migrate-artifact-dir";
 
 let dir: string;

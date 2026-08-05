@@ -2,7 +2,7 @@ import { readFileSync, existsSync, readdirSync, writeFileSync, statSync } from "
 import { join, basename } from "path";
 import type Ajv from "ajv";
 import { getValidator } from "../../consort/orchestrator/validators/schema-loader.js";
-import { requireFeatureDir as findFeatureDir, featuresDir as featuresDirOf, storiesDir } from "./sftdd-paths.js";
+import { requireFeatureDir as findFeatureDir, featuresDir as featuresDirOf, storiesDir } from "../../consort/config/sftdd-paths.js";
 
 type Phase =
   | "discovery"

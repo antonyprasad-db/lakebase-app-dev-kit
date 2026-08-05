@@ -29,7 +29,7 @@ import { readPipeline } from "../../../scripts/sftdd/story-pipeline.js";
 import {
   storyJson, designGuideJson, handbackFile, storyAcIds, architectureJson, readAcLayer,
   featureProposalsMd, featureSpecJson, featureTestListJson, acsDir, planningEstimatesJson,
-} from "../../../scripts/sftdd/sftdd-paths.js";
+} from "../../config/sftdd-paths.js";
 import type { TurnKey } from "./turn-key.js";
 // turnKeyForAction now lives in the shared, dependency-light turn-key module (so the config
 // resolver can derive the same key without a cycle). Re-exported here for the callers that have

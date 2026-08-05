@@ -56,7 +56,7 @@ import {
   type StoryPipeline,
 } from "./story-pipeline";
 import { join } from "path";
-import { resolveSftddDir } from "./sftdd-paths.js";
+import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
 import { reviseStoryWithSelfHeal, clearStoryBlockingSmellOnDiscard, rebuildStory } from "./revise.js";
 import { markSmellResolved } from "./smells.js";
 import { resolveAcceptMergeArgs, experimentMergeArgv } from "./experiment-merge.js";

@@ -51,7 +51,7 @@ import {
   readAcArchitecturalNotes,
   architectureJson,
   dbDesignJson,
-} from "../../../scripts/sftdd/sftdd-paths.js";
+} from "../../config/sftdd-paths.js";
 import { checkDbDesign } from "../validators/conformance/artifact-conformance.js";
 
 /** Every recorded cycle artifact for a story, across all of its ACs. */

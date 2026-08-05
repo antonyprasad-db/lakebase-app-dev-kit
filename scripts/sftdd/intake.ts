@@ -11,7 +11,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { checkArtifactConformance } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
-import { resolveSftddDir, featureRequestMd } from "./sftdd-paths.js";
+import { resolveSftddDir, featureRequestMd } from "../../consort/config/sftdd-paths.js";
 import { resolveProjectSettings } from "../../consort/config/sftdd-config-file.js";
 
 export interface IntakeCheckArgs {

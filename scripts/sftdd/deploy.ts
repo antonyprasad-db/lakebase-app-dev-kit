@@ -18,7 +18,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { dirname, join } from "node:path";
 import { readTargets } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { pollUntil } from "@databricks-solutions/lakebase-scm-utils/util";
-import { resolveSftddDir, findFeatureDir } from "./sftdd-paths.js";
+import { resolveSftddDir, findFeatureDir } from "../../consort/config/sftdd-paths.js";
 import { writeEscalation } from "./escalation.js";
 import {
   parseFailedNodeIds,

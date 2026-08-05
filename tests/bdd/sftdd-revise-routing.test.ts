@@ -13,7 +13,7 @@ import {
   acsDir,
   acJson,
   handbackFile,
-} from "../../scripts/sftdd/sftdd-paths";
+} from "../../consort/config/sftdd-paths";
 
 import {
   SMELL_CATALOG,
@@ -36,7 +36,7 @@ import {
   rebuildStory,
 } from "../../scripts/sftdd/revise";
 import { storyTestProgress } from "../../scripts/sftdd/cycle-record";
-import { cyclesRootDir } from "../../scripts/sftdd/sftdd-paths";
+import { cyclesRootDir } from "../../consort/config/sftdd-paths";
 import { readFileSync as readFileSyncNode } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { writeReflectVerdict, reflectionVerdictWritten } from "../../scripts/sftdd/reflection";

@@ -1,11 +1,11 @@
 // Guard: the knowledge of WHERE .tdd artifacts live is defined in ONE place
-// (scripts/sftdd/sftdd-paths.ts), not spread across the codebase. This is the
+// (consort/config/sftdd-paths.ts), not spread across the codebase. This is the
 // enforcement behind the single-source-of-truth refactor: the
 // deterministic driver kept stalling because a producer and its consumer built
 // the same path/format knowledge in different spots and silently drifted.
 //
-// Two invariants, checked across every scripts/sftdd/*.ts (incl. adapters/),
-// excluding sftdd-paths.ts itself + test files:
+// Two invariants, checked across every scripts/sftdd/*.ts AND consort/config/*.ts
+// (incl. adapters/), excluding sftdd-paths.ts itself + test files:
 //   1. No hand-built `"features"` path segment. Everything routes through the
 //      sftdd-paths builders (featuresDir / featureDir / storiesDir / ...), so the
 //      `.tdd/features/...` layout has exactly one definition.
@@ -20,10 +20,15 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const TDD_DIR = fileURLToPath(new URL("../../scripts/sftdd", import.meta.url));
+// sftdd-paths.ts moved to the low consort/config/ family (foliation); the modules that
+// could hand-build a layout path still live in scripts/sftdd/, so scan BOTH roots.
+const SCAN_DIRS = [
+  fileURLToPath(new URL("../../scripts/sftdd", import.meta.url)),
+  fileURLToPath(new URL("../../consort/config", import.meta.url)),
+];
 const SINGLE_SOURCE = "sftdd-paths.ts";
 
-/** Every .ts source file under scripts/tdd (recursive), minus tests + the one
+/** Every .ts source file under the scanned dirs (recursive), minus tests + the one
  *  module that is allowed to know the layout. */
 function tddSourceFiles(dir: string): string[] {
   const out: string[] = [];
@@ -41,7 +46,7 @@ function tddSourceFiles(dir: string): string[] {
   return out;
 }
 
-const FILES = tddSourceFiles(TDD_DIR);
+const FILES = SCAN_DIRS.flatMap(tddSourceFiles);
 
 describe("sftdd-paths is the single source of truth for .tdd layout", () => {
   it("finds source files to check (sanity)", () => {

@@ -23,7 +23,7 @@ import { execFile } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { TurnKey } from "../../consort/orchestrator/settings/project-settings.js";
-import { designGuideJson, featureSpecJson, architectureJson, featureTestListJson, dbDesignJson, featureProposalsMd, planningEstimatesJson, acsDir, storiesDir, featureDir } from "./sftdd-paths.js";
+import { designGuideJson, featureSpecJson, architectureJson, featureTestListJson, dbDesignJson, featureProposalsMd, planningEstimatesJson, acsDir, storiesDir, featureDir } from "../../consort/config/sftdd-paths.js";
 
 /** The .tdd-layout artifact path for a step, built via sftdd-paths (the single source
  *  of truth for the layout). `base` is a .tdd-shaped root: the live project's .sftdd

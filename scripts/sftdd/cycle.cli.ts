@@ -13,7 +13,7 @@
 // Exit: 0 ok; 2 bad args; 1 op failure (e.g. no open RED cycle to green).
 
 import { join } from "path";
-import { resolveSftddDir, storyAcIds } from "./sftdd-paths.js";
+import { resolveSftddDir, storyAcIds } from "../../consort/config/sftdd-paths.js";
 import {
   beginNextPendingCycle,
   beginNextPendingBatch,

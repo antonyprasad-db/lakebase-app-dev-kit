@@ -11,7 +11,7 @@
 // at line boundaries without corrupting each other (log lines are small).
 
 import { appendFileSync, existsSync, readFileSync } from "fs";
-import { resolveSftddDir } from "./sftdd-paths.js";
+import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
 import { join } from "path";
 import { getValidator, formatSchemaErrors } from "../../consort/orchestrator/validators/schema-loader.js";
 import { renderEventMessage, type AgentLogEventName } from "./agent-log-events.js";

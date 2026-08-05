@@ -25,7 +25,7 @@ import {
   checkDbDesign,
 } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
 import { acsForStory } from "./test-list.js";
-import { featureResolved, architectureJson, dbDesignJson, nfrsMd, featureNfrsMd } from "./sftdd-paths.js";
+import { featureResolved, architectureJson, dbDesignJson, nfrsMd, featureNfrsMd } from "../../consort/config/sftdd-paths.js";
 import { readConventions, assertArchitectureConforms } from "./architecture-conventions.js";
 
 export function featureDir(sftddDir: string, featureId: string): string {

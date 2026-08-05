@@ -28,7 +28,7 @@ import {
   acReviewVerdictJson,
   storyReviewJson,
   storyReviewVerdictJson,
-} from "./sftdd-paths.js";
+} from "../../consort/config/sftdd-paths.js";
 import { markTestItemGreen } from "./test-list.js";
 import { listExperiments } from "./experiment.js";
 import { ensureDeployedAndVerify } from "./deploy.js";

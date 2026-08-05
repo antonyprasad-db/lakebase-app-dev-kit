@@ -22,7 +22,7 @@ import {
   type SchemaMigrationLanguage,
 } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { getFeatureStatus } from "../../scripts/sftdd/feature-status.js";
-import { resolveSftddDir } from "../../scripts/sftdd/sftdd-paths.js";
+import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
 // PR-flow MCP tools.
 import {
   createPullRequest,

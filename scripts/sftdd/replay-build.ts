@@ -17,7 +17,7 @@
 
 import { existsSync, cpSync, readdirSync, statSync } from "fs";
 import { join } from "path";
-import { featuresDir, cyclesRootDir } from "./sftdd-paths.js";
+import { featuresDir, cyclesRootDir } from "../../consort/config/sftdd-paths.js";
 
 /** Project paths the scaffold owns , never overwrite them from the snapshot, or
  *  the fresh run's kit resolver / pin / hooks break (on replay), and never

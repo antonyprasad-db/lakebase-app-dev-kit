@@ -2,7 +2,7 @@
 // Thin CLI wrapper around getFeatureStatus + renderFeatureStatus.
 
 import { getFeatureStatus, renderFeatureStatus } from "./feature-status.js";
-import { resolveSftddDir } from "./sftdd-paths.js";
+import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
 
 interface ParsedArgs {
   featureId?: string;

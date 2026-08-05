@@ -12,7 +12,7 @@
 //   lakebase-sftdd-canon-notes --feature <F> --story <S> [--tdd-dir <path>]
 
 import { projectStoryNotes, evaluateStoryCanon } from "./architecture-canon.js";
-import { resolveSftddDir } from "./sftdd-paths.js";
+import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
 import { writeSmellsLog } from "./smells.js";
 
 interface Parsed {

@@ -16,7 +16,7 @@
 // run, then exits (no execution) - a safe "what will the driver do next?".
 
 import { sftddEnv } from "./sftdd-env.js";
-import { resolveSftddDir, ARTIFACT_ROOT, LEGACY_ARTIFACT_ROOT } from "./sftdd-paths.js";
+import { resolveSftddDir, ARTIFACT_ROOT, LEGACY_ARTIFACT_ROOT } from "../../consort/config/sftdd-paths.js";
 import { migrateLegacyArtifactDir } from "./migrate-artifact-dir.js";
 import * as fs from "node:fs";
 import * as path from "node:path";

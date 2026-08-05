@@ -20,7 +20,7 @@ import { deriveDriveState, type DriveContext } from "../../consort/orchestrator/
 import { nextTransition } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 import type { StoryPipeline, StoryEntry } from "../../scripts/sftdd/story-pipeline.js";
 import { writeReflectVerdict } from "../../scripts/sftdd/reflection.js";
-import { storyAcIds, acsDir, storyTestListJson } from "../../scripts/sftdd/sftdd-paths.js";
+import { storyAcIds, acsDir, storyTestListJson } from "../../consort/config/sftdd-paths.js";
 
 const CORPUS = join(
   __dirname,

@@ -12,7 +12,7 @@
 
 import * as fs from "node:fs";
 import { readConventions } from "../../../scripts/sftdd/architecture-conventions.js";
-import { storyAcIds, readAcLayer, architectureJson, designGuideJson } from "../../../scripts/sftdd/sftdd-paths.js";
+import { storyAcIds, readAcLayer, architectureJson, designGuideJson } from "../../config/sftdd-paths.js";
 
 /** The .tdd artifact root for a project (identity: the sftdd dir IS the root). */
 function artifactRoot(sftddDir: string): string {

@@ -21,7 +21,7 @@
 // Exit: 0 ok; 2 bad args; 1 op failure.
 
 import { cutExperiment } from "./experiment";
-import { resolveSftddDir } from "./sftdd-paths.js";
+import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
 import { discardExperimentBranch } from "./experiment-lifecycle";
 import { realExperimentOps, mergeAndAcceptStory } from "./experiment-merge.js";
 import {

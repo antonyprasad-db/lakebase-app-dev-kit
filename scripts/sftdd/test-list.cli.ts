@@ -4,7 +4,7 @@
 // streaming build lane's per-story input).
 
 import { readMasterTestList, writePerAcViews, writeStoryTestList } from "./test-list.js";
-import { resolveSftddDir } from "./sftdd-paths.js";
+import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
 
 function main(): number {
   const [sftddDir = resolveSftddDir(), featureId, storyId] = process.argv.slice(2);

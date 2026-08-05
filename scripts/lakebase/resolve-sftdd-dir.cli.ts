@@ -9,7 +9,7 @@
 //   lakebase-resolve-sftdd-dir [--project-dir <dir>]
 // Prints the absolute runtime artifact dir to stdout (default project-dir: cwd).
 
-import { resolveSftddDir } from "../sftdd/sftdd-paths.js";
+import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
 
 function parseProjectDir(argv: string[]): string | undefined {
   for (let i = 0; i < argv.length; i++) {

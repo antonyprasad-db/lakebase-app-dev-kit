@@ -5,7 +5,7 @@
 // workflow artifact, and NEVER performs an action; enacting a chosen option is
 // the caller's job (each option carries its exact command).
 
-import { resolveSftddDir } from "./sftdd-paths.js";
+import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
 import { resolveSftddSettings } from "../../consort/orchestrator/settings/project-settings.js";
 import { readDriveStateFromDisk } from "../../consort/orchestrator/drive/orchestrator-effects.js";
 import { readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";

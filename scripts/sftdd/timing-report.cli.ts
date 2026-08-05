@@ -8,7 +8,7 @@
 // Exit codes: 0 ok; 2 bad args.
 
 import { join } from "path";
-import { resolveSftddDir } from "./sftdd-paths.js";
+import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 import { timingReportFromLog, formatTimingReport } from "./timing-report.js";
 import { readRunConfig, formatRunConfig } from "./run-config.js";

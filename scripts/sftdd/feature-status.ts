@@ -3,7 +3,7 @@ import { dirname, join } from "path";
 import { readDriveContext } from "../../consort/orchestrator/state/orchestrator-probe.js";
 import { readMasterTestList, type TestListItem } from "./test-list";
 import { readPlan, type ExperimentPlan } from "./design-spec-gate";
-import { storiesDir as storiesDirOf } from "./sftdd-paths.js";
+import { storiesDir as storiesDirOf } from "../../consort/config/sftdd-paths.js";
 import {
   listExperiments,
   listExperimentStories,

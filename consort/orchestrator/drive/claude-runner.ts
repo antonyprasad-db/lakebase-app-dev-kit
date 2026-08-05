@@ -12,7 +12,7 @@
 import { spawn } from "node:child_process";
 import { sftddEnv } from "../../../scripts/sftdd/sftdd-env.js";
 import { resyncAgentsOnKitDrift } from "../../../scripts/sftdd/project-sftdd-setup.js";
-import { resolveSftddDir } from "../../../scripts/sftdd/sftdd-paths.js";
+import { resolveSftddDir } from "../../config/sftdd-paths.js";
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";

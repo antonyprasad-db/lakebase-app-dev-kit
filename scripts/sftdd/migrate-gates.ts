@@ -27,7 +27,7 @@
 import { existsSync, readFileSync, readdirSync } from "fs";
 import { join } from "path";
 import { hashArtifact } from "./gate-hash";
-import { resolveSftddDir, findFeatureDir } from "./sftdd-paths.js";
+import { resolveSftddDir, findFeatureDir } from "../../consort/config/sftdd-paths.js";
 import {
   defaultGatesState,
   readGates,

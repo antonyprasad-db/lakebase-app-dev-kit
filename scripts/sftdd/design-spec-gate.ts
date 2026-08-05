@@ -1,7 +1,7 @@
 import { appendFileSync, existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { dirname, join } from "path";
 import { readMasterTestList, scopeToStory, acsForStory } from "./test-list";
-import { storyPlanJson } from "./sftdd-paths.js";
+import { storyPlanJson } from "../../consort/config/sftdd-paths.js";
 import type { TestList, TestListItem } from "./test-list";
 import { readAcLayer } from "./run-cycle";
 import type { AcLayer } from "./experiment";

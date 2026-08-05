@@ -23,7 +23,7 @@
 // Exit 0 = backlog committed (>= 1 feature); exit 2 = empty backlog (author the
 //          feature-request.md files first, or fix the declared membership).
 
-import { resolveSftddDir, syncBacklog, writeRequested, hasFeatureRequest } from "./sftdd-paths.js";
+import { resolveSftddDir, syncBacklog, writeRequested, hasFeatureRequest } from "../../consort/config/sftdd-paths.js";
 
 interface Parsed {
   sprint?: string;

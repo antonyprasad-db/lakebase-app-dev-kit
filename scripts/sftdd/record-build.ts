@@ -10,7 +10,7 @@
 
 import { existsSync, cpSync, mkdirSync, readdirSync } from "fs";
 import { join } from "path";
-import { featuresDir, cyclesRootDir, experimentsRootDir } from "./sftdd-paths.js";
+import { featuresDir, cyclesRootDir, experimentsRootDir } from "../../consort/config/sftdd-paths.js";
 import { codeTreeFilter, storyTurnsDir } from "./replay-build.js";
 
 export interface RecordBuildTurnArgs {

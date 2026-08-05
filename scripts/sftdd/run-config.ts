@@ -16,7 +16,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { sftddEnv } from "./sftdd-env.js";
-import { ARTIFACT_ROOT } from "./sftdd-paths.js";
+import { ARTIFACT_ROOT } from "../../consort/config/sftdd-paths.js";
 import { join } from "path";
 import { ALL_AGENT_ROLES } from "./agent-models.js";
 import { resolveLaunchKitRef } from "./kit-ref.js";

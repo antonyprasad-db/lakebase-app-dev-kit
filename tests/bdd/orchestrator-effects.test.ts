@@ -16,7 +16,7 @@ import {
   type CommandRunner,
 } from "../../consort/orchestrator/drive/orchestrator-effects";
 import { existsSync, readFileSync } from "node:fs";
-import { handbackFile } from "../../scripts/sftdd/sftdd-paths";
+import { handbackFile } from "../../consort/config/sftdd-paths";
 import { beginNextPendingCycle } from "../../scripts/sftdd/cycle-record";
 import { writeGreenFailure, writeSupersededTests } from "../../scripts/sftdd/supersession";
 

@@ -16,11 +16,11 @@ import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileS
 import type { GateRecord } from "./gates.js";
 import { hashArtifact } from "./gate-hash.js";
 import { checkArtifactConformance } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
-import { resolveSftddDir, sprintDir, sprintGatesJson, featureProposalsMd } from "./sftdd-paths.js";
+import { resolveSftddDir, sprintDir, sprintGatesJson, featureProposalsMd } from "../../consort/config/sftdd-paths.js";
 
 // sprintDir lives in sftdd-paths now (single source of truth); re-exported for
 // the existing public API.
-export { sprintDir } from "./sftdd-paths.js";
+export { sprintDir } from "../../consort/config/sftdd-paths.js";
 
 export const SPRINT_GATES_SCHEMA_VERSION = 1;
 

@@ -20,7 +20,7 @@
 // schema_version bump).
 
 import { existsSync, readFileSync, writeFileSync } from "fs";
-import { resolveSftddDir } from "./sftdd-paths.js";
+import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
 import { join } from "path";
 import { withGatesLock } from "./gates-lock";
 import {

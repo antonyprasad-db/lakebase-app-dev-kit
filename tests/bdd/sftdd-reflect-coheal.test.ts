@@ -13,7 +13,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { acsDir, acJson, handbackFile } from "../../scripts/sftdd/sftdd-paths";
+import { acsDir, acJson, handbackFile } from "../../consort/config/sftdd-paths";
 import { applyReviseSelfHeal } from "../../scripts/sftdd/revise";
 import { recordBlockingSmellFlag } from "../../scripts/sftdd/escalation";
 import {

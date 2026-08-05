@@ -12,7 +12,7 @@ import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import { join } from "node:path";
 
-import { ARTIFACT_ROOT, LEGACY_ARTIFACT_ROOT } from "./sftdd-paths.js";
+import { ARTIFACT_ROOT, LEGACY_ARTIFACT_ROOT } from "../../consort/config/sftdd-paths.js";
 
 export interface MigrationResult {
   /** True only when a legacy ".tdd" was renamed to ".sftdd" on this call. */

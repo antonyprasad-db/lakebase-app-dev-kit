@@ -13,7 +13,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { findFeatureDir } from "./sftdd-paths.js";
+import { findFeatureDir } from "../../consort/config/sftdd-paths.js";
 
 /**
  * Parse pytest "FAILED <nodeid>" / "ERROR <nodeid>" lines from the combined

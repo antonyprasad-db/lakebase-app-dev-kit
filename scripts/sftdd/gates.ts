@@ -14,7 +14,7 @@
 
 import { existsSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync } from "fs";
 import { join } from "path";
-import { resolveSftddDir, requireFeatureDir as findFeatureDir } from "./sftdd-paths.js";
+import { resolveSftddDir, requireFeatureDir as findFeatureDir } from "../../consort/config/sftdd-paths.js";
 
 export const GATES_SCHEMA_VERSION = 1;
 

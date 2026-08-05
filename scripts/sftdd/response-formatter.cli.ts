@@ -11,7 +11,7 @@
 // Exit: 0 conforms; 1 violations (printed to stderr); 2 bad args.
 
 import { join } from "path";
-import { resolveSftddDir } from "./sftdd-paths.js";
+import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
 import { formatRoleResponse, FORMATTED_ROLES } from "./response-formatter.js";
 
 interface Args {

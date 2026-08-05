@@ -25,7 +25,7 @@
 
 import { existsSync, mkdirSync, readdirSync, copyFileSync, statSync } from "fs";
 import { join, dirname } from "path";
-import { featuresDir, planningDir } from "./sftdd-paths.js";
+import { featuresDir, planningDir } from "../../consort/config/sftdd-paths.js";
 
 export interface ReplayTurn {
   role: string;
