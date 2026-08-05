@@ -31,7 +31,7 @@ import {
 } from "../../consort/config/sftdd-paths.js";
 import { markTestItemGreen } from "../../scripts/sftdd/test-list.js";
 import { listExperiments } from "../../consort/experiment/experiment.js";
-import { ensureDeployedAndVerify } from "../../scripts/sftdd/deploy.js";
+import { ensureDeployedAndVerify } from "../deploy/deploy.js";
 import { writeEscalation, type Escalation } from "../../consort/gates/escalation.js";
 import { readSmellsLog, markSmellResolved, isBuildRefactorRoutableSmell, hasOpenBuildRefactorRoutableSmell, writeSmellsLog, hasOpenSmell } from "../smells/smells.js";
 import { checkUxClean, summarizeUxViolations } from "../architecture/design-adherence.js";

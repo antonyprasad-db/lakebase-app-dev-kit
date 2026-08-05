@@ -25,7 +25,7 @@ import { driverPhaseForTdd, type StoryArtifactProbe, type DriveContext } from ".
 import type { DriveEscalation } from "../workflow/workflow-vocabulary.js";
 import { readGates } from "../../gates/gates.js";
 import { PHASE_OWNER_KEY } from "../../gates/workflow-phase.js";
-import { storyDeployVerified } from "../../../scripts/sftdd/deploy.js";
+import { storyDeployVerified } from "../../deploy/deploy.js";
 import {
   deployVerifyNeedsAssess,
   deployVerifyRefactorPending as deployVerifyRefactorPendingMarker,

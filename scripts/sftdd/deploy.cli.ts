@@ -14,7 +14,7 @@ import {
   stopLocal,
   logReleaseEngineerDeployStart,
   logReleaseEngineerDeployOutcome,
-} from "./deploy.js";
+} from "../../consort/deploy/deploy.js";
 
 export async function runDeployCli(argv: string[]): Promise<number> {
   let target: string | undefined;

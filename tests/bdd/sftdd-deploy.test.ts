@@ -15,7 +15,7 @@ import {
   logReleaseEngineerDeployStart,
   logReleaseEngineerDeployOutcome,
   type DeployResult,
-} from "../../scripts/sftdd/deploy";
+} from "../../consort/deploy/deploy";
 import { readEscalations } from "../../consort/gates/escalation";
 import { readAgentLog } from "../../consort/logging/agent-log";
 import {

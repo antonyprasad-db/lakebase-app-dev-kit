@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { readAppDatabaseName } from "../../scripts/sftdd/deploy.js";
+import { readAppDatabaseName } from "../../consort/deploy/deploy.js";
 
 let dir: string;
 const writeEnv = (contents: string) => fs.writeFileSync(path.join(dir, ".env"), contents);
