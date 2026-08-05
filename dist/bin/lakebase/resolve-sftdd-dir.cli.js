@@ -13,7 +13,7 @@ function resolveSftddDir(projectDir2 = process.cwd()) {
   return next;
 }
 
-// scripts/lakebase/resolve-sftdd-dir.cli.ts
+// bin/lakebase/resolve-sftdd-dir.cli.ts
 function parseProjectDir(argv) {
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--project-dir" && i + 1 < argv.length) return argv[i + 1];

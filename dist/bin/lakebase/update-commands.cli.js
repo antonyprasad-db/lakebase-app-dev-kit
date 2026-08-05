@@ -1,42 +1,17 @@
 #!/usr/bin/env node
-"use strict";
-var __create = Object.create;
-var __defProp = Object.defineProperty;
-var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __getProtoOf = Object.getPrototypeOf;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
-  }
-  return to;
-};
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-  mod
-));
 
-// node_modules/tsup/assets/cjs_shims.js
-var getImportMetaUrl = () => typeof document === "undefined" ? new URL(`file:${__filename}`).href : document.currentScript && document.currentScript.tagName.toUpperCase() === "SCRIPT" ? document.currentScript.src : new URL("main.js", document.baseURI).href;
-var importMetaUrl = /* @__PURE__ */ getImportMetaUrl();
-
-// scripts/lakebase/update-commands.cli.ts
-var readline = __toESM(require("readline"), 1);
-var fs2 = __toESM(require("fs"), 1);
-var path2 = __toESM(require("path"), 1);
-var import_node_url = require("url");
-var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+// bin/lakebase/update-commands.cli.ts
+import * as readline from "readline";
+import * as fs2 from "fs";
+import * as path2 from "path";
+import { fileURLToPath } from "url";
+import {
+  detectCommandDrift
+} from "@databricks-solutions/lakebase-scm-utils/lakebase";
 
 // consort/lakebase/update-commands.ts
-var fs = __toESM(require("fs"), 1);
-var path = __toESM(require("path"), 1);
+import * as fs from "fs";
+import * as path from "path";
 var COMMAND_HOOK_FILE_PATTERN = /\.(pre|post)-hook\.md$/;
 function findKitCommandsDir(start) {
   let dir = start;
@@ -76,7 +51,7 @@ function applyCommandPlaceholders(content, version) {
 }
 function updateCommands(args) {
   const projectCommandsDir = path.join(args.projectDir, ".claude", "commands");
-  const here = path.dirname(new URL(importMetaUrl).pathname);
+  const here = path.dirname(new URL(import.meta.url).pathname);
   const kitCommandsDir = args.kitDir ? path.join(args.kitDir, "templates", "project", "common", ".claude", "commands") : findKitCommandsDir(here);
   const dryRun = args.dryRun === true;
   const force = args.force !== false;
@@ -119,9 +94,9 @@ function updateCommands(args) {
   return { files, changed };
 }
 
-// scripts/lakebase/update-commands.cli.ts
+// bin/lakebase/update-commands.cli.ts
 function resolveKitRoot() {
-  let dir = path2.dirname((0, import_node_url.fileURLToPath)(importMetaUrl));
+  let dir = path2.dirname(fileURLToPath(import.meta.url));
   for (let i = 0; i < 8; i++) {
     if (fs2.existsSync(path2.join(dir, "templates", "project", "common", ".claude", "commands"))) {
       return dir;
@@ -130,7 +105,7 @@ function resolveKitRoot() {
     if (parent === dir) break;
     dir = parent;
   }
-  return path2.resolve(path2.dirname((0, import_node_url.fileURLToPath)(importMetaUrl)), "../../..");
+  return path2.resolve(path2.dirname(fileURLToPath(import.meta.url)), "../../..");
 }
 var KIT_ROOT = resolveKitRoot();
 function parseArgs(argv) {
@@ -212,7 +187,7 @@ async function main() {
   const projectDir = args.projectDir ?? process.cwd();
   const force = args.force === true;
   const dryRun = args.dryRun === true;
-  const drift = (0, import_lakebase.detectCommandDrift)({ projectDir, kitDir: KIT_ROOT });
+  const drift = detectCommandDrift({ projectDir, kitDir: KIT_ROOT });
   if (drift.overall === "ok" && !drift.files.some((f) => f.status === "missing")) {
     if (args.json) {
       process.stdout.write(JSON.stringify({ changed: false, files: [] }, null, 2) + "\n");
@@ -266,4 +241,4 @@ main().then(
     process.exit(1);
   }
 );
-//# sourceMappingURL=update-commands.cli.cjs.map
+//# sourceMappingURL=update-commands.cli.js.map

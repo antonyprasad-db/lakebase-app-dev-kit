@@ -1,43 +1,16 @@
 #!/usr/bin/env node
-"use strict";
-var __create = Object.create;
-var __defProp = Object.defineProperty;
-var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __getProtoOf = Object.getPrototypeOf;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
-  }
-  return to;
-};
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-  mod
-));
-
-// node_modules/tsup/assets/cjs_shims.js
-var getImportMetaUrl = () => typeof document === "undefined" ? new URL(`file:${__filename}`).href : document.currentScript && document.currentScript.tagName.toUpperCase() === "SCRIPT" ? document.currentScript.src : new URL("main.js", document.baseURI).href;
-var importMetaUrl = /* @__PURE__ */ getImportMetaUrl();
 
 // consort/lakebase/adopt-sftdd.ts
-var fs2 = __toESM(require("fs"), 1);
+import * as fs2 from "fs";
 
 // consort/config/sftdd-paths.ts
-var fs = __toESM(require("fs"), 1);
-var import_node_path = require("path");
+import * as fs from "fs";
+import { join } from "path";
 var ARTIFACT_ROOT = ".sftdd";
 
 // consort/lakebase/adopt-sftdd.ts
-var path = __toESM(require("path"), 1);
-var import_node_url = require("url");
+import * as path from "path";
+import { fileURLToPath } from "url";
 function adoptTdd(args) {
   if (!fs2.existsSync(args.projectDir)) {
     throw new Error(`Project directory does not exist: ${args.projectDir}`);
@@ -119,7 +92,7 @@ function walkTemplateTree(root) {
 var cachedBootstrapDir;
 function findBootstrapDir() {
   if (cachedBootstrapDir) return cachedBootstrapDir;
-  const here = path.dirname((0, import_node_url.fileURLToPath)(importMetaUrl));
+  const here = path.dirname(fileURLToPath(import.meta.url));
   let dir = here;
   for (let i = 0; i < 6; i++) {
     const candidate = path.join(dir, "templates", "sftdd-bootstrap", ARTIFACT_ROOT);
@@ -136,7 +109,7 @@ function findBootstrapDir() {
   );
 }
 
-// scripts/lakebase/adopt-sftdd.cli.ts
+// bin/lakebase/adopt-sftdd.cli.ts
 function parseArgs(argv) {
   const out = {};
   for (let i = 0; i < argv.length; i++) {
@@ -212,4 +185,4 @@ main().then(
     process.exit(1);
   }
 );
-//# sourceMappingURL=adopt-sftdd.cli.cjs.map
+//# sourceMappingURL=adopt-sftdd.cli.js.map

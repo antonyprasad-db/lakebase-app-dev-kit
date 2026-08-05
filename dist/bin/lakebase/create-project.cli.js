@@ -1,51 +1,26 @@
 #!/usr/bin/env node
-"use strict";
-var __create = Object.create;
-var __defProp = Object.defineProperty;
-var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __getProtoOf = Object.getPrototypeOf;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
-  }
-  return to;
-};
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-  mod
-));
-
-// node_modules/tsup/assets/cjs_shims.js
-var getImportMetaUrl = () => typeof document === "undefined" ? new URL(`file:${__filename}`).href : document.currentScript && document.currentScript.tagName.toUpperCase() === "SCRIPT" ? document.currentScript.src : new URL("main.js", document.baseURI).href;
-var importMetaUrl = /* @__PURE__ */ getImportMetaUrl();
 
 // consort/lakebase/create-project.ts
-var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+import {
+  createProject as baseCreateProject
+} from "@databricks-solutions/lakebase-scm-utils/lakebase";
 
 // consort/setup/project-sftdd-setup.ts
-var fs4 = __toESM(require("fs"), 1);
-var path3 = __toESM(require("path"), 1);
-var import_node_url2 = require("url");
+import * as fs4 from "fs";
+import * as path3 from "path";
+import { fileURLToPath as fileURLToPath2 } from "url";
 
 // consort/config/sftdd-paths.ts
-var fs = __toESM(require("fs"), 1);
-var import_node_path = require("path");
+import * as fs from "fs";
+import { join } from "path";
 var ARTIFACT_ROOT = ".sftdd";
 
 // consort/config/sftdd-config-file.ts
-var import_fs = require("fs");
-var import_path2 = require("path");
+import { existsSync as existsSync2, readFileSync as readFileSync2, mkdirSync as mkdirSync2, writeFileSync as writeFileSync2 } from "fs";
+import { dirname as dirname2, join as join3 } from "path";
 
 // consort/config/agent-models.ts
-var import_path = require("path");
+import { dirname, join as join2 } from "path";
 var RECOMMENDED_MODELS = {
   "spec-author": "opus",
   "architect-reviewer": "opus",
@@ -57,7 +32,7 @@ var RECOMMENDED_MODELS = {
   "product-owner": "opus"
 };
 var ALL_AGENT_ROLES = Object.keys(RECOMMENDED_MODELS);
-var AGENT_CONFIG_REL = (0, import_path.join)(".lakebase", "agent-config.json");
+var AGENT_CONFIG_REL = join2(".lakebase", "agent-config.json");
 
 // consort/config/optimized-defaults.json
 var optimized_defaults_default = {
@@ -79,8 +54,8 @@ var optimized_defaults_default = {
 };
 
 // consort/config/sftdd-config-file.ts
-var SFTDD_CONFIG_REL = (0, import_path2.join)(".lakebase", "sftdd-config.json");
-var LEGACY_TDD_CONFIG_REL = (0, import_path2.join)(".lakebase", "tdd-config.json");
+var SFTDD_CONFIG_REL = join3(".lakebase", "sftdd-config.json");
+var LEGACY_TDD_CONFIG_REL = join3(".lakebase", "tdd-config.json");
 var TDD_CONFIG_REL = SFTDD_CONFIG_REL;
 function defaultSftddConfig() {
   const roles = {};
@@ -124,28 +99,28 @@ function mergeOptimizedDefaults(base, overlay) {
   return out;
 }
 function writeSftddConfig(projectDir, config, opts) {
-  const f = (0, import_path2.join)(projectDir, TDD_CONFIG_REL);
-  if ((0, import_fs.existsSync)(f) && !opts?.force) return false;
-  (0, import_fs.mkdirSync)((0, import_path2.dirname)(f), { recursive: true });
-  (0, import_fs.writeFileSync)(f, JSON.stringify(config, null, 2) + "\n");
+  const f = join3(projectDir, TDD_CONFIG_REL);
+  if (existsSync2(f) && !opts?.force) return false;
+  mkdirSync2(dirname2(f), { recursive: true });
+  writeFileSync2(f, JSON.stringify(config, null, 2) + "\n");
   return true;
 }
 
 // consort/lakebase/adopt-sftdd.ts
-var fs2 = __toESM(require("fs"), 1);
-var path = __toESM(require("path"), 1);
-var import_node_url = require("url");
+import * as fs2 from "fs";
+import * as path from "path";
+import { fileURLToPath } from "url";
 
 // consort/lakebase/update-agents.ts
-var fs3 = __toESM(require("fs"), 1);
-var path2 = __toESM(require("path"), 1);
+import * as fs3 from "fs";
+import * as path2 from "path";
 
 // consort/setup/project-sftdd-setup.ts
-var __dirname = path3.dirname((0, import_node_url2.fileURLToPath)(importMetaUrl));
+var __dirname2 = path3.dirname(fileURLToPath2(import.meta.url));
 function kitPackageName() {
   const candidates = [
-    path3.resolve(__dirname, "../../package.json"),
-    path3.resolve(__dirname, "../../../package.json")
+    path3.resolve(__dirname2, "../../package.json"),
+    path3.resolve(__dirname2, "../../../package.json")
   ];
   for (const c of candidates) {
     try {
@@ -165,8 +140,8 @@ function layDownTddScaffold(targetDir) {
   }
   layDownKitClaudeAssets(targetDir);
   const candidates = [
-    path3.resolve(__dirname, `../../templates/sftdd-bootstrap/${ARTIFACT_ROOT}`),
-    path3.resolve(__dirname, `../../../templates/sftdd-bootstrap/${ARTIFACT_ROOT}`)
+    path3.resolve(__dirname2, `../../templates/sftdd-bootstrap/${ARTIFACT_ROOT}`),
+    path3.resolve(__dirname2, `../../../templates/sftdd-bootstrap/${ARTIFACT_ROOT}`)
   ];
   const source = candidates.find((c) => fs4.existsSync(c));
   if (!source) {
@@ -180,8 +155,8 @@ function layDownTddScaffold(targetDir) {
 }
 function resolveKitRoot() {
   const candidates = [
-    path3.resolve(__dirname, "../.."),
-    path3.resolve(__dirname, "../../..")
+    path3.resolve(__dirname2, "../.."),
+    path3.resolve(__dirname2, "../../..")
   ];
   for (const c of candidates) {
     if (fs4.existsSync(path3.join(c, "package.json")) && fs4.existsSync(path3.join(c, "skills", "consort", "agents"))) {
@@ -261,14 +236,16 @@ var kitSftddHooks = {
 
 // consort/lakebase/create-project.ts
 function createProject(input, progress) {
-  return (0, import_lakebase.createProject)(
+  return baseCreateProject(
     { ...input, sftddHooks: input.sftddHooks ?? kitSftddHooks },
     progress
   );
 }
 
 // consort/lakebase/create-doctor-gate.ts
-var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+import {
+  runHealthDoctor
+} from "@databricks-solutions/lakebase-scm-utils/lakebase";
 var CREATE_GATE_BLOCKING_CHECKS = /* @__PURE__ */ new Set([
   "databricks-cli",
   "databricks-auth",
@@ -285,7 +262,7 @@ function blockingChecksForLanguage(language) {
   return set;
 }
 async function runCreateDoctorGate(args) {
-  const doctor = args.doctor ?? ((a) => (0, import_lakebase2.runHealthDoctor)(a));
+  const doctor = args.doctor ?? ((a) => runHealthDoctor(a));
   const report = await doctor({
     projectDir: args.parentDir,
     host: args.databricksHost,
@@ -311,7 +288,7 @@ function formatGateBlockers(blockers) {
   return lines.join("\n");
 }
 
-// scripts/lakebase/create-project.cli.ts
+// bin/lakebase/create-project.cli.ts
 function parseArgs(argv) {
   const out = {};
   for (let i = 0; i < argv.length; i++) {
@@ -534,4 +511,4 @@ main().then(
     process.exit(1);
   }
 );
-//# sourceMappingURL=create-project.cli.cjs.map
+//# sourceMappingURL=create-project.cli.js.map

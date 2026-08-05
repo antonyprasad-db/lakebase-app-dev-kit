@@ -78,12 +78,12 @@
     }
   },
   "bin": {
-    "lakebase-adopt-sftdd": "./dist/scripts/lakebase/adopt-sftdd.cli.js",
-    "lakebase-adopt-tdd": "./dist/scripts/lakebase/adopt-sftdd.cli.js",
-    "lakebase-create-project": "./dist/scripts/lakebase/create-project.cli.js",
+    "lakebase-adopt-sftdd": "./dist/bin/lakebase/adopt-sftdd.cli.js",
+    "lakebase-adopt-tdd": "./dist/bin/lakebase/adopt-sftdd.cli.js",
+    "lakebase-create-project": "./dist/bin/lakebase/create-project.cli.js",
     "lakebase-feature-status": "./dist/bin/sftdd/feature-status.cli.js",
     "lakebase-mcp-server": "./dist/apps/mcp-server/index.js",
-    "lakebase-resolve-sftdd-dir": "./dist/scripts/lakebase/resolve-sftdd-dir.cli.js",
+    "lakebase-resolve-sftdd-dir": "./dist/bin/lakebase/resolve-sftdd-dir.cli.js",
     "lakebase-sftdd-agent-model": "./dist/bin/sftdd/agent-models.cli.js",
     "lakebase-sftdd-approve-gate": "./dist/bin/sftdd/approve-gate.cli.js",
     "lakebase-sftdd-canon-notes": "./dist/bin/sftdd/project-canon-notes.cli.js",
@@ -136,8 +136,8 @@
     "lakebase-tdd-sync-backlog": "./dist/bin/sftdd/sync-backlog.cli.js",
     "lakebase-tdd-test-list": "./dist/bin/sftdd/test-list.cli.js",
     "lakebase-tdd-timing": "./dist/bin/sftdd/timing-report.cli.js",
-    "lakebase-update-commands": "./dist/scripts/lakebase/update-commands.cli.js",
-    "lakebase-update-agents": "./dist/scripts/lakebase/update-agents.cli.js"
+    "lakebase-update-commands": "./dist/bin/lakebase/update-commands.cli.js",
+    "lakebase-update-agents": "./dist/bin/lakebase/update-agents.cli.js"
   },
   "scripts": {
     "build": "tsup",

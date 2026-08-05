@@ -3,7 +3,7 @@
 //
 // PR #34 (PR3) added the `lakebase-detect-language` entry to
 // package.json's `bin` map and the source file at
-// `scripts/lakebase/detect-language.cli.ts`, but did NOT add the
+// `bin/lakebase/detect-language.cli.ts`, but did NOT add the
 // matching entry to `tsup.config.ts`. Build emitted nothing for that
 // path; npx against the published tag returned "command not found"
 // because the bin pointed at a non-existent dist file. Hermetic vitest
@@ -69,12 +69,12 @@ describe("build/bin coverage", () => {
   it("every script-side bin entry maps to a tsup entry", () => {
     const missing: string[] = [];
     for (const [name, distPath] of Object.entries(pkg.bin ?? {})) {
-      // distPath looks like "./dist/scripts/lakebase/detect-language.cli.js"
+      // distPath looks like "./dist/bin/lakebase/detect-language.cli.js"
       // or "./dist/apps/mcp-server/index.js". The tsup entry key for the
       // same file is the same path stripped of the `./dist/` prefix and
       // the `.js` suffix:
-      //   ./dist/scripts/lakebase/detect-language.cli.js
-      //     -> scripts/lakebase/detect-language.cli
+      //   ./dist/bin/lakebase/detect-language.cli.js
+      //     -> bin/lakebase/detect-language.cli
       const m = distPath.match(/^\.\/dist\/(.+)\.js$/);
       if (!m) {
         // Not a script-side bin (e.g., a shell script shim). Skip.

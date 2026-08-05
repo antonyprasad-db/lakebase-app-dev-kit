@@ -16,11 +16,11 @@ export default defineConfig({
     // orchestration CLIs, the SFTDD-coupled scaffolders that stay here, and the
     // MCP server.
     "scripts/index": "scripts/index.ts",
-    "scripts/lakebase/create-project.cli": "scripts/lakebase/create-project.cli.ts",
-    "scripts/lakebase/adopt-sftdd.cli": "scripts/lakebase/adopt-sftdd.cli.ts",
-    "scripts/lakebase/resolve-sftdd-dir.cli": "scripts/lakebase/resolve-sftdd-dir.cli.ts",
-    "scripts/lakebase/update-commands.cli": "scripts/lakebase/update-commands.cli.ts",
-    "scripts/lakebase/update-agents.cli": "scripts/lakebase/update-agents.cli.ts",
+    "bin/lakebase/create-project.cli": "bin/lakebase/create-project.cli.ts",
+    "bin/lakebase/adopt-sftdd.cli": "bin/lakebase/adopt-sftdd.cli.ts",
+    "bin/lakebase/resolve-sftdd-dir.cli": "bin/lakebase/resolve-sftdd-dir.cli.ts",
+    "bin/lakebase/update-commands.cli": "bin/lakebase/update-commands.cli.ts",
+    "bin/lakebase/update-agents.cli": "bin/lakebase/update-agents.cli.ts",
     "bin/sftdd/feature-status.cli": "bin/sftdd/feature-status.cli.ts",
     "bin/sftdd/next.cli": "bin/sftdd/next.cli.ts",
     "bin/sftdd/test-list.cli": "bin/sftdd/test-list.cli.ts",

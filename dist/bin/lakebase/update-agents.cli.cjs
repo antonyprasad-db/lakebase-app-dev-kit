@@ -80,7 +80,7 @@ function updateAgents(args) {
   return { files, changed };
 }
 
-// scripts/lakebase/update-agents.cli.ts
+// bin/lakebase/update-agents.cli.ts
 function parseArgs(argv) {
   const out = {};
   for (let i = 0; i < argv.length; i++) {
