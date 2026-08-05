@@ -11,7 +11,7 @@
 
 import { runManifestChain, type ManifestRunnerDeps, type ManifestTurn } from "./manifest-runner.js";
 import type { StepManifest } from "../steps/manifest.js";
-import type { WorkflowAction } from "../drive/orchestrator-drive.js";
+import type { WorkflowAction } from "../workflow/workflow-vocabulary.js";
 // The lifecycle-op contract (op / result / deps / run-context) lives in the provisioning family , the
 // shared home between the ops' producer (the lifecycle catalogue) and this consumer (the run bracket).
 import type {

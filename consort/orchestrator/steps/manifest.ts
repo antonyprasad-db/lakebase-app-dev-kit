@@ -14,7 +14,7 @@
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { getValidator, formatSchemaErrors } from "../validators/schema-loader.js";
-import type { WorkflowAction } from "../drive/orchestrator-drive.js";
+import type { WorkflowAction } from "../workflow/workflow-vocabulary.js";
 // The SHIPPED manifests are imported as JSON modules so the bundler INLINES them into
 // the build , no runtime fs read, no __dirname/dist path to keep in sync, no copy step.
 // (resolveJsonModule is on.) External/scenario manifests are still loaded from a directory

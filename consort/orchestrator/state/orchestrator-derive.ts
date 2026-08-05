@@ -21,7 +21,7 @@ import type {
   PromoteState,
   StoryView,
   DriveEscalation,
-} from "../drive/orchestrator-drive.js";
+} from "../workflow/workflow-vocabulary.js";
 
 /**
  * Per-story design + build facts that are recorded as on-disk artifacts rather

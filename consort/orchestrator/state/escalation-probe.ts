@@ -7,7 +7,7 @@
 // diskArtifactProbe(...).pendingEscalation() (orchestrator-probe.ts). DRY , one source of truth.
 
 import { diskArtifactProbe } from "./orchestrator-probe.js";
-import type { DriveEscalation, DriveState } from "../drive/orchestrator-drive.js";
+import type { DriveEscalation, DriveState } from "../workflow/workflow-vocabulary.js";
 
 /**
  * Read the unresolved blocking escalation for a feature from `.sftdd` (escalation files +

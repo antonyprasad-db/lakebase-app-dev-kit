@@ -26,7 +26,7 @@ import { execute, type StepExecutorDeps, type StepCtx, type StepResult, type Ste
 import { formatAgentReport } from "../turn/agent-report-formatter.js";
 import type { StepAgent, StepInstructions } from "../agents/agent-types.js";
 import type { DriveEffectsConfig } from "../drive/orchestrator-effects.js";
-import type { WorkflowAction, DriveState } from "../drive/orchestrator-drive.js";
+import type { WorkflowAction, DriveState } from "../workflow/workflow-vocabulary.js";
 import type { RouteProposal, ValidateBoundDeps, StepPrecondition } from "../steps/step-contract.js";
 
 /** What the caller provides so the runner can drive a manifest through the executor. */

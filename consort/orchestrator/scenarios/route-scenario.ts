@@ -21,7 +21,7 @@ import { runManifestStep, type ManifestRunnerDeps } from "../runner/manifest-run
 import { loadStepManifests, type StepManifest } from "../steps/manifest.js";
 import { catalogueLifecycleDeps } from "../provisioning/lifecycle-catalogue.js";
 import type { LifecycleOp } from "../provisioning/lifecycle-types.js";
-import type { WorkflowAction } from "../drive/orchestrator-drive.js";
+import type { WorkflowAction } from "../workflow/workflow-vocabulary.js";
 import type { DriveEffectsConfig } from "../drive/orchestrator-effects.js";
 
 /** One route scenario , DATA. Lean: no cloud scaffold, just a `.sftdd` workspace. */

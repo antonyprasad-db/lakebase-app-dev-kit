@@ -20,7 +20,7 @@
 import { join } from "node:path";
 import { existsSync } from "node:fs";
 import { resolveValidator } from "../validators/conformance/validator-registry.js";
-import { escalationPreempt, type WorkflowAction } from "../drive/orchestrator-drive.js";
+import { escalationPreempt, type WorkflowAction } from "../workflow/workflow-vocabulary.js";
 import type { StepManifest } from "./manifest.js";
 import type {
   StepContract,

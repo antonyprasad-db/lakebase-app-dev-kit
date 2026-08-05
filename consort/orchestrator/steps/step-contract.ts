@@ -19,7 +19,7 @@
 // StepContract in a later slice; the input/output faces (inputs/outputs) are declared here
 // so the per-step isolated runner + `--step` CLI can consume them next.
 
-import type { DriveState, WorkflowAction } from "../drive/orchestrator-drive.js";
+import type { DriveState, WorkflowAction } from "../workflow/workflow-vocabulary.js";
 
 /**
  * A step's INPUT contract, declared as LOGICAL descriptors , NOT filesystem paths. The

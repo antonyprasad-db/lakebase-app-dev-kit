@@ -21,7 +21,7 @@ import { runIntegrationChain } from "../scenarios/integration-chain.js";
 import type { StepManifest } from "../steps/manifest.js";
 import type { StepAgent } from "../agents/agent-types.js";
 import type { ManifestTurn } from "../runner/manifest-runner.js";
-import type { WorkflowAction } from "../drive/orchestrator-drive.js";
+import type { WorkflowAction } from "../workflow/workflow-vocabulary.js";
 
 /** Kit-root-relative locations the build chains read from. The build corpus (design artifacts +
  *  recorded-build code trees) lives under the rerecord scenario, NOT tests/integration/intake

@@ -3,7 +3,7 @@
 // a cycle. Everything here is CONTAINED: an agent is handed a workspace + input contents +
 // instructions and may touch nothing else.
 
-import type { WorkflowAction } from "../drive/orchestrator-drive.js";
+import type { WorkflowAction } from "../workflow/workflow-vocabulary.js";
 
 /**
  * The instruction bundle the orchestrator sources (interactive or filesystem) and passes

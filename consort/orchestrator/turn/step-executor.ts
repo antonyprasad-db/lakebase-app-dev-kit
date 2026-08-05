@@ -38,7 +38,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { validateAndBound } from "../steps/step-contract.js";
-import type { WorkflowAction, DriveState } from "../drive/orchestrator-drive.js";
+import type { WorkflowAction, DriveState } from "../workflow/workflow-vocabulary.js";
 import type { DriveEffectsConfig } from "../drive/orchestrator-effects.js";
 import type { StepContract, StepPrecondition, BoundedRoute, ValidateBoundDeps, RouteProposal } from "../steps/step-contract.js";
 import type { StepInstructions } from "../agents/agent-types.js";

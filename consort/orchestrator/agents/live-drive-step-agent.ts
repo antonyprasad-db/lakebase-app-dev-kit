@@ -19,7 +19,7 @@
 
 import { buildClaudeCommand, type DriveEffectsConfig } from "../drive/orchestrator-effects.js";
 import { takeLastAgentTranscript } from "../drive/claude-runner.js";
-import type { WorkflowAction } from "../drive/orchestrator-drive.js";
+import type { WorkflowAction } from "../workflow/workflow-vocabulary.js";
 import type { StepAgent, AgentInvocation } from "./agent-types.js";
 import type { AgentTurnResult } from "./claude-step-agent.js";
 

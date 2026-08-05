@@ -12,7 +12,7 @@ import { join, relative } from "node:path";
 import { runManifestChain, type ManifestRunnerDeps, type ManifestTurn } from "../runner/manifest-runner.js";
 import { loadStepManifests, type StepManifest } from "../steps/manifest.js";
 import type { StepInstructions } from "../agents/agent-types.js";
-import type { WorkflowAction } from "../drive/orchestrator-drive.js";
+import type { WorkflowAction } from "../workflow/workflow-vocabulary.js";
 import type { DriveEffectsConfig } from "../drive/orchestrator-effects.js";
 import { buildAgent, type AgentBuildContext } from "../agents/agent-catalogue.js";
 // The workspace-seed primitive lives in the provisioning family (the ONE overlay home); re-export

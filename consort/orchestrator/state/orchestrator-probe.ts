@@ -22,7 +22,7 @@ import {
 } from "../../../scripts/sftdd/cycle-record.js";
 import { needsGreenAssess, hasPendingRegressionFix, hasPendingSupersession } from "../../../scripts/sftdd/supersession.js";
 import { driverPhaseForTdd, type StoryArtifactProbe, type DriveContext } from "./orchestrator-derive.js";
-import type { DriveEscalation } from "../drive/orchestrator-drive.js";
+import type { DriveEscalation } from "../workflow/workflow-vocabulary.js";
 import { readGates } from "../../../scripts/sftdd/gates.js";
 import { PHASE_OWNER_KEY } from "../../../scripts/sftdd/workflow-phase.js";
 import { storyDeployVerified } from "../../../scripts/sftdd/deploy.js";
