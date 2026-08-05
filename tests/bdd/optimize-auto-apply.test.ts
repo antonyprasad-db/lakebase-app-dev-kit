@@ -18,8 +18,8 @@ let overlayPath: string;
 
 beforeEach(() => {
   kitDir = mkdtempSync(join(tmpdir(), "auto-apply-kit-"));
-  mkdirSync(join(kitDir, "scripts", "sftdd"), { recursive: true });
-  overlayPath = join(kitDir, "scripts", "sftdd", "optimized-defaults.json");
+  mkdirSync(join(kitDir, "consort", "config"), { recursive: true });
+  overlayPath = join(kitDir, "consort", "config", "optimized-defaults.json");
   writeFileSync(overlayPath, JSON.stringify({ _comment: "seed", roles: {} }) + "\n");
 });
 afterEach(() => rmSync(kitDir, { recursive: true, force: true }));

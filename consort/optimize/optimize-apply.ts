@@ -206,7 +206,7 @@ function mergeOverlay(base: unknown, over: unknown): unknown {
  *  false). Returns true when the overlay changed. Idempotent: re-applying the same
  *  winner is a no-op. Kit edits are LOCAL; committing/pushing is the caller's job. */
 export function applyWinnerToOverlay(kitDir: string, candidate: Candidate): boolean {
-  const overlayPath = join(kitDir, "scripts", "sftdd", "optimized-defaults.json");
+  const overlayPath = join(kitDir, "consort", "config", "optimized-defaults.json");
   const overlay = existsSync(overlayPath)
     ? (JSON.parse(readFileSync(overlayPath, "utf8")) as Record<string, unknown>)
     : { roles: {} };

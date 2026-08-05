@@ -20,7 +20,7 @@ import { RECOMMENDED_MODELS } from "./agent-models.js";
 // Auto-applied optimization winners, deep-merged onto the base default (see defaultSftddConfig).
 // Static import so tsup inlines it into dist at build time; the champion walk's auto-apply writes
 // this file as DATA, never a TS rewrite.
-import OPTIMIZED_DEFAULTS from "../../scripts/sftdd/optimized-defaults.json";
+import OPTIMIZED_DEFAULTS from "./optimized-defaults.json";
 
 // AgentRole is referenced only to keep the type surface identical for re-exporters.
 export type { AgentRole };
