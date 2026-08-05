@@ -190,9 +190,22 @@ cannot guarantee cross-slice properties.
   them per story) , a dispatch decision, not a merge fix-up.
 - T<n> id space is feature-flat (^T[0-9]+); parallel analysts must not collide , supervisor assigns id
   ranges OR analysts use kind/story-prefixed ids the supervisor renumbers on merge.
-- **Is the split worth it vs. the model lever?** The live sweep showed m-haiku cut the SINGLE
-  test-strategist turn 626s->190s (70%) and still gate-passed. DECIDE against that first , if a
-  cheap-model single turn is fast enough, the split is premature. This is the gating question.
+- **Is the split worth it vs. the model lever? UNRESOLVED , the m-haiku number is NOT a decision
+  gate.** The #554 sweep showed m-haiku cut the SINGLE test-strategist turn 626s->190s (70%), but
+  it ran CONFORMANCE-ONLY , no discriminator/quality gate touched what m-haiku produced (verified:
+  every `.role-telemetry/sweep-test-strategist/*.telemetry.json` has `semanticScore: null`; the
+  quality gate landed in #555, AFTER #554). Worse, the produced test-lists were NOT preserved
+  (artifact capture also arrived in #555), so they cannot be retro-judged , the trial is not
+  reproducible (preserve-experiment-artifacts). And the output-token trend is a coverage-loss RED
+  FLAG, not a clean win: baseline(sonnet)=37,145 out-tok -> m-haiku=22,762 (-39%) -> m-haiku-e-low=
+  14,408 (-61%); for an OUTPUT-BOUND artifact like test-list.json, "much faster" is likely partly
+  "wrote fewer/thinner test items", exactly what a discriminator exists to catch. So "cheap model
+  is fast enough -> split premature" is UNPROVEN. The real gate is TASK #556: RE-RUN the sweep with
+  the #555 quality gate ON (discriminator vs the recorded test-list baseline: coverage + fitness +
+  persistence-invariant faithfulness) + artifact capture ON, then rank by wall-clock ONLY AMONG
+  candidates that HOLD quality. If a cheap fast candidate holds coverage, the split is premature; if
+  the fast ones are all thinner, the split (or a richer cheap model) earns its keep. Needs a LIVE
+  spawn (the #554 artifacts are gone). DECIDE the split against #556's result, NOT #554's.
 
 ### How to prototype (when ready) , this IS pre-conditioning-as-contract applied
 Build a `test-strategist-supervised-chain` on the per-role chain substrate: seed (replay
@@ -212,8 +225,11 @@ preconditions (each analyst declares exactly its slice's inputs), so #2 should l
 3. #3 source-check , DONE (documented optimize-only, no drive change).
 4. #4 session-warmth lever , DONE (real drive warms per-story + confirmed; warm candidate declared +
    gated on the multi-turn substrate).
-5. test-strategist split , DECIDE against the model-lever result first; if pursued, shape (B) on the
-   chain substrate, measured before shipping.
+5. test-strategist split , GATED on TASK #556 first (re-run the sweep with the #555 QUALITY gate +
+   artifact capture ON; rank by wall-clock only among quality-holders). The #554 m-haiku number is
+   NOT a valid decision gate (conformance-only, artifacts not preserved, output-token coverage red
+   flag , see the "Is the split worth it" open question). Only after #556 gives a quality-holding
+   speed result: DECIDE. If pursued, shape (B) on the chain substrate, measured before shipping.
 
 ## Guardrails (carry forward)
 - LOCAL commits only; never push. Kit ships committed dist , rebuild + `git checkout -- dist` between
