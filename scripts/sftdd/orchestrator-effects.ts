@@ -1047,7 +1047,7 @@ function designArtifactExpectation(
  * effortForTurn, contextPackSuffix, taskSuffix, tool scope, resume scope) are honored exactly
  * as before , this is a pure move, not a behavior change.
  */
-function buildClaudeCommand(action: Extract<WorkflowAction, { kind: "invoke-role" }>, cfg: DriveEffectsConfig): DriveCommand {
+export function buildClaudeCommand(action: Extract<WorkflowAction, { kind: "invoke-role" }>, cfg: DriveEffectsConfig): DriveCommand {
   const f = cfg.featureId;
   const BUILD_ROLES = new Set(["navigator", "driver"]);
   const buildScope = cfg.buildSessionScope ?? "story";
