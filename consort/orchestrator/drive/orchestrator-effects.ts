@@ -19,12 +19,9 @@
 import * as fs from "node:fs";
 import { dirname, join } from "node:path";
 import { nextTransition, type WorkflowAction } from "./orchestrator-drive.js";
-import { manifestForAction, type StepManifestPostTurn, type StepManifest } from "../manifest/step-manifest.js";
-import { execute, type StepExecutorDeps } from "../execution/step-executor.js";
-import { ManifestStep } from "../steps/manifest-step.js";
-import { LiveDriveStepAgent } from "../agents/live-drive-step-agent.js";
+import { manifestForAction, type StepManifestPostTurn } from "../manifest/step-manifest.js";
+import { performTurnViaExecutor } from "./executor-dispatch.js";
 import { formatAgentReport } from "../execution/agent-report-formatter.js";
-import type { BoundedRoute, RouteProposal, ValidateBoundDeps } from "../contract/step-contract.js";
 import type { DriveEffects } from "./orchestrator-run.js";
 import { deriveDriveState, effectiveLoopForStory } from "../../../scripts/sftdd/orchestrator-derive.js";
 import { diskArtifactProbe, readDriveContext } from "../../../scripts/sftdd/orchestrator-probe.js";
@@ -1796,115 +1793,15 @@ export function readDriveStateFromDisk(
   return state;
 }
 
-/** The invoke-role actions the live drive currently dispatches THROUGH the StepExecutor
- *  (Stage 2, #578). Deliberately a SMALL allowlist , migrated one action at a time, each with
- *  its byte-identical golden. spec-author breakdown is the first (single-shot design turn, no
- *  session warmth / no build-replay). Everything else falls through to commandsForAction. */
-function executorDispatched(action: WorkflowAction): boolean {
-  return action.kind === "invoke-role" && !("buildMode" in action) && "mode" in action &&
-    action.role === "spec-author" && action.mode === "breakdown";
-}
+/** The executor-dispatch machinery moved to its own family module (executor-dispatch.ts). Re-export
+ *  the allowlist predicate (some tests/consumers reference it) and inject this module's command-
+ *  derivation primitives (buildCycleCommand, readDriveStateFromDisk, the bin tokens) so the family
+ *  module stays free of a runtime import back into orchestrator-effects. */
+export { executorDispatched } from "./executor-dispatch.js";
 
-/** Expand a manifest's postTurn entries for a `when` phase into DriveCommands, resolving the bin
- *  token + the `--tdd` / {feature}/{story}/{tddDir} placeholders , the SAME substitution
- *  commandsFromManifest uses, so the executor path runs the identical CLIs the legacy path did. */
-function manifestPostTurnCommands(manifest: StepManifest, when: "before" | "after", cfg: DriveEffectsConfig): DriveCommand[] {
-  const tdd = ["--feature", cfg.featureId, "--tdd-dir", cfg.sftddDir];
-  const BIN_TOKENS: Record<string, string> = { PIPELINE_BIN, CYCLE_BIN, HUMAN_PROXY_BIN, LOG_BIN, TEST_LIST_BIN };
-  const resolveBin = (t: string): string => BIN_TOKENS[t] ?? t;
-  const expand = (args: string[]): string[] =>
-    args.flatMap((a) =>
-      a === "--tdd" ? tdd : a === "{feature}" ? [cfg.featureId] : a === "{tddDir}" ? [cfg.sftddDir] : [a],
-    );
-  return (manifest.postTurn ?? [])
-    .filter((p) => (p.when ?? "after") === when && p.bin !== "@build-cycle")
-    .map<DriveCommand>((p) => ({ kind: "cli", bin: resolveBin(p.bin), args: expand(p.args) }));
-}
-
-/**
- * Assemble the executor-dispatch of an invoke-role turn (Stage 2, #578): run it THROUGH the
- * StepExecutor's Template Method with the uncontained LiveDriveStepAgent, and return the
- * BoundedRoute execute()'s phase-7 produced. The pre/post-turn-effect + materialize phases are
- * wired to the manifest's own CLIs, so the executor runs the IDENTICAL side effects the legacy
- * commandsForAction bundled: reset-breakdown (pre) -> agent -> reconcile-log (materialize, before
- * validate) -> validate -> sync-breakdown (post, gated on clean). Uncontained: the agent reads/
- * writes the real `.sftdd`, so resolveInputs is empty (the agent fetches) and the workspace IS the
- * project. Returns undefined for an action not on the executor allowlist (caller falls to perform).
- */
-async function performTurnViaExecutor(
-  action: WorkflowAction,
-  state: import("./orchestrator-drive.js").DriveState,
-  routerDeps: ValidateBoundDeps,
-  cfg: DriveEffectsConfig,
-): Promise<BoundedRoute | undefined> {
-  if (!cfg.useManifestSteps || !executorDispatched(action)) return undefined;
-  const manifest = manifestForAction(action);
-  if (!manifest) return undefined;
-
-  const agent = new LiveDriveStepAgent(cfg);
-  const step = new ManifestStep(manifest, agent);
-  const f = cfg.featureId;
-
-  const deps: StepExecutorDeps = {
-    // Uncontained: the agent reads .sftdd itself, but ManifestStep still gates on the presence of
-    // each declared input, so resolve them from the real .sftdd (a `feature:<f>` source maps to
-    // <sftddDir>/<f>). Fail loud (return {missing}) if a declared input is absent , the same
-    // pre-spawn gate the manifest-runner enforces, now against the live tree.
-    resolveInputs: () => {
-      const out: Record<string, string> = {};
-      for (const input of manifest.inputs) {
-        const rel = input.source.replace(/^feature:/, "");
-        const p = join(cfg.sftddDir, rel);
-        if (!fs.existsSync(p)) return { missing: input.id };
-        out[input.id] = fs.readFileSync(p, "utf8");
-      }
-      return out;
-    },
-    // The workspace IS the real project (LiveDriveStepAgent's runner spawns in cfg.projectDir);
-    // artifact-channel outputs (feature-spec.json, agent-log.jsonl) live under the real .sftdd.
-    provisionWorkspace: () => ({ workspaceDir: cfg.projectDir, artifactDir: cfg.sftddDir, outputPaths: designOutputPaths(action, f) }),
-    // The prompt is the agent's own (buildClaudeCommand -> roleTask); this bundle is unused by
-    // LiveDriveStepAgent, but the executor requires the dep.
-    instructionsFor: () => ({ prompt: "" }),
-    // Phase 2.7: the manifest's `before` CLIs (reset-breakdown) , run through the drive runner.
-    preTurnEffects: async () => {
-      for (const cmd of manifestPostTurnCommands(manifest, "before", cfg)) await cfg.runner.run(cmd);
-    },
-    // Phase 4.5: reconcile MATERIALIZES the agent-log (the legacy path's LOG_BIN --reconcile),
-    // so validate-outputs sees the conformant agent-log.jsonl the agent never wrote itself.
-    materializeOutputs: async () => {
-      await cfg.runner.run({ kind: "cli", bin: LOG_BIN, args: ["--reconcile", "--feature", f, "--tdd-dir", cfg.sftddDir] });
-    },
-    // Phase 6.5: the manifest's `after` CLIs (sync-breakdown) , gated on clean validation by the
-    // executor, mirroring the legacy path only reaching them on a produced turn.
-    postTurnEffects: async () => {
-      for (const cmd of manifestPostTurnCommands(manifest, "after", cfg)) await cfg.runner.run(cmd);
-    },
-  };
-
-  // Routing authority for a `state-derived` step (the breakdown manifest's produced route) must see
-  // the state the turn PRODUCED, not the pre-turn snapshot: execute()'s phase-7 validateAndBound
-  // runs AFTER the post-turn sync-breakdown, so `allowed` re-reads fresh from disk (the synced
-  // pipeline now shows breakdownDone). Using the stale pre-turn state here re-derives `breakdown`
-  // and the loop stalls (it just performed it). Everything else in routerDeps (revise budget, retry
-  // ledger) is preserved.
-  const freshRouterDeps: ValidateBoundDeps = {
-    ...routerDeps,
-    allowed: () => routerDeps.allowed(readDriveStateFromDisk(cfg.sftddDir, cfg.featureId, cfg.projectDir, { uiTrack: cfg.uiTrack })),
-  };
-  const ctx = { action, cfg, state, validateBoundDeps: freshRouterDeps };
-  const result = await execute(step, ctx, deps);
-  return result.bounded;
-}
-
-/** The on-disk (real .sftdd) locations the executor validates a design turn's outputs at , the
- *  same nested paths the legacy designArtifactExpectation + agent-log reconcile write to. */
-function designOutputPaths(action: WorkflowAction, featureId: string): Record<string, string> {
-  if (action.kind === "invoke-role" && "mode" in action && action.role === "spec-author" && action.mode === "breakdown") {
-    return { "feature-spec": `.sftdd/features/${featureId}/feature-spec.json`, "agent-log": ".sftdd/agent-log.jsonl" };
-  }
-  return {};
-}
+/** The bin-token -> resolved-bin map the executor-dispatch post-turn expander shares with
+ *  commandsFromManifest (one source of the resolved names). */
+const POST_TURN_BIN_TOKENS: Record<string, string> = { PIPELINE_BIN, CYCLE_BIN, HUMAN_PROXY_BIN, LOG_BIN, TEST_LIST_BIN };
 
 /** Build a DriveEffects bound to a project: readState from disk, perform via
  *  commandsForAction + the injected runner. */
@@ -1928,7 +1825,12 @@ export function buildDriveEffects(cfg: DriveEffectsConfig): DriveEffects {
     // spec-author breakdown) under useManifestSteps, run the turn THROUGH the StepExecutor and hand
     // runDriver the BoundedRoute it produced. Returns undefined otherwise => the loop falls to perform.
     performViaExecutor(action, state, routerDeps) {
-      return performTurnViaExecutor(action, state, routerDeps, cfg);
+      return performTurnViaExecutor(action, state, routerDeps, cfg, {
+        buildCycleCommand,
+        readDriveStateFromDisk,
+        binTokens: POST_TURN_BIN_TOKENS,
+        logBin: LOG_BIN,
+      });
     },
     onAction: cfg.onAction,
     // Hand-back delivery: when a role's prior turn failed its expectation

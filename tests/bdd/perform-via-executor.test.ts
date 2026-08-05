@@ -10,7 +10,7 @@
 // we can compare. No live spawn , the fake runner just records + returns.
 
 import { describe, it, expect } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildDriveEffects, type DriveCommand, type DriveEffectsConfig } from "../../consort/orchestrator/drive/orchestrator-effects";
@@ -19,6 +19,8 @@ import type { ValidateBoundDeps } from "../../consort/orchestrator/contract/step
 
 const BREAKDOWN: WorkflowAction = { kind: "invoke-role", role: "spec-author", mode: "breakdown" };
 const FEATURE = "F1-stock-visibility";
+const RED_STORY = "S1-create-sku";
+const RED: WorkflowAction = { kind: "invoke-role", role: "navigator", story: RED_STORY };
 
 /** Seed the breakdown manifest's declared inputs into the real .sftdd (product-overview/nfrs/
  *  feature-request) , the uncontained agent reads them there, and the executor's phase-1 gate
@@ -155,6 +157,123 @@ describe("performViaExecutor (Stage 2 2b): spec-author breakdown through the Ste
       expect(labels).not.toContain("cli:sync-breakdown");
       // reset-breakdown (pre) + reconcile still ran (they precede the gate).
       expect(labels).toContain("cli:reset-breakdown");
+    } finally {
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+});
+
+// ─── navigator RED (a BUILD turn, LEAN , no cloud) through the StepExecutor ───────────────────────
+// Same performViaExecutor seam, widened to a build turn. The 3 divergences from breakdown:
+//   1. inputs are STORY-scoped (test-list-per-story.json + the story's acs/ DIR), not feature-flat.
+//   2. the output is the PRODUCT channel , a real tests/ tree at the PROJECT ROOT (not .sftdd).
+//   3. the post-turn CLI is the `@build-cycle` marker (the RED cycle stamp), NOT sync-breakdown , so
+//      the expander must RESOLVE the marker (via buildCycleCommand), not filter it. Absent that, no
+//      RED is stamped, testsWritten never flips, and the loop re-proposes RED and stalls.
+
+/** Seed navigator RED's story-scoped inputs on the live tree: the per-story test-list + the acs/
+ *  dir (a DIRECTORY input , presence-checked, not injected). The executor's phase-1 gate needs both. */
+function seedRedInputs(sftddDir: string): void {
+  const storyDir = join(sftddDir, "features", FEATURE, "stories", RED_STORY);
+  mkdirSync(join(storyDir, "acs"), { recursive: true });
+  writeFileSync(
+    join(storyDir, "test-list-per-story.json"),
+    JSON.stringify({ feature_id: FEATURE, story_id: RED_STORY, items: [{ id: "T1", kind: "behavior", description: "create a SKU" }] }) + "\n",
+  );
+  writeFileSync(
+    join(storyDir, "acs", "AC1-create-sku.json"),
+    JSON.stringify({ id: "AC1-create-sku", story_id: RED_STORY, statement: "A SKU can be created", layer: "persistence" }) + "\n",
+  );
+}
+
+/** A recording runner for RED: labels each command, and SIMULATES the navigator writing its PRODUCT
+ *  output (a tests/ tree at the PROJECT ROOT) + the reconcile materializing the meta agent-log. */
+function redRecordingRunner(projectDir: string, sftddDir: string) {
+  const labels: string[] = [];
+  return {
+    labels,
+    runner: {
+      async run(cmd: DriveCommand) {
+        if (cmd.kind === "claude") {
+          labels.push(`claude:${cmd.role}`);
+          // The navigator authors tests/ at the project ROOT (the product channel).
+          const testsDir = join(projectDir, "tests");
+          mkdirSync(testsDir, { recursive: true });
+          writeFileSync(join(testsDir, "test_create_sku.py"), "def test_create_sku():\n    assert False  # RED\n");
+          return;
+        }
+        if (cmd.kind === "cli") {
+          const verb = cmd.args[0];
+          labels.push(`cli:${cmd.bin.replace("lakebase-sftdd-", "")}:${verb}`);
+          if (cmd.bin.endsWith("-log") && verb === "--reconcile") {
+            writeFileSync(join(sftddDir, "agent-log.jsonl"),
+              JSON.stringify({ timestamp: "2026-08-05T00:00:00Z", level: "info", role: "navigator", event: "artifact.written", message: "wrote tests/test_create_sku.py" }) + "\n");
+          }
+          return;
+        }
+        labels.push(cmd.kind);
+      },
+    },
+  };
+}
+
+describe("performViaExecutor (#590): navigator RED (the PRODUCT channel) through the StepExecutor", () => {
+  it("runs the build-turn CLI sequence: claude, @build-cycle (RED stamp), reconcile , and writes tests/ at the project ROOT", async () => {
+    const projectDir = mkdtempSync(join(tmpdir(), "pve-red-"));
+    const sftddDir = join(projectDir, ".sftdd");
+    mkdirSync(sftddDir, { recursive: true });
+    seedRedInputs(sftddDir);
+    try {
+      const rec = redRecordingRunner(projectDir, sftddDir);
+      const effects = buildDriveEffects(cfg(sftddDir, projectDir, { useManifestSteps: true, runner: rec.runner, loopGranularity: "story" }));
+      const bounded = await effects.performViaExecutor!(RED, state, routerDeps);
+
+      // Executor-dispatched (not undefined).
+      expect(bounded).toBeDefined();
+      // The command stream in Template-Method phase order: RED has NO pre-turn CLI; the agent writes
+      // its tests; reconcile materializes the meta agent-log; the post-turn `@build-cycle` marker
+      // RESOLVES to the cycle `begin` (RED stamp) , NOT filtered out, NOT sync-breakdown.
+      expect(rec.labels).toEqual([
+        "claude:navigator",
+        "cli:log:--reconcile",
+        "cli:cycle:begin",
+      ]);
+      // The PRODUCT artifact landed at the project ROOT (the real code tree), not under .sftdd.
+      expect(existsSync(join(projectDir, "tests", "test_create_sku.py"))).toBe(true);
+    } finally {
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  it("BLOCKS (no RED cycle stamp) when the navigator writes no tests/ tree", async () => {
+    const projectDir = mkdtempSync(join(tmpdir(), "pve-red-"));
+    const sftddDir = join(projectDir, ".sftdd");
+    mkdirSync(sftddDir, { recursive: true });
+    seedRedInputs(sftddDir);
+    try {
+      const labels: string[] = [];
+      const runner = {
+        async run(cmd: DriveCommand) {
+          if (cmd.kind === "claude") { labels.push("claude"); return; /* writes NO tests/ */ }
+          if (cmd.kind === "cli") { labels.push(`cli:${cmd.args[0]}`); if (cmd.bin.endsWith("-log")) writeFileSync(join(sftddDir, "agent-log.jsonl"), "{}\n"); }
+        },
+      };
+      const effects = buildDriveEffects(cfg(sftddDir, projectDir, { useManifestSteps: true, runner, loopGranularity: "story" }));
+      const bounded = await effects.performViaExecutor!(RED, state, routerDeps);
+      expect(bounded).toBeDefined();
+      // The `@build-cycle` RED stamp (cycle begin) must NOT have run , validation (no tests/) blocked it.
+      expect(labels).not.toContain("cli:begin");
+    } finally {
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  it("returns undefined for a navigator turn that is NOT plain RED (e.g. a review/assess buildMode)", async () => {
+    const projectDir = mkdtempSync(join(tmpdir(), "pve-red-"));
+    try {
+      const effects = buildDriveEffects(cfg(join(projectDir, ".sftdd"), projectDir, { useManifestSteps: true }));
+      const review: WorkflowAction = { kind: "invoke-role", role: "navigator", story: RED_STORY, buildMode: "review" } as WorkflowAction;
+      expect(await effects.performViaExecutor!(review, state, routerDeps)).toBeUndefined();
     } finally {
       rmSync(projectDir, { recursive: true, force: true });
     }

@@ -3,10 +3,13 @@
   "role": "navigator",
   "match": { "kind": "invoke-role", "role": "navigator", "buildMode": null },
   "inputs": [
-    { "id": "test-list", "source": "story:test-list.json", "description": "The story's ordered test list , the Navigator authors ONE batch RED covering it." },
+    { "id": "test-list", "source": "story:test-list-per-story.json", "description": "The story's ordered test list , the Navigator authors ONE batch RED covering it." },
     { "id": "acs", "source": "story:acs", "description": "The story's acceptance criteria the failing tests encode." }
   ],
-  "outputs": [],
+  "outputs": [
+    { "id": "tests", "filename": "tests", "channel": "product", "validator": "navigatorTestsAuthored", "description": "The RED test tree the Navigator authored at the project root (non-empty tests/ , the PRODUCT channel)." },
+    { "id": "agent-log", "filename": ".sftdd/agent-log.jsonl", "channel": "meta", "validator": "navigatorLoggedAuthoring", "description": "The Navigator's authoring log (meta channel; shared agent-log script)." }
+  ],
   "routing": {
     "produced": { "next": "state-derived" }
   },
