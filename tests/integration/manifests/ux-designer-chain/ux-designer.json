@@ -3,11 +3,11 @@
   "role": "ux-designer",
   "match": { "kind": "invoke-role", "role": "ux-designer" },
   "inputs": [
-    { "id": "design-guideline", "source": "feature:design-brief.md", "description": "The PO's design brief , the source the UX Designer extracts the look FROM." },
-    { "id": "feature-spec", "source": "feature:feature-spec.json", "description": "The spec-author's feature breakdown , which stories produce screens." }
+    { "id": "design-brief", "source": "feature:design-brief.md", "description": "The HIL design brief , the source the UX Designer translates into the design system." },
+    { "id": "product-overview", "source": "feature:product-overview.md", "description": "The product overview the UX Designer reads alongside the brief (the real-drive read-set)." }
   ],
   "outputs": [
-    { "id": "design-guide", "filename": "design-guide.json", "validator": "designGuideConformant", "description": "The machine-checkable design tokens + component standards (design-guide.schema.json)." },
+    { "id": "design-guide", "filename": "design/design-guide.json", "validator": "designGuideConformant", "description": "The machine-checkable design tokens + component standards (design-guide.schema.json)." },
     { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "uxDesignerLoggedAuthoring", "description": "The UX Designer logs what it authored." }
   ],
   "routing": {

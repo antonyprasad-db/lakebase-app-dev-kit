@@ -15,7 +15,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { loadStepManifests, manifestForAction, validateStepManifest, type StepManifest } from "../../../consort/orchestrator/manifest/step-manifest";
 import { resolveValidator } from "../../../consort/orchestrator/validators/conformance/validator-registry";
-import { ROLE_CHAINS } from "../../../consort/orchestrator/optimize/role-chains";
+import { ROLE_CHAINS, SNAPSHOT_ROOTS } from "../../../consort/orchestrator/optimize/role-chains";
 import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive";
 
 const KIT = process.cwd();
@@ -30,6 +30,7 @@ const CHAINS: { dir: string; liveRole: string }[] = [
   { dir: "test-strategist-chain", liveRole: "test-strategist" },
   { dir: "spec-author-propose-chain", liveRole: "spec-author" },
   { dir: "architect-estimator-chain", liveRole: "architect-reviewer" },
+  { dir: "ux-designer-chain", liveRole: "ux-designer" },
 ];
 
 const PO_SEED: WorkflowAction = { kind: "invoke-role", role: "product-owner", mode: "author-requests" };
@@ -93,10 +94,29 @@ describe.each(CHAINS)("design-role LIVE chain: $dir", ({ dir, liveRole }) => {
 // disk under intake, so that gap fails a test rather than passing unnoticed.
 describe("per-role sweep: every role has a recorded baseline for the quality gate", () => {
   const INTAKE = join(KIT, "tests/integration/intake");
-  it.each(Object.values(ROLE_CHAINS).map((c) => [c.dir, c.outputFile] as const))(
+  it.each(Object.values(ROLE_CHAINS).map((c) => [c.dir, c.referenceFile ?? c.outputFile] as const))(
     "%s has a baseline at intake/%s",
+    (_dir, referenceFile) => {
+      expect(existsSync(join(INTAKE, referenceFile)), `missing recorded baseline for ${referenceFile} , the quality gate would silently skip this role`).toBe(true);
+    },
+  );
+});
+
+// The quality gate keys on producedArtifacts[outputFile], and producedArtifacts only contains
+// .sftdd/ PLUS the SNAPSHOT_ROOTS runRoleChainLive snapshots. A design role writes its output at
+// the workspace ROOT (features/... or planning/...), so if an outputFile's top dir is not a
+// snapshot root, the produced artifact is never captured -> the gate SILENTLY SKIPS (the
+// scoreless-sweep defect). Assert every chain's outputFile is under a snapshot root so a new
+// chain cannot regress this.
+describe("per-role sweep: every outputFile is under a SNAPSHOT_ROOT (else the quality gate skips)", () => {
+  it.each(Object.values(ROLE_CHAINS).map((c) => [c.dir, c.outputFile] as const))(
+    "%s outputFile %s is captured by a snapshot root",
     (_dir, outputFile) => {
-      expect(existsSync(join(INTAKE, outputFile)), `missing recorded baseline for ${outputFile} , the quality gate would silently skip this role`).toBe(true);
+      const top = outputFile.split("/")[0];
+      expect(
+        (SNAPSHOT_ROOTS as readonly string[]).includes(top),
+        `outputFile "${outputFile}" top dir "${top}" is not in SNAPSHOT_ROOTS [${SNAPSHOT_ROOTS.join(", ")}] , producedArtifacts would not capture it and the quality gate would silently skip`,
+      ).toBe(true);
     },
   );
 });

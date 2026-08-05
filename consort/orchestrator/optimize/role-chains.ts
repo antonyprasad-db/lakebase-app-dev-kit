@@ -25,6 +25,14 @@ export const INTAKE_REL = "tests/integration/intake";
 export const FEATURE = "F1-stock-visibility";
 export const STORY = "S1-file-stock";
 
+/** Workspace-relative roots a DESIGN role writes its output under (features/... or planning/...),
+ *  OUTSIDE .sftdd/. runRoleChainLive snapshots these in addition to .sftdd so the produced
+ *  artifact is captured in producedArtifacts (keyed by its workspace-relative path == outputFile)
+ *  , which is what the QUALITY GATE + evidence preservation both key on. Without this the gate
+ *  silently skips (the scoreless-sweep defect). Every ROLE_CHAINS.outputFile lives under one of
+ *  these; a `role-chains.test.ts` guard asserts that invariant so a new chain can't regress it. */
+export const SNAPSHOT_ROOTS = ["features", "planning", "design"] as const;
+
 /** The chain always starts from the PO seed action (the replay seed manifest matches it). */
 export const PO_SEED: WorkflowAction = { kind: "invoke-role", role: "product-owner", mode: "author-requests" };
 
@@ -147,6 +155,24 @@ export const ROLE_CHAINS: Record<string, RoleChain> = {
       `rationale}. Size every candidate the proposals name.` +
       NO_SHELL + REPORT_BLOCK,
   },
+  "ux-designer": {
+    name: "ux-designer (design system)",
+    dir: "ux-designer-chain",
+    outputFile: `design/design-guide.json`,
+    prompt:
+      `You are the UX Designer. From the provided inputs (the HIL design brief + the product ` +
+      `overview, in this prompt , do NOT search the filesystem), translate the brief into the ` +
+      `project's machine-checkable design system. WRITE exactly this file, relative to your ` +
+      `current working directory:\n` +
+      `  - design/design-guide.json\n` +
+      `Realize EVERY element the brief names: all token scales (typography, colors, spacing, ` +
+      `radius, shadows, breakpoints) at every level the brief enumerates, and a "components" block ` +
+      `with an entry for EACH reusable UI component the brief describes (navbar, page, card, ` +
+      `button, form input, table, status badge, empty state, and any others named), each with its ` +
+      `class + notes. Conform to design-guide.schema.json. Cover the brief exhaustively , a missing ` +
+      `token level, asset, or component is a defect.` +
+      NO_SHELL + REPORT_BLOCK,
+  },
 };
 
 /** Options for one chain run: the kit root + an optional per-manifest agent override (the sweep's
@@ -182,6 +208,13 @@ export async function runRoleChainLive(chain: RoleChain, opts: RunRoleChainOptio
     intakeDir: join(kit, INTAKE_REL),
     feature: FEATURE,
     start: PO_SEED,
+    // A design role writes its output at the WORKSPACE ROOT (features/... or planning/...), NOT
+    // under .sftdd/. The default snapshot is .sftdd-only, so without this the produced artifact is
+    // never captured in producedArtifacts , which means the QUALITY GATE (which keys on
+    // producedArtifacts[chain.outputFile]) SILENTLY SKIPS and the artifact is not preserved (the
+    // exact scoreless-sweep defect #556 exists to prevent). Snapshot the design output roots so the
+    // produced file lands under its workspace-relative path (== chain.outputFile).
+    extraSnapshotRoots: [...SNAPSHOT_ROOTS],
     // The live-role manifest declares agent.kind "claude" (unchanged even when the sweep
     // overrides the built agent via agentFor); the seed declares "replay". Prompt only the live role.
     instructionsFor: (m: StepManifest) =>

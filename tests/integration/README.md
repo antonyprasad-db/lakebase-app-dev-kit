@@ -95,8 +95,30 @@ follow-up; they are not the #556 blocker.
 _Results of live runs are appended here as we perform them (date, chain, candidates, gate outcomes,
 wall-clock, winner). Telemetry + preserved artifacts land under `.role-telemetry/sweep-<role>/`._
 
-### 2026-08-04 — test-strategist sweep (#556): PRE-FLIGHT HALTED
+### 2026-08-04 — test-strategist sweep (#556): PRE-FLIGHT HALTED (scope)
 Pack-fidelity audit (above) found the test-strategist chain scored against a wrong-scope reference.
 Sweep NOT run; fixing the per-story scope first. (The earlier #554 sweep — 626s→190s on m-haiku — is
 INVALID as a decision gate: conformance-only, `semanticScore: null` on every candidate, artifacts not
 preserved; see `../../consort/orchestrator/build/PRODUCTION-IMPROVEMENTS-PLAN.md`.)
+
+### 2026-08-04 — test-strategist sweep (#556, attempt 2): HALTED MID-RUN + HARNESS BUG FOUND
+Launched with the per-story scope fix. First two candidates completed (baseline 778.5s, m-haiku
+118.3s) BUT both logged "gate PASSED" with NO quality suffix, and their persisted trials had
+`semanticScore: null`, `qualityPassed` absent, `artifacts: []`. Root cause (a harness bug, not a
+scope issue): the quality gate keys on `producedArtifacts[chain.outputFile]`, but `producedArtifacts`
+is the **`.sftdd`-only snapshot** — a design role writes its output at the WORKSPACE ROOT
+(`features/…`, `planning/…`, `design/…`), so the produced file was NEVER captured, the gate SILENTLY
+SKIPPED, and nothing was preserved. **This means the quality gate had never fired for ANY design-role
+sweep** (it landed in #555 but was never reachable), so #554's result was doubly invalid.
+Fix: `runRoleChainLive` now passes `extraSnapshotRoots = SNAPSHOT_ROOTS` (`features`/`planning`/`design`)
+so the produced artifact lands in `producedArtifacts` keyed by its `outputFile`; a hermetic guard
+asserts every chain's `outputFile` is under a snapshot root (so this can't regress). Sweep will be
+re-launched after the dist rebuild.
+
+### 2026-08-04 — ux-designer added as a role chain
+Restructured `ux-designer-chain` from a 3-turn demo (PO → mock spec-author → live ux-designer) to the
+uniform 2-turn `seed → live` shape, and added it to `ROLE_CHAINS`. Its real-drive read-set is the
+design-brief + product-overview (dropped the demo's `feature-spec` input). Quality-gate reference:
+`intake/design/design-guide.json`, copied from the byte-identical stockflow scenario's recorded
+`design-guide.json` (the intake brief/overview/nfrs all come from stockflow). Passes
+`designGuideConformant`. Full suite 2849 green.
