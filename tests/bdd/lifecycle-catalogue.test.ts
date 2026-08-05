@@ -14,7 +14,7 @@ import {
   catalogueLifecycleDeps,
   removeProject,
   type RemoveProjectEffects,
-} from "../../consort/orchestrator/manifest/lifecycle-catalogue";
+} from "../../consort/orchestrator/provisioning/lifecycle-catalogue";
 import { readEscalations } from "../../scripts/sftdd/escalation";
 
 let root: string;

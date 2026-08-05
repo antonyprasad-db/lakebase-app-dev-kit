@@ -19,8 +19,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runManifestStep, type ManifestRunnerDeps } from "../manifest/manifest-runner.js";
 import { loadStepManifests, type StepManifest } from "../manifest/step-manifest.js";
-import { catalogueLifecycleDeps } from "../manifest/lifecycle-catalogue.js";
-import type { LifecycleOp } from "../manifest/orchestration-runner.js";
+import { catalogueLifecycleDeps } from "../provisioning/lifecycle-catalogue.js";
+import type { LifecycleOp } from "../provisioning/lifecycle-types.js";
 import type { WorkflowAction } from "../drive/orchestrator-drive.js";
 import type { DriveEffectsConfig } from "../drive/orchestrator-effects.js";
 

@@ -12,7 +12,7 @@
 
 import { join } from "node:path";
 import type { RouteScenario } from "./route-scenario.js";
-import type { LifecycleOp } from "../manifest/orchestration-runner.js";
+import type { LifecycleOp } from "../provisioning/lifecycle-types.js";
 import type { WorkflowAction } from "../drive/orchestrator-drive.js";
 
 const KIT = process.cwd();
