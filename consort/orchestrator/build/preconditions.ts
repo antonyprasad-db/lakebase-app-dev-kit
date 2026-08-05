@@ -9,7 +9,7 @@
 //   - the real drive's `roleTaskBody` (scripts/sftdd/orchestrator-effects.ts) , positioned
 //     (the context-pack rides AFTER the directive; the green-failure advisory rides BEFORE
 //     "ASSESS ..."), and
-//   - the executor's PREPARE-PRECONDITIONS phase (execution/step-executor.ts) , declared on
+//   - the executor's PREPARE-PRECONDITIONS phase (turn/step-executor.ts) , declared on
 //     the step's `preconditions()` face + appended to its instructions.
 //
 // See PRE-CONDITIONING-AS-CONTRACT.md (this dir). The context-pack projection already lives
