@@ -13,8 +13,8 @@ import {
   manifestForAction,
   matchesAction,
   agentOptionsForStep,
-} from "../../consort/orchestrator/manifest/step-manifest";
-import type { StepManifest } from "../../consort/orchestrator/manifest/step-manifest";
+} from "../../consort/orchestrator/steps/manifest";
+import type { StepManifest } from "../../consort/orchestrator/steps/manifest";
 import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 import { turnKeyForAction } from "../../consort/orchestrator/drive/turn-key";
 

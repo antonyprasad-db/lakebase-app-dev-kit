@@ -37,16 +37,16 @@
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { validateAndBound } from "../contract/step-contract.js";
+import { validateAndBound } from "../steps/step-contract.js";
 import type { WorkflowAction, DriveState } from "../drive/orchestrator-drive.js";
 import type { DriveEffectsConfig } from "../drive/orchestrator-effects.js";
-import type { StepContract, StepPrecondition, BoundedRoute, ValidateBoundDeps, RouteProposal } from "../contract/step-contract.js";
+import type { StepContract, StepPrecondition, BoundedRoute, ValidateBoundDeps, RouteProposal } from "../steps/step-contract.js";
 import type { StepInstructions } from "../agents/agent-types.js";
 import type { ProvidedStepRun, ProvidedStepResult } from "../steps/step-run-types.js";
 import { resolveChannelRoot } from "../provisioning/channels.js";
 
 /** A step the executor can run: the routing/IO contract PLUS the contained run() body that
- *  the concrete step (ManifestStep, or a bespoke class) implements. */
+ *  the concrete step (Step, or a bespoke class) implements. */
 export type RunnableStep = StepContract & {
   run(provided: ProvidedStepRun): Promise<ProvidedStepResult>;
 };
@@ -216,7 +216,7 @@ export async function execute(step: RunnableStep, ctx: StepCtx, deps: StepExecut
   const outerDurationMs = Date.now() - startedMs;
   const producedPaths = runResult.producedPaths ?? [];
   // Read the step's agent result (usage + final text) duck-typed via an optional accessor , a
-  // ManifestStep backed by a live ClaudeStepAgent exposes it; a mock/replay step does not.
+  // Step backed by a live ClaudeStepAgent exposes it; a mock/replay step does not.
   const agentResult = (step as { lastAgentResult?: () => StepRecord["agentResult"] }).lastAgentResult?.();
 
   // Between capture (4) and validate (5): materialize orchestrator-formatted outputs from

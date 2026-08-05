@@ -1,7 +1,7 @@
 // channels: the output-channel model , the ONE definition of the three channels a step's output can
 // land in and the rule that resolves each to a directory root. A run's environment provisions up to
 // three roots (the product code tree + optional contained artifact/meta zones); this is the shared
-// rule every consumer (the StepExecutor's validate phase + ManifestStep.run) uses to place an output.
+// rule every consumer (the StepExecutor's validate phase + Step.run) uses to place an output.
 // Extracted here so the product/artifact/meta ternary lives in one place instead of being retyped at
 // each call site (the DRY consolidation , byte-identical to the prior inline copies).
 //

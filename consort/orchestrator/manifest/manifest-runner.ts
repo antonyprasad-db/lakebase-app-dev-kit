@@ -1,5 +1,5 @@
 // manifest-runner: the bridge from a step MANIFEST to the orchestrator (the StepExecutor /
-// Template Method). It resolves the action to its manifest, builds the generic ManifestStep
+// Template Method). It resolves the action to its manifest, builds the generic Step
 // (manifest + injected agent + validator registry), assembles the orchestrator-owned seams the
 // executor drives (resolve inputs from the shared workspace, provision it, source
 // instructions, reconcile routing), and runs the fixed 7 phases , so a caller drives a
@@ -17,8 +17,8 @@
 
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { manifestForAction, type StepManifest } from "./step-manifest.js";
-import { ManifestStep } from "../steps/manifest-step.js";
+import { manifestForAction, type StepManifest } from "../steps/manifest.js";
+import { Step } from "../steps/step.js";
 import { resolvePreparer } from "../build/preconditions.js";
 import { buildAgent, type AgentBuildContext } from "../agents/agent-catalogue.js";
 import { probeDriveState } from "../state/escalation-probe.js";
@@ -27,7 +27,7 @@ import { formatAgentReport } from "../turn/agent-report-formatter.js";
 import type { StepAgent, StepInstructions } from "../agents/agent-types.js";
 import type { DriveEffectsConfig } from "../drive/orchestrator-effects.js";
 import type { WorkflowAction, DriveState } from "../drive/orchestrator-drive.js";
-import type { RouteProposal, ValidateBoundDeps, StepPrecondition } from "../contract/step-contract.js";
+import type { RouteProposal, ValidateBoundDeps, StepPrecondition } from "../steps/step-contract.js";
 
 /** What the caller provides so the runner can drive a manifest through the executor. */
 export interface ManifestRunnerDeps {
@@ -143,9 +143,9 @@ function executorWiring(
   action: WorkflowAction,
   deps: ManifestRunnerDeps,
   retries: Map<string, number>,
-): { step: ManifestStep; ctx: StepCtx; execDeps: StepExecutorDeps; captured: TelemetryCapture } {
+): { step: Step; ctx: StepCtx; execDeps: StepExecutorDeps; captured: TelemetryCapture } {
   const agent = resolveAgent(manifest, deps);
-  const step = new ManifestStep(manifest, agent);
+  const step = new Step(manifest, agent);
   const captured: TelemetryCapture = {};
 
   // The manifest routing is the transition authority for a standalone runner: `allowed`
@@ -254,7 +254,7 @@ function turnTelemetry(manifest: StepManifest, captured: TelemetryCapture): Mani
 /**
  * Run ONE manifest through the orchestrator (StepExecutor). Resolves the action to its
  * manifest (THROWS loud if none matches , the runner never silently no-ops), builds the
- * ManifestStep + the executor wiring, and runs the fixed 7 phases. Returns the StepResult
+ * Step + the executor wiring, and runs the fixed 7 phases. Returns the StepResult
  * (bounded route + produced paths + violations).
  */
 export async function runManifestStep(

@@ -1,5 +1,5 @@
 // manifest-runner: the bridge that takes a step MANIFEST and hands it to the orchestrator
-// (the StepExecutor / Template Method). It builds the ManifestStep, assembles the
+// (the StepExecutor / Template Method). It builds the Step, assembles the
 // orchestrator-owned seams (resolve inputs from the shared workspace, provision it, source
 // instructions, reconcile routing), and runs the fixed 7 phases , so a caller drives a
 // manifest without hand-wiring StepCtx/StepExecutorDeps every turn.
@@ -13,11 +13,11 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync
 import { tmpdir } from "os";
 import { join } from "path";
 import { runManifestStep, runManifestChain, type ManifestRunnerDeps } from "../../consort/orchestrator/manifest/manifest-runner";
-import { loadStepManifests } from "../../consort/orchestrator/manifest/step-manifest";
+import { loadStepManifests } from "../../consort/orchestrator/steps/manifest";
 import { makeMockReplayAgent } from "../../consort/orchestrator/agents/mock-replay-agent";
 import { writeEscalation } from "../../scripts/sftdd/escalation";
 import type { StepAgent } from "../../consort/orchestrator/agents/agent-types";
-import type { StepManifest } from "../../consort/orchestrator/manifest/step-manifest";
+import type { StepManifest } from "../../consort/orchestrator/steps/manifest";
 import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 
 const KIT = process.cwd();

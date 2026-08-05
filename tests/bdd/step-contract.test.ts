@@ -13,7 +13,7 @@ import {
   type StepContract,
   type StepPrecondition,
   type ValidateBoundDeps,
-} from "../../consort/orchestrator/contract/step-contract";
+} from "../../consort/orchestrator/steps/step-contract";
 import type { DriveState, WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 
 const STATE = { phase: "feature" } as unknown as DriveState;

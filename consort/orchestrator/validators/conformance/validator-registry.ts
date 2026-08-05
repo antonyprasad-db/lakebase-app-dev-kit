@@ -13,7 +13,7 @@ import { readFileSync, existsSync, statSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { checkArtifactConformance } from "./artifact-conformance.js";
 import { getValidator, formatSchemaErrors } from "../schema-loader.js";
-import type { OutputValidator, OutputValidationResult } from "../../contract/step-contract.js";
+import type { OutputValidator, OutputValidationResult } from "../../steps/step-contract.js";
 
 /**
  * feature-spec validator: the produced feature-spec.json must parse + conform to

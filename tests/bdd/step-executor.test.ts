@@ -5,7 +5,7 @@
 //   checkers)  6 record/log  7 route (validateAndBound)
 // The phase ORDER + the fail-loud input gate + containment + validateAndBound authority are
 // the orchestrator-owned invariant; the StepContract/manifest/registry fill the hooks. This
-// slice drives it hermetically with a MOCK agent (via ManifestStep) + mock deps: assert the
+// slice drives it hermetically with a MOCK agent (via Step) + mock deps: assert the
 // order, the fail-loud missing input (no spawn), a checker reject -> violations, and
 // route -> BoundedRoute. The monitor is unit-tested separately (turn-monitor.test.ts).
 
@@ -15,11 +15,11 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { execute } from "../../consort/orchestrator/turn/step-executor";
 import type { StepExecutorDeps, StepCtx } from "../../consort/orchestrator/turn/step-executor";
-import { ManifestStep } from "../../consort/orchestrator/steps/manifest-step";
-import { manifestForAction } from "../../consort/orchestrator/manifest/step-manifest";
+import { Step } from "../../consort/orchestrator/steps/step";
+import { manifestForAction } from "../../consort/orchestrator/steps/manifest";
 import type { StepAgent, AgentInvocation } from "../../consort/orchestrator/agents/agent-types";
 import type { WorkflowAction, DriveState } from "../../consort/orchestrator/drive/orchestrator-drive";
-import type { ValidateBoundDeps } from "../../consort/orchestrator/contract/step-contract";
+import type { ValidateBoundDeps } from "../../consort/orchestrator/steps/step-contract";
 
 let root: string;
 const BREAKDOWN: WorkflowAction = { kind: "invoke-role", role: "spec-author", mode: "breakdown" };
@@ -50,7 +50,7 @@ function harness(opts: { writeSpec?: boolean; writeLog?: boolean; badSpec?: bool
     },
   };
 
-  const step = new ManifestStep(manifestForAction(BREAKDOWN)!, agent);
+  const step = new Step(manifestForAction(BREAKDOWN)!, agent);
 
   const validateBoundDeps: ValidateBoundDeps = {
     allowed: () => ({ kind: "design-complete" }) as WorkflowAction,
@@ -88,7 +88,7 @@ function harness(opts: { writeSpec?: boolean; writeLog?: boolean; badSpec?: bool
 }
 
 /** A step whose contract declares preconditions, for the PREPARE-PRECONDITIONS phase. */
-function preconditionStep(pre: import("../../consort/orchestrator/contract/step-contract").StepPrecondition[]) {
+function preconditionStep(pre: import("../../consort/orchestrator/steps/step-contract").StepPrecondition[]) {
   return {
     inputs: () => [],
     preconditions: () => pre,

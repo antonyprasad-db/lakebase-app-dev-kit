@@ -1,7 +1,7 @@
 // step-run-types: the contained per-run I/O contract a RunnableStep's run() speaks , what the
 // orchestrator PROVIDES to a step and what the step reports back. These are the load-bearing
 // containment types: the orchestrator owns .sftdd, resolves + provides the input CONTENTS + the
-// workspace + where each output lands; the step touches NONE of .sftdd itself. ManifestStep (the
+// workspace + where each output lands; the step touches NONE of .sftdd itself. Step (the
 // one step implementation) + the StepExecutor speak these. (Originally defined alongside the now-
 // removed bespoke SpecAuthorBreakdownStep; lifted here so the types outlive that class.)
 

@@ -10,7 +10,7 @@
 // the lifecycle catalogue and run only in a gated live run.
 
 import { runManifestChain, type ManifestRunnerDeps, type ManifestTurn } from "./manifest-runner.js";
-import type { StepManifest } from "./step-manifest.js";
+import type { StepManifest } from "../steps/manifest.js";
 import type { WorkflowAction } from "../drive/orchestrator-drive.js";
 // The lifecycle-op contract (op / result / deps / run-context) lives in the provisioning family , the
 // shared home between the ops' producer (the lifecycle catalogue) and this consumer (the run bracket).

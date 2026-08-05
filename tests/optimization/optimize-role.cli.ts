@@ -27,7 +27,7 @@ import { runRoleSweep, type SweepTrial } from "./role-sweep.js";
 import { reportRoleSweep, formatRoleSweepReport } from "./role-sweep-report.js";
 import { makeOpusJudge } from "../../scripts/sftdd/optimize-semantic-gate.js";
 import { RECOMMENDED_MODELS, type SpawnableAgentRole } from "../../scripts/sftdd/agent-models.js";
-import type { StepManifest } from "../../consort/orchestrator/manifest/step-manifest.js";
+import type { StepManifest } from "../../consort/orchestrator/steps/manifest.js";
 import type { StepAgent } from "../../consort/orchestrator/agents/agent-types.js";
 
 /** Parsed CLI args. */

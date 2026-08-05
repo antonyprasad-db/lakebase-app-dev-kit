@@ -18,7 +18,7 @@ import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runManifestStep, type ManifestRunnerDeps } from "../manifest/manifest-runner.js";
-import { loadStepManifests, type StepManifest } from "../manifest/step-manifest.js";
+import { loadStepManifests, type StepManifest } from "../steps/manifest.js";
 import { catalogueLifecycleDeps } from "../provisioning/lifecycle-catalogue.js";
 import type { LifecycleOp } from "../provisioning/lifecycle-types.js";
 import type { WorkflowAction } from "../drive/orchestrator-drive.js";

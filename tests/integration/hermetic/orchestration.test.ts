@@ -9,19 +9,19 @@
 // The demo manifests live in the integration corpus (tests/integration/manifests/) , NOT the
 // shipped step-manifests/ , because turn 2 shares its `match` with the production
 // spec-author-breakdown manifest; keeping them integration-local avoids an ambiguous overlap in
-// the shipped set while still exercising the exact loader/ManifestStep/StepExecutor path.
+// the shipped set while still exercising the exact loader/Step/StepExecutor path.
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { loadStepManifests, manifestForAction, validateStepManifest } from "../../../consort/orchestrator/manifest/step-manifest";
-import { ManifestStep } from "../../../consort/orchestrator/steps/manifest-step";
+import { loadStepManifests, manifestForAction, validateStepManifest } from "../../../consort/orchestrator/steps/manifest";
+import { Step } from "../../../consort/orchestrator/steps/step";
 import { execute, type StepExecutorDeps, type StepCtx } from "../../../consort/orchestrator/turn/step-executor";
 import { makeMockReplayAgent } from "../../../consort/orchestrator/agents/mock-replay-agent";
 import type { StepAgent } from "../../../consort/orchestrator/agents/agent-types";
 import type { WorkflowAction, DriveState } from "../../../consort/orchestrator/drive/orchestrator-drive";
-import type { ValidateBoundDeps } from "../../../consort/orchestrator/contract/step-contract";
+import type { ValidateBoundDeps } from "../../../consort/orchestrator/steps/step-contract";
 
 const KIT = process.cwd();
 const CORPUS = join(KIT, "tests/integration");
@@ -89,7 +89,7 @@ describe("stockflow-demo: 2-turn replay orchestration through the StepExecutor",
         { outputId: "design-guideline", from: "design-brief.md", to: "design-brief.md" },
       ],
     });
-    const step = new ManifestStep(manifest, agent);
+    const step = new Step(manifest, agent);
 
     const ctx: StepCtx = {
       action: PO_SEED,
@@ -142,7 +142,7 @@ describe("stockflow-demo: 2-turn replay orchestration through the StepExecutor",
         );
       },
     };
-    const step = new ManifestStep(manifest, specAgent);
+    const step = new Step(manifest, specAgent);
 
     const ctx: StepCtx = {
       action: SPEC_AUTHOR,

@@ -16,7 +16,7 @@ import { dirname } from "path";
 import { tmpdir } from "os";
 import { join } from "path";
 import { runManifestStep, runManifestChain, type ManifestRunnerDeps } from "../../consort/orchestrator/manifest/manifest-runner";
-import type { StepManifest } from "../../consort/orchestrator/manifest/step-manifest";
+import type { StepManifest } from "../../consort/orchestrator/steps/manifest";
 import type { StepAgent } from "../../consort/orchestrator/agents/agent-types";
 import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 

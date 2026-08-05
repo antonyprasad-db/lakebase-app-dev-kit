@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildDriveEffects, type DriveCommand, type DriveEffectsConfig } from "../../consort/orchestrator/drive/orchestrator-effects";
 import type { WorkflowAction, DriveState } from "../../consort/orchestrator/drive/orchestrator-drive";
-import type { ValidateBoundDeps } from "../../consort/orchestrator/contract/step-contract";
+import type { ValidateBoundDeps } from "../../consort/orchestrator/steps/step-contract";
 
 const BREAKDOWN: WorkflowAction = { kind: "invoke-role", role: "spec-author", mode: "breakdown" };
 const FEATURE = "F1-stock-visibility";

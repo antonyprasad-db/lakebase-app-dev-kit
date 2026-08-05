@@ -1,4 +1,4 @@
-// ManifestStep: the GENERIC StepContract, driven entirely by a step manifest (DATA) + the
+// Step: the GENERIC StepContract, driven entirely by a step manifest (DATA) + the
 // validator registry (CODE) + an injected agent. This is the NORM , a step is one JSON
 // manifest + (only if a new output type appears) one registered validator fn. A bespoke
 // StepContract class is the escape hatch, for a step whose run() logic is genuinely custom.
@@ -21,7 +21,7 @@ import { join } from "node:path";
 import { existsSync } from "node:fs";
 import { resolveValidator } from "../validators/conformance/validator-registry.js";
 import { escalationPreempt, type WorkflowAction } from "../drive/orchestrator-drive.js";
-import type { StepManifest } from "../manifest/step-manifest.js";
+import type { StepManifest } from "./manifest.js";
 import type {
   StepContract,
   StepInputSpec,
@@ -31,7 +31,7 @@ import type {
   StepRouteContext,
   StepOutcome,
   ConformanceValidator,
-} from "../contract/step-contract.js";
+} from "./step-contract.js";
 import type { StepAgent } from "../agents/agent-types.js";
 import type { ProvidedStepRun, ProvidedStepResult, ExistsFn } from "./step-run-types.js";
 import { resolveChannelRoot, type Channel } from "../provisioning/channels.js";
@@ -42,7 +42,7 @@ function primaryOutputId(manifest: StepManifest): string | undefined {
   return manifest.outputs[0]?.id;
 }
 
-export class ManifestStep implements StepContract {
+export class Step implements StepContract {
   private readonly exists: ExistsFn;
 
   constructor(

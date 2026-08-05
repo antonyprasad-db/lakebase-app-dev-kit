@@ -5,7 +5,7 @@
 // `role` option makes it faithfully re-materialize ANY role's recorded artifacts offline , the
 // catalogue's `replay` kind (agent-catalogue.ts) is a thin wrapper over this.
 //
-// It is a StepAgent (same seam as ClaudeStepAgent + the test mock), so ManifestStep + the
+// It is a StepAgent (same seam as ClaudeStepAgent + the test mock), so Step + the
 // StepExecutor drive it identically , the Template Method does not know or care that this
 // step is a deterministic replay rather than a live model turn. That is the point of the
 // contract: a step is a step.

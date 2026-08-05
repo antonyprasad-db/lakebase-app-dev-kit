@@ -14,7 +14,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { runOrchestration, type OrchestrationRunConfig, type LifecycleDeps } from "../../consort/orchestrator/manifest/orchestration-runner";
 import type { ManifestRunnerDeps } from "../../consort/orchestrator/manifest/manifest-runner";
-import type { StepManifest } from "../../consort/orchestrator/manifest/step-manifest";
+import type { StepManifest } from "../../consort/orchestrator/steps/manifest";
 import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 
 let ws: string;

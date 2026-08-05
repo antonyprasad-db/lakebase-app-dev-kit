@@ -17,7 +17,7 @@ import { expect } from "vitest";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { ROLE_CHAINS, runRoleChainLive, MANIFESTS_REL, type RoleChain } from "../../../consort/orchestrator/optimize/role-chains.js";
-import { loadStepManifests, type StepManifest } from "../../../consort/orchestrator/manifest/step-manifest.js";
+import { loadStepManifests, type StepManifest } from "../../../consort/orchestrator/steps/manifest.js";
 import { formatRoleTelemetry, writeRoleTelemetry, type RoleLevers, type RoleTelemetry } from "../../../consort/orchestrator/optimize/role-telemetry.js";
 import type { ManifestTurn } from "../../../consort/orchestrator/manifest/manifest-runner.js";
 

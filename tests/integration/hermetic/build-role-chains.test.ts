@@ -15,7 +15,7 @@
 import { describe, it, expect } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { loadStepManifests, manifestForAction, validateStepManifest } from "../../../consort/orchestrator/manifest/step-manifest";
+import { loadStepManifests, manifestForAction, validateStepManifest } from "../../../consort/orchestrator/steps/manifest";
 import { resolveValidator } from "../../../consort/orchestrator/validators/conformance/validator-registry";
 import { BUILD_ROLE_CHAINS, BUILD_PO_SEED, BUILD_CORPUS_REL } from "../../../consort/orchestrator/optimize/build-role-chains";
 import type { WorkflowAction } from "../../../consort/orchestrator/drive/orchestrator-drive";

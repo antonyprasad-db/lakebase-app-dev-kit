@@ -15,7 +15,7 @@ import { runRouteScenario, routeMatches, type RouteScenarioHooks } from "../../c
 import { ROUTE_SCENARIOS } from "../../consort/orchestrator/scenarios/route-scenarios";
 import { makeMockReplayAgent } from "../../consort/orchestrator/agents/mock-replay-agent";
 import type { StepAgent } from "../../consort/orchestrator/agents/agent-types";
-import type { StepManifest } from "../../consort/orchestrator/manifest/step-manifest";
+import type { StepManifest } from "../../consort/orchestrator/steps/manifest";
 import type { ManifestRunnerDeps } from "../../consort/orchestrator/manifest/manifest-runner";
 import type { DriveEffectsConfig } from "../../consort/orchestrator/drive/orchestrator-effects";
 

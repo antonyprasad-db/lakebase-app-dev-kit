@@ -7,7 +7,7 @@
 // Dependency-injected (no runtime import of orchestrator-effects, so no import cycle): the caller
 // supplies the command-derivation primitives it already owns in that module , buildCycleCommand
 // (the ONE shared cycle-CLI derivation), readDriveStateFromDisk (fresh post-turn state), the bin
-// tokens, and LOG_BIN. Everything else is this family's own (ManifestStep, LiveDriveStepAgent,
+// tokens, and LOG_BIN. Everything else is this family's own (Step, LiveDriveStepAgent,
 // execute) or the manifest registry.
 //
 // Two turn shapes flow through here today (each added to executorDispatched one at a time, each
@@ -20,12 +20,12 @@
 import * as fs from "node:fs";
 import { join } from "node:path";
 import { storyResolved } from "../../../scripts/sftdd/sftdd-paths.js";
-import { manifestForAction, type StepManifest } from "../manifest/step-manifest.js";
+import { manifestForAction, type StepManifest } from "../steps/manifest.js";
 import { execute, type StepExecutorDeps } from "../turn/step-executor.js";
-import { ManifestStep } from "../steps/manifest-step.js";
+import { Step } from "../steps/step.js";
 import { LiveDriveStepAgent } from "../agents/live-drive-step-agent.js";
 import type { WorkflowAction, DriveState } from "./orchestrator-drive.js";
-import type { BoundedRoute, ValidateBoundDeps } from "../contract/step-contract.js";
+import type { BoundedRoute, ValidateBoundDeps } from "../steps/step-contract.js";
 // Types only (erased at compile) , so this module never imports orchestrator-effects at runtime.
 import type { DriveCommand, DriveEffectsConfig } from "./orchestrator-effects.js";
 
@@ -148,7 +148,7 @@ export async function performTurnViaExecutor(
   if (!manifest) return undefined;
 
   const agent = new LiveDriveStepAgent(cfg);
-  const step = new ManifestStep(manifest, agent);
+  const step = new Step(manifest, agent);
   const f = cfg.featureId;
   const story = "story" in action && typeof action.story === "string" ? action.story : undefined;
 
@@ -165,7 +165,7 @@ export async function performTurnViaExecutor(
   };
 
   const executorDeps: StepExecutorDeps = {
-    // Uncontained: the agent reads the tree itself, but ManifestStep still gates on the presence of
+    // Uncontained: the agent reads the tree itself, but Step still gates on the presence of
     // each declared input, so presence-check them on the live tree. A FILE input's content is read
     // (some checkers want it); a DIRECTORY input (e.g. acs/) is presence-only (empty sentinel) ,
     // its content isn't injected, the agent reads the dir. Fail loud (return {missing}) if absent.

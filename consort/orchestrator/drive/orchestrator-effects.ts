@@ -19,7 +19,7 @@
 import * as fs from "node:fs";
 import { dirname, join } from "node:path";
 import { nextTransition, type WorkflowAction } from "./orchestrator-drive.js";
-import { manifestForAction, type StepManifestPostTurn } from "../manifest/step-manifest.js";
+import { manifestForAction, type StepManifestPostTurn } from "../steps/manifest.js";
 import { performTurnViaExecutor } from "./executor-dispatch.js";
 import { formatAgentReport } from "../turn/agent-report-formatter.js";
 import type { DriveEffects } from "./orchestrator-run.js";

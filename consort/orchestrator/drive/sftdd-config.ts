@@ -22,7 +22,7 @@ import {
 // for per-step model/effort. resolveSftddSettings reads it as the BASE per-step layer (below the
 // project file + applied-winners overlay, above RECOMMENDED_MODELS) via agentOptionsForStep, which
 // indexes the shipped manifests by the SAME (role, turnKey) the drive derives.
-import { agentOptionsForStep } from "../manifest/step-manifest.js";
+import { agentOptionsForStep } from "../steps/manifest.js";
 import { turnKeyForAction, type TurnKey, type EffortLevel, type BuildTurn, type DesignStep } from "./turn-key.js";
 // Re-export the turn-key types from their canonical (dependency-light) home so the many callers
 // that have long imported them from sftdd-config keep working unchanged.

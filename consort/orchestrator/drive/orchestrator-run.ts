@@ -24,7 +24,7 @@ import {
   type WorkflowAction,
 } from "./orchestrator-drive.js";
 import { ExpectationLedger, expectationFor } from "../../../scripts/sftdd/orchestrator-expect.js";
-import { validateAndBound, type StepContract, type RouteProposal } from "../contract/step-contract.js";
+import { validateAndBound, type StepContract, type RouteProposal } from "../steps/step-contract.js";
 export { ProtocolViolationError, UnexpectedCallbackError } from "../../../scripts/sftdd/orchestrator-expect.js";
 
 export interface DriveEffects {
@@ -51,8 +51,8 @@ export interface DriveEffects {
   performViaExecutor?(
     action: WorkflowAction,
     state: DriveState,
-    routerDeps: import("../contract/step-contract.js").ValidateBoundDeps,
-  ): Promise<import("../contract/step-contract.js").BoundedRoute | undefined>;
+    routerDeps: import("../steps/step-contract.js").ValidateBoundDeps,
+  ): Promise<import("../steps/step-contract.js").BoundedRoute | undefined>;
   /** Optional deterministic logging hook (code-emitted, fires before perform). */
   onAction?(action: WorkflowAction, iteration: number): void;
   /**
@@ -203,7 +203,7 @@ export async function runDriver(
   // Stage 2 (#578) executor-dispatch: an already-bounded route the StepExecutor produced last
   // iteration (its phase-7 validateAndBound). Consumed at the TOP exactly like pendingProposal,
   // but WITHOUT re-bounding (the executor already did). Undefined on the default path.
-  let pendingBounded: { bounded: import("../contract/step-contract.js").BoundedRoute; completed: WorkflowAction } | undefined;
+  let pendingBounded: { bounded: import("../steps/step-contract.js").BoundedRoute; completed: WorkflowAction } | undefined;
   // Retry bound for router-emitted "blocked" outcomes, mirroring ExpectationLedger's
   // maxRetries=1: one sanctioned re-issue per action signature, then a hard abort. Kept
   // here (not the ledger, which is driven by disk callbacks) because a router "blocked"

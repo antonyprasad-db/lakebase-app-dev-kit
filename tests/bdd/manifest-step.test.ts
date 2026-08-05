@@ -1,8 +1,8 @@
-// ManifestStep: the GENERIC StepContract driven ENTIRELY by a manifest + the validator
+// Step: the GENERIC StepContract driven ENTIRELY by a manifest + the validator
 // registry + an injected agent. It is the ONLY step implementation , the runner path builds
-// `new ManifestStep(manifest, agent)` for every turn; there is no bespoke concrete StepContract
+// `new Step(manifest, agent)` for every turn; there is no bespoke concrete StepContract
 // class (the original SpecAuthorBreakdownStep was proven equivalent to this and then removed).
-// This slice pins ManifestStep's inputs/outputs/conformanceValidators/route/run contract.
+// This slice pins Step's inputs/outputs/conformanceValidators/route/run contract.
 //
 // It also pins the validator registry: the two breakdown validators are registered by name,
 // resolveValidator returns the SAME deterministic fn, and an unknown name throws loud (a
@@ -12,9 +12,9 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync, existsSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { ManifestStep } from "../../consort/orchestrator/steps/manifest-step";
+import { Step } from "../../consort/orchestrator/steps/step";
 import { VALIDATOR_REGISTRY, resolveValidator } from "../../consort/orchestrator/validators/conformance/validator-registry";
-import { manifestForAction } from "../../consort/orchestrator/manifest/step-manifest";
+import { manifestForAction } from "../../consort/orchestrator/steps/manifest";
 import type { StepAgent, AgentInvocation } from "../../consort/orchestrator/agents/agent-types";
 import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 
@@ -45,10 +45,10 @@ function mockAgent(opts: { writes: boolean }): { agent: StepAgent; seen: AgentIn
 }
 
 /** The breakdown step, built purely from the shipped manifest + registry + agent. */
-function breakdownStep(agent: StepAgent): ManifestStep {
+function breakdownStep(agent: StepAgent): Step {
   const manifest = manifestForAction(BREAKDOWN);
   if (!manifest) throw new Error("no breakdown manifest shipped");
-  return new ManifestStep(manifest, agent);
+  return new Step(manifest, agent);
 }
 
 beforeEach(() => {
@@ -75,7 +75,7 @@ describe("validator registry", () => {
   });
 });
 
-describe("ManifestStep: logical contract (≡ SpecAuthorBreakdownStep)", () => {
+describe("Step: logical contract (≡ SpecAuthorBreakdownStep)", () => {
   it("declares logical inputs = the 3 PO artifacts (ids only)", () => {
     const step = breakdownStep(mockAgent({ writes: true }).agent);
     expect(step.inputs(BREAKDOWN).map((s) => s.id)).toEqual(["product-overview", "nfrs", "feature-request"]);
@@ -89,7 +89,7 @@ describe("ManifestStep: logical contract (≡ SpecAuthorBreakdownStep)", () => {
   });
 });
 
-describe("ManifestStep: run() within the provided workspace", () => {
+describe("Step: run() within the provided workspace", () => {
   it("FAILS naming a missing PROVIDED input (no agent invoked)", async () => {
     const { agent, seen } = mockAgent({ writes: true });
     const step = breakdownStep(agent);
@@ -123,7 +123,7 @@ describe("ManifestStep: run() within the provided workspace", () => {
   });
 });
 
-describe("ManifestStep: in-code output conformance validators (resolved from the registry by name)", () => {
+describe("Step: in-code output conformance validators (resolved from the registry by name)", () => {
   function outputCheck(id: string) {
     const step = breakdownStep(mockAgent({ writes: true }).agent);
     return step.outputs(BREAKDOWN).find((o) => o.id === id)!.validate;
@@ -155,7 +155,7 @@ describe("ManifestStep: in-code output conformance validators (resolved from the
   });
 });
 
-describe("ManifestStep: conformanceValidators() (exposed to the agent)", () => {
+describe("Step: conformanceValidators() (exposed to the agent)", () => {
   it("exposes one validator per output, each with a docstring + the same in-code fn", () => {
     const step = breakdownStep(mockAgent({ writes: true }).agent);
     const byId = Object.fromEntries(step.conformanceValidators(BREAKDOWN).map((p) => [p.outputId, p]));
@@ -167,7 +167,7 @@ describe("ManifestStep: conformanceValidators() (exposed to the agent)", () => {
   });
 });
 
-describe("ManifestStep: route()", () => {
+describe("Step: route()", () => {
   const cleanState = { phase: "feature", escalation: null } as never;
 
   it("emits a produced proposal from the manifest routing map (shipped breakdown = state-derived)", () => {

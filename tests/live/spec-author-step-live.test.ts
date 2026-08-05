@@ -27,10 +27,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { ClaudeStepAgent } from "../../consort/orchestrator/agents/claude-step-agent.js";
-import { ManifestStep } from "../../consort/orchestrator/steps/manifest-step.js";
-import { manifestForAction } from "../../consort/orchestrator/manifest/step-manifest.js";
+import { Step } from "../../consort/orchestrator/steps/step.js";
+import { manifestForAction } from "../../consort/orchestrator/steps/manifest.js";
 import { execute, type StepExecutorDeps, type StepCtx } from "../../consort/orchestrator/turn/step-executor.js";
-import type { ValidateBoundDeps } from "../../consort/orchestrator/contract/step-contract.js";
+import type { ValidateBoundDeps } from "../../consort/orchestrator/steps/step-contract.js";
 import type { DriveState } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 
@@ -90,13 +90,13 @@ function setupLiveBreakdown(): { workspaceDir: string; inputs: Record<string, st
   return { workspaceDir, inputs, instructions };
 }
 
-describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE: ManifestStep + ClaudeStepAgent produce a conformant feature-spec.json", () => {
-  it("drives the breakdown through the StepExecutor (7-phase Template Method) with ManifestStep + ClaudeStepAgent", async () => {
+describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE: Step + ClaudeStepAgent produce a conformant feature-spec.json", () => {
+  it("drives the breakdown through the StepExecutor (7-phase Template Method) with Step + ClaudeStepAgent", async () => {
     const { workspaceDir, inputs, instructions } = setupLiveBreakdown();
 
     // The generic step from the shipped manifest + the real lever-built agent , no bespoke class.
     const agent = new ClaudeStepAgent({ role: "spec-author", model: "sonnet", effort: "low", session: "fresh" });
-    const step = new ManifestStep(manifestForAction(BREAKDOWN)!, agent);
+    const step = new Step(manifestForAction(BREAKDOWN)!, agent);
 
     // The orchestrator-owned seams the executor drives (phases 1/2/3-input/6). Here they
     // hand back the pre-provisioned workspace + input contents the setup produced.

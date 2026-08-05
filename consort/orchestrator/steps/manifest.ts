@@ -19,30 +19,30 @@ import type { WorkflowAction } from "../drive/orchestrator-drive.js";
 // the build , no runtime fs read, no __dirname/dist path to keep in sync, no copy step.
 // (resolveJsonModule is on.) External/scenario manifests are still loaded from a directory
 // the caller passes explicitly (loadStepManifests(dir)).
-import specAuthorBreakdownManifest from "../config/step-manifests/spec-author-breakdown.json" with { type: "json" };
-import specAuthorProposeManifest from "../config/step-manifests/spec-author-propose.json" with { type: "json" };
-import specAuthorStoryManifest from "../config/step-manifests/spec-author-story.json" with { type: "json" };
-import architectEstimatorManifest from "../config/step-manifests/architect-estimator.json" with { type: "json" };
-import architectReviewerManifest from "../config/step-manifests/architect-reviewer.json" with { type: "json" };
-import dbaManifest from "../config/step-manifests/dba.json" with { type: "json" };
-import testStrategistManifest from "../config/step-manifests/test-strategist.json" with { type: "json" };
-import driverGreenManifest from "../config/step-manifests/driver-green.json" with { type: "json" };
-import uxDesignerManifest from "../config/step-manifests/ux-designer.json" with { type: "json" };
+import specAuthorBreakdownManifest from "./manifests/spec-author-breakdown.json" with { type: "json" };
+import specAuthorProposeManifest from "./manifests/spec-author-propose.json" with { type: "json" };
+import specAuthorStoryManifest from "./manifests/spec-author-story.json" with { type: "json" };
+import architectEstimatorManifest from "./manifests/architect-estimator.json" with { type: "json" };
+import architectReviewerManifest from "./manifests/architect-reviewer.json" with { type: "json" };
+import dbaManifest from "./manifests/dba.json" with { type: "json" };
+import testStrategistManifest from "./manifests/test-strategist.json" with { type: "json" };
+import driverGreenManifest from "./manifests/driver-green.json" with { type: "json" };
+import uxDesignerManifest from "./manifests/ux-designer.json" with { type: "json" };
 // Build-turn manifests: every navigator/driver BUILD turn is now a declared step (config home
 // for its agentOptions). Their record-phase cycle CLI is DYNAMIC (loop/--ac/--repair/collapsed
 // buildMode verbs), so each declares a `@build-cycle` postTurn marker that commandsFromManifest
 // delegates to buildCycleCommand , the ONE derivation the legacy commandsForAction also calls.
-import navigatorRedManifest from "../config/step-manifests/navigator-red.json" with { type: "json" };
-import navigatorReviewManifest from "../config/step-manifests/navigator-review.json" with { type: "json" };
-import navigatorReflectManifest from "../config/step-manifests/navigator-reflect.json" with { type: "json" };
-import navigatorAssessManifest from "../config/step-manifests/navigator-assess.json" with { type: "json" };
-import navigatorAssessDeployManifest from "../config/step-manifests/navigator-assess-deploy.json" with { type: "json" };
-import navigatorAssessRefactorManifest from "../config/step-manifests/navigator-assess-refactor.json" with { type: "json" };
-import driverRefactorManifest from "../config/step-manifests/driver-refactor.json" with { type: "json" };
-import driverRefactorDeployManifest from "../config/step-manifests/driver-refactor-deploy.json" with { type: "json" };
-import driverRefactorSupersededManifest from "../config/step-manifests/driver-refactor-superseded.json" with { type: "json" };
-import driverRepairManifest from "../config/step-manifests/driver-repair.json" with { type: "json" };
-import driverGreenSupersededManifest from "../config/step-manifests/driver-green-superseded.json" with { type: "json" };
+import navigatorRedManifest from "./manifests/navigator-red.json" with { type: "json" };
+import navigatorReviewManifest from "./manifests/navigator-review.json" with { type: "json" };
+import navigatorReflectManifest from "./manifests/navigator-reflect.json" with { type: "json" };
+import navigatorAssessManifest from "./manifests/navigator-assess.json" with { type: "json" };
+import navigatorAssessDeployManifest from "./manifests/navigator-assess-deploy.json" with { type: "json" };
+import navigatorAssessRefactorManifest from "./manifests/navigator-assess-refactor.json" with { type: "json" };
+import driverRefactorManifest from "./manifests/driver-refactor.json" with { type: "json" };
+import driverRefactorDeployManifest from "./manifests/driver-refactor-deploy.json" with { type: "json" };
+import driverRefactorSupersededManifest from "./manifests/driver-refactor-superseded.json" with { type: "json" };
+import driverRepairManifest from "./manifests/driver-repair.json" with { type: "json" };
+import driverGreenSupersededManifest from "./manifests/driver-green-superseded.json" with { type: "json" };
 
 /** A step's logical input , resolved from .sftdd by the orchestrator and provided by id. */
 export interface StepManifestInput {
@@ -164,7 +164,7 @@ export function validateStepManifest(manifest: StepManifest): ManifestValidateRe
 /**
  * The SHIPPED step manifests , inlined at build time via the JSON imports above. This is the
  * default manifest set the orchestrator resolves against; adding a shipped step = add a JSON
- * file under config/step-manifests/ AND an import line here. No runtime fs, no dist path.
+ * file under ./manifests/ AND an import line here. No runtime fs, no dist path.
  */
 export const SHIPPED_MANIFESTS: StepManifest[] = [
   specAuthorBreakdownManifest as StepManifest,
