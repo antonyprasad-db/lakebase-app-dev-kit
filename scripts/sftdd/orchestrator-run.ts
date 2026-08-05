@@ -38,6 +38,21 @@ export interface DriveEffects {
    * reflects, or the loop detects a stall. `done` is a terminal no-op.
    */
   perform(action: WorkflowAction): Promise<void>;
+  /**
+   * OPTIONAL executor-dispatch seam (Stage 2, #578): dispatch an AGENT turn THROUGH the
+   * StepExecutor's 7-phase Template Method instead of `perform` + the separate routing seam.
+   * Returns the BoundedRoute the executor's phase-7 validateAndBound produced (the loop consumes
+   * it EXACTLY like a contract `pendingProposal`, so routing authority stays single) , or
+   * `undefined` when this action is NOT executor-dispatched (no manifest / flag off), in which
+   * case the loop falls through to `perform` unchanged. The impl receives the SAME `state` +
+   * routerDeps the loop already holds, so nothing is threaded into `perform`. Default absent =>
+   * the loop is byte-identical to the pre-Stage-2 path.
+   */
+  performViaExecutor?(
+    action: WorkflowAction,
+    state: DriveState,
+    routerDeps: import("../../consort/orchestrator/contract/step-contract.js").ValidateBoundDeps,
+  ): Promise<import("../../consort/orchestrator/contract/step-contract.js").BoundedRoute | undefined>;
   /** Optional deterministic logging hook (code-emitted, fires before perform). */
   onAction?(action: WorkflowAction, iteration: number): void;
   /**
@@ -185,6 +200,10 @@ export async function runDriver(
   // validateAndBound. Undefined on the first pass + whenever we fell through to the
   // pure transition, so the default (no-contract) path never touches it.
   let pendingProposal: { proposal: RouteProposal; completed: WorkflowAction } | undefined;
+  // Stage 2 (#578) executor-dispatch: an already-bounded route the StepExecutor produced last
+  // iteration (its phase-7 validateAndBound). Consumed at the TOP exactly like pendingProposal,
+  // but WITHOUT re-bounding (the executor already did). Undefined on the default path.
+  let pendingBounded: { bounded: import("../../consort/orchestrator/contract/step-contract.js").BoundedRoute; completed: WorkflowAction } | undefined;
   // Retry bound for router-emitted "blocked" outcomes, mirroring ExpectationLedger's
   // maxRetries=1: one sanctioned re-issue per action signature, then a hard abort. Kept
   // here (not the ledger, which is driven by disk callbacks) because a router "blocked"
@@ -233,7 +252,13 @@ export async function runDriver(
     // revise/retry limits). `retrying` is OR'd with a sanctioned router retry so the
     // stall check treats a bounded re-issue as intentional.
     let action: WorkflowAction;
-    if (options.contract && pendingProposal) {
+    if (pendingBounded) {
+      // Stage 2: the executor ALREADY ran validateAndBound last iteration , consume its
+      // BoundedRoute directly (no re-bound). Same shape as the pendingProposal branch below.
+      action = pendingBounded.bounded.action;
+      if (pendingBounded.bounded.sanctionedRetry) retrying = true;
+      pendingBounded = undefined;
+    } else if (options.contract && pendingProposal) {
       const bounded = validateAndBound(pendingProposal.proposal, pendingProposal.completed, state, routerDeps);
       action = bounded.action;
       if (bounded.sanctionedRetry) retrying = true;
@@ -292,15 +317,25 @@ export async function runDriver(
     }
 
     effects.onAction?.(action, i);
-    await effects.perform(action);
-
-    // Output-driven routing: after the step ran, ask the contract where it proposes to
-    // go next; the NEXT iteration's top consumes it via validateAndBound. No contract =>
-    // no proposal => next iteration derives from state (the default path). The contract
-    // reads the post-perform state so its proposal reflects what the step produced.
-    if (options.contract) {
-      const post = await effects.readState();
-      pendingProposal = { proposal: options.contract.route(action, { state: post, feature: featureOf(post) }), completed: action };
+    // Executor-dispatch seam (Stage 2, #578): when the effects wire performViaExecutor AND it
+    // recognizes this agent action (manifest match + flag on), the turn runs THROUGH the
+    // StepExecutor , which already ran phase-7 validateAndBound and hands back a BoundedRoute.
+    // The loop consumes that directly next iteration (pendingBounded), so routing authority stays
+    // single (no double-bound, no separate contract.route). When it returns undefined (not
+    // executor-dispatched), fall through to perform + the contract routing seam , byte-identical.
+    const bounded = await effects.performViaExecutor?.(action, state, routerDeps);
+    if (bounded) {
+      pendingBounded = { bounded, completed: action };
+    } else {
+      await effects.perform(action);
+      // Output-driven routing: after the step ran, ask the contract where it proposes to
+      // go next; the NEXT iteration's top consumes it via validateAndBound. No contract =>
+      // no proposal => next iteration derives from state (the default path). The contract
+      // reads the post-perform state so its proposal reflects what the step produced.
+      if (options.contract) {
+        const post = await effects.readState();
+        pendingProposal = { proposal: options.contract.route(action, { state: post, feature: featureOf(post) }), completed: action };
+      }
     }
   }
 }
