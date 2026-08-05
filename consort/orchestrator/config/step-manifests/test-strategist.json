@@ -16,7 +16,7 @@
   },
   "agentOptions": {
     "model": "sonnet",
-    "effort": "default",
+    "effort": "low",
     "session": "resume",
     "resumeKeyFrom": "role"
   },

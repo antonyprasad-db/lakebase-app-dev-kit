@@ -87,7 +87,7 @@
       "required": ["session"],
       "properties": {
         "model": { "type": "string" },
-        "effort": { "type": "string", "enum": ["low", "default", "high"] },
+        "effort": { "type": "string", "enum": ["default", "low", "medium", "high", "xhigh", "max"] },
         "session": { "type": "string", "enum": ["fresh", "resume"] },
         "resumeKeyFrom": { "type": "string", "enum": ["role", "story", "feature", "none"] },
         "toolScope": {

@@ -15,7 +15,7 @@
     "produced": { "next": "state-derived" }
   },
   "agentOptions": {
-    "model": "sonnet",
+    "model": "haiku",
     "effort": "low",
     "session": "fresh",
     "resumeKeyFrom": "role"
