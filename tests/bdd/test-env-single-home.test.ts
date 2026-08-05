@@ -1,5 +1,5 @@
 // Guard: the live-test workspace host is configured in ONE home (.env.local.test.config, read via
-// tests/support/test-env.ts). This test is the anti-recurrence gate for #595 , it fails if the
+// consort/orchestrator/provisioning/test-env.ts). This test is the anti-recurrence gate for #595 , it fails if the
 // private workspace host literal creeps back into TEST source or a test config as a hardcoded value,
 // which is exactly the scatter the consolidation removed. Allowed occurrences (NOT test config):
 //   - .env.local.test.config          the single home (gitignored; the real value lives here)
@@ -47,7 +47,7 @@ describe("#595 single test-env home: the workspace host is not re-hardcoded in t
     expect(
       offenders,
       `The private workspace host is hardcoded in these TEST-source files , move it to the single ` +
-        `home .env.local.test.config and read via tests/support/test-env.ts (resolveTestEnv):\n  ${offenders.join("\n  ")}`,
+        `home .env.local.test.config and read via consort/orchestrator/provisioning/test-env.ts (resolveTestEnv):\n  ${offenders.join("\n  ")}`,
     ).toEqual([]);
   });
 });

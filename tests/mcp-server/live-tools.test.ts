@@ -19,7 +19,7 @@ import {
   deleteLakebaseProject,
 } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { getDefaultBranch } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-import { resolveTestEnv } from "../support/test-env.js";
+import { resolveTestEnv } from "../../consort/orchestrator/provisioning/test-env.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

@@ -5,9 +5,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { createProject } from "../../scripts/lakebase/create-project.js";
 import { deleteLakebaseProject } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-import { resolveTestEnv } from "../support/test-env.js";
+import { resolveTestEnv } from "../../consort/orchestrator/provisioning/test-env.js";
 
-// The target host comes from the ONE shared resolver (tests/support/test-env.ts),
+// The target host comes from the ONE shared resolver (consort/orchestrator/provisioning/test-env.ts),
 // which reads LAKEBASE_TEST_HOST / DATABRICKS_CONFIG_PROFILE from the single config
 // home (.env.local.test.config). No local host-resolution copy, no hardcoded host ,
 // an unconfigured environment resolves to undefined and the suite skips cleanly.

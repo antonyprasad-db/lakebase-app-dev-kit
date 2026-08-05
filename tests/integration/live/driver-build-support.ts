@@ -29,7 +29,7 @@ import { cpSync, mkdirSync, readFileSync, writeFileSync, existsSync, statSync, r
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { loadRunConfig } from "../../../consort/orchestrator/manifest/run-config-loader.js";
-import { resolveTestEnv } from "../../support/test-env.js";
+import { resolveTestEnv } from "../../../consort/orchestrator/provisioning/test-env.js";
 import { catalogueLifecycleDeps } from "../../../consort/orchestrator/provisioning/lifecycle-catalogue.js";
 import type { LifecycleRunContext } from "../../../consort/orchestrator/provisioning/lifecycle-types.js";
 import type { ScaffoldHandle } from "../../../consort/orchestrator/provisioning/lifecycle-catalogue.js";

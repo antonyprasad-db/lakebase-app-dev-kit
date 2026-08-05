@@ -50,7 +50,7 @@ import { defaultGatesState, GATE_NAMES, readGates, writeGates } from "../../scri
 import { verifyGateIntegrity } from "../../scripts/sftdd/verify-gate-integrity.js";
 import { withdrawGate } from "../../scripts/sftdd/withdraw-gate.js";
 import { createPullRequest, mergePairedPullRequest } from "@databricks-solutions/lakebase-scm-utils/github";
-import { resolveTestEnv } from "../support/test-env.js";
+import { resolveTestEnv } from "../../consort/orchestrator/provisioning/test-env.js";
 
 // Test env from the ONE shared resolver (single config home: .env.local.test.config).
 // No `?? "DEFAULT"` profile guess , an unset profile leaves the suite gated off.

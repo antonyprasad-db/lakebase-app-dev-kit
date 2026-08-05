@@ -17,8 +17,8 @@
 
 // Host resolution lives in the provisioning family's credential seam (the ONE consort-side home for
 // host/profile + auth); test-env reads it there rather than keeping a private copy.
-import { resolveHostFromProfile } from "../../consort/orchestrator/provisioning/credentials.js";
-export { resolveHostFromProfile } from "../../consort/orchestrator/provisioning/credentials.js";
+import { resolveHostFromProfile } from "./credentials.js";
+export { resolveHostFromProfile } from "./credentials.js";
 
 /** The resolved test environment. Every field is optional , a missing one means "not configured",
  *  and the calling suite decides whether that makes it skip. */
