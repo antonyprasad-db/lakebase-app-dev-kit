@@ -41,7 +41,7 @@ import {
 } from "./smells.js";
 import { clearReflectVerdict } from "./reflection.js";
 import { resetStoryBuildState } from "./cycle-record.js";
-import { resolveEscalationsForStory } from "./escalation.js";
+import { resolveEscalationsForStory } from "../../consort/gates/escalation.js";
 
 /** Default author identity recorded on a headless self-heal. A real interactive
  *  decision passes the human's identity through `approver`. */

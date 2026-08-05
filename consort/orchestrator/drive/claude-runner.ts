@@ -23,7 +23,7 @@ import { replayBuildTurn } from "../../logging/replay-build.js";
 import { recordBuildTurn, nextBuildTurnNumber } from "../../../scripts/sftdd/record-build.js";
 import { recordTurn, seedRecorderBaseline } from "../../logging/turn-recorder.js";
 import { emitAgentLogEvent } from "../../logging/agent-log.js";
-import { writeWorkflowPhase } from "../../../scripts/sftdd/workflow-phase.js";
+import { writeWorkflowPhase } from "../../gates/workflow-phase.js";
 import {
   commandsForAction,
   type CommandRunner,

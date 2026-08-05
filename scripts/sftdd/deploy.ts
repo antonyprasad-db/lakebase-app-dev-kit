@@ -19,7 +19,7 @@ import { dirname, join } from "node:path";
 import { readTargets } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { pollUntil } from "@databricks-solutions/lakebase-scm-utils/util";
 import { resolveSftddDir, findFeatureDir } from "../../consort/config/sftdd-paths.js";
-import { writeEscalation } from "./escalation.js";
+import { writeEscalation } from "../../consort/gates/escalation.js";
 import {
   parseFailedNodeIds,
   classifyDeployVerifyFailure,

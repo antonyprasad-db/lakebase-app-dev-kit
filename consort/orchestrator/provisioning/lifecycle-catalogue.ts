@@ -21,7 +21,7 @@ import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { createProject } from "../../../scripts/lakebase/create-project.js";
-import { writeEscalation } from "../../../scripts/sftdd/escalation.js";
+import { writeEscalation } from "../../gates/escalation.js";
 import type { LifecycleOp, LifecycleResult, LifecycleRunContext, LifecycleDeps } from "./lifecycle-types.js";
 
 /** One catalogue entry: a description + the executor for that op kind. */

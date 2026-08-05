@@ -15,7 +15,7 @@ import { join } from "path";
 import { runManifestStep, runManifestChain, type ManifestRunnerDeps } from "../../consort/orchestrator/runners/manifest-runner";
 import { loadStepManifests } from "../../consort/orchestrator/steps/manifest";
 import { makeMockReplayAgent } from "../../consort/orchestrator/agents/mock-replay-agent";
-import { writeEscalation } from "../../scripts/sftdd/escalation";
+import { writeEscalation } from "../../consort/gates/escalation";
 import type { StepAgent } from "../../consort/orchestrator/agents/agent-types";
 import type { StepManifest } from "../../consort/orchestrator/steps/manifest";
 import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";

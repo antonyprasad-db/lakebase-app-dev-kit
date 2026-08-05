@@ -9,9 +9,9 @@ import { mkdirSync, mkdtempSync, rmSync, readFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 
-import { approveGate } from "../../scripts/sftdd/approve-gate";
-import { hashArtifact } from "../../scripts/sftdd/gate-hash";
-import { defaultGatesState, readGates, writeGates } from "../../scripts/sftdd/gates";
+import { approveGate } from "../../consort/gates/approve-gate";
+import { hashArtifact } from "../../consort/gates/gate-hash";
+import { defaultGatesState, readGates, writeGates } from "../../consort/gates/gates";
 import {
   isTestListProtected,
   mutateTestList,
@@ -22,7 +22,7 @@ import {
   writeMasterTestList,
   type TestList,
 } from "../../scripts/sftdd/test-list";
-import { verifyGateIntegrity } from "../../scripts/sftdd/verify-gate-integrity";
+import { verifyGateIntegrity } from "../../consort/gates/verify-gate-integrity";
 
 let tdd: string;
 const FEATURE_ID = "F1-checkout";

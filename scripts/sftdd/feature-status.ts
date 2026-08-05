@@ -2,7 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "fs";
 import { dirname, join } from "path";
 import { readDriveContext } from "../../consort/orchestrator/state/orchestrator-probe.js";
 import { readMasterTestList, type TestListItem } from "./test-list";
-import { readPlan, type ExperimentPlan } from "./design-spec-gate";
+import { readPlan, type ExperimentPlan } from "../../consort/gates/design-spec-gate";
 import { storiesDir as storiesDirOf } from "../../consort/config/sftdd-paths.js";
 import {
   listExperiments,
@@ -11,7 +11,7 @@ import {
   type ExperimentOutcomes,
 } from "./experiment";
 import { readSmellsLog, type SmellsLog } from "./smells";
-import { GATE_NAMES, readGates, type GateName, type GateStatus } from "./gates";
+import { GATE_NAMES, readGates, type GateName, type GateStatus } from "../../consort/gates/gates";
 import { readPipeline, type StoryStatus, type StoryGateStatus } from "./story-pipeline";
 
 export type TestListStatus = TestListItem["status"];

@@ -21,7 +21,7 @@ import {
   readGates,
   writeGates,
   type GatesState,
-} from "../../scripts/sftdd/gates";
+} from "../../consort/gates/gates";
 
 let tdd: string;
 const FEATURE_ID = "F1-checkout";

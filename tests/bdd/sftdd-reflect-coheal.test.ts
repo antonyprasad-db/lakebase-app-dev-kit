@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { acsDir, acJson, handbackFile } from "../../consort/config/sftdd-paths";
 import { applyReviseSelfHeal } from "../../scripts/sftdd/revise";
-import { recordBlockingSmellFlag } from "../../scripts/sftdd/escalation";
+import { recordBlockingSmellFlag } from "../../consort/gates/escalation";
 import {
   readSmellsLog,
   priorReflectReviseCount,

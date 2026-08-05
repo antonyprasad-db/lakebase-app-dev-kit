@@ -15,7 +15,7 @@ import {
   removeProject,
   type RemoveProjectEffects,
 } from "../../consort/orchestrator/provisioning/lifecycle-catalogue";
-import { readEscalations } from "../../scripts/sftdd/escalation";
+import { readEscalations } from "../../consort/gates/escalation";
 
 let root: string;
 beforeEach(() => {

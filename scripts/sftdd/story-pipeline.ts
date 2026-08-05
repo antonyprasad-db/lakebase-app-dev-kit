@@ -13,7 +13,7 @@ import {
   featureSpecJson,
   featureSpecMd,
 } from "../../consort/config/sftdd-paths.js";
-import { featureDir, storyAcsConformanceReason, storyIndependenceForStoryReason } from "./gate-conformance-guard.js";
+import { featureDir, storyAcsConformanceReason, storyIndependenceForStoryReason } from "../../consort/gates/gate-conformance-guard.js";
 
 export const STORY_STATUSES = [
   "designing",

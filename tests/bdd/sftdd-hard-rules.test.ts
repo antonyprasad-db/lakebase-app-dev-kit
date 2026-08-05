@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
-import { GATE_NAMES } from "../../scripts/sftdd/gates";
+import { GATE_NAMES } from "../../consort/gates/gates";
 
 const SKILL_DIR = join(__dirname, "..", "..", "skills", "consort");
 const SKILL_PATH = join(SKILL_DIR, "SKILL.md");

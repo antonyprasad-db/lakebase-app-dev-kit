@@ -8,7 +8,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { runApproveGateCli } from "../../scripts/sftdd/approve-gate.cli.js";
-import { readSprintGates } from "../../scripts/sftdd/sprint-gates.js";
+import { readSprintGates } from "../../consort/gates/sprint-gates.js";
 import { planningDir, acsDir } from "../../consort/config/sftdd-paths.js";
 import { writePipeline, readPipeline, type StoryPipeline } from "../../scripts/sftdd/story-pipeline.js";
 

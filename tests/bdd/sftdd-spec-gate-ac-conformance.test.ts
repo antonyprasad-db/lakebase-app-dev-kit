@@ -15,7 +15,7 @@ import {
   surfaceForGate,
   approveStoryGateFromDisk,
 } from "../../scripts/sftdd/story-pipeline";
-import { featureDir, storyAcsConformanceReason } from "../../scripts/sftdd/gate-conformance-guard";
+import { featureDir, storyAcsConformanceReason } from "../../consort/gates/gate-conformance-guard";
 
 const F = "F4-pick-outbound";
 const S = "S2-stock-row-unchanged";

@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, rmSync, readFileSync, writeFileSync, existsSync
 import { tmpdir } from "os";
 import { join } from "path";
 import { writeMasterTestList } from "../../scripts/sftdd/test-list";
-import { analyzeForGate, recordPlan, writePlan, readPlan } from "../../scripts/sftdd/design-spec-gate";
+import { analyzeForGate, recordPlan, writePlan, readPlan } from "../../consort/gates/design-spec-gate";
 
 let tdd: string;
 const FEATURE_DIR = "features/F1-test-feature";

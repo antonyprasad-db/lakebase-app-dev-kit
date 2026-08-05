@@ -9,9 +9,9 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { approveGate } from "../../scripts/sftdd/approve-gate";
-import { defaultGatesState, writeGates } from "../../scripts/sftdd/gates";
-import { verifyGateIntegrity } from "../../scripts/sftdd/verify-gate-integrity";
+import { approveGate } from "../../consort/gates/approve-gate";
+import { defaultGatesState, writeGates } from "../../consort/gates/gates";
+import { verifyGateIntegrity } from "../../consort/gates/verify-gate-integrity";
 
 let tdd: string;
 const FEATURE_ID = "F1-checkout";

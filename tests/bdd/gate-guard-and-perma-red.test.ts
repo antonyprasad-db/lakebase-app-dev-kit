@@ -10,7 +10,7 @@ import * as path from "node:path";
 import {
   analyzeForGate,
   checkE2eGate,
-} from "../../scripts/sftdd/design-spec-gate";
+} from "../../consort/gates/design-spec-gate";
 import {
   SMELL_CATALOG,
   detectAll,

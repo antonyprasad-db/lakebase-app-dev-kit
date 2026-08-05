@@ -23,8 +23,8 @@ import {
 import { needsGreenAssess, hasPendingRegressionFix, hasPendingSupersession } from "../../../scripts/sftdd/supersession.js";
 import { driverPhaseForTdd, type StoryArtifactProbe, type DriveContext } from "./orchestrator-derive.js";
 import type { DriveEscalation } from "../workflow/workflow-vocabulary.js";
-import { readGates } from "../../../scripts/sftdd/gates.js";
-import { PHASE_OWNER_KEY } from "../../../scripts/sftdd/workflow-phase.js";
+import { readGates } from "../../gates/gates.js";
+import { PHASE_OWNER_KEY } from "../../gates/workflow-phase.js";
 import { storyDeployVerified } from "../../../scripts/sftdd/deploy.js";
 import {
   deployVerifyNeedsAssess,
@@ -35,7 +35,7 @@ import {
   refactorVerifyRefactorPending as refactorVerifyRefactorPendingMarker,
 } from "../../../scripts/sftdd/refactor-verify-assess.js";
 import { readWorkflowState, SCM_STATES } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-import { firstPendingEscalation } from "../../../scripts/sftdd/escalation.js";
+import { firstPendingEscalation } from "../../gates/escalation.js";
 import { specLevelSmell, priorReviseCount, isBuildRefactorRoutableSmell, isReflectSmell, priorReflectReviseCount, REFLECT_REVISE_CAP, storyTestListFingerprint, lastReflectReviseFingerprint } from "../../../scripts/sftdd/smells.js";
 import { reflectionPassed, reflectionVerdictWritten } from "../../../scripts/sftdd/reflection.js";
 import { readCanon, architectNovelty } from "../../../scripts/sftdd/architecture-canon.js";

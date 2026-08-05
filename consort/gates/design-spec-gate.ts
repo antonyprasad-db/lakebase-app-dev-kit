@@ -1,11 +1,11 @@
 import { appendFileSync, existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { dirname, join } from "path";
-import { readMasterTestList, scopeToStory, acsForStory } from "./test-list";
+import { readMasterTestList, scopeToStory, acsForStory } from "../../scripts/sftdd/test-list.js";
 import { storyPlanJson } from "../../consort/config/sftdd-paths.js";
-import type { TestList, TestListItem } from "./test-list";
-import { readAcLayer } from "./run-cycle";
-import type { AcLayer } from "./experiment";
-import { collectSpikeInputs, type SpikeInput } from "./spike-carryforward";
+import type { TestList, TestListItem } from "../../scripts/sftdd/test-list.js";
+import { readAcLayer } from "../../scripts/sftdd/run-cycle.js";
+import type { AcLayer } from "../../scripts/sftdd/experiment.js";
+import { collectSpikeInputs, type SpikeInput } from "../../scripts/sftdd/spike-carryforward.js";
 
 export interface ExperimentStrategy {
   /** Human-readable strategy label, e.g. "postgres-arrays" or "json-blob". */

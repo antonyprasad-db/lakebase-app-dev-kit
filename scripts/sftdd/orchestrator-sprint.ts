@@ -13,7 +13,7 @@
 // planning state) are the I/O helpers below, used to build those effects.
 
 import type { DriveState, WorkflowAction } from "../../consort/orchestrator/workflow/workflow-vocabulary.js";
-import { readSprintGates } from "./sprint-gates.js";
+import { readSprintGates } from "../../consort/gates/sprint-gates.js";
 import {
   featureProposalsMd,
   hasFeatureRequest,

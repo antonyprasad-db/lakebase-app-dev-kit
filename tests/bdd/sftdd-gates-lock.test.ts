@@ -8,10 +8,10 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { GatesLockBusyError, withGatesLock } from "../../scripts/sftdd/gates-lock";
-import { approveGate } from "../../scripts/sftdd/approve-gate";
-import { withdrawGate } from "../../scripts/sftdd/withdraw-gate";
-import { readGates } from "../../scripts/sftdd/gates";
+import { GatesLockBusyError, withGatesLock } from "../../consort/gates/gates-lock";
+import { approveGate } from "../../consort/gates/approve-gate";
+import { withdrawGate } from "../../consort/gates/withdraw-gate";
+import { readGates } from "../../consort/gates/gates";
 
 let tdd: string;
 const FEATURE_ID = "F1-checkout";

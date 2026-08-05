@@ -23,10 +23,10 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 
-import { approveGate } from "../../scripts/sftdd/approve-gate";
-import { resolveArtifactInputs } from "../../scripts/sftdd/gate-conformance-guard";
-import { verifyGateIntegrity } from "../../scripts/sftdd/verify-gate-integrity";
-import { withdrawGate } from "../../scripts/sftdd/withdraw-gate";
+import { approveGate } from "../../consort/gates/approve-gate";
+import { resolveArtifactInputs } from "../../consort/gates/gate-conformance-guard";
+import { verifyGateIntegrity } from "../../consort/gates/verify-gate-integrity";
+import { withdrawGate } from "../../consort/gates/withdraw-gate";
 import {
   beginCycle,
   flagSmells,

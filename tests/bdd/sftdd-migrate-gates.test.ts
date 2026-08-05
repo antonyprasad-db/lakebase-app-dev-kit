@@ -8,10 +8,10 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { migrateGatesFromSelectionLog } from "../../scripts/sftdd/migrate-gates";
-import { readGates, writeGates, defaultGatesState } from "../../scripts/sftdd/gates";
-import { hashArtifact } from "../../scripts/sftdd/gate-hash";
-import { verifyGateIntegrity } from "../../scripts/sftdd/verify-gate-integrity";
+import { migrateGatesFromSelectionLog } from "../../consort/gates/migrate-gates";
+import { readGates, writeGates, defaultGatesState } from "../../consort/gates/gates";
+import { hashArtifact } from "../../consort/gates/gate-hash";
+import { verifyGateIntegrity } from "../../consort/gates/verify-gate-integrity";
 
 let tdd: string;
 const FEATURE_ID = "F1-checkout";

@@ -24,7 +24,7 @@ import {
 } from "../../consort/logging/agent-log.js";
 import { reconcileArtifactLog } from "../../consort/logging/log-reconcile.js";
 import { reconstituteAgentLog } from "../../consort/logging/log-reconstitute.js";
-import { recordBlockingSmellFlag } from "./escalation.js";
+import { recordBlockingSmellFlag } from "../../consort/gates/escalation.js";
 
 interface ParsedArgs {
   read?: boolean;

@@ -30,15 +30,15 @@
 //   This implementation follows the ADR: no token round-trip, just a
 //   direct flag + atomic state transition.
 
-import { hashArtifact } from "./gate-hash";
+import { hashArtifact } from "../../consort/gates/gate-hash";
 import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
-import { withGatesLock } from "./gates-lock";
+import { withGatesLock } from "../../consort/gates/gates-lock";
 import {
   readGates,
   writeGates,
   type GateRecord,
   type GatesState,
-} from "./gates";
+} from "../../consort/gates/gates";
 import { writeMasterTestList, type TestList } from "./test-list";
 
 export class TestListImmutabilityError extends Error {

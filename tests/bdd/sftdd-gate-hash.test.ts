@@ -14,7 +14,7 @@
 //   4. Final hash is sha256 over the normalized text, returned as hex
 
 import { describe, it, expect } from "vitest";
-import { hashArtifact, normalizeForHash } from "../../scripts/sftdd/gate-hash";
+import { hashArtifact, normalizeForHash } from "../../consort/gates/gate-hash";
 
 describe("gate-hash: hashArtifact", () => {
   it("returns a 64-char lowercase hex sha256 string", () => {

@@ -12,8 +12,8 @@
 
 import * as fs from "node:fs";
 import { escalationsDir, escalationFile } from "../../consort/config/sftdd-paths.js";
-import { readSmellsLog, writeSmellsLog, hasOpenSmell, type SmellName } from "./smells.js";
-import { pendingItemKind } from "./cycle-record.js";
+import { readSmellsLog, writeSmellsLog, hasOpenSmell, type SmellName } from "../../scripts/sftdd/smells.js";
+import { pendingItemKind } from "../../scripts/sftdd/cycle-record.js";
 
 /** A blocking problem raised to the HIL. Identity is `id` (derived from source +
  *  scope) so the same condition re-detected across driver iterations is the same

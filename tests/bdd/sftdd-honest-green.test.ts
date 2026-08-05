@@ -30,7 +30,7 @@ import {
   escalationsFromSmells,
   recordBlockingSmellFlag,
   BLOCKING_SMELLS,
-} from "../../scripts/sftdd/escalation.js";
+} from "../../consort/gates/escalation.js";
 import { writeSmellsLog } from "../../scripts/sftdd/smells.js";
 import {
   readGreenFailure,

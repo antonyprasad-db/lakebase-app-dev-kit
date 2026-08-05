@@ -1,5 +1,5 @@
 import { listExperiments } from "./experiment";
-import { readPlan } from "./design-spec-gate";
+import { readPlan } from "../../consort/gates/design-spec-gate";
 import type { ExperimentOutcomes } from "./experiment";
 import { readOutcomes } from "./experiment";
 

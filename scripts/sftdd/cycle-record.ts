@@ -32,7 +32,7 @@ import {
 import { markTestItemGreen } from "./test-list.js";
 import { listExperiments } from "./experiment.js";
 import { ensureDeployedAndVerify } from "./deploy.js";
-import { writeEscalation, type Escalation } from "./escalation.js";
+import { writeEscalation, type Escalation } from "../../consort/gates/escalation.js";
 import { readSmellsLog, markSmellResolved, isBuildRefactorRoutableSmell, hasOpenBuildRefactorRoutableSmell, writeSmellsLog, hasOpenSmell } from "./smells.js";
 import { checkUxClean, summarizeUxViolations } from "./design-adherence.js";
 import {

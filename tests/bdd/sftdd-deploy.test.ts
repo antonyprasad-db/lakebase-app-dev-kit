@@ -16,7 +16,7 @@ import {
   logReleaseEngineerDeployOutcome,
   type DeployResult,
 } from "../../scripts/sftdd/deploy";
-import { readEscalations } from "../../scripts/sftdd/escalation";
+import { readEscalations } from "../../consort/gates/escalation";
 import { readAgentLog } from "../../consort/logging/agent-log";
 import {
   readDeployVerifyAssessMarker,

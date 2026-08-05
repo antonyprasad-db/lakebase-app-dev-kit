@@ -23,9 +23,9 @@ import {
   type DriveState,
   type WorkflowAction,
 } from "./orchestrator-drive.js";
-import { ExpectationLedger, expectationFor } from "../../../scripts/sftdd/orchestrator-expect.js";
+import { ExpectationLedger, expectationFor } from "../../gates/orchestrator-expect.js";
 import { validateAndBound, type StepContract, type RouteProposal } from "../steps/step-contract.js";
-export { ProtocolViolationError, UnexpectedCallbackError } from "../../../scripts/sftdd/orchestrator-expect.js";
+export { ProtocolViolationError, UnexpectedCallbackError } from "../../gates/orchestrator-expect.js";
 
 export interface DriveEffects {
   /**
@@ -61,7 +61,7 @@ export interface DriveEffects {
    * failed to return) so the imminent re-dispatch of that role is informed , the
    * role reads the hand-back and fixes its output instead of blindly re-running.
    */
-  onHandback?(handoff: import("../../../scripts/sftdd/orchestrator-expect.js").Handoff, detail: string): void;
+  onHandback?(handoff: import("../../gates/orchestrator-expect.js").Handoff, detail: string): void;
 }
 
 export class DriverStalledError extends Error {

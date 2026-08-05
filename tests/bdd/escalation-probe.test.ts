@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { writeEscalation } from "../../scripts/sftdd/escalation";
+import { writeEscalation } from "../../consort/gates/escalation";
 import { deriveEscalation, probeDriveState } from "../../consort/orchestrator/state/escalation-probe";
 
 let root: string;

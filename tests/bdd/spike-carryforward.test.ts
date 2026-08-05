@@ -178,7 +178,7 @@ function seedFeatureDir(sftddDir: string, featureId: string): void {
 
 describe("analyzeForGate populates spike_inputs when spikes match", () => {
   it("returns proposed_plan.spike_inputs containing the matching spikes", async () => {
-    const { analyzeForGate } = await import("../../scripts/sftdd/design-spec-gate");
+    const { analyzeForGate } = await import("../../consort/gates/design-spec-gate");
     const { writeMasterTestList } = await import("../../scripts/sftdd/test-list");
     const sftddDir = mkTempTdd("analyze");
     try {
@@ -197,7 +197,7 @@ describe("analyzeForGate populates spike_inputs when spikes match", () => {
   });
 
   it("omits spike_inputs from the proposed plan when no spike matches", async () => {
-    const { analyzeForGate } = await import("../../scripts/sftdd/design-spec-gate");
+    const { analyzeForGate } = await import("../../consort/gates/design-spec-gate");
     const { writeMasterTestList } = await import("../../scripts/sftdd/test-list");
     const sftddDir = mkTempTdd("analyze-none");
     try {

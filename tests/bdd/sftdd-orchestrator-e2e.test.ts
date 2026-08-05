@@ -5,7 +5,7 @@ import { join } from "path";
 
 import { writeWorkflowState, readWorkflowState, writeFeature } from "../../scripts/sftdd/spec-sync";
 import { writeMasterTestList } from "../../scripts/sftdd/test-list";
-import { analyzeForGate, recordPlan, writePlan } from "../../scripts/sftdd/design-spec-gate";
+import { analyzeForGate, recordPlan, writePlan } from "../../consort/gates/design-spec-gate";
 import { beginCycle, markGreen, listCycles } from "../../scripts/sftdd/run-cycle";
 import { runDetectorsForScope, writeSmellsLog, readSmellsLog } from "../../scripts/sftdd/smells";
 

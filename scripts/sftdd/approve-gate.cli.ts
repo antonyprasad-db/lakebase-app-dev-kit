@@ -33,11 +33,11 @@
 // Exit 0 = approval recorded (or already approved); 2 = usage error / nothing to
 // approve; 3 = per-story draft invariant violated.
 
-import { approveSprintPlanGate } from "./sprint-gates.js";
+import { approveSprintPlanGate } from "../../consort/gates/sprint-gates.js";
 import { drainGatesAsHumanProxy } from "./human-proxy.js";
 import { approveStoryGateFromDisk, batchedDraftMessage } from "./story-pipeline.js";
 import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
-import type { GateName } from "./gates.js";
+import type { GateName } from "../../consort/gates/gates.js";
 
 interface Parsed {
   feature?: string;

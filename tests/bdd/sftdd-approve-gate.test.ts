@@ -8,9 +8,9 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { approveGate, GateAlreadyClosedError } from "../../scripts/sftdd/approve-gate";
-import { defaultGatesState, readGates, writeGates } from "../../scripts/sftdd/gates";
-import { hashArtifact } from "../../scripts/sftdd/gate-hash";
+import { approveGate, GateAlreadyClosedError } from "../../consort/gates/approve-gate";
+import { defaultGatesState, readGates, writeGates } from "../../consort/gates/gates";
+import { hashArtifact } from "../../consort/gates/gate-hash";
 
 let tdd: string;
 const FEATURE_ID = "F1-checkout";

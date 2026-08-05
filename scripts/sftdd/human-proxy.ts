@@ -44,14 +44,14 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from "node:fs";
 import { sftddEnv } from "../../consort/config/sftdd-env.js";
 import { join, dirname, basename } from "node:path";
-import { approveGate } from "./approve-gate.js";
-import { readGates, GATE_NAMES, type GateName, type GatesState } from "./gates.js";
+import { approveGate } from "../../consort/gates/approve-gate.js";
+import { readGates, GATE_NAMES, type GateName, type GatesState } from "../../consort/gates/gates.js";
 import { checkArtifactConformance, canonicalArtifactName } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
 import { emitAgentLogEvent } from "../../consort/logging/agent-log.js";
 import { featureRequestMd, resolveSftddDir, writeRequested, featureProposalsMd, planningDir } from "../../consort/config/sftdd-paths.js";
 // The gate CONDITION (what makes a gate advanceable) is a state-machine property,
 // not a proxy decision; it lives in the guard and is enforced on the advance path.
-import { resolveArtifactInputs, featureDir } from "./gate-conformance-guard.js";
+import { resolveArtifactInputs, featureDir } from "../../consort/gates/gate-conformance-guard.js";
 
 /**
  * Emit the HITL reviewer's decision to the centralized agent log. The mock

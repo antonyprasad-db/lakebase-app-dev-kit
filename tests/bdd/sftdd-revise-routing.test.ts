@@ -24,7 +24,7 @@ import {
   resolveOpenReflectSmellsForStory,
   storyTestListFingerprint,
 } from "../../scripts/sftdd/smells";
-import { recordBlockingSmellFlag, writeEscalation, readEscalations } from "../../scripts/sftdd/escalation";
+import { recordBlockingSmellFlag, writeEscalation, readEscalations } from "../../consort/gates/escalation";
 import { nextTransition, nextDesignOnlyTransition, actionLane, type DriveState } from "../../consort/orchestrator/drive/orchestrator-drive";
 import { commandsForAction, type DriveEffectsConfig } from "../../consort/orchestrator/drive/orchestrator-effects";
 import { diskArtifactProbe } from "../../consort/orchestrator/state/orchestrator-probe";

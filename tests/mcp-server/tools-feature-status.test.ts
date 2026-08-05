@@ -13,7 +13,7 @@ import {
   writePlan,
   recordPlan,
   type ExperimentPlan,
-} from "../../scripts/sftdd/design-spec-gate";
+} from "../../consort/gates/design-spec-gate";
 import type { FeatureStatusSnapshot } from "../../scripts/sftdd/feature-status";
 
 let tdd: string;

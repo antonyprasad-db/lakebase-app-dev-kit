@@ -11,7 +11,7 @@ import * as path from "node:path";
 import {
   writeWorkflowPhase,
   resetStaleTerminalPhase,
-} from "../../scripts/sftdd/workflow-phase.js";
+} from "../../consort/gates/workflow-phase.js";
 
 let sftddDir: string;
 const stateFile = () => path.join(sftddDir, "workflow-state.json");

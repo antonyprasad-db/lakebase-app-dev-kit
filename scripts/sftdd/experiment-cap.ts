@@ -22,7 +22,7 @@
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { experimentDir, readOutcomes, writeOutcomes, type ExperimentCap, type ExperimentOutcomes } from "./experiment";
-import type { PerExperimentCap } from "./design-spec-gate";
+import type { PerExperimentCap } from "../../consort/gates/design-spec-gate";
 
 export interface CheckPerExperimentCapArgs {
   sftddDir: string;

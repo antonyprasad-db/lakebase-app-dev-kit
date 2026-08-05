@@ -258,7 +258,7 @@ describe("recordExperimentCap + clearExperimentCap", () => {
 
 describe("analyzeForGate populates a default per-experiment cap", () => {
   it("proposed_plan.budget.per_experiment carries default max_cycles + max_wall_clock_minutes", async () => {
-    const { analyzeForGate } = await import("../../scripts/sftdd/design-spec-gate");
+    const { analyzeForGate } = await import("../../consort/gates/design-spec-gate");
     const { writeMasterTestList } = await import("../../scripts/sftdd/test-list");
     const sftddDir = mkTempTdd("analyze");
     try {

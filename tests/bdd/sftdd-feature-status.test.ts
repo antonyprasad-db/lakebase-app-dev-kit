@@ -7,7 +7,7 @@ import {
   writePlan,
   recordPlan,
   type ExperimentPlan,
-} from "../../scripts/sftdd/design-spec-gate";
+} from "../../consort/gates/design-spec-gate";
 import {
   getFeatureStatus,
   renderFeatureStatus,
@@ -594,7 +594,7 @@ describe("feature-status gates field (G8 /)", () => {
 
   it("surfaces approved gate state when approveGate has been called", async () => {
     stageN1Fixture();
-    const { approveGate } = await import("../../scripts/sftdd/approve-gate");
+    const { approveGate } = await import("../../consort/gates/approve-gate");
     approveGate({
       featureId: FEATURE_ID,
       gate: "spec",
@@ -635,7 +635,7 @@ describe("feature-status gates field (G8 /)", () => {
 
   it("renders approver + approved_at when a gate is approved", async () => {
     stageN1Fixture();
-    const { approveGate } = await import("../../scripts/sftdd/approve-gate");
+    const { approveGate } = await import("../../consort/gates/approve-gate");
     approveGate({
       featureId: FEATURE_ID,
       gate: "plan",

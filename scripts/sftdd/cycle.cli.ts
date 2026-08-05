@@ -35,7 +35,7 @@ import {
   writeRegressionAssessment,
   composeAssessedGreenFailure,
 } from "./supersession.js";
-import { writeEscalation } from "./escalation.js";
+import { writeEscalation } from "../../consort/gates/escalation.js";
 import { recordReflectionGate } from "./reflection.js";
 import {
   readDeployVerifyAssessMarker,
