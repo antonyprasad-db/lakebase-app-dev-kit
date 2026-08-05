@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Thin CLI wrapper around getFeatureStatus + renderFeatureStatus.
 
-import { getFeatureStatus, renderFeatureStatus } from "./feature-status.js";
+import { getFeatureStatus, renderFeatureStatus } from "../../consort/orchestrator/status/feature-status.js";
 import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
 
 interface ParsedArgs {

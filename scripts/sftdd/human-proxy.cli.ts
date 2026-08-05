@@ -19,7 +19,7 @@ import {
 } from "../../consort/gates/human-proxy.js";
 // The revise self-heal is a state-machine transition, not a proxy decision; the
 // CLI verb triggers it but the logic lives in the driver's service layer.
-import { applyReviseSelfHeal } from "./revise.js";
+import { applyReviseSelfHeal } from "../../consort/orchestrator/status/revise.js";
 import { approveSprintPlanGate } from "../../consort/gates/sprint-gates.js";
 import type { GateName } from "../../consort/gates/gates.js";
 

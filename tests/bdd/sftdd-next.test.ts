@@ -15,7 +15,7 @@ import {
   readFeatureNextSnapshot,
   emitNextJson,
   type NextContext,
-} from "../../scripts/sftdd/next";
+} from "../../consort/orchestrator/status/next";
 import {
   approveHint,
   gateEnactCommand,

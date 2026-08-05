@@ -1,18 +1,18 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "fs";
 import { dirname, join } from "path";
-import { readDriveContext } from "../../consort/orchestrator/state/orchestrator-probe.js";
-import { readMasterTestList, type TestListItem } from "../../consort/test-list/test-list";
-import { readPlan, type ExperimentPlan } from "../../consort/gates/design-spec-gate";
-import { storiesDir as storiesDirOf } from "../../consort/config/sftdd-paths.js";
+import { readDriveContext } from "../../../consort/orchestrator/state/orchestrator-probe.js";
+import { readMasterTestList, type TestListItem } from "../../../consort/test-list/test-list";
+import { readPlan, type ExperimentPlan } from "../../../consort/gates/design-spec-gate";
+import { storiesDir as storiesDirOf } from "../../../consort/config/sftdd-paths.js";
 import {
   listExperiments,
   listExperimentStories,
   readOutcomes,
   type ExperimentOutcomes,
-} from "../../consort/experiment/experiment";
-import { readSmellsLog, type SmellsLog } from "../../consort/smells/smells";
-import { GATE_NAMES, readGates, type GateName, type GateStatus } from "../../consort/gates/gates";
-import { readPipeline, type StoryStatus, type StoryGateStatus } from "../../consort/pipeline/story-pipeline";
+} from "../../../consort/experiment/experiment";
+import { readSmellsLog, type SmellsLog } from "../../../consort/smells/smells";
+import { GATE_NAMES, readGates, type GateName, type GateStatus } from "../../../consort/gates/gates";
+import { readPipeline, type StoryStatus, type StoryGateStatus } from "../../../consort/pipeline/story-pipeline";
 
 export type TestListStatus = TestListItem["status"];
 

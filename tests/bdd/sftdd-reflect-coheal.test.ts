@@ -14,7 +14,7 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync, readFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { acsDir, acJson, handbackFile } from "../../consort/config/sftdd-paths";
-import { applyReviseSelfHeal } from "../../scripts/sftdd/revise";
+import { applyReviseSelfHeal } from "../../consort/orchestrator/status/revise";
 import { recordBlockingSmellFlag } from "../../consort/gates/escalation";
 import {
   readSmellsLog,

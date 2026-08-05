@@ -10,9 +10,9 @@ import { resolveSftddSettings } from "../../consort/orchestrator/settings/projec
 import { readDriveStateFromDisk } from "../../consort/orchestrator/drive/orchestrator-effects.js";
 import { readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { deriveSprintPlanningState } from "../../consort/intake/orchestrator-sprint.js";
-import { summarizeStories } from "./feature-status.js";
+import { summarizeStories } from "../../consort/orchestrator/status/feature-status.js";
 import { kitVersion } from "../../consort/config/kit-bin.js";
-import { buildNextSnapshot, renderNextSnapshot, type NextContext } from "./next.js";
+import { buildNextSnapshot, renderNextSnapshot, type NextContext } from "../../consort/orchestrator/status/next.js";
 
 interface ParsedArgs {
   feature?: string;

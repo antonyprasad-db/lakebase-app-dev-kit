@@ -14,7 +14,7 @@ import {
   recordPlan,
   type ExperimentPlan,
 } from "../../consort/gates/design-spec-gate";
-import type { FeatureStatusSnapshot } from "../../scripts/sftdd/feature-status";
+import type { FeatureStatusSnapshot } from "../../consort/orchestrator/status/feature-status";
 
 let tdd: string;
 const FEATURE_ID = "F1-checkout";

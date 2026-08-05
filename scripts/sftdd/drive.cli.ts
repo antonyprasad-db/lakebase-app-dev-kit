@@ -26,7 +26,7 @@ import { recordTurn, seedRecorderBaseline } from "../../consort/logging/turn-rec
 import { recordBuildTurn, nextBuildTurnNumber } from "../../consort/pipeline/record-build.js";
 import { runDriver, driverBoundOptions, ProtocolViolationError, UnexpectedCallbackError, type DriveEffects, type DriverBound, type RunDriverResult, type RunDriverOptions } from "../../consort/orchestrator/drive/orchestrator-run.js";
 import { writeEscalation } from "../../consort/gates/escalation.js";
-import { emitNextJson } from "./next.js";
+import { emitNextJson } from "../../consort/orchestrator/status/next.js";
 import { emitAgentLogEvent } from "../../consort/logging/agent-log.js";
 import { resetStaleTerminalPhase } from "../../consort/gates/workflow-phase.js";
 import {

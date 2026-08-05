@@ -34,7 +34,7 @@ import {
   revisableSmellForStory,
   clearStoryBlockingSmellOnDiscard,
   rebuildStory,
-} from "../../scripts/sftdd/revise";
+} from "../../consort/orchestrator/status/revise";
 import { storyTestProgress } from "../../consort/pipeline/cycle-record";
 import { cyclesRootDir } from "../../consort/config/sftdd-paths";
 import { readFileSync as readFileSyncNode } from "node:fs";

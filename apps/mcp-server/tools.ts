@@ -21,7 +21,7 @@ import {
   listSchemaMigrations,
   type SchemaMigrationLanguage,
 } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-import { getFeatureStatus } from "../../scripts/sftdd/feature-status.js";
+import { getFeatureStatus } from "../../consort/orchestrator/status/feature-status.js";
 import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
 // PR-flow MCP tools.
 import {

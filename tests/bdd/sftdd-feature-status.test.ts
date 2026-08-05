@@ -11,7 +11,7 @@ import {
 import {
   getFeatureStatus,
   renderFeatureStatus,
-} from "../../scripts/sftdd/feature-status";
+} from "../../consort/orchestrator/status/feature-status";
 
 let tdd: string;
 const FEATURE_ID = "F1-checkout";

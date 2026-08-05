@@ -25,14 +25,12 @@ function scriptLibModules(): string[] {
 }
 
 // Modules whose VALUE edge into orchestrator is legitimate for now:
-//   next / feature-status , orchestrator-facing read/transition surfaces that FOLD UP into
-//     orchestrator/ in a later stage (then the edge is internal, not a cycle).
 //   optimize-* , the champion-walk harness sits ABOVE orchestrator (consumes the drive loop
-//     + config); a top consumer like a bin, merged into consort/optimize/ later.
-const ALLOWLIST = new Set<string>([
-  "scripts/sftdd/next.ts",
-  "scripts/sftdd/feature-status.ts",
-]);
+//     + config); a top consumer like a bin, merged into consort/optimize/ in the final stage.
+// (next/revise/feature-status/synthesis have FOLDED UP into consort/orchestrator/status/, so
+//  they no longer live in scripts/sftdd and need no allowlist entry , their edges are now
+//  orchestrator-internal.)
+const ALLOWLIST = new Set<string>([]);
 const ALLOWLIST_PREFIXES = ["scripts/sftdd/optimize-"];
 
 /** A low sink under orchestrator/ that any layer may import downward. */

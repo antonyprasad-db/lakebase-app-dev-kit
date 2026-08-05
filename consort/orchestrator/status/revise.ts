@@ -19,7 +19,7 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { emitAgentLogEvent } from "../../consort/logging/agent-log.js";
+import { emitAgentLogEvent } from "../../../consort/logging/agent-log.js";
 import {
   featureTestListJson,
   storyTestListJson,
@@ -27,8 +27,8 @@ import {
   handbackFile,
   storyAcIds,
   resolveSftddDir,
-} from "../../consort/config/sftdd-paths.js";
-import { readPipeline, writePipeline, reviseStory, setStoryStatus } from "../../consort/pipeline/story-pipeline.js";
+} from "../../../consort/config/sftdd-paths.js";
+import { readPipeline, writePipeline, reviseStory, setStoryStatus } from "../../../consort/pipeline/story-pipeline.js";
 import {
   markSmellResolved,
   composeReviseBrief,
@@ -38,10 +38,10 @@ import {
   isReflectSmell,
   resolveOpenReflectSmellsForStory,
   storyTestListFingerprint,
-} from "../../consort/smells/smells.js";
-import { clearReflectVerdict } from "../../consort/smells/reflection.js";
-import { resetStoryBuildState } from "../../consort/pipeline/cycle-record.js";
-import { resolveEscalationsForStory } from "../../consort/gates/escalation.js";
+} from "../../../consort/smells/smells.js";
+import { clearReflectVerdict } from "../../../consort/smells/reflection.js";
+import { resetStoryBuildState } from "../../../consort/pipeline/cycle-record.js";
+import { resolveEscalationsForStory } from "../../../consort/gates/escalation.js";
 
 /** Default author identity recorded on a headless self-heal. A real interactive
  *  decision passes the human's identity through `approver`. */

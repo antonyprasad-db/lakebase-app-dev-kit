@@ -57,7 +57,7 @@ import {
 } from "../../consort/pipeline/story-pipeline";
 import { join } from "path";
 import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
-import { reviseStoryWithSelfHeal, clearStoryBlockingSmellOnDiscard, rebuildStory } from "./revise.js";
+import { reviseStoryWithSelfHeal, clearStoryBlockingSmellOnDiscard, rebuildStory } from "../../consort/orchestrator/status/revise.js";
 import { markSmellResolved } from "../../consort/smells/smells.js";
 import { resolveAcceptMergeArgs, experimentMergeArgv } from "../../consort/experiment/experiment-merge.js";
 import { runKitBinSync } from "../../consort/config/kit-bin.js";
