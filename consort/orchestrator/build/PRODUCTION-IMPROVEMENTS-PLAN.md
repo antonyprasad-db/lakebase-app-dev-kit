@@ -89,27 +89,59 @@ must stay green (they assert exact prompt bytes).
 
 ---
 
-## #3 , alignment-rethink in the real drive  [source-check FIRST]
+## #3 , alignment-rethink in the real drive  [DONE, source-checked: correctly optimize-only, NO drive change]
 
-The delta-vs-ground-truth alignment gate currently lives in the optimize/eval + live-test layer
+The delta-vs-ground-truth alignment gate lives ONLY in the optimize/eval + live-test layer
 (`optimize-semantic-gate.ts` `evaluateNavigatorAssessAlignment` + `makeSupersessionDeltaJudge`).
-BEFORE wiring anything into the drive: source-check whether the REAL navigator-assess self-heal
-routing has ANY alignment/verification of the navigator's verdict (grep `orchestrator-drive` /
-`orchestrator-probe` / the assess routing). Two outcomes:
-- If the real drive TRUSTS the assess verdict (no verification , likely), then the alignment gate is
-  CORRECTLY optimize-only (it's an evaluation instrument, not a runtime gate). Document that; no drive
-  change. This is the probable + honest answer.
-- If the drive DOES verify assess, wire the same model (classification hard-gate + coverage-equivalence
-  delta vs the recorded reference where one exists).
+Source-check DONE (grep of `scripts/` + `consort/` for the gate symbols; trace of the assess->route
+path in `orchestrator-drive.ts` `nextBuildAction`):
+
+The REAL drive TRUSTS the navigator's assess verdict , it routes DIRECTLY off the marker with NO
+verdict-alignment check:
+- `assessGreenAc` -> a Navigator `assess` turn writes `superseded-tests.json` and/or
+  `regression-assessment.json`.
+- The marker's shape alone then routes the next move (all in `nextBuildAction`, orchestrator-drive.ts
+  ~447-474): `repairRegressionAc` (a `fixDirective` present) -> a bounded Driver `repair`;
+  `greenSupersededAc` (superseded flagged, no regression) -> a Driver `green-superseded` re-green;
+  `refactorVerifyRefactorPending` -> `refactor-superseded`. No code re-judges whether the navigator
+  flagged the RIGHT tests or diagnosed correctly.
+- The FUNCTIONAL BACKSTOP is the honest-GREEN re-verify, not a verdict gate: a wrong supersede-flag or
+  wrong fix-directive still fails the re-verify (`greenOpenCycle`), which RE-ARMS a fresh assess for a
+  bounded number of self-heal rounds and then ESCALATES to the HIL (see #1 +
+  `sftdd-honest-green.test.ts`). The teeth are behavioral (does the suite pass), not judgmental (did
+  the navigator agree with an oracle).
+
+So the alignment gate is CORRECTLY optimize-only: it is an EVALUATION INSTRUMENT (does the navigator
+JUDGE correctly, scored against the RECORDED GROUND TRUTH set) , and recorded ground truth only exists
+in the corpus, never at runtime. Wiring it into the drive would be (a) impossible in general (no
+ground-truth reference at drive time) and (b) redundant (the honest-GREEN re-verify already gates the
+functional outcome the verdict is a means to). NO drive change , documented, closed. The alignment
+model's coverage-equivalence framing is realized in the optimize layer (the delta judge); the runtime
+equivalent is the honest re-verify, which is already in place.
 
 ---
 
-## #4 , session-warmth lever for build turns  [SMALL]
+## #4 , session-warmth lever for build turns  [DONE, gated on the multi-turn substrate]
 
-Confirm the real drive already warms heavy-role sessions per-story (`buildClaudeCommand`
-`resumeKeyFrom: "story"` in orchestrator-effects). Then make warmth a MEASURED lever in the build
-sweep (`optimize/role-levers.ts` + the build chain), so cold-vs-warm is quantified. Per the data #1
-dwarfs this; it's the requested completeness item, not the leverage.
+Two halves:
+1. **Real drive already warms per-story , CONFIRMED + test-covered.** `buildClaudeCommand`
+   (orchestrator-effects.ts) sets `resumeKey = role:story` for the build roles (navigator/driver)
+   when `buildSessionScope === "story"` (the DEFAULT), warming context + prompt cache across a
+   story's RED/GREEN/REVIEW cycles and starting FRESH at each new story; `cycle` is the cold
+   safety valve for a story that overflows the window. Pinned by orchestrator-effects.test.ts
+   ("resumes Navigator/Driver PER STORY", "buildSessionScope=cycle cold-spawns", "non-build roles
+   resume across the whole feature").
+2. **Warmth as a MEASURED sweep lever , DECLARED + gated.** Added a `session` axis to
+   `RoleLeverPatch` + a `session-warm` candidate to `roleCandidates(baseModel, {multiTurn})`. But
+   warm-vs-cold is a CROSS-TURN effect (a later cycle resuming the earlier turn's session): the
+   default per-role chain substrate runs ONE isolated turn on a `fresh` session, so there is no
+   prior turn to resume , it cannot measure warmth by construction. So the candidate is gated
+   behind a `multiTurn` capability (default FALSE = excluded on the single-turn chain; ready for
+   the multi-turn DRIVER phase, gated cloud, unbuilt). role-sweep threads the `session` patch onto
+   the ClaudeStepAgent. role-levers.test.ts pins the gate (excluded by default; included +
+   `session:"resume"` when multiTurn; otherwise a strict superset). Honest bound: I did NOT bolt a
+   lever the substrate can't fire , it's declared + ready, not fake-measured. Per the data, #1
+   (the failureOutput pre-localization) dwarfs this; it's the completeness item.
 
 ---
 
@@ -175,10 +207,11 @@ preconditions (each analyst declares exactly its slice's inputs), so #2 should l
 
 ## Sequencing recommendation
 1. #1 DONE.
-2. #2 pre-conditioning-as-contract (subsumes the advisory-assembly migration to orchestrator/build;
-   also the enabler for the test-strategist per-kind analysts).
-3. #3 source-check (likely: document optimize-only, no drive change).
-4. #4 session-warmth lever (small).
+2. #2 pre-conditioning-as-contract , DONE (commit 3da57ea8; subsumed the advisory-assembly
+   migration to orchestrator/build; also the enabler for the test-strategist per-kind analysts).
+3. #3 source-check , DONE (documented optimize-only, no drive change).
+4. #4 session-warmth lever , DONE (real drive warms per-story + confirmed; warm candidate declared +
+   gated on the multi-turn substrate).
 5. test-strategist split , DECIDE against the model-lever result first; if pursued, shape (B) on the
    chain substrate, measured before shipping.
 

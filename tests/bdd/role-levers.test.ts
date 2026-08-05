@@ -46,4 +46,29 @@ describe("roleCandidates: model tiers x effort rungs x scan-tight, baseline firs
     expect(cs.find((c) => c.id === "m-haiku")!.levers).toEqual({ model: "haiku" });
     expect(cs.find((c) => c.id === "e-low")!.levers).toEqual({ effort: "low" });
   });
+
+  // Session warmth is a CROSS-TURN effect (a story's later cycles resuming the earlier session's
+  // context + prompt cache). It cannot be measured on the default SINGLE-TURN chain substrate ,
+  // there is no prior turn to resume , so the warm candidate is gated behind a multiTurn capability.
+  describe("session-warmth lever (gated on a multi-turn substrate)", () => {
+    it("is EXCLUDED by default (single-turn substrate cannot measure warm-vs-cold)", () => {
+      const ids = roleCandidates("sonnet").map((c) => c.id);
+      expect(ids).not.toContain("session-warm");
+    });
+
+    it("is INCLUDED when multiTurn:true (the future driver phase runs sequenced same-key turns)", () => {
+      const cs = roleCandidates("sonnet", { multiTurn: true });
+      const warm = cs.find((c) => c.id === "session-warm");
+      expect(warm).toBeDefined();
+      expect(warm!.levers.session).toBe("resume");
+    });
+
+    it("multiTurn:true is otherwise a SUPERSET , every default candidate still present, baseline first", () => {
+      const base = roleCandidates("sonnet");
+      const multi = roleCandidates("sonnet", { multiTurn: true });
+      expect(multi[0].id).toBe(BASELINE_ID);
+      for (const c of base) expect(multi.map((m) => m.id)).toContain(c.id);
+      expect(multi.length).toBe(base.length + 1);
+    });
+  });
 });

@@ -22,6 +22,10 @@ export interface RoleLeverPatch {
   effort?: string;
   allowedTools?: string[];
   disallowedTools?: string[];
+  /** Session lever: "resume" warms the turn from a prior same-key session (the real drive's
+   *  per-story build warmth). Only meaningful on a MULTI-TURN substrate that ran a prior turn to
+   *  resume , the single-turn chain cannot measure it (see `roleCandidates` multiTurn gate). */
+  session?: "fresh" | "resume";
 }
 
 /** One point in the sweep space: a stable id + the lever patch it applies. */
@@ -53,12 +57,27 @@ function scanTightPatch(): RoleLeverPatch {
   return { disallowedTools: ["Grep", "Glob"] };
 }
 
+/** Sweep-substrate capabilities that GATE which candidates are meaningful. `multiTurn` = the
+ *  substrate runs sequenced same-resume-key turns, so a warm (resume) session has a prior turn to
+ *  resume , the ONLY way warm-vs-cold is measurable. The single-turn chain leaves it false. */
+export interface RoleSweepCapabilities {
+  multiTurn?: boolean;
+}
+
 /**
  * Generate the candidate list for a role whose baseline runs on `baseModel`. Baseline first, then
- * the four families above. Ids are stable + unique. The caller (role-sweep) applies each patch to
- * the live manifest's agent.config + runs the chain once per candidate.
+ * the four always-on families. Ids are stable + unique. The caller (role-sweep) applies each patch
+ * to the live manifest's agent.config + runs the chain once per candidate.
+ *
+ * The SESSION-WARMTH candidate (`session-warm`) is appended ONLY when `caps.multiTurn` is true. It
+ * is a genuine build-time lever in the REAL drive (build roles resume per story , `buildClaudeCommand`
+ * `resumeKey = role:story`, default `buildSessionScope: "story"`, with `cycle` = cold safety valve),
+ * but warm-vs-cold is a CROSS-TURN effect: it needs a prior same-key turn to resume, which the
+ * default single-turn chain substrate does not have. So it is DECLARED here + gated behind the
+ * capability, ready for the multi-turn driver phase (gated cloud, unbuilt) without pretending to
+ * measure on a substrate that structurally cannot , see PRODUCTION-IMPROVEMENTS-PLAN.md #4.
  */
-export function roleCandidates(baseModel: string): RoleCandidate[] {
+export function roleCandidates(baseModel: string, caps: RoleSweepCapabilities = {}): RoleCandidate[] {
   const others = otherModels(baseModel);
   const out: RoleCandidate[] = [{ id: BASELINE_ID, levers: {} }];
 
@@ -70,6 +89,8 @@ export function roleCandidates(baseModel: string): RoleCandidate[] {
   for (const m of others) out.push({ id: `m-${m}-e-low`, levers: { model: m, effort: "low" } });
   // (4) scan-tight (deny Grep/Glob)
   out.push({ id: "scan-tight", levers: scanTightPatch() });
+  // (5) session-warm , ONLY on a multi-turn substrate (a single-turn chain cannot measure warmth).
+  if (caps.multiTurn) out.push({ id: "session-warm", levers: { session: "resume" } });
 
   return out;
 }

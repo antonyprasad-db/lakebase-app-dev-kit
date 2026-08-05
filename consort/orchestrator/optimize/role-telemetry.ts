@@ -21,7 +21,7 @@ import { join } from "node:path";
 export interface RoleLevers {
   model?: string;
   effort?: string;
-  session?: string;
+  session?: "fresh" | "resume";
   resumeKeyFrom?: string;
   allowedTools?: string[];
   disallowedTools?: string[];

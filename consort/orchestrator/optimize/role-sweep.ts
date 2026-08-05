@@ -85,6 +85,7 @@ function agentForCandidate(chain: RoleChain, patch: RoleLeverPatch): (m: StepMan
       // the candidate patch WINS over the base for the swept axes
       ...(patch.model !== undefined ? { model: patch.model } : {}),
       ...(patch.effort !== undefined ? { effort: patch.effort } : {}),
+      ...(patch.session !== undefined ? { session: patch.session } : {}),
       ...(patch.allowedTools !== undefined ? { allowedTools: patch.allowedTools } : {}),
       ...(patch.disallowedTools !== undefined ? { disallowedTools: patch.disallowedTools } : {}),
     };

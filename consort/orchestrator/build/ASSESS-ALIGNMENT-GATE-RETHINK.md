@@ -1,6 +1,15 @@
 # Design follow-up: the navigator-ASSESS alignment gate is measuring the wrong thing
 
-Status: FINDING + PROPOSAL (not yet acted on). From the S1 live assess run.
+Status: RESOLVED. The delta-vs-ground-truth redesign SHIPPED in the optimize/eval layer
+(`optimize-semantic-gate.ts` `evaluateNavigatorAssessAlignment` + `makeSupersessionDeltaJudge`,
+commit 7a30073d). Task #572 then source-checked the REAL drive and confirmed it is CORRECTLY
+optimize-only: the drive routes directly off the navigator's assess marker with NO verdict-
+alignment check, and the honest-GREEN re-verify (not a verdict gate) is the runtime functional
+backstop , a wrong flag/directive fails re-verify, which re-arms a bounded number of self-heal
+rounds then escalates. Runtime has no recorded ground truth to align against, so the gate could
+not live there even in principle; it is an EVALUATION instrument, not a runtime gate. No drive
+change , see PRODUCTION-IMPROVEMENTS-PLAN.md #3. The finding + evidence below are retained as the
+rationale for the delta-judge design.
 
 ## What happened (the evidence)
 
