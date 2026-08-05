@@ -12,7 +12,7 @@
 
 import * as fs from "node:fs";
 import { escalationsDir, escalationFile } from "../../consort/config/sftdd-paths.js";
-import { readSmellsLog, writeSmellsLog, hasOpenSmell, type SmellName } from "../../scripts/sftdd/smells.js";
+import { readSmellsLog, writeSmellsLog, hasOpenSmell, type SmellName } from "../smells/smells.js";
 import { pendingItemKind } from "../pipeline/cycle-record.js";
 
 /** A blocking problem raised to the HIL. Identity is `id` (derived from source +

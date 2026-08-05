@@ -34,20 +34,20 @@ import {
   readRegressionAssessment,
   writeRegressionAssessment,
   composeAssessedGreenFailure,
-} from "./supersession.js";
+} from "../../consort/smells/supersession.js";
 import { writeEscalation } from "../../consort/gates/escalation.js";
-import { recordReflectionGate } from "./reflection.js";
+import { recordReflectionGate } from "../../consort/smells/reflection.js";
 import {
   readDeployVerifyAssessMarker,
   readDeployVerifyScope,
   markDeployVerifyAssessed,
   markDeployVerifyRefactored,
-} from "./deploy-verify-assess.js";
+} from "../../consort/smells/deploy-verify-assess.js";
 import {
   readRefactorVerifyAssessMarker,
   markRefactorVerifyAssessed,
   markRefactorVerifyRefactored,
-} from "./refactor-verify-assess.js";
+} from "../../consort/smells/refactor-verify-assess.js";
 
 interface Args {
   cmd?: string;

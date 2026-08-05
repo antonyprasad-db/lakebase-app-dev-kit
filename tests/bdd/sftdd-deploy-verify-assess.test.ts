@@ -12,7 +12,7 @@ import {
   deployVerifyRefactorPending,
   clearDeployVerifyAssessMarker,
   deployVerifyNeedsAssess,
-} from "../../scripts/sftdd/deploy-verify-assess";
+} from "../../consort/smells/deploy-verify-assess";
 
 const FEATURE = "F6-split-tracking-code";
 const STORY = "S3-view-batch-and-serial";

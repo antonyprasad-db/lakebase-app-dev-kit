@@ -11,7 +11,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { reviewStory } from "../../consort/pipeline/cycle-record.js";
-import { readSmellsLog } from "../../scripts/sftdd/smells.js";
+import { readSmellsLog } from "../../consort/smells/smells.js";
 
 const F = "F6";
 const S = "S1";

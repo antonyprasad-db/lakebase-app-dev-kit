@@ -20,7 +20,7 @@ import {
   reviewPending,
   refactorPending,
 } from "../../pipeline/cycle-record.js";
-import { needsGreenAssess, hasPendingRegressionFix, hasPendingSupersession } from "../../../scripts/sftdd/supersession.js";
+import { needsGreenAssess, hasPendingRegressionFix, hasPendingSupersession } from "../../smells/supersession.js";
 import { driverPhaseForTdd, type StoryArtifactProbe, type DriveContext } from "./orchestrator-derive.js";
 import type { DriveEscalation } from "../workflow/workflow-vocabulary.js";
 import { readGates } from "../../gates/gates.js";
@@ -29,15 +29,15 @@ import { storyDeployVerified } from "../../../scripts/sftdd/deploy.js";
 import {
   deployVerifyNeedsAssess,
   deployVerifyRefactorPending as deployVerifyRefactorPendingMarker,
-} from "../../../scripts/sftdd/deploy-verify-assess.js";
+} from "../../smells/deploy-verify-assess.js";
 import {
   refactorVerifyNeedsAssess as refactorVerifyNeedsAssessMarker,
   refactorVerifyRefactorPending as refactorVerifyRefactorPendingMarker,
-} from "../../../scripts/sftdd/refactor-verify-assess.js";
+} from "../../smells/refactor-verify-assess.js";
 import { readWorkflowState, SCM_STATES } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { firstPendingEscalation } from "../../gates/escalation.js";
-import { specLevelSmell, priorReviseCount, isBuildRefactorRoutableSmell, isReflectSmell, priorReflectReviseCount, REFLECT_REVISE_CAP, storyTestListFingerprint, lastReflectReviseFingerprint } from "../../../scripts/sftdd/smells.js";
-import { reflectionPassed, reflectionVerdictWritten } from "../../../scripts/sftdd/reflection.js";
+import { specLevelSmell, priorReviseCount, isBuildRefactorRoutableSmell, isReflectSmell, priorReflectReviseCount, REFLECT_REVISE_CAP, storyTestListFingerprint, lastReflectReviseFingerprint } from "../../smells/smells.js";
+import { reflectionPassed, reflectionVerdictWritten } from "../../smells/reflection.js";
 import { readCanon, architectNovelty } from "../../../scripts/sftdd/architecture-canon.js";
 import {
   cyclesRootDir,

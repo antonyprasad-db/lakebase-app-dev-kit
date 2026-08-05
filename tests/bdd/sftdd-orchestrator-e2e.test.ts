@@ -7,7 +7,7 @@ import { writeWorkflowState, readWorkflowState, writeFeature } from "../../scrip
 import { writeMasterTestList } from "../../scripts/sftdd/test-list";
 import { analyzeForGate, recordPlan, writePlan } from "../../consort/gates/design-spec-gate";
 import { beginCycle, markGreen, listCycles } from "../../consort/pipeline/run-cycle";
-import { runDetectorsForScope, writeSmellsLog, readSmellsLog } from "../../scripts/sftdd/smells";
+import { runDetectorsForScope, writeSmellsLog, readSmellsLog } from "../../consort/smells/smells";
 
 const LIVE = process.env.LAKEBASE_TEST_E2E === "1" && !!process.env.DATABRICKS_HOST;
 

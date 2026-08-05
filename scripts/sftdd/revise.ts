@@ -38,8 +38,8 @@ import {
   isReflectSmell,
   resolveOpenReflectSmellsForStory,
   storyTestListFingerprint,
-} from "./smells.js";
-import { clearReflectVerdict } from "./reflection.js";
+} from "../../consort/smells/smells.js";
+import { clearReflectVerdict } from "../../consort/smells/reflection.js";
 import { resetStoryBuildState } from "../../consort/pipeline/cycle-record.js";
 import { resolveEscalationsForStory } from "../../consort/gates/escalation.js";
 

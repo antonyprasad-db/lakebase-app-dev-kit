@@ -14,7 +14,7 @@ import {
   resolvePreparer,
   PRECONDITION_PREPARERS,
 } from "../../consort/orchestrator/build/preconditions";
-import { writeGreenFailure } from "../../scripts/sftdd/supersession.js";
+import { writeGreenFailure } from "../../consort/smells/supersession.js";
 
 let tdd: string;
 const F = "F6";

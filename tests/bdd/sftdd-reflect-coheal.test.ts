@@ -20,7 +20,7 @@ import {
   readSmellsLog,
   priorReflectReviseCount,
   isReflectSmell,
-} from "../../scripts/sftdd/smells";
+} from "../../consort/smells/smells";
 import { writePipeline, type StoryPipeline } from "../../consort/pipeline/story-pipeline";
 
 const FEATURE = "F1-stock-visibility";

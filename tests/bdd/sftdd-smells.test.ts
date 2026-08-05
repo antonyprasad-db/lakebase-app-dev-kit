@@ -18,7 +18,7 @@ import {
   readSmellsLog,
   composeReviseBrief,
   specLevelSmell,
-} from "../../scripts/sftdd/smells";
+} from "../../consort/smells/smells";
 import type { CycleArtifact, CycleScope } from "../../consort/pipeline/run-cycle";
 
 let tdd: string;

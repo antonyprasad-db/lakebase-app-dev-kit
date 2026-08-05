@@ -23,7 +23,7 @@ import {
   readSmellsLog,
   resolveOpenReflectSmellsForStory,
   storyTestListFingerprint,
-} from "../../scripts/sftdd/smells";
+} from "../../consort/smells/smells";
 import { recordBlockingSmellFlag, writeEscalation, readEscalations } from "../../consort/gates/escalation";
 import { nextTransition, nextDesignOnlyTransition, actionLane, type DriveState } from "../../consort/orchestrator/drive/orchestrator-drive";
 import { commandsForAction, type DriveEffectsConfig } from "../../consort/orchestrator/drive/orchestrator-effects";
@@ -39,7 +39,7 @@ import { storyTestProgress } from "../../consort/pipeline/cycle-record";
 import { cyclesRootDir } from "../../consort/config/sftdd-paths";
 import { readFileSync as readFileSyncNode } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { writeReflectVerdict, reflectionVerdictWritten } from "../../scripts/sftdd/reflection";
+import { writeReflectVerdict, reflectionVerdictWritten } from "../../consort/smells/reflection";
 import { writePipeline, readPipeline, type StoryPipeline } from "../../consort/pipeline/story-pipeline";
 import { deriveDriveState } from "../../consort/orchestrator/state/orchestrator-derive";
 

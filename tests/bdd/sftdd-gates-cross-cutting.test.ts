@@ -37,7 +37,7 @@ import {
   readSmellsLog,
   runDetectorsForScope,
   writeSmellsLog,
-} from "../../scripts/sftdd/smells";
+} from "../../consort/smells/smells";
 import {
   readMasterTestList,
   writeMasterTestList,

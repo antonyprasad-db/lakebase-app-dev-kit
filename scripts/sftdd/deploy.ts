@@ -26,11 +26,11 @@ import {
   writeDeployVerifyAssessMarker,
   readDeployVerifyAssessMarker,
   clearDeployVerifyAssessMarker,
-} from "./deploy-verify-assess.js";
+} from "../../consort/smells/deploy-verify-assess.js";
 import { checkE2eRegexClean, summarizeE2eRegexViolations, E2E_REGEX_REMEDIATION } from "./e2e-regex-clean.js";
 import { emitAgentLogEvent, type AgentLogIoOpts } from "../../consort/logging/agent-log.js";
 import type { AgentLogEventName } from "../../consort/logging/agent-log-events.js";
-import { withEphemeralVerifyBranch, ephemeralVerifyBranchName } from "./ephemeral-verify.js";
+import { withEphemeralVerifyBranch, ephemeralVerifyBranchName } from "../../consort/smells/ephemeral-verify.js";
 import { sftddEnv } from "../../consort/config/sftdd-env.js";
 
 /** Read the Lakebase project id from the project's .env (LAKEBASE_PROJECT_ID). */

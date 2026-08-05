@@ -14,7 +14,7 @@ import {
   writeSmellsLog,
   priorReviseCount,
   markSmellResolved,
-} from "../../scripts/sftdd/smells.js";
+} from "../../consort/smells/smells.js";
 import { BLOCKING_SMELLS, escalationsFromSmells } from "../../consort/gates/escalation.js";
 import { diskArtifactProbe } from "../../consort/orchestrator/state/orchestrator-probe.js";
 import { staleStoryArtifactsForRevise, applyReviseSelfHeal } from "../../scripts/sftdd/revise.js";

@@ -38,9 +38,9 @@ export { turnKeyForAction } from "./turn-key.js";
 import { turnKeyForAction } from "./turn-key.js";
 import { designGuideConformance } from "../../../scripts/sftdd/response-formatter.js";
 import { storyTestProgress, nextPendingBatch, DEFAULT_BATCH_CAP } from "../../pipeline/cycle-record.js";
-import { readSupersededTests, readGreenFailure } from "../../../scripts/sftdd/supersession.js";
-import { readDeployVerifyAssessMarker, readDeployVerifyScope } from "../../../scripts/sftdd/deploy-verify-assess.js";
-import { readRefactorVerifyAssessMarker } from "../../../scripts/sftdd/refactor-verify-assess.js";
+import { readSupersededTests, readGreenFailure } from "../../smells/supersession.js";
+import { readDeployVerifyAssessMarker, readDeployVerifyScope } from "../../smells/deploy-verify-assess.js";
+import { readRefactorVerifyAssessMarker } from "../../smells/refactor-verify-assess.js";
 import { readConventions } from "../../../scripts/sftdd/architecture-conventions.js";
 // The build-turn CONTEXT PACK (rubric + layout + test locations) lives in the orchestrator
 // family as the single source of truth , the lean per-role build chains inject the SAME pack.

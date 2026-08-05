@@ -18,7 +18,7 @@ import {
 import { existsSync, readFileSync } from "node:fs";
 import { handbackFile } from "../../consort/config/sftdd-paths";
 import { beginNextPendingCycle } from "../../consort/pipeline/cycle-record";
-import { writeGreenFailure, writeSupersededTests } from "../../scripts/sftdd/supersession";
+import { writeGreenFailure, writeSupersededTests } from "../../consort/smells/supersession";
 
 function recordingRunner(): { runner: CommandRunner; calls: DriveCommand[] } {
   const calls: DriveCommand[] = [];

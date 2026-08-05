@@ -8,7 +8,7 @@ import { describe, it, expect } from "vitest";
 import {
   withEphemeralVerifyBranch,
   ephemeralVerifyBranchName,
-} from "../../scripts/sftdd/ephemeral-verify";
+} from "../../consort/smells/ephemeral-verify";
 
 describe("ephemeralVerifyBranchName", () => {
   it("produces a unique, sanitized child name under the experiment branch", () => {

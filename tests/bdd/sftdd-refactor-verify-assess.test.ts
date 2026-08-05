@@ -18,7 +18,7 @@ import {
   clearRefactorVerifyAssessMarker,
   refactorVerifyNeedsAssess,
   refactorVerifyRefactorPending,
-} from "../../scripts/sftdd/refactor-verify-assess";
+} from "../../consort/smells/refactor-verify-assess";
 import { nextTransition, type DriveState } from "../../consort/orchestrator/drive/orchestrator-drive";
 
 const F = "F6-split-tracking-code";

@@ -16,7 +16,7 @@ import {
   reflectionVerdictWritten,
   recordReflectionGate,
   clearReflectVerdict,
-} from "../../scripts/sftdd/reflection.js";
+} from "../../consort/smells/reflection.js";
 
 let tdd: string;
 const F = "F1";
@@ -167,7 +167,7 @@ describe("recordReflectionGate: idempotent + self-clearing (Finding 9)", () => {
   });
 
   it("clearing on pass does not spend the revise budget (resolution_kind is 'cleared', not 'revised')", async () => {
-    const { priorReviseCount } = await import("../../scripts/sftdd/smells.js");
+    const { priorReviseCount } = await import("../../consort/smells/smells.js");
     failVerdict();
     recordReflectionGate(tdd, F, S);
     writeReflectVerdict(tdd, F, S, { version: 1, passed: true, findings: [] });

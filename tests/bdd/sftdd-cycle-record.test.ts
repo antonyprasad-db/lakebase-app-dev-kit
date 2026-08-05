@@ -28,7 +28,7 @@ import {
   type GreenVerifier,
 } from "../../consort/pipeline/cycle-record.js";
 import { readAgentLog } from "../../consort/logging/agent-log.js";
-import { markRefactorVerifyAssessed } from "../../scripts/sftdd/refactor-verify-assess.js";
+import { markRefactorVerifyAssessed } from "../../consort/smells/refactor-verify-assess.js";
 
 // greenOpenCycle now runs an HONEST verify (deploy-during-build) before stamping
 // green. These cycle-record unit tests inject a passing verifier so they exercise

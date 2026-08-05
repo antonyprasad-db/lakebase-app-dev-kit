@@ -15,7 +15,7 @@ import {
   SMELL_CATALOG,
   detectAll,
   detectE2eRowPermaRed,
-} from "../../scripts/sftdd/smells";
+} from "../../consort/smells/smells";
 import type { CycleArtifact, CycleScope } from "../../consort/pipeline/run-cycle";
 import type { TestList } from "../../scripts/sftdd/test-list";
 

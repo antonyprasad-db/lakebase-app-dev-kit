@@ -10,7 +10,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { isBuildRefactorRoutableSmell, writeSmellsLog, readSmellsLog } from "../../scripts/sftdd/smells";
+import { isBuildRefactorRoutableSmell, writeSmellsLog, readSmellsLog } from "../../consort/smells/smells";
 import { diskArtifactProbe } from "../../consort/orchestrator/state/orchestrator-probe";
 import { reviewAc, refactorAc, firstRefactorPendingAc, type GreenVerifier } from "../../consort/pipeline/cycle-record";
 import { writeCycleArtifact } from "../../consort/pipeline/run-cycle";

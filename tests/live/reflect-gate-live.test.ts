@@ -19,7 +19,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
 import { commandsForAction } from "../../consort/orchestrator/drive/orchestrator-effects.js";
-import { recordReflectionGate, readReflectVerdict } from "../../scripts/sftdd/reflection.js";
+import { recordReflectionGate, readReflectVerdict } from "../../consort/smells/reflection.js";
 import { storyAcIds, storyTestListJson, acsDir } from "../../consort/config/sftdd-paths.js";
 
 const KIT = process.cwd();

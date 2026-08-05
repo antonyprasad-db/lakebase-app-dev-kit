@@ -21,7 +21,7 @@ import {
   greenOpenCycle,
   type GreenVerifier,
 } from "../../consort/pipeline/cycle-record.js";
-import { readGreenFailure, needsGreenAssess } from "../../scripts/sftdd/supersession.js";
+import { readGreenFailure, needsGreenAssess } from "../../consort/smells/supersession.js";
 
 const tmpDirs: string[] = [];
 

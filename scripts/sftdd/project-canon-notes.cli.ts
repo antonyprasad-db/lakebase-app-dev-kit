@@ -13,7 +13,7 @@
 
 import { projectStoryNotes, evaluateStoryCanon } from "./architecture-canon.js";
 import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
-import { writeSmellsLog } from "./smells.js";
+import { writeSmellsLog } from "../../consort/smells/smells.js";
 
 interface Parsed {
   feature: string;

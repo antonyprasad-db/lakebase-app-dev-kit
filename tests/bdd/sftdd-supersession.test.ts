@@ -21,8 +21,8 @@ import {
   markRegressionFixAttempted,
   composeAssessedGreenFailure,
   MAX_REGRESSION_FIX_ATTEMPTS,
-} from "../../scripts/sftdd/supersession.js";
-import { isBuildRefactorRoutableSmell, SMELL_CATALOG } from "../../scripts/sftdd/smells.js";
+} from "../../consort/smells/supersession.js";
+import { isBuildRefactorRoutableSmell, SMELL_CATALOG } from "../../consort/smells/smells.js";
 
 let tdd: string;
 const F = "F5-review-submissions";

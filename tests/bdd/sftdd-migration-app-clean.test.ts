@@ -14,7 +14,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { checkMigrationAppClean } from "../../scripts/sftdd/migration-app-clean.js";
 import { beginNextPendingCycle, greenOpenCycle, type GreenVerifier } from "../../consort/pipeline/cycle-record.js";
-import { readGreenFailure } from "../../scripts/sftdd/supersession.js";
+import { readGreenFailure } from "../../consort/smells/supersession.js";
 
 const tmpDirs: string[] = [];
 function mkProject(): string {

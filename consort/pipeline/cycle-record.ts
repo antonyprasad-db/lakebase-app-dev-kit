@@ -33,7 +33,7 @@ import { markTestItemGreen } from "../../scripts/sftdd/test-list.js";
 import { listExperiments } from "../../consort/experiment/experiment.js";
 import { ensureDeployedAndVerify } from "../../scripts/sftdd/deploy.js";
 import { writeEscalation, type Escalation } from "../../consort/gates/escalation.js";
-import { readSmellsLog, markSmellResolved, isBuildRefactorRoutableSmell, hasOpenBuildRefactorRoutableSmell, writeSmellsLog, hasOpenSmell } from "../../scripts/sftdd/smells.js";
+import { readSmellsLog, markSmellResolved, isBuildRefactorRoutableSmell, hasOpenBuildRefactorRoutableSmell, writeSmellsLog, hasOpenSmell } from "../smells/smells.js";
 import { checkUxClean, summarizeUxViolations } from "../../scripts/sftdd/design-adherence.js";
 import {
   readGreenFailure,
@@ -44,9 +44,9 @@ import {
   markRegressionFixAttempted,
   regressionFixExhausted,
   rearmRegressionFix,
-} from "../../scripts/sftdd/supersession.js";
+} from "../smells/supersession.js";
 import { checkContractClean, supersededTestCandidates } from "../../scripts/sftdd/contract-clean.js";
-import { readRefactorVerifyAssessMarker, writeRefactorVerifyAssessMarker, clearRefactorVerifyAssessMarker } from "../../scripts/sftdd/refactor-verify-assess.js";
+import { readRefactorVerifyAssessMarker, writeRefactorVerifyAssessMarker, clearRefactorVerifyAssessMarker } from "../smells/refactor-verify-assess.js";
 import { checkMigrationAppClean } from "../../scripts/sftdd/migration-app-clean.js";
 import { emitAgentLogEvent, type AgentLogEventInput } from "../../consort/logging/agent-log.js";
 import { commitAllIfChanged } from "@databricks-solutions/lakebase-scm-utils/git";

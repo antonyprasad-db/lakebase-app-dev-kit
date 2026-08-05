@@ -17,7 +17,7 @@
 // advisory projection + the KIND -> preparer registry the executor + roleTaskBody resolve.
 
 import { buildContextPack } from "./build-context.js";
-import { readGreenFailure } from "../../../scripts/sftdd/supersession.js";
+import { readGreenFailure } from "../../smells/supersession.js";
 
 /** The scope a preparer projects against (a pure read of on-disk `.sftdd`). */
 export interface PreparerContext {

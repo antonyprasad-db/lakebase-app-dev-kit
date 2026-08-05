@@ -21,7 +21,7 @@ import { readAgentLog } from "../../consort/logging/agent-log";
 import {
   readDeployVerifyAssessMarker,
   markDeployVerifyAssessed,
-} from "../../scripts/sftdd/deploy-verify-assess";
+} from "../../consort/smells/deploy-verify-assess";
 
 const TARGETS = [
   "targets:",

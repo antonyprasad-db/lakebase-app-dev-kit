@@ -58,7 +58,7 @@ import {
 import { join } from "path";
 import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
 import { reviseStoryWithSelfHeal, clearStoryBlockingSmellOnDiscard, rebuildStory } from "./revise.js";
-import { markSmellResolved } from "./smells.js";
+import { markSmellResolved } from "../../consort/smells/smells.js";
 import { resolveAcceptMergeArgs, experimentMergeArgv } from "../../consort/experiment/experiment-merge.js";
 import { runKitBinSync } from "../../consort/config/kit-bin.js";
 
