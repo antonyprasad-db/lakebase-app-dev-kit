@@ -12,8 +12,8 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { runOrchestration, type OrchestrationRunConfig, type LifecycleDeps } from "../../consort/orchestrator/manifest/orchestration-runner";
-import type { ManifestRunnerDeps } from "../../consort/orchestrator/manifest/manifest-runner";
+import { runOrchestration, type OrchestrationRunConfig, type LifecycleDeps } from "../../consort/orchestrator/runner/orchestration-runner";
+import type { ManifestRunnerDeps } from "../../consort/orchestrator/runner/manifest-runner";
 import type { StepManifest } from "../../consort/orchestrator/steps/manifest";
 import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 

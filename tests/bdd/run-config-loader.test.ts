@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { resolveEnvTemplate, loadRunConfig } from "../../consort/orchestrator/manifest/run-config-loader";
+import { resolveEnvTemplate, loadRunConfig } from "../../consort/orchestrator/runner/run-config-loader";
 
 let dir: string;
 const saved: Record<string, string | undefined> = {};

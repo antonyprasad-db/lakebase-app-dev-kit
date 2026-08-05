@@ -28,7 +28,7 @@ import { expect } from "vitest";
 import { readFileSync, writeFileSync, existsSync, statSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
-import { loadRunConfig } from "../../../consort/orchestrator/manifest/run-config-loader.js";
+import { loadRunConfig } from "../../../consort/orchestrator/runner/run-config-loader.js";
 import { resolveTestEnv } from "../../../consort/orchestrator/provisioning/test-env.js";
 import { layDownKitAgents, overlayBundle } from "../../../consort/orchestrator/provisioning/bundle.js";
 import { catalogueLifecycleDeps } from "../../../consort/orchestrator/provisioning/lifecycle-catalogue.js";

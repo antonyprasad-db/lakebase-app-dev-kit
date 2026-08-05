@@ -38,7 +38,7 @@ import {
   type DiscriminatorVerdict,
 } from "../../../scripts/sftdd/optimize-semantic-gate.js";
 import { formatRoleTelemetry, writeRoleTelemetry, type RoleTelemetry } from "../../../consort/orchestrator/optimize/role-telemetry.js";
-import type { ManifestTurn } from "../../../consort/orchestrator/manifest/manifest-runner.js";
+import type { ManifestTurn } from "../../../consort/orchestrator/runner/manifest-runner.js";
 
 export const KIT = process.cwd();
 export const TELEMETRY_DIR = process.env.LAKEBASE_ROLE_TELEMETRY_DIR ?? join(KIT, ".role-telemetry");

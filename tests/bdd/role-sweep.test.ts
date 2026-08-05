@@ -9,7 +9,7 @@ import { reportRoleSweep, formatRoleSweepReport } from "../optimization/role-swe
 import { roleCandidates } from "../optimization/role-levers";
 import { ROLE_CHAINS } from "../../consort/orchestrator/optimize/role-chains";
 import type { SemanticJudge } from "../../scripts/sftdd/optimize-semantic-gate";
-import type { ManifestTurn } from "../../consort/orchestrator/manifest/manifest-runner";
+import type { ManifestTurn } from "../../consort/orchestrator/runner/manifest-runner";
 
 const CHAIN = ROLE_CHAINS["test-strategist"];
 

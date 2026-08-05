@@ -17,7 +17,7 @@
 import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runManifestStep, type ManifestRunnerDeps } from "../manifest/manifest-runner.js";
+import { runManifestStep, type ManifestRunnerDeps } from "../runner/manifest-runner.js";
 import { loadStepManifests, type StepManifest } from "../steps/manifest.js";
 import { catalogueLifecycleDeps } from "../provisioning/lifecycle-catalogue.js";
 import type { LifecycleOp } from "../provisioning/lifecycle-types.js";

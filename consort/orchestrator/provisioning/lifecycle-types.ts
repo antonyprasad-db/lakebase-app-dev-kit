@@ -4,7 +4,7 @@
 // both sides import the same types without dragging in the runner or the catalogue's cloud calls.
 //
 // The run bracket itself (OrchestrationRunConfig / OrchestrationResult) lives with the runner in
-// manifest/orchestration-runner.ts , it composes these ops with a WorkflowAction + the chain turns.
+// runner/orchestration-runner.ts , it composes these ops with a WorkflowAction + the chain turns.
 
 /** A lifecycle op declaration , WHICH op (kind) + its config (both DATA), mirroring the
  *  agent spec. `scaffold-project` / `remove-project` are the catalogued kinds. */
