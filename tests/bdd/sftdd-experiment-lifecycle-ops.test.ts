@@ -8,7 +8,7 @@ import {
   mergeExperimentIntoFeature,
   discardExperimentBranch,
   type ExperimentBranchOps,
-} from "../../scripts/sftdd/experiment-lifecycle";
+} from "../../consort/experiment/experiment-lifecycle";
 
 function recordingOps(overrides: Partial<ExperimentBranchOps> = {}): {
   ops: ExperimentBranchOps;

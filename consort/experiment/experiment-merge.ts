@@ -14,9 +14,9 @@
 
 import { mergeExperimentIntoFeature, type ExperimentBranchOps } from "./experiment-lifecycle.js";
 import { deleteExperiment } from "./experiment.js";
-import { readPipeline, writePipeline, acceptStory } from "./story-pipeline.js";
+import { readPipeline, writePipeline, acceptStory } from "../../scripts/sftdd/story-pipeline.js";
 import { mergePaired } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-import { commitExperimentCode } from "./cycle-record.js";
+import { commitExperimentCode } from "../../scripts/sftdd/cycle-record.js";
 import { applySchemaMigrations } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 

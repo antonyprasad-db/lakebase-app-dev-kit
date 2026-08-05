@@ -10,7 +10,7 @@ import {
   writeOutcomes,
   type AcLayer,
   type ExperimentTag,
-} from "./experiment";
+} from "../../consort/experiment/experiment";
 import { emitAgentLogEvent, type AgentLogEventInput } from "../../consort/logging/agent-log";
 import { readAcLayer as readAcLayerFromPaths } from "../../consort/config/sftdd-paths.js";
 

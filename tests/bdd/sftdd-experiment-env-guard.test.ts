@@ -20,7 +20,7 @@ vi.mock("@databricks-solutions/lakebase-scm-utils/lakebase", () => ({
   deletePairedBranch: (...args: unknown[]) => deletePairedBranch(...args),
 }));
 
-import { cutExperiment, experimentDir } from "../../scripts/sftdd/experiment";
+import { cutExperiment, experimentDir } from "../../consort/experiment/experiment";
 
 let tdd: string;
 let proj: string;

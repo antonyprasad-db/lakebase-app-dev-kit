@@ -20,10 +20,10 @@
 //
 // Exit: 0 ok; 2 bad args; 1 op failure.
 
-import { cutExperiment } from "./experiment";
+import { cutExperiment } from "../../consort/experiment/experiment";
 import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
-import { discardExperimentBranch } from "./experiment-lifecycle";
-import { realExperimentOps, mergeAndAcceptStory } from "./experiment-merge.js";
+import { discardExperimentBranch } from "../../consort/experiment/experiment-lifecycle";
+import { realExperimentOps, mergeAndAcceptStory } from "../../consort/experiment/experiment-merge.js";
 import {
   readPipeline,
   writePipeline,
@@ -32,7 +32,7 @@ import {
   reviseStory,
 } from "./story-pipeline";
 import { resetStoryBuildState } from "./cycle-record";
-import { parseExperimentArgs, validateExperimentArgs } from "./experiment-args";
+import { parseExperimentArgs, validateExperimentArgs } from "../../consort/experiment/experiment-args";
 import { emitAgentLogEvent } from "../../consort/logging/agent-log";
 
 /** Best-effort experiment-lifecycle event to the central log. The discard/revise

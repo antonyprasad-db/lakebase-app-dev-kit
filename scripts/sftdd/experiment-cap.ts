@@ -21,7 +21,7 @@
 
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { experimentDir, readOutcomes, writeOutcomes, type ExperimentCap, type ExperimentOutcomes } from "./experiment";
+import { experimentDir, readOutcomes, writeOutcomes, type ExperimentCap, type ExperimentOutcomes } from "../../consort/experiment/experiment";
 import type { PerExperimentCap } from "../../consort/gates/design-spec-gate";
 
 export interface CheckPerExperimentCapArgs {

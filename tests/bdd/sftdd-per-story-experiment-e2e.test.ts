@@ -26,7 +26,7 @@ import {
   mergeExperimentIntoFeature,
   discardExperimentBranch,
   type ExperimentBranchOps,
-} from "../../scripts/sftdd/experiment-lifecycle";
+} from "../../consort/experiment/experiment-lifecycle";
 
 const AT = "2026-06-07T12:00:00.000Z";
 const FEATURE_BRANCH = "feature/F1";

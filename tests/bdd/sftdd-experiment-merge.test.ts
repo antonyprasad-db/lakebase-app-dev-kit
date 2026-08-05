@@ -12,8 +12,8 @@ import {
   mergeAndAcceptStory,
   resolveAcceptMergeArgs,
   experimentMergeArgv,
-} from "../../scripts/sftdd/experiment-merge";
-import type { ExperimentBranchOps } from "../../scripts/sftdd/experiment-lifecycle";
+} from "../../consort/experiment/experiment-merge";
+import type { ExperimentBranchOps } from "../../consort/experiment/experiment-lifecycle";
 import { readPipeline, writePipeline, type StoryPipeline } from "../../scripts/sftdd/story-pipeline";
 
 const F = "F1";

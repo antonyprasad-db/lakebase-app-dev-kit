@@ -17,7 +17,7 @@ import * as path from "node:path";
 import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
 
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
-import { cutSpike, listSpikes, deleteSpike, spikeNotes } from "./spike.js";
+import { cutSpike, listSpikes, deleteSpike, spikeNotes } from "../../consort/experiment/spike.js";
 
 interface ParsedArgs {
   slug?: string;

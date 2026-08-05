@@ -30,7 +30,7 @@ import {
   storyReviewVerdictJson,
 } from "../../consort/config/sftdd-paths.js";
 import { markTestItemGreen } from "./test-list.js";
-import { listExperiments } from "./experiment.js";
+import { listExperiments } from "../../consort/experiment/experiment.js";
 import { ensureDeployedAndVerify } from "./deploy.js";
 import { writeEscalation, type Escalation } from "../../consort/gates/escalation.js";
 import { readSmellsLog, markSmellResolved, isBuildRefactorRoutableSmell, hasOpenBuildRefactorRoutableSmell, writeSmellsLog, hasOpenSmell } from "./smells.js";
@@ -60,7 +60,7 @@ import {
   type CycleArtifact,
   type CycleScope,
 } from "./run-cycle.js";
-import type { AcLayer } from "./experiment.js";
+import type { AcLayer } from "../../consort/experiment/experiment.js";
 
 /**
  * Commit the working tree (production code + tests + cycle artifacts) on the

@@ -18,7 +18,7 @@
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "fs";
 import { dirname, join, relative } from "path";
-import { experimentDir } from "./experiment";
+import { experimentDir } from "../../consort/experiment/experiment";
 
 export interface WriteArtifactArgs {
   sftddDir: string;

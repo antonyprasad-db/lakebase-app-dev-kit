@@ -11,7 +11,7 @@
 
 import { describe, it, expect } from "vitest";
 import { commandsForAction, type DriveEffectsConfig } from "../../consort/orchestrator/drive/orchestrator-effects";
-import { parseExperimentArgs, validateExperimentArgs } from "../../scripts/sftdd/experiment-args";
+import { parseExperimentArgs, validateExperimentArgs } from "../../consort/experiment/experiment-args";
 import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 
 const EXPERIMENT_BIN = "lakebase-sftdd-experiment";

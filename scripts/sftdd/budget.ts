@@ -1,7 +1,7 @@
-import { listExperiments } from "./experiment";
+import { listExperiments } from "../../consort/experiment/experiment";
 import { readPlan } from "../../consort/gates/design-spec-gate";
-import type { ExperimentOutcomes } from "./experiment";
-import { readOutcomes } from "./experiment";
+import type { ExperimentOutcomes } from "../../consort/experiment/experiment";
+import { readOutcomes } from "../../consort/experiment/experiment";
 
 export interface BudgetSnapshot {
   feature_id: string;

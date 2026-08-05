@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync, readFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { promoteExperiment } from "../../scripts/sftdd/promote-experiment";
+import { promoteExperiment } from "../../consort/experiment/promote-experiment";
 
 let tdd: string;
 

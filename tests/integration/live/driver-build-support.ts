@@ -34,7 +34,7 @@ import { layDownKitAgents, overlayBundle } from "../../../consort/orchestrator/p
 import { catalogueLifecycleDeps } from "../../../consort/orchestrator/provisioning/lifecycle-catalogue.js";
 import type { LifecycleRunContext } from "../../../consort/orchestrator/provisioning/lifecycle-types.js";
 import type { ScaffoldHandle } from "../../../consort/orchestrator/provisioning/lifecycle-catalogue.js";
-import { cutExperiment } from "../../../scripts/sftdd/experiment.js";
+import { cutExperiment } from "../../../consort/experiment/experiment.js";
 import { runDriver } from "../../../consort/orchestrator/drive/orchestrator-run.js";
 import { buildDriveEffects } from "../../../consort/orchestrator/drive/orchestrator-effects.js";
 import { execRunner } from "../../../consort/orchestrator/drive/claude-runner.js";

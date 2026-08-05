@@ -9,7 +9,7 @@ import {
   clearExperimentCap,
   recordExperimentCap,
 } from "../../scripts/sftdd/experiment-cap";
-import { readOutcomes } from "../../scripts/sftdd/experiment";
+import { readOutcomes } from "../../consort/experiment/experiment";
 
 function mkTempTdd(prefix: string): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), `experiment-cap-${prefix}-`));

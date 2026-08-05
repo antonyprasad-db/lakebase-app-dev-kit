@@ -8,7 +8,7 @@ import * as path from "node:path";
 import {
   attachSpikeInputs,
   collectSpikeInputs,
-} from "../../scripts/sftdd/spike-carryforward";
+} from "../../consort/experiment/spike-carryforward";
 
 function mkTempTdd(prefix: string): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), `spike-carryforward-${prefix}-`));

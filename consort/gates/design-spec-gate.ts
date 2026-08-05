@@ -4,8 +4,8 @@ import { readMasterTestList, scopeToStory, acsForStory } from "../../scripts/sft
 import { storyPlanJson } from "../../consort/config/sftdd-paths.js";
 import type { TestList, TestListItem } from "../../scripts/sftdd/test-list.js";
 import { readAcLayer } from "../../scripts/sftdd/run-cycle.js";
-import type { AcLayer } from "../../scripts/sftdd/experiment.js";
-import { collectSpikeInputs, type SpikeInput } from "../../scripts/sftdd/spike-carryforward.js";
+import type { AcLayer } from "../experiment/experiment.js";
+import { collectSpikeInputs, type SpikeInput } from "../experiment/spike-carryforward.js";
 
 export interface ExperimentStrategy {
   /** Human-readable strategy label, e.g. "postgres-arrays" or "json-blob". */

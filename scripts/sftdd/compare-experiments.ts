@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { listExperiments, readOutcomes } from "./experiment";
-import type { ExperimentCap, ExperimentOutcomes, ExperimentTag, TagOutcome } from "./experiment";
+import { listExperiments, readOutcomes } from "../../consort/experiment/experiment";
+import type { ExperimentCap, ExperimentOutcomes, ExperimentTag, TagOutcome } from "../../consort/experiment/experiment";
 import { listArtifacts } from "./artifacts";
 
 export interface ExperimentRow {

@@ -14,7 +14,7 @@ import {
   tagRunCount,
   writeOutcomes,
   type ExperimentOutcomes,
-} from "../../scripts/sftdd/experiment";
+} from "../../consort/experiment/experiment";
 import {
   beginCycle,
   markGreen,

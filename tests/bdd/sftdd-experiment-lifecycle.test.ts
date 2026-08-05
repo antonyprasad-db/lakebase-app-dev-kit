@@ -10,7 +10,7 @@ import {
   deleteExperiment,
   cutExperiment,
   type CutExperimentDeps,
-} from "../../scripts/sftdd/experiment";
+} from "../../consort/experiment/experiment";
 
 // LIVE gate uses LAKEBASE_TEST_INSTANCE (the bare project id; substrate's
 // `instance: string` parameter shape). Previously the test gated on

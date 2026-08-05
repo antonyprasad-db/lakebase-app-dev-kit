@@ -9,7 +9,7 @@ import {
   listExperimentStories,
   readOutcomes,
   type ExperimentOutcomes,
-} from "./experiment";
+} from "../../consort/experiment/experiment";
 import { readSmellsLog, type SmellsLog } from "./smells";
 import { GATE_NAMES, readGates, type GateName, type GateStatus } from "../../consort/gates/gates";
 import { readPipeline, type StoryStatus, type StoryGateStatus } from "./story-pipeline";

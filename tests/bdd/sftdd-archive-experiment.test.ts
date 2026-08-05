@@ -12,7 +12,7 @@ import { join } from "path";
 import {
   archiveExperiment,
   ArchiveExperimentError,
-} from "../../scripts/sftdd/archive-experiment";
+} from "../../consort/experiment/archive-experiment";
 
 let tdd: string;
 

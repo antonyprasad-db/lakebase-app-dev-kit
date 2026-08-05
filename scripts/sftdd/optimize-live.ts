@@ -25,7 +25,7 @@ import { defaultSftddConfig, loadSftddConfig, writeSftddConfig, type SftddConfig
 import { isBuildHandoff, actionToHandoffPlan } from "./optimize.cli.js";
 import type { DriveEffectsConfig } from "../../consort/orchestrator/drive/orchestrator-effects.js";
 import { actionLane, type WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";
-import { cutExperiment, type CutExperimentArgs } from "./experiment.js";
+import { cutExperiment, type CutExperimentArgs } from "../../consort/experiment/experiment.js";
 import { readEscalations } from "../../consort/gates/escalation.js";
 import { readAgentLog } from "../../consort/logging/agent-log.js";
 import { recordTurn, seedRecorderBaseline } from "../../consort/logging/turn-recorder.js";

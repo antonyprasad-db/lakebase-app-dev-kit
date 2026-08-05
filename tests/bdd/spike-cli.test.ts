@@ -7,8 +7,8 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { spikeNotes } from "../../scripts/sftdd/spike";
-import { collectSpikeInputs } from "../../scripts/sftdd/spike-carryforward";
+import { spikeNotes } from "../../consort/experiment/spike";
+import { collectSpikeInputs } from "../../consort/experiment/spike-carryforward";
 import { runSpikeCli } from "../../scripts/sftdd/spike.cli";
 
 let tdd: string;
