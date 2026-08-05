@@ -69,7 +69,7 @@ import {
   ClaudeTurnError,
   ReplayCorpusMissError,
   ArtifactOutOfRootError,
-} from "../../consort/orchestrator/drive/drive-runner.js";
+} from "../../consort/orchestrator/drive/claude-runner.js";
 
 
 function parseArgs(argv: string[]): ParsedArgs {

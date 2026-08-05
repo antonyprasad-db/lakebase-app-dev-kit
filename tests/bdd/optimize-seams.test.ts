@@ -12,7 +12,7 @@ import {
   type DriveCommand,
   type DriveEffectsConfig,
 } from "../../consort/orchestrator/drive/orchestrator-effects";
-import { claudeToolArgs } from "../../consort/orchestrator/drive/drive-runner.js";
+import { claudeToolArgs } from "../../consort/orchestrator/drive/claude-runner.js";
 
 function cfg(over: Partial<DriveEffectsConfig> = {}): DriveEffectsConfig {
   return {

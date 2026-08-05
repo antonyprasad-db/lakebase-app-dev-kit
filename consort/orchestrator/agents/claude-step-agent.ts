@@ -21,10 +21,10 @@
 //   - fallbackModel: auto-failover model when the primary is overloaded.
 //   - maxBudgetUsd : per-invocation dollar cap.
 // permission-mode is fixed to acceptEdits (claudeBaseArgs), the only mode the enterprise
-// managed-settings policy honors headlessly (see drive-runner claudeBaseArgs docs).
+// managed-settings policy honors headlessly (see claude-runner claudeBaseArgs docs).
 
 import { randomUUID } from "node:crypto";
-import { claudeBaseArgs, claudeToolArgs, spawnClaudeStreaming, takeLastAgentTranscript } from "../drive/drive-runner.js";
+import { claudeBaseArgs, claudeToolArgs, spawnClaudeStreaming, takeLastAgentTranscript } from "../drive/claude-runner.js";
 import type { TurnUsage } from "../../../scripts/sftdd/claude-usage.js";
 import type { DriveCommand } from "../drive/orchestrator-effects.js";
 import type { WorkflowAction } from "../drive/orchestrator-drive.js";

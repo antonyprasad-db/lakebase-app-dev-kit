@@ -27,7 +27,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runDriver } from "../../../consort/orchestrator/drive/orchestrator-run.js";
 import { buildDriveEffects } from "../../../consort/orchestrator/drive/orchestrator-effects.js";
-import { execRunner } from "../../../consort/orchestrator/drive/drive-runner.js";
+import { execRunner } from "../../../consort/orchestrator/drive/claude-runner.js";
 import type { DriveEffectsConfig } from "../../../consort/orchestrator/drive/orchestrator-effects.js";
 import type { WorkflowAction } from "../../../consort/orchestrator/drive/orchestrator-drive.js";
 import { resolveSftddSettings } from "../../../consort/orchestrator/settings/project-settings.js";

@@ -28,7 +28,7 @@ import { generateCandidates, defaultLaneCandidates, BASELINE_CANDIDATE_ID, type 
 import { runChampionWalk, type HandoffPlan, type HandoffResult } from "./optimize-harness.js";
 import type { BuildTurn, EffortLevel } from "../../consort/orchestrator/settings/project-settings.js";
 import type { SpawnableAgentRole } from "./agent-models.js";
-import { buildCfg, execRunner } from "../../consort/orchestrator/drive/drive-runner.js";
+import { buildCfg, execRunner } from "../../consort/orchestrator/drive/claude-runner.js";
 import { planNextAction, commandsForAction, turnKeyForAction } from "../../consort/orchestrator/drive/orchestrator-effects.js";
 import { resolveSftddDir } from "./sftdd-paths.js";
 import { kitRoot } from "./kit-bin.js";
