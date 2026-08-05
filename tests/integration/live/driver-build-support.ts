@@ -25,11 +25,12 @@
 //   (deploy-targets.yaml / run-tests.sh / alembic env come from the SCAFFOLD, not the bundle.)
 
 import { expect } from "vitest";
-import { cpSync, mkdirSync, readFileSync, writeFileSync, existsSync, statSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, statSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { loadRunConfig } from "../../../consort/orchestrator/manifest/run-config-loader.js";
 import { resolveTestEnv } from "../../../consort/orchestrator/provisioning/test-env.js";
+import { layDownKitAgents, overlayBundle } from "../../../consort/orchestrator/provisioning/bundle.js";
 import { catalogueLifecycleDeps } from "../../../consort/orchestrator/provisioning/lifecycle-catalogue.js";
 import type { LifecycleRunContext } from "../../../consort/orchestrator/provisioning/lifecycle-types.js";
 import type { ScaffoldHandle } from "../../../consort/orchestrator/provisioning/lifecycle-catalogue.js";
@@ -80,25 +81,27 @@ function hasSourceFile(dir: string): boolean {
  *  run-tests.sh / alembic env / Makefile (the package preconditions honest-GREEN needs). */
 function layBundle(projectDir: string): void {
   const b = DRIVER_GREEN_BUNDLE;
-  const sftddDir = join(projectDir, ".sftdd");
-  const featureDir = join(sftddDir, "features", b.feature);
-  const storyDir = join(featureDir, "stories", b.story);
-  mkdirSync(join(storyDir, "acs"), { recursive: true });
-  mkdirSync(join(sftddDir, "architecture"), { recursive: true });
+  const featureRel = join(".sftdd", "features", b.feature);
+  const storyRel = join(featureRel, "stories", b.story);
 
-  cpSync(b.preRedCodeDir, projectDir, { recursive: true });
-  for (const f of ["architecture.json", "db-design.json"]) {
-    cpSync(join(b.recordedArtifactsFeatureDir, f), join(featureDir, f));
-  }
-  cpSync(join(b.recordedArtifactsFeatureDir, "stories", b.story, "acs", `${b.ac}.json`), join(storyDir, "acs", `${b.ac}.json`));
-  cpSync(b.conventionsJson, join(sftddDir, "architecture", "conventions.json"));
+  // Overlay the recorded trees + files via the shared provisioning primitive (it creates parent
+  // dirs for each file, so no explicit mkdirSync is needed).
+  overlayBundle(projectDir, {
+    trees: [{ from: b.preRedCodeDir, to: "." }],
+    files: [
+      { from: join(b.recordedArtifactsFeatureDir, "architecture.json"), to: join(featureRel, "architecture.json") },
+      { from: join(b.recordedArtifactsFeatureDir, "db-design.json"), to: join(featureRel, "db-design.json") },
+      { from: join(b.recordedArtifactsFeatureDir, "stories", b.story, "acs", `${b.ac}.json`), to: join(storyRel, "acs", `${b.ac}.json`) },
+      { from: b.conventionsJson, to: join(".sftdd", "architecture", "conventions.json") },
+    ],
+  });
 
   const master = JSON.parse(readFileSync(join(b.recordedArtifactsFeatureDir, "test-list.json"), "utf8")) as {
     items: Array<Record<string, unknown>>;
   };
   const items = master.items.filter((i) => i.ac_id === b.ac);
   expect(items.length, "bundle: S3 has test-list items").toBeGreaterThan(0);
-  writeFileSync(join(storyDir, "test-list-per-story.json"), JSON.stringify({ feature_id: b.feature, story_id: b.story, items }, null, 2) + "\n");
+  writeFileSync(join(projectDir, storyRel, "test-list-per-story.json"), JSON.stringify({ feature_id: b.feature, story_id: b.story, items }, null, 2) + "\n");
 }
 
 /** Resolve the scaffold config from the check's run-config. The workspace HOST comes from the ONE
@@ -176,10 +179,9 @@ export async function runDriverGreenLive(): Promise<void> {
     beginNextPendingBatch({ sftddDir, featureId: b.feature, story: b.story }, { cap: Number.MAX_SAFE_INTEGER });
     expect(storyTestProgress(sftddDir, b.feature, b.story).openRed.length, "setup: an open RED cycle exists").toBeGreaterThan(0);
 
-    // Agent defs so the live `--agent driver` resolves.
-    const agentsDst = join(projectDir, ".claude", "agents");
-    mkdirSync(agentsDst, { recursive: true });
-    cpSync(join(KIT, "skills", "consort", "agents"), agentsDst, { recursive: true });
+    // Agent defs so the live `--agent driver` resolves , the shared provisioning primitive (KIT is
+    // process.cwd(), layDownKitAgents's default kitDir), no inline copy.
+    layDownKitAgents(projectDir, KIT);
 
     process.env.LAKEBASE_SFTDD_USE_MANIFEST_STEPS = "1";
     process.env.LAKEBASE_KIT_DIR = KIT;

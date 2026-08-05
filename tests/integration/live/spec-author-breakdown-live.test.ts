@@ -16,7 +16,7 @@ import { describe, it, expect } from "vitest";
 import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { layDownKitAgents } from "../../../consort/orchestrator/scenarios/integration-chain.js";
+import { layDownKitAgents } from "../../../consort/orchestrator/provisioning/bundle.js";
 import { runManifestChain, type ManifestRunnerDeps } from "../../../consort/orchestrator/manifest/manifest-runner.js";
 import { loadStepManifests, type StepManifest } from "../../../consort/orchestrator/manifest/step-manifest.js";
 import type { WorkflowAction } from "../../../consort/orchestrator/drive/orchestrator-drive.js";
