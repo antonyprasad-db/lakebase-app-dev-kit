@@ -24,7 +24,7 @@ over existing drive seams + a thin harness.
 ```
 optimize-scenario.sh (runbook)
   └─ pins local kit (cache symlink -> this repo), sets RECORD_DIR=$SCEN, NO LAKEBASE_KIT_DIR
-  └─ lk lakebase-sftdd-optimize  →  dist/scripts/sftdd/optimize.cli.js
+  └─ lk lakebase-sftdd-optimize  →  dist/bin/sftdd/optimize.cli.js
        ├─ SINGLE-handoff (default): planNextAction → position on ONE handoff →
        │    candidates = --candidates spec OR defaultLaneCandidates(handoff) fallback →
        │    runChampionWalk([handoff], candidates)

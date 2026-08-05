@@ -1,20 +1,20 @@
-// PERMANENT anti-recurrence guard for the scripts/sftdd foliation: the flat scripts/sftdd/ pile
-// was foliated into first-class consort/<domain>/ families (config, logging, gates, experiment,
-// pipeline, smells, architecture, intake, deploy, optimize, session, reports, test-list, setup)
-// plus the orchestrator/ families, and the dependency graph is now ONE-WAY:
+// PERMANENT anti-recurrence guard for the scripts/sftdd foliation + the CLI move to bin/: the flat
+// scripts/sftdd/ pile was foliated into first-class consort/<domain>/ families (config, logging,
+// gates, experiment, pipeline, smells, architecture, intake, deploy, optimize, session, reports,
+// test-list, setup, lakebase) plus the orchestrator/ families, and every CLI moved to bin/. The
+// dependency graph is now ONE-WAY:
 //
-//   consort/<family>/ libraries  ->  each other, DOWNWARD by layer  ->  scripts/sftdd/*.cli bins
+//   consort/<family>/ libraries  ->  each other, DOWNWARD by layer  ->  bin/**/*.cli entrypoints
 //
-// The bins COMPOSE the families (that is what an entrypoint does); a family library must NEVER
-// reach back UP into a bin (or into any other scripts/sftdd/ module), because scripts/sftdd/ now
-// holds ONLY .cli entrypoints, .test files, schemas, and docs , no library a family could depend on.
+// The bins COMPOSE the families (that is what an entrypoint does); a family library must NEVER reach
+// back UP into a bin. scripts/sftdd/ now holds ONLY schemas + docs (no source), and bin/ holds ONLY
+// .cli entrypoints , no library a family could depend on lives in either.
 //
-// Two invariants:
-//   1. scripts/sftdd/ contains NO library module (the pile is fully foliated). A new lib file there
-//      means someone added domain code to the old flat home instead of a consort/<family>/.
-//   2. No consort/ library imports a VALUE from scripts/sftdd/, except the ONE documented exception
-//      (optimize-live -> optimize.cli: a pre-existing lib->bin coupling for isBuildHandoff /
-//      actionToHandoffPlan; tracked here so a NEW back-web edge still fails).
+// Three invariants:
+//   1. scripts/sftdd/ contains NO source module (the pile is fully foliated; only schemas + docs).
+//   2. No consort/ library imports a VALUE from a bin/ CLI (bins compose families, never the reverse)
+//      , the graph is fully one-way, no exceptions.
+//   3. bin/ holds ONLY *.cli.ts entrypoints , no library code leaked into the executables home.
 //
 // This retires the temporary Stage-0 guard (scripts-orchestrator-acyclic-guard) , the graph is now
 // enforced from the consort/ side, which is where domain code lives.
@@ -43,43 +43,47 @@ function onDisk(dir: string): string[] {
   return out;
 }
 
-// No consort -> scripts/sftdd value edge is allowed: the graph is fully one-way. (The former
-// optimize-live -> optimize.cli coupling was dissolved by extracting isBuildHandoff /
-// actionToHandoffPlan DOWN into consort/optimize/handoff.ts, which both the bin and the lib import.)
-const ALLOWED_BACKWEB = new Set<string>([]);
-
-describe("consort foliation: scripts/sftdd holds only bins, and no family reaches back up into it", () => {
-  it("scripts/sftdd/ contains NO library module (the pile is fully foliated)", () => {
-    const libs = onDisk("scripts/sftdd").filter(
-      (p) => p.endsWith(".ts") && !p.endsWith(".cli.ts") && !p.endsWith(".test.ts") && !p.includes("/schemas/"),
+describe("consort foliation + bin/ move: scripts holds no source, bin holds only CLIs, graph is one-way", () => {
+  it("scripts/sftdd/ contains NO source module (fully foliated; only schemas + docs)", () => {
+    const src = onDisk("scripts/sftdd").filter(
+      (p) => p.endsWith(".ts") && !p.endsWith(".test.ts") && !p.includes("/schemas/"),
     );
     expect(
-      libs,
-      `scripts/sftdd/ should hold only .cli bins + tests + schemas after foliation; these library ` +
-        `modules resurfaced , put domain code in a consort/<family>/ instead:\n  ${libs.join("\n  ")}`,
+      src,
+      `scripts/sftdd/ should hold only schemas + docs after foliation + the bin/ move; these source ` +
+        `files resurfaced , put domain code in a consort/<family>/ and CLIs in bin/:\n  ${src.join("\n  ")}`,
     ).toEqual([]);
   });
 
-  it("no consort/ library imports a VALUE from scripts/sftdd/ (bins compose families, never the reverse)", () => {
+  it("no consort/ library imports a VALUE from a bin/ CLI (bins compose families, never the reverse)", () => {
     const offenders: string[] = [];
     for (const file of tracked("consort/")) {
       if (!file.endsWith(".ts") || file.endsWith(".test.ts")) continue;
       if (file.includes("/evaluation/fixtures/")) continue; // recorded corpus, not kit source
-      if (ALLOWED_BACKWEB.has(file)) continue;
       const src = readFileSync(file, "utf-8");
       for (const line of src.split("\n")) {
         const m = line.match(/^\s*import\s+(type\s+)?[^;]*?from\s+["']([^"']+)["']/);
         if (!m) continue;
         const [, typeOnly, spec] = m;
         if (typeOnly) continue; // erased at build, no runtime edge
-        if (/scripts\/sftdd\//.test(spec)) offenders.push(`${file}: ${line.trim()}`);
+        // A CLI bin is bin/**/<name>.cli(.js); a library importing one is an UP edge.
+        if (/(^|\/)bin\/.*\.cli(\.js)?$/.test(spec)) offenders.push(`${file}: ${line.trim()}`);
       }
     }
     expect(
       offenders,
-      `a consort/ family library imports a VALUE from scripts/sftdd/ (a re-introduced UP edge into ` +
-        `the bin layer). Move the needed code DOWN into a consort/<family>/, make the import type-only, ` +
-        `or (if a genuine lib->bin coupling) add it to ALLOWED_BACKWEB with a note:\n  ${offenders.join("\n  ")}`,
+      `a consort/ family library imports a VALUE from a bin/ CLI (a re-introduced UP edge into the ` +
+        `bin layer). Move the shared code DOWN into a consort/<family>/ lib both the bin and the ` +
+        `library import, or make the import type-only:\n  ${offenders.join("\n  ")}`,
+    ).toEqual([]);
+  });
+
+  it("bin/ holds ONLY *.cli.ts entrypoints (no library code in the executables home)", () => {
+    const nonCli = onDisk("bin").filter((p) => p.endsWith(".ts") && !p.endsWith(".cli.ts"));
+    expect(
+      nonCli,
+      `bin/ should hold only *.cli.ts entrypoints; these non-CLI files leaked into the executables ` +
+        `home , move library code to a consort/<family>/:\n  ${nonCli.join("\n  ")}`,
     ).toEqual([]);
   });
 });

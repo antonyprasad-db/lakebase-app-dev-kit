@@ -210,8 +210,8 @@ For when you want to run something directly without the agent. Most TDD work goe
 | Command | Purpose |
 |---|---|
 | `lakebase-feature-status <featureId> [--tdd <dir>] [--json]` | One-screen snapshot of a feature's workflow state (phase, plan, test-list completion, experiments, recent decisions, open smells). |
-| `node dist/scripts/sftdd/spec-sync.cli.js <tddDir>` | Walk the `.sftdd/` tree and print drift reports. Exit 0 even when reports exist (warn-only by design). |
-| `node dist/scripts/sftdd/test-list.cli.js <tddDir> <featureId> [storyId]` | Regenerate per-AC views from the feature-level master test list. With a `storyId`, instead write that story's scoped per-story test list (`stories/<story>/test-list-per-story.json`), the streaming build lane's per-story input. |
+| `node dist/bin/sftdd/spec-sync.cli.js <tddDir>` | Walk the `.sftdd/` tree and print drift reports. Exit 0 even when reports exist (warn-only by design). |
+| `node dist/bin/sftdd/test-list.cli.js <tddDir> <featureId> [storyId]` | Regenerate per-AC views from the feature-level master test list. With a `storyId`, instead write that story's scoped per-story test list (`stories/<story>/test-list-per-story.json`), the streaming build lane's per-story input. |
 | `bash tests/run_all.sh` (per scaffolded project) | Run every `validate_*.sh` in the project's `tests/` directory (the project's full validation suite). |
 
 ## Project-level entry points

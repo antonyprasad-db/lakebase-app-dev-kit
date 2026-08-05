@@ -210,7 +210,7 @@ if [[ -n "$CREATE" ]]; then
   # stockflow-optimize first live run provisioned Spring Boot/Java, not python+UI).
   SCENARIO_MANIFEST="${INPUTS}/scenario.json"
   [[ -f "$SCENARIO_MANIFEST" ]] || SCENARIO_MANIFEST="${INPUTS}/scenario.json.pending"
-  sc() { node "${KIT_ROOT}/dist/scripts/sftdd/scenario-conditions.cli.js" --manifest "$SCENARIO_MANIFEST" --field "$1" 2>/dev/null || true; }
+  sc() { node "${KIT_ROOT}/dist/bin/sftdd/scenario-conditions.cli.js" --manifest "$SCENARIO_MANIFEST" --field "$1" 2>/dev/null || true; }
   SC_UI="$(sc uiTrack)"; SC_LANG="$(sc language)"; SC_RUNNER="$(sc runner)"; SC_TIERS="$(sc tiers)"
   create_flags=(--tiers "${SC_TIERS:-$TIERS}")
   [[ "$SC_UI" == "true" || -n "$UI" ]] && create_flags+=(--ui-track)
