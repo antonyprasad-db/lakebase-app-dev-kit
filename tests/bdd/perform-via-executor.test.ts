@@ -120,12 +120,15 @@ describe("performViaExecutor (Stage 2 2b): spec-author breakdown through the Ste
     }
   });
 
-  it("returns undefined for an action NOT on the executor allowlist (e.g. a build turn)", async () => {
+  it("returns undefined for an action NOT on the executor allowlist (e.g. a design turn not yet migrated)", async () => {
     const projectDir = mkdtempSync(join(tmpdir(), "pve-"));
     try {
       const effects = buildDriveEffects(cfg(join(projectDir, ".sftdd"), projectDir, { useManifestSteps: true }));
-      const green: WorkflowAction = { kind: "invoke-role", role: "driver", story: "S1-a" };
-      expect(await effects.performViaExecutor!(green, state, routerDeps)).toBeUndefined();
+      // architect estimate is a design turn NOT yet on the allowlist (breakdown, navigator RED,
+      // driver GREEN are; the rest fall through to perform). Its own dedicated cases below cover
+      // the migrated build turns.
+      const notMigrated: WorkflowAction = { kind: "invoke-role", role: "architect-reviewer", mode: "estimate" } as WorkflowAction;
+      expect(await effects.performViaExecutor!(notMigrated, state, routerDeps)).toBeUndefined();
     } finally {
       rmSync(projectDir, { recursive: true, force: true });
     }
@@ -274,6 +277,96 @@ describe("performViaExecutor (#590): navigator RED (the PRODUCT channel) through
       const effects = buildDriveEffects(cfg(join(projectDir, ".sftdd"), projectDir, { useManifestSteps: true }));
       const review: WorkflowAction = { kind: "invoke-role", role: "navigator", story: RED_STORY, buildMode: "review" } as WorkflowAction;
       expect(await effects.performViaExecutor!(review, state, routerDeps)).toBeUndefined();
+    } finally {
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+});
+
+// ─── driver GREEN (a BUILD turn) through the StepExecutor ─────────────────────────────────────────
+// The build lane's other half, same performViaExecutor seam. Divergences from navigator RED:
+//   - the PRODUCT edits span the app (app/ + migrations + client/), so there is NO single product
+//     file to validate , the manifest's validated output is the META agent-log; the post-turn
+//     @build-cycle honest-GREEN verify (the `green` verb) is what proves the code + flips codeWritten.
+//   - HERE (hermetic) the @build-cycle green is just recorded as a label + its DB verify is NOT run
+//     (no cloud); the LIVE honest-GREEN is the cloud-gated proof. This golden asserts the DISPATCH
+//     is identical: the CLI stream + channel resolution, not the verify outcome.
+
+const GREEN: WorkflowAction = { kind: "invoke-role", role: "driver", story: RED_STORY };
+
+describe("performViaExecutor (#594): driver GREEN through the StepExecutor", () => {
+  it("runs the build-turn CLI sequence: claude, reconcile, @build-cycle (green) , with agent-log as the validated meta output", async () => {
+    const projectDir = mkdtempSync(join(tmpdir(), "pve-green-"));
+    const sftddDir = join(projectDir, ".sftdd");
+    mkdirSync(sftddDir, { recursive: true });
+    seedRedInputs(sftddDir); // same story-scoped inputs (test-list-per-story + acs)
+    try {
+      const labels: string[] = [];
+      const runner = {
+        async run(cmd: DriveCommand) {
+          if (cmd.kind === "claude") {
+            labels.push(`claude:${cmd.role}`);
+            // Simulate the driver editing app code (the product channel spans the app , not a single file).
+            mkdirSync(join(projectDir, "app"), { recursive: true });
+            writeFileSync(join(projectDir, "app", "models.py"), "class Sku:\n    pass\n");
+            return;
+          }
+          if (cmd.kind === "cli") {
+            labels.push(`cli:${cmd.bin.replace("lakebase-sftdd-", "")}:${cmd.args[0]}`);
+            if (cmd.bin.endsWith("-log") && cmd.args[0] === "--reconcile") {
+              writeFileSync(join(sftddDir, "agent-log.jsonl"),
+                JSON.stringify({ timestamp: "2026-08-05T00:00:00Z", level: "info", role: "driver", event: "artifact.written", message: "wrote app/models.py" }) + "\n");
+            }
+            return;
+          }
+          labels.push(cmd.kind);
+        },
+      };
+      const effects = buildDriveEffects(cfg(sftddDir, projectDir, { useManifestSteps: true, runner, loopGranularity: "story" }));
+      const bounded = await effects.performViaExecutor!(GREEN, state, routerDeps);
+
+      expect(bounded).toBeDefined();
+      // Same phase order as RED: agent, reconcile (materialize the meta agent-log the validator
+      // checks), then the post-turn @build-cycle , here the `green` verb (honest-GREEN), NOT `begin`.
+      expect(labels).toEqual([
+        "claude:driver",
+        "cli:log:--reconcile",
+        "cli:cycle:green",
+      ]);
+    } finally {
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  it("BLOCKS (no @build-cycle green) when the driver's turn produces no reconciled agent-log", async () => {
+    const projectDir = mkdtempSync(join(tmpdir(), "pve-green-"));
+    const sftddDir = join(projectDir, ".sftdd");
+    mkdirSync(sftddDir, { recursive: true });
+    seedRedInputs(sftddDir);
+    try {
+      const labels: string[] = [];
+      const runner = {
+        async run(cmd: DriveCommand) {
+          if (cmd.kind === "claude") { labels.push("claude"); return; /* no code, and reconcile writes no log below */ }
+          if (cmd.kind === "cli") { labels.push(`cli:${cmd.args[0]}`); /* reconcile writes NO agent-log => validate fails */ }
+        },
+      };
+      const effects = buildDriveEffects(cfg(sftddDir, projectDir, { useManifestSteps: true, runner, loopGranularity: "story" }));
+      const bounded = await effects.performViaExecutor!(GREEN, state, routerDeps);
+      expect(bounded).toBeDefined();
+      // The honest-GREEN @build-cycle (cycle:green) must NOT have run , validation (missing agent-log) blocked it.
+      expect(labels).not.toContain("cli:green");
+    } finally {
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  it("returns undefined for a driver turn that is NOT plain GREEN (e.g. a refactor/repair buildMode)", async () => {
+    const projectDir = mkdtempSync(join(tmpdir(), "pve-green-"));
+    try {
+      const effects = buildDriveEffects(cfg(join(projectDir, ".sftdd"), projectDir, { useManifestSteps: true }));
+      const refactor: WorkflowAction = { kind: "invoke-role", role: "driver", story: RED_STORY, buildMode: "refactor" } as WorkflowAction;
+      expect(await effects.performViaExecutor!(refactor, state, routerDeps)).toBeUndefined();
     } finally {
       rmSync(projectDir, { recursive: true, force: true });
     }

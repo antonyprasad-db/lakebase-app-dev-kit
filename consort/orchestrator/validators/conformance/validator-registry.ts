@@ -164,6 +164,36 @@ export function navigatorTestsAuthored(producedPath: string): OutputValidationRe
 }
 
 /**
+ * driverCodePresent validator: the Driver's GREEN turn writes PRODUCT code (app/) to make the open
+ * RED pass. The deterministic FLOOR is "a non-empty app/ tree exists" , the primary produced-signal
+ * the agent writes IN-TURN (mirrors navigatorTestsAuthored's tests/ floor). The real correctness
+ * judgment is NOT this check , it is the post-turn @build-cycle honest-GREEN verify (alembic upgrade
+ * + the project's test suite against a live branch), which flips codeWritten for the route. This
+ * floor just proves the driver produced code so the produced-gate is meaningful (an empty turn is a
+ * real defect). producedPath is the app/ dir. Passes iff it holds >=1 source file (.py/.ts/.tsx).
+ */
+export function driverCodePresent(producedPath: string): OutputValidationResult {
+  if (!existsSync(producedPath) || !statSync(producedPath).isDirectory()) {
+    return { ok: false, violations: [`driver GREEN wrote no app/ tree at ${producedPath}`] };
+  }
+  const isSource = (n: string): boolean => /\.(py|ts|tsx)$/.test(n);
+  const walk = (dir: string): boolean => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const abs = join(dir, e.name);
+      if (e.isDirectory()) {
+        if (walk(abs)) return true;
+      } else if (isSource(e.name)) {
+        return true;
+      }
+    }
+    return false;
+  };
+  return walk(producedPath)
+    ? { ok: true, violations: [] }
+    : { ok: false, violations: [`driver GREEN app/ tree at ${producedPath} has no source file (.py/.ts/.tsx)`] };
+}
+
+/**
  * assessMarkerWritten validator: the Navigator's ASSESS turn discriminates the driver's failed
  * GREEN and writes EXACTLY ONE marker into the AC cycle dir , either superseded-tests.json
  * {tests,reason} (the AC supersedes prior tests) OR regression-assessment.json {diagnosis,
@@ -228,11 +258,15 @@ export const VALIDATOR_REGISTRY: Record<string, OutputValidator> = {
   dbaLoggedAuthoring: (p: string) => agentLogHasRoleEvent(p, "dba"),
   // The Navigator's log event (build turns: RED / assess / review), role-bound.
   navigatorLoggedAuthoring: (p: string) => agentLogHasRoleEvent(p, "navigator"),
+  // The Driver's log event (build turns: GREEN / refactor / repair), role-bound.
+  driverLoggedAuthoring: (p: string) => agentLogHasRoleEvent(p, "driver"),
   nonEmptyFile,
   designGuideConformant,
   // BUILD-turn navigator output validators (the lean per-role build chains).
   navigatorTestsAuthored,
   assessMarkerWritten,
+  // BUILD-turn driver output validator (the product-code floor; honest-GREEN is the real gate).
+  driverCodePresent,
   // Schema-conformance validators for the design roles' primary artifacts (the integration
   // live chains gate the real agent's output to its canonical schema, not just non-emptiness).
   acConformant,

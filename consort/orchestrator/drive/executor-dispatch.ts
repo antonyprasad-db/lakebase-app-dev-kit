@@ -53,10 +53,13 @@ export function executorDispatched(action: WorkflowAction): boolean {
   if (action.kind !== "invoke-role") return false;
   // spec-author breakdown (design lane).
   if ("mode" in action && action.role === "spec-author" && action.mode === "breakdown") return true;
-  // navigator RED (build lane, lean): the plain story turn , no `mode` (not a design step) and no
-  // `buildMode` (not review/reflect/assess/refactor), carrying the story it authors tests for. This
-  // is exactly the action nextBuildAction emits for `!testsWritten` (orchestrator-drive.ts).
-  if (!("mode" in action) && !("buildMode" in action) && action.role === "navigator" && "story" in action && !!action.story) {
+  // navigator RED + driver GREEN (build lane): the plain story turn , no `mode` (not a design step)
+  // and no `buildMode` (not review/reflect/assess/refactor/repair), carrying the story. These are
+  // exactly the actions nextBuildAction emits for `!testsWritten` (navigator RED) and `!codeWritten`
+  // (driver GREEN) in orchestrator-drive.ts. NOTE: navigator RED runs lean (no cloud , authors
+  // tests); driver GREEN's post-turn @build-cycle honest-GREEN verify needs a live Lakebase branch,
+  // so its LIVE proof is cloud-gated , but the dispatch path itself is identical.
+  if (!("mode" in action) && !("buildMode" in action) && (action.role === "navigator" || action.role === "driver") && "story" in action && !!action.story) {
     return true;
   }
   return false;
@@ -114,6 +117,12 @@ export function outputPathsForAction(action: WorkflowAction, featureId: string):
   // the meta agent-log (workspace-relative, resolves under the project's .sftdd).
   if (!("mode" in action) && !("buildMode" in action) && action.role === "navigator" && "story" in action && !!action.story) {
     return { tests: "tests", "agent-log": ".sftdd/agent-log.jsonl" };
+  }
+  // driver GREEN: the PRODUCT code (app/ at the project root) is the primary in-turn produced
+  // signal (channel product -> workspaceDir), + the meta agent-log (materialized post-run by
+  // reconcile). The real correctness gate is the post-turn @build-cycle honest-GREEN verify.
+  if (!("mode" in action) && !("buildMode" in action) && action.role === "driver" && "story" in action && !!action.story) {
+    return { code: "app", "agent-log": ".sftdd/agent-log.jsonl" };
   }
   return {};
 }
