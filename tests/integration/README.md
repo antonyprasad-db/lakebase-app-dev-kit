@@ -119,6 +119,21 @@ so the produced artifact lands in `producedArtifacts` keyed by its `outputFile`;
 asserts every chain's `outputFile` is under a snapshot root (so this can't regress). Sweep will be
 re-launched after the dist rebuild.
 
+### 2026-08-04 — test-strategist sweep (#556, attempt 3): RUNNING, quality gate VALIDATED
+Re-launched after the snapshot-root fix. Candidate 1 (baseline, sonnet) landed
+`gate PASSED quality PASSED , 679.9s` with `semanticScore: 0.85`, `qualityPassed: true`, and the
+produced `test-list.json` PRESERVED on disk , the discriminator genuinely fired and the artifact
+survived (everything #554 lacked). Remaining candidates in flight; results + the quality-holder
+wall-clock ranking will be appended here on completion.
+
+### PLANNED (after this sweep finishes) — relocate the per-role optimize harness under tests/
+Decision: the per-role optimize machinery is INTERNAL performance-tuning tooling for the agents (sole
+consumer = the `lakebase-sftdd-optimize-role` CLI; reads these fixtures; separate from the shipped
+drive-optimize product bins). Move `consort/orchestrator/optimize/*` + `scripts/sftdd/optimize-role.cli.ts`
+under `tests/optimization/`, and UNSHIP `lakebase-sftdd-optimize-role` from package.json bin (keep
+`lakebase-sftdd-optimize` + `-apply`, the drive-optimize product). Deferred until the running sweep
+completes (it reads these paths). manifests/ + intake/ stay as shared test fixtures.
+
 ### 2026-08-04 — ux-designer added as a role chain
 Restructured `ux-designer-chain` from a 3-turn demo (PO → mock spec-author → live ux-designer) to the
 uniform 2-turn `seed → live` shape, and added it to `ROLE_CHAINS`. Its real-drive read-set is the
