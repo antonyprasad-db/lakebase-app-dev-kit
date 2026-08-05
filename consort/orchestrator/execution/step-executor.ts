@@ -5,6 +5,12 @@
 //   1. resolve-inputs      read each input's CONTENTS from .sftdd (via deps.resolveInputs).
 //                          FAIL LOUD naming the missing logical id BEFORE any spawn.
 //   2. provision-workspace create/point the contained workspaceDir (+ output locations).
+//   2.5 prepare-preconditions  PREPARE each precondition the step DECLARES (via deps.prepare)
+//                          and APPEND the projected block to the step's instructions, so a
+//                          fresh-session heavy role is pre-conditioned (context-pack / green-
+//                          failure advisory) without rediscovering context. A declared-but-
+//                          empty preparer is a logged anomaly ("always something"), never a
+//                          hard fail. Skipped entirely when deps.prepare is absent (default).
 //   3. dispatch-agent      invoke the step's injected agent, contained to the workspace
 //                          (wait; the monitor/timeout envelope wires in at the spawn seam).
 //   4. capture-outputs     the step reports the produced artifact path(s) it found.
@@ -24,7 +30,7 @@ import { join } from "node:path";
 import { validateAndBound } from "../contract/step-contract.js";
 import type { WorkflowAction, DriveState } from "../../../scripts/sftdd/orchestrator-drive.js";
 import type { DriveEffectsConfig } from "../../../scripts/sftdd/orchestrator-effects.js";
-import type { StepContract, BoundedRoute, ValidateBoundDeps, RouteProposal } from "../contract/step-contract.js";
+import type { StepContract, StepPrecondition, BoundedRoute, ValidateBoundDeps, RouteProposal } from "../contract/step-contract.js";
 import type { StepInstructions } from "../agents/agent-types.js";
 import type { ProvidedStepRun, ProvidedStepResult } from "../steps/step-run-types.js";
 
@@ -79,6 +85,12 @@ export interface StepExecutorDeps {
   resolveInputs(action: WorkflowAction, cfg: DriveEffectsConfig): Record<string, string> | { missing: string };
   /** Phase 2: provision (or point at) the contained workspace + output locations. */
   provisionWorkspace(action: WorkflowAction, cfg: DriveEffectsConfig): ProvisionedWorkspace;
+  /** Phase 2.5: PREPARE one declared precondition , project its context block from on-disk
+   *  `.sftdd` (the preparer registry, resolved by kind). Returns the text block appended to
+   *  the step's instructions. Optional: when absent the PREPARE-PRECONDITIONS phase is a
+   *  no-op (the default/byte-identical executor path). The orchestrator owns the registry
+   *  wiring; the executor stays generic. */
+  prepare?(kind: string, precondition: StepPrecondition, action: WorkflowAction, cfg: DriveEffectsConfig): string;
   /** Phase 3 input: the instruction bundle the orchestrator sourced for this step. */
   instructionsFor(action: WorkflowAction, cfg: DriveEffectsConfig): StepInstructions;
   /** Between capture (4) and validate (5): the orchestrator MATERIALIZES any output the
@@ -91,6 +103,11 @@ export interface StepExecutorDeps {
   materializeOutputs?(workspaceDir: string, action: WorkflowAction, cfg: DriveEffectsConfig): void;
   /** Phase 6: emit the turn record (usage/progress/violations). Optional (tests may omit). */
   onRecord?(record: StepRecord): void;
+  /** Phase 2.5 anomaly channel: a declared precondition that PREPARED EMPTY (the preparer
+   *  degraded , e.g. conventions.json absent). Surfaced as a WARNING so an empty pack is
+   *  visible + auditable ("always something, never silently empty"), never a hard fail.
+   *  Optional; default swallow. */
+  onWarn?(warning: string): void;
 }
 
 /** What one step execution returns to runDriver's loop. */
@@ -129,10 +146,32 @@ export async function execute(step: RunnableStep, ctx: StepCtx, deps: StepExecut
   // Phase 2: provision-workspace , the contained dir + output locations.
   const { workspaceDir, outputPaths } = deps.provisionWorkspace(action, cfg);
 
+  // Phase 2.5: PREPARE-PRECONDITIONS , project each DECLARED precondition (context-pack /
+  // green-failure advisory) and APPEND its block to the step's instructions, so a fresh-
+  // session heavy role is pre-conditioned by the SAME mechanism no matter which track
+  // dispatched it. Runs only when the orchestrator wired deps.prepare (the default executor
+  // path leaves the prompt byte-identical). A declared-but-empty preparer is a logged anomaly
+  // ("always something"), never a hard fail , the block simply appends nothing.
+  const instructions = deps.instructionsFor(action, cfg);
+  if (deps.prepare) {
+    const preconditions = step.preconditions(action);
+    let preparedSuffix = "";
+    for (const pre of preconditions) {
+      const block = deps.prepare(pre.kind, pre, action, cfg);
+      if (block && block.length) {
+        preparedSuffix += block;
+      } else {
+        deps.onWarn?.(`declared precondition "${pre.id}" (${pre.kind}) prepared EMPTY , its source artifact may be absent (${pre.description})`);
+      }
+    }
+    if (preparedSuffix) {
+      instructions.prompt = instructions.prompt + preparedSuffix;
+    }
+  }
+
   // Phase 3+4: dispatch-agent (contained) + capture-outputs , both inside the step's run().
   // Time the outer wall-clock across run() (the orchestrator's own measure of the turn, which
   // always exists, vs the agent's self-reported duration which only a live agent emits).
-  const instructions = deps.instructionsFor(action, cfg);
   const startedMs = Date.now();
   const runResult = await step.run({ action, workspaceDir, inputs: resolved, instructions, outputPaths });
   const outerDurationMs = Date.now() - startedMs;

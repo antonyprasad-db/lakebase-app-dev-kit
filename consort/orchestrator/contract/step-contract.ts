@@ -36,6 +36,28 @@ export interface StepInputSpec {
 }
 
 /**
+ * A step's PRE-CONDITION contract, declared as LOGICAL descriptors , the deterministic
+ * CONTEXT a turn must be PRE-CONDITIONED with before dispatch (the pre-extracted design
+ * rubric + module layout; the green-failure advisory). Distinct from `inputs`: an input's
+ * CONTENTS are resolved + handed back under its id; a precondition names a PREPARER the
+ * orchestrator runs to PROJECT a text block from on-disk `.sftdd` (never authored, cannot
+ * drift), which the build-instructions phase appends to the prompt. The step is dumb + con-
+ * tained: it declares "I need the context-pack", never HOW it is prepared (that is the
+ * orchestrator's `PREPARE-PRECONDITIONS` phase + preparer registry). See
+ * `consort/orchestrator/build/PRE-CONDITIONING-AS-CONTRACT.md`.
+ */
+export interface StepPrecondition {
+  /** Stable id the prepared block is keyed under (e.g. "context-pack", "green-failure-advisory"). */
+  id: string;
+  /** Which preparer to run , the orchestrator maps this kind to a registered pure projection. */
+  kind: "context-pack" | "green-failure-advisory" | string;
+  /** Human description (diagnostics + the empty-preparer warning). */
+  description: string;
+  /** Preparer-specific knobs the registered preparer reads (e.g. context-pack's skipTestLoop). */
+  options?: Record<string, unknown>;
+}
+
+/**
  * A conformance validator EXPOSED TO THE AGENT as a callable it can invoke on its own draft
  * output before returning , so a fixable defect is caught IN-TURN instead of round-tripping
  * back to the agent with follow-up instructions. The `docstring` tells the agent what the
@@ -127,6 +149,10 @@ export interface StepRouteContext {
 export interface StepContract {
   /** The logical inputs this step needs. The orchestrator resolves + provides them. */
   inputs(action: WorkflowAction): StepInputSpec[];
+  /** The logical PRE-CONDITIONS this step needs prepared before dispatch. The orchestrator
+   *  PREPARES each (via the preparer registry) in the PREPARE-PRECONDITIONS phase and appends
+   *  the projected blocks to the step's instructions. Absent/empty = an affirmative "nothing". */
+  preconditions(action: WorkflowAction): StepPrecondition[];
   /** The logical output(s) this step produces. The orchestrator maps + validates them. */
   outputs(action: WorkflowAction): StepOutputSpec[];
   route(completed: WorkflowAction, ctx: StepRouteContext): RouteProposal;
@@ -146,6 +172,7 @@ export class MockStepContract implements StepContract {
   constructor(
     private readonly script: {
       inputs?: Record<string, StepInputSpec[]>;
+      preconditions?: Record<string, StepPrecondition[]>;
       outputs?: Record<string, StepOutputSpec[]>;
       route?: Record<string, RouteProposal>;
     },
@@ -153,6 +180,10 @@ export class MockStepContract implements StepContract {
 
   inputs(action: WorkflowAction): StepInputSpec[] {
     return this.script.inputs?.[signature(action)] ?? [];
+  }
+
+  preconditions(action: WorkflowAction): StepPrecondition[] {
+    return this.script.preconditions?.[signature(action)] ?? [];
   }
 
   outputs(action: WorkflowAction): StepOutputSpec[] {

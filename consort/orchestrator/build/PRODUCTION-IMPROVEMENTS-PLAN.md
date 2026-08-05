@@ -54,11 +54,16 @@ REMAINING for #1: the advisory ASSEMBLY still lives inline in `greenOpenCycle` (
 
 ---
 
-## #2 , pre-conditioning as a declared StepContract face  [NEXT, LARGE]
+## #2 , pre-conditioning as a declared StepContract face  [DONE, full suite 2831 green]
 
-Full spec: `PRE-CONDITIONING-AS-CONTRACT.md`. The context pack + green-failure advisory are prepared
-imperatively in the executor's build-instructions phase; a step cannot DECLARE "I need the pack",
-so every prompt-assembly site can omit it. Make it a contract face the executor honors.
+Full spec + what-shipped ADDENDUM: `PRE-CONDITIONING-AS-CONTRACT.md`. All four slices below landed:
+`preconditions()` on the contract + manifest + schema; the preparer registry
+(`orchestrator/build/preconditions.ts`, `buildGreenFailureAdvisory` migrated out of
+`greenOpenCycle`/`roleTaskBody`); the executor's `PREPARE-PRECONDITIONS` phase (via a `prepare` dep,
+so the executor stays generic); roleTaskBody's assess advisory sourced from the preparer
+(byte-identical , the 85 golden-prompt tests pass unchanged); the lean build chains declare
+`context-pack` (RED) / `green-failure-advisory` (assess) and drop their per-chain pack injection.
+The "always something, never silently empty" warning fires via `deps.onWarn`. Original plan below.
 
 Slices (TDD, drive byte-identical):
 1. `contract/step-contract.ts`: add `preconditions(action): StepPrecondition[]` (4th face) +

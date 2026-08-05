@@ -11,6 +11,7 @@ import {
   validateAndBound,
   type RouteProposal,
   type StepContract,
+  type StepPrecondition,
   type ValidateBoundDeps,
 } from "../../consort/orchestrator/contract/step-contract";
 import type { DriveState, WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
@@ -57,10 +58,21 @@ describe("MockStepContract: the ONE contract's first implementation (inputs + ou
     expect(c.route(architectS1, { state: STATE, feature: "F1" })).toEqual(proposal);
   });
 
-  it("defaults to empty input + output specs + throws on an unscripted route", () => {
+  it("declares the PRE-CONDITIONS a step needs prepared before dispatch (LOGICAL, by kind)", () => {
+    const pre: StepPrecondition[] = [
+      { id: "context-pack", kind: "context-pack", description: "the pre-extracted design rubric + layout" },
+    ];
+    const c = new MockStepContract({ preconditions: { [sig(architectS1)]: pre } });
+    expect(c.preconditions(architectS1)).toEqual(pre);
+  });
+
+  it("defaults to empty input + output + PRECONDITION specs + throws on an unscripted route", () => {
     const c = new MockStepContract({});
     expect(c.inputs(specAuthorS1)).toEqual([]);
     expect(c.outputs(specAuthorS1)).toEqual([]);
+    // A step that declares no preconditions is an AFFIRMATIVE "nothing" (distinct from a
+    // declared-but-empty preparer, which the executor phase logs as an anomaly).
+    expect(c.preconditions(specAuthorS1)).toEqual([]);
     expect(() => c.route(specAuthorS1, { state: STATE, feature: "F1" })).toThrow(/no scripted proposal/i);
   });
 });

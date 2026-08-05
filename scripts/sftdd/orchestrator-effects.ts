@@ -38,6 +38,7 @@ import { readConventions } from "./architecture-conventions.js";
 // The build-turn CONTEXT PACK (rubric + layout + test locations) lives in the orchestrator
 // family as the single source of truth , the lean per-role build chains inject the SAME pack.
 import { contextRubric, buildContextPack } from "../../consort/orchestrator/build/build-context.js";
+import { buildGreenFailureAdvisory } from "../../consort/orchestrator/build/preconditions.js";
 import { sanitizeBranchName } from "@databricks-solutions/lakebase-scm-utils/util";
 
 export type DriveCommand =
@@ -731,35 +732,13 @@ function roleTaskBody(
         );
       }
       if (action.buildMode === "assess") {
-        // DETERMINISTIC contract-clean advisory (FEIP contract-completeness): when
-        // the first GREEN-failure found production code still referencing a
-        // migration-dropped column, the gate localized the exact file:line refs.
-        // Inject them so the Navigator's regression fix covers them WITHOUT having
-        // to re-localize (the live ceiling), while it still independently flags the
-        // superseded prior tests below. Empty when no contract refs were found.
+        // The assess turn's DETERMINISTIC PRE-LOCALIZATION advisory , the verify's own
+        // failure output (start-here), the contract-clean code refs, and the superseded-test
+        // candidates , projected from green-failure.json by the ONE preparer in the
+        // orchestrator family (consort/orchestrator/build/preconditions.ts), so the same
+        // block also feeds the executor's PREPARE-PRECONDITIONS phase. Empty when no marker.
         const gfAssess = action.ac ? readGreenFailure(sftddDir, featureId, s, action.ac) : undefined;
-        const contractAdvisory = gfAssess?.contractRefs
-          ? `DETERMINISTIC contract-clean has ALREADY localized the production-code references to the migration-` +
-            `dropped column(s) below , you do NOT need to re-find them. Record EXACTLY these as a driver-fixable` +
-            ` regression via assess-regression --fix (path (b)), AND SEPARATELY flag any prior tests that assert the` +
-            ` dropped column as superseded (path (a)) , a column drop needs BOTH the code fix and the test refactor` +
-            ` in the same repair turn:\n${gfAssess.contractRefs}\n\n`
-          : "";
-        // The test-side counterpart: DETERMINISTIC pre-localization of the PRIOR
-        // TESTS that reference the dropped symbol, so the Navigator flags EXACTLY
-        // these as superseded (path (a)) instead of searching the test tree.
-        const supersededAdvisory = gfAssess?.supersededTestRefs ? `${gfAssess.supersededTestRefs}\n\n` : "";
-        // The verify's OWN captured failure output (failing node-ids + top error, e.g. "Cannot
-        // find module ../../src/pages/StockViewPage"). The general pre-localization for failures
-        // the deterministic column-drop gates CANNOT localize (a missing client component, a
-        // broken import) , so the Navigator starts from the REAL failure instead of re-scanning
-        // the tree to rediscover what the verify already reported (the assess-spin on S3-class
-        // client regressions). Present whenever the verify captured output.
-        const failureAdvisory = gfAssess?.failureOutput
-          ? `THE VERIFY'S OWN FAILURE OUTPUT (start HERE , it names the failing test(s) + the root error; do NOT re-run` +
-            ` or re-scan the tree to rediscover this). Read the referenced file(s) directly to confirm the cause:\n` +
-            `\`\`\`\n${gfAssess.failureOutput}\n\`\`\`\n\n`
-          : "";
+        const advisory = buildGreenFailureAdvisory(sftddDir, featureId, s, action.ac ?? "");
         // When the deterministic gate ALREADY pre-localized the superseded set
         // (supersededTestRefs present), the set above is authoritative , it is a
         // grep of the migration's net-dropped symbol across the test tree. Telling
@@ -789,9 +768,7 @@ function roleTaskBody(
             ` reversibility/fitness test for an obsoleted column encodes abandoned behavior. Miss one and the verify` +
             ` stays red and escalates, so list ALL of them in ONE flag-superseded call:\n`;
         return (
-          failureAdvisory +
-          contractAdvisory +
-          supersededAdvisory +
+          advisory +
           `ASSESS a failed honest-GREEN verify for AC ${action.ac} in story ${s}. The Driver made the current` +
           ` test pass, but the full-suite verify against the running app FAILED, some OTHER test(s) now fail.\n` +
           scanDirective +

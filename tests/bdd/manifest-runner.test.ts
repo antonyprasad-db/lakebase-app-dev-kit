@@ -9,7 +9,7 @@
 // which is exactly the 2-turn stockflow demo: PO seed -> spec-author breakdown -> done.
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from "fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { runManifestStep, runManifestChain, type ManifestRunnerDeps } from "../../consort/orchestrator/manifest/manifest-runner";
@@ -128,6 +128,47 @@ describe("runManifestChain: follow the routing across turns", () => {
     const turns = await runManifestChain(PO_SEED, manifests, deps(), { maxTurns: 1 });
     expect(turns).toHaveLength(1);
     expect(turns[0].manifestId).toBe("po-seed");
+  });
+});
+
+describe("runManifestStep: PREPARE-PRECONDITIONS appends the declared context-pack (phase 2.5)", () => {
+  it("projects the LAYOUT from the workspace conventions.json + appends it to the agent's prompt", async () => {
+    // Seed conventions.json in the workspace .sftdd (the context-pack LAYOUT source).
+    mkdirSync(join(ws, ".sftdd", "architecture"), { recursive: true });
+    writeFileSync(
+      join(ws, ".sftdd", "architecture", "conventions.json"),
+      JSON.stringify({ established_by: "F1", established_at: "2026-01-01T00:00:00.000Z", service_backed: true, layers: [{ role: "service", module: "app/services" }] }),
+    );
+    // A minimal manifest declaring a context-pack precondition, with a mock agent that captures
+    // the prompt it receives (so we assert the phase appended the prepared block).
+    let seenPrompt = "";
+    const manifest: StepManifest = {
+      id: "precond-probe", role: "driver",
+      match: { kind: "invoke-role", role: "driver", story: "S1" },
+      inputs: [],
+      preconditions: [{ id: "context-pack", kind: "context-pack", description: "the pack", options: { skipTestLoop: true } }],
+      outputs: [{ id: "marker", filename: "marker.txt", validator: "nonEmptyFile", description: "a produced marker" }],
+      routing: { produced: { next: { kind: "design-complete" } } },
+      agentOptions: { session: "fresh" },
+    };
+    const captureAgent: StepAgent = {
+      async invoke(inv) {
+        seenPrompt = inv.instructions.prompt;
+        writeFileSync(join(inv.workspaceDir, "marker.txt"), "ok\n");
+      },
+    };
+    const res = await runManifestStep(
+      { kind: "invoke-role", role: "driver", story: "S1" } as WorkflowAction,
+      [manifest],
+      { ...deps(), agentFor: () => captureAgent, instructionsFor: () => ({ prompt: "GREEN story S1." }) },
+    );
+    expect(res.violations).toEqual([]);
+    // The declared context-pack was PREPARED (LAYOUT from conventions) + APPENDED to the prompt.
+    expect(seenPrompt).toMatch(/^GREEN story S1\./);
+    expect(seenPrompt).toMatch(/LAYOUT \(place\/judge code/);
+    expect(seenPrompt).toContain("service=app/services");
+    // skipTestLoop honored (no TESTS line).
+    expect(seenPrompt).not.toMatch(/TESTS ::/);
   });
 });
 

@@ -351,6 +351,7 @@ describe("runDriver: output-driven routing seam (options.contract)", () => {
   // (inputs/outputs default to empty/null; only the routing face is exercised here.)
   const passthroughContract = (transition: (s: DriveState) => WorkflowAction): import("../../consort/orchestrator/contract/step-contract").StepContract => ({
     inputs: () => [],
+    preconditions: () => [],
     outputs: () => [],
     route(_completed, ctx) {
       return { outcome: "produced", proposedNext: transition(ctx.state) };
@@ -390,6 +391,7 @@ describe("runDriver: output-driven routing seam (options.contract)", () => {
     // step-contract.test.ts.)
     const offGraphContract: import("../../consort/orchestrator/contract/step-contract").StepContract = {
       inputs: () => [],
+      preconditions: () => [],
       outputs: () => [],
       route() {
         return { outcome: "produced", proposedNext: { kind: "merge" } }; // never allowed mid-design

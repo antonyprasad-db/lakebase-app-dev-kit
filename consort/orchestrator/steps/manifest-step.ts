@@ -25,6 +25,7 @@ import type { StepManifest } from "../manifest/step-manifest.js";
 import type {
   StepContract,
   StepInputSpec,
+  StepPrecondition,
   StepOutputSpec,
   RouteProposal,
   StepRouteContext,
@@ -56,6 +57,19 @@ export class ManifestStep implements StepContract {
     return this.manifest.inputs.map((i) => ({
       id: i.id,
       description: i.description ?? `${i.id} (from ${i.source})`,
+    }));
+  }
+
+  /** WHAT this step needs PRE-CONDITIONED (logical), from the manifest. The orchestrator's
+   *  PREPARE-PRECONDITIONS phase runs the matching preparer + appends the projected block.
+   *  Absent on the manifest = an affirmative "nothing" (empty). The preparer `options` ride
+   *  along on the spec so a preparer (e.g. context-pack's skipTestLoop) can read them. */
+  preconditions(_action: WorkflowAction): StepPrecondition[] {
+    return (this.manifest.preconditions ?? []).map((p) => ({
+      id: p.id,
+      kind: p.kind,
+      description: p.description ?? p.id,
+      ...(p.options ? { options: p.options } : {}),
     }));
   }
 

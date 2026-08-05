@@ -6,6 +6,9 @@
     { "id": "green-failure", "source": "feature:.sftdd/cycles/F6-split-tracking-code/S1-split-columns-migration/AC1-batch-serial-columns-added/green-failure.json", "description": "The failed-GREEN marker (+ pre-localized supersededTestRefs) the Navigator discriminates." },
     { "id": "ac", "source": "feature:.sftdd/features/F6-split-tracking-code/stories/S1-split-columns-migration/acs/AC1-batch-serial-columns-added.json", "description": "The AC whose intent decides superseded vs genuine regression." }
   ],
+  "preconditions": [
+    { "id": "green-failure-advisory", "kind": "green-failure-advisory", "description": "The deterministic pre-localization (failure output + contract refs + superseded-test candidates) projected as the start-HERE advisory , so the Navigator does not re-scan the tree." }
+  ],
   "outputs": [
     { "id": "assess-marker", "filename": ".sftdd/cycles/F6-split-tracking-code/S1-split-columns-migration/AC1-batch-serial-columns-added", "validator": "assessMarkerWritten", "description": "The discriminator marker: superseded-tests.json OR regression-assessment.json." },
     { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "navigatorLoggedAuthoring", "description": "The Navigator's authoring log." }

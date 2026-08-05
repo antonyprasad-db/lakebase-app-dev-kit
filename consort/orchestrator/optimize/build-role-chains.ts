@@ -18,7 +18,6 @@
 
 import { join } from "node:path";
 import { runIntegrationChain } from "../scenarios/integration-chain.js";
-import { buildContextPack } from "../build/build-context.js";
 import type { StepManifest } from "../manifest/step-manifest.js";
 import type { StepAgent } from "../agents/agent-types.js";
 import type { ManifestTurn } from "../manifest/manifest-runner.js";
@@ -163,24 +162,16 @@ export async function runBuildRoleChainLive(chain: BuildRoleChain, opts: RunBuil
     feature: BUILD_FEATURE,
     start: BUILD_PO_SEED,
     extraSnapshotRoots: chain.extraSnapshotRoots,
-    instructionsFor: (m: StepManifest, ws: string) =>
+    instructionsFor: (m: StepManifest, _ws: string) =>
       m.agent?.kind === "claude"
         ? {
-            // Append the REAL buildContextPack (the SAME deterministic RUBRIC + LAYOUT +
-            // test-locations the orchestrator injects into a dispatched build turn), computed
-            // against the SEEDED workspace .sftdd , so the isolated turn is pre-conditioned
-            // exactly as production, not from a hand-written approximation. RED has no code yet
-            // (skipTestLoop drops the test-location line); assess judges existing code (full pack).
-            prompt:
-              chain.prompt +
-              // RED runs on S3, ASSESS on S1 , compute the pack for the chain's OWN story/ac.
-              buildContextPack(
-                join(ws, ".sftdd"),
-                BUILD_FEATURE,
-                chain.assertKind === "assess" ? ASSESS_STORY : BUILD_STORY,
-                chain.assertKind === "assess" ? ASSESS_AC : "",
-                { skipTestLoop: chain.assertKind === "red" },
-              ),
+            // Just the base directive , the pre-conditioning (RED's context-pack; ASSESS's
+            // green-failure advisory) is now DECLARED on the manifest's `preconditions` and
+            // PREPARED + appended by the executor's PREPARE-PRECONDITIONS phase, against the
+            // SEEDED workspace .sftdd. So the isolated turn is pre-conditioned by the SAME
+            // mechanism as a dispatched one, with no per-chain prompt assembly (and the assess
+            // chain now gets the green-failure advisory the real assess uses, not a context-pack).
+            prompt: chain.prompt,
             guidelines: [`Author your output as instructed; end with the agent-report block; run no command.`],
           }
         : { prompt: `Replay-seed the pre-turn state for ${chain.name}.`, guidelines: [] },

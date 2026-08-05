@@ -87,6 +87,19 @@ function harness(opts: { writeSpec?: boolean; writeLog?: boolean; badSpec?: bool
   return { step, ctx, deps, order, seen };
 }
 
+/** A step whose contract declares preconditions, for the PREPARE-PRECONDITIONS phase. */
+function preconditionStep(pre: import("../../consort/orchestrator/contract/step-contract").StepPrecondition[]) {
+  return {
+    inputs: () => [],
+    preconditions: () => pre,
+    outputs: () => [],
+    route: () => ({ outcome: "produced" as const, proposedNext: { kind: "design-complete" } as WorkflowAction }),
+    async run() {
+      return { produced: true, producedPaths: [] };
+    },
+  };
+}
+
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "step-exec-"));
 });
@@ -143,5 +156,96 @@ describe("StepExecutor: the fixed 7-phase Template Method", () => {
     const result = await execute(step, ctx, deps);
     expect(result.violations.join(" ")).toMatch(/feature-spec|not produced|missing/i);
     expect(result.bounded.action).toEqual(BREAKDOWN);
+  });
+});
+
+describe("phase 2.5 PREPARE-PRECONDITIONS: declared preconditions are prepared + appended before dispatch", () => {
+  function ctxFor(): StepCtx {
+    const validateBoundDeps: ValidateBoundDeps = {
+      allowed: () => ({ kind: "design-complete" }) as WorkflowAction,
+      reviseBudgetAvailable: () => true,
+      recordRetry: () => ({ sanctioned: true }),
+    };
+    return {
+      action: BREAKDOWN,
+      cfg: { projectDir: root, sftddDir: join(root, ".sftdd"), featureId: "F1-x" } as StepCtx["cfg"],
+      state: { phase: "feature" } as unknown as DriveState,
+      validateBoundDeps,
+    };
+  }
+
+  it("runs BETWEEN provision-workspace and dispatch-agent, and appends each prepared block to the prompt", async () => {
+    const order: string[] = [];
+    let dispatched = "";
+    const step = {
+      ...preconditionStep([{ id: "context-pack", kind: "context-pack", description: "the pack" }]),
+      async run(provided: import("../../consort/orchestrator/steps/step-run-types").ProvidedStepRun) {
+        order.push("dispatch-agent");
+        dispatched = provided.instructions.prompt;
+        return { produced: true, producedPaths: [] };
+      },
+    };
+    const deps: StepExecutorDeps = {
+      resolveInputs: () => { order.push("resolve-inputs"); return {}; },
+      provisionWorkspace: () => { order.push("provision-workspace"); return { workspaceDir: root }; },
+      instructionsFor: () => ({ prompt: "REVIEW story S1." }),
+      prepare: (kind) => { order.push(`prepare:${kind}`); return " LAYOUT (place/judge code) :: service=app/services."; },
+    };
+    await execute(step, ctxFor(), deps);
+    expect(order).toEqual(["resolve-inputs", "provision-workspace", "prepare:context-pack", "dispatch-agent"]);
+    // The prepared block is appended to the instruction prompt the agent receives.
+    expect(dispatched).toBe("REVIEW story S1. LAYOUT (place/judge code) :: service=app/services.");
+  });
+
+  it("WARNS (never fails) when a declared preparer yields empty , the 'always something' anomaly", async () => {
+    const warnings: string[] = [];
+    const step = preconditionStep([{ id: "context-pack", kind: "context-pack", description: "the pack" }]);
+    const deps: StepExecutorDeps = {
+      resolveInputs: () => ({}),
+      provisionWorkspace: () => ({ workspaceDir: root }),
+      instructionsFor: () => ({ prompt: "GREEN story S1." }),
+      prepare: () => "", // preparer degraded to empty (e.g. conventions.json absent)
+      onWarn: (w) => warnings.push(w),
+    };
+    const result = await execute(step, ctxFor(), deps);
+    // The turn still runs (empty is a degrade, never a hard fail) but the anomaly is surfaced.
+    expect(result.violations).toEqual([]);
+    expect(warnings.some((w) => /context-pack/.test(w) && /empty/i.test(w))).toBe(true);
+  });
+
+  it("a step with NO declared preconditions never calls prepare + never warns (affirmative nothing)", async () => {
+    let prepareCalls = 0;
+    const warnings: string[] = [];
+    const step = preconditionStep([]);
+    const deps: StepExecutorDeps = {
+      resolveInputs: () => ({}),
+      provisionWorkspace: () => ({ workspaceDir: root }),
+      instructionsFor: () => ({ prompt: "plain" }),
+      prepare: () => { prepareCalls++; return "x"; },
+      onWarn: (w) => warnings.push(w),
+    };
+    await execute(step, ctxFor(), deps);
+    expect(prepareCalls).toBe(0);
+    expect(warnings).toEqual([]);
+  });
+
+  it("is byte-identical when the executor has NO prepare dep (default track): preconditions ignored", async () => {
+    // A declared precondition with no prepare dep wired is a no-op (the default executor
+    // path, used by tests + the current manifest runner, stays unchanged).
+    let dispatched = "";
+    const step = {
+      ...preconditionStep([{ id: "context-pack", kind: "context-pack", description: "x" }]),
+      async run(provided: import("../../consort/orchestrator/steps/step-run-types").ProvidedStepRun) {
+        dispatched = provided.instructions.prompt;
+        return { produced: true, producedPaths: [] };
+      },
+    };
+    const deps: StepExecutorDeps = {
+      resolveInputs: () => ({}),
+      provisionWorkspace: () => ({ workspaceDir: root }),
+      instructionsFor: () => ({ prompt: "unchanged" }),
+    };
+    await execute(step, ctxFor(), deps);
+    expect(dispatched).toBe("unchanged");
   });
 });

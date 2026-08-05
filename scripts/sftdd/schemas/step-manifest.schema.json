@@ -39,6 +39,21 @@
         "additionalProperties": false
       }
     },
+    "preconditions": {
+      "type": "array",
+      "description": "The pre-conditions the orchestrator PREPARES (via the preparer registry) and appends to the step's prompt before dispatch: the pre-extracted context-pack (rubric + module layout) and, for assess, the green-failure advisory. LOGICAL (by kind), never authored, projected deterministically from on-disk .sftdd. Absent = an affirmative 'nothing'; a declared preparer that yields empty is logged as an anomaly.",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "description": "Key the prepared block is handed back under." },
+          "kind": { "type": "string", "minLength": 1, "description": "Preparer kind resolved from the preparer registry (context-pack | green-failure-advisory)." },
+          "description": { "type": "string" },
+          "options": { "type": "object", "description": "Preparer-specific knobs, e.g. { \"skipTestLoop\": true } for context-pack." }
+        },
+        "additionalProperties": false
+      }
+    },
     "outputs": {
       "type": "array",
       "description": "The logical outputs the step produces into its workspace. Each declares an in-code conformance validator BY NAME (resolved from validator-registry.ts). May be empty for a turn verified by cycle records rather than a static artifact.",

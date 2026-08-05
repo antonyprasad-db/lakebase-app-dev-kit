@@ -37,6 +37,17 @@ export interface StepManifestInput {
   description?: string;
 }
 
+/** A step's declared PRE-CONDITION , a preparer the orchestrator runs to project a context
+ *  block into the prompt before dispatch (context-pack / green-failure-advisory). */
+export interface StepManifestPrecondition {
+  id: string;
+  /** Preparer kind resolved from the preparer registry (context-pack | green-failure-advisory). */
+  kind: string;
+  description?: string;
+  /** Preparer-specific knobs, e.g. { skipTestLoop: true } for context-pack. */
+  options?: Record<string, unknown>;
+}
+
 /** A step's produced output , validated by an in-code validator resolved from the registry. */
 export interface StepManifestOutput {
   id: string;
@@ -95,6 +106,8 @@ export interface StepManifest {
   role: string;
   match: Record<string, unknown>;
   inputs: StepManifestInput[];
+  /** The pre-conditions the orchestrator PREPARES before dispatch (optional; absent = none). */
+  preconditions?: StepManifestPrecondition[];
   outputs: StepManifestOutput[];
   routing: {
     produced: StepManifestRouteTarget;

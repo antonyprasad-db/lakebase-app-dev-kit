@@ -6,6 +6,9 @@
     { "id": "test-list", "source": "feature:.sftdd/features/F6-split-tracking-code/test-list.json", "description": "The test-list spec , every item must be covered + faithfully asserted." },
     { "id": "ac", "source": "feature:.sftdd/features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/acs/AC1-split-fields-shown.json", "description": "The story AC the tests encode." }
   ],
+  "preconditions": [
+    { "id": "context-pack", "kind": "context-pack", "description": "The pre-extracted RUBRIC + module LAYOUT (RED has no code yet, so no test-location line).", "options": { "skipTestLoop": true } }
+  ],
   "outputs": [
     { "id": "tests", "filename": "tests", "validator": "navigatorTestsAuthored", "description": "The RED test tree the Navigator authored (non-empty tests/ with the story's tests)." },
     { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "navigatorLoggedAuthoring", "description": "The Navigator's authoring log." }

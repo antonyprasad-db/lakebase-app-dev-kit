@@ -19,6 +19,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { manifestForAction, type StepManifest } from "./step-manifest.js";
 import { ManifestStep } from "../steps/manifest-step.js";
+import { resolvePreparer } from "../build/preconditions.js";
 import { buildAgent, type AgentBuildContext } from "../agents/agent-catalogue.js";
 import { probeDriveState } from "../state/escalation-probe.js";
 import { execute, type StepExecutorDeps, type StepCtx, type StepResult, type StepRecord } from "../execution/step-executor.js";
@@ -26,7 +27,7 @@ import { formatAgentReport } from "../execution/agent-report-formatter.js";
 import type { StepAgent, StepInstructions } from "../agents/agent-types.js";
 import type { DriveEffectsConfig } from "../../../scripts/sftdd/orchestrator-effects.js";
 import type { WorkflowAction, DriveState } from "../../../scripts/sftdd/orchestrator-drive.js";
-import type { RouteProposal, ValidateBoundDeps } from "../contract/step-contract.js";
+import type { RouteProposal, ValidateBoundDeps, StepPrecondition } from "../contract/step-contract.js";
 
 /** What the caller provides so the runner can drive a manifest through the executor. */
 export interface ManifestRunnerDeps {
@@ -191,6 +192,23 @@ function executorWiring(
     resolveInputs: () => resolveInputsFromWorkspace(manifest, deps.workspaceDir),
     provisionWorkspace: () => (deps.provisionWorkspace ? deps.provisionWorkspace(manifest, action) : { workspaceDir: deps.workspaceDir }),
     instructionsFor: () => (deps.instructionsFor ? deps.instructionsFor(manifest, action, deps.workspaceDir) : defaultInstructions(manifest)),
+    // Phase 2.5: PREPARE-PRECONDITIONS. A step that DECLARES preconditions (manifest.preconditions)
+    // has each projected here by the registry preparer , from the SHARED workspace's `.sftdd` +
+    // the action's story/ac , and appended to the prompt by the executor. This is the SAME
+    // projection the real drive's roleTaskBody uses (one source of truth), so a manifest-driven
+    // build turn is pre-conditioned identically to a dispatched one. A step declaring none never
+    // calls this.
+    prepare: (kind: string, pre: StepPrecondition, a: WorkflowAction) => {
+      const story = "story" in a && typeof a.story === "string" ? a.story : "";
+      const ac = "ac" in a && typeof a.ac === "string" ? a.ac : "";
+      return resolvePreparer(kind)({
+        sftddDir: deps.cfg.sftddDir,
+        featureId: deps.cfg.featureId,
+        story,
+        ac,
+        ...(pre.options ? { options: pre.options } : {}),
+      });
+    },
     // When enabled, format the agent's report into a conformant agent-log.jsonl
     // (orchestrator-side) before validate-outputs , so a sandboxed agent that cannot run the
     // shared log subprocess still satisfies the agent-log requirement. The report travels as

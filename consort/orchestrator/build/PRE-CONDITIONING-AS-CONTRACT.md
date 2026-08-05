@@ -1,7 +1,9 @@
 # Design follow-up: pre-conditioning as a declared part of the step contract
 
-Status: PROPOSAL (not built). Written after the build-turn chain work surfaced that the context
-pack is a CONVENTION, not a CONTRACT.
+Status: BUILT (task #571). The proposal below was implemented as designed; the ADDENDUM at the
+bottom records where each slice landed + the one deviation (the executor takes a `prepare` DEP so
+it stays generic, rather than importing the registry directly). Written after the build-turn chain
+work surfaced that the context pack is a CONVENTION, not a CONTRACT.
 
 ## The problem this fixes
 
@@ -118,3 +120,40 @@ architect's persistence_invariants pre-projected; a test-strategist turn could d
 architecture summary. Today each is hand-assembled in `roleTaskBody`. One declared-and-prepared
 mechanism replaces N hardcoded prompt-assembly branches , the same win the manifest/StepContract
 refactor already delivered for inputs/outputs/routing, extended to pre-conditioning.
+
+---
+
+## ADDENDUM , what shipped (task #571, all slices, full suite 2831 green, tsc clean)
+
+- **Slice 1 (contract face + type + schema):** `StepContract` gains `preconditions(action)`;
+  `StepPrecondition {id, kind, description, options?}` in `contract/step-contract.ts`.
+  `MockStepContract` + the two inline test contracts implement it (default `[]`). Manifest field
+  `preconditions?: StepManifestPrecondition[]` on `StepManifest` + `step-manifest.schema.json`;
+  `ManifestStep.preconditions()` maps the manifest entries (carrying `options` through).
+- **Slice 2 (preparer registry + executor phase):** `consort/orchestrator/build/preconditions.ts`
+  , `PRECONDITION_PREPARERS` (`context-pack` -> the extracted `buildContextPack`;
+  `green-failure-advisory` -> the NEW `buildGreenFailureAdvisory` projection MIGRATED out of
+  `greenOpenCycle`/`roleTaskBody`) + `resolvePreparer` (throws loud on an unknown kind). The
+  executor gains a **`PREPARE-PRECONDITIONS` phase (2.5)** between provision-workspace and
+  dispatch: for each declared precondition it calls `deps.prepare(kind, pre, action, cfg)` and
+  APPENDS the block to `instructions.prompt`; a declared-but-empty result fires `deps.onWarn`
+  ("always something, never silently empty"), never a hard fail.
+- **Slice 3 (real drive migration, byte-identical):** `roleTaskBody`'s assess branch now sources
+  the pre-localization advisory from `buildGreenFailureAdvisory` (one projection, two consumers) ,
+  the 85 orchestrator-effects golden-prompt tests (which assert exact assess-prompt bytes incl.
+  failureOutput/contract/superseded ORDER) pass unchanged. The context-pack was already on the
+  extracted `buildContextPack`.
+- **Slice 4 (declared on the lean chains):** the navigator RED manifest declares `context-pack`
+  (skipTestLoop), the assess manifest declares `green-failure-advisory`; `manifest-runner` wires
+  `deps.prepare` = `resolvePreparer(kind)(...)` against the shared workspace `.sftdd` + the
+  action's story/ac. `build-role-chains.ts` DROPS its per-chain `buildContextPack` injection , an
+  isolated turn is now pre-conditioned by the SAME phase as a dispatched one (and the assess chain
+  now correctly gets the green-failure advisory the real assess uses, not a context-pack).
+
+### The ONE deviation from the sketch above
+The `preconditions()` INTERFACE face landed as designed, but the executor does NOT import the
+preparer registry directly (that would couple the generic Template Method to `orchestrator/build`).
+Instead it takes an optional `prepare` DEP (same shape as `resolveInputs`/`instructionsFor`) , the
+ORCHESTRATOR (manifest-runner) wires the registry in. Absent `prepare` = the phase is a no-op, so
+the default executor path stays byte-identical. This keeps the "orchestrator owns preparation, step
+stays dumb" split intact while leaving the executor free of a build-lane import.
