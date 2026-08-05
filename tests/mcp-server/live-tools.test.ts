@@ -19,15 +19,18 @@ import {
   deleteLakebaseProject,
 } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { getDefaultBranch } from "@databricks-solutions/lakebase-scm-utils/lakebase";
+import { resolveTestEnv } from "../support/test-env.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const SERVER_PATH = resolve(__dirname, "../../dist/apps/mcp-server/index.js");
 
-const E2E = process.env.LAKEBASE_TEST_E2E === "1";
-const DATABRICKS_HOST = process.env.DATABRICKS_HOST ?? "";
-const DATABRICKS_PROFILE =
-  process.env.DATABRICKS_CONFIG_PROFILE ?? "DEFAULT";
+// Test env from the ONE shared resolver (single config home: .env.local.test.config).
+// No `?? "DEFAULT"` profile guess , an unset host/profile leaves the suite gated off.
+const TENV = resolveTestEnv();
+const E2E = TENV.e2e;
+const DATABRICKS_HOST = TENV.host ?? "";
+const DATABRICKS_PROFILE = TENV.profile ?? "";
 
 function hasCmd(cmd: string): boolean {
   const res = spawnSync(cmd, ["--version"], { stdio: "ignore" });

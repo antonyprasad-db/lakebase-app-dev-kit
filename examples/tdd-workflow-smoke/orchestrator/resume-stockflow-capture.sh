@@ -30,10 +30,15 @@ err() { printf "\n${R}[sf-resume ERROR]${Z} %s\n" "$*" >&2; }
 
 [[ -d "$PROJECT_DIR/.git" ]] || { err "project not found: $PROJECT_DIR"; exit 1; }
 
-# --- workspace / auth (same target as the original run) -----------------------
-export DATABRICKS_HOST="${DATABRICKS_HOST:-https://fevm-serverless-stable-ecparr.cloud.databricks.com}"
-export DATABRICKS_CONFIG_PROFILE="${DATABRICKS_CONFIG_PROFILE:-fevm-serverless-stable-ecparr}"
-export GITHUB_OWNER="${GITHUB_OWNER:-kevin-hartman}"
+# --- workspace / auth (from the ONE config home) ------------------------------
+# The workspace/profile/owner is NOT hardcoded here , it lives in the single
+# home .env.local.test.config (gitignored; see .env.template.test.config).
+# Source it, then read the vars; export whatever the caller already set wins.
+REPO_ROOT_CFG="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+[[ -f "$REPO_ROOT_CFG/.env.local.test.config" ]] && . "$REPO_ROOT_CFG/.env.local.test.config"
+export DATABRICKS_HOST DATABRICKS_CONFIG_PROFILE
+export GITHUB_OWNER="${GITHUB_OWNER:-${LAKEBASE_TEST_GITHUB_OWNER:-}}"
+: "${DATABRICKS_HOST:?set DATABRICKS_HOST / DATABRICKS_CONFIG_PROFILE in .env.local.test.config}"
 
 # --- recording env (IDENTICAL to the original capture) ------------------------
 export LAKEBASE_KIT_DIR="${LAKEBASE_KIT_DIR:-$KIT_ROOT}"          # use the freshly-built dist

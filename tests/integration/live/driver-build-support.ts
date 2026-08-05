@@ -29,6 +29,7 @@ import { cpSync, mkdirSync, readFileSync, writeFileSync, existsSync, statSync, r
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { loadRunConfig } from "../../../consort/orchestrator/manifest/run-config-loader.js";
+import { resolveTestEnv } from "../../support/test-env.js";
 import { catalogueLifecycleDeps } from "../../../consort/orchestrator/manifest/lifecycle-catalogue.js";
 import type { LifecycleRunContext } from "../../../consort/orchestrator/manifest/orchestration-runner.js";
 import type { ScaffoldHandle } from "../../../consort/orchestrator/manifest/lifecycle-catalogue.js";
@@ -100,14 +101,18 @@ function layBundle(projectDir: string): void {
   writeFileSync(join(storyDir, "test-list-per-story.json"), JSON.stringify({ feature_id: b.feature, story_id: b.story, items }, null, 2) + "\n");
 }
 
-/** Resolve the workspace host FROM the check's run-config.json (loadRunConfig applies the
- *  ${DATABRICKS_HOST:-…ecparr…} default). Returns the host + the resolved scaffold-project config so
- *  the caller can gate + so setup uses the SAME config. */
+/** Resolve the scaffold config from the check's run-config. The workspace HOST comes from the ONE
+ *  config home (resolveTestEnv -> .env.local.test.config); we export it as DATABRICKS_HOST so the
+ *  run-config's required ${DATABRICKS_HOST} marker resolves against it (the run-config carries NO
+ *  hardcoded workspace). Returns the host + the resolved scaffold-project config. When the config
+ *  home is unset, host is "" (undefined test env) and the caller's gate skips. */
 export function resolveDriverGreenRunConfig(): { host: string; scaffoldConfig: Record<string, unknown> } {
+  const host = resolveTestEnv().host ?? "";
+  if (host && !process.env.DATABRICKS_HOST) process.env.DATABRICKS_HOST = host;
+  if (!host) return { host: "", scaffoldConfig: {} }; // unconfigured => skip (loadRunConfig would throw on the required marker)
   const cfg = loadRunConfig(RUN_CONFIG_PATH);
   const scaffoldConfig = (cfg.setup?.config ?? {}) as Record<string, unknown>;
-  const host = String(scaffoldConfig.databricksHost ?? "");
-  return { host, scaffoldConfig };
+  return { host: String(scaffoldConfig.databricksHost ?? host), scaffoldConfig };
 }
 
 /**

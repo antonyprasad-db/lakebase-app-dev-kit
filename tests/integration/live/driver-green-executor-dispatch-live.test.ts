@@ -7,9 +7,9 @@
 // branch), so it needs a real branch. ALL of the config resolution / scaffold / bundle / cut / seed /
 // drive / verify / teardown lives in the ONE reusable setup routine runDriverGreenLive
 // (driver-build-support.ts), driven through the EXISTING orchestration lifecycle catalogue
-// (scaffold-project / remove-project) with the host resolved from the check's own run-config.json
-// (driver-green-setup/run-config.json, default fevm-serverless-stable-ecparr, override via
-// DATABRICKS_HOST). This file is just the gated wrapper , NO host-resolution logic here.
+// (scaffold-project / remove-project). The workspace comes from the SINGLE config home
+// (.env.local.test.config, via resolveTestEnv) , NOT hardcoded here or in the run-config. This
+// file is just the gated wrapper , NO host-resolution logic.
 //
 // It is the DRIVER half of the product-channel proof: navigator RED (#590) proved the product channel
 // no-cloud; this proves the DRIVER product turn INCLUDING the live honest-GREEN.
@@ -18,8 +18,8 @@ import { describe, it } from "vitest";
 import { runDriverGreenLive, resolveDriverGreenRunConfig } from "./driver-build-support.js";
 
 // Double-gate: the lean-agent gate (RUN_LIVE_STEP) AND the cloud gate (LAKEBASE_TEST_E2E), since the
-// driver-GREEN honest-verify needs a real Lakebase branch. The host comes from the run-config (it
-// always resolves to at least the ecparr default), so the gate is purely the two env flags.
+// driver-GREEN honest-verify needs a real Lakebase branch. The host comes from the single config
+// home (resolveTestEnv), so an unconfigured environment also skips (hostResolvable is false).
 const cloudReady = !!process.env.RUN_LIVE_STEP && process.env.LAKEBASE_TEST_E2E === "1";
 const hostResolvable = (() => {
   try {

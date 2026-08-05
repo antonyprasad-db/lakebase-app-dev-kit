@@ -50,11 +50,15 @@ import { defaultGatesState, GATE_NAMES, readGates, writeGates } from "../../scri
 import { verifyGateIntegrity } from "../../scripts/sftdd/verify-gate-integrity.js";
 import { withdrawGate } from "../../scripts/sftdd/withdraw-gate.js";
 import { createPullRequest, mergePairedPullRequest } from "@databricks-solutions/lakebase-scm-utils/github";
+import { resolveTestEnv } from "../support/test-env.js";
 
-const E2E = process.env.LAKEBASE_TEST_E2E === "1";
-const DATABRICKS_HOST = process.env.DATABRICKS_HOST ?? "";
-const DATABRICKS_PROFILE = process.env.DATABRICKS_CONFIG_PROFILE ?? "DEFAULT";
-const GITHUB_OWNER = process.env.LAKEBASE_TEST_GITHUB_OWNER ?? "";
+// Test env from the ONE shared resolver (single config home: .env.local.test.config).
+// No `?? "DEFAULT"` profile guess , an unset profile leaves the suite gated off.
+const TENV = resolveTestEnv();
+const E2E = TENV.e2e;
+const DATABRICKS_HOST = TENV.host ?? "";
+const DATABRICKS_PROFILE = TENV.profile ?? "";
+const GITHUB_OWNER = TENV.githubOwner ?? "";
 
 function hasCmd(cmd: string): boolean {
   return spawnSync(cmd, ["--version"], { stdio: "ignore" }).status === 0;

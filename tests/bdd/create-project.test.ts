@@ -5,38 +5,12 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { createProject } from "../../scripts/lakebase/create-project.js";
 import { deleteLakebaseProject } from "@databricks-solutions/lakebase-scm-utils/lakebase";
+import { resolveTestEnv } from "../support/test-env.js";
 
-/**
- * Resolve the destructive test's target host. Precedence:
- *   1. `LAKEBASE_TEST_HOST` – explicit override (e.g. for CI where the
- *      profile mechanism isn't available).
- *   2. `DATABRICKS_CONFIG_PROFILE` – runs `databricks auth env --profile`
- *      and reads back DATABRICKS_HOST. Matches the substrate's existing
- *      profile-aware behavior so contributors who already have a working
- *      profile don't need to also set LAKEBASE_TEST_HOST.
- *   3. null – caller should skip the test.
- *
- * NB: previously this fell back to a hardcoded `workspace.cloud.databricks.com`
- * placeholder, which DNS-failed in every run. That fallback masked the
- * "no host configured" case as a misleading network error; surfacing
- * null lets the suite skip cleanly with a clear message.
- */
-function resolveTestHost(): string | null {
-  if (process.env.LAKEBASE_TEST_HOST) return process.env.LAKEBASE_TEST_HOST;
-  const profile = process.env.DATABRICKS_CONFIG_PROFILE;
-  if (!profile) return null;
-  try {
-    const raw = execFileSync("databricks", ["auth", "env", "--profile", profile], {
-      encoding: "utf-8",
-      timeout: 5_000,
-    });
-    const env = JSON.parse(raw) as { env?: Record<string, string> };
-    const host = env.env?.DATABRICKS_HOST?.replace(/\/+$/, "");
-    return host ?? null;
-  } catch {
-    return null;
-  }
-}
+// The target host comes from the ONE shared resolver (tests/support/test-env.ts),
+// which reads LAKEBASE_TEST_HOST / DATABRICKS_CONFIG_PROFILE from the single config
+// home (.env.local.test.config). No local host-resolution copy, no hardcoded host ,
+// an unconfigured environment resolves to undefined and the suite skips cleanly.
 
 const tmpDirs: string[] = [];
 afterEach(() => {
@@ -93,7 +67,7 @@ describe("createProject input validation", () => {
 const liveE2E = process.env.LAKEBASE_TEST_E2E === "1";
 // Lazily evaluated so the resolver doesn't fire (and possibly shell out)
 // at module-import time when the suite is skipped anyway.
-const e2eHost = liveE2E ? resolveTestHost() : null;
+const e2eHost = liveE2E ? resolveTestEnv().host ?? null : null;
 const e2eReady = liveE2E && !!e2eHost;
 
 describe.skipIf(!e2eReady)("createProject – live end-to-end (LAKEBASE_TEST_E2E=1)", () => {
