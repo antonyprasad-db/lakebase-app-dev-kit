@@ -53,6 +53,11 @@ export interface StepCtx {
 /** What phase 2 hands back: the contained workspace + where each output lands in it. */
 export interface ProvisionedWorkspace {
   workspaceDir: string;
+  /** The CONTAINED zone for `meta`-channel outputs (orchestration bookkeeping , raw report /
+   *  verdict / marker). A `meta` output is captured + validated under this dir; a `product`
+   *  output always under workspaceDir. Absent => meta falls back to workspaceDir, so a
+   *  provisioner that sets no metaDir is byte-identical to the pre-channel executor. */
+  metaDir?: string;
   /** Output-id -> workspace-relative path the produced artifact will be found at (the step
    *  falls back to the bare output filename when an id is absent). */
   outputPaths?: Record<string, string>;
@@ -143,8 +148,9 @@ export async function execute(step: RunnableStep, ctx: StepCtx, deps: StepExecut
     throw new MissingInputError(resolved.missing, action);
   }
 
-  // Phase 2: provision-workspace , the contained dir + output locations.
-  const { workspaceDir, outputPaths } = deps.provisionWorkspace(action, cfg);
+  // Phase 2: provision-workspace , the contained dir + output locations (+ the optional meta
+  // zone for orchestration-bookkeeping outputs).
+  const { workspaceDir, metaDir, outputPaths } = deps.provisionWorkspace(action, cfg);
 
   // Phase 2.5: PREPARE-PRECONDITIONS , project each DECLARED precondition (context-pack /
   // green-failure advisory) and APPEND its block to the step's instructions, so a fresh-
@@ -173,7 +179,7 @@ export async function execute(step: RunnableStep, ctx: StepCtx, deps: StepExecut
   // Time the outer wall-clock across run() (the orchestrator's own measure of the turn, which
   // always exists, vs the agent's self-reported duration which only a live agent emits).
   const startedMs = Date.now();
-  const runResult = await step.run({ action, workspaceDir, inputs: resolved, instructions, outputPaths });
+  const runResult = await step.run({ action, workspaceDir, ...(metaDir ? { metaDir } : {}), inputs: resolved, instructions, outputPaths });
   const outerDurationMs = Date.now() - startedMs;
   const producedPaths = runResult.producedPaths ?? [];
   // Read the step's agent result (usage + final text) duck-typed via an optional accessor , a
@@ -199,12 +205,16 @@ export async function execute(step: RunnableStep, ctx: StepCtx, deps: StepExecut
   }
   for (const spec of step.outputs(action)) {
     const rel = outputPaths?.[spec.id] ?? spec.filename;
+    // Resolve the output in ITS channel's root: a `meta` output (orchestration bookkeeping)
+    // under the contained metaDir when provisioned, a `product` output (the default) under the
+    // workspace tree. Absent metaDir => meta falls back to workspaceDir (byte-identical).
+    const root = spec.channel === "meta" ? metaDir ?? workspaceDir : workspaceDir;
     // An output EXISTS if its declared file is on disk , regardless of whether the AGENT
     // wrote it (producedPaths) or the ORCHESTRATOR materialized it in phase 4.5 (e.g. the
     // formatted agent-log.jsonl). Prefer the path the agent reported; else the declared
-    // workspace-relative path. Checking the filesystem (not just producedPaths) is what lets
+    // channel-root-relative path. Checking the filesystem (not just producedPaths) is what lets
     // an orchestrator-materialized output count as produced.
-    const abs = producedPaths.find((p) => p.endsWith(rel)) ?? join(workspaceDir, rel);
+    const abs = producedPaths.find((p) => p.endsWith(rel)) ?? join(root, rel);
     if (!existsSync(abs)) {
       // A declared output that never appeared , only a violation when the primary is
       // otherwise present (a wholly-empty run is already flagged above, don't double-count).

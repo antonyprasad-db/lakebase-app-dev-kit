@@ -80,6 +80,7 @@ export class ManifestStep implements StepContract {
       id: o.id,
       description: o.description ?? o.id,
       filename: o.filename,
+      ...(o.channel ? { channel: o.channel } : {}),
       validate: resolveValidator(o.validator),
     }));
   }
@@ -114,12 +115,18 @@ export class ManifestStep implements StepContract {
 
     await this.agent.invoke({ action, workspaceDir, inputs, instructions });
 
+    // A `meta`-channel output resolves under the contained metaDir (orchestration bookkeeping);
+    // a `product` output (the default) under the workspace tree (the real deliverable). Absent
+    // metaDir => meta falls back to workspaceDir, byte-identical to the pre-channel behavior.
+    const rootFor = (channel?: "product" | "meta"): string =>
+      channel === "meta" ? provided.metaDir ?? workspaceDir : workspaceDir;
+
     const primary = primaryOutputId(this.manifest);
     const producedPaths: string[] = [];
     let primaryPresent = false;
     for (const spec of this.outputs(action)) {
       const rel = provided.outputPaths?.[spec.id] ?? spec.filename;
-      const p = join(workspaceDir, rel);
+      const p = join(rootFor(spec.channel), rel);
       if (this.exists(p)) {
         producedPaths.push(p);
         if (spec.id === primary) primaryPresent = true;

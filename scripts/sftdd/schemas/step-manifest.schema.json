@@ -64,6 +64,7 @@
           "id": { "type": "string", "minLength": 1 },
           "filename": { "type": "string", "minLength": 1, "description": "Artifact filename within the provided workspace." },
           "validator": { "type": "string", "minLength": 1, "description": "Registered OutputValidator name (validator-registry.ts). resolveValidator throws loud on an unknown name." },
+          "channel": { "type": "string", "enum": ["product", "meta"], "description": "WHICH channel this output lands in (default product). product = the real deliverable that accumulates + gets committed/migrated/deployed (code, tests, .sftdd design docs); resolved under the workspace tree. meta = the orchestrator's bookkeeping about the turn (raw agent report, reflect verdict, assess marker), whose CONFORMANCE the orchestrator owns; resolved under the contained metaDir when the orchestrator provisions one (else falls back to the workspace, byte-identical). Absent = product." },
           "description": { "type": "string" }
         },
         "additionalProperties": false

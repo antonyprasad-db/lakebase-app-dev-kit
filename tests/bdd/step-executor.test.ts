@@ -10,7 +10,7 @@
 // route -> BoundedRoute. The monitor is unit-tested separately (turn-monitor.test.ts).
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { mkdtempSync, writeFileSync, rmSync } from "fs";
+import { mkdtempSync, writeFileSync, rmSync, existsSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { execute } from "../../consort/orchestrator/execution/step-executor";
@@ -247,5 +247,103 @@ describe("phase 2.5 PREPARE-PRECONDITIONS: declared preconditions are prepared +
     };
     await execute(step, ctxFor(), deps);
     expect(dispatched).toBe("unchanged");
+  });
+});
+
+describe("two-channel outputs: product resolves under workspaceDir, meta under metaDir", () => {
+  const okValidate = () => ({ ok: true as const, violations: [] as string[] });
+  const action: WorkflowAction = { kind: "invoke-role", role: "driver", story: "S1-x" } as WorkflowAction;
+
+  function ctxFor(): StepCtx {
+    return {
+      action,
+      cfg: { projectDir: root, sftddDir: join(root, ".sftdd"), featureId: "F1-x" } as StepCtx["cfg"],
+      state: { phase: "feature" } as unknown as DriveState,
+      validateBoundDeps: {
+        allowed: () => ({ kind: "state-derived" }) as unknown as WorkflowAction,
+        reviseBudgetAvailable: () => true,
+        recordRetry: () => ({ sanctioned: true }),
+      },
+    };
+  }
+
+  /** A step declaring one product output + one meta output; run() writes each into the root
+   *  the provided run resolves for its channel (product->workspaceDir, meta->metaDir??workspaceDir). */
+  function channelStep() {
+    const outputs = [
+      { id: "code", description: "product artifact", filename: "code.txt", channel: "product" as const, validate: okValidate },
+      { id: "marker", description: "meta artifact", filename: "marker.json", channel: "meta" as const, validate: okValidate },
+    ];
+    return {
+      inputs: () => [],
+      preconditions: () => [],
+      outputs: () => outputs,
+      route: () => ({ outcome: "produced" as const, proposedNext: { kind: "state-derived" } as unknown as WorkflowAction }),
+      async run(provided: import("../../consort/orchestrator/steps/step-run-types").ProvidedStepRun) {
+        const productRoot = provided.workspaceDir;
+        const metaRoot = provided.metaDir ?? provided.workspaceDir;
+        writeFileSync(join(productRoot, "code.txt"), "print('hi')\n");
+        writeFileSync(join(metaRoot, "marker.json"), JSON.stringify({ superseded: [] }) + "\n");
+        return { produced: true, producedPaths: [join(productRoot, "code.txt"), join(metaRoot, "marker.json")] };
+      },
+    };
+  }
+
+  it("validates a meta output under the provisioned metaDir (not the product workspace)", async () => {
+    const metaDir = mkdtempSync(join(tmpdir(), "step-exec-meta-"));
+    try {
+      const deps: StepExecutorDeps = {
+        resolveInputs: () => ({}),
+        provisionWorkspace: () => ({ workspaceDir: root, metaDir }),
+        instructionsFor: () => ({ prompt: "build S1" }),
+      };
+      const result = await execute(channelStep(), ctxFor(), deps);
+      // Clean produce: the meta output was found + validated under metaDir, the product under workspaceDir.
+      expect(result.violations).toEqual([]);
+      // The product landed in the workspace, the marker in the contained meta zone , NOT the workspace.
+      expect(existsSync(join(root, "code.txt"))).toBe(true);
+      expect(existsSync(join(metaDir, "marker.json"))).toBe(true);
+      expect(existsSync(join(root, "marker.json"))).toBe(false);
+    } finally {
+      rmSync(metaDir, { recursive: true, force: true });
+    }
+  });
+
+  it("back-compat: with NO metaDir provisioned, a meta output falls back to workspaceDir", async () => {
+    const deps: StepExecutorDeps = {
+      resolveInputs: () => ({}),
+      provisionWorkspace: () => ({ workspaceDir: root }), // no metaDir
+      instructionsFor: () => ({ prompt: "build S1" }),
+    };
+    const result = await execute(channelStep(), ctxFor(), deps);
+    // Both outputs resolved under the workspace (meta fell back), so the clean produce holds ,
+    // byte-identical to the pre-channel behavior.
+    expect(result.violations).toEqual([]);
+    expect(existsSync(join(root, "code.txt"))).toBe(true);
+    expect(existsSync(join(root, "marker.json"))).toBe(true);
+  });
+
+  it("flags a MISSING meta output at its metaDir location (channel is enforced, not cosmetic)", async () => {
+    const metaDir = mkdtempSync(join(tmpdir(), "step-exec-meta-"));
+    try {
+      // A step that writes ONLY the product output, never the meta marker.
+      const step = {
+        ...channelStep(),
+        async run(provided: import("../../consort/orchestrator/steps/step-run-types").ProvidedStepRun) {
+          writeFileSync(join(provided.workspaceDir, "code.txt"), "print('hi')\n");
+          return { produced: true, producedPaths: [join(provided.workspaceDir, "code.txt")] };
+        },
+      };
+      const deps: StepExecutorDeps = {
+        resolveInputs: () => ({}),
+        provisionWorkspace: () => ({ workspaceDir: root, metaDir }),
+        instructionsFor: () => ({ prompt: "build S1" }),
+      };
+      const result = await execute(step, ctxFor(), deps);
+      // The meta output was declared but never appeared under metaDir => a named violation.
+      expect(result.violations.join(" ")).toMatch(/marker/i);
+    } finally {
+      rmSync(metaDir, { recursive: true, force: true });
+    }
   });
 });

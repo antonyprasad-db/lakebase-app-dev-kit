@@ -102,6 +102,11 @@ export interface StepOutputSpec {
   description: string;
   /** The artifact's filename WITHIN the provided workspace (what the agent writes). */
   filename: string;
+  /** WHICH channel this output lands in: `product` (default) resolves under the workspace
+   *  tree (the real deliverable , code/tests/.sftdd docs); `meta` resolves under the contained
+   *  metaDir when the orchestrator provisions one (orchestration bookkeeping , raw report /
+   *  verdict / marker). Absent = product (byte-identical to the pre-channel behavior). */
+  channel?: "product" | "meta";
   /** In-code conformance validator for this output. The orchestrator runs it on the
    *  produced artifact; a failure is a hard reject with named violations, NOT an
    *  agent follow-up. Every expected output declares one. */

@@ -17,6 +17,11 @@ export interface ProvidedStepRun {
   /** The directory the step + its agent may read/write within. Provisioned by the
    *  orchestrator; the agent writes its output artifact HERE, never into .sftdd directly. */
   workspaceDir: string;
+  /** The CONTAINED zone for `meta`-channel outputs (orchestration bookkeeping , raw report /
+   *  verdict / marker), when the orchestrator provisions one. A `meta` output resolves under
+   *  this dir; a `product` output always under workspaceDir. Absent => meta falls back to
+   *  workspaceDir, so a step with no metaDir is byte-identical to the pre-channel behavior. */
+  metaDir?: string;
   /** The resolved input CONTENTS, keyed by input id. The orchestrator read these from .sftdd
    *  (interactive or filesystem) and hands them over; the step never fetches. */
   inputs: Record<string, string>;
