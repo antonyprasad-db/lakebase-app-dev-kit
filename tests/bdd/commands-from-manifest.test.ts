@@ -241,13 +241,61 @@ describe("commandsFromManifest ≡ commandsForAction: driver GREEN build turn", 
     expect(fromManifest[0]).toMatchObject({ kind: "claude", role: "driver", model: "haiku", resumeKey: "driver:S1-record-stock" });
   });
 
-  it("the match sentinel EXCLUDES a refactor turn (buildMode present) , no manifest hijack", () => {
+  it("a refactor turn (buildMode present) resolves its OWN manifest, byte-identical to legacy", () => {
+    // Was previously EXCLUDED (no manifest); now driver-refactor.json homes it. The refactor
+    // family's cycle CLI is `refactor ... --loop story` (dynamic), delegated to buildCycleCommand.
     const refactor: WorkflowAction = { kind: "invoke-role", role: "driver", story: "S1-record-stock", buildMode: "refactor" };
-    expect(commandsFromManifest(refactor, cfg())).toBeUndefined();
+    expect(commandsFromManifest(refactor, cfg())).toEqual(commandsForAction(refactor, cfg()));
   });
 
-  it("the match sentinel EXCLUDES a per-AC green turn (ac present)", () => {
+  it("a per-AC green turn (ac present) resolves driver-green, byte-identical (cycle carries --ac)", () => {
+    // Was previously EXCLUDED by an ac:null sentinel; driver-green now matches plain + per-AC
+    // green (buildMode still absent), and the dynamic @build-cycle marker adds --ac when present.
     const perAc: WorkflowAction = { kind: "invoke-role", role: "driver", story: "S1-record-stock", ac: "AC1" };
-    expect(commandsFromManifest(perAc, cfg())).toBeUndefined();
+    expect(commandsFromManifest(perAc, cfg())).toEqual(commandsForAction(perAc, cfg()));
+  });
+});
+
+// Every navigator/driver BUILD turn now has a shipped manifest (the config home for its
+// agentOptions), and its record-phase cycle CLI is derived by the ONE buildCycleCommand both
+// paths call. Assert commandsFromManifest ≡ commandsForAction for each , the byte-identical
+// contract that lets the executor eventually own dispatch (Stage 2) from a unified config.
+describe("commandsFromManifest ≡ commandsForAction: all build turns (full command-source)", () => {
+  const STORY = "S1-record-stock";
+  const AC = "AC1";
+  // Each build turn as the drive plans it. reflect/review/assess/refactor/etc. carry a buildMode;
+  // plain RED (navigator, no buildMode) + plain GREEN (driver, no buildMode) do not.
+  const BUILD_TURNS: Array<[string, WorkflowAction]> = [
+    ["navigator RED (plain)", { kind: "invoke-role", role: "navigator", story: STORY }],
+    ["navigator REVIEW (story)", { kind: "invoke-role", role: "navigator", story: STORY, buildMode: "review" }],
+    ["navigator REVIEW (per-AC)", { kind: "invoke-role", role: "navigator", story: STORY, buildMode: "review", ac: AC }],
+    ["navigator REFLECT", { kind: "invoke-role", role: "navigator", story: STORY, buildMode: "reflect" }],
+    ["navigator ASSESS", { kind: "invoke-role", role: "navigator", story: STORY, buildMode: "assess", ac: AC }],
+    ["navigator ASSESS-DEPLOY", { kind: "invoke-role", role: "navigator", story: STORY, buildMode: "assess-deploy" }],
+    ["navigator ASSESS-REFACTOR", { kind: "invoke-role", role: "navigator", story: STORY, buildMode: "assess-refactor" }],
+    ["driver GREEN (plain)", { kind: "invoke-role", role: "driver", story: STORY }],
+    ["driver GREEN (per-AC)", { kind: "invoke-role", role: "driver", story: STORY, ac: AC }],
+    ["driver REFACTOR", { kind: "invoke-role", role: "driver", story: STORY, buildMode: "refactor" }],
+    ["driver REFACTOR-DEPLOY", { kind: "invoke-role", role: "driver", story: STORY, buildMode: "refactor-deploy" }],
+    ["driver REFACTOR-SUPERSEDED", { kind: "invoke-role", role: "driver", story: STORY, buildMode: "refactor-superseded" }],
+    ["driver REPAIR", { kind: "invoke-role", role: "driver", story: STORY, buildMode: "repair", ac: AC }],
+    ["driver GREEN-SUPERSEDED", { kind: "invoke-role", role: "driver", story: STORY, buildMode: "green-superseded" }],
+  ] as unknown as Array<[string, WorkflowAction]>;
+
+  it.each(BUILD_TURNS)("%s: manifest command list == legacy", (_label, action) => {
+    const fromManifest = commandsFromManifest(action, cfg());
+    expect(fromManifest, "every build turn now resolves a shipped manifest").toBeDefined();
+    expect(fromManifest).toEqual(commandsForAction(action, cfg()));
+  });
+
+  it("driver refactor turns declare the haiku model tier in agentOptions", () => {
+    // The model-tier lever (REFACTOR on a fast model) is now DECLARED in the manifest, not only
+    // in defaultSftddConfig's per-turn map , the parity test guards the two agree.
+    const refactor: WorkflowAction = { kind: "invoke-role", role: "driver", story: STORY, buildMode: "refactor" };
+    // With a cfg whose modelForTurn tiers refactor->haiku (as the real resolver does), the spawn
+    // command carries haiku; byte-identity with legacy is the assertion above. Here just sanity
+    // that the two paths agree under model tiering.
+    const tiered = cfg({ modelForTurn: (r, t) => (r === "driver" && t === "refactor" ? "haiku" : "sonnet") });
+    expect(commandsFromManifest(refactor, tiered)).toEqual(commandsForAction(refactor, tiered));
   });
 });

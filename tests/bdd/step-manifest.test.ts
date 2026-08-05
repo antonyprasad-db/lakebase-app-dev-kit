@@ -12,9 +12,11 @@ import {
   SHIPPED_MANIFESTS,
   manifestForAction,
   matchesAction,
+  agentOptionsForStep,
 } from "../../consort/orchestrator/manifest/step-manifest";
 import type { StepManifest } from "../../consort/orchestrator/manifest/step-manifest";
 import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
+import { turnKeyForAction } from "../../scripts/sftdd/turn-key";
 
 /** A minimal, shape-conformant manifest builder for negative tests. */
 function manifest(over: Partial<StepManifest> = {}): StepManifest {
@@ -131,5 +133,37 @@ describe("step-manifest manifestForAction (single-match, rejects ambiguity)", ()
   it("uses the shipped manifests when no explicit list is passed", () => {
     const m = manifestForAction(BREAKDOWN);
     expect(m?.id).toBe("spec-author-breakdown");
+  });
+});
+
+describe("agentOptionsForStep (per-step config-directory layer for the resolver)", () => {
+  it("returns the declared model/effort for a (role, turnKey) from the shipped manifests", () => {
+    // spec-author breakdown = haiku+low (the applied winner, baked into the manifest).
+    expect(agentOptionsForStep("spec-author", "breakdown", turnKeyForAction)).toEqual({ model: "haiku", effort: "low" });
+    // navigator review = sonnet+low (the former defaultEffort entry, now declared).
+    expect(agentOptionsForStep("navigator", "review", turnKeyForAction)).toEqual({ model: "sonnet", effort: "low" });
+    // driver refactor = haiku (the model tier), default effort.
+    expect(agentOptionsForStep("driver", "refactor", turnKeyForAction)).toEqual({ model: "haiku", effort: "default" });
+  });
+
+  it("returns undefined for a (role, turnKey) no shipped manifest declares", () => {
+    expect(agentOptionsForStep("navigator", "red", turnKeyForAction)).toBeDefined(); // navigator-red exists
+    expect(agentOptionsForStep("product-owner", "breakdown", turnKeyForAction)).toBeUndefined();
+    expect(agentOptionsForStep("spec-author", undefined, turnKeyForAction)).toBeUndefined();
+  });
+
+  it("collapsed buildModes resolve ONE lever set (the three assess* share the assess key)", () => {
+    // assess / assess-deploy / assess-refactor all map to turnKey "assess"; their manifests must
+    // agree, so the lookup returns a single {model,effort} without throwing.
+    expect(agentOptionsForStep("navigator", "assess", turnKeyForAction)).toEqual({ model: "sonnet", effort: "default" });
+    expect(agentOptionsForStep("driver", "refactor", turnKeyForAction)).toEqual({ model: "haiku", effort: "default" });
+  });
+
+  it("THROWS when two manifests for the same resolved (role, turnKey) declare different levers", () => {
+    // Two navigator "review" manifests disagreeing on effort , a manifest-authoring bug the
+    // resolver must not silently paper over.
+    const a = { role: "navigator", match: { kind: "invoke-role", role: "navigator", buildMode: "review" }, agentOptions: { model: "sonnet", effort: "low" } } as unknown as StepManifest;
+    const b = { role: "navigator", match: { kind: "invoke-role", role: "navigator", buildMode: "review" }, agentOptions: { model: "sonnet", effort: "high" } } as unknown as StepManifest;
+    expect(() => agentOptionsForStep("navigator", "review", turnKeyForAction, [a, b])).toThrow(/conflicting agentOptions/i);
   });
 });

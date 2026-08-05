@@ -1,0 +1,22 @@
+{
+  "id": "navigator-review",
+  "role": "navigator",
+  "match": { "kind": "invoke-role", "role": "navigator", "buildMode": "review" },
+  "inputs": [
+    { "id": "code", "source": "story:code", "description": "The Driver's implementation the Navigator critiques (story- or AC-scoped by the loop)." },
+    { "id": "acs", "source": "story:acs", "description": "The acceptance criteria the review holds the code to." }
+  ],
+  "outputs": [],
+  "routing": {
+    "produced": { "next": "state-derived" }
+  },
+  "agentOptions": {
+    "model": "sonnet",
+    "effort": "low",
+    "session": "resume",
+    "resumeKeyFrom": "story"
+  },
+  "postTurn": [
+    { "bin": "@build-cycle", "args": [], "when": "after" }
+  ]
+}

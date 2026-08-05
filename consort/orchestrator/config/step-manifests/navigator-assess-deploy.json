@@ -1,0 +1,21 @@
+{
+  "id": "navigator-assess-deploy",
+  "role": "navigator",
+  "match": { "kind": "invoke-role", "role": "navigator", "buildMode": "assess-deploy" },
+  "inputs": [
+    { "id": "deploy-verify-assess", "source": "story:deploy-verify-assess.json", "description": "The story-level deploy-verify failure marker the Navigator scopes for contamination-fragile tests." }
+  ],
+  "outputs": [],
+  "routing": {
+    "produced": { "next": "state-derived" }
+  },
+  "agentOptions": {
+    "model": "sonnet",
+    "effort": "default",
+    "session": "resume",
+    "resumeKeyFrom": "story"
+  },
+  "postTurn": [
+    { "bin": "@build-cycle", "args": [], "when": "after" }
+  ]
+}

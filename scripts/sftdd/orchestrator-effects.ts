@@ -19,7 +19,7 @@
 import * as fs from "node:fs";
 import { dirname } from "node:path";
 import { nextTransition, type WorkflowAction } from "./orchestrator-drive.js";
-import { manifestForAction } from "../../consort/orchestrator/manifest/step-manifest.js";
+import { manifestForAction, type StepManifestPostTurn } from "../../consort/orchestrator/manifest/step-manifest.js";
 import type { DriveEffects } from "./orchestrator-run.js";
 import { deriveDriveState, effectiveLoopForStory } from "./orchestrator-derive.js";
 import { diskArtifactProbe, readDriveContext } from "./orchestrator-probe.js";
@@ -28,7 +28,12 @@ import {
   storyJson, designGuideJson, handbackFile, storyAcIds, architectureJson, readAcLayer,
   featureProposalsMd, featureSpecJson, featureTestListJson, acsDir, planningEstimatesJson,
 } from "./sftdd-paths.js";
-import type { TurnKey } from "./sftdd-config.js";
+import type { TurnKey } from "./turn-key.js";
+// turnKeyForAction now lives in the shared, dependency-light turn-key module (so the config
+// resolver can derive the same key without a cycle). Re-exported here for the callers that have
+// long imported it from orchestrator-effects (optimize.cli, tests).
+export { turnKeyForAction } from "./turn-key.js";
+import { turnKeyForAction } from "./turn-key.js";
 import { designGuideConformance } from "./response-formatter.js";
 import { storyTestProgress, nextPendingBatch, DEFAULT_BATCH_CAP } from "./cycle-record.js";
 import { readSupersededTests, readGreenFailure } from "./supersession.js";
@@ -1033,60 +1038,6 @@ function designArtifactExpectation(
   return null; // navigator/driver build turns: not a design artifact
 }
 
-/** Map an invoke-role action to its TurnKey , the per-invocation step the config's
- *  effort/model can be keyed on ("apply to the step, not the role"). BUILD turns:
- *  navigator review|red, driver refactor|green (reflect is a design-lane critic on
- *  the base model, so no key). DESIGN steps: spec-author breakdown|propose|acs,
- *  architect-reviewer estimate|architect, dba, test-strategist test-list, ux-designer
- *  ux. Returns undefined only for actions with no distinct step (fall back to scalar). */
-export function turnKeyForAction(action: WorkflowAction): TurnKey | undefined {
-  if (action.kind !== "invoke-role") return undefined;
-  // Build turns first (buildMode-carrying navigator/driver turns). Each specialized
-  // buildMode collapses onto its base BuildTurn family , the same KIND of work, so it
-  // picks that family's model/effort. (reflect is the design-lane critic, no build key.)
-  if ("buildMode" in action) {
-    switch (action.buildMode) {
-      case "reflect":
-        return undefined; // design-lane critic, runs on the base model
-      case "review":
-        return "review";
-      case "refactor":
-      case "refactor-deploy":
-      case "refactor-superseded": // BUGFIX: previously fell through to undefined
-        return "refactor";
-      case "assess":
-      case "assess-deploy":
-      case "assess-refactor":
-        return "assess";
-      case "repair":
-        return "repair";
-      case "green-superseded":
-        return "green";
-    }
-  }
-  // Planning-mode design steps.
-  if ("mode" in action) {
-    if (action.role === "spec-author" && action.mode === "breakdown") return "breakdown";
-    if (action.role === "spec-author" && action.mode === "propose") return "propose";
-    if (action.role === "architect-reviewer" && (action.mode === "estimate" || action.mode === "estimate-committed")) return "estimate";
-    // author-requests is human input, no agent turn , no key.
-    return undefined;
-  }
-  // Feature-scoped design role.
-  if (action.role === "ux-designer") return "ux";
-  // Story-scoped design steps (no mode/buildMode, has a story).
-  if ("story" in action && action.story) {
-    if (action.role === "spec-author") return "acs";
-    if (action.role === "architect-reviewer") return "architect";
-    if (action.role === "dba") return "dba";
-    if (action.role === "test-strategist") return "test-list";
-  }
-  // Plain build turns (no buildMode): navigator RED, driver GREEN.
-  if (action.role === "navigator") return "red";
-  if (action.role === "driver") return "green";
-  return undefined;
-}
-
 /**
  * Assemble the `claude` DriveCommand for an invoke-role action , the per-invocation agent
  * spawn (role/model/effort/session/tool-scope/task). Extracted verbatim from the invoke-role
@@ -1176,6 +1127,64 @@ function buildClaudeCommand(action: Extract<WorkflowAction, { kind: "invoke-role
 }
 
 /**
+ * The single post-turn CYCLE CLI a navigator/driver BUILD turn emits (the record/log phase's
+ * role-specific effect), or undefined for a role/turn that emits none (every design role, and
+ * the test-strategist/breakdown cases whose CLIs are handled separately). Extracted VERBATIM
+ * from the navigator+driver if-else chains of commandsForAction so BOTH the legacy branch and
+ * the manifest-driven commandsFromManifest derive the SAME cycle command from ONE place , the
+ * cycle CLI's args are DYNAMIC (loop granularity, --ac, --repair, the collapsed buildMode
+ * verbs), so they cannot live as a static manifest postTurn.args; a manifest declares a
+ * `@build-cycle` marker and delegates HERE. Pure move, byte-identical (the full suite +
+ * orchestrator-effects goldens guard it).
+ */
+function buildCycleCommand(
+  action: Extract<WorkflowAction, { kind: "invoke-role" }>,
+  cfg: DriveEffectsConfig,
+): DriveCommand | undefined {
+  const f = cfg.featureId;
+  // Same storyLoop derivation commandsForAction computes for the cycle loop flags.
+  const storyLoop: "ac" | "hybrid-a" | "story" | undefined =
+    "story" in action ? effectiveLoopForStory(cfg.loopGranularity ?? "story", action.story) : cfg.loopGranularity;
+
+  // Navigator build turns.
+  if (!("mode" in action) && action.role === "navigator" && "buildMode" in action && action.buildMode === "reflect") {
+    return { kind: "cli", bin: CYCLE_BIN, args: ["reflect-gate", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] };
+  } else if (!("mode" in action) && action.role === "navigator" && "buildMode" in action && action.buildMode === "assess") {
+    const acFlag = "ac" in action && action.ac ? ["--ac", action.ac] : [];
+    return { kind: "cli", bin: CYCLE_BIN, args: ["assess-green", "--feature", f, "--story", action.story, ...acFlag, "--tdd-dir", cfg.sftddDir] };
+  } else if (!("mode" in action) && action.role === "navigator" && "buildMode" in action && action.buildMode === "assess-deploy") {
+    return { kind: "cli", bin: CYCLE_BIN, args: ["assess-deploy-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] };
+  } else if (!("mode" in action) && action.role === "navigator" && "buildMode" in action && action.buildMode === "assess-refactor") {
+    return { kind: "cli", bin: CYCLE_BIN, args: ["assess-refactor-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] };
+  } else if (!("mode" in action) && action.role === "navigator") {
+    const acFlag = "ac" in action && action.ac ? ["--ac", action.ac] : [];
+    const verb = "buildMode" in action && action.buildMode === "review" ? "review" : "begin";
+    const loop = storyLoop ?? "story";
+    const loopFlag =
+      loop === "story"
+        ? ["--loop", "story"]
+        : verb === "begin" && loop === "hybrid-a"
+          ? ["--loop", "hybrid-a", ...(cfg.batchCap ? ["--batch-cap", String(cfg.batchCap)] : [])]
+          : [];
+    return { kind: "cli", bin: CYCLE_BIN, args: [verb, "--feature", f, "--story", action.story, ...acFlag, "--tdd-dir", cfg.sftddDir, ...loopFlag] };
+  }
+  // Driver build turns.
+  if (!("mode" in action) && action.role === "driver" && "buildMode" in action && action.buildMode === "refactor-deploy") {
+    return { kind: "cli", bin: CYCLE_BIN, args: ["refactor-deploy-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] };
+  } else if (!("mode" in action) && action.role === "driver" && "buildMode" in action && action.buildMode === "refactor-superseded") {
+    return { kind: "cli", bin: CYCLE_BIN, args: ["refactor-superseded-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] };
+  } else if (!("mode" in action) && action.role === "driver") {
+    const acFlag = "ac" in action && action.ac ? ["--ac", action.ac] : [];
+    const isRepair = "buildMode" in action && action.buildMode === "repair";
+    const verb = "buildMode" in action && action.buildMode === "refactor" ? "refactor" : "green";
+    const repairFlag = isRepair ? ["--repair"] : [];
+    const loopFlag = verb === "refactor" && (storyLoop ?? "story") === "story" ? ["--loop", "story"] : [];
+    return { kind: "cli", bin: CYCLE_BIN, args: [verb, "--feature", f, "--story", action.story, ...acFlag, "--tdd-dir", cfg.sftddDir, ...repairFlag, ...loopFlag] };
+  }
+  return undefined;
+}
+
+/**
  * Assemble an action's DriveCommand[] FROM its step manifest , the manifest-driven half of
  * the Template Method's record/log phase. Returns undefined when no manifest matches the
  * action (the caller falls back to the legacy commandsForAction branch), so this is purely
@@ -1219,12 +1228,24 @@ export function commandsFromManifest(action: WorkflowAction, cfg: DriveEffectsCo
       return [a];
     });
 
+  // A postTurn entry is either a STATIC CLI (bin token + fixed args, e.g. the design-lane
+  // reset/sync-breakdown or test-list) OR the `@build-cycle` marker , the navigator/driver
+  // build turn's cycle CLI, whose args are DYNAMIC (loop/--ac/--repair/collapsed buildMode
+  // verbs) and cannot be a static args array. The marker delegates to buildCycleCommand, the
+  // SAME derivation commandsForAction uses, so the two paths stay byte-identical.
+  const CYCLE_MARKER = "@build-cycle";
+  const toCmd = (p: StepManifestPostTurn): DriveCommand | undefined =>
+    p.bin === CYCLE_MARKER
+      ? buildCycleCommand(action, cfg)
+      : { kind: "cli", bin: resolveBin(p.bin), args: expandArgs(p.args) };
   const before = (manifest.postTurn ?? [])
     .filter((p) => p.when === "before")
-    .map<DriveCommand>((p) => ({ kind: "cli", bin: resolveBin(p.bin), args: expandArgs(p.args) }));
+    .map(toCmd)
+    .filter((c): c is DriveCommand => c !== undefined);
   const after = (manifest.postTurn ?? [])
     .filter((p) => p.when === "after")
-    .map<DriveCommand>((p) => ({ kind: "cli", bin: resolveBin(p.bin), args: expandArgs(p.args) }));
+    .map(toCmd)
+    .filter((c): c is DriveCommand => c !== undefined);
 
   const cmds: DriveCommand[] = [...before, buildClaudeCommand(action, cfg)];
 
@@ -1295,11 +1316,6 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
       // of times so accumulation is bounded.
       const claude = buildClaudeCommand(action, cfg);
       const cmds: DriveCommand[] = [claude];
-      // The per-story loop granularity is still needed BELOW for the cycle CLI loop
-      // flags (the claude command computes its own copy internally; this drives the
-      // navigator/driver begin/review/refactor --loop args). Same derivation.
-      const storyLoop: "ac" | "hybrid-a" | "story" | undefined =
-        "story" in action ? effectiveLoopForStory(cfg.loopGranularity ?? "story", action.story) : cfg.loopGranularity;
       // Post-turn out-of-root guard (FEIP-8006): assert the role wrote its
       // artifact under the project's sftddDir BEFORE any effect below consumes it,
       // so a stray write (agent resolved the project root wrong) fails loud +
@@ -1336,79 +1352,12 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
       // this (vs the agent hand-writing cycle-NNN.json) is what keeps the
       // probe's red_at/green_at reading in lockstep with what was produced ,
       // the drift that stalled the live smoke.
-      if (!("mode" in action) && action.role === "navigator" && "buildMode" in action && action.buildMode === "reflect") {
-        // After the Navigator's reflect turn writes its verdict, the DETERMINISTIC
-        // reflect gate reads it and, on a failed verdict, flags the spec-level
-        // blocking smell for the owning author (scoped to the story). The existing
-        // revise-route/escalation machinery then routes + bounds + escalates. A
-        // passed verdict flags nothing and the design lane advances to the gate.
-        cmds.push({ kind: "cli", bin: CYCLE_BIN, args: ["reflect-gate", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] });
-      } else if (!("mode" in action) && action.role === "navigator" && "buildMode" in action && action.buildMode === "assess") {
-        // After the Navigator assesses a failed GREEN verify, finalize it: mark
-        // the green-failure assessed + (if the Navigator did NOT flag-supersede)
-        // record the genuine-regression escalation. Whether a flag was made is
-        // read from disk (superseded-tests.json), so the verdict is the role's.
-        const acFlag = "ac" in action && action.ac ? ["--ac", action.ac] : [];
-        cmds.push({ kind: "cli", bin: CYCLE_BIN, args: ["assess-green", "--feature", f, "--story", action.story, ...acFlag, "--tdd-dir", cfg.sftddDir] });
-      } else if (!("mode" in action) && action.role === "navigator" && "buildMode" in action && action.buildMode === "assess-deploy") {
-        // After the Navigator's story-level deploy-verify ASSESS turn, finalize it:
-        // read its scope directives (deploy-verify-scope.json) and either record the
-        // contamination-fragile scope set on the marker (routes the Driver SCOPE
-        // turn) or , when it wrote none (its veto) , mark the one shot spent + write
-        // the terminal deploy-verify escalation (raise-to-hil). The verdict is the
-        // role's (read from disk); the finalize is deterministic.
-        cmds.push({ kind: "cli", bin: CYCLE_BIN, args: ["assess-deploy-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] });
-      } else if (!("mode" in action) && action.role === "navigator" && "buildMode" in action && action.buildMode === "assess-refactor") {
-        // After the Navigator's refactor-verify ASSESS turn, finalize it: read the
-        // superseded tests it flagged and either record them on the marker (routes
-        // the Driver permissive-refactor turn) or , when it flagged none (its veto,
-        // a genuine regression) , mark the one shot spent + write the terminal
-        // refactor escalation (raise-to-hil). Verdict is the role's (read from disk).
-        cmds.push({ kind: "cli", bin: CYCLE_BIN, args: ["assess-refactor-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] });
-      } else if (!("mode" in action) && action.role === "navigator") {
-        const acFlag = "ac" in action && action.ac ? ["--ac", action.ac] : [];
-        const verb = "buildMode" in action && action.buildMode === "review" ? "review" : "begin";
-        // Pass the loop granularity so the substrate scopes the turn:
-        //  - story (default): `begin` writes ONE batch RED for the whole story;
-        //    `review` reviews the WHOLE story (story-level review.json, no --ac).
-        //  - hybrid-a: `begin` writes a capped layer-batch; review stays per-AC.
-        //  - ac: one RED per test; review per-AC.
-        const loop = storyLoop ?? "story";
-        const loopFlag =
-          loop === "story"
-            ? ["--loop", "story"]
-            : verb === "begin" && loop === "hybrid-a"
-              ? ["--loop", "hybrid-a", ...(cfg.batchCap ? ["--batch-cap", String(cfg.batchCap)] : [])]
-              : [];
-        cmds.push({ kind: "cli", bin: CYCLE_BIN, args: [verb, "--feature", f, "--story", action.story, ...acFlag, "--tdd-dir", cfg.sftddDir, ...loopFlag] });
-      }
-      if (!("mode" in action) && action.role === "driver" && "buildMode" in action && action.buildMode === "refactor-deploy") {
-        // The Driver's story-level deploy-verify SCOPE turn edited ONLY the flagged
-        // tests (no open cycle, no product code, no test/green stamp). Finalize by
-        // marking the scope done so the marker is no longer refactor-pending; the
-        // transition then falls through to the one re-deploy + re-verify (which
-        // clears the marker on pass, or writes the terminal escalation on a repeat
-        // failure , the one-shot bound). Emitted INSTEAD of a green/refactor cycle.
-        cmds.push({ kind: "cli", bin: CYCLE_BIN, args: ["refactor-deploy-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] });
-      } else if (!("mode" in action) && action.role === "driver" && "buildMode" in action && action.buildMode === "refactor-superseded") {
-        // The Driver's refactor-verify permissive-refactor turn edited ONLY the
-        // flagged superseded tests (no product code, no green stamp). Finalize by
-        // marking the marker refactored, then re-verify the full suite: pass clears
-        // the marker, a repeat failure (marker now assessed) takes the terminal HIL.
-        cmds.push({ kind: "cli", bin: CYCLE_BIN, args: ["refactor-superseded-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] });
-      } else if (!("mode" in action) && action.role === "driver") {
-        const acFlag = "ac" in action && action.ac ? ["--ac", action.ac] : [];
-        const isRepair = "buildMode" in action && action.buildMode === "repair";
-        const verb = "buildMode" in action && action.buildMode === "refactor" ? "refactor" : "green";
-        // A repair turn re-verifies via GREEN, but with --repair so the substrate
-        // consumes the one repair attempt (a still-failing verify then escalates
-        // with the Navigator's diagnosis instead of routing another repair).
-        const repairFlag = isRepair ? ["--repair"] : [];
-        // story granularity: a REFACTOR turn refactors the WHOLE story
-        // (refactorStory, no --ac). GREEN/repair are unaffected by --loop.
-        const loopFlag = verb === "refactor" && (storyLoop ?? "story") === "story" ? ["--loop", "story"] : [];
-        cmds.push({ kind: "cli", bin: CYCLE_BIN, args: [verb, "--feature", f, "--story", action.story, ...acFlag, "--tdd-dir", cfg.sftddDir, ...repairFlag, ...loopFlag] });
-      }
+      // The navigator/driver BUILD turn's single cycle CLI (reflect-gate / assess-* /
+      // begin|review / refactor-*-verify / green|refactor|repair), derived in ONE place
+      // (buildCycleCommand) so the manifest-driven commandsFromManifest emits the identical
+      // command. Returns undefined for a role/turn that has no cycle CLI here.
+      const cycleCmd = buildCycleCommand(action, cfg);
+      if (cycleCmd) cmds.push(cycleCmd);
       // Code-emit artifact.written for whatever the role just wrote: reconcile
       // After the Architect sizes the COMMITTED features, re-project the sprint
       // backlog so sync-backlog stamps the fresh F-keyed sizes into

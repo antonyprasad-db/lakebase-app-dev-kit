@@ -1,0 +1,21 @@
+{
+  "id": "driver-refactor",
+  "role": "driver",
+  "match": { "kind": "invoke-role", "role": "driver", "buildMode": "refactor" },
+  "inputs": [
+    { "id": "code", "source": "story:code", "description": "The GREEN implementation the Driver restructures (behavior-preserving) after the story passes." }
+  ],
+  "outputs": [],
+  "routing": {
+    "produced": { "next": "state-derived" }
+  },
+  "agentOptions": {
+    "model": "haiku",
+    "effort": "default",
+    "session": "resume",
+    "resumeKeyFrom": "story"
+  },
+  "postTurn": [
+    { "bin": "@build-cycle", "args": [], "when": "after" }
+  ]
+}

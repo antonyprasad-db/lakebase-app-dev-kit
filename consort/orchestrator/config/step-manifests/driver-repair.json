@@ -1,9 +1,9 @@
 {
-  "id": "driver-green",
+  "id": "driver-repair",
   "role": "driver",
-  "match": { "kind": "invoke-role", "role": "driver", "buildMode": null },
+  "match": { "kind": "invoke-role", "role": "driver", "buildMode": "repair" },
   "inputs": [
-    { "id": "test-list", "source": "story:test-list.json", "description": "The story's ordered failing tests the Driver makes GREEN (story-level, or per-AC when the action carries an `ac`)." }
+    { "id": "regression-assessment", "source": "story:regression-assessment.json", "description": "The Navigator's genuine-regression diagnosis , the Driver's one bounded repair attempt fixes the product code." }
   ],
   "outputs": [],
   "routing": {

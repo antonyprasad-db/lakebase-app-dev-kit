@@ -1,0 +1,21 @@
+{
+  "id": "driver-refactor-deploy",
+  "role": "driver",
+  "match": { "kind": "invoke-role", "role": "driver", "buildMode": "refactor-deploy" },
+  "inputs": [
+    { "id": "deploy-verify-scope", "source": "story:deploy-verify-scope.json", "description": "The contamination-fragile tests the Navigator flagged , the Driver edits ONLY these (no product code)." }
+  ],
+  "outputs": [],
+  "routing": {
+    "produced": { "next": "state-derived" }
+  },
+  "agentOptions": {
+    "model": "haiku",
+    "effort": "default",
+    "session": "resume",
+    "resumeKeyFrom": "story"
+  },
+  "postTurn": [
+    { "bin": "@build-cycle", "args": [], "when": "after" }
+  ]
+}

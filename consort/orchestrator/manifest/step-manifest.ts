@@ -28,6 +28,21 @@ import dbaManifest from "../config/step-manifests/dba.json" with { type: "json" 
 import testStrategistManifest from "../config/step-manifests/test-strategist.json" with { type: "json" };
 import driverGreenManifest from "../config/step-manifests/driver-green.json" with { type: "json" };
 import uxDesignerManifest from "../config/step-manifests/ux-designer.json" with { type: "json" };
+// Build-turn manifests: every navigator/driver BUILD turn is now a declared step (config home
+// for its agentOptions). Their record-phase cycle CLI is DYNAMIC (loop/--ac/--repair/collapsed
+// buildMode verbs), so each declares a `@build-cycle` postTurn marker that commandsFromManifest
+// delegates to buildCycleCommand , the ONE derivation the legacy commandsForAction also calls.
+import navigatorRedManifest from "../config/step-manifests/navigator-red.json" with { type: "json" };
+import navigatorReviewManifest from "../config/step-manifests/navigator-review.json" with { type: "json" };
+import navigatorReflectManifest from "../config/step-manifests/navigator-reflect.json" with { type: "json" };
+import navigatorAssessManifest from "../config/step-manifests/navigator-assess.json" with { type: "json" };
+import navigatorAssessDeployManifest from "../config/step-manifests/navigator-assess-deploy.json" with { type: "json" };
+import navigatorAssessRefactorManifest from "../config/step-manifests/navigator-assess-refactor.json" with { type: "json" };
+import driverRefactorManifest from "../config/step-manifests/driver-refactor.json" with { type: "json" };
+import driverRefactorDeployManifest from "../config/step-manifests/driver-refactor-deploy.json" with { type: "json" };
+import driverRefactorSupersededManifest from "../config/step-manifests/driver-refactor-superseded.json" with { type: "json" };
+import driverRepairManifest from "../config/step-manifests/driver-repair.json" with { type: "json" };
+import driverGreenSupersededManifest from "../config/step-manifests/driver-green-superseded.json" with { type: "json" };
 
 /** A step's logical input , resolved from .sftdd by the orchestrator and provided by id. */
 export interface StepManifestInput {
@@ -153,7 +168,75 @@ export const SHIPPED_MANIFESTS: StepManifest[] = [
   testStrategistManifest as StepManifest,
   driverGreenManifest as StepManifest,
   uxDesignerManifest as StepManifest,
+  navigatorRedManifest as StepManifest,
+  navigatorReviewManifest as StepManifest,
+  navigatorReflectManifest as StepManifest,
+  navigatorAssessManifest as StepManifest,
+  navigatorAssessDeployManifest as StepManifest,
+  navigatorAssessRefactorManifest as StepManifest,
+  driverRefactorManifest as StepManifest,
+  driverRefactorDeployManifest as StepManifest,
+  driverRefactorSupersededManifest as StepManifest,
+  driverRepairManifest as StepManifest,
+  driverGreenSupersededManifest as StepManifest,
 ];
+
+/** The story-scoped roles: a manifest whose match has no `mode`/`buildMode` needs a `story` on
+ *  the reconstructed action for turnKeyForAction to resolve the per-story step (acs/architect/
+ *  dba/test-list/green) rather than undefined. Mirrors the parity test's reconstruction. */
+const STORY_SCOPED_ROLES = new Set(["dba", "test-strategist", "driver", "spec-author", "architect-reviewer"]);
+
+/** Reconstruct a representative WorkflowAction from a manifest's `match`, so turnKeyForAction
+ *  resolves the SAME TurnKey the drive derives for that step: drop the null sentinels (they mean
+ *  "field ABSENT"), and add a story for the story-scoped roles that carry no mode/buildMode. */
+function actionFromManifestMatch(match: Record<string, unknown>, role: string): WorkflowAction {
+  const a: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(match)) {
+    if (v === null) continue; // sentinel: field must be absent
+    a[k] = v;
+  }
+  const hasMode = "mode" in match && match.mode !== null;
+  const hasBuildMode = "buildMode" in match && match.buildMode !== null;
+  if (STORY_SCOPED_ROLES.has(role) && !hasMode && !hasBuildMode && !("story" in a)) {
+    a.story = "S1-representative";
+  }
+  return a as unknown as WorkflowAction;
+}
+
+/**
+ * The per-step agent levers (model/effort) DECLARED for a (role, turnKey) across the shipped
+ * manifests , the config-directory face resolveSftddSettings reads as its per-step BASE layer
+ * (below the project sftdd-config.json + the applied-winners overlay, above RECOMMENDED_MODELS).
+ * The (role, turnKey) index is derived from each manifest's `match` via the SAME turnKeyForAction
+ * the drive uses (reconstructing a representative action from the match), so the manifest's
+ * declared key is exactly the key the drive looks it up under.
+ *
+ * Several manifests collapse onto ONE key (the three assess* buildModes -> "assess", refactor*
+ * -> "refactor"); they MUST declare identical {model,effort} for that key , a disagreement is a
+ * manifest-authoring bug this THROWS on, since the resolver cannot pick between two truths.
+ * Returns undefined when no shipped manifest declares that (role, turnKey) (the caller falls
+ * through to RECOMMENDED_MODELS + the model-default effort).
+ */
+export function agentOptionsForStep(
+  role: string,
+  turnKey: string | undefined,
+  keyForAction: (a: WorkflowAction) => string | undefined,
+  manifests: StepManifest[] = SHIPPED_MANIFESTS,
+): { model?: string; effort?: string } | undefined {
+  let hit: { model?: string; effort?: string } | undefined;
+  for (const m of manifests) {
+    if (m.role !== role) continue;
+    if (keyForAction(actionFromManifestMatch(m.match, m.role)) !== turnKey) continue;
+    const cur = { model: m.agentOptions.model, effort: m.agentOptions.effort };
+    if (hit && (hit.model !== cur.model || (hit.effort ?? "default") !== (cur.effort ?? "default"))) {
+      throw new Error(
+        `step-manifest: conflicting agentOptions for (${role}, ${turnKey}) , two manifests declare different model/effort for the same resolved step. Make them agree (collapsed buildModes share one lever set).`,
+      );
+    }
+    hit = cur;
+  }
+  return hit;
+}
 
 /**
  * Load step manifests from a DIRECTORY , for EXTERNAL manifest sets (scenario/demo manifests

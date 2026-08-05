@@ -1,0 +1,21 @@
+{
+  "id": "navigator-assess-refactor",
+  "role": "navigator",
+  "match": { "kind": "invoke-role", "role": "navigator", "buildMode": "assess-refactor" },
+  "inputs": [
+    { "id": "refactor-verify-failure", "source": "story:refactor-verify-failure.json", "description": "The refactor-verify failure marker the Navigator discriminates for superseded tests vs a genuine regression." }
+  ],
+  "outputs": [],
+  "routing": {
+    "produced": { "next": "state-derived" }
+  },
+  "agentOptions": {
+    "model": "sonnet",
+    "effort": "default",
+    "session": "resume",
+    "resumeKeyFrom": "story"
+  },
+  "postTurn": [
+    { "bin": "@build-cycle", "args": [], "when": "after" }
+  ]
+}

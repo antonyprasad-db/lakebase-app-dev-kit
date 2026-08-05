@@ -18,6 +18,15 @@ import {
   readAgentConfig,
   type SpawnableAgentRole,
 } from "./agent-models.js";
+// The per-step config directory (step-manifests/*.json agentOptions) is the SINGLE declared home
+// for per-step model/effort. resolveSftddSettings reads it as the BASE per-step layer (below the
+// project file + applied-winners overlay, above RECOMMENDED_MODELS) via agentOptionsForStep, which
+// indexes the shipped manifests by the SAME (role, turnKey) the drive derives.
+import { agentOptionsForStep } from "../../consort/orchestrator/manifest/step-manifest.js";
+import { turnKeyForAction, type TurnKey, type EffortLevel, type BuildTurn, type DesignStep } from "./turn-key.js";
+// Re-export the turn-key types from their canonical (dependency-light) home so the many callers
+// that have long imported them from sftdd-config keep working unchanged.
+export type { TurnKey, EffortLevel, BuildTurn, DesignStep } from "./turn-key.js";
 // Auto-applied optimization winners, deep-merged onto the base default (see
 // defaultSftddConfig). Static import so tsup inlines it into dist at build time; the
 // champion walk's auto-apply writes this file as DATA, never a TS rewrite.
@@ -30,44 +39,6 @@ export const SFTDD_CONFIG_REL = join(".lakebase", "sftdd-config.json");
 export const LEGACY_TDD_CONFIG_REL = join(".lakebase", "tdd-config.json");
 /** @deprecated use SFTDD_CONFIG_REL. Kept as an alias for callers not yet updated. */
 export const TDD_CONFIG_REL = SFTDD_CONFIG_REL;
-
-/** The BUILD turns whose effort/model can differ within the navigator/driver loop.
- *  Each is a DISTINCT kind of work, so each can pick its own model/effort ("apply to
- *  the turn, not the role"):
- *   navigator (judgment): red (author tests), review (critique code), assess (scope
- *     contamination-fragile tests before a refactor/deploy).
- *   driver (code): green (implement), refactor (restructure code), repair (fix a
- *     regression a prior story's build broke).
- *  The specialized drive buildModes collapse onto these base families , they are the
- *  same KIND of work, differing only in what triggered them:
- *   refactor-deploy / refactor-superseded -> refactor;  assess-deploy / assess-refactor
- *   -> assess;  green-superseded -> green.
- *  (reflect is the design-lane critic, keyed as its own DesignStep-adjacent case in
- *  turnKeyForAction, never a build turn here.) */
-export type BuildTurn = "red" | "green" | "review" | "refactor" | "assess" | "repair";
-
-/** The DESIGN/planning steps a role can be invoked for. A role runs different
- *  TASKS across these steps (spec-author BREAKDOWN vs per-story AC authoring;
- *  architect ESTIMATE vs per-story ARCHITECT notes), so a lever that wins on one
- *  step need not win on another , effort/model are keyed on the step, not the role. */
-export type DesignStep =
-  | "breakdown" // spec-author: enumerate the feature's stories
-  | "propose" // spec-author: project feature-proposals (planning)
-  | "acs" // spec-author: author a story's acceptance criteria
-  | "estimate" // architect-reviewer: planning estimates
-  | "architect" // architect-reviewer: per-story architecture notes
-  | "dba" // dba: per-story physical schema
-  | "test-list" // test-strategist: per-story test list
-  | "ux"; // ux-designer: the project style guide (once)
-
-/** The full per-invocation key effort/model can be applied on: a BUILD turn OR a
- *  DESIGN step. This is the "apply to the step, not the role" axis , the champion
- *  walk sweeps per invocation, so a winner is persisted keyed on the exact step it
- *  was measured on. A single-turn role with no key falls back to its scalar. */
-export type TurnKey = BuildTurn | DesignStep;
-
-/** `--effort` levels `claude -p` accepts, plus "default" (omit the flag). */
-export type EffortLevel = "default" | "low" | "medium" | "high" | "xhigh" | "max";
 
 /** Per-role settings as written on disk. `model` and `effort` are each either one
  *  value for the whole role, or a per-turn map (only navigator/driver have multiple
@@ -137,24 +108,6 @@ export function loadSftddConfig(projectDir: string): SftddConfigFile | undefined
   return undefined;
 }
 
-/** Code default effort, keyed on the invocation STEP (not the whole role):
- *   - navigator REVIEW runs fast (low), the P6 default.
- *   - spec-author BREAKDOWN runs low , the per-handoff sweep (stockflow-optimize) measured
- *     it ~44% faster on haiku+low (~17% on low alone) with the same self-check + spec gate.
- *   - test-strategist TEST-LIST runs low , the #556 quality-gated per-role sweep measured
- *     effort=low on sonnet -89% wall (71.5s vs 679.9s baseline) with quality 0.90, ABOVE the
- *     sonnet baseline's 0.85 (16 vs 15 test items). This is the winner replacing the baseline
- *     for this step; model stays the recommended default (cheaper models scored thinner).
- *  Each winner is keyed to its EXACT step only ("apply to the step, not the role"): a role's
- *  other steps (e.g. spec-author AC-authoring) keep the model default until their own sweep.
- *  Everything else uses the model default. Preserves P6 behavior when no config/env overrides. */
-function defaultEffort(role: string, turn?: TurnKey): EffortLevel {
-  if (role === "navigator" && turn === "review") return "low";
-  if (role === "spec-author" && turn === "breakdown") return "low";
-  if (role === "test-strategist" && turn === "test-list") return "low";
-  return "default";
-}
-
 interface ResolveInputs {
   projectDir: string;
 }
@@ -185,22 +138,40 @@ export function resolveSftddSettings(inputs: ResolveInputs): ResolvedSettings {
     budgets[role] = typeof rc?.maxBudgetUsd === "number" ? rc.maxBudgetUsd : undefined;
   }
 
+  // The per-step config-directory layer: the levers DECLARED for (role, turn) across the shipped
+  // step-manifests (agentOptions), indexed by the SAME turnKeyForAction the drive uses. This is
+  // the BASE per-step layer , below anything the PROJECT declares (file scalar / file per-turn
+  // map), above the per-role RECOMMENDED_MODELS base. Only consulted when a turn key is present
+  // (an undefined key means "no distinct step" , use the role scalar, never a manifest). The
+  // applied-optimization winners (optimized-defaults.json) sit ABOVE this layer but reach the
+  // resolver through the WRITTEN file (defaultSftddConfig bakes them in at scaffold), so a real
+  // project's file already carries them and wins here as the file layer.
+  const manifestStep = (role: string, turn?: TurnKey): { model?: string; effort?: string } | undefined =>
+    turn ? agentOptionsForStep(role, turn, turnKeyForAction) : undefined;
+
   const modelFor = (role: string, turn?: TurnKey): string => {
     const m = file?.roles?.[role as SpawnableAgentRole]?.model;
     // A per-key map wins for the turn/step it names (driver GREEN on haiku,
     // spec-author BREAKDOWN on haiku); a scalar (or an absent key in the map) falls
-    // to the role's base model.
+    // through to the manifest's per-step declaration, then the role's base model.
     if (m && typeof m !== "string" && turn && m[turn]) return m[turn] as string;
+    if (typeof m === "string") return m; // file scalar applies to every turn
+    const declared = manifestStep(role, turn)?.model;
+    if (declared) return declared;
     return models[role] ?? "inherit";
   };
 
   const effortFor = (role: string, turn?: TurnKey): EffortLevel => {
-    // The file is the single source: a scalar applies to all steps; a map is per-step.
+    // The file is the single source when present: a scalar applies to all steps; a map is
+    // per-step. Absent, the per-step config directory (step-manifest agentOptions) declares it;
+    // absent there too, the model default (omit --effort). defaultEffort() is RETIRED , its three
+    // former entries (navigator review, spec-author breakdown, test-strategist test-list) are now
+    // DECLARED in their step-manifests, so the config directory is the single per-step home.
     const rc = file?.roles?.[role as SpawnableAgentRole];
     const e = rc?.effort;
     if (typeof e === "string") return e;
     if (e && turn && e[turn]) return e[turn] as EffortLevel;
-    return defaultEffort(role, turn);
+    return (manifestStep(role, turn)?.effort as EffortLevel | undefined) ?? "default";
   };
 
   const build = {
