@@ -15,7 +15,10 @@
 //   LAKEBASE_TEST_GITHUB_OWNER GitHub owner for the PR/gates suites' throwaway repos
 //   LAKEBASE_TEST_E2E=1        unlocks the destructive create/delete suites
 
-import { execFileSync } from "node:child_process";
+// Host resolution lives in the provisioning family's credential seam (the ONE consort-side home for
+// host/profile + auth); test-env reads it there rather than keeping a private copy.
+import { resolveHostFromProfile } from "../../consort/orchestrator/provisioning/credentials.js";
+export { resolveHostFromProfile } from "../../consort/orchestrator/provisioning/credentials.js";
 
 /** The resolved test environment. Every field is optional , a missing one means "not configured",
  *  and the calling suite decides whether that makes it skip. */
@@ -32,26 +35,6 @@ export interface TestEnv {
   githubOwner?: string;
   /** LAKEBASE_TEST_E2E === "1" , the destructive-suite gate. */
   e2e: boolean;
-}
-
-/** Resolve a workspace host from a CLI profile via `databricks auth describe -o json` (the same
- *  degradation-tolerant call run-all-live-tests.sh uses , it reports the host from ~/.databrickscfg
- *  even when the token cache is stale, unlike the deprecated `auth env`). Tolerates a non-JSON
- *  preamble by trimming to the first `{`. Returns undefined on any failure. */
-export function resolveHostFromProfile(profile: string, timeoutMs = 15_000): string | undefined {
-  try {
-    const raw = execFileSync("databricks", ["auth", "describe", "--profile", profile, "-o", "json"], {
-      encoding: "utf-8",
-      timeout: timeoutMs,
-    });
-    const start = raw.indexOf("{");
-    if (start < 0) return undefined;
-    const parsed = JSON.parse(raw.slice(start)) as { details?: { host?: string } };
-    const host = parsed.details?.host;
-    return typeof host === "string" && host ? host.replace(/\/+$/, "") : undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 /**

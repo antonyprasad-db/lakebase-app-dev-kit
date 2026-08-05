@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { driveAuthPreflight } from "../../scripts/sftdd/drive-auth-preflight";
+import { driveAuthPreflight } from "../../consort/orchestrator/provisioning/credentials";
 
 describe("driveAuthPreflight , fail-fast on an expired Databricks session", () => {
   it("ok when the refresh-token probe passes", async () => {

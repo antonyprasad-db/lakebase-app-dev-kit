@@ -56,7 +56,7 @@ import { describeAction, approveHint, makeOnAction } from "./orchestrator-loggin
 import { kitVersion } from "./kit-bin.js";
 import { isForeignFeatureClaim, readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
-import { driveAuthPreflight } from "./drive-auth-preflight.js";
+import { driveAuthPreflight } from "../../consort/orchestrator/provisioning/credentials.js";
 import { writeRunConfig } from "./run-config.js";
 import { resolveLaunchKitRef, pinRunKitRef, kitRefDriftWarning } from "./kit-ref.js";
 import {
