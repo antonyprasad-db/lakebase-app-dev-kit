@@ -34,6 +34,7 @@ import type {
 } from "../contract/step-contract.js";
 import type { StepAgent } from "../agents/agent-types.js";
 import type { ProvidedStepRun, ProvidedStepResult, ExistsFn } from "./step-run-types.js";
+import { resolveChannelRoot, type Channel } from "../provisioning/channels.js";
 
 /** Which output id is the PRIMARY artifact (the one that must be present for produced:true).
  *  Convention: the first declared output. */
@@ -115,16 +116,10 @@ export class ManifestStep implements StepContract {
 
     await this.agent.invoke({ action, workspaceDir, inputs, instructions });
 
-    // Resolve each output under its channel's root: `artifact` (the .sftdd design docs) under
-    // artifactDir, `meta` (orchestration bookkeeping) under metaDir, `product` (the real code
-    // tree) always under workspaceDir. Each contained root falls back to workspaceDir when the
-    // orchestrator provisioned none , byte-identical to the pre-channel behavior.
-    const rootFor = (channel?: "product" | "artifact" | "meta"): string =>
-      channel === "artifact"
-        ? provided.artifactDir ?? workspaceDir
-        : channel === "meta"
-          ? provided.metaDir ?? workspaceDir
-          : workspaceDir;
+    // Resolve each output under its channel's root via the shared channel model (product ->
+    // workspaceDir; artifact/meta -> their contained root, falling back to workspaceDir).
+    const rootFor = (channel?: Channel): string =>
+      resolveChannelRoot(channel, { workspaceDir, artifactDir: provided.artifactDir, metaDir: provided.metaDir });
 
     const primary = primaryOutputId(this.manifest);
     const producedPaths: string[] = [];

@@ -43,6 +43,7 @@ import type { DriveEffectsConfig } from "../drive/orchestrator-effects.js";
 import type { StepContract, StepPrecondition, BoundedRoute, ValidateBoundDeps, RouteProposal } from "../contract/step-contract.js";
 import type { StepInstructions } from "../agents/agent-types.js";
 import type { ProvidedStepRun, ProvidedStepResult } from "../steps/step-run-types.js";
+import { resolveChannelRoot } from "../provisioning/channels.js";
 
 /** A step the executor can run: the routing/IO contract PLUS the contained run() body that
  *  the concrete step (ManifestStep, or a bespoke class) implements. */
@@ -237,11 +238,9 @@ export async function execute(step: RunnableStep, ctx: StepCtx, deps: StepExecut
   }
   for (const spec of step.outputs(action)) {
     const rel = outputPaths?.[spec.id] ?? spec.filename;
-    // Resolve the output in ITS channel's root: `artifact` (.sftdd design docs) under artifactDir,
-    // `meta` (orchestration bookkeeping) under metaDir, `product` (the real code tree) under
-    // workspaceDir. Each contained root falls back to workspaceDir when unprovisioned (byte-identical).
-    const root =
-      spec.channel === "artifact" ? artifactDir ?? workspaceDir : spec.channel === "meta" ? metaDir ?? workspaceDir : workspaceDir;
+    // Resolve the output in ITS channel's root via the shared channel model (product ->
+    // workspaceDir; artifact/meta -> their contained root, falling back to workspaceDir).
+    const root = resolveChannelRoot(spec.channel, { workspaceDir, artifactDir, metaDir });
     // An output EXISTS if its declared file is on disk , regardless of whether the AGENT
     // wrote it (producedPaths) or the ORCHESTRATOR materialized it in phase 4.5 (e.g. the
     // formatted agent-log.jsonl). Prefer the path the agent reported; else the declared
