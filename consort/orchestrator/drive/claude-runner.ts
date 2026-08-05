@@ -18,11 +18,11 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readline from "node:readline";
 
-import { replayDesignTurn, REPLAYABLE_DESIGN_ROLES, restoreReflectVerdict } from "../../../scripts/sftdd/replay-artifacts.js";
-import { replayBuildTurn } from "../../../scripts/sftdd/replay-build.js";
+import { replayDesignTurn, REPLAYABLE_DESIGN_ROLES, restoreReflectVerdict } from "../../logging/replay-artifacts.js";
+import { replayBuildTurn } from "../../logging/replay-build.js";
 import { recordBuildTurn, nextBuildTurnNumber } from "../../../scripts/sftdd/record-build.js";
-import { recordTurn, seedRecorderBaseline } from "../../../scripts/sftdd/turn-recorder.js";
-import { emitAgentLogEvent } from "../../../scripts/sftdd/agent-log.js";
+import { recordTurn, seedRecorderBaseline } from "../../logging/turn-recorder.js";
+import { emitAgentLogEvent } from "../../logging/agent-log.js";
 import { writeWorkflowPhase } from "../../../scripts/sftdd/workflow-phase.js";
 import {
   commandsForAction,
@@ -36,8 +36,8 @@ import { parseTurnUsage, assistantTextFromLine, assistantEventSummary, type Turn
 import { resumeFitsBudget, turnContextTokens, CONTEXT_FREE_FRACTION_REQUIRED, isPromptTooLongSignal, isTransientApiErrorSignal, startsFreshEachTurn } from "../../../scripts/sftdd/context-budget.js";
 import { writeRunConfig } from "../../../scripts/sftdd/run-config.js";
 import { resolveLaunchKitRef, pinRunKitRef, kitRefDriftWarning } from "../../config/kit-ref.js";
-import type { AgentRole } from "../../../scripts/sftdd/agent-log.js";
-import { makeOnAction, describeAction } from "../../../scripts/sftdd/orchestrator-logging.js";
+import type { AgentRole } from "../../logging/agent-log.js";
+import { makeOnAction, describeAction } from "../../logging/orchestrator-logging.js";
 import { resolveKitBinJs } from "../../config/kit-bin.js";
 import { readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { relocateStrayDesignArtifacts, malformedSiblingRoot } from "../../../scripts/sftdd/stray-artifact-recovery.js";

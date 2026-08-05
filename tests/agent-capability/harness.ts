@@ -22,7 +22,7 @@ import {
   canonicalArtifactName,
   type ConformanceResult,
 } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
-import type { AgentRole } from "../../scripts/sftdd/agent-log.js";
+import type { AgentRole } from "../../consort/logging/agent-log.js";
 
 const SKILL_DIR = path.resolve(__dirname, "..", "..", "skills", "consort");
 export const FIXTURES_DIR = path.resolve(__dirname, "fixtures");

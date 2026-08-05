@@ -17,7 +17,7 @@ import {
   type DeployResult,
 } from "../../scripts/sftdd/deploy";
 import { readEscalations } from "../../scripts/sftdd/escalation";
-import { readAgentLog } from "../../scripts/sftdd/agent-log";
+import { readAgentLog } from "../../consort/logging/agent-log";
 import {
   readDeployVerifyAssessMarker,
   markDeployVerifyAssessed,

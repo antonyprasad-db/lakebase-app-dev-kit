@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync, readFileSync, existsSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { emitAgentLogEvent, emitAgentLogEvents, readAgentLog } from "../../scripts/sftdd/agent-log";
+import { emitAgentLogEvent, emitAgentLogEvents, readAgentLog } from "../../consort/logging/agent-log";
 
 let tdd: string;
 const clock = () => new Date("2026-06-05T10:00:00.000Z");

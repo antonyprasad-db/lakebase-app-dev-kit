@@ -19,7 +19,7 @@ import {
 import {
   approveHint,
   gateEnactCommand,
-} from "../../scripts/sftdd/orchestrator-logging";
+} from "../../consort/logging/orchestrator-logging";
 import type { DriveState, WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 
 const CTX: NextContext = { featureId: "F1-checkout", approver: "po@example.com", version: "0.3.0-test", now: "2026-07-15T00:00:00.000Z" };

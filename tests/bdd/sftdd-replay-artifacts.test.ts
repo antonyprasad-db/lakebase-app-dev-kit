@@ -14,7 +14,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { replayDesignTurn, restoreReflectVerdict, REPLAYABLE_DESIGN_ROLES } from "../../scripts/sftdd/replay-artifacts.js";
+import { replayDesignTurn, restoreReflectVerdict, REPLAYABLE_DESIGN_ROLES } from "../../consort/logging/replay-artifacts.js";
 
 const F = "F1-file-bug";
 const S = "S1-file-bug";

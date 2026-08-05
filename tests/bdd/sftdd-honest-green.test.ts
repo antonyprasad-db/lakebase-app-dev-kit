@@ -40,7 +40,7 @@ import {
   MAX_REGRESSION_FIX_ATTEMPTS,
 } from "../../scripts/sftdd/supersession.js";
 import { nextTransition, type DriveState, type WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";
-import { describeAction } from "../../scripts/sftdd/orchestrator-logging.js";
+import { describeAction } from "../../consort/logging/orchestrator-logging.js";
 import { runDriver, type DriveEffects } from "../../consort/orchestrator/drive/orchestrator-run.js";
 
 let tdd: string;

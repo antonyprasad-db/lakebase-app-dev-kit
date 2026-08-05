@@ -11,7 +11,7 @@ import {
   type AcLayer,
   type ExperimentTag,
 } from "./experiment";
-import { emitAgentLogEvent, type AgentLogEventInput } from "./agent-log";
+import { emitAgentLogEvent, type AgentLogEventInput } from "../../consort/logging/agent-log";
 import { readAcLayer as readAcLayerFromPaths } from "../../consort/config/sftdd-paths.js";
 
 /**

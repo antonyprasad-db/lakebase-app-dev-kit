@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseDriveLog, classifyToolCall, formatDriveLogReport } from "../../scripts/sftdd/drive-log-report.js";
+import { parseDriveLog, classifyToolCall, formatDriveLogReport } from "../../consort/logging/drive-log-report.js";
 
 const LOG = [
   "[drive] 013 dispatch driver for green",

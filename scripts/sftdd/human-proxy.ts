@@ -47,7 +47,7 @@ import { join, dirname, basename } from "node:path";
 import { approveGate } from "./approve-gate.js";
 import { readGates, GATE_NAMES, type GateName, type GatesState } from "./gates.js";
 import { checkArtifactConformance, canonicalArtifactName } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
-import { emitAgentLogEvent } from "./agent-log.js";
+import { emitAgentLogEvent } from "../../consort/logging/agent-log.js";
 import { featureRequestMd, resolveSftddDir, writeRequested, featureProposalsMd, planningDir } from "../../consort/config/sftdd-paths.js";
 // The gate CONDITION (what makes a gate advanceable) is a state-machine property,
 // not a proxy decision; it lives in the guard and is enforced on the advance path.

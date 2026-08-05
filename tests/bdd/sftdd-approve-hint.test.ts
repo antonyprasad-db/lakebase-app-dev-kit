@@ -5,7 +5,7 @@
 // and never advanced. approveHint maps each gate action to its correct command.
 
 import { describe, it, expect } from "vitest";
-import { approveHint } from "../../scripts/sftdd/orchestrator-logging.js";
+import { approveHint } from "../../consort/logging/orchestrator-logging.js";
 import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 
 describe("approveHint: the right approval command per gate kind", () => {

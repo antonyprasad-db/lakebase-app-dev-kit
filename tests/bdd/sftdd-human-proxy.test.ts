@@ -20,7 +20,7 @@ import { featureProposalsMd } from "../../consort/config/sftdd-paths";
 import { checkArtifactConformance } from "../../consort/orchestrator/validators/conformance/artifact-conformance";
 import { readGates } from "../../scripts/sftdd/gates";
 import { hashArtifact } from "../../scripts/sftdd/gate-hash";
-import { readAgentLog } from "../../scripts/sftdd/agent-log";
+import { readAgentLog } from "../../consort/logging/agent-log";
 
 const FEATURE_ID = "F1-initial-domain";
 const PLACEHOLDER_HASH = hashArtifact("MOCK_APPROVED");

@@ -15,7 +15,7 @@
 // the outliers the optimization plan targets , and it costs nothing extra to
 // collect (the timestamps already exist).
 
-import { readAgentLog, type AgentLogEvent, type ReadAgentLogOpts } from "./agent-log.js";
+import { readAgentLog, type AgentLogEvent, type ReadAgentLogOpts } from "../../consort/logging/agent-log.js";
 
 /** One inter-event span: the work that produced `event` since the prior event. */
 export interface TurnTiming {

@@ -13,7 +13,7 @@ import {
   requiredSlots,
   renderEventMessage,
   AgentLogEventError,
-} from "../../scripts/sftdd/agent-log-events";
+} from "../../consort/logging/agent-log-events";
 
 describe("agent-log-events vocabulary", () => {
   it("renders a template by substituting its slots", () => {

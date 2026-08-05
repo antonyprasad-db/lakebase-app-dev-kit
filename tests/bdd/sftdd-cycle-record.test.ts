@@ -27,7 +27,7 @@ import {
   resetStoryBuildState,
   type GreenVerifier,
 } from "../../scripts/sftdd/cycle-record.js";
-import { readAgentLog } from "../../scripts/sftdd/agent-log.js";
+import { readAgentLog } from "../../consort/logging/agent-log.js";
 import { markRefactorVerifyAssessed } from "../../scripts/sftdd/refactor-verify-assess.js";
 
 // greenOpenCycle now runs an HONEST verify (deploy-during-build) before stamping

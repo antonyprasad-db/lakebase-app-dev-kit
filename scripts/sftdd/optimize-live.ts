@@ -27,8 +27,8 @@ import type { DriveEffectsConfig } from "../../consort/orchestrator/drive/orches
 import { actionLane, type WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 import { cutExperiment, type CutExperimentArgs } from "./experiment.js";
 import { readEscalations } from "./escalation.js";
-import { readAgentLog } from "./agent-log.js";
-import { recordTurn, seedRecorderBaseline } from "./turn-recorder.js";
+import { readAgentLog } from "../../consort/logging/agent-log.js";
+import { recordTurn, seedRecorderBaseline } from "../../consort/logging/turn-recorder.js";
 
 /** The env var the drive recorder + agent subprocess read for the corpus dir. Also
  *  the fallback for recordWinner's from-restored-state corpus record. Defined at

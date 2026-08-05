@@ -19,9 +19,9 @@ import {
   type AgentRole,
 } from "./agent-log.js";
 import { resolveSftddDir, featureResolved, storyTestListJson, designGuideJson, architectureConventionsJson } from "../../consort/config/sftdd-paths.js";
-import { establishConventionsIfAbsent } from "./architecture-conventions.js";
-import { establishCanonFromDisk } from "./architecture-canon.js";
-import { normalizeStoryJson } from "./spec-sync.js";
+import { establishConventionsIfAbsent } from "../../scripts/sftdd/architecture-conventions.js";
+import { establishCanonFromDisk } from "../../scripts/sftdd/architecture-canon.js";
+import { normalizeStoryJson } from "../../scripts/sftdd/spec-sync.js";
 
 export interface ReconcileOpts {
   /** Path to the artifact root. Default: resolved (.sftdd, or legacy .tdd). */

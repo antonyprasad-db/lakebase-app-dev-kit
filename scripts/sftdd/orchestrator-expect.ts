@@ -26,7 +26,7 @@
 // other than the head's responder is a violation).
 
 import type { DriveState, WorkflowAction } from "../../consort/orchestrator/workflow/workflow-vocabulary.js";
-import type { AgentRole } from "./agent-log.js";
+import type { AgentRole } from "../../consort/logging/agent-log.js";
 
 /** One outstanding handoff: who must respond + the non-null return they owe. */
 export interface Handoff {

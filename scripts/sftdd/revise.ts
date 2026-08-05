@@ -19,7 +19,7 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { emitAgentLogEvent } from "./agent-log.js";
+import { emitAgentLogEvent } from "../../consort/logging/agent-log.js";
 import {
   featureTestListJson,
   storyTestListJson,

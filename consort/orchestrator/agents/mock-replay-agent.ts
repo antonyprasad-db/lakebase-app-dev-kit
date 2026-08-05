@@ -12,7 +12,7 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, cpSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { codeTreeFilter } from "../../../scripts/sftdd/replay-build.js";
+import { codeTreeFilter } from "../../logging/replay-build.js";
 import type { StepAgent, AgentInvocation } from "./agent-types.js";
 
 /** One recorded artifact to materialize into the workspace under `outputId`.

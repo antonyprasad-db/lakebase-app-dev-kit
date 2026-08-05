@@ -8,7 +8,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { reconstituteAgentLog } from "../../scripts/sftdd/log-reconstitute";
+import { reconstituteAgentLog } from "../../consort/logging/log-reconstitute";
 
 const tmps: string[] = [];
 afterEach(() => {

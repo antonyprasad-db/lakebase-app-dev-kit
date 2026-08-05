@@ -9,8 +9,8 @@ import { describe, it, expect, afterEach } from "vitest";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { recordTurn, labelForAction, seedRecorderBaseline } from "../../scripts/sftdd/turn-recorder.js";
-import { replayDesignTurn } from "../../scripts/sftdd/replay-artifacts.js";
+import { recordTurn, labelForAction, seedRecorderBaseline } from "../../consort/logging/turn-recorder.js";
+import { replayDesignTurn } from "../../consort/logging/replay-artifacts.js";
 import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 
 const tmpDirs: string[] = [];

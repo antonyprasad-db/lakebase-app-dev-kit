@@ -33,7 +33,7 @@ import { describe, it, expect } from "vitest";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { AGENT_LOG_EVENT_NAMES } from "../../scripts/sftdd/agent-log-events";
+import { AGENT_LOG_EVENT_NAMES } from "../../consort/logging/agent-log-events";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -59,7 +59,11 @@ function grepFiles(pattern: string, dir: string, include?: string): string[] {
  *  true producers register. */
 function hasCodeProducer(name: string): boolean {
   const esc = name.replace(/\./g, "\\.");
-  return grepFiles(`"${esc}"`, "scripts/", "*.ts").some((f) => !PLUMBING.some((p) => f.endsWith(p)));
+  // Producers live across the orchestration layer: scripts/ (bins + remaining libs) AND consort/
+  // (the foliated function families the emit sites moved into). Search both roots.
+  return ["scripts/", "consort/"]
+    .flatMap((dir) => grepFiles(`"${esc}"`, dir, "*.ts"))
+    .some((f) => !PLUMBING.some((p) => f.endsWith(p)));
 }
 
 /** An agent instruction: the event name appears in a role doc / skill. */

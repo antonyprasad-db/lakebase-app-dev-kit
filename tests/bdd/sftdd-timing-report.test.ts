@@ -8,7 +8,7 @@ import { describe, it, expect, vi } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import type { AgentLogEvent } from "../../scripts/sftdd/agent-log";
+import type { AgentLogEvent } from "../../consort/logging/agent-log";
 import { computeTiming, formatTimingReport, timingReportFromLog } from "../../scripts/sftdd/timing-report";
 import { runTimingCli } from "../../scripts/sftdd/timing-report.cli";
 

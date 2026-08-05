@@ -26,7 +26,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import type { DriveState, WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 import { nextTransition } from "../../consort/orchestrator/drive/orchestrator-drive.js";
-import { describeAction, gateEnactCommand, type EnactCommand } from "./orchestrator-logging.js";
+import { describeAction, gateEnactCommand, type EnactCommand } from "../../consort/logging/orchestrator-logging.js";
 import { deriveFeaturePhase, summarizeStories, type StoryStatusEntry } from "./feature-status.js";
 import { readDriveStateFromDisk } from "../../consort/orchestrator/drive/orchestrator-effects.js";
 

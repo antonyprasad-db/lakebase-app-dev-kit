@@ -11,7 +11,7 @@
 import { existsSync, cpSync, mkdirSync, readdirSync } from "fs";
 import { join } from "path";
 import { featuresDir, cyclesRootDir, experimentsRootDir } from "../../consort/config/sftdd-paths.js";
-import { codeTreeFilter, storyTurnsDir } from "./replay-build.js";
+import { codeTreeFilter, storyTurnsDir } from "../../consort/logging/replay-build.js";
 
 export interface RecordBuildTurnArgs {
   /** The corpus root to write into (LAKEBASE_SFTDD_RECORD_BUILD_DIR). */

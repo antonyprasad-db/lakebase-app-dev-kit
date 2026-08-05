@@ -33,7 +33,7 @@ import {
 } from "./story-pipeline";
 import { resetStoryBuildState } from "./cycle-record";
 import { parseExperimentArgs, validateExperimentArgs } from "./experiment-args";
-import { emitAgentLogEvent } from "./agent-log";
+import { emitAgentLogEvent } from "../../consort/logging/agent-log";
 
 /** Best-effort experiment-lifecycle event to the central log. The discard/revise
  *  verbs have no deterministic driver action (they are HIL acceptance decisions

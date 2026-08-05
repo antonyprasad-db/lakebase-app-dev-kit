@@ -28,8 +28,8 @@ import {
   clearDeployVerifyAssessMarker,
 } from "./deploy-verify-assess.js";
 import { checkE2eRegexClean, summarizeE2eRegexViolations, E2E_REGEX_REMEDIATION } from "./e2e-regex-clean.js";
-import { emitAgentLogEvent, type AgentLogIoOpts } from "./agent-log.js";
-import type { AgentLogEventName } from "./agent-log-events.js";
+import { emitAgentLogEvent, type AgentLogIoOpts } from "../../consort/logging/agent-log.js";
+import type { AgentLogEventName } from "../../consort/logging/agent-log-events.js";
 import { withEphemeralVerifyBranch, ephemeralVerifyBranchName } from "./ephemeral-verify.js";
 import { sftddEnv } from "../../consort/config/sftdd-env.js";
 

@@ -22,12 +22,12 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readline from "node:readline";
 
-import { recordTurn, seedRecorderBaseline } from "./turn-recorder.js";
+import { recordTurn, seedRecorderBaseline } from "../../consort/logging/turn-recorder.js";
 import { recordBuildTurn, nextBuildTurnNumber } from "./record-build.js";
 import { runDriver, driverBoundOptions, ProtocolViolationError, UnexpectedCallbackError, type DriveEffects, type DriverBound, type RunDriverResult, type RunDriverOptions } from "../../consort/orchestrator/drive/orchestrator-run.js";
 import { writeEscalation } from "./escalation.js";
 import { emitNextJson } from "./next.js";
-import { emitAgentLogEvent } from "./agent-log.js";
+import { emitAgentLogEvent } from "../../consort/logging/agent-log.js";
 import { resetStaleTerminalPhase } from "./workflow-phase.js";
 import {
   isHitlGateAction,
@@ -52,7 +52,7 @@ import {
   type DriveStepResult,
 } from "./orchestrator-sprint.js";
 import { resolveSftddSettings, applyProjectOverrides } from "../../consort/orchestrator/settings/project-settings.js";
-import { describeAction, approveHint, makeOnAction } from "./orchestrator-logging.js";
+import { describeAction, approveHint, makeOnAction } from "../../consort/logging/orchestrator-logging.js";
 import { kitVersion } from "../../consort/config/kit-bin.js";
 import { isForeignFeatureClaim, readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";

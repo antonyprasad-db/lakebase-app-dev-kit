@@ -8,7 +8,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync
 import { tmpdir } from "os";
 import { join } from "path";
 
-import { replayBuildTurn, listBuildTurns, codeTreeFilter } from "../../scripts/sftdd/replay-build.js";
+import { replayBuildTurn, listBuildTurns, codeTreeFilter } from "../../consort/logging/replay-build.js";
 
 const F = "F1-file-bug";
 const S = "S1-create-bug";

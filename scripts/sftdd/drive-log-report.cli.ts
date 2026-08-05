@@ -11,7 +11,7 @@
 
 import { readFileSync } from "fs";
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
-import { parseDriveLog, formatDriveLogReport } from "./drive-log-report.js";
+import { parseDriveLog, formatDriveLogReport } from "../../consort/logging/drive-log-report.js";
 
 interface ParsedArgs {
   file?: string;

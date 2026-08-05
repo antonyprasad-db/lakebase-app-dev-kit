@@ -12,7 +12,7 @@
 
 import { existsSync, readFileSync, mkdirSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
-import type { AgentRole } from "../../scripts/sftdd/agent-log.js";
+import type { AgentRole } from "../logging/agent-log.js";
 import { ALL_AGENT_ROLES, type SpawnableAgentRole } from "./agent-models.js";
 import type { TurnKey, EffortLevel } from "./step-key.js";
 // The RECOMMENDED_MODELS base default the scaffold seeds; agent-models is a config-layer module.
