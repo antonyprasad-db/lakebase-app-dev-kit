@@ -115,11 +115,16 @@ export class ManifestStep implements StepContract {
 
     await this.agent.invoke({ action, workspaceDir, inputs, instructions });
 
-    // A `meta`-channel output resolves under the contained metaDir (orchestration bookkeeping);
-    // a `product` output (the default) under the workspace tree (the real deliverable). Absent
-    // metaDir => meta falls back to workspaceDir, byte-identical to the pre-channel behavior.
-    const rootFor = (channel?: "product" | "meta"): string =>
-      channel === "meta" ? provided.metaDir ?? workspaceDir : workspaceDir;
+    // Resolve each output under its channel's root: `artifact` (the .sftdd design docs) under
+    // artifactDir, `meta` (orchestration bookkeeping) under metaDir, `product` (the real code
+    // tree) always under workspaceDir. Each contained root falls back to workspaceDir when the
+    // orchestrator provisioned none , byte-identical to the pre-channel behavior.
+    const rootFor = (channel?: "product" | "artifact" | "meta"): string =>
+      channel === "artifact"
+        ? provided.artifactDir ?? workspaceDir
+        : channel === "meta"
+          ? provided.metaDir ?? workspaceDir
+          : workspaceDir;
 
     const primary = primaryOutputId(this.manifest);
     const producedPaths: string[] = [];

@@ -70,11 +70,14 @@ export interface StepManifestOutput {
   filename: string;
   /** Registered OutputValidator name (validator-registry.ts). */
   validator: string;
-  /** WHICH channel this output lands in. `product` (default) = the real deliverable
-   *  (code/tests/.sftdd docs) resolved under the workspace tree; `meta` = orchestration
-   *  bookkeeping (raw report / verdict / marker) resolved under the contained metaDir when
-   *  the orchestrator provisions one (else the workspace , byte-identical). Absent = product. */
-  channel?: "product" | "meta";
+  /** WHICH channel this output lands in (absent = the primary workspace root, byte-identical):
+   *  `product` = the application deliverable (app/tests/migrations) that accumulates across
+   *  build turns + ships; MUST be uncontained (the real code tree). `artifact` = the .sftdd
+   *  design documents (feature-spec/architecture/test-list/design-guide); small + per-feature,
+   *  so MAY be contained (resolved under artifactDir when provisioned, else the workspace).
+   *  `meta` = orchestration bookkeeping (raw report / verdict / marker) whose conformance the
+   *  orchestrator owns; contained (resolved under metaDir when provisioned, else the workspace). */
+  channel?: "product" | "artifact" | "meta";
   description?: string;
 }
 

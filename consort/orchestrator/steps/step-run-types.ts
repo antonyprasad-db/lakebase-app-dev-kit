@@ -17,10 +17,15 @@ export interface ProvidedStepRun {
   /** The directory the step + its agent may read/write within. Provisioned by the
    *  orchestrator; the agent writes its output artifact HERE, never into .sftdd directly. */
   workspaceDir: string;
+  /** The root for `artifact`-channel outputs (the .sftdd design documents), when the
+   *  orchestrator provisions one. MAY be contained (design docs are small + per-feature).
+   *  Absent => artifact falls back to workspaceDir. */
+  artifactDir?: string;
   /** The CONTAINED zone for `meta`-channel outputs (orchestration bookkeeping , raw report /
-   *  verdict / marker), when the orchestrator provisions one. A `meta` output resolves under
-   *  this dir; a `product` output always under workspaceDir. Absent => meta falls back to
-   *  workspaceDir, so a step with no metaDir is byte-identical to the pre-channel behavior. */
+   *  verdict / marker), when the orchestrator provisions one. Absent => meta falls back to
+   *  workspaceDir. A `product` output always resolves under workspaceDir (the real code tree,
+   *  uncontained). With neither artifactDir nor metaDir set, every channel resolves to
+   *  workspaceDir , byte-identical to the pre-channel behavior. */
   metaDir?: string;
   /** The resolved input CONTENTS, keyed by input id. The orchestrator read these from .sftdd
    *  (interactive or filesystem) and hands them over; the step never fetches. */
