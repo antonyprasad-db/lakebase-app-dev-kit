@@ -20,7 +20,7 @@ import {
   beginNextPendingCycle,
   greenOpenCycle,
   type GreenVerifier,
-} from "../../scripts/sftdd/cycle-record.js";
+} from "../../consort/pipeline/cycle-record.js";
 import { readGreenFailure, needsGreenAssess } from "../../scripts/sftdd/supersession.js";
 
 const tmpDirs: string[] = [];

@@ -21,7 +21,7 @@ import {
   priorReflectReviseCount,
   isReflectSmell,
 } from "../../scripts/sftdd/smells";
-import { writePipeline, type StoryPipeline } from "../../scripts/sftdd/story-pipeline";
+import { writePipeline, type StoryPipeline } from "../../consort/pipeline/story-pipeline";
 
 const FEATURE = "F1-stock-visibility";
 const STORY = "S3-sku-detail-view";

@@ -18,7 +18,7 @@ import {
   readPipeline,
   findBatchedDraftStories,
   type StoryStatus,
-} from "../../scripts/sftdd/story-pipeline";
+} from "../../consort/pipeline/story-pipeline";
 
 const tmps: string[] = [];
 afterEach(() => {

@@ -19,7 +19,7 @@ import {
   composeReviseBrief,
   specLevelSmell,
 } from "../../scripts/sftdd/smells";
-import type { CycleArtifact, CycleScope } from "../../scripts/sftdd/run-cycle";
+import type { CycleArtifact, CycleScope } from "../../consort/pipeline/run-cycle";
 
 let tdd: string;
 const scope: CycleScope = { sftddDir: "", feature_id: "F1", story_id: "S1", ac_id: "AC1" };

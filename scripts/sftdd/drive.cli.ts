@@ -23,7 +23,7 @@ import * as path from "node:path";
 import * as readline from "node:readline";
 
 import { recordTurn, seedRecorderBaseline } from "../../consort/logging/turn-recorder.js";
-import { recordBuildTurn, nextBuildTurnNumber } from "./record-build.js";
+import { recordBuildTurn, nextBuildTurnNumber } from "../../consort/pipeline/record-build.js";
 import { runDriver, driverBoundOptions, ProtocolViolationError, UnexpectedCallbackError, type DriveEffects, type DriverBound, type RunDriverResult, type RunDriverOptions } from "../../consort/orchestrator/drive/orchestrator-run.js";
 import { writeEscalation } from "../../consort/gates/escalation.js";
 import { emitNextJson } from "./next.js";

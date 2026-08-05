@@ -31,8 +31,8 @@ import { execRunner } from "../../../consort/orchestrator/drive/claude-runner.js
 import type { DriveEffectsConfig } from "../../../consort/orchestrator/drive/orchestrator-effects.js";
 import type { WorkflowAction } from "../../../consort/orchestrator/drive/orchestrator-drive.js";
 import { resolveSftddSettings } from "../../../consort/orchestrator/settings/project-settings.js";
-import { writePipeline } from "../../../scripts/sftdd/story-pipeline.js";
-import { storyTestProgress } from "../../../scripts/sftdd/cycle-record.js";
+import { writePipeline } from "../../../consort/pipeline/story-pipeline.js";
+import { storyTestProgress } from "../../../consort/pipeline/cycle-record.js";
 
 const KIT = process.cwd();
 const FIXTURES = join(KIT, "consort/orchestrator/optimize/evaluation/fixtures");

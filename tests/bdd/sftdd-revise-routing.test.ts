@@ -35,12 +35,12 @@ import {
   clearStoryBlockingSmellOnDiscard,
   rebuildStory,
 } from "../../scripts/sftdd/revise";
-import { storyTestProgress } from "../../scripts/sftdd/cycle-record";
+import { storyTestProgress } from "../../consort/pipeline/cycle-record";
 import { cyclesRootDir } from "../../consort/config/sftdd-paths";
 import { readFileSync as readFileSyncNode } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { writeReflectVerdict, reflectionVerdictWritten } from "../../scripts/sftdd/reflection";
-import { writePipeline, readPipeline, type StoryPipeline } from "../../scripts/sftdd/story-pipeline";
+import { writePipeline, readPipeline, type StoryPipeline } from "../../consort/pipeline/story-pipeline";
 import { deriveDriveState } from "../../consort/orchestrator/state/orchestrator-derive";
 
 const FEATURE = "F1-file-bug";

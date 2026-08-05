@@ -13,7 +13,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { checkMigrationAppClean } from "../../scripts/sftdd/migration-app-clean.js";
-import { beginNextPendingCycle, greenOpenCycle, type GreenVerifier } from "../../scripts/sftdd/cycle-record.js";
+import { beginNextPendingCycle, greenOpenCycle, type GreenVerifier } from "../../consort/pipeline/cycle-record.js";
 import { readGreenFailure } from "../../scripts/sftdd/supersession.js";
 
 const tmpDirs: string[] = [];

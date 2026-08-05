@@ -28,7 +28,7 @@ import {
   storyAcIds,
   resolveSftddDir,
 } from "../../consort/config/sftdd-paths.js";
-import { readPipeline, writePipeline, reviseStory, setStoryStatus } from "./story-pipeline.js";
+import { readPipeline, writePipeline, reviseStory, setStoryStatus } from "../../consort/pipeline/story-pipeline.js";
 import {
   markSmellResolved,
   composeReviseBrief,
@@ -40,7 +40,7 @@ import {
   storyTestListFingerprint,
 } from "./smells.js";
 import { clearReflectVerdict } from "./reflection.js";
-import { resetStoryBuildState } from "./cycle-record.js";
+import { resetStoryBuildState } from "../../consort/pipeline/cycle-record.js";
 import { resolveEscalationsForStory } from "../../consort/gates/escalation.js";
 
 /** Default author identity recorded on a headless self-heal. A real interactive

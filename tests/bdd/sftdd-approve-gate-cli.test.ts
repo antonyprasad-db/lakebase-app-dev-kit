@@ -10,7 +10,7 @@ import { join } from "path";
 import { runApproveGateCli } from "../../scripts/sftdd/approve-gate.cli.js";
 import { readSprintGates } from "../../consort/gates/sprint-gates.js";
 import { planningDir, acsDir } from "../../consort/config/sftdd-paths.js";
-import { writePipeline, readPipeline, type StoryPipeline } from "../../scripts/sftdd/story-pipeline.js";
+import { writePipeline, readPipeline, type StoryPipeline } from "../../consort/pipeline/story-pipeline.js";
 
 const SPRINT = "s1";
 const PROPOSAL = ["# Sprint 1 backlog", "", "## Proposed features", "- v1 initial domain", ""].join("\n");

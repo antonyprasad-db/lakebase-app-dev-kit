@@ -11,7 +11,7 @@ import {
   type DriveContext,
 } from "../../consort/orchestrator/state/orchestrator-derive";
 import { nextTransition } from "../../consort/orchestrator/drive/orchestrator-drive";
-import type { StoryPipeline, StoryEntry } from "../../scripts/sftdd/story-pipeline";
+import type { StoryPipeline, StoryEntry } from "../../consort/pipeline/story-pipeline";
 
 /** A probe driven by per-story boolean maps; absent story => all false. */
 function fakeProbe(facts: Record<string, Partial<Record<keyof StoryArtifactProbe, boolean>>>): StoryArtifactProbe {

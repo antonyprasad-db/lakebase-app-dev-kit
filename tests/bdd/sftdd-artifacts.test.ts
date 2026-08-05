@@ -6,7 +6,7 @@ import {
   writeArtifact,
   listArtifacts,
   readArtifact,
-} from "../../scripts/sftdd/artifacts";
+} from "../../consort/pipeline/artifacts";
 
 let tdd: string;
 const FEATURE_ID = "F1-checkout";

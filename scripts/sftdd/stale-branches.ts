@@ -13,7 +13,7 @@
 
 import { existsSync, readdirSync, statSync } from "fs";
 import { join } from "path";
-import { readPipeline } from "./story-pipeline";
+import { readPipeline } from "../../consort/pipeline/story-pipeline";
 import { listSpikes } from "../../consort/experiment/spike";
 import { featuresDir as featuresDirOf } from "../../consort/config/sftdd-paths.js";
 

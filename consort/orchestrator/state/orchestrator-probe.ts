@@ -12,14 +12,14 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { readAcLayer, type CycleArtifact } from "../../../scripts/sftdd/run-cycle.js";
+import { readAcLayer, type CycleArtifact } from "../../pipeline/run-cycle.js";
 import {
   storyTestProgress,
   firstReviewPendingAc,
   firstRefactorPendingAc,
   reviewPending,
   refactorPending,
-} from "../../../scripts/sftdd/cycle-record.js";
+} from "../../pipeline/cycle-record.js";
 import { needsGreenAssess, hasPendingRegressionFix, hasPendingSupersession } from "../../../scripts/sftdd/supersession.js";
 import { driverPhaseForTdd, type StoryArtifactProbe, type DriveContext } from "./orchestrator-derive.js";
 import type { DriveEscalation } from "../workflow/workflow-vocabulary.js";

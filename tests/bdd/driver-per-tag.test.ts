@@ -22,7 +22,7 @@ import {
   readCycleArtifact,
   recordRunnerOutcome,
   type CycleScope,
-} from "../../scripts/sftdd/run-cycle";
+} from "../../consort/pipeline/run-cycle";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(here, "..", "..");

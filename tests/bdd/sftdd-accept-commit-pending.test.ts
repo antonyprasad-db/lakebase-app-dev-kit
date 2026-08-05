@@ -4,7 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { gitInit } from "@databricks-solutions/lakebase-scm-utils/git";
 import { exec } from "@databricks-solutions/lakebase-scm-utils/util";
-import { commitExperimentCode } from "../../scripts/sftdd/cycle-record.js";
+import { commitExperimentCode } from "../../consort/pipeline/cycle-record.js";
 
 // Regression guard for the accept-merge dirty-tree abort: a supersession/repair
 // turn can edit CODE on the experiment branch outside any green/refactor commit,

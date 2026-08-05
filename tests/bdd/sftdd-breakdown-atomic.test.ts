@@ -11,7 +11,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { resetIncompleteBreakdown } from "../../scripts/sftdd/story-pipeline";
+import { resetIncompleteBreakdown } from "../../consort/pipeline/story-pipeline";
 import { storiesDir, storyJson, featureSpecJson } from "../../consort/config/sftdd-paths";
 import { commandsForAction, type DriveEffectsConfig } from "../../consort/orchestrator/drive/orchestrator-effects";
 

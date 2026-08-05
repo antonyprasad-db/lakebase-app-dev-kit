@@ -18,7 +18,7 @@ import { join } from "path";
 import { diskArtifactProbe } from "../../consort/orchestrator/state/orchestrator-probe.js";
 import { deriveDriveState, type DriveContext } from "../../consort/orchestrator/state/orchestrator-derive.js";
 import { nextTransition } from "../../consort/orchestrator/drive/orchestrator-drive.js";
-import type { StoryPipeline, StoryEntry } from "../../scripts/sftdd/story-pipeline.js";
+import type { StoryPipeline, StoryEntry } from "../../consort/pipeline/story-pipeline.js";
 import { writeReflectVerdict } from "../../scripts/sftdd/reflection.js";
 import { storyAcIds, acsDir, storyTestListJson } from "../../consort/config/sftdd-paths.js";
 

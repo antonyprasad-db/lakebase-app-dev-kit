@@ -30,8 +30,8 @@ import {
   cutStoryExperiment,
   discardStory,
   reviseStory,
-} from "./story-pipeline";
-import { resetStoryBuildState } from "./cycle-record";
+} from "../../consort/pipeline/story-pipeline";
+import { resetStoryBuildState } from "../../consort/pipeline/cycle-record";
 import { parseExperimentArgs, validateExperimentArgs } from "../../consort/experiment/experiment-args";
 import { emitAgentLogEvent } from "../../consort/logging/agent-log";
 

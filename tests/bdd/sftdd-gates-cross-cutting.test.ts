@@ -31,7 +31,7 @@ import {
   beginCycle,
   flagSmells,
   type CycleScope,
-} from "../../scripts/sftdd/run-cycle";
+} from "../../consort/pipeline/run-cycle";
 import {
   detectTestDeletionAttempt,
   readSmellsLog,

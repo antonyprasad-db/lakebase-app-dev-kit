@@ -54,7 +54,7 @@ import {
   STORY_STATUSES,
   type StoryStatus,
   type StoryPipeline,
-} from "./story-pipeline";
+} from "../../consort/pipeline/story-pipeline";
 import { join } from "path";
 import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
 import { reviseStoryWithSelfHeal, clearStoryBlockingSmellOnDiscard, rebuildStory } from "./revise.js";

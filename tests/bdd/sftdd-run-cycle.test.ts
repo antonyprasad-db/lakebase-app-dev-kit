@@ -12,7 +12,7 @@ import {
   readCycleArtifact,
   openBranchDsn,
   type CycleScope,
-} from "../../scripts/sftdd/run-cycle";
+} from "../../consort/pipeline/run-cycle";
 import { readAgentLog } from "../../consort/logging/agent-log";
 
 const LIVE = process.env.LAKEBASE_TEST_E2E === "1" && !!process.env.DATABRICKS_HOST;

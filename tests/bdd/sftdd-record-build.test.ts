@@ -10,7 +10,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 
-import { nextBuildTurnNumber, recordBuildTurn, turnSlug } from "../../scripts/sftdd/record-build.js";
+import { nextBuildTurnNumber, recordBuildTurn, turnSlug } from "../../consort/pipeline/record-build.js";
 
 const F = "F1-x";
 const S = "S1-y";

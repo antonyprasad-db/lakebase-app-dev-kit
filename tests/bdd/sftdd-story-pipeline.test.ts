@@ -24,7 +24,7 @@ import {
   reviseStory,
   getStoryAcceptance,
   syncBreakdownToPipeline,
-} from "../../scripts/sftdd/story-pipeline";
+} from "../../consort/pipeline/story-pipeline";
 import { getValidator } from "../../consort/orchestrator/validators/schema-loader";
 
 const tmpDirs: string[] = [];

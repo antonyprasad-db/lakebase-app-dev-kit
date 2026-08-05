@@ -6,7 +6,7 @@ import { join } from "path";
 import { writeWorkflowState, readWorkflowState, writeFeature } from "../../scripts/sftdd/spec-sync";
 import { writeMasterTestList } from "../../scripts/sftdd/test-list";
 import { analyzeForGate, recordPlan, writePlan } from "../../consort/gates/design-spec-gate";
-import { beginCycle, markGreen, listCycles } from "../../scripts/sftdd/run-cycle";
+import { beginCycle, markGreen, listCycles } from "../../consort/pipeline/run-cycle";
 import { runDetectorsForScope, writeSmellsLog, readSmellsLog } from "../../scripts/sftdd/smells";
 
 const LIVE = process.env.LAKEBASE_TEST_E2E === "1" && !!process.env.DATABRICKS_HOST;
@@ -153,7 +153,7 @@ liveDescribe("orchestrator e2e (live – LAKEBASE_TEST_E2E=1)", () => {
   it("end-to-end smoke: branch primitive available + getConnection resolves", async () => {
     // The hermetic test exercises the orchestration shape; the live tier asserts that
     // the Lakebase-backed primitives the orchestrator depends on resolve in a real env.
-    const { openBranchDsn } = await import("../../scripts/sftdd/run-cycle");
+    const { openBranchDsn } = await import("../../consort/pipeline/run-cycle");
     const instance = process.env.LAKEBASE_TEST_INSTANCE!;
     const branch = process.env.LAKEBASE_TEST_BRANCH!;
     const dsn = await openBranchDsn({ instance, branch_id: branch });

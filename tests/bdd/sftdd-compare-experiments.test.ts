@@ -62,7 +62,7 @@ describe("compareExperiments", () => {
 // Structured-payload tests (slice 4): downstream comparison-report
 // renderer consumes per-tag matrix, cycle counts, artifact counts.
 
-import { writeArtifact } from "../../scripts/sftdd/artifacts";
+import { writeArtifact } from "../../consort/pipeline/artifacts";
 
 function seedExperimentRich(
   slug: string,

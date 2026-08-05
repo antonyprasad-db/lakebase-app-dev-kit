@@ -10,7 +10,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { reviewStory } from "../../scripts/sftdd/cycle-record.js";
+import { reviewStory } from "../../consort/pipeline/cycle-record.js";
 import { readSmellsLog } from "../../scripts/sftdd/smells.js";
 
 const F = "F6";

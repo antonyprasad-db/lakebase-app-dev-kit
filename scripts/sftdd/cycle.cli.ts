@@ -25,7 +25,7 @@ import {
   firstReviewPendingAc,
   firstRefactorPendingAc,
   greenVerifierForEnv,
-} from "./cycle-record.js";
+} from "../../consort/pipeline/cycle-record.js";
 import {
   writeSupersededTests,
   readSupersededTests,

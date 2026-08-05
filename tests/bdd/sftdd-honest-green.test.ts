@@ -22,7 +22,7 @@ import {
   replayTrustVerifier,
   greenVerifierForEnv,
   type GreenVerifier,
-} from "../../scripts/sftdd/cycle-record.js";
+} from "../../consort/pipeline/cycle-record.js";
 import {
   writeEscalation,
   readEscalations,

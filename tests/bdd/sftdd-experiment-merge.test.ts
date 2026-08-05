@@ -14,7 +14,7 @@ import {
   experimentMergeArgv,
 } from "../../consort/experiment/experiment-merge";
 import type { ExperimentBranchOps } from "../../consort/experiment/experiment-lifecycle";
-import { readPipeline, writePipeline, type StoryPipeline } from "../../scripts/sftdd/story-pipeline";
+import { readPipeline, writePipeline, type StoryPipeline } from "../../consort/pipeline/story-pipeline";
 
 const F = "F1";
 const S = "S1";

@@ -20,7 +20,7 @@ import {
   getStoryGate,
   writePipeline,
   readPipeline,
-} from "../../scripts/sftdd/story-pipeline";
+} from "../../consort/pipeline/story-pipeline";
 import {
   writeMasterTestList,
   writeStoryTestList,

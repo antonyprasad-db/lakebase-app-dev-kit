@@ -25,7 +25,7 @@ import { execRunner } from "../../../consort/orchestrator/drive/claude-runner.js
 import type { DriveEffectsConfig } from "../../../consort/orchestrator/drive/orchestrator-effects.js";
 import type { WorkflowAction } from "../../../consort/orchestrator/drive/orchestrator-drive.js";
 import { resolveSftddSettings } from "../../../consort/orchestrator/settings/project-settings.js";
-import { writePipeline, readPipeline } from "../../../scripts/sftdd/story-pipeline.js";
+import { writePipeline, readPipeline } from "../../../consort/pipeline/story-pipeline.js";
 
 const KIT = process.cwd();
 const INTAKE = join(KIT, "tests/integration/intake");

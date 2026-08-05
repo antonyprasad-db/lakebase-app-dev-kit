@@ -16,7 +16,7 @@ import {
   detectAll,
   detectE2eRowPermaRed,
 } from "../../scripts/sftdd/smells";
-import type { CycleArtifact, CycleScope } from "../../scripts/sftdd/run-cycle";
+import type { CycleArtifact, CycleScope } from "../../consort/pipeline/run-cycle";
 import type { TestList } from "../../scripts/sftdd/test-list";
 
 function mkTempProject(prefix: string): { projectDir: string; sftddDir: string } {

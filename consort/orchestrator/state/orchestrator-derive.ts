@@ -12,7 +12,7 @@
 //     come through the StoryArtifactProbe seam so this mapping stays pure and
 //     hermetically testable; the real disk/cycle-scanning probe is 3b.
 
-import type { StoryEntry, StoryPipeline } from "../../../scripts/sftdd/story-pipeline.js";
+import type { StoryEntry, StoryPipeline } from "../../pipeline/story-pipeline.js";
 import type {
   DriveState,
   DrivePhase,

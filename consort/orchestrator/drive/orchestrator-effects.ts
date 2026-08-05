@@ -25,7 +25,7 @@ import { formatAgentReport } from "../turns/agent-report-formatter.js";
 import type { DriveEffects } from "./orchestrator-run.js";
 import { deriveDriveState, effectiveLoopForStory } from "../state/orchestrator-derive.js";
 import { diskArtifactProbe, readDriveContext } from "../state/orchestrator-probe.js";
-import { readPipeline } from "../../../scripts/sftdd/story-pipeline.js";
+import { readPipeline } from "../../pipeline/story-pipeline.js";
 import {
   storyJson, designGuideJson, handbackFile, storyAcIds, architectureJson, readAcLayer,
   featureProposalsMd, featureSpecJson, featureTestListJson, acsDir, planningEstimatesJson,
@@ -37,7 +37,7 @@ import type { TurnKey } from "./turn-key.js";
 export { turnKeyForAction } from "./turn-key.js";
 import { turnKeyForAction } from "./turn-key.js";
 import { designGuideConformance } from "../../../scripts/sftdd/response-formatter.js";
-import { storyTestProgress, nextPendingBatch, DEFAULT_BATCH_CAP } from "../../../scripts/sftdd/cycle-record.js";
+import { storyTestProgress, nextPendingBatch, DEFAULT_BATCH_CAP } from "../../pipeline/cycle-record.js";
 import { readSupersededTests, readGreenFailure } from "../../../scripts/sftdd/supersession.js";
 import { readDeployVerifyAssessMarker, readDeployVerifyScope } from "../../../scripts/sftdd/deploy-verify-assess.js";
 import { readRefactorVerifyAssessMarker } from "../../../scripts/sftdd/refactor-verify-assess.js";

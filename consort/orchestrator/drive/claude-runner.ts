@@ -20,7 +20,7 @@ import * as readline from "node:readline";
 
 import { replayDesignTurn, REPLAYABLE_DESIGN_ROLES, restoreReflectVerdict } from "../../logging/replay-artifacts.js";
 import { replayBuildTurn } from "../../logging/replay-build.js";
-import { recordBuildTurn, nextBuildTurnNumber } from "../../../scripts/sftdd/record-build.js";
+import { recordBuildTurn, nextBuildTurnNumber } from "../../pipeline/record-build.js";
 import { recordTurn, seedRecorderBaseline } from "../../logging/turn-recorder.js";
 import { emitAgentLogEvent } from "../../logging/agent-log.js";
 import { writeWorkflowPhase } from "../../gates/workflow-phase.js";

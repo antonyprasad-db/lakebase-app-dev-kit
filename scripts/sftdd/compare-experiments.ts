@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { listExperiments, readOutcomes } from "../../consort/experiment/experiment";
 import type { ExperimentCap, ExperimentOutcomes, ExperimentTag, TagOutcome } from "../../consort/experiment/experiment";
-import { listArtifacts } from "./artifacts";
+import { listArtifacts } from "../../consort/pipeline/artifacts";
 
 export interface ExperimentRow {
   experiment_slug: string;

@@ -29,12 +29,12 @@ import {
   storyReviewJson,
   storyReviewVerdictJson,
 } from "../../consort/config/sftdd-paths.js";
-import { markTestItemGreen } from "./test-list.js";
+import { markTestItemGreen } from "../../scripts/sftdd/test-list.js";
 import { listExperiments } from "../../consort/experiment/experiment.js";
-import { ensureDeployedAndVerify } from "./deploy.js";
+import { ensureDeployedAndVerify } from "../../scripts/sftdd/deploy.js";
 import { writeEscalation, type Escalation } from "../../consort/gates/escalation.js";
-import { readSmellsLog, markSmellResolved, isBuildRefactorRoutableSmell, hasOpenBuildRefactorRoutableSmell, writeSmellsLog, hasOpenSmell } from "./smells.js";
-import { checkUxClean, summarizeUxViolations } from "./design-adherence.js";
+import { readSmellsLog, markSmellResolved, isBuildRefactorRoutableSmell, hasOpenBuildRefactorRoutableSmell, writeSmellsLog, hasOpenSmell } from "../../scripts/sftdd/smells.js";
+import { checkUxClean, summarizeUxViolations } from "../../scripts/sftdd/design-adherence.js";
 import {
   readGreenFailure,
   writeGreenFailure,
@@ -44,10 +44,10 @@ import {
   markRegressionFixAttempted,
   regressionFixExhausted,
   rearmRegressionFix,
-} from "./supersession.js";
-import { checkContractClean, supersededTestCandidates } from "./contract-clean.js";
-import { readRefactorVerifyAssessMarker, writeRefactorVerifyAssessMarker, clearRefactorVerifyAssessMarker } from "./refactor-verify-assess.js";
-import { checkMigrationAppClean } from "./migration-app-clean.js";
+} from "../../scripts/sftdd/supersession.js";
+import { checkContractClean, supersededTestCandidates } from "../../scripts/sftdd/contract-clean.js";
+import { readRefactorVerifyAssessMarker, writeRefactorVerifyAssessMarker, clearRefactorVerifyAssessMarker } from "../../scripts/sftdd/refactor-verify-assess.js";
+import { checkMigrationAppClean } from "../../scripts/sftdd/migration-app-clean.js";
 import { emitAgentLogEvent, type AgentLogEventInput } from "../../consort/logging/agent-log.js";
 import { commitAllIfChanged } from "@databricks-solutions/lakebase-scm-utils/git";
 import { assertCommitTargetNotProtected, ProtectedBranchCommitError } from "@databricks-solutions/lakebase-scm-utils/lakebase";

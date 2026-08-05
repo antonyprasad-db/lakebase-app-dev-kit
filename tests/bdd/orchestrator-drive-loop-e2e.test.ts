@@ -17,7 +17,7 @@ import { runDriver, type DriveEffects } from "../../consort/orchestrator/drive/o
 import { deriveDriveState } from "../../consort/orchestrator/state/orchestrator-derive";
 import { diskArtifactProbe, readDriveContext } from "../../consort/orchestrator/state/orchestrator-probe";
 import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
-import { writeCycleArtifact } from "../../scripts/sftdd/run-cycle";
+import { writeCycleArtifact } from "../../consort/pipeline/run-cycle";
 import { acReviewJson, storyReviewJson } from "../../consort/config/sftdd-paths";
 import {
   readPipeline,
@@ -30,7 +30,7 @@ import {
   completeActive,
   cutStoryExperiment,
   syncBreakdownToPipeline,
-} from "../../scripts/sftdd/story-pipeline";
+} from "../../consort/pipeline/story-pipeline";
 
 const AT = "2026-06-07T00:00:00.000Z";
 

@@ -21,7 +21,7 @@ import {
   getStoryGate,
   getStoryAcceptance,
   type StoryPipeline,
-} from "../../scripts/sftdd/story-pipeline";
+} from "../../consort/pipeline/story-pipeline";
 import {
   mergeExperimentIntoFeature,
   discardExperimentBranch,

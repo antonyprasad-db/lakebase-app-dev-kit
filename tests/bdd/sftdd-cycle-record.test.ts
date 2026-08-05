@@ -26,7 +26,7 @@ import {
   storyReviewState,
   resetStoryBuildState,
   type GreenVerifier,
-} from "../../scripts/sftdd/cycle-record.js";
+} from "../../consort/pipeline/cycle-record.js";
 import { readAgentLog } from "../../consort/logging/agent-log.js";
 import { markRefactorVerifyAssessed } from "../../scripts/sftdd/refactor-verify-assess.js";
 

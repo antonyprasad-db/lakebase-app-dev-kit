@@ -17,7 +17,7 @@ import {
 } from "../../consort/orchestrator/drive/orchestrator-effects";
 import { existsSync, readFileSync } from "node:fs";
 import { handbackFile } from "../../consort/config/sftdd-paths";
-import { beginNextPendingCycle } from "../../scripts/sftdd/cycle-record";
+import { beginNextPendingCycle } from "../../consort/pipeline/cycle-record";
 import { writeGreenFailure, writeSupersededTests } from "../../scripts/sftdd/supersession";
 
 function recordingRunner(): { runner: CommandRunner; calls: DriveCommand[] } {

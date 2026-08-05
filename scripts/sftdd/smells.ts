@@ -1,8 +1,8 @@
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { createHash } from "crypto";
 import { join } from "path";
-import { listCycles } from "./run-cycle";
-import type { CycleScope, CycleArtifact } from "./run-cycle";
+import { listCycles } from "../../consort/pipeline/run-cycle";
+import type { CycleScope, CycleArtifact } from "../../consort/pipeline/run-cycle";
 import { storyTestListJson } from "../../consort/config/sftdd-paths";
 
 export type SmellName =

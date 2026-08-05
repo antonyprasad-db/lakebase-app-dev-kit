@@ -19,7 +19,7 @@ import {
   beginNextPendingCycle,
   greenOpenCycle,
   type GreenVerifier,
-} from "../../scripts/sftdd/cycle-record.js";
+} from "../../consort/pipeline/cycle-record.js";
 
 const pass: GreenVerifier = async () => ({ passed: true, summary: "verify passed (test stub)" });
 

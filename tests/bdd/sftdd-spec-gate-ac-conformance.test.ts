@@ -14,7 +14,7 @@ import {
   writePipeline,
   surfaceForGate,
   approveStoryGateFromDisk,
-} from "../../scripts/sftdd/story-pipeline";
+} from "../../consort/pipeline/story-pipeline";
 import { featureDir, storyAcsConformanceReason } from "../../consort/gates/gate-conformance-guard";
 
 const F = "F4-pick-outbound";

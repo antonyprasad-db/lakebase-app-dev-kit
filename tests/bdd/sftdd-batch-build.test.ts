@@ -19,8 +19,8 @@ import {
   firstReviewPendingAc,
   DEFAULT_BATCH_CAP,
   type GreenVerifier,
-} from "../../scripts/sftdd/cycle-record.js";
-import { coveredTestIds } from "../../scripts/sftdd/run-cycle.js";
+} from "../../consort/pipeline/cycle-record.js";
+import { coveredTestIds } from "../../consort/pipeline/run-cycle.js";
 
 const pass: GreenVerifier = async () => ({ passed: true, summary: "ok" });
 

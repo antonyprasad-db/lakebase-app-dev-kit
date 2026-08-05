@@ -16,7 +16,7 @@ import {
   acceptStory,
   awaitAcceptance,
   writePipeline,
-} from "../../scripts/sftdd/story-pipeline";
+} from "../../consort/pipeline/story-pipeline";
 
 const tmpDirs: string[] = [];
 afterEach(() => {

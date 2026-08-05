@@ -41,8 +41,8 @@ import { execRunner } from "../../../consort/orchestrator/drive/claude-runner.js
 import type { DriveEffectsConfig } from "../../../consort/orchestrator/drive/orchestrator-effects.js";
 import type { WorkflowAction } from "../../../consort/orchestrator/drive/orchestrator-drive.js";
 import { resolveSftddSettings } from "../../../consort/orchestrator/settings/project-settings.js";
-import { writePipeline, readPipeline } from "../../../scripts/sftdd/story-pipeline.js";
-import { beginNextPendingBatch, storyTestProgress } from "../../../scripts/sftdd/cycle-record.js";
+import { writePipeline, readPipeline } from "../../../consort/pipeline/story-pipeline.js";
+import { beginNextPendingBatch, storyTestProgress } from "../../../consort/pipeline/cycle-record.js";
 
 export const KIT = process.cwd();
 /** The SELF-CONTAINED setup bundle for this check , NO reach into the moving evaluation corpus. All

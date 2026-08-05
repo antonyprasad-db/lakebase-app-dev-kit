@@ -18,7 +18,7 @@ import {
 import { BLOCKING_SMELLS, escalationsFromSmells } from "../../consort/gates/escalation.js";
 import { diskArtifactProbe } from "../../consort/orchestrator/state/orchestrator-probe.js";
 import { staleStoryArtifactsForRevise, applyReviseSelfHeal } from "../../scripts/sftdd/revise.js";
-import { writePipeline, type StoryPipeline } from "../../scripts/sftdd/story-pipeline.js";
+import { writePipeline, type StoryPipeline } from "../../consort/pipeline/story-pipeline.js";
 
 const NOW = () => new Date("2026-07-08T00:00:00.000Z");
 const F = "F2-later";
