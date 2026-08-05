@@ -5,8 +5,8 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { MarkdownAdapter, markdownAdapter } from "../../scripts/sftdd/adapters/markdown";
-import type { AdapterContext } from "../../scripts/sftdd/adapters/types";
+import { MarkdownAdapter, markdownAdapter } from "../../consort/intake/adapters/markdown";
+import type { AdapterContext } from "../../consort/intake/adapters/types";
 import type { Feature, Story, AC } from "../../consort/intake/spec-sync";
 
 function mkTempTdd(prefix: string): string {

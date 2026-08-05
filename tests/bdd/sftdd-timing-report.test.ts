@@ -9,7 +9,7 @@ import { mkdtempSync, mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import type { AgentLogEvent } from "../../consort/logging/agent-log";
-import { computeTiming, formatTimingReport, timingReportFromLog } from "../../scripts/sftdd/timing-report";
+import { computeTiming, formatTimingReport, timingReportFromLog } from "../../consort/reports/timing-report";
 import { runTimingCli } from "../../scripts/sftdd/timing-report.cli";
 
 function ev(timestamp: string, role: string, event: string, metadata?: Record<string, unknown>): AgentLogEvent {

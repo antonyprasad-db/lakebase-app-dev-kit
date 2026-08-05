@@ -10,8 +10,8 @@
 import { join } from "path";
 import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
-import { timingReportFromLog, formatTimingReport } from "./timing-report.js";
-import { readRunConfig, formatRunConfig } from "./run-config.js";
+import { timingReportFromLog, formatTimingReport } from "../../consort/reports/timing-report.js";
+import { readRunConfig, formatRunConfig } from "../../consort/session/run-config.js";
 
 interface ParsedArgs {
   sftddDir?: string;

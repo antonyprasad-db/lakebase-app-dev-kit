@@ -26,7 +26,7 @@ import {
   writeStoryTestList,
   readStoryTestList,
   type TestList,
-} from "../../scripts/sftdd/test-list";
+} from "../../consort/test-list/test-list";
 import { getValidator } from "../../consort/orchestrator/validators/schema-loader";
 
 const tmpDirs: string[] = [];

@@ -15,7 +15,7 @@ import {
   heavyRoles,
   requiredFreeFraction,
   DEFAULT_HEAVY_ROLES,
-} from "../../scripts/sftdd/context-budget.js";
+} from "../../consort/session/context-budget.js";
 
 describe("contextWindowFor", () => {
   it("defaults to the standard 200k window", () => {

@@ -18,7 +18,7 @@ import {
   readScenarioConditions,
   formatScenarioConditionField,
   type ScenarioConditionField,
-} from "./scenario-conditions.js";
+} from "../../consort/session/scenario-conditions.js";
 
 const FIELDS: ScenarioConditionField[] = ["uiTrack", "tiers", "pauseBefore", "language", "runner"];
 

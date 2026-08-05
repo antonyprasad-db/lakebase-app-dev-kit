@@ -6,7 +6,7 @@ import {
   readScenarioConditions,
   formatScenarioConditionField,
   SCENARIO_CONDITION_DEFAULTS,
-} from "../../scripts/sftdd/scenario-conditions.js";
+} from "../../consort/session/scenario-conditions.js";
 
 let dir: string;
 const manifest = (obj: unknown): string => {

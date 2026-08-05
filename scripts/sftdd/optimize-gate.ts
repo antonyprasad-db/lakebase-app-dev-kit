@@ -15,7 +15,7 @@
 // which the trial runner produces directly. gateForDesignHandoff returns null for
 // build turns so the harness knows to use the cycle result instead.
 
-import { formatRoleResponse } from "./response-formatter.js";
+import { formatRoleResponse } from "../../consort/session/response-formatter.js";
 import { resolveArtifactInputs, featureDir } from "../../consort/gates/gate-conformance-guard.js";
 import type { GateName } from "../../consort/gates/gates.js";
 

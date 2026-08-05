@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { formatRoleResponse, designGuideConformance } from "../../scripts/sftdd/response-formatter";
+import { formatRoleResponse, designGuideConformance } from "../../consort/session/response-formatter";
 
 const F = "F1-file-bug";
 const S = "S2-submit-create-bug";

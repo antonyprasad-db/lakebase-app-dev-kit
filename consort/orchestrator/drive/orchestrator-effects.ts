@@ -36,7 +36,7 @@ import type { TurnKey } from "./turn-key.js";
 // long imported it from orchestrator-effects (optimize.cli, tests).
 export { turnKeyForAction } from "./turn-key.js";
 import { turnKeyForAction } from "./turn-key.js";
-import { designGuideConformance } from "../../../scripts/sftdd/response-formatter.js";
+import { designGuideConformance } from "../../session/response-formatter.js";
 import { storyTestProgress, nextPendingBatch, DEFAULT_BATCH_CAP } from "../../pipeline/cycle-record.js";
 import { readSupersededTests, readGreenFailure } from "../../smells/supersession.js";
 import { readDeployVerifyAssessMarker, readDeployVerifyScope } from "../../smells/deploy-verify-assess.js";

@@ -15,7 +15,7 @@ import {
   readRunConfig,
   formatRunConfig,
   type RunConfigInputs,
-} from "../../scripts/sftdd/run-config.js";
+} from "../../consort/session/run-config.js";
 import { runTimingCli } from "../../scripts/sftdd/timing-report.cli.js";
 
 let proj: string;

@@ -5,7 +5,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { findStaleBranches } from "../../scripts/sftdd/stale-branches";
+import { findStaleBranches } from "../../consort/setup/stale-branches";
 import {
   initPipeline,
   setStoryStatus,

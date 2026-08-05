@@ -90,7 +90,7 @@ export interface StepRecord {
    *  step exposes one (a live ClaudeStepAgent does; a mock/replay agent does not). Read
    *  duck-typed via the step's optional lastAgentResult(), so the record carries the telemetry
    *  the per-role live tests survive + print. */
-  agentResult?: { usage?: import("../../../scripts/sftdd/claude-usage.js").TurnUsage; finalText?: string };
+  agentResult?: { usage?: import("../../session/claude-usage.js").TurnUsage; finalText?: string };
 }
 
 /**

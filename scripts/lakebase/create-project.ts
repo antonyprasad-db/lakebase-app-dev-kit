@@ -13,7 +13,7 @@ import {
   type CreateProjectResult,
   type ProgressCallback,
 } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-import { kitSftddHooks, layDownTddScaffold } from "../sftdd/project-sftdd-setup.js";
+import { kitSftddHooks, layDownTddScaffold } from "../../consort/setup/project-sftdd-setup.js";
 
 export type { CreateProjectArgs, CreateProjectResult, ProgressCallback };
 export { layDownTddScaffold };

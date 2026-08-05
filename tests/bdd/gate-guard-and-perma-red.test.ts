@@ -17,7 +17,7 @@ import {
   detectE2eRowPermaRed,
 } from "../../consort/smells/smells";
 import type { CycleArtifact, CycleScope } from "../../consort/pipeline/run-cycle";
-import type { TestList } from "../../scripts/sftdd/test-list";
+import type { TestList } from "../../consort/test-list/test-list";
 
 function mkTempProject(prefix: string): { projectDir: string; sftddDir: string } {
   const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), `feip7094-p4-${prefix}-`));

@@ -24,7 +24,7 @@ import {
   checkServiceBackedDeclaration,
   checkDbDesign,
 } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
-import { acsForStory } from "../../scripts/sftdd/test-list.js";
+import { acsForStory } from "../test-list/test-list.js";
 import { featureResolved, architectureJson, dbDesignJson, nfrsMd, featureNfrsMd } from "../../consort/config/sftdd-paths.js";
 import { readConventions, assertArchitectureConforms } from "../architecture/architecture-conventions.js";
 

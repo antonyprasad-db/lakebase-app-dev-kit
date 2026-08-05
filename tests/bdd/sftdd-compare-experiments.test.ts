@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { compareExperiments } from "../../scripts/sftdd/compare-experiments";
+import { compareExperiments } from "../../consort/reports/compare-experiments";
 
 let tdd: string;
 

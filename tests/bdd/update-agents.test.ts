@@ -9,7 +9,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { updateAgents } from "../../scripts/lakebase/update-agents.js";
-import { resyncAgentsOnKitDrift } from "../../scripts/sftdd/project-sftdd-setup.js";
+import { resyncAgentsOnKitDrift } from "../../consort/setup/project-sftdd-setup.js";
 
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const KIT_AGENTS_DIR = path.join(REPO_ROOT, "skills", "consort", "agents");

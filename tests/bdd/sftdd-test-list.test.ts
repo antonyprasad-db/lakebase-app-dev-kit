@@ -13,7 +13,7 @@ import {
   writeStoryTestList,
   readStoryTestList,
   type TestList,
-} from "../../scripts/sftdd/test-list";
+} from "../../consort/test-list/test-list";
 
 let tdd: string;
 const FEATURE_DIR = "features/F1-test-feature";

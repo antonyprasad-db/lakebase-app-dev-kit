@@ -14,7 +14,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync, readFileSync
 import { tmpdir } from "node:os";
 import { join, dirname, basename } from "node:path";
 import { commandsForAction, type DriveEffectsConfig } from "../../consort/orchestrator/drive/orchestrator-effects";
-import { relocateStrayDesignArtifacts } from "../../scripts/sftdd/stray-artifact-recovery";
+import { relocateStrayDesignArtifacts } from "../../consort/setup/stray-artifact-recovery";
 
 function cfg(over: Partial<DriveEffectsConfig> = {}): DriveEffectsConfig {
   return {

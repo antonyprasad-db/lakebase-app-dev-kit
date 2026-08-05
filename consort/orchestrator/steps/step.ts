@@ -145,8 +145,8 @@ export class Step implements StepContract {
    * turn's telemetry travels on the StepRecord + survives the (thrown-away) workspace. Read-only,
    * never affects routing or validation.
    */
-  lastAgentResult(): { usage?: import("../../../scripts/sftdd/claude-usage.js").TurnUsage; finalText?: string } | undefined {
-    const lr = (this.agent as { lastResult?: { usage?: import("../../../scripts/sftdd/claude-usage.js").TurnUsage; finalText?: string } }).lastResult;
+  lastAgentResult(): { usage?: import("../../session/claude-usage.js").TurnUsage; finalText?: string } | undefined {
+    const lr = (this.agent as { lastResult?: { usage?: import("../../session/claude-usage.js").TurnUsage; finalText?: string } }).lastResult;
     return lr ? { ...(lr.usage ? { usage: lr.usage } : {}), ...(lr.finalText ? { finalText: lr.finalText } : {}) } : undefined;
   }
 

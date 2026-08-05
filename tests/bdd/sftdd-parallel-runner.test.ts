@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   runExperimentsInParallel,
   type ExperimentRunInput,
-} from "../../scripts/sftdd/parallel-runner";
+} from "../../consort/experiment/parallel-runner";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

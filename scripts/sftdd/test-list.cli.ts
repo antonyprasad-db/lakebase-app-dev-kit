@@ -3,7 +3,7 @@
 // storyId is given, write that story's scoped per-story test list (the
 // streaming build lane's per-story input).
 
-import { readMasterTestList, writePerAcViews, writeStoryTestList } from "./test-list.js";
+import { readMasterTestList, writePerAcViews, writeStoryTestList } from "../../consort/test-list/test-list.js";
 import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
 
 function main(): number {

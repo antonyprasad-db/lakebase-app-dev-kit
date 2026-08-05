@@ -8,7 +8,7 @@ import {
   checkPerExperimentCap,
   clearExperimentCap,
   recordExperimentCap,
-} from "../../scripts/sftdd/experiment-cap";
+} from "../../consort/experiment/experiment-cap";
 import { readOutcomes } from "../../consort/experiment/experiment";
 
 function mkTempTdd(prefix: string): string {
@@ -259,7 +259,7 @@ describe("recordExperimentCap + clearExperimentCap", () => {
 describe("analyzeForGate populates a default per-experiment cap", () => {
   it("proposed_plan.budget.per_experiment carries default max_cycles + max_wall_clock_minutes", async () => {
     const { analyzeForGate } = await import("../../consort/gates/design-spec-gate");
-    const { writeMasterTestList } = await import("../../scripts/sftdd/test-list");
+    const { writeMasterTestList } = await import("../../consort/test-list/test-list");
     const sftddDir = mkTempTdd("analyze");
     try {
       fs.mkdirSync(path.join(sftddDir, "features", "F1"), { recursive: true });
@@ -279,7 +279,7 @@ describe("analyzeForGate populates a default per-experiment cap", () => {
 
 describe("compareExperiments surfaces capped outcomes", () => {
   it("classifies signal as 'capped' and copies the cap onto the experiment row", async () => {
-    const { compareExperiments } = await import("../../scripts/sftdd/compare-experiments");
+    const { compareExperiments } = await import("../../consort/reports/compare-experiments");
     const sftddDir = mkTempTdd("compare");
     try {
       seedExperiment(sftddDir, "F1", "exp-a");
@@ -302,7 +302,7 @@ describe("compareExperiments surfaces capped outcomes", () => {
 
 describe("comparison-report renders the cap status", () => {
   it("includes a Cap column in the per-experiment table and a remediation line in the decision block", async () => {
-    const { renderComparisonReport } = await import("../../scripts/sftdd/comparison-report");
+    const { renderComparisonReport } = await import("../../consort/reports/comparison-report");
     const md = renderComparisonReport({
       feature_id: "F1",
       story_id: "S1",

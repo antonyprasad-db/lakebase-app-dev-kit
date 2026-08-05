@@ -4,7 +4,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 
 import { writeWorkflowState, readWorkflowState, writeFeature } from "../../consort/intake/spec-sync";
-import { writeMasterTestList } from "../../scripts/sftdd/test-list";
+import { writeMasterTestList } from "../../consort/test-list/test-list";
 import { analyzeForGate, recordPlan, writePlan } from "../../consort/gates/design-spec-gate";
 import { beginCycle, markGreen, listCycles } from "../../consort/pipeline/run-cycle";
 import { runDetectorsForScope, writeSmellsLog, readSmellsLog } from "../../consort/smells/smells";

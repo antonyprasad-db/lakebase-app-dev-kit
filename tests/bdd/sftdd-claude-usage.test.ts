@@ -3,7 +3,7 @@
 // output + prompt-cache reuse + cost. Sample lines mirror the real v2.1.x shape.
 
 import { describe, it, expect } from "vitest";
-import { parseTurnUsage, usageFromResultEvent, assistantTextFromLine, assistantEventSummary } from "../../scripts/sftdd/claude-usage.js";
+import { parseTurnUsage, usageFromResultEvent, assistantTextFromLine, assistantEventSummary } from "../../consort/session/claude-usage.js";
 
 // A representative stream-json transcript: system init, an assistant text msg,
 // a tool use, then the terminal result event with usage (the shape probed live).

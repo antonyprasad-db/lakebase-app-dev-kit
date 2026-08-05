@@ -16,12 +16,12 @@ import {
   isTestListProtected,
   mutateTestList,
   TestListImmutabilityError,
-} from "../../scripts/sftdd/mutate-test-list";
+} from "../../consort/test-list/mutate-test-list";
 import {
   readMasterTestList,
   writeMasterTestList,
   type TestList,
-} from "../../scripts/sftdd/test-list";
+} from "../../consort/test-list/test-list";
 import { verifyGateIntegrity } from "../../consort/gates/verify-gate-integrity";
 
 let tdd: string;

@@ -57,7 +57,7 @@ import { kitVersion } from "../../consort/config/kit-bin.js";
 import { isForeignFeatureClaim, readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 import { driveAuthPreflight } from "../../consort/orchestrator/provisioning/credentials.js";
-import { writeRunConfig } from "./run-config.js";
+import { writeRunConfig } from "../../consort/session/run-config.js";
 import { resolveLaunchKitRef, pinRunKitRef, kitRefDriftWarning } from "../../consort/config/kit-ref.js";
 import {
   buildCfg,

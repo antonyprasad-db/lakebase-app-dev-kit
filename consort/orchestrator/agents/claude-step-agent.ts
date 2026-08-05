@@ -25,7 +25,7 @@
 
 import { randomUUID } from "node:crypto";
 import { claudeBaseArgs, claudeToolArgs, spawnClaudeStreaming, takeLastAgentTranscript } from "../drive/claude-runner.js";
-import type { TurnUsage } from "../../../scripts/sftdd/claude-usage.js";
+import type { TurnUsage } from "../../session/claude-usage.js";
 import type { DriveCommand } from "../drive/orchestrator-effects.js";
 import type { WorkflowAction } from "../workflow/workflow-vocabulary.js";
 import type { StepAgent, AgentInvocation } from "./agent-types.js";

@@ -22,7 +22,7 @@ import {
   checkAcIndependence,
   checkServiceBackedDeclaration,
 } from "../../consort/orchestrator/validators/conformance/artifact-conformance";
-import { renderTestListMarkdown } from "../../scripts/sftdd/test-list";
+import { renderTestListMarkdown } from "../../consort/test-list/test-list";
 
 describe("checkServiceBackedDeclaration: evidence-bound service_backed (no silent under-declaration)", () => {
   const arch = (over: Record<string, unknown> = {}) => JSON.stringify({ feature_id: "F1", nfrs: [], ...over });

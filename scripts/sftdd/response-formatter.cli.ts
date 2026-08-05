@@ -12,7 +12,7 @@
 
 import { join } from "path";
 import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
-import { formatRoleResponse, FORMATTED_ROLES } from "./response-formatter.js";
+import { formatRoleResponse, FORMATTED_ROLES } from "../../consort/session/response-formatter.js";
 
 interface Args {
   role?: string;

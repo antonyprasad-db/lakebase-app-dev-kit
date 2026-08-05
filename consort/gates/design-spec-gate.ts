@@ -1,8 +1,8 @@
 import { appendFileSync, existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { dirname, join } from "path";
-import { readMasterTestList, scopeToStory, acsForStory } from "../../scripts/sftdd/test-list.js";
+import { readMasterTestList, scopeToStory, acsForStory } from "../test-list/test-list.js";
 import { storyPlanJson } from "../../consort/config/sftdd-paths.js";
-import type { TestList, TestListItem } from "../../scripts/sftdd/test-list.js";
+import type { TestList, TestListItem } from "../test-list/test-list.js";
 import { readAcLayer } from "../pipeline/run-cycle.js";
 import type { AcLayer } from "../experiment/experiment.js";
 import { collectSpikeInputs, type SpikeInput } from "../experiment/spike-carryforward.js";

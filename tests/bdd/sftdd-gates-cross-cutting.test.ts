@@ -43,7 +43,7 @@ import {
   writeMasterTestList,
   viewsForAllAcs,
   type TestList,
-} from "../../scripts/sftdd/test-list";
+} from "../../consort/test-list/test-list";
 
 let tdd: string;
 const FEATURE_ID = "F1-checkout";

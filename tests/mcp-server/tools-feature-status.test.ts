@@ -8,7 +8,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { findTool } from "../../apps/mcp-server/tools";
-import { writeMasterTestList } from "../../scripts/sftdd/test-list";
+import { writeMasterTestList } from "../../consort/test-list/test-list";
 import {
   writePlan,
   recordPlan,

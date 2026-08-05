@@ -15,7 +15,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { drainGatesAsHumanProxy, supplyArtifact, supplyRequests, supplyProposals } from "../../scripts/sftdd/human-proxy";
+import { drainGatesAsHumanProxy, supplyArtifact, supplyRequests, supplyProposals } from "../../consort/gates/human-proxy";
 import { featureProposalsMd } from "../../consort/config/sftdd-paths";
 import { checkArtifactConformance } from "../../consort/orchestrator/validators/conformance/artifact-conformance";
 import { readGates } from "../../consort/gates/gates";

@@ -16,7 +16,7 @@ import {
   supplyArtifact,
   supplyRequests,
   supplyProposals,
-} from "./human-proxy.js";
+} from "../../consort/gates/human-proxy.js";
 // The revise self-heal is a state-machine transition, not a proxy decision; the
 // CLI verb triggers it but the logic lives in the driver's service layer.
 import { applyReviseSelfHeal } from "./revise.js";

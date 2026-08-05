@@ -12,7 +12,7 @@ import {
   type AdoptLakebaseProjectArgs,
   type AdoptLakebaseProjectResult,
 } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-import { adoptSftddHook } from "../sftdd/project-sftdd-setup.js";
+import { adoptSftddHook } from "../../consort/setup/project-sftdd-setup.js";
 
 export { assertAdoptionPreflight, _testMakeBrownfieldFixture };
 export type { AdoptLakebaseProjectArgs, AdoptLakebaseProjectResult };

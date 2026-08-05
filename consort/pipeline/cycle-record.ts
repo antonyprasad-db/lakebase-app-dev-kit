@@ -29,7 +29,7 @@ import {
   storyReviewJson,
   storyReviewVerdictJson,
 } from "../../consort/config/sftdd-paths.js";
-import { markTestItemGreen } from "../../scripts/sftdd/test-list.js";
+import { markTestItemGreen } from "../test-list/test-list.js";
 import { listExperiments } from "../../consort/experiment/experiment.js";
 import { ensureDeployedAndVerify } from "../deploy/deploy.js";
 import { writeEscalation, type Escalation } from "../../consort/gates/escalation.js";

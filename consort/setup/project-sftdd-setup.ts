@@ -15,8 +15,8 @@ import type {
 } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { ARTIFACT_ROOT } from "../../consort/config/sftdd-paths.js";
 import { defaultSftddConfig, writeSftddConfig } from "../../consort/config/sftdd-config-file.js";
-import { adoptTdd } from "../lakebase/adopt-sftdd.js";
-import { updateAgents } from "../lakebase/update-agents.js";
+import { adoptTdd } from "../../scripts/lakebase/adopt-sftdd.js";
+import { updateAgents } from "../../scripts/lakebase/update-agents.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
