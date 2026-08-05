@@ -23,7 +23,7 @@ import {
   checkInvariantCoverageDistinct,
   checkServiceBackedDeclaration,
   checkDbDesign,
-} from "./artifact-conformance.js";
+} from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
 import { acsForStory } from "./test-list.js";
 import { featureResolved, architectureJson, dbDesignJson, nfrsMd, featureNfrsMd } from "./sftdd-paths.js";
 import { readConventions, assertArchitectureConforms } from "./architecture-conventions.js";

@@ -17,7 +17,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { drainGatesAsHumanProxy, supplyArtifact, supplyRequests, supplyProposals } from "../../scripts/sftdd/human-proxy";
 import { featureProposalsMd } from "../../scripts/sftdd/sftdd-paths";
-import { checkArtifactConformance } from "../../scripts/sftdd/artifact-conformance";
+import { checkArtifactConformance } from "../../consort/orchestrator/validators/conformance/artifact-conformance";
 import { readGates } from "../../scripts/sftdd/gates";
 import { hashArtifact } from "../../scripts/sftdd/gate-hash";
 import { readAgentLog } from "../../scripts/sftdd/agent-log";

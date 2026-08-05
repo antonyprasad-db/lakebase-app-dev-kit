@@ -11,8 +11,8 @@
 
 import { readFileSync, existsSync, statSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { checkArtifactConformance } from "../../../../scripts/sftdd/artifact-conformance.js";
-import { getValidator, formatSchemaErrors } from "../../../../scripts/sftdd/schema-loader.js";
+import { checkArtifactConformance } from "./artifact-conformance.js";
+import { getValidator, formatSchemaErrors } from "../schema-loader.js";
 import type { OutputValidator, OutputValidationResult } from "../../contract/step-contract.js";
 
 /**

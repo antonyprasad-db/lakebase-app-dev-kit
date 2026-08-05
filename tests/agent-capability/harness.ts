@@ -21,7 +21,7 @@ import {
   checkArtifactConformance,
   canonicalArtifactName,
   type ConformanceResult,
-} from "../../scripts/sftdd/artifact-conformance.js";
+} from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
 import type { AgentRole } from "../../scripts/sftdd/agent-log.js";
 
 const SKILL_DIR = path.resolve(__dirname, "..", "..", "skills", "consort");

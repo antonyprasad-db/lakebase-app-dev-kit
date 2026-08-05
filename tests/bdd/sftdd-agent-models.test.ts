@@ -13,7 +13,7 @@ import {
   resolveModelForRole,
   AGENT_CONFIG_REL,
 } from "../../scripts/sftdd/agent-models";
-import { getValidator } from "../../scripts/sftdd/schema-loader";
+import { getValidator } from "../../consort/orchestrator/validators/schema-loader";
 
 const tmpDirs: string[] = [];
 afterEach(() => {

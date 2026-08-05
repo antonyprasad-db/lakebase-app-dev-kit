@@ -14,7 +14,7 @@ import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { checkArtifactConformance, parseRequiredNfrs } from "../../scripts/sftdd/artifact-conformance";
+import { checkArtifactConformance, parseRequiredNfrs } from "../../consort/orchestrator/validators/conformance/artifact-conformance";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");

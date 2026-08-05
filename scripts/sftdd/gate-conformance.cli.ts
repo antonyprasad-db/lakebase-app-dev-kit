@@ -16,7 +16,7 @@
 
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 import { resolveSftddDir } from "./sftdd-paths.js";
-import { scanFeatureConformance } from "./artifact-conformance.js";
+import { scanFeatureConformance } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
 
 interface ParsedArgs {
   feature?: string;

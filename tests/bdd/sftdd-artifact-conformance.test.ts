@@ -21,7 +21,7 @@ import {
   checkStoryIndependence,
   checkAcIndependence,
   checkServiceBackedDeclaration,
-} from "../../scripts/sftdd/artifact-conformance";
+} from "../../consort/orchestrator/validators/conformance/artifact-conformance";
 import { renderTestListMarkdown } from "../../scripts/sftdd/test-list";
 
 describe("checkServiceBackedDeclaration: evidence-bound service_backed (no silent under-declaration)", () => {

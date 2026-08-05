@@ -13,7 +13,7 @@
 import { appendFileSync, existsSync, readFileSync } from "fs";
 import { resolveSftddDir } from "./sftdd-paths.js";
 import { join } from "path";
-import { getValidator, formatSchemaErrors } from "./schema-loader";
+import { getValidator, formatSchemaErrors } from "../../consort/orchestrator/validators/schema-loader.js";
 import { renderEventMessage, type AgentLogEventName } from "./agent-log-events.js";
 
 export type { AgentLogEventName } from "./agent-log-events.js";

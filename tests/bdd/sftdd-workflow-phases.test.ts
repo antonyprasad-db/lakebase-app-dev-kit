@@ -2,7 +2,7 @@
 // planning (/plan) and deploy (/deploy) phases. Hermetic schema validation.
 
 import { describe, it, expect } from "vitest";
-import { getValidator } from "../../scripts/sftdd/schema-loader";
+import { getValidator } from "../../consort/orchestrator/validators/schema-loader";
 
 const validate = getValidator("workflow-state.schema.json");
 

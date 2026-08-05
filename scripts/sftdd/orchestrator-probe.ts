@@ -52,7 +52,7 @@ import {
   architectureJson,
   dbDesignJson,
 } from "./sftdd-paths.js";
-import { checkDbDesign } from "./artifact-conformance.js";
+import { checkDbDesign } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
 
 /** Every recorded cycle artifact for a story, across all of its ACs. */
 function storyCycles(sftddDir: string, featureId: string, story: string): CycleArtifact[] {

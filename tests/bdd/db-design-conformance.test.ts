@@ -10,7 +10,7 @@ import {
   checkArtifactConformance,
   hasDeclaredFormat,
   checkDbDesign,
-} from "../../scripts/sftdd/artifact-conformance";
+} from "../../consort/orchestrator/validators/conformance/artifact-conformance";
 
 const arch = (over: Record<string, unknown> = {}): string =>
   JSON.stringify({ feature_id: "F1", service_backed: true, nfrs: [], ...over });

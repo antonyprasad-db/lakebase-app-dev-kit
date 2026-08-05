@@ -1,17 +1,38 @@
-// Shared loader + compiler for the TDD JSON schemas under
-// scripts/sftdd/schemas/. Single source of schema-compilation truth so
-// spec-sync (drift reporting) and artifact-conformance (gate
-// preconditions) validate against the SAME compiled validators instead of
-// each rolling their own Ajv instance.
+// Shared loader + compiler for the TDD JSON schemas under scripts/sftdd/schemas/.
+// Single source of schema-compilation truth so spec-sync (drift reporting) and
+// artifact-conformance (gate preconditions) validate against the SAME compiled
+// validators instead of each rolling their own Ajv instance. Lives in the
+// validators family (its registry is the primary consumer); the schema JSON files
+// stay under scripts/sftdd/schemas/ (huge bin blast radius to move) and are copied
+// into dist/scripts/sftdd/schemas/ by copy-build-assets.mjs.
 //
 // Validators are compiled lazily and cached by schema filename: the first
 // caller pays the compile, every later caller reuses it.
 
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import Ajv, { type ValidateFunction } from "ajv";
 
-const SCHEMA_DIR = join(__dirname, "schemas");
+/**
+ * Resolve the schemas dir robustly across BOTH runtime layouts, since this module
+ * moved out of scripts/sftdd/ but the schema JSON did not:
+ *   - DIST (consumer install): with tsup `splitting:false` this module is INLINED
+ *     into each consuming entry under dist/scripts/sftdd/, next to the copied
+ *     `schemas/` , so `join(__dirname,"schemas")` still resolves (unchanged behavior).
+ *   - SOURCE (vitest / tsx): __dirname is this file's new home under consort/…, so
+ *     walk to the repo's scripts/sftdd/schemas/ instead.
+ * First existing candidate wins; the historical (dist) path is first, so the
+ * shipped build is byte-for-byte unchanged.
+ */
+function resolveSchemaDir(): string {
+  const candidates = [
+    join(__dirname, "schemas"), // dist: inlined consumer sits beside the copied schemas
+    join(__dirname, "..", "..", "..", "scripts", "sftdd", "schemas"), // source: consort/orchestrator/validators -> repo root
+  ];
+  return candidates.find((d) => existsSync(d)) ?? candidates[0];
+}
+
+const SCHEMA_DIR = resolveSchemaDir();
 
 const ajv = new Ajv({ allErrors: true, strict: false });
 // Register the `date-time` format as permissive (accept any string). Several

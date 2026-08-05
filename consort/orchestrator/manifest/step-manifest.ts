@@ -13,7 +13,7 @@
 
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { getValidator, formatSchemaErrors } from "../../../scripts/sftdd/schema-loader.js";
+import { getValidator, formatSchemaErrors } from "../validators/schema-loader.js";
 import type { WorkflowAction } from "../drive/orchestrator-drive.js";
 // The SHIPPED manifests are imported as JSON modules so the bundler INLINES them into
 // the build , no runtime fs read, no __dirname/dist path to keep in sync, no copy step.

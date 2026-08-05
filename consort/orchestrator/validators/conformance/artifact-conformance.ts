@@ -32,8 +32,8 @@
 
 import { existsSync, readFileSync, readdirSync, statSync } from "fs";
 import { join, basename, dirname } from "path";
-import { getValidator, formatSchemaErrors } from "./schema-loader";
-import { featuresDir as featuresDirOf } from "./sftdd-paths.js";
+import { getValidator, formatSchemaErrors } from "../schema-loader.js";
+import { featuresDir as featuresDirOf } from "../../../../scripts/sftdd/sftdd-paths.js";
 
 export type ConformanceResult =
   | { ok: true }

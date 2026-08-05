@@ -15,7 +15,7 @@
 
 import { readFileSync, writeFileSync, existsSync, appendFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { getValidator, formatSchemaErrors } from "../../../scripts/sftdd/schema-loader.js";
+import { getValidator, formatSchemaErrors } from "../validators/schema-loader.js";
 
 /** One raw entry the agent authors (no timestamp/role , the orchestrator stamps those). */
 export interface AgentReportEntry {

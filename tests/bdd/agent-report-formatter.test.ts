@@ -12,7 +12,7 @@ import { dirname } from "path";
 import { tmpdir } from "os";
 import { join } from "path";
 import { formatAgentReport, extractReportBlock } from "../../consort/orchestrator/execution/agent-report-formatter";
-import { getValidator } from "../../scripts/sftdd/schema-loader";
+import { getValidator } from "../../consort/orchestrator/validators/schema-loader";
 
 let ws: string;
 beforeEach(() => {

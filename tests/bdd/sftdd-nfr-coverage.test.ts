@@ -13,7 +13,7 @@ import {
   parseRequiredNfrs,
   checkNfrCoverage,
   scanFeatureConformance,
-} from "../../scripts/sftdd/artifact-conformance";
+} from "../../consort/orchestrator/validators/conformance/artifact-conformance";
 
 const CONFORMANT_NFRS = [
   "---",

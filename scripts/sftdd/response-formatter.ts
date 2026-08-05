@@ -17,7 +17,7 @@
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { storyAcIds, readAcLayer, readAcArchitecturalNotes, storyTestListJson, acsDir, designGuideJson, architectureJson, dbDesignJson, featureSpecJson, storiesDir } from "./sftdd-paths.js";
-import { checkArtifactConformance, canonicalArtifactName, checkDbDesign, checkStoryIndependence } from "./artifact-conformance.js";
+import { checkArtifactConformance, canonicalArtifactName, checkDbDesign, checkStoryIndependence } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
 
 export interface FormatViolation {
   /** The artifact (relative-ish path / name) that failed. */

@@ -10,7 +10,7 @@
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { checkArtifactConformance } from "./artifact-conformance.js";
+import { checkArtifactConformance } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
 import { resolveSftddDir, featureRequestMd } from "./sftdd-paths.js";
 import { resolveSftddSettings } from "../../consort/orchestrator/drive/sftdd-config.js";
 

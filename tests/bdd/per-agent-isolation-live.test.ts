@@ -20,7 +20,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { deployClaudeAgents, deployClaudeSkills } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-import { checkArtifactConformance } from "../../scripts/sftdd/artifact-conformance";
+import { checkArtifactConformance } from "../../consort/orchestrator/validators/conformance/artifact-conformance";
 import { resolveModelForRole } from "../../scripts/sftdd/agent-models";
 import { storyAcIds, readAcLayer } from "../../scripts/sftdd/sftdd-paths";
 
