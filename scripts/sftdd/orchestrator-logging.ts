@@ -13,7 +13,7 @@
 // the SAME function via the lakebase-sftdd-log CLI, appending to the shared
 // .tdd/agent-log.jsonl; the orchestrator owns the skeleton, the roles add detail.
 
-import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";
+import type { WorkflowAction } from "../../consort/orchestrator/workflow/workflow-vocabulary.js";
 import { emitAgentLogEvent, type AgentLogEventInput, type AgentLogIoOpts } from "./agent-log.js";
 import { renderEventMessage } from "./agent-log-events.js";
 

@@ -12,7 +12,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { checkArtifactConformance } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
 import { resolveSftddDir, featureRequestMd } from "./sftdd-paths.js";
-import { resolveSftddSettings } from "../../consort/orchestrator/settings/project-settings.js";
+import { resolveProjectSettings } from "../../consort/config/sftdd-config-file.js";
 
 export interface IntakeCheckArgs {
   /** Artifact root. Default ./.sftdd (honors a legacy ./.tdd) */
@@ -52,7 +52,7 @@ export function checkIntakePreconditions(args: IntakeCheckArgs = {}): IntakeChec
   const sftddDir = args.sftddDir ?? resolveSftddDir();
   const projectDir = args.projectDir ?? dirname(sftddDir);
   // The one way in for the UX track: the persisted project setting, not a flag.
-  const uiTrack = resolveSftddSettings({ projectDir }).project.uiTrack;
+  const uiTrack = resolveProjectSettings(projectDir).project.uiTrack;
 
   const required: Array<{ artifact: string; path: string }> = [
     { artifact: "product-overview.md", path: join(sftddDir, "product-overview.md") },

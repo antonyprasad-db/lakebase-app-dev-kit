@@ -1,17 +1,41 @@
-// Project settings live in one file: `.lakebase/sftdd-config.json` (per-role model/
-// effort matrix + build/plan/project knobs). Every project setting resolves
-// sftdd-config.json -> code default, with no env or flag override at read time.
-// Writers: create-project (create-time) and the drive's write-through override
-// flags. The resolved result is what the driver runs with and what run-config.json
-// snapshots. Run-mode knobs (record/replay/headless/debug) are not project settings;
+// The project SETTINGS RESOLVER: it layers the per-step model/effort resolution (which needs the
+// shipped step-manifests + the action->turn-key map) ON TOP of the low config-file primitive
+// (consort/config/sftdd-config-file.ts). Every project setting resolves sftdd-config.json -> code
+// default, with no env or flag override at read time. Writers: create-project (create-time) and the
+// drive's write-through override flags. The resolved result is what the driver runs with and what
+// run-config.json snapshots. Run-mode knobs (record/replay/headless/debug) are not project settings;
 // they stay explicit env inputs, read via sftddEnv.
 //
-// Model knobs mirror what `claude -p` exposes: model, effort
-// (low|medium|high|xhigh|max|default), fallbackModel, maxBudgetUsd.
+// The FILE half (shape, load/write, the build/plan/project resolution) lives DOWN in the config
+// primitive so a domain module that only reads the file (intake, project-sftdd-setup) depends
+// downward without reaching UP into this resolver. This module owns ONLY the model/effort layer,
+// which is genuinely high (it consumes steps/manifest + drive/turn-key). The file symbols + turn-key
+// types are RE-EXPORTED here so the many callers that have long imported them from this module keep
+// working unchanged.
+//
+// Model knobs mirror what `claude -p` exposes: model, effort (low|medium|high|xhigh|max|default),
+// fallbackModel, maxBudgetUsd.
 
-import { existsSync, readFileSync, mkdirSync, writeFileSync } from "fs";
-import { dirname, join } from "path";
-import type { AgentRole } from "../../../scripts/sftdd/agent-log.js";
+import {
+  loadSftddConfig,
+  resolveProjectSettings,
+  type SftddConfigFile,
+  type RoleSettingsFile,
+} from "../../config/sftdd-config-file.js";
+// Re-export the config-file primitive's surface so callers that import these from the resolver
+// (their long-standing home) keep working unchanged. These are RE-EXPORTS, not definitions, so the
+// single-home guard (which matches definition tokens) still sees one home , the primitive.
+export {
+  loadSftddConfig,
+  writeSftddConfig,
+  applyProjectOverrides,
+  defaultSftddConfig,
+  resolveProjectSettings,
+  SFTDD_CONFIG_REL,
+  LEGACY_TDD_CONFIG_REL,
+  TDD_CONFIG_REL,
+} from "../../config/sftdd-config-file.js";
+export type { SftddConfigFile, RoleSettingsFile, ProjectFileSettings } from "../../config/sftdd-config-file.js";
 import {
   ALL_AGENT_ROLES,
   RECOMMENDED_MODELS,
@@ -23,50 +47,10 @@ import {
 // project file + applied-winners overlay, above RECOMMENDED_MODELS) via agentOptionsForStep, which
 // indexes the shipped manifests by the SAME (role, turnKey) the drive derives.
 import { agentOptionsForStep } from "../steps/manifest.js";
-import { turnKeyForAction, type TurnKey, type EffortLevel, type BuildTurn, type DesignStep } from "../drive/turn-key.js";
+import { turnKeyForAction, type TurnKey, type EffortLevel } from "../drive/turn-key.js";
 // Re-export the turn-key types from their canonical (dependency-light) home so the many callers
 // that have long imported them from sftdd-config keep working unchanged.
 export type { TurnKey, EffortLevel, BuildTurn, DesignStep } from "../drive/turn-key.js";
-// Auto-applied optimization winners, deep-merged onto the base default (see
-// defaultSftddConfig). Static import so tsup inlines it into dist at build time; the
-// champion walk's auto-apply writes this file as DATA, never a TS rewrite.
-import OPTIMIZED_DEFAULTS from "../../../scripts/sftdd/optimized-defaults.json";
-
-/** Project-relative path of the unified config (canonical name post-SFTDD rename). */
-export const SFTDD_CONFIG_REL = join(".lakebase", "sftdd-config.json");
-/** Legacy pre-rename name, still READ (dual-read) so existing scaffolded projects
- *  keep working until they migrate. New writes use SFTDD_CONFIG_REL. */
-export const LEGACY_TDD_CONFIG_REL = join(".lakebase", "tdd-config.json");
-/** @deprecated use SFTDD_CONFIG_REL. Kept as an alias for callers not yet updated. */
-export const TDD_CONFIG_REL = SFTDD_CONFIG_REL;
-
-/** Per-role settings as written on disk. `model` and `effort` are each either one
- *  value for the whole role, or a per-turn map (only navigator/driver have multiple
- *  turns). A per-turn `model` map is how the Driver's mechanical GREEN/REFACTOR runs
- *  on a cheaper/faster model than its RED (test authoring), the model-tiering lever. */
-export interface RoleSettingsFile {
-  model?: string | Partial<Record<TurnKey, string>>;
-  fallbackModel?: string;
-  maxBudgetUsd?: number;
-  effort?: EffortLevel | Partial<Record<TurnKey, EffortLevel>>;
-}
-
-export interface SftddConfigFile {
-  version: 1;
-  roles?: Partial<Record<SpawnableAgentRole, RoleSettingsFile>>;
-  build?: {
-    loopGranularity?: "story" | "ac" | "hybrid-a";
-    batchCap?: number;
-    sessionScope?: "story" | "cycle";
-  };
-  plan?: { sizing?: boolean };
-  project?: {
-    uiTrack?: boolean;
-    gates?: "interactive" | "proxy";
-    deployTarget?: string;
-    clientFramework?: "react" | "none";
-  };
-}
 
 /** The fully-resolved settings the driver runs with (file -> code default). */
 export interface ResolvedSettings {
@@ -92,22 +76,6 @@ export interface ResolvedSettings {
   };
 }
 
-/** Read `.lakebase/sftdd-config.json` (canonical), falling back to the legacy
- *  `.lakebase/tdd-config.json` for projects scaffolded before the rename.
- *  Undefined when neither exists / both unparseable. */
-export function loadSftddConfig(projectDir: string): SftddConfigFile | undefined {
-  for (const rel of [SFTDD_CONFIG_REL, LEGACY_TDD_CONFIG_REL]) {
-    const f = join(projectDir, rel);
-    if (!existsSync(f)) continue;
-    try {
-      return JSON.parse(readFileSync(f, "utf8")) as SftddConfigFile;
-    } catch {
-      return undefined;
-    }
-  }
-  return undefined;
-}
-
 interface ResolveInputs {
   projectDir: string;
 }
@@ -118,6 +86,9 @@ interface ResolveInputs {
  * `.lakebase/agent-config.json` (models only) is honored as a fallback BELOW the
  * new file but ABOVE the built-in recommended, so existing projects keep their
  * model choices until they adopt sftdd-config.json.
+ *
+ * The build/plan/project half is resolved by the config-file primitive
+ * (resolveProjectSettings); this composes the model/effort layer on top.
  */
 export function resolveSftddSettings(inputs: ResolveInputs): ResolvedSettings {
   const file = loadSftddConfig(inputs.projectDir);
@@ -174,117 +145,8 @@ export function resolveSftddSettings(inputs: ResolveInputs): ResolvedSettings {
     return (manifestStep(role, turn)?.effort as EffortLevel | undefined) ?? "default";
   };
 
-  const build = {
-    loopGranularity: (file?.build?.loopGranularity ?? "story") as "story" | "ac" | "hybrid-a",
-    batchCap: file?.build?.batchCap,
-    sessionScope: (file?.build?.sessionScope ?? "story") as "story" | "cycle",
-  };
-
-  const project = {
-    uiTrack: file?.project?.uiTrack ?? false,
-    // HITL-first: the declared project policy defaults to interactive (a human
-    // approves each gate). Headless (proxy) is a deliberate opt-in, set in the
-    // file or as a RUN-SCOPED --gates override (never persisted by a flag).
-    gates: (file?.project?.gates ?? "interactive") as "interactive" | "proxy",
-    deployTarget: file?.project?.deployTarget ?? "local",
-    clientFramework: (file?.project?.clientFramework ?? "none") as "react" | "none",
-  };
-
-  const plan = { sizing: file?.plan?.sizing ?? true };
+  // The build/plan/project half resolves in the config-file primitive (file -> default).
+  const { build, plan, project } = resolveProjectSettings(inputs.projectDir);
 
   return { models, modelFor, fallbackModels, budgets, effortFor, build, plan, project };
-}
-
-/** A default config seeded from the recommended models (for scaffold / `--init`),
- *  with the navigator REVIEW effort pinned low (the P6 default made explicit). */
-export function defaultSftddConfig(): SftddConfigFile {
-  const roles = {} as Record<SpawnableAgentRole, RoleSettingsFile>;
-  for (const role of ALL_AGENT_ROLES) {
-    roles[role] =
-      role === "navigator"
-        ? { model: RECOMMENDED_MODELS[role], effort: { review: "low" } }
-        : role === "driver"
-          ? // Model tiering: RED (test authoring) + GREEN (implementation) keep the
-            // recommended model; only the mechanical REFACTOR turn drops to a fast
-            // model. GREEN was on haiku, but the recorded worst GREEN turn thrashed
-            // 93 tool round-trips (haiku's trial-and-error), so wall-clock, not token
-            // cost, dominated. Sonnet finishes GREEN in far fewer round-trips, faster
-            // even at a higher per-token price. Overridable per project by editing
-            // sftdd-config.json (a project can flatten to a scalar `model`).
-            { model: { red: RECOMMENDED_MODELS[role], green: RECOMMENDED_MODELS[role], refactor: "haiku" } }
-          : // Every other role's base is just its recommended model. Optimization
-            // winners (e.g. spec-author breakdown -> haiku+low) are NOT hardcoded here;
-            // they live in optimized-defaults.json and are deep-merged below, so the
-            // champion walk's auto-apply is the single writer of applied winners.
-            { model: RECOMMENDED_MODELS[role] };
-  }
-  const base: SftddConfigFile = {
-    version: 1,
-    roles,
-    build: { loopGranularity: "story", batchCap: 3, sessionScope: "story" },
-    plan: { sizing: true },
-    project: { uiTrack: false, gates: "interactive", deployTarget: "local", clientFramework: "none" },
-  };
-  // Deep-merge the auto-applied optimization winners (optimized-defaults.json) on top.
-  // The champion walk's auto-apply writes DATA into that file (never a TS rewrite, so
-  // the "one source of truth / no source regex" rule holds); it is inlined into dist at
-  // build time. A winner keyed per-turn/step (e.g. spec-author.breakdown -> haiku) is
-  // merged element-wise so it augments the base rather than replacing a whole map.
-  return mergeOptimizedDefaults(base, OPTIMIZED_DEFAULTS as Partial<SftddConfigFile>);
-}
-
-/** Element-wise deep-merge of the optimized-defaults overlay onto the base config.
- *  Plain objects merge recursively (so a per-turn `model`/`effort` map is augmented,
- *  not clobbered); scalars + arrays from the overlay win. Ignores the `_comment` key. */
-function mergeOptimizedDefaults<T>(base: T, overlay: unknown): T {
-  if (overlay === null || typeof overlay !== "object" || Array.isArray(overlay)) {
-    return (overlay === undefined ? base : (overlay as T));
-  }
-  const out: Record<string, unknown> = Array.isArray(base)
-    ? [...(base as unknown[])] as unknown as Record<string, unknown>
-    : { ...(base as Record<string, unknown>) };
-  for (const [k, v] of Object.entries(overlay as Record<string, unknown>)) {
-    if (k === "_comment") continue;
-    const b = out[k];
-    out[k] = b && typeof b === "object" && !Array.isArray(b) && v && typeof v === "object" && !Array.isArray(v)
-      ? mergeOptimizedDefaults(b, v)
-      : v;
-  }
-  return out as T;
-}
-
-/** Write a sftdd-config.json (scaffold/init). Does not overwrite unless force. */
-export function writeSftddConfig(projectDir: string, config: SftddConfigFile, opts?: { force?: boolean }): boolean {
-  const f = join(projectDir, TDD_CONFIG_REL);
-  if (existsSync(f) && !opts?.force) return false;
-  mkdirSync(dirname(f), { recursive: true });
-  writeFileSync(f, JSON.stringify(config, null, 2) + "\n");
-  return true;
-}
-
-/**
- * Write-through for the drive's ad-hoc override flags (`--deploy-target`,
- * `--no-sizing`). These are WRITERS, not parallel readers: a flag persists its
- * value into sftdd-config.json so the file stays the single source of truth.
- * No-op when no override is given, so a plain run never mutates the file. Loads
- * the existing config (or the default when none) so unrelated fields are kept.
- *
- * `--gates` is intentionally NOT here: it is the HITL POLICY, and a run-scoped
- * flag must never rewrite the project's declared policy (that let one headless
- * `--gates proxy` invocation permanently flip an interactive project to proxy).
- * The drive resolves the effective gate mode as `--gates ?? project.gates` per
- * run and records it run-scoped in run-config.json; sftdd-config.json stays
- * authoritative and is only changed by editing the file.
- */
-export function applyProjectOverrides(
-  projectDir: string,
-  over: { deployTarget?: string; sizing?: boolean },
-): void {
-  if (over.deployTarget === undefined && over.sizing === undefined) return;
-  const cfg = loadSftddConfig(projectDir) ?? defaultSftddConfig();
-  cfg.project = cfg.project ?? {};
-  if (over.deployTarget !== undefined) cfg.project.deployTarget = over.deployTarget;
-  cfg.plan = cfg.plan ?? {};
-  if (over.sizing !== undefined) cfg.plan.sizing = over.sizing;
-  writeSftddConfig(projectDir, cfg, { force: true });
 }

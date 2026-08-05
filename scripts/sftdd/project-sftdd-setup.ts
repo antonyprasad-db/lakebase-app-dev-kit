@@ -14,7 +14,7 @@ import type {
   ClientFramework,
 } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { ARTIFACT_ROOT } from "./sftdd-paths.js";
-import { defaultSftddConfig, writeSftddConfig } from "../../consort/orchestrator/settings/project-settings.js";
+import { defaultSftddConfig, writeSftddConfig } from "../../consort/config/sftdd-config-file.js";
 import { adoptTdd } from "../lakebase/adopt-sftdd.js";
 import { updateAgents } from "../lakebase/update-agents.js";
 

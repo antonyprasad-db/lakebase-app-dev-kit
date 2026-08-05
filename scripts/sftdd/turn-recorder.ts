@@ -33,7 +33,7 @@ import {
 } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { codeTreeFilter } from "./replay-build.js";
-import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";
+import type { WorkflowAction } from "../../consort/orchestrator/workflow/workflow-vocabulary.js";
 
 /** A relpath the recorder watches, keyed to its scan root (so the cumulative
  *  .tdd mirror can be re-rooted under recorded-artifacts). */
