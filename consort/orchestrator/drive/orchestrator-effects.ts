@@ -1882,7 +1882,17 @@ async function performTurnViaExecutor(
     },
   };
 
-  const ctx = { action, cfg, state, validateBoundDeps: routerDeps };
+  // Routing authority for a `state-derived` step (the breakdown manifest's produced route) must see
+  // the state the turn PRODUCED, not the pre-turn snapshot: execute()'s phase-7 validateAndBound
+  // runs AFTER the post-turn sync-breakdown, so `allowed` re-reads fresh from disk (the synced
+  // pipeline now shows breakdownDone). Using the stale pre-turn state here re-derives `breakdown`
+  // and the loop stalls (it just performed it). Everything else in routerDeps (revise budget, retry
+  // ledger) is preserved.
+  const freshRouterDeps: ValidateBoundDeps = {
+    ...routerDeps,
+    allowed: () => routerDeps.allowed(readDriveStateFromDisk(cfg.sftddDir, cfg.featureId, cfg.projectDir, { uiTrack: cfg.uiTrack })),
+  };
+  const ctx = { action, cfg, state, validateBoundDeps: freshRouterDeps };
   const result = await execute(step, ctx, deps);
   return result.bounded;
 }

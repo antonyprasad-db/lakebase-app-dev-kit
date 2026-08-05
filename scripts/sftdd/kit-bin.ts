@@ -10,8 +10,21 @@ import * as path from "node:path";
 
 // This module is BUNDLED into each importing bin (a non-entry lib), so at runtime
 // __dirname is the importer's dir: <kitRoot>/dist/scripts/sftdd. The kit root
-// (which holds package.json + its bin map) is three directories up.
-const KIT_ROOT = path.resolve(__dirname, "..", "..", "..");
+// (which holds package.json + its bin map) is three directories up , the layout the
+// SHIPPED dist has. LAKEBASE_KIT_DIR overrides it as the authoritative kit locator
+// (the documented env other kit resolution honors): needed when the module runs from
+// a non-dist layout (e.g. TS source under vitest, where the __dirname math would point
+// at the wrong root). Resolved LAZILY (not at module load) so an env set after import ,
+// as a test does before driving , is still honored; memoized on first use. When the env
+// is set + valid it wins; otherwise the __dirname computation, so the shipped dist path
+// is unchanged.
+let kitRootCache: string | undefined;
+function resolveKitRoot(): string {
+  if (kitRootCache !== undefined) return kitRootCache;
+  const env = process.env.LAKEBASE_KIT_DIR?.trim();
+  kitRootCache = env && fs.existsSync(path.join(env, "package.json")) ? env : path.resolve(__dirname, "..", "..", "..");
+  return kitRootCache;
+}
 const SUBSTRATE_PKG = "@databricks-solutions/lakebase-scm-utils";
 
 /** The kit repo root (holds package.json + examples/sftdd-scenarios/). Exposed so a
@@ -19,7 +32,7 @@ const SUBSTRATE_PKG = "@databricks-solutions/lakebase-scm-utils";
  *  optimize semantic gate compares against) resolves them the same way, regardless
  *  of dev-clone vs installed-package layout. */
 export function kitRoot(): string {
-  return KIT_ROOT;
+  return resolveKitRoot();
 }
 let kitBinMap: Record<string, string> | null = null;
 let substrateRoot: string | null | undefined; // undefined = not yet resolved
@@ -32,7 +45,7 @@ let substrateBinMap: Record<string, string> | null = null;
  *  Returns null when scm-utils is not installed. */
 function resolveSubstrateRoot(): string | null {
   if (substrateRoot !== undefined) return substrateRoot;
-  let dir = KIT_ROOT;
+  let dir = resolveKitRoot();
   for (;;) {
     const cand = path.join(dir, "node_modules", SUBSTRATE_PKG);
     if (fs.existsSync(path.join(cand, "package.json"))) {
@@ -56,7 +69,7 @@ function resolveSubstrateRoot(): string | null {
 export function resolveKitBinJs(bin: string): string | null {
   if (kitBinMap === null) {
     try {
-      const pkg = JSON.parse(fs.readFileSync(path.join(KIT_ROOT, "package.json"), "utf8")) as {
+      const pkg = JSON.parse(fs.readFileSync(path.join(resolveKitRoot(), "package.json"), "utf8")) as {
         bin?: Record<string, string>;
       };
       kitBinMap = pkg.bin ?? {};
@@ -65,7 +78,7 @@ export function resolveKitBinJs(bin: string): string | null {
     }
   }
   const rel = kitBinMap[bin];
-  if (rel) return path.join(KIT_ROOT, rel);
+  if (rel) return path.join(resolveKitRoot(), rel);
 
   // Not a kit bin: it may be a SUBSTRATE bin (scm-merge, scm-wait-ci, ...) the
   // driver emits. Resolve it from the installed scm-utils package's bin map.
@@ -92,7 +105,7 @@ export function resolveKitBinJs(bin: string): string | null {
  *  so a consumer can tell which kit produced the snapshot. */
 export function kitVersion(): string {
   try {
-    const pkg = JSON.parse(fs.readFileSync(path.join(KIT_ROOT, "package.json"), "utf8")) as { version?: string };
+    const pkg = JSON.parse(fs.readFileSync(path.join(resolveKitRoot(), "package.json"), "utf8")) as { version?: string };
     return pkg.version ?? "unknown";
   } catch {
     return "unknown";
