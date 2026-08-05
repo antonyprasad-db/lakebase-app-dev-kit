@@ -12,6 +12,22 @@ Two consumers share the same manifests + runner:
 - **Live tests** (`live/`, gated on `RUN_LIVE_STEP=1`) + the **per-role sweep**
   (`lakebase-sftdd-optimize-role --role <r>`) — spawn the real agent.
 
+## Experiment reproducibility: preserve BOTH halves
+
+The per-role sweep is an EXPERIMENT, and an experiment must be reproducible + re-judgeable from
+preserved source, not from telemetry alone. That means preserving both halves:
+
+1. **Inputs (the fixtures).** The chain manifests + recorded artifacts these tests replay are
+   deliberate SELF-CONTAINED COPIES — elements cherry-picked out of the canonical regression corpora
+   (`examples/sftdd-scenarios/*`) and copied into what the isolated tests need. They are copies BY
+   DESIGN: an experiment that reached into the live corpus would break the instant the corpus was
+   re-recorded, and old results couldn't be replayed. So the fixtures are pinned + owned by the
+   harness, never a live link to the corpus (no drift guard — a copy is the correct end state).
+2. **Outputs (per run).** Every sweep run persists each candidate's ACTUAL produced artifacts
+   (`.role-telemetry/sweep-<role>/<candidate>/artifacts/…`) + `telemetry.json` + `replay.json`
+   (levers + seed corpus ref), so any trial can be re-judged from its real output, not just its
+   score. (This is what the snapshot-root fix restored — before it, outputs were silently dropped.)
+
 ## Layout
 
 ```
