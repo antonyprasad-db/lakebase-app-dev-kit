@@ -66,6 +66,27 @@ const LAYERS: Array<{ home: string; tokens: Record<string, string> }> = [
     home: "consort/orchestrator/settings/",
     tokens: { "settings resolver": "export function resolveSftddSettings" },
   },
+  {
+    home: "consort/orchestrator/workflow/",
+    tokens: {
+      "workflow action vocabulary": "export type WorkflowAction",
+      "drive state vocabulary": "export interface DriveState",
+    },
+  },
+  {
+    home: "consort/orchestrator/state/",
+    tokens: {
+      "disk-state probe": "export function diskArtifactProbe",
+      "drive-state derivation": "export function deriveDriveState",
+    },
+  },
+  {
+    home: "consort/orchestrator/drive/",
+    tokens: {
+      "claude subprocess spawn": "export function spawnClaudeStreaming",
+      "command runner factory": "export function execRunner",
+    },
+  },
 ];
 
 describe("orchestrator layers: step / turn / runner / settings each live in ONE home", () => {
@@ -97,5 +118,10 @@ describe("orchestrator layers: step / turn / runner / settings each live in ONE 
       offenders,
       `a file resurfaced under an old orchestrator dir (execution/manifest/contract/config):\n  ${offenders.join("\n  ")}`,
     ).toEqual([]);
+  });
+
+  it("drive-runner.ts is gone (the claude spawn engine is claude-runner.ts, not a workflow 'runner')", () => {
+    const offenders = orchestratorPaths().filter((p) => p.endsWith("/drive-runner.ts"));
+    expect(offenders, `drive-runner.ts returned , it should be drive/claude-runner.ts:\n  ${offenders.join("\n  ")}`).toEqual([]);
   });
 });
