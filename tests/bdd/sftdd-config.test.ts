@@ -73,6 +73,10 @@ describe("resolveSftddSettings: defaults when no file + no env", () => {
     expect(s.effortFor("spec-author", "breakdown")).toBe("low");
     expect(s.effortFor("spec-author", "acs")).toBe("default");
     expect(s.effortFor("spec-author")).toBe("default"); // no key -> scalar default
+    // test-strategist's TEST-LIST step defaults low: the #556 quality-gated sweep measured
+    // effort=low on sonnet -89% wall (71.5s vs 679.9s) with quality 0.90 (ABOVE the sonnet
+    // baseline 0.85). Keyed to the `test-list` step only. Model stays the recommended default.
+    expect(s.effortFor("test-strategist", "test-list")).toBe("low");
     expect(s.build.loopGranularity).toBe("story"); // default is story-scoped Navigator/Driver turns
     expect(s.build.sessionScope).toBe("story");
     expect(s.plan.sizing).toBe(true);

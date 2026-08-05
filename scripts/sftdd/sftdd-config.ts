@@ -137,17 +137,21 @@ export function loadSftddConfig(projectDir: string): SftddConfigFile | undefined
   return undefined;
 }
 
-/** Code default effort, keyed on the invocation STEP (not the whole role): the
- *  navigator REVIEW turn runs fast (low), and the spec-author BREAKDOWN step runs at
- *  low effort , the per-handoff optimization sweep (stockflow-optimize) measured the
- *  breakdown step ~44% faster on haiku+low (and ~17% on low alone) while still
- *  passing the identical self-check + spec gate. It is keyed to `breakdown` ONLY:
- *  the per-story AC-authoring step is a different task, swept separately, and keeps
- *  the model default until its own winner is applied. Everything else uses the model
- *  default. Preserves the P6 behavior when no config / env says otherwise. */
+/** Code default effort, keyed on the invocation STEP (not the whole role):
+ *   - navigator REVIEW runs fast (low), the P6 default.
+ *   - spec-author BREAKDOWN runs low , the per-handoff sweep (stockflow-optimize) measured
+ *     it ~44% faster on haiku+low (~17% on low alone) with the same self-check + spec gate.
+ *   - test-strategist TEST-LIST runs low , the #556 quality-gated per-role sweep measured
+ *     effort=low on sonnet -89% wall (71.5s vs 679.9s baseline) with quality 0.90, ABOVE the
+ *     sonnet baseline's 0.85 (16 vs 15 test items). This is the winner replacing the baseline
+ *     for this step; model stays the recommended default (cheaper models scored thinner).
+ *  Each winner is keyed to its EXACT step only ("apply to the step, not the role"): a role's
+ *  other steps (e.g. spec-author AC-authoring) keep the model default until their own sweep.
+ *  Everything else uses the model default. Preserves P6 behavior when no config/env overrides. */
 function defaultEffort(role: string, turn?: TurnKey): EffortLevel {
   if (role === "navigator" && turn === "review") return "low";
   if (role === "spec-author" && turn === "breakdown") return "low";
+  if (role === "test-strategist" && turn === "test-list") return "low";
   return "default";
 }
 
