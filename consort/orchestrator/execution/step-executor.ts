@@ -38,8 +38,8 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { validateAndBound } from "../contract/step-contract.js";
-import type { WorkflowAction, DriveState } from "../../../scripts/sftdd/orchestrator-drive.js";
-import type { DriveEffectsConfig } from "../../../scripts/sftdd/orchestrator-effects.js";
+import type { WorkflowAction, DriveState } from "../drive/orchestrator-drive.js";
+import type { DriveEffectsConfig } from "../drive/orchestrator-effects.js";
 import type { StepContract, StepPrecondition, BoundedRoute, ValidateBoundDeps, RouteProposal } from "../contract/step-contract.js";
 import type { StepInstructions } from "../agents/agent-types.js";
 import type { ProvidedStepRun, ProvidedStepResult } from "../steps/step-run-types.js";

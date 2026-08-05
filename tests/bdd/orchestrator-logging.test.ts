@@ -14,7 +14,7 @@ import { orchestratorLogEvents, makeOnAction } from "../../scripts/sftdd/orchest
 import { renderEventMessage } from "../../scripts/sftdd/agent-log-events";
 import { readAgentLog } from "../../scripts/sftdd/agent-log";
 import { ALL_AGENT_ROLES } from "../../scripts/sftdd/agent-models";
-import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
+import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 
 describe("orchestratorLogEvents: pure action -> canonical log events", () => {
   it("invoke-role emits an orchestrator handoff + a phase.start for the invoked role", () => {

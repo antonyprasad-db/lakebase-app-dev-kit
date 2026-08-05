@@ -20,7 +20,7 @@
 
 import type { Candidate } from "./optimize-candidates.js";
 import { BASELINE_CANDIDATE_ID } from "./optimize-candidates.js";
-import type { WorkflowAction } from "./orchestrator-drive.js";
+import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 
 /** One handoff to optimize (a single role turn at a point in the walk). */
 export interface HandoffPlan {

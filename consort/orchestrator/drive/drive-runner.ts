@@ -10,37 +10,37 @@
 // isCliEntry, so importing it NEVER drags a CLI entry point.
 
 import { spawn } from "node:child_process";
-import { sftddEnv } from "./sftdd-env.js";
-import { resyncAgentsOnKitDrift } from "./project-sftdd-setup.js";
-import { resolveSftddDir } from "./sftdd-paths.js";
+import { sftddEnv } from "../../../scripts/sftdd/sftdd-env.js";
+import { resyncAgentsOnKitDrift } from "../../../scripts/sftdd/project-sftdd-setup.js";
+import { resolveSftddDir } from "../../../scripts/sftdd/sftdd-paths.js";
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readline from "node:readline";
 
-import { replayDesignTurn, REPLAYABLE_DESIGN_ROLES, restoreReflectVerdict } from "./replay-artifacts.js";
-import { replayBuildTurn } from "./replay-build.js";
-import { recordBuildTurn, nextBuildTurnNumber } from "./record-build.js";
-import { recordTurn, seedRecorderBaseline } from "./turn-recorder.js";
-import { emitAgentLogEvent } from "./agent-log.js";
-import { writeWorkflowPhase } from "./workflow-phase.js";
+import { replayDesignTurn, REPLAYABLE_DESIGN_ROLES, restoreReflectVerdict } from "../../../scripts/sftdd/replay-artifacts.js";
+import { replayBuildTurn } from "../../../scripts/sftdd/replay-build.js";
+import { recordBuildTurn, nextBuildTurnNumber } from "../../../scripts/sftdd/record-build.js";
+import { recordTurn, seedRecorderBaseline } from "../../../scripts/sftdd/turn-recorder.js";
+import { emitAgentLogEvent } from "../../../scripts/sftdd/agent-log.js";
+import { writeWorkflowPhase } from "../../../scripts/sftdd/workflow-phase.js";
 import {
   commandsForAction,
   type CommandRunner,
   type DriveCommand,
   type DriveEffectsConfig,
 } from "./orchestrator-effects.js";
-import { resolveModelForRole } from "./agent-models.js";
+import { resolveModelForRole } from "../../../scripts/sftdd/agent-models.js";
 import { resolveSftddSettings } from "./sftdd-config.js";
-import { parseTurnUsage, assistantTextFromLine, assistantEventSummary, type TurnUsage } from "./claude-usage.js";
-import { resumeFitsBudget, turnContextTokens, CONTEXT_FREE_FRACTION_REQUIRED, isPromptTooLongSignal, isTransientApiErrorSignal, startsFreshEachTurn } from "./context-budget.js";
-import { writeRunConfig } from "./run-config.js";
-import { resolveLaunchKitRef, pinRunKitRef, kitRefDriftWarning } from "./kit-ref.js";
-import type { AgentRole } from "./agent-log.js";
-import { makeOnAction, describeAction } from "./orchestrator-logging.js";
-import { resolveKitBinJs } from "./kit-bin.js";
+import { parseTurnUsage, assistantTextFromLine, assistantEventSummary, type TurnUsage } from "../../../scripts/sftdd/claude-usage.js";
+import { resumeFitsBudget, turnContextTokens, CONTEXT_FREE_FRACTION_REQUIRED, isPromptTooLongSignal, isTransientApiErrorSignal, startsFreshEachTurn } from "../../../scripts/sftdd/context-budget.js";
+import { writeRunConfig } from "../../../scripts/sftdd/run-config.js";
+import { resolveLaunchKitRef, pinRunKitRef, kitRefDriftWarning } from "../../../scripts/sftdd/kit-ref.js";
+import type { AgentRole } from "../../../scripts/sftdd/agent-log.js";
+import { makeOnAction, describeAction } from "../../../scripts/sftdd/orchestrator-logging.js";
+import { resolveKitBinJs } from "../../../scripts/sftdd/kit-bin.js";
 import { readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-import { relocateStrayDesignArtifacts, malformedSiblingRoot } from "./stray-artifact-recovery.js";
+import { relocateStrayDesignArtifacts, malformedSiblingRoot } from "../../../scripts/sftdd/stray-artifact-recovery.js";
 import type { WorkflowAction } from "./orchestrator-drive.js";
 
 // How many times a single role turn that overflows the model window mid-turn

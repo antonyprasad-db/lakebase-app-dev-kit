@@ -13,10 +13,10 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { runDriver, type DriveEffects } from "../../scripts/sftdd/orchestrator-run";
+import { runDriver, type DriveEffects } from "../../consort/orchestrator/drive/orchestrator-run";
 import { deriveDriveState } from "../../scripts/sftdd/orchestrator-derive";
 import { diskArtifactProbe, readDriveContext } from "../../scripts/sftdd/orchestrator-probe";
-import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
+import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 import { writeCycleArtifact } from "../../scripts/sftdd/run-cycle";
 import { acReviewJson, storyReviewJson } from "../../scripts/sftdd/sftdd-paths";
 import {

@@ -16,7 +16,7 @@ import { runIntegrationChain } from "../scenarios/integration-chain.js";
 import type { StepManifest } from "../manifest/step-manifest.js";
 import type { StepAgent } from "../agents/agent-types.js";
 import type { ManifestTurn } from "../manifest/manifest-runner.js";
-import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.js";
+import type { WorkflowAction } from "../drive/orchestrator-drive.js";
 
 /** Kit-root-relative locations the chains read from. Resolved against process.cwd() (the kit
  *  root) by the caller; kept as constants so both the tests and the sweep agree. */

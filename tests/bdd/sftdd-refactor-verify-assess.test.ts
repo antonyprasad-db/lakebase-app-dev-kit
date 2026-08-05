@@ -19,7 +19,7 @@ import {
   refactorVerifyNeedsAssess,
   refactorVerifyRefactorPending,
 } from "../../scripts/sftdd/refactor-verify-assess";
-import { nextTransition, type DriveState } from "../../scripts/sftdd/orchestrator-drive";
+import { nextTransition, type DriveState } from "../../consort/orchestrator/drive/orchestrator-drive";
 
 const F = "F6-split-tracking-code";
 const S = "S2-batch-serial-fields-in-stock-view";

@@ -14,9 +14,9 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SHIPPED_MANIFESTS } from "../../consort/orchestrator/manifest/step-manifest";
-import { resolveSftddSettings, defaultSftddConfig, writeSftddConfig } from "../../scripts/sftdd/sftdd-config";
-import { turnKeyForAction } from "../../scripts/sftdd/orchestrator-effects";
-import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
+import { resolveSftddSettings, defaultSftddConfig, writeSftddConfig } from "../../consort/orchestrator/drive/sftdd-config";
+import { turnKeyForAction } from "../../consort/orchestrator/drive/orchestrator-effects";
+import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 
 // Reconstruct a representative action from a manifest's `match`: drop the null sentinels (they mean
 // "this field must be ABSENT"), and add a story for the story-scoped roles so turnKeyForAction

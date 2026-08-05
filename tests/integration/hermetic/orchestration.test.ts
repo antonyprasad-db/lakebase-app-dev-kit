@@ -20,7 +20,7 @@ import { ManifestStep } from "../../../consort/orchestrator/steps/manifest-step"
 import { execute, type StepExecutorDeps, type StepCtx } from "../../../consort/orchestrator/execution/step-executor";
 import { makeMockReplayAgent } from "../../../consort/orchestrator/agents/mock-replay-agent";
 import type { StepAgent } from "../../../consort/orchestrator/agents/agent-types";
-import type { WorkflowAction, DriveState } from "../../../scripts/sftdd/orchestrator-drive";
+import type { WorkflowAction, DriveState } from "../../../consort/orchestrator/drive/orchestrator-drive";
 import type { ValidateBoundDeps } from "../../../consort/orchestrator/contract/step-contract";
 
 const KIT = process.cwd();

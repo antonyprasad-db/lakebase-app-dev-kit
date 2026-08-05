@@ -18,7 +18,7 @@ import {
   buildAgent,
   type AgentBuildContext,
 } from "../../consort/orchestrator/agents/agent-catalogue";
-import type { WorkflowAction } from "../../consort/orchestrator/../../scripts/sftdd/orchestrator-drive";
+import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 
 let ws: string;
 let corpus: string;

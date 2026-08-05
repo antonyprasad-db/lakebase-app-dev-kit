@@ -10,9 +10,9 @@
 // shortcut. If the driver emits an incomplete command, this fails here.
 
 import { describe, it, expect } from "vitest";
-import { commandsForAction, type DriveEffectsConfig } from "../../scripts/sftdd/orchestrator-effects";
+import { commandsForAction, type DriveEffectsConfig } from "../../consort/orchestrator/drive/orchestrator-effects";
 import { parseExperimentArgs, validateExperimentArgs } from "../../scripts/sftdd/experiment-args";
-import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
+import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 
 const EXPERIMENT_BIN = "lakebase-sftdd-experiment";
 

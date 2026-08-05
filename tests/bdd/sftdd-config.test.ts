@@ -9,7 +9,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 
-import { resolveSftddSettings, loadSftddConfig, defaultSftddConfig, writeSftddConfig, applyProjectOverrides, TDD_CONFIG_REL, SFTDD_CONFIG_REL, LEGACY_TDD_CONFIG_REL } from "../../scripts/sftdd/sftdd-config.js";
+import { resolveSftddSettings, loadSftddConfig, defaultSftddConfig, writeSftddConfig, applyProjectOverrides, TDD_CONFIG_REL, SFTDD_CONFIG_REL, LEGACY_TDD_CONFIG_REL } from "../../consort/orchestrator/drive/sftdd-config.js";
 import { sftddEnv } from "../../scripts/sftdd/sftdd-env.js";
 
 let proj: string;

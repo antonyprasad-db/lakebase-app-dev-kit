@@ -25,7 +25,7 @@
 // future async multi-agent runtime enforces directly (a callback from anyone
 // other than the head's responder is a violation).
 
-import type { DriveState, WorkflowAction } from "./orchestrator-drive.js";
+import type { DriveState, WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 import type { AgentRole } from "./agent-log.js";
 
 /** One outstanding handoff: who must respond + the non-null return they owe. */

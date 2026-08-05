@@ -12,7 +12,7 @@
 // in the lakebase-sftdd-drive CLI. The sprint-level reads (backlog manifest,
 // planning state) are the I/O helpers below, used to build those effects.
 
-import type { DriveState, WorkflowAction } from "./orchestrator-drive.js";
+import type { DriveState, WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 import { readSprintGates } from "./sprint-gates.js";
 import {
   featureProposalsMd,

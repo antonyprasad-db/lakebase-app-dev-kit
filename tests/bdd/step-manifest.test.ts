@@ -15,8 +15,8 @@ import {
   agentOptionsForStep,
 } from "../../consort/orchestrator/manifest/step-manifest";
 import type { StepManifest } from "../../consort/orchestrator/manifest/step-manifest";
-import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
-import { turnKeyForAction } from "../../scripts/sftdd/turn-key";
+import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
+import { turnKeyForAction } from "../../consort/orchestrator/drive/turn-key";
 
 /** A minimal, shape-conformant manifest builder for negative tests. */
 function manifest(over: Partial<StepManifest> = {}): StepManifest {

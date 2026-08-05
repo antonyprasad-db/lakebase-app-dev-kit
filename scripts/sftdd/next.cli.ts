@@ -6,8 +6,8 @@
 // the caller's job (each option carries its exact command).
 
 import { resolveSftddDir } from "./sftdd-paths.js";
-import { resolveSftddSettings } from "./sftdd-config.js";
-import { readDriveStateFromDisk } from "./orchestrator-effects.js";
+import { resolveSftddSettings } from "../../consort/orchestrator/drive/sftdd-config.js";
+import { readDriveStateFromDisk } from "../../consort/orchestrator/drive/orchestrator-effects.js";
 import { readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { deriveSprintPlanningState } from "./orchestrator-sprint.js";
 import { summarizeStories } from "./feature-status.js";

@@ -23,9 +23,9 @@ import {
   type DriveState,
   type WorkflowAction,
 } from "./orchestrator-drive.js";
-import { ExpectationLedger, expectationFor } from "./orchestrator-expect.js";
-import { validateAndBound, type StepContract, type RouteProposal } from "../../consort/orchestrator/contract/step-contract.js";
-export { ProtocolViolationError, UnexpectedCallbackError } from "./orchestrator-expect.js";
+import { ExpectationLedger, expectationFor } from "../../../scripts/sftdd/orchestrator-expect.js";
+import { validateAndBound, type StepContract, type RouteProposal } from "../contract/step-contract.js";
+export { ProtocolViolationError, UnexpectedCallbackError } from "../../../scripts/sftdd/orchestrator-expect.js";
 
 export interface DriveEffects {
   /**
@@ -51,8 +51,8 @@ export interface DriveEffects {
   performViaExecutor?(
     action: WorkflowAction,
     state: DriveState,
-    routerDeps: import("../../consort/orchestrator/contract/step-contract.js").ValidateBoundDeps,
-  ): Promise<import("../../consort/orchestrator/contract/step-contract.js").BoundedRoute | undefined>;
+    routerDeps: import("../contract/step-contract.js").ValidateBoundDeps,
+  ): Promise<import("../contract/step-contract.js").BoundedRoute | undefined>;
   /** Optional deterministic logging hook (code-emitted, fires before perform). */
   onAction?(action: WorkflowAction, iteration: number): void;
   /**
@@ -61,7 +61,7 @@ export interface DriveEffects {
    * failed to return) so the imminent re-dispatch of that role is informed , the
    * role reads the hand-back and fixes its output instead of blindly re-running.
    */
-  onHandback?(handoff: import("./orchestrator-expect.js").Handoff, detail: string): void;
+  onHandback?(handoff: import("../../../scripts/sftdd/orchestrator-expect.js").Handoff, detail: string): void;
 }
 
 export class DriverStalledError extends Error {
@@ -203,7 +203,7 @@ export async function runDriver(
   // Stage 2 (#578) executor-dispatch: an already-bounded route the StepExecutor produced last
   // iteration (its phase-7 validateAndBound). Consumed at the TOP exactly like pendingProposal,
   // but WITHOUT re-bounding (the executor already did). Undefined on the default path.
-  let pendingBounded: { bounded: import("../../consort/orchestrator/contract/step-contract.js").BoundedRoute; completed: WorkflowAction } | undefined;
+  let pendingBounded: { bounded: import("../contract/step-contract.js").BoundedRoute; completed: WorkflowAction } | undefined;
   // Retry bound for router-emitted "blocked" outcomes, mirroring ExpectationLedger's
   // maxRetries=1: one sanctioned re-issue per action signature, then a hard abort. Kept
   // here (not the ledger, which is driven by disk callbacks) because a router "blocked"

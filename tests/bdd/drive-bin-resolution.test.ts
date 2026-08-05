@@ -20,7 +20,7 @@ const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 /** The kit bin names the effects layer emits (the `const X_BIN = "lakebase-..."`
  *  declarations in orchestrator-effects.ts). */
 function emittedKitBins(): string[] {
-  const src = readFileSync(new URL("../../scripts/sftdd/orchestrator-effects.ts", import.meta.url), "utf8");
+  const src = readFileSync(new URL("../../consort/orchestrator/drive/orchestrator-effects.ts", import.meta.url), "utf8");
   const bins = new Set<string>();
   for (const m of src.matchAll(/_BIN\s*=\s*"(lakebase-[a-z0-9-]+)"/g)) bins.add(m[1]);
   return [...bins];
@@ -59,7 +59,7 @@ describe("driver kit-bin resolution is backed by package.json bin (no hardcoded 
     // the spawn engine WITHOUT dragging drive.cli's main()/isCliEntry entry block into
     // its bundle (tsup splitting:false inlines modules; a bundled isCliEntry block
     // would fire the drive's main() as a phantom side effect).
-    const src = readFileSync(new URL("../../scripts/sftdd/drive-runner.ts", import.meta.url), "utf8");
+    const src = readFileSync(new URL("../../consort/orchestrator/drive/drive-runner.ts", import.meta.url), "utf8");
     expect(src).not.toMatch(/KIT_CLI_JS/);
     expect(src).toMatch(/resolveKitBinJs/);
   });

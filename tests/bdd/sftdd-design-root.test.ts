@@ -13,7 +13,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname, basename } from "node:path";
-import { commandsForAction, type DriveEffectsConfig } from "../../scripts/sftdd/orchestrator-effects";
+import { commandsForAction, type DriveEffectsConfig } from "../../consort/orchestrator/drive/orchestrator-effects";
 import { relocateStrayDesignArtifacts } from "../../scripts/sftdd/stray-artifact-recovery";
 
 function cfg(over: Partial<DriveEffectsConfig> = {}): DriveEffectsConfig {

@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resetIncompleteBreakdown } from "../../scripts/sftdd/story-pipeline";
 import { storiesDir, storyJson, featureSpecJson } from "../../scripts/sftdd/sftdd-paths";
-import { commandsForAction, type DriveEffectsConfig } from "../../scripts/sftdd/orchestrator-effects";
+import { commandsForAction, type DriveEffectsConfig } from "../../consort/orchestrator/drive/orchestrator-effects";
 
 const F = "F1";
 

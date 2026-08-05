@@ -19,8 +19,8 @@ import { join } from "node:path";
 import { layDownKitAgents } from "../../../consort/orchestrator/scenarios/integration-chain.js";
 import { runManifestChain, type ManifestRunnerDeps } from "../../../consort/orchestrator/manifest/manifest-runner.js";
 import { loadStepManifests, type StepManifest } from "../../../consort/orchestrator/manifest/step-manifest.js";
-import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.js";
-import type { DriveEffectsConfig } from "../../../scripts/sftdd/orchestrator-effects.js";
+import type { WorkflowAction } from "../../../consort/orchestrator/drive/orchestrator-drive.js";
+import type { DriveEffectsConfig } from "../../../consort/orchestrator/drive/orchestrator-effects.js";
 
 const KIT = process.cwd();
 const CORPUS = join(KIT, "tests/integration");

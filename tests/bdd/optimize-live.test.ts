@@ -15,7 +15,7 @@ import { join } from "node:path";
 import { makeChampionWalkDeps, makeLiveSpawnTurn, type OptimizeLiveCtx, type SpawnTurn } from "../../scripts/sftdd/optimize-live";
 import { runChampionWalk } from "../../scripts/sftdd/optimize-harness";
 import { generateCandidates } from "../../scripts/sftdd/optimize-candidates";
-import { writeSftddConfig, defaultSftddConfig, loadSftddConfig } from "../../scripts/sftdd/sftdd-config";
+import { writeSftddConfig, defaultSftddConfig, loadSftddConfig } from "../../consort/orchestrator/drive/sftdd-config";
 
 let projectDir: string;
 let sftddDir: string;

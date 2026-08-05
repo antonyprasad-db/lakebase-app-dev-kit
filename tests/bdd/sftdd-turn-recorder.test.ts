@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { recordTurn, labelForAction, seedRecorderBaseline } from "../../scripts/sftdd/turn-recorder.js";
 import { replayDesignTurn } from "../../scripts/sftdd/replay-artifacts.js";
-import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive.js";
+import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 
 const tmpDirs: string[] = [];
 function mkProject(): { proj: string; tdd: string; record: string } {

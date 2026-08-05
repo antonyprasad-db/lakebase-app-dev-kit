@@ -11,8 +11,8 @@ import {
   commandsForAction,
   type DriveCommand,
   type DriveEffectsConfig,
-} from "../../scripts/sftdd/orchestrator-effects";
-import { claudeToolArgs } from "../../scripts/sftdd/drive-runner.js";
+} from "../../consort/orchestrator/drive/orchestrator-effects";
+import { claudeToolArgs } from "../../consort/orchestrator/drive/drive-runner.js";
 
 function cfg(over: Partial<DriveEffectsConfig> = {}): DriveEffectsConfig {
   return {

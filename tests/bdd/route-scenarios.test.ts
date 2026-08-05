@@ -17,7 +17,7 @@ import { makeMockReplayAgent } from "../../consort/orchestrator/agents/mock-repl
 import type { StepAgent } from "../../consort/orchestrator/agents/agent-types";
 import type { StepManifest } from "../../consort/orchestrator/manifest/step-manifest";
 import type { ManifestRunnerDeps } from "../../consort/orchestrator/manifest/manifest-runner";
-import type { DriveEffectsConfig } from "../../scripts/sftdd/orchestrator-effects";
+import type { DriveEffectsConfig } from "../../consort/orchestrator/drive/orchestrator-effects";
 
 /** A minimal design-guide.json that conforms to design-guide.schema.json (typography +
  *  font_family/scale, colors.brand, spacing). The ux-designer route scenarios need a conformant

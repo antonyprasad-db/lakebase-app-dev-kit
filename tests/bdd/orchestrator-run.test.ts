@@ -13,13 +13,13 @@ import {
   DriverStalledError,
   ProtocolViolationError,
   type DriveEffects,
-} from "../../scripts/sftdd/orchestrator-run";
+} from "../../consort/orchestrator/drive/orchestrator-run";
 import {
   pauseBeforeMilestone,
   type DriveState,
   type StoryView,
   type WorkflowAction,
-} from "../../scripts/sftdd/orchestrator-drive";
+} from "../../consort/orchestrator/drive/orchestrator-drive";
 
 function freshStory(): StoryView {
   return {
@@ -360,7 +360,7 @@ describe("runDriver: output-driven routing seam (options.contract)", () => {
 
   it("drives a whole feature to done with a passthrough contract (proposals honored)", async () => {
     const withContract = makeFakeWorld(["S1", "S2"]);
-    const { nextTransition } = await import("../../scripts/sftdd/orchestrator-drive");
+    const { nextTransition } = await import("../../consort/orchestrator/drive/orchestrator-drive");
     const result = await runDriver(withContract.effects, { contract: passthroughContract(nextTransition) });
     expect(withContract.state.phase).toBe("done");
     expect(result.iterations).toBeGreaterThan(0);
@@ -368,7 +368,7 @@ describe("runDriver: output-driven routing seam (options.contract)", () => {
   });
 
   it("no-contract path is byte-identical to the contract-with-aligned-proposals path", async () => {
-    const { nextTransition } = await import("../../scripts/sftdd/orchestrator-drive");
+    const { nextTransition } = await import("../../consort/orchestrator/drive/orchestrator-drive");
     // Same feature, driven twice: once with no contract (pure state-derivation), once
     // with a passthrough contract. The performed action logs must be identical.
     const plain = makeFakeWorld(["S1", "S2"]);

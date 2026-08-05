@@ -18,7 +18,7 @@ import { makeMockReplayAgent } from "../../consort/orchestrator/agents/mock-repl
 import { writeEscalation } from "../../scripts/sftdd/escalation";
 import type { StepAgent } from "../../consort/orchestrator/agents/agent-types";
 import type { StepManifest } from "../../consort/orchestrator/manifest/step-manifest";
-import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
+import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 
 const KIT = process.cwd();
 const CORPUS = join(KIT, "tests/integration");

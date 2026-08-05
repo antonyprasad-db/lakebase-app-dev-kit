@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { positionToBuildHandoff } from "../../scripts/sftdd/optimize-live";
-import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
+import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 
 /** A scripted plan sequence: each call returns the next (action, commands). */
 function scriptedPlan(seq: Array<{ action: WorkflowAction; commands: string[] }>): {

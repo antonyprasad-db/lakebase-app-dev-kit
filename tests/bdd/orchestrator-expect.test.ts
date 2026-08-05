@@ -12,7 +12,7 @@ import {
   UnexpectedCallbackError,
   handbackMessage,
 } from "../../scripts/sftdd/orchestrator-expect";
-import type { DriveState, WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
+import type { DriveState, WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 
 function baseState(over: Partial<DriveState> = {}): DriveState {
   return {

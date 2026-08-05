@@ -13,7 +13,7 @@ import {
   BASELINE_CANDIDATE_ID,
   type Candidate,
 } from "../../scripts/sftdd/optimize-candidates";
-import { defaultSftddConfig } from "../../scripts/sftdd/sftdd-config";
+import { defaultSftddConfig } from "../../consort/orchestrator/drive/sftdd-config";
 
 describe("generateCandidates", () => {
   it("always includes an identity baseline candidate FIRST (empty overrides)", () => {

@@ -24,10 +24,10 @@
 // managed-settings policy honors headlessly (see drive-runner claudeBaseArgs docs).
 
 import { randomUUID } from "node:crypto";
-import { claudeBaseArgs, claudeToolArgs, spawnClaudeStreaming, takeLastAgentTranscript } from "../../../scripts/sftdd/drive-runner.js";
+import { claudeBaseArgs, claudeToolArgs, spawnClaudeStreaming, takeLastAgentTranscript } from "../drive/drive-runner.js";
 import type { TurnUsage } from "../../../scripts/sftdd/claude-usage.js";
-import type { DriveCommand } from "../../../scripts/sftdd/orchestrator-effects.js";
-import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.js";
+import type { DriveCommand } from "../drive/orchestrator-effects.js";
+import type { WorkflowAction } from "../drive/orchestrator-drive.js";
 import type { StepAgent, AgentInvocation } from "./agent-types.js";
 
 /** The knobs that start + manage the agent. All optional; production defaults applied. */

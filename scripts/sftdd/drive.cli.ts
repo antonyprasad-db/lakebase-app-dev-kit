@@ -24,7 +24,7 @@ import * as readline from "node:readline";
 
 import { recordTurn, seedRecorderBaseline } from "./turn-recorder.js";
 import { recordBuildTurn, nextBuildTurnNumber } from "./record-build.js";
-import { runDriver, driverBoundOptions, ProtocolViolationError, UnexpectedCallbackError, type DriveEffects, type DriverBound, type RunDriverResult, type RunDriverOptions } from "./orchestrator-run.js";
+import { runDriver, driverBoundOptions, ProtocolViolationError, UnexpectedCallbackError, type DriveEffects, type DriverBound, type RunDriverResult, type RunDriverOptions } from "../../consort/orchestrator/drive/orchestrator-run.js";
 import { writeEscalation } from "./escalation.js";
 import { emitNextJson } from "./next.js";
 import { emitAgentLogEvent } from "./agent-log.js";
@@ -35,13 +35,13 @@ import {
   pauseBeforeMilestone,
   type PauseMilestone,
   type WorkflowAction,
-} from "./orchestrator-drive.js";
+} from "../../consort/orchestrator/drive/orchestrator-drive.js";
 import {
   buildDriveEffects,
   commandsForAction,
   planNextAction,
   type DriveEffectsConfig,
-} from "./orchestrator-effects.js";
+} from "../../consort/orchestrator/drive/orchestrator-effects.js";
 import {
   runSprint,
   readSprintBacklog,
@@ -51,7 +51,7 @@ import {
   type SprintEffects,
   type DriveStepResult,
 } from "./orchestrator-sprint.js";
-import { resolveSftddSettings, applyProjectOverrides } from "./sftdd-config.js";
+import { resolveSftddSettings, applyProjectOverrides } from "../../consort/orchestrator/drive/sftdd-config.js";
 import { describeAction, approveHint, makeOnAction } from "./orchestrator-logging.js";
 import { kitVersion } from "./kit-bin.js";
 import { isForeignFeatureClaim, readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
@@ -69,7 +69,7 @@ import {
   ClaudeTurnError,
   ReplayCorpusMissError,
   ArtifactOutOfRootError,
-} from "./drive-runner.js";
+} from "../../consort/orchestrator/drive/drive-runner.js";
 
 
 function parseArgs(argv: string[]): ParsedArgs {

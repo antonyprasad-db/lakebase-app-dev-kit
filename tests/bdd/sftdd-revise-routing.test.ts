@@ -25,8 +25,8 @@ import {
   storyTestListFingerprint,
 } from "../../scripts/sftdd/smells";
 import { recordBlockingSmellFlag, writeEscalation, readEscalations } from "../../scripts/sftdd/escalation";
-import { nextTransition, nextDesignOnlyTransition, actionLane, type DriveState } from "../../scripts/sftdd/orchestrator-drive";
-import { commandsForAction, type DriveEffectsConfig } from "../../scripts/sftdd/orchestrator-effects";
+import { nextTransition, nextDesignOnlyTransition, actionLane, type DriveState } from "../../consort/orchestrator/drive/orchestrator-drive";
+import { commandsForAction, type DriveEffectsConfig } from "../../consort/orchestrator/drive/orchestrator-effects";
 import { diskArtifactProbe } from "../../scripts/sftdd/orchestrator-probe";
 import {
   applyReviseSelfHeal,

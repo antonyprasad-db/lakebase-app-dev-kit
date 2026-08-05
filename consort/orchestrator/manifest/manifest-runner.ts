@@ -25,8 +25,8 @@ import { probeDriveState } from "../state/escalation-probe.js";
 import { execute, type StepExecutorDeps, type StepCtx, type StepResult, type StepRecord } from "../execution/step-executor.js";
 import { formatAgentReport } from "../execution/agent-report-formatter.js";
 import type { StepAgent, StepInstructions } from "../agents/agent-types.js";
-import type { DriveEffectsConfig } from "../../../scripts/sftdd/orchestrator-effects.js";
-import type { WorkflowAction, DriveState } from "../../../scripts/sftdd/orchestrator-drive.js";
+import type { DriveEffectsConfig } from "../drive/orchestrator-effects.js";
+import type { WorkflowAction, DriveState } from "../drive/orchestrator-drive.js";
 import type { RouteProposal, ValidateBoundDeps, StepPrecondition } from "../contract/step-contract.js";
 
 /** What the caller provides so the runner can drive a manifest through the executor. */

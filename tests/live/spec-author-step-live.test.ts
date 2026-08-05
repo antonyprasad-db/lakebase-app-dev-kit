@@ -31,8 +31,8 @@ import { ManifestStep } from "../../consort/orchestrator/steps/manifest-step.js"
 import { manifestForAction } from "../../consort/orchestrator/manifest/step-manifest.js";
 import { execute, type StepExecutorDeps, type StepCtx } from "../../consort/orchestrator/execution/step-executor.js";
 import type { ValidateBoundDeps } from "../../consort/orchestrator/contract/step-contract.js";
-import type { DriveState } from "../../scripts/sftdd/orchestrator-drive.js";
-import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive.js";
+import type { DriveState } from "../../consort/orchestrator/drive/orchestrator-drive.js";
+import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 
 const KIT = process.cwd();
 const CORPUS = join(KIT, "examples/sftdd-scenarios/stockflow/recorded-artifacts");

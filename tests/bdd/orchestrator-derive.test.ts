@@ -10,7 +10,7 @@ import {
   type StoryArtifactProbe,
   type DriveContext,
 } from "../../scripts/sftdd/orchestrator-derive";
-import { nextTransition } from "../../scripts/sftdd/orchestrator-drive";
+import { nextTransition } from "../../consort/orchestrator/drive/orchestrator-drive";
 import type { StoryPipeline, StoryEntry } from "../../scripts/sftdd/story-pipeline";
 
 /** A probe driven by per-story boolean maps; absent story => all false. */

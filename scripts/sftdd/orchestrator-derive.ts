@@ -21,7 +21,7 @@ import type {
   PromoteState,
   StoryView,
   DriveEscalation,
-} from "./orchestrator-drive.js";
+} from "../../consort/orchestrator/drive/orchestrator-drive.js";
 
 /**
  * Per-story design + build facts that are recorded as on-disk artifacts rather

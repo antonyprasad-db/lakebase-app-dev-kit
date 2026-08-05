@@ -12,8 +12,8 @@ import { join, relative } from "node:path";
 import { runManifestChain, type ManifestRunnerDeps, type ManifestTurn } from "../manifest/manifest-runner.js";
 import { loadStepManifests, type StepManifest } from "../manifest/step-manifest.js";
 import type { StepInstructions } from "../agents/agent-types.js";
-import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.js";
-import type { DriveEffectsConfig } from "../../../scripts/sftdd/orchestrator-effects.js";
+import type { WorkflowAction } from "../drive/orchestrator-drive.js";
+import type { DriveEffectsConfig } from "../drive/orchestrator-effects.js";
 import { buildAgent, type AgentBuildContext } from "../agents/agent-catalogue.js";
 
 /** Copy the kit's role agent definitions (skills/consort/agents/*.md) into

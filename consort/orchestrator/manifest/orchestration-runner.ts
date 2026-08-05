@@ -11,7 +11,7 @@
 
 import { runManifestChain, type ManifestRunnerDeps, type ManifestTurn } from "./manifest-runner.js";
 import type { StepManifest } from "./step-manifest.js";
-import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.js";
+import type { WorkflowAction } from "../drive/orchestrator-drive.js";
 
 /** A lifecycle op declaration , WHICH op (kind) + its config (both DATA), mirroring the
  *  agent spec. `scaffold-project` / `remove-project` are the catalogued kinds. */

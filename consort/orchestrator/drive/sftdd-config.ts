@@ -11,18 +11,18 @@
 
 import { existsSync, readFileSync, mkdirSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
-import type { AgentRole } from "./agent-log.js";
+import type { AgentRole } from "../../../scripts/sftdd/agent-log.js";
 import {
   ALL_AGENT_ROLES,
   RECOMMENDED_MODELS,
   readAgentConfig,
   type SpawnableAgentRole,
-} from "./agent-models.js";
+} from "../../../scripts/sftdd/agent-models.js";
 // The per-step config directory (step-manifests/*.json agentOptions) is the SINGLE declared home
 // for per-step model/effort. resolveSftddSettings reads it as the BASE per-step layer (below the
 // project file + applied-winners overlay, above RECOMMENDED_MODELS) via agentOptionsForStep, which
 // indexes the shipped manifests by the SAME (role, turnKey) the drive derives.
-import { agentOptionsForStep } from "../../consort/orchestrator/manifest/step-manifest.js";
+import { agentOptionsForStep } from "../manifest/step-manifest.js";
 import { turnKeyForAction, type TurnKey, type EffortLevel, type BuildTurn, type DesignStep } from "./turn-key.js";
 // Re-export the turn-key types from their canonical (dependency-light) home so the many callers
 // that have long imported them from sftdd-config keep working unchanged.
@@ -30,7 +30,7 @@ export type { TurnKey, EffortLevel, BuildTurn, DesignStep } from "./turn-key.js"
 // Auto-applied optimization winners, deep-merged onto the base default (see
 // defaultSftddConfig). Static import so tsup inlines it into dist at build time; the
 // champion walk's auto-apply writes this file as DATA, never a TS rewrite.
-import OPTIMIZED_DEFAULTS from "./optimized-defaults.json";
+import OPTIMIZED_DEFAULTS from "../../../scripts/sftdd/optimized-defaults.json";
 
 /** Project-relative path of the unified config (canonical name post-SFTDD rename). */
 export const SFTDD_CONFIG_REL = join(".lakebase", "sftdd-config.json");

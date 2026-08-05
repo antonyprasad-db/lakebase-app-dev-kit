@@ -13,7 +13,7 @@
 import { join } from "node:path";
 import type { RouteScenario } from "./route-scenario.js";
 import type { LifecycleOp } from "../manifest/orchestration-runner.js";
-import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.js";
+import type { WorkflowAction } from "../drive/orchestrator-drive.js";
 
 const KIT = process.cwd();
 // The demo manifests + recorded intake live in the integration-test corpus (a manifest dropped

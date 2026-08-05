@@ -5,7 +5,7 @@
 // one step implementation) + the StepExecutor speak these. (Originally defined alongside the now-
 // removed bespoke SpecAuthorBreakdownStep; lifted here so the types outlive that class.)
 
-import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.js";
+import type { WorkflowAction } from "../drive/orchestrator-drive.js";
 import type { StepInstructions } from "../agents/agent-types.js";
 
 /**

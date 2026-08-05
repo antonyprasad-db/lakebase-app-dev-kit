@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 
 import { defaultLaneCandidates, buildTurnForHandoff } from "../../scripts/sftdd/optimize-candidates";
 import type { HandoffPlan } from "../../scripts/sftdd/optimize-harness";
-import type { BuildTurn as BuildTurnKey } from "../../scripts/sftdd/sftdd-config";
+import type { BuildTurn as BuildTurnKey } from "../../consort/orchestrator/drive/sftdd-config";
 
 function h(role: string, story?: string, buildMode?: string): HandoffPlan {
   return { id: `${story ? story + "-" : ""}${role}${buildMode ? "-" + buildMode : ""}`, role, story, buildMode };

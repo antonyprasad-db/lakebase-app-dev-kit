@@ -17,9 +17,9 @@
 // phases are agnostic to which one runs; provisionWorkspace decides the roots (for the live drive:
 // workspaceDir = the real project, so "contained to the workspace" IS the project).
 
-import { buildClaudeCommand, type DriveEffectsConfig } from "../../../scripts/sftdd/orchestrator-effects.js";
-import { takeLastAgentTranscript } from "../../../scripts/sftdd/drive-runner.js";
-import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive.js";
+import { buildClaudeCommand, type DriveEffectsConfig } from "../drive/orchestrator-effects.js";
+import { takeLastAgentTranscript } from "../drive/drive-runner.js";
+import type { WorkflowAction } from "../drive/orchestrator-drive.js";
 import type { StepAgent, AgentInvocation } from "./agent-types.js";
 import type { AgentTurnResult } from "./claude-step-agent.js";
 

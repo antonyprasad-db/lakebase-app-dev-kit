@@ -18,7 +18,7 @@ import { join } from "node:path";
 import { loadStepManifests, manifestForAction, validateStepManifest } from "../../../consort/orchestrator/manifest/step-manifest";
 import { resolveValidator } from "../../../consort/orchestrator/validators/conformance/validator-registry";
 import { BUILD_ROLE_CHAINS, BUILD_PO_SEED, BUILD_CORPUS_REL } from "../../../consort/orchestrator/optimize/build-role-chains";
-import type { WorkflowAction } from "../../../scripts/sftdd/orchestrator-drive";
+import type { WorkflowAction } from "../../../consort/orchestrator/drive/orchestrator-drive";
 
 const KIT = process.cwd();
 const MANIFESTS = join(KIT, "tests/integration/manifests");

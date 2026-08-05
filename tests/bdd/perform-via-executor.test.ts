@@ -13,8 +13,8 @@ import { describe, it, expect } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildDriveEffects, type DriveCommand, type DriveEffectsConfig } from "../../scripts/sftdd/orchestrator-effects";
-import type { WorkflowAction, DriveState } from "../../scripts/sftdd/orchestrator-drive";
+import { buildDriveEffects, type DriveCommand, type DriveEffectsConfig } from "../../consort/orchestrator/drive/orchestrator-effects";
+import type { WorkflowAction, DriveState } from "../../consort/orchestrator/drive/orchestrator-drive";
 import type { ValidateBoundDeps } from "../../consort/orchestrator/contract/step-contract";
 
 const BREAKDOWN: WorkflowAction = { kind: "invoke-role", role: "spec-author", mode: "breakdown" };

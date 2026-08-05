@@ -8,14 +8,15 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { fileURLToPath } from "url";
 
-import { resolveSftddSettings, SFTDD_CONFIG_REL } from "../../scripts/sftdd/sftdd-config.js";
+import { resolveSftddSettings, SFTDD_CONFIG_REL } from "../../consort/orchestrator/drive/sftdd-config.js";
 
 const RESOLVER_SRC = join(
   fileURLToPath(new URL(".", import.meta.url)),
   "..",
   "..",
-  "scripts",
-  "sftdd",
+  "consort",
+  "orchestrator",
+  "drive",
   "sftdd-config.ts",
 );
 

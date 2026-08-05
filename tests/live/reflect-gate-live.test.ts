@@ -18,7 +18,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
-import { commandsForAction } from "../../scripts/sftdd/orchestrator-effects.js";
+import { commandsForAction } from "../../consort/orchestrator/drive/orchestrator-effects.js";
 import { recordReflectionGate, readReflectVerdict } from "../../scripts/sftdd/reflection.js";
 import { storyAcIds, storyTestListJson, acsDir } from "../../scripts/sftdd/sftdd-paths.js";
 

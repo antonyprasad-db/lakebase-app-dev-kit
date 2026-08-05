@@ -11,7 +11,7 @@
 // (optimize-harness.ts). Keeping generation pure makes the sweep space unit-
 // testable without touching the filesystem or the cloud.
 
-import type { SftddConfigFile, RoleSettingsFile, BuildTurn, EffortLevel } from "./sftdd-config.js";
+import type { SftddConfigFile, RoleSettingsFile, BuildTurn, EffortLevel } from "../../consort/orchestrator/drive/sftdd-config.js";
 import { type SpawnableAgentRole, RECOMMENDED_MODELS } from "./agent-models.js";
 
 /** The identity candidate: no overrides, no content variant. Always first in a

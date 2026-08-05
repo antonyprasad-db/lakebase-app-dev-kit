@@ -14,7 +14,7 @@ import {
   type StepPrecondition,
   type ValidateBoundDeps,
 } from "../../consort/orchestrator/contract/step-contract";
-import type { DriveState, WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
+import type { DriveState, WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 
 const STATE = { phase: "feature" } as unknown as DriveState;
 const sig = (a: WorkflowAction): string => JSON.stringify(a);

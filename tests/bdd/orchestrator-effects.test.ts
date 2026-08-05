@@ -14,7 +14,7 @@ import {
   type DriveCommand,
   type DriveEffectsConfig,
   type CommandRunner,
-} from "../../scripts/sftdd/orchestrator-effects";
+} from "../../consort/orchestrator/drive/orchestrator-effects";
 import { existsSync, readFileSync } from "node:fs";
 import { handbackFile } from "../../scripts/sftdd/sftdd-paths";
 import { beginNextPendingCycle } from "../../scripts/sftdd/cycle-record";

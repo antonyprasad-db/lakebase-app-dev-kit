@@ -19,36 +19,36 @@
 import * as fs from "node:fs";
 import { dirname, join } from "node:path";
 import { nextTransition, type WorkflowAction } from "./orchestrator-drive.js";
-import { manifestForAction, type StepManifestPostTurn, type StepManifest } from "../../consort/orchestrator/manifest/step-manifest.js";
-import { execute, type StepExecutorDeps } from "../../consort/orchestrator/execution/step-executor.js";
-import { ManifestStep } from "../../consort/orchestrator/steps/manifest-step.js";
-import { LiveDriveStepAgent } from "../../consort/orchestrator/agents/live-drive-step-agent.js";
-import { formatAgentReport } from "../../consort/orchestrator/execution/agent-report-formatter.js";
-import type { BoundedRoute, RouteProposal, ValidateBoundDeps } from "../../consort/orchestrator/contract/step-contract.js";
+import { manifestForAction, type StepManifestPostTurn, type StepManifest } from "../manifest/step-manifest.js";
+import { execute, type StepExecutorDeps } from "../execution/step-executor.js";
+import { ManifestStep } from "../steps/manifest-step.js";
+import { LiveDriveStepAgent } from "../agents/live-drive-step-agent.js";
+import { formatAgentReport } from "../execution/agent-report-formatter.js";
+import type { BoundedRoute, RouteProposal, ValidateBoundDeps } from "../contract/step-contract.js";
 import type { DriveEffects } from "./orchestrator-run.js";
-import { deriveDriveState, effectiveLoopForStory } from "./orchestrator-derive.js";
-import { diskArtifactProbe, readDriveContext } from "./orchestrator-probe.js";
-import { readPipeline } from "./story-pipeline.js";
+import { deriveDriveState, effectiveLoopForStory } from "../../../scripts/sftdd/orchestrator-derive.js";
+import { diskArtifactProbe, readDriveContext } from "../../../scripts/sftdd/orchestrator-probe.js";
+import { readPipeline } from "../../../scripts/sftdd/story-pipeline.js";
 import {
   storyJson, designGuideJson, handbackFile, storyAcIds, architectureJson, readAcLayer,
   featureProposalsMd, featureSpecJson, featureTestListJson, acsDir, planningEstimatesJson,
-} from "./sftdd-paths.js";
+} from "../../../scripts/sftdd/sftdd-paths.js";
 import type { TurnKey } from "./turn-key.js";
 // turnKeyForAction now lives in the shared, dependency-light turn-key module (so the config
 // resolver can derive the same key without a cycle). Re-exported here for the callers that have
 // long imported it from orchestrator-effects (optimize.cli, tests).
 export { turnKeyForAction } from "./turn-key.js";
 import { turnKeyForAction } from "./turn-key.js";
-import { designGuideConformance } from "./response-formatter.js";
-import { storyTestProgress, nextPendingBatch, DEFAULT_BATCH_CAP } from "./cycle-record.js";
-import { readSupersededTests, readGreenFailure } from "./supersession.js";
-import { readDeployVerifyAssessMarker, readDeployVerifyScope } from "./deploy-verify-assess.js";
-import { readRefactorVerifyAssessMarker } from "./refactor-verify-assess.js";
-import { readConventions } from "./architecture-conventions.js";
+import { designGuideConformance } from "../../../scripts/sftdd/response-formatter.js";
+import { storyTestProgress, nextPendingBatch, DEFAULT_BATCH_CAP } from "../../../scripts/sftdd/cycle-record.js";
+import { readSupersededTests, readGreenFailure } from "../../../scripts/sftdd/supersession.js";
+import { readDeployVerifyAssessMarker, readDeployVerifyScope } from "../../../scripts/sftdd/deploy-verify-assess.js";
+import { readRefactorVerifyAssessMarker } from "../../../scripts/sftdd/refactor-verify-assess.js";
+import { readConventions } from "../../../scripts/sftdd/architecture-conventions.js";
 // The build-turn CONTEXT PACK (rubric + layout + test locations) lives in the orchestrator
 // family as the single source of truth , the lean per-role build chains inject the SAME pack.
-import { contextRubric, buildContextPack } from "../../consort/orchestrator/build/build-context.js";
-import { buildGreenFailureAdvisory } from "../../consort/orchestrator/build/preconditions.js";
+import { contextRubric, buildContextPack } from "../build/build-context.js";
+import { buildGreenFailureAdvisory } from "../build/preconditions.js";
 import { sanitizeBranchName } from "@databricks-solutions/lakebase-scm-utils/util";
 
 export type DriveCommand =

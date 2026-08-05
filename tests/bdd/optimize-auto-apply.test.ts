@@ -88,7 +88,7 @@ describe("defaultSftddConfig reflects the committed overlay (spec-author breakdo
     // The committed optimized-defaults.json carries the spec-author breakdown winner;
     // defaultSftddConfig deep-merges it. This asserts the wiring end-to-end on the real
     // kit config (not a temp tree), proving the overlay path is load-bearing.
-    const { defaultSftddConfig } = await import("../../scripts/sftdd/sftdd-config");
+    const { defaultSftddConfig } = await import("../../consort/orchestrator/drive/sftdd-config");
     const cfg = defaultSftddConfig();
     const sa = cfg.roles?.["spec-author"];
     const model = sa?.model as Record<string, string> | string | undefined;

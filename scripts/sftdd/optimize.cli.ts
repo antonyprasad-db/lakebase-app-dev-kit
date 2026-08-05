@@ -23,18 +23,18 @@
 
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 import { join, resolve } from "node:path";
-import type { WorkflowAction } from "./orchestrator-drive.js";
+import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 import { generateCandidates, defaultLaneCandidates, BASELINE_CANDIDATE_ID, type SweepSpec, type Candidate } from "./optimize-candidates.js";
 import { runChampionWalk, type HandoffPlan, type HandoffResult } from "./optimize-harness.js";
-import type { BuildTurn, EffortLevel } from "./sftdd-config.js";
+import type { BuildTurn, EffortLevel } from "../../consort/orchestrator/drive/sftdd-config.js";
 import type { SpawnableAgentRole } from "./agent-models.js";
-import { buildCfg, execRunner } from "./drive-runner.js";
-import { planNextAction, commandsForAction, turnKeyForAction } from "./orchestrator-effects.js";
+import { buildCfg, execRunner } from "../../consort/orchestrator/drive/drive-runner.js";
+import { planNextAction, commandsForAction, turnKeyForAction } from "../../consort/orchestrator/drive/orchestrator-effects.js";
 import { resolveSftddDir } from "./sftdd-paths.js";
 import { kitRoot } from "./kit-bin.js";
 import { evaluateSemanticGate, makeOpusJudge } from "./optimize-semantic-gate.js";
 import { makeChampionWalkDeps, makeLiveSpawnTurn, makeBuildGate, makeBuildSnapshotDeps, positionToBuildHandoff, positionToNextHandoff, runLaneSweep, readLastTurnTokens, type OptimizeLiveCtx } from "./optimize-live.js";
-import { actionLane } from "./orchestrator-drive.js";
+import { actionLane } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 import { readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { buildChampionWalkReport, formatChampionWalkReport } from "./optimize-report.js";
 

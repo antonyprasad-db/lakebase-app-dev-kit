@@ -22,7 +22,7 @@ import {
 } from "./cycle-record.js";
 import { needsGreenAssess, hasPendingRegressionFix, hasPendingSupersession } from "./supersession.js";
 import { driverPhaseForTdd, type StoryArtifactProbe, type DriveContext } from "./orchestrator-derive.js";
-import type { DriveEscalation } from "./orchestrator-drive.js";
+import type { DriveEscalation } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 import { readGates } from "./gates.js";
 import { PHASE_OWNER_KEY } from "./workflow-phase.js";
 import { storyDeployVerified } from "./deploy.js";

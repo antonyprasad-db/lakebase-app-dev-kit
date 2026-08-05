@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from "vitest";
 import { approveHint } from "../../scripts/sftdd/orchestrator-logging.js";
-import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive.js";
+import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 
 describe("approveHint: the right approval command per gate kind", () => {
   it("per-story spec gate -> lakebase-sftdd-approve-gate --feature --story (NOT --gate spec)", () => {

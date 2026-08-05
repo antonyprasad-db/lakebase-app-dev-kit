@@ -10,8 +10,8 @@ import {
   commandsForAction,
   type DriveCommand,
   type DriveEffectsConfig,
-} from "../../scripts/sftdd/orchestrator-effects";
-import type { WorkflowAction } from "../../scripts/sftdd/orchestrator-drive";
+} from "../../consort/orchestrator/drive/orchestrator-effects";
+import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 import { LiveDriveStepAgent } from "../../consort/orchestrator/agents/live-drive-step-agent";
 
 function cfg(over: Partial<DriveEffectsConfig> = {}): DriveEffectsConfig {
