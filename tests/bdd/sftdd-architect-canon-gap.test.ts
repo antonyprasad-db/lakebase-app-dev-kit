@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { deriveCanon, writeCanon, evaluateStoryCanon } from "../../scripts/sftdd/architecture-canon.js";
+import { deriveCanon, writeCanon, evaluateStoryCanon } from "../../consort/architecture/architecture-canon.js";
 import {
   specLevelSmell,
   writeSmellsLog,

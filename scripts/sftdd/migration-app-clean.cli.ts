@@ -11,7 +11,7 @@
 // Usage:
 //   lakebase-sftdd-migration-clean [--project-dir <path>] [--migrations <rel> ...] [--json]
 
-import { checkMigrationAppClean, type MigrationAppCleanArgs } from "./migration-app-clean.js";
+import { checkMigrationAppClean, type MigrationAppCleanArgs } from "../../consort/architecture/migration-app-clean.js";
 
 interface Parsed {
   projectDir: string;

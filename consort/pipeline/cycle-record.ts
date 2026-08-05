@@ -34,7 +34,7 @@ import { listExperiments } from "../../consort/experiment/experiment.js";
 import { ensureDeployedAndVerify } from "../../scripts/sftdd/deploy.js";
 import { writeEscalation, type Escalation } from "../../consort/gates/escalation.js";
 import { readSmellsLog, markSmellResolved, isBuildRefactorRoutableSmell, hasOpenBuildRefactorRoutableSmell, writeSmellsLog, hasOpenSmell } from "../smells/smells.js";
-import { checkUxClean, summarizeUxViolations } from "../../scripts/sftdd/design-adherence.js";
+import { checkUxClean, summarizeUxViolations } from "../architecture/design-adherence.js";
 import {
   readGreenFailure,
   writeGreenFailure,
@@ -45,9 +45,9 @@ import {
   regressionFixExhausted,
   rearmRegressionFix,
 } from "../smells/supersession.js";
-import { checkContractClean, supersededTestCandidates } from "../../scripts/sftdd/contract-clean.js";
+import { checkContractClean, supersededTestCandidates } from "../architecture/contract-clean.js";
 import { readRefactorVerifyAssessMarker, writeRefactorVerifyAssessMarker, clearRefactorVerifyAssessMarker } from "../smells/refactor-verify-assess.js";
-import { checkMigrationAppClean } from "../../scripts/sftdd/migration-app-clean.js";
+import { checkMigrationAppClean } from "../architecture/migration-app-clean.js";
 import { emitAgentLogEvent, type AgentLogEventInput } from "../../consort/logging/agent-log.js";
 import { commitAllIfChanged } from "@databricks-solutions/lakebase-scm-utils/git";
 import { assertCommitTargetNotProtected, ProtectedBranchCommitError } from "@databricks-solutions/lakebase-scm-utils/lakebase";

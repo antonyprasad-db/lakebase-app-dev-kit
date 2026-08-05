@@ -14,7 +14,7 @@
 //   lakebase-sftdd-contract-clean [--project-dir <path>] [--migrations <rel> ...]
 //                               [--code <rel> ...] [--json]
 
-import { checkContractClean, type ContractCleanArgs } from "./contract-clean.js";
+import { checkContractClean, type ContractCleanArgs } from "../../consort/architecture/contract-clean.js";
 
 interface Parsed {
   projectDir: string;

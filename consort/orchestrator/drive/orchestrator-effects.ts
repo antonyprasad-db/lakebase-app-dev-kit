@@ -41,7 +41,7 @@ import { storyTestProgress, nextPendingBatch, DEFAULT_BATCH_CAP } from "../../pi
 import { readSupersededTests, readGreenFailure } from "../../smells/supersession.js";
 import { readDeployVerifyAssessMarker, readDeployVerifyScope } from "../../smells/deploy-verify-assess.js";
 import { readRefactorVerifyAssessMarker } from "../../smells/refactor-verify-assess.js";
-import { readConventions } from "../../../scripts/sftdd/architecture-conventions.js";
+import { readConventions } from "../../architecture/architecture-conventions.js";
 // The build-turn CONTEXT PACK (rubric + layout + test locations) lives in the orchestrator
 // family as the single source of truth , the lean per-role build chains inject the SAME pack.
 import { contextRubric, buildContextPack } from "../build/build-context.js";

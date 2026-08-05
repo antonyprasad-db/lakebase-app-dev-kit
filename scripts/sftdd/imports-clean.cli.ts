@@ -11,7 +11,7 @@
 //   lakebase-sftdd-imports-clean [--project-dir <path>] [--lang python|nodejs]
 //                              [--artifact <rel> ...] [--json]
 
-import { checkImportsClean, type ImportsCleanArgs } from "./imports-clean.js";
+import { checkImportsClean, type ImportsCleanArgs } from "../../consort/architecture/imports-clean.js";
 import type { SchemaMigrationLanguage } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 
 interface Parsed {

@@ -12,7 +12,7 @@ import {
   checkE2eRegexClean,
   findInlineFlagRegexes,
   summarizeE2eRegexViolations,
-} from "../../scripts/sftdd/e2e-regex-clean.js";
+} from "../../consort/architecture/e2e-regex-clean.js";
 
 const tmpDirs: string[] = [];
 

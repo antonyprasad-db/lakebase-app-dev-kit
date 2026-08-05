@@ -15,7 +15,7 @@ import {
   checkCodeBudget,
   checkDuplicateClasses,
   layeringConfigFromArchitecture,
-} from "../../scripts/sftdd/layering-clean.js";
+} from "../../consort/architecture/layering-clean.js";
 
 const tmpDirs: string[] = [];
 

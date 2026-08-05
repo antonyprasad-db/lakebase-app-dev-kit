@@ -20,7 +20,7 @@ import {
   projectStoryNotes,
   writeCanon,
   type ArchitectureCanon,
-} from "../../scripts/sftdd/architecture-canon.js";
+} from "../../consort/architecture/architecture-canon.js";
 import { diskArtifactProbe } from "../../consort/orchestrator/state/orchestrator-probe.js";
 
 let tdd: string;

@@ -38,7 +38,7 @@ import { readWorkflowState, SCM_STATES } from "@databricks-solutions/lakebase-sc
 import { firstPendingEscalation } from "../../gates/escalation.js";
 import { specLevelSmell, priorReviseCount, isBuildRefactorRoutableSmell, isReflectSmell, priorReflectReviseCount, REFLECT_REVISE_CAP, storyTestListFingerprint, lastReflectReviseFingerprint } from "../../smells/smells.js";
 import { reflectionPassed, reflectionVerdictWritten } from "../../smells/reflection.js";
-import { readCanon, architectNovelty } from "../../../scripts/sftdd/architecture-canon.js";
+import { readCanon, architectNovelty } from "../../architecture/architecture-canon.js";
 import {
   cyclesRootDir,
   workflowStateJson,

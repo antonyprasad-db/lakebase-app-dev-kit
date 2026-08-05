@@ -15,7 +15,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { checkContractClean, netDroppedSymbols, supersededTestCandidates } from "../../scripts/sftdd/contract-clean.js";
+import { checkContractClean, netDroppedSymbols, supersededTestCandidates } from "../../consort/architecture/contract-clean.js";
 import {
   beginNextPendingCycle,
   greenOpenCycle,

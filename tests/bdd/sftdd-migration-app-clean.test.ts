@@ -12,7 +12,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { checkMigrationAppClean } from "../../scripts/sftdd/migration-app-clean.js";
+import { checkMigrationAppClean } from "../../consort/architecture/migration-app-clean.js";
 import { beginNextPendingCycle, greenOpenCycle, type GreenVerifier } from "../../consort/pipeline/cycle-record.js";
 import { readGreenFailure } from "../../consort/smells/supersession.js";
 

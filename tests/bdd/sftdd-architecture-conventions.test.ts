@@ -15,7 +15,7 @@ import {
   establishConventionsIfAbsent,
   assertArchitectureConforms,
   type ArchitectureConventions,
-} from "../../scripts/sftdd/architecture-conventions.js";
+} from "../../consort/architecture/architecture-conventions.js";
 
 let tdd: string;
 const NOW = () => new Date("2026-06-12T00:00:00.000Z");

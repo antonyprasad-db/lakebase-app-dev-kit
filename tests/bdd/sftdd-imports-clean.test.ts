@@ -11,7 +11,7 @@ import {
   checkImportsClean,
   detectEntry,
   type Importer,
-} from "../../scripts/sftdd/imports-clean.js";
+} from "../../consort/architecture/imports-clean.js";
 
 const tmpDirs: string[] = [];
 

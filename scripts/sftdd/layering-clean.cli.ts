@@ -27,7 +27,7 @@ import {
   checkDuplicateClasses,
   layeringConfigFromArchitecture,
   type LayeringCleanArgs,
-} from "./layering-clean.js";
+} from "../../consort/architecture/layering-clean.js";
 
 interface Parsed {
   projectDir: string;

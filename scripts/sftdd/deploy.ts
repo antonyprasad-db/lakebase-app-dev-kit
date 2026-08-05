@@ -27,7 +27,7 @@ import {
   readDeployVerifyAssessMarker,
   clearDeployVerifyAssessMarker,
 } from "../../consort/smells/deploy-verify-assess.js";
-import { checkE2eRegexClean, summarizeE2eRegexViolations, E2E_REGEX_REMEDIATION } from "./e2e-regex-clean.js";
+import { checkE2eRegexClean, summarizeE2eRegexViolations, E2E_REGEX_REMEDIATION } from "../../consort/architecture/e2e-regex-clean.js";
 import { emitAgentLogEvent, type AgentLogIoOpts } from "../../consort/logging/agent-log.js";
 import type { AgentLogEventName } from "../../consort/logging/agent-log-events.js";
 import { withEphemeralVerifyBranch, ephemeralVerifyBranchName } from "../../consort/smells/ephemeral-verify.js";

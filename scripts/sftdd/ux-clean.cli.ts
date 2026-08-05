@@ -19,7 +19,7 @@
 // card, btn, ...); when omitted, ANY className counts as a design signal (the
 // conservative default , only truly class-less + var-less pages are flagged).
 
-import { checkUxClean, summarizeUxViolations, UX_CLEAN_REMEDIATION } from "./design-adherence.js";
+import { checkUxClean, summarizeUxViolations, UX_CLEAN_REMEDIATION } from "../../consort/architecture/design-adherence.js";
 
 interface Parsed {
   projectDir: string;

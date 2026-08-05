@@ -20,7 +20,7 @@ import {
   checkRouteReachability,
   checkTokenConsumption,
   checkUxClean,
-} from "../../scripts/sftdd/design-adherence";
+} from "../../consort/architecture/design-adherence";
 
 const GUIDE = {
   typography: { font_family: "DM Sans", font_mono: "DM Mono", scale: { "text-base": "15px" } },
