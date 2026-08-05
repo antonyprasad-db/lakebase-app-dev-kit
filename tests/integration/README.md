@@ -103,10 +103,10 @@ quality-gate reference is the SAME SCOPE as what the turn is given the inputs to
 | navigator-red / navigator-assess | (build lane, pre-conditions declared) | context-pack / gf-advisory | **faithful** (live-proven) |
 
 **test-strategist is a hard blocker for #556.** The recorded reference `intake/.../test-list.json`
-is the whole feature master (32 items, 10 ACs, 3 stories); the chain seeds one story's one AC. Every
-candidate would score "thin" for a *scope* reason, not a model-quality reason — repeating the #554
-mistake in a new form. Decision (user): fix **per-story** — seed all of S1's ACs (AC1+AC2+AC3), score
-against the **S1 slice** of the master (the ~17 items whose `ac_id` ∈ S1's ACs), matching the real
+is the whole feature master (32 test items, 10 ACs, 3 stories); the chain seeds one story's one AC.
+Every candidate would score "thin" for a *scope* reason, not a model-quality reason — repeating the
+#554 mistake in a new form. Decision (user): fix **per-story** — seed all of S1's ACs (AC1+AC2+AC3),
+score against the **S1 slice** of the master (the ~17 test items whose `ac_id` ∈ S1's ACs), matching the real
 drive's per-story invocation unit. The under-scoped architect-reviewer / dba chains are noted for a
 follow-up; they are not the #556 blocker.
 
@@ -142,7 +142,12 @@ each candidate carries a real `semanticScore` + its produced `test-list.json` is
 
 ALL candidates enumerated (verified from persisted telemetry — score + item count + wall-clock):
 
-| # | candidate | levers | quality | score | items | wall-clock |
+Each row's "test items" = the number of entries the strategist PLANNED in its test-list (a test item
+is a PLAN for a test, not an executable test: id, description, the ac_id it covers, kind ∈
+behavior|fitness|client, + invariant_id for the DB-real ones). More test items ⇒ more of the required
+AC + persistence-invariant coverage planned.
+
+| # | candidate | levers | quality | score | test items | wall-clock |
 |---|---|---|---|---|---|---|
 | 1 | baseline | sonnet, default effort | ✅ PASS | 0.85 | 15 | 679.9s |
 | 2 | m-haiku | model=haiku | ❌ FAIL | 0.70 | 12 | 120.9s |
@@ -153,13 +158,15 @@ ALL candidates enumerated (verified from persisted telemetry — score + item co
 | 7 | m-opus-e-low | opus + low | ❌ FAIL | 0.72 | 13 | 41.9s |
 | 8 | scan-tight | deny Grep/Glob | _running_ | — | — | — |
 
-Gate threshold for tests = 0.75 (functional). Reading (7 of 8; scan-tight pending; single sample each):
-- **e-low is the front-runner AND the highest quality**: 0.90 / 16 items / 71.5s — ~9.5× faster than
-  baseline with the BEST coverage score, not merely "fast enough". Effort=low is the real lever.
-- The two FAILs track THIN coverage, not judge noise: m-haiku (0.70, **12 items**) and m-opus-e-low
-  (0.72, **13 items**) both produced fewer items; the passers cluster at 15-16. The discriminator is
-  tracking real coverage. (m-haiku-e-low barely passed at 0.75 with the same 12 items as failing
-  m-haiku — the one genuinely borderline candidate; worth a confirm re-run.)
+Gate threshold = 0.75 (functional). Reading (7 of 8; scan-tight pending; single sample each):
+- **e-low is the front-runner AND the highest quality**: 0.90 / 16 test items / 71.5s — ~9.5× faster
+  than baseline with the BEST coverage score, not merely "fast enough". Effort=low is the real lever.
+- The two FAILs track THIN coverage, not judge noise: m-haiku (0.70, **12 test items**) and
+  m-opus-e-low (0.72, **13 test items**) both PLANNED fewer; the passers cluster at 15-16. The
+  discriminator is tracking real coverage. (m-haiku-e-low barely passed at 0.75 with the same 12 test
+  items as failing m-haiku — the one genuinely borderline candidate; worth a confirm re-run.) NOTE:
+  count is a coarse proxy; the opus judge scores actual coverage/faithfulness vs the recorded
+  reference, not the count.
 - So #554's "m-haiku 70% faster, gate-passed" was doubly wrong: m-haiku actually FAILS quality here
   (0.70, thin), and the real speed-without-quality-loss win is **effort=low on sonnet**, invisible to
   a conformance-only sweep.
