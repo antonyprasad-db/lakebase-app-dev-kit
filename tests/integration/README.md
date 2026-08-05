@@ -43,7 +43,8 @@ harder (or thinner) turn. See `../../consort/orchestrator/build/PRE-CONDITIONING
 | `architect-reviewer-chain` | architect-reviewer | `architecture.json` | nfrs + AC1 |
 | `architect-estimator-chain` | architect-reviewer (estimate) | `planning/estimates.json` | feature-proposals |
 | `dba-chain` | dba | `db-design.json` | architecture.json |
-| `test-strategist-chain` | test-strategist | `test-list.json` | AC1 + architecture + db-design |
+| `test-strategist-chain` | test-strategist | `test-list.json` (scored vs S1 slice) | S1 AC1+AC2+AC3 + architecture + db-design |
+| `ux-designer-chain` | ux-designer | `design/design-guide.json` | design-brief + product-overview |
 
 ### Build lane (navigator; run live via `live/navigator-*-live.test.ts`, not in `ROLE_CHAINS`)
 | Chain (dir) | Live role | Output | Pre-condition (declared) |
@@ -54,8 +55,10 @@ harder (or thinner) turn. See `../../consort/orchestrator/build/PRE-CONDITIONING
 ### Not a role chain
 | Dir | Purpose |
 |---|---|
-| `ux-designer-chain` | 3-turn chain (PO seed → mock spec-author → LIVE ux-designer); a chain-runner demo, not swept |
 | `route-scenarios` | manifest set for the revise/escalate routing scenario suite |
+
+(`ux-designer-chain` was a 3-turn demo — PO seed → mock spec-author → LIVE ux-designer — and is now
+a uniform 2-turn `seed → live` role chain in `ROLE_CHAINS`; see the design-lane table + the run log.)
 
 ## The gates a live sweep applies (per candidate)
 
@@ -79,7 +82,8 @@ quality-gate reference is the SAME SCOPE as what the turn is given the inputs to
 | spec-author-story | product-overview + this story's stub | ✓ both | **faithful** |
 | architect-reviewer | nfrs + **ALL** the story's AC ids + conventions | nfrs + **AC1 only** | ⚠ under-scoped ACs (annotates 1 of 3) |
 | dba | architecture + **ALL** the story's AC ids + the architect contract | architecture, **0 ACs** | ⚠ no ACs (works mostly off architecture.json) |
-| **test-strategist** | **all** story AC ids inline + persistence-invariant list | **1 AC**, 1 story | ❌ **BLOCKER**: scored vs the **32-item, 3-story** feature master it lacks the inputs to produce |
+| test-strategist | **all** story AC ids inline + persistence-invariant list | S1 AC1+AC2+AC3 + arch + db-design | **FIXED** (was: 1 AC scored vs the 32-item/3-story master). Per-story: seeds all S1 ACs, scored vs the S1 slice. |
+| ux-designer | design-brief + product-overview | ✓ both | **faithful** (2-turn chain; scored vs `intake/design/design-guide.json`) |
 | navigator-red / navigator-assess | (build lane, pre-conditions declared) | context-pack / gf-advisory | **faithful** (live-proven) |
 
 **test-strategist is a hard blocker for #556.** The recorded reference `intake/.../test-list.json`
