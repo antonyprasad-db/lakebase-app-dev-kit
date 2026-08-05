@@ -1,0 +1,21 @@
+{
+  "id": "driver-green-live",
+  "description": "The GATED driver-GREEN honest-verify live check, config-driven so anyone can point it at their own Lakebase-enabled workspace. The host is a DEFAULT (fevm-serverless-stable-ecparr) resolved by loadRunConfig against ${DATABRICKS_HOST}; override by exporting DATABRICKS_HOST (run-all-live-tests.sh does this from --profile). Same setup/teardown lifecycle kinds as the stockflow demo (scaffold-project / remove-project from the lifecycle catalogue). The driver-GREEN turn itself runs on the uncontained live executor between these ops (see driver-build-support.ts).",
+  "setup": {
+    "kind": "scaffold-project",
+    "config": {
+      "projectName": "${DRIVER_GREEN_PROJECT:-dg-live-{{TS}}}",
+      "databricksHost": "${DATABRICKS_HOST:-https://fevm-serverless-stable-ecparr.cloud.databricks.com}",
+      "createGithubRepo": "${DRIVER_GREEN_CREATE_REPO:-false}",
+      "tiers": "${DRIVER_GREEN_TIERS:-1}",
+      "uiTrack": "${DRIVER_GREEN_UI:-false}",
+      "language": "${DRIVER_GREEN_LANGUAGE:-python}",
+      "runnerType": "${DRIVER_GREEN_RUNNER:-github-hosted}"
+    }
+  },
+  "start": { "kind": "invoke-role", "role": "driver", "story": "S3-stock-shows-split-fields" },
+  "teardown": {
+    "kind": "remove-project",
+    "config": {}
+  }
+}

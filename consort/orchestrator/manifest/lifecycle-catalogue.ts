@@ -75,6 +75,7 @@ async function scaffoldProject(config: Record<string, unknown>, context: Lifecyc
         projectDir: res.projectDir,
         projectName: c.projectName,
         lakebaseProjectId: res.lakebaseProjectId,
+        lakebaseDefaultBranch: res.lakebaseDefaultBranch,
         githubRepoUrl: res.githubRepoUrl ?? null,
         githubRepoFullName: repoFullName ?? null,
         runnerRegistered,
@@ -92,6 +93,8 @@ export interface ScaffoldHandle {
   projectDir?: string;
   projectName?: string;
   lakebaseProjectId?: string;
+  /** The project's default Lakebase branch (the trunk features/experiments fork from). */
+  lakebaseDefaultBranch?: string;
   databricksHost?: string;
   githubRepoUrl?: string | null;
   /** "<owner>/<name>" , what gh repo delete + removeRunner both key off. */
