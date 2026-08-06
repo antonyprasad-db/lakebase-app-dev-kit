@@ -22,16 +22,15 @@
 // resolve a host (resolveTestEnv) , an unconfigured env skips. NEVER interrupt before teardown (the
 // remove-project in afterAll deletes the Lakebase project; an interrupt leaks it).
 
-import { describe, it, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import {
   scaffoldDesignEquivProject,
   teardownDesignEquivProject,
-  runDesignEquivStep,
+  runDesignEquivStepsParallel,
   resolveDesignEquivRunConfig,
   DESIGN_LIVE_STEPS,
   type DesignEquivProject,
 } from "./design-equivalence-support.js";
-import type { TurnKey } from "../../../consort/orchestrator/settings/project-settings.js";
 
 const cloudReady = !!process.env.RUN_LIVE_STEP && process.env.LAKEBASE_TEST_E2E === "1";
 const hostResolvable = (() => {
@@ -53,13 +52,21 @@ describe.skipIf(!cloudReady || !hostResolvable)("GATED LIVE: design artifacts ar
     if (project) await teardownDesignEquivProject(project);
   }, 600_000);
 
-  // ONE scaffold, all 8 design steps sequentially (each seeds -> production-body turn -> judge ->
-  // reset). Sequential (not it.each concurrency) so the shared .sftdd is reset cleanly between steps.
-  it.each(DESIGN_LIVE_STEPS.map((s) => [s] as [TurnKey]))(
-    "design step %s: production-body output >= threshold semantic coverage of the pinned reference",
-    async (step) => {
-      await runDesignEquivStep(project, step);
+  // ONE scaffold, all design steps in PARALLEL (bounded), each in its OWN git worktree off the
+  // committed HEAD (clean .consort by construction => no shared state, nothing to reset). Fanning out
+  // ~4-wide keeps the whole run well under the ~55min background-task cap that 8 sequential ~15min
+  // turns would blow. Each step's outcome is collected (not thrown) so one failure doesn't abort the
+  // rest; the single assertion reports every failing step at once.
+  it(
+    "every design step's production-body output is >= threshold semantic coverage of the pinned reference",
+    async () => {
+      const results = await runDesignEquivStepsParallel(project, DESIGN_LIVE_STEPS, 4);
+      const failed = results.filter((r) => !r.passed);
+      expect(
+        failed.length,
+        `design steps below the pin threshold:\n${failed.map((f) => `  - ${f.step}: ${f.error ?? "failed"}`).join("\n")}`,
+      ).toBe(0);
     },
-    900_000,
+    3_000_000,
   );
 });

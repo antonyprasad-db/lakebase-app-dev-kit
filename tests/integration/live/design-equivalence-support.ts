@@ -6,26 +6,43 @@
 // so it measured production-turn-MINUS-self-check (a strictly lesser turn). This harness runs the
 // design roles the way production does:
 //
-//   scaffold-project ONCE (beforeAll) -> for each design step: seed the faithful recorded upstream ->
+//   scaffold-project ONCE (beforeAll) -> for each design step: cut a fresh git WORKTREE off the
+//   scaffold's committed HEAD -> seed the faithful recorded upstream into the worktree's .consort ->
 //   run the PRODUCTION-body turn UNCONSTRAINED (Bash allowed, so ./scripts/lk self-check runs) ->
-//   judge the output vs the pin -> RESET the built .consort artifacts -> next step -> remove-project.
+//   judge the output vs the pin -> remove the worktree -> next step -> remove-project.
+//
+// WHY WORKTREE-PER-STEP (not scaffold-once-and-reset): the scaffold commits a PRISTINE .consort/
+// bootstrap (+ .claude/agents, scripts/lk, .lakebase config) into the initial commit , the artifact
+// root is NOT gitignored (only the two per-run files agent-log.jsonl/run-config.json are). So
+// `git worktree add <dir> -b <branch>` off HEAD gives each step a fresh, production-shaped, fully
+// ISOLATED tree with a clean .consort , no snapshot, no rm+restore reset, and steps can run in
+// PARALLEL (each worktree is independent). This mirrors production (a real branch per unit of work,
+// the #589 design) far better than mutating one shared tree.
 //
 // CONFIG-DRIVEN + on the EXISTING orchestration machinery (no bespoke create/teardown): the workspace
 // host comes from the ONE config home (resolveTestEnv -> .env.local.test.config), scaffold + teardown
 // are the catalogued lifecycle ops (scaffold-project / remove-project), same as driver-green. A real
 // Lakebase project IS created (for consistency) even though design roles never touch the DB.
 //
-// RESET CONTRACT (tiered + DB-aware): design roles only Write/Read design docs into .sftdd , they never
-// run alembic or insert rows , so the design reset is FILESYSTEM-ONLY (restore .sftdd to the pristine
-// scaffold via git). resetState is a composable seam: when this pattern extends to CODE/build turns
-// (driver GREEN runs `alembic upgrade` + inserts test rows), the build tier's reset MUST additionally
-// `alembic downgrade base` (or reset the experiment branch to its parent) + purge test-inserted data.
-// The design harness leaves that DB reset unimplemented BY DESIGN (nothing to undo) but names it here.
+// RESET CONTRACT (tiered + DB-aware): design roles only Write/Read design docs into .consort , they
+// never run alembic or insert rows , so a fresh worktree off HEAD is a COMPLETE reset for the design
+// tier (filesystem-only, by construction). When this pattern extends to CODE/build turns (driver GREEN
+// runs `alembic upgrade` + inserts test rows), the worktree gives filesystem isolation but the SHARED
+// Lakebase project does NOT reset itself: the build tier MUST additionally cut a Lakebase BRANCH per
+// worktree (cutExperiment, #589) so the DB state is isolated + torn down with the branch. The design
+// harness leaves that DB isolation unimplemented BY DESIGN (nothing to undo) but names it here.
+//
+// ORPHAN SWEEP: scaffold projects land under KIT (de-live-<ts>/). If a run is KILLED before afterAll
+// (the ~55min background-task cap), the Lakebase project ORPHANS. beforeAll pre-sweeps + afterAll
+// post-sweeps leaked de-live-* dirs via the deterministic orphan-project-sweep (real scm-utils delete),
+// so a killed run self-heals on the next run.
 
 import { expect } from "vitest";
 import { mkdirSync, mkdtempSync, cpSync, rmSync, writeFileSync, existsSync, statSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { execFileSync } from "node:child_process";
+import { createWorktree } from "@databricks-solutions/lakebase-scm-utils/git";
 import { loadRunConfig } from "../../../consort/orchestrator/runners/run-config-loader.js";
 import { resolveTestEnv } from "../../../consort/orchestrator/provisioning/test-env.js";
 import { layDownKitAgents } from "../../../consort/orchestrator/provisioning/bundle.js";
@@ -35,6 +52,8 @@ import type { LifecycleRunContext } from "../../../consort/orchestrator/provisio
 import { buildDriveEffects, type DriveEffectsConfig } from "../../../consort/orchestrator/drive/orchestrator-effects.js";
 import { execRunner } from "../../../consort/orchestrator/drive/claude-runner.js";
 import { resolveConsortSettings } from "../../../consort/orchestrator/settings/project-settings.js";
+import { ARTIFACT_ROOT } from "../../../consort/config/consort-paths.js";
+import { sweepOrphanProjects } from "../../../consort/setup/orphan-project-sweep.js";
 import type { WorkflowAction, DriveState } from "../../../consort/orchestrator/drive/orchestrator-drive.js";
 import type { ValidateBoundDeps } from "../../../consort/orchestrator/steps/step-contract.js";
 import { evaluateSemanticGate, makeOpusJudge, SEMANTIC_THRESHOLD } from "../../../consort/evaluation/semantic-gate.js";
@@ -46,8 +65,6 @@ const SETUP_DIR = join(KIT, "tests/integration/live/design-equivalence-setup");
 const RUN_CONFIG_PATH = join(SETUP_DIR, "design-equivalence.run.json");
 /** The pin's recorded-artifacts , the faithful recorded upstream each equivalence seed copies from. */
 const PIN_ARTIFACTS = join(KIT, "consort/evaluation/reference-assets/stockflow/recorded-artifacts");
-/** The scaffold's consort dir basename (createProject scaffolds a .sftdd tree). */
-const CONSORT_DIRNAME = ".sftdd";
 
 export { DESIGN_LIVE_STEPS, FEATURE };
 
@@ -74,64 +91,120 @@ function nonEmptyDir(dir: string): boolean {
   return existsSync(dir) && statSync(dir).isDirectory() && readdirSync(dir).length > 0;
 }
 
+/** Pre-clean/post-clean leaked de-live-* scaffold dirs under KIT (a run killed before teardown orphans
+ *  its Lakebase project). Best-effort + no-op when nothing is orphaned or the cloud env is unset. Wires
+ *  the REAL scm-utils delete; the orphan sweep reads each dir's projectId/host from its own metadata. */
+export async function sweepDesignEquivOrphans(): Promise<void> {
+  try {
+    const scm = await import("@databricks-solutions/lakebase-scm-utils/lakebase");
+    const report = await sweepOrphanProjects({
+      parentDir: KIT,
+      deleteLakebaseProject: (a) => scm.deleteLakebaseProject({ projectId: a.projectId, host: a.host } as never),
+    });
+    if (report.length) {
+      // eslint-disable-next-line no-console
+      console.log(`[design-equivalence] orphan sweep: ${report.map((r) => `${r.projectId}=${r.deleted ? "deleted" : `LEFT (${r.error ?? "?"})`}`).join(", ")}`);
+    }
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.log(`[design-equivalence] orphan sweep skipped: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
 /** The scaffolded project a design-equivalence run drives , held for the lifetime of the suite so all
- *  8 steps share ONE scaffold (amortized) and reset between them. */
+ *  design steps share ONE scaffold (amortized). Each step cuts its OWN worktree off the committed HEAD
+ *  (no shared mutable .consort), so there is nothing to reset between steps. */
 export interface DesignEquivProject {
   projectDir: string;
-  consortDir: string;
   handle: ScaffoldHandle;
   teardownCtx: LifecycleRunContext;
-  /** A temp copy of the PRISTINE post-scaffold .sftdd, taken in beforeAll. resetDesignState restores
-   *  from it (git can't , createProject gitignores .sftdd as a runtime dir, so it is UNtracked). */
-  pristineSnapshot: string;
+  /** A temp dir the per-step worktrees are cut under (each step gets `<worktreesRoot>/<step>-<n>`). */
+  worktreesRoot: string;
 }
 
 /** SCAFFOLD ONCE: a real project (Databricks + Lakebase + optional GitHub) via the catalogued
- *  scaffold-project op, reading databricksHost from the run-config. Lays the kit's role agent defs so
- *  the live `--agent <role>` resolves, then SNAPSHOTS the pristine .sftdd for per-step reset. */
+ *  scaffold-project op, reading databricksHost from the run-config. The scaffold commits a PRISTINE
+ *  .consort/ bootstrap (+ .claude/agents, scripts/lk, .lakebase config) into its initial commit, so
+ *  every per-step worktree checks out a clean, production-shaped tree. Pre-sweeps orphans first. */
 export async function scaffoldDesignEquivProject(): Promise<DesignEquivProject> {
+  await sweepDesignEquivOrphans();
   const { scaffoldConfig } = resolveDesignEquivRunConfig();
   const setupCtx: LifecycleRunContext = { workspaceDir: KIT };
   const setup = await catalogueLifecycleDeps.run({ kind: "scaffold-project", config: scaffoldConfig }, setupCtx);
   if (!setup.ok || !setup.handle) throw new Error(`scaffold-project failed: ${setup.error ?? "no handle"}`);
   const handle = setup.handle as ScaffoldHandle;
   const projectDir = handle.projectDir!;
+  // Ensure the FRESHEST kit role agents on the base tree (the scaffold committed a copy; overwrite so
+  // a kit change since scaffold is reflected). Worktrees inherit .claude/agents from HEAD, and each is
+  // re-laid at cut time for the same freshness guarantee.
   layDownKitAgents(projectDir, KIT);
-  const consortDir = join(projectDir, CONSORT_DIRNAME);
 
-  // Snapshot the PRISTINE post-scaffold .sftdd so each per-step reset restores exactly this state.
-  // Git can't do it: createProject gitignores .sftdd as a runtime dir, so it's untracked (git
-  // checkout finds no pathspec, git clean skips gitignored). A plain copy is the robust reset source.
-  const pristineSnapshot = mkdtempSync(join(tmpdir(), "de-pristine-"));
-  if (existsSync(consortDir)) cpSync(consortDir, pristineSnapshot, { recursive: true });
-
-  return {
-    projectDir,
-    consortDir,
-    handle,
-    teardownCtx: { workspaceDir: KIT, setupHandle: setup.handle },
-    pristineSnapshot,
-  };
+  const worktreesRoot = mkdtempSync(join(tmpdir(), "de-worktrees-"));
+  // Suite-scoped env, set ONCE (constant for every step) so PARALLEL steps never race a per-step
+  // set/delete: the manifest-step path + the kit dir the `lk` shim resolves. Cleared in teardown.
+  process.env.LAKEBASE_SFTDD_USE_MANIFEST_STEPS = "1";
+  process.env.LAKEBASE_KIT_DIR = KIT;
+  return { projectDir, handle, teardownCtx: { workspaceDir: KIT, setupHandle: setup.handle }, worktreesRoot };
 }
 
 /** TEARDOWN: remove everything scaffold-project created (never-leaking catalogue remove-project) +
- *  drop the pristine snapshot temp dir. */
+ *  drop the worktrees-root temp dir, then post-sweep any orphan a killed sibling run left. */
 export async function teardownDesignEquivProject(project: DesignEquivProject): Promise<void> {
   try {
     await catalogueLifecycleDeps.run({ kind: "remove-project", config: {} }, project.teardownCtx);
   } finally {
-    rmSync(project.pristineSnapshot, { recursive: true, force: true });
+    delete process.env.LAKEBASE_SFTDD_USE_MANIFEST_STEPS;
+    rmSync(project.worktreesRoot, { recursive: true, force: true });
+    await sweepDesignEquivOrphans();
   }
 }
 
-/** RESET the built state between per-step runs. DESIGN tier = FILESYSTEM-ONLY: restore .sftdd to the
- *  PRISTINE post-scaffold snapshot (rm + copy), so the next step's seed lands on a clean tree. NOT
- *  git-based , createProject gitignores .sftdd (runtime dir), so it's untracked and git checkout/clean
- *  cannot restore it. NO DB reset here (design roles never ran alembic or inserted rows); the build
- *  tier that extends this MUST add `alembic downgrade base` + a test-data purge alongside this. */
-function resetDesignState(project: DesignEquivProject): void {
-  rmSync(project.consortDir, { recursive: true, force: true });
-  cpSync(project.pristineSnapshot, project.consortDir, { recursive: true });
+/** Force-remove a per-step worktree. scm-utils removeWorktree has no --force, but a design step leaves
+ *  a dirty tree (it wrote artifacts into .consort), so a plain `git worktree remove` would refuse.
+ *  Force-remove; if git balks (locked), rm the dir + prune the metadata so the scaffold's .git is clean
+ *  for the next cut. Best-effort , the whole scaffold is deleted in teardown anyway. */
+function forceRemoveWorktree(projectDir: string, wtDir: string): void {
+  try {
+    execFileSync("git", ["worktree", "remove", "--force", wtDir], { cwd: projectDir, stdio: "ignore", timeout: 30_000 });
+    return;
+  } catch {
+    /* fall through to rm + prune */
+  }
+  try { rmSync(wtDir, { recursive: true, force: true }); } catch { /* ignore */ }
+  try { execFileSync("git", ["worktree", "prune"], { cwd: projectDir, stdio: "ignore", timeout: 30_000 }); } catch { /* ignore */ }
+}
+
+let worktreeSeq = 0;
+
+/** Cut a fresh git worktree off the scaffold's committed HEAD for one step: a clean, production-shaped
+ *  tree (pristine .consort bootstrap + .claude/agents + scripts/lk + .lakebase from HEAD). Copies the
+ *  gitignored `.env` (Databricks host/profile , not in HEAD) so the tree mirrors the scaffold exactly,
+ *  and re-lays the freshest kit agents. Returns the worktree dir + its .consort. Retries a transient
+ *  `git worktree add` collision (parallel steps share the scaffold's .git metadata). */
+async function cutStepWorktree(project: DesignEquivProject, step: TurnKey): Promise<{ wtDir: string; consortDir: string }> {
+  const unique = `${step}-${Date.now().toString(36)}-${worktreeSeq++}`;
+  const wtDir = join(project.worktreesRoot, unique); // MUST NOT exist , git creates it
+  const branch = `de-eq/${unique}`;
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      await createWorktree({ cwd: project.projectDir, path: wtDir, branch });
+      lastErr = undefined;
+      break;
+    } catch (e) {
+      lastErr = e;
+      await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+    }
+  }
+  if (lastErr) throw new Error(`git worktree add for ${step} failed: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`);
+
+  // Mirror the scaffold's gitignored .env into the worktree (host/profile for fidelity), best-effort.
+  const baseEnv = join(project.projectDir, ".env");
+  if (existsSync(baseEnv)) cpSync(baseEnv, join(wtDir, ".env"));
+  // Freshest kit agents (overwrite; HEAD already carries a copy).
+  layDownKitAgents(wtDir, KIT);
+
+  return { wtDir, consortDir: join(wtDir, ARTIFACT_ROOT) };
 }
 
 /** The DriveEffectsConfig for a design-equivalence turn: UNCONSTRAINED (Bash allowed) so the role's
@@ -162,7 +235,7 @@ function equivCfg(projectDir: string, consortDir: string): DriveEffectsConfig {
   return cfg;
 }
 
-/** Seed a spec's faithful recorded upstream (equivalenceSeed) into the scaffold's .sftdd. */
+/** Seed a spec's faithful recorded upstream (equivalenceSeed) into the worktree's .consort. */
 function seedUpstream(consortDir: string, spec: DesignLiveSpec): void {
   const seed = spec.equivalenceSeed ?? spec.seed;
   for (const s of seed) {
@@ -176,27 +249,28 @@ function seedUpstream(consortDir: string, spec: DesignLiveSpec): void {
 }
 
 /**
- * Run ONE design step's PRODUCTION-body turn on the shared scaffold, judge it vs the pin, and RESET.
- * Seeds the faithful recorded upstream, dispatches through the shipped performViaExecutor path with the
- * pure production prompt (unconstrained, so ./scripts/lk self-check runs), asserts the artifact landed,
- * then judges semantic equivalence to the pin at spec.step (per-story slice for the story-scoped roles).
- * Always resets the .sftdd tree afterward (finally), so the next step starts pristine.
+ * Run ONE design step's PRODUCTION-body turn in its OWN worktree, judge it vs the pin, and remove the
+ * worktree. Cuts a fresh worktree off the scaffold HEAD (clean .consort by construction), seeds the
+ * faithful recorded upstream, dispatches through the shipped performViaExecutor path with the pure
+ * production prompt (unconstrained, so ./scripts/lk self-check runs), asserts the artifact landed, then
+ * judges semantic equivalence to the pin at spec.step (per-story slice for the story-scoped roles).
+ * Always removes the worktree afterward (finally). No shared state, so steps are safe to run in parallel.
  */
 export async function runDesignEquivStep(project: DesignEquivProject, step: TurnKey): Promise<void> {
   const spec = designSpec(step);
-  const { projectDir, consortDir } = project;
+  const { wtDir, consortDir } = await cutStepWorktree(project, step);
 
-  process.env.LAKEBASE_SFTDD_USE_MANIFEST_STEPS = "1";
-  process.env.LAKEBASE_KIT_DIR = KIT;
+  // LAKEBASE_SFTDD_USE_MANIFEST_STEPS + LAKEBASE_KIT_DIR are set ONCE in scaffoldDesignEquivProject
+  // (constant for the whole suite) so parallel steps never race a per-step set/delete.
   try {
     seedUpstream(consortDir, spec);
-    const cfg = equivCfg(projectDir, consortDir);
+    const cfg = equivCfg(wtDir, consortDir);
     const state = { phase: "feature" } as unknown as DriveState;
     const effects = buildDriveEffects(cfg);
     const bounded = await effects.performViaExecutor!(spec.action, state, routerDeps);
     expect(bounded, `${spec.name} should be executor-dispatched`).toBeDefined();
 
-    // The artifact landed under .sftdd at its feature/story-scoped path (the artifact channel).
+    // The artifact landed under .consort at its feature/story-scoped path (the artifact channel).
     const artifactAbs = join(consortDir, spec.artifactRel);
     if (spec.artifactIsDir) {
       expect(nonEmptyDir(artifactAbs), `${spec.name} produced a non-empty ${spec.artifactRel}/`).toBe(true);
@@ -225,9 +299,49 @@ export async function runDesignEquivStep(project: DesignEquivProject, step: Turn
       `${step}: produced artifact not semantically equivalent to the pin , ${outcome.reason ?? "below threshold"}`,
     ).toBe(true);
   } finally {
-    delete process.env.LAKEBASE_SFTDD_USE_MANIFEST_STEPS;
-    // RESET (filesystem) so the next step seeds onto a pristine .sftdd , see resetDesignState's note
-    // on the tiered/DB-aware contract the build tier extends.
-    resetDesignState(project);
+    // Remove the worktree (fresh one per step => nothing to reset; the whole scaffold is torn down in
+    // afterAll). For the build tier, ALSO drop this step's Lakebase branch here (see the header note).
+    forceRemoveWorktree(project.projectDir, wtDir);
   }
+}
+
+/** One step's outcome in a parallel run: passed, or the assertion/dispatch error message. */
+export interface DesignEquivStepResult {
+  step: TurnKey;
+  passed: boolean;
+  error?: string;
+}
+
+/**
+ * Run every design step in PARALLEL on the ONE scaffold, bounded to `concurrency` at a time (each in
+ * its OWN worktree => no shared state to race). Collects each step's outcome instead of throwing, so
+ * one failing step never aborts the rest (the caller asserts on the collected results). This is the
+ * cap-safe shape: 8 sequential ~15min turns would blow the ~55min background-task lifetime, but
+ * ~3-4-wide fan-out finishes the wall-clock in well under the cap. Concurrency is bounded (not
+ * all-at-once) so N `claude -p` spawns don't thrash the host.
+ */
+export async function runDesignEquivStepsParallel(
+  project: DesignEquivProject,
+  steps: readonly TurnKey[],
+  concurrency = 4,
+): Promise<DesignEquivStepResult[]> {
+  const queue = [...steps];
+  const results: DesignEquivStepResult[] = [];
+  const worker = async (): Promise<void> => {
+    for (;;) {
+      const step = queue.shift();
+      if (!step) return;
+      try {
+        await runDesignEquivStep(project, step);
+        results.push({ step, passed: true });
+      } catch (e) {
+        results.push({ step, passed: false, error: e instanceof Error ? e.message : String(e) });
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(concurrency, steps.length)) }, worker));
+  // Stable order (queue draining is nondeterministic under concurrency) for a readable report.
+  const order = new Map(steps.map((s, i) => [s, i]));
+  results.sort((a, b) => (order.get(a.step) ?? 0) - (order.get(b.step) ?? 0));
+  return results;
 }
