@@ -335,7 +335,7 @@ describe("checkArtifactConformance: JSON artifacts (schema-validated)", () => {
     // The regression this locks: the reference is the semantic-gate target + what
     // downstream roles read; it MUST validate against the schema the gate enforces.
     const ref = readFileSync(
-      join(__dirname, "../../examples/sftdd-scenarios/stockflow/recorded-artifacts/features/F1-stock-visibility/architecture.json"),
+      join(__dirname, "../../examples/replay-scenarios/stockflow/recorded-artifacts/features/F1-stock-visibility/architecture.json"),
       "utf8",
     );
     const r = checkArtifactConformance("architecture.json", ref);

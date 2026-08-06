@@ -10,7 +10,7 @@ This directory is the home for those scenarios, so new ones can be added over
 time. Each lives in its own folder:
 
 ```
-examples/sftdd-scenarios/<name>/
+examples/replay-scenarios/<name>/
   scenario.json        # manifest (schema: scripts/sftdd/schemas/scenario.schema.json)
   recorded-artifacts/  # the DESIGN-lane corpus (per-feature design + agent-log.design.jsonl)
   recorded-build/      # the BUILD corpus (code tree + green/reviewed cycles + experiments)
@@ -40,7 +40,7 @@ examples/sftdd-scenarios/<name>/
 Drive a real feature with the per-turn recorder pointed at the scenario dir:
 
 ```bash
-examples/sftdd-scenarios/capture-scenario.sh \
+examples/replay-scenarios/capture-scenario.sh \
   --scenario <name> --project-dir <live-project> --feature F1-... [--feature F6-...]
 ```
 
@@ -59,7 +59,7 @@ guard: a corpus can never silently rot into an un-replayable state.
 
 ### 3. Replay (live, on demand, workspace-backed)
 ```bash
-examples/sftdd-scenarios/replay-scenario.sh --scenario <name> [--to release-engineer]
+examples/replay-scenarios/replay-scenario.sh --scenario <name> [--to release-engineer]
 ```
 Reuses the shared replay engine (`examples/tdd-workflow-smoke/orchestrator/_replay-smoke.sh`):
 for each feature it replays the DESIGN lane from `recorded-artifacts/`, restores

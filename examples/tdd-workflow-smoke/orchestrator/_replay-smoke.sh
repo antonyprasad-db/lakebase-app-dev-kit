@@ -38,7 +38,7 @@ replay_smoke() {
   # resolve to the same dir , [0] is just cwd-independent.
   ORCHESTRATOR_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   # ASSERT_DIR + INTAKE_DIR default next to this engine (the bug-tracker smoke),
-  # but a generic caller (examples/sftdd-scenarios/replay-scenario.sh, which lives
+  # but a generic caller (examples/replay-scenarios/replay-scenario.sh, which lives
   # at a different depth) overrides them so it can reuse the shared assertions +
   # supply a per-scenario intake set.
   ASSERT_DIR="${REPLAY_ASSERT_DIR:-${ORCHESTRATOR_DIR}/assertions}"

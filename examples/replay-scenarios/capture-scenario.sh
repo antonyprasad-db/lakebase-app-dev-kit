@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Capture a new SFTDD replay scenario: drive a real feature live with the per-turn
-# recorder on, recording straight into examples/sftdd-scenarios/<name>/ so the
+# recorder on, recording straight into examples/replay-scenarios/<name>/ so the
 # result is immediately a committable, replayable integration-test corpus. This
 # is the "record once" half of the loop whose "replay forever" half is
 # replay-scenario.sh; see SCENARIOS.md.
@@ -202,7 +202,7 @@ if [[ -n "$CREATE" ]]; then
   # the reader bin is absent (stale dist).
   #
   # An IN-PROGRESS scenario holds its manifest as scenario.json.pending (so
-  # sftdd-scenarios.test.ts does not treat the unfinished dir as a shippable corpus;
+  # replay-scenarios.test.ts does not treat the unfinished dir as a shippable corpus;
   # it is renamed to scenario.json only at finalization). That .pending file IS the
   # authored manifest, so a capture/optimize run must read it: prefer scenario.json,
   # fall back to scenario.json.pending. Without this fallback every condition

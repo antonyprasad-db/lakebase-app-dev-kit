@@ -348,7 +348,7 @@ first-project/
 ```
 
 The three intake docs are byte-identical to the kit's canonical scenario at
-[`examples/sftdd-scenarios/stockflow/intake/`](../sftdd-scenarios/stockflow/intake),
+[`examples/replay-scenarios/stockflow/intake/`](../replay-scenarios/stockflow/intake),
 so copying them reproduces the same StockFlow product the reference corpus was
 recorded against, so that consort itself can be tested and guarded against
 regressions. The proposals and requests are the StockFlow reference

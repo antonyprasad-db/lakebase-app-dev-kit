@@ -27,7 +27,7 @@ const CORPUS = join(
   "..",
   "..",
   "examples",
-  "sftdd-scenarios",
+  "replay-scenarios",
   "stockflow",
   "recorded-artifacts",
 );

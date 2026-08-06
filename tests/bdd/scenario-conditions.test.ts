@@ -75,7 +75,7 @@ describe("formatScenarioConditionField (shell-friendly)", () => {
 
 describe("stockflow scenario.json declares its conditions (the single source)", () => {
   it("uiTrack:true + python/self-hosted, so the capture funnels them to create-project", () => {
-    const p = join(__dirname, "..", "..", "examples", "sftdd-scenarios", "stockflow", "scenario.json");
+    const p = join(__dirname, "..", "..", "examples", "replay-scenarios", "stockflow", "scenario.json");
     const m = JSON.parse(readFileSync(p, "utf8"));
     expect(m.uiTrack).toBe(true);
     expect(m.language).toBe("python");

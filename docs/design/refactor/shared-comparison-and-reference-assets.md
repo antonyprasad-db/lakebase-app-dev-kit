@@ -10,7 +10,7 @@ path (the champion-walk sweep) use ONE comparison mechanism against ONE referenc
    reference-asset area, sourced from the MOST RECENT re-record (`stockflow-rerecord`).
 
 Today neither is shared: the judges live in `consort/optimize/`, and references are resolved LIVE
-off `examples/sftdd-scenarios/{stockflow,stockflow-rerecord}` (a moving target). A-full's regression
+off `examples/replay-scenarios/{stockflow,stockflow-rerecord}` (a moving target). A-full's regression
 proofs never invoked a judge (they used conformance validators + honest-GREEN only), so
 executor-produced outputs were never compared , semantically, discriminatively, or functionally ,
 to the corpus. This plan builds the shared substrate that closes that.
@@ -35,7 +35,7 @@ to the corpus. This plan builds the shared substrate that closes that.
   `tests/integration/live/build-support.ts`.
 - **Reference resolution** reads from TWO corpora, LIVE: `corpusForStep` maps dba->`stockflow-rerecord`,
   every other design step->`stockflow` (canonical), build code->`stockflow` recorded-build. Rooted at
-  `examples/sftdd-scenarios/<corpus>/recorded-artifacts|recorded-build`.
+  `examples/replay-scenarios/<corpus>/recorded-artifacts|recorded-build`.
 - **Precedent for pinning** = `consort/optimize/evaluation/fixtures/` , a SELF-CONTAINED snapshot of
   the exact recorded artifacts an experiment is judged against, with a README stating the
   "preserve-experiment-artifacts" discipline (the corpus is a MOVING target; pin the bytes). But it
@@ -66,7 +66,7 @@ import DOWN into it. No new cycle.
   call the reference RESOLVER (Move 2), not hardcoded corpus paths.
 - `consort/evaluation/reference.ts` , `resolveStepReference` / `resolveBuildReference` /
   `readCandidateArtifact` / `readCandidateBuildOutput` / `readTree` / `StepReference`, RE-POINTED at
-  the shared reference-asset area (Move 2) instead of `examples/sftdd-scenarios/`.
+  the shared reference-asset area (Move 2) instead of `examples/replay-scenarios/`.
 - `consort/optimize/optimize-semantic-gate.ts` becomes a thin RE-EXPORT of the moved symbols (so
   every current optimize + test importer keeps working with zero churn), OR the importers repoint in
   the same commit (repoint.mjs, the foliation mechanic). Prefer repoint + delete the shim after, per
@@ -86,7 +86,7 @@ trees (S1 003-driver, S1 004-navigator-assess, S3 001-navigator-reflect) as FULL
 each, ~21 non-source: .vscode/.vite/.env.example/alembic.ini/lockfiles), + their tdd/ markers
 (green-failure, superseded-tests, regression-assessment, review, cycle) + experiments/. The build
 judge reads it via `BUILD_CORPUS_REL`; the DESIGN judge (`resolveStepReference`) reads live from
-`examples/sftdd-scenarios/{stockflow,rerecord}`. So references are ALREADY split across two homes +
+`examples/replay-scenarios/{stockflow,rerecord}`. So references are ALREADY split across two homes +
 two mechanisms , the fragmentation this work must end.
 
 Implications for Move 2 (corrections to the naive "build a new pin"):
@@ -137,13 +137,13 @@ common home + widened to the full A-full role set.
   MIRRORS a corpus (`recorded-artifacts/` + `recorded-build/`) so the existing sftdd-paths builders
   resolve reference paths the SAME way they resolve live `.consort` paths (no bespoke path logic).
 - Sourced by COPYING (not symlinking) the exact bytes from
-  `examples/sftdd-scenarios/stockflow-rerecord/{recorded-artifacts,recorded-build}` for
+  `examples/replay-scenarios/stockflow-rerecord/{recorded-artifacts,recorded-build}` for
   F1-stock-visibility (the complete design set + its story code trees), plus F6 where an
   assess/superseded reference needs the contract-drop feature. A `PROVENANCE.md` records the source
   corpus + the commit/tag it was copied at (durably reproducible; the corpus can move without
   breaking the pin).
 - The `reference.ts` resolver's corpus root becomes `consort/evaluation/reference-assets/<pin>/`
-  (default), with the live `examples/sftdd-scenarios/` corpus as an OPTIONAL override (env) for
+  (default), with the live `examples/replay-scenarios/` corpus as an OPTIONAL override (env) for
   someone re-recording. So regression reads the PIN by default; the sweep can point at a fresh
   corpus when re-recording.
 - Retire/redirect `consort/optimize/evaluation/fixtures/` , either move its F6 build fixtures under

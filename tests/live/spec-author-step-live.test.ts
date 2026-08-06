@@ -35,7 +35,7 @@ import type { DriveState } from "../../consort/orchestrator/drive/orchestrator-d
 import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 
 const KIT = process.cwd();
-const CORPUS = join(KIT, "examples/sftdd-scenarios/stockflow/recorded-artifacts");
+const CORPUS = join(KIT, "examples/replay-scenarios/stockflow/recorded-artifacts");
 const FEATURE = "F1-stock-visibility";
 // The agent's baked, cwd-relative output layout , the orchestrator knows + declares it.
 const SPEC_REL = `.sftdd/features/${FEATURE}/feature-spec.json`;
@@ -53,7 +53,7 @@ function setupLiveBreakdown(): { workspaceDir: string; inputs: Record<string, st
   cpSync(join(KIT, "skills/consort/agents/spec-author.md"), join(workspaceDir, ".claude", "agents", "spec-author.md"));
   mkdirSync(join(workspaceDir, "scripts"), { recursive: true });
   const standingProj = join(process.env.HOME ?? "", "code/tdd-workflow-smoke", (process.env.LIVE_STEP_PROJECT ?? ""));
-  const lkSrc = existsSync(join(standingProj, "scripts/lk")) ? join(standingProj, "scripts/lk") : join(KIT, "examples/sftdd-scenarios/lk");
+  const lkSrc = existsSync(join(standingProj, "scripts/lk")) ? join(standingProj, "scripts/lk") : join(KIT, "examples/replay-scenarios/lk");
   if (existsSync(lkSrc)) {
     cpSync(lkSrc, join(workspaceDir, "scripts", "lk"));
     chmodSync(join(workspaceDir, "scripts", "lk"), 0o755);

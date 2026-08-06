@@ -17,11 +17,11 @@
 # FULL CLOUD: this scaffolds a real repo + runner + Lakebase project. Requires the config home to
 # resolve a host + a profile authenticated (`databricks auth login --profile <p>`) + gh auth.
 #
-# Usage:  bash examples/sftdd-scenarios/replay-stockflow-rerecord.sh [--to navigator|release-engineer]
+# Usage:  bash examples/replay-scenarios/replay-stockflow-rerecord.sh [--to navigator|release-engineer]
 # Env:    everything comes from .env.local.test.config (profile/host/owner); no flags needed.
 set -euo pipefail
 
-SCEN_DIR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # examples/sftdd-scenarios
+SCEN_DIR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # examples/replay-scenarios
 REPO_ROOT="$(cd "$SCEN_DIR_ROOT/../.." && pwd)"                 # repo root (two up)
 SCENARIO="stockflow-rerecord"
 TO="release-engineer"

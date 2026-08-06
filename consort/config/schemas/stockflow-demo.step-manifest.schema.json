@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://databricks-solutions.github.io/consort/schemas/stockflow-demo.step-manifest.schema.json",
   "title": "StockflowDemoStepManifest",
-  "description": "The DATA face of one step in the stockflow DEMO 2-turn replay orchestration , same shape as the base step-manifest schema (id/role/match/inputs/outputs/routing/agentOptions/postTurn). A distinct $id + title so the demo family's manifests validate against their own schema without colliding with the shipped step-manifest.schema.json. See examples/sftdd-scenarios/stockflow/step-manifests/*.json.",
+  "description": "The DATA face of one step in the stockflow DEMO 2-turn replay orchestration , same shape as the base step-manifest schema (id/role/match/inputs/outputs/routing/agentOptions/postTurn). A distinct $id + title so the demo family's manifests validate against their own schema without colliding with the shipped step-manifest.schema.json. See examples/replay-scenarios/stockflow/step-manifests/*.json.",
   "type": "object",
   "required": ["id", "role", "match", "inputs", "outputs", "routing", "agentOptions"],
   "properties": {

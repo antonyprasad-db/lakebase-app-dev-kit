@@ -27,7 +27,7 @@ function resolveKitRoot(): string {
 }
 const SUBSTRATE_PKG = "@databricks-solutions/lakebase-scm-utils";
 
-/** The kit repo root (holds package.json + examples/sftdd-scenarios/). Exposed so a
+/** The kit repo root (holds package.json + examples/replay-scenarios/). Exposed so a
  *  bin that needs kit-relative assets (e.g. the recorded reference corpora the
  *  optimize semantic gate compares against) resolves them the same way, regardless
  *  of dev-clone vs installed-package layout. */

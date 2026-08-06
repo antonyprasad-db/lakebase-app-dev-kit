@@ -12,7 +12,7 @@ It also serves as the SEED corpus for the build-role chains (`BUILD_CORPUS_REL` 
 recorded `code/` tree is overlaid into a workspace and a live build role runs against it.
 
 ## Provenance
-Copied out of the live scenario corpus `examples/sftdd-scenarios/stockflow-rerecord` (the most
+Copied out of the live scenario corpus `examples/replay-scenarios/stockflow-rerecord` (the most
 recent re-record). The scenario corpus is a MOVING target (re-recorded, scrubbed, renumbered) and
 may be absent when someone later re-runs a comparison or reviews the evidence , so the exact bytes a
 judge conditioned + scored against are PINNED here, and the corpus is not a runtime dependency. This
@@ -37,7 +37,7 @@ is the preserve-experiment-artifacts discipline applied to INPUTS + REFERENCES, 
 
 ## Refreshing
 If the comparison's feature/story/AC/turn selection changes, re-copy the corresponding subtree from
-`examples/sftdd-scenarios/stockflow-rerecord` into the same relative path here. Keep it MINIMAL (only
+`examples/replay-scenarios/stockflow-rerecord` into the same relative path here. Keep it MINIMAL (only
 what a judge reads or a chain seeds) so the set stays small + its provenance obvious. The whole tree
 is excluded from tsc (`tsconfig` exclude: `consort/evaluation/reference-assets`) + vitest collection
 (include is `tests/**`), so the reference code trees are DATA , never compiled or run as kit tests.

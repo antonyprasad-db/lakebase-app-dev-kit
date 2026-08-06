@@ -16,7 +16,7 @@ preserved under `experiments/`; the surviving `turns/` + `recorded-artifacts/` +
   committed ask the capture seeds.
 - `scenario.json.pending` , the manifest. It is renamed to `scenario.json` ONLY when
   the corpus is finalized (the kit convention: a `scenario.json` marks a dir as a
-  committed, replay-ready scenario, and `sftdd-scenarios.test.ts` then requires the
+  committed, replay-ready scenario, and `replay-scenarios.test.ts` then requires the
   full corpus). Until then the manifest stays `.pending` so the scenario suite does
   not treat this in-progress dir as a shippable corpus.
 - `experiments/` (produced) , every discarded candidate attempt + `champion-walk.json`

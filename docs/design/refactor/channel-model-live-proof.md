@@ -111,7 +111,7 @@ to ac.json (the deterministic floor legacy verify-artifact + the design gate enf
 ## BLOCKER FOUND (Stage 1, must fix on the real path before the FULL executor-dispatch + live proof)
 Widening surfaced a REAL latent bug in the shipped design manifests' INPUT `source` model , found by
 running these manifests' inputs through the executor for the first time, and cross-checked against the
-REAL recorded tree (`examples/sftdd-scenarios/stockflow-rerecord/recorded-artifacts/`):
+REAL recorded tree (`examples/replay-scenarios/stockflow-rerecord/recorded-artifacts/`):
 
 - The executor's `inputPath` (executor-dispatch.ts) resolves `feature:<rel>` → `<consortDir>/<rel>`
   (FLAT, consort-root-relative) and `story:<rel>` → `storyResolved(...)`. The manifest-runner +

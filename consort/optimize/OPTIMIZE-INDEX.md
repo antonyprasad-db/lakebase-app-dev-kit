@@ -75,7 +75,7 @@ top; fixed c1c4a7f1 by running all cmds except verify-artifact). All resolved; n
 
 TWO ABSOLUTE RULES (both learned the hard way; violating either WASTES LIVE-CLOUD TOKENS):
 - **A recorded winner is REPLAYED, never re-run.** Once a handoff's winner artifact is in the
-  replay corpus (`examples/sftdd-scenarios/stockflow-optimize/recorded-artifacts/`), you NEVER
+  replay corpus (`examples/replay-scenarios/stockflow-optimize/recorded-artifacts/`), you NEVER
   sweep it AND NEVER spawn its model again — not even to "advance the drive past it". Set
   `LAKEBASE_SFTDD_REPLAY_DIR=<corpus>` and the drive-runner (drive-runner.ts:403) COPIES the
   recorded artifact from disk in ~0s for any `REPLAYABLE_DESIGN_ROLES` role (spec-author,
@@ -350,7 +350,7 @@ auto-deny. acceptEdits is honored + grants Write AND Bash headless. See memory
 
 ## Kit resolution (split-brain guard)
 
-- Local dev ref = `sftdd-capture-local`. `pin_local_kit_cache` (examples/sftdd-scenarios/lib/pin-local-kit.sh)
+- Local dev ref = `sftdd-capture-local`. `pin_local_kit_cache` (examples/replay-scenarios/lib/pin-local-kit.sh)
   plants `~/.cache/consort/sftdd-capture-local/node_modules/@databricks-solutions/consort`
   → symlink to THIS repo. (NOTE: the symlink is under `node_modules/`, NOT `<cache>/dist`.)
 - Agents are env-less; they resolve the ref from the project's `.lakebase/kit-ref.local`
@@ -365,14 +365,14 @@ auto-deny. acceptEdits is honored + grants Write AND Bash headless. See memory
 
 ## Runbooks + tests
 
-- `examples/sftdd-scenarios/optimize-scenario.sh` — the run wrapper. USE single-handoff (no `--sweep-lane`).
-- `examples/sftdd-scenarios/archive-optimize-results.sh` — copies a role's results into the committed optimize-results/<handoff>/ (summary.json + report.md + champion-walk.json + per-candidate trials) so metrics survive project teardown.
-- `examples/sftdd-scenarios/watch-artifacts.sh` — Monitor-friendly artifact watcher.
+- `examples/replay-scenarios/optimize-scenario.sh` — the run wrapper. USE single-handoff (no `--sweep-lane`).
+- `examples/replay-scenarios/archive-optimize-results.sh` — copies a role's results into the committed optimize-results/<handoff>/ (summary.json + report.md + champion-walk.json + per-candidate trials) so metrics survive project teardown.
+- `examples/replay-scenarios/watch-artifacts.sh` — Monitor-friendly artifact watcher.
 - Tests: `tests/bdd/optimize-*.test.ts`. Live: `tests/live/*`.
 
 ## Scenario corpus + where results/metrics live
-- `examples/sftdd-scenarios/stockflow-optimize/` — intake/ + scenario.json.pending (tiers 2, uiTrack, python, self-hosted). `recorded-artifacts/` + `turns/` are the KEPT, COMMITTED REPLAY CORPUS (winners' .sftdd output); set LAKEBASE_SFTDD_REPLAY_DIR to it to fast-forward. Do NOT scrub it.
-- `examples/sftdd-scenarios/optimize-results/<handoff>/` — COMMITTED run metrics: summary.json (per-candidate median/gate/cost + winner), report.md (champion-walk table), champion-walk.json, per-candidate trial result.json. The source of truth for metrics; survives teardown.
+- `examples/replay-scenarios/stockflow-optimize/` — intake/ + scenario.json.pending (tiers 2, uiTrack, python, self-hosted). `recorded-artifacts/` + `turns/` are the KEPT, COMMITTED REPLAY CORPUS (winners' .sftdd output); set LAKEBASE_SFTDD_REPLAY_DIR to it to fast-forward. Do NOT scrub it.
+- `examples/replay-scenarios/optimize-results/<handoff>/` — COMMITTED run metrics: summary.json (per-candidate median/gate/cost + winner), report.md (champion-walk table), champion-walk.json, per-candidate trial result.json. The source of truth for metrics; survives teardown.
 - `<project>/experiments/` — raw per-candidate trial scratch (disposable, dies with the project). Run logs: /tmp/optimize-*.log.
 
 ## CLI scope: `--sweep-lane` vs single-handoff, and `--from`

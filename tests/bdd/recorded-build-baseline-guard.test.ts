@@ -23,7 +23,7 @@ import { join } from "node:path";
 import { buildOutputKind, type BuildOutputKind } from "../../consort/evaluation/semantic-gate";
 
 const KIT = process.cwd();
-const SCENARIOS = join(KIT, "examples/sftdd-scenarios");
+const SCENARIOS = join(KIT, "examples/replay-scenarios");
 
 /** The recognized BuildTurn families a label can name, mirroring turnKeyForAction. `undefined`
  *  is the navigator-reflect critic (a real, valid turn with no build key). A label that yields

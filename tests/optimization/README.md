@@ -19,7 +19,7 @@ preserved source, not from telemetry alone. That means preserving both halves:
 
 1. **Inputs (the fixtures).** The chain manifests + recorded artifacts these tests replay are
    deliberate SELF-CONTAINED COPIES — elements cherry-picked out of the canonical regression corpora
-   (`examples/sftdd-scenarios/*`) and copied into what the isolated tests need. They are copies BY
+   (`examples/replay-scenarios/*`) and copied into what the isolated tests need. They are copies BY
    DESIGN: an experiment that reached into the live corpus would break the instant the corpus was
    re-recorded, and old results couldn't be replayed. So the fixtures are pinned + owned by the
    harness, never a live link to the corpus (no drift guard — a copy is the correct end state).
@@ -202,10 +202,10 @@ speedup would firm up with a 2-3× repeat of e-low + baseline.
 ### 2026-08-04 — relocated the per-role optimize harness under tests/optimization/ (#575, DONE)
 Ownership model (settled with the user):
 - **The recorded corpora are REGRESSION fixtures first.** The canonical, complete copies live in
-  `examples/sftdd-scenarios/*` (stockflow-rerecord etc.). Their primary job: a full **agents-off
+  `examples/replay-scenarios/*` (stockflow-rerecord etc.). Their primary job: a full **agents-off
   replay** that confirms scaffolding, PR/merge, and the orchestrator's replay path are not broken
   (no agent doing real work). That standing regression test does not exist yet (only hermetic
-  integrity guards + the manual `replay-scenario.sh`) — filed as **#574**. `examples/sftdd-scenarios/`
+  integrity guards + the manual `replay-scenario.sh`) — filed as **#574**. `examples/replay-scenarios/`
   is the source of truth and stays put.
 - **The optimize harness is a secondary consumer that CHERRY-PICKS COPIES.** Its fixtures are
   elements picked out of the corpora and COPIED into what the isolated single-turn perf-tuning tests
@@ -233,7 +233,7 @@ What actually moved (a code trace corrected the original blanket plan):
     the fixture-path constants (`INTAKE_REL`, `BUILD_MANIFESTS_REL`, `BUILD_CORPUS_REL`) live in the
     STAYING files and serve the integration tests too; moving them would make a staying/production
     file reach into `tests/optimization/`. They stay where every consumer already points.
-- `examples/sftdd-scenarios/` (the regression corpus) is untouched.
+- `examples/replay-scenarios/` (the regression corpus) is untouched.
 
 ### 2026-08-04 — ux-designer added as a role chain
 Restructured `ux-designer-chain` from a 3-turn demo (PO → mock spec-author → live ux-designer) to the
