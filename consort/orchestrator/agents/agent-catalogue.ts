@@ -20,7 +20,7 @@
 import { join } from "node:path";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { ClaudeStepAgent, type AgentLevers, type LiveDispatchFn } from "./claude-step-agent.js";
-import { makeMockReplayAgent, type RecordedSeed } from "./mock-replay-agent.js";
+import { makeMockReplayAgent, makeStepReplayAgent, type RecordedSeed } from "./mock-replay-agent.js";
 import type { StepAgent, AgentInvocation } from "./agent-types.js";
 
 /**
@@ -72,16 +72,22 @@ function buildClaude(config: Record<string, unknown>, context: AgentBuildContext
   return new ClaudeStepAgent(c as AgentLevers, undefined, context.liveDispatch);
 }
 
-/** The `replay` kind's config = { role?, seeds[] }; corpusRoot comes from the context. */
+/** The `replay` kind emits RECORDED artifacts from the corpus (context.corpusRoot). TWO modes:
+ *  - config.seeds present => the explicit seed-list agent (makeMockReplayAgent): the manifest
+ *    author pre-specifies which corpus files to copy. Used by the seeded integration fixtures.
+ *  - config.seeds absent => the STEP-AWARE agent (makeStepReplayAgent): seedless, it resolves the
+ *    recorded turn matching the invocation's action from the corpus `turns/` timeline and
+ *    materializes that turn's files/ delta. This is what lets a shipped `claude` manifest replay
+ *    a whole corpus by swapping only the kind (no per-step seed authoring). */
 function buildReplay(config: Record<string, unknown>, context: AgentBuildContext): StepAgent {
   const c = config as { role?: string; seeds?: RecordedSeed[] };
-  if (!Array.isArray(c.seeds) || c.seeds.length === 0) {
-    throw new Error(`agent-catalogue: kind "replay" requires a non-empty config.seeds[].`);
-  }
   if (!context.corpusRoot) {
     throw new Error(`agent-catalogue: kind "replay" requires context.corpusRoot (the runner supplies it).`);
   }
-  return makeMockReplayAgent({ corpusRoot: context.corpusRoot, role: c.role, seeds: c.seeds });
+  if (Array.isArray(c.seeds) && c.seeds.length > 0) {
+    return makeMockReplayAgent({ corpusRoot: context.corpusRoot, role: c.role, seeds: c.seeds });
+  }
+  return makeStepReplayAgent({ corpusRoot: context.corpusRoot });
 }
 
 /** The `mock` kind's config = { outputs: { filename: contents } }; a test double writing
