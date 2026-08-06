@@ -163,8 +163,21 @@ correct. Re-record understanding: the real tree is the corpus above , the source
   `!isPlanningMode` guard); the executor runs reconcile (phase 4.5) BEFORE `after`-CLIs (phase 6.5),
   same reconcile-then-after order as the breakdown golden. Suite 3197 green.
 
-NOT yet (Stages 2-3): the LIVE proof , lean design turns (RUN_LIVE_STEP=1, model-API, no cloud) +
-the cloud-gated driver-green. Both authorized by the user; run per the RUNBOOK above.
+### Stage 2 DONE , all 7 design roles LIVE-proven through the shipped executor
+`tests/integration/live/<role>-executor-dispatch-live.test.ts` (+ shared
+`executor-dispatch-live-support.ts`): each seeds its inputs at their REAL feature/story scope, runs a
+REAL `claude -p` turn through `buildDriveEffects(cfg).performViaExecutor`, and asserts the artifact
+lands under the provisioned `.consort` (single-level, no double-encode) + the reconciled agent-log
+under `.consort` (meta; planning modes skip it). All 7 green (RUN_LIVE_STEP=1, model-API, NO cloud):
+dba 37s, architect-estimate 18s, test-strategist 29s, spec-author-propose 38s, spec-author-story 46s
+(acs DIRECTORY primary), architect-reviewer 53s, ux-designer 85s. This is the honest LIVE half of
+retirement-map step (2)+(3) for the DESIGN lane , the design-role `commandsForAction` branches are now
+provably subsumed by the executor path.
+
+NOT yet (Stage 3): the cloud-gated driver-green LIVE proof (product channel on a real Lakebase branch)
+, authorized by the user; run per the RUNBOOK (`scripts/run-live-tests.sh`), never interrupt
+pre-teardown. navigator-red + driver-green executor dispatch were already live-proven earlier (#593/
+#594); Stage 3 re-confirms driver-green's product+meta channels hold after the bare-filename change.
 
 ## RUNBOOK , how a future reader runs this proof
 All commands run from the kit root (`~/code/databricks-solutions/consort`).
