@@ -262,10 +262,19 @@ export const DESIGN_LIVE_SPECS: Partial<Record<TurnKey, DesignLiveSpec>> = {
     step: "acs",
     corpusModel: "opus",
     action: { kind: "invoke-role", role: "spec-author", story: STORY },
-    // EQUIVALENCE: the dispatch turn produces ONE story's ACs (S1), so judge against S1's recorded
-    // ACs (per-story like-for-like), NOT the feature-aggregate union of all 3 stories , the seed +
-    // turn are already correct for one story; only the reference scope needed narrowing.
-    equivalenceStoryId: STORY,
+    // EQUIVALENCE , FAITHFUL PER-ROLE COMPARABLE: judge the live spec-author's ACs against the
+    // SPEC-AUTHOR's OWN recorded output (corpus turn 0006), NOT the pin's recorded-artifacts/ ACs.
+    // The recorded-artifacts ACs are the ARCHITECT-AUGMENTED version , the architect-reviewer turn
+    // (0007) adds `architectural_notes` per AC (task #480), so judging spec-author against them
+    // penalized it for the ARCHITECT's field ("missing architectural layering per AC"). The
+    // spec-author-slice holds exactly what turn 0006 wrote (id/given/when/then/status/layer
+    // [+independence], NO architectural_notes) , the like-role-for-like-role reference. Proven by the
+    // per-turn diff: 0006 keys lack architectural_notes; 0007 adds it.
+    equivalenceReferencePaths: (kitRoot) => [
+      join(kitRoot, "tests/integration/intake/features", FEATURE, "stories", STORY, "acs-spec-author-slice", "AC1-file-stock-record.json"),
+      join(kitRoot, "tests/integration/intake/features", FEATURE, "stories", STORY, "acs-spec-author-slice", "AC2-retrieve-stock-record.json"),
+      join(kitRoot, "tests/integration/intake/features", FEATURE, "stories", STORY, "acs-spec-author-slice", "AC3-collision-resolved-at-write.json"),
+    ],
     seed: [
       { rel: `features/${FEATURE}/stories/${STORY}/story.json`, from: `features/${FEATURE}/stories/${STORY}/story.json` },
       { rel: "product-overview.md", from: "product-overview.md" },
