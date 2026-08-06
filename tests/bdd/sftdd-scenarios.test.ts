@@ -3,7 +3,7 @@
 // A "scenario" is a self-contained replay corpus under
 // examples/sftdd-scenarios/<name>/ : a recorded-artifacts/ design lane, a
 // recorded-build/ build corpus, a turns/ per-turn timeline, and a scenario.json
-// manifest (scripts/sftdd/schemas/scenario.schema.json). replay-scenario.sh
+// manifest (consort/config/schemas/scenario.schema.json). replay-scenario.sh
 // replays it live; THIS test is the always-on (no-workspace) guard that every
 // committed scenario is well-formed + replay-ready, so a corpus can never rot
 // into an un-replayable state unnoticed. See examples/sftdd-scenarios/SCENARIOS.md.

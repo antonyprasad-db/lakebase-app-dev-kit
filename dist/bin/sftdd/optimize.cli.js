@@ -7487,13 +7487,17 @@ var import_ajv = __toESM(require_ajv(), 1);
 import { existsSync as existsSync9, readFileSync as readFileSync7 } from "fs";
 import { join as join9 } from "path";
 function resolveSchemaDir() {
-  const candidates = [
-    join9(__dirname, "schemas"),
-    // dist: inlined consumer sits beside the copied schemas
-    join9(__dirname, "..", "..", "..", "scripts", "sftdd", "schemas")
-    // source: consort/orchestrator/validators -> repo root
-  ];
-  return candidates.find((d) => existsSync9(d)) ?? candidates[0];
+  const direct = join9(__dirname, "..", "..", "config", "schemas");
+  if (existsSync9(direct)) return direct;
+  let dir = __dirname;
+  for (let i = 0; i < 8; i++) {
+    const cand = join9(dir, "consort", "config", "schemas");
+    if (existsSync9(cand)) return cand;
+    const parent = join9(dir, "..");
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return direct;
 }
 var SCHEMA_DIR = resolveSchemaDir();
 var ajv = new import_ajv.default({ allErrors: true, strict: false });

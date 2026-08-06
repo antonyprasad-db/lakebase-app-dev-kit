@@ -57,7 +57,7 @@ describe("agent-log-events vocabulary", () => {
 
   it("the JSON-schema event enum stays in sync with the TS vocabulary", () => {
     const schema = JSON.parse(
-      readFileSync(join(__dirname, "..", "..", "scripts", "sftdd", "schemas", "agent-log-event.schema.json"), "utf8"),
+      readFileSync(join(__dirname, "..", "..", "consort", "config", "schemas", "agent-log-event.schema.json"), "utf8"),
     );
     const schemaEnum: string[] = schema.properties.event.enum;
     expect(schemaEnum.slice().sort()).toEqual(AGENT_LOG_EVENT_NAMES.slice().sort());

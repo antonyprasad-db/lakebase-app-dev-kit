@@ -1,10 +1,9 @@
-// Shared loader + compiler for the TDD JSON schemas under scripts/sftdd/schemas/.
-// Single source of schema-compilation truth so spec-sync (drift reporting) and
-// artifact-conformance (gate preconditions) validate against the SAME compiled
-// validators instead of each rolling their own Ajv instance. Lives in the
-// validators family (its registry is the primary consumer); the schema JSON files
-// stay under scripts/sftdd/schemas/ (huge bin blast radius to move) and are copied
-// into dist/scripts/sftdd/schemas/ by copy-build-assets.mjs.
+// Shared loader + compiler for the JSON schemas under consort/config/schemas/. Single source of
+// schema-compilation truth so spec-sync (drift reporting) and artifact-conformance (gate
+// preconditions) validate against the SAME compiled validators instead of each rolling their own
+// Ajv instance. Lives in the validators family (its registry is the primary consumer); the schema
+// JSON files live in the config foundation (consort/config/schemas/) since they are the shared
+// contract data the whole kit validates against, and are copied to dist by copy-build-assets.mjs.
 //
 // Validators are compiled lazily and cached by schema filename: the first
 // caller pays the compile, every later caller reuses it.
@@ -14,22 +13,31 @@ import { join } from "path";
 import Ajv, { type ValidateFunction } from "ajv";
 
 /**
- * Resolve the schemas dir robustly across BOTH runtime layouts, since this module
- * moved out of scripts/sftdd/ but the schema JSON did not:
- *   - DIST (consumer install): with tsup `splitting:false` this module is INLINED
- *     into each consuming entry under dist/scripts/sftdd/, next to the copied
- *     `schemas/` , so `join(__dirname,"schemas")` still resolves (unchanged behavior).
- *   - SOURCE (vitest / tsx): __dirname is this file's new home under consort/…, so
- *     walk to the repo's scripts/sftdd/schemas/ instead.
- * First existing candidate wins; the historical (dist) path is first, so the
- * shipped build is byte-for-byte unchanged.
+ * Resolve the schemas dir robustly across runtime layouts, since this module is INLINED by tsup
+ * (`splitting:false`) into each consuming entry (dist/bin/**, dist/apps/mcp-server, …) at varying
+ * directory depths rather than sitting next to the schemas:
+ *   - SOURCE (vitest / tsx): __dirname is this file's home (consort/orchestrator/validators), so
+ *     the sibling walk consort/../config/schemas resolves directly.
+ *   - DIST (consumer install): the schemas are copied to dist/consort/config/schemas/ (and the kit
+ *     also ships the source tree). Since the inlined consumer's depth under dist/ varies, walk UP
+ *     from __dirname looking for a consort/config/schemas at each ancestor , depth-independent.
+ * First existing candidate wins.
  */
 function resolveSchemaDir(): string {
-  const candidates = [
-    join(__dirname, "schemas"), // dist: inlined consumer sits beside the copied schemas
-    join(__dirname, "..", "..", "..", "scripts", "sftdd", "schemas"), // source: consort/orchestrator/validators -> repo root
-  ];
-  return candidates.find((d) => existsSync(d)) ?? candidates[0];
+  // Direct source path first (consort/orchestrator/validators -> consort/config/schemas).
+  const direct = join(__dirname, "..", "..", "config", "schemas");
+  if (existsSync(direct)) return direct;
+  // Otherwise walk up ancestors, probing <ancestor>/consort/config/schemas at each level , this
+  // finds the dist mirror regardless of how deep the inlined entry sits under dist/.
+  let dir = __dirname;
+  for (let i = 0; i < 8; i++) {
+    const cand = join(dir, "consort", "config", "schemas");
+    if (existsSync(cand)) return cand;
+    const parent = join(dir, "..");
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return direct;
 }
 
 const SCHEMA_DIR = resolveSchemaDir();
@@ -44,7 +52,7 @@ const ajv = new Ajv({ allErrors: true, strict: false });
 ajv.addFormat("date-time", true);
 const validatorCache = new Map<string, ValidateFunction>();
 
-/** Read + parse a schema file from scripts/sftdd/schemas/ by filename. */
+/** Read + parse a schema file from consort/config/schemas/ by filename. */
 export function loadSchema(name: string): object {
   return JSON.parse(readFileSync(join(SCHEMA_DIR, name), "utf8"));
 }

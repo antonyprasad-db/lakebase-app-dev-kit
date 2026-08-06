@@ -12,7 +12,7 @@
 // skills/consort/agents/*.md and references/spec-format.md, not
 // invented here:
 //   - JSON artifacts (feature/story/ac/test-list/plan/workflow-state) have
-//     JSON Schemas in scripts/sftdd/schemas/ and are validated against them.
+//     JSON Schemas in consort/config/schemas/ and are validated against them.
 //   - architecture.md: the Architect Reviewer names its sections (Architectural
 //     Concerns Mapping, Pattern proposals, Risks); extended with the two the
 //     Architect Reviewer adjudicates at Gate 2 (Decisions, Sign-off).

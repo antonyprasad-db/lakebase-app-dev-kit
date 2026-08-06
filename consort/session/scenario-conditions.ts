@@ -1,5 +1,5 @@
 // The RUN CONDITIONS a recorded scenario is captured/replayed under, read from its
-// scenario.json manifest (schema: scripts/sftdd/schemas/scenario.schema.json). The
+// scenario.json manifest (schema: consort/config/schemas/scenario.schema.json). The
 // manifest is the source of truth for a scenario's conditions; the capture harness
 // reads them here and passes them to create-project as flags, so a scenario that
 // declares uiTrack:true always runs with the UX lane.

@@ -7785,13 +7785,17 @@ var import_fs3 = require("fs");
 var import_path3 = require("path");
 var import_ajv = __toESM(require_ajv(), 1);
 function resolveSchemaDir() {
-  const candidates = [
-    (0, import_path3.join)(__dirname, "schemas"),
-    // dist: inlined consumer sits beside the copied schemas
-    (0, import_path3.join)(__dirname, "..", "..", "..", "scripts", "sftdd", "schemas")
-    // source: consort/orchestrator/validators -> repo root
-  ];
-  return candidates.find((d) => (0, import_fs3.existsSync)(d)) ?? candidates[0];
+  const direct = (0, import_path3.join)(__dirname, "..", "..", "config", "schemas");
+  if ((0, import_fs3.existsSync)(direct)) return direct;
+  let dir = __dirname;
+  for (let i = 0; i < 8; i++) {
+    const cand = (0, import_path3.join)(dir, "consort", "config", "schemas");
+    if ((0, import_fs3.existsSync)(cand)) return cand;
+    const parent = (0, import_path3.join)(dir, "..");
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return direct;
 }
 var SCHEMA_DIR = resolveSchemaDir();
 var ajv = new import_ajv.default({ allErrors: true, strict: false });

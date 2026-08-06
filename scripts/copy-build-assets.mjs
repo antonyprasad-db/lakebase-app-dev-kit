@@ -3,7 +3,7 @@
 //
 // tsup compiles TS -> JS but does NOT copy sibling data files. Several substrate
 // modules read JSON SCHEMAS at runtime by path relative to their compiled location
-// (schema-loader.ts -> scripts/sftdd/schemas/*.schema.json; scm-workflow-state +
+// (schema-loader.ts -> consort/config/schemas/*.schema.json; scm-workflow-state +
 // uc-resources read their schemas similarly). Without this copy, those files are
 // absent from dist/ and a CONSUMER install (which ships pre-built dist/ and never
 // rebuilds) hits ENOENT at runtime. The bug stayed latent until artifact-conformance
@@ -22,8 +22,12 @@ import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const SRC_ROOT = join(REPO_ROOT, "scripts");
-const DIST_ROOT = join(REPO_ROOT, "dist", "scripts");
+// Source trees that may hold runtime *.schema.json (post-foliation the schemas live in
+// consort/config/schemas/; scripts/ is kept in case any residual asset lands there). Each is
+// mirrored into dist/ preserving its repo-relative path, so the compiled reader's runtime path
+// resolution (schema-loader walks to <root>/consort/config/schemas) finds the copy.
+const SRC_ROOTS = ["consort", "scripts"].map((d) => join(REPO_ROOT, d));
+const DIST_ROOT = join(REPO_ROOT, "dist");
 
 /** Recursively collect files under dir matching the predicate (name, fullPath). */
 function collect(dir, pred, out = []) {
@@ -35,13 +39,15 @@ function collect(dir, pred, out = []) {
   return out;
 }
 
-// Every *.schema.json anywhere under scripts/ (mirrored to dist/scripts/...).
-const assets = collect(SRC_ROOT, (name) => name.endsWith(".schema.json"));
+// Every *.schema.json under the source roots, mirrored to dist/ at the same repo-relative path
+// (e.g. consort/config/schemas/x.schema.json -> dist/consort/config/schemas/x.schema.json).
 let copied = 0;
-for (const src of assets) {
-  const dest = join(DIST_ROOT, relative(SRC_ROOT, src));
-  mkdirSync(dirname(dest), { recursive: true });
-  copyFileSync(src, dest);
-  copied++;
+for (const root of SRC_ROOTS) {
+  for (const src of collect(root, (name) => name.endsWith(".schema.json"))) {
+    const dest = join(DIST_ROOT, relative(REPO_ROOT, src));
+    mkdirSync(dirname(dest), { recursive: true });
+    copyFileSync(src, dest);
+    copied++;
+  }
 }
-process.stderr.write(`[copy-build-assets] copied ${copied} schema asset(s) into dist/scripts/\n`);
+process.stderr.write(`[copy-build-assets] copied ${copied} schema asset(s) into dist/\n`);
