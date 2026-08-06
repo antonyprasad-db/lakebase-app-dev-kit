@@ -1,0 +1,145 @@
+// The test-analyst catalogue: the CONFIGURABLE roster of per-kind test analysts the test-strategist
+// SUPERVISOR fans out to (behavior / fitness / client), each with its own focus prompt. This is the
+// SINGLE SOURCE OF TRUTH for the analyst kinds , adding a kind = adding an entry here (+ its prompt).
+// Mirrors the kit's other catalogues (agent-catalogue, lifecycle-catalogue, validator-registry): a
+// Record<kind, entry> + a fail-loud resolveTestAnalystKind that lists the known kinds.
+//
+// WHY it exists: the single-shot test-strategist systematically under-covers when it must reason about
+// behavior + fitness + client all in one turn (the design-equivalence live runs showed it consistently
+// drops the fitness-contract tests T6/T9/T15 and the client-render tests T16/T17). Splitting into
+// single-concern analysts , each fed only its slice's inputs and its focus prompt , removes that
+// contention. The supervisor Task-spawns one general-purpose subagent per ENABLED analyst (a
+// preconditions preparer renders this catalogue's enabled roster + focus prompts into the turn), then
+// reconciles + assembles + orders the master. Analysts are ephemeral subagents, NOT first-class roles,
+// so a new kind never touches AgentRole / RECOMMENDED_MODELS / the laid-down .md set.
+//
+// Each analyst emits an UNORDERED slice with kind-local ids; the SUPERVISOR owns ordering
+// (ordered_for) and assigns the final feature-flat T-ids on merge. Load-bearing invariant: the FITNESS
+// analyst is the SOLE emitter of invariant_id (so checkInvariantCoverageDistinct can't be tripped by
+// two owners) , that ownership is stated in every focus prompt.
+
+/** The inputs an analyst consumes (the supervisor hands it exactly these slices). */
+export type AnalystInput = "story-acs" | "architecture-invariants" | "db-design" | "design-guide";
+
+/** The context the enablement predicate evaluates against , the resolved project config. */
+export interface AnalystEnablementContext {
+  projectDir: string;
+  /** project.uiTrack (resolveProjectSettings). A no-frontend project is uiTrack:false. */
+  uiTrack: boolean;
+}
+
+/** One catalogue entry: a test-analyst kind, its focus prompt (injected VERBATIM into the analyst's
+ *  Task spawn , the source of truth for what it authors), the inputs it needs, its recommended model,
+ *  and an OPTIONAL enablement predicate (absent = always enabled). */
+export interface TestAnalystCatalogueEntry {
+  /** The kind; matches the test-list item `kind` this analyst emits (behavior|fitness|client|...). */
+  kind: string;
+  /** One-line human summary (docs / diagnostics / the roster's human-readable header). */
+  description: string;
+  /** Short "what it produces" summary for the rendered roster. */
+  configSummary: string;
+  /** The focus prompt injected verbatim into the analyst subagent's Task spawn. Single-concern. */
+  focusPrompt: string;
+  /** Recommended model for this analyst's subagent turn (a roster hint). */
+  model: string;
+  /** The input slices the supervisor hands this analyst. */
+  inputs: AnalystInput[];
+  /** OPTIONAL enablement predicate. Absent = always enabled. `client` gates on uiTrack. */
+  enabledWhen?: (ctx: AnalystEnablementContext) => boolean;
+}
+
+/** Shared contract every analyst honors (folded into each focus prompt): emit an UNORDERED slice of
+ *  test-list items, each `{ id, description, ac_id, status:"pending", kind }` where `id` is a
+ *  KIND-LOCAL id (the supervisor assigns final feature-flat T-ids on merge); `ac_id` is the EXACT id
+ *  of an existing story AC; one observable behavior per item (no "and"); do NOT order; do NOT set
+ *  `ordered_for`. Return the slice as a fenced JSON array in your final message. */
+const SLICE_CONTRACT =
+  "Return an UNORDERED JSON array of test-list items as the LAST thing in your reply, fenced as " +
+  "```json ... ```. Each item is { \"id\": \"<kind-local id, e.g. bhv-1>\", \"description\": " +
+  "\"<one observable behavior, no 'and'>\", \"ac_id\": \"<EXACT id of an existing story AC file>\", " +
+  "\"status\": \"pending\", \"kind\": \"<your kind>\" }. Do NOT order the items and do NOT set " +
+  "ordered_for , the supervisor orders the merged master and assigns the final T-ids. Map every item " +
+  "to a real story AC id (copy it verbatim, never re-slug).";
+
+export const TEST_ANALYST_CATALOGUE: Record<string, TestAnalystCatalogueEntry> = {
+  behavior: {
+    kind: "behavior",
+    description: "Backend behavior/API scenarios: one observable behavior per AC through the API boundary.",
+    configSummary: "Per AC: >=1 behavior item through the API boundary (pytest-bdd .feature).",
+    model: "sonnet",
+    inputs: ["story-acs"],
+    focusPrompt:
+      "You are the BEHAVIOR test analyst. Cover EVERY provided story AC with at least one " +
+      "`kind:\"behavior\"` item , one observable behavior verified through the API boundary (for " +
+      "Python, a pytest-bdd scenario; set `scenario_file` to `tests/features/<story>.feature`). Test " +
+      "at the OUTERMOST public boundary matching the AC's layer. One test per scenario, never an " +
+      "\"and\". EVERY write-bearing test (POST/insert/seed) MUST own its state , use a per-run-unique " +
+      "key (a uuid-suffixed sku/location) OR delete/upsert the fixed key before writing, never assume " +
+      "an empty table. Do NOT emit fitness or client items, and do NOT set `invariant_id` (the fitness " +
+      "analyst owns persistence invariants). " + SLICE_CONTRACT,
+  },
+  fitness: {
+    kind: "fitness",
+    description: "Architectural fitness tests + a real-branch test per declared persistence invariant.",
+    configSummary: "Per architectural constraint + per persistence_invariant: a fitness item (invariant_id).",
+    model: "sonnet",
+    inputs: ["architecture-invariants", "db-design"],
+    focusPrompt:
+      "You are the FITNESS test analyst , the SOLE owner of `invariant_id`. Two duties: (1) Walk the " +
+      "architecture (layers, service_backed, ORM-only, config-in-env, each accepted NFR budget) and " +
+      "emit >=1 `kind:\"fitness\"` item per architectural constraint the story touches: the layering " +
+      "contract (boundary must not import the DB session; persistence only in the repository), the " +
+      "ORM-only contract (ONLY the repository touches the ORM/session , the service AND boundary " +
+      "contain no ORM imports; this is DISTINCT from the routes-vs-session check), config-from-env, and " +
+      "any service-layer guard an NFR demands (e.g. a write-time rejection of an overcommitting / " +
+      "negative-quantity write at the SERVICE layer , distinct from a DB CHECK constraint). A COMPOUND " +
+      "defense (an `and`/`+`/comma joining two checkable claims) needs ONE item PER conjunct, never one " +
+      "for the pair. (2) Walk architecture.json `persistence_invariants[]` and emit one " +
+      "`kind:\"fitness\"` item per invariant with `invariant_id` set to that invariant's id, verified " +
+      "DIRECTLY against the real branch database (never a mock, never a generic ORM round-trip). A " +
+      "migration that carries data needs TWO items: reversibility (single-step downgrade/upgrade, " +
+      "@pytest.mark.migration, NEVER downgrade base) AND data-preservation (seed rows, migrate, assert " +
+      "they survive with expected values); the created_at/audit immutability on an in-place upsert is " +
+      "its OWN item. Whole-table aggregate assertions must scope to the test's own rows (a delta), " +
+      "never an absolute total. Fitness items MUST NOT carry a `.feature` `scenario_file`. Seed " +
+      "idempotently with a per-run-unique key. " + SLICE_CONTRACT +
+      " Set `invariant_id` on each item that covers a declared persistence invariant.",
+  },
+  client: {
+    kind: "client",
+    description: "SPA client-harness tests for UI-presentation ACs (React component / Playwright e2e).",
+    configSummary: "Per UI-presentation AC: a client item under client/tests/ (only when uiTrack).",
+    model: "sonnet",
+    inputs: ["story-acs", "design-guide"],
+    enabledWhen: (ctx) => ctx.uiTrack === true,
+    focusPrompt:
+      "You are the CLIENT test analyst (this project HAS a frontend). For every UI-presentation AC the " +
+      "architecture routes to the SPA's own client harness, emit a `kind:\"client\"` item with " +
+      "`scenario_file` under `client/tests/` (e.g. `client/tests/pages/<Screen>.test.tsx`). Do NOT fold " +
+      "a presentation AC into the backend pytest-bdd suite , that mechanism mismatch is a defect. For an " +
+      "AC that OWNS a page/route, at least one client item MUST exercise the page THROUGH THE REAL " +
+      "`<App>` at the AC's route (a Playwright e2e that navigates the route, OR a component test " +
+      "rendering `<App>` in `<MemoryRouter initialEntries={[\"<the path>\"]}>`) , a bare " +
+      "`render(<ThePage/>)` does NOT prove the page is routed; name the route in the description. Test " +
+      "the design-guide SEAM (assert the element carries its design-guide class / `data-testid`), NEVER " +
+      "an inline `style=` or raw CSS in the source. Do NOT set `invariant_id`. " + SLICE_CONTRACT,
+  },
+};
+
+/** Resolve a test-analyst kind to its catalogue entry. THROWS loud on an unknown kind, listing the
+ *  known kinds sorted (mirrors resolveAgentKind / resolveLifecycleKind). */
+export function resolveTestAnalystKind(kind: string): TestAnalystCatalogueEntry {
+  const entry = TEST_ANALYST_CATALOGUE[kind];
+  if (!entry) {
+    const known = Object.keys(TEST_ANALYST_CATALOGUE).sort().join(", ");
+    throw new Error(`test-analyst-catalogue: unknown test-analyst kind "${kind}". Known: ${known}.`);
+  }
+  return entry;
+}
+
+/** The analysts ENABLED for a given project , the catalogue filtered by each entry's `enabledWhen`
+ *  against the resolved project config (an entry with no predicate is always enabled). The supervisor's
+ *  roster preparer calls this so a no-frontend project (uiTrack:false) never sees or spawns `client`. */
+export function enabledAnalysts(ctx: AnalystEnablementContext): TestAnalystCatalogueEntry[] {
+  return Object.values(TEST_ANALYST_CATALOGUE).filter((e) => (e.enabledWhen ? e.enabledWhen(ctx) : true));
+}

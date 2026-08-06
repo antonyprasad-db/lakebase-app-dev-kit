@@ -222,7 +222,10 @@ function equivCfg(projectDir: string, consortDir: string, corpusModel: string): 
     featureId: FEATURE,
     runner: { async run() {} },
     useManifestSteps: true,
-    uiTrack: false,
+    // uiTrack defaults FALSE (the API-only design tier). DESIGN_EQUIV_UITRACK=1 flips it ON so a
+    // UI-bearing turn (e.g. test-list, whose corpus reference has client-render tests because
+    // stockflow has a frontend) is judged like-for-like against a frontend-aware reference.
+    uiTrack: process.env.DESIGN_EQUIV_UITRACK === "1",
     approver: "human-proxy",
     deployTarget: "local",
     loopGranularity: "story",

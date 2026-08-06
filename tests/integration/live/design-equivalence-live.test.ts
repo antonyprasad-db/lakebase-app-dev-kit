@@ -57,10 +57,15 @@ describe.skipIf(!cloudReady || !hostResolvable)("GATED LIVE: design artifacts ar
   // ~4-wide keeps the whole run well under the ~55min background-task cap that 8 sequential ~15min
   // turns would blow. Each step's outcome is collected (not thrown) so one failure doesn't abort the
   // rest; the single assertion reports every failing step at once.
+  // DESIGN_EQUIV_ONLY=<step>[,<step>...] narrows the run to named steps (a targeted diagnostic,
+  // e.g. just "test-list"); unset runs all. The step key must be in DESIGN_LIVE_STEPS.
+  const only = (process.env.DESIGN_EQUIV_ONLY ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  const steps = only.length ? DESIGN_LIVE_STEPS.filter((s) => only.includes(s)) : DESIGN_LIVE_STEPS;
+
   it(
     "every design step's production-body output is >= threshold semantic coverage of the pinned reference",
     async () => {
-      const results = await runDesignEquivStepsParallel(project, DESIGN_LIVE_STEPS, 4);
+      const results = await runDesignEquivStepsParallel(project, steps, 4);
       const failed = results.filter((r) => !r.passed);
       expect(
         failed.length,
