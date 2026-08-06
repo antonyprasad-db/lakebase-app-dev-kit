@@ -33,7 +33,7 @@ import {
 import { manifestForAction, type StepManifest } from "../steps/manifest.js";
 import { execute, type StepExecutorDeps } from "../turns/step-executor.js";
 import { Step } from "../steps/step.js";
-import { ClaudeStepAgent } from "../agents/claude-step-agent.js";
+import { buildAgent } from "../agents/agent-catalogue.js";
 import type { WorkflowAction, DriveState } from "./orchestrator-drive.js";
 import type { BoundedRoute, ValidateBoundDeps } from "../steps/step-contract.js";
 // Types only (erased at compile) , so this module never imports orchestrator-effects at runtime.
@@ -313,12 +313,15 @@ export async function performTurnViaExecutor(
   const manifest = manifestForAction(action);
   if (!manifest) return undefined;
 
-  // The unified ClaudeStepAgent on its UNCONTAINED (live) path: levers carry only the role (the
-  // live seam builds the real command from cfg via buildClaudeCommand, not from these levers, so
-  // model/effort/session here are inert , the runner resolves them). No raw spawn is used; the
-  // liveDispatch seam is what invoke() delegates to.
-  const role = action.kind === "invoke-role" ? action.role : "";
-  const agent = new ClaudeStepAgent({ role }, undefined, liveDispatchSeam(cfg, deps));
+  // Resolve the step's agent from the MANIFEST (agent:{kind,config}) via the shared catalogue ,
+  // the SAME seam the integration tests use (manifest-runner's buildAgent). The shipped manifests
+  // declare kind "claude"; we supply the live dispatch seam in the build context so buildClaude
+  // constructs the UNCONTAINED (live) ClaudeStepAgent , byte-identical to the former inline
+  // `new ClaudeStepAgent({role}, undefined, liveDispatchSeam(cfg,deps))`. levers carry only the role
+  // (the live seam builds the real command from cfg, not from these levers, so model/effort/session
+  // are inert here , the runner resolves them). A replay lane later swaps kind -> "replay" via the
+  // build context WITHOUT touching this construction (Stage G).
+  const agent = buildAgent(manifest.agent!, { workspaceDir: cfg.projectDir, liveDispatch: liveDispatchSeam(cfg, deps) });
   const step = new Step(manifest, agent);
   const f = cfg.featureId;
   const story = "story" in action && typeof action.story === "string" ? action.story : undefined;
