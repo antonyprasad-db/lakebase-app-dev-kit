@@ -23,8 +23,8 @@
 // The design harness leaves that DB reset unimplemented BY DESIGN (nothing to undo) but names it here.
 
 import { expect } from "vitest";
-import { execFileSync } from "node:child_process";
-import { mkdirSync, cpSync, writeFileSync, existsSync, statSync, readdirSync } from "node:fs";
+import { mkdirSync, mkdtempSync, cpSync, rmSync, writeFileSync, existsSync, statSync, readdirSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { loadRunConfig } from "../../../consort/orchestrator/runners/run-config-loader.js";
 import { resolveTestEnv } from "../../../consort/orchestrator/provisioning/test-env.js";
@@ -81,11 +81,14 @@ export interface DesignEquivProject {
   consortDir: string;
   handle: ScaffoldHandle;
   teardownCtx: LifecycleRunContext;
+  /** A temp copy of the PRISTINE post-scaffold .sftdd, taken in beforeAll. resetDesignState restores
+   *  from it (git can't , createProject gitignores .sftdd as a runtime dir, so it is UNtracked). */
+  pristineSnapshot: string;
 }
 
 /** SCAFFOLD ONCE: a real project (Databricks + Lakebase + optional GitHub) via the catalogued
  *  scaffold-project op, reading databricksHost from the run-config. Lays the kit's role agent defs so
- *  the live `--agent <role>` resolves. Returns the handle the per-step runs seed into + teardown consumes. */
+ *  the live `--agent <role>` resolves, then SNAPSHOTS the pristine .sftdd for per-step reset. */
 export async function scaffoldDesignEquivProject(): Promise<DesignEquivProject> {
   const { scaffoldConfig } = resolveDesignEquivRunConfig();
   const setupCtx: LifecycleRunContext = { workspaceDir: KIT };
@@ -94,29 +97,41 @@ export async function scaffoldDesignEquivProject(): Promise<DesignEquivProject> 
   const handle = setup.handle as ScaffoldHandle;
   const projectDir = handle.projectDir!;
   layDownKitAgents(projectDir, KIT);
+  const consortDir = join(projectDir, CONSORT_DIRNAME);
+
+  // Snapshot the PRISTINE post-scaffold .sftdd so each per-step reset restores exactly this state.
+  // Git can't do it: createProject gitignores .sftdd as a runtime dir, so it's untracked (git
+  // checkout finds no pathspec, git clean skips gitignored). A plain copy is the robust reset source.
+  const pristineSnapshot = mkdtempSync(join(tmpdir(), "de-pristine-"));
+  if (existsSync(consortDir)) cpSync(consortDir, pristineSnapshot, { recursive: true });
+
   return {
     projectDir,
-    consortDir: join(projectDir, CONSORT_DIRNAME),
+    consortDir,
     handle,
     teardownCtx: { workspaceDir: KIT, setupHandle: setup.handle },
+    pristineSnapshot,
   };
 }
 
-/** TEARDOWN: remove everything scaffold-project created (never-leaking catalogue remove-project). */
+/** TEARDOWN: remove everything scaffold-project created (never-leaking catalogue remove-project) +
+ *  drop the pristine snapshot temp dir. */
 export async function teardownDesignEquivProject(project: DesignEquivProject): Promise<void> {
-  await catalogueLifecycleDeps.run({ kind: "remove-project", config: {} }, project.teardownCtx);
+  try {
+    await catalogueLifecycleDeps.run({ kind: "remove-project", config: {} }, project.teardownCtx);
+  } finally {
+    rmSync(project.pristineSnapshot, { recursive: true, force: true });
+  }
 }
 
-/** RESET the built state between per-step runs. DESIGN tier = FILESYSTEM-ONLY: restore the scaffold's
- *  .sftdd tree to its pristine (post-scaffold) commit + drop anything the turn added, so the next
- *  step's seed lands on a clean tree. The scaffold is a git repo (createProject inits one + commits
- *  the initial tree), so `git checkout -- .sftdd` reverts tracked edits and `git clean -fd .sftdd`
- *  removes newly-created files/dirs. NO DB reset here (design roles never ran alembic or inserted
- *  rows); the build tier that extends this MUST add `alembic downgrade base` + a data purge here. */
-function resetDesignState(projectDir: string): void {
-  // Best-effort , the scaffold commits its initial tree, so both ops are safe no-ops if nothing changed.
-  execFileSync("git", ["checkout", "--", CONSORT_DIRNAME], { cwd: projectDir, stdio: "pipe" });
-  execFileSync("git", ["clean", "-fd", CONSORT_DIRNAME], { cwd: projectDir, stdio: "pipe" });
+/** RESET the built state between per-step runs. DESIGN tier = FILESYSTEM-ONLY: restore .sftdd to the
+ *  PRISTINE post-scaffold snapshot (rm + copy), so the next step's seed lands on a clean tree. NOT
+ *  git-based , createProject gitignores .sftdd (runtime dir), so it's untracked and git checkout/clean
+ *  cannot restore it. NO DB reset here (design roles never ran alembic or inserted rows); the build
+ *  tier that extends this MUST add `alembic downgrade base` + a test-data purge alongside this. */
+function resetDesignState(project: DesignEquivProject): void {
+  rmSync(project.consortDir, { recursive: true, force: true });
+  cpSync(project.pristineSnapshot, project.consortDir, { recursive: true });
 }
 
 /** The DriveEffectsConfig for a design-equivalence turn: UNCONSTRAINED (Bash allowed) so the role's
@@ -213,6 +228,6 @@ export async function runDesignEquivStep(project: DesignEquivProject, step: Turn
     delete process.env.LAKEBASE_SFTDD_USE_MANIFEST_STEPS;
     // RESET (filesystem) so the next step seeds onto a pristine .sftdd , see resetDesignState's note
     // on the tiered/DB-aware contract the build tier extends.
-    resetDesignState(projectDir);
+    resetDesignState(project);
   }
 }
