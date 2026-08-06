@@ -1,0 +1,1 @@
+{ "version": 1, "story_id": "S1-file-stock", "directives": [ { "node_id": "tests/test_totals.py::test_total_count", "directive": "Scope the seed and the assertion to this test's own SKUs; assert a delta, not an absolute total." } ] }

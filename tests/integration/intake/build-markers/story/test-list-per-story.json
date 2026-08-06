@@ -1,0 +1,1 @@
+{ "feature_id": "F1-stock-visibility", "story_id": "S1-file-stock", "items": [ { "id": "T1", "ac_id": "AC1-file-stock-record", "kind": "behavior", "description": "record a stock entry", "invariant_id": "I1" } ] }

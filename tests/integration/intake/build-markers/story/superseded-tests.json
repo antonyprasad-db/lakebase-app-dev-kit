@@ -1,0 +1,1 @@
+{ "tests": ["tests/test_prior.py::test_legacy_shape"], "reason": "superseded by S1-file-stock", "refactored": false }

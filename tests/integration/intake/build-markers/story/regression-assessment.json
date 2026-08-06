@@ -1,0 +1,1 @@
+{ "version": 1, "diagnosis": "A genuine regression: the write path drops the new field on update.", "fix": "Persist quantity on the update branch of the repository." }

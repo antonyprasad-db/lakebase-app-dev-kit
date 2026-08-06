@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "assessed": true,
+  "summary": "GREEN verify FAILED: one prior test now red after this AC's change",
+  "failureOutput": "FAILED tests/test_prior.py::test_legacy_shape - AssertionError: column 'legacy_code' missing",
+  "contractRefs": "app/models/sku.py:42 references dropped column `legacy_code`",
+  "supersededTestRefs": "tests/test_prior.py::test_legacy_shape asserts the dropped `legacy_code`"
+}

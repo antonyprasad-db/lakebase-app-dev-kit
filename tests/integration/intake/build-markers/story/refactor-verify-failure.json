@@ -1,0 +1,1 @@
+{ "version": 1, "summary": "REFACTOR-verify failed: prior test asserts a symbol this story retired", "superseded_advisory": "tests/test_prior.py::test_old_field references the removed `legacy_code`" }
