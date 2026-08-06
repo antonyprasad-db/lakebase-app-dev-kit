@@ -40,8 +40,19 @@ export interface TestAnalystCatalogueEntry {
   configSummary: string;
   /** The focus prompt injected verbatim into the analyst subagent's Task spawn. Single-concern. */
   focusPrompt: string;
-  /** Recommended model for this analyst's subagent turn (a roster hint). */
+  /** Recommended model for this analyst's subagent turn (a roster hint). This one IS enforced:
+   *  it is passed as the Task spawn's `model` parameter. */
   model: string;
+  /** ADVISORY effort for this analyst's Task turn. The Task tool has no effort parameter, so the
+   *  supervisor RESTATES this in the spawn prompt ("think at <effort> effort") and the subagent
+   *  self-paces , it is guidance, not an enforced sandbox lever. A per-analyst optimize lever:
+   *  the densest-reasoning analyst (fitness) can run high while cheaper slices run default/low. */
+  effort?: "low" | "default" | "high";
+  /** ADVISORY tool scope: the tools this analyst SHOULD confine itself to. Like effort, the Task
+   *  tool has no allowedTools parameter, so the supervisor RESTATES this in the spawn prompt
+   *  ("confine your work to: <tools>") and the subagent self-limits , guidance, not a hard sandbox
+   *  (an enforced boundary needs analysts promoted to real manifest steps). A tuning lever. */
+  toolScope?: string[];
   /** The input slices the supervisor hands this analyst. */
   inputs: AnalystInput[];
   /** OPTIONAL enablement predicate. Absent = always enabled. `client` gates on uiTrack. */
@@ -67,6 +78,8 @@ export const TEST_ANALYST_CATALOGUE: Record<string, TestAnalystCatalogueEntry> =
     description: "Backend behavior/API scenarios: one observable behavior per AC through the API boundary.",
     configSummary: "Per AC: >=1 behavior item through the API boundary (pytest-bdd .feature).",
     model: "sonnet",
+    effort: "default",
+    toolScope: ["Read"],
     inputs: ["story-acs"],
     focusPrompt:
       "You are the BEHAVIOR test analyst. Cover EVERY provided story AC with at least one " +
@@ -83,6 +96,8 @@ export const TEST_ANALYST_CATALOGUE: Record<string, TestAnalystCatalogueEntry> =
     description: "Architectural fitness tests + a real-branch test per declared persistence invariant.",
     configSummary: "Per architectural constraint + per persistence_invariant: a fitness item (invariant_id).",
     model: "sonnet",
+    effort: "high",
+    toolScope: ["Read"],
     inputs: ["architecture-invariants", "db-design"],
     focusPrompt:
       "You are the FITNESS test analyst , the SOLE owner of `invariant_id`. Two duties: (1) Walk the " +
@@ -110,6 +125,8 @@ export const TEST_ANALYST_CATALOGUE: Record<string, TestAnalystCatalogueEntry> =
     description: "SPA client-harness tests for UI-presentation ACs (React component / Playwright e2e).",
     configSummary: "Per UI-presentation AC: a client item under client/tests/ (only when uiTrack).",
     model: "sonnet",
+    effort: "default",
+    toolScope: ["Read"],
     inputs: ["story-acs", "design-guide"],
     enabledWhen: (ctx) => ctx.uiTrack === true,
     focusPrompt:

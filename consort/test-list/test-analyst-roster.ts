@@ -18,6 +18,11 @@ export function renderTestAnalystRoster(ctx: AnalystEnablementContext): string {
   const analysts = enabledAnalysts(ctx).map((e) => ({
     kind: e.kind,
     model: e.model,
+    // ADVISORY levers: the Task tool has no effort/allowedTools parameter, so the supervisor RESTATES
+    // these in each spawn prompt and the subagent self-paces/self-limits. model (above) IS enforced
+    // (a real Task param). Omitted when the entry sets none, so the roster stays lean.
+    ...(e.effort ? { effort: e.effort } : {}),
+    ...(e.toolScope ? { tool_scope: e.toolScope } : {}),
     inputs: e.inputs,
     focus_prompt: e.focusPrompt,
   }));
@@ -25,10 +30,14 @@ export function renderTestAnalystRoster(ctx: AnalystEnablementContext): string {
   const payload = JSON.stringify({ analysts }, null, 2);
   return (
     `<<TEST-ANALYST ROSTER , spawn ONE Task subagent (subagent_type general-purpose) per entry below, ` +
-    `passing its focus_prompt VERBATIM + the story inputs it declares. These are the ENABLED analysts ` +
-    `for THIS project (a no-frontend project omits "client"). Collect each analyst's returned UNORDERED ` +
-    `slice, then RECONCILE (discrepancies / overlaps / omissions), ASSEMBLE + ORDER the feature master, ` +
-    `and assign the final feature-flat T-ids , see your role prompt for the reconciliation contract.>>\n` +
+    `passing its focus_prompt VERBATIM + the story inputs it declares. Set the Task's model to the ` +
+    `entry's "model". When an entry gives "effort" or "tool_scope", RESTATE them at the top of that ` +
+    `spawn's prompt , "Think at <effort> effort." and "Confine your work to these tools: <tool_scope>." ` +
+    `, since the Task tool takes no effort/tool parameters (the analyst self-paces/self-limits on your ` +
+    `instruction). These are the ENABLED analysts for THIS project (a no-frontend project omits ` +
+    `"client"). Collect each analyst's returned UNORDERED slice, then RECONCILE (discrepancies / ` +
+    `overlaps / omissions), ASSEMBLE + ORDER the feature master, and assign the final feature-flat ` +
+    `T-ids , see your role prompt for the reconciliation contract.>>\n` +
     "```json\n" + payload + "\n```\n" +
     `<<END TEST-ANALYST ROSTER>>\n`
   );

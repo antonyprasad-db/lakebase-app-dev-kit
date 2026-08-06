@@ -13,7 +13,7 @@ import { renderTestAnalystRoster } from "../../consort/test-list/test-analyst-ro
 import { resolvePreparer } from "../../consort/orchestrator/build/preconditions";
 
 /** Extract the fenced JSON payload from a rendered roster block. */
-function parseRoster(block: string): { analysts: Array<{ kind: string; focus_prompt: string; inputs: string[] }> } {
+function parseRoster(block: string): { analysts: Array<{ kind: string; focus_prompt: string; inputs: string[]; model: string; effort?: string; tool_scope?: string[] }> } {
   const m = block.match(/```json\n([\s\S]*?)\n```/);
   if (!m) throw new Error(`no fenced json in roster block:\n${block}`);
   return JSON.parse(m[1]);
@@ -37,6 +37,20 @@ describe("renderTestAnalystRoster: uiTrack gates client", () => {
     expect(block).toMatch(/TEST-ANALYST ROSTER/);
     expect(block).toMatch(/Task subagent/i);
     expect(block).toMatch(/RECONCILE/i);
+  });
+  it("each entry carries the advisory levers (model + effort + tool_scope) for the supervisor to restate", () => {
+    const roster = parseRoster(renderTestAnalystRoster({ projectDir: "/tmp/p", uiTrack: true }));
+    for (const a of roster.analysts) {
+      expect(a.model?.length, `${a.kind} model`).toBeGreaterThan(0);
+      expect(["low", "default", "high"], `${a.kind} effort`).toContain(a.effort);
+      expect(a.tool_scope?.length ?? 0, `${a.kind} tool_scope`).toBeGreaterThan(0);
+    }
+  });
+  it("the header tells the supervisor to set model + RESTATE effort/tool_scope per spawn (Task has no such params)", () => {
+    const block = renderTestAnalystRoster({ projectDir: "/tmp/p", uiTrack: true });
+    expect(block).toMatch(/model to the entry/i);
+    expect(block).toMatch(/effort/i);
+    expect(block).toMatch(/tool_scope|Confine your work/i);
   });
 });
 

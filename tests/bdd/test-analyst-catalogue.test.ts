@@ -29,6 +29,18 @@ describe("TEST_ANALYST_CATALOGUE: the 3 seed kinds", () => {
     }
   });
 
+  it("carries the advisory optimize levers per analyst (effort in the enum + a non-empty toolScope)", () => {
+    // effort + toolScope are the per-analyst tuning levers the optimize path sweeps. They are
+    // OPTIONAL on the type, but every seed entry sets them so the roster surfaces a starting point.
+    for (const [key, entry] of Object.entries(TEST_ANALYST_CATALOGUE)) {
+      expect(["low", "default", "high"], `${key}.effort in enum`).toContain(entry.effort);
+      expect(entry.toolScope?.length ?? 0, `${key}.toolScope non-empty`).toBeGreaterThan(0);
+    }
+    // fitness is the densest-reasoning slice (layering + ORM + NFR guards + per-invariant real-branch
+    // tests) , its seed default is high effort, distinguishing it from the cheaper slices.
+    expect(TEST_ANALYST_CATALOGUE.fitness.effort).toBe("high");
+  });
+
   it("only the fitness analyst OWNS invariant_id (behavior + client are told NOT to set it)", () => {
     // Single owner => checkInvariantCoverageDistinct can't be tripped by two emitters. The fitness
     // prompt instructs to SET invariant_id; behavior + client explicitly instruct NOT to set it (they
