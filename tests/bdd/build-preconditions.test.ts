@@ -41,13 +41,20 @@ beforeEach(() => {
 afterEach(() => rmSync(tdd, { recursive: true, force: true }));
 
 describe("resolvePreparer / PRECONDITION_PREPARERS", () => {
-  it("registers exactly the two shipped preparers", () => {
-    expect(Object.keys(PRECONDITION_PREPARERS).sort()).toEqual(["context-pack", "green-failure-advisory"]);
+  it("registers exactly the shipped preparers", () => {
+    // context-pack + green-failure-advisory (build self-heal turns) + test-analyst-roster (the
+    // test-strategist supervisor's per-kind analyst roster, gated on the project's uiTrack).
+    expect(Object.keys(PRECONDITION_PREPARERS).sort()).toEqual([
+      "context-pack",
+      "green-failure-advisory",
+      "test-analyst-roster",
+    ]);
   });
 
   it("resolves a known kind to a preparer fn", () => {
     expect(typeof resolvePreparer("context-pack")).toBe("function");
     expect(typeof resolvePreparer("green-failure-advisory")).toBe("function");
+    expect(typeof resolvePreparer("test-analyst-roster")).toBe("function");
   });
 
   it("THROWS loud on an unknown kind (a manifest-authoring bug, never silently no-ops)", () => {

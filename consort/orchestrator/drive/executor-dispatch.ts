@@ -59,7 +59,7 @@ export interface ExecutorDispatchDeps {
   buildTaskBody(action: Extract<WorkflowAction, { kind: "invoke-role" }>, cfg: DriveEffectsConfig, omit?: ReadonlySet<string>): string;
   /** Resolve a precondition KIND to its preparer (the registry), so phase 2.5 projects the declared
    *  context block. Injected so this module has no static preparer-registry edge. */
-  preparerFor(kind: string): (ctx: { consortDir: string; featureId: string; story: string; ac: string; options?: Record<string, unknown> }) => string;
+  preparerFor(kind: string): (ctx: { consortDir: string; featureId: string; story: string; ac: string; projectDir?: string; options?: Record<string, unknown> }) => string;
   /** Re-read the drive state FRESH from disk (post-turn), for the state-derived route authority. */
   readDriveStateFromDisk(consortDir: string, featureId: string, projectDir: string, opts: { uiTrack?: boolean }): DriveState;
   /** Symbolic bin token -> resolved CLI bin (PIPELINE_BIN, CYCLE_BIN, …), the same map
@@ -374,7 +374,7 @@ export async function performTurnViaExecutor(
     // is the SAME pure projection roleTaskBody used inline; phase 2.5 places it by the precondition's
     // `position` (prepend for the green-failure advisory, append for the context-pack).
     prepare: (kind, pre, _action) =>
-      deps.preparerFor(kind)({ consortDir: cfg.consortDir, featureId: f, story: story ?? "", ac: ("ac" in action && typeof action.ac === "string" ? action.ac : ""), ...(pre.options ? { options: pre.options } : {}) }),
+      deps.preparerFor(kind)({ consortDir: cfg.consortDir, featureId: f, story: story ?? "", ac: ("ac" in action && typeof action.ac === "string" ? action.ac : ""), ...(cfg.projectDir ? { projectDir: cfg.projectDir } : {}), ...(pre.options ? { options: pre.options } : {}) }),
     // Phase 2.7: the manifest's `before` CLIs (e.g. breakdown's reset-breakdown), run through the runner.
     preTurnEffects: async () => {
       for (const cmd of manifestPostTurnCommands(manifest, "before", action, cfg, deps)) await cfg.runner.run(cmd);

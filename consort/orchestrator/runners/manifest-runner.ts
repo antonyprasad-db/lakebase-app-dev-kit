@@ -216,6 +216,9 @@ function executorWiring(
         featureId: deps.cfg.featureId,
         story,
         ac,
+        // Thread the project root so a preparer can read project-level config (the test-analyst
+        // roster preparer resolves project.uiTrack to gate the client analyst).
+        ...(deps.cfg.projectDir ? { projectDir: deps.cfg.projectDir } : {}),
         ...(pre.options ? { options: pre.options } : {}),
       });
     },

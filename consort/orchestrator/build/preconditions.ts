@@ -18,6 +18,8 @@
 
 import { buildContextPack } from "./build-context.js";
 import { readGreenFailure } from "../../smells/supersession.js";
+import { renderTestAnalystRoster } from "../../test-list/test-analyst-roster.js";
+import { resolveProjectSettings } from "../../config/consort-config-file.js";
 
 /** The scope a preparer projects against (a pure read of on-disk `.sftdd`). */
 export interface PreparerContext {
@@ -26,6 +28,10 @@ export interface PreparerContext {
   story: string;
   /** The AC in ac-loop; "" at story scope. */
   ac: string;
+  /** The project root. Threaded so a preparer can resolve project-level config (e.g. the
+   *  test-analyst-roster preparer reads project.uiTrack to gate the `client` analyst). Optional
+   *  for back-compat with preparers that project only from consortDir; absent => "". */
+  projectDir?: string;
   /** Preparer-specific knobs (e.g. context-pack's { skipTestLoop }). */
   options?: Record<string, unknown>;
 }
@@ -87,6 +93,15 @@ export const PRECONDITION_PREPARERS: Record<string, PreconditionPreparer> = {
       skipTestLoop: !!(ctx.options && (ctx.options as { skipTestLoop?: boolean }).skipTestLoop),
     }),
   "green-failure-advisory": (ctx) => buildGreenFailureAdvisory(ctx.consortDir, ctx.featureId, ctx.story, ctx.ac),
+  // The test-analyst roster: project the ENABLED test-analyst catalogue (client gated on the
+  // project's uiTrack) into the test-strategist supervisor's turn so it Task-spawns one analyst
+  // subagent per enabled kind. Reads project.uiTrack from projectDir (absent => uiTrack false, the
+  // no-frontend default => behavior+fitness only).
+  "test-analyst-roster": (ctx) => {
+    const projectDir = ctx.projectDir ?? "";
+    const uiTrack = projectDir ? resolveProjectSettings(projectDir).project.uiTrack : false;
+    return renderTestAnalystRoster({ projectDir, uiTrack });
+  },
 };
 
 /** Resolve a precondition KIND to its preparer. THROWS loud on an unknown kind , a manifest/
