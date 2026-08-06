@@ -118,14 +118,33 @@ export function resolveDriverGreenRunConfig(): { host: string; scaffoldConfig: R
   return { host: String(scaffoldConfig.databricksHost ?? host), scaffoldConfig };
 }
 
+/** Context handed to an afterGreen hook: everything needed to judge the driver's produced code (the
+ *  live project dir + the bundle's feature + the pin story index) BEFORE teardown removes the tree. */
+export interface DriverGreenContext {
+  /** The scaffolded project dir , the driver's app/ product code lives at its root. */
+  projectDir: string;
+  /** The feature the bundle built (F6-split-tracking-code). */
+  featureId: string;
+  /** The story's positional index in the pin's recorded-build (S3 is the 2nd F6 story => 1). */
+  storyIndex: number;
+}
+
+/** Options for the live driver-GREEN run: an OPTIONAL afterGreen hook the caller uses to judge the
+ *  produced code against the pin (the CODE-equivalence proof) BEFORE the project is torn down. */
+export interface RunDriverGreenOptions {
+  afterGreen?(ctx: DriverGreenContext): Promise<void>;
+}
+
 /**
  * The ONE setup routine + live driver-GREEN run + teardown, driven through the EXISTING
  * orchestration lifecycle catalogue + the check's run-config. GATED , the caller (the test file)
  * only invokes this behind RUN_LIVE_STEP + LAKEBASE_TEST_E2E. Lifecycle bracket:
  *   scaffold-project (catalogue) -> [overlay bundle + cut branch + seed open-RED + live driver GREEN]
  *   -> remove-project (catalogue, finally).
+ * An optional afterGreen hook runs against the produced code (before teardown) , the CODE-equivalence
+ * comparison drives this to judge the driver's app/ tree against the pin's recorded-build reference.
  */
-export async function runDriverGreenLive(): Promise<void> {
+export async function runDriverGreenLive(opts: RunDriverGreenOptions = {}): Promise<void> {
   const b = DRIVER_GREEN_BUNDLE;
   const { scaffoldConfig } = resolveDriverGreenRunConfig();
   const experimentSlug = "s3-driver-green";
@@ -219,6 +238,11 @@ export async function runDriverGreenLive(): Promise<void> {
     expect(result.stoppedAtBound || result.stoppedAtMax || result.iterations >= 1).toBe(true);
     expect(readPipeline(consortDir, b.feature).build_active).toBe(b.story);
     void host;
+
+    // The CODE-equivalence proof (when the caller supplied one) judges the driver's app/ tree against
+    // the pin BEFORE teardown. S3 is the 2nd recorded F6 story => storyIndex 1 (resolveBuildReference
+    // matches positionally, since slugs differ across corpora).
+    if (opts.afterGreen) await opts.afterGreen({ projectDir, featureId: b.feature, storyIndex: 1 });
   } finally {
     // ── TEARDOWN (catalogue remove-project): runner + repo + Lakebase project + dir, never-leaking. ──
     delete process.env.LAKEBASE_SFTDD_USE_MANIFEST_STEPS;

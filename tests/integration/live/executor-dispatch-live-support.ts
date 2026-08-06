@@ -28,6 +28,7 @@ import { resolveConsortSettings } from "../../../consort/orchestrator/settings/p
 import { layDownKitAgents } from "../../../consort/orchestrator/provisioning/bundle.js";
 import type { WorkflowAction, DriveState } from "../../../consort/orchestrator/drive/orchestrator-drive.js";
 import type { ValidateBoundDeps } from "../../../consort/orchestrator/steps/step-contract.js";
+import type { TurnKey } from "../../../consort/orchestrator/settings/project-settings.js";
 
 const KIT = process.cwd();
 const INTAKE = join(KIT, "tests/integration/intake");
@@ -39,6 +40,9 @@ export const STORY = "S1-file-stock";
  *  agent must land (consort-relative), whether it is a directory primary, and the live prompt. */
 export interface DesignLiveSpec {
   name: string;
+  /** The step key this role's output is judged as (turnKeyForAction(action)); the equivalence
+   *  suite resolves the reference + reads the produced artifact via the semantic gate on this key. */
+  step: TurnKey;
   action: WorkflowAction;
   /** Files to seed under .consort at their REAL relative scope (the {feature}/{story} the manifest
    *  source resolves to). `from` copies the recorded intake file; `content` writes inline. */
@@ -89,13 +93,22 @@ function nonEmptyDir(dir: string): boolean {
   return existsSync(dir) && statSync(dir).isDirectory() && readdirSync(dir).length > 0;
 }
 
+/** Options for one dispatch-live run: an OPTIONAL `afterProduce` hook the caller uses to inspect the
+ *  produced `.consort` tree BEFORE teardown (the equivalence suite runs its semantic judge here). */
+export interface RunDesignExecutorDispatchOptions {
+  /** Called with the provisioned consortDir after the artifact is produced + the dispatch assertions
+   *  pass, BEFORE the throwaway dir is removed. The equivalence proof judges the output here. */
+  afterProduce?(consortDir: string): Promise<void>;
+}
+
 /**
  * Run ONE design role's turn LIVE through the shipped performViaExecutor path + assert it produced
  * its artifact under the provisioned `.consort` (the artifact channel) + the reconciled agent-log
  * under `.consort` (meta). Seeds the role's inputs at their REAL feature/story scope so the shipped
- * manifest's {feature}/{story} source resolves on the tree. Throwaway dir, no cloud.
+ * manifest's {feature}/{story} source resolves on the tree. Throwaway dir, no cloud. An optional
+ * `afterProduce` hook runs against the produced tree before teardown (the equivalence judge).
  */
-export async function runDesignExecutorDispatchLive(spec: DesignLiveSpec): Promise<void> {
+export async function runDesignExecutorDispatchLive(spec: DesignLiveSpec, opts: RunDesignExecutorDispatchOptions = {}): Promise<void> {
   const projectDir = mkdtempSync(join(tmpdir(), "design-exec-live-"));
   const consortDir = join(projectDir, ".consort");
   mkdirSync(consortDir, { recursive: true });
@@ -144,8 +157,215 @@ export async function runDesignExecutorDispatchLive(spec: DesignLiveSpec): Promi
 
     // A clean produce routed (no violations blocked it) , the executor returned a bounded action.
     expect(bounded!.action, `${spec.name} produced a route`).toBeDefined();
+
+    // The equivalence proof (when the caller supplied one) judges the produced tree BEFORE teardown.
+    if (opts.afterProduce) await opts.afterProduce(consortDir);
   } finally {
     delete process.env.LAKEBASE_SFTDD_USE_MANIFEST_STEPS;
     rmSync(projectDir, { recursive: true, force: true });
   }
+}
+
+// The AC the architect + test-strategist chains seed inline (a self-contained persistence AC for
+// S1); the same JSON both dispatch-live tests already used, hoisted here so the catalogue owns it.
+const S1_AC = JSON.stringify({
+  id: "AC1-file-stock-record", story_id: STORY, statement: "A stock record can be filed",
+  layer: "persistence", given: "an empty catalog", when: "a stock record is filed", then: "it persists", status: "draft",
+}) + "\n";
+
+/**
+ * The catalogue of DESIGN-role dispatch-live specs , the SINGLE source of truth for the per-role
+ * executor-dispatch proofs (each `*-executor-dispatch-live.test.ts` consumes its entry) AND the
+ * design-equivalence regression suite (which drives each spec, then judges the produced artifact
+ * against the pin via evaluateSemanticGate on spec.step). Keeping them here (not inline in 8 test
+ * files) is the one-source-of-truth discipline: a role's action/seed/prompt/step is stated once.
+ *
+ * Covers all 8 design steps turnKeyForAction maps: breakdown, propose, acs, architect, estimate,
+ * dba, test-list, ux , the exact set hasDesignReference(step) resolves a pin reference for (a
+ * Partial over TurnKey, since TurnKey also spans the build turns, which have no design reference).
+ */
+export const DESIGN_LIVE_SPECS: Partial<Record<TurnKey, DesignLiveSpec>> = {
+  breakdown: {
+    name: "spec-author-breakdown",
+    step: "breakdown",
+    action: { kind: "invoke-role", role: "spec-author", mode: "breakdown" },
+    seed: [
+      { rel: "product-overview.md", from: "product-overview.md" },
+      { rel: "nfrs.md", from: "nfrs.md" },
+      { rel: "feature-request.md", from: "product-overview.md" },
+    ],
+    artifactRel: `features/${FEATURE}/feature-spec.json`,
+    prompt:
+      `Break feature ${FEATURE} into its stories from the provided inputs (they are in this prompt , ` +
+      `do NOT search the filesystem or read other projects). WRITE exactly these files, relative to ` +
+      `your current working directory:\n` +
+      `  - .consort/features/${FEATURE}/feature-spec.json  (JSON: id, name, status "draft", tdd_mode, ` +
+      `NON-EMPTY stories[])\n` +
+      `  - a stub dir per story under .consort/features/${FEATURE}/stories/<S>/ (story.md + story.json)\n` +
+      `Then STOP , run no shell command, do NOT self-verify. As the LAST thing in your reply, emit a ` +
+      `fenced report block:\n` +
+      "```agent-report\n" +
+      `[{ "level": "info", "event": "artifact.written", "message": "<one line: what you wrote>" }]\n` +
+      "```\n",
+  },
+  propose: {
+    name: "spec-author-propose",
+    step: "propose",
+    action: { kind: "invoke-role", role: "spec-author", mode: "propose" },
+    seed: [
+      { rel: "product-overview.md", from: "product-overview.md" },
+      { rel: "nfrs.md", from: "nfrs.md" },
+    ],
+    artifactRel: "planning/feature-proposals.md",
+    prompt:
+      `In the sprint plan lane. From the provided product overview + NFR brief, propose the sprint's ` +
+      `candidate features. WRITE exactly this file, relative to your current working directory:\n` +
+      `  - .consort/planning/feature-proposals.md\n` +
+      `One candidate feature per section (a heading + a short scope), so the Architect can size them ` +
+      `and the PO can commit a backlog. Then STOP , run no shell command, do NOT self-verify. As the ` +
+      `LAST thing in your reply, emit a fenced report block:\n` +
+      "```agent-report\n" +
+      `[{ "level": "info", "event": "artifact.written", "message": "<one line: what you wrote>" }]\n` +
+      "```\n",
+  },
+  acs: {
+    name: "spec-author-story",
+    step: "acs",
+    action: { kind: "invoke-role", role: "spec-author", story: STORY },
+    seed: [
+      { rel: `features/${FEATURE}/stories/${STORY}/story.json`, from: `features/${FEATURE}/stories/${STORY}/story.json` },
+      { rel: "product-overview.md", from: "product-overview.md" },
+    ],
+    artifactRel: `features/${FEATURE}/stories/${STORY}/acs`,
+    artifactIsDir: true,
+    prompt:
+      `From the provided story stub + product overview, draft the acceptance criteria for story ` +
+      `${STORY}. WRITE at least one AC file, relative to your current working directory:\n` +
+      `  - .consort/features/${FEATURE}/stories/${STORY}/acs/<AC-id>.json\n` +
+      `Each AC file is a JSON object whose "id" equals its basename, with a story_id, statement, ` +
+      `layer, given/when/then, and a status. Author real, testable criteria from the story stub. ` +
+      `Then STOP , run no shell command, do NOT self-verify. As the LAST thing in your reply, emit a ` +
+      `fenced report block:\n` +
+      "```agent-report\n" +
+      `[{ "level": "info", "event": "artifact.written", "message": "<one line: what you wrote>" }]\n` +
+      "```\n",
+  },
+  architect: {
+    name: "architect-reviewer",
+    step: "architect",
+    action: { kind: "invoke-role", role: "architect-reviewer", story: STORY },
+    seed: [
+      { rel: `features/${FEATURE}/stories/${STORY}/acs/AC1-file-stock-record.json`, content: S1_AC },
+      { rel: "nfrs.md", from: "nfrs.md" },
+    ],
+    artifactRel: `features/${FEATURE}/architecture.json`,
+    prompt:
+      `From the provided story AC + the NFR brief, author the feature architecture. WRITE exactly ` +
+      `this file, relative to your current working directory:\n` +
+      `  - .consort/features/${FEATURE}/architecture.json\n` +
+      `It MUST declare feature_id, an explicit service_backed boolean, layers[] (each role + module), ` +
+      `and , when service_backed , persistence_invariants[] (each id/type/table/brief). This feature ` +
+      `persists stock records, so it is service_backed with a real schema. Then STOP , run no shell ` +
+      `command, do NOT self-verify. As the LAST thing in your reply, emit a fenced report block:\n` +
+      "```agent-report\n" +
+      `[{ "level": "info", "event": "artifact.written", "message": "<one line: what you wrote>" }]\n` +
+      "```\n",
+  },
+  estimate: {
+    name: "architect-estimator",
+    step: "estimate",
+    action: { kind: "invoke-role", role: "architect-reviewer", mode: "estimate" },
+    seed: [{ rel: "planning/feature-proposals.md", from: "planning/feature-proposals.md" }],
+    artifactRel: "planning/estimates.json",
+    prompt:
+      `Estimating the sprint's candidate features. From the provided feature-proposals.md, t-shirt ` +
+      `size each candidate. WRITE exactly this file, relative to your current working directory:\n` +
+      `  - .consort/planning/estimates.json\n` +
+      `A JSON array (or object) of per-candidate {feature_id/name, size (one of XS/S/M/L/XL), ` +
+      `rationale}. Size every candidate the proposals name. Then STOP , run no shell command, do NOT ` +
+      `self-verify. As the LAST thing in your reply, emit a fenced report block:\n` +
+      "```agent-report\n" +
+      `[{ "level": "info", "event": "artifact.written", "message": "<one line: what you wrote>" }]\n` +
+      "```\n",
+  },
+  dba: {
+    name: "dba",
+    step: "dba",
+    action: { kind: "invoke-role", role: "dba", story: "S1-file-stock" },
+    seed: [{ rel: `features/${FEATURE}/architecture.json`, from: `features/${FEATURE}/architecture.json` }],
+    artifactRel: `features/${FEATURE}/db-design.json`,
+    prompt:
+      `From the provided architecture.json (the architect's logical contract: service_backed, ` +
+      `layers, persistence_invariants), produce the PHYSICAL schema. WRITE exactly this file, ` +
+      `relative to your current working directory:\n` +
+      `  - .consort/features/${FEATURE}/db-design.json\n` +
+      `Declare feature_id, tables[] (columns with type/nullable, primary_key, unique_constraints, ` +
+      `foreign_keys, checks, indexes), this story's schema_changes[], and realizes_invariants[] as ` +
+      `a FLAT array of the architecture.json persistence_invariant id STRINGS. Do NOT re-author the ` +
+      `invariants; physically realize them. Then STOP , run no shell command, do NOT self-verify. ` +
+      `As the LAST thing in your reply, emit a fenced report block:\n` +
+      "```agent-report\n" +
+      `[{ "level": "info", "event": "artifact.written", "message": "<one line: what you wrote>" }]\n` +
+      "```\n",
+  },
+  "test-list": {
+    name: "test-strategist",
+    step: "test-list",
+    action: { kind: "invoke-role", role: "test-strategist", story: STORY },
+    seed: [
+      { rel: `features/${FEATURE}/stories/${STORY}/acs/AC1-file-stock-record.json`, content: S1_AC },
+      { rel: `features/${FEATURE}/architecture.json`, from: `features/${FEATURE}/architecture.json` },
+      { rel: `features/${FEATURE}/db-design.json`, from: `features/${FEATURE}/db-design.json` },
+    ],
+    artifactRel: `features/${FEATURE}/test-list.json`,
+    prompt:
+      `Invoked for story ${STORY}. From the provided ACs + architecture.json + db-design.json, ` +
+      `produce the feature master test list covering EVERY provided AC. WRITE exactly this file, ` +
+      `relative to your current working directory:\n` +
+      `  - .consort/features/${FEATURE}/test-list.json\n` +
+      `Order the story's tests; map each test's ac_id to a provided AC's EXACT id; cover each AC at ` +
+      `least once. Cover EVERY architecture persistence_invariant with a real-branch fitness test ` +
+      `that sets "invariant_id". Every DB-writing test must own its state (a per-run-unique key). ` +
+      `Conform to test-list.schema.json. Then STOP , run no shell command, do NOT self-verify. As ` +
+      `the LAST thing in your reply, emit a fenced report block:\n` +
+      "```agent-report\n" +
+      `[{ "level": "info", "event": "artifact.written", "message": "<one line: what you wrote>" }]\n` +
+      "```\n",
+  },
+  ux: {
+    name: "ux-designer",
+    step: "ux",
+    action: { kind: "invoke-role", role: "ux-designer" },
+    seed: [
+      { rel: "design/design-brief.md", from: "design-brief.md" },
+      { rel: "product-overview.md", from: "product-overview.md" },
+    ],
+    artifactRel: "design/design-guide.json",
+    prompt:
+      `From the provided design brief + product overview, translate the brief into the project's ` +
+      `machine-checkable design system. WRITE exactly this file, relative to your current working ` +
+      `directory:\n` +
+      `  - .consort/design/design-guide.json\n` +
+      `Realize EVERY element the brief names: all token scales (typography, colors, spacing, radius, ` +
+      `shadows, breakpoints) at every level the brief enumerates, and a "components" block with an ` +
+      `entry for EACH reusable UI component the brief describes (navbar, page, card, button, form ` +
+      `input, table, status badge, empty state, and any others named), each with its class + notes. ` +
+      `Conform to design-guide.schema.json. Then STOP , run no shell command, do NOT self-verify. As ` +
+      `the LAST thing in your reply, emit a fenced report block:\n` +
+      "```agent-report\n" +
+      `[{ "level": "info", "event": "artifact.written", "message": "<one line: what you wrote>" }]\n` +
+      "```\n",
+  },
+};
+
+/** The catalogue's design steps, in dispatch order , the exact set the equivalence suite iterates
+ *  and every per-role dispatch-live test names. Derived from the catalogue (never hand-listed). */
+export const DESIGN_LIVE_STEPS = Object.keys(DESIGN_LIVE_SPECS) as TurnKey[];
+
+/** Fetch a catalogue entry, asserting it exists (the catalogue is a Partial over TurnKey since the
+ *  build turns share the key space but have no design spec). Call sites name a real design step. */
+export function designSpec(step: TurnKey): DesignLiveSpec {
+  const spec = DESIGN_LIVE_SPECS[step];
+  if (!spec) throw new Error(`no DESIGN_LIVE_SPECS entry for step "${step}"`);
+  return spec;
 }
