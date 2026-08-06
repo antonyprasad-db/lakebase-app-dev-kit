@@ -10,7 +10,7 @@
 // route -> BoundedRoute. The monitor is unit-tested separately (turn-monitor.test.ts).
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { mkdtempSync, writeFileSync, rmSync, existsSync } from "fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { execute } from "../../consort/orchestrator/turns/step-executor";
@@ -434,5 +434,98 @@ describe("three-channel outputs: product->workspace, artifact->artifactDir, meta
       rmSync(artifactDir, { recursive: true, force: true });
       rmSync(metaDir, { recursive: true, force: true });
     }
+  });
+});
+
+// The LIVE drive provisions artifactDir === metaDir === <workspace>/.consort (a NESTED subdir of
+// the product workspace, not a sibling temp dir) , see executor-dispatch.ts provisionWorkspace.
+// This shape is where a leading ".consort/" on a filename double-encodes the root
+// (=> <workspace>/.consort/.consort/...), the bug fixed when the channel model went live. These
+// two tests pin the live shape + make that regression BITE hermetically (no live run needed).
+describe("channel placement under the LIVE .consort shape (artifactDir === metaDir === <ws>/.consort)", () => {
+  // Uses the REAL Step + the REAL spec-author-breakdown manifest (feature-spec -> artifact,
+  // agent-log -> meta, both BARE filenames), so this exercises Step.run()'s actual channel
+  // placement (step.ts) + producedPaths computation, not an inline stand-in.
+  const breakdownAction: WorkflowAction = { kind: "invoke-role", role: "spec-author", mode: "breakdown" };
+
+  function breakdownCtx(): StepCtx {
+    return {
+      action: breakdownAction,
+      cfg: { projectDir: root, consortDir: join(root, ".consort"), featureId: "F1-x" } as StepCtx["cfg"],
+      state: { phase: "feature" } as unknown as DriveState,
+      validateBoundDeps: {
+        allowed: () => ({ kind: "design-complete" }) as WorkflowAction,
+        reviseBudgetAvailable: () => true,
+        recordRetry: () => ({ sanctioned: true }),
+      },
+    };
+  }
+
+  it("a BARE (channel-relative) filename lands directly under .consort , NOT double-encoded", async () => {
+    const consort = join(root, ".consort");
+    mkdirSync(consort, { recursive: true });
+    // A conformant agent that writes each channel's BARE filename into the root the invocation
+    // hands it (the orchestrator's placement, resolved by the channel model).
+    const agent: StepAgent = {
+      async invoke(inv) {
+        writeFileSync(join(inv.workspaceDir, "feature-spec.json"), GOOD_SPEC);
+        writeFileSync(join(inv.workspaceDir, "agent-log.jsonl"), GOOD_LOG);
+      },
+    };
+    const step = new Step(manifestForAction(breakdownAction)!, agent);
+    const deps: StepExecutorDeps = {
+      resolveInputs: () => ({ "product-overview": "x", nfrs: "x", "feature-request": "x" }),
+      // The LIVE shape: both contained roots ARE the workspace's .consort subdir. But the agent
+      // writes at workspaceDir (its cwd), so provision the ROOT as .consort so the agent's writes
+      // and the channel resolution coincide , exactly the executor-dispatch live wiring, where the
+      // agent runs in the project and artifact/meta resolve to <project>/.consort.
+      provisionWorkspace: () => ({ workspaceDir: consort, artifactDir: consort, metaDir: consort }),
+      instructionsFor: () => ({ prompt: "break down F1" }),
+    };
+    const result = await execute(step, breakdownCtx(), deps);
+    expect(result.violations).toEqual([]);
+    // Each file lands exactly one level deep under .consort , the correct placement.
+    expect(existsSync(join(consort, "feature-spec.json"))).toBe(true);
+    expect(existsSync(join(consort, "agent-log.jsonl"))).toBe(true);
+    // And is NEVER double-nested , the regression this guard exists for.
+    expect(existsSync(join(consort, ".consort", "feature-spec.json"))).toBe(false);
+    expect(existsSync(join(consort, ".consort", "agent-log.jsonl"))).toBe(false);
+    // Step.run() reports the single-level .consort paths as produced.
+    expect(result.producedPaths).toEqual([join(consort, "feature-spec.json"), join(consort, "agent-log.jsonl")]);
+  });
+
+  it("DECOY: an outputPath override ILLEGALLY prefixed with .consort/ double-encodes (proves the guard bites)", async () => {
+    const consort = join(root, ".consort");
+    mkdirSync(consort, { recursive: true });
+    // The exact authoring mistake the channel model forbids: an outputPaths override that re-encodes
+    // the channel root (".consort/feature-spec.json"). The orchestrator prepends the channel root
+    // (artifactDir === consort), so the executor looks for the primary output at
+    // <consort>/.consort/feature-spec.json , which the (correct, bare-writing) agent never creates,
+    // so the primary is absent => a produce failure. If someone re-introduces the prefix on a
+    // shipped manifest/override, its live turn breaks exactly here.
+    const agent: StepAgent = {
+      async invoke(inv) {
+        // The agent writes the BARE (correct) filename; the double-encoded expectation misses it.
+        writeFileSync(join(inv.workspaceDir, "feature-spec.json"), GOOD_SPEC);
+        writeFileSync(join(inv.workspaceDir, "agent-log.jsonl"), GOOD_LOG);
+      },
+    };
+    const step = new Step(manifestForAction(breakdownAction)!, agent);
+    const deps: StepExecutorDeps = {
+      resolveInputs: () => ({ "product-overview": "x", nfrs: "x", "feature-request": "x" }),
+      provisionWorkspace: () => ({
+        workspaceDir: consort,
+        artifactDir: consort,
+        metaDir: consort,
+        // The illegal re-encoding override on the PRIMARY output.
+        outputPaths: { "feature-spec": ".consort/feature-spec.json" },
+      }),
+      instructionsFor: () => ({ prompt: "break down F1" }),
+    };
+    const result = await execute(step, breakdownCtx(), deps);
+    // The primary output was expected at the DOUBLE-ENCODED path and never found => blocked.
+    expect(result.violations.length).toBeGreaterThan(0);
+    expect(existsSync(join(consort, ".consort", "feature-spec.json"))).toBe(false); // never created there
+    expect(existsSync(join(consort, "feature-spec.json"))).toBe(true); // correct place, but the override's expectation missed it
   });
 });
