@@ -130,6 +130,14 @@ export function executorDispatched(action: WorkflowAction): boolean {
     // REPAIR edit code + their @build-cycle verify needs a live branch (cloud-gated).
     if (action.role === "navigator" && action.buildMode === "review") return true;
     if (action.role === "driver" && (action.buildMode === "refactor" || action.buildMode === "repair")) return true;
+    // ── THE TAIL (Stage I): reflect + the deploy/superseded driver variants ────────────────────
+    // navigator REFLECT (design-gate turn: contextRubric inline, no pack precondition) and the
+    // driver DEPLOY/SUPERSEDED variants (they read their marker as a declared INPUT + interpolate
+    // it inline, so no clean precondition to extract , the pack/marker stays inline, byte-identical
+    // via omit=∅). All are no-output turns verified by their @build-cycle record + state-derived
+    // route. reflect is lean; the driver variants edit tests/code so their verify is cloud-gated.
+    if (action.role === "navigator" && action.buildMode === "reflect") return true;
+    if (action.role === "driver" && (action.buildMode === "refactor-deploy" || action.buildMode === "refactor-superseded" || action.buildMode === "green-superseded")) return true;
   }
   return false;
 }

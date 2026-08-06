@@ -11909,6 +11909,8 @@ function executorDispatched(action) {
     }
     if (action.role === "navigator" && action.buildMode === "review") return true;
     if (action.role === "driver" && (action.buildMode === "refactor" || action.buildMode === "repair")) return true;
+    if (action.role === "navigator" && action.buildMode === "reflect") return true;
+    if (action.role === "driver" && (action.buildMode === "refactor-deploy" || action.buildMode === "refactor-superseded" || action.buildMode === "green-superseded")) return true;
   }
   return false;
 }
