@@ -8538,13 +8538,15 @@ function claudeBaseArgs(cmd) {
 
 // consort/orchestrator/agents/claude-step-agent.ts
 var ClaudeStepAgent = class {
-  constructor(levers, spawn3) {
+  constructor(levers, spawn3, liveDispatch) {
     this.levers = levers;
     this.spawn = spawn3 ?? spawnClaudeStreaming;
+    this.liveDispatch = liveDispatch;
     this.sessionId = levers.resumeSessionId;
   }
   levers;
   spawn;
+  liveDispatch;
   sessionId;
   lastResult;
   /**
@@ -8603,6 +8605,12 @@ ${instructions.guidelines.map((g) => `- ${g}`).join("\n")}` : "";
     return args;
   }
   async invoke(invocation) {
+    if (this.liveDispatch) {
+      await this.liveDispatch(invocation);
+      const finalText2 = takeLastAgentTranscript()?.finalText;
+      this.lastResult = finalText2 ? { finalText: finalText2 } : {};
+      return;
+    }
     const args = this.spawnArgs(invocation);
     const usage = await this.spawn(args, invocation.workspaceDir);
     const finalText = takeLastAgentTranscript()?.finalText;

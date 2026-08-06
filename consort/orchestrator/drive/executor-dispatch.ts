@@ -7,8 +7,8 @@
 // Dependency-injected (no runtime import of orchestrator-effects, so no import cycle): the caller
 // supplies the command-derivation primitives it already owns in that module , buildCycleCommand
 // (the ONE shared cycle-CLI derivation), readDriveStateFromDisk (fresh post-turn state), the bin
-// tokens, and LOG_BIN. Everything else is this family's own (Step, LiveDriveStepAgent,
-// execute) or the manifest registry.
+// tokens, and LOG_BIN. Everything else is this family's own (Step, the unified ClaudeStepAgent on
+// its live-dispatch seam, execute) or the manifest registry.
 //
 // Two turn shapes flow through here today (each added to executorDispatched one at a time, each
 // with its byte-identical golden):
@@ -33,7 +33,7 @@ import {
 import { manifestForAction, type StepManifest } from "../steps/manifest.js";
 import { execute, type StepExecutorDeps } from "../turns/step-executor.js";
 import { Step } from "../steps/step.js";
-import { LiveDriveStepAgent } from "../agents/live-drive-step-agent.js";
+import { ClaudeStepAgent } from "../agents/claude-step-agent.js";
 import type { WorkflowAction, DriveState } from "./orchestrator-drive.js";
 import type { BoundedRoute, ValidateBoundDeps } from "../steps/step-contract.js";
 // Types only (erased at compile) , so this module never imports orchestrator-effects at runtime.
@@ -45,6 +45,12 @@ export interface ExecutorDispatchDeps {
   /** The ONE shared cycle-CLI derivation (reflect-gate / begin / green / …), reused for the
    *  `@build-cycle` post-turn marker so the executor stamps the IDENTICAL cycle the legacy path did. */
   buildCycleCommand(action: Extract<WorkflowAction, { kind: "invoke-role" }>, cfg: DriveEffectsConfig): DriveCommand | undefined;
+  /** The legacy `claude` command derivation (roleTask + terse suffix + levers), injected so the
+   *  UNCONTAINED live dispatch seam builds the EXACT command the legacy perform() spawned , the
+   *  byte-identity that keeps routing the live turn through the executor from changing the spawn.
+   *  Injected (not imported) so this family module stays free of a runtime orchestrator-effects
+   *  edge (the acyclic-DI discipline the whole module is built on). */
+  buildClaudeCommand(action: Extract<WorkflowAction, { kind: "invoke-role" }>, cfg: DriveEffectsConfig): DriveCommand;
   /** Re-read the drive state FRESH from disk (post-turn), for the state-derived route authority. */
   readDriveStateFromDisk(consortDir: string, featureId: string, projectDir: string, opts: { uiTrack?: boolean }): DriveState;
   /** Symbolic bin token -> resolved CLI bin (PIPELINE_BIN, CYCLE_BIN, …), the same map
@@ -211,13 +217,34 @@ export function outputPathsForAction(action: WorkflowAction, consortDir: string,
 }
 
 /**
+ * The UNCONTAINED live dispatch seam for the unified ClaudeStepAgent (Stage F2, #644): build the
+ * EXACT legacy `buildClaudeCommand(action, cfg)` and dispatch it through the SAME `cfg.runner`
+ * (execRunner) the legacy perform() used , byte-identical spawn (cwd=projectDir, prompt naming
+ * .consort paths, session/replay/retry all execRunner's). This is what dissolves the old
+ * LiveDriveStepAgent: one agent, its live path supplied by this seam. The agent reads the turn
+ * transcript itself after this returns, so the seam is dispatch-only. Non-invoke-role actions
+ * never reach here (executorDispatched gates them out), but we guard defensively for parity with
+ * the old command() contract.
+ */
+export function liveDispatchSeam(cfg: DriveEffectsConfig, deps: ExecutorDispatchDeps): (invocation: { action: WorkflowAction }) => Promise<void> {
+  return async (invocation) => {
+    const a = invocation.action;
+    if (a.kind !== "invoke-role") {
+      throw new Error(`live dispatch only handles invoke-role actions; got ${JSON.stringify(a)}`);
+    }
+    await cfg.runner.run(deps.buildClaudeCommand(a, cfg));
+  };
+}
+
+/**
  * Assemble the executor-dispatch of an invoke-role turn: run it THROUGH the StepExecutor's Template
- * Method with the uncontained LiveDriveStepAgent, and return the BoundedRoute execute()'s phase-7
- * produced. The pre/post-turn-effect + materialize phases are wired to the manifest's own CLIs, so
- * the executor runs the IDENTICAL side effects the legacy commandsForAction bundled. Uncontained:
- * the agent reads/writes the real project + `.sftdd`, so resolveInputs presence-checks the declared
- * inputs on the live tree (feature:/story: sources) and the workspace IS the project. Returns
- * undefined for an action not on the executor allowlist (caller falls to perform).
+ * Method with the UNIFIED ClaudeStepAgent (its uncontained live path supplied by liveDispatchSeam),
+ * and return the BoundedRoute execute()'s phase-7 produced. The pre/post-turn-effect + materialize
+ * phases are wired to the manifest's own CLIs, so the executor runs the IDENTICAL side effects the
+ * legacy commandsForAction bundled. Uncontained: the agent reads/writes the real project + `.consort`,
+ * so resolveInputs presence-checks the declared inputs on the live tree (feature:/story: sources)
+ * and the workspace IS the project. Returns undefined for an action not on the executor allowlist
+ * (caller falls to perform).
  */
 export async function performTurnViaExecutor(
   action: WorkflowAction,
@@ -230,7 +257,12 @@ export async function performTurnViaExecutor(
   const manifest = manifestForAction(action);
   if (!manifest) return undefined;
 
-  const agent = new LiveDriveStepAgent(cfg);
+  // The unified ClaudeStepAgent on its UNCONTAINED (live) path: levers carry only the role (the
+  // live seam builds the real command from cfg via buildClaudeCommand, not from these levers, so
+  // model/effort/session here are inert , the runner resolves them). No raw spawn is used; the
+  // liveDispatch seam is what invoke() delegates to.
+  const role = action.kind === "invoke-role" ? action.role : "";
+  const agent = new ClaudeStepAgent({ role }, undefined, liveDispatchSeam(cfg, deps));
   const step = new Step(manifest, agent);
   const f = cfg.featureId;
   const story = "story" in action && typeof action.story === "string" ? action.story : undefined;
@@ -268,13 +300,14 @@ export async function performTurnViaExecutor(
       }
       return out;
     },
-    // The workspace IS the real project (LiveDriveStepAgent's runner spawns in cfg.projectDir).
+    // The workspace IS the real project (the live seam's runner spawns in cfg.projectDir).
     // product-channel outputs (tests/, app/) land at the project root; artifact + meta channels
     // resolve under the real .consort (artifactDir = metaDir = cfg.consortDir), so the orchestrator
     // places the design docs + the reconciled agent-log there , the manifest filename stays bare.
     provisionWorkspace: () => ({ workspaceDir: cfg.projectDir, artifactDir: cfg.consortDir, metaDir: cfg.consortDir, outputPaths: outputPathsForAction(action, cfg.consortDir, f) }),
-    // The prompt is the agent's own (buildClaudeCommand -> roleTask); unused by LiveDriveStepAgent,
-    // but the executor requires the dep.
+    // The prompt is the live seam's own (buildClaudeCommand -> roleTask, which still carries the
+    // inline pack until each turn's precondition migration lands in Stages G/H/I); the unified
+    // agent's live path ignores invocation.instructions, but the executor requires the dep.
     instructionsFor: () => ({ prompt: "" }),
     // Phase 2.7: the manifest's `before` CLIs (e.g. breakdown's reset-breakdown), run through the runner.
     preTurnEffects: async () => {

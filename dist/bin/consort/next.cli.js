@@ -7965,8 +7965,9 @@ var architectureConformant = conformsTo("architecture.json");
 var dbDesignConformant = conformsTo("db-design.json");
 var testListConformant = conformsTo("test-list.json");
 
-// consort/orchestrator/agents/live-drive-step-agent.ts
+// consort/orchestrator/agents/claude-step-agent.ts
 init_esm_shims();
+import { randomUUID as randomUUID2 } from "crypto";
 
 // consort/orchestrator/drive/claude-runner.ts
 init_esm_shims();

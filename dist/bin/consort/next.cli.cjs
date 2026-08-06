@@ -7963,8 +7963,9 @@ var architectureConformant = conformsTo("architecture.json");
 var dbDesignConformant = conformsTo("db-design.json");
 var testListConformant = conformsTo("test-list.json");
 
-// consort/orchestrator/agents/live-drive-step-agent.ts
+// consort/orchestrator/agents/claude-step-agent.ts
 init_cjs_shims();
+var import_node_crypto2 = require("crypto");
 
 // consort/orchestrator/drive/claude-runner.ts
 init_cjs_shims();
@@ -8385,7 +8386,7 @@ init_cjs_shims();
 // consort/deploy/deploy.ts
 init_cjs_shims();
 var import_node_child_process3 = require("child_process");
-var import_node_crypto2 = require("crypto");
+var import_node_crypto3 = require("crypto");
 var import_node_fs7 = require("fs");
 var import_node_path9 = require("path");
 var import_lakebase7 = require("@databricks-solutions/lakebase-scm-utils/lakebase");

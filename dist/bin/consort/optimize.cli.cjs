@@ -10336,28 +10336,87 @@ var Step = class {
   }
 };
 
-// consort/orchestrator/agents/live-drive-step-agent.ts
+// consort/orchestrator/agents/claude-step-agent.ts
 init_cjs_shims();
-var LiveDriveStepAgent = class {
-  constructor(cfg) {
-    this.cfg = cfg;
+var import_node_crypto2 = require("crypto");
+var ClaudeStepAgent = class {
+  constructor(levers, spawn3, liveDispatch) {
+    this.levers = levers;
+    this.spawn = spawn3 ?? spawnClaudeStreaming;
+    this.liveDispatch = liveDispatch;
+    this.sessionId = levers.resumeSessionId;
   }
-  cfg;
+  levers;
+  spawn;
+  liveDispatch;
+  sessionId;
   lastResult;
-  /** The `claude` command this agent will dispatch , EXACTLY the legacy buildClaudeCommand for
-   *  the action. Exported as a method (not just run) so the parity golden can assert byte-identity
-   *  against commandsForAction without spawning. */
-  command(action) {
-    if (action.kind !== "invoke-role") {
-      throw new Error(`LiveDriveStepAgent only dispatches invoke-role actions; got ${JSON.stringify(action)}`);
+  /**
+   * The `claude` DriveCommand this agent will spawn for an invocation. Pure + exported
+   * for guarding: the task is the orchestrator's passed-through prompt + guidelines + the
+   * PROVIDED input contents (embedded so the agent needs no .sftdd access), and every
+   * model-side lever is threaded onto the command (which claudeBaseArgs/claudeToolArgs
+   * then translate to flags). CONTAINED: the task references only provided inputs + the
+   * workspace it will be spawned in; it never points the agent at .sftdd.
+   */
+  buildCommand(invocation) {
+    const { instructions, action, inputs } = invocation;
+    const inputBlock = Object.keys(inputs).length ? `
+
+Provided inputs (read these; do NOT look elsewhere):
+${Object.entries(inputs).map(([id, content]) => `<<INPUT id="${id}">>
+${content}
+<<END INPUT ${id}>>`).join("\n\n")}` : "";
+    const guidelines = instructions.guidelines?.length ? `
+
+Guidelines (follow all):
+${instructions.guidelines.map((g) => `- ${g}`).join("\n")}` : "";
+    return {
+      kind: "claude",
+      role: this.levers.role,
+      model: this.levers.model ?? "sonnet",
+      task: instructions.prompt + inputBlock + guidelines,
+      ...this.levers.effort ? { effort: this.levers.effort } : {},
+      ...this.levers.fallbackModel ? { fallbackModel: this.levers.fallbackModel } : {},
+      ...typeof this.levers.maxBudgetUsd === "number" ? { maxBudgetUsd: this.levers.maxBudgetUsd } : {},
+      ...this.levers.allowedTools?.length ? { allowedTools: this.levers.allowedTools } : {},
+      ...this.levers.disallowedTools?.length ? { disallowedTools: this.levers.disallowedTools } : {},
+      replay: { mode: "mode" in action ? action.mode : void 0 }
+    };
+  }
+  /** Session flags: resume a warm session (context kept) or start fresh (context cleared). */
+  sessionArgs() {
+    if (this.levers.session === "resume") {
+      const id = this.sessionId ?? this.levers.resumeKey;
+      if (id) return ["--resume", id];
+      this.sessionId = (0, import_node_crypto2.randomUUID)();
+      return ["--session-id", this.sessionId];
     }
-    return buildClaudeCommand(action, this.cfg);
+    this.sessionId = (0, import_node_crypto2.randomUUID)();
+    return ["--session-id", this.sessionId];
+  }
+  /** The full spawn arg vector for an invocation (exported for guarding via buildCommand). */
+  spawnArgs(invocation) {
+    const cmd = this.buildCommand(invocation);
+    const args = claudeBaseArgs(cmd);
+    if (cmd.effort) args.push("--effort", cmd.effort);
+    if (cmd.fallbackModel) args.push("--fallback-model", cmd.fallbackModel);
+    if (typeof cmd.maxBudgetUsd === "number") args.push("--max-budget-usd", String(cmd.maxBudgetUsd));
+    args.push(...claudeToolArgs(cmd));
+    args.push(...this.sessionArgs());
+    return args;
   }
   async invoke(invocation) {
-    void invocation.workspaceDir;
-    await this.cfg.runner.run(this.command(invocation.action));
+    if (this.liveDispatch) {
+      await this.liveDispatch(invocation);
+      const finalText2 = takeLastAgentTranscript()?.finalText;
+      this.lastResult = finalText2 ? { finalText: finalText2 } : {};
+      return;
+    }
+    const args = this.spawnArgs(invocation);
+    const usage = await this.spawn(args, invocation.workspaceDir);
     const finalText = takeLastAgentTranscript()?.finalText;
-    this.lastResult = finalText ? { finalText } : {};
+    this.lastResult = { usage, finalText };
   }
 };
 
@@ -10445,11 +10504,21 @@ function outputPathsForAction(action, consortDir, featureId) {
   }
   return {};
 }
+function liveDispatchSeam(cfg, deps) {
+  return async (invocation) => {
+    const a = invocation.action;
+    if (a.kind !== "invoke-role") {
+      throw new Error(`live dispatch only handles invoke-role actions; got ${JSON.stringify(a)}`);
+    }
+    await cfg.runner.run(deps.buildClaudeCommand(a, cfg));
+  };
+}
 async function performTurnViaExecutor(action, state, routerDeps, cfg, deps) {
   if (!cfg.useManifestSteps || !executorDispatched(action)) return void 0;
   const manifest = manifestForAction(action);
   if (!manifest) return void 0;
-  const agent = new LiveDriveStepAgent(cfg);
+  const role = action.kind === "invoke-role" ? action.role : "";
+  const agent = new ClaudeStepAgent({ role }, void 0, liveDispatchSeam(cfg, deps));
   const step = new Step(manifest, agent);
   const f = cfg.featureId;
   const story = "story" in action && typeof action.story === "string" ? action.story : void 0;
@@ -10476,13 +10545,14 @@ async function performTurnViaExecutor(action, state, routerDeps, cfg, deps) {
       }
       return out;
     },
-    // The workspace IS the real project (LiveDriveStepAgent's runner spawns in cfg.projectDir).
+    // The workspace IS the real project (the live seam's runner spawns in cfg.projectDir).
     // product-channel outputs (tests/, app/) land at the project root; artifact + meta channels
     // resolve under the real .consort (artifactDir = metaDir = cfg.consortDir), so the orchestrator
     // places the design docs + the reconciled agent-log there , the manifest filename stays bare.
     provisionWorkspace: () => ({ workspaceDir: cfg.projectDir, artifactDir: cfg.consortDir, metaDir: cfg.consortDir, outputPaths: outputPathsForAction(action, cfg.consortDir, f) }),
-    // The prompt is the agent's own (buildClaudeCommand -> roleTask); unused by LiveDriveStepAgent,
-    // but the executor requires the dep.
+    // The prompt is the live seam's own (buildClaudeCommand -> roleTask, which still carries the
+    // inline pack until each turn's precondition migration lands in Stages G/H/I); the unified
+    // agent's live path ignores invocation.instructions, but the executor requires the dep.
     instructionsFor: () => ({ prompt: "" }),
     // Phase 2.7: the manifest's `before` CLIs (e.g. breakdown's reset-breakdown), run through the runner.
     preTurnEffects: async () => {
@@ -10724,7 +10794,7 @@ function acsForStory(tddDir, featureId, storyId) {
 // consort/deploy/deploy.ts
 init_cjs_shims();
 var import_node_child_process3 = require("child_process");
-var import_node_crypto2 = require("crypto");
+var import_node_crypto3 = require("crypto");
 var import_node_fs7 = require("fs");
 var import_node_path9 = require("path");
 var import_lakebase7 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
@@ -13195,6 +13265,7 @@ function buildDriveEffects(cfg) {
     performViaExecutor(action, state, routerDeps) {
       return performTurnViaExecutor(action, state, routerDeps, cfg, {
         buildCycleCommand,
+        buildClaudeCommand,
         readDriveStateFromDisk,
         binTokens: POST_TURN_BIN_TOKENS,
         logBin: LOG_BIN
@@ -13532,7 +13603,7 @@ function isBuildHandoff(plan) {
 
 // consort/logging/turn-recorder.ts
 init_cjs_shims();
-var import_node_crypto3 = require("crypto");
+var import_node_crypto4 = require("crypto");
 var import_node_fs16 = require("fs");
 var import_node_path19 = require("path");
 var NON_ARTIFACT_TDD = /* @__PURE__ */ new Set(["agent-log.jsonl"]);
@@ -13554,7 +13625,7 @@ function labelForAction(action) {
   return kind;
 }
 function sha1(abs) {
-  return (0, import_node_crypto3.createHash)("sha1").update((0, import_node_fs16.readFileSync)(abs)).digest("hex");
+  return (0, import_node_crypto4.createHash)("sha1").update((0, import_node_fs16.readFileSync)(abs)).digest("hex");
 }
 function renderTranscriptMd(t, label) {
   const lines = [];

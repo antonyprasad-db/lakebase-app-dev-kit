@@ -1827,6 +1827,7 @@ export function buildDriveEffects(cfg: DriveEffectsConfig): DriveEffects {
     performViaExecutor(action, state, routerDeps) {
       return performTurnViaExecutor(action, state, routerDeps, cfg, {
         buildCycleCommand,
+        buildClaudeCommand,
         readDriveStateFromDisk,
         binTokens: POST_TURN_BIN_TOKENS,
         logBin: LOG_BIN,

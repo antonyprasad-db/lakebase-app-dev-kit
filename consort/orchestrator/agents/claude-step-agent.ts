@@ -57,6 +57,22 @@ export interface AgentLevers {
 /** The seam that actually spawns the turn , injectable so the agent is unit-testable. */
 export type SpawnFn = (args: string[], cwd: string) => Promise<TurnUsage | undefined>;
 
+/**
+ * The UNCONTAINED production dispatch seam (the LIVE drive). When present, invoke() delegates the
+ * turn to this fn INSTEAD OF the contained raw spawn: the seam builds + dispatches the turn through
+ * the production runner (execRunner) , so the agent inherits, for free, everything execRunner owns
+ * (per-role session warmth, the context-budget guard, mid-turn overflow + transient-blip retries,
+ * the per-turn build-replay overlay, set-phase/sync-backlog) that the contained raw spawn lacks. It
+ * is the ONE axis on which the live drive differs from a contained test run: cwd = the real project
+ * (the runner owns it), inputs are read from the tree (not embedded in the prompt), and session/
+ * retry/replay are the runner's. The seam does the DISPATCH ONLY; invoke() reads the turn transcript
+ * afterward (ONE place), so this stays free of a claude-runner import at its construction site.
+ * Absent => the CONTAINED path (raw spawnClaudeStreaming, cwd=workspace, args from the levers). This
+ * is what dissolves the two-agent split: one ClaudeStepAgent, parameterized by whether a production
+ * dispatch seam is supplied (the live executor-dispatch supplies one; every contained caller does not).
+ */
+export type LiveDispatchFn = (invocation: AgentInvocation) => Promise<void>;
+
 /** The usage the last invocation reported (tokens), surfaced for observability. */
 export interface AgentTurnResult {
   usage?: TurnUsage;
@@ -74,14 +90,21 @@ export interface AgentTurnResult {
  */
 export class ClaudeStepAgent implements StepAgent {
   private readonly spawn: SpawnFn;
+  private readonly liveDispatch: LiveDispatchFn | undefined;
   private sessionId: string | undefined;
   lastResult: AgentTurnResult | undefined;
 
   constructor(
     private readonly levers: AgentLevers,
     spawn?: SpawnFn,
+    /** The UNCONTAINED production dispatch seam. When supplied (the live executor-dispatch path),
+     *  invoke() delegates to it instead of the contained raw spawn , see LiveDispatchFn. When
+     *  omitted (every contained caller: the integration chains, the per-role sweep, the unit
+     *  tests), invoke() takes the contained raw-spawn path, byte-identical to before. */
+    liveDispatch?: LiveDispatchFn,
   ) {
     this.spawn = spawn ?? spawnClaudeStreaming;
+    this.liveDispatch = liveDispatch;
     this.sessionId = levers.resumeSessionId;
   }
 
@@ -148,6 +171,18 @@ export class ClaudeStepAgent implements StepAgent {
   }
 
   async invoke(invocation: AgentInvocation): Promise<void> {
+    // UNCONTAINED (live drive): a production dispatch seam was supplied , delegate the turn to it
+    // (execRunner owns cwd=project, session warmth, context-budget, overflow/blip retry, replay
+    // overlay, set-phase/sync-backlog). The seam does the dispatch only; we still read the turn's
+    // transcript HERE (the one place), so lastResult is surfaced identically on both paths and no
+    // caller of this seam needs to import the runner's transcript machinery.
+    if (this.liveDispatch) {
+      await this.liveDispatch(invocation);
+      const finalText = takeLastAgentTranscript()?.finalText;
+      // The uncontained runner logs usage/tokens itself; the transcript carries the final text only.
+      this.lastResult = finalText ? { finalText } : {};
+      return;
+    }
     const args = this.spawnArgs(invocation);
     // CONTAINED: spawn with the PROVIDED workspace as cwd, so the agent's Write/Bash tools
     // land inside the workspace the orchestrator gave it , never elsewhere.
