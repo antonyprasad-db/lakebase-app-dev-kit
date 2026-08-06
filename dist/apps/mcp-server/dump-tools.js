@@ -6969,7 +6969,7 @@ var kitConsortHooks = {
 // consort/lakebase/create-project.ts
 function createProject(input, progress) {
   return baseCreateProject(
-    { ...input, sftddHooks: input.sftddHooks ?? kitConsortHooks },
+    { ...input, consortHooks: input.consortHooks ?? kitConsortHooks },
     progress
   );
 }

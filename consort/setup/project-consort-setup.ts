@@ -10,10 +10,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import type {
-  // The scm-utils package (separate repo) still exports this under its original
-  // SFTDD-era name; it is an external contract, not a kit-local symbol, so it
-  // keeps that name here.
-  SftddSetupHooks,
+  ConsortSetupHooks,
   ClientFramework,
 } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
@@ -242,8 +239,8 @@ export function seedConsortConfig(
 }
 
 /** The workflow-setup hooks the kit injects into the base createProject.
- *  Typed by scm-utils' external SftddSetupHooks contract. */
-export const kitConsortHooks: SftddSetupHooks = {
+ *  Typed by scm-utils' ConsortSetupHooks contract. */
+export const kitConsortHooks: ConsortSetupHooks = {
   layDownScaffold: layDownTddScaffold,
   seedConfig: seedConsortConfig,
 };

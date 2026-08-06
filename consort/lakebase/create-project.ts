@@ -4,7 +4,7 @@
 // and is SFTDD-agnostic. This kit wrapper injects the SFTDD lay-down + config
 // seeding (the `.sftdd/` bootstrap + sftdd-config.json) by default, so the kit's
 // lakebase-create-project CLI keeps producing SFTDD-ready projects. Callers that
-// want a plain SCM project pass `sftddHooks: undefined` explicitly, or consume
+// want a plain SCM project pass `consortHooks: undefined` explicitly, or consume
 // the base createProject from the substrate package directly.
 
 import {
@@ -23,7 +23,7 @@ export function createProject(
   progress?: ProgressCallback,
 ): Promise<CreateProjectResult> {
   return baseCreateProject(
-    { ...input, sftddHooks: input.sftddHooks ?? kitConsortHooks },
+    { ...input, consortHooks: input.consortHooks ?? kitConsortHooks },
     progress,
   );
 }

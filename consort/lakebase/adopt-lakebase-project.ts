@@ -22,6 +22,6 @@ export function adoptLakebaseProject(
 ): Promise<AdoptLakebaseProjectResult> {
   return baseAdoptLakebaseProject({
     ...args,
-    adoptSftddHook: args.adoptSftddHook ?? adoptConsortHook,
+    adoptConsortHook: args.adoptConsortHook ?? adoptConsortHook,
   });
 }
