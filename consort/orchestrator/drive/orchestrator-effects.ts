@@ -187,6 +187,12 @@ export interface DriveEffectsConfig {
    *  once its manifest + golden test are proven. Unset => the legacy path runs. */
   useManifestSteps?: boolean;
   onAction?(action: WorkflowAction, iteration: number): void;
+  /** OPTIONAL (RECORD lane): read + clear the just-completed live turn's transcript (prompt + final
+   *  reasoning + tools) so the executor's ReplayRecorderWrapper persists it alongside the recorded
+   *  delta. Supplied by the CLI (takeLastAgentTranscript) only when a RECORD_DIR capture is active;
+   *  absent on a normal drive (the recorder then records the delta with no transcript). Typed loosely
+   *  (returns the recorder's RecordedTranscript) to avoid a runtime edge onto the runner from here. */
+  takeTranscript?(): { prompt: string; role?: string; model?: string; finalText: string; tools: string[] } | undefined;
 }
 
 /** Appended to the Spec Author's propose/breakdown tasks when the UI track is

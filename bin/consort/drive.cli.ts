@@ -215,6 +215,11 @@ function withBuildRecording(inner: DriveEffects, cfg: DriveEffectsConfig): Drive
   return {
     readState: () => inner.readState(),
     onAction: inner.onAction ? (a, i) => inner.onAction!(a, i) : undefined,
+    onHandback: inner.onHandback ? (h, d) => inner.onHandback!(h, d) : undefined,
+    // Forward the executor-dispatch seam UNCHANGED (see withTurnRecording): an executor-dispatched
+    // build turn records via the executor's wrapper, not here, so this only fires for a non-dispatched
+    // navigator/driver perform turn. Preserved so recording doesn't disable executor dispatch.
+    performViaExecutor: inner.performViaExecutor ? (a, s, r) => inner.performViaExecutor!(a, s, r) : undefined,
     async perform(action) {
       await inner.perform(action);
       if (action.kind === "invoke-role" && (action.role === "navigator" || action.role === "driver")) {
@@ -264,6 +269,12 @@ function withTurnRecording(inner: DriveEffects, cfg: DriveEffectsConfig): DriveE
     readState: () => inner.readState(),
     onAction: inner.onAction ? (a, i) => inner.onAction!(a, i) : undefined,
     onHandback: inner.onHandback ? (h, d) => inner.onHandback!(h, d) : undefined,
+    // Forward the executor-dispatch seam UNCHANGED: an executor-dispatched turn runs THROUGH the
+    // executor (whose ReplayRecorderWrapper records it, from cfg.takeTranscript) and NEVER reaches
+    // perform, so this effects-level recorder only fires for the NON-dispatched (perform) turns ,
+    // gates/deploy/human-proxy. Disjoint writers by construction (orchestrator-run.ts:326-330).
+    // Dropping this property silently disabled the executor path under recording , the bug this fixes.
+    performViaExecutor: inner.performViaExecutor ? (a, s, r) => inner.performViaExecutor!(a, s, r) : undefined,
     async perform(action) {
       await inner.perform(action);
       if (action.kind === "done") return; // terminal no-op, produces nothing

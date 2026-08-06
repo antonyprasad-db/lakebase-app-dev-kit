@@ -670,6 +670,12 @@ export function buildCfg(args: ParsedArgs, featureId: string): DriveEffectsConfi
     // THROUGH the StepExecutor instead of commandsForAction. Opt-in via
     // LAKEBASE_SFTDD_USE_MANIFEST_STEPS; default OFF = byte-identical legacy dispatch.
     useManifestSteps: !!consortEnv("USE_MANIFEST_STEPS")?.trim(),
+    // RECORD lane (Stage G): hand the executor's ReplayRecorderWrapper the just-completed live
+    // turn's transcript, so an executor-dispatched turn records prompt + reasoning + tools alongside
+    // its delta , the SAME source the effects-level withTurnRecording uses. Colocated with
+    // takeLastAgentTranscript (this module) so there's no runtime edge from the executor onto the
+    // runner. The recorder only reads it when RECORD_DIR is set; a normal drive never calls it.
+    takeTranscript: takeLastAgentTranscript,
     instance: args.instance ?? scm?.project_id,
     featureBranch: scm?.branch,
     parentBranch: scm?.parent_branch,

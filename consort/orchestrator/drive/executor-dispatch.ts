@@ -33,7 +33,9 @@ import {
 import { manifestForAction, type StepManifest } from "../steps/manifest.js";
 import { execute, type StepExecutorDeps } from "../turns/step-executor.js";
 import { Step } from "../steps/step.js";
-import { buildAgent } from "../agents/agent-catalogue.js";
+import { buildAgent, type AgentSpec } from "../agents/agent-catalogue.js";
+import { wrapWithRecorder } from "../agents/replay-recorder-wrapper.js";
+import { consortEnv } from "../../config/consort-env.js";
 import type { WorkflowAction, DriveState } from "./orchestrator-drive.js";
 import type { BoundedRoute, ValidateBoundDeps } from "../steps/step-contract.js";
 // Types only (erased at compile) , so this module never imports orchestrator-effects at runtime.
@@ -319,9 +321,35 @@ export async function performTurnViaExecutor(
   // constructs the UNCONTAINED (live) ClaudeStepAgent , byte-identical to the former inline
   // `new ClaudeStepAgent({role}, undefined, liveDispatchSeam(cfg,deps))`. levers carry only the role
   // (the live seam builds the real command from cfg, not from these levers, so model/effort/session
-  // are inert here , the runner resolves them). A replay lane later swaps kind -> "replay" via the
-  // build context WITHOUT touching this construction (Stage G).
-  const agent = buildAgent(manifest.agent!, { workspaceDir: cfg.projectDir, liveDispatch: liveDispatchSeam(cfg, deps) });
+  // are inert here , the runner resolves them).
+  //
+  // Stage G , REPLAY / RECORD lanes selected from ENV, via the SAME seam:
+  //  * LAKEBASE_CONSORT_REPLAY_DIR set => swap the manifest's kind to "replay" (the step-aware
+  //    corpus agent, corpusRoot from the env). No manifest edit , the modular point. The replay
+  //    agent MATERIALIZES this turn's recorded slice, so the turn never reaches cfg.runner.run
+  //    (the runner-level replay short-circuit is a no-op for executor-dispatched turns; it still
+  //    governs any non-executor agent turn until commandsForAction is retired, #648).
+  //  * LAKEBASE_CONSORT_RECORD_DIR set => WRAP whatever agent the manifest declared with the
+  //    recorder decorator (writes this turn's delta into the corpus by step). Records a LIVE claude
+  //    run, or , with REPLAY also set , re-records a replay (corpus migration).
+  const replayDir = consortEnv("REPLAY_DIR")?.trim();
+  const recordDir = consortEnv("RECORD_DIR")?.trim();
+  const spec: AgentSpec = replayDir ? { ...manifest.agent!, kind: "replay", config: {} } : manifest.agent!;
+  let agent = buildAgent(spec, {
+    workspaceDir: cfg.projectDir,
+    liveDispatch: liveDispatchSeam(cfg, deps),
+    ...(replayDir ? { corpusRoot: replayDir } : {}),
+  });
+  if (recordDir) {
+    agent = wrapWithRecorder(agent, {
+      recordDir,
+      ...(consortEnv("RECORD_BUILD_DIR")?.trim() ? { recordBuildDir: consortEnv("RECORD_BUILD_DIR")!.trim() } : {}),
+      projectDir: cfg.projectDir,
+      consortDir: cfg.consortDir,
+      featureId: cfg.featureId,
+      ...(cfg.takeTranscript ? { takeTranscript: cfg.takeTranscript } : {}),
+    });
+  }
   const step = new Step(manifest, agent);
   const f = cfg.featureId;
   const story = "story" in action && typeof action.story === "string" ? action.story : undefined;
