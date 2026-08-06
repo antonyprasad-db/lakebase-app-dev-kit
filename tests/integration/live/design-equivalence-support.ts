@@ -52,6 +52,7 @@ import type { LifecycleRunContext } from "../../../consort/orchestrator/provisio
 import { buildDriveEffects, type DriveEffectsConfig } from "../../../consort/orchestrator/drive/orchestrator-effects.js";
 import { execRunner } from "../../../consort/orchestrator/drive/claude-runner.js";
 import { resolveConsortSettings } from "../../../consort/orchestrator/settings/project-settings.js";
+import { loadConsortConfig, defaultConsortConfig, writeConsortConfig } from "../../../consort/config/consort-config-file.js";
 import { ARTIFACT_ROOT } from "../../../consort/config/consort-paths.js";
 import { sweepOrphanProjects } from "../../../consort/setup/orphan-project-sweep.js";
 import type { WorkflowAction, DriveState } from "../../../consort/orchestrator/drive/orchestrator-drive.js";
@@ -203,6 +204,17 @@ async function cutStepWorktree(project: DesignEquivProject, step: TurnKey): Prom
   if (existsSync(baseEnv)) cpSync(baseEnv, join(wtDir, ".env"));
   // Freshest kit agents (overwrite; HEAD already carries a copy).
   layDownKitAgents(wtDir, KIT);
+
+  // DESIGN_EQUIV_UITRACK=1 must reach DISK, not just cfg. The test-analyst-roster preparer resolves
+  // project.uiTrack from the worktree's `.lakebase/consort-config.json` (resolveProjectSettings), so
+  // the client analyst is enabled ONLY when the on-disk config says uiTrack:true. Setting cfg.uiTrack
+  // alone (equivCfg) drives readDriveStateFromDisk but NOT the roster gate. Write it through here so
+  // the knob is real end-to-end and disk stays the single source of truth for uiTrack.
+  if (process.env.DESIGN_EQUIV_UITRACK === "1") {
+    const config = loadConsortConfig(wtDir) ?? defaultConsortConfig();
+    config.project = { ...(config.project ?? {}), uiTrack: true };
+    writeConsortConfig(wtDir, config, { force: true });
+  }
 
   return { wtDir, consortDir: join(wtDir, ARTIFACT_ROOT) };
 }
