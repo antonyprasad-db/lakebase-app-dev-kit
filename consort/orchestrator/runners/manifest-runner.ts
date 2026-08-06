@@ -101,7 +101,12 @@ function resolveInputsFromWorkspace(
   for (const input of manifest.inputs) {
     const file = expand(input.source.replace(/^feature:/, ""));
     const p = join(workspaceDir, file);
-    if (!existsSync(p)) return { missing: input.id };
+    if (!existsSync(p)) {
+      // An OPTIONAL input that is absent is skipped (e.g. design-guide.json on a no-frontend
+      // project); a required input still fails loud so phase 1 gates it.
+      if (input.optional) continue;
+      return { missing: input.id };
+    }
     out[input.id] = readFileSync(p, "utf8");
   }
   return out;

@@ -351,7 +351,12 @@ export async function performTurnViaExecutor(
       const out: Record<string, string> = {};
       for (const input of manifest.inputs) {
         const p = inputPath(input.source);
-        if (!fs.existsSync(p)) return { missing: input.id };
+        if (!fs.existsSync(p)) {
+          // An OPTIONAL input that is absent is skipped (e.g. design-guide.json on a no-frontend
+          // project) , not handed back, not a turn failure. A required input still fails loud.
+          if (input.optional) continue;
+          return { missing: input.id };
+        }
         out[input.id] = fs.statSync(p).isDirectory() ? "" : fs.readFileSync(p, "utf8");
       }
       return out;

@@ -49,6 +49,10 @@ export interface StepManifestInput {
   id: string;
   /** .consort source locator, e.g. "feature:product-overview.md". */
   source: string;
+  /** When true, a MISSING source is skipped (not handed back) instead of failing the turn , for an
+   *  input that legitimately may be absent (e.g. design-guide.json on a no-frontend project).
+   *  Default false: a missing required input fails loud. */
+  optional?: boolean;
   description?: string;
 }
 

@@ -9,6 +9,9 @@
     { "id": "architecture", "source": "feature:features/F1-stock-visibility/architecture.json", "description": "The persistence_invariants each fitness test covers." },
     { "id": "db-design", "source": "feature:features/F1-stock-visibility/db-design.json", "description": "The concrete schema the invariant tests assert against." }
   ],
+  "preconditions": [
+    { "id": "test-analyst-roster", "kind": "test-analyst-roster", "position": "append", "description": "The ENABLED per-kind test-analyst roster + focus prompts the supervisor Task-spawns from (client gated on uiTrack)." }
+  ],
   "outputs": [
     { "id": "test-list", "filename": "features/F1-stock-visibility/test-list.json", "validator": "testListConformant", "description": "The feature master test list (test-list.schema.json), the story's ordered tests." },
     { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "testStrategistLoggedAuthoring", "description": "The Test Strategist's authoring log." }
@@ -23,8 +26,8 @@
       "role": "test-strategist",
       "model": "sonnet",
       "session": "fresh",
-      "allowedTools": ["Write", "Read"],
-      "disallowedTools": ["Bash", "Glob", "Grep", "WebFetch", "WebSearch", "Task"]
+      "allowedTools": ["Write", "Read", "Task"],
+      "disallowedTools": ["Bash", "Glob", "Grep", "WebFetch", "WebSearch"]
     }
   }
 }

@@ -34,6 +34,7 @@
         "properties": {
           "id": { "type": "string", "minLength": 1, "description": "Logical input id the contents are handed back under." },
           "source": { "type": "string", "minLength": 1, "description": ".consort source locator, e.g. feature:product-overview.md." },
+          "optional": { "type": "boolean", "description": "When true, a MISSING source is skipped (not handed back) instead of failing the turn , for an input that legitimately may be absent (e.g. design-guide.json on a no-frontend project). Default false: a missing required input fails loud." },
           "description": { "type": "string", "description": "Human description for diagnostics." }
         },
         "additionalProperties": false
