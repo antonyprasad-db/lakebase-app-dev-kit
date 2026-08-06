@@ -3,7 +3,7 @@
   "role": "ux-designer",
   "match": { "kind": "invoke-role", "role": "ux-designer" },
   "inputs": [
-    { "id": "design-guideline", "source": "feature:design-brief.md", "description": "The HIL design brief the UX Designer extracts the look FROM (design-brief.md)." },
+    { "id": "design-guideline", "source": "feature:design/design-brief.md", "description": "The HIL design brief the UX Designer extracts the look FROM. Lives under design/ on the real tree (design/design-brief.md, per intake.ts)." },
     { "id": "product-overview", "source": "feature:product-overview.md", "description": "The PO's product overview , which stories produce screens (product-overview.md)." }
   ],
   "outputs": [

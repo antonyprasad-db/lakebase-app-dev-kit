@@ -144,14 +144,27 @@ REAL recorded tree (`examples/sftdd-scenarios/stockflow-rerecord/recorded-artifa
 RECOMMEND (A): the source string is the single source of truth for WHERE an input lives; make it
 correct. Re-record understanding: the real tree is the corpus above , the source must match it.
 
-### What IS proven now (Stage 1, committed)
+### What IS proven now (Stage 1 + 1b, committed)
 - `executorDispatched()` widened to all 7 design roles + navigator RED + driver GREEN (gate test).
 - `outputPathsForAction()` places each design artifact feature/story-scoped under `.consort`, derived
   from the path helpers (placement test), never re-encoding the root.
 - `acsDirConformant` validator + the shipped `spec-author-story.json` output updated.
 - The command-level parity (`commandsFromManifest ≡ commandsForAction`) stays green for every step.
-NOT yet: the FULL performViaExecutor for the 7 roles (blocked on the input-source fix above) + their
-live proof. Those are the next sub-step once (A) lands.
+- **BLOCKER RESOLVED (Stage 1b, option A):** the mis-scoped manifest input `source` strings now carry
+  the REAL relative path with a `{feature}` placeholder , dba + test-strategist:
+  `feature:features/{feature}/architecture.json` (+ db-design), ux-designer:
+  `feature:design/design-brief.md`. Both input resolvers (executor `inputPath` + manifest-runner
+  `resolveInputsFromWorkspace`) expand `{feature}`/`{story}` (no-op on the literal-id integration
+  fixtures, so those stay green).
+- **FULL performViaExecutor now runs end-to-end HERMETICALLY for all 7 design roles** (retirement-map
+  step (2) proven): seed inputs at true scope → dispatched → artifact lands under `.consort`
+  single-level → CLI stream matches structural commands. Two further real parity gaps found + fixed:
+  planning modes (propose/estimate) SKIP reconcile in `materializeOutputs` (matching the legacy
+  `!isPlanningMode` guard); the executor runs reconcile (phase 4.5) BEFORE `after`-CLIs (phase 6.5),
+  same reconcile-then-after order as the breakdown golden. Suite 3197 green.
+
+NOT yet (Stages 2-3): the LIVE proof , lean design turns (RUN_LIVE_STEP=1, model-API, no cloud) +
+the cloud-gated driver-green. Both authorized by the user; run per the RUNBOOK above.
 
 ## RUNBOOK , how a future reader runs this proof
 All commands run from the kit root (`~/code/databricks-solutions/consort`).

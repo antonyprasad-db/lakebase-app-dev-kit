@@ -3,7 +3,7 @@
   "role": "dba",
   "match": { "kind": "invoke-role", "role": "dba" },
   "inputs": [
-    { "id": "architecture", "source": "feature:architecture.json", "description": "The Architect's logical contract (service_backed, layers, persistence_invariants) the DBA physically realizes , NOT re-authored." }
+    { "id": "architecture", "source": "feature:features/{feature}/architecture.json", "description": "The Architect's logical contract (service_backed, layers, persistence_invariants) the DBA physically realizes , NOT re-authored. Feature-scoped: the {feature} placeholder expands to the run's feature id (the real on-disk location, features/<F>/architecture.json)." }
   ],
   "outputs": [
     { "id": "db-design", "filename": "db-design.json", "channel": "artifact", "validator": "nonEmptyFile", "description": "The physical schema (tables + per-story schema_changes + realizes_invariants). A non-persisting or non-service-backed feature may leave this empty, so there is NO post-turn verify-artifact for the DBA (designArtifactExpectation returns null)." },

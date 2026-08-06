@@ -83,13 +83,23 @@ export interface ManifestTurn {
   telemetry?: { role: string; outerDurationMs?: number; agentResult?: StepRecord["agentResult"] };
 }
 
-/** Resolve a manifest input's `source` (e.g. "feature:product-overview.md") to a workspace
- *  file and read its CONTENTS. The demo sources are `feature:<file>` , the file the prior
- *  turn wrote into the shared workspace. Fail loud (as { missing }) so phase 1 gates it. */
-function resolveInputsFromWorkspace(manifest: StepManifest, workspaceDir: string): Record<string, string> | { missing: string } {
+/** Resolve a manifest input's `source` (e.g. "feature:features/{feature}/architecture.json") to a
+ *  workspace file and read its CONTENTS. The source is `feature:<rel>` , consort-relative (the shared
+ *  workspace IS the consort root here). `<rel>` may carry a `{feature}` / `{story}` placeholder ,
+ *  expanded to the run's ids so a feature-scoped input names its REAL relative path instead of
+ *  resolving flat to the root; a source with no placeholder (the literal-id integration fixtures) is
+ *  unaffected. Fail loud (as { missing }) so phase 1 gates it. */
+function resolveInputsFromWorkspace(
+  manifest: StepManifest,
+  workspaceDir: string,
+  featureId: string,
+  action: WorkflowAction,
+): Record<string, string> | { missing: string } {
+  const story = "story" in action && typeof action.story === "string" ? action.story : "";
+  const expand = (rel: string): string => rel.replace(/\{feature\}/g, featureId).replace(/\{story\}/g, story);
   const out: Record<string, string> = {};
   for (const input of manifest.inputs) {
-    const file = input.source.replace(/^feature:/, "");
+    const file = expand(input.source.replace(/^feature:/, ""));
     const p = join(workspaceDir, file);
     if (!existsSync(p)) return { missing: input.id };
     out[input.id] = readFileSync(p, "utf8");
@@ -189,7 +199,7 @@ function executorWiring(
   };
 
   const execDeps: StepExecutorDeps = {
-    resolveInputs: () => resolveInputsFromWorkspace(manifest, deps.workspaceDir),
+    resolveInputs: () => resolveInputsFromWorkspace(manifest, deps.workspaceDir, deps.cfg.featureId, action),
     provisionWorkspace: () => (deps.provisionWorkspace ? deps.provisionWorkspace(manifest, action) : { workspaceDir: deps.workspaceDir }),
     instructionsFor: () => (deps.instructionsFor ? deps.instructionsFor(manifest, action, deps.workspaceDir) : defaultInstructions(manifest)),
     // Phase 2.5: PREPARE-PRECONDITIONS. A step that DECLARES preconditions (manifest.preconditions)

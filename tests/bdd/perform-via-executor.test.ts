@@ -450,3 +450,114 @@ describe("outputPathsForAction (Stage 1): each design turn's artifact resolves f
     }
   });
 });
+
+// ─── FULL performViaExecutor for the 7 widened design roles (Stage 1b: after the input-source fix) ─
+// Now the manifests' input sources carry the REAL scope (feature:features/{feature}/architecture.json,
+// feature:design/design-brief.md), so the executor's phase-1 gate resolves them on a real .consort
+// tree. This is retirement-map step (2) per role: seed each role's declared inputs at their TRUE
+// on-disk scope, SIMULATE the agent writing its artifact into the resolved .consort channel root +
+// reconcile materializing the meta agent-log, then assert (a) executor-dispatched (defined), (b) the
+// artifact landed under .consort single-level (never double-encoded), (c) the CLI stream matches the
+// role's structural commands (claude + reconcile; test-strategist adds its test-list CLI; planning
+// modes skip reconcile).
+describe("performViaExecutor (Stage 1b): the 7 design roles run FULL through the executor", () => {
+  function seed(consortDir: string, relFromConsort: string, body = "seed\n"): void {
+    const abs = join(consortDir, relFromConsort);
+    mkdirSync(join(abs, ".."), { recursive: true });
+    writeFileSync(abs, body);
+  }
+  function designRunner(consortDir: string, artifactRel: string, artifactBody: string, role: string) {
+    const labels: string[] = [];
+    return {
+      labels,
+      runner: {
+        async run(cmd: DriveCommand) {
+          if (cmd.kind === "claude") {
+            labels.push(`claude:${cmd.role}`);
+            const abs = join(consortDir, artifactRel);
+            mkdirSync(join(abs, ".."), { recursive: true });
+            writeFileSync(abs, artifactBody);
+            return;
+          }
+          if (cmd.kind === "cli") {
+            labels.push(`cli:${cmd.bin.replace("consort-", "")}:${cmd.args[0]}`);
+            if (cmd.bin.endsWith("-log") && cmd.args[0] === "--reconcile") {
+              writeFileSync(join(consortDir, "agent-log.jsonl"),
+                JSON.stringify({ timestamp: "2026-08-05T00:00:00Z", level: "info", role, event: "artifact.written", message: "wrote artifact" }) + "\n");
+            }
+            return;
+          }
+          labels.push(cmd.kind);
+        },
+      },
+    };
+  }
+
+  const AC = JSON.stringify({ id: "AC1-x", story_id: RED_STORY, statement: "S", layer: "persistence", given: "g", when: "w", then: "t", status: "draft" }) + "\n";
+  const ARCH = JSON.stringify({ feature_id: FEATURE, service_backed: true, layers: [{ role: "driver", module: "app" }], persistence_invariants: [{ id: "I1", type: "unique", table: "sku", brief: "b" }] }) + "\n";
+  const DBD = JSON.stringify({ feature_id: FEATURE, tables: [{ name: "sku", columns: [{ name: "id", type: "text", nullable: false }], primary_key: ["id"] }], schema_changes: [], realizes_invariants: ["I1"] }) + "\n";
+  const TL = JSON.stringify({ feature_id: FEATURE, items: [{ id: "T1", ac_id: "AC1-x", kind: "behavior", description: "d", invariant_id: "I1" }] }) + "\n";
+  const DG = JSON.stringify({ tokens: { colors: {}, typography: {}, spacing: {}, radius: {}, shadows: {}, breakpoints: {} }, components: { navbar: { class: "nav", notes: "n" } } }) + "\n";
+  const PROPOSE = "# Feature A\nscope\n";
+  const EST = JSON.stringify([{ feature_id: "FA", name: "Feature A", size: "M", rationale: "r" }]) + "\n";
+  const FS = join("features", FEATURE);
+  const STORY_ACS = join(FS, "stories", RED_STORY, "acs");
+
+  // [label, action, seed(consortDir) at REAL scope, artifactRel under .consort, artifactBody, expected labels]
+  type Case = [string, WorkflowAction, (c: string) => void, string, string, string[]];
+  const CASES: Case[] = [
+    ["spec-author per-story ACs", { kind: "invoke-role", role: "spec-author", story: RED_STORY } as WorkflowAction,
+      (c) => { seed(c, join(FS, "stories", RED_STORY, "story.json"), JSON.stringify({ id: RED_STORY }) + "\n"); seed(c, "product-overview.md"); },
+      join(STORY_ACS, "AC1-x.json"), AC, ["claude:spec-author", "cli:log:--reconcile"]],
+    ["architect-reviewer per-story", { kind: "invoke-role", role: "architect-reviewer", story: RED_STORY } as WorkflowAction,
+      (c) => { seed(c, join(STORY_ACS, "AC1-x.json"), AC); seed(c, "nfrs.md"); },
+      join(FS, "architecture.json"), ARCH, ["claude:architect-reviewer", "cli:log:--reconcile"]],
+    ["dba per-story", { kind: "invoke-role", role: "dba", story: RED_STORY } as WorkflowAction,
+      (c) => seed(c, join(FS, "architecture.json"), ARCH),
+      join(FS, "db-design.json"), DBD, ["claude:dba", "cli:log:--reconcile"]],
+    ["test-strategist per-story", { kind: "invoke-role", role: "test-strategist", story: RED_STORY } as WorkflowAction,
+      (c) => { seed(c, join(STORY_ACS, "AC1-x.json"), AC); seed(c, join(FS, "architecture.json"), ARCH); seed(c, join(FS, "db-design.json"), DBD); },
+      join(FS, "test-list.json"), TL, []], // labels asserted specially (extra test-list CLI)
+    ["ux-designer", { kind: "invoke-role", role: "ux-designer" } as WorkflowAction,
+      (c) => { seed(c, join("design", "design-brief.md")); seed(c, "product-overview.md"); },
+      join("design", "design-guide.json"), DG, ["claude:ux-designer", "cli:log:--reconcile"]],
+    ["spec-author propose (plan lane)", { kind: "invoke-role", role: "spec-author", mode: "propose" } as WorkflowAction,
+      (c) => { seed(c, "product-overview.md"); seed(c, "nfrs.md"); },
+      join("planning", "feature-proposals.md"), PROPOSE, ["claude:spec-author"]],
+    ["architect estimate (plan lane)", { kind: "invoke-role", role: "architect-reviewer", mode: "estimate" } as WorkflowAction,
+      (c) => seed(c, join("planning", "feature-proposals.md"), PROPOSE),
+      join("planning", "estimates.json"), EST, ["claude:architect-reviewer"]],
+  ];
+
+  it.each(CASES)("%s: dispatched + artifact under .consort + same CLI stream", async (label, action, seedInputs, artifactRel, artifactBody, expectedLabels) => {
+    const projectDir = mkdtempSync(join(tmpdir(), "pve-design-"));
+    const consortDir = join(projectDir, ".consort");
+    mkdirSync(consortDir, { recursive: true });
+    seedInputs(consortDir);
+    try {
+      const role = action.kind === "invoke-role" ? action.role : "";
+      const rec = designRunner(consortDir, artifactRel, artifactBody, role);
+      const effects = buildDriveEffects(cfg(consortDir, projectDir, { useManifestSteps: true, runner: rec.runner, loopGranularity: "story" }));
+      const bounded = await effects.performViaExecutor!(action, state, routerDeps);
+
+      expect(bounded, `${label} should be executor-dispatched`).toBeDefined();
+      expect(existsSync(join(consortDir, artifactRel)), `${label} artifact at .consort/${artifactRel}`).toBe(true);
+      expect(existsSync(join(consortDir, ".consort")), `${label} must NOT double-encode .consort`).toBe(false);
+      if (role === "test-strategist") {
+        // The executor runs reconcile (materialize, phase 4.5) BEFORE the manifest's `after` CLIs
+        // (post-turn, phase 6.5) , the SAME reconcile-then-after order as the breakdown golden
+        // (a declared executor-path behavior; the legacy path ran the after-CLI then reconcile).
+        // So the stream is [claude, reconcile, test-list], not reconcile-last.
+        expect(rec.labels[0]).toBe("claude:test-strategist");
+        expect(rec.labels).toContain("cli:log:--reconcile");
+        expect(rec.labels.some((l) => l.startsWith("cli:test-list:"))).toBe(true);
+        expect(rec.labels.indexOf("cli:log:--reconcile"))
+          .toBeLessThan(rec.labels.findIndex((l) => l.startsWith("cli:test-list:")));
+      } else {
+        expect(rec.labels).toEqual(expectedLabels);
+      }
+    } finally {
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+});

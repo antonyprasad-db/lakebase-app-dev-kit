@@ -237,14 +237,21 @@ export async function performTurnViaExecutor(
 
   // Resolve a manifest input `source` to its on-disk path on the LIVE tree. `feature:<rel>` is
   // rooted at <consortDir>; `story:<rel>` at the story's resolved dir (test-list-per-story.json,
-  // acs/). A bare source (no prefix) is treated as feature-relative (back-compat).
+  // acs/). A bare source (no prefix) is treated as feature-relative (back-compat). The `<rel>` may
+  // carry a `{feature}` / `{story}` placeholder , expanded to the run's ids BEFORE the join, so a
+  // feature-scoped input names its REAL relative path (features/{feature}/architecture.json) instead
+  // of resolving flat to the consort root (where the artifact does not live). The story-dir resolver
+  // (storyResolved) already handles the slug-named story dir; {feature} lets a feature-scoped file
+  // resolve through featuresDir/<id> WITHOUT this module re-deriving the slug rule.
+  const expandRel = (rel: string): string =>
+    rel.replace(/\{feature\}/g, f).replace(/\{story\}/g, story ?? "");
   const inputPath = (source: string): string => {
     if (source.startsWith("story:")) {
-      const rel = source.slice("story:".length);
+      const rel = expandRel(source.slice("story:".length));
       if (!story) return join(cfg.consortDir, rel); // no story on the action , resolve under consortDir (will miss + fail loud)
       return join(storyResolved(cfg.consortDir, f, story), rel);
     }
-    return join(cfg.consortDir, source.replace(/^feature:/, ""));
+    return join(cfg.consortDir, expandRel(source.replace(/^feature:/, "")));
   };
 
   const executorDeps: StepExecutorDeps = {
@@ -274,8 +281,14 @@ export async function performTurnViaExecutor(
       for (const cmd of manifestPostTurnCommands(manifest, "before", action, cfg, deps)) await cfg.runner.run(cmd);
     },
     // Phase 4.5: reconcile MATERIALIZES the agent-log (the legacy path's LOG_BIN --reconcile), so
-    // validate-outputs sees the conformant agent-log.jsonl the agent never wrote itself.
+    // validate-outputs sees the conformant agent-log.jsonl the agent never wrote itself. SKIPPED for
+    // the sprint-scoped PLANNING modes (propose / estimate / estimate-committed) , they write no
+    // feature agent-log to reconcile + declare no agent-log output, and the legacy path guards
+    // reconcile with the SAME `!isPlanningMode` condition (commandsForAction / commandsFromManifest),
+    // so skipping here keeps the executor byte-parallel to the legacy stream ([claude] only).
     materializeOutputs: async () => {
+      const isPlanningMode = "mode" in action && (action.mode === "propose" || action.mode === "estimate" || action.mode === "estimate-committed");
+      if (isPlanningMode) return;
       await cfg.runner.run({ kind: "cli", bin: deps.logBin, args: ["--reconcile", "--feature", f, "--tdd-dir", cfg.consortDir] });
     },
     // Phase 6.5: the manifest's `after` CLIs , gated on clean validation by the executor. For
