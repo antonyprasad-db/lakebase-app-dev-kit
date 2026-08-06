@@ -13400,31 +13400,34 @@ function stepArtifactPath(base, step, featureId) {
       return null;
   }
 }
-var SCENARIOS_REL = "examples/sftdd-scenarios";
+var REFERENCE_ASSETS_REL = "consort/evaluation/reference-assets/stockflow";
 var CANONICAL = "stockflow";
-var RERECORD = "stockflow-rerecord";
+function referenceCorpusRoot(kitRoot2) {
+  const override = process.env.CONSORT_REFERENCE_CORPUS?.trim();
+  if (override) return override.startsWith("/") ? override : (0, import_node_path16.join)(kitRoot2, override);
+  return (0, import_node_path16.join)(kitRoot2, REFERENCE_ASSETS_REL);
+}
 var SEMANTIC_THRESHOLD = 0.85;
-function corpusForStep(step) {
+function hasDesignReference(step) {
   switch (step) {
-    case "dba":
-      return RERECORD;
     case "breakdown":
     case "propose":
     case "acs":
     case "architect":
     case "estimate":
     case "test-list":
+    case "dba":
     case "ux":
-      return CANONICAL;
+      return true;
     default:
-      return void 0;
+      return false;
   }
 }
 function resolveStepReference(args) {
   const { kitRoot: kitRoot2, step, featureId } = args;
-  const corpus = corpusForStep(step);
-  if (!corpus) return null;
-  const root = (0, import_node_path16.join)(kitRoot2, SCENARIOS_REL, corpus, "recorded-artifacts");
+  if (!hasDesignReference(step)) return null;
+  const corpus = CANONICAL;
+  const root = (0, import_node_path16.join)(referenceCorpusRoot(kitRoot2), "recorded-artifacts");
   if (!(0, import_node_fs13.existsSync)(root)) return null;
   if (step === "acs") {
     const sdir = storiesDir(root, featureId);

@@ -28,11 +28,14 @@ import {
 
 let kitRoot: string;
 let consortDir: string;
+let refRoot: string; // the CONSORT_REFERENCE_CORPUS override root (a temp reference corpus)
 const featureId = "F1-stock-visibility";
 
-/** Seed a recorded reference artifact in a corpus under the fake kit root. */
-function seedRef(corpus: string, rel: string, body: unknown): void {
-  const p = join(kitRoot, "examples/sftdd-scenarios", corpus, "recorded-artifacts", rel);
+/** Seed a recorded reference artifact under the OVERRIDE reference-corpus root. The resolver reads
+ *  from the shared pin by default; a test points CONSORT_REFERENCE_CORPUS at this temp root so it
+ *  can control the exact references without touching the shipped pin. */
+function seedRef(rel: string, body: unknown): void {
+  const p = join(refRoot, "recorded-artifacts", rel);
   mkdirSync(join(p, ".."), { recursive: true });
   writeFileSync(p, typeof body === "string" ? body : JSON.stringify(body));
 }
@@ -46,60 +49,60 @@ function seedCandidate(rel: string, body: unknown): void {
 beforeEach(() => {
   kitRoot = mkdtempSync(join(tmpdir(), "sem-kit-"));
   consortDir = mkdtempSync(join(tmpdir(), "sem-sftdd-"));
+  refRoot = mkdtempSync(join(tmpdir(), "sem-ref-"));
+  // Point the resolver at this temp reference corpus (a fully-configurable path override), so the
+  // test controls the references without the shipped pin. Absolute path -> used as-is.
+  process.env.CONSORT_REFERENCE_CORPUS = refRoot;
 });
 afterEach(() => {
+  delete process.env.CONSORT_REFERENCE_CORPUS;
   rmSync(kitRoot, { recursive: true, force: true });
   rmSync(consortDir, { recursive: true, force: true });
+  rmSync(refRoot, { recursive: true, force: true });
 });
 
 const passJudge: SemanticJudge = async () => ({ score: 0.95 });
 const failJudge: SemanticJudge = async () => ({ score: 0.4, missing: ["status_badge concept", "empty_state"] });
 
-describe("resolveStepReference: which corpus + artifact backs each step", () => {
-  it("ux -> canonical stockflow design-guide", () => {
-    seedRef("stockflow", "design/design-guide.json", { components: { navbar: {} } });
+describe("resolveStepReference: the artifact each design step resolves from the shared pin", () => {
+  // Move 2: ONE pinned reference set backs every design step (no per-step corpus split). The
+  // resolver reads recorded-artifacts/ under the pin, or the CONSORT_REFERENCE_CORPUS override
+  // (a fully-configurable path). `ref.corpus` is now a provenance label ("stockflow"), not a
+  // per-step corpus selector. These assert the right ARTIFACT PATH per step.
+  it("ux -> design/design-guide.json", () => {
+    seedRef("design/design-guide.json", { components: { navbar: {} } });
     const ref = resolveStepReference({ kitRoot, step: "ux", featureId });
-    expect(ref?.corpus).toBe("stockflow");
     expect(ref?.paths[0]).toMatch(/design\/design-guide\.json$/);
   });
 
-  it("dba -> stockflow-RERECORD db-design (the only corpus that recorded it)", () => {
-    seedRef("stockflow-rerecord", `features/${featureId}/db-design.json`, { tables: [] });
+  it("dba -> features/<F>/db-design.json (the pin has it; no rerecord-only split anymore)", () => {
+    seedRef(`features/${featureId}/db-design.json`, { tables: [] });
     const ref = resolveStepReference({ kitRoot, step: "dba", featureId });
-    expect(ref?.corpus).toBe("stockflow-rerecord");
     expect(ref?.paths[0]).toMatch(/db-design\.json$/);
   });
 
   it("acs -> the UNION of every recorded story's ACs (feature-aggregate, not per-slug)", () => {
-    seedRef("stockflow", `features/${featureId}/stories/S1-record-stock/acs/AC1.json`, { id: "AC1" });
-    seedRef("stockflow", `features/${featureId}/stories/S2-x/acs/AC1.json`, { id: "AC1" });
-    seedRef("stockflow", `features/${featureId}/stories/S2-x/acs/AC2.json`, { id: "AC2" });
+    seedRef(`features/${featureId}/stories/S1-record-stock/acs/AC1.json`, { id: "AC1" });
+    seedRef(`features/${featureId}/stories/S2-x/acs/AC1.json`, { id: "AC1" });
+    seedRef(`features/${featureId}/stories/S2-x/acs/AC2.json`, { id: "AC2" });
     const ref = resolveStepReference({ kitRoot, step: "acs", featureId });
     expect(ref?.paths).toHaveLength(3); // union across stories
   });
 
-  it("propose -> canonical stockflow planning/feature-proposals.md (was a silent-skip GAP)", () => {
-    // Regression: `propose` produces planning/feature-proposals.md and a baseline exists in
-    // BOTH corpora, but it used to fall into corpusForStep/stepArtifactPath's `default` case
-    // -> null -> the quality gate silently skipped, running the propose sweep scoreless.
-    seedRef("stockflow", "planning/feature-proposals.md", "# Sprint 1 proposal\n- F1\n");
+  it("propose -> planning/feature-proposals.md (has a reference, not a silent skip)", () => {
+    seedRef("planning/feature-proposals.md", "# Sprint 1 proposal\n- F1\n");
     const ref = resolveStepReference({ kitRoot, step: "propose", featureId });
-    expect(ref?.corpus).toBe("stockflow");
     expect(ref?.paths[0]).toMatch(/planning\/feature-proposals\.md$/);
   });
 
-  it("estimate -> canonical stockflow planning/estimates.json (NOT architecture.json)", () => {
-    // Regression: `estimate` produces planning/estimates.json, but stepArtifactPath returned
-    // architectureJson -> the estimate gate compared an estimates candidate against an
-    // architecture reference (wrong artifact entirely). It must resolve estimates.json.
-    seedRef("stockflow", `features/${featureId}/architecture.json`, { feature_id: featureId });
-    seedRef("stockflow", "planning/estimates.json", { estimates: [{ feature_id: featureId, size: "M" }] });
+  it("estimate -> planning/estimates.json (NOT architecture.json)", () => {
+    seedRef(`features/${featureId}/architecture.json`, { feature_id: featureId });
+    seedRef("planning/estimates.json", { estimates: [{ feature_id: featureId, size: "M" }] });
     const ref = resolveStepReference({ kitRoot, step: "estimate", featureId });
-    expect(ref?.corpus).toBe("stockflow");
     expect(ref?.paths[0]).toMatch(/planning\/estimates\.json$/);
   });
 
-  it("returns null when the corpus/artifact is not on disk (bar not applicable)", () => {
+  it("returns null when the reference artifact is not on disk (bar not applicable)", () => {
     expect(resolveStepReference({ kitRoot, step: "ux", featureId })).toBeNull();
   });
 });
@@ -121,7 +124,7 @@ describe("readCandidateArtifact: reads the SAME artifact the reference resolves 
 
 describe("evaluateSemanticGate: judge decides comparability above the structural floor", () => {
   it("passes when the judge scores >= threshold", async () => {
-    seedRef("stockflow", "design/design-guide.json", { components: { navbar: {}, table: {} } });
+    seedRef("design/design-guide.json", { components: { navbar: {}, table: {} } });
     seedCandidate("design/design-guide.json", { components: { navbar: {}, table: {}, extra: {} } });
     const out = await evaluateSemanticGate({ kitRoot, consortDir, featureId, step: "ux", judge: passJudge });
     expect(out.passed).toBe(true);
@@ -129,7 +132,7 @@ describe("evaluateSemanticGate: judge decides comparability above the structural
   });
 
   it("FAILS when the judge scores below threshold, naming the dropped intent", async () => {
-    seedRef("stockflow", "design/design-guide.json", { components: { navbar: {}, status_badge: {}, empty_state: {} } });
+    seedRef("design/design-guide.json", { components: { navbar: {}, status_badge: {}, empty_state: {} } });
     seedCandidate("design/design-guide.json", { components: { navbar: {} } });
     const out = await evaluateSemanticGate({ kitRoot, consortDir, featureId, step: "ux", judge: failJudge });
     expect(out.passed).toBe(false);
@@ -148,7 +151,7 @@ describe("evaluateSemanticGate: judge decides comparability above the structural
   });
 
   it("FAILS when the reference exists but the candidate produced no artifact", async () => {
-    seedRef("stockflow", "design/design-guide.json", { components: { navbar: {} } });
+    seedRef("design/design-guide.json", { components: { navbar: {} } });
     const out = await evaluateSemanticGate({ kitRoot, consortDir, featureId, step: "ux", judge: passJudge });
     expect(out.passed).toBe(false);
     expect(out.reason).toMatch(/no artifact/);
@@ -255,8 +258,10 @@ describe("build discriminator gate: clean verdict is a PASS (best), only insuffi
   const runGate = async (verdict: DiscriminatorVerdict) => {
     // A driver build turn (role=driver => kind=code). Seed a recorded-build ref + a
     // candidate app/ tree so the gate reaches the judge.
-    seedRef("stockflow", `features/${featureId}/architecture.json`, { feature_id: featureId }); // unrelated; ensure corpus dir exists
-    const rbApp = join(kitRoot, "examples/sftdd-scenarios/stockflow/recorded-build", "features", featureId, "stories", "S1", "turns", "003-driver", "code", "app");
+    seedRef(`features/${featureId}/architecture.json`, { feature_id: featureId }); // unrelated; ensure ref dir exists
+    // The recorded-build reference resolves under the SAME override root the design refs do
+    // (referenceCorpusRoot -> CONSORT_REFERENCE_CORPUS = refRoot), NOT the old live-corpus path.
+    const rbApp = join(refRoot, "recorded-build", "features", featureId, "stories", "S1", "turns", "003-driver", "code", "app");
     mkdirSync(rbApp, { recursive: true });
     writeFileSync(join(rbApp, "models.py"), "class Stock: pass\n");
     mkdirSync(join(consortDir, "..", "app"), { recursive: true });

@@ -56,10 +56,24 @@ function stepArtifactPath(base: string, step: TurnKey, featureId: string): strin
   }
 }
 
-/** Where the reference corpora live, relative to the kit root. */
-const SCENARIOS_REL = "examples/sftdd-scenarios";
+/** The SHARED reference-asset pin, relative to the kit root , the ONE reference set BOTH the
+ *  regression + optimization paths compare against (a self-contained snapshot copied from the most
+ *  recent re-record; see reference-assets/stockflow/README.md). Design refs live under its
+ *  recorded-artifacts/; build seeds/refs under recorded-build/. */
+const REFERENCE_ASSETS_REL = "consort/evaluation/reference-assets/stockflow";
+/** Kept for the build reference resolver's label only (the pin's provenance corpus name). */
 const CANONICAL = "stockflow";
-const RERECORD = "stockflow-rerecord";
+
+/** The reference corpus ROOT (the dir that CONTAINS recorded-artifacts/ + recorded-build/).
+ *  Default = the pinned reference-assets under the kit. Override with CONSORT_REFERENCE_CORPUS to
+ *  point at ANY corpus root when re-recording , a FULLY-CONFIGURABLE absolute-or-relative path (NOT
+ *  a name appended to a hardcoded scenarios prefix; that prefix is going away). An override is
+ *  resolved as-is when absolute, else relative to kitRoot. */
+function referenceCorpusRoot(kitRoot: string): string {
+  const override = process.env.CONSORT_REFERENCE_CORPUS?.trim();
+  if (override) return override.startsWith("/") ? override : join(kitRoot, override);
+  return join(kitRoot, REFERENCE_ASSETS_REL);
+}
 
 /** Threshold on the judge's 0..1 score. DESIGN artifacts (prose/tokens) demand tight
  *  semantic coverage; BUILD artifacts (code/tests) get a LOOSER functional bar since
@@ -88,39 +102,41 @@ export interface StepReference {
   label: string;
 }
 
-/** A design step's TurnKey -> which corpus is its semantic reference. dba compares
- *  against the re-record corpus (the only one with db-design.json); everything else
- *  against canonical stockflow (the production-quality front-end reference). */
-function corpusForStep(step: TurnKey): string | undefined {
+/** Which TurnKeys HAVE a design reference (build turns + unknown steps do not). One pinned
+ *  reference set now carries every design artifact (feature-spec / architecture / db-design /
+ *  test-list / design-guide / proposals / estimates / acs), so there is no per-step corpus split
+ *  anymore , the earlier dba->rerecord vs others->canonical split existed only because canonical
+ *  lacked db-design.json; the pin has all of them. */
+function hasDesignReference(step: TurnKey): boolean {
   switch (step) {
-    case "dba":
-      return RERECORD;
     case "breakdown":
     case "propose":
     case "acs":
     case "architect":
     case "estimate":
     case "test-list":
+    case "dba":
     case "ux":
-      return CANONICAL;
+      return true;
     default:
-      return undefined; // build turns + unknown steps have no design reference
+      return false; // build turns + unknown steps have no design reference
   }
 }
 
-/** Resolve the recorded reference artifact(s) for a step in a corpus, or null if the
- *  corpus / artifact is not on disk (scenario without a recorded reference). */
+/** Resolve the recorded reference artifact(s) for a step from the shared reference pin (or the
+ *  CONSORT_REFERENCE_CORPUS override), or null if the reference/artifact is not on disk (a step
+ *  with no recorded reference, or a corpus root that lacks it). */
 export function resolveStepReference(args: {
   kitRoot: string;
   step: TurnKey;
   featureId: string;
 }): StepReference | null {
   const { kitRoot, step, featureId } = args;
-  const corpus = corpusForStep(step);
-  if (!corpus) return null;
-  // A corpus's recorded-artifacts/ is .tdd-shaped (features/<F>/..., design/...), so
-  // the sftdd-paths builders resolve reference paths the same as live .sftdd paths.
-  const root = join(kitRoot, SCENARIOS_REL, corpus, "recorded-artifacts");
+  if (!hasDesignReference(step)) return null;
+  // recorded-artifacts/ is .tdd-shaped (features/<F>/..., design/...), so the sftdd-paths builders
+  // resolve reference paths the same as live .consort paths. `corpus` is the provenance label.
+  const corpus = CANONICAL;
+  const root = join(referenceCorpusRoot(kitRoot), "recorded-artifacts");
   if (!existsSync(root)) return null;
 
   if (step === "acs") {
@@ -314,7 +330,7 @@ export function resolveBuildReference(args: {
   // The recorded-build tree is .tdd-shaped (features/<F>/stories/...), so route its
   // paths through the sftdd-paths builders too (single-source layout rule). The
   // recorded-build root plays the `tdd` role; featureDir/storiesDir take it from there.
-  const rbRoot = join(kitRoot, SCENARIOS_REL, CANONICAL, "recorded-build");
+  const rbRoot = join(referenceCorpusRoot(kitRoot), "recorded-build");
   const rbFeature = join(featureDir(rbRoot, featureId), "stories");
   if (!existsSync(rbFeature)) return null;
   const stories = readdirSync(rbFeature).filter((d) => statSync(join(rbFeature, d)).isDirectory()).sort();

@@ -20,12 +20,14 @@ import {
 
 let kitRoot: string;
 let projectDir: string;
+let refRoot: string; // the CONSORT_REFERENCE_CORPUS override root (a temp reference corpus)
 const featureId = "F1-stock-visibility";
 
-/** Seed a recorded-build story's terminal turn with code/{tests,app} files. */
+/** Seed a recorded-build story's terminal turn with code/{tests,app} files, under the OVERRIDE
+ *  reference corpus (resolveBuildReference reads referenceCorpusRoot = CONSORT_REFERENCE_CORPUS). */
 function seedRecordedBuild(story: string, turn: string, files: Record<string, string>): void {
   for (const [rel, body] of Object.entries(files)) {
-    const p = join(kitRoot, "examples/sftdd-scenarios/stockflow/recorded-build/features", featureId, "stories", story, "turns", turn, "code", rel);
+    const p = join(refRoot, "recorded-build/features", featureId, "stories", story, "turns", turn, "code", rel);
     mkdirSync(join(p, ".."), { recursive: true });
     writeFileSync(p, body);
   }
@@ -40,10 +42,14 @@ function seedCandidate(rel: string, body: string): void {
 beforeEach(() => {
   kitRoot = mkdtempSync(join(tmpdir(), "bf-kit-"));
   projectDir = mkdtempSync(join(tmpdir(), "bf-proj-"));
+  refRoot = mkdtempSync(join(tmpdir(), "bf-ref-"));
+  process.env.CONSORT_REFERENCE_CORPUS = refRoot; // fully-configurable override root (absolute)
 });
 afterEach(() => {
+  delete process.env.CONSORT_REFERENCE_CORPUS;
   rmSync(kitRoot, { recursive: true, force: true });
   rmSync(projectDir, { recursive: true, force: true });
+  rmSync(refRoot, { recursive: true, force: true });
 });
 
 const pass: SemanticJudge = async () => ({ score: 0.9 });
@@ -91,7 +97,7 @@ describe("resolveBuildReference: terminal turn, positional story, role-scoped su
   });
 
   it("returns null when no recorded-build tree exists (bar skipped)", () => {
-    rmSync(join(kitRoot, "examples"), { recursive: true, force: true });
+    rmSync(join(refRoot, "recorded-build"), { recursive: true, force: true });
     expect(resolveBuildReference({ kitRoot, featureId, storyIndex: 0, kind: "tests" })).toBeNull();
   });
 });
@@ -125,7 +131,7 @@ describe("evaluateBuildFunctionalGate: Layer 2 functional bar (0.75)", () => {
   });
 
   it("SKIPS (passes) when no recorded-build reference exists", async () => {
-    rmSync(join(kitRoot, "examples"), { recursive: true, force: true });
+    rmSync(join(refRoot, "recorded-build"), { recursive: true, force: true });
     let judged = false;
     const spy: SemanticJudge = async () => { judged = true; return { score: 1 }; };
     const out = await evaluateBuildFunctionalGate({ kitRoot, projectDir, featureId, storyIndex: 0, role: "driver", judge: spy });
