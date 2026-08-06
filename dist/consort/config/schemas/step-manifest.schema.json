@@ -49,6 +49,7 @@
           "id": { "type": "string", "minLength": 1, "description": "Key the prepared block is handed back under." },
           "kind": { "type": "string", "minLength": 1, "description": "Preparer kind resolved from the preparer registry (context-pack | green-failure-advisory)." },
           "description": { "type": "string" },
+          "position": { "type": "string", "enum": ["prepend", "append"], "description": "WHERE the prepared block sits relative to the base prompt: 'prepend' (before the directive, e.g. the green-failure advisory) or 'append' (after, e.g. the context-pack). Default 'append'." },
           "options": { "type": "object", "description": "Preparer-specific knobs, e.g. { \"skipTestLoop\": true } for context-pack." }
         },
         "additionalProperties": false
@@ -65,6 +66,7 @@
           "filename": { "type": "string", "minLength": 1, "description": "Artifact filename within the provided workspace." },
           "validator": { "type": "string", "minLength": 1, "description": "Registered OutputValidator name (validator-registry.ts). resolveValidator throws loud on an unknown name." },
           "channel": { "type": "string", "enum": ["product", "artifact", "meta"], "description": "WHICH channel this output lands in (absent = the primary workspace root, byte-identical to a single-root turn). product = the application deliverable that accumulates across build turns + gets committed/migrated/deployed (app/, tests/, migrations); MUST be uncontained (the real code tree; a per-experiment worktree when experiments run in parallel), since each build turn reads prior turns' code. artifact = the .consort design documents (feature-spec/architecture/test-list/design-guide) the design roles author; small + per-feature, so it MAY be contained (resolved under artifactDir when the orchestrator provisions one, else the workspace). meta = the orchestrator's bookkeeping about the turn (raw agent report, reflect verdict, assess marker), whose CONFORMANCE the orchestrator owns; contained (resolved under metaDir when provisioned, else the workspace). Each root defaults to workspaceDir, so an untagged / un-provisioned turn is byte-identical." },
+          "optional": { "type": "boolean", "description": "The turn LEGITIMATELY may not produce this output (a self-heal turn writes its marker on one branch of its judgment + escalates to a human on the other). ABSENT = a clean pass (the escalation/no-op route is preserved); PRESENT = still validated (a malformed present marker is a hard reject). Default (absent/false) = required, the design-lane norm." },
           "description": { "type": "string" }
         },
         "additionalProperties": false

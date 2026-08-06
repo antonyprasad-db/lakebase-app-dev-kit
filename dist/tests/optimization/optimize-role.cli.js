@@ -6775,7 +6775,7 @@ var spec_author_story_default = {
     { id: "product-overview", source: "feature:product-overview.md", description: "The PO's product overview , the feature framing (product-overview.md)." }
   ],
   outputs: [
-    { id: "acs", filename: "acs/AC1.json", channel: "artifact", validator: "nonEmptyFile", description: "The per-story acceptance criteria (one acs/<AC>.json per AC). The design gate validates every acs/*.json against the AC schema; the post-turn verify-artifact asserts the acs/ dir is non-empty." },
+    { id: "acs", filename: "acs", channel: "artifact", validator: "acsDirConformant", description: "The per-story acceptance criteria , the acs/ DIRECTORY (one acs/<AC>.json per AC, each named after the AC it authors). acsDirConformant asserts the dir is non-empty AND every acs/*.json conforms to ac.json (the deterministic floor the legacy verify-artifact + design gate enforced)." },
     { id: "agent-log", filename: "agent-log.jsonl", channel: "meta", validator: "agentLogHasRoleEvent", description: "The spec-author's structured log of the ACs it authored (shared agent-log script; agent-log-event.schema.json)." }
   ],
   routing: {
@@ -6841,7 +6841,7 @@ var dba_default = {
   role: "dba",
   match: { kind: "invoke-role", role: "dba" },
   inputs: [
-    { id: "architecture", source: "feature:architecture.json", description: "The Architect's logical contract (service_backed, layers, persistence_invariants) the DBA physically realizes , NOT re-authored." }
+    { id: "architecture", source: "feature:features/{feature}/architecture.json", description: "The Architect's logical contract (service_backed, layers, persistence_invariants) the DBA physically realizes , NOT re-authored. Feature-scoped: the {feature} placeholder expands to the run's feature id (the real on-disk location, features/<F>/architecture.json)." }
   ],
   outputs: [
     { id: "db-design", filename: "db-design.json", channel: "artifact", validator: "nonEmptyFile", description: "The physical schema (tables + per-story schema_changes + realizes_invariants). A non-persisting or non-service-backed feature may leave this empty, so there is NO post-turn verify-artifact for the DBA (designArtifactExpectation returns null)." },
@@ -6865,8 +6865,8 @@ var test_strategist_default = {
   match: { kind: "invoke-role", role: "test-strategist" },
   inputs: [
     { id: "acs", source: "story:acs", description: "The story's acceptance criteria , each test's ac_id maps to one of these." },
-    { id: "architecture", source: "feature:architecture.json", description: "The architecture (persistence_invariants) each real-branch fitness test must cover." },
-    { id: "db-design", source: "feature:db-design.json", description: "The DBA's concrete tables/constraints the invariant tests assert against." }
+    { id: "architecture", source: "feature:features/{feature}/architecture.json", description: "The architecture (persistence_invariants) each real-branch fitness test must cover. Feature-scoped: {feature} expands to the run's feature id (features/<F>/architecture.json)." },
+    { id: "db-design", source: "feature:features/{feature}/db-design.json", description: "The DBA's concrete tables/constraints the invariant tests assert against. Feature-scoped: {feature} expands to the run's feature id (features/<F>/db-design.json)." }
   ],
   outputs: [
     { id: "test-list", filename: "test-list.json", channel: "artifact", validator: "nonEmptyFile", description: "The feature master test list (this story's ordered tests appended). The post-turn verify-artifact asserts test-list.json exists under the resolved root." },
@@ -6918,7 +6918,7 @@ var ux_designer_default = {
   role: "ux-designer",
   match: { kind: "invoke-role", role: "ux-designer" },
   inputs: [
-    { id: "design-guideline", source: "feature:design-brief.md", description: "The HIL design brief the UX Designer extracts the look FROM (design-brief.md)." },
+    { id: "design-guideline", source: "feature:design/design-brief.md", description: "The HIL design brief the UX Designer extracts the look FROM. Lives under design/ on the real tree (design/design-brief.md, per intake.ts)." },
     { id: "product-overview", source: "feature:product-overview.md", description: "The PO's product overview , which stories produce screens (product-overview.md)." }
   ],
   outputs: [
@@ -7753,6 +7753,28 @@ function assessMarkerWritten(producedPath) {
   }
   return { ok: true, violations: [] };
 }
+function acsDirConformant(producedPath) {
+  if (!existsSync4(producedPath) || !statSync2(producedPath).isDirectory()) {
+    return { ok: false, violations: [`spec-author wrote no acs/ dir at ${producedPath} (expected >=1 acs/<AC>.json)`] };
+  }
+  const acFiles = readdirSync3(producedPath).filter((n) => n.endsWith(".json"));
+  if (acFiles.length === 0) {
+    return { ok: false, violations: [`acs/ dir at ${producedPath} holds no AC file (expected >=1 acs/<AC>.json)`] };
+  }
+  const violations = [];
+  for (const name of acFiles) {
+    let content;
+    try {
+      content = readFileSync4(join4(producedPath, name), "utf8");
+    } catch {
+      violations.push(`acs/${name} not readable`);
+      continue;
+    }
+    const conf = checkArtifactConformance("ac.json", content);
+    if (!conf.ok) violations.push(...conf.violations.map((v) => `acs/${name}: ${v}`));
+  }
+  return violations.length === 0 ? { ok: true, violations: [] } : { ok: false, violations };
+}
 var acConformant = conformsTo("ac.json");
 var architectureConformant = conformsTo("architecture.json");
 var dbDesignConformant = conformsTo("db-design.json");
@@ -7784,6 +7806,9 @@ var VALIDATOR_REGISTRY = {
   // Schema-conformance validators for the design roles' primary artifacts (the integration
   // live chains gate the real agent's output to its canonical schema, not just non-emptiness).
   acConformant,
+  // The spec-author per-story primary is the acs/ DIRECTORY (dynamically-named AC files); the
+  // executor-dispatched turn resolves its output to that dir, so it needs a dir-aware validator.
+  acsDirConformant,
   architectureConformant,
   dbDesignConformant,
   testListConformant
@@ -7850,6 +7875,7 @@ var Step = class {
       id: p.id,
       kind: p.kind,
       description: p.description ?? p.id,
+      ...p.position ? { position: p.position } : {},
       ...p.options ? { options: p.options } : {}
     }));
   }
@@ -7861,6 +7887,7 @@ var Step = class {
       description: o.description ?? o.id,
       filename: o.filename,
       ...o.channel ? { channel: o.channel } : {},
+      ...o.optional ? { optional: true } : {},
       validate: resolveValidator(o.validator)
     }));
   }
@@ -9672,18 +9699,19 @@ async function execute(step, ctx, deps) {
   const instructions = deps.instructionsFor(action, cfg);
   if (deps.prepare) {
     const preconditions = step.preconditions(action);
-    let preparedSuffix = "";
+    let prependBlocks = "";
+    let appendBlocks = "";
     for (const pre of preconditions) {
       const block = deps.prepare(pre.kind, pre, action, cfg);
       if (block && block.length) {
-        preparedSuffix += block;
+        if (pre.position === "prepend") prependBlocks += block;
+        else appendBlocks += block;
       } else {
         deps.onWarn?.(`declared precondition "${pre.id}" (${pre.kind}) prepared EMPTY , its source artifact may be absent (${pre.description})`);
       }
     }
-    if (preparedSuffix) {
-      instructions.prompt = instructions.prompt + preparedSuffix;
-    }
+    if (prependBlocks) instructions.prompt = prependBlocks + instructions.prompt;
+    if (appendBlocks) instructions.prompt = instructions.prompt + appendBlocks;
   }
   await deps.preTurnEffects?.(action, cfg);
   const startedMs = Date.now();
@@ -9692,20 +9720,22 @@ async function execute(step, ctx, deps) {
   const producedPaths = runResult.producedPaths ?? [];
   const agentResult = step.lastAgentResult?.();
   await deps.materializeOutputs?.(workspaceDir, action, cfg);
+  const outputSpecs = step.outputs(action);
+  const primaryIsOptional = outputSpecs.length > 0 && outputSpecs[0].optional === true;
   const violations = [];
   if (!runResult.produced) {
     if (runResult.missingInput) {
       violations.push(`missing input "${runResult.missingInput}"`);
-    } else {
+    } else if (!primaryIsOptional) {
       violations.push("the step's primary output was not produced in the workspace");
     }
   }
-  for (const spec of step.outputs(action)) {
+  for (const spec of outputSpecs) {
     const rel = outputPaths?.[spec.id] ?? spec.filename;
     const root = resolveChannelRoot(spec.channel, { workspaceDir, artifactDir, metaDir });
     const abs = producedPaths.find((p) => p.endsWith(rel)) ?? join26(root, rel);
     if (!existsSync28(abs)) {
-      if (runResult.produced) violations.push(`declared output "${spec.id}" (${spec.filename}) was not produced`);
+      if (!spec.optional && runResult.produced) violations.push(`declared output "${spec.id}" (${spec.filename}) was not produced`);
       continue;
     }
     const res = spec.validate(abs);
@@ -9791,10 +9821,12 @@ function formatAgentReport(args) {
 }
 
 // consort/orchestrator/runners/manifest-runner.ts
-function resolveInputsFromWorkspace(manifest, workspaceDir) {
+function resolveInputsFromWorkspace(manifest, workspaceDir, featureId, action) {
+  const story = "story" in action && typeof action.story === "string" ? action.story : "";
+  const expand = (rel) => rel.replace(/\{feature\}/g, featureId).replace(/\{story\}/g, story);
   const out = {};
   for (const input of manifest.inputs) {
-    const file = input.source.replace(/^feature:/, "");
+    const file = expand(input.source.replace(/^feature:/, ""));
     const p = join28(workspaceDir, file);
     if (!existsSync30(p)) return { missing: input.id };
     out[input.id] = readFileSync29(p, "utf8");
@@ -9854,7 +9886,7 @@ function executorWiring(manifest, action, deps, retries) {
     validateBoundDeps
   };
   const execDeps = {
-    resolveInputs: () => resolveInputsFromWorkspace(manifest, deps.workspaceDir),
+    resolveInputs: () => resolveInputsFromWorkspace(manifest, deps.workspaceDir, deps.cfg.featureId, action),
     provisionWorkspace: () => deps.provisionWorkspace ? deps.provisionWorkspace(manifest, action) : { workspaceDir: deps.workspaceDir },
     instructionsFor: () => deps.instructionsFor ? deps.instructionsFor(manifest, action, deps.workspaceDir) : defaultInstructions(manifest),
     // Phase 2.5: PREPARE-PRECONDITIONS. A step that DECLARES preconditions (manifest.preconditions)

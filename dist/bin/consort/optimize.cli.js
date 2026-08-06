@@ -3680,49 +3680,49 @@ var require_fast_uri = __commonJS({
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
-    function resolveComponent(base, relative4, options, skipNormalization) {
+    function resolveComponent(base, relative5, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
         base = parse(serialize(base, options), options);
-        relative4 = parse(serialize(relative4, options), options);
+        relative5 = parse(serialize(relative5, options), options);
       }
       options = options || {};
-      if (!options.tolerant && relative4.scheme) {
-        target.scheme = relative4.scheme;
-        target.userinfo = relative4.userinfo;
-        target.host = relative4.host;
-        target.port = relative4.port;
-        target.path = removeDotSegments(relative4.path || "");
-        target.query = relative4.query;
+      if (!options.tolerant && relative5.scheme) {
+        target.scheme = relative5.scheme;
+        target.userinfo = relative5.userinfo;
+        target.host = relative5.host;
+        target.port = relative5.port;
+        target.path = removeDotSegments(relative5.path || "");
+        target.query = relative5.query;
       } else {
-        if (relative4.userinfo !== void 0 || relative4.host !== void 0 || relative4.port !== void 0) {
-          target.userinfo = relative4.userinfo;
-          target.host = relative4.host;
-          target.port = relative4.port;
-          target.path = removeDotSegments(relative4.path || "");
-          target.query = relative4.query;
+        if (relative5.userinfo !== void 0 || relative5.host !== void 0 || relative5.port !== void 0) {
+          target.userinfo = relative5.userinfo;
+          target.host = relative5.host;
+          target.port = relative5.port;
+          target.path = removeDotSegments(relative5.path || "");
+          target.query = relative5.query;
         } else {
-          if (!relative4.path) {
+          if (!relative5.path) {
             target.path = base.path;
-            if (relative4.query !== void 0) {
-              target.query = relative4.query;
+            if (relative5.query !== void 0) {
+              target.query = relative5.query;
             } else {
               target.query = base.query;
             }
           } else {
-            if (relative4.path[0] === "/") {
-              target.path = removeDotSegments(relative4.path);
+            if (relative5.path[0] === "/") {
+              target.path = removeDotSegments(relative5.path);
             } else {
               if ((base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0) && !base.path) {
-                target.path = "/" + relative4.path;
+                target.path = "/" + relative5.path;
               } else if (!base.path) {
-                target.path = relative4.path;
+                target.path = relative5.path;
               } else {
-                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative4.path;
+                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative5.path;
               }
               target.path = removeDotSegments(target.path);
             }
-            target.query = relative4.query;
+            target.query = relative5.query;
           }
           target.userinfo = base.userinfo;
           target.host = base.host;
@@ -3730,7 +3730,7 @@ var require_fast_uri = __commonJS({
         }
         target.scheme = base.scheme;
       }
-      target.fragment = relative4.fragment;
+      target.fragment = relative5.fragment;
       return target;
     }
     function equal(uriA, uriB, options) {
@@ -7766,7 +7766,7 @@ var spec_author_story_default = {
     { id: "product-overview", source: "feature:product-overview.md", description: "The PO's product overview , the feature framing (product-overview.md)." }
   ],
   outputs: [
-    { id: "acs", filename: "acs/AC1.json", channel: "artifact", validator: "nonEmptyFile", description: "The per-story acceptance criteria (one acs/<AC>.json per AC). The design gate validates every acs/*.json against the AC schema; the post-turn verify-artifact asserts the acs/ dir is non-empty." },
+    { id: "acs", filename: "acs", channel: "artifact", validator: "acsDirConformant", description: "The per-story acceptance criteria , the acs/ DIRECTORY (one acs/<AC>.json per AC, each named after the AC it authors). acsDirConformant asserts the dir is non-empty AND every acs/*.json conforms to ac.json (the deterministic floor the legacy verify-artifact + design gate enforced)." },
     { id: "agent-log", filename: "agent-log.jsonl", channel: "meta", validator: "agentLogHasRoleEvent", description: "The spec-author's structured log of the ACs it authored (shared agent-log script; agent-log-event.schema.json)." }
   ],
   routing: {
@@ -7832,7 +7832,7 @@ var dba_default = {
   role: "dba",
   match: { kind: "invoke-role", role: "dba" },
   inputs: [
-    { id: "architecture", source: "feature:architecture.json", description: "The Architect's logical contract (service_backed, layers, persistence_invariants) the DBA physically realizes , NOT re-authored." }
+    { id: "architecture", source: "feature:features/{feature}/architecture.json", description: "The Architect's logical contract (service_backed, layers, persistence_invariants) the DBA physically realizes , NOT re-authored. Feature-scoped: the {feature} placeholder expands to the run's feature id (the real on-disk location, features/<F>/architecture.json)." }
   ],
   outputs: [
     { id: "db-design", filename: "db-design.json", channel: "artifact", validator: "nonEmptyFile", description: "The physical schema (tables + per-story schema_changes + realizes_invariants). A non-persisting or non-service-backed feature may leave this empty, so there is NO post-turn verify-artifact for the DBA (designArtifactExpectation returns null)." },
@@ -7856,8 +7856,8 @@ var test_strategist_default = {
   match: { kind: "invoke-role", role: "test-strategist" },
   inputs: [
     { id: "acs", source: "story:acs", description: "The story's acceptance criteria , each test's ac_id maps to one of these." },
-    { id: "architecture", source: "feature:architecture.json", description: "The architecture (persistence_invariants) each real-branch fitness test must cover." },
-    { id: "db-design", source: "feature:db-design.json", description: "The DBA's concrete tables/constraints the invariant tests assert against." }
+    { id: "architecture", source: "feature:features/{feature}/architecture.json", description: "The architecture (persistence_invariants) each real-branch fitness test must cover. Feature-scoped: {feature} expands to the run's feature id (features/<F>/architecture.json)." },
+    { id: "db-design", source: "feature:features/{feature}/db-design.json", description: "The DBA's concrete tables/constraints the invariant tests assert against. Feature-scoped: {feature} expands to the run's feature id (features/<F>/db-design.json)." }
   ],
   outputs: [
     { id: "test-list", filename: "test-list.json", channel: "artifact", validator: "nonEmptyFile", description: "The feature master test list (this story's ordered tests appended). The post-turn verify-artifact asserts test-list.json exists under the resolved root." },
@@ -7909,7 +7909,7 @@ var ux_designer_default = {
   role: "ux-designer",
   match: { kind: "invoke-role", role: "ux-designer" },
   inputs: [
-    { id: "design-guideline", source: "feature:design-brief.md", description: "The HIL design brief the UX Designer extracts the look FROM (design-brief.md)." },
+    { id: "design-guideline", source: "feature:design/design-brief.md", description: "The HIL design brief the UX Designer extracts the look FROM. Lives under design/ on the real tree (design/design-brief.md, per intake.ts)." },
     { id: "product-overview", source: "feature:product-overview.md", description: "The PO's product overview , which stories produce screens (product-overview.md)." }
   ],
   outputs: [
@@ -9310,7 +9310,7 @@ function toDesignView(state) {
 // consort/orchestrator/drive/executor-dispatch.ts
 init_esm_shims();
 import * as fs8 from "fs";
-import { join as join18 } from "path";
+import { join as join18, relative } from "path";
 
 // consort/orchestrator/turns/step-executor.ts
 init_esm_shims();
@@ -9402,18 +9402,19 @@ async function execute(step, ctx, deps) {
   const instructions = deps.instructionsFor(action, cfg);
   if (deps.prepare) {
     const preconditions = step.preconditions(action);
-    let preparedSuffix = "";
+    let prependBlocks = "";
+    let appendBlocks = "";
     for (const pre of preconditions) {
       const block = deps.prepare(pre.kind, pre, action, cfg);
       if (block && block.length) {
-        preparedSuffix += block;
+        if (pre.position === "prepend") prependBlocks += block;
+        else appendBlocks += block;
       } else {
         deps.onWarn?.(`declared precondition "${pre.id}" (${pre.kind}) prepared EMPTY , its source artifact may be absent (${pre.description})`);
       }
     }
-    if (preparedSuffix) {
-      instructions.prompt = instructions.prompt + preparedSuffix;
-    }
+    if (prependBlocks) instructions.prompt = prependBlocks + instructions.prompt;
+    if (appendBlocks) instructions.prompt = instructions.prompt + appendBlocks;
   }
   await deps.preTurnEffects?.(action, cfg);
   const startedMs = Date.now();
@@ -9422,20 +9423,22 @@ async function execute(step, ctx, deps) {
   const producedPaths = runResult.producedPaths ?? [];
   const agentResult = step.lastAgentResult?.();
   await deps.materializeOutputs?.(workspaceDir, action, cfg);
+  const outputSpecs = step.outputs(action);
+  const primaryIsOptional = outputSpecs.length > 0 && outputSpecs[0].optional === true;
   const violations = [];
   if (!runResult.produced) {
     if (runResult.missingInput) {
       violations.push(`missing input "${runResult.missingInput}"`);
-    } else {
+    } else if (!primaryIsOptional) {
       violations.push("the step's primary output was not produced in the workspace");
     }
   }
-  for (const spec of step.outputs(action)) {
+  for (const spec of outputSpecs) {
     const rel = outputPaths?.[spec.id] ?? spec.filename;
     const root = resolveChannelRoot(spec.channel, { workspaceDir, artifactDir, metaDir });
     const abs = producedPaths.find((p) => p.endsWith(rel)) ?? join14(root, rel);
     if (!existsSync15(abs)) {
-      if (runResult.produced) violations.push(`declared output "${spec.id}" (${spec.filename}) was not produced`);
+      if (!spec.optional && runResult.produced) violations.push(`declared output "${spec.id}" (${spec.filename}) was not produced`);
       continue;
     }
     const res = spec.validate(abs);
@@ -10114,6 +10117,28 @@ function assessMarkerWritten(producedPath) {
   }
   return { ok: true, violations: [] };
 }
+function acsDirConformant(producedPath) {
+  if (!existsSync17(producedPath) || !statSync8(producedPath).isDirectory()) {
+    return { ok: false, violations: [`spec-author wrote no acs/ dir at ${producedPath} (expected >=1 acs/<AC>.json)`] };
+  }
+  const acFiles = readdirSync11(producedPath).filter((n) => n.endsWith(".json"));
+  if (acFiles.length === 0) {
+    return { ok: false, violations: [`acs/ dir at ${producedPath} holds no AC file (expected >=1 acs/<AC>.json)`] };
+  }
+  const violations = [];
+  for (const name of acFiles) {
+    let content;
+    try {
+      content = readFileSync13(join16(producedPath, name), "utf8");
+    } catch {
+      violations.push(`acs/${name} not readable`);
+      continue;
+    }
+    const conf = checkArtifactConformance("ac.json", content);
+    if (!conf.ok) violations.push(...conf.violations.map((v) => `acs/${name}: ${v}`));
+  }
+  return violations.length === 0 ? { ok: true, violations: [] } : { ok: false, violations };
+}
 var acConformant = conformsTo("ac.json");
 var architectureConformant = conformsTo("architecture.json");
 var dbDesignConformant = conformsTo("db-design.json");
@@ -10145,6 +10170,9 @@ var VALIDATOR_REGISTRY = {
   // Schema-conformance validators for the design roles' primary artifacts (the integration
   // live chains gate the real agent's output to its canonical schema, not just non-emptiness).
   acConformant,
+  // The spec-author per-story primary is the acs/ DIRECTORY (dynamically-named AC files); the
+  // executor-dispatched turn resolves its output to that dir, so it needs a dir-aware validator.
+  acsDirConformant,
   architectureConformant,
   dbDesignConformant,
   testListConformant
@@ -10187,6 +10215,7 @@ var Step = class {
       id: p.id,
       kind: p.kind,
       description: p.description ?? p.id,
+      ...p.position ? { position: p.position } : {},
       ...p.options ? { options: p.options } : {}
     }));
   }
@@ -10198,6 +10227,7 @@ var Step = class {
       description: o.description ?? o.id,
       filename: o.filename,
       ...o.channel ? { channel: o.channel } : {},
+      ...o.optional ? { optional: true } : {},
       validate: resolveValidator(o.validator)
     }));
   }
@@ -10325,9 +10355,20 @@ var LiveDriveStepAgent = class {
 // consort/orchestrator/drive/executor-dispatch.ts
 function executorDispatched(action) {
   if (action.kind !== "invoke-role") return false;
-  if ("mode" in action && action.role === "spec-author" && action.mode === "breakdown") return true;
-  if (!("mode" in action) && !("buildMode" in action) && (action.role === "navigator" || action.role === "driver") && "story" in action && !!action.story) {
-    return true;
+  if ("mode" in action) {
+    if (action.role === "spec-author" && (action.mode === "breakdown" || action.mode === "propose")) return true;
+    if (action.role === "architect-reviewer" && action.mode === "estimate") return true;
+    return false;
+  }
+  if (!("buildMode" in action)) {
+    if ((action.role === "spec-author" || action.role === "architect-reviewer" || action.role === "test-strategist") && "story" in action && !!action.story) {
+      return true;
+    }
+    if (action.role === "dba" && "story" in action && !!action.story) return true;
+    if (action.role === "ux-designer") return true;
+    if ((action.role === "navigator" || action.role === "driver") && "story" in action && !!action.story) {
+      return true;
+    }
   }
   return false;
 }
@@ -10352,16 +10393,46 @@ function manifestPostTurnCommands(manifest, when, action, cfg, deps) {
   }
   return out;
 }
-function outputPathsForAction(action, featureId) {
+function outputPathsForAction(action, consortDir, featureId) {
   if (action.kind !== "invoke-role") return {};
-  if ("mode" in action && action.role === "spec-author" && action.mode === "breakdown") {
-    return { "feature-spec": `features/${featureId}/feature-spec.json`, "agent-log": "agent-log.jsonl" };
+  const f = featureId;
+  const story = "story" in action && typeof action.story === "string" ? action.story : void 0;
+  const rel = (abs) => relative(consortDir, abs);
+  const META = { "agent-log": "agent-log.jsonl" };
+  if ("mode" in action) {
+    if (action.role === "spec-author" && action.mode === "breakdown") {
+      return { "feature-spec": rel(featureSpecJson(consortDir, f)), ...META };
+    }
+    if (action.role === "spec-author" && action.mode === "propose") {
+      return { "feature-proposals": rel(featureProposalsMd(consortDir)) };
+    }
+    if (action.role === "architect-reviewer" && action.mode === "estimate") {
+      return { estimates: rel(planningEstimatesJson(consortDir)) };
+    }
+    return {};
   }
-  if (!("mode" in action) && !("buildMode" in action) && action.role === "navigator" && "story" in action && !!action.story) {
-    return { tests: "tests", "agent-log": "agent-log.jsonl" };
-  }
-  if (!("mode" in action) && !("buildMode" in action) && action.role === "driver" && "story" in action && !!action.story) {
-    return { code: "app", "agent-log": "agent-log.jsonl" };
+  if (!("buildMode" in action)) {
+    if (action.role === "spec-author" && story) {
+      return { acs: rel(acsDir(consortDir, f, story)), ...META };
+    }
+    if (action.role === "architect-reviewer" && story) {
+      return { architecture: rel(architectureJson(consortDir, f)), ...META };
+    }
+    if (action.role === "dba" && story) {
+      return { "db-design": rel(dbDesignJson(consortDir, f)), ...META };
+    }
+    if (action.role === "test-strategist" && story) {
+      return { "test-list": rel(featureTestListJson(consortDir, f)), ...META };
+    }
+    if (action.role === "ux-designer") {
+      return { "design-guide": rel(designGuideJson(consortDir)), ...META };
+    }
+    if (action.role === "navigator" && story) {
+      return { tests: "tests", ...META };
+    }
+    if (action.role === "driver" && story) {
+      return { code: "app", ...META };
+    }
   }
   return {};
 }
@@ -10373,13 +10444,14 @@ async function performTurnViaExecutor(action, state, routerDeps, cfg, deps) {
   const step = new Step(manifest, agent);
   const f = cfg.featureId;
   const story = "story" in action && typeof action.story === "string" ? action.story : void 0;
+  const expandRel = (rel) => rel.replace(/\{feature\}/g, f).replace(/\{story\}/g, story ?? "");
   const inputPath = (source) => {
     if (source.startsWith("story:")) {
-      const rel = source.slice("story:".length);
+      const rel = expandRel(source.slice("story:".length));
       if (!story) return join18(cfg.consortDir, rel);
       return join18(storyResolved(cfg.consortDir, f, story), rel);
     }
-    return join18(cfg.consortDir, source.replace(/^feature:/, ""));
+    return join18(cfg.consortDir, expandRel(source.replace(/^feature:/, "")));
   };
   const executorDeps = {
     // Uncontained: the agent reads the tree itself, but Step still gates on the presence of
@@ -10399,7 +10471,7 @@ async function performTurnViaExecutor(action, state, routerDeps, cfg, deps) {
     // product-channel outputs (tests/, app/) land at the project root; artifact + meta channels
     // resolve under the real .consort (artifactDir = metaDir = cfg.consortDir), so the orchestrator
     // places the design docs + the reconciled agent-log there , the manifest filename stays bare.
-    provisionWorkspace: () => ({ workspaceDir: cfg.projectDir, artifactDir: cfg.consortDir, metaDir: cfg.consortDir, outputPaths: outputPathsForAction(action, f) }),
+    provisionWorkspace: () => ({ workspaceDir: cfg.projectDir, artifactDir: cfg.consortDir, metaDir: cfg.consortDir, outputPaths: outputPathsForAction(action, cfg.consortDir, f) }),
     // The prompt is the agent's own (buildClaudeCommand -> roleTask); unused by LiveDriveStepAgent,
     // but the executor requires the dep.
     instructionsFor: () => ({ prompt: "" }),
@@ -10408,8 +10480,14 @@ async function performTurnViaExecutor(action, state, routerDeps, cfg, deps) {
       for (const cmd of manifestPostTurnCommands(manifest, "before", action, cfg, deps)) await cfg.runner.run(cmd);
     },
     // Phase 4.5: reconcile MATERIALIZES the agent-log (the legacy path's LOG_BIN --reconcile), so
-    // validate-outputs sees the conformant agent-log.jsonl the agent never wrote itself.
+    // validate-outputs sees the conformant agent-log.jsonl the agent never wrote itself. SKIPPED for
+    // the sprint-scoped PLANNING modes (propose / estimate / estimate-committed) , they write no
+    // feature agent-log to reconcile + declare no agent-log output, and the legacy path guards
+    // reconcile with the SAME `!isPlanningMode` condition (commandsForAction / commandsFromManifest),
+    // so skipping here keeps the executor byte-parallel to the legacy stream ([claude] only).
     materializeOutputs: async () => {
+      const isPlanningMode = "mode" in action && (action.mode === "propose" || action.mode === "estimate" || action.mode === "estimate-committed");
+      if (isPlanningMode) return;
       await cfg.runner.run({ kind: "cli", bin: deps.logBin, args: ["--reconcile", "--feature", f, "--tdd-dir", cfg.consortDir] });
     },
     // Phase 6.5: the manifest's `after` CLIs , gated on clean validation by the executor. For
@@ -11084,7 +11162,7 @@ function hasPendingRegressionFix(tdd, feature, story, ac) {
 // consort/architecture/contract-clean.ts
 init_esm_shims();
 import { existsSync as existsSync28, readFileSync as readFileSync24, readdirSync as readdirSync18, statSync as statSync13 } from "fs";
-import { join as join27, relative, extname } from "path";
+import { join as join27, relative as relative2, extname } from "path";
 var ARTIFACT_ROOTS_RE = artifactRootsRegexAlternation();
 var EXCLUDE_DIR = new RegExp(
   `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build|tests?|alembic|migrations)(/|$)`
@@ -11123,7 +11201,7 @@ function refactorVerifyRefactorPending(consortDir, featureId, storyId) {
 // consort/architecture/migration-app-clean.ts
 init_esm_shims();
 import { existsSync as existsSync30, readFileSync as readFileSync26, readdirSync as readdirSync19, statSync as statSync14 } from "fs";
-import { join as join29, relative as relative2, extname as extname2 } from "path";
+import { join as join29, relative as relative3, extname as extname2 } from "path";
 
 // consort/pipeline/cycle-record.ts
 import { commitAllIfChanged } from "@databricks-solutions/lakebase-scm-utils/git";
@@ -13456,7 +13534,7 @@ import {
   statSync as statSync20,
   writeFileSync as writeFileSync23
 } from "fs";
-import { dirname as dirname19, join as join38, relative as relative3 } from "path";
+import { dirname as dirname19, join as join38, relative as relative4 } from "path";
 var NON_ARTIFACT_TDD = /* @__PURE__ */ new Set(["agent-log.jsonl"]);
 function labelForAction(action) {
   const a = action;
@@ -13512,13 +13590,13 @@ function walk(dir, keep) {
 function scan(projectDir, consortDir) {
   const map = /* @__PURE__ */ new Map();
   for (const abs of walk(consortDir)) {
-    const rel = relative3(projectDir, abs);
-    if (NON_ARTIFACT_TDD.has(relative3(consortDir, abs))) continue;
+    const rel = relative4(projectDir, abs);
+    if (NON_ARTIFACT_TDD.has(relative4(consortDir, abs))) continue;
     map.set(rel, { abs, rel, underTdd: true, sha: sha1(abs) });
   }
   const keep = codeTreeFilter(projectDir);
   for (const abs of walk(projectDir, keep)) {
-    const rel = relative3(projectDir, abs);
+    const rel = relative4(projectDir, abs);
     if (map.has(rel)) continue;
     map.set(rel, { abs, rel, underTdd: false, sha: sha1(abs) });
   }
@@ -13584,7 +13662,7 @@ function recordTurn(args) {
     mkdirSync24(dirname19(dst), { recursive: true });
     cpSync5(f.abs, dst);
     if (f.underTdd) {
-      const mirror = join38(artifactsDir, relative3(consortDir, f.abs));
+      const mirror = join38(artifactsDir, relative4(consortDir, f.abs));
       mkdirSync24(dirname19(mirror), { recursive: true });
       cpSync5(f.abs, mirror);
     }
@@ -13592,7 +13670,7 @@ function recordTurn(args) {
   for (const rel of deleted) {
     const abs = join38(projectDir, rel);
     if (abs.startsWith(consortDir)) {
-      const mirror = join38(artifactsDir, relative3(consortDir, abs));
+      const mirror = join38(artifactsDir, relative4(consortDir, abs));
       if (existsSync43(mirror)) rmSync12(mirror, { force: true });
     }
   }

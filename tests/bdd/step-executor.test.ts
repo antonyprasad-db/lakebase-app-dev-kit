@@ -248,6 +248,120 @@ describe("phase 2.5 PREPARE-PRECONDITIONS: declared preconditions are prepared +
     await execute(step, ctxFor(), deps);
     expect(dispatched).toBe("unchanged");
   });
+
+  // POSITION-AWARE injection (A-full Stage F): a precondition rides BEFORE ("prepend") or AFTER
+  // ("append", the default) the base prompt , so the executor-assembled prompt is byte-identical to
+  // the legacy inline positioning (context-pack appended; green-failure advisory prepended).
+  it("a PREPEND precondition rides BEFORE the base prompt (the assess-advisory position)", async () => {
+    let dispatched = "";
+    const step = {
+      ...preconditionStep([{ id: "green-failure-advisory", kind: "green-failure-advisory", description: "adv", position: "prepend" as const }]),
+      async run(provided: import("../../consort/orchestrator/steps/step-run-types").ProvidedStepRun) {
+        dispatched = provided.instructions.prompt; return { produced: true, producedPaths: [] };
+      },
+    };
+    const deps: StepExecutorDeps = {
+      resolveInputs: () => ({}),
+      provisionWorkspace: () => ({ workspaceDir: root }),
+      instructionsFor: () => ({ prompt: "ASSESS the failed GREEN." }),
+      prepare: () => "ADVISORY (start here). ",
+    };
+    await execute(step, ctxFor(), deps);
+    expect(dispatched).toBe("ADVISORY (start here). ASSESS the failed GREEN.");
+  });
+
+  it("PREPEND + APPEND compose in position (prepend before, append after, base in the middle)", async () => {
+    let dispatched = "";
+    const step = {
+      ...preconditionStep([
+        { id: "green-failure-advisory", kind: "green-failure-advisory", description: "adv", position: "prepend" as const },
+        { id: "context-pack", kind: "context-pack", description: "pack", position: "append" as const },
+      ]),
+      async run(provided: import("../../consort/orchestrator/steps/step-run-types").ProvidedStepRun) {
+        dispatched = provided.instructions.prompt; return { produced: true, producedPaths: [] };
+      },
+    };
+    const deps: StepExecutorDeps = {
+      resolveInputs: () => ({}),
+      provisionWorkspace: () => ({ workspaceDir: root }),
+      instructionsFor: () => ({ prompt: "DO THE THING." }),
+      prepare: (kind) => (kind === "green-failure-advisory" ? "ADV. " : " PACK."),
+    };
+    await execute(step, ctxFor(), deps);
+    expect(dispatched).toBe("ADV. DO THE THING. PACK.");
+  });
+});
+
+// OPTIONAL OUTPUTS (A-full Stage F): a self-heal turn legitimately may produce NO artifact (it
+// escalates). An optional output ABSENT is a clean pass; PRESENT-but-nonconformant is a hard reject;
+// a REQUIRED output absent still blocks. This is the ONE contract gap that kept the assess/self-heal
+// turns off the executor.
+describe("optional outputs: absent-optional passes, present-nonconformant fails, required-absent blocks", () => {
+  const okValidate = () => ({ ok: true as const, violations: [] as string[] });
+  const rejectValidate = () => ({ ok: false as const, violations: ["marker malformed"] as string[] });
+  const action: WorkflowAction = { kind: "invoke-role", role: "navigator", story: "S1-x", buildMode: "assess" } as WorkflowAction;
+
+  function ctxFor(): StepCtx {
+    return {
+      action,
+      cfg: { projectDir: root, consortDir: join(root, ".consort"), featureId: "F1-x" } as StepCtx["cfg"],
+      state: { phase: "feature" } as unknown as DriveState,
+      validateBoundDeps: {
+        allowed: () => ({ kind: "state-derived" }) as unknown as WorkflowAction,
+        reviseBudgetAvailable: () => true,
+        recordRetry: () => ({ sanctioned: true }),
+      },
+    };
+  }
+
+  /** A step whose SOLE declared output is an optional marker; run() writes it only when `writeMarker`. */
+  function assessLikeStep(writeMarker: boolean, validate: import("../../consort/orchestrator/steps/step-contract").OutputValidator = okValidate) {
+    return {
+      inputs: () => [],
+      preconditions: () => [],
+      outputs: () => [{ id: "assess-marker", description: "the marker", filename: "marker.json", channel: "meta" as const, optional: true, validate }],
+      route: () => ({ outcome: "produced" as const, proposedNext: { kind: "state-derived" } as unknown as WorkflowAction }),
+      async run(provided: import("../../consort/orchestrator/steps/step-run-types").ProvidedStepRun) {
+        if (writeMarker) writeFileSync(join(provided.workspaceDir, "marker.json"), JSON.stringify({ superseded: [] }) + "\n");
+        // The turn "produced" its work either way (escalation is a legitimate produce with no file).
+        return { produced: true, producedPaths: writeMarker ? [join(provided.workspaceDir, "marker.json")] : [] };
+      },
+    };
+  }
+
+  const deps = (): StepExecutorDeps => ({
+    resolveInputs: () => ({}),
+    provisionWorkspace: () => ({ workspaceDir: root }),
+    instructionsFor: () => ({ prompt: "assess" }),
+  });
+
+  it("an ABSENT optional output is a clean PASS (the escalate-with-no-marker route)", async () => {
+    const result = await execute(assessLikeStep(false), ctxFor(), deps());
+    expect(result.violations).toEqual([]);
+    // Clean produce => it routes forward (not blocked), so the escalation path is preserved.
+    expect(result.bounded.action).not.toEqual(action);
+  });
+
+  it("a PRESENT optional output still runs its validator , a malformed marker is a hard reject", async () => {
+    const result = await execute(assessLikeStep(true, rejectValidate), ctxFor(), deps());
+    expect(result.violations.join(" ")).toMatch(/marker malformed/);
+  });
+
+  it("a PRESENT + conformant optional output passes", async () => {
+    const result = await execute(assessLikeStep(true), ctxFor(), deps());
+    expect(result.violations).toEqual([]);
+  });
+
+  it("a REQUIRED output (optional absent) that never appears STILL blocks , the design-lane default", async () => {
+    const step = {
+      ...assessLikeStep(false),
+      outputs: () => [{ id: "spec", description: "required", filename: "missing.json", channel: "meta" as const, validate: okValidate }],
+    };
+    const result = await execute(step, ctxFor(), deps());
+    // No `optional` => a required output; run() wrote nothing => the primary is absent => blocked.
+    expect(result.violations.length).toBeGreaterThan(0);
+    expect(result.bounded.action).toEqual(action); // blocked => re-issue the same step
+  });
 });
 
 describe("phases 2.7/6.5 PRE/POST-TURN EFFECTS: the Template Method's expanded deterministic-CLI phases", () => {

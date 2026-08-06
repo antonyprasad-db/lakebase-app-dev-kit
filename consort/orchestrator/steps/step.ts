@@ -70,6 +70,7 @@ export class Step implements StepContract {
       id: p.id,
       kind: p.kind,
       description: p.description ?? p.id,
+      ...(p.position ? { position: p.position } : {}),
       ...(p.options ? { options: p.options } : {}),
     }));
   }
@@ -82,6 +83,7 @@ export class Step implements StepContract {
       description: o.description ?? o.id,
       filename: o.filename,
       ...(o.channel ? { channel: o.channel } : {}),
+      ...(o.optional ? { optional: true } : {}),
       validate: resolveValidator(o.validator),
     }));
   }

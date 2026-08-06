@@ -7294,7 +7294,7 @@ var spec_author_story_default = {
     { id: "product-overview", source: "feature:product-overview.md", description: "The PO's product overview , the feature framing (product-overview.md)." }
   ],
   outputs: [
-    { id: "acs", filename: "acs/AC1.json", channel: "artifact", validator: "nonEmptyFile", description: "The per-story acceptance criteria (one acs/<AC>.json per AC). The design gate validates every acs/*.json against the AC schema; the post-turn verify-artifact asserts the acs/ dir is non-empty." },
+    { id: "acs", filename: "acs", channel: "artifact", validator: "acsDirConformant", description: "The per-story acceptance criteria , the acs/ DIRECTORY (one acs/<AC>.json per AC, each named after the AC it authors). acsDirConformant asserts the dir is non-empty AND every acs/*.json conforms to ac.json (the deterministic floor the legacy verify-artifact + design gate enforced)." },
     { id: "agent-log", filename: "agent-log.jsonl", channel: "meta", validator: "agentLogHasRoleEvent", description: "The spec-author's structured log of the ACs it authored (shared agent-log script; agent-log-event.schema.json)." }
   ],
   routing: {
@@ -7360,7 +7360,7 @@ var dba_default = {
   role: "dba",
   match: { kind: "invoke-role", role: "dba" },
   inputs: [
-    { id: "architecture", source: "feature:architecture.json", description: "The Architect's logical contract (service_backed, layers, persistence_invariants) the DBA physically realizes , NOT re-authored." }
+    { id: "architecture", source: "feature:features/{feature}/architecture.json", description: "The Architect's logical contract (service_backed, layers, persistence_invariants) the DBA physically realizes , NOT re-authored. Feature-scoped: the {feature} placeholder expands to the run's feature id (the real on-disk location, features/<F>/architecture.json)." }
   ],
   outputs: [
     { id: "db-design", filename: "db-design.json", channel: "artifact", validator: "nonEmptyFile", description: "The physical schema (tables + per-story schema_changes + realizes_invariants). A non-persisting or non-service-backed feature may leave this empty, so there is NO post-turn verify-artifact for the DBA (designArtifactExpectation returns null)." },
@@ -7384,8 +7384,8 @@ var test_strategist_default = {
   match: { kind: "invoke-role", role: "test-strategist" },
   inputs: [
     { id: "acs", source: "story:acs", description: "The story's acceptance criteria , each test's ac_id maps to one of these." },
-    { id: "architecture", source: "feature:architecture.json", description: "The architecture (persistence_invariants) each real-branch fitness test must cover." },
-    { id: "db-design", source: "feature:db-design.json", description: "The DBA's concrete tables/constraints the invariant tests assert against." }
+    { id: "architecture", source: "feature:features/{feature}/architecture.json", description: "The architecture (persistence_invariants) each real-branch fitness test must cover. Feature-scoped: {feature} expands to the run's feature id (features/<F>/architecture.json)." },
+    { id: "db-design", source: "feature:features/{feature}/db-design.json", description: "The DBA's concrete tables/constraints the invariant tests assert against. Feature-scoped: {feature} expands to the run's feature id (features/<F>/db-design.json)." }
   ],
   outputs: [
     { id: "test-list", filename: "test-list.json", channel: "artifact", validator: "nonEmptyFile", description: "The feature master test list (this story's ordered tests appended). The post-turn verify-artifact asserts test-list.json exists under the resolved root." },
@@ -7437,7 +7437,7 @@ var ux_designer_default = {
   role: "ux-designer",
   match: { kind: "invoke-role", role: "ux-designer" },
   inputs: [
-    { id: "design-guideline", source: "feature:design-brief.md", description: "The HIL design brief the UX Designer extracts the look FROM (design-brief.md)." },
+    { id: "design-guideline", source: "feature:design/design-brief.md", description: "The HIL design brief the UX Designer extracts the look FROM. Lives under design/ on the real tree (design/design-brief.md, per intake.ts)." },
     { id: "product-overview", source: "feature:product-overview.md", description: "The PO's product overview , which stories produce screens (product-overview.md)." }
   ],
   outputs: [

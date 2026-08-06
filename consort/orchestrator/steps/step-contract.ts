@@ -53,6 +53,12 @@ export interface StepPrecondition {
   kind: "context-pack" | "green-failure-advisory" | string;
   /** Human description (diagnostics + the empty-preparer warning). */
   description: string;
+  /** WHERE the prepared block sits relative to the step's base instruction prompt. The legacy
+   *  inline injection was POSITIONED per turn , the design context-pack rides AFTER the directive
+   *  ("append"), the green-failure advisory rides BEFORE the "ASSESS ..." directive ("prepend"). To
+   *  keep the executor-assembled prompt BYTE-IDENTICAL to that inline assembly when a turn moves to
+   *  the declared face, a precondition carries its position. Default "append" (the majority). */
+  position?: "prepend" | "append";
   /** Preparer-specific knobs the registered preparer reads (e.g. context-pack's skipTestLoop). */
   options?: Record<string, unknown>;
 }
@@ -157,6 +163,14 @@ export interface StepOutputSpec {
    *  contained); `meta` = orchestration bookkeeping resolved under the contained metaDir
    *  when provisioned. */
   channel?: "product" | "artifact" | "meta";
+  /** OPTIONAL output: the turn LEGITIMATELY may not produce it. A self-heal turn writes its marker
+   *  ONLY on one branch of its judgment , the assess turn writes a superseded/regression marker when
+   *  it can localize the failure, but writes NO file when it judges a genuine regression it must
+   *  ESCALATE to a human; a review turn may decide refactor:false with no artifact. For such an
+   *  output: ABSENT is a clean PASS (not a violation, so the escalation/no-op route is preserved);
+   *  PRESENT still runs `validate` and a nonconformant present output is a hard reject. A REQUIRED
+   *  output (optional absent/false) that is absent stays a hard reject , the design-lane default. */
+  optional?: boolean;
   /** In-code conformance validator for this output. The orchestrator runs it on the
    *  produced artifact; a failure is a hard reject with named violations, NOT an
    *  agent follow-up. Every expected output declares one. */

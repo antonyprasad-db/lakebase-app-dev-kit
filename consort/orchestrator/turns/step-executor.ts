@@ -188,18 +188,24 @@ export async function execute(step: RunnableStep, ctx: StepCtx, deps: StepExecut
   const instructions = deps.instructionsFor(action, cfg);
   if (deps.prepare) {
     const preconditions = step.preconditions(action);
-    let preparedSuffix = "";
+    // POSITION-AWARE injection: a precondition rides BEFORE ("prepend") or AFTER ("append", default)
+    // the step's base instruction prompt , preserving the legacy inline positioning (the design
+    // context-pack appended after the directive; the green-failure advisory prepended before the
+    // "ASSESS ..." directive) so the executor-assembled prompt stays BYTE-IDENTICAL to that inline
+    // assembly when a turn adopts the declared face. Blocks accrue in declared order within each side.
+    let prependBlocks = "";
+    let appendBlocks = "";
     for (const pre of preconditions) {
       const block = deps.prepare(pre.kind, pre, action, cfg);
       if (block && block.length) {
-        preparedSuffix += block;
+        if (pre.position === "prepend") prependBlocks += block;
+        else appendBlocks += block;
       } else {
         deps.onWarn?.(`declared precondition "${pre.id}" (${pre.kind}) prepared EMPTY , its source artifact may be absent (${pre.description})`);
       }
     }
-    if (preparedSuffix) {
-      instructions.prompt = instructions.prompt + preparedSuffix;
-    }
+    if (prependBlocks) instructions.prompt = prependBlocks + instructions.prompt;
+    if (appendBlocks) instructions.prompt = instructions.prompt + appendBlocks;
   }
 
   // Phase 2.7: PRE-TURN EFFECTS , deterministic side effects the step declares to run BEFORE the
@@ -225,18 +231,23 @@ export async function execute(step: RunnableStep, ctx: StepCtx, deps: StepExecut
   await deps.materializeOutputs?.(workspaceDir, action, cfg);
 
   // Phase 5: validate-outputs , run each output's in-code validator on its produced path.
-  // A missing primary artifact (run reported produced:false) or any validator failure is a
-  // HARD reject with named violations , never an agent follow-up.
+  // A missing REQUIRED primary artifact (run reported produced:false) or any validator failure is a
+  // HARD reject with named violations , never an agent follow-up. An OPTIONAL output that is
+  // legitimately absent is NOT a violation (a self-heal turn may write no marker + escalate), so a
+  // run whose ONLY declared output is optional does not block just because run() reported no primary.
+  const outputSpecs = step.outputs(action);
+  const primaryIsOptional = outputSpecs.length > 0 && outputSpecs[0].optional === true;
   const violations: string[] = [];
   if (!runResult.produced) {
     if (runResult.missingInput) {
       // Defensive: run() also gates inputs; surface it as a violation rather than crash.
       violations.push(`missing input "${runResult.missingInput}"`);
-    } else {
+    } else if (!primaryIsOptional) {
       violations.push("the step's primary output was not produced in the workspace");
     }
+    // primaryIsOptional + absent => the legitimate no-marker/escalate route: NOT a violation.
   }
-  for (const spec of step.outputs(action)) {
+  for (const spec of outputSpecs) {
     const rel = outputPaths?.[spec.id] ?? spec.filename;
     // Resolve the output in ITS channel's root via the shared channel model (product ->
     // workspaceDir; artifact/meta -> their contained root, falling back to workspaceDir).
@@ -248,11 +259,15 @@ export async function execute(step: RunnableStep, ctx: StepCtx, deps: StepExecut
     // an orchestrator-materialized output count as produced.
     const abs = producedPaths.find((p) => p.endsWith(rel)) ?? join(root, rel);
     if (!existsSync(abs)) {
-      // A declared output that never appeared , only a violation when the primary is
-      // otherwise present (a wholly-empty run is already flagged above, don't double-count).
-      if (runResult.produced) violations.push(`declared output "${spec.id}" (${spec.filename}) was not produced`);
+      // An OPTIONAL output that is absent is a clean PASS (the turn legitimately produced nothing on
+      // this branch , e.g. assess escalating a genuine regression). A REQUIRED declared output that
+      // never appeared is a violation , but only when the primary is otherwise present (a wholly-
+      // empty required run is already flagged above; don't double-count).
+      if (!spec.optional && runResult.produced) violations.push(`declared output "${spec.id}" (${spec.filename}) was not produced`);
       continue;
     }
+    // PRESENT (optional or required): it must still be conformant , a present-but-malformed marker
+    // is a real defect even for an optional output.
     const res = spec.validate(abs);
     if (!res.ok) violations.push(...res.violations.map((v) => `${spec.id}: ${v}`));
   }

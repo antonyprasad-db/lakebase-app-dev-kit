@@ -59,6 +59,9 @@ export interface StepManifestPrecondition {
   /** Preparer kind resolved from the preparer registry (context-pack | green-failure-advisory). */
   kind: string;
   description?: string;
+  /** WHERE the prepared block sits relative to the base prompt: "prepend" (before the directive,
+   *  e.g. the green-failure advisory) or "append" (after, e.g. the context-pack). Default "append". */
+  position?: "prepend" | "append";
   /** Preparer-specific knobs, e.g. { skipTestLoop: true } for context-pack. */
   options?: Record<string, unknown>;
 }
@@ -78,6 +81,10 @@ export interface StepManifestOutput {
    *  `meta` = orchestration bookkeeping (raw report / verdict / marker) whose conformance the
    *  orchestrator owns; contained (resolved under metaDir when provisioned, else the workspace). */
   channel?: "product" | "artifact" | "meta";
+  /** OPTIONAL output: the turn LEGITIMATELY may not produce it (a self-heal turn writes its marker
+   *  on one branch of its judgment + escalates on the other). Absent = a clean pass; present = still
+   *  validated. Default (absent/false) = required (the design-lane norm). */
+  optional?: boolean;
   description?: string;
 }
 
