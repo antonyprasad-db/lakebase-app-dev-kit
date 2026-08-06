@@ -26,7 +26,7 @@ import {
   acsDir,
   handbackFile,
   storyAcIds,
-  resolveSftddDir,
+  resolveConsortDir,
 } from "../../../consort/config/consort-paths.js";
 import { readPipeline, writePipeline, reviseStory, setStoryStatus } from "../../../consort/pipeline/story-pipeline.js";
 import {
@@ -56,7 +56,7 @@ export const REVISE_APPROVER = "human-proxy";
  * so hasAcs reads false and the spec-author re-drafts.
  */
 export function staleStoryArtifactsForRevise(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   story: string,
   gate: "spec" | "test_list" | "architecture",
@@ -67,9 +67,9 @@ export function staleStoryArtifactsForRevise(
   // reflection critiqued). Without this the stale passed:false verdict persists,
   // the re-dispatched Navigator reuses it instead of re-evaluating, and the
   // reflect gate never converges (it loops the Navigator to the stall guard).
-  clearReflectVerdict(sftddDir, featureId, story);
-  const acIds = new Set(storyAcIds(sftddDir, featureId, story));
-  const master = featureTestListJson(sftddDir, featureId);
+  clearReflectVerdict(consortDir, featureId, story);
+  const acIds = new Set(storyAcIds(consortDir, featureId, story));
+  const master = featureTestListJson(consortDir, featureId);
   if (existsSync(master)) {
     try {
       const data = JSON.parse(readFileSync(master, "utf8")) as { items?: Array<{ ac_id?: string }> };
@@ -82,18 +82,18 @@ export function staleStoryArtifactsForRevise(
       // below still forces a re-run.
     }
   }
-  const perStory = storyTestListJson(sftddDir, featureId, story);
+  const perStory = storyTestListJson(consortDir, featureId, story);
   if (existsSync(perStory)) rmSync(perStory, { force: true });
 
   if (gate === "spec") {
-    const dir = acsDir(sftddDir, featureId, story);
+    const dir = acsDir(consortDir, featureId, story);
     if (existsSync(dir)) {
       for (const f of readdirSync(dir)) {
         if (f.endsWith(".json") || f.endsWith(".md")) rmSync(join(dir, f), { force: true });
       }
     }
   } else if (gate === "architecture") {
-    clearArchitecturalNotes(sftddDir, featureId, story);
+    clearArchitecturalNotes(consortDir, featureId, story);
   }
 }
 
@@ -105,8 +105,8 @@ export function staleStoryArtifactsForRevise(
  * separately disabled for this story after a revise (architectProjectable checks
  * priorReviseCount), so the architect runs live rather than re-projecting the gap.
  */
-export function clearArchitecturalNotes(sftddDir: string, featureId: string, story: string): void {
-  const dir = acsDir(sftddDir, featureId, story);
+export function clearArchitecturalNotes(consortDir: string, featureId: string, story: string): void {
+  const dir = acsDir(consortDir, featureId, story);
   if (!existsSync(dir)) return;
   for (const f of readdirSync(dir)) {
     if (!f.endsWith(".json")) continue;
@@ -138,7 +138,7 @@ export interface ReviseSelfHealArgs {
   reason: string;
   /** The deciding identity (a real human, or the headless proxy). */
   approver?: string;
-  sftddDir?: string;
+  consortDir?: string;
 }
 
 export interface ReviseSelfHealResult {
@@ -155,7 +155,7 @@ export interface ReviseSelfHealResult {
  * routable (budget not yet spent), so it always spends from 0 -> 1.
  */
 export function applyReviseSelfHeal(args: ReviseSelfHealArgs): ReviseSelfHealResult {
-  const sftddDir = args.sftddDir ?? resolveSftddDir();
+  const consortDir = args.consortDir ?? resolveConsortDir();
   const approver = args.approver ?? REVISE_APPROVER;
   const at = new Date().toISOString();
 
@@ -163,7 +163,7 @@ export function applyReviseSelfHeal(args: ReviseSelfHealArgs): ReviseSelfHealRes
   // a reflect revise can stamp "the list looked like THIS when I sent it back".
   // The next re-design's reflect budget compares the fresh list against this: an
   // unchanged list means the strategist made no progress (stuck -> hard halt).
-  const preReviseTestListSha = storyTestListFingerprint(sftddDir, args.featureId, args.story);
+  const preReviseTestListSha = storyTestListFingerprint(consortDir, args.featureId, args.story);
 
   // 1. Record the PO's revise decision (the human's choice) as a gate event.
   try {
@@ -183,16 +183,16 @@ export function applyReviseSelfHeal(args: ReviseSelfHealArgs): ReviseSelfHealRes
           approver,
         },
       },
-      { sftddDir },
+      { consortDir },
     );
   } catch {
     // Logging is observability, never block the heal.
   }
 
   // 2. Reset the story to designing (discard experiment + reopen gate + free lane).
-  const pipeline = readPipeline(sftddDir, args.featureId);
+  const pipeline = readPipeline(consortDir, args.featureId);
   reviseStory(pipeline, args.story, { approver, at, reason: args.reason });
-  writePipeline(sftddDir, pipeline);
+  writePipeline(consortDir, pipeline);
 
   // 2a. Reset the story's BUILD state (Finding 27). reviseStory only flips the
   // pipeline status; the build lane derives "pending" from the cycle records on
@@ -201,15 +201,15 @@ export function applyReviseSelfHeal(args: ReviseSelfHealArgs): ReviseSelfHealRes
   // story reads allGreen, so the drive skips RED/GREEN straight back to deploy and
   // re-fails on the same stale build. Clearing the cycles makes it genuinely
   // re-drive , the SAME reset the `experiment discard --revise` door already does.
-  resetStoryBuildState(sftddDir, args.featureId, args.story);
+  resetStoryBuildState(consortDir, args.featureId, args.story);
 
   // 2b. Force the owning author to actually RE-AUTHOR: stale its artifact so the
   // design lane re-invokes it, and deliver the verdict as a smell-aware hand-back
   // brief (composeReviseBrief FORCES missing coverage for a reflect defect, keeps
   // the open-question escape only for the redundancy case).
-  staleStoryArtifactsForRevise(sftddDir, args.featureId, args.story, args.gate);
+  staleStoryArtifactsForRevise(consortDir, args.featureId, args.story, args.gate);
   try {
-    const hb = handbackFile(sftddDir, args.featureId, args.routedTo, args.story);
+    const hb = handbackFile(consortDir, args.featureId, args.routedTo, args.story);
     mkdirSync(dirname(hb), { recursive: true });
     writeFileSync(hb, composeReviseBrief({ smell: args.smell, gate: args.gate, reason: args.reason }));
   } catch {
@@ -227,11 +227,11 @@ export function applyReviseSelfHeal(args: ReviseSelfHealArgs): ReviseSelfHealRes
   // failure is the hard halt.
   const reflect = isReflectSmell(args.smell);
   if (reflect) {
-    clearArchitecturalNotes(sftddDir, args.featureId, args.story);
+    clearArchitecturalNotes(consortDir, args.featureId, args.story);
     for (const role of ["architect-reviewer", "test-strategist"] as const) {
       if (role === args.routedTo) continue;
       try {
-        const hb = handbackFile(sftddDir, args.featureId, role, args.story);
+        const hb = handbackFile(consortDir, args.featureId, role, args.story);
         mkdirSync(dirname(hb), { recursive: true });
         const gate = role === "architect-reviewer" ? "architecture" : "test_list";
         writeFileSync(hb, composeReviseBrief({ smell: args.smell, gate, reason: args.reason }));
@@ -247,12 +247,12 @@ export function applyReviseSelfHeal(args: ReviseSelfHealArgs): ReviseSelfHealRes
   // re-route or halt before the full re-design has run.
   const resolvedSmell = reflect
     ? resolveOpenReflectSmellsForStory(
-        sftddDir,
+        consortDir,
         args.story,
         `revised by ${approver}: full design re-run (${args.gate} gate)`,
         preReviseTestListSha,
       ) > 0
-    : markSmellResolved(sftddDir, args.smell, {
+    : markSmellResolved(consortDir, args.smell, {
         story_id: args.story,
         kind: "revised",
         note: `revised by ${approver}: routed to ${args.routedTo} (${args.gate} gate)`,
@@ -267,13 +267,13 @@ export function applyReviseSelfHeal(args: ReviseSelfHealArgs): ReviseSelfHealRes
  *  the identical self-heal instead of a hollow reset (Findings 22 + 23). Returns
  *  the FIRST open, unresolved, spec-level revisable smell for the story, or null. */
 export function revisableSmellForStory(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   story: string,
 ): { smell: string; routedTo: "spec-author" | "test-strategist" | "architect-reviewer"; gate: "spec" | "test_list" | "architecture" } | null {
   let log;
   try {
-    log = readSmellsLog(sftddDir);
+    log = readSmellsLog(consortDir);
   } catch {
     return null;
   }
@@ -311,12 +311,12 @@ export interface ReviseStoryOutcome {
  * With no blocking smell, falls back to the plain reset (a PO-initiated revise).
  */
 export function reviseStoryWithSelfHeal(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   story: string,
   opts: { approver: string; reason: string; at?: string },
 ): ReviseStoryOutcome {
-  const routable = revisableSmellForStory(sftddDir, featureId, story);
+  const routable = revisableSmellForStory(consortDir, featureId, story);
   if (routable) {
     applyReviseSelfHeal({
       featureId,
@@ -326,20 +326,20 @@ export function reviseStoryWithSelfHeal(
       gate: routable.gate,
       reason: opts.reason,
       approver: opts.approver,
-      sftddDir,
+      consortDir,
     });
     return { mode: "self-heal", story, smell: routable.smell, routedTo: routable.routedTo };
   }
-  const pipeline = readPipeline(sftddDir, featureId);
+  const pipeline = readPipeline(consortDir, featureId);
   reviseStory(pipeline, story, {
     approver: opts.approver,
     at: opts.at ?? new Date().toISOString(),
     reason: opts.reason,
   });
-  writePipeline(sftddDir, pipeline);
+  writePipeline(consortDir, pipeline);
   // Finding 27: even the plain reset must clear the stale build cycles, or the
   // (still-present) test-list reads allGreen off them and the build lane skips.
-  resetStoryBuildState(sftddDir, featureId, story);
+  resetStoryBuildState(consortDir, featureId, story);
   return { mode: "plain", story };
 }
 
@@ -374,13 +374,13 @@ export interface RebuildStoryResult {
  * story. Throws when the story is not in the pipeline.
  */
 export function rebuildStory(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   story: string,
   opts?: { approver?: string; at?: string },
 ): RebuildStoryResult {
   const at = opts?.at ?? new Date().toISOString();
-  const pipeline = readPipeline(sftddDir, featureId);
+  const pipeline = readPipeline(consortDir, featureId);
   const entry = pipeline.stories[story];
   if (!entry) throw new Error(`rebuild-story: story ${story} is not in the pipeline for ${featureId}`);
   if (pipeline.build_active !== null && pipeline.build_active !== story) {
@@ -390,10 +390,10 @@ export function rebuildStory(
     );
   }
 
-  const build = resetStoryBuildState(sftddDir, featureId, story);
-  const escalationsCleared = resolveEscalationsForStory(sftddDir, featureId, story, at);
+  const build = resetStoryBuildState(consortDir, featureId, story);
+  const escalationsCleared = resolveEscalationsForStory(consortDir, featureId, story, at);
   const smellsCleared = resolveAllOpenSmellsForStory(
-    sftddDir,
+    consortDir,
     story,
     `cleared for rebuild-story by ${opts?.approver ?? "operator"}`,
   );
@@ -414,7 +414,7 @@ export function rebuildStory(
   pipeline.build_active = story;
   const idx = pipeline.build_queue.indexOf(story);
   if (idx !== -1) pipeline.build_queue.splice(idx, 1);
-  writePipeline(sftddDir, pipeline);
+  writePipeline(consortDir, pipeline);
 
   return {
     cyclesCleared: build.cyclesCleared,
@@ -430,14 +430,14 @@ export function rebuildStory(
  *  it does not spend the one-revise budget) or the next drive re-blocks on a smell
  *  for a story that is gone. Returns the cleared smell name, or null when none. */
 export function clearStoryBlockingSmellOnDiscard(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   story: string,
   approver: string,
 ): string | null {
-  const routable = revisableSmellForStory(sftddDir, featureId, story);
+  const routable = revisableSmellForStory(consortDir, featureId, story);
   if (!routable) return null;
-  markSmellResolved(sftddDir, routable.smell, {
+  markSmellResolved(consortDir, routable.smell, {
     story_id: story,
     kind: "cleared",
     note: `discarded by ${approver}`,

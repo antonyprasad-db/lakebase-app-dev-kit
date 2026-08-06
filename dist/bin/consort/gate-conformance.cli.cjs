@@ -6665,7 +6665,7 @@ var import_node_path = require("path");
 var ARTIFACT_ROOT = ".consort";
 var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
 var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
-function resolveSftddDir(projectDir = process.cwd()) {
+function resolveConsortDir(projectDir = process.cwd()) {
   const next = (0, import_node_path.join)(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
   for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
@@ -6955,9 +6955,9 @@ function checkNfrCoverage(nfrsMd, architectureJson, otherFeatureBriefRefs = /* @
   }
   return finalize(violations);
 }
-function projectBriefRefs(sftddDir) {
+function projectBriefRefs(consortDir) {
   const refs = /* @__PURE__ */ new Set();
-  const fdir = featuresDir(sftddDir);
+  const fdir = featuresDir(consortDir);
   if (!(0, import_fs2.existsSync)(fdir)) return refs;
   for (const feature of (0, import_fs2.readdirSync)(fdir)) {
     const archPath = (0, import_path2.join)(fdir, feature, "architecture.json");
@@ -7161,8 +7161,8 @@ function canonicalArtifactName(path) {
   if ((0, import_path2.basename)((0, import_path2.dirname)(path)) === "acs" && base.endsWith(".json")) return "ac.json";
   return base;
 }
-function scanFeatureConformance(sftddDir, featureId) {
-  const featuresDir2 = featuresDir(sftddDir);
+function scanFeatureConformance(consortDir, featureId) {
+  const featuresDir2 = featuresDir(consortDir);
   const candidates = (0, import_fs2.existsSync)(featuresDir2) ? (0, import_fs2.readdirSync)(featuresDir2).filter((d) => d.startsWith(featureId)) : [];
   if (candidates.length === 0) {
     throw new Error(`feature ${featureId} not found under ${featuresDir2}`);
@@ -7172,10 +7172,10 @@ function scanFeatureConformance(sftddDir, featureId) {
   const pushIfExists = (p) => {
     if ((0, import_fs2.existsSync)(p)) paths.push(p);
   };
-  pushIfExists((0, import_path2.join)(sftddDir, "product-overview.md"));
-  pushIfExists((0, import_path2.join)(sftddDir, "nfrs.md"));
+  pushIfExists((0, import_path2.join)(consortDir, "product-overview.md"));
+  pushIfExists((0, import_path2.join)(consortDir, "nfrs.md"));
   for (const name of ["design-brief.md", "design-guide.md", "design-guide.json", "ia.md"]) {
-    pushIfExists((0, import_path2.join)(sftddDir, "design", name));
+    pushIfExists((0, import_path2.join)(consortDir, "design", name));
   }
   for (const name of ["feature-request.md", "feature-spec.json", "feature-spec.md", "nfrs.md", "architecture.md", "db-design.json", "plan.json", "test-list.json", "test-list.md"]) {
     pushIfExists((0, import_path2.join)(featureDir, name));
@@ -7214,7 +7214,7 @@ function scanFeatureConformance(sftddDir, featureId) {
     const content = (0, import_fs2.readFileSync)(p, "utf8");
     const result = checkArtifactConformance(canonicalArtifactName(p), content);
     return {
-      artifact: p.startsWith(sftddDir) ? p.slice(sftddDir.length).replace(/^\//, "") : p,
+      artifact: p.startsWith(consortDir) ? p.slice(consortDir.length).replace(/^\//, "") : p,
       ok: result.ok,
       violations: result.ok ? [] : result.violations
     };
@@ -7239,11 +7239,11 @@ function scanFeatureConformance(sftddDir, featureId) {
   const archPath = (0, import_path2.join)(featureDir, "architecture.json");
   if ((0, import_fs2.existsSync)(archPath)) {
     const archContent = (0, import_fs2.readFileSync)(archPath, "utf8");
-    const siblingRefs = projectBriefRefs(sftddDir);
-    for (const nfrsPath of [(0, import_path2.join)(sftddDir, "nfrs.md"), (0, import_path2.join)(featureDir, "nfrs.md")]) {
+    const siblingRefs = projectBriefRefs(consortDir);
+    for (const nfrsPath of [(0, import_path2.join)(consortDir, "nfrs.md"), (0, import_path2.join)(featureDir, "nfrs.md")]) {
       if (!(0, import_fs2.existsSync)(nfrsPath)) continue;
       const cov = checkNfrCoverage((0, import_fs2.readFileSync)(nfrsPath, "utf8"), archContent, siblingRefs);
-      const rel = nfrsPath.startsWith(sftddDir) ? nfrsPath.slice(sftddDir.length).replace(/^\//, "") : nfrsPath;
+      const rel = nfrsPath.startsWith(consortDir) ? nfrsPath.slice(consortDir.length).replace(/^\//, "") : nfrsPath;
       entries.push({
         artifact: `${rel} -> architecture.json (NFR coverage)`,
         ok: cov.ok,
@@ -7293,7 +7293,7 @@ function parseArgs(argv) {
         out.feature = argv[++i];
         break;
       case "--tdd-dir":
-        out.sftddDir = argv[++i];
+        out.consortDir = argv[++i];
         break;
       case "--json":
         out.json = true;
@@ -7341,7 +7341,7 @@ ${HELP}
   }
   let report;
   try {
-    report = scanFeatureConformance(args.sftddDir ?? resolveSftddDir(), args.feature);
+    report = scanFeatureConformance(args.consortDir ?? resolveConsortDir(), args.feature);
   } catch (e) {
     process.stderr.write(`gate-conformance: ${e.message}
 `);

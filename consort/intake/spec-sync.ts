@@ -92,8 +92,8 @@ function makeValidator() {
   };
 }
 
-export function readFeature(sftddDir: string, featureId: string): Feature {
-  const dir = findFeatureDir(sftddDir, featureId);
+export function readFeature(consortDir: string, featureId: string): Feature {
+  const dir = findFeatureDir(consortDir, featureId);
   const jsonPath = join(dir, "feature-spec.json");
   return JSON.parse(readFileSync(jsonPath, "utf8"));
 }
@@ -113,8 +113,8 @@ const STORY_ALLOWED_KEYS = new Set(["id", "asA", "iWantTo", "soThat", "acs", "fe
  * emitting the exact shape (the same structural-not-model-dependent intent as
  * reconcileArtifactLog + the conventions/canon establishment).
  */
-export function normalizeStoryJson(sftddDir: string, featureId: string): string[] {
-  const stories = storiesDir(sftddDir, featureId);
+export function normalizeStoryJson(consortDir: string, featureId: string): string[] {
+  const stories = storiesDir(consortDir, featureId);
   if (!existsSync(stories)) return [];
   const changed: string[] = [];
   for (const s of readdirSync(stories)) {
@@ -146,29 +146,29 @@ export function normalizeStoryJson(sftddDir: string, featureId: string): string[
   return changed;
 }
 
-export function writeFeature(sftddDir: string, feature: Feature): void {
-  const dir = findFeatureDir(sftddDir, feature.id);
+export function writeFeature(consortDir: string, feature: Feature): void {
+  const dir = findFeatureDir(consortDir, feature.id);
   const jsonPath = join(dir, "feature-spec.json");
   writeFileSync(jsonPath, JSON.stringify(feature, null, 2) + "\n");
 }
 
-export function readWorkflowState(sftddDir: string): WorkflowState | null {
-  const file = join(sftddDir, "workflow-state.json");
+export function readWorkflowState(consortDir: string): WorkflowState | null {
+  const file = join(consortDir, "workflow-state.json");
   if (!existsSync(file)) return null;
   return JSON.parse(readFileSync(file, "utf8"));
 }
 
-export function writeWorkflowState(sftddDir: string, state: WorkflowState): void {
-  const file = join(sftddDir, "workflow-state.json");
+export function writeWorkflowState(consortDir: string, state: WorkflowState): void {
+  const file = join(consortDir, "workflow-state.json");
   writeFileSync(file, JSON.stringify(state, null, 2) + "\n");
 }
 
-export function validateSpec(sftddDir: string): DriftReport[] {
+export function validateSpec(consortDir: string): DriftReport[] {
   const reports: DriftReport[] = [];
   const v = makeValidator();
 
   // Workflow state
-  const wsPath = join(sftddDir, "workflow-state.json");
+  const wsPath = join(consortDir, "workflow-state.json");
   if (existsSync(wsPath)) {
     const ws = JSON.parse(readFileSync(wsPath, "utf8"));
     if (!v.workflowState(ws)) {
@@ -177,7 +177,7 @@ export function validateSpec(sftddDir: string): DriftReport[] {
   }
 
   // Features
-  const featuresDir = featuresDirOf(sftddDir);
+  const featuresDir = featuresDirOf(consortDir);
   if (!existsSync(featuresDir)) return reports;
   for (const featureDirName of readdirSync(featuresDir)) {
     const featureDir = join(featuresDir, featureDirName);

@@ -15,7 +15,7 @@
 // is mirrored to the corpus root so a replay carries its own provenance.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
-import { sftddEnv } from "../../consort/config/consort-env.js";
+import { consortEnv } from "../../consort/config/consort-env.js";
 import { ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
 import { join } from "path";
 import { ALL_AGENT_ROLES } from "../../consort/config/agent-models.js";
@@ -59,7 +59,7 @@ export const RUN_CONFIG_REL = join(ARTIFACT_ROOT, "run-config.json");
  *  full DriveEffectsConfig (and stays trivially unit-testable). */
 export interface RunConfigInputs {
   projectDir: string;
-  sftddDir: string;
+  consortDir: string;
   bound?: string;
   gates?: string;
   uiTrack?: boolean;
@@ -101,7 +101,7 @@ export function buildRunConfig(inputs: RunConfigInputs): RunConfig {
   if (inputs.batchCap !== undefined) cfg.batch_cap = inputs.batchCap;
   // RUN_LABEL is a per-invocation run-mode annotation (not a project setting), so
   // it stays an explicit env input.
-  const label = sftddEnv("RUN_LABEL", env);
+  const label = consortEnv("RUN_LABEL", env);
   if (label) cfg.run_label = label;
   // Record the ref the run actually uses (Finding 28): env LAKEBASE_KIT_REF ->
   // .lakebase/kit-ref.local (the checkout-proof run pin) -> .lakebase/kit-ref, the
@@ -121,9 +121,9 @@ export function writeRunConfig(inputs: RunConfigInputs): RunConfig {
   const cfg = buildRunConfig(inputs);
   const body = JSON.stringify(cfg, null, 2) + "\n";
   try {
-    mkdirSync(inputs.sftddDir, { recursive: true });
-    writeFileSync(join(inputs.sftddDir, "run-config.json"), body);
-    const recordDir = sftddEnv("RECORD_DIR", inputs.env ?? process.env)?.trim();
+    mkdirSync(inputs.consortDir, { recursive: true });
+    writeFileSync(join(inputs.consortDir, "run-config.json"), body);
+    const recordDir = consortEnv("RECORD_DIR", inputs.env ?? process.env)?.trim();
     if (recordDir) {
       mkdirSync(recordDir, { recursive: true });
       writeFileSync(join(recordDir, "run-config.json"), body);
@@ -135,8 +135,8 @@ export function writeRunConfig(inputs: RunConfigInputs): RunConfig {
 }
 
 /** Read `.sftdd/run-config.json` for a project (or undefined when absent). */
-export function readRunConfig(sftddDir: string): RunConfig | undefined {
-  const f = join(sftddDir, "run-config.json");
+export function readRunConfig(consortDir: string): RunConfig | undefined {
+  const f = join(consortDir, "run-config.json");
   if (!existsSync(f)) return undefined;
   try {
     return JSON.parse(readFileSync(f, "utf8")) as RunConfig;

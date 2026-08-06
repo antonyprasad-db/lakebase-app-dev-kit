@@ -55,25 +55,25 @@ export {
  * `--no-sizing` to skip the Architect estimate turn.
  */
 export function deriveSprintPlanningState(
-  sftddDir: string,
+  consortDir: string,
   sprint: string,
   opts: { skipSizing?: boolean } = {},
 ): DriveState {
-  const proposed = fs.existsSync(featureProposalsMd(sftddDir));
-  const estimated = hasEstimates(sftddDir);
-  const backlog = readBacklog(sftddDir, sprint).features;
-  const requestsAuthored = backlog.length > 0 && backlog.every((f) => hasFeatureRequest(sftddDir, f.id));
+  const proposed = fs.existsSync(featureProposalsMd(consortDir));
+  const estimated = hasEstimates(consortDir);
+  const backlog = readBacklog(consortDir, sprint).features;
+  const requestsAuthored = backlog.length > 0 && backlog.every((f) => hasFeatureRequest(consortDir, f.id));
   // committedEstimated: every committed backlog feature has an estimate under its
   // OWN id (estimates.json keyed by the committed F-id, not the candidate FP id).
   // This is what the Architect's `estimate-committed` turn produces + sync-backlog
   // stamps. False (once requests are authored + sizing not skipped) routes that
   // turn; a re-plan sprint that reused the standing proposals still lands here for
   // its own newly-committed feature. Only meaningful once requestsAuthored.
-  const estimatedIds = new Set(readEstimates(sftddDir).map((e) => e.feature_id));
+  const estimatedIds = new Set(readEstimates(consortDir).map((e) => e.feature_id));
   const committedEstimated = backlog.length > 0 && backlog.every((f) => estimatedIds.has(f.id));
   let gateApproved = false;
   try {
-    gateApproved = readSprintGates(sprint, { sftddDir }).gates.plan.status === "approved";
+    gateApproved = readSprintGates(sprint, { consortDir }).gates.plan.status === "approved";
   } catch {
     gateApproved = false;
   }

@@ -86,7 +86,7 @@ describe("reflect revise re-runs the full design lane and co-heals per story", (
       gate: "test_list",
       reason: "reflection gate found coupled defects",
       approver: "human-proxy",
-      sftddDir: tdd,
+      consortDir: tdd,
     });
 
     const reflect = readSmellsLog(tdd).detected.filter((d) => isReflectSmell(d.smell) && d.story_id === STORY);
@@ -107,7 +107,7 @@ describe("reflect revise re-runs the full design lane and co-heals per story", (
       gate: "test_list",
       reason: "reflection gate found a coverage gap rooted in an undeclared invariant",
       approver: "human-proxy",
-      sftddDir: tdd,
+      consortDir: tdd,
     });
 
     // architectural_notes cleared -> architectAnnotated reads false -> architect re-runs.

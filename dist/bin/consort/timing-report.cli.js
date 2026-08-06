@@ -6656,7 +6656,7 @@ import { join } from "path";
 var ARTIFACT_ROOT = ".consort";
 var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
 var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
-function resolveSftddDir(projectDir = process.cwd()) {
+function resolveConsortDir(projectDir = process.cwd()) {
   const next = join(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
   for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
@@ -6754,12 +6754,12 @@ var AGENT_LOG_EVENT_NAMES = Object.keys(EVENT_TEMPLATES);
 
 // consort/logging/agent-log.ts
 var LEVEL_ORDER = { debug: 0, info: 1, warn: 2, error: 3 };
-function logFilePath(sftddDir) {
-  return join3(sftddDir, "agent-log.jsonl");
+function logFilePath(consortDir) {
+  return join3(consortDir, "agent-log.jsonl");
 }
 function readAgentLog(opts = {}) {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
-  const file = logFilePath(sftddDir);
+  const consortDir = opts.consortDir ?? resolveConsortDir();
+  const file = logFilePath(consortDir);
   if (!existsSync3(file)) return [];
   const minRank = opts.minLevel !== void 0 ? LEVEL_ORDER[opts.minLevel] : void 0;
   const out = [];
@@ -7017,6 +7017,8 @@ import { existsSync as existsSync5, mkdirSync as mkdirSync3, readFileSync as rea
 
 // consort/config/consort-env.ts
 init_esm_shims();
+var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
+var ENV_PREFIX = ENV_PREFIXES[0];
 
 // consort/session/run-config.ts
 import { join as join6 } from "path";
@@ -7044,8 +7046,8 @@ import { dirname as dirname2, join as join5 } from "path";
 
 // consort/session/run-config.ts
 var RUN_CONFIG_REL = join6(ARTIFACT_ROOT, "run-config.json");
-function readRunConfig(sftddDir) {
-  const f = join6(sftddDir, "run-config.json");
+function readRunConfig(consortDir) {
+  const f = join6(consortDir, "run-config.json");
   if (!existsSync5(f)) return void 0;
   try {
     return JSON.parse(readFileSync5(f, "utf8"));
@@ -7088,7 +7090,7 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     switch (argv[i]) {
       case "--tdd-dir":
-        out.sftddDir = argv[++i];
+        out.consortDir = argv[++i];
         break;
       case "--feature":
         out.feature = argv[++i];
@@ -7146,11 +7148,11 @@ ${HELP}
     return 0;
   }
   const report = timingReportFromLog(
-    { sftddDir: parsed.sftddDir, featureId: parsed.feature },
+    { consortDir: parsed.consortDir, featureId: parsed.feature },
     { topN: parsed.top, skipPlanning: parsed.skipPlanning }
   );
-  const sftddDir = parsed.sftddDir ?? resolveSftddDir();
-  const config = readRunConfig(sftddDir) ?? null;
+  const consortDir = parsed.consortDir ?? resolveConsortDir();
+  const config = readRunConfig(consortDir) ?? null;
   if (parsed.json) {
     process.stdout.write(`${JSON.stringify({ config, timing: report }, null, 2)}
 `);

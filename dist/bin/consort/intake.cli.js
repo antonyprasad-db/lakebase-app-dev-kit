@@ -6706,7 +6706,7 @@ import { join as join2 } from "path";
 var ARTIFACT_ROOT = ".consort";
 var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
 var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
-function resolveSftddDir(projectDir = process.cwd()) {
+function resolveConsortDir(projectDir = process.cwd()) {
   const next = join2(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
   for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
@@ -6935,7 +6935,7 @@ var LEGACY_CONFIG_RELS = [
   join4(".lakebase", "tdd-config.json")
 ];
 var LEGACY_TDD_CONFIG_REL = LEGACY_CONFIG_RELS[0];
-function loadSftddConfig(projectDir) {
+function loadConsortConfig(projectDir) {
   for (const rel of [CONSORT_CONFIG_REL, ...LEGACY_CONFIG_RELS]) {
     const f = join4(projectDir, rel);
     if (!existsSync3(f)) continue;
@@ -6948,7 +6948,7 @@ function loadSftddConfig(projectDir) {
   return void 0;
 }
 function resolveProjectSettings(projectDir) {
-  const file = loadSftddConfig(projectDir);
+  const file = loadConsortConfig(projectDir);
   const build = {
     loopGranularity: file?.build?.loopGranularity ?? "story",
     batchCap: file?.build?.batchCap,
@@ -6969,18 +6969,18 @@ function resolveProjectSettings(projectDir) {
 
 // consort/intake/intake.ts
 function checkIntakePreconditions(args = {}) {
-  const sftddDir = args.sftddDir ?? resolveSftddDir();
-  const projectDir = args.projectDir ?? dirname3(sftddDir);
+  const consortDir = args.consortDir ?? resolveConsortDir();
+  const projectDir = args.projectDir ?? dirname3(consortDir);
   const uiTrack = resolveProjectSettings(projectDir).project.uiTrack;
   const required = [
-    { artifact: "product-overview.md", path: join5(sftddDir, "product-overview.md") },
-    { artifact: "nfrs.md", path: join5(sftddDir, "nfrs.md") }
+    { artifact: "product-overview.md", path: join5(consortDir, "product-overview.md") },
+    { artifact: "nfrs.md", path: join5(consortDir, "nfrs.md") }
   ];
   if (uiTrack) {
-    required.push({ artifact: "design-brief.md", path: join5(sftddDir, "design", "design-brief.md") });
+    required.push({ artifact: "design-brief.md", path: join5(consortDir, "design", "design-brief.md") });
   }
   if (args.featureId) {
-    required.push({ artifact: "feature-request.md", path: featureRequestMd(sftddDir, args.featureId) });
+    required.push({ artifact: "feature-request.md", path: featureRequestMd(consortDir, args.featureId) });
   }
   const statuses = required.map(({ artifact, path: path2 }) => {
     if (!existsSync4(path2)) {
@@ -7003,7 +7003,7 @@ function checkIntakePreconditions(args = {}) {
 // bin/consort/intake.cli.ts
 function runIntakeCli(argv) {
   let featureId;
-  let sftddDir;
+  let consortDir;
   let projectDir;
   let json = false;
   let pretty = false;
@@ -7013,7 +7013,7 @@ function runIntakeCli(argv) {
         featureId = argv[++i];
         break;
       case "--tdd-dir":
-        sftddDir = argv[++i];
+        consortDir = argv[++i];
         break;
       case "--project-dir":
         projectDir = argv[++i];
@@ -7032,7 +7032,7 @@ function runIntakeCli(argv) {
         return 0;
     }
   }
-  const result = checkIntakePreconditions({ sftddDir, featureId, projectDir });
+  const result = checkIntakePreconditions({ consortDir, featureId, projectDir });
   if (json) {
     process.stdout.write(`${JSON.stringify(result, null, pretty ? 2 : 0)}
 `);

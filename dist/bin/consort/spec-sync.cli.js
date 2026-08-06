@@ -6694,7 +6694,7 @@ import { join as join2 } from "path";
 var ARTIFACT_ROOT = ".consort";
 var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
 var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
-function resolveSftddDir(projectDir = process.cwd()) {
+function resolveConsortDir(projectDir = process.cwd()) {
   const next = join2(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
   for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
@@ -6715,17 +6715,17 @@ function makeValidator() {
     workflowState: getValidator("workflow-state.schema.json")
   };
 }
-function validateSpec(sftddDir) {
+function validateSpec(consortDir) {
   const reports = [];
   const v = makeValidator();
-  const wsPath = join3(sftddDir, "workflow-state.json");
+  const wsPath = join3(consortDir, "workflow-state.json");
   if (existsSync3(wsPath)) {
     const ws = JSON.parse(readFileSync3(wsPath, "utf8"));
     if (!v.workflowState(ws)) {
       reports.push({ file: wsPath, kind: "schema", detail: JSON.stringify(v.workflowState.errors) });
     }
   }
-  const featuresDir2 = featuresDir(sftddDir);
+  const featuresDir2 = featuresDir(consortDir);
   if (!existsSync3(featuresDir2)) return reports;
   for (const featureDirName of readdirSync2(featuresDir2)) {
     const featureDir = join3(featuresDir2, featureDirName);
@@ -6790,10 +6790,10 @@ function checkPair(dir, kind, validator, reports) {
 
 // bin/consort/spec-sync.cli.ts
 function main() {
-  const sftddDir = process.argv[2] || resolveSftddDir();
-  const reports = validateSpec(sftddDir);
+  const consortDir = process.argv[2] || resolveConsortDir();
+  const reports = validateSpec(consortDir);
   if (reports.length === 0) {
-    process.stdout.write(`spec-sync: OK (${sftddDir})
+    process.stdout.write(`spec-sync: OK (${consortDir})
 `);
     return 0;
   }

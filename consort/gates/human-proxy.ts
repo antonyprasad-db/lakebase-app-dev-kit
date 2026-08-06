@@ -42,13 +42,13 @@
 // belongs in the orchestrator once the phase<->gate<->mode mapping is settled.
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from "node:fs";
-import { sftddEnv } from "../../consort/config/consort-env.js";
+import { consortEnv } from "../../consort/config/consort-env.js";
 import { join, dirname, basename } from "node:path";
 import { approveGate } from "../../consort/gates/approve-gate.js";
 import { readGates, GATE_NAMES, type GateName, type GatesState } from "../../consort/gates/gates.js";
 import { checkArtifactConformance, canonicalArtifactName } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
 import { emitAgentLogEvent } from "../../consort/logging/agent-log.js";
-import { featureRequestMd, resolveSftddDir, writeRequested, featureProposalsMd, planningDir } from "../../consort/config/consort-paths.js";
+import { featureRequestMd, resolveConsortDir, writeRequested, featureProposalsMd, planningDir } from "../../consort/config/consort-paths.js";
 // The gate CONDITION (what makes a gate advanceable) is a state-machine property,
 // not a proxy decision; it lives in the guard and is enforced on the advance path.
 import { resolveArtifactInputs, featureDir } from "../../consort/gates/gate-conformance-guard.js";
@@ -60,7 +60,7 @@ import { resolveArtifactInputs, featureDir } from "../../consort/gates/gate-conf
  * identity in `data`). Best-effort: logging must never break gate approval.
  */
 function logHitlDecision(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   approver: string,
   decision:
@@ -77,7 +77,7 @@ function logHitlDecision(
           feature_id: featureId,
           slots: { gate: decision.gate, artifacts: decision.artifacts, approver, validated: true },
         },
-        { sftddDir },
+        { consortDir },
       );
     } else {
       emitAgentLogEvent(
@@ -88,7 +88,7 @@ function logHitlDecision(
           feature_id: featureId,
           slots: { gate: decision.gate, reason: decision.reason, approver, validated: false },
         },
-        { sftddDir },
+        { consortDir },
       );
     }
   } catch {
@@ -100,7 +100,7 @@ export const HUMAN_PROXY = "human-proxy";
 
 export interface HumanProxyArgs {
   featureId: string;
-  sftddDir?: string;
+  consortDir?: string;
   /** Override the approver identity. Defaults to "human-proxy". */
   approver?: string;
   /** Limit to a single gate; default approves every open gate whose artifacts exist. */
@@ -117,11 +117,11 @@ export interface HumanProxyResult {
 
 
 export function drainGatesAsHumanProxy(args: HumanProxyArgs): HumanProxyResult {
-  const sftddDir = args.sftddDir ?? resolveSftddDir();
+  const consortDir = args.consortDir ?? resolveConsortDir();
   const approver = args.approver ?? HUMAN_PROXY;
-  const fdir = featureDir(sftddDir, args.featureId);
+  const fdir = featureDir(consortDir, args.featureId);
 
-  let state = readGates(args.featureId, { sftddDir });
+  let state = readGates(args.featureId, { consortDir });
   const approved: GateName[] = [];
   const skipped: HumanProxyResult["skipped"] = [];
 
@@ -134,12 +134,12 @@ export function drainGatesAsHumanProxy(args: HumanProxyArgs): HumanProxyResult {
       skipped.push({ gate, reason: `status=${record.status}` });
       continue;
     }
-    const resolved = resolveArtifactInputs(gate, fdir, args.promoteRef, sftddDir, args.featureId);
+    const resolved = resolveArtifactInputs(gate, fdir, args.promoteRef, consortDir, args.featureId);
     if ("reason" in resolved) {
       skipped.push({ gate, reason: resolved.reason });
       // The HITL reviewer refused: the artifact was missing or did not carry
       // its expected elements. Record that interaction.
-      logHitlDecision(sftddDir, args.featureId, approver, {
+      logHitlDecision(consortDir, args.featureId, approver, {
         kind: "refused",
         gate,
         reason: resolved.reason,
@@ -152,12 +152,12 @@ export function drainGatesAsHumanProxy(args: HumanProxyArgs): HumanProxyResult {
       approver,
       hitlApproved: true,
       artifactInputs: resolved.inputs,
-      sftddDir,
+      consortDir,
     });
     approved.push(gate);
     state = result.state;
     // The HITL reviewer validated the expected elements + approved. Record it.
-    logHitlDecision(sftddDir, args.featureId, approver, {
+    logHitlDecision(consortDir, args.featureId, approver, {
       kind: "approved",
       gate,
       artifacts: Object.keys(resolved.inputs),
@@ -186,7 +186,7 @@ export interface SupplyArgs {
   /** Canonical artifact name for conformance keying. Defaults to basename(to). */
   artifact?: string;
   /** .tdd/ root, for logging. */
-  sftddDir?: string;
+  consortDir?: string;
   /** Feature id, for logging (intake artifacts may be project- or feature-level). */
   featureId?: string;
   /** Proxy identity. Defaults to "human-proxy". */
@@ -204,7 +204,7 @@ export interface SupplyResult {
 export function supplyArtifact(args: SupplyArgs): SupplyResult {
   const approver = args.approver ?? HUMAN_PROXY;
   const artifact = args.artifact ?? basename(args.to);
-  const sftddDir = args.sftddDir ?? resolveSftddDir();
+  const consortDir = args.consortDir ?? resolveConsortDir();
 
   const refuse = (reason: string): SupplyResult => {
     try {
@@ -216,7 +216,7 @@ export function supplyArtifact(args: SupplyArgs): SupplyResult {
           feature_id: args.featureId,
           slots: { artifact, to: args.to, reason, approver, validated: false },
         },
-        { sftddDir },
+        { consortDir },
       );
     } catch {
       /* logging is observability, never a gate */
@@ -245,7 +245,7 @@ export function supplyArtifact(args: SupplyArgs): SupplyResult {
         feature_id: args.featureId,
         slots: { artifact, from: args.from, to: args.to, approver, validated: true },
       },
-      { sftddDir },
+      { consortDir },
     );
   } catch {
     /* logging is observability, never a gate */
@@ -269,7 +269,7 @@ export function supplyArtifact(args: SupplyArgs): SupplyResult {
 // human provides them out-of-band); the driver still advances once they exist.
 
 export interface SupplyRequestsArgs {
-  sftddDir?: string;
+  consortDir?: string;
   approver?: string;
   /** Override the recorded pairs; defaults to $LAKEBASE_SFTDD_SPRINT_REQUESTS. */
   pairs?: Array<{ featureId: string; from: string }>;
@@ -287,7 +287,7 @@ export interface SupplyRequestsResult {
 
 /** Parse the `<feature_id>\t<source>` lines from $LAKEBASE_SFTDD_SPRINT_REQUESTS. */
 function recordedRequestPairs(): Array<{ featureId: string; from: string }> {
-  const raw = sftddEnv("SPRINT_REQUESTS") ?? "";
+  const raw = consortEnv("SPRINT_REQUESTS") ?? "";
   return raw
     .split("\n")
     .map((line) => line.trim())
@@ -306,16 +306,16 @@ function recordedRequestPairs(): Array<{ featureId: string; from: string }> {
  * interaction. Returns what was supplied + skipped.
  */
 export function supplyRequests(args: SupplyRequestsArgs = {}): SupplyRequestsResult {
-  const sftddDir = args.sftddDir ?? resolveSftddDir();
+  const consortDir = args.consortDir ?? resolveConsortDir();
   const pairs = args.pairs ?? recordedRequestPairs();
   const supplied: string[] = [];
   const skipped: SupplyRequestsResult["skipped"] = [];
   for (const { featureId, from } of pairs) {
     const res = supplyArtifact({
       from,
-      to: featureRequestMd(sftddDir, featureId),
+      to: featureRequestMd(consortDir, featureId),
       artifact: "feature-request.md",
-      sftddDir,
+      consortDir,
       featureId,
       approver: args.approver,
     });
@@ -327,7 +327,7 @@ export function supplyRequests(args: SupplyRequestsArgs = {}): SupplyRequestsRes
   // re-supplies never shrinks the set). Only when a sprint is named
   // (single-sprint/legacy leaves it unscoped for back-compat).
   if (args.sprint && supplied.length > 0) {
-    writeRequested(sftddDir, args.sprint, supplied);
+    writeRequested(consortDir, args.sprint, supplied);
   }
   return { supplied, skipped };
 }
@@ -364,9 +364,9 @@ function summarizeRequest(from: string): { ask: string; rationale: string } {
  * LLM propose still runs for interactive users). Output conforms as md-narrative.
  */
 export function supplyProposals(
-  args: { sftddDir?: string; pairs?: Array<{ featureId: string; from: string }>; uiTrack?: boolean } = {},
+  args: { consortDir?: string; pairs?: Array<{ featureId: string; from: string }>; uiTrack?: boolean } = {},
 ): SupplyProposalsResult {
-  const sftddDir = args.sftddDir ?? resolveSftddDir();
+  const consortDir = args.consortDir ?? resolveConsortDir();
   const pairs = args.pairs ?? recordedRequestPairs();
   if (pairs.length === 0) return { written: false, count: 0, reason: "no recorded feature-requests (LAKEBASE_SFTDD_SPRINT_REQUESTS unset/empty)" };
   const sections = pairs.map(({ featureId, from }) => {
@@ -383,7 +383,7 @@ export function supplyProposals(
     `Candidate features for this sprint, projected deterministically from the recorded ` +
     `feature-requests (the headless stand-in for the Spec Author's live proposal turn).\n\n` +
     sections.join("\n");
-  mkdirSync(planningDir(sftddDir), { recursive: true });
-  writeFileSync(featureProposalsMd(sftddDir), body);
+  mkdirSync(planningDir(consortDir), { recursive: true });
+  writeFileSync(featureProposalsMd(consortDir), body);
   return { written: true, count: pairs.length };
 }

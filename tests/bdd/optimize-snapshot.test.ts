@@ -31,51 +31,51 @@ afterEach(() => {
 
 describe("snapshotDesign: .sftdd copy/replace round-trip", () => {
   it("restores the .sftdd tree byte-for-byte after a mutation", () => {
-    const sftddDir = join(root, ".sftdd");
-    mkdirSync(join(sftddDir, "features", "F1"), { recursive: true });
-    writeFileSync(join(sftddDir, "features", "F1", "spec.md"), "ORIGINAL\n");
+    const consortDir = join(root, ".sftdd");
+    mkdirSync(join(consortDir, "features", "F1"), { recursive: true });
+    writeFileSync(join(consortDir, "features", "F1", "spec.md"), "ORIGINAL\n");
 
-    const snap = snapshotDesign({ sftddDir });
+    const snap = snapshotDesign({ consortDir });
     // A candidate turn dirties the artifact tree...
-    writeFileSync(join(sftddDir, "features", "F1", "spec.md"), "CANDIDATE MUTATION\n");
-    writeFileSync(join(sftddDir, "features", "F1", "extra.md"), "stray file\n");
+    writeFileSync(join(consortDir, "features", "F1", "spec.md"), "CANDIDATE MUTATION\n");
+    writeFileSync(join(consortDir, "features", "F1", "extra.md"), "stray file\n");
 
     snap.restore();
 
-    expect(readFileSync(join(sftddDir, "features", "F1", "spec.md"), "utf8")).toBe("ORIGINAL\n");
+    expect(readFileSync(join(consortDir, "features", "F1", "spec.md"), "utf8")).toBe("ORIGINAL\n");
     // A file the candidate ADDED is gone after restore (wholesale replace).
-    expect(existsSync(join(sftddDir, "features", "F1", "extra.md"))).toBe(false);
+    expect(existsSync(join(consortDir, "features", "F1", "extra.md"))).toBe(false);
   });
 
   it("restore is idempotent (can restore twice, same result)", () => {
-    const sftddDir = join(root, ".sftdd");
-    mkdirSync(sftddDir, { recursive: true });
-    writeFileSync(join(sftddDir, "a.txt"), "A\n");
-    const snap = snapshotDesign({ sftddDir });
-    writeFileSync(join(sftddDir, "a.txt"), "B\n");
+    const consortDir = join(root, ".sftdd");
+    mkdirSync(consortDir, { recursive: true });
+    writeFileSync(join(consortDir, "a.txt"), "A\n");
+    const snap = snapshotDesign({ consortDir });
+    writeFileSync(join(consortDir, "a.txt"), "B\n");
     snap.restore();
     snap.restore();
-    expect(readFileSync(join(sftddDir, "a.txt"), "utf8")).toBe("A\n");
+    expect(readFileSync(join(consortDir, "a.txt"), "utf8")).toBe("A\n");
   });
 
   it("dispose removes the backing copy without touching the live tree", () => {
-    const sftddDir = join(root, ".sftdd");
-    mkdirSync(sftddDir, { recursive: true });
-    writeFileSync(join(sftddDir, "a.txt"), "A\n");
-    const snap = snapshotDesign({ sftddDir });
+    const consortDir = join(root, ".sftdd");
+    mkdirSync(consortDir, { recursive: true });
+    writeFileSync(join(consortDir, "a.txt"), "A\n");
+    const snap = snapshotDesign({ consortDir });
     snap.dispose();
-    expect(existsSync(join(sftddDir, "a.txt"))).toBe(true);
+    expect(existsSync(join(consortDir, "a.txt"))).toBe(true);
   });
 });
 
 describe("captureDesignArtifacts / restoreDesignArtifacts: DURABLE per-trial capture under experiments/", () => {
   it("captures the live .sftdd into an explicit dest dir (NOT /tmp) and reports that path", () => {
-    const sftddDir = join(root, ".sftdd");
-    mkdirSync(join(sftddDir, "features", "F1"), { recursive: true });
-    writeFileSync(join(sftddDir, "features", "F1", "architecture.json"), '{"n":1}\n');
+    const consortDir = join(root, ".sftdd");
+    mkdirSync(join(consortDir, "features", "F1"), { recursive: true });
+    writeFileSync(join(consortDir, "features", "F1", "architecture.json"), '{"n":1}\n');
     const destDir = join(root, "experiments", "H", "cand", "trial-0", "artifacts");
 
-    const ref = captureDesignArtifacts({ sftddDir, destDir });
+    const ref = captureDesignArtifacts({ consortDir, destDir });
 
     // The capture lives at the explicit dest (durable, auditable), not a temp dir.
     expect(ref.path).toBe(destDir);
@@ -86,31 +86,31 @@ describe("captureDesignArtifacts / restoreDesignArtifacts: DURABLE per-trial cap
   });
 
   it("restoreDesignArtifacts overwrites the live .sftdd from a captured dir (wholesale replace)", () => {
-    const sftddDir = join(root, ".sftdd");
-    mkdirSync(join(sftddDir, "features"), { recursive: true });
-    writeFileSync(join(sftddDir, "features", "arch.json"), "WINNER\n");
+    const consortDir = join(root, ".sftdd");
+    mkdirSync(join(consortDir, "features"), { recursive: true });
+    writeFileSync(join(consortDir, "features", "arch.json"), "WINNER\n");
     const destDir = join(root, "experiments", "H", "winner", "trial-1", "artifacts");
-    const ref = captureDesignArtifacts({ sftddDir, destDir });
+    const ref = captureDesignArtifacts({ consortDir, destDir });
 
     // Simulate the between-trial restore wiping .sftdd, then a DIFFERENT candidate ran.
-    writeFileSync(join(sftddDir, "features", "arch.json"), "SOME OTHER CANDIDATE\n");
-    writeFileSync(join(sftddDir, "features", "stray.json"), "stray\n");
+    writeFileSync(join(consortDir, "features", "arch.json"), "SOME OTHER CANDIDATE\n");
+    writeFileSync(join(consortDir, "features", "stray.json"), "stray\n");
 
-    restoreDesignArtifacts({ sftddDir, ref });
+    restoreDesignArtifacts({ consortDir, ref });
 
-    expect(readFileSync(join(sftddDir, "features", "arch.json"), "utf8")).toBe("WINNER\n");
+    expect(readFileSync(join(consortDir, "features", "arch.json"), "utf8")).toBe("WINNER\n");
     // Wholesale replace: a file not in the captured winner is gone.
-    expect(existsSync(join(sftddDir, "features", "stray.json"))).toBe(false);
+    expect(existsSync(join(consortDir, "features", "stray.json"))).toBe(false);
     // The durable capture is NOT disposed by restore (stays auditable / reusable).
     expect(existsSync(join(destDir, "features", "arch.json"))).toBe(true);
   });
 
   it("a non-winning candidate's capture survives for side-by-side audit (no dispose)", () => {
-    const sftddDir = join(root, ".sftdd");
-    mkdirSync(sftddDir, { recursive: true });
-    writeFileSync(join(sftddDir, "arch.json"), "RUNNER-UP\n");
+    const consortDir = join(root, ".sftdd");
+    mkdirSync(consortDir, { recursive: true });
+    writeFileSync(join(consortDir, "arch.json"), "RUNNER-UP\n");
     const destDir = join(root, "experiments", "H", "runner-up", "trial-0", "artifacts");
-    captureDesignArtifacts({ sftddDir, destDir });
+    captureDesignArtifacts({ consortDir, destDir });
     // Even after the sweep moves on, the runner-up's artifact is still on disk.
     expect(readFileSync(join(destDir, "arch.json"), "utf8")).toBe("RUNNER-UP\n");
   });
@@ -138,14 +138,14 @@ describe("snapshotBuild: SHA reset + conditional re-fork (injected substrate)", 
 
   it("captures the pre-turn SHA at snapshot time", async () => {
     const { deps, calls } = recordingDeps("deadbeef");
-    const snap = await snapshotBuild({ projectDir: root, sftddDir: join(root, ".sftdd"), story: "S1" }, deps);
+    const snap = await snapshotBuild({ projectDir: root, consortDir: join(root, ".sftdd"), story: "S1" }, deps);
     expect(calls).toEqual(["captureSha"]);
     expect(snap.sha).toBe("deadbeef");
   });
 
   it("RED/REVIEW restore resets to the SHA but does NOT re-fork (no DB mutation)", async () => {
     const { deps, calls } = recordingDeps();
-    const snap = await snapshotBuild({ projectDir: root, sftddDir: join(root, ".sftdd"), story: "S1" }, deps);
+    const snap = await snapshotBuild({ projectDir: root, consortDir: join(root, ".sftdd"), story: "S1" }, deps);
     await snap.restore({ reFork: false });
     expect(calls).toEqual(["captureSha", "resetHard:abc123"]);
     expect(calls).not.toContain("reFork");
@@ -153,14 +153,14 @@ describe("snapshotBuild: SHA reset + conditional re-fork (injected substrate)", 
 
   it("GREEN/REFACTOR restore resets to the SHA AND re-forks a clean paired branch", async () => {
     const { deps, calls } = recordingDeps();
-    const snap = await snapshotBuild({ projectDir: root, sftddDir: join(root, ".sftdd"), story: "S1" }, deps);
+    const snap = await snapshotBuild({ projectDir: root, consortDir: join(root, ".sftdd"), story: "S1" }, deps);
     await snap.restore({ reFork: true });
     expect(calls).toEqual(["captureSha", "resetHard:abc123", "reFork"]);
   });
 
   it("restore can run repeatedly (once per candidate) from the same snapshot", async () => {
     const { deps, calls } = recordingDeps();
-    const snap = await snapshotBuild({ projectDir: root, sftddDir: join(root, ".sftdd"), story: "S1" }, deps);
+    const snap = await snapshotBuild({ projectDir: root, consortDir: join(root, ".sftdd"), story: "S1" }, deps);
     await snap.restore({ reFork: true });
     await snap.restore({ reFork: true });
     expect(calls.filter((c) => c === "reFork")).toHaveLength(2);

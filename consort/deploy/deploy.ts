@@ -18,7 +18,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { dirname, join } from "node:path";
 import { readTargets } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { pollUntil } from "@databricks-solutions/lakebase-scm-utils/util";
-import { resolveSftddDir, findFeatureDir } from "../../consort/config/consort-paths.js";
+import { resolveConsortDir, findFeatureDir } from "../../consort/config/consort-paths.js";
 import { writeEscalation } from "../../consort/gates/escalation.js";
 import {
   parseFailedNodeIds,
@@ -31,7 +31,7 @@ import { checkE2eRegexClean, summarizeE2eRegexViolations, E2E_REGEX_REMEDIATION 
 import { emitAgentLogEvent, type AgentLogIoOpts } from "../../consort/logging/agent-log.js";
 import type { AgentLogEventName } from "../../consort/logging/agent-log-events.js";
 import { withEphemeralVerifyBranch, ephemeralVerifyBranchName } from "../../consort/smells/ephemeral-verify.js";
-import { sftddEnv } from "../../consort/config/consort-env.js";
+import { consortEnv } from "../../consort/config/consort-env.js";
 
 /** Read the Lakebase project id from the project's .env (LAKEBASE_PROJECT_ID). */
 function readProjectInstance(projectDir: string): string | undefined {
@@ -104,7 +104,7 @@ async function runVerifyMaybeEphemeral(
   now: () => Date,
 ): Promise<VerifyRun> {
   const instance =
-    lakebaseBranch && sftddEnv("EPHEMERAL_VERIFY") !== "0" ? readProjectInstance(projectDir) : undefined;
+    lakebaseBranch && consortEnv("EPHEMERAL_VERIFY") !== "0" ? readProjectInstance(projectDir) : undefined;
   if (!instance || !lakebaseBranch) {
     return normalizeVerifyRun(runVerify(cmd, projectDir, env));
   }
@@ -164,8 +164,8 @@ export function readDeployEvidence(file: string): DeployEvidence | undefined {
 
 /** Whether a STORY's deploy verified (reachable + verify.passed), read from
  *  features/<F>/stories/<S>/deploy-evidence.json. */
-export function storyDeployVerified(sftddDir: string, featureId: string, storyId: string): boolean {
-  const fdir = findFeatureDir(sftddDir, featureId);
+export function storyDeployVerified(consortDir: string, featureId: string, storyId: string): boolean {
+  const fdir = findFeatureDir(consortDir, featureId);
   if (!fdir) return false;
   return deployEvidencePasses(readDeployEvidence(join(fdir, "stories", storyId, "deploy-evidence.json")));
 }
@@ -229,7 +229,7 @@ export interface DeployResult {
   reason?: string;
   /** The feature-verify outcome (when a verify command was configured + run). */
   verify?: VerifyResult;
-  /** Path to the deploy-evidence.json written (when featureId + sftddDir given). */
+  /** Path to the deploy-evidence.json written (when featureId + consortDir given). */
   evidencePath?: string;
 }
 
@@ -261,7 +261,7 @@ export function logReleaseEngineerDeployStart(ctx: ReleaseEngineerLogCtx): void 
         feature_id: ctx.featureId,
         slots: { scope, target: ctx.target, ...(ctx.storyId ? { story: ctx.storyId } : {}) },
       },
-      { sftddDir: ctx.sftddDir, now: ctx.now },
+      { consortDir: ctx.consortDir, now: ctx.now },
     );
   } catch {
     /* observability is not load-bearing for the deploy */
@@ -277,7 +277,7 @@ export function logReleaseEngineerDeployStart(ctx: ReleaseEngineerLogCtx): void 
 export function logReleaseEngineerDeployOutcome(ctx: ReleaseEngineerLogCtx, result: DeployResult): void {
   const scope = ctx.storyId ? `story ${ctx.storyId}` : `feature ${ctx.featureId}`;
   const storyData = ctx.storyId ? { story: ctx.storyId } : {};
-  const io = { sftddDir: ctx.sftddDir, now: ctx.now };
+  const io = { consortDir: ctx.consortDir, now: ctx.now };
   try {
     if (result.ok) {
       emitAgentLogEvent(
@@ -327,10 +327,10 @@ export function logReleaseEngineerDeployOutcome(ctx: ReleaseEngineerLogCtx, resu
 }
 
 function pidFile(projectDir: string, target: string): string {
-  return join(resolveSftddDir(projectDir), "deploy", `${target}.pid`);
+  return join(resolveConsortDir(projectDir), "deploy", `${target}.pid`);
 }
 
-/** Resolve the feature dir under sftddDir/features by id prefix (mirrors gates.ts). */
+/** Resolve the feature dir under consortDir/features by id prefix (mirrors gates.ts). */
 
 /** Run the feature-verify command against the running app; exit 0 = passed.
  *  Captures the combined output so a failure is diagnosable: on non-zero exit
@@ -376,10 +376,10 @@ function defaultRunVerify(cmd: string, cwd: string, env?: NodeJS.ProcessEnv): Ve
  *  undefined when the feature dir cannot be resolved (a bare, feature-less
  *  deploy). */
 function writeDeployEvidence(
-  sftddDir: string,
+  consortDir: string,
   evidence: DeployEvidence,
 ): string | undefined {
-  const fdir = findFeatureDir(sftddDir, evidence.feature_id);
+  const fdir = findFeatureDir(consortDir, evidence.feature_id);
   if (!fdir) return undefined;
   const dir = evidence.story_id ? join(fdir, "stories", evidence.story_id) : fdir;
   mkdirSync(dir, { recursive: true });
@@ -407,7 +407,7 @@ export interface DeployArgs {
    */
   lakebaseBranch?: string;
   /**
-   * Feature this deploy belongs to. When set together with sftddDir, the deploy
+   * Feature this deploy belongs to. When set together with consortDir, the deploy
    * writes features/<F>/deploy-evidence.json (the deploy gate's artifact).
    */
   featureId?: string;
@@ -419,7 +419,7 @@ export interface DeployArgs {
    */
   storyId?: string;
   /** Artifact root for the evidence write (default: <projectDir>/.sftdd, honors a legacy .tdd). */
-  sftddDir?: string;
+  consortDir?: string;
   /** Inject for tests: start the run command, return a pid. */
   startProcess?: (cmd: string, cwd: string, env?: NodeJS.ProcessEnv) => number;
   /** Inject for tests: reachability probe. */
@@ -455,9 +455,9 @@ export interface DeployArgs {
  * emits them itself rather than depending on the Release Engineer's prose to
  * remember (the cycle.* fragility class). Observability never blocks a deploy.
  */
-function logDeployEvent(sftddDir: string, event: AgentLogEventName, slots: Record<string, unknown>): void {
+function logDeployEvent(consortDir: string, event: AgentLogEventName, slots: Record<string, unknown>): void {
   try {
-    emitAgentLogEvent({ role: "release-engineer", level: "info", event, slots }, { sftddDir });
+    emitAgentLogEvent({ role: "release-engineer", level: "info", event, slots }, { consortDir });
   } catch {
     // swallow: logging is observability, never a reason to fail a deploy
   }
@@ -509,9 +509,9 @@ export async function deployToTarget(args: DeployArgs): Promise<DeployResult> {
     const verify: VerifyResult = { passed: false, summary: reason };
     let evidencePath: string | undefined;
     if (args.featureId) {
-      const sftddDir = args.sftddDir ?? resolveSftddDir(args.projectDir);
+      const consortDir = args.consortDir ?? resolveConsortDir(args.projectDir);
       const at = (args.now ?? (() => new Date()))().toISOString();
-      evidencePath = writeDeployEvidence(sftddDir, {
+      evidencePath = writeDeployEvidence(consortDir, {
         schema_version: DEPLOY_EVIDENCE_SCHEMA_VERSION,
         feature_id: args.featureId,
         ...(args.storyId ? { story_id: args.storyId } : {}),
@@ -522,7 +522,7 @@ export async function deployToTarget(args: DeployArgs): Promise<DeployResult> {
         ...(args.lakebaseBranch ? { lakebase_branch: args.lakebaseBranch } : {}),
         deployed_at: at,
       });
-      writeEscalation(sftddDir, {
+      writeEscalation(consortDir, {
         source: "deploy-verify",
         reason: `deploy of ${args.featureId}${args.storyId ? `/${args.storyId}` : ""} blocked: ${reason}`,
         feature_id: args.featureId,
@@ -589,9 +589,9 @@ export async function deployToTarget(args: DeployArgs): Promise<DeployResult> {
   // (the gate refuses anything but reachable + verify.passed).
   let evidencePath: string | undefined;
   if (args.featureId) {
-    const sftddDir = args.sftddDir ?? resolveSftddDir(args.projectDir);
+    const consortDir = args.consortDir ?? resolveConsortDir(args.projectDir);
     const at = (args.now ?? (() => new Date()))().toISOString();
-    evidencePath = writeDeployEvidence(sftddDir, {
+    evidencePath = writeDeployEvidence(consortDir, {
       schema_version: DEPLOY_EVIDENCE_SCHEMA_VERSION,
       feature_id: args.featureId,
       ...(args.storyId ? { story_id: args.storyId } : {}),
@@ -608,9 +608,9 @@ export async function deployToTarget(args: DeployArgs): Promise<DeployResult> {
     const scope = args.storyId ? `story ${args.storyId}` : `feature ${args.featureId}`;
     const stepSlots = { feature_id: args.featureId, ...(args.storyId ? { story: args.storyId } : {}) };
     if (reachableNow) {
-      logDeployEvent(sftddDir, "deploy.reachable", { url, pid, ...stepSlots });
+      logDeployEvent(consortDir, "deploy.reachable", { url, pid, ...stepSlots });
     } else {
-      logDeployEvent(sftddDir, "deploy.unreachable", {
+      logDeployEvent(consortDir, "deploy.unreachable", {
         url,
         reason: `not reachable after ${cfg.readyTimeoutSeconds}s`,
         ...stepSlots,
@@ -619,7 +619,7 @@ export async function deployToTarget(args: DeployArgs): Promise<DeployResult> {
     // verify.* only when a verify command actually ran (reachable + configured).
     if (reachableNow && cfg.verify) {
       logDeployEvent(
-        sftddDir,
+        consortDir,
         verify.passed ? "verify.passed" : "verify.failed",
         verify.passed
           ? { scope, command: cfg.verify, ...stepSlots }
@@ -672,16 +672,16 @@ export async function deployToTarget(args: DeployArgs): Promise<DeployResult> {
           // spent , do NOT re-suppress; fall through to the terminal escalation so
           // the run halts to the HIL instead of spinning assess -> scope -> re-deploy.
           if (verdict === "contamination") {
-            const prior = readDeployVerifyAssessMarker(sftddDir, args.featureId, args.storyId);
+            const prior = readDeployVerifyAssessMarker(consortDir, args.featureId, args.storyId);
             if (!prior?.assessed) {
-              writeDeployVerifyAssessMarker(sftddDir, args.featureId, args.storyId, failing);
+              writeDeployVerifyAssessMarker(consortDir, args.featureId, args.storyId, failing);
               contamination = true;
             }
           }
         }
       }
       if (!contamination) {
-        writeEscalation(sftddDir, {
+        writeEscalation(consortDir, {
           source: "deploy-verify",
           reason: `deploy of ${args.featureId}${args.storyId ? `/${args.storyId}` : ""} did not prove working software: ${
             reachableNow ? verify.summary ?? "verify failed" : `app not reachable at ${url}`
@@ -695,7 +695,7 @@ export async function deployToTarget(args: DeployArgs): Promise<DeployResult> {
       // Navigator ASSESS + Driver SCOPE self-heal WORKED (the re-verify now
       // passes), so clear it , the story (or the feature ship) proceeds with a
       // clean slate. storyId undefined clears the feature-scope marker.
-      clearDeployVerifyAssessMarker(sftddDir, args.featureId, args.storyId);
+      clearDeployVerifyAssessMarker(consortDir, args.featureId, args.storyId);
     }
   }
 

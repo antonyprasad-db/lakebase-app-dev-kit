@@ -83,7 +83,7 @@ afterEach(() => {
 
 describe("cycle-record: orchestration stamps RED/GREEN the probe can read", async () => {
   it("beginNextPendingCycle stamps red_at (NOT a freehand status) for the first pending test", async () => {
-    const r = beginNextPendingCycle({ sftddDir: tdd, featureId: F, story: S });
+    const r = beginNextPendingCycle({ consortDir: tdd, featureId: F, story: S });
     expect(r.recorded).toBe(true);
     expect(r.testId).toBe("T1");
     const cycles = cyclesFor("AC1");
@@ -97,8 +97,8 @@ describe("cycle-record: orchestration stamps RED/GREEN the probe can read", asyn
   });
 
   it("greenOpenCycle records the run + stamps green_at on the open RED cycle", async () => {
-    beginNextPendingCycle({ sftddDir: tdd, featureId: F, story: S });
-    const g = await greenOpenCycle({ sftddDir: tdd, featureId: F, story: S, verify: pass });
+    beginNextPendingCycle({ consortDir: tdd, featureId: F, story: S });
+    const g = await greenOpenCycle({ consortDir: tdd, featureId: F, story: S, verify: pass });
     expect(g.recorded).toBe(true);
     expect(g.testId).toBe("T1");
     const cycles = cyclesFor("AC1");
@@ -113,13 +113,13 @@ describe("cycle-record: orchestration stamps RED/GREEN the probe can read", asyn
     // supersession/regression the Navigator can assess or the Driver can repair ,
     // routing it to an assess turn just spins. It must escalate IMMEDIATELY with
     // the reauth remediation, on the FIRST failure (no assess, no self-heal round).
-    beginNextPendingCycle({ sftddDir: tdd, featureId: F, story: S });
+    beginNextPendingCycle({ consortDir: tdd, featureId: F, story: S });
     const authFail: GreenVerifier = async () => ({
       passed: false,
       summary:
         "Backend unreachable: A new access token could not be retrieved because the refresh token is invalid. To reauthenticate, run: databricks auth login",
     });
-    const g = await greenOpenCycle({ sftddDir: tdd, featureId: F, story: S, verify: authFail });
+    const g = await greenOpenCycle({ consortDir: tdd, featureId: F, story: S, verify: authFail });
     expect(g.needsAssess).toBeFalsy();
     expect(g.escalated).toBe(true);
     expect(g.escalation?.source).toBe("auth-expired");
@@ -129,10 +129,10 @@ describe("cycle-record: orchestration stamps RED/GREEN the probe can read", asyn
   it("resetStoryBuildState clears cycles + resets test-list statuses so a revised story re-drives", async () => {
     // Drive both tests GREEN so the story reads allGreen (the pre-revise state
     // that made a revised story re-deploy its stale build instead of rebuilding).
-    await beginNextPendingCycle({ sftddDir: tdd, featureId: F, story: S });
-    await greenOpenCycle({ sftddDir: tdd, featureId: F, story: S, verify: pass });
-    beginNextPendingCycle({ sftddDir: tdd, featureId: F, story: S });
-    await greenOpenCycle({ sftddDir: tdd, featureId: F, story: S, verify: pass });
+    await beginNextPendingCycle({ consortDir: tdd, featureId: F, story: S });
+    await greenOpenCycle({ consortDir: tdd, featureId: F, story: S, verify: pass });
+    beginNextPendingCycle({ consortDir: tdd, featureId: F, story: S });
+    await greenOpenCycle({ consortDir: tdd, featureId: F, story: S, verify: pass });
     expect(storyTestProgress(tdd, F, S).allGreen).toBe(true);
     // Mirror a really-built story: per-story test-list statuses are green too.
     const tlPath = join(tdd, "features", F, "stories", S, "test-list-per-story.json");
@@ -157,12 +157,12 @@ describe("cycle-record: orchestration stamps RED/GREEN the probe can read", asyn
   });
 
   it("sequences one test at a time: begin -> green -> begin advances to the next pending", async () => {
-    expect(beginNextPendingCycle({ sftddDir: tdd, featureId: F, story: S }).testId).toBe("T1");
-    await greenOpenCycle({ sftddDir: tdd, featureId: F, story: S, verify: pass });
-    expect(beginNextPendingCycle({ sftddDir: tdd, featureId: F, story: S }).testId).toBe("T2");
-    await greenOpenCycle({ sftddDir: tdd, featureId: F, story: S, verify: pass });
+    expect(beginNextPendingCycle({ consortDir: tdd, featureId: F, story: S }).testId).toBe("T1");
+    await greenOpenCycle({ consortDir: tdd, featureId: F, story: S, verify: pass });
+    expect(beginNextPendingCycle({ consortDir: tdd, featureId: F, story: S }).testId).toBe("T2");
+    await greenOpenCycle({ consortDir: tdd, featureId: F, story: S, verify: pass });
     // Both tests have green cycles now , nothing pending.
-    const after = beginNextPendingCycle({ sftddDir: tdd, featureId: F, story: S });
+    const after = beginNextPendingCycle({ consortDir: tdd, featureId: F, story: S });
     expect(after.recorded).toBe(false);
     expect(cyclesFor("AC1").length).toBe(2);
   });
@@ -171,8 +171,8 @@ describe("cycle-record: orchestration stamps RED/GREEN the probe can read", asyn
     // The await-acceptance stall: the cycle was green but the test-list items
     // stayed `pending` + the AC `draft`, so the Release Engineer refused to
     // deploy. Greening every test for an AC must mark the items green + the AC passing.
-    beginNextPendingCycle({ sftddDir: tdd, featureId: F, story: S }); await greenOpenCycle({ sftddDir: tdd, featureId: F, story: S, verify: pass }); // T1
-    beginNextPendingCycle({ sftddDir: tdd, featureId: F, story: S }); await greenOpenCycle({ sftddDir: tdd, featureId: F, story: S, verify: pass }); // T2
+    beginNextPendingCycle({ consortDir: tdd, featureId: F, story: S }); await greenOpenCycle({ consortDir: tdd, featureId: F, story: S, verify: pass }); // T1
+    beginNextPendingCycle({ consortDir: tdd, featureId: F, story: S }); await greenOpenCycle({ consortDir: tdd, featureId: F, story: S, verify: pass }); // T2
     const master = JSON.parse(readFileSync(join(tdd, "features", F, "test-list.json"), "utf8"));
     expect(master.items.every((i: { status: string }) => i.status === "green")).toBe(true);
     const perStory = JSON.parse(readFileSync(join(tdd, "features", F, "stories", S, "test-list-per-story.json"), "utf8"));
@@ -183,8 +183,8 @@ describe("cycle-record: orchestration stamps RED/GREEN the probe can read", asyn
 
   it("per-AC REVIEW/REFACTOR: AC awaits review once all its tests are green; verdict drives refactor", async () => {
     // Green both of AC1's tests.
-    beginNextPendingCycle({ sftddDir: tdd, featureId: F, story: S }); await greenOpenCycle({ sftddDir: tdd, featureId: F, story: S, verify: pass });
-    beginNextPendingCycle({ sftddDir: tdd, featureId: F, story: S }); await greenOpenCycle({ sftddDir: tdd, featureId: F, story: S, verify: pass });
+    beginNextPendingCycle({ consortDir: tdd, featureId: F, story: S }); await greenOpenCycle({ consortDir: tdd, featureId: F, story: S, verify: pass });
+    beginNextPendingCycle({ consortDir: tdd, featureId: F, story: S }); await greenOpenCycle({ consortDir: tdd, featureId: F, story: S, verify: pass });
     // AC1 now awaits the Navigator REVIEW.
     expect(firstReviewPendingAc(tdd, F, S)).toBe("AC1");
     // Navigator left a verdict requesting a refactor.
@@ -202,13 +202,13 @@ describe("cycle-record: orchestration stamps RED/GREEN the probe can read", asyn
     // review.json but emitted NO agent-log event, so a live run's central log
     // showed cycle.red + cycle.green per AC and then went silent through review
     // + refactor. Both transitions must emit their closed-vocabulary event.
-    beginNextPendingCycle({ sftddDir: tdd, featureId: F, story: S }); await greenOpenCycle({ sftddDir: tdd, featureId: F, story: S, verify: pass });
-    beginNextPendingCycle({ sftddDir: tdd, featureId: F, story: S }); await greenOpenCycle({ sftddDir: tdd, featureId: F, story: S, verify: pass });
+    beginNextPendingCycle({ consortDir: tdd, featureId: F, story: S }); await greenOpenCycle({ consortDir: tdd, featureId: F, story: S, verify: pass });
+    beginNextPendingCycle({ consortDir: tdd, featureId: F, story: S }); await greenOpenCycle({ consortDir: tdd, featureId: F, story: S, verify: pass });
     writeJson(join(tdd, "cycles", F, S, "AC1", "review-verdict.json"), { refactor: true, notes: "extract a helper" });
     reviewAc(tdd, F, S, "AC1");
     await refactorAc(tdd, F, S, "AC1", { verify: pass });
 
-    const log = readAgentLog({ sftddDir: tdd });
+    const log = readAgentLog({ consortDir: tdd });
     const review = log.find((e) => e.event === "cycle.review");
     expect(review, "expected a cycle.review event").toBeTruthy();
     expect(review!.role).toBe("navigator");
@@ -222,15 +222,15 @@ describe("cycle-record: orchestration stamps RED/GREEN the probe can read", asyn
   });
 
   it("per-AC REVIEW with no refactor verdict (looks good) does not request a refactor", async () => {
-    beginNextPendingCycle({ sftddDir: tdd, featureId: F, story: S }); await greenOpenCycle({ sftddDir: tdd, featureId: F, story: S, verify: pass });
-    beginNextPendingCycle({ sftddDir: tdd, featureId: F, story: S }); await greenOpenCycle({ sftddDir: tdd, featureId: F, story: S, verify: pass });
+    beginNextPendingCycle({ consortDir: tdd, featureId: F, story: S }); await greenOpenCycle({ consortDir: tdd, featureId: F, story: S, verify: pass });
+    beginNextPendingCycle({ consortDir: tdd, featureId: F, story: S }); await greenOpenCycle({ consortDir: tdd, featureId: F, story: S, verify: pass });
     const r = reviewAc(tdd, F, S, "AC1"); // no verdict file => looks good
     expect(r.refactorRequested).toBe(false);
     expect(firstRefactorPendingAc(tdd, F, S)).toBeNull();
   });
 
   it("greenOpenCycle throws when there is no open RED cycle (driver dispatched with nothing to green)", async () => {
-    await expect(greenOpenCycle({ sftddDir: tdd, featureId: F, story: S, verify: pass })).rejects.toThrow(
+    await expect(greenOpenCycle({ consortDir: tdd, featureId: F, story: S, verify: pass })).rejects.toThrow(
       /no open RED cycle/,
     );
   });
@@ -240,8 +240,8 @@ describe("cycle-record: orchestration stamps RED/GREEN the probe can read", asyn
     // await-acceptance after one test because "all RED cycles are green" was
     // true. With test-list-driven progress, T2 is still pending and allGreen is
     // false, so the Navigator is dispatched for T2 instead of awaiting acceptance.
-    beginNextPendingCycle({ sftddDir: tdd, featureId: F, story: S }); // RED T1
-    await greenOpenCycle({ sftddDir: tdd, featureId: F, story: S, verify: pass }); // GREEN T1
+    beginNextPendingCycle({ consortDir: tdd, featureId: F, story: S }); // RED T1
+    await greenOpenCycle({ consortDir: tdd, featureId: F, story: S, verify: pass }); // GREEN T1
     const p = storyTestProgress(tdd, F, S);
     expect(p.total).toBe(2);
     expect(p.openRed.length).toBe(0);
@@ -266,7 +266,7 @@ describe("cycle-record: orchestration stamps RED/GREEN the probe can read", asyn
     expect(pendingItemKind(tdd, F, S)).toBe("fitness");
     // pending = "items with no cycle yet". Once TF has a cycle, the next pending
     // item is the behavior test, so the reported kind advances to "behavior".
-    beginNextPendingCycle({ sftddDir: tdd, featureId: F, story: S }); // RED cycle for TF (the first pending)
+    beginNextPendingCycle({ consortDir: tdd, featureId: F, story: S }); // RED cycle for TF (the first pending)
     expect(pendingItemKind(tdd, F, S)).toBe("behavior");
   });
 });
@@ -311,9 +311,9 @@ describe("cycle-record: GREEN + REFACTOR each commit on the experiment branch", 
   });
 
   it("greenOpenCycle commits the green increment + leaves a clean tree", async () => {
-    beginNextPendingCycle({ sftddDir: ptdd, featureId: F, story: S });
+    beginNextPendingCycle({ consortDir: ptdd, featureId: F, story: S });
     writeFileSync(join(proj, "app.py"), "x = 1\n"); // the Driver's production code
-    await greenOpenCycle({ sftddDir: ptdd, featureId: F, story: S, verify: pass });
+    await greenOpenCycle({ consortDir: ptdd, featureId: F, story: S, verify: pass });
     expect(gitlog()).toMatch(/green: T1 \(AC1\)/);
     expect(codeDirty()).toBe(""); // code committed => prepare-pr would pass
     // .tdd is intentionally NOT committed by the build (avoids the accept-checkout divergence).
@@ -336,9 +336,9 @@ describe("cycle-record: GREEN + REFACTOR each commit on the experiment branch", 
     // diverge from the feature branch and break accept's `git checkout`).
     writeJson(join(ptdd, "workflow-state.json"), { phase: "build" });
 
-    beginNextPendingCycle({ sftddDir: ptdd, featureId: F, story: S });
+    beginNextPendingCycle({ consortDir: ptdd, featureId: F, story: S });
     writeFileSync(join(proj, "app.py"), "x = 1\n");
-    await greenOpenCycle({ sftddDir: ptdd, featureId: F, story: S, verify: pass });
+    await greenOpenCycle({ consortDir: ptdd, featureId: F, story: S, verify: pass });
 
     const tracked = execSync("git ls-files", { cwd: proj }).toString();
     // The design corpus IS committed (rides the PR to the parent tier). It was
@@ -354,9 +354,9 @@ describe("cycle-record: GREEN + REFACTOR each commit on the experiment branch", 
   });
 
   it("refactorAc commits the behavior-preserving refactor as its own commit", async () => {
-    beginNextPendingCycle({ sftddDir: ptdd, featureId: F, story: S });
+    beginNextPendingCycle({ consortDir: ptdd, featureId: F, story: S });
     writeFileSync(join(proj, "app.py"), "x = 1\n");
-    await greenOpenCycle({ sftddDir: ptdd, featureId: F, story: S, verify: pass });
+    await greenOpenCycle({ consortDir: ptdd, featureId: F, story: S, verify: pass });
     writeJson(join(ptdd, "cycles", F, S, "AC1", "review-verdict.json"), { refactor: true, notes: "extract helper" });
     reviewAc(ptdd, F, S, "AC1");
     writeFileSync(join(proj, "app.py"), "x = 2  # extracted helper\n");
@@ -374,20 +374,20 @@ describe("cycle-record: story-level review/refactor (story granularity)", async 
   function greenWholeStory(): Promise<unknown> {
     // Green every pending test in the story (T1 + T2, both under AC1).
     return (async () => {
-      beginNextPendingCycle({ sftddDir: tdd, featureId: F, story: S });
-      await greenOpenCycle({ sftddDir: tdd, featureId: F, story: S, verify: pass });
-      beginNextPendingCycle({ sftddDir: tdd, featureId: F, story: S });
-      await greenOpenCycle({ sftddDir: tdd, featureId: F, story: S, verify: pass });
+      beginNextPendingCycle({ consortDir: tdd, featureId: F, story: S });
+      await greenOpenCycle({ consortDir: tdd, featureId: F, story: S, verify: pass });
+      beginNextPendingCycle({ consortDir: tdd, featureId: F, story: S });
+      await greenOpenCycle({ consortDir: tdd, featureId: F, story: S, verify: pass });
     })();
   }
 
   it("reviewPending is true once the WHOLE story is green, false before", async () => {
     expect(reviewPending(tdd, F, S)).toBe(false); // nothing green yet
-    beginNextPendingCycle({ sftddDir: tdd, featureId: F, story: S });
-    await greenOpenCycle({ sftddDir: tdd, featureId: F, story: S, verify: pass }); // only T1
+    beginNextPendingCycle({ consortDir: tdd, featureId: F, story: S });
+    await greenOpenCycle({ consortDir: tdd, featureId: F, story: S, verify: pass }); // only T1
     expect(reviewPending(tdd, F, S)).toBe(false); // T2 still pending
-    beginNextPendingCycle({ sftddDir: tdd, featureId: F, story: S });
-    await greenOpenCycle({ sftddDir: tdd, featureId: F, story: S, verify: pass }); // T2
+    beginNextPendingCycle({ consortDir: tdd, featureId: F, story: S });
+    await greenOpenCycle({ consortDir: tdd, featureId: F, story: S, verify: pass }); // T2
     expect(reviewPending(tdd, F, S)).toBe(true); // whole story green -> review pending
   });
 

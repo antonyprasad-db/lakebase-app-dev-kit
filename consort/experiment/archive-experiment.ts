@@ -32,7 +32,7 @@ export class ArchiveExperimentError extends Error {
 }
 
 export interface ArchiveExperimentArgs {
-  sftddDir: string;
+  consortDir: string;
   featureId: string;
   storyId: string;
   experimentSlug: string;
@@ -73,12 +73,12 @@ export interface ArchiveExperimentResult {
   selection_log_entry: string;
 }
 
-function selectionLogPath(sftddDir: string): string {
-  return join(sftddDir, "selection-log.md");
+function selectionLogPath(consortDir: string): string {
+  return join(consortDir, "selection-log.md");
 }
 
-function appendSelectionLog(sftddDir: string, entry: string): void {
-  const path = selectionLogPath(sftddDir);
+function appendSelectionLog(consortDir: string, entry: string): void {
+  const path = selectionLogPath(consortDir);
   if (existsSync(path)) {
     writeFileSync(path, readFileSync(path, "utf8") + entry);
   } else {
@@ -109,13 +109,13 @@ export async function archiveExperiment(
       "archiveExperiment requires hitlApproved: true (HITL Gate)"
     );
   }
-  const { sftddDir, featureId, storyId, experimentSlug, approverEmail } = args;
+  const { consortDir, featureId, storyId, experimentSlug, approverEmail } = args;
 
   const ts = new Date().toISOString();
-  const archiveBase = join(experimentsRoot(sftddDir, featureId, storyId), "_archive");
+  const archiveBase = join(experimentsRoot(consortDir, featureId, storyId), "_archive");
   mkdirSync(archiveBase, { recursive: true });
   const dest = join(archiveBase, experimentSlug);
-  const liveDir = experimentDir(sftddDir, featureId, storyId, experimentSlug);
+  const liveDir = experimentDir(consortDir, featureId, storyId, experimentSlug);
 
   // Idempotent re-run: if it's already archived and the live dir is gone,
   // record a log entry and return without trying to look up the experiment
@@ -128,7 +128,7 @@ export async function archiveExperiment(
         `- **Already archived at:** ${dest}`,
         "",
       ].join("\n") + "\n";
-    appendSelectionLog(sftddDir, entry);
+    appendSelectionLog(consortDir, entry);
     return {
       experiment_slug: experimentSlug,
       archived_dir: dest,
@@ -139,7 +139,7 @@ export async function archiveExperiment(
   }
 
   // Resolve the live experiment to archive
-  const experiments = listExperiments(sftddDir, featureId, storyId);
+  const experiments = listExperiments(consortDir, featureId, storyId);
   const target = experiments.find((e) => e.experiment_slug === experimentSlug);
   if (!target) {
     throw new ArchiveExperimentError(
@@ -148,10 +148,10 @@ export async function archiveExperiment(
   }
 
   // 1. Snapshot prior outcomes for rollback
-  const priorOutcomes = readOutcomes(sftddDir, featureId, storyId, experimentSlug);
+  const priorOutcomes = readOutcomes(consortDir, featureId, storyId, experimentSlug);
 
   // 2. Mark outcomes abandoned
-  writeOutcomes(sftddDir, featureId, storyId, experimentSlug, {
+  writeOutcomes(consortDir, featureId, storyId, experimentSlug, {
     ...(priorOutcomes ?? {}),
     status: "abandoned",
   });
@@ -191,7 +191,7 @@ export async function archiveExperiment(
     }
     // Revert outcomes
     if (priorOutcomes) {
-      writeOutcomes(sftddDir, featureId, storyId, experimentSlug, priorOutcomes);
+      writeOutcomes(consortDir, featureId, storyId, experimentSlug, priorOutcomes);
     }
     const entry =
       [
@@ -204,7 +204,7 @@ export async function archiveExperiment(
         `- **Approver:** ${approverEmail ?? "HITL (no email recorded)"}`,
         "",
       ].join("\n") + "\n";
-    appendSelectionLog(sftddDir, entry);
+    appendSelectionLog(consortDir, entry);
     throw new ArchiveExperimentError(
       `Teardown failed mid-archive (${teardownError.message}); dir + outcomes rolled back. See selection-log.md.`,
       true
@@ -222,7 +222,7 @@ export async function archiveExperiment(
       `- **Approver:** ${approverEmail ?? "HITL (no email recorded)"}`,
       "",
     ].join("\n") + "\n";
-  appendSelectionLog(sftddDir, entry);
+  appendSelectionLog(consortDir, entry);
 
   return {
     experiment_slug: experimentSlug,

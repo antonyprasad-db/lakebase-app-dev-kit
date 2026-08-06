@@ -3,13 +3,13 @@
 // exist — warn-only by design (spec-sync surfaces drift; it doesn't fail CI).
 
 import { validateSpec } from "../../consort/intake/spec-sync.js";
-import { resolveSftddDir } from "../../consort/config/consort-paths.js";
+import { resolveConsortDir } from "../../consort/config/consort-paths.js";
 
 function main(): number {
-  const sftddDir = process.argv[2] || resolveSftddDir();
-  const reports = validateSpec(sftddDir);
+  const consortDir = process.argv[2] || resolveConsortDir();
+  const reports = validateSpec(consortDir);
   if (reports.length === 0) {
-    process.stdout.write(`spec-sync: OK (${sftddDir})\n`);
+    process.stdout.write(`spec-sync: OK (${consortDir})\n`);
     return 0;
   }
   for (const r of reports) {

@@ -68,7 +68,7 @@ function specAuthorManifest(): StepManifest {
 function deps(): ManifestRunnerDeps {
   return {
     workspaceDir: ws,
-    cfg: { projectDir: ws, sftddDir: join(ws, ".sftdd"), featureId: "F1-x" } as ManifestRunnerDeps["cfg"],
+    cfg: { projectDir: ws, consortDir: join(ws, ".sftdd"), featureId: "F1-x" } as ManifestRunnerDeps["cfg"],
     agentContext: { corpusRoot: corpus, kitDir: process.cwd() },
     // NOTE: no agentFor , the runner resolves the agent from manifest.agent.
   };

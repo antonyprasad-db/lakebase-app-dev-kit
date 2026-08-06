@@ -57,21 +57,21 @@ const acFile = () => join(tdd, "features", F, "stories", S, "acs", "AC1.json");
 
 describe("replayDesignTurn: each stage's output is replayed per-turn", () => {
   it("spec-author breakdown copies feature-spec + story stubs, NOT the ACs", () => {
-    expect(replayDesignTurn({ turn: { role: "spec-author", mode: "breakdown" }, replayDir: corpus, sftddDir: tdd, featureId: F })).toBe(true);
+    expect(replayDesignTurn({ turn: { role: "spec-author", mode: "breakdown" }, replayDir: corpus, consortDir: tdd, featureId: F })).toBe(true);
     expect(existsSync(join(tdd, "features", F, "feature-spec.json"))).toBe(true);
     expect(existsSync(join(tdd, "features", F, "stories", S, "story.json"))).toBe(true);
     expect(existsSync(acFile())).toBe(false); // ACs are the per-story Spec Author turn
   });
 
   it("spec-author per-story copies the ACs VERBATIM, preserving `layer` (the spec author authors it)", () => {
-    expect(replayDesignTurn({ turn: { role: "spec-author", story: S }, replayDir: corpus, sftddDir: tdd, featureId: F })).toBe(true);
+    expect(replayDesignTurn({ turn: { role: "spec-author", story: S }, replayDir: corpus, consortDir: tdd, featureId: F })).toBe(true);
     expect(existsSync(acFile())).toBe(true);
     expect(JSON.parse(readFileSync(acFile(), "utf8")).layer).toBe("E2E");
   });
 
   it("architect-reviewer re-copies the ACs (idempotent) + copies architecture", () => {
-    replayDesignTurn({ turn: { role: "spec-author", story: S }, replayDir: corpus, sftddDir: tdd, featureId: F });
-    expect(replayDesignTurn({ turn: { role: "architect-reviewer", story: S }, replayDir: corpus, sftddDir: tdd, featureId: F })).toBe(true);
+    replayDesignTurn({ turn: { role: "spec-author", story: S }, replayDir: corpus, consortDir: tdd, featureId: F });
+    expect(replayDesignTurn({ turn: { role: "architect-reviewer", story: S }, replayDir: corpus, consortDir: tdd, featureId: F })).toBe(true);
     expect(JSON.parse(readFileSync(acFile(), "utf8")).layer).toBe("E2E");
     expect(existsSync(join(tdd, "features", F, "architecture.json"))).toBe(true);
   });
@@ -80,21 +80,21 @@ describe("replayDesignTurn: each stage's output is replayed per-turn", () => {
     // The design lane dispatches the DBA per-story (architect -> dba -> test-strategist).
     // A corpus captured with the DBA role MUST replay db-design.json from disk; a
     // fall-through to a live DBA spawn would diverge the schema and can fail the spec gate.
-    expect(replayDesignTurn({ turn: { role: "dba", story: S }, replayDir: corpus, sftddDir: tdd, featureId: F })).toBe(true);
+    expect(replayDesignTurn({ turn: { role: "dba", story: S }, replayDir: corpus, consortDir: tdd, featureId: F })).toBe(true);
     expect(existsSync(join(tdd, "features", F, "db-design.json"))).toBe(true);
     expect(existsSync(join(tdd, "features", F, "db-design.md"))).toBe(true);
     expect(JSON.parse(readFileSync(join(tdd, "features", F, "db-design.json"), "utf8")).tables[0].name).toBe("bugs");
   });
 
   it("test-strategist copies the feature test-list; ux-designer copies the design guide", () => {
-    expect(replayDesignTurn({ turn: { role: "test-strategist", story: S }, replayDir: corpus, sftddDir: tdd, featureId: F })).toBe(true);
+    expect(replayDesignTurn({ turn: { role: "test-strategist", story: S }, replayDir: corpus, consortDir: tdd, featureId: F })).toBe(true);
     expect(existsSync(join(tdd, "features", F, "test-list.json"))).toBe(true);
-    expect(replayDesignTurn({ turn: { role: "ux-designer" }, replayDir: corpus, sftddDir: tdd, featureId: F })).toBe(true);
+    expect(replayDesignTurn({ turn: { role: "ux-designer" }, replayDir: corpus, consortDir: tdd, featureId: F })).toBe(true);
     expect(existsSync(join(tdd, "design", "design-guide.json"))).toBe(true);
   });
 
   it("a story the corpus does not cover returns false (a corpus miss; the driver hard-fails, never runs a live agent)", () => {
-    expect(replayDesignTurn({ turn: { role: "spec-author", story: "S2-not-recorded" }, replayDir: corpus, sftddDir: tdd, featureId: F })).toBe(false);
+    expect(replayDesignTurn({ turn: { role: "spec-author", story: "S2-not-recorded" }, replayDir: corpus, consortDir: tdd, featureId: F })).toBe(false);
   });
 
   // Anti-recurrence guard: every design role the router can dispatch must be
@@ -116,13 +116,13 @@ describe("restoreReflectVerdict: the reflect turn's .sftdd verdict (filtered by 
     // verdict must be brought back from recorded-artifacts or the drive aborts.
     const src = join(corpus, "features", F, "stories", S, "reflect-verdict.json");
     wj(src, { version: 1, passed: true, findings: [] });
-    expect(restoreReflectVerdict({ replayDir: corpus, sftddDir: tdd, featureId: F, story: S })).toBe(true);
+    expect(restoreReflectVerdict({ replayDir: corpus, consortDir: tdd, featureId: F, story: S })).toBe(true);
     const dst = join(tdd, "features", F, "stories", S, "reflect-verdict.json");
     expect(existsSync(dst)).toBe(true);
     expect(JSON.parse(readFileSync(dst, "utf8")).passed).toBe(true);
   });
 
   it("returns false when the corpus has no verdict (a corpus miss; the driver hard-fails, never runs the reflect live)", () => {
-    expect(restoreReflectVerdict({ replayDir: corpus, sftddDir: tdd, featureId: F, story: S })).toBe(false);
+    expect(restoreReflectVerdict({ replayDir: corpus, consortDir: tdd, featureId: F, story: S })).toBe(false);
   });
 });

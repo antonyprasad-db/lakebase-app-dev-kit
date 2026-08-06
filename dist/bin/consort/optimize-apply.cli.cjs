@@ -93,23 +93,23 @@ function modelDefaultEdit(role, turn, model) {
   const where = turn ? `roles.${role}.model.${turn}` : `roles.${role}.model`;
   return {
     file: "consort/orchestrator/settings/project-settings.ts",
-    rationale: `defaultSftddConfig: set ${where} -> "${model}" (and mirror the role's frontmatter model: in skills/consort/agents/${role}.md + RECOMMENDED_MODELS in agent-models.ts if the BASE model changed).`,
-    regressionTest: `assert resolveSftddSettings().modelFor("${role}"${turn ? `, "${turn}"` : ""}) === "${model}" with no project override.`
+    rationale: `defaultConsortConfig: set ${where} -> "${model}" (and mirror the role's frontmatter model: in skills/consort/agents/${role}.md + RECOMMENDED_MODELS in agent-models.ts if the BASE model changed).`,
+    regressionTest: `assert resolveConsortSettings().modelFor("${role}"${turn ? `, "${turn}"` : ""}) === "${model}" with no project override.`
   };
 }
 function effortDefaultEdit(role, turn, effort) {
   const where = turn ? `roles.${role}.effort.${turn}` : `roles.${role}.effort`;
   return {
     file: "consort/orchestrator/settings/project-settings.ts",
-    rationale: `defaultSftddConfig / defaultEffort: set ${where} -> "${effort}".`,
-    regressionTest: `assert resolveSftddSettings().effortFor("${role}"${turn ? `, "${turn}"` : ""}) === "${effort}" with no project override.`
+    rationale: `defaultConsortConfig / defaultEffort: set ${where} -> "${effort}".`,
+    regressionTest: `assert resolveConsortSettings().effortFor("${role}"${turn ? `, "${turn}"` : ""}) === "${effort}" with no project override.`
   };
 }
 function buildDefaultEdit(key, value) {
   return {
     file: "consort/orchestrator/settings/project-settings.ts",
-    rationale: `defaultSftddConfig: set build.${key} -> ${JSON.stringify(value)}.`,
-    regressionTest: `assert resolveSftddSettings().build.${key} === ${JSON.stringify(value)} with no project override.`
+    rationale: `defaultConsortConfig: set build.${key} -> ${JSON.stringify(value)}.`,
+    regressionTest: `assert resolveConsortSettings().build.${key} === ${JSON.stringify(value)} with no project override.`
   };
 }
 function splitFrontmatter(md) {

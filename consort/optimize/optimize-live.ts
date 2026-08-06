@@ -21,7 +21,7 @@ import { overlayAgent } from "./optimize-agent-overlay.js";
 import { evaluateDesignGate, type GateOutcome } from "./optimize-gate.js";
 import { snapshotDesign, snapshotBuild, turnMutatesDb, captureDesignArtifacts, restoreDesignArtifacts, type BuildSnapshotDeps, type DesignArtifactRef } from "./optimize-snapshot.js";
 import type { ChampionWalkDeps, HandoffPlan, HandoffSnapshot, TrialResult, HandoffResult, ChampionWalkResult } from "./optimize-harness.js";
-import { defaultSftddConfig, loadSftddConfig, writeSftddConfig, type SftddConfigFile } from "../../consort/orchestrator/settings/project-settings.js";
+import { defaultConsortConfig, loadConsortConfig, writeConsortConfig, type ConsortConfigFile } from "../../consort/orchestrator/settings/project-settings.js";
 import { isBuildHandoff, actionToHandoffPlan } from "./handoff.js";
 import type { DriveEffectsConfig } from "../../consort/orchestrator/drive/orchestrator-effects.js";
 import { actionLane, type WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";
@@ -53,7 +53,7 @@ export type GateBuildTurn = (args: { handoff: HandoffPlan }) => GateOutcome;
 
 export interface OptimizeLiveCtx {
   projectDir: string;
-  sftddDir: string;
+  consortDir: string;
   featureId: string;
   /** Where discarded attempts + champion-walk.json are written (never the corpus). */
   experimentsDir: string;
@@ -83,8 +83,8 @@ export interface OptimizeLiveCtx {
 }
 
 /** The on-disk config path relative to the project root. */
-function readConfig(projectDir: string): SftddConfigFile {
-  return loadSftddConfig(projectDir) ?? defaultSftddConfig();
+function readConfig(projectDir: string): ConsortConfigFile {
+  return loadConsortConfig(projectDir) ?? defaultConsortConfig();
 }
 
 /** Apply a candidate's config overrides (+ env) to the project for one turn, and
@@ -92,7 +92,7 @@ function readConfig(projectDir: string): SftddConfigFile {
 function applyCandidate(ctx: OptimizeLiveCtx, candidate: Candidate): () => void {
   const baseline = readConfig(ctx.projectDir);
   const merged = applyCandidateConfig(baseline, candidate);
-  writeSftddConfig(ctx.projectDir, merged, { force: true });
+  writeConsortConfig(ctx.projectDir, merged, { force: true });
 
   // Candidate env (e.g. CONTEXT_FREE_FRACTION) rides on process.env for the turn.
   const priorEnv: Record<string, string | undefined> = {};
@@ -107,7 +107,7 @@ function applyCandidate(ctx: OptimizeLiveCtx, candidate: Candidate): () => void 
     : undefined;
 
   return () => {
-    writeSftddConfig(ctx.projectDir, baseline, { force: true });
+    writeConsortConfig(ctx.projectDir, baseline, { force: true });
     for (const [k, v] of Object.entries(priorEnv)) {
       if (v === undefined) delete process.env[k];
       else process.env[k] = v;
@@ -131,14 +131,14 @@ export function makeChampionWalkDeps(ctx: OptimizeLiveCtx): ChampionWalkDeps {
       if (isBuildHandoff(handoff)) {
         if (!ctx.buildSnapshotDeps) throw new Error(`build handoff ${handoff.id} needs buildSnapshotDeps (git + re-fork)`);
         const reFork = turnMutatesDb(handoff.buildMode, handoff.role);
-        const snap = await snapshotBuild({ projectDir: ctx.projectDir, sftddDir: ctx.sftddDir, story: handoff.story ?? "" }, ctx.buildSnapshotDeps);
+        const snap = await snapshotBuild({ projectDir: ctx.projectDir, consortDir: ctx.consortDir, story: handoff.story ?? "" }, ctx.buildSnapshotDeps);
         return {
           restore: () => snap.restore({ reFork }),
           dispose: () => {},
         };
       }
       // Design handoff: pure .sftdd copy/replace.
-      const snap = snapshotDesign({ sftddDir: ctx.sftddDir });
+      const snap = snapshotDesign({ consortDir: ctx.consortDir });
       return { restore: async () => snap.restore(), dispose: () => snap.dispose() };
     },
 
@@ -151,7 +151,7 @@ export function makeChampionWalkDeps(ctx: OptimizeLiveCtx): ChampionWalkDeps {
         const durationMs = ctx.now() - started; // clock STOPS here , judging is untimed
         let gate: GateOutcome = isBuildHandoff(handoff)
           ? (ctx.gateBuild ?? (() => ({ passed: true })))({ handoff })
-          : evaluateDesignGate({ sftddDir: ctx.sftddDir, featureId: ctx.featureId, handoff });
+          : evaluateDesignGate({ consortDir: ctx.consortDir, featureId: ctx.featureId, handoff });
         // SEMANTIC bar: only for a design turn that CLEARED the structural floor, and
         // only when a judge is wired (a recorded reference exists). Runs after the
         // clock stopped, so it does not affect durationMs. A below-threshold verdict
@@ -177,7 +177,7 @@ export function makeChampionWalkDeps(ctx: OptimizeLiveCtx): ChampionWalkDeps {
         const artifactsRef: DesignArtifactRef | undefined =
           gate.passed && !isBuildHandoff(handoff)
             ? captureDesignArtifacts({
-                sftddDir: ctx.sftddDir,
+                consortDir: ctx.consortDir,
                 destDir: join(ctx.experimentsDir, handoff.id, candidate.id, `trial-${trial}`, "artifacts"),
               })
             : undefined;
@@ -208,7 +208,7 @@ export function makeChampionWalkDeps(ctx: OptimizeLiveCtx): ChampionWalkDeps {
       // restore wiped it); restoring it makes the live .sftdd the winner's output.
       const ref = artifactsRef as DesignArtifactRef | undefined;
       if (ref?.path) {
-        restoreDesignArtifacts({ sftddDir: ctx.sftddDir, ref });
+        restoreDesignArtifacts({ consortDir: ctx.consortDir, ref });
         // Record the (now-restored) winner state into the corpus without a re-spawn:
         // recordTurn diffs the current .sftdd against the recorder baseline. Only when
         // a corpus record dir is set (a winner capture); best-effort so a recorder
@@ -217,8 +217,8 @@ export function makeChampionWalkDeps(ctx: OptimizeLiveCtx): ChampionWalkDeps {
         const recordDir = process.env[RECORD_DIR_ENV]?.trim() || ctx.recordDir;
         if (recordDir && handoff.action) {
           try {
-            seedRecorderBaseline({ recordDir, projectDir: ctx.projectDir, sftddDir: ctx.sftddDir });
-            recordTurn({ recordDir, projectDir: ctx.projectDir, sftddDir: ctx.sftddDir, action: handoff.action, step: 0 });
+            seedRecorderBaseline({ recordDir, projectDir: ctx.projectDir, consortDir: ctx.consortDir });
+            recordTurn({ recordDir, projectDir: ctx.projectDir, consortDir: ctx.consortDir, action: handoff.action, step: 0 });
           } catch (e) {
             process.stderr.write(`[optimize] recordWinner: corpus record best-effort failed for ${handoff.id}: ${e instanceof Error ? e.message : String(e)}\n`);
           }
@@ -530,8 +530,8 @@ export async function runLaneSweep(
  *  when there is no turn.usage yet (older log / turn errored before usage). A role
  *  whose last turn had high input_tokens but was slow is prompt-bound; one whose
  *  input is dominated by cache_read_tokens is not. */
-export function readLastTurnTokens(sftddDir: string, role: string): { inputTokens?: number; cacheReadTokens?: number } | undefined {
-  const events = readAgentLog({ sftddDir, role: role as never }).filter((e) => e.event === "turn.usage");
+export function readLastTurnTokens(consortDir: string, role: string): { inputTokens?: number; cacheReadTokens?: number } | undefined {
+  const events = readAgentLog({ consortDir, role: role as never }).filter((e) => e.event === "turn.usage");
   const last = events[events.length - 1];
   if (!last?.metadata) return undefined;
   const m = last.metadata as Record<string, unknown>;
@@ -547,10 +547,10 @@ export function readLastTurnTokens(sftddDir: string, role: string): { inputToken
  *  iff NO unresolved escalation for this story exists. This is the honest signal ,
  *  an honest-GREEN failure / build halt leaves a story-scoped escalation on disk;
  *  the self-heal, if it succeeded, resolved it. Pure read of the .sftdd. */
-export function makeBuildGate(sftddDir: string, featureId: string): (args: { handoff: HandoffPlan }) => GateOutcome {
+export function makeBuildGate(consortDir: string, featureId: string): (args: { handoff: HandoffPlan }) => GateOutcome {
   return ({ handoff }) => {
     const story = handoff.story;
-    const open = readEscalations(sftddDir).filter(
+    const open = readEscalations(consortDir).filter(
       (e) => !e.resolved_at && e.story_id === story && (e.feature_id === undefined || e.feature_id === featureId),
     );
     if (open.length === 0) return { passed: true };

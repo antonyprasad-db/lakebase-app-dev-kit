@@ -6925,11 +6925,17 @@ import { spawn } from "child_process";
 
 // consort/config/consort-env.ts
 init_esm_shims();
-function sftddEnv(suffix, env = process.env) {
-  return env[`LAKEBASE_SFTDD_${suffix}`] ?? env[`LAKEBASE_TDD_${suffix}`];
+var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
+var ENV_PREFIX = ENV_PREFIXES[0];
+function consortEnv(suffix, env = process.env) {
+  for (const prefix of ENV_PREFIXES) {
+    const v = env[`${prefix}${suffix}`];
+    if (v !== void 0) return v;
+  }
+  return void 0;
 }
 
-// consort/setup/project-sftdd-setup.ts
+// consort/setup/project-consort-setup.ts
 init_esm_shims();
 import * as fs4 from "fs";
 import * as path4 from "path";
@@ -6943,7 +6949,7 @@ var ARTIFACT_ROOT = ".consort";
 var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
 var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
 var artifactRootsRegexAlternation = () => ALL_ARTIFACT_ROOTS.map((r) => r.replace(/[.]/g, "\\.")).join("|");
-function resolveSftddDir(projectDir = process.cwd()) {
+function resolveConsortDir(projectDir = process.cwd()) {
   const next = join2(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
   for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
@@ -7122,7 +7128,7 @@ var LEGACY_CONFIG_RELS = [
   join3(".lakebase", "tdd-config.json")
 ];
 var LEGACY_TDD_CONFIG_REL = LEGACY_CONFIG_RELS[0];
-function loadSftddConfig(projectDir) {
+function loadConsortConfig(projectDir) {
   for (const rel of [CONSORT_CONFIG_REL, ...LEGACY_CONFIG_RELS]) {
     const f = join3(projectDir, rel);
     if (!existsSync3(f)) continue;
@@ -7135,7 +7141,7 @@ function loadSftddConfig(projectDir) {
   return void 0;
 }
 function resolveProjectSettings(projectDir) {
-  const file = loadSftddConfig(projectDir);
+  const file = loadConsortConfig(projectDir);
   const build = {
     loopGranularity: file?.build?.loopGranularity ?? "story",
     batchCap: file?.build?.batchCap,
@@ -7153,7 +7159,7 @@ function resolveProjectSettings(projectDir) {
   const plan = { sizing: file?.plan?.sizing ?? true };
   return { build, plan, project };
 }
-function defaultSftddConfig() {
+function defaultConsortConfig() {
   const roles = {};
   for (const role of ALL_AGENT_ROLES) {
     roles[role] = role === "navigator" ? { model: RECOMMENDED_MODELS[role], effort: { review: "low" } } : role === "driver" ? (
@@ -7194,7 +7200,7 @@ function mergeOptimizedDefaults(base, overlay) {
   }
   return out;
 }
-function writeSftddConfig(projectDir, config, opts) {
+function writeConsortConfig(projectDir, config, opts) {
   const f = join3(projectDir, CONSORT_CONFIG_REL);
   if (existsSync3(f) && !opts?.force) return false;
   mkdirSync3(dirname2(f), { recursive: true });
@@ -7202,7 +7208,7 @@ function writeSftddConfig(projectDir, config, opts) {
   return true;
 }
 
-// consort/lakebase/adopt-sftdd.ts
+// consort/lakebase/adopt-consort.ts
 init_esm_shims();
 import * as fs2 from "fs";
 import * as path2 from "path";
@@ -7262,7 +7268,7 @@ function updateAgents(args) {
   return { files, changed };
 }
 
-// consort/setup/project-sftdd-setup.ts
+// consort/setup/project-consort-setup.ts
 var __dirname2 = path4.dirname(fileURLToPath3(import.meta.url));
 function resolveKitRoot() {
   const candidates = [
@@ -7343,13 +7349,13 @@ function cpDir(srcDir, dstDir) {
   return copied;
 }
 function replayDesignTurn(args) {
-  const { turn, replayDir, sftddDir, featureId } = args;
+  const { turn, replayDir, consortDir, featureId } = args;
   const cf = join7(featuresDir(replayDir), featureId);
-  const tf = join7(featuresDir(sftddDir), featureId);
+  const tf = join7(featuresDir(consortDir), featureId);
   switch (turn.role) {
     case "spec-author": {
       if (turn.mode === "propose") {
-        return cp(join7(replayDir, "planning", "feature-proposals.md"), join7(sftddDir, "planning", "feature-proposals.md"));
+        return cp(join7(replayDir, "planning", "feature-proposals.md"), join7(consortDir, "planning", "feature-proposals.md"));
       }
       if (turn.mode === "breakdown") {
         let ok = cp(join7(cf, "feature-spec.json"), join7(tf, "feature-spec.json"));
@@ -7392,9 +7398,9 @@ function replayDesignTurn(args) {
       return ok;
     }
     case "ux-designer": {
-      let ok = cp(join7(replayDir, "design", "design-guide.json"), join7(sftddDir, "design", "design-guide.json"));
-      cp(join7(replayDir, "design", "design-guide.md"), join7(sftddDir, "design", "design-guide.md"));
-      cp(join7(replayDir, "design", "ia.md"), join7(sftddDir, "design", "ia.md"));
+      let ok = cp(join7(replayDir, "design", "design-guide.json"), join7(consortDir, "design", "design-guide.json"));
+      cp(join7(replayDir, "design", "design-guide.md"), join7(consortDir, "design", "design-guide.md"));
+      cp(join7(replayDir, "design", "ia.md"), join7(consortDir, "design", "ia.md"));
       return ok;
     }
     default:
@@ -7402,10 +7408,10 @@ function replayDesignTurn(args) {
   }
 }
 function restoreReflectVerdict(args) {
-  const { replayDir, sftddDir, featureId, story } = args;
+  const { replayDir, consortDir, featureId, story } = args;
   return cp(
     join7(featuresDir(replayDir), featureId, "stories", story, "reflect-verdict.json"),
-    join7(featuresDir(sftddDir), featureId, "stories", story, "reflect-verdict.json")
+    join7(featuresDir(consortDir), featureId, "stories", story, "reflect-verdict.json")
   );
 }
 
@@ -7462,7 +7468,7 @@ function listBuildTurns(replayBuildDir, featureId, story) {
   return readdirSync6(dir).filter((n) => !n.startsWith(".")).sort();
 }
 function replayBuildTurn(args) {
-  const { replayBuildDir, projectDir, sftddDir, featureId, story, turnIndex } = args;
+  const { replayBuildDir, projectDir, consortDir, featureId, story, turnIndex } = args;
   const turns = listBuildTurns(replayBuildDir, featureId, story).filter(
     (n) => !/reflect|assess|repair|superseded/i.test(n)
   );
@@ -7473,7 +7479,7 @@ function replayBuildTurn(args) {
   cpSync2(codeSrc, projectDir, { recursive: true, force: true, filter: codeTreeFilter(codeSrc) });
   const cyclesSrc = join8(turnDir, "tdd", "cycles");
   if (existsSync8(cyclesSrc)) {
-    cpSync2(cyclesSrc, cyclesRootDir(sftddDir), {
+    cpSync2(cyclesSrc, cyclesRootDir(consortDir), {
       recursive: true,
       force: true,
       filter: (src) => statSync4(src).isDirectory() || src.endsWith("review-verdict.json")
@@ -7603,8 +7609,8 @@ function renderEventMessage(event, slots = {}) {
 
 // consort/logging/agent-log.ts
 var LEVEL_ORDER = { debug: 0, info: 1, warn: 2, error: 3 };
-function logFilePath(sftddDir) {
-  return join10(sftddDir, "agent-log.jsonl");
+function logFilePath(consortDir) {
+  return join10(consortDir, "agent-log.jsonl");
 }
 function buildAgentLogEvent(input, now) {
   const slots = input.slots ?? {};
@@ -7641,16 +7647,16 @@ function buildAgentLogEvent(input, now) {
   return event;
 }
 function emitAgentLogEvent(input, opts = {}) {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
+  const consortDir = opts.consortDir ?? resolveConsortDir();
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const event = buildAgentLogEvent(input, now);
-  appendFileSync(logFilePath(sftddDir), `${JSON.stringify(event)}
+  appendFileSync(logFilePath(consortDir), `${JSON.stringify(event)}
 `, "utf8");
   return event;
 }
 function readAgentLog(opts = {}) {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
-  const file = logFilePath(sftddDir);
+  const consortDir = opts.consortDir ?? resolveConsortDir();
+  const file = logFilePath(consortDir);
   if (!existsSync10(file)) return [];
   const minRank = opts.minLevel !== void 0 ? LEVEL_ORDER[opts.minLevel] : void 0;
   const out = [];
@@ -7674,8 +7680,8 @@ function readAgentLog(opts = {}) {
 init_esm_shims();
 import * as fs5 from "fs";
 var PHASE_OWNER_KEY = "phase_feature_id";
-function writeWorkflowPhase(sftddDir, phase, featureId) {
-  const file = workflowStateJson(sftddDir);
+function writeWorkflowPhase(consortDir, phase, featureId) {
+  const file = workflowStateJson(consortDir);
   let state = {};
   if (fs5.existsSync(file)) {
     try {
@@ -7686,7 +7692,7 @@ function writeWorkflowPhase(sftddDir, phase, featureId) {
   }
   state.phase = phase;
   if (featureId) state[PHASE_OWNER_KEY] = featureId;
-  fs5.mkdirSync(sftddDir, { recursive: true });
+  fs5.mkdirSync(consortDir, { recursive: true });
   fs5.writeFileSync(file, JSON.stringify(state, null, 2) + "\n");
 }
 
@@ -8313,8 +8319,8 @@ function turnKeyForAction(action) {
 }
 
 // consort/orchestrator/settings/project-settings.ts
-function resolveSftddSettings(inputs) {
-  const file = loadSftddConfig(inputs.projectDir);
+function resolveConsortSettings(inputs) {
+  const file = loadConsortConfig(inputs.projectDir);
   const legacy = readAgentConfig(inputs.projectDir);
   const models = {};
   const fallbackModels = {};
@@ -8428,14 +8434,14 @@ function assistantEventSummary(line) {
 init_esm_shims();
 var CONTEXT_FREE_FRACTION_REQUIRED = 0.4;
 function requiredFreeFraction(env = process.env) {
-  const raw = env.LAKEBASE_SFTDD_CONTEXT_FREE_FRACTION ?? env.SFTDD_CONTEXT_FREE_FRACTION;
+  const raw = consortEnv("CONTEXT_FREE_FRACTION", env) ?? env.SFTDD_CONTEXT_FREE_FRACTION;
   if (raw === void 0) return CONTEXT_FREE_FRACTION_REQUIRED;
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 && n < 1 ? n : CONTEXT_FREE_FRACTION_REQUIRED;
 }
 var DEFAULT_HEAVY_ROLES = [];
 function heavyRoles(env = process.env) {
-  const raw = env.LAKEBASE_SFTDD_HEAVY_ROLES ?? env.SFTDD_HEAVY_ROLES;
+  const raw = consortEnv("HEAVY_ROLES", env) ?? env.SFTDD_HEAVY_ROLES;
   if (raw === void 0) return new Set(DEFAULT_HEAVY_ROLES);
   return new Set(raw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean));
 }
@@ -8680,8 +8686,8 @@ function relocateStrayDesignArtifacts(projectDir) {
 
 // consort/orchestrator/drive/claude-runner.ts
 var MAX_PROMPT_TOO_LONG_RETRIES = 2;
-var MAX_TRANSIENT_RETRIES = Number(sftddEnv("MAX_TRANSIENT_RETRIES") ?? "5");
-var TRANSIENT_BACKOFF_MS = Number(sftddEnv("TRANSIENT_BACKOFF_MS") ?? "5000");
+var MAX_TRANSIENT_RETRIES = Number(consortEnv("MAX_TRANSIENT_RETRIES") ?? "5");
+var TRANSIENT_BACKOFF_MS = Number(consortEnv("TRANSIENT_BACKOFF_MS") ?? "5000");
 function spawnCmd(bin, args, cwd) {
   return new Promise((resolve4, reject) => {
     const child = spawn(bin, args, { cwd, stdio: "inherit" });
@@ -8706,22 +8712,22 @@ var ReplayCorpusMissError = class extends Error {
   }
 };
 var ArtifactOutOfRootError = class extends Error {
-  constructor(role, label, anyOf, sftddDir, checkedSibling) {
+  constructor(role, label, anyOf, consortDir, checkedSibling) {
     super(
-      `role '${role}' produced no ${label} under ${path6.basename(sftddDir)}/ (expected one of: ${anyOf.join(", ")}).
+      `role '${role}' produced no ${label} under ${path6.basename(consortDir)}/ (expected one of: ${anyOf.join(", ")}).
         The subagent likely resolved the project root wrong and wrote outside it. ` + (checkedSibling ? `Checked (and tried to relocate from) the malformed sibling ${checkedSibling}; nothing there either. ` : `(check $HOME and other dirs for a stray copy). `) + `Nothing downstream can consume the absent artifact. Re-run to re-dispatch the role.`
     );
     this.role = role;
     this.label = label;
     this.anyOf = anyOf;
-    this.sftddDir = sftddDir;
+    this.consortDir = consortDir;
     this.checkedSibling = checkedSibling;
     this.name = "ArtifactOutOfRootError";
   }
   role;
   label;
   anyOf;
-  sftddDir;
+  consortDir;
   checkedSibling;
 };
 var lastAgentTranscript;
@@ -8736,7 +8742,7 @@ function spawnClaudeStreaming(args, cwd) {
     const lines = [];
     let sawTooLong = false;
     let sawTransient = false;
-    const verboseAgent = !!sftddEnv("VERBOSE_AGENT");
+    const verboseAgent = !!consortEnv("VERBOSE_AGENT");
     let lastText = "";
     const allTools = [];
     const rl = readline.createInterface({ input: child.stdout });
@@ -8817,20 +8823,20 @@ function execRunner(cfg) {
   return {
     async run(cmd) {
       if (cmd.kind === "set-phase") {
-        writeWorkflowPhase(cfg.sftddDir, cmd.phase, cfg.featureId || void 0);
+        writeWorkflowPhase(cfg.consortDir, cmd.phase, cfg.featureId || void 0);
         return;
       }
       if (cmd.kind === "sync-backlog") {
         return;
       }
       if (cmd.kind === "claude") {
-        const replayBuildDir = sftddEnv("REPLAY_BUILD_DIR");
+        const replayBuildDir = consortEnv("REPLAY_BUILD_DIR");
         const story = cmd.replay?.story;
         if (replayBuildDir && story && (cmd.role === "navigator" || cmd.role === "driver")) {
           if (cmd.replay?.buildMode === "reflect") {
-            const rd = sftddEnv("REPLAY_DIR");
+            const rd = consortEnv("REPLAY_DIR");
             if (rd) {
-              const restored = restoreReflectVerdict({ replayDir: rd, sftddDir: cfg.sftddDir, featureId: cfg.featureId, story });
+              const restored = restoreReflectVerdict({ replayDir: rd, consortDir: cfg.consortDir, featureId: cfg.featureId, story });
               if (!restored) {
                 throw new ReplayCorpusMissError(
                   `[drive] REPLAY CORPUS MISS: reflect verdict for ${story} is not in the corpus (expected features/${cfg.featureId}/stories/${story}/reflect-verdict.json under ${rd}). Replay will NOT run the Navigator live , put the recorded verdict in the corpus (check .gitignore is not dropping it).`
@@ -8846,7 +8852,7 @@ function execRunner(cfg) {
           const replayed = replayBuildTurn({
             replayBuildDir,
             projectDir: cfg.projectDir,
-            sftddDir: cfg.sftddDir,
+            consortDir: cfg.consortDir,
             featureId: cfg.featureId,
             story,
             turnIndex
@@ -8862,12 +8868,12 @@ function execRunner(cfg) {
             `[drive] REPLAY CORPUS MISS: build turn ${turnIndex} for ${story} (${cmd.role}) has no recorded turn dir under ${replayBuildDir} (features/${cfg.featureId}/stories/${story}/turns). The live orchestrator dispatched more build turns than the corpus recorded, or the corpus is incomplete. Replay will NOT run the agent live , re-record or fix the corpus so it covers every dispatched turn.`
           );
         }
-        const replayDir = sftddEnv("REPLAY_DIR");
+        const replayDir = consortEnv("REPLAY_DIR");
         if (replayDir && REPLAYABLE_DESIGN_ROLES.has(cmd.role)) {
           const replayed = replayDesignTurn({
             turn: { role: cmd.role, mode: cmd.replay?.mode, story: cmd.replay?.story },
             replayDir,
-            sftddDir: cfg.sftddDir,
+            consortDir: cfg.consortDir,
             featureId: cfg.featureId
           });
           if (replayed) {
@@ -8966,7 +8972,7 @@ function execRunner(cfg) {
                   ...cmd.replay?.mode ? { phase: cmd.replay.mode } : {}
                 }
               },
-              { sftddDir: cfg.sftddDir }
+              { consortDir: cfg.consortDir }
             );
           } catch {
           }
@@ -8995,7 +9001,7 @@ function execRunner(cfg) {
               cmd.role,
               cmd.label,
               cmd.anyOf,
-              cfg.sftddDir,
+              cfg.consortDir,
               malformedSiblingRoot(cfg.projectDir)
             );
           }
@@ -9015,7 +9021,7 @@ var agentResyncDone = false;
 function maybeResyncAgents(projectDir) {
   if (agentResyncDone) return;
   agentResyncDone = true;
-  const recordingOrReplaying = !!sftddEnv("REPLAY_DIR") || !!sftddEnv("REPLAY_BUILD_DIR") || !!sftddEnv("RECORD_BUILD_DIR") || !!sftddEnv("RECORD_DIR");
+  const recordingOrReplaying = !!consortEnv("REPLAY_DIR") || !!consortEnv("REPLAY_BUILD_DIR") || !!consortEnv("RECORD_BUILD_DIR") || !!consortEnv("RECORD_DIR");
   if (recordingOrReplaying) return;
   const r = resyncAgentsOnKitDrift(projectDir);
   if (r.refreshed) {
@@ -9025,27 +9031,27 @@ function maybeResyncAgents(projectDir) {
 }
 function buildCfg(args, featureId) {
   const projectDir = args.projectDir ?? process.cwd();
-  const sftddDir = args.sftddDir ?? resolveSftddDir(projectDir);
+  const consortDir = args.consortDir ?? resolveConsortDir(projectDir);
   maybeResyncAgents(projectDir);
   const scm = readWorkflowState(projectDir);
-  const settings = resolveSftddSettings({ projectDir });
+  const settings = resolveConsortSettings({ projectDir });
   return {
     projectDir,
-    sftddDir,
+    consortDir,
     featureId,
     sprintName: args.sprint,
     // Recorded feature-requests present (capture/replay) => the planning PROPOSE
     // step is deterministic (project feature-proposals.md from them) instead of an
     // LLM spawn. Unset (interactive) keeps the live Spec Author propose turn.
-    recordedRequests: !!sftddEnv("SPRINT_REQUESTS")?.trim(),
+    recordedRequests: !!consortEnv("SPRINT_REQUESTS")?.trim(),
     // Force a LIVE propose even with recorded requests (capture exercising the
     // full plan lane): the Spec Author proposes from product-overview + nfrs,
     // the proxy still commits the recorded request at author-requests.
-    livePropose: !!sftddEnv("LIVE_PROPOSE")?.trim(),
+    livePropose: !!consortEnv("LIVE_PROPOSE")?.trim(),
     // Stage 2 (#578): route the migrated agent turns (currently spec-author breakdown)
     // THROUGH the StepExecutor instead of commandsForAction. Opt-in via
     // LAKEBASE_SFTDD_USE_MANIFEST_STEPS; default OFF = byte-identical legacy dispatch.
-    useManifestSteps: !!sftddEnv("USE_MANIFEST_STEPS")?.trim(),
+    useManifestSteps: !!consortEnv("USE_MANIFEST_STEPS")?.trim(),
     instance: args.instance ?? scm?.project_id,
     featureBranch: scm?.branch,
     parentBranch: scm?.parent_branch,
@@ -9086,7 +9092,7 @@ function buildCfg(args, featureId) {
       // the structured agent-log by makeOnAction below, so the raw action JSON is
       // console noise on every line , append it only under LAKEBASE_SFTDD_TRACE.
       (action, i) => {
-        const trace = sftddEnv("TRACE") ? `  ${JSON.stringify(action)}` : "";
+        const trace = consortEnv("TRACE") ? `  ${JSON.stringify(action)}` : "";
         process.stderr.write(`[drive] ${String(i).padStart(3, "0")} ${describeAction(action, { featureId })}${trace}
 `);
       },
@@ -9096,7 +9102,7 @@ function buildCfg(args, featureId) {
       // The resolvers stamp each per-turn phase.start with the model + effort it
       // ran with (right after `role`).
       makeOnAction({
-        sftddDir,
+        consortDir,
         featureId,
         modelForRole: (role) => settings.models[role],
         effortForTurn: (role, turn) => {
@@ -9690,9 +9696,9 @@ function checkNfrCoverage(nfrsMd2, architectureJson2, otherFeatureBriefRefs = /*
   }
   return finalize(violations);
 }
-function projectBriefRefs(sftddDir) {
+function projectBriefRefs(consortDir) {
   const refs = /* @__PURE__ */ new Set();
-  const fdir = featuresDir(sftddDir);
+  const fdir = featuresDir(consortDir);
   if (!existsSync16(fdir)) return refs;
   for (const feature of readdirSync10(fdir)) {
     const archPath = join15(fdir, feature, "architecture.json");
@@ -10326,11 +10332,11 @@ function executorDispatched(action) {
   return false;
 }
 function manifestPostTurnCommands(manifest, when, action, cfg, deps) {
-  const tdd = ["--feature", cfg.featureId, "--tdd-dir", cfg.sftddDir];
+  const tdd = ["--feature", cfg.featureId, "--tdd-dir", cfg.consortDir];
   const resolveBin = (t) => deps.binTokens[t] ?? t;
   const story = "story" in action && typeof action.story === "string" ? action.story : void 0;
   const expand = (args) => args.flatMap(
-    (a) => a === "--tdd" ? tdd : a === "{feature}" ? [cfg.featureId] : a === "{tddDir}" ? [cfg.sftddDir] : a === "{story}" ? story ? [story] : [] : [a]
+    (a) => a === "--tdd" ? tdd : a === "{feature}" ? [cfg.featureId] : a === "{tddDir}" ? [cfg.consortDir] : a === "{story}" ? story ? [story] : [] : [a]
   );
   const out = [];
   for (const p of manifest.postTurn ?? []) {
@@ -10370,10 +10376,10 @@ async function performTurnViaExecutor(action, state, routerDeps, cfg, deps) {
   const inputPath = (source) => {
     if (source.startsWith("story:")) {
       const rel = source.slice("story:".length);
-      if (!story) return join18(cfg.sftddDir, rel);
-      return join18(storyResolved(cfg.sftddDir, f, story), rel);
+      if (!story) return join18(cfg.consortDir, rel);
+      return join18(storyResolved(cfg.consortDir, f, story), rel);
     }
-    return join18(cfg.sftddDir, source.replace(/^feature:/, ""));
+    return join18(cfg.consortDir, source.replace(/^feature:/, ""));
   };
   const executorDeps = {
     // Uncontained: the agent reads the tree itself, but Step still gates on the presence of
@@ -10391,7 +10397,7 @@ async function performTurnViaExecutor(action, state, routerDeps, cfg, deps) {
     },
     // The workspace IS the real project (LiveDriveStepAgent's runner spawns in cfg.projectDir).
     // artifact-channel outputs live under the real .sftdd; product-channel (tests/) at the root.
-    provisionWorkspace: () => ({ workspaceDir: cfg.projectDir, artifactDir: cfg.sftddDir, outputPaths: outputPathsForAction(action, f) }),
+    provisionWorkspace: () => ({ workspaceDir: cfg.projectDir, artifactDir: cfg.consortDir, outputPaths: outputPathsForAction(action, f) }),
     // The prompt is the agent's own (buildClaudeCommand -> roleTask); unused by LiveDriveStepAgent,
     // but the executor requires the dep.
     instructionsFor: () => ({ prompt: "" }),
@@ -10402,7 +10408,7 @@ async function performTurnViaExecutor(action, state, routerDeps, cfg, deps) {
     // Phase 4.5: reconcile MATERIALIZES the agent-log (the legacy path's LOG_BIN --reconcile), so
     // validate-outputs sees the conformant agent-log.jsonl the agent never wrote itself.
     materializeOutputs: async () => {
-      await cfg.runner.run({ kind: "cli", bin: deps.logBin, args: ["--reconcile", "--feature", f, "--tdd-dir", cfg.sftddDir] });
+      await cfg.runner.run({ kind: "cli", bin: deps.logBin, args: ["--reconcile", "--feature", f, "--tdd-dir", cfg.consortDir] });
     },
     // Phase 6.5: the manifest's `after` CLIs , gated on clean validation by the executor. For
     // breakdown that is sync-breakdown; for navigator RED it is the `@build-cycle` RED stamp (the
@@ -10413,7 +10419,7 @@ async function performTurnViaExecutor(action, state, routerDeps, cfg, deps) {
   };
   const freshRouterDeps = {
     ...routerDeps,
-    allowed: () => routerDeps.allowed(deps.readDriveStateFromDisk(cfg.sftddDir, cfg.featureId, cfg.projectDir, { uiTrack: cfg.uiTrack }))
+    allowed: () => routerDeps.allowed(deps.readDriveStateFromDisk(cfg.consortDir, cfg.featureId, cfg.projectDir, { uiTrack: cfg.uiTrack }))
   };
   const ctx = { action, cfg, state, validateBoundDeps: freshRouterDeps };
   const result = await execute(step, ctx, executorDeps);
@@ -10527,14 +10533,14 @@ function branchIdOf(info) {
   if (!leaf) throw new Error(`could not derive branch_id from ${info.name}`);
   return leaf;
 }
-function experimentsRoot(sftddDir, featureId, storyId) {
-  return join19(sftddDir, "experiments", featureId, storyId);
+function experimentsRoot(consortDir, featureId, storyId) {
+  return join19(consortDir, "experiments", featureId, storyId);
 }
-function experimentDir(sftddDir, featureId, storyId, slug) {
-  return join19(experimentsRoot(sftddDir, featureId, storyId), slug);
+function experimentDir(consortDir, featureId, storyId, slug) {
+  return join19(experimentsRoot(consortDir, featureId, storyId), slug);
 }
 async function cutExperiment(args, deps = {}) {
-  const { sftddDir, projectDir, featureId, storyId, experimentSlug, branch, parentBranch, ttl, notes, resetStaleBranch, ...lookup } = args;
+  const { consortDir, projectDir, featureId, storyId, experimentSlug, branch, parentBranch, ttl, notes, resetStaleBranch, ...lookup } = args;
   const create = deps.createPairedBranch ?? createPairedBranch;
   const dropBranch = deps.deletePairedBranch ?? deletePairedBranch;
   if (resetStaleBranch) {
@@ -10558,7 +10564,7 @@ async function cutExperiment(args, deps = {}) {
     );
   }
   const branchId = branchIdOf(paired.branch);
-  const dir = experimentDir(sftddDir, featureId, storyId, experimentSlug);
+  const dir = experimentDir(consortDir, featureId, storyId, experimentSlug);
   mkdirSync10(dir, { recursive: true });
   writeFileSync7(join19(dir, "branch.txt"), branchId);
   writeFileSync7(
@@ -10589,8 +10595,8 @@ Experiment cut from \`${parentBranch ?? "staging"}\`. Strategy + learning notes 
 }
 
 // consort/pipeline/run-cycle.ts
-function readAcLayer2(sftddDir, featureId, acId) {
-  return readAcLayer(sftddDir, featureId, acId);
+function readAcLayer2(consortDir, featureId, acId) {
+  return readAcLayer(consortDir, featureId, acId);
 }
 function coveredTestIds(c) {
   if (c.test_ids && c.test_ids.length > 0) return c.test_ids;
@@ -10815,13 +10821,13 @@ var BUILD_REFACTOR_ROUTABLE = /* @__PURE__ */ new Set([
 function isBuildRefactorRoutableSmell(name) {
   return BUILD_REFACTOR_ROUTABLE.has(name);
 }
-function hasOpenBuildRefactorRoutableSmell(sftddDir, story_id) {
-  return readSmellsLog(sftddDir).detected.some(
+function hasOpenBuildRefactorRoutableSmell(consortDir, story_id) {
+  return readSmellsLog(consortDir).detected.some(
     (d) => !d.resolution && isBuildRefactorRoutableSmell(d.smell) && (story_id === void 0 || d.story_id === void 0 || d.story_id === story_id)
   );
 }
-function readSmellsLog(sftddDir) {
-  const file = join21(sftddDir, "smells.json");
+function readSmellsLog(consortDir) {
+  const file = join21(consortDir, "smells.json");
   if (!existsSync22(file)) return { detected: [] };
   return JSON.parse(readFileSync17(file, "utf8"));
 }
@@ -10830,8 +10836,8 @@ function smellMatches(entry, smell, story_id) {
   if (story_id === void 0) return true;
   return entry.story_id === void 0 || entry.story_id === story_id;
 }
-function priorReviseCount(sftddDir, smell, story_id) {
-  return readSmellsLog(sftddDir).detected.filter(
+function priorReviseCount(consortDir, smell, story_id) {
+  return readSmellsLog(consortDir).detected.filter(
     (d) => d.resolution_kind === "revised" && smellMatches(d, smell, story_id)
   ).length;
 }
@@ -10843,13 +10849,13 @@ function isReflectSmell(name) {
   return REFLECT_SMELL_NAMES.has(name);
 }
 var REFLECT_REVISE_CAP = 4;
-function priorReflectReviseCount(sftddDir, story_id) {
-  return readSmellsLog(sftddDir).detected.filter(
+function priorReflectReviseCount(consortDir, story_id) {
+  return readSmellsLog(consortDir).detected.filter(
     (d) => d.resolution_kind === "revised" && isReflectSmell(d.smell) && d.story_id === story_id
   ).length;
 }
-function storyTestListFingerprint(sftddDir, featureId, story_id) {
-  const f = storyTestListJson(sftddDir, featureId, story_id);
+function storyTestListFingerprint(consortDir, featureId, story_id) {
+  const f = storyTestListJson(consortDir, featureId, story_id);
   if (!existsSync22(f)) return "";
   try {
     return createHash("sha1").update(readFileSync17(f)).digest("hex");
@@ -10857,8 +10863,8 @@ function storyTestListFingerprint(sftddDir, featureId, story_id) {
     return "";
   }
 }
-function lastReflectReviseFingerprint(sftddDir, story_id) {
-  const reflects = readSmellsLog(sftddDir).detected.filter(
+function lastReflectReviseFingerprint(consortDir, story_id) {
+  const reflects = readSmellsLog(consortDir).detected.filter(
     (d) => d.resolution_kind === "revised" && isReflectSmell(d.smell) && d.story_id === story_id
   );
   if (reflects.length === 0) return null;
@@ -10916,8 +10922,8 @@ function readEscalationFile(file) {
     return void 0;
   }
 }
-function readEscalations(sftddDir) {
-  const dir = escalationsDir(sftddDir);
+function readEscalations(consortDir) {
+  const dir = escalationsDir(consortDir);
   if (!fs9.existsSync(dir)) return [];
   const out = [];
   for (const f of fs9.readdirSync(dir)) {
@@ -10927,13 +10933,13 @@ function readEscalations(sftddDir) {
   }
   return out;
 }
-function escalationsFromSmells(sftddDir, featureId) {
-  const log = readSmellsLog(sftddDir);
+function escalationsFromSmells(consortDir, featureId) {
+  const log = readSmellsLog(consortDir);
   return log.detected.filter((d) => !d.resolution && BLOCKING_SMELLS.has(d.smell)).filter((d) => {
     if (d.smell !== "cycle-stall" || !featureId || !d.story_id) {
       return true;
     }
-    return pendingItemKind(sftddDir, featureId, d.story_id) !== "fitness";
+    return pendingItemKind(consortDir, featureId, d.story_id) !== "fitness";
   }).map((d) => ({
     id: escalationId({ source: `smell:${d.smell}`, feature_id: featureId, story_id: d.story_id }),
     source: `smell:${d.smell}`,
@@ -10944,13 +10950,13 @@ function escalationsFromSmells(sftddDir, featureId) {
     raised_at: d.detected_at
   }));
 }
-function firstPendingEscalation(sftddDir, featureId) {
-  const explicit = readEscalations(sftddDir).filter((e) => !e.resolved_at);
+function firstPendingEscalation(consortDir, featureId) {
+  const explicit = readEscalations(consortDir).filter((e) => !e.resolved_at);
   const scoped = featureId ? explicit.filter((e) => !e.feature_id || e.feature_id === featureId) : explicit;
   if (scoped.length > 0) {
     return [...scoped].sort((a, b) => a.raised_at < b.raised_at ? -1 : 1)[0];
   }
-  const fromSmells = escalationsFromSmells(sftddDir, featureId);
+  const fromSmells = escalationsFromSmells(consortDir, featureId);
   return fromSmells.length > 0 ? fromSmells.sort((a, b) => a.raised_at < b.raised_at ? -1 : 1)[0] : null;
 }
 
@@ -10958,13 +10964,13 @@ function firstPendingEscalation(sftddDir, featureId) {
 init_esm_shims();
 import * as fs10 from "fs";
 import * as path7 from "path";
-function scopePath(sftddDir, featureId, storyId) {
-  const fdir = findFeatureDir(sftddDir, featureId);
+function scopePath(consortDir, featureId, storyId) {
+  const fdir = findFeatureDir(consortDir, featureId);
   if (!fdir) return void 0;
   return storyId ? path7.join(fdir, "stories", storyId, "deploy-verify-scope.json") : path7.join(fdir, "deploy-verify-scope.json");
 }
-function readDeployVerifyScope(sftddDir, featureId, storyId) {
-  const file = scopePath(sftddDir, featureId, storyId);
+function readDeployVerifyScope(consortDir, featureId, storyId) {
+  const file = scopePath(consortDir, featureId, storyId);
   if (!file || !fs10.existsSync(file)) return void 0;
   try {
     return JSON.parse(fs10.readFileSync(file, "utf8"));
@@ -10972,13 +10978,13 @@ function readDeployVerifyScope(sftddDir, featureId, storyId) {
     return void 0;
   }
 }
-function markerPath(sftddDir, featureId, storyId) {
-  const fdir = findFeatureDir(sftddDir, featureId);
+function markerPath(consortDir, featureId, storyId) {
+  const fdir = findFeatureDir(consortDir, featureId);
   if (!fdir) return void 0;
   return storyId ? path7.join(fdir, "stories", storyId, "deploy-verify-assess.json") : path7.join(fdir, "deploy-verify-assess.json");
 }
-function readDeployVerifyAssessMarker(sftddDir, featureId, storyId) {
-  const file = markerPath(sftddDir, featureId, storyId);
+function readDeployVerifyAssessMarker(consortDir, featureId, storyId) {
+  const file = markerPath(consortDir, featureId, storyId);
   if (!file || !fs10.existsSync(file)) return void 0;
   try {
     return JSON.parse(fs10.readFileSync(file, "utf8"));
@@ -10986,12 +10992,12 @@ function readDeployVerifyAssessMarker(sftddDir, featureId, storyId) {
     return void 0;
   }
 }
-function deployVerifyRefactorPending(sftddDir, featureId, storyId) {
-  const m = readDeployVerifyAssessMarker(sftddDir, featureId, storyId);
+function deployVerifyRefactorPending(consortDir, featureId, storyId) {
+  const m = readDeployVerifyAssessMarker(consortDir, featureId, storyId);
   return !!m && m.assessed === true && (m.flagged_tests?.length ?? 0) > 0 && m.refactored !== true;
 }
-function deployVerifyNeedsAssess(sftddDir, featureId, storyId) {
-  const m = readDeployVerifyAssessMarker(sftddDir, featureId, storyId);
+function deployVerifyNeedsAssess(consortDir, featureId, storyId) {
+  const m = readDeployVerifyAssessMarker(consortDir, featureId, storyId);
   return !!m && !m.assessed && m.attempts < 1;
 }
 
@@ -11019,8 +11025,8 @@ function readDeployEvidence(file) {
     return void 0;
   }
 }
-function storyDeployVerified(sftddDir, featureId, storyId) {
-  const fdir = findFeatureDir(sftddDir, featureId);
+function storyDeployVerified(consortDir, featureId, storyId) {
+  const fdir = findFeatureDir(consortDir, featureId);
   if (!fdir) return false;
   return deployEvidencePasses(readDeployEvidence(join24(fdir, "stories", storyId, "deploy-evidence.json")));
 }
@@ -11089,13 +11095,13 @@ var EXCLUDE_DIR_JUNK = new RegExp(
 init_esm_shims();
 import * as fs12 from "fs";
 import * as path8 from "path";
-function markerPath2(sftddDir, featureId, storyId) {
-  const fdir = findFeatureDir(sftddDir, featureId);
+function markerPath2(consortDir, featureId, storyId) {
+  const fdir = findFeatureDir(consortDir, featureId);
   if (!fdir) return void 0;
   return path8.join(fdir, "stories", storyId, "refactor-verify-assess.json");
 }
-function readRefactorVerifyAssessMarker(sftddDir, featureId, storyId) {
-  const file = markerPath2(sftddDir, featureId, storyId);
+function readRefactorVerifyAssessMarker(consortDir, featureId, storyId) {
+  const file = markerPath2(consortDir, featureId, storyId);
   if (!file || !fs12.existsSync(file)) return void 0;
   try {
     return JSON.parse(fs12.readFileSync(file, "utf8"));
@@ -11103,12 +11109,12 @@ function readRefactorVerifyAssessMarker(sftddDir, featureId, storyId) {
     return void 0;
   }
 }
-function refactorVerifyNeedsAssess(sftddDir, featureId, storyId) {
-  const m = readRefactorVerifyAssessMarker(sftddDir, featureId, storyId);
+function refactorVerifyNeedsAssess(consortDir, featureId, storyId) {
+  const m = readRefactorVerifyAssessMarker(consortDir, featureId, storyId);
   return !!m && !m.assessed && m.attempts < 1;
 }
-function refactorVerifyRefactorPending(sftddDir, featureId, storyId) {
-  const m = readRefactorVerifyAssessMarker(sftddDir, featureId, storyId);
+function refactorVerifyRefactorPending(consortDir, featureId, storyId) {
+  const m = readRefactorVerifyAssessMarker(consortDir, featureId, storyId);
   return !!m && m.assessed === true && (m.flagged_tests?.length ?? 0) > 0 && m.refactored !== true;
 }
 
@@ -11120,16 +11126,16 @@ import { join as join29, relative as relative2, extname as extname2 } from "path
 // consort/pipeline/cycle-record.ts
 import { commitAllIfChanged } from "@databricks-solutions/lakebase-scm-utils/git";
 import { assertCommitTargetNotProtected, ProtectedBranchCommitError } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-function readStoryItems(sftddDir, featureId, story) {
-  const file = storyTestListJson(sftddDir, featureId, story);
+function readStoryItems(consortDir, featureId, story) {
+  const file = storyTestListJson(consortDir, featureId, story);
   if (!existsSync31(file)) {
     throw new Error(`per-story test-list not found for ${featureId}/${story} at ${file}`);
   }
   const data = JSON.parse(readFileSync27(file, "utf8"));
   return Array.isArray(data.items) ? data.items : [];
 }
-function storyCycles(sftddDir, featureId, story) {
-  const base = join30(cyclesRootDir(sftddDir), featureId, story);
+function storyCycles(consortDir, featureId, story) {
+  const base = join30(cyclesRootDir(consortDir), featureId, story);
   if (!existsSync31(base)) return [];
   const out = [];
   for (const acDir of readdirSync20(base)) {
@@ -11149,14 +11155,14 @@ function storyCycles(sftddDir, featureId, story) {
   }
   return out;
 }
-function storyTestProgress(sftddDir, featureId, story) {
+function storyTestProgress(consortDir, featureId, story) {
   let items = [];
   try {
-    items = readStoryItems(sftddDir, featureId, story);
+    items = readStoryItems(consortDir, featureId, story);
   } catch {
     items = [];
   }
-  const cycles = storyCycles(sftddDir, featureId, story);
+  const cycles = storyCycles(consortDir, featureId, story);
   const cycledTestIds = new Set(cycles.flatMap((c) => coveredTestIds(c)));
   const greenTestIds = new Set(cycles.filter((c) => c.green_at).flatMap((c) => coveredTestIds(c)));
   const pending = items.filter((i) => !cycledTestIds.has(i.id));
@@ -11164,20 +11170,20 @@ function storyTestProgress(sftddDir, featureId, story) {
   const allGreen = items.length > 0 && items.every((i) => greenTestIds.has(i.id));
   return { total: items.length, pending, openRed, allGreen };
 }
-function pendingItemKind(sftddDir, featureId, story) {
-  return storyTestProgress(sftddDir, featureId, story).pending[0]?.kind;
+function pendingItemKind(consortDir, featureId, story) {
+  return storyTestProgress(consortDir, featureId, story).pending[0]?.kind;
 }
 var DEFAULT_BATCH_CAP = 3;
-function nextPendingBatch(sftddDir, featureId, story, cap = DEFAULT_BATCH_CAP) {
+function nextPendingBatch(consortDir, featureId, story, cap = DEFAULT_BATCH_CAP) {
   const effCap = cap > 0 ? cap : DEFAULT_BATCH_CAP;
-  const pending = storyTestProgress(sftddDir, featureId, story).pending;
+  const pending = storyTestProgress(consortDir, featureId, story).pending;
   if (pending.length === 0) return [];
-  const layerOf = (acId) => readAcLayer2(sftddDir, featureId, acId) ?? "_nolayer";
+  const layerOf = (acId) => readAcLayer2(consortDir, featureId, acId) ?? "_nolayer";
   const headLayer = layerOf(pending[0].ac_id);
   return pending.filter((it) => layerOf(it.ac_id) === headLayer).slice(0, effCap);
 }
-function readReview(sftddDir, featureId, story, acId) {
-  const f = acReviewJson(sftddDir, featureId, story, acId);
+function readReview(consortDir, featureId, story, acId) {
+  const f = acReviewJson(consortDir, featureId, story, acId);
   if (!existsSync31(f)) return {};
   try {
     return JSON.parse(readFileSync27(f, "utf8"));
@@ -11185,15 +11191,15 @@ function readReview(sftddDir, featureId, story, acId) {
     return {};
   }
 }
-function acReviewStates(sftddDir, featureId, story) {
+function acReviewStates(consortDir, featureId, story) {
   let items = [];
   try {
-    items = readStoryItems(sftddDir, featureId, story);
+    items = readStoryItems(consortDir, featureId, story);
   } catch {
     items = [];
   }
   const greenTestIds = new Set(
-    storyCycles(sftddDir, featureId, story).filter((c) => c.green_at).flatMap((c) => coveredTestIds(c))
+    storyCycles(consortDir, featureId, story).filter((c) => c.green_at).flatMap((c) => coveredTestIds(c))
   );
   const acOrder = [];
   const acTests = /* @__PURE__ */ new Map();
@@ -11206,7 +11212,7 @@ function acReviewStates(sftddDir, featureId, story) {
   }
   return acOrder.map((acId) => {
     const tests = acTests.get(acId);
-    const r = readReview(sftddDir, featureId, story, acId);
+    const r = readReview(consortDir, featureId, story, acId);
     return {
       acId,
       allTestsGreen: tests.length > 0 && tests.every((t) => greenTestIds.has(t)),
@@ -11216,20 +11222,20 @@ function acReviewStates(sftddDir, featureId, story) {
     };
   });
 }
-function firstReviewPendingAc(sftddDir, featureId, story) {
-  return acReviewStates(sftddDir, featureId, story).find((a) => a.allTestsGreen && !a.reviewed)?.acId ?? null;
+function firstReviewPendingAc(consortDir, featureId, story) {
+  return acReviewStates(consortDir, featureId, story).find((a) => a.allTestsGreen && !a.reviewed)?.acId ?? null;
 }
-function firstRefactorPendingAc(sftddDir, featureId, story) {
-  const states = acReviewStates(sftddDir, featureId, story);
+function firstRefactorPendingAc(consortDir, featureId, story) {
+  const states = acReviewStates(consortDir, featureId, story);
   const explicit = states.find((a) => a.reviewed && a.refactorRequested && !a.refactored);
   if (explicit) return explicit.acId;
-  if (hasOpenBuildRefactorRoutableSmell(sftddDir, story)) {
+  if (hasOpenBuildRefactorRoutableSmell(consortDir, story)) {
     return states.find((a) => a.reviewed && !a.refactored)?.acId ?? null;
   }
   return null;
 }
-function readStoryReview(sftddDir, featureId, story) {
-  const f = storyReviewJson(sftddDir, featureId, story);
+function readStoryReview(consortDir, featureId, story) {
+  const f = storyReviewJson(consortDir, featureId, story);
   if (!existsSync31(f)) return {};
   try {
     return JSON.parse(readFileSync27(f, "utf8"));
@@ -11237,32 +11243,32 @@ function readStoryReview(sftddDir, featureId, story) {
     return {};
   }
 }
-function storyAllTestsGreen(sftddDir, featureId, story) {
-  const p = storyTestProgress(sftddDir, featureId, story);
+function storyAllTestsGreen(consortDir, featureId, story) {
+  const p = storyTestProgress(consortDir, featureId, story);
   if (p.total === 0) {
-    const reds = storyCycles(sftddDir, featureId, story).filter((c) => Boolean(c.red_at));
+    const reds = storyCycles(consortDir, featureId, story).filter((c) => Boolean(c.red_at));
     return reds.length > 0 && reds.every((c) => Boolean(c.green_at));
   }
   return p.allGreen;
 }
-function storyReviewState(sftddDir, featureId, story) {
-  const r = readStoryReview(sftddDir, featureId, story);
+function storyReviewState(consortDir, featureId, story) {
+  const r = readStoryReview(consortDir, featureId, story);
   return {
-    allTestsGreen: storyAllTestsGreen(sftddDir, featureId, story),
+    allTestsGreen: storyAllTestsGreen(consortDir, featureId, story),
     reviewed: Boolean(r.reviewed_at),
     refactorRequested: Boolean(r.refactor_requested),
     refactored: Boolean(r.refactored_at)
   };
 }
-function reviewPending(sftddDir, featureId, story) {
-  const s = storyReviewState(sftddDir, featureId, story);
+function reviewPending(consortDir, featureId, story) {
+  const s = storyReviewState(consortDir, featureId, story);
   return s.allTestsGreen && !s.reviewed;
 }
-function refactorPending(sftddDir, featureId, story) {
-  const s = storyReviewState(sftddDir, featureId, story);
+function refactorPending(consortDir, featureId, story) {
+  const s = storyReviewState(consortDir, featureId, story);
   if (!s.reviewed || s.refactored) return false;
   if (s.refactorRequested) return true;
-  return hasOpenBuildRefactorRoutableSmell(sftddDir, story);
+  return hasOpenBuildRefactorRoutableSmell(consortDir, story);
 }
 
 // consort/gates/gates.ts
@@ -11285,8 +11291,8 @@ function defaultGatesState(featureId) {
   };
 }
 function readGates(featureId, opts = {}) {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
-  const file = gatesFilePath(sftddDir, featureId);
+  const consortDir = opts.consortDir ?? resolveConsortDir();
+  const file = gatesFilePath(consortDir, featureId);
   if (!existsSync32(file)) {
     return defaultGatesState(featureId);
   }
@@ -11300,8 +11306,8 @@ function readGates(featureId, opts = {}) {
   }
   return validateGatesState(parsed, file);
 }
-function gatesFilePath(sftddDir, featureId) {
-  return join31(requireFeatureDir(sftddDir, featureId), "gates.json");
+function gatesFilePath(consortDir, featureId) {
+  return join31(requireFeatureDir(consortDir, featureId), "gates.json");
 }
 function validateGatesState(parsed, file) {
   if (typeof parsed !== "object" || parsed === null) {
@@ -11369,8 +11375,8 @@ var SMELL_FOR_OWNER = {
   "spec-author": "reflect-spec-defect",
   "test-strategist": "reflect-testlist-defect"
 };
-function readReflectVerdict(sftddDir, feature, story) {
-  const p = reflectVerdictJson(sftddDir, feature, story);
+function readReflectVerdict(consortDir, feature, story) {
+  const p = reflectVerdictJson(consortDir, feature, story);
   if (!existsSync33(p)) return void 0;
   try {
     return JSON.parse(readFileSync29(p, "utf8"));
@@ -11378,11 +11384,11 @@ function readReflectVerdict(sftddDir, feature, story) {
     return void 0;
   }
 }
-function reflectionPassed(sftddDir, feature, story) {
-  return readReflectVerdict(sftddDir, feature, story)?.passed === true;
+function reflectionPassed(consortDir, feature, story) {
+  return readReflectVerdict(consortDir, feature, story)?.passed === true;
 }
-function reflectionVerdictWritten(sftddDir, feature, story) {
-  return readReflectVerdict(sftddDir, feature, story) !== void 0;
+function reflectionVerdictWritten(consortDir, feature, story) {
+  return readReflectVerdict(consortDir, feature, story) !== void 0;
 }
 var REFLECT_SMELLS = Object.values(SMELL_FOR_OWNER);
 
@@ -11392,8 +11398,8 @@ import { existsSync as existsSync34, readFileSync as readFileSync30, writeFileSy
 function uniq(xs) {
   return [...new Set(xs.filter((x) => typeof x === "string" && x.length > 0))];
 }
-function readCanon(sftddDir) {
-  const f = architectureCanonJson(sftddDir);
+function readCanon(consortDir) {
+  const f = architectureCanonJson(consortDir);
   if (!existsSync34(f)) return void 0;
   try {
     return JSON.parse(readFileSync30(f, "utf8"));
@@ -11432,8 +11438,8 @@ function architectNovelty(canon, storyAcs, storyArchitectureJsonContent) {
 }
 
 // consort/orchestrator/state/orchestrator-probe.ts
-function storyCycles2(sftddDir, featureId, story) {
-  const base = path9.join(cyclesRootDir(sftddDir), featureId, story);
+function storyCycles2(consortDir, featureId, story) {
+  const base = path9.join(cyclesRootDir(consortDir), featureId, story);
   if (!fs13.existsSync(base)) return [];
   const out = [];
   for (const acDir of fs13.readdirSync(base)) {
@@ -11463,21 +11469,21 @@ function readJson(file) {
     return void 0;
   }
 }
-function readDriveContext(sftddDir, featureId, projectDir) {
-  const ws = readJson(workflowStateJson(sftddDir));
+function readDriveContext(consortDir, featureId, projectDir) {
+  const ws = readJson(workflowStateJson(consortDir));
   const phaseOwner = typeof ws?.[PHASE_OWNER_KEY] === "string" ? ws[PHASE_OWNER_KEY] : void 0;
   const rawPhase = typeof ws?.phase === "string" ? ws.phase : void 0;
   const honorPhase = rawPhase === "planning" || phaseOwner === featureId;
   const tddPhase = honorPhase && rawPhase ? rawPhase : "feature";
-  const spec = readJson(featureSpecJson(sftddDir, featureId));
+  const spec = readJson(featureSpecJson(consortDir, featureId));
   const proposed = spec !== void 0;
   const breakdownDone = Array.isArray(spec?.stories) && spec.stories.length > 0;
-  const requestsAuthored = fs13.existsSync(featureRequestMd(sftddDir, featureId));
-  const deployed = fs13.existsSync(featureDeployEvidenceJson(sftddDir, featureId));
-  const gateApproved = readGateApproved(featureId, sftddDir, "deploy");
-  const verifyAssessEligible = deployVerifyNeedsAssess(sftddDir, featureId);
-  const verifyRefactorPending = deployVerifyRefactorPending(sftddDir, featureId);
-  const proj = projectDir ?? path9.dirname(sftddDir);
+  const requestsAuthored = fs13.existsSync(featureRequestMd(consortDir, featureId));
+  const deployed = fs13.existsSync(featureDeployEvidenceJson(consortDir, featureId));
+  const gateApproved = readGateApproved(featureId, consortDir, "deploy");
+  const verifyAssessEligible = deployVerifyNeedsAssess(consortDir, featureId);
+  const verifyRefactorPending = deployVerifyRefactorPending(consortDir, featureId);
+  const proj = projectDir ?? path9.dirname(consortDir);
   let scmState;
   try {
     scmState = readWorkflowState2(proj)?.state;
@@ -11493,37 +11499,37 @@ function readDriveContext(sftddDir, featureId, projectDir) {
   const promote = {
     prReady: atOrPast("pr-ready"),
     ciGreen: atOrPast("ci-green"),
-    prApproved: readGateApproved(featureId, sftddDir, "promote"),
+    prApproved: readGateApproved(featureId, consortDir, "promote"),
     merged: scmState === "merged"
   };
   return {
     phase: driverPhaseForTdd(tddPhase),
     breakdownDone,
-    planning: { proposed, estimated: hasEstimates(sftddDir), requestsAuthored },
+    planning: { proposed, estimated: hasEstimates(consortDir), requestsAuthored },
     deploy: { deployed, gateApproved, verifyAssessEligible, verifyRefactorPending },
     promote
   };
 }
-function readGateApproved(featureId, sftddDir, gate) {
+function readGateApproved(featureId, consortDir, gate) {
   try {
-    return readGates(featureId, { sftddDir }).gates[gate].status === "approved";
+    return readGates(featureId, { consortDir }).gates[gate].status === "approved";
   } catch {
     return false;
   }
 }
-function diskArtifactProbe(sftddDir, featureId, buildActive) {
+function diskArtifactProbe(consortDir, featureId, buildActive) {
   return {
     hasAcs(story) {
-      return storyAcIds(sftddDir, featureId, story).length > 0;
+      return storyAcIds(consortDir, featureId, story).length > 0;
     },
     architectAnnotated(story) {
-      const acs = storyAcIds(sftddDir, featureId, story);
+      const acs = storyAcIds(consortDir, featureId, story);
       if (acs.length === 0) return false;
-      const everyAcNoted = acs.every((ac) => readAcArchitecturalNotes(sftddDir, featureId, ac) !== void 0);
-      return everyAcNoted && fs13.existsSync(architectureJson(sftddDir, featureId));
+      const everyAcNoted = acs.every((ac) => readAcArchitecturalNotes(consortDir, featureId, ac) !== void 0);
+      return everyAcNoted && fs13.existsSync(architectureJson(consortDir, featureId));
     },
     dbaDesigned() {
-      const archFile = architectureJson(sftddDir, featureId);
+      const archFile = architectureJson(consortDir, featureId);
       if (!fs13.existsSync(archFile)) return false;
       let archContent;
       try {
@@ -11531,7 +11537,7 @@ function diskArtifactProbe(sftddDir, featureId, buildActive) {
       } catch {
         return false;
       }
-      const dbFile = dbDesignJson(sftddDir, featureId);
+      const dbFile = dbDesignJson(consortDir, featureId);
       let dbContent;
       if (fs13.existsSync(dbFile)) {
         try {
@@ -11543,19 +11549,19 @@ function diskArtifactProbe(sftddDir, featureId, buildActive) {
       return checkDbDesign(dbContent, archContent).ok;
     },
     architectProjectable(story) {
-      if (!fs13.existsSync(architectureJson(sftddDir, featureId))) return false;
-      const canon = readCanon(sftddDir);
+      if (!fs13.existsSync(architectureJson(consortDir, featureId))) return false;
+      const canon = readCanon(consortDir);
       if (!canon) return false;
       if (canon.established_by === featureId) return false;
-      if (priorReviseCount(sftddDir, "architect-canon-gap", story) > 0) return false;
-      const acs = storyAcIds(sftddDir, featureId, story);
+      if (priorReviseCount(consortDir, "architect-canon-gap", story) > 0) return false;
+      const acs = storyAcIds(consortDir, featureId, story);
       if (acs.length === 0) return false;
-      const layers = acs.map((ac) => readAcLayer2(sftddDir, featureId, ac));
+      const layers = acs.map((ac) => readAcLayer2(consortDir, featureId, ac));
       if (layers.some((l) => !l)) return false;
       return !architectNovelty(canon, layers.map((l) => ({ layer: l }))).novel;
     },
     testListReady(story) {
-      const file = storyTestListJson(sftddDir, featureId, story);
+      const file = storyTestListJson(consortDir, featureId, story);
       if (!fs13.existsSync(file)) return false;
       try {
         const data = JSON.parse(fs13.readFileSync(file, "utf8"));
@@ -11565,10 +11571,10 @@ function diskArtifactProbe(sftddDir, featureId, buildActive) {
       }
     },
     reflectionPassed(story) {
-      return reflectionPassed(sftddDir, featureId, story);
+      return reflectionPassed(consortDir, featureId, story);
     },
     reflectionVerdictWritten(story) {
-      return reflectionVerdictWritten(sftddDir, featureId, story);
+      return reflectionVerdictWritten(consortDir, featureId, story);
     },
     // The build loop is TEST-LIST-DRIVEN: the Navigator/Driver hand off ONE test
     // at a time (write RED -> make GREEN) until EVERY test-list item is green.
@@ -11580,79 +11586,79 @@ function diskArtifactProbe(sftddDir, featureId, buildActive) {
     // it the loop advanced after a single test and stalled at await-acceptance
     // with the rest of the list unbuilt (the live stall).
     testsWritten(story) {
-      const p = storyTestProgress(sftddDir, featureId, story);
+      const p = storyTestProgress(consortDir, featureId, story);
       if (p.total === 0) {
-        return storyCycles2(sftddDir, featureId, story).some((c) => Boolean(c.red_at));
+        return storyCycles2(consortDir, featureId, story).some((c) => Boolean(c.red_at));
       }
       return p.openRed.length > 0 || p.allGreen;
     },
     codeWritten(story) {
-      const p = storyTestProgress(sftddDir, featureId, story);
+      const p = storyTestProgress(consortDir, featureId, story);
       if (p.total === 0) {
-        const reds = storyCycles2(sftddDir, featureId, story).filter((c) => Boolean(c.red_at));
+        const reds = storyCycles2(consortDir, featureId, story).filter((c) => Boolean(c.red_at));
         return reds.length > 0 && reds.every((c) => Boolean(c.green_at));
       }
       return p.allGreen;
     },
     reviewPendingAc(story) {
-      return firstReviewPendingAc(sftddDir, featureId, story);
+      return firstReviewPendingAc(consortDir, featureId, story);
     },
     refactorPendingAc(story) {
-      return firstRefactorPendingAc(sftddDir, featureId, story);
+      return firstRefactorPendingAc(consortDir, featureId, story);
     },
     reviewPending(story) {
-      return reviewPending(sftddDir, featureId, story);
+      return reviewPending(consortDir, featureId, story);
     },
     refactorPending(story) {
-      return refactorPending(sftddDir, featureId, story);
+      return refactorPending(consortDir, featureId, story);
     },
     assessGreenFailureAc(story) {
       let acId;
       try {
-        acId = storyTestProgress(sftddDir, featureId, story).openRed[0]?.ac_id;
+        acId = storyTestProgress(consortDir, featureId, story).openRed[0]?.ac_id;
       } catch {
         acId = void 0;
       }
       if (!acId) return null;
-      return needsGreenAssess(sftddDir, featureId, story, acId) ? acId : null;
+      return needsGreenAssess(consortDir, featureId, story, acId) ? acId : null;
     },
     repairRegressionFixAc(story) {
       let acId;
       try {
-        acId = storyTestProgress(sftddDir, featureId, story).openRed[0]?.ac_id;
+        acId = storyTestProgress(consortDir, featureId, story).openRed[0]?.ac_id;
       } catch {
         acId = void 0;
       }
       if (!acId) return null;
-      return hasPendingRegressionFix(sftddDir, featureId, story, acId) ? acId : null;
+      return hasPendingRegressionFix(consortDir, featureId, story, acId) ? acId : null;
     },
     greenSupersededFailureAc(story) {
       let acId;
       try {
-        acId = storyTestProgress(sftddDir, featureId, story).openRed[0]?.ac_id;
+        acId = storyTestProgress(consortDir, featureId, story).openRed[0]?.ac_id;
       } catch {
         acId = void 0;
       }
       if (!acId) return null;
-      return hasPendingSupersession(sftddDir, featureId, story, acId) ? acId : null;
+      return hasPendingSupersession(consortDir, featureId, story, acId) ? acId : null;
     },
     storyDeployVerified(story) {
-      return storyDeployVerified(sftddDir, featureId, story);
+      return storyDeployVerified(consortDir, featureId, story);
     },
     deployVerifyAssessEligible(story) {
-      return deployVerifyNeedsAssess(sftddDir, featureId, story);
+      return deployVerifyNeedsAssess(consortDir, featureId, story);
     },
     deployVerifyRefactorPending(story) {
-      return deployVerifyRefactorPending(sftddDir, featureId, story);
+      return deployVerifyRefactorPending(consortDir, featureId, story);
     },
     refactorVerifyAssessEligible(story) {
-      return refactorVerifyNeedsAssess(sftddDir, featureId, story);
+      return refactorVerifyNeedsAssess(consortDir, featureId, story);
     },
     refactorVerifyRefactorPending(story) {
-      return refactorVerifyRefactorPending(sftddDir, featureId, story);
+      return refactorVerifyRefactorPending(consortDir, featureId, story);
     },
     pendingEscalation() {
-      const e = firstPendingEscalation(sftddDir, featureId);
+      const e = firstPendingEscalation(consortDir, featureId);
       if (!e) return null;
       const base = {
         id: e.id,
@@ -11663,25 +11669,25 @@ function diskArtifactProbe(sftddDir, featureId, buildActive) {
       if (e.source.startsWith("smell:")) {
         const name = e.source.slice("smell:".length);
         const story = e.story_id ?? buildActive ?? void 0;
-        if (isBuildRefactorRoutableSmell(name) && story && firstRefactorPendingAc(sftddDir, featureId, story)) {
+        if (isBuildRefactorRoutableSmell(name) && story && firstRefactorPendingAc(consortDir, featureId, story)) {
           return null;
         }
         const spec = specLevelSmell(name);
         if (spec && story) {
           let budgetSpent;
           if (isReflectSmell(name)) {
-            const revises = priorReflectReviseCount(sftddDir, story);
+            const revises = priorReflectReviseCount(consortDir, story);
             if (revises >= REFLECT_REVISE_CAP) {
               budgetSpent = true;
             } else if (revises === 0) {
               budgetSpent = false;
             } else {
-              const lastSha = lastReflectReviseFingerprint(sftddDir, story);
-              const curSha = storyTestListFingerprint(sftddDir, featureId, story);
+              const lastSha = lastReflectReviseFingerprint(consortDir, story);
+              const curSha = storyTestListFingerprint(consortDir, featureId, story);
               budgetSpent = lastSha !== null && lastSha === curSha;
             }
           } else {
-            budgetSpent = priorReviseCount(sftddDir, name, story) >= 1;
+            budgetSpent = priorReviseCount(consortDir, name, story) >= 1;
           }
           if (!budgetSpent) {
             base.routable = { story, owning_role: spec.owning_role, gate: spec.gate_to_rerun };
@@ -11708,8 +11714,8 @@ import { existsSync as existsSync36, readFileSync as readFileSync32, writeFileSy
 function normModule(m) {
   return m.replace(/\/+$/, "");
 }
-function readConventions(sftddDir) {
-  const f = architectureConventionsJson(sftddDir);
+function readConventions(consortDir) {
+  const f = architectureConventionsJson(consortDir);
   if (!existsSync36(f)) return void 0;
   try {
     return JSON.parse(readFileSync32(f, "utf8"));
@@ -11753,8 +11759,8 @@ function assertArchitectureConforms(conventions, architectureJsonContent) {
 }
 
 // consort/gates/gate-conformance-guard.ts
-function featureDir2(sftddDir, featureId) {
-  return featureResolved(sftddDir, featureId);
+function featureDir2(consortDir, featureId) {
+  return featureResolved(consortDir, featureId);
 }
 function conformanceReason(inputs) {
   const problems = [];
@@ -11811,10 +11817,10 @@ function storyIndependenceReason(fdir) {
   const r = checkStoryIndependence(collectStoryJsons(fdir));
   return r.ok ? null : `story independence failed: ${r.violations.join("; ")}`;
 }
-function architectureConventionsReason(sftddDir, featureId) {
-  const conventions = readConventions(sftddDir);
+function architectureConventionsReason(consortDir, featureId) {
+  const conventions = readConventions(consortDir);
   if (!conventions) return null;
-  const archFile = architectureJson(sftddDir, featureId);
+  const archFile = architectureJson(consortDir, featureId);
   if (!existsSync37(archFile)) return null;
   let content;
   try {
@@ -11825,8 +11831,8 @@ function architectureConventionsReason(sftddDir, featureId) {
   const r = assertArchitectureConforms(conventions, content);
   return r.ok ? null : `architecture conventions failed: ${r.violations.join("; ")}`;
 }
-function readArchitecture(sftddDir, featureId) {
-  const f = architectureJson(sftddDir, featureId);
+function readArchitecture(consortDir, featureId) {
+  const f = architectureJson(consortDir, featureId);
   if (!existsSync37(f)) return void 0;
   try {
     return readFileSync33(f, "utf8");
@@ -11834,16 +11840,16 @@ function readArchitecture(sftddDir, featureId) {
     return void 0;
   }
 }
-function layeringDeclaredReason(sftddDir, featureId) {
-  const arch = readArchitecture(sftddDir, featureId);
+function layeringDeclaredReason(consortDir, featureId) {
+  const arch = readArchitecture(consortDir, featureId);
   if (arch === void 0) return null;
   const r = checkLayeringDeclared(arch);
   return r.ok ? null : `layering declaration failed: ${r.violations.join("; ")}`;
 }
-function dbDesignReason(sftddDir, featureId) {
-  const arch = readArchitecture(sftddDir, featureId);
+function dbDesignReason(consortDir, featureId) {
+  const arch = readArchitecture(consortDir, featureId);
   if (arch === void 0) return null;
-  const dbFile = dbDesignJson(sftddDir, featureId);
+  const dbFile = dbDesignJson(consortDir, featureId);
   const db = existsSync37(dbFile) ? (() => {
     try {
       return readFileSync33(dbFile, "utf8");
@@ -11854,11 +11860,11 @@ function dbDesignReason(sftddDir, featureId) {
   const r = checkDbDesign(db, arch);
   return r.ok ? null : `db-design failed: ${r.violations.join("; ")}`;
 }
-function nfrCoverageReason(sftddDir, featureId) {
-  const arch = readArchitecture(sftddDir, featureId);
+function nfrCoverageReason(consortDir, featureId) {
+  const arch = readArchitecture(consortDir, featureId);
   if (arch === void 0) return null;
-  const featureNfrs = featureNfrsMd(sftddDir, featureId);
-  const projectNfrs = nfrsMd(sftddDir);
+  const featureNfrs = featureNfrsMd(consortDir, featureId);
+  const projectNfrs = nfrsMd(consortDir);
   const nfrsFile = existsSync37(featureNfrs) ? featureNfrs : existsSync37(projectNfrs) ? projectNfrs : void 0;
   if (nfrsFile === void 0) return null;
   let nfrsContent;
@@ -11867,22 +11873,22 @@ function nfrCoverageReason(sftddDir, featureId) {
   } catch {
     return null;
   }
-  const r = checkNfrCoverage(nfrsContent, arch, projectBriefRefs(sftddDir));
+  const r = checkNfrCoverage(nfrsContent, arch, projectBriefRefs(consortDir));
   return r.ok ? null : `NFR coverage failed: ${r.violations.join("; ")}`;
 }
-function fitnessCoverageReason(sftddDir, featureId, testListJson) {
-  const arch = readArchitecture(sftddDir, featureId);
+function fitnessCoverageReason(consortDir, featureId, testListJson) {
+  const arch = readArchitecture(consortDir, featureId);
   if (arch === void 0) return null;
   const r = checkFitnessCoverage(testListJson, arch);
   return r.ok ? null : `fitness coverage failed: ${r.violations.join("; ")}`;
 }
-function persistenceCoverageReason(sftddDir, featureId, testListJson) {
-  const arch = readArchitecture(sftddDir, featureId);
+function persistenceCoverageReason(consortDir, featureId, testListJson) {
+  const arch = readArchitecture(consortDir, featureId);
   if (arch === void 0) return null;
   const r = checkPersistenceCoverage(testListJson, arch);
   return r.ok ? null : `persistence coverage failed: ${r.violations.join("; ")}`;
 }
-function invariantCoverageDistinctReason(sftddDir, featureId, testListJson) {
+function invariantCoverageDistinctReason(consortDir, featureId, testListJson) {
   let master;
   try {
     master = JSON.parse(testListJson);
@@ -11890,7 +11896,7 @@ function invariantCoverageDistinctReason(sftddDir, featureId, testListJson) {
     return null;
   }
   const items = master.items ?? [];
-  const storiesDir2 = join33(featureDir2(sftddDir, featureId), "stories");
+  const storiesDir2 = join33(featureDir2(consortDir, featureId), "stories");
   if (!existsSync37(storiesDir2)) return null;
   const perStory = readdirSync24(storiesDir2).filter((s) => {
     try {
@@ -11899,18 +11905,18 @@ function invariantCoverageDistinctReason(sftddDir, featureId, testListJson) {
       return false;
     }
   }).map((story) => {
-    const acIds = new Set(acsForStory(sftddDir, featureId, story));
+    const acIds = new Set(acsForStory(consortDir, featureId, story));
     const invariantIds = items.filter((it) => typeof it.invariant_id === "string" && it.invariant_id.length > 0 && typeof it.ac_id === "string" && acIds.has(it.ac_id)).map((it) => it.invariant_id);
     return { story, invariantIds };
   });
   const r = checkInvariantCoverageDistinct(perStory);
   return r.ok ? null : `invariant coverage not distinct across stories: ${r.violations.join("; ")}`;
 }
-function serviceBackedReason(sftddDir, featureId) {
-  const arch = readArchitecture(sftddDir, featureId);
+function serviceBackedReason(consortDir, featureId) {
+  const arch = readArchitecture(consortDir, featureId);
   if (arch === void 0) return null;
   const acLayers = [];
-  const fdir = featureDir2(sftddDir, featureId);
+  const fdir = featureDir2(consortDir, featureId);
   const stories = join33(fdir, "stories");
   if (existsSync37(stories)) {
     for (const s of readdirSync24(stories)) {
@@ -11935,7 +11941,7 @@ function serviceBackedReason(sftddDir, featureId) {
   const r = checkServiceBackedDeclaration(arch, { acLayers, nfrsText });
   return r.ok ? null : `service_backed declaration failed: ${r.violations.join("; ")}`;
 }
-function resolveArtifactInputs(gate, fdir, promoteRef, sftddDir, featureId) {
+function resolveArtifactInputs(gate, fdir, promoteRef, consortDir, featureId) {
   const readIfPresent = (name) => {
     const p = join33(fdir, name);
     try {
@@ -11968,15 +11974,15 @@ function resolveArtifactInputs(gate, fdir, promoteRef, sftddDir, featureId) {
       if (acReason !== null) return { reason: acReason };
       const indepReason = storyIndependenceReason(fdir);
       if (indepReason !== null) return { reason: indepReason };
-      const conventionsReason = architectureConventionsReason(sftddDir, featureId);
+      const conventionsReason = architectureConventionsReason(consortDir, featureId);
       if (conventionsReason !== null) return { reason: conventionsReason };
-      const serviceBacked = serviceBackedReason(sftddDir, featureId);
+      const serviceBacked = serviceBackedReason(consortDir, featureId);
       if (serviceBacked !== null) return { reason: serviceBacked };
-      const layeringReason = layeringDeclaredReason(sftddDir, featureId);
+      const layeringReason = layeringDeclaredReason(consortDir, featureId);
       if (layeringReason !== null) return { reason: layeringReason };
-      const dbReason = dbDesignReason(sftddDir, featureId);
+      const dbReason = dbDesignReason(consortDir, featureId);
       if (dbReason !== null) return { reason: dbReason };
-      const nfrReason = nfrCoverageReason(sftddDir, featureId);
+      const nfrReason = nfrCoverageReason(consortDir, featureId);
       return nfrReason === null ? conf : { reason: nfrReason };
     }
     case "plan": {
@@ -11998,11 +12004,11 @@ function resolveArtifactInputs(gate, fdir, promoteRef, sftddDir, featureId) {
       const conf = withConformance(inputs);
       if ("reason" in conf) return conf;
       if (tlJson !== void 0) {
-        const fitnessReason = fitnessCoverageReason(sftddDir, featureId, tlJson);
+        const fitnessReason = fitnessCoverageReason(consortDir, featureId, tlJson);
         if (fitnessReason !== null) return { reason: fitnessReason };
-        const persistenceReason = persistenceCoverageReason(sftddDir, featureId, tlJson);
+        const persistenceReason = persistenceCoverageReason(consortDir, featureId, tlJson);
         if (persistenceReason !== null) return { reason: persistenceReason };
-        const distinctReason = invariantCoverageDistinctReason(sftddDir, featureId, tlJson);
+        const distinctReason = invariantCoverageDistinctReason(consortDir, featureId, tlJson);
         if (distinctReason !== null) return { reason: distinctReason };
       }
       return conf;
@@ -12039,11 +12045,11 @@ function resolveArtifactInputs(gate, fdir, promoteRef, sftddDir, featureId) {
 function initPipeline(featureId) {
   return { version: 1, feature_id: featureId, stories: {}, build_queue: [], build_active: null };
 }
-function pipelinePath(sftddDir, featureId) {
-  return pipelineJson(sftddDir, featureId);
+function pipelinePath(consortDir, featureId) {
+  return pipelineJson(consortDir, featureId);
 }
-function readPipeline(sftddDir, featureId) {
-  const p = pipelinePath(sftddDir, featureId);
+function readPipeline(consortDir, featureId) {
+  const p = pipelinePath(consortDir, featureId);
   if (!existsSync38(p)) return initPipeline(featureId);
   return JSON.parse(readFileSync34(p, "utf8"));
 }
@@ -12058,8 +12064,8 @@ function needStory(role, story, violations) {
   }
   return true;
 }
-function checkSpecAuthorBreakdown(sftddDir, featureId, v) {
-  const specPath = featureSpecJson(sftddDir, featureId);
+function checkSpecAuthorBreakdown(consortDir, featureId, v) {
+  const specPath = featureSpecJson(consortDir, featureId);
   if (!existsSync39(specPath)) {
     v.push({ artifact: "feature-spec.json", problem: "breakdown deliverable missing (write feature-spec.json with a non-empty stories[] array of the story ids)" });
     return;
@@ -12073,7 +12079,7 @@ function checkSpecAuthorBreakdown(sftddDir, featureId, v) {
     v.push({ artifact: "feature-spec.json", problem: `not valid JSON: ${err instanceof Error ? err.message : String(err)}` });
     return;
   }
-  const sdir = storiesDir(sftddDir, featureId);
+  const sdir = storiesDir(consortDir, featureId);
   if (!existsSync39(sdir)) return;
   const storyJsons = [];
   for (const s of readdirSync26(sdir)) {
@@ -12091,13 +12097,13 @@ function checkSpecAuthorBreakdown(sftddDir, featureId, v) {
   }
 }
 function checkSpecAuthor(args, v) {
-  const { sftddDir, featureId, story } = args;
+  const { consortDir, featureId, story } = args;
   if (story === void 0) {
-    checkSpecAuthorBreakdown(sftddDir, featureId, v);
+    checkSpecAuthorBreakdown(consortDir, featureId, v);
     return;
   }
-  const dir = acsDir(sftddDir, featureId, story);
-  const ids = storyAcIds(sftddDir, featureId, story);
+  const dir = acsDir(consortDir, featureId, story);
+  const ids = storyAcIds(consortDir, featureId, story);
   if (ids.length === 0) {
     v.push({ artifact: `stories/${story}/acs`, problem: "no acceptance criteria written (expected >=1 AC<n>.json)" });
     return;
@@ -12135,28 +12141,28 @@ function checkSpecAuthor(args, v) {
   }
 }
 function checkArchitect(args, v) {
-  const { sftddDir, featureId, story } = args;
+  const { consortDir, featureId, story } = args;
   if (!needStory("architect-reviewer", story, v)) return;
-  const ids = storyAcIds(sftddDir, featureId, story);
+  const ids = storyAcIds(consortDir, featureId, story);
   if (ids.length === 0) {
     v.push({ artifact: `stories/${story}/acs`, problem: "no ACs to annotate (spec-author output missing)" });
     return;
   }
   for (const ac of ids) {
-    if (readAcLayer(sftddDir, featureId, ac) === void 0) {
+    if (readAcLayer(consortDir, featureId, ac) === void 0) {
       v.push({ artifact: `stories/${story}/acs/${ac}.json`, problem: "missing/invalid `layer` (expected API | E2E | Infra)" });
     }
-    if (readAcArchitecturalNotes(sftddDir, featureId, ac) === void 0) {
+    if (readAcArchitecturalNotes(consortDir, featureId, ac) === void 0) {
       v.push({
         artifact: `stories/${story}/acs/${ac}.json`,
         problem: "missing non-empty `architectural_notes` (annotate EVERY AC with its layer rationale + how it realizes the design; the spec-author's `layer` field does NOT satisfy this)"
       });
     }
   }
-  checkNfrFitnessFunctions(sftddDir, featureId, v);
+  checkNfrFitnessFunctions(consortDir, featureId, v);
 }
-function checkNfrFitnessFunctions(sftddDir, featureId, v) {
-  const archFile = architectureJson(sftddDir, featureId);
+function checkNfrFitnessFunctions(consortDir, featureId, v) {
+  const archFile = architectureJson(consortDir, featureId);
   if (!existsSync39(archFile)) return;
   let nfrs;
   try {
@@ -12174,14 +12180,14 @@ function checkNfrFitnessFunctions(sftddDir, featureId, v) {
   }
 }
 function checkDba(args, v) {
-  const { sftddDir, featureId } = args;
-  const archFile = architectureJson(sftddDir, featureId);
+  const { consortDir, featureId } = args;
+  const archFile = architectureJson(consortDir, featureId);
   if (!existsSync39(archFile)) {
     v.push({ artifact: "architecture.json", problem: "architecture.json missing (the architect owns the contract the DBA realizes)" });
     return;
   }
   const archContent = readFileSync35(archFile, "utf8");
-  const dbFile = dbDesignJson(sftddDir, featureId);
+  const dbFile = dbDesignJson(consortDir, featureId);
   const dbContent = existsSync39(dbFile) ? readFileSync35(dbFile, "utf8") : void 0;
   if (dbContent !== void 0) {
     const conf = checkArtifactConformance("db-design.json", dbContent);
@@ -12191,9 +12197,9 @@ function checkDba(args, v) {
   if (!r.ok) v.push({ artifact: "db-design.json", problem: r.violations.join("; ") });
 }
 function checkTestStrategist(args, v) {
-  const { sftddDir, featureId, story } = args;
+  const { consortDir, featureId, story } = args;
   if (!needStory("test-strategist", story, v)) return;
-  const file = storyTestListJson(sftddDir, featureId, story);
+  const file = storyTestListJson(consortDir, featureId, story);
   if (!existsSync39(file)) {
     v.push({ artifact: `stories/${story}/test-list-per-story.json`, problem: "per-story test list not written" });
     return;
@@ -12210,7 +12216,7 @@ function checkTestStrategist(args, v) {
     v.push({ artifact: `stories/${story}/test-list-per-story.json`, problem: "empty `items` (expected >=1 test mapped to the story's ACs)" });
     return;
   }
-  const acIds = new Set(storyAcIds(sftddDir, featureId, story));
+  const acIds = new Set(storyAcIds(consortDir, featureId, story));
   const covered = /* @__PURE__ */ new Set();
   items.forEach((item, i) => {
     if (item.kind === "fitness" && typeof item.scenario_file === "string" && /\.feature$/.test(item.scenario_file)) {
@@ -12239,8 +12245,8 @@ function checkTestStrategist(args, v) {
     });
   }
 }
-function designGuideConformance(sftddDir) {
-  const file = designGuideJson(sftddDir);
+function designGuideConformance(consortDir) {
+  const file = designGuideJson(consortDir);
   if (!existsSync39(file)) {
     return { ok: false, problem: "design-guide.json not written (the machine-checkable token source of truth)" };
   }
@@ -12253,8 +12259,8 @@ function designGuideConformance(sftddDir) {
   const r = checkArtifactConformance(canonicalArtifactName(file), content);
   return r.ok ? { ok: true } : { ok: false, problem: r.violations.join("; ") };
 }
-function designGuideHasComponents(sftddDir) {
-  const file = designGuideJson(sftddDir);
+function designGuideHasComponents(consortDir) {
+  const file = designGuideJson(consortDir);
   if (!existsSync39(file)) return { ok: true };
   try {
     const parsed = JSON.parse(readFileSync35(file, "utf8"));
@@ -12271,12 +12277,12 @@ function designGuideHasComponents(sftddDir) {
   return { ok: true };
 }
 function checkUxDesigner(args, v) {
-  const r = designGuideConformance(args.sftddDir);
+  const r = designGuideConformance(args.consortDir);
   if (!r.ok) {
     v.push({ artifact: "design/design-guide.json", problem: r.problem ?? "design-guide.json is non-conformant" });
     return;
   }
-  const c = designGuideHasComponents(args.sftddDir);
+  const c = designGuideHasComponents(args.consortDir);
   if (!c.ok) v.push({ artifact: "design/design-guide.json", problem: c.problem ?? "design-guide.json is missing components" });
 }
 var CHECKERS = {
@@ -12296,20 +12302,20 @@ function formatRoleResponse(args) {
 // consort/orchestrator/build/build-context.ts
 init_esm_shims();
 import * as fs14 from "fs";
-function artifactRoot(sftddDir) {
-  return sftddDir;
+function artifactRoot(consortDir) {
+  return consortDir;
 }
-function contextRubric(sftddDir, featureId, story, ac) {
+function contextRubric(consortDir, featureId, story, ac) {
   const parts = [];
   const layers = /* @__PURE__ */ new Set();
-  const acIds = ac ? [ac] : storyAcIds(sftddDir, featureId, story);
+  const acIds = ac ? [ac] : storyAcIds(consortDir, featureId, story);
   for (const id of acIds) {
-    const l = readAcLayer(sftddDir, featureId, id);
+    const l = readAcLayer(consortDir, featureId, id);
     if (l) layers.add(l);
   }
   if (layers.size) parts.push(`layer${layers.size > 1 ? "s" : ""}=${[...layers].join(", ")}`);
   try {
-    const arch = JSON.parse(fs14.readFileSync(architectureJson(sftddDir, featureId), "utf8"));
+    const arch = JSON.parse(fs14.readFileSync(architectureJson(consortDir, featureId), "utf8"));
     const nfrs = (arch.nfrs ?? []).filter(
       (n) => n && typeof n.id === "string" && (n.applies_to === story || n.applies_to === featureId)
     );
@@ -12320,7 +12326,7 @@ function contextRubric(sftddDir, featureId, story, ac) {
   }
   if (layers.has("E2E")) {
     try {
-      const dg = JSON.parse(fs14.readFileSync(designGuideJson(sftddDir), "utf8"));
+      const dg = JSON.parse(fs14.readFileSync(designGuideJson(consortDir), "utf8"));
       const groups = Object.keys(dg.tokens ?? dg);
       if (groups.length) parts.push(`design-token groups, ${groups.join(", ")}`);
     } catch {
@@ -12332,12 +12338,12 @@ function rubricSourcesNote(rubric, featureId, root) {
   if (!rubric) return "";
   return ` The rubric above is pre-extracted from ${root}/features/${featureId}/architecture.md, ${root}/nfrs.md, and ${root}/design/design-guide.md, open those full files ONLY if you need more detail than it carries (do not re-read them by default).`;
 }
-function buildContextPack(sftddDir, featureId, story, ac, opts = {}) {
-  const root = artifactRoot(sftddDir);
-  const rubric = contextRubric(sftddDir, featureId, story, ac);
+function buildContextPack(consortDir, featureId, story, ac, opts = {}) {
+  const root = artifactRoot(consortDir);
+  const rubric = contextRubric(consortDir, featureId, story, ac);
   const parts = [];
   if (rubric) parts.push(rubric + rubricSourcesNote(rubric, featureId, root));
-  const conventions = readConventions(sftddDir);
+  const conventions = readConventions(consortDir);
   if (conventions?.layers?.length) {
     const layout = conventions.layers.map((l) => `${l.role}=${l.module}${l.renders_via ? ` (${l.renders_via})` : ""}`).join(" | ");
     parts.push(` LAYOUT (place/judge code at THESE paths, do not scan for them) :: ${layout}.`);
@@ -12352,8 +12358,8 @@ function buildContextPack(sftddDir, featureId, story, ac, opts = {}) {
 
 // consort/orchestrator/build/preconditions.ts
 init_esm_shims();
-function buildGreenFailureAdvisory(sftddDir, featureId, story, ac) {
-  const gfAssess = ac ? readGreenFailure(sftddDir, featureId, story, ac) : void 0;
+function buildGreenFailureAdvisory(consortDir, featureId, story, ac) {
+  const gfAssess = ac ? readGreenFailure(consortDir, featureId, story, ac) : void 0;
   const failureAdvisory = gfAssess?.failureOutput ? `THE VERIFY'S OWN FAILURE OUTPUT (start HERE , it names the failing test(s) + the root error; do NOT re-run or re-scan the tree to rediscover this). Read the referenced file(s) directly to confirm the cause:
 \`\`\`
 ${gfAssess.failureOutput}
@@ -12374,16 +12380,16 @@ ${gfAssess.contractRefs}
 import { sanitizeBranchName } from "@databricks-solutions/lakebase-scm-utils/util";
 var UI_TRACK_PROPOSE = ` UI track is ON: this product has a user-facing UI (a design-brief.md is part of intake), so every user-facing capability must be deliverable end to end as an E2E story, a real browser/screen interaction a user performs, not merely an API. Frame each candidate as a user-facing increment and note which need an E2E (UI) story.`;
 var UI_TRACK_BREAKDOWN = ` UI track is ON: decompose into stories that include the E2E (UI) story for each user-facing capability (a screen the user interacts with), not API-only stories.`;
-function artifactRoot2(sftddDir) {
-  return sftddDir;
+function artifactRoot2(consortDir) {
+  return consortDir;
 }
 function uiTrackBuild(root) {
   return ` UI track is ON: the UI must adhere to the project design guide at ${root}/design/design-guide.md (+ the design-guide.json tokens). Build to it.`;
 }
 var AGENT_TERSE_SUFFIX = ` Be terse: produce ONLY the required artifact file(s) on disk, then stop with at most a one-line confirmation. Do NOT print a plan, a summary of what you did, rationale, tables, or restate the artifacts to stdout, that output is wasted latency. The files on disk are the deliverable, not your prose.`;
-function storyStubScope(sftddDir, featureId, storyId) {
+function storyStubScope(consortDir, featureId, storyId) {
   try {
-    const stub = JSON.parse(fs15.readFileSync(storyJson(sftddDir, featureId, storyId), "utf8"));
+    const stub = JSON.parse(fs15.readFileSync(storyJson(consortDir, featureId, storyId), "utf8"));
     const parts = [
       stub.asA ? `As a ${stub.asA}` : "",
       stub.iWantTo ? `I want to ${stub.iWantTo}` : "",
@@ -12394,11 +12400,11 @@ function storyStubScope(sftddDir, featureId, storyId) {
     return "";
   }
 }
-function nextPendingTestDirective(sftddDir, featureId, story, loop, cap) {
+function nextPendingTestDirective(consortDir, featureId, story, loop, cap) {
   if ((loop ?? "story") === "story") {
     let batch = [];
     try {
-      batch = nextPendingBatch(sftddDir, featureId, story, Number.MAX_SAFE_INTEGER);
+      batch = nextPendingBatch(consortDir, featureId, story, Number.MAX_SAFE_INTEGER);
     } catch {
       batch = [];
     }
@@ -12411,7 +12417,7 @@ function nextPendingTestDirective(sftddDir, featureId, story, loop, cap) {
   if (loop === "hybrid-a") {
     let batch = [];
     try {
-      batch = nextPendingBatch(sftddDir, featureId, story, cap ?? DEFAULT_BATCH_CAP);
+      batch = nextPendingBatch(consortDir, featureId, story, cap ?? DEFAULT_BATCH_CAP);
     } catch {
       batch = [];
     }
@@ -12423,7 +12429,7 @@ function nextPendingTestDirective(sftddDir, featureId, story, loop, cap) {
   }
   let next;
   try {
-    next = storyTestProgress(sftddDir, featureId, story).pending[0];
+    next = storyTestProgress(consortDir, featureId, story).pending[0];
   } catch {
     next = void 0;
   }
@@ -12432,16 +12438,16 @@ function nextPendingTestDirective(sftddDir, featureId, story, loop, cap) {
   }
   return `Write EXACTLY ONE failing test (RED) for story ${story}: the next test in order, ${next.id} [ac ${next.ac_id}]: "${next.description}". Write ONLY this test. Do NOT skip ahead, do NOT combine tests, do NOT pick a different item, the orchestration stamps the RED cycle for ${next.id}, and a mismatch between the test you write and ${next.id} is a defect.`;
 }
-function supersededTestsDirective(sftddDir, featureId, story) {
+function supersededTestsDirective(consortDir, featureId, story) {
   let acId;
   try {
-    const prog = storyTestProgress(sftddDir, featureId, story);
+    const prog = storyTestProgress(consortDir, featureId, story);
     acId = (prog.openRed[0] ?? prog.pending[0])?.ac_id;
   } catch {
     acId = void 0;
   }
   if (!acId) return "";
-  const sup = readSupersededTests(sftddDir, featureId, story, acId);
+  const sup = readSupersededTests(consortDir, featureId, story, acId);
   if (!sup) return "";
   const list = sup.tests.map((t) => `  - ${t}`).join("\n");
   return `
@@ -12450,24 +12456,24 @@ SUPERSEDED TESTS: this AC (${acId}) supersedes behavior encoded in PRIOR tests t
 ${list}
 Do NOT touch any other test; an UNflagged failing test is a genuine regression that must stay red and escalate.`;
 }
-function regressionRepairDirective(sftddDir, featureId, story) {
+function regressionRepairDirective(consortDir, featureId, story) {
   let acId;
   try {
-    acId = storyTestProgress(sftddDir, featureId, story).openRed[0]?.ac_id;
+    acId = storyTestProgress(consortDir, featureId, story).openRed[0]?.ac_id;
   } catch {
     acId = void 0;
   }
   if (!acId) return "";
-  const gf = readGreenFailure(sftddDir, featureId, story, acId);
+  const gf = readGreenFailure(consortDir, featureId, story, acId);
   if (!gf?.fixDirective) return "";
   return `REPAIR a driver-fixable regression in AC ${acId} (story ${story}). The honest-GREEN verify against the running app FAILED and it was diagnosed (by the Navigator, or deterministically by a gate such as contract-clean) as a genuine regression in the code, NOT a superseded test:
   DIAGNOSIS: ${gf.diagnosis ?? gf.summary}
   FIX: ${gf.fixDirective}
 Apply that fix to the PRODUCTION code. Do NOT edit prior tests to force this regression green, fix the code. (EXCEPTION: if a SUPERSEDED TESTS directive follows below, the Navigator flagged those specific prior tests as encoding obsolete behavior, refactor ONLY those alongside this fix , often the regression is collateral from a superseded test erroring on a shared session, so both must land in this one turn.) Keep the AC's own tests green. This is your ONE repair attempt: if the verify still fails after it, the orchestration escalates to a human with the diagnosis.`;
 }
-function consumeHandback(action, featureId, sftddDir) {
+function consumeHandback(action, featureId, consortDir) {
   const story = "story" in action ? action.story : void 0;
-  const file = handbackFile(sftddDir, featureId, action.role, story);
+  const file = handbackFile(consortDir, featureId, action.role, story);
   if (!fs15.existsSync(file)) return "";
   let note = "";
   try {
@@ -12480,11 +12486,11 @@ function consumeHandback(action, featureId, sftddDir) {
 
 ` : "";
 }
-function roleTask(action, featureId, uiTrack, sftddDir, build) {
-  return consumeHandback(action, featureId, sftddDir) + roleTaskBody(action, featureId, uiTrack, sftddDir, build);
+function roleTask(action, featureId, uiTrack, consortDir, build) {
+  return consumeHandback(action, featureId, consortDir) + roleTaskBody(action, featureId, uiTrack, consortDir, build);
 }
-function architectConventionsDirective(sftddDir) {
-  const conventions = readConventions(sftddDir);
+function architectConventionsDirective(consortDir) {
+  const conventions = readConventions(consortDir);
   if (!conventions) {
     return ` This is the first feature: the layered layout you declare in architecture.json (the role -> module paths) becomes the PROJECT-WIDE convention every later feature inherits, so choose the canonical layout deliberately.`;
   }
@@ -12494,8 +12500,8 @@ function architectConventionsDirective(sftddDir) {
 function designRootNote(root, featureId, s) {
   return ` Write every artifact under the ABSOLUTE artifact root ${root} (this feature: ${root}/features/${featureId}/; this story: ${root}/features/${featureId}/stories/${s}/); use that absolute path and never resolve or guess the project root yourself.`;
 }
-function roleTaskBody(action, featureId, uiTrack, sftddDir, build) {
-  const root = artifactRoot2(sftddDir);
+function roleTaskBody(action, featureId, uiTrack, consortDir, build) {
+  const root = artifactRoot2(consortDir);
   if ("mode" in action) {
     switch (action.mode) {
       case "propose":
@@ -12516,18 +12522,18 @@ function roleTaskBody(action, featureId, uiTrack, sftddDir, build) {
   const s = action.story;
   switch (action.role) {
     case "spec-author":
-      return `Draft the acceptance criteria for story ${s} and NOTHING else.${storyStubScope(sftddDir, featureId, s)} Write ONE file per AC as acs/<AC>.json (+ optional acs/<AC>.md), and put NOTHING else in acs/ (no test lists, no -tests.json / -test-list.json, no scratch files, the spec gate validates every acs/*.json against the AC schema and rejects non-AC files). The AC id MUST match AC<n>-<slug>: AC1-create-form, AC2-form-accepts-input, ... (an "AC" prefix + a number, then a kebab slug). A bare slug id like "create-form-displays" FAILS the schema and hard-blocks the spec gate. The file's "id" field MUST equal its basename (acs/AC1-foo.json has {"id":"AC1-foo"}). Write only under story ${s}'s acs/ directory. Do not create, draft, or modify acceptance criteria for any other story in this feature, each other story is drafted in its own separate step that you are not performing now, and you will be invoked again, once per story, for the rest. Authoring more than ${s} here delays ${s} reaching its spec gate and build, and is rejected at the gate.` + designRootNote(root, featureId, s);
+      return `Draft the acceptance criteria for story ${s} and NOTHING else.${storyStubScope(consortDir, featureId, s)} Write ONE file per AC as acs/<AC>.json (+ optional acs/<AC>.md), and put NOTHING else in acs/ (no test lists, no -tests.json / -test-list.json, no scratch files, the spec gate validates every acs/*.json against the AC schema and rejects non-AC files). The AC id MUST match AC<n>-<slug>: AC1-create-form, AC2-form-accepts-input, ... (an "AC" prefix + a number, then a kebab slug). A bare slug id like "create-form-displays" FAILS the schema and hard-blocks the spec gate. The file's "id" field MUST equal its basename (acs/AC1-foo.json has {"id":"AC1-foo"}). Write only under story ${s}'s acs/ directory. Do not create, draft, or modify acceptance criteria for any other story in this feature, each other story is drafted in its own separate step that you are not performing now, and you will be invoked again, once per story, for the rest. Authoring more than ${s} here delays ${s} reaching its spec gate and build, and is rejected at the gate.` + designRootNote(root, featureId, s);
     case "architect-reviewer": {
-      const arAcIds = storyAcIds(sftddDir, featureId, s);
+      const arAcIds = storyAcIds(consortDir, featureId, s);
       const arAcScope = arAcIds.length ? ` Story ${s}'s ACs are: ${arAcIds.join(", ")}.` : "";
-      return `Annotate story ${s}'s acceptance criteria + nfrs.md coverage.${arAcScope} For EVERY one of this story's ACs, write a non-empty "architectural_notes" field into its acs/<AC>.json (the layer it lives in + how it realizes the design). This is your distinctive per-AC product; the design gate verifies every AC carries it and the spec-author's "layer" field does NOT count. architectural_notes are per-AC, so annotate this story's ACs even when the feature-level architecture.json already exists from an earlier story. In architecture.json, make an EXPLICIT service_backed call (required): set service_backed:true if the feature persists data (a DB table/migration) or carries business logic, and then you MUST declare boundary, service, and repository layers (plus a "models" PACKAGE app/models/, one module per domain object, NOT a flat app/models.py, when it persists entities); set false ONLY for a trivial static/read-through endpoint. An Infra-layer AC or a migration/schema/storage NFR while service_backed is false hard-blocks the gate. When service_backed:true you MUST also declare architecture.json persistence_invariants[]: the DB-level guarantees the schema enforces (each with id, type one of unique|foreign_key|cascade|not_null|check|transactional|migration_reversible, table, and a one-line brief), covering unique/composite keys, foreign keys + cascade rules, NOT NULL / CHECK constraints, any transactional-atomicity boundary, and migration reversibility. The test-strategist must cover each with a real-branch test; a service_backed feature with no persistence_invariants hard-blocks the gate.${architectConventionsDirective(sftddDir)}` + designRootNote(root, featureId, s);
+      return `Annotate story ${s}'s acceptance criteria + nfrs.md coverage.${arAcScope} For EVERY one of this story's ACs, write a non-empty "architectural_notes" field into its acs/<AC>.json (the layer it lives in + how it realizes the design). This is your distinctive per-AC product; the design gate verifies every AC carries it and the spec-author's "layer" field does NOT count. architectural_notes are per-AC, so annotate this story's ACs even when the feature-level architecture.json already exists from an earlier story. In architecture.json, make an EXPLICIT service_backed call (required): set service_backed:true if the feature persists data (a DB table/migration) or carries business logic, and then you MUST declare boundary, service, and repository layers (plus a "models" PACKAGE app/models/, one module per domain object, NOT a flat app/models.py, when it persists entities); set false ONLY for a trivial static/read-through endpoint. An Infra-layer AC or a migration/schema/storage NFR while service_backed is false hard-blocks the gate. When service_backed:true you MUST also declare architecture.json persistence_invariants[]: the DB-level guarantees the schema enforces (each with id, type one of unique|foreign_key|cascade|not_null|check|transactional|migration_reversible, table, and a one-line brief), covering unique/composite keys, foreign keys + cascade rules, NOT NULL / CHECK constraints, any transactional-atomicity boundary, and migration reversibility. The test-strategist must cover each with a real-branch test; a service_backed feature with no persistence_invariants hard-blocks the gate.${architectConventionsDirective(consortDir)}` + designRootNote(root, featureId, s);
     }
     case "dba": {
-      const dbaAcIds = storyAcIds(sftddDir, featureId, s);
+      const dbaAcIds = storyAcIds(consortDir, featureId, s);
       const dbaAcScope = dbaAcIds.length ? ` Story ${s}'s ACs are: ${dbaAcIds.join(", ")}.` : "";
       let contract = "";
       try {
-        const arch = JSON.parse(fs15.readFileSync(architectureJson(sftddDir, featureId), "utf8"));
+        const arch = JSON.parse(fs15.readFileSync(architectureJson(consortDir, featureId), "utf8"));
         if (arch.service_backed === true) {
           const inv = (arch.persistence_invariants ?? []).filter((i) => i && typeof i.id === "string");
           const invList = inv.length ? ` Realize EVERY declared persistence_invariant and list its id in realizes_invariants[]: ${inv.map((i) => `${i.id}${i.type ? ` [${i.type}${i.table ? ` on ${i.table}` : ""}]` : ""}${i.brief ? ` (${i.brief})` : ""}`).join("; ")}.` : "";
@@ -12543,11 +12549,11 @@ function roleTaskBody(action, featureId, uiTrack, sftddDir, build) {
       return `Realize the physical database schema for story ${s} into ${root}/features/${featureId}/db-design.json (+ a short db-design.md narrative).${dbaAcScope} Read architecture.json (service_backed, layers, persistence_invariants) , the architect owns that logical contract; you produce the PHYSICAL realization and do NOT re-author the invariants. Declare tables[] (columns with explicit type/nullable/default, primary_key, unique_constraints, foreign_keys, checks, indexes) and this story's schema_changes[] (the per-story migration plan the build lane authors the Alembic migration from; keep an expand/contract column split or drop reversible). Populate realizes_invariants[] as a flat array of the architecture.json persistence_invariant id STRINGS (bare ids, not objects) , an uncovered invariant hard-blocks the spec gate.${contract}` + designRootNote(root, featureId, s);
     }
     case "test-strategist": {
-      const acIds = storyAcIds(sftddDir, featureId, s);
+      const acIds = storyAcIds(consortDir, featureId, s);
       const acScope = acIds.length ? ` The story's ACs are: ${acIds.join(", ")}. Map every test's ac_id to one of these EXACT ids (verbatim, never a bare slug or an invented id), and cover each AC at least once.` : "";
       let dbScope = "";
       try {
-        const arch = JSON.parse(fs15.readFileSync(architectureJson(sftddDir, featureId), "utf8"));
+        const arch = JSON.parse(fs15.readFileSync(architectureJson(consortDir, featureId), "utf8"));
         if (arch.service_backed === true) {
           const inv = (arch.persistence_invariants ?? []).filter((i) => i && typeof i.id === "string");
           const list = inv.length ? ` The declared persistence invariants are: ${inv.map((i) => `${i.id}${i.brief ? ` (${i.brief})` : ""}`).join("; ")}.` : "";
@@ -12559,25 +12565,25 @@ function roleTaskBody(action, featureId, uiTrack, sftddDir, build) {
     }
     case "navigator":
       if (action.buildMode === "reflect") {
-        return `REFLECT on story ${s} BEFORE the build lane: independently critique its spec slice (${root}/features/${featureId}/stories/${s}/story.json + acs/*.json) and its test-list (${root}/features/${featureId}/stories/${s}/test-list-per-story.json) against the architecture (${root}/features/${featureId}/architecture.md/.json) + NFRs.` + contextRubric(sftddDir, featureId, s, "") + ` Look ONLY for design-time defects that would waste a build cycle: (1) ACs that contradict each other; (2) an AC with no covering test, or a test that contradicts its AC; (3) an NFR with no fitness test; (4) a test asserting at a layer the architecture forbids; (5) an AC whose declared layer conflicts with the architecture; (6) an untestable/vacuous AC (no observable outcome); (7) a UI-styling test that asserts inline HTML style or raw CSS in the page SOURCE (e.g. a text-align/color/font check inside a style= attr) for a property the design-guide + design-adherence gate govern, instead of the rendered SEAM (the element carries the design-guide class / data-testid): such a test hard-codes the very inline style the design lane then refactors into a token-driven class, so it blocks that refactor (the ui-style-implementation-test smell). Do NOT critique implementation, style, or scope, only buildability + internal consistency of THIS story's artifacts. Write your verdict to ${root}/features/${featureId}/stories/${s}/reflect-verdict.json as {"version":1,"passed":<bool>,"findings":[{"owner":"spec-author"|"test-strategist","detail":"<the defect>"}]}. passed:true with findings:[] when the spec + test-list are consistent + buildable (the common case, do NOT invent defects). Attribute each finding to spec-author (an AC/spec defect) or test-strategist (a test-list/coverage defect). Write ONLY that file; the orchestrator routes any fix deterministically.`;
+        return `REFLECT on story ${s} BEFORE the build lane: independently critique its spec slice (${root}/features/${featureId}/stories/${s}/story.json + acs/*.json) and its test-list (${root}/features/${featureId}/stories/${s}/test-list-per-story.json) against the architecture (${root}/features/${featureId}/architecture.md/.json) + NFRs.` + contextRubric(consortDir, featureId, s, "") + ` Look ONLY for design-time defects that would waste a build cycle: (1) ACs that contradict each other; (2) an AC with no covering test, or a test that contradicts its AC; (3) an NFR with no fitness test; (4) a test asserting at a layer the architecture forbids; (5) an AC whose declared layer conflicts with the architecture; (6) an untestable/vacuous AC (no observable outcome); (7) a UI-styling test that asserts inline HTML style or raw CSS in the page SOURCE (e.g. a text-align/color/font check inside a style= attr) for a property the design-guide + design-adherence gate govern, instead of the rendered SEAM (the element carries the design-guide class / data-testid): such a test hard-codes the very inline style the design lane then refactors into a token-driven class, so it blocks that refactor (the ui-style-implementation-test smell). Do NOT critique implementation, style, or scope, only buildability + internal consistency of THIS story's artifacts. Write your verdict to ${root}/features/${featureId}/stories/${s}/reflect-verdict.json as {"version":1,"passed":<bool>,"findings":[{"owner":"spec-author"|"test-strategist","detail":"<the defect>"}]}. passed:true with findings:[] when the spec + test-list are consistent + buildable (the common case, do NOT invent defects). Attribute each finding to spec-author (an AC/spec defect) or test-strategist (a test-list/coverage defect). Write ONLY that file; the orchestrator routes any fix deterministically.`;
       }
       if (action.buildMode === "assess") {
-        const gfAssess = action.ac ? readGreenFailure(sftddDir, featureId, s, action.ac) : void 0;
-        const advisory = buildGreenFailureAdvisory(sftddDir, featureId, s, action.ac ?? "");
+        const gfAssess = action.ac ? readGreenFailure(consortDir, featureId, s, action.ac) : void 0;
+        const advisory = buildGreenFailureAdvisory(consortDir, featureId, s, action.ac ?? "");
         const hasSupersededAdvisory = !!gfAssess?.supersededTestRefs;
         const scanDirective = hasSupersededAdvisory ? `(a) If the current AC INTENTIONALLY supersedes behavior those failing tests encode, FLAG them so the Driver may permissively refactor ONLY those. The DETERMINISTIC gate has ALREADY pre-localized the COMPLETE superseded set (the SUPERSEDED-TEST CANDIDATES above , a grep of the migration's dropped symbol across every test, including FITNESS / architecture / migration reversibility tests). TRUST it: flag EXACTLY those file(s) in ONE flag-superseded call and do NOT re-read each candidate to re-verify (that re-verification never converges on a large drop set , it is the assess-spin failure). Only search beyond the list if you have concrete reason to believe it MISSED a failing test; otherwise flag the list as-is:
 ` : `Inspect EVERY failing test (the COMPLETE set, not a sample) and decide per test:
 (a) If the current AC INTENTIONALLY supersedes behavior those failing tests encode (the latest AC wins; e.g. a prior feature's test asserts an outcome this AC deliberately changes), FLAG them so the Driver may permissively refactor ONLY those. Scan COMPREHENSIVELY: when this AC drops, removes, or renames a column / field / table / endpoint, the superseded set is NOT only the tests that NAME it in a query/INSERT/assertion , it ALSO includes FITNESS / architecture / migration tests that assert a PROPERTY of the now-gone shape (migration reversibility like "after up() then down(), <col> is reconstructed", schema-shape checks like "<col> exists", invariants over the old column). Those are superseded too , a reversibility/fitness test for an obsoleted column encodes abandoned behavior. Miss one and the verify stays red and escalates, so list ALL of them in ONE flag-superseded call:
 `;
         return advisory + `ASSESS a failed honest-GREEN verify for AC ${action.ac} in story ${s}. The Driver made the current test pass, but the full-suite verify against the running app FAILED, some OTHER test(s) now fail.
-` + scanDirective + `   consort-cycle flag-superseded --feature ${featureId} --story ${s} --ac ${action.ac} --reason "<new AC + what changed>" --test <path_or_nodeid> [--test ...] --tdd-dir ${sftddDir}
+` + scanDirective + `   consort-cycle flag-superseded --feature ${featureId} --story ${s} --ac ${action.ac} --reason "<new AC + what changed>" --test <path_or_nodeid> [--test ...] --tdd-dir ${consortDir}
 (b) If instead the failure is a GENUINE REGRESSION (the AC does NOT intend to change that behavior; the Driver's code is wrong), record your ROOT-CAUSE diagnosis so it travels to the Driver / the human instead of being lost. When the Driver can fix it, ALSO give a concrete repair directive (this routes a bounded Driver repair turn):
-   consort-cycle assess-regression --feature ${featureId} --story ${s} --ac ${action.ac} --diagnosis "<the WHY: which behavior broke + the root cause>" [--fix "<what the Driver should change>"] --tdd-dir ${sftddDir}
+   consort-cycle assess-regression --feature ${featureId} --story ${s} --ac ${action.ac} --diagnosis "<the WHY: which behavior broke + the root cause>" [--fix "<what the Driver should change>"] --tdd-dir ${consortDir}
    Include --fix ONLY when the fix is clear + within the Driver's reach (e.g. a wrong default, a missing filter, an off-by-one); OMIT --fix when it needs a human / a design or spec change (the orchestration then escalates carrying your diagnosis).
 Flag ONLY tests the new AC truly supersedes; never flag a test just to make a red go away. For a regression, always write a diagnosis , never nothing.`;
       }
       if (action.buildMode === "assess-deploy") {
-        const marker = readDeployVerifyAssessMarker(sftddDir, featureId, s);
+        const marker = readDeployVerifyAssessMarker(consortDir, featureId, s);
         const failing = marker?.failing_node_ids ?? [];
         return `ASSESS a failed full-feature DEPLOY-VERIFY for story ${s}. The story's own tests are green, but the full-feature verify against the running app FAILED on the tests below. A deterministic classifier RE-RAN each in ISOLATION (a fresh clean DB) and they ALL PASSED alone , so this is shared-state CONTAMINATION, not broken software: a test that does not OWN its DB state (typically a WHOLE-TABLE AGGREGATE , a COUNT/SUM integrity probe , asserting an ABSOLUTE total that holds on the isolated per-cycle branch but breaks once other stories' rows share the table).
 Failing tests:
@@ -12587,7 +12593,7 @@ For EACH test, prescribe HOW to make it own its state: scope BOTH the seed AND t
 Write your scope directives to ${root}/features/${featureId}/stories/${s}/deploy-verify-scope.json as {"version":1,"story_id":"${s}","directives":[{"node_id":"<path::test>","directive":"<how to scope it>"}]} , one entry per test you confirm is contamination-fragile. If (rarely) you judge the classifier wrong and a failure is a GENUINE regression, OMIT it from directives (write no file, or an empty directives array); the orchestration then raises it to a human instead of scoping. Write ONLY that file.`;
       }
       if (action.buildMode === "assess-refactor") {
-        const marker = readRefactorVerifyAssessMarker(sftddDir, featureId, s);
+        const marker = readRefactorVerifyAssessMarker(consortDir, featureId, s);
         return `ASSESS a failed REFACTOR-verify for story ${s}. The story's own tests are green and the requested refactor was applied, but the full suite then FAILED:
 ${marker?.summary ?? "(see the refactor verify output)"}
 ` + (marker?.superseded_advisory ? `
@@ -12599,16 +12605,16 @@ Flag ONLY the genuinely superseded prior tests via \`./scripts/lk consort-cycle 
       }
       if (action.buildMode === "review") {
         if ((build?.loop ?? "story") === "story") {
-          return `REVIEW the implementation of story ${s} now that ALL its tests are green, the whole story in one pass. Judge the story's diff against the context pack: layer boundaries, naming, cross-cutting concerns, the required NFRs, and (for UI) design-token + IA adherence.` + buildContextPack(sftddDir, featureId, s, "", { skipTestLoop: true }) + ` Write ONE verdict for the whole story to ${root}/cycles/${featureId}/${s}/review-verdict.json as {"refactor": <bool>, "notes": "<why>"}, refactor:true only if a concrete improvement is warranted; otherwise refactor:false. Do NOT change tests.`;
+          return `REVIEW the implementation of story ${s} now that ALL its tests are green, the whole story in one pass. Judge the story's diff against the context pack: layer boundaries, naming, cross-cutting concerns, the required NFRs, and (for UI) design-token + IA adherence.` + buildContextPack(consortDir, featureId, s, "", { skipTestLoop: true }) + ` Write ONE verdict for the whole story to ${root}/cycles/${featureId}/${s}/review-verdict.json as {"refactor": <bool>, "notes": "<why>"}, refactor:true only if a concrete improvement is warranted; otherwise refactor:false. Do NOT change tests.`;
         }
-        return `REVIEW the implementation of AC ${action.ac} in story ${s} now that its tests are green. Judge the diff against the context pack: layer boundaries, naming, cross-cutting concerns, the required NFRs, and (for UI) design-token + IA adherence.` + buildContextPack(sftddDir, featureId, s, action.ac ?? "", { skipTestLoop: true }) + ` Write your verdict to ${root}/cycles/${featureId}/${s}/${action.ac}/review-verdict.json as {"refactor": <bool>, "notes": "<why>"}, refactor:true only if a concrete improvement is warranted; otherwise refactor:false. Do NOT change tests.`;
+        return `REVIEW the implementation of AC ${action.ac} in story ${s} now that its tests are green. Judge the diff against the context pack: layer boundaries, naming, cross-cutting concerns, the required NFRs, and (for UI) design-token + IA adherence.` + buildContextPack(consortDir, featureId, s, action.ac ?? "", { skipTestLoop: true }) + ` Write your verdict to ${root}/cycles/${featureId}/${s}/${action.ac}/review-verdict.json as {"refactor": <bool>, "notes": "<why>"}, refactor:true only if a concrete improvement is warranted; otherwise refactor:false. Do NOT change tests.`;
       }
       {
-        return `${nextPendingTestDirective(sftddDir, featureId, s, build?.loop, build?.cap)}${uiTrack ? uiTrackBuild(root) : ""}` + buildContextPack(sftddDir, featureId, s, action.ac ?? "", { skipTestLoop: true });
+        return `${nextPendingTestDirective(consortDir, featureId, s, build?.loop, build?.cap)}${uiTrack ? uiTrackBuild(root) : ""}` + buildContextPack(consortDir, featureId, s, action.ac ?? "", { skipTestLoop: true });
       }
     case "driver":
       if (action.buildMode === "refactor-deploy") {
-        const scope = readDeployVerifyScope(sftddDir, featureId, s);
+        const scope = readDeployVerifyScope(consortDir, featureId, s);
         const directives = scope?.directives ?? [];
         return `SCOPE the contamination-fragile tests the Navigator flagged for story ${s}. Each FAILED the full-feature deploy-verify but PASSES in isolation , it asserts an ABSOLUTE whole-table aggregate (or otherwise does not own its DB state), which breaks once other stories' rows share the table. Refactor EACH per its directive so it OWNS its state: scope BOTH the seed AND the assertion to the test's own rows (filter by the test's SKUs / a marker column), or assert a DELTA , NEVER an absolute whole-table total. Keep the invariant; do NOT weaken it, and do NOT change product code.
 ` + directives.map((d) => `  ${d.node_id}
@@ -12617,20 +12623,20 @@ Edit ONLY those test files. The orchestrator re-deploys + re-verifies after your
       }
       if (action.buildMode === "refactor-superseded") {
         return `The Navigator flagged prior tests that story ${s}'s refactor SUPERSEDED. Permissively refactor ONLY the flagged superseded tests below so they reflect the retired behavior (update or drop the superseded assertion); do NOT change product code and do NOT weaken any CURRENT (non-superseded) test.
-` + supersededTestsDirective(sftddDir, featureId, s) + `
+` + supersededTestsDirective(consortDir, featureId, s) + `
 Edit ONLY the flagged test files. The orchestrator re-verifies the full suite after your turn.`;
       }
       if (action.buildMode === "repair") {
-        return regressionRepairDirective(sftddDir, featureId, s) + supersededTestsDirective(sftddDir, featureId, s);
+        return regressionRepairDirective(consortDir, featureId, s) + supersededTestsDirective(consortDir, featureId, s);
       }
       if (action.buildMode === "refactor") {
         if ((build?.loop ?? "story") === "story") {
-          return `REFACTOR story ${s} per the Navigator's review (${root}/cycles/${featureId}/${s}/review.json -> refactor_notes), guided by the architecture (${root}/features/${featureId}/architecture.md), the NFRs (${root}/nfrs.md), + design guide (${root}/design/design-guide.md). If review.json has no refactor_notes, this refactor was queued by a BLOCKING build-quality gate (a layering / design-adherence / import-coupling smell in ${root}/smells.json): run that gate to see the violation (e.g. \`consort-layering-clean --project-dir .\`) and fix exactly what it flags , typically extract the duplicated/misplaced code into one shared helper in its correct layer. Keep ALL the story's tests green and do not change what the outer-boundary tests check, refactor only.` + buildContextPack(sftddDir, featureId, s, "");
+          return `REFACTOR story ${s} per the Navigator's review (${root}/cycles/${featureId}/${s}/review.json -> refactor_notes), guided by the architecture (${root}/features/${featureId}/architecture.md), the NFRs (${root}/nfrs.md), + design guide (${root}/design/design-guide.md). If review.json has no refactor_notes, this refactor was queued by a BLOCKING build-quality gate (a layering / design-adherence / import-coupling smell in ${root}/smells.json): run that gate to see the violation (e.g. \`consort-layering-clean --project-dir .\`) and fix exactly what it flags , typically extract the duplicated/misplaced code into one shared helper in its correct layer. Keep ALL the story's tests green and do not change what the outer-boundary tests check, refactor only.` + buildContextPack(consortDir, featureId, s, "");
         }
-        return `REFACTOR AC ${action.ac} in story ${s} per the Navigator's review (${root}/cycles/${featureId}/${s}/${action.ac}/review.json -> refactor_notes), guided by the architecture (${root}/features/${featureId}/architecture.md), the NFRs (${root}/nfrs.md), + design guide (${root}/design/design-guide.md). If review.json has no refactor_notes, this refactor was queued by a BLOCKING build-quality gate (a layering / design-adherence / import-coupling smell in ${root}/smells.json): run that gate to see the violation (e.g. \`consort-layering-clean --project-dir .\`) and fix exactly what it flags , typically extract the duplicated/misplaced code into one shared helper in its correct layer. Keep ALL tests green and do not change what the outer-boundary tests check, refactor only.` + buildContextPack(sftddDir, featureId, s, action.ac ?? "");
+        return `REFACTOR AC ${action.ac} in story ${s} per the Navigator's review (${root}/cycles/${featureId}/${s}/${action.ac}/review.json -> refactor_notes), guided by the architecture (${root}/features/${featureId}/architecture.md), the NFRs (${root}/nfrs.md), + design guide (${root}/design/design-guide.md). If review.json has no refactor_notes, this refactor was queued by a BLOCKING build-quality gate (a layering / design-adherence / import-coupling smell in ${root}/smells.json): run that gate to see the violation (e.g. \`consort-layering-clean --project-dir .\`) and fix exactly what it flags , typically extract the duplicated/misplaced code into one shared helper in its correct layer. Keep ALL tests green and do not change what the outer-boundary tests check, refactor only.` + buildContextPack(consortDir, featureId, s, action.ac ?? "");
       }
       {
-        return ((build?.loop ?? "story") === "story" ? `Make ALL of story ${s}'s failing tests GREEN in one pass (simplest honest code); implement until every one of the story's tests passes, then run the story's tests once.` : build?.loop === "hybrid-a" ? `Make the failing tests for story ${s}'s current layer-batch ALL GREEN in one pass (simplest honest code); implement until every test in the open batch passes, then run that layer's runner once.` : `Make the failing test for story ${s} GREEN (simplest honest code).`) + (uiTrack ? uiTrackBuild(root) : "") + buildContextPack(sftddDir, featureId, s, action.ac ?? "") + supersededTestsDirective(sftddDir, featureId, s);
+        return ((build?.loop ?? "story") === "story" ? `Make ALL of story ${s}'s failing tests GREEN in one pass (simplest honest code); implement until every one of the story's tests passes, then run the story's tests once.` : build?.loop === "hybrid-a" ? `Make the failing tests for story ${s}'s current layer-batch ALL GREEN in one pass (simplest honest code); implement until every test in the open batch passes, then run that layer's runner once.` : `Make the failing test for story ${s} GREEN (simplest honest code).`) + (uiTrack ? uiTrackBuild(root) : "") + buildContextPack(consortDir, featureId, s, action.ac ?? "") + supersededTestsDirective(consortDir, featureId, s);
       }
     default:
       return `Work story ${s}.`;
@@ -12650,19 +12656,19 @@ var SCM_WAIT_CI_BIN = "lakebase-scm-wait-ci";
 var SCM_MERGE_BIN = "lakebase-scm-merge";
 var EXPERIMENT_SLUG = "exp1";
 var experimentBranchName = (storyId) => sanitizeBranchName(`experiment/${storyId}-${EXPERIMENT_SLUG}`);
-function designArtifactExpectation(action, sftddDir, featureId) {
+function designArtifactExpectation(action, consortDir, featureId) {
   if ("mode" in action) {
-    if (action.role === "spec-author" && action.mode === "propose") return { anyOf: [featureProposalsMd(sftddDir)], label: "planning/feature-proposals.md" };
-    if (action.role === "architect-reviewer" && (action.mode === "estimate" || action.mode === "estimate-committed")) return { anyOf: [planningEstimatesJson(sftddDir)], label: "planning/estimates.json" };
-    if (action.role === "spec-author" && action.mode === "breakdown") return { anyOf: [featureSpecJson(sftddDir, featureId)], label: "feature-spec.json" };
+    if (action.role === "spec-author" && action.mode === "propose") return { anyOf: [featureProposalsMd(consortDir)], label: "planning/feature-proposals.md" };
+    if (action.role === "architect-reviewer" && (action.mode === "estimate" || action.mode === "estimate-committed")) return { anyOf: [planningEstimatesJson(consortDir)], label: "planning/estimates.json" };
+    if (action.role === "spec-author" && action.mode === "breakdown") return { anyOf: [featureSpecJson(consortDir, featureId)], label: "feature-spec.json" };
     return null;
   }
-  if (action.role === "ux-designer") return { anyOf: [designGuideJson(sftddDir)], label: "design/design-guide.json" };
+  if (action.role === "ux-designer") return { anyOf: [designGuideJson(consortDir)], label: "design/design-guide.json" };
   const s = action.story;
   if (!s) return null;
-  if (action.role === "spec-author") return { anyOf: [acsDir(sftddDir, featureId, s)], label: `stories/${s}/acs/*.json` };
-  if (action.role === "architect-reviewer") return { anyOf: [architectureJson(sftddDir, featureId)], label: "architecture.json" };
-  if (action.role === "test-strategist") return { anyOf: [featureTestListJson(sftddDir, featureId)], label: "test-list.json" };
+  if (action.role === "spec-author") return { anyOf: [acsDir(consortDir, featureId, s)], label: `stories/${s}/acs/*.json` };
+  if (action.role === "architect-reviewer") return { anyOf: [architectureJson(consortDir, featureId)], label: "architecture.json" };
+  if (action.role === "test-strategist") return { anyOf: [featureTestListJson(consortDir, featureId)], label: "test-list.json" };
   return null;
 }
 function buildClaudeCommand(action, cfg) {
@@ -12705,7 +12711,7 @@ function buildClaudeCommand(action, cfg) {
         ...disallowed && disallowed.length ? { disallowedTools: disallowed } : {}
       };
     })(),
-    task: roleTask(action, f, cfg.uiTrack ?? false, cfg.sftddDir, {
+    task: roleTask(action, f, cfg.uiTrack ?? false, cfg.consortDir, {
       loop: storyLoop,
       cap: cfg.batchCap
     }) + (cfg.contextPackSuffix?.(action.role, buildTurn) ?? "") + AGENT_TERSE_SUFFIX + (cfg.taskSuffix?.(action.role, buildTurn) ?? ""),
@@ -12724,32 +12730,32 @@ function buildCycleCommand(action, cfg) {
   const f = cfg.featureId;
   const storyLoop = "story" in action ? effectiveLoopForStory(cfg.loopGranularity ?? "story", action.story) : cfg.loopGranularity;
   if (!("mode" in action) && action.role === "navigator" && "buildMode" in action && action.buildMode === "reflect") {
-    return { kind: "cli", bin: CYCLE_BIN, args: ["reflect-gate", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] };
+    return { kind: "cli", bin: CYCLE_BIN, args: ["reflect-gate", "--feature", f, "--story", action.story, "--tdd-dir", cfg.consortDir] };
   } else if (!("mode" in action) && action.role === "navigator" && "buildMode" in action && action.buildMode === "assess") {
     const acFlag = "ac" in action && action.ac ? ["--ac", action.ac] : [];
-    return { kind: "cli", bin: CYCLE_BIN, args: ["assess-green", "--feature", f, "--story", action.story, ...acFlag, "--tdd-dir", cfg.sftddDir] };
+    return { kind: "cli", bin: CYCLE_BIN, args: ["assess-green", "--feature", f, "--story", action.story, ...acFlag, "--tdd-dir", cfg.consortDir] };
   } else if (!("mode" in action) && action.role === "navigator" && "buildMode" in action && action.buildMode === "assess-deploy") {
-    return { kind: "cli", bin: CYCLE_BIN, args: ["assess-deploy-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] };
+    return { kind: "cli", bin: CYCLE_BIN, args: ["assess-deploy-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.consortDir] };
   } else if (!("mode" in action) && action.role === "navigator" && "buildMode" in action && action.buildMode === "assess-refactor") {
-    return { kind: "cli", bin: CYCLE_BIN, args: ["assess-refactor-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] };
+    return { kind: "cli", bin: CYCLE_BIN, args: ["assess-refactor-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.consortDir] };
   } else if (!("mode" in action) && action.role === "navigator") {
     const acFlag = "ac" in action && action.ac ? ["--ac", action.ac] : [];
     const verb = "buildMode" in action && action.buildMode === "review" ? "review" : "begin";
     const loop = storyLoop ?? "story";
     const loopFlag = loop === "story" ? ["--loop", "story"] : verb === "begin" && loop === "hybrid-a" ? ["--loop", "hybrid-a", ...cfg.batchCap ? ["--batch-cap", String(cfg.batchCap)] : []] : [];
-    return { kind: "cli", bin: CYCLE_BIN, args: [verb, "--feature", f, "--story", action.story, ...acFlag, "--tdd-dir", cfg.sftddDir, ...loopFlag] };
+    return { kind: "cli", bin: CYCLE_BIN, args: [verb, "--feature", f, "--story", action.story, ...acFlag, "--tdd-dir", cfg.consortDir, ...loopFlag] };
   }
   if (!("mode" in action) && action.role === "driver" && "buildMode" in action && action.buildMode === "refactor-deploy") {
-    return { kind: "cli", bin: CYCLE_BIN, args: ["refactor-deploy-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] };
+    return { kind: "cli", bin: CYCLE_BIN, args: ["refactor-deploy-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.consortDir] };
   } else if (!("mode" in action) && action.role === "driver" && "buildMode" in action && action.buildMode === "refactor-superseded") {
-    return { kind: "cli", bin: CYCLE_BIN, args: ["refactor-superseded-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] };
+    return { kind: "cli", bin: CYCLE_BIN, args: ["refactor-superseded-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.consortDir] };
   } else if (!("mode" in action) && action.role === "driver") {
     const acFlag = "ac" in action && action.ac ? ["--ac", action.ac] : [];
     const isRepair = "buildMode" in action && action.buildMode === "repair";
     const verb = "buildMode" in action && action.buildMode === "refactor" ? "refactor" : "green";
     const repairFlag = isRepair ? ["--repair"] : [];
     const loopFlag = verb === "refactor" && (storyLoop ?? "story") === "story" ? ["--loop", "story"] : [];
-    return { kind: "cli", bin: CYCLE_BIN, args: [verb, "--feature", f, "--story", action.story, ...acFlag, "--tdd-dir", cfg.sftddDir, ...repairFlag, ...loopFlag] };
+    return { kind: "cli", bin: CYCLE_BIN, args: [verb, "--feature", f, "--story", action.story, ...acFlag, "--tdd-dir", cfg.consortDir, ...repairFlag, ...loopFlag] };
   }
   return void 0;
 }
@@ -12758,7 +12764,7 @@ function commandsFromManifest(action, cfg) {
   const manifest = manifestForAction(action);
   if (!manifest) return void 0;
   const f = cfg.featureId;
-  const tdd = ["--feature", f, "--tdd-dir", cfg.sftddDir];
+  const tdd = ["--feature", f, "--tdd-dir", cfg.consortDir];
   const BIN_TOKENS = {
     PIPELINE_BIN,
     CYCLE_BIN,
@@ -12771,7 +12777,7 @@ function commandsFromManifest(action, cfg) {
   const expandArgs = (args) => args.flatMap((a) => {
     if (a === "--tdd") return tdd;
     if (a === "{feature}") return [f];
-    if (a === "{tddDir}") return [cfg.sftddDir];
+    if (a === "{tddDir}") return [cfg.consortDir];
     if (a === "{story}") return story ? [story] : [];
     return [a];
   });
@@ -12780,7 +12786,7 @@ function commandsFromManifest(action, cfg) {
   const before = (manifest.postTurn ?? []).filter((p) => p.when === "before").map(toCmd).filter((c) => c !== void 0);
   const after = (manifest.postTurn ?? []).filter((p) => p.when === "after").map(toCmd).filter((c) => c !== void 0);
   const cmds = [...before, buildClaudeCommand(action, cfg)];
-  const expectArtifact = designArtifactExpectation(action, cfg.sftddDir, f);
+  const expectArtifact = designArtifactExpectation(action, cfg.consortDir, f);
   if (expectArtifact) {
     cmds.push({ kind: "verify-artifact", role: action.role, anyOf: expectArtifact.anyOf, label: expectArtifact.label });
   }
@@ -12791,14 +12797,14 @@ function commandsFromManifest(action, cfg) {
 }
 function commandsForAction(action, cfg) {
   const f = cfg.featureId;
-  const tdd = ["--feature", f, "--tdd-dir", cfg.sftddDir];
+  const tdd = ["--feature", f, "--tdd-dir", cfg.consortDir];
   const approver = cfg.approver ?? "human-proxy";
   const deployTarget = cfg.deployTarget ?? "local";
   switch (action.kind) {
     case "invoke-role": {
       if ("mode" in action && action.role === "product-owner" && action.mode === "author-requests") {
         return [
-          { kind: "cli", bin: HUMAN_PROXY_BIN, args: ["supply-requests", "--tdd-dir", cfg.sftddDir, "--approver", approver, "--sprint", cfg.sprintName ?? "sprint"] },
+          { kind: "cli", bin: HUMAN_PROXY_BIN, args: ["supply-requests", "--tdd-dir", cfg.consortDir, "--approver", approver, "--sprint", cfg.sprintName ?? "sprint"] },
           { kind: "sync-backlog", sprint: cfg.sprintName ?? "sprint" }
         ];
       }
@@ -12807,13 +12813,13 @@ function commandsForAction(action, cfg) {
           {
             kind: "cli",
             bin: HUMAN_PROXY_BIN,
-            args: ["supply-proposals", "--tdd-dir", cfg.sftddDir, ...cfg.uiTrack ? ["--ui"] : []]
+            args: ["supply-proposals", "--tdd-dir", cfg.consortDir, ...cfg.uiTrack ? ["--ui"] : []]
           }
         ];
       }
       const claude = buildClaudeCommand(action, cfg);
       const cmds = [claude];
-      const expectArtifact = designArtifactExpectation(action, cfg.sftddDir, f);
+      const expectArtifact = designArtifactExpectation(action, cfg.consortDir, f);
       if (expectArtifact) {
         cmds.push({ kind: "verify-artifact", role: action.role, anyOf: expectArtifact.anyOf, label: expectArtifact.label });
       }
@@ -12822,7 +12828,7 @@ function commandsForAction(action, cfg) {
         cmds.push({ kind: "cli", bin: PIPELINE_BIN, args: ["sync-breakdown", ...tdd] });
       }
       if (!("mode" in action) && action.role === "test-strategist") {
-        cmds.push({ kind: "cli", bin: TEST_LIST_BIN, args: [cfg.sftddDir, f, action.story] });
+        cmds.push({ kind: "cli", bin: TEST_LIST_BIN, args: [cfg.consortDir, f, action.story] });
       }
       const cycleCmd = buildCycleCommand(action, cfg);
       if (cycleCmd) cmds.push(cycleCmd);
@@ -12834,10 +12840,10 @@ function commandsForAction(action, cfg) {
       return cmds;
     }
     case "deploy-verify-heal": {
-      const sftddDir = cfg.sftddDir;
+      const consortDir = cfg.consortDir;
       const featureId = f;
-      const root = artifactRoot2(sftddDir);
-      const marker = readDeployVerifyAssessMarker(sftddDir, featureId);
+      const root = artifactRoot2(consortDir);
+      const marker = readDeployVerifyAssessMarker(consortDir, featureId);
       const claude = {
         kind: "claude",
         role: action.role,
@@ -12849,7 +12855,7 @@ ${(marker?.failing_node_ids ?? []).map((n) => `  ${n}`).join("\n")}
 
 For EACH test, prescribe HOW to make it own its state: use a per-run-unique key (a uuid-suffixed sku/location), or delete/upsert the fixed key before the write AND clean up after, or scope a whole-table aggregate to the test's own rows / a delta , NEVER an absolute total. Keep the assertion's intent; just make it self-owning.
 Write your scope directives to ${root}/features/${featureId}/deploy-verify-scope.json as {"version":1,"directives":[{"node_id":"<path::test>","directive":"<how to scope it>"}]} , one entry per test you confirm is contamination-fragile. If (rarely) you judge a failure a GENUINE regression, OMIT it (write no file, or an empty directives array); the orchestration then raises it to a human. Write ONLY that file.` : `SCOPE the contamination-fragile tests the Navigator flagged for the FEATURE SHIP of ${featureId}. Refactor EXACTLY these test files to own their DB state, per the directives , do NOT touch product code, do NOT weaken the assertions' intent:
-` + (readDeployVerifyScope(sftddDir, featureId)?.directives ?? []).map((d) => `  ${d.node_id}
+` + (readDeployVerifyScope(consortDir, featureId)?.directives ?? []).map((d) => `  ${d.node_id}
     -> ${d.directive}`).join("\n") + `
 Edit ONLY those test files. The orchestrator re-deploys + re-verifies the whole feature after your turn.`) + AGENT_TERSE_SUFFIX,
         replay: { buildMode: action.mode }
@@ -12857,7 +12863,7 @@ Edit ONLY those test files. The orchestrator re-deploys + re-verifies the whole 
       const finalizeVerb = action.mode === "assess-deploy" ? "assess-deploy-verify" : "refactor-deploy-verify";
       return [
         claude,
-        { kind: "cli", bin: CYCLE_BIN, args: [finalizeVerb, "--feature", f, "--tdd-dir", cfg.sftddDir] },
+        { kind: "cli", bin: CYCLE_BIN, args: [finalizeVerb, "--feature", f, "--tdd-dir", cfg.consortDir] },
         { kind: "cli", bin: LOG_BIN, args: ["--reconcile", ...tdd] }
       ];
     }
@@ -12896,7 +12902,7 @@ Edit ONLY those test files. The orchestrator re-deploys + re-verifies the whole 
             "--project-dir",
             cfg.projectDir,
             "--tdd-dir",
-            cfg.sftddDir,
+            cfg.consortDir,
             // A re-cut after a discarded experiment re-forks the stale paired branch
             // clean (Finding 27); a first cut omits it (nothing to reset).
             ...action.resetStaleBranch ? ["--reset-stale-branch"] : []
@@ -12921,7 +12927,7 @@ Edit ONLY those test files. The orchestrator re-deploys + re-verifies the whole 
             "--project-dir",
             cfg.projectDir,
             "--tdd-dir",
-            cfg.sftddDir,
+            cfg.consortDir,
             "--gate"
           ]
         },
@@ -12954,14 +12960,14 @@ Edit ONLY those test files. The orchestrator re-deploys + re-verifies the whole 
         {
           kind: "cli",
           bin: HUMAN_PROXY_BIN,
-          args: ["--sprint", cfg.sprintName ?? "sprint", "--gate", "plan", "--approver", approver, "--tdd-dir", cfg.sftddDir]
+          args: ["--sprint", cfg.sprintName ?? "sprint", "--gate", "plan", "--approver", approver, "--tdd-dir", cfg.consortDir]
         }
       ];
     case "planning-complete":
       return [{ kind: "set-phase", phase: "discovery" }];
     case "feature-complete":
       return [
-        { kind: "cli", bin: GATE_CONFORMANCE_BIN, args: ["--feature", f, "--tdd-dir", cfg.sftddDir] },
+        { kind: "cli", bin: GATE_CONFORMANCE_BIN, args: ["--feature", f, "--tdd-dir", cfg.consortDir] },
         { kind: "set-phase", phase: "deploy" }
       ];
     case "deploy":
@@ -12979,14 +12985,14 @@ Edit ONLY those test files. The orchestrator re-deploys + re-verifies the whole 
             "--project-dir",
             cfg.projectDir,
             "--tdd-dir",
-            cfg.sftddDir,
+            cfg.consortDir,
             "--gate"
           ]
         }
       ];
     case "approve-deploy-gate":
       return [
-        { kind: "cli", bin: HUMAN_PROXY_BIN, args: ["--feature", f, "--gate", "deploy", "--approver", approver, "--tdd-dir", cfg.sftddDir] }
+        { kind: "cli", bin: HUMAN_PROXY_BIN, args: ["--feature", f, "--gate", "deploy", "--approver", approver, "--tdd-dir", cfg.consortDir] }
       ];
     case "deploy-complete":
       return [{ kind: "set-phase", phase: "promote" }];
@@ -13000,7 +13006,7 @@ Edit ONLY those test files. The orchestrator re-deploys + re-verifies the whole 
         {
           kind: "cli",
           bin: HUMAN_PROXY_BIN,
-          args: ["--feature", f, "--gate", "promote", "--approver", approver, "--tdd-dir", cfg.sftddDir, "--promote-ref", promoteRef]
+          args: ["--feature", f, "--gate", "promote", "--approver", approver, "--tdd-dir", cfg.consortDir, "--promote-ref", promoteRef]
         }
       ];
     }
@@ -13057,7 +13063,7 @@ Edit ONLY those test files. The orchestrator re-deploys + re-verifies the whole 
             "--project-dir",
             cfg.projectDir,
             "--tdd-dir",
-            cfg.sftddDir
+            cfg.consortDir
           ]
         }
       ];
@@ -13073,20 +13079,20 @@ async function planNextAction(cfg, transition = nextTransition) {
   const action = transition(state);
   return { action, commands: commandsForAction(action, cfg) };
 }
-function readDriveStateFromDisk(sftddDir, featureId, projectDir, opts = {}) {
-  const pipeline = readPipeline(sftddDir, featureId);
-  const probe = diskArtifactProbe(sftddDir, featureId, pipeline.build_active);
-  const ctx = readDriveContext(sftddDir, featureId, projectDir);
+function readDriveStateFromDisk(consortDir, featureId, projectDir, opts = {}) {
+  const pipeline = readPipeline(consortDir, featureId);
+  const probe = diskArtifactProbe(consortDir, featureId, pipeline.build_active);
+  const ctx = readDriveContext(consortDir, featureId, projectDir);
   const state = deriveDriveState(pipeline, probe, ctx);
   state.uiTrack = opts.uiTrack ?? false;
-  state.designGuideReady = designGuideConformance(sftddDir).ok;
+  state.designGuideReady = designGuideConformance(consortDir).ok;
   return state;
 }
 var POST_TURN_BIN_TOKENS = { PIPELINE_BIN, CYCLE_BIN, HUMAN_PROXY_BIN, LOG_BIN, TEST_LIST_BIN };
 function buildDriveEffects(cfg) {
   return {
     async readState() {
-      return readDriveStateFromDisk(cfg.sftddDir, cfg.featureId, cfg.projectDir, { uiTrack: cfg.uiTrack });
+      return readDriveStateFromDisk(cfg.consortDir, cfg.featureId, cfg.projectDir, { uiTrack: cfg.uiTrack });
     },
     async perform(action) {
       const cmds = (cfg.useManifestSteps ? commandsFromManifest(action, cfg) : void 0) ?? commandsForAction(action, cfg);
@@ -13110,7 +13116,7 @@ function buildDriveEffects(cfg) {
     // contract, write the violation detail where THAT role's next prompt will
     // consume it (consumeHandback in roleTask), so the retry is informed.
     onHandback(handoff, detail) {
-      const file = handbackFile(cfg.sftddDir, cfg.featureId, handoff.responder, handoff.story);
+      const file = handbackFile(cfg.consortDir, cfg.featureId, handoff.responder, handoff.story);
       try {
         fs15.mkdirSync(dirname16(file), { recursive: true });
         fs15.writeFileSync(file, `${detail}
@@ -13188,28 +13194,28 @@ function resolveStepReference(args) {
   return { corpus, paths: [p], label: p.slice(root.length + 1) };
 }
 function readCandidateArtifact(args) {
-  const { sftddDir, step, featureId } = args;
+  const { consortDir, step, featureId } = args;
   const readIf = (p2) => existsSync41(p2) ? readFileSync38(p2, "utf8") : null;
   if (step === "acs") {
-    const sdir = storiesDir(sftddDir, featureId);
+    const sdir = storiesDir(consortDir, featureId);
     if (!existsSync41(sdir)) return null;
     const parts = [];
     for (const story of readdirSync27(sdir)) {
-      const adir = acsDir(sftddDir, featureId, story);
+      const adir = acsDir(consortDir, featureId, story);
       if (!existsSync41(adir)) continue;
       for (const ac of readdirSync27(adir)) if (ac.endsWith(".json")) parts.push(readFileSync38(join35(adir, ac), "utf8"));
     }
     return parts.length ? parts.join("\n---\n") : null;
   }
-  const p = stepArtifactPath(sftddDir, step, featureId);
+  const p = stepArtifactPath(consortDir, step, featureId);
   return p ? readIf(p) : null;
 }
 async function evaluateSemanticGate(args) {
-  const { kitRoot: kitRoot2, sftddDir, featureId, step, judge } = args;
+  const { kitRoot: kitRoot2, consortDir, featureId, step, judge } = args;
   const threshold = args.threshold ?? SEMANTIC_THRESHOLD;
   const ref = resolveStepReference({ kitRoot: kitRoot2, step, featureId });
   if (!ref) return { passed: true, skipped: true };
-  const candidate = readCandidateArtifact({ sftddDir, step, featureId });
+  const candidate = readCandidateArtifact({ consortDir, step, featureId });
   if (candidate === null) {
     return { passed: false, reason: `semantic: candidate produced no artifact for step '${step}' to compare against ${ref.label}` };
   }
@@ -13349,19 +13355,19 @@ function gateForDesignHandoff(handoff) {
   }
 }
 function evaluateDesignGate(args) {
-  const { sftddDir, featureId, handoff, requireGate } = args;
+  const { consortDir, featureId, handoff, requireGate } = args;
   const mapping = gateForDesignHandoff(handoff);
   if (!mapping) {
     return { passed: false, reason: `not a design handoff (role=${handoff.role}, buildMode=${handoff.buildMode ?? "none"})` };
   }
-  const self = formatRoleResponse({ role: mapping.selfCheckRole, sftddDir, featureId, story: handoff.story });
+  const self = formatRoleResponse({ role: mapping.selfCheckRole, consortDir, featureId, story: handoff.story });
   if (!self.ok) {
     const first = self.violations[0];
     return { passed: false, reason: `self-check: ${first.artifact}: ${first.problem}` };
   }
   if (requireGate && mapping.gate) {
-    const fdir = featureDir2(sftddDir, featureId);
-    const resolved = resolveArtifactInputs(mapping.gate, fdir, void 0, sftddDir, featureId);
+    const fdir = featureDir2(consortDir, featureId);
+    const resolved = resolveArtifactInputs(mapping.gate, fdir, void 0, consortDir, featureId);
     if ("reason" in resolved) {
       return { passed: false, reason: `gate ${mapping.gate}: ${resolved.reason}` };
     }
@@ -13375,25 +13381,25 @@ import { cpSync as cpSync4, mkdtempSync, rmSync as rmSync11 } from "fs";
 import { tmpdir } from "os";
 import { basename as basename4, dirname as dirname18, join as join37 } from "path";
 function captureDesignArtifacts(args) {
-  const { sftddDir, destDir } = args;
+  const { consortDir, destDir } = args;
   rmSync11(destDir, { recursive: true, force: true });
-  cpSync4(sftddDir, destDir, { recursive: true });
+  cpSync4(consortDir, destDir, { recursive: true });
   return { path: destDir };
 }
 function restoreDesignArtifacts(args) {
-  const { sftddDir, ref } = args;
-  rmSync11(sftddDir, { recursive: true, force: true });
-  cpSync4(ref.path, sftddDir, { recursive: true });
+  const { consortDir, ref } = args;
+  rmSync11(consortDir, { recursive: true, force: true });
+  cpSync4(ref.path, consortDir, { recursive: true });
 }
 function snapshotDesign(args) {
-  const { sftddDir } = args;
+  const { consortDir } = args;
   const backup = mkdtempSync(join37(tmpdir(), "optimize-design-snap-"));
-  const backupTree = join37(backup, basename4(sftddDir));
-  cpSync4(sftddDir, backupTree, { recursive: true });
+  const backupTree = join37(backup, basename4(consortDir));
+  cpSync4(consortDir, backupTree, { recursive: true });
   return {
     restore() {
-      rmSync11(sftddDir, { recursive: true, force: true });
-      cpSync4(backupTree, sftddDir, { recursive: true });
+      rmSync11(consortDir, { recursive: true, force: true });
+      cpSync4(backupTree, consortDir, { recursive: true });
     },
     dispose() {
       rmSync11(backup, { recursive: true, force: true });
@@ -13501,11 +13507,11 @@ function walk(dir, keep) {
   }
   return out;
 }
-function scan(projectDir, sftddDir) {
+function scan(projectDir, consortDir) {
   const map = /* @__PURE__ */ new Map();
-  for (const abs of walk(sftddDir)) {
+  for (const abs of walk(consortDir)) {
     const rel = relative3(projectDir, abs);
-    if (NON_ARTIFACT_TDD.has(relative3(sftddDir, abs))) continue;
+    if (NON_ARTIFACT_TDD.has(relative3(consortDir, abs))) continue;
     map.set(rel, { abs, rel, underTdd: true, sha: sha1(abs) });
   }
   const keep = codeTreeFilter(projectDir);
@@ -13524,7 +13530,7 @@ function writeRecorderState(recordDir, cur) {
 }
 function seedRecorderBaseline(args) {
   if (existsSync43(join38(args.recordDir, ".recorder-state.json"))) return false;
-  writeRecorderState(args.recordDir, scan(args.projectDir, args.sftddDir));
+  writeRecorderState(args.recordDir, scan(args.projectDir, args.consortDir));
   return true;
 }
 function readState(recordDir) {
@@ -13550,10 +13556,10 @@ function pad(n) {
   return String(n).padStart(4, "0");
 }
 function recordTurn(args) {
-  const { recordDir, projectDir, sftddDir, action, step, transcript } = args;
+  const { recordDir, projectDir, consortDir, action, step, transcript } = args;
   const a = action;
   const prior = readState(recordDir);
-  const cur = scan(projectDir, sftddDir);
+  const cur = scan(projectDir, consortDir);
   const produced = [];
   for (const [rel, f] of cur) {
     if (prior.files[rel] !== f.sha) produced.push(rel);
@@ -13576,15 +13582,15 @@ function recordTurn(args) {
     mkdirSync24(dirname19(dst), { recursive: true });
     cpSync5(f.abs, dst);
     if (f.underTdd) {
-      const mirror = join38(artifactsDir, relative3(sftddDir, f.abs));
+      const mirror = join38(artifactsDir, relative3(consortDir, f.abs));
       mkdirSync24(dirname19(mirror), { recursive: true });
       cpSync5(f.abs, mirror);
     }
   }
   for (const rel of deleted) {
     const abs = join38(projectDir, rel);
-    if (abs.startsWith(sftddDir)) {
-      const mirror = join38(artifactsDir, relative3(sftddDir, abs));
+    if (abs.startsWith(consortDir)) {
+      const mirror = join38(artifactsDir, relative3(consortDir, abs));
       if (existsSync43(mirror)) rmSync12(mirror, { force: true });
     }
   }
@@ -13638,12 +13644,12 @@ function recordTurn(args) {
 // consort/optimize/optimize-live.ts
 var RECORD_DIR_ENV = "LAKEBASE_SFTDD_RECORD_DIR";
 function readConfig(projectDir) {
-  return loadSftddConfig(projectDir) ?? defaultSftddConfig();
+  return loadConsortConfig(projectDir) ?? defaultConsortConfig();
 }
 function applyCandidate(ctx, candidate) {
   const baseline = readConfig(ctx.projectDir);
   const merged = applyCandidateConfig(baseline, candidate);
-  writeSftddConfig(ctx.projectDir, merged, { force: true });
+  writeConsortConfig(ctx.projectDir, merged, { force: true });
   const priorEnv = {};
   for (const [k, v] of Object.entries(candidate.env ?? {})) {
     priorEnv[k] = process.env[k];
@@ -13651,7 +13657,7 @@ function applyCandidate(ctx, candidate) {
   }
   const overlay = candidate.content?.agentOverlay ? overlayAgent({ projectDir: ctx.projectDir, role: candidate.content.agentOverlay.role, markdown: candidate.content.agentOverlay.markdown }) : void 0;
   return () => {
-    writeSftddConfig(ctx.projectDir, baseline, { force: true });
+    writeConsortConfig(ctx.projectDir, baseline, { force: true });
     for (const [k, v] of Object.entries(priorEnv)) {
       if (v === void 0) delete process.env[k];
       else process.env[k] = v;
@@ -13671,14 +13677,14 @@ function makeChampionWalkDeps(ctx) {
       if (isBuildHandoff(handoff)) {
         if (!ctx.buildSnapshotDeps) throw new Error(`build handoff ${handoff.id} needs buildSnapshotDeps (git + re-fork)`);
         const reFork = turnMutatesDb(handoff.buildMode, handoff.role);
-        const snap2 = await snapshotBuild({ projectDir: ctx.projectDir, sftddDir: ctx.sftddDir, story: handoff.story ?? "" }, ctx.buildSnapshotDeps);
+        const snap2 = await snapshotBuild({ projectDir: ctx.projectDir, consortDir: ctx.consortDir, story: handoff.story ?? "" }, ctx.buildSnapshotDeps);
         return {
           restore: () => snap2.restore({ reFork }),
           dispose: () => {
           }
         };
       }
-      const snap = snapshotDesign({ sftddDir: ctx.sftddDir });
+      const snap = snapshotDesign({ consortDir: ctx.consortDir });
       return { restore: async () => snap.restore(), dispose: () => snap.dispose() };
     },
     async runTrial({ handoff, candidate, trial }) {
@@ -13688,14 +13694,14 @@ function makeChampionWalkDeps(ctx) {
       try {
         await ctx.spawnTurn({ handoff, candidate, record: false });
         const durationMs = ctx.now() - started;
-        let gate = isBuildHandoff(handoff) ? (ctx.gateBuild ?? (() => ({ passed: true })))({ handoff }) : evaluateDesignGate({ sftddDir: ctx.sftddDir, featureId: ctx.featureId, handoff });
+        let gate = isBuildHandoff(handoff) ? (ctx.gateBuild ?? (() => ({ passed: true })))({ handoff }) : evaluateDesignGate({ consortDir: ctx.consortDir, featureId: ctx.featureId, handoff });
         if (gate.passed && !isBuildHandoff(handoff) && ctx.semanticGate) {
           const sem = await ctx.semanticGate({ handoff });
           if (!sem.passed) gate = { passed: false, reason: sem.reason ?? "semantic: below threshold" };
         }
         const tokens = ctx.readTurnTokens?.({ handoff });
         const artifactsRef = gate.passed && !isBuildHandoff(handoff) ? captureDesignArtifacts({
-          sftddDir: ctx.sftddDir,
+          consortDir: ctx.consortDir,
           destDir: join39(ctx.experimentsDir, handoff.id, candidate.id, `trial-${trial}`, "artifacts")
         }) : void 0;
         result = {
@@ -13719,12 +13725,12 @@ function makeChampionWalkDeps(ctx) {
     async recordWinner({ handoff, candidate, artifactsRef }) {
       const ref = artifactsRef;
       if (ref?.path) {
-        restoreDesignArtifacts({ sftddDir: ctx.sftddDir, ref });
+        restoreDesignArtifacts({ consortDir: ctx.consortDir, ref });
         const recordDir = process.env[RECORD_DIR_ENV]?.trim() || ctx.recordDir;
         if (recordDir && handoff.action) {
           try {
-            seedRecorderBaseline({ recordDir, projectDir: ctx.projectDir, sftddDir: ctx.sftddDir });
-            recordTurn({ recordDir, projectDir: ctx.projectDir, sftddDir: ctx.sftddDir, action: handoff.action, step: 0 });
+            seedRecorderBaseline({ recordDir, projectDir: ctx.projectDir, consortDir: ctx.consortDir });
+            recordTurn({ recordDir, projectDir: ctx.projectDir, consortDir: ctx.consortDir, action: handoff.action, step: 0 });
           } catch (e) {
             process.stderr.write(`[optimize] recordWinner: corpus record best-effort failed for ${handoff.id}: ${e instanceof Error ? e.message : String(e)}
 `);
@@ -13849,8 +13855,8 @@ async function runLaneSweep(deps, opts = {}) {
   }
   return { walk: walk2 };
 }
-function readLastTurnTokens(sftddDir, role) {
-  const events = readAgentLog({ sftddDir, role }).filter((e) => e.event === "turn.usage");
+function readLastTurnTokens(consortDir, role) {
+  const events = readAgentLog({ consortDir, role }).filter((e) => e.event === "turn.usage");
   const last = events[events.length - 1];
   if (!last?.metadata) return void 0;
   const m = last.metadata;
@@ -13860,10 +13866,10 @@ function readLastTurnTokens(sftddDir, role) {
   if (inputTokens === void 0 && cacheReadTokens === void 0) return void 0;
   return { ...inputTokens !== void 0 ? { inputTokens } : {}, ...cacheReadTokens !== void 0 ? { cacheReadTokens } : {} };
 }
-function makeBuildGate(sftddDir, featureId) {
+function makeBuildGate(consortDir, featureId) {
   return ({ handoff }) => {
     const story = handoff.story;
-    const open = readEscalations(sftddDir).filter(
+    const open = readEscalations(consortDir).filter(
       (e) => !e.resolved_at && e.story_id === story && (e.feature_id === void 0 || e.feature_id === featureId)
     );
     if (open.length === 0) return { passed: true };
@@ -14044,10 +14050,10 @@ function parseSweepSpec(spec) {
   return out;
 }
 function buildCtxForHandoff(handoff, loc) {
-  const { projectDir, sftddDir, featureId } = loc;
+  const { projectDir, consortDir, featureId } = loc;
   const ctx = {
     projectDir,
-    sftddDir,
+    consortDir,
     featureId,
     experimentsDir: join40(projectDir, "experiments"),
     spawnTurn: makeLiveSpawnTurn(featureId, {
@@ -14067,7 +14073,7 @@ function buildCtxForHandoff(handoff, loc) {
     now: () => Date.now(),
     // Prompt-weight signal for the report's pass-2 trim targeting: the role's last
     // turn.usage input/cache-read tokens from the project agent-log.
-    readTurnTokens: ({ handoff: handoff2 }) => readLastTurnTokens(sftddDir, handoff2.role),
+    readTurnTokens: ({ handoff: handoff2 }) => readLastTurnTokens(consortDir, handoff2.role),
     // SEMANTIC quality bar (design turns only): after the structural gate passes, judge
     // the candidate's artifact against the recorded reference at this step with a FIXED
     // opus judge (constant across candidates). Wired only when the step has a recorded
@@ -14078,7 +14084,7 @@ function buildCtxForHandoff(handoff, loc) {
       if (!step) return {};
       const judge = makeOpusJudge({ cwd: projectDir });
       return {
-        semanticGate: () => evaluateSemanticGate({ kitRoot: kitRoot(), sftddDir, featureId, step, judge })
+        semanticGate: () => evaluateSemanticGate({ kitRoot: kitRoot(), consortDir, featureId, step, judge })
       };
     })(),
     // The corpus dir recordWinner records the restored winning-trial artifacts into
@@ -14090,13 +14096,13 @@ function buildCtxForHandoff(handoff, loc) {
     if (!scm?.project_id || !scm.branch) {
       return { error: "[optimize] build handoff needs a claimed feature (project_id + branch in .lakebase/workflow-state.json); claim + drive to the build turn first.\n" };
     }
-    ctx.gateBuild = makeBuildGate(sftddDir, featureId);
+    ctx.gateBuild = makeBuildGate(consortDir, featureId);
     ctx.buildSnapshotDeps = makeBuildSnapshotDeps({
       projectDir,
       story: handoff.story ?? "",
       cutArgs: {
         instance: scm.project_id,
-        sftddDir,
+        consortDir,
         featureId,
         experimentSlug: `${handoff.story}-optimize`,
         branch: scm.branch,
@@ -14113,12 +14119,12 @@ async function main() {
     return 2;
   }
   const projectDir = resolve3(args.projectDir ?? process.cwd());
-  const sftddDir = resolveSftddDir(projectDir);
+  const consortDir = resolveConsortDir(projectDir);
   const featureId = args.feature;
   const sweep = parseSweepSpec(args.candidates ?? "");
   const candidates = generateCandidates(sweep);
-  const recordDir = process.env.LAKEBASE_SFTDD_RECORD_DIR?.trim() || void 0;
-  delete process.env.LAKEBASE_SFTDD_RECORD_DIR;
+  const recordDir = consortEnv("RECORD_DIR")?.trim() || void 0;
+  for (const p of ENV_PREFIXES) delete process.env[`${p}RECORD_DIR`];
   process.stderr.write(
     `[optimize] scenario=${args.scenario} feature=${featureId} trials=${args.trials}${args.only ? ` only=${args.only}` : ""}${args.handoff ? ` handoff=${args.handoff}` : ""}
 `
@@ -14148,7 +14154,7 @@ async function main() {
       sweepOne: async (h) => {
         const hCands = defaultLaneCandidates(h);
         allCandidates.push(...hCands);
-        const ctxRes = buildCtxForHandoff(h, { projectDir, sftddDir, featureId, recordDir });
+        const ctxRes = buildCtxForHandoff(h, { projectDir, consortDir, featureId, recordDir });
         if ("error" in ctxRes) throw new Error(ctxRes.error.trim());
         process.stderr.write(`[optimize] handoff ${h.id}: ${hCands.length} candidate(s)
 `);
@@ -14224,7 +14230,7 @@ async function main() {
     return 0;
   }
   const handoffCandidates = args.candidates?.trim() ? candidates : defaultLaneCandidates(handoff);
-  const ctxResult = buildCtxForHandoff(handoff, { projectDir, sftddDir, featureId, recordDir });
+  const ctxResult = buildCtxForHandoff(handoff, { projectDir, consortDir, featureId, recordDir });
   if ("error" in ctxResult) {
     process.stderr.write(ctxResult.error);
     return 2;

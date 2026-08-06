@@ -41,8 +41,8 @@ function parseExternalId(externalId: string): ParsedRef {
   return { kind: "legacy", id: rest };
 }
 
-function findFeatureDirById(sftddDir: string, featureId: string): string {
-  const featuresDir = featuresDirOf(sftddDir);
+function findFeatureDirById(consortDir: string, featureId: string): string {
+  const featuresDir = featuresDirOf(consortDir);
   if (!existsSync(featuresDir)) {
     throw new Error(
       `MarkdownAdapter.pull: feature ${featureId} not found (no features directory at ${featuresDir})`
@@ -59,8 +59,8 @@ function findFeatureDirById(sftddDir: string, featureId: string): string {
   throw new Error(`MarkdownAdapter.pull: feature ${featureId} not found under ${featuresDir}`);
 }
 
-function findStoryDirById(sftddDir: string, featureId: string, storyId: string): string {
-  const featureDir = findFeatureDirById(sftddDir, featureId);
+function findStoryDirById(consortDir: string, featureId: string, storyId: string): string {
+  const featureDir = findFeatureDirById(consortDir, featureId);
   const storiesDir = join(featureDir, "stories");
   if (!existsSync(storiesDir)) {
     throw new Error(
@@ -80,8 +80,8 @@ function findStoryDirById(sftddDir: string, featureId: string, storyId: string):
   );
 }
 
-function findAcFile(sftddDir: string, featureId: string, storyId: string, acId: string): string {
-  const storyDir = findStoryDirById(sftddDir, featureId, storyId);
+function findAcFile(consortDir: string, featureId: string, storyId: string, acId: string): string {
+  const storyDir = findStoryDirById(consortDir, featureId, storyId);
   const acsDir = join(storyDir, "acs");
   const acFile = join(acsDir, `${acId}.json`);
   if (!existsSync(acFile)) {
@@ -92,8 +92,8 @@ function findAcFile(sftddDir: string, featureId: string, storyId: string, acId: 
   return acFile;
 }
 
-function scanForLegacyId(sftddDir: string, id: string): SpecEntity {
-  const featuresDir = featuresDirOf(sftddDir);
+function scanForLegacyId(consortDir: string, id: string): SpecEntity {
+  const featuresDir = featuresDirOf(consortDir);
   if (!existsSync(featuresDir)) {
     throw new Error(`MarkdownAdapter.pull: no features directory at ${featuresDir}`);
   }
@@ -156,17 +156,17 @@ export class MarkdownAdapter implements SpecAdapter {
    * fully-parsed Feature / Story / AC JSON. Throws when the encoded
    * entity cannot be resolved (feature missing, story missing, AC
    * file missing, or - for the legacy `markdown:<id>` form - the id
-   * does not match anything under `<sftddDir>/features/`).
+   * does not match anything under `<consortDir>/features/`).
    */
   async pull(externalId: string, ctx: AdapterContext): Promise<SpecEntity> {
     const ref = parseExternalId(externalId);
     switch (ref.kind) {
       case "feature": {
-        const dir = findFeatureDirById(ctx.sftddDir, ref.featureId);
+        const dir = findFeatureDirById(ctx.consortDir, ref.featureId);
         return JSON.parse(readFileSync(join(dir, "feature-spec.json"), "utf8")) as Feature;
       }
       case "story": {
-        const dir = findStoryDirById(ctx.sftddDir, ref.featureId, ref.storyId);
+        const dir = findStoryDirById(ctx.consortDir, ref.featureId, ref.storyId);
         return JSON.parse(readFileSync(join(dir, "story.json"), "utf8")) as Story;
       }
       case "ac": {
@@ -175,19 +175,19 @@ export class MarkdownAdapter implements SpecAdapter {
         // looking for the story when the encoded feature id is "_";
         // honor an explicit feature id when provided.
         if (ref.featureId === "_") {
-          return scanForAcByStory(ctx.sftddDir, ref.storyId, ref.acId);
+          return scanForAcByStory(ctx.consortDir, ref.storyId, ref.acId);
         }
-        const acFile = findAcFile(ctx.sftddDir, ref.featureId, ref.storyId, ref.acId);
+        const acFile = findAcFile(ctx.consortDir, ref.featureId, ref.storyId, ref.acId);
         return JSON.parse(readFileSync(acFile, "utf8")) as AC;
       }
       case "legacy":
-        return scanForLegacyId(ctx.sftddDir, ref.id);
+        return scanForLegacyId(ctx.consortDir, ref.id);
     }
   }
 }
 
-function scanForAcByStory(sftddDir: string, storyId: string, acId: string): AC {
-  const featuresDir = featuresDirOf(sftddDir);
+function scanForAcByStory(consortDir: string, storyId: string, acId: string): AC {
+  const featuresDir = featuresDirOf(consortDir);
   if (!existsSync(featuresDir)) {
     throw new Error(`MarkdownAdapter.pull: no features directory at ${featuresDir}`);
   }

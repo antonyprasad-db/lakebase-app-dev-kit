@@ -29,7 +29,7 @@ var import_node_path = require("path");
 var ARTIFACT_ROOT = ".consort";
 var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
 var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
-function resolveSftddDir(projectDir = process.cwd()) {
+function resolveConsortDir(projectDir = process.cwd()) {
   const next = (0, import_node_path.join)(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
   for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
@@ -155,16 +155,16 @@ if (!p.sprint) {
 `);
   process.exit(2);
 }
-var sftddDir = p.tddDir ?? resolveSftddDir(p.projectDir);
+var consortDir = p.tddDir ?? resolveConsortDir(p.projectDir);
 if (p.features.length > 0) {
-  const missing = p.features.filter((id) => !hasFeatureRequest(sftddDir, id));
-  writeRequested(sftddDir, p.sprint, p.features);
+  const missing = p.features.filter((id) => !hasFeatureRequest(consortDir, id));
+  writeRequested(consortDir, p.sprint, p.features);
   for (const id of missing) {
     process.stderr.write(`sync-backlog: WARNING , ${id} has no feature-request.md yet; excluded until authored.
 `);
   }
 }
-var backlog = syncBacklog(sftddDir, p.sprint);
+var backlog = syncBacklog(consortDir, p.sprint);
 var ids = backlog.features.map((f) => f.id);
 if (p.json) {
   process.stdout.write(`${JSON.stringify(backlog)}

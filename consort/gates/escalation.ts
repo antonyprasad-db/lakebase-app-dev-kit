@@ -85,11 +85,11 @@ export function escalationId(parts: { source: string; feature_id?: string; story
 /** Record a blocking escalation (idempotent by id: a still-unresolved one is left
  *  as-is so its original raised_at + reason stand). Returns the escalation. */
 export function writeEscalation(
-  sftddDir: string,
+  consortDir: string,
   esc: Omit<Escalation, "id" | "raised_at"> & { id?: string; raised_at?: string },
 ): Escalation {
   const id = esc.id ?? escalationId(esc);
-  const file = escalationFile(sftddDir, id);
+  const file = escalationFile(consortDir, id);
   const existing = readEscalationFile(file);
   if (existing && !existing.resolved_at) return existing;
   const full: Escalation = {
@@ -101,7 +101,7 @@ export function writeEscalation(
     ...(esc.ac_id ? { ac_id: esc.ac_id } : {}),
     raised_at: esc.raised_at ?? new Date().toISOString(),
   };
-  fs.mkdirSync(escalationsDir(sftddDir), { recursive: true });
+  fs.mkdirSync(escalationsDir(consortDir), { recursive: true });
   fs.writeFileSync(file, JSON.stringify(full, null, 2) + "\n", "utf8");
   return full;
 }
@@ -116,8 +116,8 @@ function readEscalationFile(file: string): Escalation | undefined {
 }
 
 /** Every explicitly-recorded escalation on disk (resolved + unresolved). */
-export function readEscalations(sftddDir: string): Escalation[] {
-  const dir = escalationsDir(sftddDir);
+export function readEscalations(consortDir: string): Escalation[] {
+  const dir = escalationsDir(consortDir);
   if (!fs.existsSync(dir)) return [];
   const out: Escalation[] = [];
   for (const f of fs.readdirSync(dir)) {
@@ -137,18 +137,18 @@ export function readEscalations(sftddDir: string): Escalation[] {
  *  rule. Returns the ids it resolved (empty when none matched). A story-scoped
  *  match: an escalation with no story_id is feature-wide and left untouched. */
 export function resolveEscalationsForStory(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   story: string,
   at: string = new Date().toISOString(),
 ): string[] {
-  const dir = escalationsDir(sftddDir);
+  const dir = escalationsDir(consortDir);
   const resolved: string[] = [];
-  for (const e of readEscalations(sftddDir)) {
+  for (const e of readEscalations(consortDir)) {
     if (e.resolved_at) continue;
     if (e.story_id !== story) continue;
     if (e.feature_id !== undefined && e.feature_id !== featureId) continue;
-    fs.writeFileSync(escalationFile(sftddDir, e.id), JSON.stringify({ ...e, resolved_at: at }, null, 2) + "\n", "utf8");
+    fs.writeFileSync(escalationFile(consortDir, e.id), JSON.stringify({ ...e, resolved_at: at }, null, 2) + "\n", "utf8");
     resolved.push(e.id);
   }
   return resolved;
@@ -158,8 +158,8 @@ export function resolveEscalationsForStory(
  *  The Navigator flags a smell (e.g. test-list-drift on a contradictory test);
  *  if it is in BLOCKING_SMELLS and unresolved, it becomes an HIL escalation
  *  rather than a reporting-only line. */
-export function escalationsFromSmells(sftddDir: string, featureId?: string): Escalation[] {
-  const log = readSmellsLog(sftddDir);
+export function escalationsFromSmells(consortDir: string, featureId?: string): Escalation[] {
+  const log = readSmellsLog(consortDir);
   return log.detected
     .filter((d) => !d.resolution && BLOCKING_SMELLS.has(d.smell))
     // Born-green fitness guard: a `cycle-stall` flagged while the story's next
@@ -170,7 +170,7 @@ export function escalationsFromSmells(sftddDir: string, featureId?: string): Esc
     // so the loop proceeds to the GREEN turn instead of hard-halting to the HIL.
     .filter((d) => {
       if (d.smell !== "cycle-stall" || !featureId || !d.story_id) { return true; }
-      return pendingItemKind(sftddDir, featureId, d.story_id) !== "fitness";
+      return pendingItemKind(consortDir, featureId, d.story_id) !== "fitness";
     })
     .map((d) => ({
       id: escalationId({ source: `smell:${d.smell}`, feature_id: featureId, story_id: d.story_id }),
@@ -191,7 +191,7 @@ export function escalationsFromSmells(sftddDir: string, featureId?: string): Esc
  *  advisory/unknown smell names; idempotent (skips a still-unresolved dup of the
  *  same smell). Returns true iff a new entry was written. */
 export function recordBlockingSmellFlag(
-  sftddDir: string,
+  consortDir: string,
   smell: string,
   detail?: string,
   scope?: { story_id?: string; ac_id?: string },
@@ -199,8 +199,8 @@ export function recordBlockingSmellFlag(
   if (!BLOCKING_SMELLS.has(smell as SmellName)) return false;
   // Idempotent per (smell, story): a still-open flag of the same smell on the
   // same story is a dup (the shared hasOpenSmell guard).
-  if (hasOpenSmell(sftddDir, smell, scope?.story_id)) return false;
-  writeSmellsLog(sftddDir, [
+  if (hasOpenSmell(consortDir, smell, scope?.story_id)) return false;
+  writeSmellsLog(consortDir, [
     {
       smell: smell as SmellName,
       cycle_ids: [],
@@ -216,12 +216,12 @@ export function recordBlockingSmellFlag(
  *  smells), or null. This is what the driver consults to decide whether to
  *  pre-empt every other transition with a raise-to-hil halt. Explicit files win
  *  over smell-derived (they carry the richer reason). */
-export function firstPendingEscalation(sftddDir: string, featureId?: string): Escalation | null {
-  const explicit = readEscalations(sftddDir).filter((e) => !e.resolved_at);
+export function firstPendingEscalation(consortDir: string, featureId?: string): Escalation | null {
+  const explicit = readEscalations(consortDir).filter((e) => !e.resolved_at);
   const scoped = featureId ? explicit.filter((e) => !e.feature_id || e.feature_id === featureId) : explicit;
   if (scoped.length > 0) {
     return [...scoped].sort((a, b) => (a.raised_at < b.raised_at ? -1 : 1))[0];
   }
-  const fromSmells = escalationsFromSmells(sftddDir, featureId);
+  const fromSmells = escalationsFromSmells(consortDir, featureId);
   return fromSmells.length > 0 ? fromSmells.sort((a, b) => (a.raised_at < b.raised_at ? -1 : 1))[0] : null;
 }

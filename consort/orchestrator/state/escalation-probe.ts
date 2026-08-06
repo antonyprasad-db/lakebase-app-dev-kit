@@ -16,16 +16,16 @@ import type { DriveEscalation, DriveState } from "../workflow/workflow-vocabular
  * -> revise-route) vs terminal (build smell / explicit file / budget spent -> raise-to-hil)
  * lives there, so the manifest path and nextTransition agree by construction.
  *
- * @param sftddDir     the workspace's resolved .sftdd dir.
+ * @param consortDir     the workspace's resolved .sftdd dir.
  * @param featureId    the feature under design.
  * @param buildActive  the story the build lane is on (scopes a story-less smell), if any.
  */
 export function deriveEscalation(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   buildActive: string | null = null,
 ): DriveEscalation | null {
-  return diskArtifactProbe(sftddDir, featureId, buildActive).pendingEscalation();
+  return diskArtifactProbe(consortDir, featureId, buildActive).pendingEscalation();
 }
 
 /**
@@ -36,7 +36,7 @@ export function deriveEscalation(
  * `{ phase: "feature" }` (plus the explicit empty design fields DriveState requires).
  */
 export function probeDriveState(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   buildActive: string | null = null,
 ): DriveState {
@@ -46,6 +46,6 @@ export function probeDriveState(
     storyOrder: [],
     stories: {},
     buildActive,
-    escalation: deriveEscalation(sftddDir, featureId, buildActive),
+    escalation: deriveEscalation(consortDir, featureId, buildActive),
   };
 }

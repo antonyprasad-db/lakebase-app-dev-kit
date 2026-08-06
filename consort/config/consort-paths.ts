@@ -18,7 +18,7 @@ import { join } from "node:path";
 // ".sftdd" (the consort-skill-rename era), and that name was copy-pasted as a
 // default across ~20 call sites; this is the one place the name is now defined.
 // Existing projects keep whichever legacy root they have (tri-read via
-// resolveSftddDir, newest-first: ".sftdd" then ".tdd") and are auto-migrated to
+// resolveConsortDir, newest-first: ".sftdd" then ".tdd") and are auto-migrated to
 // ".consort" by the orchestrator on the next run (see migrate-artifact-dir.ts).
 export const ARTIFACT_ROOT = ".consort";
 /** Prior artifact-root names, newest-first. READ (never written) for backward
@@ -50,7 +50,7 @@ export const artifactRootsRegexAlternation = (): string =>
  *  creates or renames. Pass the project dir (defaults to the current working
  *  directory) and use the result anywhere a bare artifact-root literal used to
  *  be hardcoded. */
-export function resolveSftddDir(projectDir: string = process.cwd()): string {
+export function resolveConsortDir(projectDir: string = process.cwd()): string {
   const next = join(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
   for (const legacyName of LEGACY_ARTIFACT_ROOTS) {

@@ -13,7 +13,7 @@
 // Exit: 0 ok; 2 bad args; 1 op failure (e.g. no open RED cycle to green).
 
 import { join } from "path";
-import { resolveSftddDir, storyAcIds } from "../../consort/config/consort-paths.js";
+import { resolveConsortDir, storyAcIds } from "../../consort/config/consort-paths.js";
 import {
   beginNextPendingCycle,
   beginNextPendingBatch,
@@ -54,7 +54,7 @@ interface Args {
   feature?: string;
   story?: string;
   ac?: string;
-  sftddDir?: string;
+  consortDir?: string;
   /** P8b: "hybrid-a" makes `begin` stamp a layer-batch RED (vs one test). */
   loop?: string;
   /** P8b: layer-batch cap for `begin --loop hybrid-a`. */
@@ -78,7 +78,7 @@ function parse(argv: string[]): Args {
       case "--feature": out.feature = argv[++i]; break;
       case "--story": out.story = argv[++i]; break;
       case "--ac": out.ac = argv[++i]; break;
-      case "--tdd-dir": out.sftddDir = argv[++i]; break;
+      case "--tdd-dir": out.consortDir = argv[++i]; break;
       case "--loop": out.loop = argv[++i]; break;
       case "--test": (out.tests ??= []).push(argv[++i]); break;
       case "--reason": out.reason = argv[++i]; break;
@@ -105,8 +105,8 @@ function usage(msg: string): number {
 async function main(): Promise<number> {
   const a = parse(process.argv.slice(2));
   if (!a.feature || !a.story) return usage("Error: --feature and --story are required.");
-  const sftddDir = a.sftddDir ?? resolveSftddDir();
-  const base = { sftddDir, featureId: a.feature, story: a.story };
+  const consortDir = a.consortDir ?? resolveConsortDir();
+  const base = { consortDir, featureId: a.feature, story: a.story };
 
   switch (a.cmd) {
     case "begin": {
@@ -151,17 +151,17 @@ async function main(): Promise<number> {
       // story granularity (default): the Navigator REVIEWs the WHOLE story in
       // one turn (review-verdict.json at the story root); no AC.
       if (a.loop === "story") {
-        const r = reviewStory(sftddDir, a.feature, a.story);
+        const r = reviewStory(consortDir, a.feature, a.story);
         process.stdout.write(`cycle: REVIEWED story ${a.story}${r.refactorRequested ? " (refactor requested)" : " (looks good)"}\n`);
         return 0;
       }
       // Record the Navigator's REVIEW of an AC (after its tests are all green).
-      const ac = a.ac ?? firstReviewPendingAc(sftddDir, a.feature, a.story);
+      const ac = a.ac ?? firstReviewPendingAc(consortDir, a.feature, a.story);
       if (!ac) {
         process.stdout.write(`cycle: no AC awaiting review for ${a.story}\n`);
         return 0;
       }
-      const r = reviewAc(sftddDir, a.feature, a.story, ac);
+      const r = reviewAc(consortDir, a.feature, a.story, ac);
       process.stdout.write(`cycle: REVIEWED ${ac}${r.refactorRequested ? " (refactor requested)" : " (looks good)"}\n`);
       return 0;
     }
@@ -174,7 +174,7 @@ async function main(): Promise<number> {
       // story granularity (default): the Driver REFACTORs the WHOLE story in
       // one turn; honest re-verify gates stamping (same as the per-AC path).
       if (a.loop === "story") {
-        const r = await refactorStory(sftddDir, a.feature, a.story, { verify: greenVerifierForEnv() });
+        const r = await refactorStory(consortDir, a.feature, a.story, { verify: greenVerifierForEnv() });
         if (r.escalated) {
           process.stdout.write(`cycle: REFACTOR BLOCKED for story ${a.story} -> raised to HIL: ${r.summary}\n`);
         } else {
@@ -182,13 +182,13 @@ async function main(): Promise<number> {
         }
         return 0;
       }
-      const ac = a.ac ?? firstRefactorPendingAc(sftddDir, a.feature, a.story);
+      const ac = a.ac ?? firstRefactorPendingAc(consortDir, a.feature, a.story);
       if (!ac) {
         process.stdout.write(`cycle: no AC awaiting refactor for ${a.story}\n`);
         return 0;
       }
       // Same replay-build trust applies to the refactor re-verify.
-      const r = await refactorAc(sftddDir, a.feature, a.story, ac, { verify: greenVerifierForEnv() });
+      const r = await refactorAc(consortDir, a.feature, a.story, ac, { verify: greenVerifierForEnv() });
       if (r.escalated) {
         process.stdout.write(`cycle: REFACTOR BLOCKED for ${ac} -> raised to HIL: ${r.summary}\n`);
       } else {
@@ -203,7 +203,7 @@ async function main(): Promise<number> {
       if (!a.ac) return usage("flag-superseded: --ac is required.");
       if (!a.tests || a.tests.length === 0) return usage("flag-superseded: at least one --test is required.");
       if (!a.reason) return usage("flag-superseded: --reason is required.");
-      writeSupersededTests(sftddDir, a.feature, a.story, a.ac, { tests: a.tests, reason: a.reason });
+      writeSupersededTests(consortDir, a.feature, a.story, a.ac, { tests: a.tests, reason: a.reason });
       process.stdout.write(`cycle: flagged ${a.tests.length} superseded test(s) for ${a.story}/${a.ac}\n`);
       return 0;
     }
@@ -215,7 +215,7 @@ async function main(): Promise<number> {
       // driver-fixable and assess-green will escalate carrying the diagnosis.
       if (!a.ac) return usage("assess-regression: --ac is required.");
       if (!a.diagnosis) return usage("assess-regression: --diagnosis is required.");
-      writeRegressionAssessment(sftddDir, a.feature, a.story, a.ac, {
+      writeRegressionAssessment(consortDir, a.feature, a.story, a.ac, {
         diagnosis: a.diagnosis,
         ...(a.fixDirective ? { fixDirective: a.fixDirective } : {}),
       });
@@ -231,7 +231,7 @@ async function main(): Promise<number> {
       // story. The existing revise-route/escalation machinery then routes +
       // bounds + escalates. A passed/absent verdict flags nothing.
       if (!a.story) return usage("reflect-gate: --story is required.");
-      const hits = recordReflectionGate(sftddDir, a.feature, a.story);
+      const hits = recordReflectionGate(consortDir, a.feature, a.story);
       process.stdout.write(
         hits.length === 0
           ? `cycle: reflect gate passed for ${a.story} (no design defect)\n`
@@ -253,13 +253,13 @@ async function main(): Promise<number> {
       //       the bare verify summary (the prior, diagnosis-free fallback).
       const ac = a.ac;
       if (!ac) return usage("assess-green: --ac is required.");
-      const gf = readGreenFailure(sftddDir, a.feature, a.story, ac);
-      const flagged = readSupersededTests(sftddDir, a.feature, a.story, ac);
-      const regression = readRegressionAssessment(sftddDir, a.feature, a.story, ac);
+      const gf = readGreenFailure(consortDir, a.feature, a.story, ac);
+      const flagged = readSupersededTests(consortDir, a.feature, a.story, ac);
+      const regression = readRegressionAssessment(consortDir, a.feature, a.story, ac);
       // composeAssessedGreenFailure PRESERVES the cross-round fixAttempts counter
       // (without it the assess turn reset the self-heal cap every round, so the
       // refactor-until-clean loop was unbounded , observed 4 rounds, counter stuck at 1).
-      writeGreenFailure(sftddDir, a.feature, a.story, ac, composeAssessedGreenFailure(gf, regression));
+      writeGreenFailure(consortDir, a.feature, a.story, ac, composeAssessedGreenFailure(gf, regression));
       if (flagged) {
         process.stdout.write(`cycle: assessed ${a.story}/${ac} -> superseded (${flagged.tests.length} test(s) flagged; Driver may permissively green)\n`);
       } else if (regression?.fixDirective) {
@@ -268,7 +268,7 @@ async function main(): Promise<number> {
         process.stdout.write(`cycle: assessed ${a.story}/${ac} -> driver-fixable regression; routing Driver repair: ${regression.diagnosis}\n`);
       } else {
         const why = regression?.diagnosis ?? gf?.summary ?? "";
-        writeEscalation(sftddDir, {
+        writeEscalation(consortDir, {
           source: "driver-green",
           reason: `GREEN verify failed for ${ac} in ${a.feature}/${a.story}: Navigator assessed it as a genuine regression${regression ? " (not driver-fixable)" : " (no superseded tests flagged)"}${why ? ` , ${why}` : ""}`,
           feature_id: a.feature,
@@ -292,21 +292,21 @@ async function main(): Promise<number> {
       // --story is OPTIONAL: absent = the FEATURE-ship self-heal (feature-scope
       // marker + scope file; no story_id on the escalation).
       const scopeLabel = a.story ? `${a.feature}/${a.story}` : a.feature;
-      const marker = readDeployVerifyAssessMarker(sftddDir, a.feature, a.story);
+      const marker = readDeployVerifyAssessMarker(consortDir, a.feature, a.story);
       if (!marker) {
         process.stdout.write(`cycle: assess-deploy-verify , no marker for ${scopeLabel} (nothing to assess)\n`);
         return 0;
       }
-      const scope = readDeployVerifyScope(sftddDir, a.feature, a.story);
+      const scope = readDeployVerifyScope(consortDir, a.feature, a.story);
       const scoped = scope?.directives?.map((d) => d.node_id).filter((n) => !!n) ?? [];
       if (scoped.length > 0) {
-        markDeployVerifyAssessed(sftddDir, a.feature, a.story, scoped);
+        markDeployVerifyAssessed(consortDir, a.feature, a.story, scoped);
         process.stdout.write(
           `cycle: assessed deploy-verify ${scopeLabel} -> ${scoped.length} contamination-fragile test(s) to scope; routing Driver SCOPE-DEPLOY\n`,
         );
       } else {
-        markDeployVerifyAssessed(sftddDir, a.feature, a.story);
-        writeEscalation(sftddDir, {
+        markDeployVerifyAssessed(consortDir, a.feature, a.story);
+        writeEscalation(consortDir, {
           source: "deploy-verify",
           reason: `deploy-verify failure for ${scopeLabel}: Navigator assessed it as genuine (no contamination-fragile tests to scope); raising to HIL`,
           feature_id: a.feature,
@@ -322,7 +322,7 @@ async function main(): Promise<number> {
       // through to the one re-deploy + re-verify (which clears the marker on pass,
       // or , if it still fails , writes the terminal escalation, the one-shot bound).
       // --story optional: absent = the feature-ship marker.
-      markDeployVerifyRefactored(sftddDir, a.feature, a.story);
+      markDeployVerifyRefactored(consortDir, a.feature, a.story);
       process.stdout.write(
         `cycle: deploy-verify scope refactor recorded for ${a.story ?? a.feature}; re-deploying to re-verify\n`,
       );
@@ -339,26 +339,26 @@ async function main(): Promise<number> {
       //     -> mark assessed (spend the one shot) + write the terminal refactor
       //     escalation (raise-to-hil).
       if (!a.story) return usage("assess-refactor-verify: --story is required.");
-      const marker = readRefactorVerifyAssessMarker(sftddDir, a.feature, a.story);
+      const marker = readRefactorVerifyAssessMarker(consortDir, a.feature, a.story);
       if (!marker) {
         process.stdout.write(`cycle: assess-refactor-verify , no marker for ${a.feature}/${a.story} (nothing to assess)\n`);
         return 0;
       }
       // Aggregate the superseded tests the Navigator flagged across the story's ACs.
       const flagged: string[] = [];
-      for (const ac of storyAcIds(sftddDir, a.feature, a.story)) {
-        const s = readSupersededTests(sftddDir, a.feature, a.story, ac);
+      for (const ac of storyAcIds(consortDir, a.feature, a.story)) {
+        const s = readSupersededTests(consortDir, a.feature, a.story, ac);
         if (s?.tests) flagged.push(...s.tests);
       }
       const uniqueFlagged = [...new Set(flagged)];
       if (uniqueFlagged.length > 0) {
-        markRefactorVerifyAssessed(sftddDir, a.feature, a.story, uniqueFlagged);
+        markRefactorVerifyAssessed(consortDir, a.feature, a.story, uniqueFlagged);
         process.stdout.write(
           `cycle: assessed refactor-verify ${a.story} -> ${uniqueFlagged.length} superseded test(s); routing Driver permissive refactor\n`,
         );
       } else {
-        markRefactorVerifyAssessed(sftddDir, a.feature, a.story);
-        writeEscalation(sftddDir, {
+        markRefactorVerifyAssessed(consortDir, a.feature, a.story);
+        writeEscalation(consortDir, {
           source: "driver-refactor",
           reason: `REFACTOR verify failure for ${a.feature}/${a.story}: Navigator assessed it as a genuine regression (no superseded tests to refactor); raising to HIL`,
           feature_id: a.feature,
@@ -374,7 +374,7 @@ async function main(): Promise<number> {
       // plain story refactor re-verify (which clears the marker on pass, or , if it
       // still fails , escalates via the now-assessed marker, the one-shot bound).
       if (!a.story) return usage("refactor-superseded-verify: --story is required.");
-      markRefactorVerifyRefactored(sftddDir, a.feature, a.story);
+      markRefactorVerifyRefactored(consortDir, a.feature, a.story);
       process.stdout.write(`cycle: refactor-verify superseded refactor recorded for ${a.story}; re-verifying\n`);
       return 0;
     }

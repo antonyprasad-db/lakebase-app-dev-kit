@@ -9,8 +9,8 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 
-import { resolveSftddSettings, loadSftddConfig, defaultSftddConfig, writeSftddConfig, applyProjectOverrides, TDD_CONFIG_REL, CONSORT_CONFIG_REL, SFTDD_CONFIG_REL, LEGACY_CONFIG_RELS, LEGACY_TDD_CONFIG_REL } from "../../consort/orchestrator/settings/project-settings.js";
-import { sftddEnv } from "../../consort/config/consort-env.js";
+import { resolveConsortSettings, loadConsortConfig, defaultConsortConfig, writeConsortConfig, applyProjectOverrides, TDD_CONFIG_REL, CONSORT_CONFIG_REL, SFTDD_CONFIG_REL, LEGACY_CONFIG_RELS, LEGACY_TDD_CONFIG_REL } from "../../consort/orchestrator/settings/project-settings.js";
+import { consortEnv } from "../../consort/config/consort-env.js";
 
 let proj: string;
 const writeConfig = (obj: unknown): void => {
@@ -39,41 +39,41 @@ describe("Consort rename back-compat (config file + env prefix)", () => {
     expect(LEGACY_TDD_CONFIG_REL).toBe(join(".lakebase", "sftdd-config.json"));
   });
 
-  it("loadSftddConfig reads the older legacy tdd-config.json when only it exists", () => {
+  it("loadConsortConfig reads the older legacy tdd-config.json when only it exists", () => {
     mkdirSync(join(proj, ".lakebase"), { recursive: true });
     writeFileSync(join(proj, LEGACY_CONFIG_RELS[1]), JSON.stringify({ version: 1, roles: { navigator: { model: "haiku" } } }));
-    expect(loadSftddConfig(proj)?.roles?.navigator?.model).toBe("haiku");
+    expect(loadConsortConfig(proj)?.roles?.navigator?.model).toBe("haiku");
   });
 
   it("reads the legacy sftdd-config.json over the older tdd-config.json", () => {
     mkdirSync(join(proj, ".lakebase"), { recursive: true });
     writeFileSync(join(proj, LEGACY_CONFIG_RELS[1]), JSON.stringify({ version: 1, roles: { navigator: { model: "haiku" } } }));
     writeFileSync(join(proj, LEGACY_CONFIG_RELS[0]), JSON.stringify({ version: 1, roles: { navigator: { model: "sonnet" } } }));
-    expect(loadSftddConfig(proj)?.roles?.navigator?.model).toBe("sonnet");
+    expect(loadConsortConfig(proj)?.roles?.navigator?.model).toBe("sonnet");
   });
 
   it("prefers consort-config.json over any legacy file when they coexist", () => {
     mkdirSync(join(proj, ".lakebase"), { recursive: true });
     writeFileSync(join(proj, LEGACY_CONFIG_RELS[0]), JSON.stringify({ version: 1, roles: { navigator: { model: "haiku" } } }));
     writeFileSync(join(proj, CONSORT_CONFIG_REL), JSON.stringify({ version: 1, roles: { navigator: { model: "opus" } } }));
-    expect(loadSftddConfig(proj)?.roles?.navigator?.model).toBe("opus");
+    expect(loadConsortConfig(proj)?.roles?.navigator?.model).toBe("opus");
   });
 
-  it("sftddEnv reads LAKEBASE_SFTDD_* and falls back to legacy LAKEBASE_TDD_*", () => {
-    expect(sftddEnv("LOOP", { LAKEBASE_SFTDD_LOOP: "ac" })).toBe("ac");
-    expect(sftddEnv("LOOP", { LAKEBASE_TDD_LOOP: "story" })).toBe("story"); // legacy fallback
-    expect(sftddEnv("LOOP", { LAKEBASE_SFTDD_LOOP: "ac", LAKEBASE_TDD_LOOP: "story" })).toBe("ac"); // new wins
-    expect(sftddEnv("LOOP", {})).toBeUndefined();
+  it("consortEnv reads LAKEBASE_SFTDD_* and falls back to legacy LAKEBASE_TDD_*", () => {
+    expect(consortEnv("LOOP", { LAKEBASE_SFTDD_LOOP: "ac" })).toBe("ac");
+    expect(consortEnv("LOOP", { LAKEBASE_TDD_LOOP: "story" })).toBe("story"); // legacy fallback
+    expect(consortEnv("LOOP", { LAKEBASE_SFTDD_LOOP: "ac", LAKEBASE_TDD_LOOP: "story" })).toBe("ac"); // new wins
+    expect(consortEnv("LOOP", {})).toBeUndefined();
   });
 
   // NOTE: env vars no longer drive project settings (single-source refactor). The
-  // sftddEnv accessor's legacy fallback (above) still matters for run-mode knobs;
+  // consortEnv accessor's legacy fallback (above) still matters for run-mode knobs;
   // that a project setting is NOT env-driven is asserted in the single-source block.
 });
 
-describe("resolveSftddSettings: defaults when no file + no env", () => {
+describe("resolveConsortSettings: defaults when no file + no env", () => {
   it("uses recommended models + P6 default (navigator REVIEW low, else model-default)", () => {
-    const s = resolveSftddSettings({ projectDir: proj });
+    const s = resolveConsortSettings({ projectDir: proj });
     expect(s.models.navigator).toBe("sonnet");
     expect(s.models["spec-author"]).toBe("opus");
     expect(s.effortFor("navigator", "review")).toBe("low");
@@ -105,12 +105,12 @@ describe("resolveSftddSettings: defaults when no file + no env", () => {
   it("loopGranularity honors story | ac | hybrid-a from the FILE (not just hybrid-a)", () => {
     for (const v of ["story", "ac", "hybrid-a"] as const) {
       writeConfig({ version: 1, build: { loopGranularity: v } });
-      expect(resolveSftddSettings({ projectDir: proj }).build.loopGranularity).toBe(v);
+      expect(resolveConsortSettings({ projectDir: proj }).build.loopGranularity).toBe(v);
     }
   });
 });
 
-describe("resolveSftddSettings: the file drives the per-role/turn matrix", () => {
+describe("resolveConsortSettings: the file drives the per-role/turn matrix", () => {
   it("model + per-turn effort + fallbackModel + maxBudgetUsd from the file", () => {
     writeConfig({
       version: 1,
@@ -122,7 +122,7 @@ describe("resolveSftddSettings: the file drives the per-role/turn matrix", () =>
       plan: { sizing: false },
       project: { uiTrack: true },
     });
-    const s = resolveSftddSettings({ projectDir: proj });
+    const s = resolveConsortSettings({ projectDir: proj });
     expect(s.models.navigator).toBe("opus");
     expect(s.fallbackModels.navigator).toBe("sonnet");
     expect(s.budgets.navigator).toBe(2.5);
@@ -138,13 +138,13 @@ describe("resolveSftddSettings: the file drives the per-role/turn matrix", () =>
   });
 });
 
-describe("resolveSftddSettings: per-turn model tiering (driver GREEN/REFACTOR cheaper)", () => {
+describe("resolveConsortSettings: per-turn model tiering (driver GREEN/REFACTOR cheaper)", () => {
   it("a per-turn `model` map resolves per turn; the base falls to the recommended model", () => {
     writeConfig({
       version: 1,
       roles: { driver: { model: { red: "sonnet", green: "haiku", refactor: "haiku" } } },
     });
-    const s = resolveSftddSettings({ projectDir: proj });
+    const s = resolveConsortSettings({ projectDir: proj });
     expect(s.modelFor("driver", "red")).toBe("sonnet");
     expect(s.modelFor("driver", "green")).toBe("haiku");
     expect(s.modelFor("driver", "refactor")).toBe("haiku");
@@ -157,21 +157,21 @@ describe("resolveSftddSettings: per-turn model tiering (driver GREEN/REFACTOR ch
 
   it("a scalar `model` applies to every turn", () => {
     writeConfig({ version: 1, roles: { driver: { model: "opus" } } });
-    const s = resolveSftddSettings({ projectDir: proj });
+    const s = resolveConsortSettings({ projectDir: proj });
     expect(s.models.driver).toBe("opus");
     expect(s.modelFor("driver", "green")).toBe("opus");
     expect(s.modelFor("driver")).toBe("opus");
   });
 
   it("with no file, modelFor returns the recommended base for every turn", () => {
-    const s = resolveSftddSettings({ projectDir: proj });
+    const s = resolveConsortSettings({ projectDir: proj });
     expect(s.modelFor("driver", "green")).toBe("sonnet");
     expect(s.modelFor("spec-author")).toBe("opus");
   });
 
-  it("defaultSftddConfig seeds the balanced driver tier: RED + GREEN recommended, REFACTOR haiku", () => {
-    writeSftddConfig(proj, defaultSftddConfig());
-    const s = resolveSftddSettings({ projectDir: proj });
+  it("defaultConsortConfig seeds the balanced driver tier: RED + GREEN recommended, REFACTOR haiku", () => {
+    writeConsortConfig(proj, defaultConsortConfig());
+    const s = resolveConsortSettings({ projectDir: proj });
     expect(s.modelFor("driver", "red")).toBe("sonnet");
     // GREEN was haiku, but it thrashed round-trips (recorded 93 calls); the
     // recommended model finishes in fewer round-trips, faster in wall-clock.
@@ -182,13 +182,13 @@ describe("resolveSftddSettings: per-turn model tiering (driver GREEN/REFACTOR ch
     expect(s.modelFor("architect-reviewer")).toBe("opus");
   });
 
-  it("defaultSftddConfig applies the spec-author winner PER STEP: breakdown haiku+low, AC-authoring untouched", () => {
+  it("defaultConsortConfig applies the spec-author winner PER STEP: breakdown haiku+low, AC-authoring untouched", () => {
     // The optimize sweep measured the BREAKDOWN step (haiku+low, -44%). The winner is
     // applied keyed to `breakdown` ONLY , the per-story AC-authoring step is a
     // different task and keeps the recommended model + default effort until its own
     // sweep. This is the "apply to the step, not the role" invariant.
-    writeSftddConfig(proj, defaultSftddConfig());
-    const s = resolveSftddSettings({ projectDir: proj });
+    writeConsortConfig(proj, defaultConsortConfig());
+    const s = resolveConsortSettings({ projectDir: proj });
     // breakdown step: the applied winner.
     expect(s.modelFor("spec-author", "breakdown")).toBe("haiku");
     expect(s.effortFor("spec-author", "breakdown")).toBe("low");
@@ -213,7 +213,7 @@ const PROJECT_SETTING_ENV = [
   "LAKEBASE_SFTDD_UI",
 ] as const;
 
-describe("resolveSftddSettings: the file is the single source (env does NOT override)", () => {
+describe("resolveConsortSettings: the file is the single source (env does NOT override)", () => {
   it("ignores the project-setting env vars entirely; every value comes from the file", () => {
     writeConfig({
       version: 1,
@@ -230,7 +230,7 @@ describe("resolveSftddSettings: the file is the single source (env does NOT over
       LAKEBASE_SFTDD_UI: "1",
     });
     try {
-      const s = resolveSftddSettings({ projectDir: proj });
+      const s = resolveConsortSettings({ projectDir: proj });
       expect(s.build.loopGranularity).toBe("ac"); // file, not env "hybrid-a"
       expect(s.build.batchCap).toBe(5); // file, not env 3
       expect(s.build.sessionScope).toBe("story"); // file, not env "cycle"
@@ -246,7 +246,7 @@ describe("resolveSftddSettings: the file is the single source (env does NOT over
 
   it("review effort 'default' in the FILE drops the flag to model-default", () => {
     writeConfig({ version: 1, roles: { navigator: { effort: { review: "default" } } } });
-    expect(resolveSftddSettings({ projectDir: proj }).effortFor("navigator", "review")).toBe("default");
+    expect(resolveConsortSettings({ projectDir: proj }).effortFor("navigator", "review")).toBe("default");
   });
 });
 
@@ -254,21 +254,21 @@ describe("applyProjectOverrides: deployTarget / sizing write THROUGH; gates neve
   it("persists deployTarget / sizing into the config, then the resolver reads them", () => {
     applyProjectOverrides(proj, { deployTarget: "cloud", sizing: false });
     // the file is the single source: resolution reflects the written-through values.
-    const s = resolveSftddSettings({ projectDir: proj });
+    const s = resolveConsortSettings({ projectDir: proj });
     expect(s.project.deployTarget).toBe("cloud");
     expect(s.plan.sizing).toBe(false);
-    expect(loadSftddConfig(proj)?.project?.deployTarget).toBe("cloud");
+    expect(loadConsortConfig(proj)?.project?.deployTarget).toBe("cloud");
   });
 
   it("is a no-op when no override is given (a plain run never mutates the file)", () => {
     applyProjectOverrides(proj, {});
-    expect(loadSftddConfig(proj)).toBeUndefined(); // no file written
+    expect(loadConsortConfig(proj)).toBeUndefined(); // no file written
   });
 
   it("preserves unrelated fields when writing through onto an existing config", () => {
     writeConfig({ version: 1, roles: { navigator: { model: "opus" } }, project: { uiTrack: true } });
     applyProjectOverrides(proj, { deployTarget: "cloud" });
-    const loaded = loadSftddConfig(proj);
+    const loaded = loadConsortConfig(proj);
     expect(loaded?.project?.deployTarget).toBe("cloud"); // written through
     expect(loaded?.project?.uiTrack).toBe(true); // preserved
     expect(loaded?.roles?.navigator?.model).toBe("opus"); // preserved
@@ -281,15 +281,15 @@ describe("applyProjectOverrides: deployTarget / sizing write THROUGH; gates neve
     // applyProjectOverrides has no `gates` channel at all; a deployTarget write
     // must leave project.gates untouched.
     applyProjectOverrides(proj, { deployTarget: "cloud" });
-    expect(loadSftddConfig(proj)?.project?.gates).toBe("interactive");
+    expect(loadConsortConfig(proj)?.project?.gates).toBe("interactive");
   });
 });
 
 describe("gates: HITL-first default", () => {
   it("defaults project.gates to interactive when unset (headless is opt-in)", () => {
     writeConfig({ version: 1, roles: {} });
-    expect(resolveSftddSettings({ projectDir: proj }).project.gates).toBe("interactive");
-    expect(defaultSftddConfig().project?.gates).toBe("interactive");
+    expect(resolveConsortSettings({ projectDir: proj }).project.gates).toBe("interactive");
+    expect(defaultConsortConfig().project?.gates).toBe("interactive");
   });
 });
 
@@ -300,20 +300,20 @@ describe("legacy agent-config.json is honored below the new file", () => {
       join(proj, ".lakebase", "agent-config.json"),
       JSON.stringify({ version: 1, roles: { navigator: { recommended: "sonnet", override: "opus" } } }),
     );
-    const s = resolveSftddSettings({ projectDir: proj });
+    const s = resolveConsortSettings({ projectDir: proj });
     expect(s.models.navigator).toBe("opus"); // legacy override
   });
 });
 
-describe("defaultSftddConfig + write/load round-trip", () => {
+describe("defaultConsortConfig + write/load round-trip", () => {
   it("seeds recommended models + navigator review low, and round-trips", () => {
-    const wrote = writeSftddConfig(proj, defaultSftddConfig());
+    const wrote = writeConsortConfig(proj, defaultConsortConfig());
     expect(wrote).toBe(true);
-    const loaded = loadSftddConfig(proj);
+    const loaded = loadConsortConfig(proj);
     expect(loaded?.version).toBe(1);
     expect(loaded?.roles?.navigator?.model).toBe("sonnet");
     expect((loaded?.roles?.navigator?.effort as { review?: string })?.review).toBe("low");
     // Does not overwrite without force.
-    expect(writeSftddConfig(proj, defaultSftddConfig())).toBe(false);
+    expect(writeConsortConfig(proj, defaultConsortConfig())).toBe(false);
   });
 });

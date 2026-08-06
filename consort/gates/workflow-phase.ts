@@ -19,8 +19,8 @@ export const PHASE_OWNER_KEY = "phase_feature_id";
 /** Persist the driver's coarse phase, preserving any other fields on the file.
  *  When `featureId` is given (a feature-scoped drive), stamps the phase's owner
  *  so a later feature does not inherit it. */
-export function writeWorkflowPhase(sftddDir: string, phase: string, featureId?: string): void {
-  const file = workflowStateJson(sftddDir);
+export function writeWorkflowPhase(consortDir: string, phase: string, featureId?: string): void {
+  const file = workflowStateJson(consortDir);
   let state: Record<string, unknown> = {};
   if (fs.existsSync(file)) {
     try {
@@ -31,15 +31,15 @@ export function writeWorkflowPhase(sftddDir: string, phase: string, featureId?: 
   }
   state.phase = phase;
   if (featureId) state[PHASE_OWNER_KEY] = featureId;
-  fs.mkdirSync(sftddDir, { recursive: true });
+  fs.mkdirSync(consortDir, { recursive: true });
   fs.writeFileSync(file, JSON.stringify(state, null, 2) + "\n");
 }
 
 /** The feature the persisted coarse phase belongs to, or undefined when the file
  *  is missing / unstamped (legacy). Used by the read path to decide whether to
  *  trust the shared phase for a given feature. */
-export function readPhaseOwner(sftddDir: string): string | undefined {
-  const file = workflowStateJson(sftddDir);
+export function readPhaseOwner(consortDir: string): string | undefined {
+  const file = workflowStateJson(consortDir);
   if (!fs.existsSync(file)) return undefined;
   try {
     const state = JSON.parse(fs.readFileSync(file, "utf8")) as Record<string, unknown>;
@@ -62,8 +62,8 @@ export function readPhaseOwner(sftddDir: string): string | undefined {
  *
  * Returns true iff a stale terminal phase was cleared.
  */
-export function resetStaleTerminalPhase(sftddDir: string): boolean {
-  const file = workflowStateJson(sftddDir);
+export function resetStaleTerminalPhase(consortDir: string): boolean {
+  const file = workflowStateJson(consortDir);
   if (!fs.existsSync(file)) return false;
   let state: Record<string, unknown>;
   try {

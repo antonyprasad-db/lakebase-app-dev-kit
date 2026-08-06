@@ -71,7 +71,7 @@ describe("recordBuildTurn writes at the seeded per-story ordinal", () => {
     for (const s of ["005-navigator", "006-driver", "007-navigator-review"]) existingTurn(s);
     const n = nextBuildTurnNumber(corpus, F, S); // 8
     const dir = recordBuildTurn({
-      recordBuildDir: corpus, projectDir: proj, sftddDir: tdd,
+      recordBuildDir: corpus, projectDir: proj, consortDir: tdd,
       featureId: F, story: S, turn: n, role: "driver", mode: "refactor",
     });
     expect(dir.endsWith(turnSlug(8, "driver", undefined, "refactor"))).toBe(true);

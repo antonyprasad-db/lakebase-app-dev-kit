@@ -54,20 +54,20 @@ describe("experiment lifecycle (hermetic)", () => {
     };
   }
   const cutArgs = {
-    instance: "lb", sftddDir: "", projectDir: "", featureId: "F1", storyId: "S1",
+    instance: "lb", consortDir: "", projectDir: "", featureId: "F1", storyId: "S1",
     experimentSlug: "exp1", branch: "experiment/S1-exp1", parentBranch: "feature/x",
   };
 
   it("resetStaleBranch drops the existing paired branch BEFORE forking (Finding 27)", async () => {
     const calls: string[] = [];
-    const rec = await cutExperiment({ ...cutArgs, sftddDir: tdd, projectDir: tdd, resetStaleBranch: true }, pairedSeam(calls));
+    const rec = await cutExperiment({ ...cutArgs, consortDir: tdd, projectDir: tdd, resetStaleBranch: true }, pairedSeam(calls));
     expect(calls).toEqual(["drop", "create"]);
     expect(rec.branch_id).toBe("S1-exp1");
   });
 
   it("a first cut (no resetStaleBranch) forks WITHOUT dropping", async () => {
     const calls: string[] = [];
-    await cutExperiment({ ...cutArgs, sftddDir: tdd, projectDir: tdd }, pairedSeam(calls));
+    await cutExperiment({ ...cutArgs, consortDir: tdd, projectDir: tdd }, pairedSeam(calls));
     expect(calls).toEqual(["create"]);
   });
 
@@ -80,7 +80,7 @@ describe("experiment lifecycle (hermetic)", () => {
         throw new Error("branch not found");
       }) as unknown as CutExperimentDeps["deletePairedBranch"],
     };
-    const rec = await cutExperiment({ ...cutArgs, sftddDir: tdd, projectDir: tdd, resetStaleBranch: true }, seam);
+    const rec = await cutExperiment({ ...cutArgs, consortDir: tdd, projectDir: tdd, resetStaleBranch: true }, seam);
     expect(calls).toEqual(["drop-throw", "create"]); // best-effort: the fork still ran
     expect(rec.branch_id).toBe("S1-exp1");
   });
@@ -165,7 +165,7 @@ describe("experiment lifecycle (hermetic)", () => {
     writeFileSync(join(dir, "branch.txt"), "feature/test-exp-1");
     await deleteExperiment({
       instance: "irrelevant",
-      sftddDir: tdd,
+      consortDir: tdd,
       projectDir: tdd,
       featureId: "F1",
       storyId: "S1",
@@ -181,7 +181,7 @@ describe("experiment lifecycle (hermetic)", () => {
     await expect(
       deleteExperiment({
         instance: "irrelevant",
-        sftddDir: tdd,
+        consortDir: tdd,
         projectDir: tdd,
         featureId: "F1",
         storyId: "S1",
@@ -215,7 +215,7 @@ liveDescribe("experiment lifecycle (live, LAKEBASE_TEST_E2E=1)", () => {
       const slug = `exp-test-${Date.now()}`;
       const rec = await cutExperiment({
         instance,
-        sftddDir: tdd,
+        consortDir: tdd,
         projectDir,
         featureId: "F1",
         storyId: "S1",
@@ -233,7 +233,7 @@ liveDescribe("experiment lifecycle (live, LAKEBASE_TEST_E2E=1)", () => {
       expect(branches).toContain(rec.branch_id);
       await deleteExperiment({
         instance,
-        sftddDir: tdd,
+        consortDir: tdd,
         projectDir,
         featureId: "F1",
         storyId: "S1",

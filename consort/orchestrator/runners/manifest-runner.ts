@@ -35,7 +35,7 @@ export interface ManifestRunnerDeps {
    *  design tree). One workspace across the chain is what lets turn N+1 consume turn N's
    *  outputs. */
   workspaceDir: string;
-  /** The drive config (projectDir/sftddDir/featureId + model/effort resolution). */
+  /** The drive config (projectDir/consortDir/featureId + model/effort resolution). */
   cfg: DriveEffectsConfig;
   /** The ENV the agent catalogue needs to build a step's agent from manifest.agent , corpus
    *  root, kit dir (workspaceDir is filled from above). Supplied by the runner, NOT the
@@ -178,7 +178,7 @@ function executorWiring(
   const state: DriveState =
     deps.state ??
     (deps.probeEscalation
-      ? probeDriveState(deps.cfg.sftddDir, deps.cfg.featureId)
+      ? probeDriveState(deps.cfg.consortDir, deps.cfg.featureId)
       : ({ phase: "feature" } as unknown as DriveState));
 
   const ctx: StepCtx = {
@@ -202,7 +202,7 @@ function executorWiring(
       const story = "story" in a && typeof a.story === "string" ? a.story : "";
       const ac = "ac" in a && typeof a.ac === "string" ? a.ac : "";
       return resolvePreparer(kind)({
-        sftddDir: deps.cfg.sftddDir,
+        consortDir: deps.cfg.consortDir,
         featureId: deps.cfg.featureId,
         story,
         ac,

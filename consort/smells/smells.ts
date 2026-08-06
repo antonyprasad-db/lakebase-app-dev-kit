@@ -471,8 +471,8 @@ export function isBuildRefactorRoutableSmell(name: string): boolean {
  * behavior; if a residual violation remains it re-surfaces with no refactor
  * pending and escalates (the backstop stays intact).
  */
-export function hasOpenBuildRefactorRoutableSmell(sftddDir: string, story_id?: string): boolean {
-  return readSmellsLog(sftddDir).detected.some(
+export function hasOpenBuildRefactorRoutableSmell(consortDir: string, story_id?: string): boolean {
+  return readSmellsLog(consortDir).detected.some(
     (d) =>
       !d.resolution &&
       isBuildRefactorRoutableSmell(d.smell) &&
@@ -702,8 +702,8 @@ export interface SmellsLog {
   >;
 }
 
-export function writeSmellsLog(sftddDir: string, hits: SmellHit[]): SmellsLog {
-  const file = join(sftddDir, "smells.json");
+export function writeSmellsLog(consortDir: string, hits: SmellHit[]): SmellsLog {
+  const file = join(consortDir, "smells.json");
   const existing: SmellsLog = existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : { detected: [] };
   const ts = new Date().toISOString();
   const newEntries = hits.map((h) => ({ ...h, detected_at: ts }));
@@ -712,8 +712,8 @@ export function writeSmellsLog(sftddDir: string, hits: SmellHit[]): SmellsLog {
   return merged;
 }
 
-export function readSmellsLog(sftddDir: string): SmellsLog {
-  const file = join(sftddDir, "smells.json");
+export function readSmellsLog(consortDir: string): SmellsLog {
+  const file = join(consortDir, "smells.json");
   if (!existsSync(file)) return { detected: [] };
   return JSON.parse(readFileSync(file, "utf8"));
 }
@@ -737,8 +737,8 @@ function smellMatches(
  *  re-detected across iterations does not pile up duplicate open entries (a
  *  reflect gate that keeps failing, a re-flagged blocking smell). A legacy entry
  *  with no story matches any story (a pre-scope flag is not re-raised). */
-export function hasOpenSmell(sftddDir: string, smell: string, story_id?: string): boolean {
-  return readSmellsLog(sftddDir).detected.some((d) => !d.resolution && smellMatches(d, smell, story_id));
+export function hasOpenSmell(consortDir: string, smell: string, story_id?: string): boolean {
+  return readSmellsLog(consortDir).detected.some((d) => !d.resolution && smellMatches(d, smell, story_id));
 }
 
 /**
@@ -747,11 +747,11 @@ export function hasOpenSmell(sftddDir: string, smell: string, story_id?: string)
  * Returns true iff an open entry was found + resolved.
  */
 export function markSmellResolved(
-  sftddDir: string,
+  consortDir: string,
   smell: string,
   opts: { story_id?: string; kind: "revised" | "accepted" | "cleared"; note?: string },
 ): boolean {
-  const file = join(sftddDir, "smells.json");
+  const file = join(consortDir, "smells.json");
   if (!existsSync(file)) return false;
   const log: SmellsLog = JSON.parse(readFileSync(file, "utf8"));
   const entry = log.detected.find((d) => !d.resolution && smellMatches(d, smell, opts.story_id));
@@ -771,11 +771,11 @@ export function markSmellResolved(
  * count toward the revise budget (priorReviseCount only counts `revised`).
  */
 export function resolveOpenSmells(
-  sftddDir: string,
+  consortDir: string,
   smell: string,
   opts: { story_id?: string; kind: "revised" | "accepted" | "cleared"; note?: string },
 ): number {
-  const file = join(sftddDir, "smells.json");
+  const file = join(consortDir, "smells.json");
   if (!existsSync(file)) return 0;
   const log: SmellsLog = JSON.parse(readFileSync(file, "utf8"));
   let n = 0;
@@ -801,11 +801,11 @@ export function resolveOpenSmells(
  * Returns the resolved smell names.
  */
 export function resolveAllOpenSmellsForStory(
-  sftddDir: string,
+  consortDir: string,
   story: string,
   note?: string,
 ): string[] {
-  const file = join(sftddDir, "smells.json");
+  const file = join(consortDir, "smells.json");
   if (!existsSync(file)) return [];
   const log: SmellsLog = JSON.parse(readFileSync(file, "utf8"));
   const cleared: string[] = [];
@@ -822,8 +822,8 @@ export function resolveAllOpenSmellsForStory(
 /** How many times this (smell, story) has already been revised: the
  *  count of resolved-as-`revised` entries. The one-revise-per-(smell,story) bound
  *  compares against this so a re-fired-then-revised smell can't loop forever. */
-export function priorReviseCount(sftddDir: string, smell: string, story_id?: string): number {
-  return readSmellsLog(sftddDir).detected.filter(
+export function priorReviseCount(consortDir: string, smell: string, story_id?: string): number {
+  return readSmellsLog(consortDir).detected.filter(
     (d) => d.resolution_kind === "revised" && smellMatches(d, smell, story_id),
   ).length;
 }
@@ -847,8 +847,8 @@ export function isReflectSmell(name: string): boolean {
  *  REFLECT_REVISE_CAP. A revise that produces no change (a genuinely stuck
  *  strategist) and the cap are the two hard halts, so the loop still converges. */
 export const REFLECT_REVISE_CAP = 4;
-export function priorReflectReviseCount(sftddDir: string, story_id: string): number {
-  return readSmellsLog(sftddDir).detected.filter(
+export function priorReflectReviseCount(consortDir: string, story_id: string): number {
+  return readSmellsLog(consortDir).detected.filter(
     (d) => d.resolution_kind === "revised" && isReflectSmell(d.smell) && d.story_id === story_id,
   ).length;
 }
@@ -857,8 +857,8 @@ export function priorReflectReviseCount(sftddDir: string, story_id: string): num
  *  revise sends the design lane to re-author), or "" when absent. Used by the
  *  progress-based reflect budget to detect whether a re-design actually changed
  *  the list. */
-export function storyTestListFingerprint(sftddDir: string, featureId: string, story_id: string): string {
-  const f = storyTestListJson(sftddDir, featureId, story_id);
+export function storyTestListFingerprint(consortDir: string, featureId: string, story_id: string): string {
+  const f = storyTestListJson(consortDir, featureId, story_id);
   if (!existsSync(f)) return "";
   try {
     return createHash("sha1").update(readFileSync(f)).digest("hex");
@@ -872,8 +872,8 @@ export function storyTestListFingerprint(sftddDir: string, featureId: string, st
  *  against this: if a prior revise ran and the list is unchanged since, the
  *  re-design made no progress (a stuck strategist) and must hard-halt rather
  *  than loop. */
-export function lastReflectReviseFingerprint(sftddDir: string, story_id: string): string | null {
-  const reflects = readSmellsLog(sftddDir).detected.filter(
+export function lastReflectReviseFingerprint(consortDir: string, story_id: string): string | null {
+  const reflects = readSmellsLog(consortDir).detected.filter(
     (d) => d.resolution_kind === "revised" && isReflectSmell(d.smell) && d.story_id === story_id,
   );
   if (reflects.length === 0) return null;
@@ -885,7 +885,7 @@ export function lastReflectReviseFingerprint(sftddDir: string, story_id: string)
  *  so a single revise addresses the whole reflection and no sibling reflect smell
  *  immediately re-routes or halts. Returns how many were resolved. */
 export function resolveOpenReflectSmellsForStory(
-  sftddDir: string,
+  consortDir: string,
   story_id: string,
   note: string,
   /** The story's test-list fingerprint at revise time, stamped on each resolved
@@ -893,7 +893,7 @@ export function resolveOpenReflectSmellsForStory(
    *  re-design. Omitted only by callers that cannot compute it. */
   artifactSha?: string,
 ): number {
-  const file = join(sftddDir, "smells.json");
+  const file = join(consortDir, "smells.json");
   if (!existsSync(file)) return 0;
   const log: SmellsLog = JSON.parse(readFileSync(file, "utf8"));
   let n = 0;
@@ -910,7 +910,7 @@ export function resolveOpenReflectSmellsForStory(
 }
 
 export function runDetectorsForScope(
-  sftddDir: string,
+  consortDir: string,
   scope: CycleScope,
   testListSizeAtStart?: number,
   testListSizeNow?: number

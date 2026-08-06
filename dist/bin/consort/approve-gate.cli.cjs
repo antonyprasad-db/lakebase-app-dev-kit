@@ -6724,7 +6724,7 @@ var import_node_path = require("path");
 var ARTIFACT_ROOT = ".consort";
 var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
 var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
-function resolveSftddDir(projectDir = process.cwd()) {
+function resolveConsortDir(projectDir = process.cwd()) {
   const next = (0, import_node_path.join)(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
   for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
@@ -7007,9 +7007,9 @@ function checkNfrCoverage(nfrsMd2, architectureJson2, otherFeatureBriefRefs = /*
   }
   return finalize(violations);
 }
-function projectBriefRefs(sftddDir) {
+function projectBriefRefs(consortDir) {
   const refs = /* @__PURE__ */ new Set();
-  const fdir = featuresDir(sftddDir);
+  const fdir = featuresDir(consortDir);
   if (!(0, import_fs2.existsSync)(fdir)) return refs;
   for (const feature of (0, import_fs2.readdirSync)(fdir)) {
     const archPath = (0, import_path2.join)(fdir, feature, "architecture.json");
@@ -7282,12 +7282,12 @@ function defaultSprintGatesState(sprint) {
     gates: { plan: { status: "open", history: [] } }
   };
 }
-function sprintGatesFile(sftddDir, sprint) {
-  return sprintGatesJson(sftddDir, sprint);
+function sprintGatesFile(consortDir, sprint) {
+  return sprintGatesJson(consortDir, sprint);
 }
 function readSprintGates(sprint, opts = {}) {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
-  const file = sprintGatesFile(sftddDir, sprint);
+  const consortDir = opts.consortDir ?? resolveConsortDir();
+  const file = sprintGatesFile(consortDir, sprint);
   if (!(0, import_node_fs.existsSync)(file)) return defaultSprintGatesState(sprint);
   let parsed;
   try {
@@ -7304,9 +7304,9 @@ function readSprintGates(sprint, opts = {}) {
   };
 }
 function writeSprintGates(state, opts = {}) {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
-  (0, import_node_fs.mkdirSync)(sprintDir(sftddDir, state.sprint), { recursive: true });
-  const file = sprintGatesJson(sftddDir, state.sprint);
+  const consortDir = opts.consortDir ?? resolveConsortDir();
+  (0, import_node_fs.mkdirSync)(sprintDir(consortDir, state.sprint), { recursive: true });
+  const file = sprintGatesJson(consortDir, state.sprint);
   const tmp = `${file}.tmp.${process.pid}.${Date.now()}`;
   (0, import_node_fs.writeFileSync)(tmp, JSON.stringify(state, null, 2) + "\n", "utf8");
   try {
@@ -7322,8 +7322,8 @@ function writeSprintGates(state, opts = {}) {
 function approveSprintPlanGate(args) {
   if (!args.hitlApproved) return { ok: false, reason: "hitlApproved must be true (the plan gate is HITL)" };
   if (args.approver.length === 0) return { ok: false, reason: "approver must not be empty" };
-  const sftddDir = args.sftddDir ?? resolveSftddDir();
-  const file = featureProposalsMd(sftddDir);
+  const consortDir = args.consortDir ?? resolveConsortDir();
+  const file = featureProposalsMd(consortDir);
   if (!(0, import_node_fs.existsSync)(file)) {
     return { ok: false, reason: `${PLAN_GATE_ARTIFACT} not found (no sprint plan to review)` };
   }
@@ -7332,7 +7332,7 @@ function approveSprintPlanGate(args) {
   if (!conf.ok) {
     return { ok: false, reason: `${PLAN_GATE_ARTIFACT} not conformant: ${(conf.violations ?? []).join("; ")}` };
   }
-  const state = readSprintGates(args.sprint, { sftddDir });
+  const state = readSprintGates(args.sprint, { consortDir });
   if (state.gates.plan.status !== "open") {
     return { ok: true, state, alreadyApproved: true };
   }
@@ -7353,7 +7353,7 @@ function approveSprintPlanGate(args) {
       }
     }
   };
-  writeSprintGates(updated, { sftddDir });
+  writeSprintGates(updated, { consortDir });
   return { ok: true, state: updated, alreadyApproved: false };
 }
 
@@ -7363,6 +7363,8 @@ var import_node_fs3 = require("fs");
 
 // consort/config/consort-env.ts
 init_cjs_shims();
+var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
+var ENV_PREFIX = ENV_PREFIXES[0];
 
 // consort/gates/human-proxy.ts
 var import_node_path3 = require("path");
@@ -7391,11 +7393,11 @@ var GatesLockBusyError = class extends Error {
   retries;
 };
 function withGatesLock(featureId, fn, opts = {}) {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
+  const consortDir = opts.consortDir ?? resolveConsortDir();
   const maxRetries = opts.maxRetries ?? 5;
   const initialBackoffMs = opts.initialBackoffMs ?? 20;
   const sleep = opts.sleep ?? defaultSleep;
-  const lockPath = gatesLockFilePath(sftddDir, featureId);
+  const lockPath = gatesLockFilePath(consortDir, featureId);
   let acquired = false;
   let attempts = 0;
   while (!acquired && attempts <= maxRetries) {
@@ -7435,8 +7437,8 @@ function readHeldByPid(lockPath) {
     return null;
   }
 }
-function gatesLockFilePath(sftddDir, featureId) {
-  const dir = requireFeatureDir(sftddDir, featureId);
+function gatesLockFilePath(consortDir, featureId) {
+  const dir = requireFeatureDir(consortDir, featureId);
   (0, import_fs3.mkdirSync)(dir, { recursive: true });
   return (0, import_path3.join)(dir, ".gates.lock");
 }
@@ -7466,8 +7468,8 @@ function defaultGatesState(featureId) {
   };
 }
 function readGates(featureId, opts = {}) {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
-  const file = gatesFilePath(sftddDir, featureId);
+  const consortDir = opts.consortDir ?? resolveConsortDir();
+  const file = gatesFilePath(consortDir, featureId);
   if (!(0, import_fs4.existsSync)(file)) {
     return defaultGatesState(featureId);
   }
@@ -7485,8 +7487,8 @@ function writeGates(state, opts = {}) {
   if (state.feature_id.length === 0) {
     throw new Error("writeGates: state.feature_id must not be empty");
   }
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
-  const file = gatesFilePath(sftddDir, state.feature_id);
+  const consortDir = opts.consortDir ?? resolveConsortDir();
+  const file = gatesFilePath(consortDir, state.feature_id);
   const tempFile = `${file}.tmp.${process.pid}.${Date.now()}`;
   const payload = JSON.stringify(state, null, 2) + "\n";
   (0, import_fs4.writeFileSync)(tempFile, payload, "utf8");
@@ -7500,8 +7502,8 @@ function writeGates(state, opts = {}) {
     throw err;
   }
 }
-function gatesFilePath(sftddDir, featureId) {
-  return (0, import_path4.join)(requireFeatureDir(sftddDir, featureId), "gates.json");
+function gatesFilePath(consortDir, featureId) {
+  return (0, import_path4.join)(requireFeatureDir(consortDir, featureId), "gates.json");
 }
 function validateGatesState(parsed, file) {
   if (typeof parsed !== "object" || parsed === null) {
@@ -7585,13 +7587,13 @@ function approveGate(args) {
       `approveGate: gate ${args.gate} must capture at least one artifact (got empty artifactInputs)`
     );
   }
-  const sftddDir = args.sftddDir ?? resolveSftddDir();
+  const consortDir = args.consortDir ?? resolveConsortDir();
   const now = args.now ?? (() => /* @__PURE__ */ new Date());
   const writeLog = args.writeSelectionLog ?? true;
   return withGatesLock(
     args.featureId,
     () => {
-      const state = readGates(args.featureId, { sftddDir });
+      const state = readGates(args.featureId, { consortDir });
       const record = state.gates[args.gate];
       if (record.status !== "open") {
         throw new GateAlreadyClosedError(args.gate, record.status);
@@ -7622,9 +7624,9 @@ function approveGate(args) {
           }
         }
       };
-      writeGates(updatedState, { sftddDir });
+      writeGates(updatedState, { consortDir });
       if (writeLog) {
-        appendSelectionLog(sftddDir, {
+        appendSelectionLog(consortDir, {
           ts,
           gate: args.gate,
           featureId: args.featureId,
@@ -7634,11 +7636,11 @@ function approveGate(args) {
       }
       return { state: updatedState, capturedHashes };
     },
-    { sftddDir }
+    { consortDir }
   );
 }
-function appendSelectionLog(sftddDir, entry) {
-  const logPath = (0, import_path5.join)(sftddDir, "selection-log.md");
+function appendSelectionLog(consortDir, entry) {
+  const logPath = (0, import_path5.join)(consortDir, "selection-log.md");
   const hashList = Object.entries(entry.capturedHashes).map(([name, hash]) => `  - \`${name}\`: \`sha256:${hash}\``).join("\n");
   const lines = [
     "",
@@ -7735,8 +7737,8 @@ function renderEventMessage(event, slots = {}) {
 }
 
 // consort/logging/agent-log.ts
-function logFilePath(sftddDir) {
-  return (0, import_path6.join)(sftddDir, "agent-log.jsonl");
+function logFilePath(consortDir) {
+  return (0, import_path6.join)(consortDir, "agent-log.jsonl");
 }
 function buildAgentLogEvent(input, now) {
   const slots = input.slots ?? {};
@@ -7773,10 +7775,10 @@ function buildAgentLogEvent(input, now) {
   return event;
 }
 function emitAgentLogEvent(input, opts = {}) {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
+  const consortDir = opts.consortDir ?? resolveConsortDir();
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const event = buildAgentLogEvent(input, now);
-  (0, import_fs6.appendFileSync)(logFilePath(sftddDir), `${JSON.stringify(event)}
+  (0, import_fs6.appendFileSync)(logFilePath(consortDir), `${JSON.stringify(event)}
 `, "utf8");
   return event;
 }
@@ -7816,8 +7818,8 @@ var import_fs8 = require("fs");
 function normModule(m) {
   return m.replace(/\/+$/, "");
 }
-function readConventions(sftddDir) {
-  const f = architectureConventionsJson(sftddDir);
+function readConventions(consortDir) {
+  const f = architectureConventionsJson(consortDir);
   if (!(0, import_fs8.existsSync)(f)) return void 0;
   try {
     return JSON.parse((0, import_fs8.readFileSync)(f, "utf8"));
@@ -7861,8 +7863,8 @@ function assertArchitectureConforms(conventions, architectureJsonContent) {
 }
 
 // consort/gates/gate-conformance-guard.ts
-function featureDir2(sftddDir, featureId) {
-  return featureResolved(sftddDir, featureId);
+function featureDir2(consortDir, featureId) {
+  return featureResolved(consortDir, featureId);
 }
 function conformanceReason(inputs) {
   const problems = [];
@@ -7927,10 +7929,10 @@ function storyIndependenceForStoryReason(fdir, story) {
   const r = checkStoryIndependence(collectStoryJsons(fdir), story);
   return r.ok ? null : `story independence failed: ${r.violations.join("; ")}`;
 }
-function architectureConventionsReason(sftddDir, featureId) {
-  const conventions = readConventions(sftddDir);
+function architectureConventionsReason(consortDir, featureId) {
+  const conventions = readConventions(consortDir);
   if (!conventions) return null;
-  const archFile = architectureJson(sftddDir, featureId);
+  const archFile = architectureJson(consortDir, featureId);
   if (!(0, import_node_fs2.existsSync)(archFile)) return null;
   let content;
   try {
@@ -7941,8 +7943,8 @@ function architectureConventionsReason(sftddDir, featureId) {
   const r = assertArchitectureConforms(conventions, content);
   return r.ok ? null : `architecture conventions failed: ${r.violations.join("; ")}`;
 }
-function readArchitecture(sftddDir, featureId) {
-  const f = architectureJson(sftddDir, featureId);
+function readArchitecture(consortDir, featureId) {
+  const f = architectureJson(consortDir, featureId);
   if (!(0, import_node_fs2.existsSync)(f)) return void 0;
   try {
     return (0, import_node_fs2.readFileSync)(f, "utf8");
@@ -7950,16 +7952,16 @@ function readArchitecture(sftddDir, featureId) {
     return void 0;
   }
 }
-function layeringDeclaredReason(sftddDir, featureId) {
-  const arch = readArchitecture(sftddDir, featureId);
+function layeringDeclaredReason(consortDir, featureId) {
+  const arch = readArchitecture(consortDir, featureId);
   if (arch === void 0) return null;
   const r = checkLayeringDeclared(arch);
   return r.ok ? null : `layering declaration failed: ${r.violations.join("; ")}`;
 }
-function dbDesignReason(sftddDir, featureId) {
-  const arch = readArchitecture(sftddDir, featureId);
+function dbDesignReason(consortDir, featureId) {
+  const arch = readArchitecture(consortDir, featureId);
   if (arch === void 0) return null;
-  const dbFile = dbDesignJson(sftddDir, featureId);
+  const dbFile = dbDesignJson(consortDir, featureId);
   const db = (0, import_node_fs2.existsSync)(dbFile) ? (() => {
     try {
       return (0, import_node_fs2.readFileSync)(dbFile, "utf8");
@@ -7970,11 +7972,11 @@ function dbDesignReason(sftddDir, featureId) {
   const r = checkDbDesign(db, arch);
   return r.ok ? null : `db-design failed: ${r.violations.join("; ")}`;
 }
-function nfrCoverageReason(sftddDir, featureId) {
-  const arch = readArchitecture(sftddDir, featureId);
+function nfrCoverageReason(consortDir, featureId) {
+  const arch = readArchitecture(consortDir, featureId);
   if (arch === void 0) return null;
-  const featureNfrs = featureNfrsMd(sftddDir, featureId);
-  const projectNfrs = nfrsMd(sftddDir);
+  const featureNfrs = featureNfrsMd(consortDir, featureId);
+  const projectNfrs = nfrsMd(consortDir);
   const nfrsFile = (0, import_node_fs2.existsSync)(featureNfrs) ? featureNfrs : (0, import_node_fs2.existsSync)(projectNfrs) ? projectNfrs : void 0;
   if (nfrsFile === void 0) return null;
   let nfrsContent;
@@ -7983,22 +7985,22 @@ function nfrCoverageReason(sftddDir, featureId) {
   } catch {
     return null;
   }
-  const r = checkNfrCoverage(nfrsContent, arch, projectBriefRefs(sftddDir));
+  const r = checkNfrCoverage(nfrsContent, arch, projectBriefRefs(consortDir));
   return r.ok ? null : `NFR coverage failed: ${r.violations.join("; ")}`;
 }
-function fitnessCoverageReason(sftddDir, featureId, testListJson) {
-  const arch = readArchitecture(sftddDir, featureId);
+function fitnessCoverageReason(consortDir, featureId, testListJson) {
+  const arch = readArchitecture(consortDir, featureId);
   if (arch === void 0) return null;
   const r = checkFitnessCoverage(testListJson, arch);
   return r.ok ? null : `fitness coverage failed: ${r.violations.join("; ")}`;
 }
-function persistenceCoverageReason(sftddDir, featureId, testListJson) {
-  const arch = readArchitecture(sftddDir, featureId);
+function persistenceCoverageReason(consortDir, featureId, testListJson) {
+  const arch = readArchitecture(consortDir, featureId);
   if (arch === void 0) return null;
   const r = checkPersistenceCoverage(testListJson, arch);
   return r.ok ? null : `persistence coverage failed: ${r.violations.join("; ")}`;
 }
-function invariantCoverageDistinctReason(sftddDir, featureId, testListJson) {
+function invariantCoverageDistinctReason(consortDir, featureId, testListJson) {
   let master;
   try {
     master = JSON.parse(testListJson);
@@ -8006,7 +8008,7 @@ function invariantCoverageDistinctReason(sftddDir, featureId, testListJson) {
     return null;
   }
   const items = master.items ?? [];
-  const storiesDir2 = (0, import_node_path2.join)(featureDir2(sftddDir, featureId), "stories");
+  const storiesDir2 = (0, import_node_path2.join)(featureDir2(consortDir, featureId), "stories");
   if (!(0, import_node_fs2.existsSync)(storiesDir2)) return null;
   const perStory = (0, import_node_fs2.readdirSync)(storiesDir2).filter((s) => {
     try {
@@ -8015,18 +8017,18 @@ function invariantCoverageDistinctReason(sftddDir, featureId, testListJson) {
       return false;
     }
   }).map((story) => {
-    const acIds = new Set(acsForStory(sftddDir, featureId, story));
+    const acIds = new Set(acsForStory(consortDir, featureId, story));
     const invariantIds = items.filter((it) => typeof it.invariant_id === "string" && it.invariant_id.length > 0 && typeof it.ac_id === "string" && acIds.has(it.ac_id)).map((it) => it.invariant_id);
     return { story, invariantIds };
   });
   const r = checkInvariantCoverageDistinct(perStory);
   return r.ok ? null : `invariant coverage not distinct across stories: ${r.violations.join("; ")}`;
 }
-function serviceBackedReason(sftddDir, featureId) {
-  const arch = readArchitecture(sftddDir, featureId);
+function serviceBackedReason(consortDir, featureId) {
+  const arch = readArchitecture(consortDir, featureId);
   if (arch === void 0) return null;
   const acLayers = [];
-  const fdir = featureDir2(sftddDir, featureId);
+  const fdir = featureDir2(consortDir, featureId);
   const stories = (0, import_node_path2.join)(fdir, "stories");
   if ((0, import_node_fs2.existsSync)(stories)) {
     for (const s of (0, import_node_fs2.readdirSync)(stories)) {
@@ -8051,7 +8053,7 @@ function serviceBackedReason(sftddDir, featureId) {
   const r = checkServiceBackedDeclaration(arch, { acLayers, nfrsText });
   return r.ok ? null : `service_backed declaration failed: ${r.violations.join("; ")}`;
 }
-function resolveArtifactInputs(gate, fdir, promoteRef, sftddDir, featureId) {
+function resolveArtifactInputs(gate, fdir, promoteRef, consortDir, featureId) {
   const readIfPresent = (name) => {
     const p = (0, import_node_path2.join)(fdir, name);
     try {
@@ -8084,15 +8086,15 @@ function resolveArtifactInputs(gate, fdir, promoteRef, sftddDir, featureId) {
       if (acReason !== null) return { reason: acReason };
       const indepReason = storyIndependenceReason(fdir);
       if (indepReason !== null) return { reason: indepReason };
-      const conventionsReason = architectureConventionsReason(sftddDir, featureId);
+      const conventionsReason = architectureConventionsReason(consortDir, featureId);
       if (conventionsReason !== null) return { reason: conventionsReason };
-      const serviceBacked = serviceBackedReason(sftddDir, featureId);
+      const serviceBacked = serviceBackedReason(consortDir, featureId);
       if (serviceBacked !== null) return { reason: serviceBacked };
-      const layeringReason = layeringDeclaredReason(sftddDir, featureId);
+      const layeringReason = layeringDeclaredReason(consortDir, featureId);
       if (layeringReason !== null) return { reason: layeringReason };
-      const dbReason = dbDesignReason(sftddDir, featureId);
+      const dbReason = dbDesignReason(consortDir, featureId);
       if (dbReason !== null) return { reason: dbReason };
-      const nfrReason = nfrCoverageReason(sftddDir, featureId);
+      const nfrReason = nfrCoverageReason(consortDir, featureId);
       return nfrReason === null ? conf : { reason: nfrReason };
     }
     case "plan": {
@@ -8114,11 +8116,11 @@ function resolveArtifactInputs(gate, fdir, promoteRef, sftddDir, featureId) {
       const conf = withConformance(inputs);
       if ("reason" in conf) return conf;
       if (tlJson !== void 0) {
-        const fitnessReason = fitnessCoverageReason(sftddDir, featureId, tlJson);
+        const fitnessReason = fitnessCoverageReason(consortDir, featureId, tlJson);
         if (fitnessReason !== null) return { reason: fitnessReason };
-        const persistenceReason = persistenceCoverageReason(sftddDir, featureId, tlJson);
+        const persistenceReason = persistenceCoverageReason(consortDir, featureId, tlJson);
         if (persistenceReason !== null) return { reason: persistenceReason };
-        const distinctReason = invariantCoverageDistinctReason(sftddDir, featureId, tlJson);
+        const distinctReason = invariantCoverageDistinctReason(consortDir, featureId, tlJson);
         if (distinctReason !== null) return { reason: distinctReason };
       }
       return conf;
@@ -8152,7 +8154,7 @@ function resolveArtifactInputs(gate, fdir, promoteRef, sftddDir, featureId) {
 }
 
 // consort/gates/human-proxy.ts
-function logHitlDecision(sftddDir, featureId, approver, decision) {
+function logHitlDecision(consortDir, featureId, approver, decision) {
   try {
     if (decision.kind === "approved") {
       emitAgentLogEvent(
@@ -8163,7 +8165,7 @@ function logHitlDecision(sftddDir, featureId, approver, decision) {
           feature_id: featureId,
           slots: { gate: decision.gate, artifacts: decision.artifacts, approver, validated: true }
         },
-        { sftddDir }
+        { consortDir }
       );
     } else {
       emitAgentLogEvent(
@@ -8174,7 +8176,7 @@ function logHitlDecision(sftddDir, featureId, approver, decision) {
           feature_id: featureId,
           slots: { gate: decision.gate, reason: decision.reason, approver, validated: false }
         },
-        { sftddDir }
+        { consortDir }
       );
     }
   } catch {
@@ -8182,10 +8184,10 @@ function logHitlDecision(sftddDir, featureId, approver, decision) {
 }
 var HUMAN_PROXY = "human-proxy";
 function drainGatesAsHumanProxy(args) {
-  const sftddDir = args.sftddDir ?? resolveSftddDir();
+  const consortDir = args.consortDir ?? resolveConsortDir();
   const approver = args.approver ?? HUMAN_PROXY;
-  const fdir = featureDir2(sftddDir, args.featureId);
-  let state = readGates(args.featureId, { sftddDir });
+  const fdir = featureDir2(consortDir, args.featureId);
+  let state = readGates(args.featureId, { consortDir });
   const approved = [];
   const skipped = [];
   const gates = args.onlyGate !== void 0 ? [args.onlyGate] : [...GATE_NAMES];
@@ -8195,10 +8197,10 @@ function drainGatesAsHumanProxy(args) {
       skipped.push({ gate, reason: `status=${record.status}` });
       continue;
     }
-    const resolved = resolveArtifactInputs(gate, fdir, args.promoteRef, sftddDir, args.featureId);
+    const resolved = resolveArtifactInputs(gate, fdir, args.promoteRef, consortDir, args.featureId);
     if ("reason" in resolved) {
       skipped.push({ gate, reason: resolved.reason });
-      logHitlDecision(sftddDir, args.featureId, approver, {
+      logHitlDecision(consortDir, args.featureId, approver, {
         kind: "refused",
         gate,
         reason: resolved.reason
@@ -8211,11 +8213,11 @@ function drainGatesAsHumanProxy(args) {
       approver,
       hitlApproved: true,
       artifactInputs: resolved.inputs,
-      sftddDir
+      consortDir
     });
     approved.push(gate);
     state = result.state;
-    logHitlDecision(sftddDir, args.featureId, approver, {
+    logHitlDecision(consortDir, args.featureId, approver, {
       kind: "approved",
       gate,
       artifacts: Object.keys(resolved.inputs)
@@ -8231,16 +8233,16 @@ var import_path8 = require("path");
 function initPipeline(featureId) {
   return { version: 1, feature_id: featureId, stories: {}, build_queue: [], build_active: null };
 }
-function pipelinePath(sftddDir, featureId) {
-  return pipelineJson(sftddDir, featureId);
+function pipelinePath(consortDir, featureId) {
+  return pipelineJson(consortDir, featureId);
 }
-function readPipeline(sftddDir, featureId) {
-  const p = pipelinePath(sftddDir, featureId);
+function readPipeline(consortDir, featureId) {
+  const p = pipelinePath(consortDir, featureId);
   if (!(0, import_fs9.existsSync)(p)) return initPipeline(featureId);
   return JSON.parse((0, import_fs9.readFileSync)(p, "utf8"));
 }
-function writePipeline(sftddDir, pipeline) {
-  const p = pipelinePath(sftddDir, pipeline.feature_id);
+function writePipeline(consortDir, pipeline) {
+  const p = pipelinePath(consortDir, pipeline.feature_id);
   (0, import_fs9.mkdirSync)((0, import_path8.dirname)(p), { recursive: true });
   (0, import_fs9.writeFileSync)(p, JSON.stringify(pipeline, null, 2) + "\n");
 }
@@ -8254,18 +8256,18 @@ function enqueueReady(pipeline, storyId) {
   if (!pipeline.build_queue.includes(storyId)) pipeline.build_queue.push(storyId);
   return pipeline;
 }
-function storyHasAcceptanceCriteria(sftddDir, featureId, storyId) {
-  const acsDir2 = acsDir(sftddDir, featureId, storyId);
+function storyHasAcceptanceCriteria(consortDir, featureId, storyId) {
+  const acsDir2 = acsDir(consortDir, featureId, storyId);
   if (!(0, import_fs9.existsSync)(acsDir2)) return false;
   return (0, import_fs9.readdirSync)(acsDir2).some((f) => f.endsWith(".json"));
 }
-function findBatchedDraftStories(sftddDir, featureId, pipeline, gatingStoryId) {
-  const storiesDir2 = storiesDir(sftddDir, featureId);
+function findBatchedDraftStories(consortDir, featureId, pipeline, gatingStoryId) {
+  const storiesDir2 = storiesDir(consortDir, featureId);
   if (!(0, import_fs9.existsSync)(storiesDir2)) return [];
   const offenders = [];
   for (const storyId of (0, import_fs9.readdirSync)(storiesDir2)) {
     if (storyId === gatingStoryId) continue;
-    if (!storyHasAcceptanceCriteria(sftddDir, featureId, storyId)) continue;
+    if (!storyHasAcceptanceCriteria(consortDir, featureId, storyId)) continue;
     const status = pipeline.stories[storyId]?.status;
     if (status === void 0 || status === "designing") offenders.push(storyId);
   }
@@ -8294,13 +8296,13 @@ function batchedDraftMessage(story, batched) {
 The design lane drafts ONE story's acceptance criteria at a time (draft -> surface -> approve), then moves to the next story. Drafting every story's ACs in one pass defeats the streaming pipeline.
 Remove the out-of-turn ACs (keep only ${story}'s), invoke the Spec Author once per story, and retry.`;
 }
-function approveStoryGateFromDisk(sftddDir, feature, story, opts) {
-  const pipeline = readPipeline(sftddDir, feature);
-  const batched = findBatchedDraftStories(sftddDir, feature, pipeline, story);
+function approveStoryGateFromDisk(consortDir, feature, story, opts) {
+  const pipeline = readPipeline(consortDir, feature);
+  const batched = findBatchedDraftStories(consortDir, feature, pipeline, story);
   if (batched.length > 0) return { ok: false, batched };
-  const acReason = storyAcsConformanceReason(featureDir2(sftddDir, feature), story);
+  const acReason = storyAcsConformanceReason(featureDir2(consortDir, feature), story);
   if (acReason) return { ok: false, error: acReason };
-  const indepReason = storyIndependenceForStoryReason(featureDir2(sftddDir, feature), story);
+  const indepReason = storyIndependenceForStoryReason(featureDir2(consortDir, feature), story);
   if (indepReason) return { ok: false, error: indepReason };
   try {
     approveStoryGate(pipeline, story, {
@@ -8311,7 +8313,7 @@ function approveStoryGateFromDisk(sftddDir, feature, story, opts) {
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
-  writePipeline(sftddDir, pipeline);
+  writePipeline(consortDir, pipeline);
   return { ok: true, queue: pipeline.build_queue };
 }
 
@@ -8379,9 +8381,9 @@ decision to a named human. (For headless/smoke runs use consort-human-proxy.)
 `);
     return 2;
   }
-  const sftddDir = p.tddDir ?? resolveSftddDir(p.projectDir);
+  const consortDir = p.tddDir ?? resolveConsortDir(p.projectDir);
   if (p.story) {
-    const r = approveStoryGateFromDisk(sftddDir, p.feature, p.story, { approver: p.approver });
+    const r = approveStoryGateFromDisk(consortDir, p.feature, p.story, { approver: p.approver });
     if (p.json) {
       process.stdout.write(`${JSON.stringify(r)}
 `);
@@ -8404,7 +8406,7 @@ decision to a named human. (For headless/smoke runs use consort-human-proxy.)
     return 0;
   }
   if (p.sprint) {
-    const res = approveSprintPlanGate({ sprint: p.sprint, approver: p.approver, hitlApproved: true, sftddDir });
+    const res = approveSprintPlanGate({ sprint: p.sprint, approver: p.approver, hitlApproved: true, consortDir });
     if (p.json) process.stdout.write(`${JSON.stringify(res)}
 `);
     else if (res.ok) {
@@ -8420,7 +8422,7 @@ decision to a named human. (For headless/smoke runs use consort-human-proxy.)
   }
   const result = drainGatesAsHumanProxy({
     featureId: p.feature,
-    sftddDir,
+    consortDir,
     approver: p.approver,
     ...p.gate ? { onlyGate: p.gate } : {},
     ...p.promoteRef ? { promoteRef: p.promoteRef } : {}

@@ -38,13 +38,13 @@ export const realExperimentOps: ExperimentBranchOps = {
   runMigrations: async ({ instance, branch, projectDir }) => {
     await applySchemaMigrations({ instance, branch, projectDir });
   },
-  teardown: async ({ sftddDir, projectDir, featureId, storyId, experimentSlug, instance }) => {
-    await deleteExperiment({ instance, sftddDir, projectDir, featureId, storyId, experimentSlug, deleteBranchToo: true });
+  teardown: async ({ consortDir, projectDir, featureId, storyId, experimentSlug, instance }) => {
+    await deleteExperiment({ instance, consortDir, projectDir, featureId, storyId, experimentSlug, deleteBranchToo: true });
   },
 };
 
 export interface MergeAndAcceptArgs {
-  sftddDir: string;
+  consortDir: string;
   projectDir: string;
   featureId: string;
   storyId: string;
@@ -68,12 +68,12 @@ export async function mergeAndAcceptStory(
   ops: ExperimentBranchOps = realExperimentOps,
 ): Promise<void> {
   const at = args.at ?? new Date().toISOString();
-  const before = readPipeline(args.sftddDir, args.featureId);
+  const before = readPipeline(args.consortDir, args.featureId);
   const alreadyMerged = before.stories[args.storyId]?.experiment?.status === "merged";
   if (!alreadyMerged) {
     await mergeExperimentIntoFeature(
       {
-        sftddDir: args.sftddDir,
+        consortDir: args.consortDir,
         featureId: args.featureId,
         storyId: args.storyId,
         experimentSlug: args.experimentSlug,
@@ -87,9 +87,9 @@ export async function mergeAndAcceptStory(
   }
   // Re-read: mergeExperimentIntoFeature does not touch pipeline.json (its ops are
   // git/lakebase); acceptStory is what records merged + done + frees the lane.
-  const p = readPipeline(args.sftddDir, args.featureId);
+  const p = readPipeline(args.consortDir, args.featureId);
   acceptStory(p, args.storyId, { approver: args.approver, at });
-  writePipeline(args.sftddDir, p);
+  writePipeline(args.consortDir, p);
 }
 
 /** Build the `consort-experiment merge` argv for a PO acceptance from the
@@ -100,7 +100,7 @@ export function experimentMergeArgv(
   featureId: string,
   storyId: string,
   resolved: { experimentSlug: string; experimentBranch: string; featureBranch: string; instance: string },
-  opts: { approver: string; projectDir: string; sftddDir: string; at?: string },
+  opts: { approver: string; projectDir: string; consortDir: string; at?: string },
 ): string[] {
   return [
     "merge",
@@ -121,7 +121,7 @@ export function experimentMergeArgv(
     "--project-dir",
     opts.projectDir,
     "--tdd-dir",
-    opts.sftddDir,
+    opts.consortDir,
     ...(opts.at ? ["--at", opts.at] : []),
   ];
 }
@@ -139,13 +139,13 @@ export type ResolvedAcceptArgs =
  * from an explicit override else the SCM workflow-state's `project_id`.
  */
 export function resolveAcceptMergeArgs(
-  sftddDir: string,
+  consortDir: string,
   projectDir: string,
   featureId: string,
   storyId: string,
   opts: { instance?: string } = {},
 ): ResolvedAcceptArgs {
-  const pipeline = readPipeline(sftddDir, featureId);
+  const pipeline = readPipeline(consortDir, featureId);
   const exp = pipeline.stories[storyId]?.experiment;
   if (!exp) {
     return {

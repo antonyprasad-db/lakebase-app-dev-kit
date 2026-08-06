@@ -22,7 +22,7 @@ import {
 import type { CycleArtifact, CycleScope } from "../../consort/pipeline/run-cycle";
 
 let tdd: string;
-const scope: CycleScope = { sftddDir: "", feature_id: "F1", story_id: "S1", ac_id: "AC1" };
+const scope: CycleScope = { consortDir: "", feature_id: "F1", story_id: "S1", ac_id: "AC1" };
 
 function artifact(overrides: Partial<CycleArtifact>): CycleArtifact {
   return {

@@ -6658,7 +6658,7 @@ var ARTIFACT_ROOT = ".consort";
 var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
 var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
 var artifactRootsRegexAlternation = () => ALL_ARTIFACT_ROOTS.map((r) => r.replace(/[.]/g, "\\.")).join("|");
-function resolveSftddDir(projectDir = process.cwd()) {
+function resolveConsortDir(projectDir = process.cwd()) {
   const next = join(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
   for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
@@ -6867,8 +6867,8 @@ function renderEventMessage(event, slots = {}) {
 
 // consort/logging/agent-log.ts
 var LEVEL_ORDER = { debug: 0, info: 1, warn: 2, error: 3 };
-function logFilePath(sftddDir) {
-  return join3(sftddDir, "agent-log.jsonl");
+function logFilePath(consortDir) {
+  return join3(consortDir, "agent-log.jsonl");
 }
 function buildAgentLogEvent(input, now) {
   const slots = input.slots ?? {};
@@ -6905,25 +6905,25 @@ function buildAgentLogEvent(input, now) {
   return event;
 }
 function emitAgentLogEvent(input, opts = {}) {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
+  const consortDir = opts.consortDir ?? resolveConsortDir();
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const event = buildAgentLogEvent(input, now);
-  appendFileSync(logFilePath(sftddDir), `${JSON.stringify(event)}
+  appendFileSync(logFilePath(consortDir), `${JSON.stringify(event)}
 `, "utf8");
   return event;
 }
 function emitAgentLogEvents(inputs, opts = {}) {
   if (inputs.length === 0) return [];
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
+  const consortDir = opts.consortDir ?? resolveConsortDir();
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const events = inputs.map((i) => buildAgentLogEvent(i, now));
-  appendFileSync(logFilePath(sftddDir), events.map((e) => `${JSON.stringify(e)}
+  appendFileSync(logFilePath(consortDir), events.map((e) => `${JSON.stringify(e)}
 `).join(""), "utf8");
   return events;
 }
 function readAgentLog(opts = {}) {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
-  const file = logFilePath(sftddDir);
+  const consortDir = opts.consortDir ?? resolveConsortDir();
+  const file = logFilePath(consortDir);
   if (!existsSync3(file)) return [];
   const minRank = opts.minLevel !== void 0 ? LEVEL_ORDER[opts.minLevel] : void 0;
   const out = [];
@@ -6955,8 +6955,8 @@ import { dirname } from "path";
 function normModule(m) {
   return m.replace(/\/+$/, "");
 }
-function readConventions(sftddDir) {
-  const f = architectureConventionsJson(sftddDir);
+function readConventions(consortDir) {
+  const f = architectureConventionsJson(consortDir);
   if (!existsSync4(f)) return void 0;
   try {
     return JSON.parse(readFileSync4(f, "utf8"));
@@ -6987,10 +6987,10 @@ function deriveConventions(architectureJsonContent, featureId, now = () => /* @_
     layers
   };
 }
-function establishConventionsIfAbsent(sftddDir, featureId, now = () => /* @__PURE__ */ new Date()) {
-  const existing = readConventions(sftddDir);
+function establishConventionsIfAbsent(consortDir, featureId, now = () => /* @__PURE__ */ new Date()) {
+  const existing = readConventions(consortDir);
   if (existing) return { established: false, conventions: existing };
-  const archFile = architectureJson(sftddDir, featureId);
+  const archFile = architectureJson(consortDir, featureId);
   if (!existsSync4(archFile)) return { established: false };
   let content;
   try {
@@ -7000,7 +7000,7 @@ function establishConventionsIfAbsent(sftddDir, featureId, now = () => /* @__PUR
   }
   const conventions = deriveConventions(content, featureId, now);
   if (!conventions) return { established: false };
-  const out = architectureConventionsJson(sftddDir);
+  const out = architectureConventionsJson(consortDir);
   mkdirSync2(dirname(out), { recursive: true });
   writeFileSync2(out, JSON.stringify(conventions, null, 2) + "\n");
   return { established: true, conventions };
@@ -7013,8 +7013,8 @@ import { dirname as dirname2 } from "path";
 function uniq(xs) {
   return [...new Set(xs.filter((x) => typeof x === "string" && x.length > 0))];
 }
-function readCanon(sftddDir) {
-  const f = architectureCanonJson(sftddDir);
+function readCanon(consortDir) {
+  const f = architectureCanonJson(consortDir);
   if (!existsSync5(f)) return void 0;
   try {
     return JSON.parse(readFileSync5(f, "utf8"));
@@ -7055,29 +7055,29 @@ function deriveCanon(architectureJsonContent, acLayers, featureId, now = () => /
     invariant_patterns
   };
 }
-function establishCanonIfAbsent(sftddDir, featureId, architectureJsonContent, acLayers, now = () => /* @__PURE__ */ new Date()) {
-  const existing = readCanon(sftddDir);
+function establishCanonIfAbsent(consortDir, featureId, architectureJsonContent, acLayers, now = () => /* @__PURE__ */ new Date()) {
+  const existing = readCanon(consortDir);
   if (existing) return { established: false, canon: existing };
   const canon = deriveCanon(architectureJsonContent, acLayers, featureId, now);
   if (!canon) return { established: false };
-  writeCanon(sftddDir, canon);
+  writeCanon(consortDir, canon);
   return { established: true, canon };
 }
-function featureAcLayers(sftddDir, featureId) {
-  const stories = storiesDir(sftddDir, featureId);
+function featureAcLayers(consortDir, featureId) {
+  const stories = storiesDir(consortDir, featureId);
   if (!existsSync5(stories)) return [];
   const layers = [];
   for (const s of readdirSync2(stories)) {
-    for (const acId of storyAcIds(sftddDir, featureId, s)) {
-      const l = readAcLayer(sftddDir, featureId, acId);
+    for (const acId of storyAcIds(consortDir, featureId, s)) {
+      const l = readAcLayer(consortDir, featureId, acId);
       if (l) layers.push(l);
     }
   }
   return uniq(layers);
 }
-function establishCanonFromDisk(sftddDir, featureId, now = () => /* @__PURE__ */ new Date()) {
-  if (readCanon(sftddDir)) return { established: false, canon: readCanon(sftddDir) };
-  const archFile = architectureJson(sftddDir, featureId);
+function establishCanonFromDisk(consortDir, featureId, now = () => /* @__PURE__ */ new Date()) {
+  if (readCanon(consortDir)) return { established: false, canon: readCanon(consortDir) };
+  const archFile = architectureJson(consortDir, featureId);
   if (!existsSync5(archFile)) return { established: false };
   let content;
   try {
@@ -7085,10 +7085,10 @@ function establishCanonFromDisk(sftddDir, featureId, now = () => /* @__PURE__ */
   } catch {
     return { established: false };
   }
-  return establishCanonIfAbsent(sftddDir, featureId, content, featureAcLayers(sftddDir, featureId), now);
+  return establishCanonIfAbsent(consortDir, featureId, content, featureAcLayers(consortDir, featureId), now);
 }
-function writeCanon(sftddDir, canon) {
-  const out = architectureCanonJson(sftddDir);
+function writeCanon(consortDir, canon) {
+  const out = architectureCanonJson(consortDir);
   mkdirSync3(dirname2(out), { recursive: true });
   writeFileSync3(out, JSON.stringify(canon, null, 2) + "\n");
 }
@@ -7098,8 +7098,8 @@ init_esm_shims();
 import { readFileSync as readFileSync6, existsSync as existsSync6, readdirSync as readdirSync3, writeFileSync as writeFileSync4, statSync as statSync2 } from "fs";
 import { join as join4, basename } from "path";
 var STORY_ALLOWED_KEYS = /* @__PURE__ */ new Set(["id", "asA", "iWantTo", "soThat", "acs", "feature_id", "independence", "external_ref"]);
-function normalizeStoryJson(sftddDir, featureId) {
-  const stories = storiesDir(sftddDir, featureId);
+function normalizeStoryJson(consortDir, featureId) {
+  const stories = storiesDir(consortDir, featureId);
   if (!existsSync6(stories)) return [];
   const changed = [];
   for (const s of readdirSync3(stories)) {
@@ -7131,18 +7131,18 @@ function normalizeStoryJson(sftddDir, featureId) {
 }
 
 // consort/logging/log-reconcile.ts
-function discoverArtifacts(sftddDir, featureId) {
+function discoverArtifacts(consortDir, featureId) {
   const out = [];
-  const fdir = featureResolved(sftddDir, featureId);
+  const fdir = featureResolved(consortDir, featureId);
   if (!existsSync7(fdir)) return out;
   const add = (abs, role, message) => {
-    if (existsSync7(abs)) out.push({ path: relative(sftddDir, abs), role, message });
+    if (existsSync7(abs)) out.push({ path: relative(consortDir, abs), role, message });
   };
   add(join5(fdir, "feature-spec.json"), "spec-author", "feature-spec.json");
   add(join5(fdir, "architecture.json"), "architect-reviewer", "architecture.json");
   add(join5(fdir, "test-list.json"), "test-strategist", "test-list.json");
-  add(architectureConventionsJson(sftddDir), "architect-reviewer", "architecture conventions (project)");
-  const designDir = dirname3(designGuideJson(sftddDir));
+  add(architectureConventionsJson(consortDir), "architect-reviewer", "architecture conventions (project)");
+  const designDir = dirname3(designGuideJson(consortDir));
   add(join5(designDir, "design-guide.json"), "ux-designer", "design-guide.json");
   add(join5(designDir, "design-guide.md"), "ux-designer", "design-guide.md");
   add(join5(designDir, "ia.md"), "ux-designer", "ia.md");
@@ -7160,7 +7160,7 @@ function discoverArtifacts(sftddDir, featureId) {
           }
         }
       }
-      add(storyTestListJson(sftddDir, featureId, s), "test-strategist", `per-story test list for ${s}`);
+      add(storyTestListJson(consortDir, featureId, s), "test-strategist", `per-story test list for ${s}`);
     }
   }
   return out;
@@ -7174,11 +7174,11 @@ function alreadyLogged(events, relPath) {
   });
 }
 function reconcileArtifactLog(opts) {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
-  const existing = readAgentLog({ sftddDir, featureId: opts.featureId });
+  const consortDir = opts.consortDir ?? resolveConsortDir();
+  const existing = readAgentLog({ consortDir, featureId: opts.featureId });
   const emitted = [];
-  normalizeStoryJson(sftddDir, opts.featureId);
-  const est = establishConventionsIfAbsent(sftddDir, opts.featureId, opts.now);
+  normalizeStoryJson(consortDir, opts.featureId);
+  const est = establishConventionsIfAbsent(consortDir, opts.featureId, opts.now);
   if (est.established && est.conventions) {
     const layout = est.conventions.layers.map((l) => `${l.role}=${l.module}`).join(", ");
     const ev = emitAgentLogEvent(
@@ -7189,12 +7189,12 @@ function reconcileArtifactLog(opts) {
         feature_id: opts.featureId,
         slots: { note: `established project architecture conventions: ${layout}` }
       },
-      { sftddDir, now: opts.now }
+      { consortDir, now: opts.now }
     );
     existing.push(ev);
     emitted.push(ev);
   }
-  const canonEst = establishCanonFromDisk(sftddDir, opts.featureId, opts.now);
+  const canonEst = establishCanonFromDisk(consortDir, opts.featureId, opts.now);
   if (canonEst.established && canonEst.canon) {
     const c = canonEst.canon;
     const summary = `layers=[${c.ac_layers.join(", ")}] nfrs=[${c.nfr_posture.map((n) => n.category).join(", ")}] invariants=[${c.invariant_patterns.map((p) => p.type).join(", ")}]`;
@@ -7206,12 +7206,12 @@ function reconcileArtifactLog(opts) {
         feature_id: opts.featureId,
         slots: { note: `established project architecture canon: ${summary}` }
       },
-      { sftddDir, now: opts.now }
+      { consortDir, now: opts.now }
     );
     existing.push(ev);
     emitted.push(ev);
   }
-  for (const art of discoverArtifacts(sftddDir, opts.featureId)) {
+  for (const art of discoverArtifacts(consortDir, opts.featureId)) {
     if (alreadyLogged(existing, art.path)) continue;
     const ev = emitAgentLogEvent(
       {
@@ -7221,7 +7221,7 @@ function reconcileArtifactLog(opts) {
         feature_id: opts.featureId,
         slots: { artifact: art.message, summary: "present on disk (reconciled)", path: art.path, reconciled: true }
       },
-      { sftddDir, now: opts.now }
+      { consortDir, now: opts.now }
     );
     existing.push(ev);
     emitted.push(ev);
@@ -7254,7 +7254,7 @@ function readJsonl(file) {
   return out;
 }
 function reconstituteAgentLog(opts) {
-  const projectLog = join6(opts.sftddDir, "agent-log.jsonl");
+  const projectLog = join6(opts.consortDir, "agent-log.jsonl");
   const design = readJsonl(opts.designLogPath).sort((a, b) => ts(a) - ts(b));
   if (design.length === 0) return readJsonl(projectLog);
   const designSigs = new Set(design.map(sig));
@@ -7291,8 +7291,8 @@ init_esm_shims();
 import { createPairedBranch, deletePairedBranch } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 
 // consort/smells/smells.ts
-function writeSmellsLog(sftddDir, hits) {
-  const file = join7(sftddDir, "smells.json");
+function writeSmellsLog(consortDir, hits) {
+  const file = join7(consortDir, "smells.json");
   const existing = existsSync9(file) ? JSON.parse(readFileSync8(file, "utf8")) : { detected: [] };
   const ts2 = (/* @__PURE__ */ new Date()).toISOString();
   const newEntries = hits.map((h) => ({ ...h, detected_at: ts2 }));
@@ -7300,8 +7300,8 @@ function writeSmellsLog(sftddDir, hits) {
   writeFileSync6(file, JSON.stringify(merged, null, 2) + "\n");
   return merged;
 }
-function readSmellsLog(sftddDir) {
-  const file = join7(sftddDir, "smells.json");
+function readSmellsLog(consortDir) {
+  const file = join7(consortDir, "smells.json");
   if (!existsSync9(file)) return { detected: [] };
   return JSON.parse(readFileSync8(file, "utf8"));
 }
@@ -7310,8 +7310,8 @@ function smellMatches(entry, smell, story_id) {
   if (story_id === void 0) return true;
   return entry.story_id === void 0 || entry.story_id === story_id;
 }
-function hasOpenSmell(sftddDir, smell, story_id) {
-  return readSmellsLog(sftddDir).detected.some((d) => !d.resolution && smellMatches(d, smell, story_id));
+function hasOpenSmell(consortDir, smell, story_id) {
+  return readSmellsLog(consortDir).detected.some((d) => !d.resolution && smellMatches(d, smell, story_id));
 }
 
 // consort/pipeline/cycle-record.ts
@@ -7319,6 +7319,8 @@ init_esm_shims();
 
 // consort/config/consort-env.ts
 init_esm_shims();
+var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
+var ENV_PREFIX = ENV_PREFIXES[0];
 
 // consort/test-list/test-list.ts
 init_esm_shims();
@@ -7424,10 +7426,10 @@ var BLOCKING_SMELLS = /* @__PURE__ */ new Set([
   // revise then HITL. Halts the design lane until the gap is resolved.
   "architect-canon-gap"
 ]);
-function recordBlockingSmellFlag(sftddDir, smell, detail, scope) {
+function recordBlockingSmellFlag(consortDir, smell, detail, scope) {
   if (!BLOCKING_SMELLS.has(smell)) return false;
-  if (hasOpenSmell(sftddDir, smell, scope?.story_id)) return false;
-  writeSmellsLog(sftddDir, [
+  if (hasOpenSmell(consortDir, smell, scope?.story_id)) return false;
+  writeSmellsLog(consortDir, [
     {
       smell,
       cycle_ids: [],
@@ -7490,7 +7492,7 @@ function parseArgs(argv) {
         out.events = argv[++i];
         break;
       case "--tdd-dir":
-        out.sftddDir = argv[++i];
+        out.consortDir = argv[++i];
         break;
       case "--json":
         out.json = true;
@@ -7554,8 +7556,8 @@ function runAgentLogCli(argv) {
       return 2;
     }
     try {
-      const sftddDir = a.sftddDir ?? resolveSftddDir();
-      const final = reconstituteAgentLog({ sftddDir, designLogPath: a.designLog });
+      const consortDir = a.consortDir ?? resolveConsortDir();
+      const final = reconstituteAgentLog({ consortDir, designLogPath: a.designLog });
       if (a.json) process.stdout.write(`${JSON.stringify(final)}
 `);
       else process.stdout.write(`reconstituted agent-log: ${final.length} entries
@@ -7573,7 +7575,7 @@ function runAgentLogCli(argv) {
       return 2;
     }
     try {
-      const emitted = reconcileArtifactLog({ sftddDir: a.sftddDir, featureId: a.feature });
+      const emitted = reconcileArtifactLog({ consortDir: a.consortDir, featureId: a.feature });
       if (a.json) {
         process.stdout.write(`${JSON.stringify(emitted)}
 `);
@@ -7595,7 +7597,7 @@ function runAgentLogCli(argv) {
   }
   if (a.read) {
     const events = readAgentLog({
-      sftddDir: a.sftddDir,
+      consortDir: a.consortDir,
       role: a.role,
       featureId: a.feature,
       minLevel: a.minLevel
@@ -7653,8 +7655,8 @@ function runAgentLogCli(argv) {
       });
     }
     try {
-      emitAgentLogEvents(inputs, { sftddDir: a.sftddDir });
-      for (const inp of inputs) mirrorBlockingSmell(a.sftddDir ?? resolveSftddDir(), inp.event, inp.slots ?? {});
+      emitAgentLogEvents(inputs, { consortDir: a.consortDir });
+      for (const inp of inputs) mirrorBlockingSmell(a.consortDir ?? resolveConsortDir(), inp.event, inp.slots ?? {});
       return 0;
     } catch (e) {
       process.stderr.write(`consort-log --events: ${e.message}
@@ -7689,8 +7691,8 @@ ${HELP}
     slots
   };
   try {
-    emitAgentLogEvent(input, { sftddDir: a.sftddDir });
-    mirrorBlockingSmell(a.sftddDir ?? resolveSftddDir(), input.event, slots);
+    emitAgentLogEvent(input, { consortDir: a.consortDir });
+    mirrorBlockingSmell(a.consortDir ?? resolveConsortDir(), input.event, slots);
     return 0;
   } catch (e) {
     process.stderr.write(`consort-log: ${e.message}
@@ -7698,9 +7700,9 @@ ${HELP}
     return 3;
   }
 }
-function mirrorBlockingSmell(sftddDir, event, slots) {
+function mirrorBlockingSmell(consortDir, event, slots) {
   if (event !== "smell.flagged" || typeof slots.smell !== "string") return;
-  recordBlockingSmellFlag(sftddDir, slots.smell, typeof slots.detail === "string" ? slots.detail : void 0, {
+  recordBlockingSmellFlag(consortDir, slots.smell, typeof slots.detail === "string" ? slots.detail : void 0, {
     story_id: typeof slots.story === "string" ? slots.story : void 0,
     ac_id: typeof slots.ac === "string" ? slots.ac : void 0
   });

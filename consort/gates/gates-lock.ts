@@ -34,7 +34,7 @@
 import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "fs";
 import { join } from "path";
 import type { GatesIoOpts } from "./gates";
-import { resolveSftddDir, requireFeatureDir as findFeatureDir } from "../../consort/config/consort-paths.js";
+import { resolveConsortDir, requireFeatureDir as findFeatureDir } from "../../consort/config/consort-paths.js";
 
 export interface WithGatesLockOpts extends GatesIoOpts {
   /** Max retry attempts before giving up. Default 5. */
@@ -76,12 +76,12 @@ export function withGatesLock<T>(
   fn: () => T,
   opts: WithGatesLockOpts = {}
 ): T {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
+  const consortDir = opts.consortDir ?? resolveConsortDir();
   const maxRetries = opts.maxRetries ?? 5;
   const initialBackoffMs = opts.initialBackoffMs ?? 20;
   const sleep = opts.sleep ?? defaultSleep;
 
-  const lockPath = gatesLockFilePath(sftddDir, featureId);
+  const lockPath = gatesLockFilePath(consortDir, featureId);
   let acquired = false;
   let attempts = 0;
 
@@ -132,8 +132,8 @@ function readHeldByPid(lockPath: string): number | null {
   }
 }
 
-function gatesLockFilePath(sftddDir: string, featureId: string): string {
-  const dir = findFeatureDir(sftddDir, featureId);
+function gatesLockFilePath(consortDir: string, featureId: string): string {
+  const dir = findFeatureDir(consortDir, featureId);
   // Ensure the feature dir exists for the lockfile placement; gates.ts
   // also enforces this for the gates.json path. We mirror that behavior
   // so the lock can be acquired even on a fresh feature.

@@ -16,7 +16,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileS
 import type { GateRecord } from "./gates.js";
 import { hashArtifact } from "./gate-hash.js";
 import { checkArtifactConformance } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
-import { resolveSftddDir, sprintDir, sprintGatesJson, featureProposalsMd } from "../../consort/config/consort-paths.js";
+import { resolveConsortDir, sprintDir, sprintGatesJson, featureProposalsMd } from "../../consort/config/consort-paths.js";
 
 // sprintDir lives in sftdd-paths now (single source of truth); re-exported for
 // the existing public API.
@@ -35,7 +35,7 @@ export interface SprintGatesState {
 
 export interface SprintGatesIoOpts {
   /** Path to the artifact root. Default: resolved (.sftdd, or legacy .tdd). */
-  sftddDir?: string;
+  consortDir?: string;
 }
 
 export function defaultSprintGatesState(sprint: string): SprintGatesState {
@@ -46,8 +46,8 @@ export function defaultSprintGatesState(sprint: string): SprintGatesState {
   };
 }
 
-function sprintGatesFile(sftddDir: string, sprint: string): string {
-  return sprintGatesJson(sftddDir, sprint);
+function sprintGatesFile(consortDir: string, sprint: string): string {
+  return sprintGatesJson(consortDir, sprint);
 }
 
 /**
@@ -55,8 +55,8 @@ function sprintGatesFile(sftddDir: string, sprint: string): string {
  * gates.json exists yet. Does not create the file; read is non-mutating.
  */
 export function readSprintGates(sprint: string, opts: SprintGatesIoOpts = {}): SprintGatesState {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
-  const file = sprintGatesFile(sftddDir, sprint);
+  const consortDir = opts.consortDir ?? resolveConsortDir();
+  const file = sprintGatesFile(consortDir, sprint);
   if (!existsSync(file)) return defaultSprintGatesState(sprint);
   let parsed: { gates?: { plan?: GateRecord }; schema_version?: number };
   try {
@@ -75,9 +75,9 @@ export function readSprintGates(sprint: string, opts: SprintGatesIoOpts = {}): S
 
 /** Write a sprint's gate state, atomic via temp-file + rename. */
 export function writeSprintGates(state: SprintGatesState, opts: SprintGatesIoOpts = {}): void {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
-  mkdirSync(sprintDir(sftddDir, state.sprint), { recursive: true });
-  const file = sprintGatesJson(sftddDir, state.sprint);
+  const consortDir = opts.consortDir ?? resolveConsortDir();
+  mkdirSync(sprintDir(consortDir, state.sprint), { recursive: true });
+  const file = sprintGatesJson(consortDir, state.sprint);
   const tmp = `${file}.tmp.${process.pid}.${Date.now()}`;
   writeFileSync(tmp, JSON.stringify(state, null, 2) + "\n", "utf8");
   try {
@@ -97,7 +97,7 @@ export interface ApproveSprintPlanArgs {
   approver: string;
   /** HITL enforcement: the gate only closes on an explicit human (or proxy) yes. */
   hitlApproved: boolean;
-  sftddDir?: string;
+  consortDir?: string;
   now?: () => Date;
 }
 
@@ -115,8 +115,8 @@ export function approveSprintPlanGate(args: ApproveSprintPlanArgs): ApproveSprin
   if (!args.hitlApproved) return { ok: false, reason: "hitlApproved must be true (the plan gate is HITL)" };
   if (args.approver.length === 0) return { ok: false, reason: "approver must not be empty" };
 
-  const sftddDir = args.sftddDir ?? resolveSftddDir();
-  const file = featureProposalsMd(sftddDir);
+  const consortDir = args.consortDir ?? resolveConsortDir();
+  const file = featureProposalsMd(consortDir);
   if (!existsSync(file)) {
     return { ok: false, reason: `${PLAN_GATE_ARTIFACT} not found (no sprint plan to review)` };
   }
@@ -126,7 +126,7 @@ export function approveSprintPlanGate(args: ApproveSprintPlanArgs): ApproveSprin
     return { ok: false, reason: `${PLAN_GATE_ARTIFACT} not conformant: ${(conf.violations ?? []).join("; ")}` };
   }
 
-  const state = readSprintGates(args.sprint, { sftddDir });
+  const state = readSprintGates(args.sprint, { consortDir });
   if (state.gates.plan.status !== "open") {
     return { ok: true, state, alreadyApproved: true };
   }
@@ -147,6 +147,6 @@ export function approveSprintPlanGate(args: ApproveSprintPlanArgs): ApproveSprin
       },
     },
   };
-  writeSprintGates(updated, { sftddDir });
+  writeSprintGates(updated, { consortDir });
   return { ok: true, state: updated, alreadyApproved: false };
 }

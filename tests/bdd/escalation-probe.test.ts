@@ -13,44 +13,44 @@ import { writeEscalation } from "../../consort/gates/escalation";
 import { deriveEscalation, probeDriveState } from "../../consort/orchestrator/state/escalation-probe";
 
 let root: string;
-let sftddDir: string;
+let consortDir: string;
 const FEATURE = "F1-stock-visibility";
 const STORY = "S1-stock-list";
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "esc-probe-"));
-  sftddDir = join(root, ".sftdd");
+  consortDir = join(root, ".sftdd");
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("escalation-probe: deriveEscalation (reuses the legacy disk authority)", () => {
   it("returns null when there is no escalation on disk", () => {
-    expect(deriveEscalation(sftddDir, FEATURE)).toBeNull();
+    expect(deriveEscalation(consortDir, FEATURE)).toBeNull();
   });
 
   it("classifies a SPEC-level smell escalation (with a story) as ROUTABLE -> revise-route", () => {
     // A reflect-spec-defect is a spec-author-owned smell; first revise is always allowed, so the
     // probe marks it routable to the spec gate.
-    writeEscalation(sftddDir, {
+    writeEscalation(consortDir, {
       source: "smell:reflect-spec-defect",
       reason: "AC2 is untestable as written",
       feature_id: FEATURE,
       story_id: STORY,
     });
-    const e = deriveEscalation(sftddDir, FEATURE);
+    const e = deriveEscalation(consortDir, FEATURE);
     expect(e, "expected an escalation").not.toBeNull();
     expect(e!.source).toBe("smell:reflect-spec-defect");
     expect(e!.routable).toEqual({ story: STORY, owning_role: "spec-author", gate: "spec" });
   });
 
   it("classifies a NON-smell (explicit) escalation as terminal -> NOT routable (raise-to-hil)", () => {
-    writeEscalation(sftddDir, {
+    writeEscalation(consortDir, {
       source: "honest-green",
       reason: "verify failed on main",
       feature_id: FEATURE,
       story_id: STORY,
     });
-    const e = deriveEscalation(sftddDir, FEATURE);
+    const e = deriveEscalation(consortDir, FEATURE);
     expect(e, "expected an escalation").not.toBeNull();
     expect(e!.source).toBe("honest-green");
     expect(e!.routable).toBeUndefined();
@@ -59,19 +59,19 @@ describe("escalation-probe: deriveEscalation (reuses the legacy disk authority)"
 
 describe("escalation-probe: probeDriveState", () => {
   it("with no escalation, yields a feature-phase state with escalation:null (byte-identical stub)", () => {
-    const s = probeDriveState(sftddDir, FEATURE);
+    const s = probeDriveState(consortDir, FEATURE);
     expect(s.phase).toBe("feature");
     expect(s.escalation).toBeNull();
   });
 
   it("carries the derived escalation onto the state the runner routes against", () => {
-    writeEscalation(sftddDir, {
+    writeEscalation(consortDir, {
       source: "smell:reflect-spec-defect",
       reason: "AC2 untestable",
       feature_id: FEATURE,
       story_id: STORY,
     });
-    const s = probeDriveState(sftddDir, FEATURE);
+    const s = probeDriveState(consortDir, FEATURE);
     expect(s.escalation?.routable?.owning_role).toBe("spec-author");
   });
 });

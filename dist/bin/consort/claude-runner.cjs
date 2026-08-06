@@ -6668,11 +6668,17 @@ var import_node_child_process2 = require("child_process");
 
 // consort/config/consort-env.ts
 init_cjs_shims();
-function sftddEnv(suffix, env = process.env) {
-  return env[`LAKEBASE_SFTDD_${suffix}`] ?? env[`LAKEBASE_TDD_${suffix}`];
+var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
+var ENV_PREFIX = ENV_PREFIXES[0];
+function consortEnv(suffix, env = process.env) {
+  for (const prefix of ENV_PREFIXES) {
+    const v = env[`${prefix}${suffix}`];
+    if (v !== void 0) return v;
+  }
+  return void 0;
 }
 
-// consort/setup/project-sftdd-setup.ts
+// consort/setup/project-consort-setup.ts
 init_cjs_shims();
 var fs4 = __toESM(require("fs"), 1);
 var path3 = __toESM(require("path"), 1);
@@ -6685,7 +6691,7 @@ var import_node_path = require("path");
 var ARTIFACT_ROOT = ".consort";
 var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
 var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
-function resolveSftddDir(projectDir = process.cwd()) {
+function resolveConsortDir(projectDir = process.cwd()) {
   const next = (0, import_node_path.join)(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
   for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
@@ -6737,7 +6743,7 @@ var LEGACY_CONFIG_RELS = [
   (0, import_path2.join)(".lakebase", "tdd-config.json")
 ];
 var LEGACY_TDD_CONFIG_REL = LEGACY_CONFIG_RELS[0];
-function loadSftddConfig(projectDir) {
+function loadConsortConfig(projectDir) {
   for (const rel of [CONSORT_CONFIG_REL, ...LEGACY_CONFIG_RELS]) {
     const f = (0, import_path2.join)(projectDir, rel);
     if (!(0, import_fs2.existsSync)(f)) continue;
@@ -6750,7 +6756,7 @@ function loadSftddConfig(projectDir) {
   return void 0;
 }
 function resolveProjectSettings(projectDir) {
-  const file = loadSftddConfig(projectDir);
+  const file = loadConsortConfig(projectDir);
   const build = {
     loopGranularity: file?.build?.loopGranularity ?? "story",
     batchCap: file?.build?.batchCap,
@@ -6769,7 +6775,7 @@ function resolveProjectSettings(projectDir) {
   return { build, plan, project };
 }
 
-// consort/lakebase/adopt-sftdd.ts
+// consort/lakebase/adopt-consort.ts
 init_cjs_shims();
 var fs2 = __toESM(require("fs"), 1);
 var path = __toESM(require("path"), 1);
@@ -6829,7 +6835,7 @@ function updateAgents(args) {
   return { files, changed };
 }
 
-// consort/setup/project-sftdd-setup.ts
+// consort/setup/project-consort-setup.ts
 var __dirname2 = path3.dirname((0, import_node_url2.fileURLToPath)(importMetaUrl));
 function resolveKitRoot() {
   const candidates = [
@@ -6910,13 +6916,13 @@ function cpDir(srcDir, dstDir) {
   return copied;
 }
 function replayDesignTurn(args) {
-  const { turn, replayDir, sftddDir, featureId } = args;
+  const { turn, replayDir, consortDir, featureId } = args;
   const cf = (0, import_path3.join)(featuresDir(replayDir), featureId);
-  const tf = (0, import_path3.join)(featuresDir(sftddDir), featureId);
+  const tf = (0, import_path3.join)(featuresDir(consortDir), featureId);
   switch (turn.role) {
     case "spec-author": {
       if (turn.mode === "propose") {
-        return cp((0, import_path3.join)(replayDir, "planning", "feature-proposals.md"), (0, import_path3.join)(sftddDir, "planning", "feature-proposals.md"));
+        return cp((0, import_path3.join)(replayDir, "planning", "feature-proposals.md"), (0, import_path3.join)(consortDir, "planning", "feature-proposals.md"));
       }
       if (turn.mode === "breakdown") {
         let ok = cp((0, import_path3.join)(cf, "feature-spec.json"), (0, import_path3.join)(tf, "feature-spec.json"));
@@ -6959,9 +6965,9 @@ function replayDesignTurn(args) {
       return ok;
     }
     case "ux-designer": {
-      let ok = cp((0, import_path3.join)(replayDir, "design", "design-guide.json"), (0, import_path3.join)(sftddDir, "design", "design-guide.json"));
-      cp((0, import_path3.join)(replayDir, "design", "design-guide.md"), (0, import_path3.join)(sftddDir, "design", "design-guide.md"));
-      cp((0, import_path3.join)(replayDir, "design", "ia.md"), (0, import_path3.join)(sftddDir, "design", "ia.md"));
+      let ok = cp((0, import_path3.join)(replayDir, "design", "design-guide.json"), (0, import_path3.join)(consortDir, "design", "design-guide.json"));
+      cp((0, import_path3.join)(replayDir, "design", "design-guide.md"), (0, import_path3.join)(consortDir, "design", "design-guide.md"));
+      cp((0, import_path3.join)(replayDir, "design", "ia.md"), (0, import_path3.join)(consortDir, "design", "ia.md"));
       return ok;
     }
     default:
@@ -6969,10 +6975,10 @@ function replayDesignTurn(args) {
   }
 }
 function restoreReflectVerdict(args) {
-  const { replayDir, sftddDir, featureId, story } = args;
+  const { replayDir, consortDir, featureId, story } = args;
   return cp(
     (0, import_path3.join)(featuresDir(replayDir), featureId, "stories", story, "reflect-verdict.json"),
-    (0, import_path3.join)(featuresDir(sftddDir), featureId, "stories", story, "reflect-verdict.json")
+    (0, import_path3.join)(featuresDir(consortDir), featureId, "stories", story, "reflect-verdict.json")
   );
 }
 
@@ -7029,7 +7035,7 @@ function listBuildTurns(replayBuildDir, featureId, story) {
   return (0, import_fs4.readdirSync)(dir).filter((n) => !n.startsWith(".")).sort();
 }
 function replayBuildTurn(args) {
-  const { replayBuildDir, projectDir, sftddDir, featureId, story, turnIndex } = args;
+  const { replayBuildDir, projectDir, consortDir, featureId, story, turnIndex } = args;
   const turns = listBuildTurns(replayBuildDir, featureId, story).filter(
     (n) => !/reflect|assess|repair|superseded/i.test(n)
   );
@@ -7040,7 +7046,7 @@ function replayBuildTurn(args) {
   (0, import_fs4.cpSync)(codeSrc, projectDir, { recursive: true, force: true, filter: codeTreeFilter(codeSrc) });
   const cyclesSrc = (0, import_path4.join)(turnDir, "tdd", "cycles");
   if ((0, import_fs4.existsSync)(cyclesSrc)) {
-    (0, import_fs4.cpSync)(cyclesSrc, cyclesRootDir(sftddDir), {
+    (0, import_fs4.cpSync)(cyclesSrc, cyclesRootDir(consortDir), {
       recursive: true,
       force: true,
       filter: (src) => (0, import_fs4.statSync)(src).isDirectory() || src.endsWith("review-verdict.json")
@@ -7169,8 +7175,8 @@ function renderEventMessage(event, slots = {}) {
 }
 
 // consort/logging/agent-log.ts
-function logFilePath(sftddDir) {
-  return (0, import_path6.join)(sftddDir, "agent-log.jsonl");
+function logFilePath(consortDir) {
+  return (0, import_path6.join)(consortDir, "agent-log.jsonl");
 }
 function buildAgentLogEvent(input, now) {
   const slots = input.slots ?? {};
@@ -7207,10 +7213,10 @@ function buildAgentLogEvent(input, now) {
   return event;
 }
 function emitAgentLogEvent(input, opts = {}) {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
+  const consortDir = opts.consortDir ?? resolveConsortDir();
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const event = buildAgentLogEvent(input, now);
-  (0, import_fs6.appendFileSync)(logFilePath(sftddDir), `${JSON.stringify(event)}
+  (0, import_fs6.appendFileSync)(logFilePath(consortDir), `${JSON.stringify(event)}
 `, "utf8");
   return event;
 }
@@ -7219,8 +7225,8 @@ function emitAgentLogEvent(input, opts = {}) {
 init_cjs_shims();
 var fs5 = __toESM(require("fs"), 1);
 var PHASE_OWNER_KEY = "phase_feature_id";
-function writeWorkflowPhase(sftddDir, phase, featureId) {
-  const file = workflowStateJson(sftddDir);
+function writeWorkflowPhase(consortDir, phase, featureId) {
+  const file = workflowStateJson(consortDir);
   let state = {};
   if (fs5.existsSync(file)) {
     try {
@@ -7231,7 +7237,7 @@ function writeWorkflowPhase(sftddDir, phase, featureId) {
   }
   state.phase = phase;
   if (featureId) state[PHASE_OWNER_KEY] = featureId;
-  fs5.mkdirSync(sftddDir, { recursive: true });
+  fs5.mkdirSync(consortDir, { recursive: true });
   fs5.writeFileSync(file, JSON.stringify(state, null, 2) + "\n");
 }
 
@@ -7822,8 +7828,8 @@ function turnKeyForAction(action) {
 }
 
 // consort/orchestrator/settings/project-settings.ts
-function resolveSftddSettings(inputs) {
-  const file = loadSftddConfig(inputs.projectDir);
+function resolveConsortSettings(inputs) {
+  const file = loadConsortConfig(inputs.projectDir);
   const legacy = readAgentConfig(inputs.projectDir);
   const models = {};
   const fallbackModels = {};
@@ -7937,14 +7943,14 @@ function assistantEventSummary(line) {
 init_cjs_shims();
 var CONTEXT_FREE_FRACTION_REQUIRED = 0.4;
 function requiredFreeFraction(env = process.env) {
-  const raw = env.LAKEBASE_SFTDD_CONTEXT_FREE_FRACTION ?? env.SFTDD_CONTEXT_FREE_FRACTION;
+  const raw = consortEnv("CONTEXT_FREE_FRACTION", env) ?? env.SFTDD_CONTEXT_FREE_FRACTION;
   if (raw === void 0) return CONTEXT_FREE_FRACTION_REQUIRED;
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 && n < 1 ? n : CONTEXT_FREE_FRACTION_REQUIRED;
 }
 var DEFAULT_HEAVY_ROLES = [];
 function heavyRoles(env = process.env) {
-  const raw = env.LAKEBASE_SFTDD_HEAVY_ROLES ?? env.SFTDD_HEAVY_ROLES;
+  const raw = consortEnv("HEAVY_ROLES", env) ?? env.SFTDD_HEAVY_ROLES;
   if (raw === void 0) return new Set(DEFAULT_HEAVY_ROLES);
   return new Set(raw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean));
 }
@@ -8186,8 +8192,8 @@ function relocateStrayDesignArtifacts(projectDir) {
 
 // consort/orchestrator/drive/claude-runner.ts
 var MAX_PROMPT_TOO_LONG_RETRIES = 2;
-var MAX_TRANSIENT_RETRIES = Number(sftddEnv("MAX_TRANSIENT_RETRIES") ?? "5");
-var TRANSIENT_BACKOFF_MS = Number(sftddEnv("TRANSIENT_BACKOFF_MS") ?? "5000");
+var MAX_TRANSIENT_RETRIES = Number(consortEnv("MAX_TRANSIENT_RETRIES") ?? "5");
+var TRANSIENT_BACKOFF_MS = Number(consortEnv("TRANSIENT_BACKOFF_MS") ?? "5000");
 function spawnCmd(bin, args, cwd) {
   return new Promise((resolve3, reject) => {
     const child = (0, import_node_child_process2.spawn)(bin, args, { cwd, stdio: "inherit" });
@@ -8212,22 +8218,22 @@ var ReplayCorpusMissError = class extends Error {
   }
 };
 var ArtifactOutOfRootError = class extends Error {
-  constructor(role, label, anyOf, sftddDir, checkedSibling) {
+  constructor(role, label, anyOf, consortDir, checkedSibling) {
     super(
-      `role '${role}' produced no ${label} under ${path5.basename(sftddDir)}/ (expected one of: ${anyOf.join(", ")}).
+      `role '${role}' produced no ${label} under ${path5.basename(consortDir)}/ (expected one of: ${anyOf.join(", ")}).
         The subagent likely resolved the project root wrong and wrote outside it. ` + (checkedSibling ? `Checked (and tried to relocate from) the malformed sibling ${checkedSibling}; nothing there either. ` : `(check $HOME and other dirs for a stray copy). `) + `Nothing downstream can consume the absent artifact. Re-run to re-dispatch the role.`
     );
     this.role = role;
     this.label = label;
     this.anyOf = anyOf;
-    this.sftddDir = sftddDir;
+    this.consortDir = consortDir;
     this.checkedSibling = checkedSibling;
     this.name = "ArtifactOutOfRootError";
   }
   role;
   label;
   anyOf;
-  sftddDir;
+  consortDir;
   checkedSibling;
 };
 var lastAgentTranscript;
@@ -8242,7 +8248,7 @@ function spawnClaudeStreaming(args, cwd) {
     const lines = [];
     let sawTooLong = false;
     let sawTransient = false;
-    const verboseAgent = !!sftddEnv("VERBOSE_AGENT");
+    const verboseAgent = !!consortEnv("VERBOSE_AGENT");
     let lastText = "";
     const allTools = [];
     const rl = readline.createInterface({ input: child.stdout });
@@ -8323,20 +8329,20 @@ function execRunner(cfg) {
   return {
     async run(cmd) {
       if (cmd.kind === "set-phase") {
-        writeWorkflowPhase(cfg.sftddDir, cmd.phase, cfg.featureId || void 0);
+        writeWorkflowPhase(cfg.consortDir, cmd.phase, cfg.featureId || void 0);
         return;
       }
       if (cmd.kind === "sync-backlog") {
         return;
       }
       if (cmd.kind === "claude") {
-        const replayBuildDir = sftddEnv("REPLAY_BUILD_DIR");
+        const replayBuildDir = consortEnv("REPLAY_BUILD_DIR");
         const story = cmd.replay?.story;
         if (replayBuildDir && story && (cmd.role === "navigator" || cmd.role === "driver")) {
           if (cmd.replay?.buildMode === "reflect") {
-            const rd = sftddEnv("REPLAY_DIR");
+            const rd = consortEnv("REPLAY_DIR");
             if (rd) {
-              const restored = restoreReflectVerdict({ replayDir: rd, sftddDir: cfg.sftddDir, featureId: cfg.featureId, story });
+              const restored = restoreReflectVerdict({ replayDir: rd, consortDir: cfg.consortDir, featureId: cfg.featureId, story });
               if (!restored) {
                 throw new ReplayCorpusMissError(
                   `[drive] REPLAY CORPUS MISS: reflect verdict for ${story} is not in the corpus (expected features/${cfg.featureId}/stories/${story}/reflect-verdict.json under ${rd}). Replay will NOT run the Navigator live , put the recorded verdict in the corpus (check .gitignore is not dropping it).`
@@ -8352,7 +8358,7 @@ function execRunner(cfg) {
           const replayed = replayBuildTurn({
             replayBuildDir,
             projectDir: cfg.projectDir,
-            sftddDir: cfg.sftddDir,
+            consortDir: cfg.consortDir,
             featureId: cfg.featureId,
             story,
             turnIndex
@@ -8368,12 +8374,12 @@ function execRunner(cfg) {
             `[drive] REPLAY CORPUS MISS: build turn ${turnIndex} for ${story} (${cmd.role}) has no recorded turn dir under ${replayBuildDir} (features/${cfg.featureId}/stories/${story}/turns). The live orchestrator dispatched more build turns than the corpus recorded, or the corpus is incomplete. Replay will NOT run the agent live , re-record or fix the corpus so it covers every dispatched turn.`
           );
         }
-        const replayDir = sftddEnv("REPLAY_DIR");
+        const replayDir = consortEnv("REPLAY_DIR");
         if (replayDir && REPLAYABLE_DESIGN_ROLES.has(cmd.role)) {
           const replayed = replayDesignTurn({
             turn: { role: cmd.role, mode: cmd.replay?.mode, story: cmd.replay?.story },
             replayDir,
-            sftddDir: cfg.sftddDir,
+            consortDir: cfg.consortDir,
             featureId: cfg.featureId
           });
           if (replayed) {
@@ -8472,7 +8478,7 @@ function execRunner(cfg) {
                   ...cmd.replay?.mode ? { phase: cmd.replay.mode } : {}
                 }
               },
-              { sftddDir: cfg.sftddDir }
+              { consortDir: cfg.consortDir }
             );
           } catch {
           }
@@ -8501,7 +8507,7 @@ function execRunner(cfg) {
               cmd.role,
               cmd.label,
               cmd.anyOf,
-              cfg.sftddDir,
+              cfg.consortDir,
               malformedSiblingRoot(cfg.projectDir)
             );
           }
@@ -8521,7 +8527,7 @@ var agentResyncDone = false;
 function maybeResyncAgents(projectDir) {
   if (agentResyncDone) return;
   agentResyncDone = true;
-  const recordingOrReplaying = !!sftddEnv("REPLAY_DIR") || !!sftddEnv("REPLAY_BUILD_DIR") || !!sftddEnv("RECORD_BUILD_DIR") || !!sftddEnv("RECORD_DIR");
+  const recordingOrReplaying = !!consortEnv("REPLAY_DIR") || !!consortEnv("REPLAY_BUILD_DIR") || !!consortEnv("RECORD_BUILD_DIR") || !!consortEnv("RECORD_DIR");
   if (recordingOrReplaying) return;
   const r = resyncAgentsOnKitDrift(projectDir);
   if (r.refreshed) {
@@ -8531,27 +8537,27 @@ function maybeResyncAgents(projectDir) {
 }
 function buildCfg(args, featureId) {
   const projectDir = args.projectDir ?? process.cwd();
-  const sftddDir = args.sftddDir ?? resolveSftddDir(projectDir);
+  const consortDir = args.consortDir ?? resolveConsortDir(projectDir);
   maybeResyncAgents(projectDir);
   const scm = (0, import_lakebase.readWorkflowState)(projectDir);
-  const settings = resolveSftddSettings({ projectDir });
+  const settings = resolveConsortSettings({ projectDir });
   return {
     projectDir,
-    sftddDir,
+    consortDir,
     featureId,
     sprintName: args.sprint,
     // Recorded feature-requests present (capture/replay) => the planning PROPOSE
     // step is deterministic (project feature-proposals.md from them) instead of an
     // LLM spawn. Unset (interactive) keeps the live Spec Author propose turn.
-    recordedRequests: !!sftddEnv("SPRINT_REQUESTS")?.trim(),
+    recordedRequests: !!consortEnv("SPRINT_REQUESTS")?.trim(),
     // Force a LIVE propose even with recorded requests (capture exercising the
     // full plan lane): the Spec Author proposes from product-overview + nfrs,
     // the proxy still commits the recorded request at author-requests.
-    livePropose: !!sftddEnv("LIVE_PROPOSE")?.trim(),
+    livePropose: !!consortEnv("LIVE_PROPOSE")?.trim(),
     // Stage 2 (#578): route the migrated agent turns (currently spec-author breakdown)
     // THROUGH the StepExecutor instead of commandsForAction. Opt-in via
     // LAKEBASE_SFTDD_USE_MANIFEST_STEPS; default OFF = byte-identical legacy dispatch.
-    useManifestSteps: !!sftddEnv("USE_MANIFEST_STEPS")?.trim(),
+    useManifestSteps: !!consortEnv("USE_MANIFEST_STEPS")?.trim(),
     instance: args.instance ?? scm?.project_id,
     featureBranch: scm?.branch,
     parentBranch: scm?.parent_branch,
@@ -8592,7 +8598,7 @@ function buildCfg(args, featureId) {
       // the structured agent-log by makeOnAction below, so the raw action JSON is
       // console noise on every line , append it only under LAKEBASE_SFTDD_TRACE.
       (action, i) => {
-        const trace = sftddEnv("TRACE") ? `  ${JSON.stringify(action)}` : "";
+        const trace = consortEnv("TRACE") ? `  ${JSON.stringify(action)}` : "";
         process.stderr.write(`[drive] ${String(i).padStart(3, "0")} ${describeAction(action, { featureId })}${trace}
 `);
       },
@@ -8602,7 +8608,7 @@ function buildCfg(args, featureId) {
       // The resolvers stamp each per-turn phase.start with the model + effort it
       // ran with (right after `role`).
       makeOnAction({
-        sftddDir,
+        consortDir,
         featureId,
         modelForRole: (role) => settings.models[role],
         effortForTurn: (role, turn) => {

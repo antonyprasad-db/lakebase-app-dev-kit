@@ -59,19 +59,19 @@ function dispatchAndCut(p: StoryPipeline, storyId: string, slug: string): string
 
 async function accept(p: StoryPipeline, storyId: string, slug: string, branch: string, ops: ExperimentBranchOps) {
   await mergeExperimentIntoFeature(
-    { sftddDir: "/tmp/.tdd", featureId: "F1", storyId, experimentSlug: slug, featureBranch: FEATURE_BRANCH, experimentBranch: branch, instance: "lb", projectDir: "/tmp" },
+    { consortDir: "/tmp/.tdd", featureId: "F1", storyId, experimentSlug: slug, featureBranch: FEATURE_BRANCH, experimentBranch: branch, instance: "lb", projectDir: "/tmp" },
     ops,
   );
   acceptStory(p, storyId, { approver: "po", at: AT });
 }
 
 async function discard(p: StoryPipeline, storyId: string, slug: string, ops: ExperimentBranchOps, reason: string) {
-  await discardExperimentBranch({ sftddDir: "/tmp/.tdd", projectDir: "/tmp", featureId: "F1", storyId, experimentSlug: slug, instance: "lb" }, ops);
+  await discardExperimentBranch({ consortDir: "/tmp/.tdd", projectDir: "/tmp", featureId: "F1", storyId, experimentSlug: slug, instance: "lb" }, ops);
   discardStory(p, storyId, { approver: "po", at: AT, reason });
 }
 
 async function revise(p: StoryPipeline, storyId: string, slug: string, ops: ExperimentBranchOps, reason: string) {
-  await discardExperimentBranch({ sftddDir: "/tmp/.tdd", projectDir: "/tmp", featureId: "F1", storyId, experimentSlug: slug, instance: "lb" }, ops);
+  await discardExperimentBranch({ consortDir: "/tmp/.tdd", projectDir: "/tmp", featureId: "F1", storyId, experimentSlug: slug, instance: "lb" }, ops);
   reviseStory(p, storyId, { approver: "po", at: AT, reason });
 }
 

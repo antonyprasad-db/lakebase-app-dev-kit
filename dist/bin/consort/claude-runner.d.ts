@@ -166,7 +166,7 @@ interface CommandRunner {
 }
 interface DriveEffectsConfig {
     projectDir: string;
-    sftddDir: string;
+    consortDir: string;
     featureId: string;
     runner: CommandRunner;
     /** Resolve a role's model (per-project override -> recommended -> inherit). */
@@ -273,7 +273,7 @@ interface ParsedArgs {
     feature?: string;
     sprint?: string;
     projectDir?: string;
-    sftddDir?: string;
+    consortDir?: string;
     instance?: string;
     deployTarget?: string;
     approver?: string;
@@ -330,11 +330,11 @@ declare class ArtifactOutOfRootError extends Error {
     readonly role: string;
     readonly label: string;
     readonly anyOf: string[];
-    readonly sftddDir: string;
+    readonly consortDir: string;
     /** FEIP-8038: the known malformed-sibling root we also checked (+ tried to
      *  relocate from). Named so the human knows exactly where to look. */
     readonly checkedSibling?: string | undefined;
-    constructor(role: string, label: string, anyOf: string[], sftddDir: string, 
+    constructor(role: string, label: string, anyOf: string[], consortDir: string, 
     /** FEIP-8038: the known malformed-sibling root we also checked (+ tried to
      *  relocate from). Named so the human knows exactly where to look. */
     checkedSibling?: string | undefined);

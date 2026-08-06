@@ -137,19 +137,19 @@ export function initPipeline(featureId: string): StoryPipeline {
   return { version: 1, feature_id: featureId, stories: {}, build_queue: [], build_active: null };
 }
 
-function pipelinePath(sftddDir: string, featureId: string): string {
-  return pipelineJson(sftddDir, featureId);
+function pipelinePath(consortDir: string, featureId: string): string {
+  return pipelineJson(consortDir, featureId);
 }
 
 /** Read .tdd/features/<F>/pipeline.json, or an empty pipeline when absent. */
-export function readPipeline(sftddDir: string, featureId: string): StoryPipeline {
-  const p = pipelinePath(sftddDir, featureId);
+export function readPipeline(consortDir: string, featureId: string): StoryPipeline {
+  const p = pipelinePath(consortDir, featureId);
   if (!existsSync(p)) return initPipeline(featureId);
   return JSON.parse(readFileSync(p, "utf8")) as StoryPipeline;
 }
 
-export function writePipeline(sftddDir: string, pipeline: StoryPipeline): void {
-  const p = pipelinePath(sftddDir, pipeline.feature_id);
+export function writePipeline(consortDir: string, pipeline: StoryPipeline): void {
+  const p = pipelinePath(consortDir, pipeline.feature_id);
   mkdirSync(dirname(p), { recursive: true });
   writeFileSync(p, JSON.stringify(pipeline, null, 2) + "\n");
 }
@@ -180,11 +180,11 @@ export function setStoryStatus(
  * Returns the newly-added ids + the full tracked set.
  */
 export function syncBreakdownToPipeline(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
 ): { added: string[]; total: string[] } {
-  const storiesDir = storiesDirOf(sftddDir, featureId);
-  const pipeline = readPipeline(sftddDir, featureId);
+  const storiesDir = storiesDirOf(consortDir, featureId);
+  const pipeline = readPipeline(consortDir, featureId);
   const added: string[] = [];
   if (existsSync(storiesDir)) {
     for (const storyId of readdirSync(storiesDir).sort()) {
@@ -201,7 +201,7 @@ export function syncBreakdownToPipeline(
       }
     }
   }
-  if (added.length > 0) writePipeline(sftddDir, pipeline);
+  if (added.length > 0) writePipeline(consortDir, pipeline);
   return { added, total: Object.keys(pipeline.stories) };
 }
 
@@ -220,10 +220,10 @@ export function syncBreakdownToPipeline(
  * breakdown is NOT done, so anything on disk here is by definition partial).
  */
 export function resetIncompleteBreakdown(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
 ): { reset: boolean } {
-  const specPath = featureSpecJson(sftddDir, featureId);
+  const specPath = featureSpecJson(consortDir, featureId);
   let complete = false;
   try {
     const spec = JSON.parse(readFileSync(specPath, "utf8")) as { stories?: unknown };
@@ -233,7 +233,7 @@ export function resetIncompleteBreakdown(
   }
   if (complete) return { reset: false };
   let reset = false;
-  for (const p of [storiesDirOf(sftddDir, featureId), specPath, featureSpecMd(sftddDir, featureId)]) {
+  for (const p of [storiesDirOf(consortDir, featureId), specPath, featureSpecMd(consortDir, featureId)]) {
     if (existsSync(p)) {
       rmSync(p, { recursive: true, force: true });
       reset = true;
@@ -292,8 +292,8 @@ export function completeActive(pipeline: StoryPipeline): string | null {
 // into a hard error so the run can't proceed until the draft is one-story-scoped.
 
 /** True when stories/<S>/acs/ holds at least one `*.json` AC artifact. */
-function storyHasAcceptanceCriteria(sftddDir: string, featureId: string, storyId: string): boolean {
-  const acsDir = acsDirOf(sftddDir, featureId, storyId);
+function storyHasAcceptanceCriteria(consortDir: string, featureId: string, storyId: string): boolean {
+  const acsDir = acsDirOf(consortDir, featureId, storyId);
   if (!existsSync(acsDir)) return false;
   return readdirSync(acsDir).some((f) => f.endsWith(".json"));
 }
@@ -309,17 +309,17 @@ function storyHasAcceptanceCriteria(sftddDir: string, featureId: string, storyId
  * ids, sorted; empty when the draft is correctly scoped to one story.
  */
 export function findBatchedDraftStories(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   pipeline: StoryPipeline,
   gatingStoryId: string,
 ): string[] {
-  const storiesDir = storiesDirOf(sftddDir, featureId);
+  const storiesDir = storiesDirOf(consortDir, featureId);
   if (!existsSync(storiesDir)) return [];
   const offenders: string[] = [];
   for (const storyId of readdirSync(storiesDir)) {
     if (storyId === gatingStoryId) continue;
-    if (!storyHasAcceptanceCriteria(sftddDir, featureId, storyId)) continue;
+    if (!storyHasAcceptanceCriteria(consortDir, featureId, storyId)) continue;
     const status = pipeline.stories[storyId]?.status;
     // `designing` = not yet surfaced for its gate; undefined = not even tracked.
     // Either way ACs for it now means the draft ran ahead of the gate.
@@ -413,13 +413,13 @@ export interface ApproveStoryGateOutcome {
  * message + exit code.
  */
 export function approveStoryGateFromDisk(
-  sftddDir: string,
+  consortDir: string,
   feature: string,
   story: string,
   opts: { approver: string; at?: string; specHash?: string },
 ): ApproveStoryGateOutcome {
-  const pipeline = readPipeline(sftddDir, feature);
-  const batched = findBatchedDraftStories(sftddDir, feature, pipeline, story);
+  const pipeline = readPipeline(consortDir, feature);
+  const batched = findBatchedDraftStories(consortDir, feature, pipeline, story);
   if (batched.length > 0) return { ok: false, batched };
   // Finding 29: refuse to approve a story whose ACs are malformed (truncated /
   // invalid JSON) or non-conformant. The spec gate previously did not parse the AC
@@ -427,14 +427,14 @@ export function approveStoryGateFromDisk(
   // closing brace) passed here + the reflect gate and only surfaced at deploy
   // gate-conformance, long after build + accept. This runs the SAME per-story
   // conformance the deploy gate trusts, so the defect fails at approve time.
-  const acReason = storyAcsConformanceReason(featureDir(sftddDir, feature), story);
+  const acReason = storyAcsConformanceReason(featureDir(consortDir, feature), story);
   if (acReason) return { ok: false, error: acReason };
   // Same class as the AC check above, for story independence: a story that omits
   // its independence determination (or marks itself a subset of a prior) must
   // fail at ITS OWN per-story spec gate, not slip through to the full-feature
   // ship gate long after build + accept. Scoped to the story being gated so a
   // later, not-yet-designed sibling stub cannot fault an earlier story's gate.
-  const indepReason = storyIndependenceForStoryReason(featureDir(sftddDir, feature), story);
+  const indepReason = storyIndependenceForStoryReason(featureDir(consortDir, feature), story);
   if (indepReason) return { ok: false, error: indepReason };
   try {
     approveStoryGate(pipeline, story, {
@@ -445,7 +445,7 @@ export function approveStoryGateFromDisk(
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
-  writePipeline(sftddDir, pipeline);
+  writePipeline(consortDir, pipeline);
   return { ok: true, queue: pipeline.build_queue };
 }
 

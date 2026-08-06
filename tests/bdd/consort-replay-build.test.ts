@@ -60,7 +60,7 @@ describe("replayBuildTurn (per-turn build replay)", () => {
   });
 
   it("overlays the Kth turn's code, skipping scaffold-owned + junk + secrets", () => {
-    expect(replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, sftddDir: tdd, featureId: F, story: S, turnIndex: 1 })).toBe(true);
+    expect(replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, consortDir: tdd, featureId: F, story: S, turnIndex: 1 })).toBe(true);
     // turn 1 RED test landed
     expect(readFileSync(join(proj, "tests", "test_ac1.py"), "utf8")).toMatch(/assert False/);
     // scaffold-owned scripts/lk untouched
@@ -72,14 +72,14 @@ describe("replayBuildTurn (per-turn build replay)", () => {
   });
 
   it("advances turn by turn: turn 2 overlays the GREEN impl over turn 1", () => {
-    replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, sftddDir: tdd, featureId: F, story: S, turnIndex: 1 });
-    expect(replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, sftddDir: tdd, featureId: F, story: S, turnIndex: 2 })).toBe(true);
+    replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, consortDir: tdd, featureId: F, story: S, turnIndex: 1 });
+    expect(replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, consortDir: tdd, featureId: F, story: S, turnIndex: 2 })).toBe(true);
     expect(readFileSync(join(proj, "tests", "test_ac1.py"), "utf8")).toMatch(/assert True/); // RED -> GREEN
     expect(existsSync(join(proj, "app", "main.py"))).toBe(true);
   });
 
   it("returns false past the last recorded turn (a corpus miss; the driver hard-fails, never runs a live agent)", () => {
-    expect(replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, sftddDir: tdd, featureId: F, story: S, turnIndex: 3 })).toBe(false);
+    expect(replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, consortDir: tdd, featureId: F, story: S, turnIndex: 3 })).toBe(false);
   });
 
   it("skips capture-time assess/repair detour turns (a trusted-green replay never re-dispatches them)", () => {
@@ -108,18 +108,18 @@ describe("replayBuildTurn (per-turn build replay)", () => {
     // detours are skipped, so turn 3 maps to 005-navigator-review, landing the
     // cumulative tree WITH the page (added during the skipped repair). And there
     // are exactly 3 dispatchable turns: turn 4 is a miss (no refactor recorded).
-    replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, sftddDir: tdd, featureId: F, story: "S3-detour", turnIndex: 1 });
-    replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, sftddDir: tdd, featureId: F, story: "S3-detour", turnIndex: 2 });
-    expect(replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, sftddDir: tdd, featureId: F, story: "S3-detour", turnIndex: 3 })).toBe(true);
+    replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, consortDir: tdd, featureId: F, story: "S3-detour", turnIndex: 1 });
+    replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, consortDir: tdd, featureId: F, story: "S3-detour", turnIndex: 2 });
+    expect(replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, consortDir: tdd, featureId: F, story: "S3-detour", turnIndex: 3 })).toBe(true);
     expect(existsSync(join(proj, "app", "page.py"))).toBe(true);
     // turn 3 must be the REVIEW, not the assess/repair snapshot (page present).
     expect(readFileSync(join(proj, "app", "page.py"), "utf8")).toMatch(/present at review/);
     // exactly 3 dispatchable turns after filtering reflect/assess/repair.
-    expect(replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, sftddDir: tdd, featureId: F, story: "S3-detour", turnIndex: 4 })).toBe(false);
+    expect(replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, consortDir: tdd, featureId: F, story: "S3-detour", turnIndex: 4 })).toBe(false);
   });
 
   it("returns false for a story the corpus does not cover", () => {
-    const ok = replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, sftddDir: tdd, featureId: F, story: "S2-uncovered", turnIndex: 1 });
+    const ok = replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, consortDir: tdd, featureId: F, story: "S2-uncovered", turnIndex: 1 });
     expect(ok).toBe(false);
     expect(existsSync(join(proj, "app"))).toBe(false);
   });
@@ -132,7 +132,7 @@ describe("replayBuildTurn (per-turn build replay)", () => {
     writeFileSync(join(c, "cycle-001.json"), JSON.stringify({ red_at: "t", green_at: "t" }));
     writeTurn("003-navigator-review-AC1", { "app/main.py": "# reviewed\n" });
 
-    const ok = replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, sftddDir: tdd, featureId: F, story: S, turnIndex: 3 });
+    const ok = replayBuildTurn({ replayBuildDir: corpus, projectDir: proj, consortDir: tdd, featureId: F, story: S, turnIndex: 3 });
     expect(ok).toBe(true);
     // verdict delivered into .tdd/cycles (so the live review drives the refactor)
     const dst = join(tdd, "cycles", F, S, "AC1");

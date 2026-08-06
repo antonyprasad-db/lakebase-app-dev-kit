@@ -9,6 +9,7 @@
 // just reloads context from disk). Fresh-start is the safe default.
 
 import type { TurnUsage } from "./claude-usage.js";
+import { consortEnv } from "../../consort/config/consort-env.js";
 
 /** Require at least this fraction of the model window still free to RESUME
  *  (the default; a smaller warm window = a LARGER required free fraction, set via
@@ -18,7 +19,7 @@ export const CONTEXT_FREE_FRACTION_REQUIRED = 0.4;
 /** The required-free fraction in force, honoring the env override (clamped to a
  *  sane (0,1) range; a bad value falls back to the default). */
 export function requiredFreeFraction(env: NodeJS.ProcessEnv = process.env): number {
-  const raw = env.LAKEBASE_SFTDD_CONTEXT_FREE_FRACTION ?? env.SFTDD_CONTEXT_FREE_FRACTION;
+  const raw = consortEnv("CONTEXT_FREE_FRACTION", env) ?? env.SFTDD_CONTEXT_FREE_FRACTION;
   if (raw === undefined) return CONTEXT_FREE_FRACTION_REQUIRED;
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 && n < 1 ? n : CONTEXT_FREE_FRACTION_REQUIRED;
@@ -47,7 +48,7 @@ export function requiredFreeFraction(env: NodeJS.ProcessEnv = process.env): numb
 export const DEFAULT_HEAVY_ROLES = [] as const;
 
 export function heavyRoles(env: NodeJS.ProcessEnv = process.env): Set<string> {
-  const raw = env.LAKEBASE_SFTDD_HEAVY_ROLES ?? env.SFTDD_HEAVY_ROLES;
+  const raw = consortEnv("HEAVY_ROLES", env) ?? env.SFTDD_HEAVY_ROLES;
   if (raw === undefined) return new Set<string>(DEFAULT_HEAVY_ROLES);
   return new Set(raw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean));
 }

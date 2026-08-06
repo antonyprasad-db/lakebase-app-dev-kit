@@ -25,16 +25,16 @@ const RED: WorkflowAction = { kind: "invoke-role", role: "navigator", story: RED
 /** Seed the breakdown manifest's declared inputs into the real .sftdd (product-overview/nfrs/
  *  feature-request) , the uncontained agent reads them there, and the executor's phase-1 gate
  *  checks their presence. Absent them, resolveInputs returns {missing} and the agent never runs. */
-function seedBreakdownInputs(sftddDir: string): void {
+function seedBreakdownInputs(consortDir: string): void {
   for (const f of ["product-overview.md", "nfrs.md", "feature-request.md"]) {
-    writeFileSync(join(sftddDir, f), `# ${f}\nseed\n`);
+    writeFileSync(join(consortDir, f), `# ${f}\nseed\n`);
   }
 }
 
 /** A recording runner: captures each command as a compact label, and (crucially) SIMULATES the
  *  agent turn by writing the artifacts the executor's phase-5 validate + phase-4.5 reconcile need,
  *  so the executor path reaches a clean produce without a live spawn. */
-function recordingRunner(sftddDir: string) {
+function recordingRunner(consortDir: string) {
   const labels: string[] = [];
   return {
     labels,
@@ -43,7 +43,7 @@ function recordingRunner(sftddDir: string) {
         if (cmd.kind === "claude") {
           labels.push(`claude:${cmd.role}`);
           // Simulate the live spec-author writing its artifact channel outputs.
-          const specDir = join(sftddDir, "features", FEATURE);
+          const specDir = join(consortDir, "features", FEATURE);
           mkdirSync(specDir, { recursive: true });
           writeFileSync(join(specDir, "feature-spec.json"), JSON.stringify({ id: FEATURE, name: "Stock visibility", status: "draft", tdd_mode: "N=1", stories: ["S1-a"] }) + "\n");
           return;
@@ -53,7 +53,7 @@ function recordingRunner(sftddDir: string) {
           labels.push(`cli:${cmd.bin.replace("consort-", "")}:${verb}`);
           // The reconcile CLI materializes the agent-log , simulate that so validate-outputs passes.
           if (cmd.bin.endsWith("-log") && verb === "--reconcile") {
-            writeFileSync(join(sftddDir, "agent-log.jsonl"),
+            writeFileSync(join(consortDir, "agent-log.jsonl"),
               JSON.stringify({ timestamp: "2026-08-05T00:00:00Z", level: "info", role: "spec-author", event: "artifact.written", message: "wrote feature-spec.json" }) + "\n");
           }
           return;
@@ -64,10 +64,10 @@ function recordingRunner(sftddDir: string) {
   };
 }
 
-function cfg(sftddDir: string, projectDir: string, over: Partial<DriveEffectsConfig> = {}): DriveEffectsConfig {
+function cfg(consortDir: string, projectDir: string, over: Partial<DriveEffectsConfig> = {}): DriveEffectsConfig {
   return {
     projectDir,
-    sftddDir,
+    consortDir,
     featureId: FEATURE,
     runner: { async run() {} },
     modelForRole: () => "opus",
@@ -87,12 +87,12 @@ const state = { phase: "feature" } as unknown as DriveState;
 describe("performViaExecutor (Stage 2 2b): spec-author breakdown through the StepExecutor", () => {
   it("runs the SAME CLI sequence as the legacy path: reset-breakdown, claude, reconcile, sync-breakdown", async () => {
     const projectDir = mkdtempSync(join(tmpdir(), "pve-"));
-    const sftddDir = join(projectDir, ".sftdd");
-    mkdirSync(sftddDir, { recursive: true });
-    seedBreakdownInputs(sftddDir);
+    const consortDir = join(projectDir, ".sftdd");
+    mkdirSync(consortDir, { recursive: true });
+    seedBreakdownInputs(consortDir);
     try {
-      const rec = recordingRunner(sftddDir);
-      const effects = buildDriveEffects(cfg(sftddDir, projectDir, { useManifestSteps: true, runner: rec.runner }));
+      const rec = recordingRunner(consortDir);
+      const effects = buildDriveEffects(cfg(consortDir, projectDir, { useManifestSteps: true, runner: rec.runner }));
       const bounded = await effects.performViaExecutor!(BREAKDOWN, state, routerDeps);
 
       // The executor produced a bounded route (not undefined => it WAS executor-dispatched).
@@ -136,9 +136,9 @@ describe("performViaExecutor (Stage 2 2b): spec-author breakdown through the Ste
 
   it("BLOCKS (no post-turn sync-breakdown) when the agent's artifact fails validation", async () => {
     const projectDir = mkdtempSync(join(tmpdir(), "pve-"));
-    const sftddDir = join(projectDir, ".sftdd");
-    mkdirSync(sftddDir, { recursive: true });
-    seedBreakdownInputs(sftddDir);
+    const consortDir = join(projectDir, ".sftdd");
+    mkdirSync(consortDir, { recursive: true });
+    seedBreakdownInputs(consortDir);
     try {
       // A runner whose "agent" writes a NON-conformant feature-spec (empty stories) => validate fails.
       const labels: string[] = [];
@@ -146,14 +146,14 @@ describe("performViaExecutor (Stage 2 2b): spec-author breakdown through the Ste
         async run(cmd: DriveCommand) {
           if (cmd.kind === "claude") {
             labels.push("claude");
-            const d = join(sftddDir, "features", FEATURE); mkdirSync(d, { recursive: true });
+            const d = join(consortDir, "features", FEATURE); mkdirSync(d, { recursive: true });
             writeFileSync(join(d, "feature-spec.json"), JSON.stringify({ id: FEATURE, name: "X", status: "draft", tdd_mode: "N=1", stories: [] }) + "\n");
             return;
           }
-          if (cmd.kind === "cli") { labels.push(`cli:${cmd.args[0]}`); if (cmd.bin.endsWith("-log")) writeFileSync(join(sftddDir, "agent-log.jsonl"), "{}\n"); }
+          if (cmd.kind === "cli") { labels.push(`cli:${cmd.args[0]}`); if (cmd.bin.endsWith("-log")) writeFileSync(join(consortDir, "agent-log.jsonl"), "{}\n"); }
         },
       };
-      const effects = buildDriveEffects(cfg(sftddDir, projectDir, { useManifestSteps: true, runner }));
+      const effects = buildDriveEffects(cfg(consortDir, projectDir, { useManifestSteps: true, runner }));
       const bounded = await effects.performViaExecutor!(BREAKDOWN, state, routerDeps);
       expect(bounded).toBeDefined();
       // sync-breakdown (the `after` CLI) must NOT have run , validation blocked the turn.
@@ -176,8 +176,8 @@ describe("performViaExecutor (Stage 2 2b): spec-author breakdown through the Ste
 
 /** Seed navigator RED's story-scoped inputs on the live tree: the per-story test-list + the acs/
  *  dir (a DIRECTORY input , presence-checked, not injected). The executor's phase-1 gate needs both. */
-function seedRedInputs(sftddDir: string): void {
-  const storyDir = join(sftddDir, "features", FEATURE, "stories", RED_STORY);
+function seedRedInputs(consortDir: string): void {
+  const storyDir = join(consortDir, "features", FEATURE, "stories", RED_STORY);
   mkdirSync(join(storyDir, "acs"), { recursive: true });
   writeFileSync(
     join(storyDir, "test-list-per-story.json"),
@@ -191,7 +191,7 @@ function seedRedInputs(sftddDir: string): void {
 
 /** A recording runner for RED: labels each command, and SIMULATES the navigator writing its PRODUCT
  *  output (a tests/ tree at the PROJECT ROOT) + the reconcile materializing the meta agent-log. */
-function redRecordingRunner(projectDir: string, sftddDir: string) {
+function redRecordingRunner(projectDir: string, consortDir: string) {
   const labels: string[] = [];
   return {
     labels,
@@ -209,7 +209,7 @@ function redRecordingRunner(projectDir: string, sftddDir: string) {
           const verb = cmd.args[0];
           labels.push(`cli:${cmd.bin.replace("consort-", "")}:${verb}`);
           if (cmd.bin.endsWith("-log") && verb === "--reconcile") {
-            writeFileSync(join(sftddDir, "agent-log.jsonl"),
+            writeFileSync(join(consortDir, "agent-log.jsonl"),
               JSON.stringify({ timestamp: "2026-08-05T00:00:00Z", level: "info", role: "navigator", event: "artifact.written", message: "wrote tests/test_create_sku.py" }) + "\n");
           }
           return;
@@ -223,12 +223,12 @@ function redRecordingRunner(projectDir: string, sftddDir: string) {
 describe("performViaExecutor (#590): navigator RED (the PRODUCT channel) through the StepExecutor", () => {
   it("runs the build-turn CLI sequence: claude, @build-cycle (RED stamp), reconcile , and writes tests/ at the project ROOT", async () => {
     const projectDir = mkdtempSync(join(tmpdir(), "pve-red-"));
-    const sftddDir = join(projectDir, ".sftdd");
-    mkdirSync(sftddDir, { recursive: true });
-    seedRedInputs(sftddDir);
+    const consortDir = join(projectDir, ".sftdd");
+    mkdirSync(consortDir, { recursive: true });
+    seedRedInputs(consortDir);
     try {
-      const rec = redRecordingRunner(projectDir, sftddDir);
-      const effects = buildDriveEffects(cfg(sftddDir, projectDir, { useManifestSteps: true, runner: rec.runner, loopGranularity: "story" }));
+      const rec = redRecordingRunner(projectDir, consortDir);
+      const effects = buildDriveEffects(cfg(consortDir, projectDir, { useManifestSteps: true, runner: rec.runner, loopGranularity: "story" }));
       const bounded = await effects.performViaExecutor!(RED, state, routerDeps);
 
       // Executor-dispatched (not undefined).
@@ -250,18 +250,18 @@ describe("performViaExecutor (#590): navigator RED (the PRODUCT channel) through
 
   it("BLOCKS (no RED cycle stamp) when the navigator writes no tests/ tree", async () => {
     const projectDir = mkdtempSync(join(tmpdir(), "pve-red-"));
-    const sftddDir = join(projectDir, ".sftdd");
-    mkdirSync(sftddDir, { recursive: true });
-    seedRedInputs(sftddDir);
+    const consortDir = join(projectDir, ".sftdd");
+    mkdirSync(consortDir, { recursive: true });
+    seedRedInputs(consortDir);
     try {
       const labels: string[] = [];
       const runner = {
         async run(cmd: DriveCommand) {
           if (cmd.kind === "claude") { labels.push("claude"); return; /* writes NO tests/ */ }
-          if (cmd.kind === "cli") { labels.push(`cli:${cmd.args[0]}`); if (cmd.bin.endsWith("-log")) writeFileSync(join(sftddDir, "agent-log.jsonl"), "{}\n"); }
+          if (cmd.kind === "cli") { labels.push(`cli:${cmd.args[0]}`); if (cmd.bin.endsWith("-log")) writeFileSync(join(consortDir, "agent-log.jsonl"), "{}\n"); }
         },
       };
-      const effects = buildDriveEffects(cfg(sftddDir, projectDir, { useManifestSteps: true, runner, loopGranularity: "story" }));
+      const effects = buildDriveEffects(cfg(consortDir, projectDir, { useManifestSteps: true, runner, loopGranularity: "story" }));
       const bounded = await effects.performViaExecutor!(RED, state, routerDeps);
       expect(bounded).toBeDefined();
       // The `@build-cycle` RED stamp (cycle begin) must NOT have run , validation (no tests/) blocked it.
@@ -297,9 +297,9 @@ const GREEN: WorkflowAction = { kind: "invoke-role", role: "driver", story: RED_
 describe("performViaExecutor (#594): driver GREEN through the StepExecutor", () => {
   it("runs the build-turn CLI sequence: claude, reconcile, @build-cycle (green) , with agent-log as the validated meta output", async () => {
     const projectDir = mkdtempSync(join(tmpdir(), "pve-green-"));
-    const sftddDir = join(projectDir, ".sftdd");
-    mkdirSync(sftddDir, { recursive: true });
-    seedRedInputs(sftddDir); // same story-scoped inputs (test-list-per-story + acs)
+    const consortDir = join(projectDir, ".sftdd");
+    mkdirSync(consortDir, { recursive: true });
+    seedRedInputs(consortDir); // same story-scoped inputs (test-list-per-story + acs)
     try {
       const labels: string[] = [];
       const runner = {
@@ -314,7 +314,7 @@ describe("performViaExecutor (#594): driver GREEN through the StepExecutor", () 
           if (cmd.kind === "cli") {
             labels.push(`cli:${cmd.bin.replace("consort-", "")}:${cmd.args[0]}`);
             if (cmd.bin.endsWith("-log") && cmd.args[0] === "--reconcile") {
-              writeFileSync(join(sftddDir, "agent-log.jsonl"),
+              writeFileSync(join(consortDir, "agent-log.jsonl"),
                 JSON.stringify({ timestamp: "2026-08-05T00:00:00Z", level: "info", role: "driver", event: "artifact.written", message: "wrote app/models.py" }) + "\n");
             }
             return;
@@ -322,7 +322,7 @@ describe("performViaExecutor (#594): driver GREEN through the StepExecutor", () 
           labels.push(cmd.kind);
         },
       };
-      const effects = buildDriveEffects(cfg(sftddDir, projectDir, { useManifestSteps: true, runner, loopGranularity: "story" }));
+      const effects = buildDriveEffects(cfg(consortDir, projectDir, { useManifestSteps: true, runner, loopGranularity: "story" }));
       const bounded = await effects.performViaExecutor!(GREEN, state, routerDeps);
 
       expect(bounded).toBeDefined();
@@ -340,9 +340,9 @@ describe("performViaExecutor (#594): driver GREEN through the StepExecutor", () 
 
   it("BLOCKS (no @build-cycle green) when the driver's turn produces no reconciled agent-log", async () => {
     const projectDir = mkdtempSync(join(tmpdir(), "pve-green-"));
-    const sftddDir = join(projectDir, ".sftdd");
-    mkdirSync(sftddDir, { recursive: true });
-    seedRedInputs(sftddDir);
+    const consortDir = join(projectDir, ".sftdd");
+    mkdirSync(consortDir, { recursive: true });
+    seedRedInputs(consortDir);
     try {
       const labels: string[] = [];
       const runner = {
@@ -351,7 +351,7 @@ describe("performViaExecutor (#594): driver GREEN through the StepExecutor", () 
           if (cmd.kind === "cli") { labels.push(`cli:${cmd.args[0]}`); /* reconcile writes NO agent-log => validate fails */ }
         },
       };
-      const effects = buildDriveEffects(cfg(sftddDir, projectDir, { useManifestSteps: true, runner, loopGranularity: "story" }));
+      const effects = buildDriveEffects(cfg(consortDir, projectDir, { useManifestSteps: true, runner, loopGranularity: "story" }));
       const bounded = await effects.performViaExecutor!(GREEN, state, routerDeps);
       expect(bounded).toBeDefined();
       // The honest-GREEN @build-cycle (cycle:green) must NOT have run , validation (missing agent-log) blocked it.

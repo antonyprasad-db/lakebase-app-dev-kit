@@ -19,7 +19,7 @@ import { relocateStrayDesignArtifacts } from "../../consort/setup/stray-artifact
 function cfg(over: Partial<DriveEffectsConfig> = {}): DriveEffectsConfig {
   return {
     projectDir: "/code/app-dev-kit-demo/stockflow-interactive",
-    sftddDir: "/code/app-dev-kit-demo/stockflow-interactive/.sftdd",
+    consortDir: "/code/app-dev-kit-demo/stockflow-interactive/.sftdd",
     featureId: "F2-adjust-stock",
     runner: { async run() {} },
     modelForRole: () => "sonnet",
@@ -41,7 +41,7 @@ describe("A: every design directive names the absolute artifact root (FEIP-8038)
   ] as const) {
     it(`${action.role} (story-scoped) directive contains the absolute root`, () => {
       const task = claudeTask(commandsForAction(action, c));
-      expect(task).toContain(c.sftddDir); // absolute path, no root-guessing
+      expect(task).toContain(c.consortDir); // absolute path, no root-guessing
     });
   }
 });

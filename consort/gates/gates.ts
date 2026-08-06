@@ -14,7 +14,7 @@
 
 import { existsSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync } from "fs";
 import { join } from "path";
-import { resolveSftddDir, requireFeatureDir as findFeatureDir } from "../../consort/config/consort-paths.js";
+import { resolveConsortDir, requireFeatureDir as findFeatureDir } from "../../consort/config/consort-paths.js";
 
 export const GATES_SCHEMA_VERSION = 1;
 
@@ -58,7 +58,7 @@ export interface GatesState {
 
 export interface GatesIoOpts {
   /** Path to the .sftdd/ root. Default: "./.sftdd". */
-  sftddDir?: string;
+  consortDir?: string;
 }
 
 export function defaultGatesState(featureId: string): GatesState {
@@ -84,8 +84,8 @@ export function defaultGatesState(featureId: string): GatesState {
  * exists but is malformed.
  */
 export function readGates(featureId: string, opts: GatesIoOpts = {}): GatesState {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
-  const file = gatesFilePath(sftddDir, featureId);
+  const consortDir = opts.consortDir ?? resolveConsortDir();
+  const file = gatesFilePath(consortDir, featureId);
   if (!existsSync(file)) {
     return defaultGatesState(featureId);
   }
@@ -114,8 +114,8 @@ export function writeGates(state: GatesState, opts: GatesIoOpts = {}): void {
   if (state.feature_id.length === 0) {
     throw new Error("writeGates: state.feature_id must not be empty");
   }
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
-  const file = gatesFilePath(sftddDir, state.feature_id);
+  const consortDir = opts.consortDir ?? resolveConsortDir();
+  const file = gatesFilePath(consortDir, state.feature_id);
   const tempFile = `${file}.tmp.${process.pid}.${Date.now()}`;
   const payload = JSON.stringify(state, null, 2) + "\n";
   writeFileSync(tempFile, payload, "utf8");
@@ -131,8 +131,8 @@ export function writeGates(state: GatesState, opts: GatesIoOpts = {}): void {
   }
 }
 
-function gatesFilePath(sftddDir: string, featureId: string): string {
-  return join(findFeatureDir(sftddDir, featureId), "gates.json");
+function gatesFilePath(consortDir: string, featureId: string): string {
+  return join(findFeatureDir(consortDir, featureId), "gates.json");
 }
 
 

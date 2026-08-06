@@ -24,7 +24,7 @@ export function spikeNotes(spikeSlug: string, forFeature?: string): string {
 }
 
 export interface CutSpikeArgs extends BranchLookupOpts {
-  sftddDir: string;
+  consortDir: string;
   /** Project root (.git + .env). Required: the spike branch is PAIRED. */
   projectDir: string;
   spikeSlug: string;
@@ -42,7 +42,7 @@ export interface SpikeRecord {
 }
 
 export async function cutSpike(args: CutSpikeArgs): Promise<SpikeRecord> {
-  const { sftddDir, projectDir, spikeSlug, branch, parentBranch, ttl, notes, ...lookup } = args;
+  const { consortDir, projectDir, spikeSlug, branch, parentBranch, ttl, notes, ...lookup } = args;
   // PAIRED cut through the substrate: Lakebase branch + git branch + .env sync.
   const paired = await createPairedBranch({
     instance: lookup.instance,
@@ -55,7 +55,7 @@ export async function cutSpike(args: CutSpikeArgs): Promise<SpikeRecord> {
   });
   const branchId = branchIdOf(paired.branch);
 
-  const dir = join(sftddDir, "spikes", spikeSlug);
+  const dir = join(consortDir, "spikes", spikeSlug);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "branch.txt"), branchId);
   writeFileSync(
@@ -71,8 +71,8 @@ export async function cutSpike(args: CutSpikeArgs): Promise<SpikeRecord> {
   };
 }
 
-export function listSpikes(sftddDir: string): SpikeRecord[] {
-  const root = join(sftddDir, "spikes");
+export function listSpikes(consortDir: string): SpikeRecord[] {
+  const root = join(consortDir, "spikes");
   if (!existsSync(root)) return [];
   const out: SpikeRecord[] = [];
   for (const slug of readdirSync(root)) {
@@ -91,7 +91,7 @@ export function listSpikes(sftddDir: string): SpikeRecord[] {
 }
 
 export interface DeleteSpikeArgs extends BranchLookupOpts {
-  sftddDir: string;
+  consortDir: string;
   /** Project root (.git). Required when deleteBranchToo: the teardown is PAIRED. */
   projectDir: string;
   spikeSlug: string;
@@ -100,8 +100,8 @@ export interface DeleteSpikeArgs extends BranchLookupOpts {
 }
 
 export async function deleteSpike(args: DeleteSpikeArgs): Promise<void> {
-  const { sftddDir, projectDir, spikeSlug, deleteBranchToo = true, ...lookup } = args;
-  const dir = join(sftddDir, "spikes", spikeSlug);
+  const { consortDir, projectDir, spikeSlug, deleteBranchToo = true, ...lookup } = args;
+  const dir = join(consortDir, "spikes", spikeSlug);
   if (!existsSync(dir)) throw new Error(`spike ${spikeSlug} not found at ${dir}`);
   if (deleteBranchToo) {
     const branchId = readFileSync(join(dir, "branch.txt"), "utf8").trim();

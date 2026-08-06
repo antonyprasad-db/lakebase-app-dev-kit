@@ -69,8 +69,8 @@ function readDurationMs(experimentDir: string): number | undefined {
   }
 }
 
-function buildMatrix(sftddDir: string, featureId: string, rows: ExperimentRow[]): TagMatrixRow[] {
-  void sftddDir;
+function buildMatrix(consortDir: string, featureId: string, rows: ExperimentRow[]): TagMatrixRow[] {
+  void consortDir;
   void featureId;
   const tagsSeen = new Set<ExperimentTag>();
   for (const r of rows) {
@@ -86,10 +86,10 @@ function buildMatrix(sftddDir: string, featureId: string, rows: ExperimentRow[])
   }));
 }
 
-export function compareExperiments(sftddDir: string, featureId: string, storyId: string): ComparisonReport {
-  const experiments = listExperiments(sftddDir, featureId, storyId);
+export function compareExperiments(consortDir: string, featureId: string, storyId: string): ComparisonReport {
+  const experiments = listExperiments(consortDir, featureId, storyId);
   const rows: ExperimentRow[] = experiments.map((exp) => {
-    const o = readOutcomes(sftddDir, featureId, storyId, exp.experiment_slug);
+    const o = readOutcomes(consortDir, featureId, storyId, exp.experiment_slug);
     return {
       experiment_slug: exp.experiment_slug,
       branch_id: exp.branch_id,
@@ -102,11 +102,11 @@ export function compareExperiments(sftddDir: string, featureId: string, storyId:
       by_tag: o?.by_tag,
       capped: o?.capped,
       cycle_count: readCycleCount(exp.dir),
-      artifact_count: listArtifacts(sftddDir, featureId, storyId, exp.experiment_slug).length,
+      artifact_count: listArtifacts(consortDir, featureId, storyId, exp.experiment_slug).length,
       duration_ms: readDurationMs(exp.dir),
     };
   });
-  const matrix = buildMatrix(sftddDir, featureId, rows);
+  const matrix = buildMatrix(consortDir, featureId, rows);
   const { recommendation, rationale } = recommend(rows);
   return {
     feature_id: featureId,

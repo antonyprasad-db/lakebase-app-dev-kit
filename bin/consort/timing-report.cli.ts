@@ -8,13 +8,13 @@
 // Exit codes: 0 ok; 2 bad args.
 
 import { join } from "path";
-import { resolveSftddDir, ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
+import { resolveConsortDir, ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 import { timingReportFromLog, formatTimingReport } from "../../consort/reports/timing-report.js";
 import { readRunConfig, formatRunConfig } from "../../consort/session/run-config.js";
 
 interface ParsedArgs {
-  sftddDir?: string;
+  consortDir?: string;
   feature?: string;
   top?: number;
   json?: boolean;
@@ -26,7 +26,7 @@ function parseArgs(argv: string[]): ParsedArgs | { error: string } {
   const out: ParsedArgs = {};
   for (let i = 0; i < argv.length; i++) {
     switch (argv[i]) {
-      case "--tdd-dir": out.sftddDir = argv[++i]; break;
+      case "--tdd-dir": out.consortDir = argv[++i]; break;
       case "--feature": out.feature = argv[++i]; break;
       case "--top": {
         const n = Number(argv[++i]);
@@ -71,13 +71,13 @@ export function runTimingCli(argv: string[]): number {
     return 0;
   }
   const report = timingReportFromLog(
-    { sftddDir: parsed.sftddDir, featureId: parsed.feature },
+    { consortDir: parsed.consortDir, featureId: parsed.feature },
     { topN: parsed.top, skipPlanning: parsed.skipPlanning },
   );
   // P0.1: pair the timing with the run's model + option matrix so it is
   // self-describing and two reports are A/B-comparable. Read from the same .tdd.
-  const sftddDir = parsed.sftddDir ?? resolveSftddDir();
-  const config = readRunConfig(sftddDir) ?? null;
+  const consortDir = parsed.consortDir ?? resolveConsortDir();
+  const config = readRunConfig(consortDir) ?? null;
   if (parsed.json) {
     process.stdout.write(`${JSON.stringify({ config, timing: report }, null, 2)}\n`);
   } else {

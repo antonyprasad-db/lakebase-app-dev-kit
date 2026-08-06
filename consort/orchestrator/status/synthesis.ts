@@ -14,7 +14,7 @@ export interface SynthesisPick {
 }
 
 export interface SynthesizeArgs extends BranchLookupOpts {
-  sftddDir: string;
+  consortDir: string;
   /** Project root (.git + .env). Required: the synthesized experiment is PAIRED. */
   projectDir: string;
   featureId: string;
@@ -48,12 +48,12 @@ export async function synthesizeExperiments(args: SynthesizeArgs): Promise<Synth
   if (!args.hitlApproved) {
     throw new Error("synthesizeExperiments requires hitlApproved: true (HITL Gate)");
   }
-  const { sftddDir, projectDir, featureId, storyId, picks, synthesizedSlug, branch, parentBranch, approverEmail, ...lookup } = args;
+  const { consortDir, projectDir, featureId, storyId, picks, synthesizedSlug, branch, parentBranch, approverEmail, ...lookup } = args;
 
   if (picks.length < 2) {
     throw new Error(`synthesis requires picks from at least 2 experiments (got ${picks.length})`);
   }
-  const experiments = listExperiments(sftddDir, featureId, storyId);
+  const experiments = listExperiments(consortDir, featureId, storyId);
   for (const pick of picks) {
     if (!experiments.find((e) => e.experiment_slug === pick.source_slug)) {
       throw new Error(`pick source ${pick.source_slug} is not an experiment of ${featureId}/${storyId}`);
@@ -62,7 +62,7 @@ export async function synthesizeExperiments(args: SynthesizeArgs): Promise<Synth
 
   // Synthesis decision record
   const ts = new Date().toISOString();
-  const synthesisDir = join(sftddDir, "synthesis", featureId);
+  const synthesisDir = join(consortDir, "synthesis", featureId);
   mkdirSync(synthesisDir, { recursive: true });
   const dateSlug = ts.slice(0, 10);
   const decisionFile = join(synthesisDir, `synthesis-${dateSlug}.md`);
@@ -86,7 +86,7 @@ export async function synthesizeExperiments(args: SynthesizeArgs): Promise<Synth
   // Synthesized spec subtree – copy the most-recent winning spec (or the first pick) as a starting point
   const synthesizedSpecDir = join(synthesisDir, "synthesized-spec");
   mkdirSync(synthesizedSpecDir, { recursive: true });
-  const seedFeatureDir = locateFeatureDir(sftddDir, featureId);
+  const seedFeatureDir = locateFeatureDir(consortDir, featureId);
   if (seedFeatureDir && existsSync(seedFeatureDir)) {
     cpSync(seedFeatureDir, join(synthesizedSpecDir, "feature"), { recursive: true });
   }
@@ -96,7 +96,7 @@ export async function synthesizeExperiments(args: SynthesizeArgs): Promise<Synth
   );
 
   // Selection log
-  const logPath = join(sftddDir, "selection-log.md");
+  const logPath = join(consortDir, "selection-log.md");
   const logLines = [
     "",
     `## ${ts} – Synthesize ${featureId}`,
@@ -115,7 +115,7 @@ export async function synthesizeExperiments(args: SynthesizeArgs): Promise<Synth
   // Cut the fresh experiment branch
   const fresh = await cutExperiment({
     ...lookup,
-    sftddDir,
+    consortDir,
     projectDir,
     featureId,
     storyId,
@@ -132,7 +132,7 @@ export async function synthesizeExperiments(args: SynthesizeArgs): Promise<Synth
   };
 }
 
-function locateFeatureDir(sftddDir: string, featureId: string): string | null {
+function locateFeatureDir(consortDir: string, featureId: string): string | null {
   // One feature-dir resolution rule (sftdd-paths), not a local copy.
-  return findFeatureDir(sftddDir, featureId) ?? null;
+  return findFeatureDir(consortDir, featureId) ?? null;
 }

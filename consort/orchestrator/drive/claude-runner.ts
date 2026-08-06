@@ -10,9 +10,9 @@
 // isCliEntry, so importing it NEVER drags a CLI entry point.
 
 import { spawn } from "node:child_process";
-import { sftddEnv } from "../../config/consort-env.js";
-import { resyncAgentsOnKitDrift } from "../../setup/project-sftdd-setup.js";
-import { resolveSftddDir } from "../../config/consort-paths.js";
+import { consortEnv } from "../../config/consort-env.js";
+import { resyncAgentsOnKitDrift } from "../../setup/project-consort-setup.js";
+import { resolveConsortDir } from "../../config/consort-paths.js";
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -31,7 +31,7 @@ import {
   type DriveEffectsConfig,
 } from "./orchestrator-effects.js";
 import { resolveModelForRole } from "../../config/agent-models.js";
-import { resolveSftddSettings } from "../settings/project-settings.js";
+import { resolveConsortSettings } from "../settings/project-settings.js";
 import { parseTurnUsage, assistantTextFromLine, assistantEventSummary, type TurnUsage } from "../../session/claude-usage.js";
 import { resumeFitsBudget, turnContextTokens, CONTEXT_FREE_FRACTION_REQUIRED, isPromptTooLongSignal, isTransientApiErrorSignal, startsFreshEachTurn } from "../../session/context-budget.js";
 import { writeRunConfig } from "../../session/run-config.js";
@@ -53,14 +53,14 @@ const MAX_PROMPT_TOO_LONG_RETRIES = 2;
 // usually succeeds. Retry more times than the context-overflow case (a blip is
 // pure chance, so more attempts pay off) with exponential backoff, so one blip
 // cannot kill a multi-hour unattended capture. Overridable for tests.
-const MAX_TRANSIENT_RETRIES = Number(sftddEnv("MAX_TRANSIENT_RETRIES") ?? "5");
-const TRANSIENT_BACKOFF_MS = Number(sftddEnv("TRANSIENT_BACKOFF_MS") ?? "5000");
+const MAX_TRANSIENT_RETRIES = Number(consortEnv("MAX_TRANSIENT_RETRIES") ?? "5");
+const TRANSIENT_BACKOFF_MS = Number(consortEnv("TRANSIENT_BACKOFF_MS") ?? "5000");
 
 export interface ParsedArgs {
   feature?: string;
   sprint?: string;
   projectDir?: string;
-  sftddDir?: string;
+  consortDir?: string;
   instance?: string;
   deployTarget?: string;
   approver?: string;
@@ -134,13 +134,13 @@ export class ArtifactOutOfRootError extends Error {
     readonly role: string,
     readonly label: string,
     readonly anyOf: string[],
-    readonly sftddDir: string,
+    readonly consortDir: string,
     /** FEIP-8038: the known malformed-sibling root we also checked (+ tried to
      *  relocate from). Named so the human knows exactly where to look. */
     readonly checkedSibling?: string,
   ) {
     super(
-      `role '${role}' produced no ${label} under ${path.basename(sftddDir)}/ ` +
+      `role '${role}' produced no ${label} under ${path.basename(consortDir)}/ ` +
         `(expected one of: ${anyOf.join(", ")}).\n` +
         `        The subagent likely resolved the project root wrong and wrote outside it. ` +
         (checkedSibling
@@ -191,7 +191,7 @@ export function spawnClaudeStreaming(args: string[], cwd: string): Promise<TurnU
     // "now I'll... / let me check..." prose is buffered and overwritten, so only
     // the last text (the result line) survives , the deliberation never hits the
     // log. Set LAKEBASE_SFTDD_VERBOSE_AGENT=1 to tee every assistant text delta.
-    const verboseAgent = !!sftddEnv("VERBOSE_AGENT");
+    const verboseAgent = !!consortEnv("VERBOSE_AGENT");
     let lastText = "";
     const allTools: string[] = []; // accumulate for the recorded transcript
     const rl = readline.createInterface({ input: child.stdout! });
@@ -327,7 +327,7 @@ export function execRunner(cfg: DriveEffectsConfig): CommandRunner {
         // Stamp the phase's owning feature (FEIP-8022): the phase slot is
         // per-project, so an un-owned phase leaks to the next feature. featureId
         // is "" for sprint planning (no owner stamped).
-        writeWorkflowPhase(cfg.sftddDir, cmd.phase, cfg.featureId || undefined);
+        writeWorkflowPhase(cfg.consortDir, cmd.phase, cfg.featureId || undefined);
         return;
       }
       if (cmd.kind === "sync-backlog") {
@@ -348,7 +348,7 @@ export function execRunner(cfg: DriveEffectsConfig): CommandRunner {
         // FAILURE (ReplayCorpusMissError), never a fall-through to a live agent ,
         // an agent taking over would defeat the deterministic reproduction and
         // silently mask an incomplete corpus.
-        const replayBuildDir = sftddEnv("REPLAY_BUILD_DIR");
+        const replayBuildDir = consortEnv("REPLAY_BUILD_DIR");
         const story = cmd.replay?.story;
         if (replayBuildDir && story && (cmd.role === "navigator" || cmd.role === "driver")) {
           // The reflect turn is a DESIGN GATE that runs in the build lane: its only
@@ -359,13 +359,13 @@ export function execRunner(cfg: DriveEffectsConfig): CommandRunner {
           // refuses) , and do NOT count it as a build turn (replayBuildTurn's index
           // skips reflect turns, so RED maps to the first real recorded build turn).
           if (cmd.replay?.buildMode === "reflect") {
-            const rd = sftddEnv("REPLAY_DIR");
+            const rd = consortEnv("REPLAY_DIR");
             // The verdict lives in the DESIGN corpus. When it is present (REPLAY_DIR
             // set), it MUST restore; a miss is a corpus defect, not a reason to run
             // the Navigator live. (When REPLAY_DIR is unset the design lane is not
             // being replayed, so there is no recorded verdict to restore here.)
             if (rd) {
-              const restored = restoreReflectVerdict({ replayDir: rd, sftddDir: cfg.sftddDir, featureId: cfg.featureId, story });
+              const restored = restoreReflectVerdict({ replayDir: rd, consortDir: cfg.consortDir, featureId: cfg.featureId, story });
               if (!restored) {
                 throw new ReplayCorpusMissError(
                   `[drive] REPLAY CORPUS MISS: reflect verdict for ${story} is not in the corpus ` +
@@ -382,7 +382,7 @@ export function execRunner(cfg: DriveEffectsConfig): CommandRunner {
           const replayed = replayBuildTurn({
             replayBuildDir,
             projectDir: cfg.projectDir,
-            sftddDir: cfg.sftddDir,
+            consortDir: cfg.consortDir,
             featureId: cfg.featureId,
             story,
             turnIndex,
@@ -409,12 +409,12 @@ export function execRunner(cfg: DriveEffectsConfig): CommandRunner {
         // if the deterministic pipeline dispatched a replayable design turn, the
         // corpus MUST have its artifact , a miss is a HARD FAILURE, never a
         // fall-through to a live agent (the .gitignore corpus drop this guards).
-        const replayDir = sftddEnv("REPLAY_DIR");
+        const replayDir = consortEnv("REPLAY_DIR");
         if (replayDir && REPLAYABLE_DESIGN_ROLES.has(cmd.role)) {
           const replayed = replayDesignTurn({
             turn: { role: cmd.role, mode: cmd.replay?.mode, story: cmd.replay?.story },
             replayDir,
-            sftddDir: cfg.sftddDir,
+            consortDir: cfg.consortDir,
             featureId: cfg.featureId,
           });
           if (replayed) {
@@ -553,7 +553,7 @@ export function execRunner(cfg: DriveEffectsConfig): CommandRunner {
                   ...(cmd.replay?.mode ? { phase: cmd.replay.mode } : {}),
                 },
               },
-              { sftddDir: cfg.sftddDir },
+              { consortDir: cfg.consortDir },
             );
           } catch {
             /* usage logging is observability, never load-bearing */
@@ -563,7 +563,7 @@ export function execRunner(cfg: DriveEffectsConfig): CommandRunner {
       }
       if (cmd.kind === "verify-artifact") {
         // FEIP-8006 out-of-root guard: the role's expected artifact must exist
-        // UNDER the project's sftddDir (a file, or a non-empty dir for per-story
+        // UNDER the project's consortDir (a file, or a non-empty dir for per-story
         // ACs). A subagent that resolved the project root wrong wrote it elsewhere;
         // fail loud + attributed HERE, before a downstream effect consumes the
         // absent artifact and crashes with a cryptic, misattributed error.
@@ -594,7 +594,7 @@ export function execRunner(cfg: DriveEffectsConfig): CommandRunner {
               cmd.role,
               cmd.label,
               cmd.anyOf,
-              cfg.sftddDir,
+              cfg.consortDir,
               malformedSiblingRoot(cfg.projectDir),
             );
           }
@@ -623,10 +623,10 @@ function maybeResyncAgents(projectDir: string): void {
   if (agentResyncDone) return;
   agentResyncDone = true;
   const recordingOrReplaying =
-    !!sftddEnv("REPLAY_DIR") ||
-    !!sftddEnv("REPLAY_BUILD_DIR") ||
-    !!sftddEnv("RECORD_BUILD_DIR") ||
-    !!sftddEnv("RECORD_DIR");
+    !!consortEnv("REPLAY_DIR") ||
+    !!consortEnv("REPLAY_BUILD_DIR") ||
+    !!consortEnv("RECORD_BUILD_DIR") ||
+    !!consortEnv("RECORD_DIR");
   if (recordingOrReplaying) return;
   const r = resyncAgentsOnKitDrift(projectDir);
   if (r.refreshed) {
@@ -637,7 +637,7 @@ function maybeResyncAgents(projectDir: string): void {
 /** Build a DriveEffectsConfig for a feature (or planning, featureId ""). */
 export function buildCfg(args: ParsedArgs, featureId: string): DriveEffectsConfig {
   const projectDir = args.projectDir ?? process.cwd();
-  const sftddDir = args.sftddDir ?? resolveSftddDir(projectDir);
+  const consortDir = args.consortDir ?? resolveConsortDir(projectDir);
   // Version-aware agent refresh: if the kit moved since this project last synced
   // its .claude/agents/, force-refresh them so a role-prompt bugfix reaches the
   // project (create-time copyMissingMd only seeds missing files). Once per drive
@@ -652,24 +652,24 @@ export function buildCfg(args: ParsedArgs, featureId: string): DriveEffectsConfi
   const scm = readWorkflowState(projectDir);
   // Unified config: one resolution of the per-role/turn model+effort matrix + the
   // build/plan/project knobs (sftdd-config.json -> LAKEBASE_SFTDD_* env -> default).
-  const settings = resolveSftddSettings({ projectDir });
+  const settings = resolveConsortSettings({ projectDir });
   return {
     projectDir,
-    sftddDir,
+    consortDir,
     featureId,
     sprintName: args.sprint,
     // Recorded feature-requests present (capture/replay) => the planning PROPOSE
     // step is deterministic (project feature-proposals.md from them) instead of an
     // LLM spawn. Unset (interactive) keeps the live Spec Author propose turn.
-    recordedRequests: !!sftddEnv("SPRINT_REQUESTS")?.trim(),
+    recordedRequests: !!consortEnv("SPRINT_REQUESTS")?.trim(),
     // Force a LIVE propose even with recorded requests (capture exercising the
     // full plan lane): the Spec Author proposes from product-overview + nfrs,
     // the proxy still commits the recorded request at author-requests.
-    livePropose: !!sftddEnv("LIVE_PROPOSE")?.trim(),
+    livePropose: !!consortEnv("LIVE_PROPOSE")?.trim(),
     // Stage 2 (#578): route the migrated agent turns (currently spec-author breakdown)
     // THROUGH the StepExecutor instead of commandsForAction. Opt-in via
     // LAKEBASE_SFTDD_USE_MANIFEST_STEPS; default OFF = byte-identical legacy dispatch.
-    useManifestSteps: !!sftddEnv("USE_MANIFEST_STEPS")?.trim(),
+    useManifestSteps: !!consortEnv("USE_MANIFEST_STEPS")?.trim(),
     instance: args.instance ?? scm?.project_id,
     featureBranch: scm?.branch,
     parentBranch: scm?.parent_branch,
@@ -709,7 +709,7 @@ export function buildCfg(args: ParsedArgs, featureId: string): DriveEffectsConfi
       // the structured agent-log by makeOnAction below, so the raw action JSON is
       // console noise on every line , append it only under LAKEBASE_SFTDD_TRACE.
       (action, i) => {
-        const trace = sftddEnv("TRACE") ? `  ${JSON.stringify(action)}` : "";
+        const trace = consortEnv("TRACE") ? `  ${JSON.stringify(action)}` : "";
         process.stderr.write(`[drive] ${String(i).padStart(3, "0")} ${describeAction(action, { featureId })}${trace}\n`);
       },
       // Code-emit the orchestrator's lifecycle (handoff / phase.start /
@@ -718,7 +718,7 @@ export function buildCfg(args: ParsedArgs, featureId: string): DriveEffectsConfi
       // The resolvers stamp each per-turn phase.start with the model + effort it
       // ran with (right after `role`).
       makeOnAction({
-        sftddDir,
+        consortDir,
         featureId,
         modelForRole: (role) => settings.models[role],
         effortForTurn: (role, turn) => {

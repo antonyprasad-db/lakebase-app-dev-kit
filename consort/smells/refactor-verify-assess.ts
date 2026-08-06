@@ -42,18 +42,18 @@ export interface RefactorVerifyAssessMarker {
   refactored?: boolean;
 }
 
-function markerPath(sftddDir: string, featureId: string, storyId: string): string | undefined {
-  const fdir = findFeatureDir(sftddDir, featureId);
+function markerPath(consortDir: string, featureId: string, storyId: string): string | undefined {
+  const fdir = findFeatureDir(consortDir, featureId);
   if (!fdir) return undefined;
   return path.join(fdir, "stories", storyId, "refactor-verify-assess.json");
 }
 
 export function readRefactorVerifyAssessMarker(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   storyId: string,
 ): RefactorVerifyAssessMarker | undefined {
-  const file = markerPath(sftddDir, featureId, storyId);
+  const file = markerPath(consortDir, featureId, storyId);
   if (!file || !fs.existsSync(file)) return undefined;
   try {
     return JSON.parse(fs.readFileSync(file, "utf8")) as RefactorVerifyAssessMarker;
@@ -67,14 +67,14 @@ export function readRefactorVerifyAssessMarker(
  *  `attempts` so the one-shot bound is not reset by a repeat refactor of the same
  *  story. */
 export function writeRefactorVerifyAssessMarker(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   storyId: string,
   args: { summary: string; supersededAdvisory?: string },
 ): string | undefined {
-  const file = markerPath(sftddDir, featureId, storyId);
+  const file = markerPath(consortDir, featureId, storyId);
   if (!file) return undefined;
-  const prior = readRefactorVerifyAssessMarker(sftddDir, featureId, storyId);
+  const prior = readRefactorVerifyAssessMarker(consortDir, featureId, storyId);
   const marker: RefactorVerifyAssessMarker = {
     version: 1,
     story_id: storyId,
@@ -93,13 +93,13 @@ export function writeRefactorVerifyAssessMarker(
  *  the Driver permissive-refactor turn; omitted/empty leaves nothing to refactor
  *  (the Navigator vetoed), so the finalize escalates. */
 export function markRefactorVerifyAssessed(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   storyId: string,
   flaggedTests?: string[],
 ): void {
-  const file = markerPath(sftddDir, featureId, storyId);
-  const m = readRefactorVerifyAssessMarker(sftddDir, featureId, storyId);
+  const file = markerPath(consortDir, featureId, storyId);
+  const m = readRefactorVerifyAssessMarker(consortDir, featureId, storyId);
   if (!file || !m) return;
   m.assessed = true;
   m.attempts += 1;
@@ -108,30 +108,30 @@ export function markRefactorVerifyAssessed(
 }
 
 /** Mark the Driver's permissive-refactor turn done. Gates the one re-verify. */
-export function markRefactorVerifyRefactored(sftddDir: string, featureId: string, storyId: string): void {
-  const file = markerPath(sftddDir, featureId, storyId);
-  const m = readRefactorVerifyAssessMarker(sftddDir, featureId, storyId);
+export function markRefactorVerifyRefactored(consortDir: string, featureId: string, storyId: string): void {
+  const file = markerPath(consortDir, featureId, storyId);
+  const m = readRefactorVerifyAssessMarker(consortDir, featureId, storyId);
   if (!file || !m) return;
   m.refactored = true;
   fs.writeFileSync(file, JSON.stringify(m, null, 2) + "\n", "utf8");
 }
 
 /** Clear the marker (the re-verify passed , the supersession refactor worked). */
-export function clearRefactorVerifyAssessMarker(sftddDir: string, featureId: string, storyId: string): void {
-  const file = markerPath(sftddDir, featureId, storyId);
+export function clearRefactorVerifyAssessMarker(consortDir: string, featureId: string, storyId: string): void {
+  const file = markerPath(consortDir, featureId, storyId);
   if (file && fs.existsSync(file)) fs.rmSync(file);
 }
 
 /** One-shot bound: assess-eligible while the marker exists, is not yet assessed,
  *  and is under the single-attempt cap. */
-export function refactorVerifyNeedsAssess(sftddDir: string, featureId: string, storyId: string): boolean {
-  const m = readRefactorVerifyAssessMarker(sftddDir, featureId, storyId);
+export function refactorVerifyNeedsAssess(consortDir: string, featureId: string, storyId: string): boolean {
+  const m = readRefactorVerifyAssessMarker(consortDir, featureId, storyId);
   return !!m && !m.assessed && m.attempts < 1;
 }
 
 /** The assessed failure has a non-empty superseded set the Driver has not yet
  *  refactored: routes the one Driver permissive-refactor turn. */
-export function refactorVerifyRefactorPending(sftddDir: string, featureId: string, storyId: string): boolean {
-  const m = readRefactorVerifyAssessMarker(sftddDir, featureId, storyId);
+export function refactorVerifyRefactorPending(consortDir: string, featureId: string, storyId: string): boolean {
+  const m = readRefactorVerifyAssessMarker(consortDir, featureId, storyId);
   return !!m && m.assessed === true && (m.flagged_tests?.length ?? 0) > 0 && m.refactored !== true;
 }

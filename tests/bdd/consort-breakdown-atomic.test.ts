@@ -74,7 +74,7 @@ describe("resetIncompleteBreakdown (FEIP-8024)", () => {
 function cfg(over: Partial<DriveEffectsConfig> = {}): DriveEffectsConfig {
   return {
     projectDir: "/p",
-    sftddDir: "/p/.sftdd",
+    consortDir: "/p/.sftdd",
     featureId: F,
     runner: { async run() {} },
     modelForRole: () => "sonnet",
@@ -101,7 +101,7 @@ describe("commandsForAction: breakdown is atomic + self-cleaning (FEIP-8024)", (
     const c = cfg();
     const cmds = commandsForAction({ kind: "invoke-role", role: "spec-author", mode: "breakdown" }, c);
     const claude = cmds.find((x) => x.kind === "claude") as { task: string };
-    expect(claude.task).toContain(c.sftddDir); // absolute artifact root (no path guessing)
+    expect(claude.task).toContain(c.consortDir); // absolute artifact root (no path guessing)
     expect(claude.task).toMatch(/feature-spec\.json/);
     expect(claude.task).toMatch(/stories/);
   });

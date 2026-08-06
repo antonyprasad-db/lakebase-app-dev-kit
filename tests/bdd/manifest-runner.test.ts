@@ -67,7 +67,7 @@ function deps(): ManifestRunnerDeps {
   return {
     agentFor,
     workspaceDir: ws,
-    cfg: { projectDir: ws, sftddDir: join(ws, ".sftdd"), featureId: "F1-stock-visibility" } as ManifestRunnerDeps["cfg"],
+    cfg: { projectDir: ws, consortDir: join(ws, ".sftdd"), featureId: "F1-stock-visibility" } as ManifestRunnerDeps["cfg"],
   };
 }
 

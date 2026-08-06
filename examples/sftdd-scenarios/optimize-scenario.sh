@@ -103,7 +103,7 @@ echo "[optimize-scenario] kit pinned , ref '${CAPTURE_KIT_REF}' -> ${KIT_ROOT}" 
 PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd -P)"
 record_local_kit_hint "$PROJECT_DIR" "$KIT_ROOT" "$CAPTURE_KIT_REF"
 want="$(cd "$KIT_ROOT" && pwd -P)"
-got="$("$PROJECT_DIR/scripts/lk" lakebase-resolve-sftdd-dir --project-dir "$PROJECT_DIR" >/dev/null 2>&1 && cd "$KIT_ROOT" && pwd -P || true)"
+got="$("$PROJECT_DIR/scripts/lk" lakebase-resolve-consort-dir --project-dir "$PROJECT_DIR" >/dev/null 2>&1 && cd "$KIT_ROOT" && pwd -P || true)"
 [[ "$want" == "$got" || -z "$got" ]] || { echo "optimize-scenario: kit resolution drift; aborting." >&2; exit 2; }
 
 # The surviving WINNER turns record into the scenario corpus, exactly like a

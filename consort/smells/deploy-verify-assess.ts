@@ -73,8 +73,8 @@ export interface DeployVerifyScope {
 /** The scope/marker files live at STORY scope (next to the story's
  *  deploy-evidence.json) when a storyId is given, else at FEATURE scope
  *  (features/<F>/) for the feature-ship deploy's own self-heal. */
-function scopePath(sftddDir: string, featureId: string, storyId?: string): string | undefined {
-  const fdir = findFeatureDir(sftddDir, featureId);
+function scopePath(consortDir: string, featureId: string, storyId?: string): string | undefined {
+  const fdir = findFeatureDir(consortDir, featureId);
   if (!fdir) return undefined;
   return storyId
     ? path.join(fdir, "stories", storyId, "deploy-verify-scope.json")
@@ -83,11 +83,11 @@ function scopePath(sftddDir: string, featureId: string, storyId?: string): strin
 
 /** Read the Navigator's scope directives (undefined when it wrote none , its veto). */
 export function readDeployVerifyScope(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   storyId?: string,
 ): DeployVerifyScope | undefined {
-  const file = scopePath(sftddDir, featureId, storyId);
+  const file = scopePath(consortDir, featureId, storyId);
   if (!file || !fs.existsSync(file)) return undefined;
   try {
     return JSON.parse(fs.readFileSync(file, "utf8")) as DeployVerifyScope;
@@ -98,8 +98,8 @@ export function readDeployVerifyScope(
 
 /** The marker lives at story scope (next to the story's deploy-evidence.json)
  *  when a storyId is given, else at feature scope for the feature-ship deploy. */
-function markerPath(sftddDir: string, featureId: string, storyId?: string): string | undefined {
-  const fdir = findFeatureDir(sftddDir, featureId);
+function markerPath(consortDir: string, featureId: string, storyId?: string): string | undefined {
+  const fdir = findFeatureDir(consortDir, featureId);
   if (!fdir) return undefined;
   return storyId
     ? path.join(fdir, "stories", storyId, "deploy-verify-assess.json")
@@ -107,11 +107,11 @@ function markerPath(sftddDir: string, featureId: string, storyId?: string): stri
 }
 
 export function readDeployVerifyAssessMarker(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   storyId?: string,
 ): DeployVerifyAssessMarker | undefined {
-  const file = markerPath(sftddDir, featureId, storyId);
+  const file = markerPath(consortDir, featureId, storyId);
   if (!file || !fs.existsSync(file)) return undefined;
   try {
     return JSON.parse(fs.readFileSync(file, "utf8")) as DeployVerifyAssessMarker;
@@ -125,14 +125,14 @@ export function readDeployVerifyAssessMarker(
  *  preserves the spent `attempts` so the one-shot bound is not reset by a repeat
  *  deploy of the same story/feature. `storyId` absent = the feature-ship marker. */
 export function writeDeployVerifyAssessMarker(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   storyId: string | undefined,
   failingNodeIds: string[],
 ): string | undefined {
-  const file = markerPath(sftddDir, featureId, storyId);
+  const file = markerPath(consortDir, featureId, storyId);
   if (!file) return undefined;
-  const prior = readDeployVerifyAssessMarker(sftddDir, featureId, storyId);
+  const prior = readDeployVerifyAssessMarker(consortDir, featureId, storyId);
   const marker: DeployVerifyAssessMarker = {
     version: 1,
     ...(storyId ? { story_id: storyId } : {}),
@@ -151,13 +151,13 @@ export function writeDeployVerifyAssessMarker(
  *  given: non-empty routes the Driver SCOPE turn; omitted/empty leaves the marker
  *  with nothing to scope (the Navigator vetoed), so the finalize escalates. */
 export function markDeployVerifyAssessed(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   storyId: string | undefined,
   flaggedTests?: string[],
 ): void {
-  const file = markerPath(sftddDir, featureId, storyId);
-  const m = readDeployVerifyAssessMarker(sftddDir, featureId, storyId);
+  const file = markerPath(consortDir, featureId, storyId);
+  const m = readDeployVerifyAssessMarker(consortDir, featureId, storyId);
   if (!file || !m) return;
   m.assessed = true;
   m.attempts += 1;
@@ -169,12 +169,12 @@ export function markDeployVerifyAssessed(
  *  their state). Gates the one re-deploy: a refactored marker is no longer
  *  refactor-pending, so the transition falls through to re-deploy + re-verify. */
 export function markDeployVerifyRefactored(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   storyId?: string,
 ): void {
-  const file = markerPath(sftddDir, featureId, storyId);
-  const m = readDeployVerifyAssessMarker(sftddDir, featureId, storyId);
+  const file = markerPath(consortDir, featureId, storyId);
+  const m = readDeployVerifyAssessMarker(consortDir, featureId, storyId);
   if (!file || !m) return;
   m.refactored = true;
   fs.writeFileSync(file, JSON.stringify(m, null, 2) + "\n", "utf8");
@@ -183,32 +183,32 @@ export function markDeployVerifyRefactored(
 /** The assessed failure has a non-empty scope set the Driver has not yet
  *  refactored: routes the one Driver SCOPE turn (buildMode refactor-deploy). */
 export function deployVerifyRefactorPending(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   storyId?: string,
 ): boolean {
-  const m = readDeployVerifyAssessMarker(sftddDir, featureId, storyId);
+  const m = readDeployVerifyAssessMarker(consortDir, featureId, storyId);
   return !!m && m.assessed === true && (m.flagged_tests?.length ?? 0) > 0 && m.refactored !== true;
 }
 
 /** Clear the marker (the re-verify passed , the scope worked). */
 export function clearDeployVerifyAssessMarker(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   storyId?: string,
 ): void {
-  const file = markerPath(sftddDir, featureId, storyId);
+  const file = markerPath(consortDir, featureId, storyId);
   if (file && fs.existsSync(file)) fs.rmSync(file);
 }
 
 /** One-shot bound: a contamination marker is assess-eligible while it exists,
  *  is not yet assessed, and is under the single-attempt cap. */
 export function deployVerifyNeedsAssess(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   storyId?: string,
 ): boolean {
-  const m = readDeployVerifyAssessMarker(sftddDir, featureId, storyId);
+  const m = readDeployVerifyAssessMarker(consortDir, featureId, storyId);
   return !!m && !m.assessed && m.attempts < 1;
 }
 

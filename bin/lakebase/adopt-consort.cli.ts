@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// CLI wrapper around adoptTdd. Brownfield-only entry point: drop
-// `.tdd/` into an existing repo. Sibling to `lakebase-create-project`,
-// which is the greenfield path. See `adopt-sftdd.ts` for the orchestrator.
+// CLI wrapper around adoptConsort. Brownfield-only entry point: drop
+// `.consort/` into an existing repo. Sibling to `lakebase-create-project`,
+// which is the greenfield path. See `adopt-consort.ts` for the orchestrator.
 
-import { adoptTdd, type AdoptTddArgs } from "../../consort/lakebase/adopt-sftdd.js";
+import { adoptTdd, type AdoptTddArgs } from "../../consort/lakebase/adopt-consort.js";
 
 interface ParsedArgs {
   projectDir?: string;
@@ -45,17 +45,18 @@ function parseArgs(argv: string[]): ParsedArgs {
   return out;
 }
 
-const HELP = `lakebase-adopt-sftdd – bootstrap the .sftdd/ workflow tree on an existing repo
+const HELP = `lakebase-adopt-consort – bootstrap the .consort/ workflow tree on an existing repo
+(aliases: lakebase-adopt-sftdd, lakebase-adopt-tdd)
 
 Usage:
-  lakebase-adopt-sftdd [path]                     fresh adoption; fails if .tdd/ exists
-  lakebase-adopt-sftdd [path] --update            report drift, add missing files
-  lakebase-adopt-sftdd [path] --update --force    additionally overwrite drifted files
-  lakebase-adopt-sftdd [path] --dry-run --update  preview without writing
+  lakebase-adopt-consort [path]                     fresh adoption; fails if .consort/ exists
+  lakebase-adopt-consort [path] --update            report drift, add missing files
+  lakebase-adopt-consort [path] --update --force    additionally overwrite drifted files
+  lakebase-adopt-consort [path] --dry-run --update  preview without writing
 
 Flags:
   --project-dir <path>, -C <path>   Project root (defaults to current directory)
-  --update                          Allow running on a project that already has .tdd/
+  --update                          Allow running on a project that already has .consort/
   --force                           Overwrite drifted template files (implies --update)
   --dry-run                         Report what would change; write nothing
   --help, -h                        Show this help

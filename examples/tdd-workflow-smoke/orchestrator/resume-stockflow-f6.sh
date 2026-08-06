@@ -51,7 +51,7 @@ export LAKEBASE_SFTDD_RECORDED_INTAKE_DIR="${ORCH}"
 
 cd "$PROJECT_DIR"
 lk() { "$PROJECT_DIR/scripts/lk" "$@"; }
-SFTDD_DIR="$(lk lakebase-resolve-sftdd-dir --project-dir "$PROJECT_DIR")"
+SFTDD_DIR="$(lk lakebase-resolve-consort-dir --project-dir "$PROJECT_DIR")"
 
 log "kit=$LAKEBASE_KIT_DIR  project=$PROJECT_DIR  (F6 resume @ S3 GREEN)"
 bash "$KIT_LK" --warm || { err "kit lk --warm failed"; exit 1; }

@@ -66,7 +66,7 @@ const LAYERS: Array<{ home: string; tokens: Record<string, string> }> = [
   },
   {
     home: "consort/orchestrator/settings/",
-    tokens: { "settings resolver": "export function resolveSftddSettings" },
+    tokens: { "settings resolver": "export function resolveConsortSettings" },
   },
   {
     home: "consort/orchestrator/workflow/",

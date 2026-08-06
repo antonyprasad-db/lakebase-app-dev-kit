@@ -81,8 +81,8 @@ describe("resolveDeployTarget", () => {
 
 describe("deployToTarget: foreign-port guard (gate deploys)", () => {
   it("refuses + escalates when the port is already serving before deploy (rejectForeignPort)", async () => {
-    const sftddDir = join(dir, ".tdd");
-    mkdirSync(join(sftddDir, "features", "F1"), { recursive: true });
+    const consortDir = join(dir, ".tdd");
+    mkdirSync(join(consortDir, "features", "F1"), { recursive: true });
     let started = false;
     const result = await deployToTarget({
       projectDir: dir,
@@ -90,7 +90,7 @@ describe("deployToTarget: foreign-port guard (gate deploys)", () => {
       featureId: "F1",
       storyId: "S1",
       lakebaseBranch: "experiment-s1",
-      sftddDir,
+      consortDir,
       rejectForeignPort: true,
       reachable: async () => true, // a foreign/stale app stays on the port (stop does not free it)
       startProcess: () => {
@@ -111,12 +111,12 @@ describe("deployToTarget: foreign-port guard (gate deploys)", () => {
     expect(result.reason).toMatch(/already serving|foreign|stale/i);
     // honest evidence: reachable=false, verify failed (we did NOT verify the foreign app).
     const ev = JSON.parse(
-      readFileSync(join(sftddDir, "features", "F1", "stories", "S1", "deploy-evidence.json"), "utf8"),
+      readFileSync(join(consortDir, "features", "F1", "stories", "S1", "deploy-evidence.json"), "utf8"),
     );
     expect(ev.reachable).toBe(false);
     expect(ev.verify.passed).toBe(false);
     // and it raised an escalation for the HIL (deploy-verify source).
-    const escs = readEscalations(sftddDir).filter((e) => !e.resolved_at);
+    const escs = readEscalations(consortDir).filter((e) => !e.resolved_at);
     expect(escs.some((e) => e.source === "deploy-verify" && e.story_id === "S1")).toBe(true);
   });
 
@@ -124,8 +124,8 @@ describe("deployToTarget: foreign-port guard (gate deploys)", () => {
     // The per-story await-acceptance deploy leaves our app running on the port
     // for PO review; a re-issued gate deploy must stop that own instance and
     // proceed, NOT refuse it as foreign.
-    const sftddDir = join(dir, ".tdd");
-    mkdirSync(join(sftddDir, "features", "F1", "stories", "S1"), { recursive: true });
+    const consortDir = join(dir, ".tdd");
+    mkdirSync(join(consortDir, "features", "F1", "stories", "S1"), { recursive: true });
     let occupied = true; // our own prior app is on the port...
     let stopped = false;
     let started = false;
@@ -134,7 +134,7 @@ describe("deployToTarget: foreign-port guard (gate deploys)", () => {
       targetName: "localv",
       featureId: "F1",
       storyId: "S1",
-      sftddDir,
+      consortDir,
       rejectForeignPort: true,
       reachable: async () => (started ? true : occupied), // busy until stopped; up once we start
       stop: () => {
@@ -154,7 +154,7 @@ describe("deployToTarget: foreign-port guard (gate deploys)", () => {
     expect(result.ok).toBe(true);
     expect(result.verify?.passed).toBe(true);
     // no escalation: this was OUR app, self-healed, not a foreign squatter.
-    const escs = readEscalations(sftddDir).filter((e) => !e.resolved_at);
+    const escs = readEscalations(consortDir).filter((e) => !e.resolved_at);
     expect(escs.some((e) => e.source === "deploy-verify")).toBe(false);
   });
 
@@ -338,14 +338,14 @@ describe("deployToTarget: deploy-verify self-heal (contamination classify + one-
   const contaminated = (cmd: string) =>
     cmd.includes("::") ? { passed: true } : { passed: false, output: "FAILED tests/x.py::t1\n" };
 
-  function baseArgs(sftddDir: string) {
+  function baseArgs(consortDir: string) {
     return {
       projectDir: dir,
       targetName: "localv",
       featureId: "F1",
       storyId: "S1",
       lakebaseBranch: "experiment-s1",
-      sftddDir,
+      consortDir,
       startProcess: () => 1,
       reachable: async () => true,
       stop: () => {},
@@ -355,47 +355,47 @@ describe("deployToTarget: deploy-verify self-heal (contamination classify + one-
   }
 
   it("classifies contamination -> writes the one-shot marker + SUPPRESSES the escalation (self-heal, no HIL)", async () => {
-    const sftddDir = join(dir, ".tdd");
-    mkdirSync(join(sftddDir, "features", "F1", "stories", "S1"), { recursive: true });
+    const consortDir = join(dir, ".tdd");
+    mkdirSync(join(consortDir, "features", "F1", "stories", "S1"), { recursive: true });
 
-    await deployToTarget({ ...baseArgs(sftddDir), runVerify: contaminated });
+    await deployToTarget({ ...baseArgs(consortDir), runVerify: contaminated });
 
     // The fragile test is recorded for the Navigator assess turn ...
-    expect(readDeployVerifyAssessMarker(sftddDir, "F1", "S1")?.failing_node_ids).toEqual(["tests/x.py::t1"]);
+    expect(readDeployVerifyAssessMarker(consortDir, "F1", "S1")?.failing_node_ids).toEqual(["tests/x.py::t1"]);
     // ... and the terminal deploy-verify escalation was NOT written (no premature HIL).
-    const escs = readEscalations(sftddDir).filter((e) => !e.resolved_at && e.source === "deploy-verify");
+    const escs = readEscalations(consortDir).filter((e) => !e.resolved_at && e.source === "deploy-verify");
     expect(escs).toHaveLength(0);
   });
 
   it("one-shot: after the assess turn is spent, a repeat contamination failure ESCALATES (spin closed)", async () => {
-    const sftddDir = join(dir, ".tdd");
-    mkdirSync(join(sftddDir, "features", "F1", "stories", "S1"), { recursive: true });
+    const consortDir = join(dir, ".tdd");
+    mkdirSync(join(consortDir, "features", "F1", "stories", "S1"), { recursive: true });
 
     // First failed deploy -> marker (suppressed). Then the assess turn ran.
-    await deployToTarget({ ...baseArgs(sftddDir), runVerify: contaminated });
-    markDeployVerifyAssessed(sftddDir, "F1", "S1", ["tests/x.py::t1"]);
+    await deployToTarget({ ...baseArgs(consortDir), runVerify: contaminated });
+    markDeployVerifyAssessed(consortDir, "F1", "S1", ["tests/x.py::t1"]);
 
     // The scope did not fix it: a SECOND deploy still fails as contamination. The
     // one shot is spent, so it is NOT re-suppressed , it escalates to the HIL.
-    await deployToTarget({ ...baseArgs(sftddDir), runVerify: contaminated });
-    const escs = readEscalations(sftddDir).filter((e) => !e.resolved_at && e.source === "deploy-verify");
+    await deployToTarget({ ...baseArgs(consortDir), runVerify: contaminated });
+    const escs = readEscalations(consortDir).filter((e) => !e.resolved_at && e.source === "deploy-verify");
     expect(escs.length).toBeGreaterThan(0);
   });
 
   it("clears the marker when the re-verify PASSES (the scope worked -> proceed to accept)", async () => {
-    const sftddDir = join(dir, ".tdd");
-    mkdirSync(join(sftddDir, "features", "F1", "stories", "S1"), { recursive: true });
+    const consortDir = join(dir, ".tdd");
+    mkdirSync(join(consortDir, "features", "F1", "stories", "S1"), { recursive: true });
 
-    await deployToTarget({ ...baseArgs(sftddDir), runVerify: contaminated });
-    expect(readDeployVerifyAssessMarker(sftddDir, "F1", "S1")).toBeDefined();
+    await deployToTarget({ ...baseArgs(consortDir), runVerify: contaminated });
+    expect(readDeployVerifyAssessMarker(consortDir, "F1", "S1")).toBeDefined();
 
     // The Driver scoped the tests; the re-deploy now verifies clean.
-    await deployToTarget({ ...baseArgs(sftddDir), runVerify: () => true });
-    expect(readDeployVerifyAssessMarker(sftddDir, "F1", "S1")).toBeUndefined();
+    await deployToTarget({ ...baseArgs(consortDir), runVerify: () => true });
+    expect(readDeployVerifyAssessMarker(consortDir, "F1", "S1")).toBeUndefined();
   });
 
   // ── FEATURE-SHIP scope: the same self-heal, no storyId (the F1-ship halt) ──
-  function featureShipArgs(sftddDir: string) {
+  function featureShipArgs(consortDir: string) {
     // The feature-ship deploy binds to the FEATURE branch (its fork parent for
     // the isolation re-run), and carries NO storyId. Before the fix this path
     // skipped the classifier entirely and hard-raised to HIL.
@@ -404,7 +404,7 @@ describe("deployToTarget: deploy-verify self-heal (contamination classify + one-
       targetName: "localv",
       featureId: "F1",
       lakebaseBranch: "feature-f1", // the feature branch = fork parent
-      sftddDir,
+      consortDir,
       startProcess: () => 1,
       reachable: async () => true,
       stop: () => {},
@@ -414,38 +414,38 @@ describe("deployToTarget: deploy-verify self-heal (contamination classify + one-
   }
 
   it("feature-ship: classifies contamination -> writes the FEATURE-scope marker + SUPPRESSES the HIL", async () => {
-    const sftddDir = join(dir, ".tdd");
-    mkdirSync(join(sftddDir, "features", "F1"), { recursive: true });
+    const consortDir = join(dir, ".tdd");
+    mkdirSync(join(consortDir, "features", "F1"), { recursive: true });
 
-    await deployToTarget({ ...featureShipArgs(sftddDir), runVerify: contaminated });
+    await deployToTarget({ ...featureShipArgs(consortDir), runVerify: contaminated });
 
     // Feature-scope marker (storyId undefined), NOT a story marker.
-    expect(readDeployVerifyAssessMarker(sftddDir, "F1")?.failing_node_ids).toEqual(["tests/x.py::t1"]);
-    const escs = readEscalations(sftddDir).filter((e) => !e.resolved_at && e.source === "deploy-verify");
+    expect(readDeployVerifyAssessMarker(consortDir, "F1")?.failing_node_ids).toEqual(["tests/x.py::t1"]);
+    const escs = readEscalations(consortDir).filter((e) => !e.resolved_at && e.source === "deploy-verify");
     expect(escs).toHaveLength(0);
   });
 
   it("feature-ship one-shot: a repeat contamination failure after the assess is spent ESCALATES", async () => {
-    const sftddDir = join(dir, ".tdd");
-    mkdirSync(join(sftddDir, "features", "F1"), { recursive: true });
+    const consortDir = join(dir, ".tdd");
+    mkdirSync(join(consortDir, "features", "F1"), { recursive: true });
 
-    await deployToTarget({ ...featureShipArgs(sftddDir), runVerify: contaminated });
-    markDeployVerifyAssessed(sftddDir, "F1", undefined, ["tests/x.py::t1"]);
+    await deployToTarget({ ...featureShipArgs(consortDir), runVerify: contaminated });
+    markDeployVerifyAssessed(consortDir, "F1", undefined, ["tests/x.py::t1"]);
 
-    await deployToTarget({ ...featureShipArgs(sftddDir), runVerify: contaminated });
-    const escs = readEscalations(sftddDir).filter((e) => !e.resolved_at && e.source === "deploy-verify");
+    await deployToTarget({ ...featureShipArgs(consortDir), runVerify: contaminated });
+    const escs = readEscalations(consortDir).filter((e) => !e.resolved_at && e.source === "deploy-verify");
     expect(escs.length).toBeGreaterThan(0);
   });
 
   it("feature-ship: clears the FEATURE marker when the re-verify PASSES", async () => {
-    const sftddDir = join(dir, ".tdd");
-    mkdirSync(join(sftddDir, "features", "F1"), { recursive: true });
+    const consortDir = join(dir, ".tdd");
+    mkdirSync(join(consortDir, "features", "F1"), { recursive: true });
 
-    await deployToTarget({ ...featureShipArgs(sftddDir), runVerify: contaminated });
-    expect(readDeployVerifyAssessMarker(sftddDir, "F1")).toBeDefined();
+    await deployToTarget({ ...featureShipArgs(consortDir), runVerify: contaminated });
+    expect(readDeployVerifyAssessMarker(consortDir, "F1")).toBeDefined();
 
-    await deployToTarget({ ...featureShipArgs(sftddDir), runVerify: () => true });
-    expect(readDeployVerifyAssessMarker(sftddDir, "F1")).toBeUndefined();
+    await deployToTarget({ ...featureShipArgs(consortDir), runVerify: () => true });
+    expect(readDeployVerifyAssessMarker(consortDir, "F1")).toBeUndefined();
   });
 });
 
@@ -598,12 +598,12 @@ describe("Release Engineer deploy lifecycle -> central agent log", () => {
   afterEach(() => rmSync(tdd, { recursive: true, force: true }));
 
   it("emits release-engineer deploy.start + deploy.verified + phase.end for a successful deploy", () => {
-    const ctx = { featureId: FEATURE, storyId: STORY, target: "local", sftddDir: tdd, now: clock };
+    const ctx = { featureId: FEATURE, storyId: STORY, target: "local", consortDir: tdd, now: clock };
     logReleaseEngineerDeployStart(ctx);
     const ok: DeployResult = { ok: true, url: "http://localhost:8000/", pid: 123, verify: { passed: true, summary: "feature-verify passed" } };
     logReleaseEngineerDeployOutcome(ctx, ok);
 
-    const re = readAgentLog({ sftddDir: tdd }).filter((e) => e.role === "release-engineer");
+    const re = readAgentLog({ consortDir: tdd }).filter((e) => e.role === "release-engineer");
     expect(re.map((e) => e.event)).toEqual(["deploy.start", "deploy.verified", "phase.end"]);
     const verified = re.find((e) => e.event === "deploy.verified")!;
     expect(verified.metadata?.feature_id).toBe(FEATURE);
@@ -615,11 +615,11 @@ describe("Release Engineer deploy lifecycle -> central agent log", () => {
   });
 
   it("emits a deploy.failed (error) + phase.end for a failed deploy, carrying the reason", () => {
-    const ctx = { featureId: FEATURE, storyId: STORY, target: "local", sftddDir: tdd, now: clock };
+    const ctx = { featureId: FEATURE, storyId: STORY, target: "local", consortDir: tdd, now: clock };
     const bad: DeployResult = { ok: false, reason: "not reachable within timeout", verify: { passed: false, summary: "n/a" } };
     logReleaseEngineerDeployOutcome(ctx, bad);
 
-    const re = readAgentLog({ sftddDir: tdd }).filter((e) => e.role === "release-engineer");
+    const re = readAgentLog({ consortDir: tdd }).filter((e) => e.role === "release-engineer");
     expect(re.map((e) => e.event)).toEqual(["deploy.failed", "phase.end"]);
     const failed = re.find((e) => e.event === "deploy.failed")!;
     expect(failed.level).toBe("error");

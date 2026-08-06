@@ -17,7 +17,7 @@ import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrat
 function cfg(over: Partial<DriveEffectsConfig> = {}): DriveEffectsConfig {
   return {
     projectDir: "/p",
-    sftddDir: "/p/.tdd",
+    consortDir: "/p/.tdd",
     featureId: "F1-stock-visibility",
     runner: { async run() {} },
     modelForRole: () => "sonnet",
@@ -290,7 +290,7 @@ describe("commandsFromManifest ≡ commandsForAction: all build turns (full comm
 
   it("driver refactor turns declare the haiku model tier in agentOptions", () => {
     // The model-tier lever (REFACTOR on a fast model) is now DECLARED in the manifest, not only
-    // in defaultSftddConfig's per-turn map , the parity test guards the two agree.
+    // in defaultConsortConfig's per-turn map , the parity test guards the two agree.
     const refactor: WorkflowAction = { kind: "invoke-role", role: "driver", story: STORY, buildMode: "refactor" };
     // With a cfg whose modelForTurn tiers refactor->haiku (as the real resolver does), the spawn
     // command carries haiku; byte-identity with legacy is the assertion above. Here just sanity

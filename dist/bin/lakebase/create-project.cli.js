@@ -5,7 +5,7 @@ import {
   createProject as baseCreateProject
 } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 
-// consort/setup/project-sftdd-setup.ts
+// consort/setup/project-consort-setup.ts
 import * as fs4 from "fs";
 import * as path3 from "path";
 import { fileURLToPath as fileURLToPath2 } from "url";
@@ -62,7 +62,7 @@ var LEGACY_CONFIG_RELS = [
   join3(".lakebase", "tdd-config.json")
 ];
 var LEGACY_TDD_CONFIG_REL = LEGACY_CONFIG_RELS[0];
-function defaultSftddConfig() {
+function defaultConsortConfig() {
   const roles = {};
   for (const role of ALL_AGENT_ROLES) {
     roles[role] = role === "navigator" ? { model: RECOMMENDED_MODELS[role], effort: { review: "low" } } : role === "driver" ? (
@@ -103,7 +103,7 @@ function mergeOptimizedDefaults(base, overlay) {
   }
   return out;
 }
-function writeSftddConfig(projectDir, config, opts) {
+function writeConsortConfig(projectDir, config, opts) {
   const f = join3(projectDir, CONSORT_CONFIG_REL);
   if (existsSync2(f) && !opts?.force) return false;
   mkdirSync2(dirname2(f), { recursive: true });
@@ -111,7 +111,7 @@ function writeSftddConfig(projectDir, config, opts) {
   return true;
 }
 
-// consort/lakebase/adopt-sftdd.ts
+// consort/lakebase/adopt-consort.ts
 import * as fs2 from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
@@ -120,7 +120,7 @@ import { fileURLToPath } from "url";
 import * as fs3 from "fs";
 import * as path2 from "path";
 
-// consort/setup/project-sftdd-setup.ts
+// consort/setup/project-consort-setup.ts
 var __dirname2 = path3.dirname(fileURLToPath2(import.meta.url));
 function kitPackageName() {
   const candidates = [
@@ -221,28 +221,28 @@ function layDownKitClaudeAssets(targetDir) {
   }
 }
 var AGENT_SYNC_MARKER = path3.join(".claude", "agents", ".kit-version");
-function seedSftddConfig(projectDir, opts) {
-  const sftddConfig = defaultSftddConfig();
+function seedConsortConfig(projectDir, opts) {
+  const consortConfig = defaultConsortConfig();
   for (const [role, model] of Object.entries(opts.agentModels ?? {})) {
-    if (model && sftddConfig.roles?.[role]) {
-      sftddConfig.roles[role].model = model;
+    if (model && consortConfig.roles?.[role]) {
+      consortConfig.roles[role].model = model;
     }
   }
-  if (sftddConfig.project) {
-    sftddConfig.project.uiTrack = opts.uiTrack ?? false;
-    sftddConfig.project.clientFramework = opts.clientFramework;
+  if (consortConfig.project) {
+    consortConfig.project.uiTrack = opts.uiTrack ?? false;
+    consortConfig.project.clientFramework = opts.clientFramework;
   }
-  writeSftddConfig(projectDir, sftddConfig);
+  writeConsortConfig(projectDir, consortConfig);
 }
-var kitSftddHooks = {
+var kitConsortHooks = {
   layDownScaffold: layDownTddScaffold,
-  seedConfig: seedSftddConfig
+  seedConfig: seedConsortConfig
 };
 
 // consort/lakebase/create-project.ts
 function createProject(input, progress) {
   return baseCreateProject(
-    { ...input, sftddHooks: input.sftddHooks ?? kitSftddHooks },
+    { ...input, sftddHooks: input.sftddHooks ?? kitConsortHooks },
     progress
   );
 }

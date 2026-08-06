@@ -6660,7 +6660,7 @@ import { join } from "path";
 var ARTIFACT_ROOT = ".consort";
 var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
 var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
-function resolveSftddDir(projectDir = process.cwd()) {
+function resolveConsortDir(projectDir = process.cwd()) {
   const next = join(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
   for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
@@ -6749,8 +6749,8 @@ function readAcLayer(tdd, f, acId) {
 function uniq(xs) {
   return [...new Set(xs.filter((x) => typeof x === "string" && x.length > 0))];
 }
-function readCanon(sftddDir2) {
-  const f = architectureCanonJson(sftddDir2);
+function readCanon(consortDir2) {
+  const f = architectureCanonJson(consortDir2);
   if (!existsSync2(f)) return void 0;
   try {
     return JSON.parse(readFileSync2(f, "utf8"));
@@ -6758,14 +6758,14 @@ function readCanon(sftddDir2) {
     return void 0;
   }
 }
-function evaluateStoryCanon(sftddDir2, featureId, story) {
-  const canon = readCanon(sftddDir2);
+function evaluateStoryCanon(consortDir2, featureId, story) {
+  const canon = readCanon(consortDir2);
   if (!canon) return { ok: true };
   if (canon.established_by === featureId) return { ok: true };
-  const layers = storyAcIds(sftddDir2, featureId, story).map((ac) => ({
-    layer: readAcLayer(sftddDir2, featureId, ac) ?? void 0
+  const layers = storyAcIds(consortDir2, featureId, story).map((ac) => ({
+    layer: readAcLayer(consortDir2, featureId, ac) ?? void 0
   }));
-  const archFile = architectureJson(sftddDir2, featureId);
+  const archFile = architectureJson(consortDir2, featureId);
   let archContent;
   if (existsSync2(archFile)) {
     try {
@@ -6815,12 +6815,12 @@ function projectArchitecturalNotes(canon, ac) {
   const postureStr = posture.length ? ` Inherits the project NFR posture (${uniq(posture).join(", ")}).` : "";
   return `Layer ${ac.layer}, placed per the project architecture canon established by ${canon.established_by}.` + postureStr + ` Projected deterministically (no novel cross-cutting concern); the design gate + layering fitness are the backstop.`;
 }
-function projectStoryNotes(sftddDir2, featureId, story) {
-  const canon = readCanon(sftddDir2);
+function projectStoryNotes(consortDir2, featureId, story) {
+  const canon = readCanon(consortDir2);
   if (!canon) return 0;
   let annotated = 0;
-  for (const acId of storyAcIds(sftddDir2, featureId, story)) {
-    const file = acJson(sftddDir2, featureId, story, acId);
+  for (const acId of storyAcIds(consortDir2, featureId, story)) {
+    const file = acJson(consortDir2, featureId, story, acId);
     if (!existsSync2(file)) continue;
     let ac;
     try {
@@ -6930,8 +6930,8 @@ var EVENT_TEMPLATES = {
 var AGENT_LOG_EVENT_NAMES = Object.keys(EVENT_TEMPLATES);
 
 // consort/smells/smells.ts
-function writeSmellsLog(sftddDir2, hits) {
-  const file = join3(sftddDir2, "smells.json");
+function writeSmellsLog(consortDir2, hits) {
+  const file = join3(consortDir2, "smells.json");
   const existing = existsSync4(file) ? JSON.parse(readFileSync4(file, "utf8")) : { detected: [] };
   const ts = (/* @__PURE__ */ new Date()).toISOString();
   const newEntries = hits.map((h) => ({ ...h, detected_at: ts }));
@@ -6947,7 +6947,7 @@ function parse(argv) {
     const a = argv[i];
     if (a === "--feature" && i + 1 < argv.length) out.feature = argv[++i];
     else if (a === "--story" && i + 1 < argv.length) out.story = argv[++i];
-    else if (a === "--tdd-dir" && i + 1 < argv.length) out.sftddDir = argv[++i];
+    else if (a === "--tdd-dir" && i + 1 < argv.length) out.consortDir = argv[++i];
     else if (a === "-h" || a === "--help") help();
   }
   return out;
@@ -6967,10 +6967,10 @@ if (!p.feature || !p.story) {
   process.stderr.write("consort-canon-notes: --feature and --story are required\n");
   process.exit(2);
 }
-var sftddDir = p.sftddDir ?? resolveSftddDir();
-var coverage = evaluateStoryCanon(sftddDir, p.feature, p.story);
+var consortDir = p.consortDir ?? resolveConsortDir();
+var coverage = evaluateStoryCanon(consortDir, p.feature, p.story);
 if (!coverage.ok) {
-  writeSmellsLog(sftddDir, [
+  writeSmellsLog(consortDir, [
     {
       smell: "architect-canon-gap",
       cycle_ids: [],
@@ -6984,7 +6984,7 @@ if (!coverage.ok) {
   );
   process.exit(0);
 }
-var n = projectStoryNotes(sftddDir, p.feature, p.story);
+var n = projectStoryNotes(consortDir, p.feature, p.story);
 process.stdout.write(`canon-notes: projected architectural_notes onto ${n} AC(s) for ${p.feature}/${p.story}
 `);
 process.exit(0);

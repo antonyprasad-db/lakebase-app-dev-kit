@@ -6659,14 +6659,14 @@ function branchIdOf(info) {
   if (!leaf) throw new Error(`could not derive branch_id from ${info.name}`);
   return leaf;
 }
-function experimentsRoot(sftddDir, featureId, storyId) {
-  return join(sftddDir, "experiments", featureId, storyId);
+function experimentsRoot(consortDir, featureId, storyId) {
+  return join(consortDir, "experiments", featureId, storyId);
 }
-function experimentDir(sftddDir, featureId, storyId, slug) {
-  return join(experimentsRoot(sftddDir, featureId, storyId), slug);
+function experimentDir(consortDir, featureId, storyId, slug) {
+  return join(experimentsRoot(consortDir, featureId, storyId), slug);
 }
 async function cutExperiment(args, deps = {}) {
-  const { sftddDir, projectDir, featureId, storyId, experimentSlug, branch, parentBranch, ttl, notes, resetStaleBranch, ...lookup } = args;
+  const { consortDir, projectDir, featureId, storyId, experimentSlug, branch, parentBranch, ttl, notes, resetStaleBranch, ...lookup } = args;
   const create = deps.createPairedBranch ?? createPairedBranch;
   const dropBranch = deps.deletePairedBranch ?? deletePairedBranch;
   if (resetStaleBranch) {
@@ -6690,7 +6690,7 @@ async function cutExperiment(args, deps = {}) {
     );
   }
   const branchId = branchIdOf(paired.branch);
-  const dir = experimentDir(sftddDir, featureId, storyId, experimentSlug);
+  const dir = experimentDir(consortDir, featureId, storyId, experimentSlug);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "branch.txt"), branchId);
   writeFileSync(
@@ -6720,8 +6720,8 @@ Experiment cut from \`${parentBranch ?? "staging"}\`. Strategy + learning notes 
   };
 }
 async function deleteExperiment(args) {
-  const { sftddDir, projectDir, featureId, storyId, experimentSlug, deleteBranchToo, ...lookup } = args;
-  const dir = experimentDir(sftddDir, featureId, storyId, experimentSlug);
+  const { consortDir, projectDir, featureId, storyId, experimentSlug, deleteBranchToo, ...lookup } = args;
+  const dir = experimentDir(consortDir, featureId, storyId, experimentSlug);
   if (!existsSync(dir)) {
     throw new Error(`experiment ${featureId}/${storyId}/${experimentSlug} not found at ${dir}`);
   }
@@ -6739,7 +6739,7 @@ var ARTIFACT_ROOT = ".consort";
 var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
 var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
 var artifactRootsRegexAlternation = () => ALL_ARTIFACT_ROOTS.map((r) => r.replace(/[.]/g, "\\.")).join("|");
-function resolveSftddDir(projectDir = process.cwd()) {
+function resolveConsortDir(projectDir = process.cwd()) {
   const next = join2(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
   for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
@@ -6780,7 +6780,7 @@ async function mergeExperimentIntoFeature(args, ops) {
   await ops.gitMerge({ from: args.experimentBranch, into: args.featureBranch, projectDir: args.projectDir });
   await ops.runMigrations({ instance: args.instance, branch: args.featureBranch, projectDir: args.projectDir });
   await ops.teardown({
-    sftddDir: args.sftddDir,
+    consortDir: args.consortDir,
     projectDir: args.projectDir,
     featureId: args.featureId,
     storyId: args.storyId,
@@ -6791,7 +6791,7 @@ async function mergeExperimentIntoFeature(args, ops) {
 }
 async function discardExperimentBranch(args, ops) {
   await ops.teardown({
-    sftddDir: args.sftddDir,
+    consortDir: args.consortDir,
     projectDir: args.projectDir,
     featureId: args.featureId,
     storyId: args.storyId,
@@ -6867,16 +6867,16 @@ init_esm_shims();
 function initPipeline(featureId) {
   return { version: 1, feature_id: featureId, stories: {}, build_queue: [], build_active: null };
 }
-function pipelinePath(sftddDir, featureId) {
-  return pipelineJson(sftddDir, featureId);
+function pipelinePath(consortDir, featureId) {
+  return pipelineJson(consortDir, featureId);
 }
-function readPipeline(sftddDir, featureId) {
-  const p = pipelinePath(sftddDir, featureId);
+function readPipeline(consortDir, featureId) {
+  const p = pipelinePath(consortDir, featureId);
   if (!existsSync5(p)) return initPipeline(featureId);
   return JSON.parse(readFileSync5(p, "utf8"));
 }
-function writePipeline(sftddDir, pipeline) {
-  const p = pipelinePath(sftddDir, pipeline.feature_id);
+function writePipeline(consortDir, pipeline) {
+  const p = pipelinePath(consortDir, pipeline.feature_id);
   mkdirSync3(dirname(p), { recursive: true });
   writeFileSync3(p, JSON.stringify(pipeline, null, 2) + "\n");
 }
@@ -6975,6 +6975,8 @@ import { existsSync as existsSync15, readFileSync as readFileSync16, readdirSync
 
 // consort/config/consort-env.ts
 init_esm_shims();
+var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
+var ENV_PREFIX = ENV_PREFIXES[0];
 
 // consort/pipeline/cycle-record.ts
 import { join as join15, dirname as dirname5 } from "path";
@@ -7078,8 +7080,8 @@ function renderEventMessage(event, slots = {}) {
 }
 
 // consort/logging/agent-log.ts
-function logFilePath(sftddDir) {
-  return join6(sftddDir, "agent-log.jsonl");
+function logFilePath(consortDir) {
+  return join6(consortDir, "agent-log.jsonl");
 }
 function buildAgentLogEvent(input, now) {
   const slots = input.slots ?? {};
@@ -7116,10 +7118,10 @@ function buildAgentLogEvent(input, now) {
   return event;
 }
 function emitAgentLogEvent(input, opts = {}) {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
+  const consortDir = opts.consortDir ?? resolveConsortDir();
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const event = buildAgentLogEvent(input, now);
-  appendFileSync(logFilePath(sftddDir), `${JSON.stringify(event)}
+  appendFileSync(logFilePath(consortDir), `${JSON.stringify(event)}
 `, "utf8");
   return event;
 }
@@ -7198,15 +7200,15 @@ async function commitExperimentCode(projectDir, message) {
     untrackedAllow: ["app", "src", "lib", "server", "client", "tests", "test", "alembic", "migrations", "db"]
   });
 }
-function resetStoryBuildState(sftddDir, featureId, story) {
-  const cyclesDir = join15(cyclesRootDir(sftddDir), featureId, story);
+function resetStoryBuildState(consortDir, featureId, story) {
+  const cyclesDir = join15(cyclesRootDir(consortDir), featureId, story);
   let cyclesCleared = false;
   if (existsSync15(cyclesDir)) {
     rmSync6(cyclesDir, { recursive: true, force: true });
     cyclesCleared = true;
   }
   let testItemsReset = 0;
-  const tlPath = storyTestListJson(sftddDir, featureId, story);
+  const tlPath = storyTestListJson(consortDir, featureId, story);
   if (existsSync15(tlPath)) {
     try {
       const tl = JSON.parse(readFileSync16(tlPath, "utf8"));
@@ -7234,18 +7236,18 @@ var realExperimentOps = {
   runMigrations: async ({ instance, branch, projectDir }) => {
     await applySchemaMigrations({ instance, branch, projectDir });
   },
-  teardown: async ({ sftddDir, projectDir, featureId, storyId, experimentSlug, instance }) => {
-    await deleteExperiment({ instance, sftddDir, projectDir, featureId, storyId, experimentSlug, deleteBranchToo: true });
+  teardown: async ({ consortDir, projectDir, featureId, storyId, experimentSlug, instance }) => {
+    await deleteExperiment({ instance, consortDir, projectDir, featureId, storyId, experimentSlug, deleteBranchToo: true });
   }
 };
 async function mergeAndAcceptStory(args, ops = realExperimentOps) {
   const at = args.at ?? (/* @__PURE__ */ new Date()).toISOString();
-  const before = readPipeline(args.sftddDir, args.featureId);
+  const before = readPipeline(args.consortDir, args.featureId);
   const alreadyMerged = before.stories[args.storyId]?.experiment?.status === "merged";
   if (!alreadyMerged) {
     await mergeExperimentIntoFeature(
       {
-        sftddDir: args.sftddDir,
+        consortDir: args.consortDir,
         featureId: args.featureId,
         storyId: args.storyId,
         experimentSlug: args.experimentSlug,
@@ -7257,9 +7259,9 @@ async function mergeAndAcceptStory(args, ops = realExperimentOps) {
       ops
     );
   }
-  const p = readPipeline(args.sftddDir, args.featureId);
+  const p = readPipeline(args.consortDir, args.featureId);
   acceptStory(p, args.storyId, { approver: args.approver, at });
-  writePipeline(args.sftddDir, p);
+  writePipeline(args.consortDir, p);
 }
 
 // consort/experiment/experiment-args.ts
@@ -7283,7 +7285,7 @@ function parseExperimentArgs(argv) {
     else if (a === "--revise") out.revise = true;
     else if (a === "--reset-stale-branch") out.resetStaleBranch = true;
     else if (a === "--project-dir") out.projectDir = argv[++i];
-    else if (a === "--tdd-dir") out.sftddDir = argv[++i];
+    else if (a === "--tdd-dir") out.consortDir = argv[++i];
   }
   return out;
 }
@@ -7309,9 +7311,9 @@ function validateExperimentArgs(args) {
 }
 
 // bin/consort/story-experiment.cli.ts
-function logExperimentEvent(sftddDir, event, story, reason) {
+function logExperimentEvent(consortDir, event, story, reason) {
   try {
-    emitAgentLogEvent({ role: "orchestrator", level: "info", event, slots: { story, reason } }, { sftddDir });
+    emitAgentLogEvent({ role: "orchestrator", level: "info", event, slots: { story, reason } }, { consortDir });
   } catch {
   }
 }
@@ -7328,7 +7330,7 @@ Usage: consort-experiment <cut|merge|discard> --feature <F> --story <S> --slug <
 }
 async function main() {
   const args = parseExperimentArgs(process.argv.slice(2));
-  const sftddDir = args.sftddDir ?? resolveSftddDir();
+  const consortDir = args.consortDir ?? resolveConsortDir();
   const projectDir = args.projectDir ?? process.cwd();
   const invalid = validateExperimentArgs(args);
   if (invalid) return usage(invalid);
@@ -7341,7 +7343,7 @@ async function main() {
     case "cut": {
       const rec = await cutExperiment({
         instance,
-        sftddDir,
+        consortDir,
         projectDir,
         featureId: feature,
         storyId: story,
@@ -7351,14 +7353,14 @@ async function main() {
         ttl: args.ttl,
         ...args.resetStaleBranch ? { resetStaleBranch: true } : {}
       });
-      const p = readPipeline(sftddDir, feature);
+      const p = readPipeline(consortDir, feature);
       cutStoryExperiment(p, story, {
         slug,
         branch: rec.branch_id,
         parent: args.parent,
         at
       });
-      writePipeline(sftddDir, p);
+      writePipeline(consortDir, p);
       process.stdout.write(`cut experiment ${slug} on ${rec.branch_id} (parent ${args.parent})
 `);
       return 0;
@@ -7366,7 +7368,7 @@ async function main() {
     case "merge": {
       await mergeAndAcceptStory(
         {
-          sftddDir,
+          consortDir,
           projectDir,
           featureId: feature,
           storyId: story,
@@ -7385,20 +7387,20 @@ async function main() {
     }
     case "discard": {
       await discardExperimentBranch(
-        { sftddDir, projectDir, featureId: feature, storyId: story, experimentSlug: slug, instance },
+        { consortDir, projectDir, featureId: feature, storyId: story, experimentSlug: slug, instance },
         realExperimentOps
       );
-      const p = readPipeline(sftddDir, feature);
+      const p = readPipeline(consortDir, feature);
       const approver = args.approver;
       const reason = args.reason;
       if (args.revise) {
         reviseStory(p, story, { approver, at, reason });
-        resetStoryBuildState(sftddDir, feature, story);
+        resetStoryBuildState(consortDir, feature, story);
       } else {
         discardStory(p, story, { approver, at, reason });
       }
-      writePipeline(sftddDir, p);
-      logExperimentEvent(sftddDir, args.revise ? "experiment.revised" : "experiment.discarded", story, reason);
+      writePipeline(consortDir, p);
+      logExperimentEvent(consortDir, args.revise ? "experiment.revised" : "experiment.discarded", story, reason);
       process.stdout.write(
         `${args.revise ? "revised" : "discarded"} ${slug}; experiment torn down; story ${story} ${args.revise ? "-> designing" : "out of sprint"}
 `

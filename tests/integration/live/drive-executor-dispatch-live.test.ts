@@ -24,7 +24,7 @@ import { buildDriveEffects } from "../../../consort/orchestrator/drive/orchestra
 import { execRunner } from "../../../consort/orchestrator/drive/claude-runner.js";
 import type { DriveEffectsConfig } from "../../../consort/orchestrator/drive/orchestrator-effects.js";
 import type { WorkflowAction } from "../../../consort/orchestrator/drive/orchestrator-drive.js";
-import { resolveSftddSettings } from "../../../consort/orchestrator/settings/project-settings.js";
+import { resolveConsortSettings } from "../../../consort/orchestrator/settings/project-settings.js";
 import { writePipeline, readPipeline } from "../../../consort/pipeline/story-pipeline.js";
 
 const KIT = process.cwd();
@@ -34,17 +34,17 @@ const FEATURE = "F1-stock-visibility";
 describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE: the production drive dispatches spec-author breakdown THROUGH the executor", () => {
   it("runDriver -> performViaExecutor -> execute() authors a conformant feature-spec + syncs the pipeline", async () => {
     const projectDir = mkdtempSync(join(tmpdir(), "drive-exec-"));
-    const sftddDir = join(projectDir, ".sftdd");
-    const featureDir = join(sftddDir, "features", FEATURE);
+    const consortDir = join(projectDir, ".sftdd");
+    const featureDir = join(consortDir, "features", FEATURE);
     mkdirSync(featureDir, { recursive: true });
 
     // Seed the FEATURE phase: the breakdown's declared inputs (product-overview/nfrs/feature-request)
     // + an empty pipeline, so nextTransition yields `spec-author breakdown` as the first action.
-    for (const f of ["product-overview.md", "nfrs.md"]) cpSync(join(INTAKE, f), join(sftddDir, f));
-    writeFileSync(join(sftddDir, "feature-request.md"), "# Feature F1: stock visibility\nRecord + view stock by SKU and location.\n");
+    for (const f of ["product-overview.md", "nfrs.md"]) cpSync(join(INTAKE, f), join(consortDir, f));
+    writeFileSync(join(consortDir, "feature-request.md"), "# Feature F1: stock visibility\nRecord + view stock by SKU and location.\n");
     writeFileSync(join(featureDir, "feature-request.md"), "# Feature F1\nRecord + view stock.\n");
-    writePipeline(sftddDir, { version: 1, feature_id: FEATURE, stories: {}, build_queue: [], build_active: null });
-    writeFileSync(join(sftddDir, "workflow-state.json"), JSON.stringify({ phase: "implementation", phase_feature_id: FEATURE }));
+    writePipeline(consortDir, { version: 1, feature_id: FEATURE, stories: {}, build_queue: [], build_active: null });
+    writeFileSync(join(consortDir, "workflow-state.json"), JSON.stringify({ phase: "implementation", phase_feature_id: FEATURE }));
 
     // Lay the kit's role agent defs so the live `--agent spec-author` resolves (plain copy, no cloud).
     const agentsSrc = join(KIT, "skills", "consort", "agents");
@@ -57,10 +57,10 @@ describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE: the production drive dispatch
     process.env.LAKEBASE_KIT_DIR = KIT;
 
     // Build the REAL production cfg + effects + runner (mirrors drive.cli's wiring).
-    const settings = resolveSftddSettings({ projectDir });
+    const settings = resolveConsortSettings({ projectDir });
     const cfg: DriveEffectsConfig = {
       projectDir,
-      sftddDir,
+      consortDir,
       featureId: FEATURE,
       runner: { async run() {} },
       useManifestSteps: true,
@@ -93,7 +93,7 @@ describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE: the production drive dispatch
       expect(Array.isArray(spec.stories) && spec.stories.length > 0, "feature-spec has stories[]").toBe(true);
 
       // sync-breakdown (the executor's post-turn effect) projected the stories into the pipeline.
-      const pipeline = readPipeline(sftddDir, FEATURE);
+      const pipeline = readPipeline(consortDir, FEATURE);
       expect(Object.keys(pipeline.stories).length, "pipeline synced to the breakdown stories").toBeGreaterThan(0);
 
       // The loop advanced past breakdown (stopped at the bound), proving it consumed the executor's route.

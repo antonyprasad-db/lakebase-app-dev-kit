@@ -17,7 +17,7 @@
 // flows.
 
 import { hashArtifact } from "./gate-hash";
-import { resolveSftddDir } from "../../consort/config/consort-paths.js";
+import { resolveConsortDir } from "../../consort/config/consort-paths.js";
 import { readGates, type GateName, type GateStatus } from "./gates";
 
 export interface VerifyGateIntegrityArgs {
@@ -25,7 +25,7 @@ export interface VerifyGateIntegrityArgs {
   gate: GateName;
   /** Artifact name -> current content. Must match the names stored at approval. */
   currentInputs: Record<string, string>;
-  sftddDir?: string;
+  consortDir?: string;
 }
 
 export interface ArtifactDrift {
@@ -42,8 +42,8 @@ export type VerifyGateIntegrityResult =
 export function verifyGateIntegrity(
   args: VerifyGateIntegrityArgs
 ): VerifyGateIntegrityResult {
-  const sftddDir = args.sftddDir ?? resolveSftddDir();
-  const state = readGates(args.featureId, { sftddDir });
+  const consortDir = args.consortDir ?? resolveConsortDir();
+  const state = readGates(args.featureId, { consortDir });
   const record = state.gates[args.gate];
 
   if (record.status !== "approved") {

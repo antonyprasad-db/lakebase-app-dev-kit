@@ -27,7 +27,7 @@ import {
 } from "../../consort/optimize/optimize-semantic-gate";
 
 let kitRoot: string;
-let sftddDir: string;
+let consortDir: string;
 const featureId = "F1-stock-visibility";
 
 /** Seed a recorded reference artifact in a corpus under the fake kit root. */
@@ -38,18 +38,18 @@ function seedRef(corpus: string, rel: string, body: unknown): void {
 }
 /** Seed the live candidate artifact under the project .sftdd. */
 function seedCandidate(rel: string, body: unknown): void {
-  const p = join(sftddDir, rel);
+  const p = join(consortDir, rel);
   mkdirSync(join(p, ".."), { recursive: true });
   writeFileSync(p, typeof body === "string" ? body : JSON.stringify(body));
 }
 
 beforeEach(() => {
   kitRoot = mkdtempSync(join(tmpdir(), "sem-kit-"));
-  sftddDir = mkdtempSync(join(tmpdir(), "sem-sftdd-"));
+  consortDir = mkdtempSync(join(tmpdir(), "sem-sftdd-"));
 });
 afterEach(() => {
   rmSync(kitRoot, { recursive: true, force: true });
-  rmSync(sftddDir, { recursive: true, force: true });
+  rmSync(consortDir, { recursive: true, force: true });
 });
 
 const passJudge: SemanticJudge = async () => ({ score: 0.95 });
@@ -107,13 +107,13 @@ describe("resolveStepReference: which corpus + artifact backs each step", () => 
 describe("readCandidateArtifact: reads the SAME artifact the reference resolves (parity)", () => {
   it("propose reads planning/feature-proposals.md from the candidate .sftdd", () => {
     seedCandidate("planning/feature-proposals.md", "# candidate proposal\n");
-    expect(readCandidateArtifact({ sftddDir, step: "propose", featureId })).toContain("candidate proposal");
+    expect(readCandidateArtifact({ consortDir, step: "propose", featureId })).toContain("candidate proposal");
   });
 
   it("estimate reads planning/estimates.json from the candidate .sftdd (not architecture.json)", () => {
     seedCandidate(`features/${featureId}/architecture.json`, { feature_id: featureId });
     seedCandidate("planning/estimates.json", { estimates: [{ feature_id: featureId, size: "L" }] });
-    const body = readCandidateArtifact({ sftddDir, step: "estimate", featureId });
+    const body = readCandidateArtifact({ consortDir, step: "estimate", featureId });
     expect(body).toContain('"size":"L"'); // estimates.json content (compact), not architecture
     expect(body).toContain("estimates");
   });
@@ -123,7 +123,7 @@ describe("evaluateSemanticGate: judge decides comparability above the structural
   it("passes when the judge scores >= threshold", async () => {
     seedRef("stockflow", "design/design-guide.json", { components: { navbar: {}, table: {} } });
     seedCandidate("design/design-guide.json", { components: { navbar: {}, table: {}, extra: {} } });
-    const out = await evaluateSemanticGate({ kitRoot, sftddDir, featureId, step: "ux", judge: passJudge });
+    const out = await evaluateSemanticGate({ kitRoot, consortDir, featureId, step: "ux", judge: passJudge });
     expect(out.passed).toBe(true);
     expect(out.score).toBe(0.95);
   });
@@ -131,7 +131,7 @@ describe("evaluateSemanticGate: judge decides comparability above the structural
   it("FAILS when the judge scores below threshold, naming the dropped intent", async () => {
     seedRef("stockflow", "design/design-guide.json", { components: { navbar: {}, status_badge: {}, empty_state: {} } });
     seedCandidate("design/design-guide.json", { components: { navbar: {} } });
-    const out = await evaluateSemanticGate({ kitRoot, sftddDir, featureId, step: "ux", judge: failJudge });
+    const out = await evaluateSemanticGate({ kitRoot, consortDir, featureId, step: "ux", judge: failJudge });
     expect(out.passed).toBe(false);
     expect(out.reason).toMatch(/status_badge/);
     expect(out.reason).toMatch(/0\.40 < 0\.85/);
@@ -141,7 +141,7 @@ describe("evaluateSemanticGate: judge decides comparability above the structural
     seedCandidate("design/design-guide.json", { components: {} });
     let judged = false;
     const spyJudge: SemanticJudge = async () => { judged = true; return { score: 1 }; };
-    const out = await evaluateSemanticGate({ kitRoot, sftddDir, featureId, step: "ux", judge: spyJudge });
+    const out = await evaluateSemanticGate({ kitRoot, consortDir, featureId, step: "ux", judge: spyJudge });
     expect(out.skipped).toBe(true);
     expect(out.passed).toBe(true);
     expect(judged).toBe(false); // no reference => judge never called
@@ -149,7 +149,7 @@ describe("evaluateSemanticGate: judge decides comparability above the structural
 
   it("FAILS when the reference exists but the candidate produced no artifact", async () => {
     seedRef("stockflow", "design/design-guide.json", { components: { navbar: {} } });
-    const out = await evaluateSemanticGate({ kitRoot, sftddDir, featureId, step: "ux", judge: passJudge });
+    const out = await evaluateSemanticGate({ kitRoot, consortDir, featureId, step: "ux", judge: passJudge });
     expect(out.passed).toBe(false);
     expect(out.reason).toMatch(/no artifact/);
   });
@@ -259,12 +259,12 @@ describe("build discriminator gate: clean verdict is a PASS (best), only insuffi
     const rbApp = join(kitRoot, "examples/sftdd-scenarios/stockflow/recorded-build", "features", featureId, "stories", "S1", "turns", "003-driver", "code", "app");
     mkdirSync(rbApp, { recursive: true });
     writeFileSync(join(rbApp, "models.py"), "class Stock: pass\n");
-    mkdirSync(join(sftddDir, "..", "app"), { recursive: true });
-    writeFileSync(join(sftddDir, "..", "app", "models.py"), "class Stock: pass\n");
+    mkdirSync(join(consortDir, "..", "app"), { recursive: true });
+    writeFileSync(join(consortDir, "..", "app", "models.py"), "class Stock: pass\n");
     const { evaluateBuildFunctionalGate } = await import("../../consort/optimize/optimize-semantic-gate");
     return evaluateBuildFunctionalGate({
       kitRoot,
-      projectDir: join(sftddDir, ".."),
+      projectDir: join(consortDir, ".."),
       featureId,
       storyIndex: 0,
       role: "driver",

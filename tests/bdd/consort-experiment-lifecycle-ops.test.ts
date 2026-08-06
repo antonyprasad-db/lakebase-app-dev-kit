@@ -31,7 +31,7 @@ function recordingOps(overrides: Partial<ExperimentBranchOps> = {}): {
 }
 
 const MERGE_ARGS = {
-  sftddDir: "/tmp/.tdd",
+  consortDir: "/tmp/.tdd",
   featureId: "F1",
   storyId: "S1",
   experimentSlug: "s1-exp",
@@ -42,7 +42,7 @@ const MERGE_ARGS = {
 };
 
 const DISCARD_ARGS = {
-  sftddDir: "/tmp/.tdd",
+  consortDir: "/tmp/.tdd",
   projectDir: "/tmp/proj",
   featureId: "F1",
   storyId: "S1",

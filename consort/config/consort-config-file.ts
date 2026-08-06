@@ -17,7 +17,7 @@ import { ALL_AGENT_ROLES, type SpawnableAgentRole } from "./agent-models.js";
 import type { TurnKey, EffortLevel } from "./step-key.js";
 // The RECOMMENDED_MODELS base default the scaffold seeds; agent-models is a config-layer module.
 import { RECOMMENDED_MODELS } from "./agent-models.js";
-// Auto-applied optimization winners, deep-merged onto the base default (see defaultSftddConfig).
+// Auto-applied optimization winners, deep-merged onto the base default (see defaultConsortConfig).
 // Static import so tsup inlines it into dist at build time; the champion walk's auto-apply writes
 // this file as DATA, never a TS rewrite.
 import OPTIMIZED_DEFAULTS from "./optimized-defaults.json";
@@ -53,7 +53,7 @@ export interface RoleSettingsFile {
   effort?: EffortLevel | Partial<Record<TurnKey, EffortLevel>>;
 }
 
-export interface SftddConfigFile {
+export interface ConsortConfigFile {
   version: 1;
   roles?: Partial<Record<SpawnableAgentRole, RoleSettingsFile>>;
   build?: {
@@ -87,12 +87,12 @@ export interface ProjectFileSettings {
  *  legacy names (`sftdd-config.json`, then `tdd-config.json`) for projects
  *  scaffolded before a rename. Undefined when none exists / the first found is
  *  unparseable. */
-export function loadSftddConfig(projectDir: string): SftddConfigFile | undefined {
+export function loadConsortConfig(projectDir: string): ConsortConfigFile | undefined {
   for (const rel of [CONSORT_CONFIG_REL, ...LEGACY_CONFIG_RELS]) {
     const f = join(projectDir, rel);
     if (!existsSync(f)) continue;
     try {
-      return JSON.parse(readFileSync(f, "utf8")) as SftddConfigFile;
+      return JSON.parse(readFileSync(f, "utf8")) as ConsortConfigFile;
     } catch {
       return undefined;
     }
@@ -103,12 +103,12 @@ export function loadSftddConfig(projectDir: string): SftddConfigFile | undefined
 /**
  * Resolve the non-model project settings (build/plan/project) from the file -> code
  * default. The file is the SINGLE source of truth; there is no env override. The model/
- * effort layer is resolved ON TOP by resolveSftddSettings (project-settings.ts), which
+ * effort layer is resolved ON TOP by resolveConsortSettings (project-settings.ts), which
  * needs the manifests + turn-key map; keeping this half here lets a domain that only reads
  * project.uiTrack (intake) depend DOWNWARD on the file primitive.
  */
 export function resolveProjectSettings(projectDir: string): ProjectFileSettings {
-  const file = loadSftddConfig(projectDir);
+  const file = loadConsortConfig(projectDir);
   const build = {
     loopGranularity: (file?.build?.loopGranularity ?? "story") as "story" | "ac" | "hybrid-a",
     batchCap: file?.build?.batchCap,
@@ -129,7 +129,7 @@ export function resolveProjectSettings(projectDir: string): ProjectFileSettings 
 
 /** A default config seeded from the recommended models (for scaffold / `--init`),
  *  with the navigator REVIEW effort pinned low (the P6 default made explicit). */
-export function defaultSftddConfig(): SftddConfigFile {
+export function defaultConsortConfig(): ConsortConfigFile {
   const roles = {} as Record<SpawnableAgentRole, RoleSettingsFile>;
   for (const role of ALL_AGENT_ROLES) {
     roles[role] =
@@ -150,7 +150,7 @@ export function defaultSftddConfig(): SftddConfigFile {
             // champion walk's auto-apply is the single writer of applied winners.
             { model: RECOMMENDED_MODELS[role] };
   }
-  const base: SftddConfigFile = {
+  const base: ConsortConfigFile = {
     version: 1,
     roles,
     build: { loopGranularity: "story", batchCap: 3, sessionScope: "story" },
@@ -162,7 +162,7 @@ export function defaultSftddConfig(): SftddConfigFile {
   // the "one source of truth / no source regex" rule holds); it is inlined into dist at
   // build time. A winner keyed per-turn/step (e.g. spec-author.breakdown -> haiku) is
   // merged element-wise so it augments the base rather than replacing a whole map.
-  return mergeOptimizedDefaults(base, OPTIMIZED_DEFAULTS as Partial<SftddConfigFile>);
+  return mergeOptimizedDefaults(base, OPTIMIZED_DEFAULTS as Partial<ConsortConfigFile>);
 }
 
 /** Element-wise deep-merge of the optimized-defaults overlay onto the base config.
@@ -186,7 +186,7 @@ function mergeOptimizedDefaults<T>(base: T, overlay: unknown): T {
 }
 
 /** Write a consort-config.json (scaffold/init). Does not overwrite unless force. */
-export function writeSftddConfig(projectDir: string, config: SftddConfigFile, opts?: { force?: boolean }): boolean {
+export function writeConsortConfig(projectDir: string, config: ConsortConfigFile, opts?: { force?: boolean }): boolean {
   const f = join(projectDir, CONSORT_CONFIG_REL);
   if (existsSync(f) && !opts?.force) return false;
   mkdirSync(dirname(f), { recursive: true });
@@ -213,10 +213,10 @@ export function applyProjectOverrides(
   over: { deployTarget?: string; sizing?: boolean },
 ): void {
   if (over.deployTarget === undefined && over.sizing === undefined) return;
-  const cfg = loadSftddConfig(projectDir) ?? defaultSftddConfig();
+  const cfg = loadConsortConfig(projectDir) ?? defaultConsortConfig();
   cfg.project = cfg.project ?? {};
   if (over.deployTarget !== undefined) cfg.project.deployTarget = over.deployTarget;
   cfg.plan = cfg.plan ?? {};
   if (over.sizing !== undefined) cfg.plan.sizing = over.sizing;
-  writeSftddConfig(projectDir, cfg, { force: true });
+  writeConsortConfig(projectDir, cfg, { force: true });
 }

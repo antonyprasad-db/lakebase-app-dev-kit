@@ -62,8 +62,8 @@ afterEach(() => {
 });
 
 /** Assert no gate record was bound to the fabricated placeholder hash. */
-function assertNoFabricatedHashes(sftddDir: string): void {
-  const state = readGates(FEATURE_ID, { sftddDir });
+function assertNoFabricatedHashes(consortDir: string): void {
+  const state = readGates(FEATURE_ID, { consortDir });
   for (const gate of Object.values(state.gates)) {
     for (const h of Object.values(gate.artifact_hashes ?? {})) {
       expect(h).not.toBe(PLACEHOLDER_HASH);
@@ -76,7 +76,7 @@ describe("drainGatesAsHumanProxy: never fabricates (Layer 1)", () => {
     writeFileSync(join(fdir, "feature-spec.json"), FEATURE_JSON);
     writeFileSync(join(fdir, "feature-spec.md"), FEATURE_MD);
 
-    const result = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd });
+    const result = drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd });
 
     expect(result.approved).toEqual(["spec"]);
     const skippedGates = result.skipped.map((s) => s.gate).sort();
@@ -87,7 +87,7 @@ describe("drainGatesAsHumanProxy: never fabricates (Layer 1)", () => {
     expect(result.skipped.find((s) => s.gate === "promote")?.reason).toMatch(/promote_ref/);
     expect(result.skipped.find((s) => s.gate === "deploy")?.reason).toMatch(/deploy-evidence/);
 
-    const state = readGates(FEATURE_ID, { sftddDir: tdd });
+    const state = readGates(FEATURE_ID, { consortDir: tdd });
     expect(state.gates.spec.status).toBe("approved");
     expect(state.gates.plan.status).toBe("open");
     expect(state.gates.test_list.status).toBe("open");
@@ -97,7 +97,7 @@ describe("drainGatesAsHumanProxy: never fabricates (Layer 1)", () => {
   });
 
   it("does NOT bind any gate to the placeholder hash even when all artifacts are absent", () => {
-    const result = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd });
+    const result = drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd });
     expect(result.approved).toEqual([]);
     // All five gates skip with no artifacts (spec/plan/test_list/promote/deploy).
     expect(result.skipped).toHaveLength(5);
@@ -106,7 +106,7 @@ describe("drainGatesAsHumanProxy: never fabricates (Layer 1)", () => {
 
   it("skips spec when feature-spec.md is absent (structured draft spec incomplete)", () => {
     writeFileSync(join(fdir, "feature-spec.json"), FEATURE_JSON);
-    const result = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd });
+    const result = drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd });
     expect(result.approved).not.toContain("spec");
     expect(result.skipped.find((s) => s.gate === "spec")?.reason).toMatch(/feature-spec\.md/);
     assertNoFabricatedHashes(tdd);
@@ -118,12 +118,12 @@ describe("drainGatesAsHumanProxy: hard-blocks non-conformant artifacts (Layer 2)
     writeFileSync(join(fdir, "feature-spec.json"), "{}"); // missing required fields
     writeFileSync(join(fdir, "feature-spec.md"), FEATURE_MD);
 
-    const result = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd });
+    const result = drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd });
 
     expect(result.approved).not.toContain("spec");
     const reason = result.skipped.find((s) => s.gate === "spec")?.reason ?? "";
     expect(reason).toMatch(/conformance/i);
-    expect(readGates(FEATURE_ID, { sftddDir: tdd }).gates.spec.status).toBe("open");
+    expect(readGates(FEATURE_ID, { consortDir: tdd }).gates.spec.status).toBe("open");
     assertNoFabricatedHashes(tdd);
   });
 
@@ -132,7 +132,7 @@ describe("drainGatesAsHumanProxy: hard-blocks non-conformant artifacts (Layer 2)
     writeFileSync(join(fdir, "feature-spec.json"), FEATURE_JSON);
     writeFileSync(join(fdir, "feature-spec.md"), incomplete);
 
-    const result = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd });
+    const result = drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd });
 
     expect(result.approved).not.toContain("spec");
     expect(result.skipped.find((s) => s.gate === "spec")?.reason).toMatch(/conformance|open question/i);
@@ -158,17 +158,17 @@ describe("drainGatesAsHumanProxy: hard-blocks non-conformant artifacts (Layer 2)
 
     // slug id violates ac.schema's ^AC[0-9]+ pattern -> spec gate skipped
     writeFileSync(join(acsDir, "create-form-displays.json"), ac("create-form-displays"));
-    const blocked = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd });
+    const blocked = drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd });
     expect(blocked.approved).not.toContain("spec");
     const reason = blocked.skipped.find((s) => s.gate === "spec")?.reason ?? "";
     expect(reason).toMatch(/AC conformance/i);
-    expect(readGates(FEATURE_ID, { sftddDir: tdd }).gates.spec.status).toBe("open");
+    expect(readGates(FEATURE_ID, { consortDir: tdd }).gates.spec.status).toBe("open");
     assertNoFabricatedHashes(tdd);
 
     // rename to a conformant AC<n> id -> spec gate approves
     rmSync(join(acsDir, "create-form-displays.json"));
     writeFileSync(join(acsDir, "AC1-create-form-displays.json"), ac("AC1-create-form-displays"));
-    const ok = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd });
+    const ok = drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd });
     expect(ok.approved).toContain("spec");
   });
 
@@ -211,10 +211,10 @@ describe("drainGatesAsHumanProxy: hard-blocks non-conformant artifacts (Layer 2)
         ],
       }),
     );
-    const blocked = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd });
+    const blocked = drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd });
     expect(blocked.approved).not.toContain("spec");
     expect(blocked.skipped.find((s) => s.gate === "spec")?.reason ?? "").toMatch(/architecture conventions failed.*service/i);
-    expect(readGates(FEATURE_ID, { sftddDir: tdd }).gates.spec.status).toBe("open");
+    expect(readGates(FEATURE_ID, { consortDir: tdd }).gates.spec.status).toBe("open");
 
     // Conform the layout -> spec gate approves.
     writeFileSync(
@@ -231,7 +231,7 @@ describe("drainGatesAsHumanProxy: hard-blocks non-conformant artifacts (Layer 2)
     // The DBA's db-design.json is required at the spec gate for a service_backed
     // feature (>=1 table; no invariants to realize here).
     writeFileSync(join(fdir, "db-design.json"), JSON.stringify({ feature_id: FEATURE_ID, tables: [{ name: "bugs", columns: [{ name: "id", type: "uuid" }] }], realizes_invariants: [] }));
-    const ok = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd });
+    const ok = drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd });
     expect(ok.approved).toContain("spec");
   });
 
@@ -249,7 +249,7 @@ describe("drainGatesAsHumanProxy: hard-blocks non-conformant artifacts (Layer 2)
       join(fdir, "architecture.json"),
       JSON.stringify({ feature_id: "F1-initial-domain", service_backed: false, nfrs: [{ category: "operability", requirement: "bugs survive every schema migration", hil_status: "accepted" }] }),
     );
-    const blocked = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd });
+    const blocked = drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd });
     expect(blocked.approved).not.toContain("spec");
     expect(blocked.skipped.find((s) => s.gate === "spec")?.reason ?? "").toMatch(/service_backed declaration failed.*persistence evidence/i);
 
@@ -269,7 +269,7 @@ describe("drainGatesAsHumanProxy: hard-blocks non-conformant artifacts (Layer 2)
       }),
     );
     writeFileSync(join(fdir, "db-design.json"), JSON.stringify({ feature_id: FEATURE_ID, tables: [{ name: "bugs", columns: [{ name: "id", type: "uuid" }] }], realizes_invariants: ["PI1-bug-migration-reversible"] }));
-    expect(drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd }).approved).toContain("spec");
+    expect(drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd }).approved).toContain("spec");
   });
 
   it("hard-blocks spec when a service_backed architecture.json declares no layers (checkLayeringDeclared, previously unwired)", () => {
@@ -277,7 +277,7 @@ describe("drainGatesAsHumanProxy: hard-blocks non-conformant artifacts (Layer 2)
     writeFileSync(join(fdir, "feature-spec.md"), FEATURE_MD);
     // service_backed but NO layers -> layering-declaration hard-block.
     writeFileSync(join(fdir, "architecture.json"), JSON.stringify({ service_backed: true, layers: [] }));
-    const blocked = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd });
+    const blocked = drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd });
     expect(blocked.approved).not.toContain("spec");
     expect(blocked.skipped.find((s) => s.gate === "spec")?.reason ?? "").toMatch(/layering declaration failed/i);
 
@@ -287,7 +287,7 @@ describe("drainGatesAsHumanProxy: hard-blocks non-conformant artifacts (Layer 2)
       JSON.stringify({ service_backed: true, layers: [{ role: "boundary", module: "app/routes" }, { role: "service", module: "app/services" }, { role: "repository", module: "app/repositories" }] }),
     );
     writeFileSync(join(fdir, "db-design.json"), JSON.stringify({ feature_id: FEATURE_ID, tables: [{ name: "bugs", columns: [{ name: "id", type: "uuid" }] }], realizes_invariants: [] }));
-    expect(drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd }).approved).toContain("spec");
+    expect(drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd }).approved).toContain("spec");
   });
 
   it("hard-blocks spec when the DBA's db-design.json is missing or leaves an architect invariant unrealized (dbDesignReason)", () => {
@@ -303,19 +303,19 @@ describe("drainGatesAsHumanProxy: hard-blocks non-conformant artifacts (Layer 2)
     });
     writeFileSync(join(fdir, "architecture.json"), archJson);
     // No db-design.json yet -> the DBA has not run -> spec gate blocks.
-    const blocked = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd });
+    const blocked = drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd });
     expect(blocked.approved).not.toContain("spec");
     expect(blocked.skipped.find((s) => s.gate === "spec")?.reason ?? "").toMatch(/db-design failed.*no db-design\.json/i);
 
     // db-design.json present but does NOT realize the invariant -> still blocked.
     writeFileSync(join(fdir, "db-design.json"), JSON.stringify({ feature_id: FEATURE_ID, tables: [{ name: "bugs", columns: [{ name: "id", type: "uuid" }] }], realizes_invariants: [] }));
-    const stillBlocked = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd });
+    const stillBlocked = drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd });
     expect(stillBlocked.approved).not.toContain("spec");
     expect(stillBlocked.skipped.find((s) => s.gate === "spec")?.reason ?? "").toMatch(/db-design failed.*PI1-bug-title-not-null/i);
 
     // Realize it -> spec approves.
     writeFileSync(join(fdir, "db-design.json"), JSON.stringify({ feature_id: FEATURE_ID, tables: [{ name: "bugs", columns: [{ name: "id", type: "uuid" }, { name: "title", type: "text", nullable: false }] }], realizes_invariants: ["PI1-bug-title-not-null"] }));
-    expect(drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd }).approved).toContain("spec");
+    expect(drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd }).approved).toContain("spec");
   });
 
   it("hard-blocks spec when a Required nfrs.md item is uncovered by architecture.json (checkNfrCoverage, previously unwired)", () => {
@@ -324,7 +324,7 @@ describe("drainGatesAsHumanProxy: hard-blocks non-conformant artifacts (Layer 2)
     writeFileSync(join(tdd, "nfrs.md"), "# NFRs\n## Required\n- R1: queries respond < 200ms\n");
     // architecture.json covers NOTHING -> R1 uncovered -> hard-block.
     writeFileSync(join(fdir, "architecture.json"), JSON.stringify({ nfrs: [] }));
-    const blocked = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd });
+    const blocked = drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd });
     expect(blocked.approved).not.toContain("spec");
     expect(blocked.skipped.find((s) => s.gate === "spec")?.reason ?? "").toMatch(/NFR coverage failed.*R1/i);
 
@@ -333,7 +333,7 @@ describe("drainGatesAsHumanProxy: hard-blocks non-conformant artifacts (Layer 2)
       join(fdir, "architecture.json"),
       JSON.stringify({ nfrs: [{ category: "performance", requirement: "p95 < 200ms", brief_ref: "R1", hil_status: "accepted" }] }),
     );
-    expect(drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd }).approved).toContain("spec");
+    expect(drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd }).approved).toContain("spec");
   });
 
   it("hard-blocks test_list when a service_backed feature has no fitness item (checkFitnessCoverage, previously unwired)", () => {
@@ -345,7 +345,7 @@ describe("drainGatesAsHumanProxy: hard-blocks non-conformant artifacts (Layer 2)
       join(fdir, "test-list.json"),
       JSON.stringify({ feature_id: "F1-initial-domain", items: [{ id: "T1", description: "files a bug", ac_id: "AC1", status: "pending", kind: "behavior" }] }),
     );
-    const blocked = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd, onlyGate: "test_list" });
+    const blocked = drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd, onlyGate: "test_list" });
     expect(blocked.approved).not.toContain("test_list");
     expect(blocked.skipped.find((s) => s.gate === "test_list")?.reason ?? "").toMatch(/fitness coverage failed/i);
 
@@ -354,7 +354,7 @@ describe("drainGatesAsHumanProxy: hard-blocks non-conformant artifacts (Layer 2)
       join(fdir, "test-list.json"),
       JSON.stringify({ feature_id: "F1-initial-domain", items: [{ id: "T1", description: "files a bug", ac_id: "AC1", status: "pending", kind: "behavior" }, { id: "T2", description: "boundary does not touch the DB session", ac_id: "AC1", status: "pending", kind: "fitness" }] }),
     );
-    const stillBlocked = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd, onlyGate: "test_list" });
+    const stillBlocked = drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd, onlyGate: "test_list" });
     expect(stillBlocked.approved).not.toContain("test_list");
     expect(stillBlocked.skipped.find((s) => s.gate === "test_list")?.reason ?? "").toMatch(/persistence coverage failed/i);
 
@@ -363,7 +363,7 @@ describe("drainGatesAsHumanProxy: hard-blocks non-conformant artifacts (Layer 2)
       join(fdir, "test-list.json"),
       JSON.stringify({ feature_id: "F1-initial-domain", items: [{ id: "T1", description: "files a bug", ac_id: "AC1", status: "pending", kind: "behavior" }, { id: "T2", description: "boundary does not touch the DB session", ac_id: "AC1", status: "pending", kind: "fitness" }, { id: "T3", description: "inserting a bug with a null title is rejected by the branch DB", ac_id: "AC1", status: "pending", kind: "fitness", invariant_id: "PI1-bug-title-not-null" }] }),
     );
-    expect(drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd, onlyGate: "test_list" }).approved).toContain("test_list");
+    expect(drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd, onlyGate: "test_list" }).approved).toContain("test_list");
   });
 
   it("approves test_list only with a schema-valid test-list.json", () => {
@@ -371,14 +371,14 @@ describe("drainGatesAsHumanProxy: hard-blocks non-conformant artifacts (Layer 2)
     writeFileSync(join(fdir, "feature-spec.md"), FEATURE_MD);
     // malformed test list (empty items violates minItems) -> skipped
     writeFileSync(join(fdir, "test-list.json"), JSON.stringify({ feature_id: "F1", items: [] }));
-    const bad = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd });
+    const bad = drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd });
     expect(bad.approved).not.toContain("test_list");
 
     // valid test list -> approved with the real hash
     writeFileSync(join(fdir, "test-list.json"), TEST_LIST_JSON);
-    const good = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd });
+    const good = drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd });
     expect(good.approved).toContain("test_list");
-    const state = readGates(FEATURE_ID, { sftddDir: tdd });
+    const state = readGates(FEATURE_ID, { consortDir: tdd });
     expect(state.gates.test_list.artifact_hashes?.["test-list.json"]).toBe(hashArtifact(TEST_LIST_JSON));
     assertNoFabricatedHashes(tdd);
   });
@@ -386,9 +386,9 @@ describe("drainGatesAsHumanProxy: hard-blocks non-conformant artifacts (Layer 2)
   it("records the HITL decision: product-owner gate.approved when it validates + approves", () => {
     writeFileSync(join(fdir, "feature-spec.json"), FEATURE_JSON);
     writeFileSync(join(fdir, "feature-spec.md"), FEATURE_MD);
-    drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd });
+    drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd });
 
-    const log = readAgentLog({ sftddDir: tdd, role: "product-owner" });
+    const log = readAgentLog({ consortDir: tdd, role: "product-owner" });
     const approved = log.find((e) => e.event === "gate.approved" && (e.metadata as { gate?: string })?.gate === "spec");
     expect(approved).toBeDefined();
     expect((approved?.metadata as { validated?: boolean })?.validated).toBe(true);
@@ -398,9 +398,9 @@ describe("drainGatesAsHumanProxy: hard-blocks non-conformant artifacts (Layer 2)
   it("records the HITL decision: product-owner gate.rejected (warn) when an artifact is non-conformant", () => {
     writeFileSync(join(fdir, "feature-spec.json"), "{}"); // schema-invalid
     writeFileSync(join(fdir, "feature-spec.md"), FEATURE_MD);
-    drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd });
+    drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd });
 
-    const refused = readAgentLog({ sftddDir: tdd, role: "product-owner" }).find(
+    const refused = readAgentLog({ consortDir: tdd, role: "product-owner" }).find(
       (e) => e.event === "gate.rejected" && (e.metadata as { gate?: string })?.gate === "spec",
     );
     expect(refused).toBeDefined();
@@ -410,13 +410,13 @@ describe("drainGatesAsHumanProxy: hard-blocks non-conformant artifacts (Layer 2)
   it("approves promote only when a real promote_ref is supplied", () => {
     writeFileSync(join(fdir, "feature-spec.json"), FEATURE_JSON);
     writeFileSync(join(fdir, "feature-spec.md"), FEATURE_MD);
-    const noRef = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd });
+    const noRef = drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd });
     expect(noRef.approved).not.toContain("promote");
 
     const ref = "exp-1:br-bug-pg";
-    const withRef = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd, promoteRef: ref });
+    const withRef = drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd, promoteRef: ref });
     expect(withRef.approved).toContain("promote");
-    const state = readGates(FEATURE_ID, { sftddDir: tdd });
+    const state = readGates(FEATURE_ID, { consortDir: tdd });
     expect(state.gates.promote.artifact_hashes?.promote_ref).toBe(hashArtifact(ref));
     assertNoFabricatedHashes(tdd);
   });
@@ -430,12 +430,12 @@ describe("supplyArtifact: Human Proxy supplies recorded intake artifacts (stage-
     const to = join(tdd, "product-overview.md");
     writeFileSync(from, PRODUCT_OVERVIEW);
 
-    const result = supplyArtifact({ from, to, artifact: "product-overview.md", sftddDir: tdd });
+    const result = supplyArtifact({ from, to, artifact: "product-overview.md", consortDir: tdd });
 
     expect(result.ok).toBe(true);
     expect(existsSync(to)).toBe(true);
     expect(readFileSync(to, "utf8")).toBe(PRODUCT_OVERVIEW);
-    const supplied = readAgentLog({ sftddDir: tdd, role: "product-owner" }).find((e) => e.event === "intake.supplied");
+    const supplied = readAgentLog({ consortDir: tdd, role: "product-owner" }).find((e) => e.event === "intake.supplied");
     expect(supplied).toBeDefined();
     expect((supplied?.metadata as { validated?: boolean })?.validated).toBe(true);
   });
@@ -445,12 +445,12 @@ describe("supplyArtifact: Human Proxy supplies recorded intake artifacts (stage-
     const to = join(tdd, "nfrs.md");
     writeFileSync(from, "# NFRs\n\njust prose, no Required/Preferences/Out of bounds sections\n");
 
-    const result = supplyArtifact({ from, to, artifact: "nfrs.md", sftddDir: tdd });
+    const result = supplyArtifact({ from, to, artifact: "nfrs.md", consortDir: tdd });
 
     expect(result.ok).toBe(false);
     expect(result.reason).toMatch(/conformance/i);
     expect(existsSync(to)).toBe(false);
-    const refused = readAgentLog({ sftddDir: tdd, role: "product-owner" }).find((e) => e.event === "intake.refused");
+    const refused = readAgentLog({ consortDir: tdd, role: "product-owner" }).find((e) => e.event === "intake.refused");
     expect(refused?.level).toBe("warn");
   });
 
@@ -459,7 +459,7 @@ describe("supplyArtifact: Human Proxy supplies recorded intake artifacts (stage-
       from: join(tdd, "does-not-exist.md"),
       to: join(tdd, "product-overview.md"),
       artifact: "product-overview.md",
-      sftddDir: tdd,
+      consortDir: tdd,
     });
     expect(result.ok).toBe(false);
     expect(result.reason).toMatch(/not found/i);
@@ -485,31 +485,31 @@ describe("drainGatesAsHumanProxy: deploy gate teeth", () => {
 
   it("approves deploy when the evidence is reachable AND verify.passed", () => {
     writeEvidence();
-    const result = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd, onlyGate: "deploy" });
+    const result = drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd, onlyGate: "deploy" });
     expect(result.approved).toEqual(["deploy"]);
-    expect(readGates(FEATURE_ID, { sftddDir: tdd }).gates.deploy.status).toBe("approved");
+    expect(readGates(FEATURE_ID, { consortDir: tdd }).gates.deploy.status).toBe("approved");
   });
 
   it("skips deploy when the evidence is absent", () => {
-    const result = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd, onlyGate: "deploy" });
+    const result = drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd, onlyGate: "deploy" });
     expect(result.approved).toEqual([]);
     expect(result.skipped.find((s) => s.gate === "deploy")?.reason).toMatch(/not found/);
   });
 
   it("REFUSES deploy when the app was not reachable", () => {
     writeEvidence({ reachable: false });
-    const result = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd, onlyGate: "deploy" });
+    const result = drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd, onlyGate: "deploy" });
     expect(result.approved).toEqual([]);
     expect(result.skipped.find((s) => s.gate === "deploy")?.reason).toMatch(/reachable=false/);
-    expect(readGates(FEATURE_ID, { sftddDir: tdd }).gates.deploy.status).toBe("open");
+    expect(readGates(FEATURE_ID, { consortDir: tdd }).gates.deploy.status).toBe("open");
   });
 
   it("REFUSES deploy when the feature-verify did not pass", () => {
     writeEvidence({ verify: { passed: false, summary: "verify FAILED" } });
-    const result = drainGatesAsHumanProxy({ featureId: FEATURE_ID, sftddDir: tdd, onlyGate: "deploy" });
+    const result = drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd, onlyGate: "deploy" });
     expect(result.approved).toEqual([]);
     expect(result.skipped.find((s) => s.gate === "deploy")?.reason).toMatch(/verify\.passed=false/);
-    expect(readGates(FEATURE_ID, { sftddDir: tdd }).gates.deploy.status).toBe("open");
+    expect(readGates(FEATURE_ID, { consortDir: tdd }).gates.deploy.status).toBe("open");
   });
 });
 
@@ -524,7 +524,7 @@ describe("Human Proxy supplyRequests (the PO's artifacts, given when the state m
     const recorded = join(tdd, "recorded-v1.md");
     writeFileSync(recorded, CONFORMANT_REQUEST);
 
-    const result = supplyRequests({ sftddDir: tdd, pairs: [{ featureId: FEATURE_ID, from: recorded }] });
+    const result = supplyRequests({ consortDir: tdd, pairs: [{ featureId: FEATURE_ID, from: recorded }] });
 
     expect(result.supplied).toEqual([FEATURE_ID]);
     expect(result.skipped).toEqual([]);
@@ -533,7 +533,7 @@ describe("Human Proxy supplyRequests (the PO's artifacts, given when the state m
     expect(existsSync(target)).toBe(true);
     expect(readFileSync(target, "utf8")).toBe(CONFORMANT_REQUEST);
     // The interaction is logged (gives, then logs what it gave).
-    const supplied = readAgentLog({ sftddDir: tdd }).filter((e) => e.event === "intake.supplied");
+    const supplied = readAgentLog({ consortDir: tdd }).filter((e) => e.event === "intake.supplied");
     expect(supplied.some((e) => e.metadata?.artifact === "feature-request.md")).toBe(true);
   });
 
@@ -543,7 +543,7 @@ describe("Human Proxy supplyRequests (the PO's artifacts, given when the state m
     const prev = process.env.LAKEBASE_SFTDD_SPRINT_REQUESTS;
     process.env.LAKEBASE_SFTDD_SPRINT_REQUESTS = `${FEATURE_ID}\t${recorded}\n`;
     try {
-      const result = supplyRequests({ sftddDir: tdd });
+      const result = supplyRequests({ consortDir: tdd });
       expect(result.supplied).toEqual([FEATURE_ID]);
       expect(existsSync(join(fdir, "feature-request.md"))).toBe(true);
     } finally {
@@ -556,7 +556,7 @@ describe("Human Proxy supplyRequests (the PO's artifacts, given when the state m
     const prev = process.env.LAKEBASE_SFTDD_SPRINT_REQUESTS;
     delete process.env.LAKEBASE_SFTDD_SPRINT_REQUESTS;
     try {
-      expect(supplyRequests({ sftddDir: tdd })).toEqual({ supplied: [], skipped: [] });
+      expect(supplyRequests({ consortDir: tdd })).toEqual({ supplied: [], skipped: [] });
     } finally {
       if (prev !== undefined) process.env.LAKEBASE_SFTDD_SPRINT_REQUESTS = prev;
     }
@@ -571,7 +571,7 @@ describe("Human Proxy supplyProposals (deterministic propose from recorded reque
     writeFileSync(r2, "# Split the combined tracking code into batch + serial\n\nLater iteration splits the fields.\n");
 
     const res = supplyProposals({
-      sftddDir: tdd,
+      consortDir: tdd,
       uiTrack: true,
       pairs: [
         { featureId: "F1-stock-visibility", from: r1 },
@@ -591,14 +591,14 @@ describe("Human Proxy supplyProposals (deterministic propose from recorded reque
   });
 
   it("writes nothing when there are no recorded requests (the live LLM propose runs instead)", () => {
-    const res = supplyProposals({ sftddDir: tdd, pairs: [] });
+    const res = supplyProposals({ consortDir: tdd, pairs: [] });
     expect(res.written).toBe(false);
     expect(existsSync(featureProposalsMd(tdd))).toBe(false);
   });
 
   it("skips (does not place) a missing or non-conformant recording", () => {
     const missing = join(tdd, "nope.md");
-    const result = supplyRequests({ sftddDir: tdd, pairs: [{ featureId: FEATURE_ID, from: missing }] });
+    const result = supplyRequests({ consortDir: tdd, pairs: [{ featureId: FEATURE_ID, from: missing }] });
     expect(result.supplied).toEqual([]);
     expect(result.skipped[0]?.featureId).toBe(FEATURE_ID);
     expect(existsSync(join(fdir, "feature-request.md"))).toBe(false);

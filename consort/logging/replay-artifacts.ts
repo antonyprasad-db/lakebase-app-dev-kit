@@ -40,7 +40,7 @@ export interface ReplayArgs {
   /** The recorded-artifacts corpus root (LAKEBASE_SFTDD_REPLAY_DIR). */
   replayDir: string;
   /** The target project .tdd dir. */
-  sftddDir: string;
+  consortDir: string;
   featureId: string;
 }
 
@@ -84,14 +84,14 @@ function cpDir(srcDir: string, dstDir: string): boolean {
  * recording) so the caller falls back to spawning the real agent.
  */
 export function replayDesignTurn(args: ReplayArgs): boolean {
-  const { turn, replayDir, sftddDir, featureId } = args;
+  const { turn, replayDir, consortDir, featureId } = args;
   const cf = join(featuresDir(replayDir), featureId); // corpus feature dir
-  const tf = join(featuresDir(sftddDir), featureId); // target feature dir
+  const tf = join(featuresDir(consortDir), featureId); // target feature dir
 
   switch (turn.role) {
     case "spec-author": {
       if (turn.mode === "propose") {
-        return cp(join(replayDir, "planning", "feature-proposals.md"), join(sftddDir, "planning", "feature-proposals.md"));
+        return cp(join(replayDir, "planning", "feature-proposals.md"), join(consortDir, "planning", "feature-proposals.md"));
       }
       if (turn.mode === "breakdown") {
         let ok = cp(join(cf, "feature-spec.json"), join(tf, "feature-spec.json"));
@@ -146,9 +146,9 @@ export function replayDesignTurn(args: ReplayArgs): boolean {
       return ok;
     }
     case "ux-designer": {
-      let ok = cp(join(replayDir, "design", "design-guide.json"), join(sftddDir, "design", "design-guide.json"));
-      cp(join(replayDir, "design", "design-guide.md"), join(sftddDir, "design", "design-guide.md"));
-      cp(join(replayDir, "design", "ia.md"), join(sftddDir, "design", "ia.md"));
+      let ok = cp(join(replayDir, "design", "design-guide.json"), join(consortDir, "design", "design-guide.json"));
+      cp(join(replayDir, "design", "design-guide.md"), join(consortDir, "design", "design-guide.md"));
+      cp(join(replayDir, "design", "ia.md"), join(consortDir, "design", "ia.md"));
       return ok;
     }
     default:
@@ -167,13 +167,13 @@ export function replayDesignTurn(args: ReplayArgs): boolean {
  */
 export function restoreReflectVerdict(args: {
   replayDir: string;
-  sftddDir: string;
+  consortDir: string;
   featureId: string;
   story: string;
 }): boolean {
-  const { replayDir, sftddDir, featureId, story } = args;
+  const { replayDir, consortDir, featureId, story } = args;
   return cp(
     join(featuresDir(replayDir), featureId, "stories", story, "reflect-verdict.json"),
-    join(featuresDir(sftddDir), featureId, "stories", story, "reflect-verdict.json"),
+    join(featuresDir(consortDir), featureId, "stories", story, "reflect-verdict.json"),
   );
 }

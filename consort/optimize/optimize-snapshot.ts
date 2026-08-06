@@ -44,10 +44,10 @@ export interface DesignArtifactRef {
  *  Called on a passing design trial BEFORE the between-trial restore wipes
  *  .sftdd, so every candidate's real output persists for audit + fallback +
  *  a reusable corpus. Returns a plain path ref (serializable into result.json). */
-export function captureDesignArtifacts(args: { sftddDir: string; destDir: string }): DesignArtifactRef {
-  const { sftddDir, destDir } = args;
+export function captureDesignArtifacts(args: { consortDir: string; destDir: string }): DesignArtifactRef {
+  const { consortDir, destDir } = args;
   rmSync(destDir, { recursive: true, force: true });
-  cpSync(sftddDir, destDir, { recursive: true });
+  cpSync(consortDir, destDir, { recursive: true });
   return { path: destDir };
 }
 
@@ -56,23 +56,23 @@ export function captureDesignArtifacts(args: { sftddDir: string; destDir: string
  *  winner — or a structurally-complete runner-up fallback — as the live artifact
  *  the next role consumes, with NO re-run. Does NOT delete the capture (it stays
  *  auditable / reusable). Idempotent. */
-export function restoreDesignArtifacts(args: { sftddDir: string; ref: DesignArtifactRef }): void {
-  const { sftddDir, ref } = args;
-  rmSync(sftddDir, { recursive: true, force: true });
-  cpSync(ref.path, sftddDir, { recursive: true });
+export function restoreDesignArtifacts(args: { consortDir: string; ref: DesignArtifactRef }): void {
+  const { consortDir, ref } = args;
+  rmSync(consortDir, { recursive: true, force: true });
+  cpSync(ref.path, consortDir, { recursive: true });
 }
 
 /** Snapshot the .sftdd tree so a design candidate can be undone. Copies to a
  *  sibling temp dir; restore removes the live tree and copies the backup back. */
-export function snapshotDesign(args: { sftddDir: string }): DesignSnapshot {
-  const { sftddDir } = args;
+export function snapshotDesign(args: { consortDir: string }): DesignSnapshot {
+  const { consortDir } = args;
   const backup = mkdtempSync(join(tmpdir(), "optimize-design-snap-"));
-  const backupTree = join(backup, basename(sftddDir));
-  cpSync(sftddDir, backupTree, { recursive: true });
+  const backupTree = join(backup, basename(consortDir));
+  cpSync(consortDir, backupTree, { recursive: true });
   return {
     restore() {
-      rmSync(sftddDir, { recursive: true, force: true });
-      cpSync(backupTree, sftddDir, { recursive: true });
+      rmSync(consortDir, { recursive: true, force: true });
+      cpSync(backupTree, consortDir, { recursive: true });
     },
     dispose() {
       rmSync(backup, { recursive: true, force: true });
@@ -105,7 +105,7 @@ export interface BuildSnapshot {
 /** Snapshot a BUILD turn: capture the pre-turn SHA now; restore resets to it and
  *  conditionally re-forks. */
 export async function snapshotBuild(
-  args: { projectDir: string; sftddDir: string; story: string },
+  args: { projectDir: string; consortDir: string; story: string },
   deps: BuildSnapshotDeps,
 ): Promise<BuildSnapshot> {
   const sha = await deps.captureSha();
@@ -131,8 +131,8 @@ export function turnMutatesDb(buildMode: string | undefined, role: string): bool
   return buildMode === undefined && role === "driver";
 }
 
-/** Resolve the project root from a sftddDir (the .sftdd's parent), the convention
+/** Resolve the project root from a consortDir (the .sftdd's parent), the convention
  *  the drive uses. Exposed so the harness + snapshot agree on the root. */
-export function projectDirOf(sftddDir: string): string {
-  return dirname(sftddDir);
+export function projectDirOf(consortDir: string): string {
+  return dirname(consortDir);
 }

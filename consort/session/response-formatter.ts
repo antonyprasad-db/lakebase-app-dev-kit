@@ -35,7 +35,7 @@ export interface FormatResult {
 
 export interface FormatArgs {
   role: string;
-  sftddDir: string;
+  consortDir: string;
   featureId: string;
   /** Required for the per-story roles (spec-author / architect-reviewer / test-strategist). */
   story?: string;
@@ -65,8 +65,8 @@ function needStory(role: string, story: string | undefined, violations: FormatVi
  *  and every story stub after the first records its independence determination
  *  (checkStoryIndependence). Run when the spec-author formatter is invoked with
  *  no --story (the feature-level breakdown turn). */
-function checkSpecAuthorBreakdown(sftddDir: string, featureId: string, v: FormatViolation[]): void {
-  const specPath = featureSpecJson(sftddDir, featureId);
+function checkSpecAuthorBreakdown(consortDir: string, featureId: string, v: FormatViolation[]): void {
+  const specPath = featureSpecJson(consortDir, featureId);
   if (!existsSync(specPath)) {
     v.push({ artifact: "feature-spec.json", problem: "breakdown deliverable missing (write feature-spec.json with a non-empty stories[] array of the story ids)" });
     return;
@@ -82,7 +82,7 @@ function checkSpecAuthorBreakdown(sftddDir: string, featureId: string, v: Format
   }
   // Story independence across the breakdown's stubs: a later story missing its
   // determination fails HERE (self-correct at breakdown) rather than at the gate.
-  const sdir = storiesDir(sftddDir, featureId);
+  const sdir = storiesDir(consortDir, featureId);
   if (!existsSync(sdir)) return;
   const storyJsons: Array<{ name: string; content: string }> = [];
   for (const s of readdirSync(sdir)) {
@@ -101,18 +101,18 @@ function checkSpecAuthorBreakdown(sftddDir: string, featureId: string, v: Format
 }
 
 function checkSpecAuthor(args: FormatArgs, v: FormatViolation[]): void {
-  const { sftddDir, featureId, story } = args;
+  const { consortDir, featureId, story } = args;
   // Breakdown mode (no story): the spec-author's feature-level self-check. The
   // breakdown deliverable is feature-spec.json with a non-empty stories[], and
   // every story after the first must record its independence determination.
   // Enforcing it HERE (the check the spec-author runs before returning) makes a
   // missing independence self-correct at breakdown, not slip to the ship gate.
   if (story === undefined) {
-    checkSpecAuthorBreakdown(sftddDir, featureId, v);
+    checkSpecAuthorBreakdown(consortDir, featureId, v);
     return;
   }
-  const dir = acsDir(sftddDir, featureId, story);
-  const ids = storyAcIds(sftddDir, featureId, story);
+  const dir = acsDir(consortDir, featureId, story);
+  const ids = storyAcIds(consortDir, featureId, story);
   if (ids.length === 0) {
     v.push({ artifact: `stories/${story}/acs`, problem: "no acceptance criteria written (expected >=1 AC<n>.json)" });
     return;
@@ -158,15 +158,15 @@ function checkSpecAuthor(args: FormatArgs, v: FormatViolation[]): void {
 
 /** architect-reviewer (per story): every AC has a valid layer annotation. */
 function checkArchitect(args: FormatArgs, v: FormatViolation[]): void {
-  const { sftddDir, featureId, story } = args;
+  const { consortDir, featureId, story } = args;
   if (!needStory("architect-reviewer", story, v)) return;
-  const ids = storyAcIds(sftddDir, featureId, story);
+  const ids = storyAcIds(consortDir, featureId, story);
   if (ids.length === 0) {
     v.push({ artifact: `stories/${story}/acs`, problem: "no ACs to annotate (spec-author output missing)" });
     return;
   }
   for (const ac of ids) {
-    if (readAcLayer(sftddDir, featureId, ac) === undefined) {
+    if (readAcLayer(consortDir, featureId, ac) === undefined) {
       v.push({ artifact: `stories/${story}/acs/${ac}.json`, problem: "missing/invalid `layer` (expected API | E2E | Infra)" });
     }
     // The GATE requires a non-empty `architectural_notes` on EVERY AC (the
@@ -174,7 +174,7 @@ function checkArchitect(args: FormatArgs, v: FormatViolation[]): void {
     // does not count). The self-check must enforce the same, or the architect
     // sees green here, returns, and the design gate then rejects the story for
     // an AC without notes (a PROTOCOL VIOLATION halt after the fact).
-    if (readAcArchitecturalNotes(sftddDir, featureId, ac) === undefined) {
+    if (readAcArchitecturalNotes(consortDir, featureId, ac) === undefined) {
       v.push({
         artifact: `stories/${story}/acs/${ac}.json`,
         problem: "missing non-empty `architectural_notes` (annotate EVERY AC with its layer rationale + how it realizes the design; the spec-author's `layer` field does NOT satisfy this)",
@@ -188,14 +188,14 @@ function checkArchitect(args: FormatArgs, v: FormatViolation[]): void {
   // required per NFR, so enforce it HERE, or a cheap model silently drops it +
   // still passes every gate (the regression the architect optimize-sweep surfaced:
   // a semantic-gate-passing architecture.json with 0 fitness_functions).
-  checkNfrFitnessFunctions(sftddDir, featureId, v);
+  checkNfrFitnessFunctions(consortDir, featureId, v);
 }
 
 /** Every NFR in the feature's architecture.json must carry a non-empty
  *  `fitness_function`. No architecture.json yet (per-story ordering) or no NFRs =
  *  no-op. Feature-scoped, run from the per-story architect self-check. */
-function checkNfrFitnessFunctions(sftddDir: string, featureId: string, v: FormatViolation[]): void {
-  const archFile = architectureJson(sftddDir, featureId);
+function checkNfrFitnessFunctions(consortDir: string, featureId: string, v: FormatViolation[]): void {
+  const archFile = architectureJson(consortDir, featureId);
   if (!existsSync(archFile)) return;
   let nfrs: Array<{ id?: string; fitness_function?: string }>;
   try {
@@ -216,14 +216,14 @@ function checkNfrFitnessFunctions(sftddDir: string, featureId: string, v: Format
 /** dba (per feature): db-design.json conforms + realizes every architecture.json
  *  persistence_invariant. Uses the same checkDbDesign the spec gate does. */
 function checkDba(args: FormatArgs, v: FormatViolation[]): void {
-  const { sftddDir, featureId } = args;
-  const archFile = architectureJson(sftddDir, featureId);
+  const { consortDir, featureId } = args;
+  const archFile = architectureJson(consortDir, featureId);
   if (!existsSync(archFile)) {
     v.push({ artifact: "architecture.json", problem: "architecture.json missing (the architect owns the contract the DBA realizes)" });
     return;
   }
   const archContent = readFileSync(archFile, "utf8");
-  const dbFile = dbDesignJson(sftddDir, featureId);
+  const dbFile = dbDesignJson(consortDir, featureId);
   const dbContent = existsSync(dbFile) ? readFileSync(dbFile, "utf8") : undefined;
   // Schema conformance first (a malformed db-design.json), then invariant realization.
   if (dbContent !== undefined) {
@@ -238,9 +238,9 @@ function checkDba(args: FormatArgs, v: FormatViolation[]): void {
  *  item, and EVERY item's ac_id maps to one of the story's ACs. The S2 live
  *  stall was exactly this: items with ac_id:null / unmapped -> empty scope. */
 function checkTestStrategist(args: FormatArgs, v: FormatViolation[]): void {
-  const { sftddDir, featureId, story } = args;
+  const { consortDir, featureId, story } = args;
   if (!needStory("test-strategist", story, v)) return;
-  const file = storyTestListJson(sftddDir, featureId, story);
+  const file = storyTestListJson(consortDir, featureId, story);
   if (!existsSync(file)) {
     v.push({ artifact: `stories/${story}/test-list-per-story.json`, problem: "per-story test list not written" });
     return;
@@ -259,7 +259,7 @@ function checkTestStrategist(args: FormatArgs, v: FormatViolation[]): void {
     v.push({ artifact: `stories/${story}/test-list-per-story.json`, problem: "empty `items` (expected >=1 test mapped to the story's ACs)" });
     return;
   }
-  const acIds = new Set(storyAcIds(sftddDir, featureId, story));
+  const acIds = new Set(storyAcIds(consortDir, featureId, story));
   const covered = new Set<string>();
   items.forEach((item, i) => {
     // A `kind:"fitness"` item is a plain architectural/DB test, NOT a Gherkin
@@ -308,8 +308,8 @@ function checkTestStrategist(args: FormatArgs, v: FormatViolation[]): void {
  *  self-check (below) and the design-lane gate (orchestrator-effects
  *  `designGuideReady`), so the agent's self-check and the deterministic gate can
  *  never disagree. `problem` is the specific violation string when not ok. */
-export function designGuideConformance(sftddDir: string): { ok: boolean; problem?: string } {
-  const file = designGuideJson(sftddDir);
+export function designGuideConformance(consortDir: string): { ok: boolean; problem?: string } {
+  const file = designGuideJson(consortDir);
   if (!existsSync(file)) {
     return { ok: false, problem: "design-guide.json not written (the machine-checkable token source of truth)" };
   }
@@ -329,8 +329,8 @@ export function designGuideConformance(sftddDir: string): { ok: boolean; problem
  *  the LIVE ux-designer self-check only. A guide is authored only on a UI project,
  *  so it MUST name the classes feature pages apply, else the build hand-rolls bare
  *  markup (the "unstyled feature page" gap checkTokenConsumption then catches). */
-export function designGuideHasComponents(sftddDir: string): { ok: boolean; problem?: string } {
-  const file = designGuideJson(sftddDir);
+export function designGuideHasComponents(consortDir: string): { ok: boolean; problem?: string } {
+  const file = designGuideJson(consortDir);
   if (!existsSync(file)) return { ok: true }; // absence is designGuideConformance's job
   try {
     const parsed = JSON.parse(readFileSync(file, "utf8")) as { components?: Record<string, unknown> };
@@ -354,12 +354,12 @@ export function designGuideHasComponents(sftddDir: string): { ok: boolean; probl
  *  typography props) unless it self-checks; this catches that at the source
  *  instead of at the final feature drain. */
 function checkUxDesigner(args: FormatArgs, v: FormatViolation[]): void {
-  const r = designGuideConformance(args.sftddDir);
+  const r = designGuideConformance(args.consortDir);
   if (!r.ok) {
     v.push({ artifact: "design/design-guide.json", problem: r.problem ?? "design-guide.json is non-conformant" });
     return; // no point checking components on a guide that failed the schema
   }
-  const c = designGuideHasComponents(args.sftddDir);
+  const c = designGuideHasComponents(args.consortDir);
   if (!c.ok) v.push({ artifact: "design/design-guide.json", problem: c.problem ?? "design-guide.json is missing components" });
 }
 

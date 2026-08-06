@@ -87,7 +87,7 @@ export async function runRouteScenario(
   mkdirSync(join(workspaceDir, ARTIFACT_ROOT), { recursive: true });
   const cfg = {
     projectDir: workspaceDir,
-    sftddDir: join(workspaceDir, ARTIFACT_ROOT),
+    consortDir: join(workspaceDir, ARTIFACT_ROOT),
     featureId: scenario.feature,
   } as DriveEffectsConfig;
 

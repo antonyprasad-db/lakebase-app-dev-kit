@@ -49,7 +49,7 @@ function seedExperiment(status: "active" | "merged"): void {
 }
 
 const acceptArgs = () => ({
-  sftddDir: tdd,
+  consortDir: tdd,
   projectDir: "/tmp/proj",
   featureId: F,
   storyId: S,
@@ -127,7 +127,7 @@ describe("experimentMergeArgv (the command pipeline accept delegates to)", () =>
       F,
       S,
       { experimentSlug: "s1-exp", experimentBranch: "exp/F1/s1-exp", featureBranch: "feature-F1", instance: "lb-x" },
-      { approver: "kevin.hartman", projectDir: "/p", sftddDir: "/p/.sftdd", at: "2026-07-15T00:00:00.000Z" },
+      { approver: "kevin.hartman", projectDir: "/p", consortDir: "/p/.sftdd", at: "2026-07-15T00:00:00.000Z" },
     );
     expect(argv[0]).toBe("merge");
     // every arg the experiment merge CLI requires is present + paired with its value
@@ -149,7 +149,7 @@ describe("experimentMergeArgv (the command pipeline accept delegates to)", () =>
       F,
       S,
       { experimentSlug: "s", experimentBranch: "b", featureBranch: "fb", instance: "i" },
-      { approver: "a", projectDir: "/p", sftddDir: "/p/.sftdd" },
+      { approver: "a", projectDir: "/p", consortDir: "/p/.sftdd" },
     );
     expect(argv).not.toContain("--at");
   });

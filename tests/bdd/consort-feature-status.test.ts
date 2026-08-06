@@ -454,13 +454,13 @@ describe("feature-status reconciles with the per-story pipeline (FEIP-8016)", ()
 // SCM workflow-state, not the raw gates.json approval bit). feature-status must
 // consume the SAME reconciliation (readDriveContext) so the two surfaces agree.
 describe("feature-status reconciles deploy/promote with the drive engine (Finding 13)", () => {
-  function stageMergedFeature(): { proj: string; sftddDir: string } {
+  function stageMergedFeature(): { proj: string; consortDir: string } {
     const proj = mkdtempSync(join(tmpdir(), "tdd-fs-merged-"));
-    const sftddDir = join(proj, ".sftdd");
-    mkdirSync(join(sftddDir, "features", FEATURE_ID), { recursive: true });
+    const consortDir = join(proj, ".sftdd");
+    mkdirSync(join(consortDir, "features", FEATURE_ID), { recursive: true });
     // Every story built + accepted.
     writeFileSync(
-      join(sftddDir, "features", FEATURE_ID, "pipeline.json"),
+      join(consortDir, "features", FEATURE_ID, "pipeline.json"),
       JSON.stringify({
         version: 1,
         feature_id: FEATURE_ID,
@@ -473,12 +473,12 @@ describe("feature-status reconciles deploy/promote with the drive engine (Findin
     );
     // The deploy actually ran (Release Engineer wrote deploy-evidence).
     writeFileSync(
-      join(sftddDir, "features", FEATURE_ID, "deploy-evidence.json"),
+      join(consortDir, "features", FEATURE_ID, "deploy-evidence.json"),
       JSON.stringify({ deployed_at: "2026-07-16T00:00:00Z" }) + "\n",
     );
     // gates.json is STALE: deploy + promote never stamped, still open.
     writeFileSync(
-      join(sftddDir, "features", FEATURE_ID, "gates.json"),
+      join(consortDir, "features", FEATURE_ID, "gates.json"),
       JSON.stringify({
         feature_id: FEATURE_ID,
         schema_version: 1,
@@ -512,13 +512,13 @@ describe("feature-status reconciles deploy/promote with the drive engine (Findin
         merged_at: "2026-07-16T00:03:00Z",
       }) + "\n",
     );
-    return { proj, sftddDir };
+    return { proj, consortDir };
   }
 
   it("progression reports deploy_done + promote_done from deploy-evidence + SCM merge state", () => {
-    const { proj, sftddDir } = stageMergedFeature();
+    const { proj, consortDir } = stageMergedFeature();
     try {
-      const s = getFeatureStatus(sftddDir, FEATURE_ID, proj);
+      const s = getFeatureStatus(consortDir, FEATURE_ID, proj);
       expect(s.progression).not.toBeNull();
       expect(s.progression!.deploy_done).toBe(true);
       expect(s.progression!.promote_done).toBe(true);
@@ -528,9 +528,9 @@ describe("feature-status reconciles deploy/promote with the drive engine (Findin
   });
 
   it("renders deploy/promote as done (not the stale gates.json `open`)", () => {
-    const { proj, sftddDir } = stageMergedFeature();
+    const { proj, consortDir } = stageMergedFeature();
     try {
-      const text = renderFeatureStatus(getFeatureStatus(sftddDir, FEATURE_ID, proj));
+      const text = renderFeatureStatus(getFeatureStatus(consortDir, FEATURE_ID, proj));
       expect(text).toMatch(/deploy\s+done \(deployed\)/);
       expect(text).toMatch(/promote\s+done \(merged\)/);
       // The stale bare "open" must be gone for these two.
@@ -544,8 +544,8 @@ describe("feature-status reconciles deploy/promote with the drive engine (Findin
   it("leaves deploy/promote as gates.json shows when the drive has NOT deployed/merged", () => {
     // No deploy-evidence, SCM only feature-claimed: the overlay must not fire.
     const proj = mkdtempSync(join(tmpdir(), "tdd-fs-claimed-"));
-    const sftddDir = join(proj, ".sftdd");
-    mkdirSync(join(sftddDir, "features", FEATURE_ID), { recursive: true });
+    const consortDir = join(proj, ".sftdd");
+    mkdirSync(join(consortDir, "features", FEATURE_ID), { recursive: true });
     mkdirSync(join(proj, ".lakebase"), { recursive: true });
     writeFileSync(
       join(proj, ".lakebase", "workflow-state.json"),
@@ -562,7 +562,7 @@ describe("feature-status reconciles deploy/promote with the drive engine (Findin
       }) + "\n",
     );
     try {
-      const s = getFeatureStatus(sftddDir, FEATURE_ID, proj);
+      const s = getFeatureStatus(consortDir, FEATURE_ID, proj);
       expect(s.progression!.deploy_done).toBe(false);
       expect(s.progression!.promote_done).toBe(false);
       const text = renderFeatureStatus(s);
@@ -601,7 +601,7 @@ describe("feature-status gates field (G8 /)", () => {
       approver: "po@example.com",
       hitlApproved: true,
       artifactInputs: { "feature-spec.md": "x", "feature-spec.json": "{}" },
-      sftddDir: tdd,
+      consortDir: tdd,
       now: () => new Date("2026-05-31T20:00:00Z"),
       writeSelectionLog: false,
     });
@@ -642,7 +642,7 @@ describe("feature-status gates field (G8 /)", () => {
       approver: "po@example.com",
       hitlApproved: true,
       artifactInputs: { "plan.json": "{}" },
-      sftddDir: tdd,
+      consortDir: tdd,
       now: () => new Date("2026-05-31T21:00:00Z"),
       writeSelectionLog: false,
     });

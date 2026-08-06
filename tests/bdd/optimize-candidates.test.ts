@@ -13,7 +13,7 @@ import {
   BASELINE_CANDIDATE_ID,
   type Candidate,
 } from "../../consort/optimize/optimize-candidates";
-import { defaultSftddConfig } from "../../consort/orchestrator/settings/project-settings";
+import { defaultConsortConfig } from "../../consort/orchestrator/settings/project-settings";
 
 describe("generateCandidates", () => {
   it("always includes an identity baseline candidate FIRST (empty overrides)", () => {
@@ -72,13 +72,13 @@ describe("generateCandidates", () => {
 
 describe("applyCandidateConfig (deep merge onto a base config)", () => {
   it("baseline overrides leave the base config unchanged", () => {
-    const base = defaultSftddConfig();
+    const base = defaultConsortConfig();
     const merged = applyCandidateConfig(base, { id: BASELINE_CANDIDATE_ID, configOverrides: {} });
     expect(merged).toEqual(base);
   });
 
   it("merges a per-turn model override without dropping sibling role settings", () => {
-    const base = defaultSftddConfig();
+    const base = defaultConsortConfig();
     const merged = applyCandidateConfig(base, {
       id: "c1",
       configOverrides: { roles: { driver: { model: { green: "haiku" } } } },
@@ -93,14 +93,14 @@ describe("applyCandidateConfig (deep merge onto a base config)", () => {
   });
 
   it("does not mutate the base config (returns a fresh object)", () => {
-    const base = defaultSftddConfig();
+    const base = defaultConsortConfig();
     const snapshot = JSON.parse(JSON.stringify(base));
     applyCandidateConfig(base, { id: "c1", configOverrides: { build: { loopGranularity: "ac" } } });
     expect(base).toEqual(snapshot);
   });
 
   it("merges build knobs onto the base build block", () => {
-    const base = defaultSftddConfig();
+    const base = defaultConsortConfig();
     const merged = applyCandidateConfig(base, {
       id: "c1",
       configOverrides: { build: { sessionScope: "cycle" } },

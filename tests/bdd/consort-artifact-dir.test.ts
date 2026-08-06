@@ -14,7 +14,7 @@ import {
   LEGACY_ARTIFACT_ROOT,
   LEGACY_ARTIFACT_ROOTS,
   ALL_ARTIFACT_ROOTS,
-  resolveSftddDir,
+  resolveConsortDir,
 } from "../../consort/config/consort-paths";
 import { migrateLegacyArtifactDir } from "../../consort/config/migrate-artifact-dir";
 
@@ -35,32 +35,32 @@ describe("artifact root names", () => {
   });
 });
 
-describe("resolveSftddDir (tri-read, prefers .consort)", () => {
+describe("resolveConsortDir (tri-read, prefers .consort)", () => {
   it("defaults a fresh project to .consort", () => {
-    expect(resolveSftddDir(dir)).toBe(join(dir, ".consort"));
+    expect(resolveConsortDir(dir)).toBe(join(dir, ".consort"));
   });
 
   it("honors a legacy .sftdd dir when that is what exists", () => {
     mkdirSync(join(dir, ".sftdd"));
-    expect(resolveSftddDir(dir)).toBe(join(dir, ".sftdd"));
+    expect(resolveConsortDir(dir)).toBe(join(dir, ".sftdd"));
   });
 
   it("honors an older legacy .tdd dir when that is what exists", () => {
     mkdirSync(join(dir, ".tdd"));
-    expect(resolveSftddDir(dir)).toBe(join(dir, ".tdd"));
+    expect(resolveConsortDir(dir)).toBe(join(dir, ".tdd"));
   });
 
   it("prefers .consort over any legacy root when all exist", () => {
     mkdirSync(join(dir, ".tdd"));
     mkdirSync(join(dir, ".sftdd"));
     mkdirSync(join(dir, ".consort"));
-    expect(resolveSftddDir(dir)).toBe(join(dir, ".consort"));
+    expect(resolveConsortDir(dir)).toBe(join(dir, ".consort"));
   });
 
   it("prefers the newer .sftdd over the older .tdd when both legacy roots exist", () => {
     mkdirSync(join(dir, ".tdd"));
     mkdirSync(join(dir, ".sftdd"));
-    expect(resolveSftddDir(dir)).toBe(join(dir, ".sftdd"));
+    expect(resolveConsortDir(dir)).toBe(join(dir, ".sftdd"));
   });
 });
 

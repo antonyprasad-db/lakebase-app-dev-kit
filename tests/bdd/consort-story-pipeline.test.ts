@@ -41,38 +41,38 @@ function mkTdd(): string {
 }
 
 describe("story-pipeline: syncBreakdownToPipeline", () => {
-  function writeStoryDir(sftddDir: string, feature: string, story: string): void {
-    const dir = path.join(sftddDir, "features", feature, "stories", story);
+  function writeStoryDir(consortDir: string, feature: string, story: string): void {
+    const dir = path.join(consortDir, "features", feature, "stories", story);
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, "story.json"), JSON.stringify({ id: story }));
   }
 
   it("seeds the pipeline with every on-disk story dir as designing", () => {
-    const sftddDir = mkTdd();
-    writePipeline(sftddDir, initPipeline("F1"));
-    writeStoryDir(sftddDir, "F1", "S1");
-    writeStoryDir(sftddDir, "F1", "S2");
+    const consortDir = mkTdd();
+    writePipeline(consortDir, initPipeline("F1"));
+    writeStoryDir(consortDir, "F1", "S1");
+    writeStoryDir(consortDir, "F1", "S2");
 
-    const r = syncBreakdownToPipeline(sftddDir, "F1");
+    const r = syncBreakdownToPipeline(consortDir, "F1");
     expect(r.added.sort()).toEqual(["S1", "S2"]);
-    const p = readPipeline(sftddDir, "F1");
+    const p = readPipeline(consortDir, "F1");
     expect(p.stories.S1.status).toBe("designing");
     expect(p.stories.S2.status).toBe("designing");
   });
 
   it("is idempotent + leaves already-tracked stories untouched", () => {
-    const sftddDir = mkTdd();
+    const consortDir = mkTdd();
     const p0 = initPipeline("F1");
     setStoryStatus(p0, "S1", "building"); // already past designing
-    writePipeline(sftddDir, p0);
-    writeStoryDir(sftddDir, "F1", "S1");
-    writeStoryDir(sftddDir, "F1", "S2");
+    writePipeline(consortDir, p0);
+    writeStoryDir(consortDir, "F1", "S1");
+    writeStoryDir(consortDir, "F1", "S2");
 
-    const r1 = syncBreakdownToPipeline(sftddDir, "F1");
+    const r1 = syncBreakdownToPipeline(consortDir, "F1");
     expect(r1.added).toEqual(["S2"]); // S1 already tracked
-    expect(readPipeline(sftddDir, "F1").stories.S1.status).toBe("building"); // not reset
+    expect(readPipeline(consortDir, "F1").stories.S1.status).toBe("building"); // not reset
 
-    const r2 = syncBreakdownToPipeline(sftddDir, "F1");
+    const r2 = syncBreakdownToPipeline(consortDir, "F1");
     expect(r2.added).toEqual([]); // nothing new on a re-run
   });
 });

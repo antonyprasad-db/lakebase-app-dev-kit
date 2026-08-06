@@ -30,7 +30,8 @@ import type { BuildTurn, EffortLevel } from "../../consort/orchestrator/settings
 import type { SpawnableAgentRole } from "../../consort/config/agent-models.js";
 import { buildCfg, execRunner } from "../../consort/orchestrator/drive/claude-runner.js";
 import { planNextAction, commandsForAction, turnKeyForAction } from "../../consort/orchestrator/drive/orchestrator-effects.js";
-import { resolveSftddDir } from "../../consort/config/consort-paths.js";
+import { resolveConsortDir } from "../../consort/config/consort-paths.js";
+import { consortEnv, ENV_PREFIXES } from "../../consort/config/consort-env.js";
 import { kitRoot } from "../../consort/config/kit-bin.js";
 import { evaluateSemanticGate, makeOpusJudge } from "../../consort/optimize/optimize-semantic-gate.js";
 import { makeChampionWalkDeps, makeLiveSpawnTurn, makeBuildGate, makeBuildSnapshotDeps, positionToBuildHandoff, positionToNextHandoff, runLaneSweep, readLastTurnTokens, type OptimizeLiveCtx } from "../../consort/optimize/optimize-live.js";
@@ -145,12 +146,12 @@ export function parseSweepSpec(spec: string): SweepSpec {
  *  the single-handoff path AND the lane sweep (each handoff gets its own ctx). */
 function buildCtxForHandoff(
   handoff: HandoffPlan,
-  loc: { projectDir: string; sftddDir: string; featureId: string; recordDir?: string },
+  loc: { projectDir: string; consortDir: string; featureId: string; recordDir?: string },
 ): { ctx: OptimizeLiveCtx } | { error: string } {
-  const { projectDir, sftddDir, featureId } = loc;
+  const { projectDir, consortDir, featureId } = loc;
   const ctx: OptimizeLiveCtx = {
     projectDir,
-    sftddDir,
+    consortDir,
     featureId,
     experimentsDir: join(projectDir, "experiments"),
     spawnTurn: makeLiveSpawnTurn(featureId, {
@@ -170,7 +171,7 @@ function buildCtxForHandoff(
     now: () => Date.now(),
     // Prompt-weight signal for the report's pass-2 trim targeting: the role's last
     // turn.usage input/cache-read tokens from the project agent-log.
-    readTurnTokens: ({ handoff }) => readLastTurnTokens(sftddDir, handoff.role),
+    readTurnTokens: ({ handoff }) => readLastTurnTokens(consortDir, handoff.role),
     // SEMANTIC quality bar (design turns only): after the structural gate passes, judge
     // the candidate's artifact against the recorded reference at this step with a FIXED
     // opus judge (constant across candidates). Wired only when the step has a recorded
@@ -182,7 +183,7 @@ function buildCtxForHandoff(
       const judge = makeOpusJudge({ cwd: projectDir });
       return {
         semanticGate: () =>
-          evaluateSemanticGate({ kitRoot: kitRoot(), sftddDir, featureId, step, judge }),
+          evaluateSemanticGate({ kitRoot: kitRoot(), consortDir, featureId, step, judge }),
       };
     })(),
     // The corpus dir recordWinner records the restored winning-trial artifacts into
@@ -194,13 +195,13 @@ function buildCtxForHandoff(
     if (!scm?.project_id || !scm.branch) {
       return { error: "[optimize] build handoff needs a claimed feature (project_id + branch in .lakebase/workflow-state.json); claim + drive to the build turn first.\n" };
     }
-    ctx.gateBuild = makeBuildGate(sftddDir, featureId);
+    ctx.gateBuild = makeBuildGate(consortDir, featureId);
     ctx.buildSnapshotDeps = makeBuildSnapshotDeps({
       projectDir,
       story: handoff.story ?? "",
       cutArgs: {
         instance: scm.project_id,
-        sftddDir,
+        consortDir,
         featureId,
         experimentSlug: `${handoff.story}-optimize`,
         branch: scm.branch,
@@ -218,7 +219,7 @@ async function main(): Promise<number> {
     return 2;
   }
   const projectDir = resolve(args.projectDir ?? process.cwd());
-  const sftddDir = resolveSftddDir(projectDir);
+  const consortDir = resolveConsortDir(projectDir);
   const featureId = args.feature;
   const sweep = parseSweepSpec(args.candidates ?? "");
   const candidates = generateCandidates(sweep);
@@ -228,8 +229,10 @@ async function main(): Promise<number> {
   // record:true spawn) and NEVER for a trial. Leaving it ambient (as the runbook
   // used to export it) made every losing candidate's turn record into the shippable
   // corpus , the pollution this fixes. recordDir is threaded into each handoff ctx.
-  const recordDir = process.env.LAKEBASE_SFTDD_RECORD_DIR?.trim() || undefined;
-  delete process.env.LAKEBASE_SFTDD_RECORD_DIR;
+  const recordDir = consortEnv("RECORD_DIR")?.trim() || undefined;
+  // Clear EVERY prefix variant (current + legacy) so no record-dir leaks ambient
+  // into a trial's child spawn regardless of which name the runbook exported.
+  for (const p of ENV_PREFIXES) delete process.env[`${p}RECORD_DIR`];
 
   process.stderr.write(
     `[optimize] scenario=${args.scenario} feature=${featureId} trials=${args.trials}` +
@@ -265,7 +268,7 @@ async function main(): Promise<number> {
       sweepOne: async (h) => {
         const hCands = defaultLaneCandidates(h);
         allCandidates.push(...hCands);
-        const ctxRes = buildCtxForHandoff(h, { projectDir, sftddDir, featureId, recordDir });
+        const ctxRes = buildCtxForHandoff(h, { projectDir, consortDir, featureId, recordDir });
         if ("error" in ctxRes) throw new Error(ctxRes.error.trim());
         // Reflect/critic turns (baseline-only) still "sweep" trivially so the walk
         // records + advances past them; a >1 candidate handoff is a real A/B.
@@ -364,7 +367,7 @@ async function main(): Promise<number> {
   const handoffCandidates = args.candidates?.trim() ? candidates : defaultLaneCandidates(handoff);
 
   // Assemble the live champion-walk deps for THIS handoff over the real drive.
-  const ctxResult = buildCtxForHandoff(handoff, { projectDir, sftddDir, featureId, recordDir });
+  const ctxResult = buildCtxForHandoff(handoff, { projectDir, consortDir, featureId, recordDir });
   if ("error" in ctxResult) {
     process.stderr.write(ctxResult.error);
     return 2;

@@ -56,7 +56,7 @@ import {
   type StoryPipeline,
 } from "../../consort/pipeline/story-pipeline";
 import { join } from "path";
-import { resolveSftddDir, ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
+import { resolveConsortDir, ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
 import { reviseStoryWithSelfHeal, clearStoryBlockingSmellOnDiscard, rebuildStory } from "../../consort/orchestrator/status/revise.js";
 import { markSmellResolved } from "../../consort/smells/smells.js";
 import { resolveAcceptMergeArgs, experimentMergeArgv } from "../../consort/experiment/experiment-merge.js";
@@ -78,7 +78,7 @@ interface Args {
   lakebaseUid?: string;
   n?: string;
   smell?: string;
-  sftddDir?: string;
+  consortDir?: string;
   projectDir?: string;
   instance?: string;
   json?: boolean;
@@ -103,7 +103,7 @@ function parse(argv: string[]): Args {
     else if (a === "--lakebase-uid") out.lakebaseUid = argv[++i];
     else if (a === "--n") out.n = argv[++i];
     else if (a === "--smell") out.smell = argv[++i];
-    else if (a === "--tdd-dir") out.sftddDir = argv[++i];
+    else if (a === "--tdd-dir") out.consortDir = argv[++i];
     else if (a === "--project-dir") out.projectDir = argv[++i];
     else if (a === "--instance") out.instance = argv[++i];
     else if (a === "--json") out.json = true;
@@ -138,12 +138,12 @@ function usage(msg: string): number {
  * guidance when batched; null when the draft is correctly one-story-scoped.
  */
 function rejectBatchedDraft(
-  sftddDir: string,
+  consortDir: string,
   feature: string,
   pipeline: StoryPipeline,
   story: string,
 ): number | null {
-  const batched = findBatchedDraftStories(sftddDir, feature, pipeline, story);
+  const batched = findBatchedDraftStories(consortDir, feature, pipeline, story);
   if (batched.length === 0) return null;
   process.stderr.write(batchedDraftMessage(story, batched) + "\n");
   return 3;
@@ -151,13 +151,13 @@ function rejectBatchedDraft(
 
 async function main(): Promise<number> {
   const args = parse(process.argv.slice(2));
-  const sftddDir = args.sftddDir ?? resolveSftddDir();
+  const consortDir = args.consortDir ?? resolveConsortDir();
   if (!args.cmd) return usage("missing subcommand");
   if (!args.feature && args.cmd !== "help") return usage("missing --feature");
   const feature = args.feature as string;
 
   if (args.cmd === "status") {
-    const p = readPipeline(sftddDir, feature);
+    const p = readPipeline(consortDir, feature);
     if (args.json) {
       process.stdout.write(JSON.stringify(p, null, 2) + "\n");
     } else {
@@ -177,7 +177,7 @@ async function main(): Promise<number> {
   // cleanly instead of deadlocking. Runs before the pipeline read so it operates
   // on the on-disk breakdown, not pipeline.json. No-op on a complete breakdown.
   if (args.cmd === "reset-breakdown") {
-    const r = resetIncompleteBreakdown(sftddDir, feature);
+    const r = resetIncompleteBreakdown(consortDir, feature);
     process.stdout.write(
       r.reset
         ? `reset-breakdown: cleared an incomplete breakdown for ${feature} (re-dispatch will regenerate)\n`
@@ -186,14 +186,14 @@ async function main(): Promise<number> {
     return 0;
   }
 
-  const pipeline = readPipeline(sftddDir, feature);
+  const pipeline = readPipeline(consortDir, feature);
 
   switch (args.cmd) {
     case "sync-breakdown": {
       // Seed the pipeline from the on-disk breakdown (stories/<S>/ dirs). Used
       // by the driver right after spec-author breakdown so the streaming lanes
       // have stories to advance. Re-reads + writes the pipeline itself.
-      const r = syncBreakdownToPipeline(sftddDir, feature);
+      const r = syncBreakdownToPipeline(consortDir, feature);
       process.stdout.write(
         `sync-breakdown: +${r.added.length} (${r.added.join(", ") || "none"}); ${r.total.length} tracked\n`,
       );
@@ -205,16 +205,16 @@ async function main(): Promise<number> {
         return usage(`set needs a valid --status (${STORY_STATUSES.join("|")})`);
       }
       setStoryStatus(pipeline, args.story, args.status as StoryStatus);
-      writePipeline(sftddDir, pipeline);
+      writePipeline(consortDir, pipeline);
       process.stdout.write(`${args.story} -> ${args.status}\n`);
       return 0;
     }
     case "surface": {
       if (!args.story) return usage("surface needs --story");
-      const batched = rejectBatchedDraft(sftddDir, feature, pipeline, args.story);
+      const batched = rejectBatchedDraft(consortDir, feature, pipeline, args.story);
       if (batched !== null) return batched;
       surfaceForGate(pipeline, args.story);
-      writePipeline(sftddDir, pipeline);
+      writePipeline(consortDir, pipeline);
       process.stdout.write(`surfaced ${args.story} for the per-story spec gate (awaiting-gate)\n`);
       return 0;
     }
@@ -223,7 +223,7 @@ async function main(): Promise<number> {
       if (!args.approver) return usage("approve-gate needs --approver");
       // The per-story gate is approved through the ONE shared helper (FEIP-8008),
       // the same path the human-facing consort-approve-gate --story uses.
-      const r = approveStoryGateFromDisk(sftddDir, feature, args.story, {
+      const r = approveStoryGateFromDisk(consortDir, feature, args.story, {
         approver: args.approver,
         at: args.at,
         specHash: args.specHash,
@@ -247,20 +247,20 @@ async function main(): Promise<number> {
       if (!args.reason) return usage("withdraw-gate needs --reason");
       const at = args.at ?? new Date().toISOString();
       withdrawStoryGate(pipeline, args.story, { approver: args.approver, at, reason: args.reason });
-      writePipeline(sftddDir, pipeline);
+      writePipeline(consortDir, pipeline);
       process.stdout.write(`withdrew gate for ${args.story} (${args.reason}); back to awaiting-gate\n`);
       return 0;
     }
     case "enqueue": {
       if (!args.story) return usage("enqueue needs --story");
       enqueueReady(pipeline, args.story);
-      writePipeline(sftddDir, pipeline);
+      writePipeline(consortDir, pipeline);
       process.stdout.write(`enqueued ${args.story} (queue: ${pipeline.build_queue.join(", ")})\n`);
       return 0;
     }
     case "dispatch": {
       const dispatched = dispatchNext(pipeline);
-      writePipeline(sftddDir, pipeline);
+      writePipeline(consortDir, pipeline);
       process.stdout.write(
         dispatched
           ? `dispatched ${dispatched} to the build lane\n`
@@ -270,7 +270,7 @@ async function main(): Promise<number> {
     }
     case "complete": {
       const completed = completeActive(pipeline);
-      writePipeline(sftddDir, pipeline);
+      writePipeline(consortDir, pipeline);
       process.stdout.write(completed ? `completed ${completed}; lane idle\n` : `no active story to complete\n`);
       return 0;
     }
@@ -288,14 +288,14 @@ async function main(): Promise<number> {
         n: args.n !== undefined ? Number(args.n) : undefined,
         at: args.at ?? new Date().toISOString(),
       });
-      writePipeline(sftddDir, pipeline);
+      writePipeline(consortDir, pipeline);
       process.stdout.write(`cut experiment ${args.slug} for ${args.story} on ${args.branch} (parent ${args.parent})\n`);
       return 0;
     }
     case "await-acceptance": {
       if (!args.story) return usage("await-acceptance needs --story");
       awaitAcceptance(pipeline, args.story);
-      writePipeline(sftddDir, pipeline);
+      writePipeline(consortDir, pipeline);
       process.stdout.write(`${args.story} -> awaiting-acceptance (PO reviewing the running story)\n`);
       return 0;
     }
@@ -312,7 +312,7 @@ async function main(): Promise<number> {
       // door that owns the git/Lakebase merge (which records acceptStory + is
       // idempotent). The human's `pipeline accept` therefore routes through that CLI.
       const projectDir = args.projectDir ?? process.cwd();
-      const resolved = resolveAcceptMergeArgs(sftddDir, projectDir, feature, args.story, {
+      const resolved = resolveAcceptMergeArgs(consortDir, projectDir, feature, args.story, {
         ...(args.instance ? { instance: args.instance } : {}),
       });
       if (!resolved.ok) {
@@ -322,7 +322,7 @@ async function main(): Promise<number> {
       const argv = experimentMergeArgv(feature, args.story, resolved, {
         approver: args.approver,
         projectDir,
-        sftddDir,
+        consortDir,
         ...(args.at ? { at: args.at } : {}),
       });
       return runKitBinSync("consort-experiment", argv, projectDir);
@@ -332,10 +332,10 @@ async function main(): Promise<number> {
       if (!args.approver) return usage("discard needs --approver");
       if (!args.reason) return usage("discard needs --reason");
       discardStory(pipeline, args.story, { approver: args.approver, at: args.at ?? new Date().toISOString(), reason: args.reason });
-      writePipeline(sftddDir, pipeline);
+      writePipeline(consortDir, pipeline);
       // A discarded story leaves the sprint; clear any blocking smell against it so
       // the next drive does not re-block on a smell for a story that is gone.
-      const cleared = clearStoryBlockingSmellOnDiscard(sftddDir, feature, args.story, args.approver);
+      const cleared = clearStoryBlockingSmellOnDiscard(consortDir, feature, args.story, args.approver);
       const smellNote = cleared ? `; cleared blocking smell '${cleared}'` : "";
       process.stdout.write(`discarded ${args.story} (${args.reason}); experiment torn down, out of sprint, lane freed${smellNote}\n`);
       return 0;
@@ -348,7 +348,7 @@ async function main(): Promise<number> {
       // blocking smell is open against the story this resets to designing, RE-BRIEFS
       // the owning author with the coverage-forcing verdict, AND resolves the smell
       // (Findings 22 + 23). A hollow reset left the smell open and looped forever.
-      const outcome = reviseStoryWithSelfHeal(sftddDir, feature, args.story, {
+      const outcome = reviseStoryWithSelfHeal(consortDir, feature, args.story, {
         approver: args.approver,
         reason: args.reason,
         ...(args.at ? { at: args.at } : {}),
@@ -372,7 +372,7 @@ async function main(): Promise<number> {
       if (!args.story) return usage("rebuild-story needs --story");
       let r;
       try {
-        r = rebuildStory(sftddDir, feature, args.story, {
+        r = rebuildStory(consortDir, feature, args.story, {
           ...(args.approver ? { approver: args.approver } : {}),
           ...(args.at ? { at: args.at } : {}),
         });
@@ -396,7 +396,7 @@ async function main(): Promise<number> {
       // entry `cleared` (does not spend the revise budget).
       if (!args.smell) return usage("resolve-smell needs --smell");
       if (!args.approver) return usage("resolve-smell needs --approver");
-      const ok = markSmellResolved(sftddDir, args.smell, {
+      const ok = markSmellResolved(consortDir, args.smell, {
         ...(args.story ? { story_id: args.story } : {}),
         kind: "cleared",
         note: `cleared by ${args.approver}${args.reason ? `: ${args.reason}` : ""}`,

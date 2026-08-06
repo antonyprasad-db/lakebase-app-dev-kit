@@ -120,8 +120,8 @@ function readJsonIfExists<T>(path: string): T | null {
 }
 
 /** Story ids under features/<F>/stories/ (each may carry a plan.json). */
-function listFeatureStories(sftddDir: string, featureId: string): string[] {
-  const storiesDir = storiesDirOf(sftddDir, featureId);
+function listFeatureStories(consortDir: string, featureId: string): string[] {
+  const storiesDir = storiesDirOf(consortDir, featureId);
   if (!existsSync(storiesDir)) return [];
   return readdirSync(storiesDir)
     .filter((d) => statSync(join(storiesDir, d)).isDirectory())
@@ -136,11 +136,11 @@ function timelineCycleCount(experimentDir: string): number {
 }
 
 function summarizeTestList(
-  sftddDir: string,
+  consortDir: string,
   featureId: string
 ): TestListSummary | null {
   try {
-    const list = readMasterTestList(sftddDir, featureId);
+    const list = readMasterTestList(consortDir, featureId);
     const counters: Record<TestListStatus, number> = {
       pending: 0,
       red: 0,
@@ -162,10 +162,10 @@ function summarizeTestList(
 }
 
 function readSelectionLogRecent(
-  sftddDir: string,
+  consortDir: string,
   limit: number
 ): SelectionLogEntry[] {
-  const path = join(sftddDir, "selection-log.md");
+  const path = join(consortDir, "selection-log.md");
   if (!existsSync(path)) return [];
   const text = readFileSync(path, "utf8");
   // selection-log entries start with `## <ISO-timestamp> – <title>` (en-dash, U+2013).
@@ -178,12 +178,12 @@ function readSelectionLogRecent(
   return entries.slice(-limit);
 }
 
-function readGatesSummary(sftddDir: string, featureId: string): GatesSummary | null {
+function readGatesSummary(consortDir: string, featureId: string): GatesSummary | null {
   // readGates throws when the feature directory does not exist (a clean
   // signal that no spec has been authored yet). Surface as null so the
   // snapshot stays renderable for not-yet-started features.
   try {
-    const state = readGates(featureId, { sftddDir });
+    const state = readGates(featureId, { consortDir });
     const out = {} as GatesSummary;
     for (const name of GATE_NAMES) {
       const rec = state.gates[name];
@@ -199,7 +199,7 @@ function readGatesSummary(sftddDir: string, featureId: string): GatesSummary | n
   }
 }
 
-function readWorkflowState(sftddDir: string): {
+function readWorkflowState(consortDir: string): {
   phase: string | null;
   pointer: WorkflowPointer | null;
 } {
@@ -210,7 +210,7 @@ function readWorkflowState(sftddDir: string): {
     ac_id?: string | null;
     cycle_id?: string | null;
     experiment_id?: string | null;
-  }>(join(sftddDir, "workflow-state.json"));
+  }>(join(consortDir, "workflow-state.json"));
   if (!state) return { phase: null, pointer: null };
   return {
     phase: state.phase ?? null,
@@ -227,10 +227,10 @@ function readWorkflowState(sftddDir: string): {
 /** The per-story rows from pipeline.json (empty when none tracked yet). Exported
  *  so consort-next reuses the SAME reconciled view + derived phase as
  *  feature-status, and the two can never disagree (FEIP-8016/8017). */
-export function summarizeStories(sftddDir: string, featureId: string): StoryStatusEntry[] {
+export function summarizeStories(consortDir: string, featureId: string): StoryStatusEntry[] {
   let pipeline;
   try {
-    pipeline = readPipeline(sftddDir, featureId);
+    pipeline = readPipeline(consortDir, featureId);
   } catch {
     return [];
   }
@@ -266,12 +266,12 @@ export function deriveFeaturePhase(stories: StoryStatusEntry[]): string | null {
  *  readDriveContext consort-next consumes), tolerant of an unreadable state.
  *  `projectDir` reaches the SCM workflow-state at <projectDir>/.lakebase/. */
 function readProgression(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   projectDir: string
 ): ProgressionSummary | null {
   try {
-    const ctx = readDriveContext(sftddDir, featureId, projectDir);
+    const ctx = readDriveContext(consortDir, featureId, projectDir);
     return {
       coarse_phase: ctx.phase,
       // A merged feature was necessarily deployed first, so merge implies deploy.
@@ -284,24 +284,24 @@ function readProgression(
 }
 
 export function getFeatureStatus(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
-  projectDir: string = dirname(sftddDir)
+  projectDir: string = dirname(consortDir)
 ): FeatureStatusSnapshot {
   // Plans live per story now: one plan.json under each
   // features/<F>/stories/<story>/. Collect every story that has one.
   const plans: PlanStatusEntry[] = [];
-  for (const storyId of listFeatureStories(sftddDir, featureId)) {
-    const p = readPlan(sftddDir, featureId, storyId);
+  for (const storyId of listFeatureStories(consortDir, featureId)) {
+    const p = readPlan(consortDir, featureId, storyId);
     if (p) plans.push({ story_id: storyId, plan: p });
   }
 
   // Experiments live under stories now: collect across every
   // story that has an experiments subtree.
   const experiments: ExperimentStatusEntry[] = [];
-  for (const storyId of listExperimentStories(sftddDir, featureId)) {
-    for (const rec of listExperiments(sftddDir, featureId, storyId)) {
-      const outcomes = readOutcomes(sftddDir, featureId, storyId, rec.experiment_slug);
+  for (const storyId of listExperimentStories(consortDir, featureId)) {
+    for (const rec of listExperiments(consortDir, featureId, storyId)) {
+      const outcomes = readOutcomes(consortDir, featureId, storyId, rec.experiment_slug);
       experiments.push({
         story_id: storyId,
         slug: rec.experiment_slug,
@@ -317,13 +317,13 @@ export function getFeatureStatus(
 
   let smells: SmellsLog["detected"] = [];
   try {
-    smells = readSmellsLog(sftddDir).detected.filter((d) => !d.resolution);
+    smells = readSmellsLog(consortDir).detected.filter((d) => !d.resolution);
   } catch {
     smells = [];
   }
 
-  const { phase, pointer } = readWorkflowState(sftddDir);
-  const stories = summarizeStories(sftddDir, featureId);
+  const { phase, pointer } = readWorkflowState(consortDir);
+  const stories = summarizeStories(consortDir, featureId);
 
   return {
     feature_id: featureId,
@@ -332,12 +332,12 @@ export function getFeatureStatus(
     current_workflow_pointer: pointer,
     stories,
     plans,
-    test_list: summarizeTestList(sftddDir, featureId),
+    test_list: summarizeTestList(consortDir, featureId),
     experiments,
-    selection_log_recent: readSelectionLogRecent(sftddDir, MAX_RECENT_LOG_ENTRIES),
+    selection_log_recent: readSelectionLogRecent(consortDir, MAX_RECENT_LOG_ENTRIES),
     open_smells: smells,
-    gates: readGatesSummary(sftddDir, featureId),
-    progression: readProgression(sftddDir, featureId, projectDir),
+    gates: readGatesSummary(consortDir, featureId),
+    progression: readProgression(consortDir, featureId, projectDir),
   };
 }
 

@@ -20,7 +20,7 @@
 // schema_version bump).
 
 import { existsSync, readFileSync, writeFileSync } from "fs";
-import { resolveSftddDir } from "../../consort/config/consort-paths.js";
+import { resolveConsortDir } from "../../consort/config/consort-paths.js";
 import { join } from "path";
 import { withGatesLock } from "./gates-lock";
 import {
@@ -53,7 +53,7 @@ export interface WithdrawGateArgs {
   gate: GateName;
   approver: string;
   reason: string;
-  sftddDir?: string;
+  consortDir?: string;
   /** Test seam: deterministic clock. */
   now?: () => Date;
   /** Append a narrative entry to selection-log.md. Default: true. */
@@ -76,7 +76,7 @@ export function withdrawGate(args: WithdrawGateArgs): WithdrawGateResult {
     throw new Error("withdrawGate: reason must not be empty");
   }
 
-  const sftddDir = args.sftddDir ?? resolveSftddDir();
+  const consortDir = args.consortDir ?? resolveConsortDir();
   const now = args.now ?? (() => new Date());
   const writeLog = args.writeSelectionLog ?? true;
 
@@ -85,7 +85,7 @@ export function withdrawGate(args: WithdrawGateArgs): WithdrawGateResult {
   return withGatesLock(
     args.featureId,
     (): WithdrawGateResult => {
-      const state = readGates(args.featureId, { sftddDir });
+      const state = readGates(args.featureId, { consortDir });
       const sourceRecord = state.gates[args.gate];
 
       // Idempotent no-op: source gate is not currently approved.
@@ -120,10 +120,10 @@ export function withdrawGate(args: WithdrawGateArgs): WithdrawGateResult {
       }
 
       const updatedState: GatesState = { ...state, gates: nextGates };
-      writeGates(updatedState, { sftddDir });
+      writeGates(updatedState, { consortDir });
 
       if (writeLog) {
-        appendSelectionLog(sftddDir, {
+        appendSelectionLog(consortDir, {
           ts,
           featureId: args.featureId,
           sourceGate: args.gate,
@@ -135,7 +135,7 @@ export function withdrawGate(args: WithdrawGateArgs): WithdrawGateResult {
 
       return { state: updatedState, withdrawn_gates: withdrawn, noop: false };
     },
-    { sftddDir }
+    { consortDir }
   );
 }
 
@@ -170,8 +170,8 @@ interface SelectionLogEntry {
   cascadedGates: GateName[];
 }
 
-function appendSelectionLog(sftddDir: string, entry: SelectionLogEntry): void {
-  const logPath = join(sftddDir, "selection-log.md");
+function appendSelectionLog(consortDir: string, entry: SelectionLogEntry): void {
+  const logPath = join(consortDir, "selection-log.md");
   const cascadeLine =
     entry.cascadedGates.length > 0
       ? `- **Cascade:** ${entry.cascadedGates.join(", ")}`

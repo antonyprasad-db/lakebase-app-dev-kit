@@ -242,7 +242,7 @@ if [[ -n "$CREATE" ]]; then
   git rev-parse --verify "$ENTRY_TIER" >/dev/null 2>&1 \
     || { ENTRY_TIER="main"; git rev-parse --verify main >/dev/null 2>&1 || ENTRY_TIER="master"; }
   git checkout "$ENTRY_TIER" >/dev/null 2>&1 || { echo "capture-scenario: cannot checkout entry tier '${ENTRY_TIER}'" >&2; exit 1; }
-  SFTDD_DIR="$(clk lakebase-resolve-sftdd-dir --project-dir "$PROJECT_DIR")"
+  SFTDD_DIR="$(clk lakebase-resolve-consort-dir --project-dir "$PROJECT_DIR")"
   SFTDD_REL="$(basename "$SFTDD_DIR")"
   # Stage the project intake (the "3 original inputs") via the Human Proxy, then
   # each feature's feature-request (the per-feature design input).
@@ -294,7 +294,7 @@ cd "$PROJECT_DIR"
 # agent runs (both --create and --project-dir modes). Aborts on drift.
 assert_kit_single_source "$PROJECT_DIR"
 lk() { "$PROJECT_DIR/scripts/lk" "$@"; }
-SFTDD_DIR="$(lk lakebase-resolve-sftdd-dir --project-dir "$PROJECT_DIR")"
+SFTDD_DIR="$(lk lakebase-resolve-consort-dir --project-dir "$PROJECT_DIR")"
 
 pause_args=(); [[ -n "$PAUSE_BEFORE" ]] && pause_args=( --pause-before "$PAUSE_BEFORE" )
 only_args=(); [[ -n "$ONLY" ]] && only_args=( --only "$ONLY" )

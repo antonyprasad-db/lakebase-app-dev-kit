@@ -12,7 +12,7 @@
 // Exit codes: 0 ok; 2 bad args; 3 emit/validation failure.
 
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
-import { resolveSftddDir, ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
+import { resolveConsortDir, ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
 import {
   emitAgentLogEvent,
   emitAgentLogEvents,
@@ -46,7 +46,7 @@ interface ParsedArgs {
   /** JSON array of event inputs, emitted in ONE process + ONE append (batch mode)
    *  so a turn's several judgment events cost one subprocess spawn, not N. */
   events?: string;
-  sftddDir?: string;
+  consortDir?: string;
   json?: boolean;
   help?: boolean;
 }
@@ -74,7 +74,7 @@ function parseArgs(argv: string[]): ParsedArgs {
       case "--cycle": out.cycle = argv[++i]; break;
       case "--data": out.data = argv[++i]; break;
       case "--events": out.events = argv[++i]; break;
-      case "--tdd-dir": out.sftddDir = argv[++i]; break;
+      case "--tdd-dir": out.consortDir = argv[++i]; break;
       case "--json": out.json = true; break;
       case "--help": case "-h": out.help = true; break;
     }
@@ -136,8 +136,8 @@ export function runAgentLogCli(argv: string[]): number {
       return 2;
     }
     try {
-      const sftddDir = a.sftddDir ?? resolveSftddDir();
-      const final = reconstituteAgentLog({ sftddDir, designLogPath: a.designLog });
+      const consortDir = a.consortDir ?? resolveConsortDir();
+      const final = reconstituteAgentLog({ consortDir, designLogPath: a.designLog });
       if (a.json) process.stdout.write(`${JSON.stringify(final)}\n`);
       else process.stdout.write(`reconstituted agent-log: ${final.length} entries\n`);
       return 0;
@@ -157,7 +157,7 @@ export function runAgentLogCli(argv: string[]): number {
       return 2;
     }
     try {
-      const emitted = reconcileArtifactLog({ sftddDir: a.sftddDir, featureId: a.feature });
+      const emitted = reconcileArtifactLog({ consortDir: a.consortDir, featureId: a.feature });
       if (a.json) {
         process.stdout.write(`${JSON.stringify(emitted)}\n`);
       } else {
@@ -180,7 +180,7 @@ export function runAgentLogCli(argv: string[]): number {
 
   if (a.read) {
     const events = readAgentLog({
-      sftddDir: a.sftddDir,
+      consortDir: a.consortDir,
       role: a.role as AgentRole | undefined,
       featureId: a.feature,
       minLevel: a.minLevel as AgentLogLevel | undefined,
@@ -236,9 +236,9 @@ export function runAgentLogCli(argv: string[]): number {
       });
     }
     try {
-      emitAgentLogEvents(inputs, { sftddDir: a.sftddDir });
+      emitAgentLogEvents(inputs, { consortDir: a.consortDir });
       // Mirror any BLOCKING smell in the batch to smells.json, same as single emit.
-      for (const inp of inputs) mirrorBlockingSmell(a.sftddDir ?? resolveSftddDir(), inp.event, inp.slots ?? {});
+      for (const inp of inputs) mirrorBlockingSmell(a.consortDir ?? resolveConsortDir(), inp.event, inp.slots ?? {});
       return 0;
     } catch (e) {
       process.stderr.write(`consort-log --events: ${(e as Error).message}\n`);
@@ -269,8 +269,8 @@ export function runAgentLogCli(argv: string[]): number {
     slots,
   };
   try {
-    emitAgentLogEvent(input, { sftddDir: a.sftddDir });
-    mirrorBlockingSmell(a.sftddDir ?? resolveSftddDir(), input.event, slots);
+    emitAgentLogEvent(input, { consortDir: a.consortDir });
+    mirrorBlockingSmell(a.consortDir ?? resolveConsortDir(), input.event, slots);
     return 0;
   } catch (e) {
     process.stderr.write(`consort-log: ${(e as Error).message}\n`);
@@ -283,9 +283,9 @@ export function runAgentLogCli(argv: string[]): number {
  *  the next dispatch. No-op for a non-smell event or an advisory/unknown smell.
  *  Carries story/ac scope when the role named it (slots) so revise-routing knows
  *  which story to send back (the probe falls back to the active build story). */
-function mirrorBlockingSmell(sftddDir: string, event: string, slots: Record<string, unknown>): void {
+function mirrorBlockingSmell(consortDir: string, event: string, slots: Record<string, unknown>): void {
   if (event !== "smell.flagged" || typeof slots.smell !== "string") return;
-  recordBlockingSmellFlag(sftddDir, slots.smell, typeof slots.detail === "string" ? slots.detail : undefined, {
+  recordBlockingSmellFlag(consortDir, slots.smell, typeof slots.detail === "string" ? slots.detail : undefined, {
     story_id: typeof slots.story === "string" ? slots.story : undefined,
     ac_id: typeof slots.ac === "string" ? slots.ac : undefined,
   });

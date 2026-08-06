@@ -19,7 +19,7 @@ export interface RecordBuildTurnArgs {
   /** The project working tree (the experiment branch is checked out). */
   projectDir: string;
   /** The project .tdd dir. */
-  sftddDir: string;
+  consortDir: string;
   featureId: string;
   story: string;
   /** 1-based turn ordinal within this story's build (Navigator/Driver turns). */
@@ -69,7 +69,7 @@ export function turnSlug(turn: number, role: string, ac?: string, mode?: string)
  * turn directory written.
  */
 export function recordBuildTurn(args: RecordBuildTurnArgs): string {
-  const { recordBuildDir, projectDir, sftddDir, featureId, story, turn, role, ac, mode } = args;
+  const { recordBuildDir, projectDir, consortDir, featureId, story, turn, role, ac, mode } = args;
   const turnDir = join(
     featuresDir(recordBuildDir),
     featureId,
@@ -89,9 +89,9 @@ export function recordBuildTurn(args: RecordBuildTurnArgs): string {
 
   // 2. The cycle + experiment records as they stand at this turn (RED/GREEN
   //    timestamps, reviews, outcomes), so replay restores per-turn .tdd state too.
-  const cyclesSrc = cyclesRootDir(sftddDir);
+  const cyclesSrc = cyclesRootDir(consortDir);
   if (existsSync(cyclesSrc)) cpSync(cyclesSrc, join(turnDir, "tdd", "cycles"), { recursive: true, force: true });
-  const expSrc = experimentsRootDir(sftddDir);
+  const expSrc = experimentsRootDir(consortDir);
   if (existsSync(expSrc)) cpSync(expSrc, join(turnDir, "tdd", "experiments"), { recursive: true, force: true });
 
   return turnDir;

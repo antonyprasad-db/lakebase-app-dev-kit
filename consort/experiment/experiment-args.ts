@@ -24,7 +24,7 @@ export interface ExperimentArgs {
    *  for a clean re-cut after a discarded experiment (Finding 27). */
   resetStaleBranch?: boolean;
   projectDir?: string;
-  sftddDir?: string;
+  consortDir?: string;
 }
 
 /** Parse the experiment CLI argv (argv[0] is the subcommand). */
@@ -47,7 +47,7 @@ export function parseExperimentArgs(argv: string[]): ExperimentArgs {
     else if (a === "--revise") out.revise = true;
     else if (a === "--reset-stale-branch") out.resetStaleBranch = true;
     else if (a === "--project-dir") out.projectDir = argv[++i];
-    else if (a === "--tdd-dir") out.sftddDir = argv[++i];
+    else if (a === "--tdd-dir") out.consortDir = argv[++i];
   }
   return out;
 }

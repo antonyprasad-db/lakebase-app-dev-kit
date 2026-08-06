@@ -107,7 +107,7 @@ describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE: Step + ClaudeStepAgent produc
     };
     const ctx: StepCtx = {
       action: BREAKDOWN,
-      cfg: { projectDir: workspaceDir, sftddDir: join(workspaceDir, ".sftdd"), featureId: FEATURE } as StepCtx["cfg"],
+      cfg: { projectDir: workspaceDir, consortDir: join(workspaceDir, ".sftdd"), featureId: FEATURE } as StepCtx["cfg"],
       state: { phase: "feature" } as unknown as DriveState,
       validateBoundDeps,
     };

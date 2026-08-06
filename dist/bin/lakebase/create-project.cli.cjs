@@ -30,7 +30,7 @@ var importMetaUrl = /* @__PURE__ */ getImportMetaUrl();
 // consort/lakebase/create-project.ts
 var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
-// consort/setup/project-sftdd-setup.ts
+// consort/setup/project-consort-setup.ts
 var fs4 = __toESM(require("fs"), 1);
 var path3 = __toESM(require("path"), 1);
 var import_node_url2 = require("url");
@@ -87,7 +87,7 @@ var LEGACY_CONFIG_RELS = [
   (0, import_path2.join)(".lakebase", "tdd-config.json")
 ];
 var LEGACY_TDD_CONFIG_REL = LEGACY_CONFIG_RELS[0];
-function defaultSftddConfig() {
+function defaultConsortConfig() {
   const roles = {};
   for (const role of ALL_AGENT_ROLES) {
     roles[role] = role === "navigator" ? { model: RECOMMENDED_MODELS[role], effort: { review: "low" } } : role === "driver" ? (
@@ -128,7 +128,7 @@ function mergeOptimizedDefaults(base, overlay) {
   }
   return out;
 }
-function writeSftddConfig(projectDir, config, opts) {
+function writeConsortConfig(projectDir, config, opts) {
   const f = (0, import_path2.join)(projectDir, CONSORT_CONFIG_REL);
   if ((0, import_fs.existsSync)(f) && !opts?.force) return false;
   (0, import_fs.mkdirSync)((0, import_path2.dirname)(f), { recursive: true });
@@ -136,7 +136,7 @@ function writeSftddConfig(projectDir, config, opts) {
   return true;
 }
 
-// consort/lakebase/adopt-sftdd.ts
+// consort/lakebase/adopt-consort.ts
 var fs2 = __toESM(require("fs"), 1);
 var path = __toESM(require("path"), 1);
 var import_node_url = require("url");
@@ -145,7 +145,7 @@ var import_node_url = require("url");
 var fs3 = __toESM(require("fs"), 1);
 var path2 = __toESM(require("path"), 1);
 
-// consort/setup/project-sftdd-setup.ts
+// consort/setup/project-consort-setup.ts
 var __dirname = path3.dirname((0, import_node_url2.fileURLToPath)(importMetaUrl));
 function kitPackageName() {
   const candidates = [
@@ -246,28 +246,28 @@ function layDownKitClaudeAssets(targetDir) {
   }
 }
 var AGENT_SYNC_MARKER = path3.join(".claude", "agents", ".kit-version");
-function seedSftddConfig(projectDir, opts) {
-  const sftddConfig = defaultSftddConfig();
+function seedConsortConfig(projectDir, opts) {
+  const consortConfig = defaultConsortConfig();
   for (const [role, model] of Object.entries(opts.agentModels ?? {})) {
-    if (model && sftddConfig.roles?.[role]) {
-      sftddConfig.roles[role].model = model;
+    if (model && consortConfig.roles?.[role]) {
+      consortConfig.roles[role].model = model;
     }
   }
-  if (sftddConfig.project) {
-    sftddConfig.project.uiTrack = opts.uiTrack ?? false;
-    sftddConfig.project.clientFramework = opts.clientFramework;
+  if (consortConfig.project) {
+    consortConfig.project.uiTrack = opts.uiTrack ?? false;
+    consortConfig.project.clientFramework = opts.clientFramework;
   }
-  writeSftddConfig(projectDir, sftddConfig);
+  writeConsortConfig(projectDir, consortConfig);
 }
-var kitSftddHooks = {
+var kitConsortHooks = {
   layDownScaffold: layDownTddScaffold,
-  seedConfig: seedSftddConfig
+  seedConfig: seedConsortConfig
 };
 
 // consort/lakebase/create-project.ts
 function createProject(input, progress) {
   return (0, import_lakebase.createProject)(
-    { ...input, sftddHooks: input.sftddHooks ?? kitSftddHooks },
+    { ...input, sftddHooks: input.sftddHooks ?? kitConsortHooks },
     progress
   );
 }

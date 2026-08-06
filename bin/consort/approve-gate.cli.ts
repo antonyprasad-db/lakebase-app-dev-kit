@@ -36,7 +36,7 @@
 import { approveSprintPlanGate } from "../../consort/gates/sprint-gates.js";
 import { drainGatesAsHumanProxy } from "../../consort/gates/human-proxy.js";
 import { approveStoryGateFromDisk, batchedDraftMessage } from "../../consort/pipeline/story-pipeline.js";
-import { resolveSftddDir } from "../../consort/config/consort-paths.js";
+import { resolveConsortDir } from "../../consort/config/consort-paths.js";
 import type { GateName } from "../../consort/gates/gates.js";
 
 interface Parsed {
@@ -111,13 +111,13 @@ export function runApproveGateCli(argv: string[]): number {
     process.stderr.write(`consort-approve-gate: --story is a per-story feature gate; not valid with --sprint (the plan gate has no story).\n`);
     return 2;
   }
-  const sftddDir = p.tddDir ?? resolveSftddDir(p.projectDir);
+  const consortDir = p.tddDir ?? resolveConsortDir(p.projectDir);
 
   // Per-story spec gate (the pipeline gate the design lane blocks on). Routes
   // through the SAME shared helper as `consort-pipeline approve-gate`
   // (FEIP-8008), so the human door and the headless proxy write identical state.
   if (p.story) {
-    const r = approveStoryGateFromDisk(sftddDir, p.feature as string, p.story, { approver: p.approver });
+    const r = approveStoryGateFromDisk(consortDir, p.feature as string, p.story, { approver: p.approver });
     if (p.json) {
       process.stdout.write(`${JSON.stringify(r)}\n`);
       if (!r.ok) return r.batched ? 3 : 2;
@@ -140,7 +140,7 @@ export function runApproveGateCli(argv: string[]): number {
 
   // Sprint plan gate.
   if (p.sprint) {
-    const res = approveSprintPlanGate({ sprint: p.sprint, approver: p.approver, hitlApproved: true, sftddDir });
+    const res = approveSprintPlanGate({ sprint: p.sprint, approver: p.approver, hitlApproved: true, consortDir });
     if (p.json) process.stdout.write(`${JSON.stringify(res)}\n`);
     else if (res.ok) {
       process.stdout.write(
@@ -157,7 +157,7 @@ export function runApproveGateCli(argv: string[]): number {
   // approval rather than the proxy default.
   const result = drainGatesAsHumanProxy({
     featureId: p.feature as string,
-    sftddDir,
+    consortDir,
     approver: p.approver,
     ...(p.gate ? { onlyGate: p.gate } : {}),
     ...(p.promoteRef ? { promoteRef: p.promoteRef } : {}),

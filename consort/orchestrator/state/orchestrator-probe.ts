@@ -55,8 +55,8 @@ import {
 import { checkDbDesign } from "../validators/conformance/artifact-conformance.js";
 
 /** Every recorded cycle artifact for a story, across all of its ACs. */
-function storyCycles(sftddDir: string, featureId: string, story: string): CycleArtifact[] {
-  const base = path.join(cyclesRootDir(sftddDir), featureId, story);
+function storyCycles(consortDir: string, featureId: string, story: string): CycleArtifact[] {
+  const base = path.join(cyclesRootDir(consortDir), featureId, story);
   if (!fs.existsSync(base)) return [];
   const out: CycleArtifact[] = [];
   for (const acDir of fs.readdirSync(base)) {
@@ -101,8 +101,8 @@ function readJson(file: string): Record<string, unknown> | undefined {
  * Best-effort + tolerant: a missing/malformed file yields the conservative
  * (not-yet-done) reading, so the driver re-derives a safe DriveState.
  */
-export function readDriveContext(sftddDir: string, featureId: string, projectDir?: string): DriveContext {
-  const ws = readJson(workflowStateJson(sftddDir));
+export function readDriveContext(consortDir: string, featureId: string, projectDir?: string): DriveContext {
+  const ws = readJson(workflowStateJson(consortDir));
   // The coarse `phase` slot is per-PROJECT, so trust it only when it was written
   // FOR this feature (FEIP-8022): an un-owned or foreign-owned phase would leak a
   // prior feature's phase into this one (F2 inheriting F1's "deploy"). When it is
@@ -120,28 +120,28 @@ export function readDriveContext(sftddDir: string, featureId: string, projectDir
   const honorPhase = rawPhase === "planning" || phaseOwner === featureId;
   const tddPhase = honorPhase && rawPhase ? rawPhase : "feature";
 
-  const spec = readJson(featureSpecJson(sftddDir, featureId));
+  const spec = readJson(featureSpecJson(consortDir, featureId));
   const proposed = spec !== undefined;
   const breakdownDone = Array.isArray(spec?.stories) && (spec!.stories as unknown[]).length > 0;
-  const requestsAuthored = fs.existsSync(featureRequestMd(sftddDir, featureId));
+  const requestsAuthored = fs.existsSync(featureRequestMd(consortDir, featureId));
 
   // Deploy is "done" once the Release Engineer produced deploy-evidence.json
   // (the deploy actually ran). The deploy gate's approval is read strictly via
   // readGates (the authoritative gate model), tolerant of a missing/legacy file.
-  const deployed = fs.existsSync(featureDeployEvidenceJson(sftddDir, featureId));
-  const gateApproved = readGateApproved(featureId, sftddDir, "deploy");
+  const deployed = fs.existsSync(featureDeployEvidenceJson(consortDir, featureId));
+  const gateApproved = readGateApproved(featureId, consortDir, "deploy");
   // Feature-ship deploy-verify self-heal: a feature-scope contamination marker
   // (no story) makes the deploy phase route the ASSESS/SCOPE turns before the
   // gate, mirroring the per-story self-heal. Read at feature scope (storyId omitted).
-  const verifyAssessEligible = deployVerifyNeedsAssess(sftddDir, featureId);
-  const verifyRefactorPending = deployVerifyRefactorPendingMarker(sftddDir, featureId);
+  const verifyAssessEligible = deployVerifyNeedsAssess(consortDir, featureId);
+  const verifyRefactorPending = deployVerifyRefactorPendingMarker(consortDir, featureId);
 
   // Promote: the SCM workflow-state (.lakebase/workflow-state.json, project root)
   // is the source of truth for prepare-pr / wait-ci / merge (the SCM ladder
   // feature-claimed -> pr-ready -> ci-green -> merged). The `promote` HITL gate
   // (the PR acceptance, BEFORE the merge) lives in the TDD gate model. projectDir
   // defaults to the parent of .tdd.
-  const proj = projectDir ?? path.dirname(sftddDir);
+  const proj = projectDir ?? path.dirname(consortDir);
   let scmState: string | undefined;
   try {
     scmState = readWorkflowState(proj)?.state;
@@ -157,14 +157,14 @@ export function readDriveContext(sftddDir: string, featureId: string, projectDir
   const promote = {
     prReady: atOrPast("pr-ready"),
     ciGreen: atOrPast("ci-green"),
-    prApproved: readGateApproved(featureId, sftddDir, "promote"),
+    prApproved: readGateApproved(featureId, consortDir, "promote"),
     merged: scmState === "merged",
   };
 
   return {
     phase: driverPhaseForTdd(tddPhase),
     breakdownDone,
-    planning: { proposed, estimated: hasEstimates(sftddDir), requestsAuthored },
+    planning: { proposed, estimated: hasEstimates(consortDir), requestsAuthored },
     deploy: { deployed, gateApproved, verifyAssessEligible, verifyRefactorPending },
     promote,
   };
@@ -172,9 +172,9 @@ export function readDriveContext(sftddDir: string, featureId: string, projectDir
 
 /** Read one gate's approved-ness from the authoritative gate model, tolerant of
  *  a missing/legacy gates.json (conservative false). */
-function readGateApproved(featureId: string, sftddDir: string, gate: "deploy" | "promote"): boolean {
+function readGateApproved(featureId: string, consortDir: string, gate: "deploy" | "promote"): boolean {
   try {
-    return readGates(featureId, { sftddDir }).gates[gate].status === "approved";
+    return readGates(featureId, { consortDir }).gates[gate].status === "approved";
   } catch {
     return false;
   }
@@ -185,17 +185,17 @@ function readGateApproved(featureId: string, sftddDir: string, gate: "deploy" | 
  *  smell-derived escalation that did not carry one, so revise-routing knows which
  *  story to send back. */
 export function diskArtifactProbe(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   buildActive?: string | null,
 ): StoryArtifactProbe {
   return {
     hasAcs(story) {
-      return storyAcIds(sftddDir, featureId, story).length > 0;
+      return storyAcIds(consortDir, featureId, story).length > 0;
     },
 
     architectAnnotated(story) {
-      const acs = storyAcIds(sftddDir, featureId, story);
+      const acs = storyAcIds(consortDir, featureId, story);
       if (acs.length === 0) return false; // no ACs yet -> nothing to annotate
       // The Architect is "done" with a story only once its DISTINCTIVE outputs
       // are on disk, NOT merely the AC `layer`. `layer` is a REQUIRED ac.schema
@@ -205,8 +205,8 @@ export function diskArtifactProbe(
       // layering/NFR/service_backed gate checks had nothing to validate). Key on
       // the architect's own products: architectural_notes on every AC + the
       // feature architecture.json (service_backed + layers + nfrs).
-      const everyAcNoted = acs.every((ac) => readAcArchitecturalNotes(sftddDir, featureId, ac) !== undefined);
-      return everyAcNoted && fs.existsSync(architectureJson(sftddDir, featureId));
+      const everyAcNoted = acs.every((ac) => readAcArchitecturalNotes(consortDir, featureId, ac) !== undefined);
+      return everyAcNoted && fs.existsSync(architectureJson(consortDir, featureId));
     },
 
     dbaDesigned() {
@@ -217,7 +217,7 @@ export function diskArtifactProbe(
       // test strategist). Only consulted after architectAnnotated, so
       // architecture.json exists here; false until it does (the architect owns the
       // contract the DBA realizes).
-      const archFile = architectureJson(sftddDir, featureId);
+      const archFile = architectureJson(consortDir, featureId);
       if (!fs.existsSync(archFile)) return false;
       let archContent: string;
       try {
@@ -225,7 +225,7 @@ export function diskArtifactProbe(
       } catch {
         return false;
       }
-      const dbFile = dbDesignJson(sftddDir, featureId);
+      const dbFile = dbDesignJson(consortDir, featureId);
       let dbContent: string | undefined;
       if (fs.existsSync(dbFile)) {
         try {
@@ -246,8 +246,8 @@ export function diskArtifactProbe(
       // architecture.json on the feature's first story, or clean a novel story +
       // amend the canon. An AC missing its layer is not projectable (nothing to
       // anchor a note on), so it also dispatches.
-      if (!fs.existsSync(architectureJson(sftddDir, featureId))) return false;
-      const canon = readCanon(sftddDir);
+      if (!fs.existsSync(architectureJson(consortDir, featureId))) return false;
+      const canon = readCanon(consortDir);
       if (!canon) return false;
       // The feature that ESTABLISHED the canon runs the architect for its own
       // stories, it does not project against the canon it is itself building
@@ -258,10 +258,10 @@ export function diskArtifactProbe(
       // A story already sent back on an architect-canon-gap revise must NOT be
       // re-projected (that would re-emit the same blind note and heal nothing):
       // force the ARCHITECT to run live (re-annotate + amend the canon).
-      if (priorReviseCount(sftddDir, "architect-canon-gap", story) > 0) return false;
-      const acs = storyAcIds(sftddDir, featureId, story);
+      if (priorReviseCount(consortDir, "architect-canon-gap", story) > 0) return false;
+      const acs = storyAcIds(consortDir, featureId, story);
       if (acs.length === 0) return false;
-      const layers = acs.map((ac) => readAcLayer(sftddDir, featureId, ac));
+      const layers = acs.map((ac) => readAcLayer(consortDir, featureId, ac));
       if (layers.some((l) => !l)) return false;
       return !architectNovelty(canon, layers.map((l) => ({ layer: l! }))).novel;
     },
@@ -273,7 +273,7 @@ export function diskArtifactProbe(
       // one scoped test item. Path + field both come from the single source of
       // truth so producer + probe cannot drift (the old code read a different
       // file name AND a non-existent `tests` field, so it never saw the list).
-      const file = storyTestListJson(sftddDir, featureId, story);
+      const file = storyTestListJson(consortDir, featureId, story);
       if (!fs.existsSync(file)) return false;
       try {
         const data = JSON.parse(fs.readFileSync(file, "utf8")) as { items?: unknown };
@@ -287,14 +287,14 @@ export function diskArtifactProbe(
       // The pre-build reflection critic's per-story verdict (passed:true). A
       // missing/failed verdict is false: the design lane runs (or re-runs) the
       // critic, and a failed verdict drives the smell -> revise-route -> HITL.
-      return reflectionPassed(sftddDir, featureId, story);
+      return reflectionPassed(consortDir, featureId, story);
     },
 
     reflectionVerdictWritten(story) {
       // Whether the reflect turn produced a readable verdict at all (pass OR
       // fail). The expectation guard uses this so a reflect turn that writes
       // nothing escalates rather than looping.
-      return reflectionVerdictWritten(sftddDir, featureId, story);
+      return reflectionVerdictWritten(consortDir, featureId, story);
     },
 
     // The build loop is TEST-LIST-DRIVEN: the Navigator/Driver hand off ONE test
@@ -307,37 +307,37 @@ export function diskArtifactProbe(
     // it the loop advanced after a single test and stalled at await-acceptance
     // with the rest of the list unbuilt (the live stall).
     testsWritten(story) {
-      const p = storyTestProgress(sftddDir, featureId, story);
+      const p = storyTestProgress(consortDir, featureId, story);
       if (p.total === 0) {
         // Legacy / pre-test-list fallback: any RED counts as "tests written".
-        return storyCycles(sftddDir, featureId, story).some((c) => Boolean(c.red_at));
+        return storyCycles(consortDir, featureId, story).some((c) => Boolean(c.red_at));
       }
       return p.openRed.length > 0 || p.allGreen;
     },
 
     codeWritten(story) {
-      const p = storyTestProgress(sftddDir, featureId, story);
+      const p = storyTestProgress(consortDir, featureId, story);
       if (p.total === 0) {
-        const reds = storyCycles(sftddDir, featureId, story).filter((c) => Boolean(c.red_at));
+        const reds = storyCycles(consortDir, featureId, story).filter((c) => Boolean(c.red_at));
         return reds.length > 0 && reds.every((c) => Boolean(c.green_at));
       }
       return p.allGreen;
     },
 
     reviewPendingAc(story) {
-      return firstReviewPendingAc(sftddDir, featureId, story);
+      return firstReviewPendingAc(consortDir, featureId, story);
     },
 
     refactorPendingAc(story) {
-      return firstRefactorPendingAc(sftddDir, featureId, story);
+      return firstRefactorPendingAc(consortDir, featureId, story);
     },
 
     reviewPending(story) {
-      return reviewPending(sftddDir, featureId, story);
+      return reviewPending(consortDir, featureId, story);
     },
 
     refactorPending(story) {
-      return refactorPending(sftddDir, featureId, story);
+      return refactorPending(consortDir, featureId, story);
     },
 
     assessGreenFailureAc(story) {
@@ -345,12 +345,12 @@ export function diskArtifactProbe(
       // assessed by the Navigator (a green-failure marker with assessed:false).
       let acId: string | undefined;
       try {
-        acId = storyTestProgress(sftddDir, featureId, story).openRed[0]?.ac_id;
+        acId = storyTestProgress(consortDir, featureId, story).openRed[0]?.ac_id;
       } catch {
         acId = undefined;
       }
       if (!acId) return null;
-      return needsGreenAssess(sftddDir, featureId, story, acId) ? acId : null;
+      return needsGreenAssess(consortDir, featureId, story, acId) ? acId : null;
     },
 
     repairRegressionFixAc(story) {
@@ -359,12 +359,12 @@ export function diskArtifactProbe(
       // attempt has not been consumed. Routes a bounded Driver repair turn.
       let acId: string | undefined;
       try {
-        acId = storyTestProgress(sftddDir, featureId, story).openRed[0]?.ac_id;
+        acId = storyTestProgress(consortDir, featureId, story).openRed[0]?.ac_id;
       } catch {
         acId = undefined;
       }
       if (!acId) return null;
-      return hasPendingRegressionFix(sftddDir, featureId, story, acId) ? acId : null;
+      return hasPendingRegressionFix(consortDir, featureId, story, acId) ? acId : null;
     },
 
     greenSupersededFailureAc(story) {
@@ -374,46 +374,46 @@ export function diskArtifactProbe(
       // green-superseded turn so the recorder writes a distinct, replay-filtered dir.
       let acId: string | undefined;
       try {
-        acId = storyTestProgress(sftddDir, featureId, story).openRed[0]?.ac_id;
+        acId = storyTestProgress(consortDir, featureId, story).openRed[0]?.ac_id;
       } catch {
         acId = undefined;
       }
       if (!acId) return null;
-      return hasPendingSupersession(sftddDir, featureId, story, acId) ? acId : null;
+      return hasPendingSupersession(consortDir, featureId, story, acId) ? acId : null;
     },
 
     storyDeployVerified(story) {
-      return storyDeployVerified(sftddDir, featureId, story);
+      return storyDeployVerified(consortDir, featureId, story);
     },
 
     deployVerifyAssessEligible(story) {
       // A contamination-classified deploy-verify failure (marker written by the
       // deploy step) not yet assessed + under the one-shot cap: routes the
       // story-level Navigator ASSESS-DEPLOY turn.
-      return deployVerifyNeedsAssess(sftddDir, featureId, story);
+      return deployVerifyNeedsAssess(consortDir, featureId, story);
     },
 
     deployVerifyRefactorPending(story) {
       // The Navigator assessed + recorded a scope set the Driver has not yet
       // refactored: routes the Driver SCOPE-DEPLOY turn.
-      return deployVerifyRefactorPendingMarker(sftddDir, featureId, story);
+      return deployVerifyRefactorPendingMarker(consortDir, featureId, story);
     },
 
     refactorVerifyAssessEligible(story) {
       // A refactor-verify failure (marker written by refactorStory) not yet
       // assessed + under the one-shot cap: routes the story-level Navigator
       // supersession ASSESS turn instead of the terminal HIL.
-      return refactorVerifyNeedsAssessMarker(sftddDir, featureId, story);
+      return refactorVerifyNeedsAssessMarker(consortDir, featureId, story);
     },
 
     refactorVerifyRefactorPending(story) {
       // The Navigator flagged superseded prior tests the Driver has not yet
       // permissively refactored: routes the Driver permissive-refactor turn.
-      return refactorVerifyRefactorPendingMarker(sftddDir, featureId, story);
+      return refactorVerifyRefactorPendingMarker(consortDir, featureId, story);
     },
 
     pendingEscalation(): DriveEscalation | null {
-      const e = firstPendingEscalation(sftddDir, featureId);
+      const e = firstPendingEscalation(consortDir, featureId);
       if (!e) return null;
       const base: DriveEscalation = {
         id: e.id,
@@ -436,7 +436,7 @@ export function diskArtifactProbe(
         // escalation so the build dispatches that refactor instead of raising to
         // HIL. refactorAc preserves behavior + resolves the smell; if the refactor
         // never lands, the smell re-surfaces with no refactor pending and halts.
-        if (isBuildRefactorRoutableSmell(name) && story && firstRefactorPendingAc(sftddDir, featureId, story)) {
+        if (isBuildRefactorRoutableSmell(name) && story && firstRefactorPendingAc(consortDir, featureId, story)) {
           return null;
         }
         const spec = specLevelSmell(name);
@@ -452,7 +452,7 @@ export function diskArtifactProbe(
           // their simple per-(smell,story) budget.
           let budgetSpent: boolean;
           if (isReflectSmell(name)) {
-            const revises = priorReflectReviseCount(sftddDir, story);
+            const revises = priorReflectReviseCount(consortDir, story);
             if (revises >= REFLECT_REVISE_CAP) {
               budgetSpent = true;
             } else if (revises === 0) {
@@ -460,12 +460,12 @@ export function diskArtifactProbe(
             } else {
               // Progress check: the current test-list must differ from what the
               // last revise sent back. Unchanged => no progress => stop.
-              const lastSha = lastReflectReviseFingerprint(sftddDir, story);
-              const curSha = storyTestListFingerprint(sftddDir, featureId, story);
+              const lastSha = lastReflectReviseFingerprint(consortDir, story);
+              const curSha = storyTestListFingerprint(consortDir, featureId, story);
               budgetSpent = lastSha !== null && lastSha === curSha;
             }
           } else {
-            budgetSpent = priorReviseCount(sftddDir, name, story) >= 1;
+            budgetSpent = priorReviseCount(consortDir, name, story) >= 1;
           }
           if (!budgetSpent) {
             base.routable = { story, owning_role: spec.owning_role, gate: spec.gate_to_rerun };

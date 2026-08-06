@@ -45,7 +45,7 @@ var import_node_path = require("path");
 var ARTIFACT_ROOT = ".consort";
 var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
 var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
-function resolveSftddDir(projectDir = process.cwd()) {
+function resolveConsortDir(projectDir = process.cwd()) {
   const next = (0, import_node_path.join)(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
   for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
@@ -79,7 +79,7 @@ ${intro} Code is **not** promoted as-is. Capture the learning here before deleti
 `;
 }
 async function cutSpike(args) {
-  const { sftddDir, projectDir, spikeSlug, branch, parentBranch, ttl, notes, ...lookup } = args;
+  const { consortDir, projectDir, spikeSlug, branch, parentBranch, ttl, notes, ...lookup } = args;
   const paired = await (0, import_lakebase.createPairedBranch)({
     instance: lookup.instance,
     branch,
@@ -90,7 +90,7 @@ async function cutSpike(args) {
     ...ttl ? { ttl } : { noExpiry: true }
   });
   const branchId = branchIdOf(paired.branch);
-  const dir = (0, import_path.join)(sftddDir, "spikes", spikeSlug);
+  const dir = (0, import_path.join)(consortDir, "spikes", spikeSlug);
   (0, import_fs.mkdirSync)(dir, { recursive: true });
   (0, import_fs.writeFileSync)((0, import_path.join)(dir, "branch.txt"), branchId);
   (0, import_fs.writeFileSync)(
@@ -107,8 +107,8 @@ Throwaway spike. Code is **not** promoted as-is. Capture learning before deletin
     dir
   };
 }
-function listSpikes(sftddDir) {
-  const root = (0, import_path.join)(sftddDir, "spikes");
+function listSpikes(consortDir) {
+  const root = (0, import_path.join)(consortDir, "spikes");
   if (!(0, import_fs.existsSync)(root)) return [];
   const out = [];
   for (const slug of (0, import_fs.readdirSync)(root)) {
@@ -126,8 +126,8 @@ function listSpikes(sftddDir) {
   return out;
 }
 async function deleteSpike(args) {
-  const { sftddDir, projectDir, spikeSlug, deleteBranchToo = true, ...lookup } = args;
-  const dir = (0, import_path.join)(sftddDir, "spikes", spikeSlug);
+  const { consortDir, projectDir, spikeSlug, deleteBranchToo = true, ...lookup } = args;
+  const dir = (0, import_path.join)(consortDir, "spikes", spikeSlug);
   if (!(0, import_fs.existsSync)(dir)) throw new Error(`spike ${spikeSlug} not found at ${dir}`);
   if (deleteBranchToo) {
     const branchId = (0, import_fs.readFileSync)((0, import_path.join)(dir, "branch.txt"), "utf8").trim();
@@ -162,7 +162,7 @@ function parseArgs(argv) {
         out.projectDir = argv[++i];
         break;
       case "--tdd-dir":
-        out.sftddDir = argv[++i];
+        out.consortDir = argv[++i];
         break;
       case "--keep-branch":
         out.keepBranch = true;
@@ -185,7 +185,7 @@ A spike is throwaway exploration outside the TDD loop. --for <feature> tags the
 notes so the learning carries forward into that feature's design-spec gate.
 `;
 function tddDirFor(args) {
-  return args.sftddDir ?? resolveSftddDir(args.projectDir ?? ".");
+  return args.consortDir ?? resolveConsortDir(args.projectDir ?? ".");
 }
 async function runSpikeCli(argv) {
   const sub = argv[0];
@@ -194,7 +194,7 @@ async function runSpikeCli(argv) {
     return sub ? 0 : 2;
   }
   const args = parseArgs(argv.slice(1));
-  const sftddDir = tddDirFor(args);
+  const consortDir = tddDirFor(args);
   try {
     if (sub === "cut") {
       if (!args.slug || !args.instance) {
@@ -202,7 +202,7 @@ async function runSpikeCli(argv) {
         return 2;
       }
       const rec = await cutSpike({
-        sftddDir,
+        consortDir,
         projectDir: args.projectDir ?? process.cwd(),
         spikeSlug: args.slug,
         branch: `spike/${args.slug}`,
@@ -220,7 +220,7 @@ async function runSpikeCli(argv) {
       return 0;
     }
     if (sub === "list") {
-      const spikes = listSpikes(sftddDir);
+      const spikes = listSpikes(consortDir);
       process.stdout.write(
         args.json ? `${JSON.stringify(spikes)}
 ` : spikes.length ? spikes.map((s) => `${s.spike_slug}	${s.branch_id}`).join("\n") + "\n" : "(no spikes)\n"
@@ -233,7 +233,7 @@ async function runSpikeCli(argv) {
         return 2;
       }
       await deleteSpike({
-        sftddDir,
+        consortDir,
         projectDir: args.projectDir ?? process.cwd(),
         spikeSlug: args.slug,
         deleteBranchToo: !args.keepBranch,

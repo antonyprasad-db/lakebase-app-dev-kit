@@ -45,12 +45,12 @@ const SMELL_FOR_OWNER: Record<ReflectOwner, SmellName> = {
 
 /** Write a story's reflect verdict (the Navigator reflect turn's output). */
 export function writeReflectVerdict(
-  sftddDir: string,
+  consortDir: string,
   feature: string,
   story: string,
   verdict: ReflectVerdict,
 ): void {
-  const p = reflectVerdictJson(sftddDir, feature, story);
+  const p = reflectVerdictJson(consortDir, feature, story);
   mkdirSync(dirname(p), { recursive: true });
   writeFileSync(p, JSON.stringify(verdict, null, 2) + "\n");
 }
@@ -62,18 +62,18 @@ export function writeReflectVerdict(
  *  the re-dispatched Navigator reuses it ("a prior verdict already exists") rather
  *  than re-evaluating, so the reflect gate never converges. Idempotent (no-op if
  *  absent). */
-export function clearReflectVerdict(sftddDir: string, feature: string, story: string): void {
-  const p = reflectVerdictJson(sftddDir, feature, story);
+export function clearReflectVerdict(consortDir: string, feature: string, story: string): void {
+  const p = reflectVerdictJson(consortDir, feature, story);
   if (existsSync(p)) rmSync(p, { force: true });
 }
 
 /** Read a story's reflect verdict, or undefined when none has been written. */
 export function readReflectVerdict(
-  sftddDir: string,
+  consortDir: string,
   feature: string,
   story: string,
 ): ReflectVerdict | undefined {
-  const p = reflectVerdictJson(sftddDir, feature, story);
+  const p = reflectVerdictJson(consortDir, feature, story);
   if (!existsSync(p)) return undefined;
   try {
     return JSON.parse(readFileSync(p, "utf8")) as ReflectVerdict;
@@ -85,8 +85,8 @@ export function readReflectVerdict(
 /** The design-lane predicate: has this story's reflection PASSED? A missing or
  *  failed verdict is not passed (the design lane runs / re-runs the critic; a
  *  failed verdict drives the smell + escalation elsewhere). */
-export function reflectionPassed(sftddDir: string, feature: string, story: string): boolean {
-  return readReflectVerdict(sftddDir, feature, story)?.passed === true;
+export function reflectionPassed(consortDir: string, feature: string, story: string): boolean {
+  return readReflectVerdict(consortDir, feature, story)?.passed === true;
 }
 
 /** Did the reflect turn produce a readable verdict at all (pass OR fail)? The
@@ -95,8 +95,8 @@ export function reflectionPassed(sftddDir: string, feature: string, story: strin
  *  "the critic ran and produced a verdict" from "no verdict on disk", so the
  *  driver can guard a reflect turn that produced nothing (escalate) instead of
  *  silently re-invoking it into a stall. */
-export function reflectionVerdictWritten(sftddDir: string, feature: string, story: string): boolean {
-  return readReflectVerdict(sftddDir, feature, story) !== undefined;
+export function reflectionVerdictWritten(consortDir: string, feature: string, story: string): boolean {
+  return readReflectVerdict(consortDir, feature, story) !== undefined;
 }
 
 /** Every reflect smell name (both owners), for the clear-on-pass sweep. */
@@ -118,15 +118,15 @@ const REFLECT_SMELLS: readonly SmellName[] = Object.values(SMELL_FOR_OWNER);
  * The one-revise bound stays the smell log's job (priorReviseCount): a genuine
  * re-fire after a revise still escalates to HITL, it just does so without dups.
  */
-export function recordReflectionGate(sftddDir: string, feature: string, story: string): SmellHit[] {
-  const verdict = readReflectVerdict(sftddDir, feature, story);
+export function recordReflectionGate(consortDir: string, feature: string, story: string): SmellHit[] {
+  const verdict = readReflectVerdict(consortDir, feature, story);
   if (!verdict || verdict.passed) {
     // The gate passes: drain any open reflect smell(s) for this story so a
     // now-resolved defect does not linger + block. `cleared` is an automatic
     // self-resolve (not a `revised`), so it does not spend the revise budget.
     if (verdict?.passed) {
       for (const smell of REFLECT_SMELLS) {
-        resolveOpenSmells(sftddDir, smell, { story_id: story, kind: "cleared", note: "reflect gate now passes" });
+        resolveOpenSmells(consortDir, smell, { story_id: story, kind: "cleared", note: "reflect gate now passes" });
       }
     }
     return [];
@@ -152,7 +152,7 @@ export function recordReflectionGate(sftddDir: string, feature: string, story: s
   });
   // Idempotent: only write the owner smells that are not already open for this
   // story (a re-run against the same failing verdict re-detects the same defect).
-  const fresh = hits.filter((h) => !hasOpenSmell(sftddDir, h.smell, story));
-  if (fresh.length) writeSmellsLog(sftddDir, fresh);
+  const fresh = hits.filter((h) => !hasOpenSmell(consortDir, h.smell, story));
+  if (fresh.length) writeSmellsLog(consortDir, fresh);
   return hits;
 }

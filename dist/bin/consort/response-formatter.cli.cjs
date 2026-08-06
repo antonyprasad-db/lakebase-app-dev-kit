@@ -6651,7 +6651,7 @@ var import_node_path = require("path");
 var ARTIFACT_ROOT = ".consort";
 var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
 var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
-function resolveSftddDir(projectDir = process.cwd()) {
+function resolveConsortDir(projectDir = process.cwd()) {
   const next = (0, import_node_path.join)(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
   for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
@@ -7076,8 +7076,8 @@ function needStory(role, story, violations) {
   }
   return true;
 }
-function checkSpecAuthorBreakdown(sftddDir, featureId, v) {
-  const specPath = featureSpecJson(sftddDir, featureId);
+function checkSpecAuthorBreakdown(consortDir, featureId, v) {
+  const specPath = featureSpecJson(consortDir, featureId);
   if (!(0, import_node_fs.existsSync)(specPath)) {
     v.push({ artifact: "feature-spec.json", problem: "breakdown deliverable missing (write feature-spec.json with a non-empty stories[] array of the story ids)" });
     return;
@@ -7091,7 +7091,7 @@ function checkSpecAuthorBreakdown(sftddDir, featureId, v) {
     v.push({ artifact: "feature-spec.json", problem: `not valid JSON: ${err instanceof Error ? err.message : String(err)}` });
     return;
   }
-  const sdir = storiesDir(sftddDir, featureId);
+  const sdir = storiesDir(consortDir, featureId);
   if (!(0, import_node_fs.existsSync)(sdir)) return;
   const storyJsons = [];
   for (const s of (0, import_node_fs.readdirSync)(sdir)) {
@@ -7109,13 +7109,13 @@ function checkSpecAuthorBreakdown(sftddDir, featureId, v) {
   }
 }
 function checkSpecAuthor(args, v) {
-  const { sftddDir, featureId, story } = args;
+  const { consortDir, featureId, story } = args;
   if (story === void 0) {
-    checkSpecAuthorBreakdown(sftddDir, featureId, v);
+    checkSpecAuthorBreakdown(consortDir, featureId, v);
     return;
   }
-  const dir = acsDir(sftddDir, featureId, story);
-  const ids = storyAcIds(sftddDir, featureId, story);
+  const dir = acsDir(consortDir, featureId, story);
+  const ids = storyAcIds(consortDir, featureId, story);
   if (ids.length === 0) {
     v.push({ artifact: `stories/${story}/acs`, problem: "no acceptance criteria written (expected >=1 AC<n>.json)" });
     return;
@@ -7153,28 +7153,28 @@ function checkSpecAuthor(args, v) {
   }
 }
 function checkArchitect(args, v) {
-  const { sftddDir, featureId, story } = args;
+  const { consortDir, featureId, story } = args;
   if (!needStory("architect-reviewer", story, v)) return;
-  const ids = storyAcIds(sftddDir, featureId, story);
+  const ids = storyAcIds(consortDir, featureId, story);
   if (ids.length === 0) {
     v.push({ artifact: `stories/${story}/acs`, problem: "no ACs to annotate (spec-author output missing)" });
     return;
   }
   for (const ac of ids) {
-    if (readAcLayer(sftddDir, featureId, ac) === void 0) {
+    if (readAcLayer(consortDir, featureId, ac) === void 0) {
       v.push({ artifact: `stories/${story}/acs/${ac}.json`, problem: "missing/invalid `layer` (expected API | E2E | Infra)" });
     }
-    if (readAcArchitecturalNotes(sftddDir, featureId, ac) === void 0) {
+    if (readAcArchitecturalNotes(consortDir, featureId, ac) === void 0) {
       v.push({
         artifact: `stories/${story}/acs/${ac}.json`,
         problem: "missing non-empty `architectural_notes` (annotate EVERY AC with its layer rationale + how it realizes the design; the spec-author's `layer` field does NOT satisfy this)"
       });
     }
   }
-  checkNfrFitnessFunctions(sftddDir, featureId, v);
+  checkNfrFitnessFunctions(consortDir, featureId, v);
 }
-function checkNfrFitnessFunctions(sftddDir, featureId, v) {
-  const archFile = architectureJson(sftddDir, featureId);
+function checkNfrFitnessFunctions(consortDir, featureId, v) {
+  const archFile = architectureJson(consortDir, featureId);
   if (!(0, import_node_fs.existsSync)(archFile)) return;
   let nfrs;
   try {
@@ -7192,14 +7192,14 @@ function checkNfrFitnessFunctions(sftddDir, featureId, v) {
   }
 }
 function checkDba(args, v) {
-  const { sftddDir, featureId } = args;
-  const archFile = architectureJson(sftddDir, featureId);
+  const { consortDir, featureId } = args;
+  const archFile = architectureJson(consortDir, featureId);
   if (!(0, import_node_fs.existsSync)(archFile)) {
     v.push({ artifact: "architecture.json", problem: "architecture.json missing (the architect owns the contract the DBA realizes)" });
     return;
   }
   const archContent = (0, import_node_fs.readFileSync)(archFile, "utf8");
-  const dbFile = dbDesignJson(sftddDir, featureId);
+  const dbFile = dbDesignJson(consortDir, featureId);
   const dbContent = (0, import_node_fs.existsSync)(dbFile) ? (0, import_node_fs.readFileSync)(dbFile, "utf8") : void 0;
   if (dbContent !== void 0) {
     const conf = checkArtifactConformance("db-design.json", dbContent);
@@ -7209,9 +7209,9 @@ function checkDba(args, v) {
   if (!r.ok) v.push({ artifact: "db-design.json", problem: r.violations.join("; ") });
 }
 function checkTestStrategist(args, v) {
-  const { sftddDir, featureId, story } = args;
+  const { consortDir, featureId, story } = args;
   if (!needStory("test-strategist", story, v)) return;
-  const file = storyTestListJson(sftddDir, featureId, story);
+  const file = storyTestListJson(consortDir, featureId, story);
   if (!(0, import_node_fs.existsSync)(file)) {
     v.push({ artifact: `stories/${story}/test-list-per-story.json`, problem: "per-story test list not written" });
     return;
@@ -7228,7 +7228,7 @@ function checkTestStrategist(args, v) {
     v.push({ artifact: `stories/${story}/test-list-per-story.json`, problem: "empty `items` (expected >=1 test mapped to the story's ACs)" });
     return;
   }
-  const acIds = new Set(storyAcIds(sftddDir, featureId, story));
+  const acIds = new Set(storyAcIds(consortDir, featureId, story));
   const covered = /* @__PURE__ */ new Set();
   items.forEach((item, i) => {
     if (item.kind === "fitness" && typeof item.scenario_file === "string" && /\.feature$/.test(item.scenario_file)) {
@@ -7257,8 +7257,8 @@ function checkTestStrategist(args, v) {
     });
   }
 }
-function designGuideConformance(sftddDir) {
-  const file = designGuideJson(sftddDir);
+function designGuideConformance(consortDir) {
+  const file = designGuideJson(consortDir);
   if (!(0, import_node_fs.existsSync)(file)) {
     return { ok: false, problem: "design-guide.json not written (the machine-checkable token source of truth)" };
   }
@@ -7271,8 +7271,8 @@ function designGuideConformance(sftddDir) {
   const r = checkArtifactConformance(canonicalArtifactName(file), content);
   return r.ok ? { ok: true } : { ok: false, problem: r.violations.join("; ") };
 }
-function designGuideHasComponents(sftddDir) {
-  const file = designGuideJson(sftddDir);
+function designGuideHasComponents(consortDir) {
+  const file = designGuideJson(consortDir);
   if (!(0, import_node_fs.existsSync)(file)) return { ok: true };
   try {
     const parsed = JSON.parse((0, import_node_fs.readFileSync)(file, "utf8"));
@@ -7289,12 +7289,12 @@ function designGuideHasComponents(sftddDir) {
   return { ok: true };
 }
 function checkUxDesigner(args, v) {
-  const r = designGuideConformance(args.sftddDir);
+  const r = designGuideConformance(args.consortDir);
   if (!r.ok) {
     v.push({ artifact: "design/design-guide.json", problem: r.problem ?? "design-guide.json is non-conformant" });
     return;
   }
-  const c = designGuideHasComponents(args.sftddDir);
+  const c = designGuideHasComponents(args.consortDir);
   if (!c.ok) v.push({ artifact: "design/design-guide.json", problem: c.problem ?? "design-guide.json is missing components" });
 }
 var CHECKERS = {
@@ -7326,7 +7326,7 @@ function parse(argv) {
         out.story = argv[++i];
         break;
       case "--tdd-dir":
-        out.sftddDir = argv[++i];
+        out.consortDir = argv[++i];
         break;
     }
   }
@@ -7345,8 +7345,8 @@ function main() {
   const a = parse(process.argv.slice(2));
   if (!a.role) return usage("Error: --role is required.");
   if (!a.feature) return usage("Error: --feature is required.");
-  const sftddDir = a.sftddDir ?? resolveSftddDir();
-  const result = formatRoleResponse({ role: a.role, sftddDir, featureId: a.feature, story: a.story });
+  const consortDir = a.consortDir ?? resolveConsortDir();
+  const result = formatRoleResponse({ role: a.role, consortDir, featureId: a.feature, story: a.story });
   if (result.ok) {
     process.stdout.write(`response-formatter: ${a.role}${a.story ? ` (${a.story})` : ""} output conforms.
 `);

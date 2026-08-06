@@ -29,7 +29,7 @@ describe("emitAgentLogEvent", () => {
         feature_id: "F1-initial-domain",
         slots: { artifact: "feature-spec.json", summary: "drafted", path: "feature-spec.json" },
       },
-      { sftddDir: tdd, now: clock },
+      { consortDir: tdd, now: clock },
     );
     expect(ev.timestamp).toBe("2026-06-05T10:00:00.000Z");
     // message is rendered from "{{role}} wrote {{artifact}} , {{summary}}".
@@ -46,53 +46,53 @@ describe("emitAgentLogEvent", () => {
   });
 
   it("appends (does not overwrite) across multiple emits + roles", () => {
-    emitAgentLogEvent({ role: "spec-author", level: "info", event: "phase.end", slots: { phase: "design", outcome: "complete" } }, { sftddDir: tdd, now: clock });
-    emitAgentLogEvent({ role: "architect-reviewer", level: "debug", event: "reasoning", slots: { note: "weighing enum placement" } }, { sftddDir: tdd, now: clock });
-    const events = readAgentLog({ sftddDir: tdd });
+    emitAgentLogEvent({ role: "spec-author", level: "info", event: "phase.end", slots: { phase: "design", outcome: "complete" } }, { consortDir: tdd, now: clock });
+    emitAgentLogEvent({ role: "architect-reviewer", level: "debug", event: "reasoning", slots: { note: "weighing enum placement" } }, { consortDir: tdd, now: clock });
+    const events = readAgentLog({ consortDir: tdd });
     expect(events).toHaveLength(2);
     expect(events.map((e) => e.role)).toEqual(["spec-author", "architect-reviewer"]);
   });
 
   it("rejects an off-vocabulary event (closed enum, nothing dropped)", () => {
     expect(() =>
-      emitAgentLogEvent({ role: "driver", level: "info", event: "made.up.event" as never, slots: {} }, { sftddDir: tdd, now: clock }),
+      emitAgentLogEvent({ role: "driver", level: "info", event: "made.up.event" as never, slots: {} }, { consortDir: tdd, now: clock }),
     ).toThrow(/unknown agent-log event/i);
   });
 
   it("rejects an emit missing a required template slot (throws, not dropped)", () => {
     // phase.end's template "{{role}} END {{phase}} ({{outcome}})" requires phase + outcome.
     expect(() =>
-      emitAgentLogEvent({ role: "driver", level: "info", event: "phase.end", slots: { phase: "story" } }, { sftddDir: tdd, now: clock }),
+      emitAgentLogEvent({ role: "driver", level: "info", event: "phase.end", slots: { phase: "story" } }, { consortDir: tdd, now: clock }),
     ).toThrow(/missing required slot "outcome"/i);
   });
 
   it("rejects an invalid role (schema enum)", () => {
     expect(() =>
-      emitAgentLogEvent({ role: "wizard" as never, level: "info", event: "reasoning", slots: { note: "y" } }, { sftddDir: tdd, now: clock }),
+      emitAgentLogEvent({ role: "wizard" as never, level: "info", event: "reasoning", slots: { note: "y" } }, { consortDir: tdd, now: clock }),
     ).toThrow(/role/i);
   });
 });
 
 describe("readAgentLog filtering", () => {
   beforeEach(() => {
-    emitAgentLogEvent({ role: "spec-author", level: "info", event: "phase.end", slots: { phase: "design", outcome: "complete" }, feature_id: "F1" }, { sftddDir: tdd, now: clock });
-    emitAgentLogEvent({ role: "driver", level: "debug", event: "reasoning", slots: { note: "b" }, feature_id: "F1" }, { sftddDir: tdd, now: clock });
-    emitAgentLogEvent({ role: "driver", level: "error", event: "gate.rejected", slots: { gate: "spec", reason: "c" }, feature_id: "F2" }, { sftddDir: tdd, now: clock });
+    emitAgentLogEvent({ role: "spec-author", level: "info", event: "phase.end", slots: { phase: "design", outcome: "complete" }, feature_id: "F1" }, { consortDir: tdd, now: clock });
+    emitAgentLogEvent({ role: "driver", level: "debug", event: "reasoning", slots: { note: "b" }, feature_id: "F1" }, { consortDir: tdd, now: clock });
+    emitAgentLogEvent({ role: "driver", level: "error", event: "gate.rejected", slots: { gate: "spec", reason: "c" }, feature_id: "F2" }, { consortDir: tdd, now: clock });
   });
 
   it("filters by role", () => {
-    expect(readAgentLog({ sftddDir: tdd, role: "driver" })).toHaveLength(2);
+    expect(readAgentLog({ consortDir: tdd, role: "driver" })).toHaveLength(2);
   });
   it("filters by feature", () => {
-    expect(readAgentLog({ sftddDir: tdd, featureId: "F1" })).toHaveLength(2);
+    expect(readAgentLog({ consortDir: tdd, featureId: "F1" })).toHaveLength(2);
   });
   it("filters by minimum severity (info hides debug)", () => {
-    const infoPlus = readAgentLog({ sftddDir: tdd, minLevel: "info" });
+    const infoPlus = readAgentLog({ consortDir: tdd, minLevel: "info" });
     expect(infoPlus.map((e) => e.level).sort()).toEqual(["error", "info"]);
   });
   it("returns [] when no log file exists yet", () => {
     const empty = mkdtempSync(join(tmpdir(), "agent-log-empty-"));
-    expect(readAgentLog({ sftddDir: empty })).toEqual([]);
+    expect(readAgentLog({ consortDir: empty })).toEqual([]);
     rmSync(empty, { recursive: true, force: true });
   });
 });
@@ -104,10 +104,10 @@ describe("emitAgentLogEvents (batch: one process, one append)", () => {
         { role: "navigator", level: "debug", event: "reasoning", feature_id: "F1", slots: { note: "the test forces a seam" } },
         { role: "navigator", level: "warn", event: "smell.flagged", feature_id: "F1", slots: { smell: "fragility-ratio", severity: "advisory", detail: "x" } },
       ],
-      { sftddDir: tdd, now: clock },
+      { consortDir: tdd, now: clock },
     );
     expect(written).toHaveLength(2);
-    const events = readAgentLog({ sftddDir: tdd });
+    const events = readAgentLog({ consortDir: tdd });
     expect(events).toHaveLength(2);
     expect(events.map((e) => e.event)).toEqual(["reasoning", "smell.flagged"]);
   });
@@ -119,14 +119,14 @@ describe("emitAgentLogEvents (batch: one process, one append)", () => {
           { role: "navigator", level: "debug", event: "reasoning", slots: { note: "ok" } },
           { role: "driver", level: "info", event: "phase.end", slots: { phase: "story" } }, // missing required outcome
         ],
-        { sftddDir: tdd, now: clock },
+        { consortDir: tdd, now: clock },
       ),
     ).toThrow(/missing required slot "outcome"/i);
-    expect(readAgentLog({ sftddDir: tdd })).toEqual([]); // atomic: no partial batch
+    expect(readAgentLog({ consortDir: tdd })).toEqual([]); // atomic: no partial batch
   });
 
   it("an empty batch is a no-op", () => {
-    expect(emitAgentLogEvents([], { sftddDir: tdd, now: clock })).toEqual([]);
-    expect(readAgentLog({ sftddDir: tdd })).toEqual([]);
+    expect(emitAgentLogEvents([], { consortDir: tdd, now: clock })).toEqual([]);
+    expect(readAgentLog({ consortDir: tdd })).toEqual([]);
   });
 });

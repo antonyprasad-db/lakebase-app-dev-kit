@@ -17,8 +17,8 @@ export default defineConfig({
     // MCP server.
     "scripts/index": "scripts/index.ts",
     "bin/lakebase/create-project.cli": "bin/lakebase/create-project.cli.ts",
-    "bin/lakebase/adopt-sftdd.cli": "bin/lakebase/adopt-sftdd.cli.ts",
-    "bin/lakebase/resolve-sftdd-dir.cli": "bin/lakebase/resolve-sftdd-dir.cli.ts",
+    "bin/lakebase/adopt-consort.cli": "bin/lakebase/adopt-consort.cli.ts",
+    "bin/lakebase/resolve-consort-dir.cli": "bin/lakebase/resolve-consort-dir.cli.ts",
     "bin/lakebase/update-commands.cli": "bin/lakebase/update-commands.cli.ts",
     "bin/lakebase/update-agents.cli": "bin/lakebase/update-agents.cli.ts",
     "bin/consort/feature-status.cli": "bin/consort/feature-status.cli.ts",

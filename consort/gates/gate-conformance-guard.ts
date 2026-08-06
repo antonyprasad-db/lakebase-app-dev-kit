@@ -28,8 +28,8 @@ import { acsForStory } from "../test-list/test-list.js";
 import { featureResolved, architectureJson, dbDesignJson, nfrsMd, featureNfrsMd } from "../../consort/config/consort-paths.js";
 import { readConventions, assertArchitectureConforms } from "../architecture/architecture-conventions.js";
 
-export function featureDir(sftddDir: string, featureId: string): string {
-  return featureResolved(sftddDir, featureId);
+export function featureDir(consortDir: string, featureId: string): string {
+  return featureResolved(consortDir, featureId);
 }
 
 /**
@@ -159,10 +159,10 @@ export function storyIndependenceForStoryReason(fdir: string, story: string): st
  * reaches build (where it would mismatch the inherited code + trip the layering
  * gate's module-placement check).
  */
-function architectureConventionsReason(sftddDir: string, featureId: string): string | null {
-  const conventions = readConventions(sftddDir);
+function architectureConventionsReason(consortDir: string, featureId: string): string | null {
+  const conventions = readConventions(consortDir);
   if (!conventions) return null; // first feature / nothing established yet
-  const archFile = architectureJson(sftddDir, featureId);
+  const archFile = architectureJson(consortDir, featureId);
   if (!existsSync(archFile)) return null; // architecture not produced yet
   let content: string;
   try {
@@ -175,8 +175,8 @@ function architectureConventionsReason(sftddDir: string, featureId: string): str
 }
 
 /** Read architecture.json content for the feature, or undefined when absent. */
-function readArchitecture(sftddDir: string, featureId: string): string | undefined {
-  const f = architectureJson(sftddDir, featureId);
+function readArchitecture(consortDir: string, featureId: string): string | undefined {
+  const f = architectureJson(consortDir, featureId);
   if (!existsSync(f)) return undefined;
   try {
     return readFileSync(f, "utf8");
@@ -192,8 +192,8 @@ function readArchitecture(sftddDir: string, featureId: string): string | undefin
  * architecture.json. A trivial (non-service-backed) feature is exempt (the YAGNI
  * guard). Null when it conforms / architecture not produced yet.
  */
-function layeringDeclaredReason(sftddDir: string, featureId: string): string | null {
-  const arch = readArchitecture(sftddDir, featureId);
+function layeringDeclaredReason(consortDir: string, featureId: string): string | null {
+  const arch = readArchitecture(consortDir, featureId);
   if (arch === undefined) return null;
   const r = checkLayeringDeclared(arch);
   return r.ok ? null : `layering declaration failed: ${r.violations.join("; ")}`;
@@ -206,10 +206,10 @@ function layeringDeclaredReason(sftddDir: string, featureId: string): string | n
  * persistence_invariant. A trivial (non-service-backed) feature is exempt. Null
  * when it conforms / architecture not produced yet.
  */
-function dbDesignReason(sftddDir: string, featureId: string): string | null {
-  const arch = readArchitecture(sftddDir, featureId);
+function dbDesignReason(consortDir: string, featureId: string): string | null {
+  const arch = readArchitecture(consortDir, featureId);
   if (arch === undefined) return null;
-  const dbFile = dbDesignJson(sftddDir, featureId);
+  const dbFile = dbDesignJson(consortDir, featureId);
   const db = existsSync(dbFile) ? (() => { try { return readFileSync(dbFile, "utf8"); } catch { return undefined; } })() : undefined;
   const r = checkDbDesign(db, arch);
   return r.ok ? null : `db-design failed: ${r.violations.join("; ")}`;
@@ -222,11 +222,11 @@ function dbDesignReason(sftddDir: string, featureId: string): string | null {
  * a matching brief_ref. Uses the feature-level nfrs.md override when present,
  * else the project nfrs.md. Null when covered / no nfrs.md / no architecture yet.
  */
-function nfrCoverageReason(sftddDir: string, featureId: string): string | null {
-  const arch = readArchitecture(sftddDir, featureId);
+function nfrCoverageReason(consortDir: string, featureId: string): string | null {
+  const arch = readArchitecture(consortDir, featureId);
   if (arch === undefined) return null;
-  const featureNfrs = featureNfrsMd(sftddDir, featureId);
-  const projectNfrs = nfrsMd(sftddDir);
+  const featureNfrs = featureNfrsMd(consortDir, featureId);
+  const projectNfrs = nfrsMd(consortDir);
   const nfrsFile = existsSync(featureNfrs) ? featureNfrs : existsSync(projectNfrs) ? projectNfrs : undefined;
   if (nfrsFile === undefined) return null; // no NFR brief -> nothing Required to cover
   let nfrsContent: string;
@@ -239,7 +239,7 @@ function nfrCoverageReason(sftddDir: string, featureId: string): string | null {
   // any sibling feature, or an explicit nfr_out_of_scope declaration realizes it,
   // so a feature that touches no code a project-wide NFR governs is not forced to
   // manufacture nominal coverage (it is upheld by the feature that owns it).
-  const r = checkNfrCoverage(nfrsContent, arch, projectBriefRefs(sftddDir));
+  const r = checkNfrCoverage(nfrsContent, arch, projectBriefRefs(consortDir));
   return r.ok ? null : `NFR coverage failed: ${r.violations.join("; ")}`;
 }
 
@@ -250,8 +250,8 @@ function nfrCoverageReason(sftddDir: string, featureId: string): string | null {
  * architectural regression guard). A trivial feature is exempt. Null when
  * covered / no test-list or architecture yet.
  */
-function fitnessCoverageReason(sftddDir: string, featureId: string, testListJson: string): string | null {
-  const arch = readArchitecture(sftddDir, featureId);
+function fitnessCoverageReason(consortDir: string, featureId: string, testListJson: string): string | null {
+  const arch = readArchitecture(consortDir, featureId);
   if (arch === undefined) return null;
   const r = checkFitnessCoverage(testListJson, arch);
   return r.ok ? null : `fitness coverage failed: ${r.violations.join("; ")}`;
@@ -265,8 +265,8 @@ function fitnessCoverageReason(sftddDir: string, featureId: string, testListJson
  * and not a re-test of the ORM. Trivial features are exempt. Null when covered /
  * no test-list or architecture yet.
  */
-function persistenceCoverageReason(sftddDir: string, featureId: string, testListJson: string): string | null {
-  const arch = readArchitecture(sftddDir, featureId);
+function persistenceCoverageReason(consortDir: string, featureId: string, testListJson: string): string | null {
+  const arch = readArchitecture(consortDir, featureId);
   if (arch === undefined) return null;
   const r = checkPersistenceCoverage(testListJson, arch);
   return r.ok ? null : `persistence coverage failed: ${r.violations.join("; ")}`;
@@ -283,7 +283,7 @@ function persistenceCoverageReason(sftddDir: string, featureId: string, testList
  * story via the acs/ dirs (the same ac->story membership scopeToStory uses), then
  * hard-blocks a duplicated invariant. Null when distinct / no test-list.
  */
-function invariantCoverageDistinctReason(sftddDir: string, featureId: string, testListJson: string): string | null {
+function invariantCoverageDistinctReason(consortDir: string, featureId: string, testListJson: string): string | null {
   let master: { items?: Array<{ ac_id?: string; invariant_id?: string }> };
   try {
     master = JSON.parse(testListJson);
@@ -291,7 +291,7 @@ function invariantCoverageDistinctReason(sftddDir: string, featureId: string, te
     return null; // bad JSON reported by conformanceReason
   }
   const items = master.items ?? [];
-  const storiesDir = join(featureDir(sftddDir, featureId), "stories");
+  const storiesDir = join(featureDir(consortDir, featureId), "stories");
   if (!existsSync(storiesDir)) return null;
   const perStory = readdirSync(storiesDir)
     .filter((s) => {
@@ -302,7 +302,7 @@ function invariantCoverageDistinctReason(sftddDir: string, featureId: string, te
       }
     })
     .map((story) => {
-      const acIds = new Set(acsForStory(sftddDir, featureId, story));
+      const acIds = new Set(acsForStory(consortDir, featureId, story));
       const invariantIds = items
         .filter((it) => typeof it.invariant_id === "string" && it.invariant_id.length > 0 && typeof it.ac_id === "string" && acIds.has(it.ac_id))
         .map((it) => it.invariant_id as string);
@@ -321,12 +321,12 @@ function invariantCoverageDistinctReason(sftddDir: string, featureId: string, te
  * the architecture.json `nfrs[]` text , and hard-blocks a not-service_backed
  * feature that shows persistence evidence. Null when consistent / no architecture.
  */
-function serviceBackedReason(sftddDir: string, featureId: string): string | null {
-  const arch = readArchitecture(sftddDir, featureId);
+function serviceBackedReason(consortDir: string, featureId: string): string | null {
+  const arch = readArchitecture(consortDir, featureId);
   if (arch === undefined) return null;
   // The architect's own evidence: every AC's declared layer + every nfrs[] text.
   const acLayers: string[] = [];
-  const fdir = featureDir(sftddDir, featureId);
+  const fdir = featureDir(consortDir, featureId);
   const stories = join(fdir, "stories");
   if (existsSync(stories)) {
     for (const s of readdirSync(stories)) {
@@ -364,7 +364,7 @@ export function resolveArtifactInputs(
   gate: GateName,
   fdir: string,
   promoteRef: string | undefined,
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
 ): { inputs: Record<string, string> } | { reason: string } {
   const readIfPresent = (name: string): string | undefined => {
@@ -418,7 +418,7 @@ export function resolveArtifactInputs(
       // and diverging from the code it inherited (which would then trip the
       // layering gate's module-placement check at build time). The first feature
       // is exempt (no conventions yet); a non-service-backed feature is exempt.
-      const conventionsReason = architectureConventionsReason(sftddDir, featureId);
+      const conventionsReason = architectureConventionsReason(consortDir, featureId);
       if (conventionsReason !== null) return { reason: conventionsReason };
       // Architecture conformance (Gate 2, surfaced through the per-story spec gate
       // since the design lane runs the architect before surfacing it). First the
@@ -427,16 +427,16 @@ export function resolveArtifactInputs(
       // layering checks below, so cross-check it against the architect's own
       // evidence before trusting the flag. Then: a service_backed feature must
       // declare its layers, and every Required NFR must be covered by a brief_ref.
-      const serviceBacked = serviceBackedReason(sftddDir, featureId);
+      const serviceBacked = serviceBackedReason(consortDir, featureId);
       if (serviceBacked !== null) return { reason: serviceBacked };
-      const layeringReason = layeringDeclaredReason(sftddDir, featureId);
+      const layeringReason = layeringDeclaredReason(consortDir, featureId);
       if (layeringReason !== null) return { reason: layeringReason };
       // The DBA runs after the architect and before the test-strategist: a
       // service_backed feature must have a db-design.json realizing every declared
       // persistence_invariant with a physical table/constraint.
-      const dbReason = dbDesignReason(sftddDir, featureId);
+      const dbReason = dbDesignReason(consortDir, featureId);
       if (dbReason !== null) return { reason: dbReason };
-      const nfrReason = nfrCoverageReason(sftddDir, featureId);
+      const nfrReason = nfrCoverageReason(consortDir, featureId);
       return nfrReason === null ? conf : { reason: nfrReason };
     }
     case "plan": {
@@ -461,20 +461,20 @@ export function resolveArtifactInputs(
       // must carry >=1 kind:"fitness" item (the architectural regression guard).
       // Claimed as a hard-block in test-list.schema.json but previously unwired.
       if (tlJson !== undefined) {
-        const fitnessReason = fitnessCoverageReason(sftddDir, featureId, tlJson);
+        const fitnessReason = fitnessCoverageReason(consortDir, featureId, tlJson);
         if (fitnessReason !== null) return { reason: fitnessReason };
         // Persistence coverage (Gate 3): a service_backed feature must declare its
         // persistence_invariants[] and cover each with a real-branch test (an item
         // referencing its invariant_id), so DB guarantees are tested against the
         // schema's own contract, not only incidentally through API behavior tests.
-        const persistenceReason = persistenceCoverageReason(sftddDir, featureId, tlJson);
+        const persistenceReason = persistenceCoverageReason(consortDir, featureId, tlJson);
         if (persistenceReason !== null) return { reason: persistenceReason };
         // Distinct invariant coverage (Gate 3): each declared invariant belongs
         // to exactly ONE story's fitness tests. A later story re-testing an
         // invariant an earlier story already covers is a redundant re-test that
         // drifts + dead-locks the reflect gate (the persistence face of story
         // overlap); drop it from the later story.
-        const distinctReason = invariantCoverageDistinctReason(sftddDir, featureId, tlJson);
+        const distinctReason = invariantCoverageDistinctReason(consortDir, featureId, tlJson);
         if (distinctReason !== null) return { reason: distinctReason };
       }
       return conf;

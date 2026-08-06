@@ -33,7 +33,7 @@ var import_node_path = require("path");
 var ARTIFACT_ROOT = ".consort";
 var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
 var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
-function resolveSftddDir(projectDir = process.cwd()) {
+function resolveConsortDir(projectDir = process.cwd()) {
   const next = (0, import_node_path.join)(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
   for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
@@ -222,13 +222,13 @@ function locateStoryDirForAc(featureDir2, acId) {
 
 // bin/consort/test-list.cli.ts
 function main() {
-  const [sftddDir = resolveSftddDir(), featureId, storyId] = process.argv.slice(2);
+  const [consortDir = resolveConsortDir(), featureId, storyId] = process.argv.slice(2);
   if (!featureId) {
-    process.stderr.write("usage: test-list <sftddDir> <featureId> [storyId]\n");
+    process.stderr.write("usage: test-list <consortDir> <featureId> [storyId]\n");
     return 1;
   }
   if (storyId) {
-    const file = writeStoryTestList(sftddDir, featureId, storyId);
+    const file = writeStoryTestList(consortDir, featureId, storyId);
     if (!file) {
       process.stderr.write(`story ${storyId} not found under ${featureId}
 `);
@@ -238,8 +238,8 @@ function main() {
 `);
     return 0;
   }
-  const list = readMasterTestList(sftddDir, featureId);
-  const written = writePerAcViews(sftddDir, featureId, list);
+  const list = readMasterTestList(consortDir, featureId);
+  const written = writePerAcViews(consortDir, featureId, list);
   for (const f of written) process.stdout.write(`wrote ${f}
 `);
   return 0;

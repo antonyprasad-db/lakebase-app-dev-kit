@@ -5,7 +5,7 @@
 //     agent-overlay) are prose/data -> APPLIED DIRECTLY to
 //     skills/consort/agents/<role>.md.
 //   - Config levers (model / effort / session-scope / loop) live in TYPED SOURCE
-//     (sftdd-config.ts defaultSftddConfig, agent-models.ts RECOMMENDED_MODELS, and
+//     (sftdd-config.ts defaultConsortConfig, agent-models.ts RECOMMENDED_MODELS, and
 //     the role .md frontmatter `model:`). We do NOT regex-rewrite TS source; the
 //     plan emits a precise SourceEditProposal (file + exact find/replace + a
 //     regression-test note) for a normal reviewed edit.

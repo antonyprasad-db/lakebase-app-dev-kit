@@ -4,16 +4,16 @@
 // streaming build lane's per-story input).
 
 import { readMasterTestList, writePerAcViews, writeStoryTestList } from "../../consort/test-list/test-list.js";
-import { resolveSftddDir } from "../../consort/config/consort-paths.js";
+import { resolveConsortDir } from "../../consort/config/consort-paths.js";
 
 function main(): number {
-  const [sftddDir = resolveSftddDir(), featureId, storyId] = process.argv.slice(2);
+  const [consortDir = resolveConsortDir(), featureId, storyId] = process.argv.slice(2);
   if (!featureId) {
-    process.stderr.write("usage: test-list <sftddDir> <featureId> [storyId]\n");
+    process.stderr.write("usage: test-list <consortDir> <featureId> [storyId]\n");
     return 1;
   }
   if (storyId) {
-    const file = writeStoryTestList(sftddDir, featureId, storyId);
+    const file = writeStoryTestList(consortDir, featureId, storyId);
     if (!file) {
       process.stderr.write(`story ${storyId} not found under ${featureId}\n`);
       return 1;
@@ -21,8 +21,8 @@ function main(): number {
     process.stdout.write(`wrote ${file}\n`);
     return 0;
   }
-  const list = readMasterTestList(sftddDir, featureId);
-  const written = writePerAcViews(sftddDir, featureId, list);
+  const list = readMasterTestList(consortDir, featureId);
+  const written = writePerAcViews(consortDir, featureId, list);
   for (const f of written) process.stdout.write(`wrote ${f}\n`);
   return 0;
 }

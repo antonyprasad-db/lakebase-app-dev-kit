@@ -72,19 +72,19 @@ export interface GateOutcome {
  *  milestone gate (the stricter, whole-feature conformance the Human Proxy gate
  *  approval uses); default false, since the per-turn walk's bar is the self-check. */
 export function evaluateDesignGate(args: {
-  sftddDir: string;
+  consortDir: string;
   featureId: string;
   handoff: DesignHandoff;
   requireGate?: boolean;
 }): GateOutcome {
-  const { sftddDir, featureId, handoff, requireGate } = args;
+  const { consortDir, featureId, handoff, requireGate } = args;
   const mapping = gateForDesignHandoff(handoff);
   if (!mapping) {
     return { passed: false, reason: `not a design handoff (role=${handoff.role}, buildMode=${handoff.buildMode ?? "none"})` };
   }
 
   // The per-turn bar: the role self-check (the same precheck verify-artifact runs).
-  const self = formatRoleResponse({ role: mapping.selfCheckRole, sftddDir, featureId, story: handoff.story });
+  const self = formatRoleResponse({ role: mapping.selfCheckRole, consortDir, featureId, story: handoff.story });
   if (!self.ok) {
     const first = self.violations[0];
     return { passed: false, reason: `self-check: ${first.artifact}: ${first.problem}` };
@@ -92,8 +92,8 @@ export function evaluateDesignGate(args: {
 
   // Optionally also resolve the feature-scope milestone gate (stricter).
   if (requireGate && mapping.gate) {
-    const fdir = featureDir(sftddDir, featureId);
-    const resolved = resolveArtifactInputs(mapping.gate, fdir, undefined, sftddDir, featureId);
+    const fdir = featureDir(consortDir, featureId);
+    const resolved = resolveArtifactInputs(mapping.gate, fdir, undefined, consortDir, featureId);
     if ("reason" in resolved) {
       return { passed: false, reason: `gate ${mapping.gate}: ${resolved.reason}` };
     }

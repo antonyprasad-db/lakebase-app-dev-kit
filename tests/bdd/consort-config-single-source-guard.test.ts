@@ -1,5 +1,5 @@
 // Guard: project settings come only from sftdd-config.json, never env.
-//   1. SOURCE: resolveSftddSettings's module references no process.env/sftddEnv.
+//   1. SOURCE: resolveConsortSettings's module references no process.env/consortEnv.
 //   2. BEHAVIORAL: env vars contradicting the file are ignored; the file wins.
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -8,7 +8,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { fileURLToPath } from "url";
 
-import { resolveSftddSettings, SFTDD_CONFIG_REL } from "../../consort/orchestrator/settings/project-settings.js";
+import { resolveConsortSettings, SFTDD_CONFIG_REL } from "../../consort/orchestrator/settings/project-settings.js";
 
 const RESOLVER_SRC = join(
   fileURLToPath(new URL(".", import.meta.url)),
@@ -31,9 +31,9 @@ describe("single-source guard (SOURCE): the resolver module reads no env", () =>
     expect(code).not.toMatch(/process\.env/);
   });
 
-  it("never imports the sftddEnv accessor (that surface is for run-mode knobs)", () => {
+  it("never imports the consortEnv accessor (that surface is for run-mode knobs)", () => {
     expect(code).not.toMatch(/sftdd-env/);
-    expect(code).not.toMatch(/\bsftddEnv\b/);
+    expect(code).not.toMatch(/\bconsortEnv\b/);
   });
 });
 
@@ -93,7 +93,7 @@ describe("single-source guard (BEHAVIORAL): env never overrides the file", () =>
     process.env.LAKEBASE_SFTDD_SIZING = "1";
 
     try {
-      const s = resolveSftddSettings({ projectDir: proj });
+      const s = resolveConsortSettings({ projectDir: proj });
       // Every value is the FILE's, none is the env's.
       expect(s.project.uiTrack).toBe(true); // file, not env "0"
       expect(s.project.gates).toBe("interactive"); // file, not env "proxy"

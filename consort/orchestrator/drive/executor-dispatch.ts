@@ -36,7 +36,7 @@ export interface ExecutorDispatchDeps {
    *  `@build-cycle` post-turn marker so the executor stamps the IDENTICAL cycle the legacy path did. */
   buildCycleCommand(action: Extract<WorkflowAction, { kind: "invoke-role" }>, cfg: DriveEffectsConfig): DriveCommand | undefined;
   /** Re-read the drive state FRESH from disk (post-turn), for the state-derived route authority. */
-  readDriveStateFromDisk(sftddDir: string, featureId: string, projectDir: string, opts: { uiTrack?: boolean }): DriveState;
+  readDriveStateFromDisk(consortDir: string, featureId: string, projectDir: string, opts: { uiTrack?: boolean }): DriveState;
   /** Symbolic bin token -> resolved CLI bin (PIPELINE_BIN, CYCLE_BIN, …), the same map
    *  commandsFromManifest uses. */
   binTokens: Record<string, string>;
@@ -80,12 +80,12 @@ export function manifestPostTurnCommands(
   cfg: DriveEffectsConfig,
   deps: ExecutorDispatchDeps,
 ): DriveCommand[] {
-  const tdd = ["--feature", cfg.featureId, "--tdd-dir", cfg.sftddDir];
+  const tdd = ["--feature", cfg.featureId, "--tdd-dir", cfg.consortDir];
   const resolveBin = (t: string): string => deps.binTokens[t] ?? t;
   const story = "story" in action && typeof action.story === "string" ? action.story : undefined;
   const expand = (args: string[]): string[] =>
     args.flatMap((a) =>
-      a === "--tdd" ? tdd : a === "{feature}" ? [cfg.featureId] : a === "{tddDir}" ? [cfg.sftddDir] : a === "{story}" ? (story ? [story] : []) : [a],
+      a === "--tdd" ? tdd : a === "{feature}" ? [cfg.featureId] : a === "{tddDir}" ? [cfg.consortDir] : a === "{story}" ? (story ? [story] : []) : [a],
     );
   const out: DriveCommand[] = [];
   for (const p of manifest.postTurn ?? []) {
@@ -153,15 +153,15 @@ export async function performTurnViaExecutor(
   const story = "story" in action && typeof action.story === "string" ? action.story : undefined;
 
   // Resolve a manifest input `source` to its on-disk path on the LIVE tree. `feature:<rel>` is
-  // rooted at <sftddDir>; `story:<rel>` at the story's resolved dir (test-list-per-story.json,
+  // rooted at <consortDir>; `story:<rel>` at the story's resolved dir (test-list-per-story.json,
   // acs/). A bare source (no prefix) is treated as feature-relative (back-compat).
   const inputPath = (source: string): string => {
     if (source.startsWith("story:")) {
       const rel = source.slice("story:".length);
-      if (!story) return join(cfg.sftddDir, rel); // no story on the action , resolve under sftddDir (will miss + fail loud)
-      return join(storyResolved(cfg.sftddDir, f, story), rel);
+      if (!story) return join(cfg.consortDir, rel); // no story on the action , resolve under consortDir (will miss + fail loud)
+      return join(storyResolved(cfg.consortDir, f, story), rel);
     }
-    return join(cfg.sftddDir, source.replace(/^feature:/, ""));
+    return join(cfg.consortDir, source.replace(/^feature:/, ""));
   };
 
   const executorDeps: StepExecutorDeps = {
@@ -180,7 +180,7 @@ export async function performTurnViaExecutor(
     },
     // The workspace IS the real project (LiveDriveStepAgent's runner spawns in cfg.projectDir).
     // artifact-channel outputs live under the real .sftdd; product-channel (tests/) at the root.
-    provisionWorkspace: () => ({ workspaceDir: cfg.projectDir, artifactDir: cfg.sftddDir, outputPaths: outputPathsForAction(action, f) }),
+    provisionWorkspace: () => ({ workspaceDir: cfg.projectDir, artifactDir: cfg.consortDir, outputPaths: outputPathsForAction(action, f) }),
     // The prompt is the agent's own (buildClaudeCommand -> roleTask); unused by LiveDriveStepAgent,
     // but the executor requires the dep.
     instructionsFor: () => ({ prompt: "" }),
@@ -191,7 +191,7 @@ export async function performTurnViaExecutor(
     // Phase 4.5: reconcile MATERIALIZES the agent-log (the legacy path's LOG_BIN --reconcile), so
     // validate-outputs sees the conformant agent-log.jsonl the agent never wrote itself.
     materializeOutputs: async () => {
-      await cfg.runner.run({ kind: "cli", bin: deps.logBin, args: ["--reconcile", "--feature", f, "--tdd-dir", cfg.sftddDir] });
+      await cfg.runner.run({ kind: "cli", bin: deps.logBin, args: ["--reconcile", "--feature", f, "--tdd-dir", cfg.consortDir] });
     },
     // Phase 6.5: the manifest's `after` CLIs , gated on clean validation by the executor. For
     // breakdown that is sync-breakdown; for navigator RED it is the `@build-cycle` RED stamp (the
@@ -209,7 +209,7 @@ export async function performTurnViaExecutor(
   // retry ledger) is preserved.
   const freshRouterDeps: ValidateBoundDeps = {
     ...routerDeps,
-    allowed: () => routerDeps.allowed(deps.readDriveStateFromDisk(cfg.sftddDir, cfg.featureId, cfg.projectDir, { uiTrack: cfg.uiTrack })),
+    allowed: () => routerDeps.allowed(deps.readDriveStateFromDisk(cfg.consortDir, cfg.featureId, cfg.projectDir, { uiTrack: cfg.uiTrack })),
   };
   const ctx = { action, cfg, state, validateBoundDeps: freshRouterDeps };
   const result = await execute(step, ctx, executorDeps);

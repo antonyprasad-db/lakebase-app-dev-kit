@@ -144,24 +144,24 @@ export function resolveStepReference(args: {
 /** Read + concatenate the candidate's produced artifact(s) for a step from the live
  *  .sftdd, mirroring resolveStepReference's path selection so judge sees like-for-like. */
 export function readCandidateArtifact(args: {
-  sftddDir: string;
+  consortDir: string;
   step: TurnKey;
   featureId: string;
 }): string | null {
-  const { sftddDir, step, featureId } = args;
+  const { consortDir, step, featureId } = args;
   const readIf = (p: string): string | null => (existsSync(p) ? readFileSync(p, "utf8") : null);
   if (step === "acs") {
-    const sdir = storiesDir(sftddDir, featureId);
+    const sdir = storiesDir(consortDir, featureId);
     if (!existsSync(sdir)) return null;
     const parts: string[] = [];
     for (const story of readdirSync(sdir)) {
-      const adir = acsDir(sftddDir, featureId, story);
+      const adir = acsDir(consortDir, featureId, story);
       if (!existsSync(adir)) continue;
       for (const ac of readdirSync(adir)) if (ac.endsWith(".json")) parts.push(readFileSync(join(adir, ac), "utf8"));
     }
     return parts.length ? parts.join("\n---\n") : null;
   }
-  const p = stepArtifactPath(sftddDir, step, featureId);
+  const p = stepArtifactPath(consortDir, step, featureId);
   return p ? readIf(p) : null;
 }
 
@@ -237,19 +237,19 @@ export interface SemanticGateOutcome {
  *  Concatenates multi-file references (acs) into one reference block. */
 export async function evaluateSemanticGate(args: {
   kitRoot: string;
-  sftddDir: string;
+  consortDir: string;
   featureId: string;
   step: TurnKey;
   judge: SemanticJudge;
   threshold?: number;
 }): Promise<SemanticGateOutcome> {
-  const { kitRoot, sftddDir, featureId, step, judge } = args;
+  const { kitRoot, consortDir, featureId, step, judge } = args;
   const threshold = args.threshold ?? SEMANTIC_THRESHOLD;
 
   const ref = resolveStepReference({ kitRoot, step, featureId });
   if (!ref) return { passed: true, skipped: true };
 
-  const candidate = readCandidateArtifact({ sftddDir, step, featureId });
+  const candidate = readCandidateArtifact({ consortDir, step, featureId });
   if (candidate === null) {
     return { passed: false, reason: `semantic: candidate produced no artifact for step '${step}' to compare against ${ref.label}` };
   }

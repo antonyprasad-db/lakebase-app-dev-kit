@@ -28,7 +28,7 @@ function recordingRunner(): { runner: CommandRunner; calls: DriveCommand[] } {
 function cfg(over: Partial<DriveEffectsConfig> = {}): DriveEffectsConfig {
   return {
     projectDir: "/p",
-    sftddDir: "/p/.tdd",
+    consortDir: "/p/.tdd",
     featureId: "F1",
     runner: { async run() {} },
     modelForRole: () => "sonnet",
@@ -204,13 +204,13 @@ describe("commandsForAction: invoke-role -> claude", () => {
     // target story's stub + a single-story directive, so the agent can't batch
     // every story's ACs (which would delay the first story's gate + build).
     const tmp = mkdtempSync(join(tmpdir(), "effects-specauthor-"));
-    const sftddDir = join(tmp, ".tdd");
-    mkdirSync(join(sftddDir, "features", "F1", "stories", "S1"), { recursive: true });
+    const consortDir = join(tmp, ".tdd");
+    mkdirSync(join(consortDir, "features", "F1", "stories", "S1"), { recursive: true });
     writeFileSync(
-      join(sftddDir, "features", "F1", "stories", "S1", "story.json"),
+      join(consortDir, "features", "F1", "stories", "S1", "story.json"),
       JSON.stringify({ id: "S1", asA: "team member", iWantTo: "file a bug", soThat: "it is tracked" }),
     );
-    const task = (commandsForAction({ kind: "invoke-role", role: "spec-author", story: "S1" }, cfg({ sftddDir }))[0] as { task: string }).task;
+    const task = (commandsForAction({ kind: "invoke-role", role: "spec-author", story: "S1" }, cfg({ consortDir }))[0] as { task: string }).task;
     expect(task).toMatch(/story S1 and NOTHING else/);
     expect(task).toMatch(/Do not create, draft, or modify acceptance criteria for any other story/);
     expect(task).toMatch(/once per story/);
@@ -221,7 +221,7 @@ describe("commandsForAction: invoke-role -> claude", () => {
   });
 
   it("spec-author draft falls back to the directive alone when the story stub is unreadable", () => {
-    // No story.json on disk (cfg's sftddDir does not exist): still one-story-scoped,
+    // No story.json on disk (cfg's consortDir does not exist): still one-story-scoped,
     // just without the inlined stub sentence.
     const task = (commandsForAction({ kind: "invoke-role", role: "spec-author", story: "S2" }, cfg())[0] as { task: string }).task;
     expect(task).toMatch(/story S2 and NOTHING else/);
@@ -233,13 +233,13 @@ describe("commandsForAction: invoke-role -> claude", () => {
     // the acs/ dir to re-derive them, a slow step on a small model) and pin the
     // ac_id mapping the response-formatter enforces.
     const tmp = mkdtempSync(join(tmpdir(), "effects-strategist-"));
-    const sftddDir = join(tmp, ".tdd");
-    mkdirSync(join(sftddDir, "features", "F1", "stories", "S1"), { recursive: true });
+    const consortDir = join(tmp, ".tdd");
+    mkdirSync(join(consortDir, "features", "F1", "stories", "S1"), { recursive: true });
     writeFileSync(
-      join(sftddDir, "features", "F1", "stories", "S1", "story.json"),
+      join(consortDir, "features", "F1", "stories", "S1", "story.json"),
       JSON.stringify({ id: "S1", acs: ["AC1-create-form", "AC2-validate-input"] }),
     );
-    const task = (commandsForAction({ kind: "invoke-role", role: "test-strategist", story: "S1" }, cfg({ sftddDir }))[0] as { task: string }).task;
+    const task = (commandsForAction({ kind: "invoke-role", role: "test-strategist", story: "S1" }, cfg({ consortDir }))[0] as { task: string }).task;
     expect(task).toMatch(/story S1's ordered tests/);
     expect(task).toMatch(/APPEND them to the feature master test list/);
     expect(task).toMatch(/Do NOT author any test-list-per-story\.json/);
@@ -280,13 +280,13 @@ describe("commandsForAction: invoke-role -> claude", () => {
     // create/content-type test that writes a fixed key with no cleanup does not
     // collide in the shared-feature-branch deploy-verify (the test_T3 halt).
     const tmp = mkdtempSync(join(tmpdir(), "effects-strategist-state-"));
-    const sftddDir = join(tmp, ".tdd");
-    mkdirSync(join(sftddDir, "features", "F1", "stories", "S1"), { recursive: true });
+    const consortDir = join(tmp, ".tdd");
+    mkdirSync(join(consortDir, "features", "F1", "stories", "S1"), { recursive: true });
     writeFileSync(
-      join(sftddDir, "features", "F1", "architecture.json"),
+      join(consortDir, "features", "F1", "architecture.json"),
       JSON.stringify({ service_backed: true, persistence_invariants: [{ id: "PI1-unique", brief: "unique (sku, location)" }] }),
     );
-    const task = (commandsForAction({ kind: "invoke-role", role: "test-strategist", story: "S1" }, cfg({ sftddDir }))[0] as { task: string }).task;
+    const task = (commandsForAction({ kind: "invoke-role", role: "test-strategist", story: "S1" }, cfg({ consortDir }))[0] as { task: string }).task;
     expect(task).toMatch(/WRITES to the DB/);
     expect(task).toMatch(/own its state/);
     expect(task).toMatch(/UNIQUE key/);
@@ -664,17 +664,17 @@ describe("commandsForAction: coarse phase transitions -> set-phase", () => {
 });
 
 describe("buildDriveEffects", () => {
-  let sftddDir: string;
+  let consortDir: string;
   beforeEach(() => {
-    sftddDir = mkdtempSync(join(tmpdir(), "drive-eff-"));
+    consortDir = mkdtempSync(join(tmpdir(), "drive-eff-"));
   });
   afterEach(() => {
-    rmSync(sftddDir, { recursive: true, force: true });
+    rmSync(consortDir, { recursive: true, force: true });
   });
 
   it("perform routes an action's commands through the runner", async () => {
     const { runner, calls } = recordingRunner();
-    const eff = buildDriveEffects(cfg({ runner, sftddDir }));
+    const eff = buildDriveEffects(cfg({ runner, consortDir }));
     await eff.perform({ kind: "accept", story: "S1" });
     // accept is now ONE command: pipeline accept (which performs the merge + records).
     expect(calls).toHaveLength(1);
@@ -683,9 +683,9 @@ describe("buildDriveEffects", () => {
   });
 
   it("readState rebuilds a DriveState from pipeline.json + workflow-state", async () => {
-    const featureDir = join(sftddDir, "features", "F1");
+    const featureDir = join(consortDir, "features", "F1");
     mkdirSync(featureDir, { recursive: true });
-    writeFileSync(join(sftddDir, "workflow-state.json"), JSON.stringify({ phase: "implementation" }));
+    writeFileSync(join(consortDir, "workflow-state.json"), JSON.stringify({ phase: "implementation" }));
     writeFileSync(
       join(featureDir, "pipeline.json"),
       JSON.stringify({
@@ -696,7 +696,7 @@ describe("buildDriveEffects", () => {
         stories: { S1: { status: "building", gate: { status: "approved", history: [] } } },
       }),
     );
-    const eff = buildDriveEffects(cfg({ sftddDir }));
+    const eff = buildDriveEffects(cfg({ consortDir }));
     const state = await eff.readState();
     expect(state.phase).toBe("feature"); // implementation -> feature
     expect(state.buildActive).toBe("S1");
@@ -707,13 +707,13 @@ describe("buildDriveEffects", () => {
     // Planning, proposed (feature-spec exists) + estimated (Architect sized the
     // candidates) but the PO has not authored requests -> next is product-owner
     // author-requests.
-    const featureDir = join(sftddDir, "features", "F1");
+    const featureDir = join(consortDir, "features", "F1");
     mkdirSync(featureDir, { recursive: true });
-    writeFileSync(join(sftddDir, "workflow-state.json"), JSON.stringify({ phase: "planning" }));
+    writeFileSync(join(consortDir, "workflow-state.json"), JSON.stringify({ phase: "planning" }));
     writeFileSync(join(featureDir, "feature-spec.json"), JSON.stringify({ id: "F1", stories: [] }));
-    mkdirSync(join(sftddDir, "planning"), { recursive: true });
+    mkdirSync(join(consortDir, "planning"), { recursive: true });
     writeFileSync(
-      join(sftddDir, "planning", "estimates.json"),
+      join(consortDir, "planning", "estimates.json"),
       JSON.stringify({ estimates: [{ feature_id: "F1", size: "M" }] }),
     );
     writeFileSync(
@@ -721,7 +721,7 @@ describe("buildDriveEffects", () => {
       JSON.stringify({ version: 1, feature_id: "F1", build_queue: [], build_active: null, stories: {} }),
     );
 
-    const plan = await planNextAction(cfg({ sftddDir }));
+    const plan = await planNextAction(cfg({ consortDir }));
     expect(plan.action).toEqual({ kind: "invoke-role", role: "product-owner", mode: "author-requests" });
     // author-requests is a human-input step: the Human Proxy supplies the PO's
     // recorded feature-requests when asked, then sync-backlog. No LLM.
@@ -739,7 +739,7 @@ describe("hand-back delivery: onHandback writes, roleTask consumes (informed ret
   afterEach(() => rmSync(tdd, { recursive: true, force: true }));
 
   it("buildDriveEffects.onHandback writes the hand-back note where the role's prompt will read it", () => {
-    const eff = buildDriveEffects(cfg({ sftddDir: tdd, projectDir: tdd }));
+    const eff = buildDriveEffects(cfg({ consortDir: tdd, projectDir: tdd }));
     eff.onHandback!(
       { signature: "x", responder: "test-strategist", story: "S2", expected: "a per-story test list", satisfiedBy: () => false },
       "HANDBACK (attempt 1): your previous turn did not return a per-story test list for story S2.",
@@ -750,18 +750,18 @@ describe("hand-back delivery: onHandback writes, roleTask consumes (informed ret
   });
 
   it("commandsForAction CONSUMES the hand-back: it prefixes the role task once, then deletes the note", () => {
-    const eff = buildDriveEffects(cfg({ sftddDir: tdd, projectDir: tdd }));
+    const eff = buildDriveEffects(cfg({ consortDir: tdd, projectDir: tdd }));
     eff.onHandback!(
       { signature: "x", responder: "test-strategist", story: "S2", expected: "a per-story test list", satisfiedBy: () => false },
       "HANDBACK: fix the empty test list for S2.",
     );
     const action = { kind: "invoke-role", role: "test-strategist", story: "S2" } as const;
-    const cmds = commandsForAction(action, cfg({ sftddDir: tdd, projectDir: tdd }));
+    const cmds = commandsForAction(action, cfg({ consortDir: tdd, projectDir: tdd }));
     const task = (cmds[0] as { task: string }).task;
     expect(task).toMatch(/HANDBACK: fix the empty test list for S2\./);
     // Consume-once: the note is deleted so it is not re-injected on later turns.
     expect(existsSync(handbackFile(tdd, "F1", "test-strategist", "S2"))).toBe(false);
-    const again = commandsForAction(action, cfg({ sftddDir: tdd, projectDir: tdd }));
+    const again = commandsForAction(action, cfg({ consortDir: tdd, projectDir: tdd }));
     expect((again[0] as { task: string }).task).not.toMatch(/HANDBACK/);
   });
 });
@@ -792,7 +792,7 @@ describe("commandsForAction: build-lane perf (P2 review rubric / P5 session scop
       join(tdd, "features", "F1", "stories", "S1", "acs", "AC1-create.json"),
       JSON.stringify({ id: "AC1-create", layer: "API" }),
     );
-    const task = claudeCmd(review, { sftddDir: tdd, loopGranularity: "ac" }).task;
+    const task = claudeCmd(review, { consortDir: tdd, loopGranularity: "ac" }).task;
     expect(task).toMatch(/RUBRIC \(pre-extracted/);
     expect(task).toContain("layer=API");
     expect(task).toContain("NFR-R2-status-validation"); // story-scoped NFR
@@ -804,7 +804,7 @@ describe("commandsForAction: build-lane perf (P2 review rubric / P5 session scop
 
   it("the review rubric degrades gracefully when architecture.json is absent", () => {
     // loop="ac": exercise the per-AC review path (story-level review is the default).
-    // cfg's sftddDir does not exist -> no layer, no NFRs -> bare review prompt, no RUBRIC clause.
+    // cfg's consortDir does not exist -> no layer, no NFRs -> bare review prompt, no RUBRIC clause.
     const task = claudeCmd(review, { loopGranularity: "ac" }).task;
     expect(task).toMatch(/REVIEW the implementation of AC AC1-create/);
     expect(task).not.toMatch(/RUBRIC \(pre-extracted/);
@@ -834,8 +834,8 @@ describe("commandsForAction: build-lane perf (P2 review rubric / P5 session scop
       join(tdd, "features", "F1", "architecture.json"),
       JSON.stringify({ nfrs: [{ id: "NFR-tx", brief: "atomic writes", applies_to: "S1" }] }),
     );
-    const redTask = claudeCmd(red, { sftddDir: tdd }).task;
-    const greenTask = claudeCmd(green, { sftddDir: tdd }).task;
+    const redTask = claudeCmd(red, { consortDir: tdd }).task;
+    const greenTask = claudeCmd(green, { consortDir: tdd }).task;
     for (const task of [redTask, greenTask]) {
       expect(task).toMatch(/RUBRIC \(pre-extracted/);
       expect(task).toContain("layers=API, Infra"); // story-scoped union
@@ -845,7 +845,7 @@ describe("commandsForAction: build-lane perf (P2 review rubric / P5 session scop
   });
 
   it("build-turn rubric degrades to the bare directive when no design artifacts exist", () => {
-    // No sftddDir on disk -> empty rubric -> unchanged GREEN directive, no RUBRIC clause.
+    // No consortDir on disk -> empty rubric -> unchanged GREEN directive, no RUBRIC clause.
     const greenTask = claudeCmd(green).task;
     expect(greenTask).toMatch(/Make ALL of story S1/);
     expect(greenTask).not.toMatch(/RUBRIC \(pre-extracted/);
@@ -871,8 +871,8 @@ describe("commandsForAction: build-lane perf (P2 review rubric / P5 session scop
         ],
       }),
     );
-    const greenTask = claudeCmd(green, { sftddDir: tdd }).task;
-    const redTask = claudeCmd(red, { sftddDir: tdd }).task;
+    const greenTask = claudeCmd(green, { consortDir: tdd }).task;
+    const redTask = claudeCmd(red, { consortDir: tdd }).task;
     // LAYOUT map is injected into both RED and GREEN.
     for (const task of [greenTask, redTask]) {
       expect(task).toMatch(/LAYOUT \(place\/judge code/);
@@ -1000,14 +1000,14 @@ describe("commandsForAction: repair turn carries the superseded-tests allowlist 
     const items = [{ id: "T1", description: "first", ac_id: "AC1", status: "pending" }];
     wj(join(tdd, "features", F, "stories", S, "test-list-per-story.json"), { feature_id: F, story_id: S, items });
     wj(join(tdd, "features", F, "test-list.json"), { feature_id: F, items });
-    beginNextPendingCycle({ sftddDir: tdd, featureId: F, story: S }); // RED cycle for AC1 (openRed)
+    beginNextPendingCycle({ consortDir: tdd, featureId: F, story: S }); // RED cycle for AC1 (openRed)
   });
   afterEach(() => rmSync(tdd, { recursive: true, force: true }));
 
   const task = (ac: string): string =>
     (commandsForAction(
       { kind: "invoke-role", role: "driver", buildMode: "repair", story: S, ac },
-      cfg({ sftddDir: tdd, featureId: F }),
+      cfg({ consortDir: tdd, featureId: F }),
     )[0] as { task: string }).task;
 
   it("mixed verdict: the repair task carries BOTH the regression fix AND the supersede allowlist", () => {
@@ -1080,7 +1080,7 @@ describe("commandsForAction: assess directive scans fitness/migration tests for 
     });
     const t = (commandsForAction(
       { kind: "invoke-role", role: "navigator", story: "S3", buildMode: "assess", ac: "AC1" },
-      cfg({ sftddDir: tdd, featureId: "F1" }),
+      cfg({ consortDir: tdd, featureId: "F1" }),
     )[0] as { task: string }).task;
     // The advisory is injected.
     expect(t).toMatch(/SUPERSEDED-TEST CANDIDATES/);
@@ -1108,7 +1108,7 @@ describe("commandsForAction: assess directive scans fitness/migration tests for 
     });
     const t = (commandsForAction(
       { kind: "invoke-role", role: "navigator", story: "S3", buildMode: "assess", ac: "AC1" },
-      cfg({ sftddDir: tdd, featureId: "F1" }),
+      cfg({ consortDir: tdd, featureId: "F1" }),
     )[0] as { task: string }).task;
     expect(t).toMatch(/Cannot find module '\.\.\/\.\.\/src\/pages\/StockViewPage'/);
     expect(t).toMatch(/VERIFY.S OWN FAILURE OUTPUT|start HERE/i);
@@ -1153,16 +1153,16 @@ describe("commandsForAction: pre-build reflection gate (navigator reflect)", () 
 });
 
 // Regression guard: role task prompts must name artifact paths under the RESOLVED
-// artifact root (the basename of the configured sftddDir), never a hardcoded
+// artifact root (the basename of the configured consortDir), never a hardcoded
 // ".tdd/". On a fresh project (whose root is ".sftdd") a prompt telling the agent
 // to read/write ".tdd/..." points at a directory the driver does not resolve, so
 // the design lane stalls (the agent writes reflect-verdict.json / test-list.json
 // where the deterministic probe never looks). This asserts the prompt path prefix
 // tracks the config, closing the ".tdd/.sftdd" mismatch.
 describe("role tasks name paths under the resolved artifact root (not a hardcoded .tdd/)", () => {
-  const sftddCfg = (over: Partial<DriveEffectsConfig> = {}) => cfg({ sftddDir: "/p/.sftdd", ...over });
+  const consortCfg = (over: Partial<DriveEffectsConfig> = {}) => cfg({ consortDir: "/p/.sftdd", ...over });
   function taskFor(action: Parameters<typeof commandsForAction>[0]): string {
-    const cmds = commandsForAction(action, sftddCfg());
+    const cmds = commandsForAction(action, consortCfg());
     return (cmds.find((c) => (c as { kind: string }).kind === "claude") as { task: string }).task;
   }
 
@@ -1192,7 +1192,7 @@ describe("role tasks name paths under the resolved artifact root (not a hardcode
   });
 
   it("a legacy .tdd root is honored verbatim (dual-read projects keep working)", () => {
-    const cmds = commandsForAction({ kind: "invoke-role", role: "ux-designer" }, cfg({ sftddDir: "/p/.tdd" }));
+    const cmds = commandsForAction({ kind: "invoke-role", role: "ux-designer" }, cfg({ consortDir: "/p/.tdd" }));
     const task = (cmds.find((c) => (c as { kind: string }).kind === "claude") as { task: string }).task;
     expect(task).toContain(".tdd/design/design-brief.md");
     expect(task).not.toContain(".sftdd/");
@@ -1201,7 +1201,7 @@ describe("role tasks name paths under the resolved artifact root (not a hardcode
 
 // FEIP-8006: after a design/planning role's turn, the orchestrator emits a
 // verify-artifact command asserting the role's expected output actually landed
-// UNDER the project's sftddDir. A subagent that resolved the project root wrong
+// UNDER the project's consortDir. A subagent that resolved the project root wrong
 // wrote it elsewhere (the Test Strategist wrote test-list.json to ~/dev/lakebase-demo,
 // then a downstream consumer crashed with a cryptic, misattributed error). The
 // guard fires BEFORE any consuming effect so the failure is loud + attributed to
@@ -1212,13 +1212,13 @@ describe("commandsForAction: FEIP-8006 out-of-root artifact guard (verify-artifa
       | { kind: "verify-artifact"; role: string; anyOf: string[]; label: string }
       | undefined;
 
-  it("test-strategist: emits a verify-artifact for the feature test-list under the ABSOLUTE sftddDir", () => {
+  it("test-strategist: emits a verify-artifact for the feature test-list under the ABSOLUTE consortDir", () => {
     // The exact role/artifact of the reported bug (agent wrote test-list.json out of root).
     const v = verify(commandsForAction({ kind: "invoke-role", role: "test-strategist", story: "S1" }, cfg()));
     expect(v).toBeTruthy();
     expect(v!.role).toBe("test-strategist");
     expect(v!.label).toContain("test-list.json");
-    // ABSOLUTE, rooted at the configured sftddDir (not a bare basename).
+    // ABSOLUTE, rooted at the configured consortDir (not a bare basename).
     expect(v!.anyOf.every((p) => p.startsWith("/p/.tdd/"))).toBe(true);
     expect(v!.anyOf.some((p) => p.includes("F1"))).toBe(true);
   });

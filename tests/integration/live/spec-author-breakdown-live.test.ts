@@ -75,7 +75,7 @@ describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE (lean): mock PO -> live spec-a
 
     const runnerDeps: ManifestRunnerDeps = {
       workspaceDir,
-      cfg: { projectDir: workspaceDir, sftddDir: join(workspaceDir, ".sftdd"), featureId: FEATURE } as DriveEffectsConfig,
+      cfg: { projectDir: workspaceDir, consortDir: join(workspaceDir, ".sftdd"), featureId: FEATURE } as DriveEffectsConfig,
       agentContext: { corpusRoot: INTAKE, kitDir: KIT },
       instructionsFor,
       // The spawned live agent authors an agent-report block; the orchestrator formats it into a

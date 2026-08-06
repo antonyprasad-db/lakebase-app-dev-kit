@@ -149,14 +149,14 @@ replay_smoke() {
 
   # ─── 2. project intake on trunk (REAL precondition, once per project) ──
   # Resolve the runtime artifact dir through the kit's SINGLE point of entry,
-  # never a hardcoded name: lakebase-resolve-sftdd-dir prints resolveTddDir() (the
+  # never a hardcoded name: lakebase-resolve-consort-dir prints resolveTddDir() (the
   # one rule , prefer .sftdd, fall back to legacy .tdd). Defined ONCE + reused;
   # the CLIs below also default --tdd-dir to resolveTddDir, so we never pass it.
   # Back to trunk before each feature-request (the first feature's promote leaves
   # the project on the staging tier).
   git checkout main >/dev/null 2>&1 || git checkout master >/dev/null 2>&1 || true
   local SFTDD_DIR SFTDD_REL
-  SFTDD_DIR="$(lk lakebase-resolve-sftdd-dir --project-dir "$PROJECT_DIR")" || { err "could not resolve the runtime artifact dir"; return 2; }
+  SFTDD_DIR="$(lk lakebase-resolve-consort-dir --project-dir "$PROJECT_DIR")" || { err "could not resolve the runtime artifact dir"; return 2; }
   SFTDD_REL="$(basename "$SFTDD_DIR")"
   proxy_supply() {
     lk consort-human-proxy supply --from "$1" --to "$2" --artifact "$3"

@@ -1,5 +1,5 @@
 // Characterization guard: the step-manifest `agentOptions` (the per-step config directory) must
-// AGREE with what resolveSftddSettings() actually resolves for the same action, so agentOptions
+// AGREE with what resolveConsortSettings() actually resolves for the same action, so agentOptions
 // can become the single source of truth WITHOUT changing live spawn behavior. For every shipped
 // manifest, agentOptions.{model,effort} must equal the resolver's {modelFor,effortFor}(role,
 // turnKeyForAction(action)) at the DEFAULT (no project sftdd-config.json) precedence.
@@ -14,7 +14,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SHIPPED_MANIFESTS } from "../../consort/orchestrator/steps/manifest";
-import { resolveSftddSettings, defaultSftddConfig, writeSftddConfig } from "../../consort/orchestrator/settings/project-settings";
+import { resolveConsortSettings, defaultConsortConfig, writeConsortConfig } from "../../consort/orchestrator/settings/project-settings";
 import { turnKeyForAction } from "../../consort/orchestrator/drive/orchestrator-effects";
 import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 
@@ -38,15 +38,15 @@ function actionFromMatch(match: Record<string, unknown>, role: string, hasMode: 
   return a as unknown as WorkflowAction;
 }
 
-describe("step-manifest agentOptions ≡ resolveSftddSettings (per-step config parity)", () => {
+describe("step-manifest agentOptions ≡ resolveConsortSettings (per-step config parity)", () => {
   // Resolve against what a REAL scaffolded project runs: project-sftdd-setup writes
-  // defaultSftddConfig() (RECOMMENDED_MODELS base + the optimized-defaults.json applied-winners
+  // defaultConsortConfig() (RECOMMENDED_MODELS base + the optimized-defaults.json applied-winners
   // overlay) to .lakebase/sftdd-config.json, and the drive reads THAT file. So seed the config
   // exactly as scaffolding does, then resolve , this is the authoritative live behavior the
   // manifest agentOptions must mirror (NOT the bare no-file fallback, which omits the overlay).
   const proj = mkdtempSync(join(tmpdir(), "parity-scaffolded-"));
-  writeSftddConfig(proj, defaultSftddConfig(), { force: true });
-  const settings = resolveSftddSettings({ projectDir: proj });
+  writeConsortConfig(proj, defaultConsortConfig(), { force: true });
+  const settings = resolveConsortSettings({ projectDir: proj });
 
   it.each(SHIPPED_MANIFESTS.map((m) => [m.id, m] as const))(
     "%s: agentOptions.{model,effort} equals the resolver's output for its action",

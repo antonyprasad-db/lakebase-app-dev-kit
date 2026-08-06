@@ -6662,7 +6662,7 @@ var ARTIFACT_ROOT = ".consort";
 var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
 var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
 var artifactRootsRegexAlternation = () => ALL_ARTIFACT_ROOTS.map((r) => r.replace(/[.]/g, "\\.")).join("|");
-function resolveSftddDir(projectDir = process.cwd()) {
+function resolveConsortDir(projectDir = process.cwd()) {
   const next = join(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
   for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
@@ -7049,8 +7049,8 @@ init_esm_shims();
 init_esm_shims();
 
 // consort/gates/gate-conformance-guard.ts
-function featureDir2(sftddDir, featureId) {
-  return featureResolved(sftddDir, featureId);
+function featureDir2(consortDir, featureId) {
+  return featureResolved(consortDir, featureId);
 }
 function storyAcProblems(fdir, story) {
   const acsDir2 = join4(fdir, "stories", story, "acs");
@@ -7111,16 +7111,16 @@ var STORY_STATUSES = [
 function initPipeline(featureId) {
   return { version: 1, feature_id: featureId, stories: {}, build_queue: [], build_active: null };
 }
-function pipelinePath(sftddDir, featureId) {
-  return pipelineJson(sftddDir, featureId);
+function pipelinePath(consortDir, featureId) {
+  return pipelineJson(consortDir, featureId);
 }
-function readPipeline(sftddDir, featureId) {
-  const p = pipelinePath(sftddDir, featureId);
+function readPipeline(consortDir, featureId) {
+  const p = pipelinePath(consortDir, featureId);
   if (!existsSync4(p)) return initPipeline(featureId);
   return JSON.parse(readFileSync4(p, "utf8"));
 }
-function writePipeline(sftddDir, pipeline) {
-  const p = pipelinePath(sftddDir, pipeline.feature_id);
+function writePipeline(consortDir, pipeline) {
+  const p = pipelinePath(consortDir, pipeline.feature_id);
   mkdirSync2(dirname2(p), { recursive: true });
   writeFileSync2(p, JSON.stringify(pipeline, null, 2) + "\n");
 }
@@ -7129,9 +7129,9 @@ function setStoryStatus(pipeline, storyId, status) {
   pipeline.stories[storyId] = { ...existing, status };
   return pipeline;
 }
-function syncBreakdownToPipeline(sftddDir, featureId) {
-  const storiesDir2 = storiesDir(sftddDir, featureId);
-  const pipeline = readPipeline(sftddDir, featureId);
+function syncBreakdownToPipeline(consortDir, featureId) {
+  const storiesDir2 = storiesDir(consortDir, featureId);
+  const pipeline = readPipeline(consortDir, featureId);
   const added = [];
   if (existsSync4(storiesDir2)) {
     for (const storyId of readdirSync3(storiesDir2).sort()) {
@@ -7148,11 +7148,11 @@ function syncBreakdownToPipeline(sftddDir, featureId) {
       }
     }
   }
-  if (added.length > 0) writePipeline(sftddDir, pipeline);
+  if (added.length > 0) writePipeline(consortDir, pipeline);
   return { added, total: Object.keys(pipeline.stories) };
 }
-function resetIncompleteBreakdown(sftddDir, featureId) {
-  const specPath = featureSpecJson(sftddDir, featureId);
+function resetIncompleteBreakdown(consortDir, featureId) {
+  const specPath = featureSpecJson(consortDir, featureId);
   let complete = false;
   try {
     const spec = JSON.parse(readFileSync4(specPath, "utf8"));
@@ -7162,7 +7162,7 @@ function resetIncompleteBreakdown(sftddDir, featureId) {
   }
   if (complete) return { reset: false };
   let reset = false;
-  for (const p of [storiesDir(sftddDir, featureId), specPath, featureSpecMd(sftddDir, featureId)]) {
+  for (const p of [storiesDir(consortDir, featureId), specPath, featureSpecMd(consortDir, featureId)]) {
     if (existsSync4(p)) {
       rmSync(p, { recursive: true, force: true });
       reset = true;
@@ -7190,18 +7190,18 @@ function completeActive(pipeline) {
   pipeline.build_active = null;
   return done;
 }
-function storyHasAcceptanceCriteria(sftddDir, featureId, storyId) {
-  const acsDir2 = acsDir(sftddDir, featureId, storyId);
+function storyHasAcceptanceCriteria(consortDir, featureId, storyId) {
+  const acsDir2 = acsDir(consortDir, featureId, storyId);
   if (!existsSync4(acsDir2)) return false;
   return readdirSync3(acsDir2).some((f) => f.endsWith(".json"));
 }
-function findBatchedDraftStories(sftddDir, featureId, pipeline, gatingStoryId) {
-  const storiesDir2 = storiesDir(sftddDir, featureId);
+function findBatchedDraftStories(consortDir, featureId, pipeline, gatingStoryId) {
+  const storiesDir2 = storiesDir(consortDir, featureId);
   if (!existsSync4(storiesDir2)) return [];
   const offenders = [];
   for (const storyId of readdirSync3(storiesDir2)) {
     if (storyId === gatingStoryId) continue;
-    if (!storyHasAcceptanceCriteria(sftddDir, featureId, storyId)) continue;
+    if (!storyHasAcceptanceCriteria(consortDir, featureId, storyId)) continue;
     const status = pipeline.stories[storyId]?.status;
     if (status === void 0 || status === "designing") offenders.push(storyId);
   }
@@ -7236,13 +7236,13 @@ function batchedDraftMessage(story, batched) {
 The design lane drafts ONE story's acceptance criteria at a time (draft -> surface -> approve), then moves to the next story. Drafting every story's ACs in one pass defeats the streaming pipeline.
 Remove the out-of-turn ACs (keep only ${story}'s), invoke the Spec Author once per story, and retry.`;
 }
-function approveStoryGateFromDisk(sftddDir, feature, story, opts) {
-  const pipeline = readPipeline(sftddDir, feature);
-  const batched = findBatchedDraftStories(sftddDir, feature, pipeline, story);
+function approveStoryGateFromDisk(consortDir, feature, story, opts) {
+  const pipeline = readPipeline(consortDir, feature);
+  const batched = findBatchedDraftStories(consortDir, feature, pipeline, story);
   if (batched.length > 0) return { ok: false, batched };
-  const acReason = storyAcsConformanceReason(featureDir2(sftddDir, feature), story);
+  const acReason = storyAcsConformanceReason(featureDir2(consortDir, feature), story);
   if (acReason) return { ok: false, error: acReason };
-  const indepReason = storyIndependenceForStoryReason(featureDir2(sftddDir, feature), story);
+  const indepReason = storyIndependenceForStoryReason(featureDir2(consortDir, feature), story);
   if (indepReason) return { ok: false, error: indepReason };
   try {
     approveStoryGate(pipeline, story, {
@@ -7253,7 +7253,7 @@ function approveStoryGateFromDisk(sftddDir, feature, story, opts) {
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
-  writePipeline(sftddDir, pipeline);
+  writePipeline(consortDir, pipeline);
   return { ok: true, queue: pipeline.build_queue };
 }
 function withdrawStoryGate(pipeline, storyId, opts) {
@@ -7427,8 +7427,8 @@ function renderEventMessage(event, slots = {}) {
 }
 
 // consort/logging/agent-log.ts
-function logFilePath(sftddDir) {
-  return join6(sftddDir, "agent-log.jsonl");
+function logFilePath(consortDir) {
+  return join6(consortDir, "agent-log.jsonl");
 }
 function buildAgentLogEvent(input, now) {
   const slots = input.slots ?? {};
@@ -7465,10 +7465,10 @@ function buildAgentLogEvent(input, now) {
   return event;
 }
 function emitAgentLogEvent(input, opts = {}) {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
+  const consortDir = opts.consortDir ?? resolveConsortDir();
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const event = buildAgentLogEvent(input, now);
-  appendFileSync(logFilePath(sftddDir), `${JSON.stringify(event)}
+  appendFileSync(logFilePath(consortDir), `${JSON.stringify(event)}
 `, "utf8");
   return event;
 }
@@ -7657,8 +7657,8 @@ Re-author this story's ${artifact} to ADD the specific coverage named above. Thi
 
 Re-author this story's ${artifact} to address the above. Do NOT re-emit the same overlap/redundancy; if no honest, not-already-delivered behavior remains, say so as an open question rather than fabricating one.`;
 }
-function readSmellsLog(sftddDir) {
-  const file = join7(sftddDir, "smells.json");
+function readSmellsLog(consortDir) {
+  const file = join7(consortDir, "smells.json");
   if (!existsSync6(file)) return { detected: [] };
   return JSON.parse(readFileSync6(file, "utf8"));
 }
@@ -7667,8 +7667,8 @@ function smellMatches(entry, smell, story_id) {
   if (story_id === void 0) return true;
   return entry.story_id === void 0 || entry.story_id === story_id;
 }
-function markSmellResolved(sftddDir, smell, opts) {
-  const file = join7(sftddDir, "smells.json");
+function markSmellResolved(consortDir, smell, opts) {
+  const file = join7(consortDir, "smells.json");
   if (!existsSync6(file)) return false;
   const log = JSON.parse(readFileSync6(file, "utf8"));
   const entry = log.detected.find((d) => !d.resolution && smellMatches(d, smell, opts.story_id));
@@ -7678,8 +7678,8 @@ function markSmellResolved(sftddDir, smell, opts) {
   writeFileSync3(file, JSON.stringify(log, null, 2) + "\n");
   return true;
 }
-function resolveAllOpenSmellsForStory(sftddDir, story, note) {
-  const file = join7(sftddDir, "smells.json");
+function resolveAllOpenSmellsForStory(consortDir, story, note) {
+  const file = join7(consortDir, "smells.json");
   if (!existsSync6(file)) return [];
   const log = JSON.parse(readFileSync6(file, "utf8"));
   const cleared = [];
@@ -7699,8 +7699,8 @@ var REFLECT_SMELL_NAMES = /* @__PURE__ */ new Set([
 function isReflectSmell(name) {
   return REFLECT_SMELL_NAMES.has(name);
 }
-function storyTestListFingerprint(sftddDir, featureId, story_id) {
-  const f = storyTestListJson(sftddDir, featureId, story_id);
+function storyTestListFingerprint(consortDir, featureId, story_id) {
+  const f = storyTestListJson(consortDir, featureId, story_id);
   if (!existsSync6(f)) return "";
   try {
     return createHash("sha1").update(readFileSync6(f)).digest("hex");
@@ -7708,8 +7708,8 @@ function storyTestListFingerprint(sftddDir, featureId, story_id) {
     return "";
   }
 }
-function resolveOpenReflectSmellsForStory(sftddDir, story_id, note, artifactSha) {
-  const file = join7(sftddDir, "smells.json");
+function resolveOpenReflectSmellsForStory(consortDir, story_id, note, artifactSha) {
+  const file = join7(consortDir, "smells.json");
   if (!existsSync6(file)) return 0;
   const log = JSON.parse(readFileSync6(file, "utf8"));
   let n = 0;
@@ -7732,8 +7732,8 @@ var SMELL_FOR_OWNER = {
   "spec-author": "reflect-spec-defect",
   "test-strategist": "reflect-testlist-defect"
 };
-function clearReflectVerdict(sftddDir, feature, story) {
-  const p = reflectVerdictJson(sftddDir, feature, story);
+function clearReflectVerdict(consortDir, feature, story) {
+  const p = reflectVerdictJson(consortDir, feature, story);
   if (existsSync7(p)) rmSync2(p, { force: true });
 }
 var REFLECT_SMELLS = Object.values(SMELL_FOR_OWNER);
@@ -7744,6 +7744,8 @@ import { existsSync as existsSync16, readFileSync as readFileSync17, readdirSync
 
 // consort/config/consort-env.ts
 init_esm_shims();
+var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
+var ENV_PREFIX = ENV_PREFIXES[0];
 
 // consort/pipeline/cycle-record.ts
 import { join as join16, dirname as dirname6 } from "path";
@@ -7768,8 +7770,8 @@ function readEscalationFile(file) {
     return void 0;
   }
 }
-function readEscalations(sftddDir) {
-  const dir = escalationsDir(sftddDir);
+function readEscalations(consortDir) {
+  const dir = escalationsDir(consortDir);
   if (!fs2.existsSync(dir)) return [];
   const out = [];
   for (const f of fs2.readdirSync(dir)) {
@@ -7779,14 +7781,14 @@ function readEscalations(sftddDir) {
   }
   return out;
 }
-function resolveEscalationsForStory(sftddDir, featureId, story, at = (/* @__PURE__ */ new Date()).toISOString()) {
-  const dir = escalationsDir(sftddDir);
+function resolveEscalationsForStory(consortDir, featureId, story, at = (/* @__PURE__ */ new Date()).toISOString()) {
+  const dir = escalationsDir(consortDir);
   const resolved = [];
-  for (const e of readEscalations(sftddDir)) {
+  for (const e of readEscalations(consortDir)) {
     if (e.resolved_at) continue;
     if (e.story_id !== story) continue;
     if (e.feature_id !== void 0 && e.feature_id !== featureId) continue;
-    fs2.writeFileSync(escalationFile(sftddDir, e.id), JSON.stringify({ ...e, resolved_at: at }, null, 2) + "\n", "utf8");
+    fs2.writeFileSync(escalationFile(consortDir, e.id), JSON.stringify({ ...e, resolved_at: at }, null, 2) + "\n", "utf8");
     resolved.push(e.id);
   }
   return resolved;
@@ -7844,15 +7846,15 @@ import { join as join15, relative as relative2, extname as extname2 } from "path
 // consort/pipeline/cycle-record.ts
 import { commitAllIfChanged } from "@databricks-solutions/lakebase-scm-utils/git";
 import { assertCommitTargetNotProtected, ProtectedBranchCommitError } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-function resetStoryBuildState(sftddDir, featureId, story) {
-  const cyclesDir = join16(cyclesRootDir(sftddDir), featureId, story);
+function resetStoryBuildState(consortDir, featureId, story) {
+  const cyclesDir = join16(cyclesRootDir(consortDir), featureId, story);
   let cyclesCleared = false;
   if (existsSync16(cyclesDir)) {
     rmSync7(cyclesDir, { recursive: true, force: true });
     cyclesCleared = true;
   }
   let testItemsReset = 0;
-  const tlPath = storyTestListJson(sftddDir, featureId, story);
+  const tlPath = storyTestListJson(consortDir, featureId, story);
   if (existsSync16(tlPath)) {
     try {
       const tl = JSON.parse(readFileSync17(tlPath, "utf8"));
@@ -7871,10 +7873,10 @@ function resetStoryBuildState(sftddDir, featureId, story) {
 
 // consort/orchestrator/status/revise.ts
 var REVISE_APPROVER = "human-proxy";
-function staleStoryArtifactsForRevise(sftddDir, featureId, story, gate) {
-  clearReflectVerdict(sftddDir, featureId, story);
-  const acIds = new Set(storyAcIds(sftddDir, featureId, story));
-  const master = featureTestListJson(sftddDir, featureId);
+function staleStoryArtifactsForRevise(consortDir, featureId, story, gate) {
+  clearReflectVerdict(consortDir, featureId, story);
+  const acIds = new Set(storyAcIds(consortDir, featureId, story));
+  const master = featureTestListJson(consortDir, featureId);
   if (existsSync17(master)) {
     try {
       const data = JSON.parse(readFileSync18(master, "utf8"));
@@ -7885,21 +7887,21 @@ function staleStoryArtifactsForRevise(sftddDir, featureId, story, gate) {
     } catch {
     }
   }
-  const perStory = storyTestListJson(sftddDir, featureId, story);
+  const perStory = storyTestListJson(consortDir, featureId, story);
   if (existsSync17(perStory)) rmSync8(perStory, { force: true });
   if (gate === "spec") {
-    const dir = acsDir(sftddDir, featureId, story);
+    const dir = acsDir(consortDir, featureId, story);
     if (existsSync17(dir)) {
       for (const f of readdirSync11(dir)) {
         if (f.endsWith(".json") || f.endsWith(".md")) rmSync8(join17(dir, f), { force: true });
       }
     }
   } else if (gate === "architecture") {
-    clearArchitecturalNotes(sftddDir, featureId, story);
+    clearArchitecturalNotes(consortDir, featureId, story);
   }
 }
-function clearArchitecturalNotes(sftddDir, featureId, story) {
-  const dir = acsDir(sftddDir, featureId, story);
+function clearArchitecturalNotes(consortDir, featureId, story) {
+  const dir = acsDir(consortDir, featureId, story);
   if (!existsSync17(dir)) return;
   for (const f of readdirSync11(dir)) {
     if (!f.endsWith(".json")) continue;
@@ -7915,10 +7917,10 @@ function clearArchitecturalNotes(sftddDir, featureId, story) {
   }
 }
 function applyReviseSelfHeal(args) {
-  const sftddDir = args.sftddDir ?? resolveSftddDir();
+  const consortDir = args.consortDir ?? resolveConsortDir();
   const approver = args.approver ?? REVISE_APPROVER;
   const at = (/* @__PURE__ */ new Date()).toISOString();
-  const preReviseTestListSha = storyTestListFingerprint(sftddDir, args.featureId, args.story);
+  const preReviseTestListSha = storyTestListFingerprint(consortDir, args.featureId, args.story);
   try {
     emitAgentLogEvent(
       {
@@ -7936,28 +7938,28 @@ function applyReviseSelfHeal(args) {
           approver
         }
       },
-      { sftddDir }
+      { consortDir }
     );
   } catch {
   }
-  const pipeline = readPipeline(sftddDir, args.featureId);
+  const pipeline = readPipeline(consortDir, args.featureId);
   reviseStory(pipeline, args.story, { approver, at, reason: args.reason });
-  writePipeline(sftddDir, pipeline);
-  resetStoryBuildState(sftddDir, args.featureId, args.story);
-  staleStoryArtifactsForRevise(sftddDir, args.featureId, args.story, args.gate);
+  writePipeline(consortDir, pipeline);
+  resetStoryBuildState(consortDir, args.featureId, args.story);
+  staleStoryArtifactsForRevise(consortDir, args.featureId, args.story, args.gate);
   try {
-    const hb = handbackFile(sftddDir, args.featureId, args.routedTo, args.story);
+    const hb = handbackFile(consortDir, args.featureId, args.routedTo, args.story);
     mkdirSync10(dirname7(hb), { recursive: true });
     writeFileSync11(hb, composeReviseBrief({ smell: args.smell, gate: args.gate, reason: args.reason }));
   } catch {
   }
   const reflect = isReflectSmell(args.smell);
   if (reflect) {
-    clearArchitecturalNotes(sftddDir, args.featureId, args.story);
+    clearArchitecturalNotes(consortDir, args.featureId, args.story);
     for (const role of ["architect-reviewer", "test-strategist"]) {
       if (role === args.routedTo) continue;
       try {
-        const hb = handbackFile(sftddDir, args.featureId, role, args.story);
+        const hb = handbackFile(consortDir, args.featureId, role, args.story);
         mkdirSync10(dirname7(hb), { recursive: true });
         const gate = role === "architect-reviewer" ? "architecture" : "test_list";
         writeFileSync11(hb, composeReviseBrief({ smell: args.smell, gate, reason: args.reason }));
@@ -7966,21 +7968,21 @@ function applyReviseSelfHeal(args) {
     }
   }
   const resolvedSmell = reflect ? resolveOpenReflectSmellsForStory(
-    sftddDir,
+    consortDir,
     args.story,
     `revised by ${approver}: full design re-run (${args.gate} gate)`,
     preReviseTestListSha
-  ) > 0 : markSmellResolved(sftddDir, args.smell, {
+  ) > 0 : markSmellResolved(consortDir, args.smell, {
     story_id: args.story,
     kind: "revised",
     note: `revised by ${approver}: routed to ${args.routedTo} (${args.gate} gate)`
   });
   return { decided: "revise", story: args.story, routedTo: args.routedTo, resolvedSmell };
 }
-function revisableSmellForStory(sftddDir, featureId, story) {
+function revisableSmellForStory(consortDir, featureId, story) {
   let log;
   try {
-    log = readSmellsLog(sftddDir);
+    log = readSmellsLog(consortDir);
   } catch {
     return null;
   }
@@ -7993,8 +7995,8 @@ function revisableSmellForStory(sftddDir, featureId, story) {
   }
   return null;
 }
-function reviseStoryWithSelfHeal(sftddDir, featureId, story, opts) {
-  const routable = revisableSmellForStory(sftddDir, featureId, story);
+function reviseStoryWithSelfHeal(consortDir, featureId, story, opts) {
+  const routable = revisableSmellForStory(consortDir, featureId, story);
   if (routable) {
     applyReviseSelfHeal({
       featureId,
@@ -8004,23 +8006,23 @@ function reviseStoryWithSelfHeal(sftddDir, featureId, story, opts) {
       gate: routable.gate,
       reason: opts.reason,
       approver: opts.approver,
-      sftddDir
+      consortDir
     });
     return { mode: "self-heal", story, smell: routable.smell, routedTo: routable.routedTo };
   }
-  const pipeline = readPipeline(sftddDir, featureId);
+  const pipeline = readPipeline(consortDir, featureId);
   reviseStory(pipeline, story, {
     approver: opts.approver,
     at: opts.at ?? (/* @__PURE__ */ new Date()).toISOString(),
     reason: opts.reason
   });
-  writePipeline(sftddDir, pipeline);
-  resetStoryBuildState(sftddDir, featureId, story);
+  writePipeline(consortDir, pipeline);
+  resetStoryBuildState(consortDir, featureId, story);
   return { mode: "plain", story };
 }
-function rebuildStory(sftddDir, featureId, story, opts) {
+function rebuildStory(consortDir, featureId, story, opts) {
   const at = opts?.at ?? (/* @__PURE__ */ new Date()).toISOString();
-  const pipeline = readPipeline(sftddDir, featureId);
+  const pipeline = readPipeline(consortDir, featureId);
   const entry = pipeline.stories[story];
   if (!entry) throw new Error(`rebuild-story: story ${story} is not in the pipeline for ${featureId}`);
   if (pipeline.build_active !== null && pipeline.build_active !== story) {
@@ -8028,10 +8030,10 @@ function rebuildStory(sftddDir, featureId, story, opts) {
       `rebuild-story: the build lane is busy on ${pipeline.build_active}; complete, revise, or discard it before rebuilding ${story}.`
     );
   }
-  const build = resetStoryBuildState(sftddDir, featureId, story);
-  const escalationsCleared = resolveEscalationsForStory(sftddDir, featureId, story, at);
+  const build = resetStoryBuildState(consortDir, featureId, story);
+  const escalationsCleared = resolveEscalationsForStory(consortDir, featureId, story, at);
   const smellsCleared = resolveAllOpenSmellsForStory(
-    sftddDir,
+    consortDir,
     story,
     `cleared for rebuild-story by ${opts?.approver ?? "operator"}`
   );
@@ -8045,7 +8047,7 @@ function rebuildStory(sftddDir, featureId, story, opts) {
   pipeline.build_active = story;
   const idx = pipeline.build_queue.indexOf(story);
   if (idx !== -1) pipeline.build_queue.splice(idx, 1);
-  writePipeline(sftddDir, pipeline);
+  writePipeline(consortDir, pipeline);
   return {
     cyclesCleared: build.cyclesCleared,
     testItemsReset: build.testItemsReset,
@@ -8054,10 +8056,10 @@ function rebuildStory(sftddDir, featureId, story, opts) {
     experimentReset
   };
 }
-function clearStoryBlockingSmellOnDiscard(sftddDir, featureId, story, approver) {
-  const routable = revisableSmellForStory(sftddDir, featureId, story);
+function clearStoryBlockingSmellOnDiscard(consortDir, featureId, story, approver) {
+  const routable = revisableSmellForStory(consortDir, featureId, story);
   if (!routable) return null;
-  markSmellResolved(sftddDir, routable.smell, {
+  markSmellResolved(consortDir, routable.smell, {
     story_id: story,
     kind: "cleared",
     note: `discarded by ${approver}`
@@ -8095,12 +8097,12 @@ function experimentMergeArgv(featureId, storyId, resolved, opts) {
     "--project-dir",
     opts.projectDir,
     "--tdd-dir",
-    opts.sftddDir,
+    opts.consortDir,
     ...opts.at ? ["--at", opts.at] : []
   ];
 }
-function resolveAcceptMergeArgs(sftddDir, projectDir, featureId, storyId, opts = {}) {
-  const pipeline = readPipeline(sftddDir, featureId);
+function resolveAcceptMergeArgs(consortDir, projectDir, featureId, storyId, opts = {}) {
+  const pipeline = readPipeline(consortDir, featureId);
   const exp = pipeline.stories[storyId]?.experiment;
   if (!exp) {
     return {
@@ -8203,7 +8205,7 @@ function parse(argv) {
     else if (a === "--lakebase-uid") out.lakebaseUid = argv[++i];
     else if (a === "--n") out.n = argv[++i];
     else if (a === "--smell") out.smell = argv[++i];
-    else if (a === "--tdd-dir") out.sftddDir = argv[++i];
+    else if (a === "--tdd-dir") out.consortDir = argv[++i];
     else if (a === "--project-dir") out.projectDir = argv[++i];
     else if (a === "--instance") out.instance = argv[++i];
     else if (a === "--json") out.json = true;
@@ -8229,20 +8231,20 @@ Usage: consort-pipeline <status|set|surface|approve-gate|withdraw-gate|enqueue|d
   );
   return 2;
 }
-function rejectBatchedDraft(sftddDir, feature, pipeline, story) {
-  const batched = findBatchedDraftStories(sftddDir, feature, pipeline, story);
+function rejectBatchedDraft(consortDir, feature, pipeline, story) {
+  const batched = findBatchedDraftStories(consortDir, feature, pipeline, story);
   if (batched.length === 0) return null;
   process.stderr.write(batchedDraftMessage(story, batched) + "\n");
   return 3;
 }
 async function main() {
   const args = parse(process.argv.slice(2));
-  const sftddDir = args.sftddDir ?? resolveSftddDir();
+  const consortDir = args.consortDir ?? resolveConsortDir();
   if (!args.cmd) return usage("missing subcommand");
   if (!args.feature && args.cmd !== "help") return usage("missing --feature");
   const feature = args.feature;
   if (args.cmd === "status") {
-    const p = readPipeline(sftddDir, feature);
+    const p = readPipeline(consortDir, feature);
     if (args.json) {
       process.stdout.write(JSON.stringify(p, null, 2) + "\n");
     } else {
@@ -8259,7 +8261,7 @@ async function main() {
     return 0;
   }
   if (args.cmd === "reset-breakdown") {
-    const r = resetIncompleteBreakdown(sftddDir, feature);
+    const r = resetIncompleteBreakdown(consortDir, feature);
     process.stdout.write(
       r.reset ? `reset-breakdown: cleared an incomplete breakdown for ${feature} (re-dispatch will regenerate)
 ` : `reset-breakdown: breakdown for ${feature} is complete or absent; nothing to reset
@@ -8267,10 +8269,10 @@ async function main() {
     );
     return 0;
   }
-  const pipeline = readPipeline(sftddDir, feature);
+  const pipeline = readPipeline(consortDir, feature);
   switch (args.cmd) {
     case "sync-breakdown": {
-      const r = syncBreakdownToPipeline(sftddDir, feature);
+      const r = syncBreakdownToPipeline(consortDir, feature);
       process.stdout.write(
         `sync-breakdown: +${r.added.length} (${r.added.join(", ") || "none"}); ${r.total.length} tracked
 `
@@ -8283,17 +8285,17 @@ async function main() {
         return usage(`set needs a valid --status (${STORY_STATUSES.join("|")})`);
       }
       setStoryStatus(pipeline, args.story, args.status);
-      writePipeline(sftddDir, pipeline);
+      writePipeline(consortDir, pipeline);
       process.stdout.write(`${args.story} -> ${args.status}
 `);
       return 0;
     }
     case "surface": {
       if (!args.story) return usage("surface needs --story");
-      const batched = rejectBatchedDraft(sftddDir, feature, pipeline, args.story);
+      const batched = rejectBatchedDraft(consortDir, feature, pipeline, args.story);
       if (batched !== null) return batched;
       surfaceForGate(pipeline, args.story);
-      writePipeline(sftddDir, pipeline);
+      writePipeline(consortDir, pipeline);
       process.stdout.write(`surfaced ${args.story} for the per-story spec gate (awaiting-gate)
 `);
       return 0;
@@ -8301,7 +8303,7 @@ async function main() {
     case "approve-gate": {
       if (!args.story) return usage("approve-gate needs --story");
       if (!args.approver) return usage("approve-gate needs --approver");
-      const r = approveStoryGateFromDisk(sftddDir, feature, args.story, {
+      const r = approveStoryGateFromDisk(consortDir, feature, args.story, {
         approver: args.approver,
         at: args.at,
         specHash: args.specHash
@@ -8327,7 +8329,7 @@ async function main() {
       if (!args.reason) return usage("withdraw-gate needs --reason");
       const at = args.at ?? (/* @__PURE__ */ new Date()).toISOString();
       withdrawStoryGate(pipeline, args.story, { approver: args.approver, at, reason: args.reason });
-      writePipeline(sftddDir, pipeline);
+      writePipeline(consortDir, pipeline);
       process.stdout.write(`withdrew gate for ${args.story} (${args.reason}); back to awaiting-gate
 `);
       return 0;
@@ -8335,14 +8337,14 @@ async function main() {
     case "enqueue": {
       if (!args.story) return usage("enqueue needs --story");
       enqueueReady(pipeline, args.story);
-      writePipeline(sftddDir, pipeline);
+      writePipeline(consortDir, pipeline);
       process.stdout.write(`enqueued ${args.story} (queue: ${pipeline.build_queue.join(", ")})
 `);
       return 0;
     }
     case "dispatch": {
       const dispatched = dispatchNext(pipeline);
-      writePipeline(sftddDir, pipeline);
+      writePipeline(consortDir, pipeline);
       process.stdout.write(
         dispatched ? `dispatched ${dispatched} to the build lane
 ` : `no dispatch: ${pipeline.build_active ? `lane busy on ${pipeline.build_active}` : "queue empty"}
@@ -8352,7 +8354,7 @@ async function main() {
     }
     case "complete": {
       const completed = completeActive(pipeline);
-      writePipeline(sftddDir, pipeline);
+      writePipeline(consortDir, pipeline);
       process.stdout.write(completed ? `completed ${completed}; lane idle
 ` : `no active story to complete
 `);
@@ -8372,7 +8374,7 @@ async function main() {
         n: args.n !== void 0 ? Number(args.n) : void 0,
         at: args.at ?? (/* @__PURE__ */ new Date()).toISOString()
       });
-      writePipeline(sftddDir, pipeline);
+      writePipeline(consortDir, pipeline);
       process.stdout.write(`cut experiment ${args.slug} for ${args.story} on ${args.branch} (parent ${args.parent})
 `);
       return 0;
@@ -8380,7 +8382,7 @@ async function main() {
     case "await-acceptance": {
       if (!args.story) return usage("await-acceptance needs --story");
       awaitAcceptance(pipeline, args.story);
-      writePipeline(sftddDir, pipeline);
+      writePipeline(consortDir, pipeline);
       process.stdout.write(`${args.story} -> awaiting-acceptance (PO reviewing the running story)
 `);
       return 0;
@@ -8389,7 +8391,7 @@ async function main() {
       if (!args.story) return usage("accept needs --story");
       if (!args.approver) return usage("accept needs --approver");
       const projectDir = args.projectDir ?? process.cwd();
-      const resolved = resolveAcceptMergeArgs(sftddDir, projectDir, feature, args.story, {
+      const resolved = resolveAcceptMergeArgs(consortDir, projectDir, feature, args.story, {
         ...args.instance ? { instance: args.instance } : {}
       });
       if (!resolved.ok) {
@@ -8400,7 +8402,7 @@ async function main() {
       const argv = experimentMergeArgv(feature, args.story, resolved, {
         approver: args.approver,
         projectDir,
-        sftddDir,
+        consortDir,
         ...args.at ? { at: args.at } : {}
       });
       return runKitBinSync("consort-experiment", argv, projectDir);
@@ -8410,8 +8412,8 @@ async function main() {
       if (!args.approver) return usage("discard needs --approver");
       if (!args.reason) return usage("discard needs --reason");
       discardStory(pipeline, args.story, { approver: args.approver, at: args.at ?? (/* @__PURE__ */ new Date()).toISOString(), reason: args.reason });
-      writePipeline(sftddDir, pipeline);
-      const cleared = clearStoryBlockingSmellOnDiscard(sftddDir, feature, args.story, args.approver);
+      writePipeline(consortDir, pipeline);
+      const cleared = clearStoryBlockingSmellOnDiscard(consortDir, feature, args.story, args.approver);
       const smellNote = cleared ? `; cleared blocking smell '${cleared}'` : "";
       process.stdout.write(`discarded ${args.story} (${args.reason}); experiment torn down, out of sprint, lane freed${smellNote}
 `);
@@ -8421,7 +8423,7 @@ async function main() {
       if (!args.story) return usage("revise needs --story");
       if (!args.approver) return usage("revise needs --approver");
       if (!args.reason) return usage("revise needs --reason");
-      const outcome = reviseStoryWithSelfHeal(sftddDir, feature, args.story, {
+      const outcome = reviseStoryWithSelfHeal(consortDir, feature, args.story, {
         approver: args.approver,
         reason: args.reason,
         ...args.at ? { at: args.at } : {}
@@ -8441,7 +8443,7 @@ async function main() {
       if (!args.story) return usage("rebuild-story needs --story");
       let r;
       try {
-        r = rebuildStory(sftddDir, feature, args.story, {
+        r = rebuildStory(consortDir, feature, args.story, {
           ...args.approver ? { approver: args.approver } : {},
           ...args.at ? { at: args.at } : {}
         });
@@ -8464,7 +8466,7 @@ async function main() {
     case "resolve-smell": {
       if (!args.smell) return usage("resolve-smell needs --smell");
       if (!args.approver) return usage("resolve-smell needs --approver");
-      const ok = markSmellResolved(sftddDir, args.smell, {
+      const ok = markSmellResolved(consortDir, args.smell, {
         ...args.story ? { story_id: args.story } : {},
         kind: "cleared",
         note: `cleared by ${args.approver}${args.reason ? `: ${args.reason}` : ""}`

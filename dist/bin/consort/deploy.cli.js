@@ -6667,7 +6667,7 @@ var ARTIFACT_ROOT = ".consort";
 var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
 var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
 var artifactRootsRegexAlternation = () => ALL_ARTIFACT_ROOTS.map((r) => r.replace(/[.]/g, "\\.")).join("|");
-function resolveSftddDir(projectDir = process.cwd()) {
+function resolveConsortDir(projectDir = process.cwd()) {
   const next = join(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
   for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
@@ -6823,8 +6823,8 @@ function renderEventMessage(event, slots = {}) {
 }
 
 // consort/logging/agent-log.ts
-function logFilePath(sftddDir) {
-  return join3(sftddDir, "agent-log.jsonl");
+function logFilePath(consortDir) {
+  return join3(consortDir, "agent-log.jsonl");
 }
 function buildAgentLogEvent(input, now) {
   const slots = input.slots ?? {};
@@ -6861,10 +6861,10 @@ function buildAgentLogEvent(input, now) {
   return event;
 }
 function emitAgentLogEvent(input, opts = {}) {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
+  const consortDir = opts.consortDir ?? resolveConsortDir();
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const event = buildAgentLogEvent(input, now);
-  appendFileSync(logFilePath(sftddDir), `${JSON.stringify(event)}
+  appendFileSync(logFilePath(consortDir), `${JSON.stringify(event)}
 `, "utf8");
   return event;
 }
@@ -6874,8 +6874,14 @@ init_esm_shims();
 
 // consort/config/consort-env.ts
 init_esm_shims();
-function sftddEnv(suffix, env = process.env) {
-  return env[`LAKEBASE_SFTDD_${suffix}`] ?? env[`LAKEBASE_TDD_${suffix}`];
+var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
+var ENV_PREFIX = ENV_PREFIXES[0];
+function consortEnv(suffix, env = process.env) {
+  for (const prefix of ENV_PREFIXES) {
+    const v = env[`${prefix}${suffix}`];
+    if (v !== void 0) return v;
+  }
+  return void 0;
 }
 
 // consort/test-list/test-list.ts
@@ -6921,9 +6927,9 @@ import { assertCommitTargetNotProtected, ProtectedBranchCommitError } from "@dat
 function escalationId(parts) {
   return [parts.source, parts.feature_id, parts.story_id, parts.ac_id].filter(Boolean).join("__").replace(/[^A-Za-z0-9_.-]/g, "-");
 }
-function writeEscalation(sftddDir, esc) {
+function writeEscalation(consortDir, esc) {
   const id = esc.id ?? escalationId(esc);
-  const file = escalationFile(sftddDir, id);
+  const file = escalationFile(consortDir, id);
   const existing = readEscalationFile(file);
   if (existing && !existing.resolved_at) return existing;
   const full = {
@@ -6935,7 +6941,7 @@ function writeEscalation(sftddDir, esc) {
     ...esc.ac_id ? { ac_id: esc.ac_id } : {},
     raised_at: esc.raised_at ?? (/* @__PURE__ */ new Date()).toISOString()
   };
-  fs4.mkdirSync(escalationsDir(sftddDir), { recursive: true });
+  fs4.mkdirSync(escalationsDir(consortDir), { recursive: true });
   fs4.writeFileSync(file, JSON.stringify(full, null, 2) + "\n", "utf8");
   return full;
 }
@@ -6964,13 +6970,13 @@ function parseFailedNodeIds(output) {
   }
   return ids;
 }
-function markerPath(sftddDir, featureId, storyId) {
-  const fdir = findFeatureDir(sftddDir, featureId);
+function markerPath(consortDir, featureId, storyId) {
+  const fdir = findFeatureDir(consortDir, featureId);
   if (!fdir) return void 0;
   return storyId ? path3.join(fdir, "stories", storyId, "deploy-verify-assess.json") : path3.join(fdir, "deploy-verify-assess.json");
 }
-function readDeployVerifyAssessMarker(sftddDir, featureId, storyId) {
-  const file = markerPath(sftddDir, featureId, storyId);
+function readDeployVerifyAssessMarker(consortDir, featureId, storyId) {
+  const file = markerPath(consortDir, featureId, storyId);
   if (!file || !fs5.existsSync(file)) return void 0;
   try {
     return JSON.parse(fs5.readFileSync(file, "utf8"));
@@ -6978,10 +6984,10 @@ function readDeployVerifyAssessMarker(sftddDir, featureId, storyId) {
     return void 0;
   }
 }
-function writeDeployVerifyAssessMarker(sftddDir, featureId, storyId, failingNodeIds) {
-  const file = markerPath(sftddDir, featureId, storyId);
+function writeDeployVerifyAssessMarker(consortDir, featureId, storyId, failingNodeIds) {
+  const file = markerPath(consortDir, featureId, storyId);
   if (!file) return void 0;
-  const prior = readDeployVerifyAssessMarker(sftddDir, featureId, storyId);
+  const prior = readDeployVerifyAssessMarker(consortDir, featureId, storyId);
   const marker = {
     version: 1,
     ...storyId ? { story_id: storyId } : {},
@@ -6993,8 +6999,8 @@ function writeDeployVerifyAssessMarker(sftddDir, featureId, storyId, failingNode
   fs5.writeFileSync(file, JSON.stringify(marker, null, 2) + "\n", "utf8");
   return file;
 }
-function clearDeployVerifyAssessMarker(sftddDir, featureId, storyId) {
-  const file = markerPath(sftddDir, featureId, storyId);
+function clearDeployVerifyAssessMarker(consortDir, featureId, storyId) {
+  const file = markerPath(consortDir, featureId, storyId);
   if (file && fs5.existsSync(file)) fs5.rmSync(file);
 }
 async function classifyDeployVerifyFailure(failingNodeIds, runIsolated) {
@@ -7077,7 +7083,7 @@ function readAppDatabaseName(projectDir) {
   return name || void 0;
 }
 async function runVerifyMaybeEphemeral(runVerify, cmd, projectDir, env, lakebaseBranch, now) {
-  const instance = lakebaseBranch && sftddEnv("EPHEMERAL_VERIFY") !== "0" ? readProjectInstance(projectDir) : void 0;
+  const instance = lakebaseBranch && consortEnv("EPHEMERAL_VERIFY") !== "0" ? readProjectInstance(projectDir) : void 0;
   if (!instance || !lakebaseBranch) {
     return normalizeVerifyRun(runVerify(cmd, projectDir, env));
   }
@@ -7128,7 +7134,7 @@ function logReleaseEngineerDeployStart(ctx) {
         feature_id: ctx.featureId,
         slots: { scope, target: ctx.target, ...ctx.storyId ? { story: ctx.storyId } : {} }
       },
-      { sftddDir: ctx.sftddDir, now: ctx.now }
+      { consortDir: ctx.consortDir, now: ctx.now }
     );
   } catch {
   }
@@ -7136,7 +7142,7 @@ function logReleaseEngineerDeployStart(ctx) {
 function logReleaseEngineerDeployOutcome(ctx, result) {
   const scope = ctx.storyId ? `story ${ctx.storyId}` : `feature ${ctx.featureId}`;
   const storyData = ctx.storyId ? { story: ctx.storyId } : {};
-  const io = { sftddDir: ctx.sftddDir, now: ctx.now };
+  const io = { consortDir: ctx.consortDir, now: ctx.now };
   try {
     if (result.ok) {
       emitAgentLogEvent(
@@ -7184,7 +7190,7 @@ function logReleaseEngineerDeployOutcome(ctx, result) {
   }
 }
 function pidFile(projectDir, target) {
-  return join11(resolveSftddDir(projectDir), "deploy", `${target}.pid`);
+  return join11(resolveConsortDir(projectDir), "deploy", `${target}.pid`);
 }
 function normalizeVerifyRun(raw) {
   return typeof raw === "boolean" ? { passed: raw, output: "" } : { passed: raw.passed, output: raw.output ?? "" };
@@ -7204,8 +7210,8 @@ ${tail}
     return { passed: false, output };
   }
 }
-function writeDeployEvidence(sftddDir, evidence) {
-  const fdir = findFeatureDir(sftddDir, evidence.feature_id);
+function writeDeployEvidence(consortDir, evidence) {
+  const fdir = findFeatureDir(consortDir, evidence.feature_id);
   if (!fdir) return void 0;
   const dir = evidence.story_id ? join11(fdir, "stories", evidence.story_id) : fdir;
   mkdirSync6(dir, { recursive: true });
@@ -7218,9 +7224,9 @@ function defaultStart(cmd, cwd, env) {
   child.unref();
   return child.pid ?? -1;
 }
-function logDeployEvent(sftddDir, event, slots) {
+function logDeployEvent(consortDir, event, slots) {
   try {
-    emitAgentLogEvent({ role: "release-engineer", level: "info", event, slots }, { sftddDir });
+    emitAgentLogEvent({ role: "release-engineer", level: "info", event, slots }, { consortDir });
   } catch {
   }
 }
@@ -7251,9 +7257,9 @@ async function deployToTarget(args) {
       const verify2 = { passed: false, summary: reason };
       let evidencePath2;
       if (args.featureId) {
-        const sftddDir = args.sftddDir ?? resolveSftddDir(args.projectDir);
+        const consortDir = args.consortDir ?? resolveConsortDir(args.projectDir);
         const at = (args.now ?? (() => /* @__PURE__ */ new Date()))().toISOString();
-        evidencePath2 = writeDeployEvidence(sftddDir, {
+        evidencePath2 = writeDeployEvidence(consortDir, {
           schema_version: DEPLOY_EVIDENCE_SCHEMA_VERSION,
           feature_id: args.featureId,
           ...args.storyId ? { story_id: args.storyId } : {},
@@ -7264,7 +7270,7 @@ async function deployToTarget(args) {
           ...args.lakebaseBranch ? { lakebase_branch: args.lakebaseBranch } : {},
           deployed_at: at
         });
-        writeEscalation(sftddDir, {
+        writeEscalation(consortDir, {
           source: "deploy-verify",
           reason: `deploy of ${args.featureId}${args.storyId ? `/${args.storyId}` : ""} blocked: ${reason}`,
           feature_id: args.featureId,
@@ -7311,9 +7317,9 @@ async function deployToTarget(args) {
   }
   let evidencePath;
   if (args.featureId) {
-    const sftddDir = args.sftddDir ?? resolveSftddDir(args.projectDir);
+    const consortDir = args.consortDir ?? resolveConsortDir(args.projectDir);
     const at = (args.now ?? (() => /* @__PURE__ */ new Date()))().toISOString();
-    evidencePath = writeDeployEvidence(sftddDir, {
+    evidencePath = writeDeployEvidence(consortDir, {
       schema_version: DEPLOY_EVIDENCE_SCHEMA_VERSION,
       feature_id: args.featureId,
       ...args.storyId ? { story_id: args.storyId } : {},
@@ -7327,9 +7333,9 @@ async function deployToTarget(args) {
     const scope = args.storyId ? `story ${args.storyId}` : `feature ${args.featureId}`;
     const stepSlots = { feature_id: args.featureId, ...args.storyId ? { story: args.storyId } : {} };
     if (reachableNow) {
-      logDeployEvent(sftddDir, "deploy.reachable", { url, pid, ...stepSlots });
+      logDeployEvent(consortDir, "deploy.reachable", { url, pid, ...stepSlots });
     } else {
-      logDeployEvent(sftddDir, "deploy.unreachable", {
+      logDeployEvent(consortDir, "deploy.unreachable", {
         url,
         reason: `not reachable after ${cfg.readyTimeoutSeconds}s`,
         ...stepSlots
@@ -7337,7 +7343,7 @@ async function deployToTarget(args) {
     }
     if (reachableNow && cfg.verify) {
       logDeployEvent(
-        sftddDir,
+        consortDir,
         verify.passed ? "verify.passed" : "verify.failed",
         verify.passed ? { scope, command: cfg.verify, ...stepSlots } : { scope, command: cfg.verify, summary: verify.summary ?? "feature-verify failed", ...stepSlots }
       );
@@ -7360,16 +7366,16 @@ async function deployToTarget(args) {
             )).passed
           );
           if (verdict === "contamination") {
-            const prior = readDeployVerifyAssessMarker(sftddDir, args.featureId, args.storyId);
+            const prior = readDeployVerifyAssessMarker(consortDir, args.featureId, args.storyId);
             if (!prior?.assessed) {
-              writeDeployVerifyAssessMarker(sftddDir, args.featureId, args.storyId, failing);
+              writeDeployVerifyAssessMarker(consortDir, args.featureId, args.storyId, failing);
               contamination = true;
             }
           }
         }
       }
       if (!contamination) {
-        writeEscalation(sftddDir, {
+        writeEscalation(consortDir, {
           source: "deploy-verify",
           reason: `deploy of ${args.featureId}${args.storyId ? `/${args.storyId}` : ""} did not prove working software: ${reachableNow ? verify.summary ?? "verify failed" : `app not reachable at ${url}`}`,
           feature_id: args.featureId,
@@ -7377,7 +7383,7 @@ async function deployToTarget(args) {
         });
       }
     } else if (args.featureId) {
-      clearDeployVerifyAssessMarker(sftddDir, args.featureId, args.storyId);
+      clearDeployVerifyAssessMarker(consortDir, args.featureId, args.storyId);
     }
   }
   if (!reachableNow) {
@@ -7418,7 +7424,7 @@ async function runDeployCli(argv) {
   let lakebaseBranch;
   let featureId;
   let storyId;
-  let sftddDir;
+  let consortDir;
   let gate = false;
   for (let i = 0; i < argv.length; i++) {
     switch (argv[i]) {
@@ -7438,7 +7444,7 @@ async function runDeployCli(argv) {
         storyId = argv[++i];
         break;
       case "--tdd-dir":
-        sftddDir = argv[++i];
+        consortDir = argv[++i];
         break;
       case "--gate":
         gate = true;
@@ -7467,7 +7473,7 @@ async function runDeployCli(argv) {
 `);
     return 0;
   }
-  const reCtx = featureId ? { featureId, storyId, target, sftddDir } : void 0;
+  const reCtx = featureId ? { featureId, storyId, target, consortDir } : void 0;
   if (reCtx) logReleaseEngineerDeployStart(reCtx);
   const result = await deployToTarget({
     projectDir,
@@ -7475,7 +7481,7 @@ async function runDeployCli(argv) {
     lakebaseBranch,
     featureId,
     storyId,
-    sftddDir,
+    consortDir,
     // Gate mode (orchestration-run deploy): reject a foreign occupant of the
     // port so we never verify against the wrong app, and record honest evidence.
     rejectForeignPort: gate

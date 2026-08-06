@@ -54,7 +54,7 @@ export LAKEBASE_SFTDD_RECORDED_INTAKE_DIR="${ORCH}"
 LOG_FILE="${PARENT}/_resume-stockflow.log"
 cd "$PROJECT_DIR"
 lk() { "$PROJECT_DIR/scripts/lk" "$@"; }
-SFTDD_DIR="$(lk lakebase-resolve-sftdd-dir --project-dir "$PROJECT_DIR")"
+SFTDD_DIR="$(lk lakebase-resolve-consort-dir --project-dir "$PROJECT_DIR")"
 SFTDD_REL="$(basename "$SFTDD_DIR")"
 
 log "kit=$LAKEBASE_KIT_DIR  project=$PROJECT_DIR"

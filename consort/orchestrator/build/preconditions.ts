@@ -21,7 +21,7 @@ import { readGreenFailure } from "../../smells/supersession.js";
 
 /** The scope a preparer projects against (a pure read of on-disk `.sftdd`). */
 export interface PreparerContext {
-  sftddDir: string;
+  consortDir: string;
   featureId: string;
   story: string;
   /** The AC in ac-loop; "" at story scope. */
@@ -44,8 +44,8 @@ export type PreconditionPreparer = (ctx: PreparerContext) => string;
  * assembled inline (this is the migration to the orchestrator family: one projection, two
  * consumers). Empty when there is no marker or none of the three fields are present.
  */
-export function buildGreenFailureAdvisory(sftddDir: string, featureId: string, story: string, ac: string): string {
-  const gfAssess = ac ? readGreenFailure(sftddDir, featureId, story, ac) : undefined;
+export function buildGreenFailureAdvisory(consortDir: string, featureId: string, story: string, ac: string): string {
+  const gfAssess = ac ? readGreenFailure(consortDir, featureId, story, ac) : undefined;
   // The verify's OWN captured failure output (failing node-ids + top error, e.g. "Cannot
   // find module ../../src/pages/StockViewPage"). The general pre-localization for failures
   // the deterministic column-drop gates CANNOT localize (a missing client component, a
@@ -83,10 +83,10 @@ export function buildGreenFailureAdvisory(sftddDir: string, featureId: string, s
  */
 export const PRECONDITION_PREPARERS: Record<string, PreconditionPreparer> = {
   "context-pack": (ctx) =>
-    buildContextPack(ctx.sftddDir, ctx.featureId, ctx.story, ctx.ac, {
+    buildContextPack(ctx.consortDir, ctx.featureId, ctx.story, ctx.ac, {
       skipTestLoop: !!(ctx.options && (ctx.options as { skipTestLoop?: boolean }).skipTestLoop),
     }),
-  "green-failure-advisory": (ctx) => buildGreenFailureAdvisory(ctx.sftddDir, ctx.featureId, ctx.story, ctx.ac),
+  "green-failure-advisory": (ctx) => buildGreenFailureAdvisory(ctx.consortDir, ctx.featureId, ctx.story, ctx.ac),
 };
 
 /** Resolve a precondition KIND to its preparer. THROWS loud on an unknown kind , a manifest/

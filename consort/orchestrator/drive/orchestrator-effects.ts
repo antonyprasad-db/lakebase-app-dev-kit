@@ -73,7 +73,7 @@ export type DriveCommand =
   | { kind: "sync-backlog"; sprint: string }
   // Post-turn artifact guard (FEIP-8006): after a design/planning role's claude
   // turn, assert the role actually wrote its expected artifact UNDER the project's
-  // resolved sftddDir (at least one of `anyOf` exists, a file or a non-empty dir),
+  // resolved consortDir (at least one of `anyOf` exists, a file or a non-empty dir),
   // BEFORE any deterministic effect consumes it. A subagent that resolved the
   // project root wrong (cwd / $HOME / a hallucinated path) writes outside the
   // project; without this the miss surfaces later as a cryptic, misattributed
@@ -86,7 +86,7 @@ export interface CommandRunner {
 
 export interface DriveEffectsConfig {
   projectDir: string;
-  sftddDir: string;
+  consortDir: string;
   featureId: string;
   runner: CommandRunner;
   /** Resolve a role's model (per-project override -> recommended -> inherit). */
@@ -195,7 +195,7 @@ export interface DriveEffectsConfig {
 const UI_TRACK_PROPOSE = ` UI track is ON: this product has a user-facing UI (a design-brief.md is part of intake), so every user-facing capability must be deliverable end to end as an E2E story, a real browser/screen interaction a user performs, not merely an API. Frame each candidate as a user-facing increment and note which need an E2E (UI) story.`;
 const UI_TRACK_BREAKDOWN = ` UI track is ON: decompose into stories that include the E2E (UI) story for each user-facing capability (a screen the user interacts with), not API-only stories.`;
 /** The artifact root a directive hands a role agent: the ABSOLUTE resolved
- *  sftddDir (FEIP-8006). It was previously the bare basename (`.sftdd`), a
+ *  consortDir (FEIP-8006). It was previously the bare basename (`.sftdd`), a
  *  RELATIVE reference , but Claude Code's Write tool requires an ABSOLUTE path, so
  *  a relative directive forced each subagent to resolve the project root itself,
  *  and they resolved it inconsistently (cwd, $HOME, even a hallucinated
@@ -204,8 +204,8 @@ const UI_TRACK_BREAKDOWN = ` UI track is ON: decompose into stories that include
  *  Directives are generated fresh per run and are NOT recorded into the shipped
  *  corpus (replay copies artifacts, never the directive), so an absolute,
  *  machine-specific path here has no portability cost. */
-function artifactRoot(sftddDir: string): string {
-  return sftddDir;
+function artifactRoot(consortDir: string): string {
+  return consortDir;
 }
 
 /** UI-track build directive naming the design guide under the resolved root. */
@@ -229,9 +229,9 @@ const AGENT_TERSE_SUFFIX =
  * agent can only batch stories it is handed; we hand it just this one). Returns
  * "" when the stub is absent/unreadable, the directive alone still scopes it.
  */
-function storyStubScope(sftddDir: string, featureId: string, storyId: string): string {
+function storyStubScope(consortDir: string, featureId: string, storyId: string): string {
   try {
-    const stub = JSON.parse(fs.readFileSync(storyJson(sftddDir, featureId, storyId), "utf8")) as {
+    const stub = JSON.parse(fs.readFileSync(storyJson(consortDir, featureId, storyId), "utf8")) as {
       asA?: string;
       iWantTo?: string;
       soThat?: string;
@@ -258,7 +258,7 @@ function storyStubScope(sftddDir: string, featureId: string, storyId: string): s
  * the test actually written. Naming the test makes the agent obey the order.
  */
 function nextPendingTestDirective(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   story: string,
   loop?: "ac" | "hybrid-a" | "story",
@@ -271,7 +271,7 @@ function nextPendingTestDirective(
   if ((loop ?? "story") === "story") {
     let batch: { id: string; ac_id: string; description: string }[] = [];
     try {
-      batch = nextPendingBatch(sftddDir, featureId, story, Number.MAX_SAFE_INTEGER);
+      batch = nextPendingBatch(consortDir, featureId, story, Number.MAX_SAFE_INTEGER);
     } catch {
       batch = [];
     }
@@ -292,7 +292,7 @@ function nextPendingTestDirective(
   if (loop === "hybrid-a") {
     let batch: { id: string; ac_id: string; description: string }[] = [];
     try {
-      batch = nextPendingBatch(sftddDir, featureId, story, cap ?? DEFAULT_BATCH_CAP);
+      batch = nextPendingBatch(consortDir, featureId, story, cap ?? DEFAULT_BATCH_CAP);
     } catch {
       batch = [];
     }
@@ -309,7 +309,7 @@ function nextPendingTestDirective(
   }
   let next: { id: string; ac_id: string; description: string } | undefined;
   try {
-    next = storyTestProgress(sftddDir, featureId, story).pending[0];
+    next = storyTestProgress(consortDir, featureId, story).pending[0];
   } catch {
     next = undefined;
   }
@@ -331,16 +331,16 @@ function nextPendingTestDirective(
  * untouched (an unflagged regression must stay failing and escalate). Empty when
  * no allowlist exists for the open AC, so a normal GREEN turn is unaffected.
  */
-function supersededTestsDirective(sftddDir: string, featureId: string, story: string): string {
+function supersededTestsDirective(consortDir: string, featureId: string, story: string): string {
   let acId: string | undefined;
   try {
-    const prog = storyTestProgress(sftddDir, featureId, story);
+    const prog = storyTestProgress(consortDir, featureId, story);
     acId = (prog.openRed[0] ?? prog.pending[0])?.ac_id;
   } catch {
     acId = undefined;
   }
   if (!acId) return "";
-  const sup = readSupersededTests(sftddDir, featureId, story, acId);
+  const sup = readSupersededTests(consortDir, featureId, story, acId);
   if (!sup) return "";
   const list = sup.tests.map((t) => `  - ${t}`).join("\n");
   return (
@@ -358,15 +358,15 @@ function supersededTestsDirective(sftddDir: string, featureId: string, story: st
  * rather than re-running the same failing verify blind. Empty when the open AC
  * has no such marker.
  */
-function regressionRepairDirective(sftddDir: string, featureId: string, story: string): string {
+function regressionRepairDirective(consortDir: string, featureId: string, story: string): string {
   let acId: string | undefined;
   try {
-    acId = storyTestProgress(sftddDir, featureId, story).openRed[0]?.ac_id;
+    acId = storyTestProgress(consortDir, featureId, story).openRed[0]?.ac_id;
   } catch {
     acId = undefined;
   }
   if (!acId) return "";
-  const gf = readGreenFailure(sftddDir, featureId, story, acId);
+  const gf = readGreenFailure(consortDir, featureId, story, acId);
   if (!gf?.fixDirective) return "";
   return (
     `REPAIR a driver-fixable regression in AC ${acId} (story ${story}). The honest-GREEN verify against the` +
@@ -392,10 +392,10 @@ function regressionRepairDirective(sftddDir: string, featureId: string, story: s
 function consumeHandback(
   action: Extract<WorkflowAction, { kind: "invoke-role" }>,
   featureId: string,
-  sftddDir: string,
+  consortDir: string,
 ): string {
   const story = "story" in action ? action.story : undefined;
-  const file = handbackFile(sftddDir, featureId, action.role, story);
+  const file = handbackFile(consortDir, featureId, action.role, story);
   if (!fs.existsSync(file)) return "";
   let note = "";
   try {
@@ -418,10 +418,10 @@ function roleTask(
   action: Extract<WorkflowAction, { kind: "invoke-role" }>,
   featureId: string,
   uiTrack: boolean,
-  sftddDir: string,
+  consortDir: string,
   build?: BuildLoopOpts,
 ): string {
-  return consumeHandback(action, featureId, sftddDir) + roleTaskBody(action, featureId, uiTrack, sftddDir, build);
+  return consumeHandback(action, featureId, consortDir) + roleTaskBody(action, featureId, uiTrack, consortDir, build);
 }
 
 /**
@@ -432,8 +432,8 @@ function roleTask(
  * (the orchestrator persists it deterministically). Empty when no conventions
  * exist (the first feature simply establishes them by building normally).
  */
-function architectConventionsDirective(sftddDir: string): string {
-  const conventions = readConventions(sftddDir);
+function architectConventionsDirective(consortDir: string): string {
+  const conventions = readConventions(consortDir);
   if (!conventions) {
     return ` This is the first feature: the layered layout you declare in architecture.json (the role -> module` +
       ` paths) becomes the PROJECT-WIDE convention every later feature inherits, so choose the canonical layout deliberately.`;
@@ -464,13 +464,13 @@ function roleTaskBody(
   action: Extract<WorkflowAction, { kind: "invoke-role" }>,
   featureId: string,
   uiTrack: boolean,
-  sftddDir: string,
+  consortDir: string,
   build?: BuildLoopOpts,
 ): string {
   // The artifact-root basename (.sftdd, or a legacy .tdd) every prompt path
   // below is built from, so what the agent is told to read/write matches the
   // dir the driver resolved. Never hardcode ".tdd/" in a prompt string.
-  const root = artifactRoot(sftddDir);
+  const root = artifactRoot(consortDir);
   if ("mode" in action) {
     switch (action.mode) {
       case "propose":
@@ -560,7 +560,7 @@ function roleTaskBody(
       // lane starts on it without waiting for the rest to be authored); drafting
       // siblings here delays that and is rejected at the per-story spec gate.
       return (
-        `Draft the acceptance criteria for story ${s} and NOTHING else.${storyStubScope(sftddDir, featureId, s)}` +
+        `Draft the acceptance criteria for story ${s} and NOTHING else.${storyStubScope(consortDir, featureId, s)}` +
         ` Write ONE file per AC as acs/<AC>.json (+ optional acs/<AC>.md), and put NOTHING else in acs/` +
         ` (no test lists, no -tests.json / -test-list.json, no scratch files, the spec gate validates every` +
         ` acs/*.json against the AC schema and rejects non-AC files).` +
@@ -574,7 +574,7 @@ function roleTaskBody(
         designRootNote(root, featureId, s)
       );
     case "architect-reviewer": {
-      const arAcIds = storyAcIds(sftddDir, featureId, s);
+      const arAcIds = storyAcIds(consortDir, featureId, s);
       const arAcScope = arAcIds.length ? ` Story ${s}'s ACs are: ${arAcIds.join(", ")}.` : "";
       return (
         `Annotate story ${s}'s acceptance criteria + nfrs.md coverage.${arAcScope}` +
@@ -591,12 +591,12 @@ function roleTaskBody(
         ` schema enforces (each with id, type one of unique|foreign_key|cascade|not_null|check|transactional|migration_reversible,` +
         ` table, and a one-line brief), covering unique/composite keys, foreign keys + cascade rules, NOT NULL / CHECK constraints,` +
         ` any transactional-atomicity boundary, and migration reversibility. The test-strategist must cover each with a real-branch` +
-        ` test; a service_backed feature with no persistence_invariants hard-blocks the gate.${architectConventionsDirective(sftddDir)}` +
+        ` test; a service_backed feature with no persistence_invariants hard-blocks the gate.${architectConventionsDirective(consortDir)}` +
         designRootNote(root, featureId, s)
       );
     }
     case "dba": {
-      const dbaAcIds = storyAcIds(sftddDir, featureId, s);
+      const dbaAcIds = storyAcIds(consortDir, featureId, s);
       const dbaAcScope = dbaAcIds.length ? ` Story ${s}'s ACs are: ${dbaAcIds.join(", ")}.` : "";
       // Inject the architect's contract to realize (service_backed, the models
       // layer to mirror, and the persistence_invariants the design must physically
@@ -604,7 +604,7 @@ function roleTaskBody(
       // when architecture.json is not on disk yet (the spec gate still enforces).
       let contract = "";
       try {
-        const arch = JSON.parse(fs.readFileSync(architectureJson(sftddDir, featureId), "utf8")) as {
+        const arch = JSON.parse(fs.readFileSync(architectureJson(consortDir, featureId), "utf8")) as {
           service_backed?: boolean;
           persistence_invariants?: Array<{ id?: string; type?: string; table?: string; brief?: string }>;
           layers?: Array<{ role?: string; module?: string }>;
@@ -652,7 +652,7 @@ function roleTaskBody(
       // enforce, so stating them up front both speeds convergence and pins the
       // ac_id mapping. Absent ids (no acs/ on disk yet) fall back to the bare
       // directive, the role still reads them from disk as before.
-      const acIds = storyAcIds(sftddDir, featureId, s);
+      const acIds = storyAcIds(consortDir, featureId, s);
       const acScope = acIds.length
         ? ` The story's ACs are: ${acIds.join(", ")}. Map every test's ac_id to one of these EXACT ids` +
           ` (verbatim, never a bare slug or an invented id), and cover each AC at least once.`
@@ -670,7 +670,7 @@ function roleTaskBody(
       // enforces at submit time).
       let dbScope = "";
       try {
-        const arch = JSON.parse(fs.readFileSync(architectureJson(sftddDir, featureId), "utf8")) as {
+        const arch = JSON.parse(fs.readFileSync(architectureJson(consortDir, featureId), "utf8")) as {
           service_backed?: boolean;
           persistence_invariants?: Array<{ id?: string; brief?: string }>;
         };
@@ -718,7 +718,7 @@ function roleTaskBody(
           `(${root}/features/${featureId}/stories/${s}/story.json + acs/*.json) and its test-list ` +
           `(${root}/features/${featureId}/stories/${s}/test-list-per-story.json) against the architecture ` +
           `(${root}/features/${featureId}/architecture.md/.json) + NFRs.` +
-          contextRubric(sftddDir, featureId, s, "") +
+          contextRubric(consortDir, featureId, s, "") +
           ` Look ONLY for design-time defects that would waste a build cycle: (1) ACs that contradict ` +
           `each other; (2) an AC with no covering test, or a test that contradicts its AC; (3) an NFR with ` +
           `no fitness test; (4) a test asserting at a layer the architecture forbids; (5) an AC whose ` +
@@ -744,8 +744,8 @@ function roleTaskBody(
         // candidates , projected from green-failure.json by the ONE preparer in the
         // orchestrator family (consort/orchestrator/build/preconditions.ts), so the same
         // block also feeds the executor's PREPARE-PRECONDITIONS phase. Empty when no marker.
-        const gfAssess = action.ac ? readGreenFailure(sftddDir, featureId, s, action.ac) : undefined;
-        const advisory = buildGreenFailureAdvisory(sftddDir, featureId, s, action.ac ?? "");
+        const gfAssess = action.ac ? readGreenFailure(consortDir, featureId, s, action.ac) : undefined;
+        const advisory = buildGreenFailureAdvisory(consortDir, featureId, s, action.ac ?? "");
         // When the deterministic gate ALREADY pre-localized the superseded set
         // (supersededTestRefs present), the set above is authoritative , it is a
         // grep of the migration's net-dropped symbol across the test tree. Telling
@@ -780,14 +780,14 @@ function roleTaskBody(
           ` test pass, but the full-suite verify against the running app FAILED, some OTHER test(s) now fail.\n` +
           scanDirective +
           `   consort-cycle flag-superseded --feature ${featureId} --story ${s} --ac ${action.ac}` +
-          ` --reason "<new AC + what changed>" --test <path_or_nodeid> [--test ...] --tdd-dir ${sftddDir}\n` +
+          ` --reason "<new AC + what changed>" --test <path_or_nodeid> [--test ...] --tdd-dir ${consortDir}\n` +
           `(b) If instead the failure is a GENUINE REGRESSION (the AC does NOT intend to change that behavior;` +
           ` the Driver's code is wrong), record your ROOT-CAUSE diagnosis so it travels to the Driver / the human` +
           ` instead of being lost. When the Driver can fix it, ALSO give a concrete repair directive (this routes a` +
           ` bounded Driver repair turn):\n` +
           `   consort-cycle assess-regression --feature ${featureId} --story ${s} --ac ${action.ac}` +
           ` --diagnosis "<the WHY: which behavior broke + the root cause>" [--fix "<what the Driver should change>"]` +
-          ` --tdd-dir ${sftddDir}\n` +
+          ` --tdd-dir ${consortDir}\n` +
           `   Include --fix ONLY when the fix is clear + within the Driver's reach (e.g. a wrong default, a missing` +
           ` filter, an off-by-one); OMIT --fix when it needs a human / a design or spec change (the orchestration` +
           ` then escalates carrying your diagnosis).\n` +
@@ -802,7 +802,7 @@ function roleTaskBody(
         // its DB state, typically an absolute whole-table aggregate), not broken
         // software. Confirm the fragile set + prescribe HOW to scope each. The
         // scope set the Driver refactors is read from what you write here.
-        const marker = readDeployVerifyAssessMarker(sftddDir, featureId, s);
+        const marker = readDeployVerifyAssessMarker(consortDir, featureId, s);
         const failing = marker?.failing_node_ids ?? [];
         return (
           `ASSESS a failed full-feature DEPLOY-VERIFY for story ${s}. The story's own tests are green, but the` +
@@ -829,7 +829,7 @@ function roleTaskBody(
         // symbol THIS story's refactor legitimately retired. Confirm which broken
         // tests are genuinely SUPERSEDED (the current story's design supersedes
         // them) vs a real regression the refactor introduced.
-        const marker = readRefactorVerifyAssessMarker(sftddDir, featureId, s);
+        const marker = readRefactorVerifyAssessMarker(consortDir, featureId, s);
         return (
           `ASSESS a failed REFACTOR-verify for story ${s}. The story's own tests are green and the requested` +
           ` refactor was applied, but the full suite then FAILED:\n${marker?.summary ?? "(see the refactor verify output)"}\n` +
@@ -853,7 +853,7 @@ function roleTaskBody(
             `REVIEW the implementation of story ${s} now that ALL its tests are green, the whole story in one pass.` +
             ` Judge the story's diff against the context pack: layer boundaries, naming, cross-cutting concerns, the` +
             ` required NFRs, and (for UI) design-token + IA adherence.` +
-            buildContextPack(sftddDir, featureId, s, "", { skipTestLoop: true }) +
+            buildContextPack(consortDir, featureId, s, "", { skipTestLoop: true }) +
             ` Write ONE verdict for the whole story to` +
             ` ${root}/cycles/${featureId}/${s}/review-verdict.json as {"refactor": <bool>, "notes": "<why>"}` +
             `, refactor:true only if a concrete improvement is warranted; otherwise refactor:false. Do NOT change tests.`
@@ -863,7 +863,7 @@ function roleTaskBody(
           `REVIEW the implementation of AC ${action.ac} in story ${s} now that its tests are green.` +
           ` Judge the diff against the context pack: layer boundaries, naming, cross-cutting concerns, the required` +
           ` NFRs, and (for UI) design-token + IA adherence.` +
-          buildContextPack(sftddDir, featureId, s, action.ac ?? "", { skipTestLoop: true }) +
+          buildContextPack(consortDir, featureId, s, action.ac ?? "", { skipTestLoop: true }) +
           ` Write your verdict to` +
           ` ${root}/cycles/${featureId}/${s}/${action.ac}/review-verdict.json as {"refactor": <bool>, "notes": "<why>"}` +
           `, refactor:true only if a concrete improvement is warranted; otherwise refactor:false. Do NOT change tests.`
@@ -874,8 +874,8 @@ function roleTaskBody(
         // authors tests against the slice + the known layout inline rather than
         // re-reading the design tree. redOnly: no test-location line (no code yet).
         return (
-          `${nextPendingTestDirective(sftddDir, featureId, s, build?.loop, build?.cap)}${uiTrack ? uiTrackBuild(root) : ""}` +
-          buildContextPack(sftddDir, featureId, s, action.ac ?? "", { skipTestLoop: true })
+          `${nextPendingTestDirective(consortDir, featureId, s, build?.loop, build?.cap)}${uiTrack ? uiTrackBuild(root) : ""}` +
+          buildContextPack(consortDir, featureId, s, action.ac ?? "", { skipTestLoop: true })
         );
       }
     case "driver":
@@ -886,7 +886,7 @@ function roleTaskBody(
         // tests to own their DB state, per the directives , do NOT touch product
         // code and do NOT weaken the invariant, just scope the seed + assertion to
         // the test's own rows (or a delta). The re-deploy re-runs the full verify.
-        const scope = readDeployVerifyScope(sftddDir, featureId, s);
+        const scope = readDeployVerifyScope(consortDir, featureId, s);
         const directives = scope?.directives ?? [];
         return (
           `SCOPE the contamination-fragile tests the Navigator flagged for story ${s}. Each FAILED the` +
@@ -910,7 +910,7 @@ function roleTaskBody(
           `The Navigator flagged prior tests that story ${s}'s refactor SUPERSEDED. Permissively refactor ONLY the` +
           ` flagged superseded tests below so they reflect the retired behavior (update or drop the superseded` +
           ` assertion); do NOT change product code and do NOT weaken any CURRENT (non-superseded) test.\n` +
-          supersededTestsDirective(sftddDir, featureId, s) +
+          supersededTestsDirective(consortDir, featureId, s) +
           `\nEdit ONLY the flagged test files. The orchestrator re-verifies the full suite after your turn.`
         );
       }
@@ -922,7 +922,7 @@ function roleTaskBody(
         // superseded tests keep erroring (and, on a shared session, cascade the
         // others into failure), so the honest-GREEN verify never holds and it
         // escalates. Append the supersede allowlist (empty when none was flagged).
-        return regressionRepairDirective(sftddDir, featureId, s) + supersededTestsDirective(sftddDir, featureId, s);
+        return regressionRepairDirective(consortDir, featureId, s) + supersededTestsDirective(consortDir, featureId, s);
       }
       if (action.buildMode === "refactor") {
         // story granularity (default): REFACTOR the WHOLE story in one turn per
@@ -937,7 +937,7 @@ function roleTaskBody(
             ` (e.g. \`consort-layering-clean --project-dir .\`) and fix exactly what it flags , typically extract the` +
             ` duplicated/misplaced code into one shared helper in its correct layer.` +
             ` Keep ALL the story's tests green and do not change what the outer-boundary tests check, refactor only.` +
-            buildContextPack(sftddDir, featureId, s, "")
+            buildContextPack(consortDir, featureId, s, "")
           );
         }
         return (
@@ -949,7 +949,7 @@ function roleTaskBody(
           ` (e.g. \`consort-layering-clean --project-dir .\`) and fix exactly what it flags , typically extract the` +
           ` duplicated/misplaced code into one shared helper in its correct layer.` +
           ` Keep ALL tests green and do not change what the outer-boundary tests check, refactor only.` +
-          buildContextPack(sftddDir, featureId, s, action.ac ?? "")
+          buildContextPack(consortDir, featureId, s, action.ac ?? "")
         );
       }
       {
@@ -964,8 +964,8 @@ function roleTaskBody(
               ? `Make the failing tests for story ${s}'s current layer-batch ALL GREEN in one pass (simplest honest code); implement until every test in the open batch passes, then run that layer's runner once.`
               : `Make the failing test for story ${s} GREEN (simplest honest code).`) +
           (uiTrack ? uiTrackBuild(root) : "") +
-          buildContextPack(sftddDir, featureId, s, action.ac ?? "") +
-          supersededTestsDirective(sftddDir, featureId, s)
+          buildContextPack(consortDir, featureId, s, action.ac ?? "") +
+          supersededTestsDirective(consortDir, featureId, s)
         );
       }
     default:
@@ -1014,7 +1014,7 @@ const experimentBranchName = (storyId: string): string =>
  */
 /**
  * The artifact a design/planning role MUST have written under the resolved
- * sftddDir after its turn (FEIP-8006), for the post-turn out-of-root guard.
+ * consortDir after its turn (FEIP-8006), for the post-turn out-of-root guard.
  * `anyOf` are ABSOLUTE paths; the guard passes if any exists (a file, or a
  * non-empty directory for the per-story ACs). Returns null for build roles
  * (navigator/driver, verified by the ledger's per-cycle contracts) and the
@@ -1022,21 +1022,21 @@ const experimentBranchName = (storyId: string): string =>
  */
 function designArtifactExpectation(
   action: Extract<WorkflowAction, { kind: "invoke-role" }>,
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
 ): { anyOf: string[]; label: string } | null {
   if ("mode" in action) {
-    if (action.role === "spec-author" && action.mode === "propose") return { anyOf: [featureProposalsMd(sftddDir)], label: "planning/feature-proposals.md" };
-    if (action.role === "architect-reviewer" && (action.mode === "estimate" || action.mode === "estimate-committed")) return { anyOf: [planningEstimatesJson(sftddDir)], label: "planning/estimates.json" };
-    if (action.role === "spec-author" && action.mode === "breakdown") return { anyOf: [featureSpecJson(sftddDir, featureId)], label: "feature-spec.json" };
+    if (action.role === "spec-author" && action.mode === "propose") return { anyOf: [featureProposalsMd(consortDir)], label: "planning/feature-proposals.md" };
+    if (action.role === "architect-reviewer" && (action.mode === "estimate" || action.mode === "estimate-committed")) return { anyOf: [planningEstimatesJson(consortDir)], label: "planning/estimates.json" };
+    if (action.role === "spec-author" && action.mode === "breakdown") return { anyOf: [featureSpecJson(consortDir, featureId)], label: "feature-spec.json" };
     return null; // author-requests = human input, no role artifact
   }
-  if (action.role === "ux-designer") return { anyOf: [designGuideJson(sftddDir)], label: "design/design-guide.json" };
+  if (action.role === "ux-designer") return { anyOf: [designGuideJson(consortDir)], label: "design/design-guide.json" };
   const s = action.story;
   if (!s) return null;
-  if (action.role === "spec-author") return { anyOf: [acsDir(sftddDir, featureId, s)], label: `stories/${s}/acs/*.json` };
-  if (action.role === "architect-reviewer") return { anyOf: [architectureJson(sftddDir, featureId)], label: "architecture.json" };
-  if (action.role === "test-strategist") return { anyOf: [featureTestListJson(sftddDir, featureId)], label: "test-list.json" };
+  if (action.role === "spec-author") return { anyOf: [acsDir(consortDir, featureId, s)], label: `stories/${s}/acs/*.json` };
+  if (action.role === "architect-reviewer") return { anyOf: [architectureJson(consortDir, featureId)], label: "architecture.json" };
+  if (action.role === "test-strategist") return { anyOf: [featureTestListJson(consortDir, featureId)], label: "test-list.json" };
   return null; // navigator/driver build turns: not a design artifact
 }
 
@@ -1109,7 +1109,7 @@ export function buildClaudeCommand(action: Extract<WorkflowAction, { kind: "invo
       };
     })()),
     task:
-      roleTask(action, f, cfg.uiTrack ?? false, cfg.sftddDir, {
+      roleTask(action, f, cfg.uiTrack ?? false, cfg.consortDir, {
         loop: storyLoop,
         cap: cfg.batchCap,
       }) +
@@ -1150,14 +1150,14 @@ function buildCycleCommand(
 
   // Navigator build turns.
   if (!("mode" in action) && action.role === "navigator" && "buildMode" in action && action.buildMode === "reflect") {
-    return { kind: "cli", bin: CYCLE_BIN, args: ["reflect-gate", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] };
+    return { kind: "cli", bin: CYCLE_BIN, args: ["reflect-gate", "--feature", f, "--story", action.story, "--tdd-dir", cfg.consortDir] };
   } else if (!("mode" in action) && action.role === "navigator" && "buildMode" in action && action.buildMode === "assess") {
     const acFlag = "ac" in action && action.ac ? ["--ac", action.ac] : [];
-    return { kind: "cli", bin: CYCLE_BIN, args: ["assess-green", "--feature", f, "--story", action.story, ...acFlag, "--tdd-dir", cfg.sftddDir] };
+    return { kind: "cli", bin: CYCLE_BIN, args: ["assess-green", "--feature", f, "--story", action.story, ...acFlag, "--tdd-dir", cfg.consortDir] };
   } else if (!("mode" in action) && action.role === "navigator" && "buildMode" in action && action.buildMode === "assess-deploy") {
-    return { kind: "cli", bin: CYCLE_BIN, args: ["assess-deploy-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] };
+    return { kind: "cli", bin: CYCLE_BIN, args: ["assess-deploy-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.consortDir] };
   } else if (!("mode" in action) && action.role === "navigator" && "buildMode" in action && action.buildMode === "assess-refactor") {
-    return { kind: "cli", bin: CYCLE_BIN, args: ["assess-refactor-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] };
+    return { kind: "cli", bin: CYCLE_BIN, args: ["assess-refactor-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.consortDir] };
   } else if (!("mode" in action) && action.role === "navigator") {
     const acFlag = "ac" in action && action.ac ? ["--ac", action.ac] : [];
     const verb = "buildMode" in action && action.buildMode === "review" ? "review" : "begin";
@@ -1168,20 +1168,20 @@ function buildCycleCommand(
         : verb === "begin" && loop === "hybrid-a"
           ? ["--loop", "hybrid-a", ...(cfg.batchCap ? ["--batch-cap", String(cfg.batchCap)] : [])]
           : [];
-    return { kind: "cli", bin: CYCLE_BIN, args: [verb, "--feature", f, "--story", action.story, ...acFlag, "--tdd-dir", cfg.sftddDir, ...loopFlag] };
+    return { kind: "cli", bin: CYCLE_BIN, args: [verb, "--feature", f, "--story", action.story, ...acFlag, "--tdd-dir", cfg.consortDir, ...loopFlag] };
   }
   // Driver build turns.
   if (!("mode" in action) && action.role === "driver" && "buildMode" in action && action.buildMode === "refactor-deploy") {
-    return { kind: "cli", bin: CYCLE_BIN, args: ["refactor-deploy-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] };
+    return { kind: "cli", bin: CYCLE_BIN, args: ["refactor-deploy-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.consortDir] };
   } else if (!("mode" in action) && action.role === "driver" && "buildMode" in action && action.buildMode === "refactor-superseded") {
-    return { kind: "cli", bin: CYCLE_BIN, args: ["refactor-superseded-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.sftddDir] };
+    return { kind: "cli", bin: CYCLE_BIN, args: ["refactor-superseded-verify", "--feature", f, "--story", action.story, "--tdd-dir", cfg.consortDir] };
   } else if (!("mode" in action) && action.role === "driver") {
     const acFlag = "ac" in action && action.ac ? ["--ac", action.ac] : [];
     const isRepair = "buildMode" in action && action.buildMode === "repair";
     const verb = "buildMode" in action && action.buildMode === "refactor" ? "refactor" : "green";
     const repairFlag = isRepair ? ["--repair"] : [];
     const loopFlag = verb === "refactor" && (storyLoop ?? "story") === "story" ? ["--loop", "story"] : [];
-    return { kind: "cli", bin: CYCLE_BIN, args: [verb, "--feature", f, "--story", action.story, ...acFlag, "--tdd-dir", cfg.sftddDir, ...repairFlag, ...loopFlag] };
+    return { kind: "cli", bin: CYCLE_BIN, args: [verb, "--feature", f, "--story", action.story, ...acFlag, "--tdd-dir", cfg.consortDir, ...repairFlag, ...loopFlag] };
   }
   return undefined;
 }
@@ -1202,7 +1202,7 @@ export function commandsFromManifest(action: WorkflowAction, cfg: DriveEffectsCo
   if (!manifest) return undefined;
 
   const f = cfg.featureId;
-  const tdd = ["--feature", f, "--tdd-dir", cfg.sftddDir];
+  const tdd = ["--feature", f, "--tdd-dir", cfg.consortDir];
 
   // Map a manifest postTurn bin token to its resolved CLI bin. The manifest carries a
   // stable symbolic token (PIPELINE_BIN, CYCLE_BIN, ...) so the resolved bin name stays
@@ -1225,7 +1225,7 @@ export function commandsFromManifest(action: WorkflowAction, cfg: DriveEffectsCo
     args.flatMap((a) => {
       if (a === "--tdd") return tdd;
       if (a === "{feature}") return [f];
-      if (a === "{tddDir}") return [cfg.sftddDir];
+      if (a === "{tddDir}") return [cfg.consortDir];
       if (a === "{story}") return story ? [story] : [];
       return [a];
     });
@@ -1253,7 +1253,7 @@ export function commandsFromManifest(action: WorkflowAction, cfg: DriveEffectsCo
 
   // Post-turn out-of-root guard, from the manifest's declared outputs (same anyOf/label the
   // legacy designArtifactExpectation produces for this action).
-  const expectArtifact = designArtifactExpectation(action, cfg.sftddDir, f);
+  const expectArtifact = designArtifactExpectation(action, cfg.consortDir, f);
   if (expectArtifact) {
     cmds.push({ kind: "verify-artifact", role: action.role, anyOf: expectArtifact.anyOf, label: expectArtifact.label });
   }
@@ -1271,7 +1271,7 @@ export function commandsFromManifest(action: WorkflowAction, cfg: DriveEffectsCo
 
 export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfig): DriveCommand[] {
   const f = cfg.featureId;
-  const tdd = ["--feature", f, "--tdd-dir", cfg.sftddDir];
+  const tdd = ["--feature", f, "--tdd-dir", cfg.consortDir];
   const approver = cfg.approver ?? "human-proxy";
   const deployTarget = cfg.deployTarget ?? "local";
 
@@ -1286,7 +1286,7 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
       // exactly what was supplied. No LLM is spawned to invent the requests.
       if ("mode" in action && action.role === "product-owner" && action.mode === "author-requests") {
         return [
-          { kind: "cli", bin: HUMAN_PROXY_BIN, args: ["supply-requests", "--tdd-dir", cfg.sftddDir, "--approver", approver, "--sprint", cfg.sprintName ?? "sprint"] },
+          { kind: "cli", bin: HUMAN_PROXY_BIN, args: ["supply-requests", "--tdd-dir", cfg.consortDir, "--approver", approver, "--sprint", cfg.sprintName ?? "sprint"] },
           { kind: "sync-backlog", sprint: cfg.sprintName ?? "sprint" },
         ];
       }
@@ -1301,7 +1301,7 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
           {
             kind: "cli",
             bin: HUMAN_PROXY_BIN,
-            args: ["supply-proposals", "--tdd-dir", cfg.sftddDir, ...(cfg.uiTrack ? ["--ui"] : [])],
+            args: ["supply-proposals", "--tdd-dir", cfg.consortDir, ...(cfg.uiTrack ? ["--ui"] : [])],
           },
         ];
       }
@@ -1319,11 +1319,11 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
       const claude = buildClaudeCommand(action, cfg);
       const cmds: DriveCommand[] = [claude];
       // Post-turn out-of-root guard (FEIP-8006): assert the role wrote its
-      // artifact under the project's sftddDir BEFORE any effect below consumes it,
+      // artifact under the project's consortDir BEFORE any effect below consumes it,
       // so a stray write (agent resolved the project root wrong) fails loud +
       // attributed here instead of as a cryptic downstream crash. Harmless in
       // replay: replayDesignTurn already copied the artifact, so the guard passes.
-      const expectArtifact = designArtifactExpectation(action, cfg.sftddDir, f);
+      const expectArtifact = designArtifactExpectation(action, cfg.consortDir, f);
       if (expectArtifact) {
         cmds.push({ kind: "verify-artifact", role: action.role, anyOf: expectArtifact.anyOf, label: expectArtifact.label });
       }
@@ -1344,7 +1344,7 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
       // + probe on the single source of truth, so the design lane cannot stall
       // waiting on a per-story list the role wrote under a different name/shape.
       if (!("mode" in action) && action.role === "test-strategist") {
-        cmds.push({ kind: "cli", bin: TEST_LIST_BIN, args: [cfg.sftddDir, f, action.story] });
+        cmds.push({ kind: "cli", bin: TEST_LIST_BIN, args: [cfg.consortDir, f, action.story] });
       }
       // Cycle recording is an ORCHESTRATION concern, not the role's: the
       // Navigator/Driver are pure (write the failing test / write the code +
@@ -1388,10 +1388,10 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
       // records the scope set (routes the driver SCOPE turn) or escalates (veto).
       // SCOPE (driver) refactors the flagged tests; the finalize marks it refactored
       // so the transition re-deploys + re-verifies (one-shot bound in the marker).
-      const sftddDir = cfg.sftddDir;
+      const consortDir = cfg.consortDir;
       const featureId = f;
-      const root = artifactRoot(sftddDir);
-      const marker = readDeployVerifyAssessMarker(sftddDir, featureId);
+      const root = artifactRoot(consortDir);
+      const marker = readDeployVerifyAssessMarker(consortDir, featureId);
       const claude: DriveCommand = {
         kind: "claude",
         role: action.role,
@@ -1418,7 +1418,7 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
             : `SCOPE the contamination-fragile tests the Navigator flagged for the FEATURE SHIP of ${featureId}.` +
               ` Refactor EXACTLY these test files to own their DB state, per the directives , do NOT touch product` +
               ` code, do NOT weaken the assertions' intent:\n` +
-              (readDeployVerifyScope(sftddDir, featureId)?.directives ?? [])
+              (readDeployVerifyScope(consortDir, featureId)?.directives ?? [])
                 .map((d) => `  ${d.node_id}\n    -> ${d.directive}`)
                 .join("\n") +
               `\nEdit ONLY those test files. The orchestrator re-deploys + re-verifies the whole feature after your turn.`) +
@@ -1428,7 +1428,7 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
       const finalizeVerb = action.mode === "assess-deploy" ? "assess-deploy-verify" : "refactor-deploy-verify";
       return [
         claude,
-        { kind: "cli", bin: CYCLE_BIN, args: [finalizeVerb, "--feature", f, "--tdd-dir", cfg.sftddDir] },
+        { kind: "cli", bin: CYCLE_BIN, args: [finalizeVerb, "--feature", f, "--tdd-dir", cfg.consortDir] },
         { kind: "cli", bin: LOG_BIN, args: ["--reconcile", ...tdd] },
       ];
     }
@@ -1480,7 +1480,7 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
             "--project-dir",
             cfg.projectDir,
             "--tdd-dir",
-            cfg.sftddDir,
+            cfg.consortDir,
             // A re-cut after a discarded experiment re-forks the stale paired branch
             // clean (Finding 27); a first cut omits it (nothing to reset).
             ...(action.resetStaleBranch ? ["--reset-stale-branch"] : []),
@@ -1511,7 +1511,7 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
           args: [
             "--target", deployTarget, "--feature", f, "--story", action.story,
             "--lakebase-branch", experimentBranchName(action.story),
-            "--project-dir", cfg.projectDir, "--tdd-dir", cfg.sftddDir, "--gate",
+            "--project-dir", cfg.projectDir, "--tdd-dir", cfg.consortDir, "--gate",
           ],
         },
         { kind: "cli", bin: PIPELINE_BIN, args: ["await-acceptance", "--story", action.story, ...tdd] },
@@ -1557,7 +1557,7 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
         {
           kind: "cli",
           bin: HUMAN_PROXY_BIN,
-          args: ["--sprint", cfg.sprintName ?? "sprint", "--gate", "plan", "--approver", approver, "--tdd-dir", cfg.sftddDir],
+          args: ["--sprint", cfg.sprintName ?? "sprint", "--gate", "plan", "--approver", approver, "--tdd-dir", cfg.consortDir],
         },
       ];
 
@@ -1574,7 +1574,7 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
       // story cannot see (e.g. an invariant no story's test covers). It enforces
       // on the advance for ANY approver; a non-zero exit halts the drive.
       return [
-        { kind: "cli", bin: GATE_CONFORMANCE_BIN, args: ["--feature", f, "--tdd-dir", cfg.sftddDir] },
+        { kind: "cli", bin: GATE_CONFORMANCE_BIN, args: ["--feature", f, "--tdd-dir", cfg.consortDir] },
         { kind: "set-phase", phase: "deploy" },
       ];
 
@@ -1598,14 +1598,14 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
           args: [
             "--target", deployTarget, "--feature", f,
             ...(cfg.featureBranch ? ["--lakebase-branch", cfg.featureBranch] : []),
-            "--project-dir", cfg.projectDir, "--tdd-dir", cfg.sftddDir, "--gate",
+            "--project-dir", cfg.projectDir, "--tdd-dir", cfg.consortDir, "--gate",
           ],
         },
       ];
 
     case "approve-deploy-gate":
       return [
-        { kind: "cli", bin: HUMAN_PROXY_BIN, args: ["--feature", f, "--gate", "deploy", "--approver", approver, "--tdd-dir", cfg.sftddDir] },
+        { kind: "cli", bin: HUMAN_PROXY_BIN, args: ["--feature", f, "--gate", "deploy", "--approver", approver, "--tdd-dir", cfg.consortDir] },
       ];
 
     case "deploy-complete":
@@ -1639,7 +1639,7 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
         {
           kind: "cli",
           bin: HUMAN_PROXY_BIN,
-          args: ["--feature", f, "--gate", "promote", "--approver", approver, "--tdd-dir", cfg.sftddDir, "--promote-ref", promoteRef],
+          args: ["--feature", f, "--gate", "promote", "--approver", approver, "--tdd-dir", cfg.consortDir, "--promote-ref", promoteRef],
         },
       ];
     }
@@ -1727,7 +1727,7 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
             "--project-dir",
             cfg.projectDir,
             "--tdd-dir",
-            cfg.sftddDir,
+            cfg.consortDir,
           ],
         },
       ];
@@ -1769,16 +1769,16 @@ export async function planNextAction(
  * full DriveEffectsConfig or importing the drive CLI (FEIP-8017).
  */
 export function readDriveStateFromDisk(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   projectDir: string,
   opts: { uiTrack?: boolean } = {},
 ): import("./orchestrator-drive.js").DriveState {
-  const pipeline = readPipeline(sftddDir, featureId);
+  const pipeline = readPipeline(consortDir, featureId);
   // Thread the active build story so a smell-derived escalation with no story
   // scope still resolves to a story for revise-routing.
-  const probe = diskArtifactProbe(sftddDir, featureId, pipeline.build_active);
-  const ctx = readDriveContext(sftddDir, featureId, projectDir);
+  const probe = diskArtifactProbe(consortDir, featureId, pipeline.build_active);
+  const ctx = readDriveContext(consortDir, featureId, projectDir);
   const state = deriveDriveState(pipeline, probe, ctx);
   // UI track: gate the UX Designer step. uiTrack is config (env); the design
   // guide's existence is disk truth (project-level, authored once + reused).
@@ -1789,7 +1789,7 @@ export function readDriveStateFromDisk(
   // surfaces at the final feature drain; gating on conformance keeps the UX
   // Designer pending until the guide is well-formed. Same check the role's
   // own response-formatter self-check runs, so gate + self-check agree.
-  state.designGuideReady = designGuideConformance(sftddDir).ok;
+  state.designGuideReady = designGuideConformance(consortDir).ok;
   return state;
 }
 
@@ -1808,7 +1808,7 @@ const POST_TURN_BIN_TOKENS: Record<string, string> = { PIPELINE_BIN, CYCLE_BIN, 
 export function buildDriveEffects(cfg: DriveEffectsConfig): DriveEffects {
   return {
     async readState() {
-      return readDriveStateFromDisk(cfg.sftddDir, cfg.featureId, cfg.projectDir, { uiTrack: cfg.uiTrack });
+      return readDriveStateFromDisk(cfg.consortDir, cfg.featureId, cfg.projectDir, { uiTrack: cfg.uiTrack });
     },
     async perform(action) {
       // Opt-in manifest path (default off): when a step manifest matches this action,
@@ -1837,7 +1837,7 @@ export function buildDriveEffects(cfg: DriveEffectsConfig): DriveEffects {
     // contract, write the violation detail where THAT role's next prompt will
     // consume it (consumeHandback in roleTask), so the retry is informed.
     onHandback(handoff, detail) {
-      const file = handbackFile(cfg.sftddDir, cfg.featureId, handoff.responder, handoff.story);
+      const file = handbackFile(cfg.consortDir, cfg.featureId, handoff.responder, handoff.story);
       try {
         fs.mkdirSync(dirname(file), { recursive: true });
         fs.writeFileSync(file, `${detail}\n`, "utf8");

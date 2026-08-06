@@ -45,7 +45,7 @@ describe("sprint plan gate approval records the named human", () => {
     const code = runApproveGateCli(["--sprint", SPRINT, "--approver", "kevin.hartman", "--tdd-dir", tdd]);
     expect(code).toBe(0);
 
-    const gates = readSprintGates(SPRINT, { sftddDir: tdd });
+    const gates = readSprintGates(SPRINT, { consortDir: tdd });
     expect(gates.gates.plan.status).toBe("approved");
     expect(gates.gates.plan.approver).toBe("kevin.hartman"); // NOT "human-proxy"
   });

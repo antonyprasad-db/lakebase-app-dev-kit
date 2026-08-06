@@ -21,7 +21,7 @@
 // Exit: 0 ok; 2 bad args; 1 op failure.
 
 import { cutExperiment } from "../../consort/experiment/experiment";
-import { resolveSftddDir } from "../../consort/config/consort-paths.js";
+import { resolveConsortDir } from "../../consort/config/consort-paths.js";
 import { discardExperimentBranch } from "../../consort/experiment/experiment-lifecycle";
 import { realExperimentOps, mergeAndAcceptStory } from "../../consort/experiment/experiment-merge.js";
 import {
@@ -39,9 +39,9 @@ import { emitAgentLogEvent } from "../../consort/logging/agent-log";
  *  verbs have no deterministic driver action (they are HIL acceptance decisions
  *  applied via this CLI), so this is the substrate home for their events , the
  *  sibling of experiment.cut/accepted, which the orchestrator emits. */
-function logExperimentEvent(sftddDir: string, event: "experiment.discarded" | "experiment.revised", story: string, reason: string): void {
+function logExperimentEvent(consortDir: string, event: "experiment.discarded" | "experiment.revised", story: string, reason: string): void {
   try {
-    emitAgentLogEvent({ role: "orchestrator", level: "info", event, slots: { story, reason } }, { sftddDir });
+    emitAgentLogEvent({ role: "orchestrator", level: "info", event, slots: { story, reason } }, { consortDir });
   } catch {
     // swallow: logging never blocks the lifecycle transition
   }
@@ -60,7 +60,7 @@ function usage(msg: string): number {
 
 async function main(): Promise<number> {
   const args = parseExperimentArgs(process.argv.slice(2));
-  const sftddDir = args.sftddDir ?? resolveSftddDir();
+  const consortDir = args.consortDir ?? resolveConsortDir();
   const projectDir = args.projectDir ?? process.cwd();
   const invalid = validateExperimentArgs(args);
   if (invalid) return usage(invalid);
@@ -76,7 +76,7 @@ async function main(): Promise<number> {
     case "cut": {
       const rec = await cutExperiment({
         instance,
-        sftddDir,
+        consortDir,
         projectDir,
         featureId: feature,
         storyId: story,
@@ -86,14 +86,14 @@ async function main(): Promise<number> {
         ttl: args.ttl,
         ...(args.resetStaleBranch ? { resetStaleBranch: true } : {}),
       });
-      const p = readPipeline(sftddDir, feature);
+      const p = readPipeline(consortDir, feature);
       cutStoryExperiment(p, story, {
         slug,
         branch: rec.branch_id,
         parent: args.parent as string,
         at,
       });
-      writePipeline(sftddDir, p);
+      writePipeline(consortDir, p);
       process.stdout.write(`cut experiment ${slug} on ${rec.branch_id} (parent ${args.parent})\n`);
       return 0;
     }
@@ -103,7 +103,7 @@ async function main(): Promise<number> {
       // resolved-args normal door) behave identically (FEIP-8013).
       await mergeAndAcceptStory(
         {
-          sftddDir,
+          consortDir,
           projectDir,
           featureId: feature,
           storyId: story,
@@ -121,10 +121,10 @@ async function main(): Promise<number> {
     }
     case "discard": {
       await discardExperimentBranch(
-        { sftddDir, projectDir, featureId: feature, storyId: story, experimentSlug: slug, instance },
+        { consortDir, projectDir, featureId: feature, storyId: story, experimentSlug: slug, instance },
         realExperimentOps,
       );
-      const p = readPipeline(sftddDir, feature);
+      const p = readPipeline(consortDir, feature);
       const approver = args.approver as string;
       const reason = args.reason as string;
       if (args.revise) {
@@ -133,12 +133,12 @@ async function main(): Promise<number> {
         // lane derives "pending" from the cycle records on disk, so without also
         // clearing them the revised story reads as allGreen and re-deploys its
         // stale build. Reset the build state so it genuinely re-drives.
-        resetStoryBuildState(sftddDir, feature, story);
+        resetStoryBuildState(consortDir, feature, story);
       } else {
         discardStory(p, story, { approver, at, reason });
       }
-      writePipeline(sftddDir, p);
-      logExperimentEvent(sftddDir, args.revise ? "experiment.revised" : "experiment.discarded", story, reason);
+      writePipeline(consortDir, p);
+      logExperimentEvent(consortDir, args.revise ? "experiment.revised" : "experiment.discarded", story, reason);
       process.stdout.write(
         `${args.revise ? "revised" : "discarded"} ${slug}; experiment torn down; story ${story} ${args.revise ? "-> designing" : "out of sprint"}\n`,
       );

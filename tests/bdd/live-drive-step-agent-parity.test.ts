@@ -17,7 +17,7 @@ import { LiveDriveStepAgent } from "../../consort/orchestrator/agents/live-drive
 function cfg(over: Partial<DriveEffectsConfig> = {}): DriveEffectsConfig {
   return {
     projectDir: "/p",
-    sftddDir: "/p/.sftdd",
+    consortDir: "/p/.sftdd",
     featureId: "F1-stock-visibility",
     runner: { async run() {} },
     modelForRole: () => "sonnet",

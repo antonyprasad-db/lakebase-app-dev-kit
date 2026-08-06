@@ -111,20 +111,20 @@ describe("greenOpenCycle fails loud on a protected tier (re-throw wiring, FEIP-8
 
   it("rejects with ProtectedBranchCommitError when the build is checked out on staging", async () => {
     initRepoOn(proj, "staging");
-    beginNextPendingCycle({ sftddDir: ptdd, featureId: F, story: S });
+    beginNextPendingCycle({ consortDir: ptdd, featureId: F, story: S });
     writeFileSync(join(proj, "app.py"), "x = 1\n");
     // The GREEN commit is attempted onto staging , the guard must surface loud
     // (commitCycleWork re-throws it) rather than silently proceeding un-committed.
-    await expect(greenOpenCycle({ sftddDir: ptdd, featureId: F, story: S, verify: pass })).rejects.toBeInstanceOf(
+    await expect(greenOpenCycle({ consortDir: ptdd, featureId: F, story: S, verify: pass })).rejects.toBeInstanceOf(
       ProtectedBranchCommitError,
     );
   });
 
   it("greens normally on the experiment branch (no false positive)", async () => {
     initRepoOn(proj, "experiment-s1-exp1");
-    beginNextPendingCycle({ sftddDir: ptdd, featureId: F, story: S });
+    beginNextPendingCycle({ consortDir: ptdd, featureId: F, story: S });
     writeFileSync(join(proj, "app.py"), "x = 1\n");
-    const g = await greenOpenCycle({ sftddDir: ptdd, featureId: F, story: S, verify: pass });
+    const g = await greenOpenCycle({ consortDir: ptdd, featureId: F, story: S, verify: pass });
     expect(g.recorded).toBe(true);
   });
 });

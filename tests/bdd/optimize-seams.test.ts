@@ -17,7 +17,7 @@ import { claudeToolArgs } from "../../consort/orchestrator/drive/claude-runner.j
 function cfg(over: Partial<DriveEffectsConfig> = {}): DriveEffectsConfig {
   return {
     projectDir: "/p",
-    sftddDir: "/p/.tdd",
+    consortDir: "/p/.tdd",
     featureId: "F1",
     runner: { async run() {} },
     modelForRole: () => "sonnet",

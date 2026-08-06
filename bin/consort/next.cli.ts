@@ -5,8 +5,8 @@
 // workflow artifact, and NEVER performs an action; enacting a chosen option is
 // the caller's job (each option carries its exact command).
 
-import { resolveSftddDir, ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
-import { resolveSftddSettings } from "../../consort/orchestrator/settings/project-settings.js";
+import { resolveConsortDir, ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
+import { resolveConsortSettings } from "../../consort/orchestrator/settings/project-settings.js";
 import { readDriveStateFromDisk } from "../../consort/orchestrator/drive/orchestrator-effects.js";
 import { readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { deriveSprintPlanningState } from "../../consort/intake/orchestrator-sprint.js";
@@ -17,7 +17,7 @@ import { buildNextSnapshot, renderNextSnapshot, type NextContext } from "../../c
 interface ParsedArgs {
   feature?: string;
   sprint?: string;
-  sftddDir?: string;
+  consortDir?: string;
   projectDir?: string;
   approver?: string;
   noSizing?: boolean;
@@ -32,8 +32,9 @@ function parseArgs(argv: string[]): ParsedArgs {
     switch (a) {
       case "--feature": out.feature = argv[++i]; break;
       case "--sprint": out.sprint = argv[++i]; break;
-      case "--tdd":
-      case "--sftdd-dir": out.sftddDir = argv[++i]; break;
+      case "--consort-dir":
+      case "--sftdd-dir":
+      case "--tdd": out.consortDir = argv[++i]; break;
       case "--project-dir": out.projectDir = argv[++i]; break;
       case "--approver": out.approver = argv[++i]; break;
       case "--no-sizing": out.noSizing = true; break;
@@ -66,7 +67,7 @@ Flags:
   --json           Print the snapshot as JSON (the machine contract) instead of text
   --approver <n>   Fill this approver into the enact commands (default: <you> placeholder)
   --project-dir <d>  Project root (default: cwd)
-  --sftdd-dir <d>  Artifact root (default: ./${ARTIFACT_ROOT}, honors legacy roots)
+  --consort-dir <d>  Artifact root (default: ./${ARTIFACT_ROOT}, honors legacy roots; aliases: --sftdd-dir, --tdd)
   --no-sizing      Sprint scope: the plan skips the architect sizing step
   --help, -h       Show this help
 
@@ -91,7 +92,7 @@ function main(): number {
     return 2;
   }
   const projectDir = args.projectDir ?? process.cwd();
-  const sftddDir = args.sftddDir ?? resolveSftddDir(projectDir);
+  const consortDir = args.consortDir ?? resolveConsortDir(projectDir);
   const ctx: NextContext = {
     ...(args.feature ? { featureId: args.feature } : {}),
     ...(args.sprint ? { sprint: args.sprint } : {}),
@@ -100,15 +101,15 @@ function main(): number {
   };
 
   const snapshot = args.sprint
-    ? buildNextSnapshot("sprint", deriveSprintPlanningState(sftddDir, args.sprint, { skipSizing: !!args.noSizing }), ctx)
+    ? buildNextSnapshot("sprint", deriveSprintPlanningState(consortDir, args.sprint, { skipSizing: !!args.noSizing }), ctx)
     : buildNextSnapshot(
         "feature",
-        readDriveStateFromDisk(sftddDir, args.feature!, projectDir, {
-          uiTrack: resolveSftddSettings({ projectDir }).project.uiTrack,
+        readDriveStateFromDisk(consortDir, args.feature!, projectDir, {
+          uiTrack: resolveConsortSettings({ projectDir }).project.uiTrack,
         }),
         {
           ...ctx,
-          stories: summarizeStories(sftddDir, args.feature!),
+          stories: summarizeStories(consortDir, args.feature!),
           // The promote gate's required --promote-ref is the feature's canonical
           // branch, recorded in the SCM workflow state at claim (FEIP-8019).
           ...(readWorkflowState(projectDir)?.branch ? { featureBranch: readWorkflowState(projectDir)!.branch } : {}),

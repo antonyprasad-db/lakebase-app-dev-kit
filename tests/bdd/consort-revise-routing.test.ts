@@ -198,7 +198,7 @@ describe("commandsForAction(revise-route)", () => {
   it("emits a single human-proxy decide-escalation carrying story/smell/route/verdict", () => {
     const cfg = {
       projectDir: "/proj",
-      sftddDir: "/proj/.tdd",
+      consortDir: "/proj/.tdd",
       featureId: FEATURE,
       runner: { run: async () => {} },
       modelForRole: () => "sonnet",
@@ -302,7 +302,7 @@ describe("applyReviseSelfHeal (the revise self-heal transition)", () => {
       routedTo: "spec-author",
       gate: "spec",
       reason: "AC4 implied by AC2",
-      sftddDir: tdd,
+      consortDir: tdd,
     });
     expect(r.decided).toBe("revise");
     expect(r.resolvedSmell).toBe(true);
@@ -325,7 +325,7 @@ describe("applyReviseSelfHeal (the revise self-heal transition)", () => {
     expect(hasCycles(tdd)).toBe(true);
     applyReviseSelfHeal({
       featureId: FEATURE, story: STORY, smell: "ac-overlap",
-      routedTo: "spec-author", gate: "spec", reason: "AC4 implied by AC2", sftddDir: tdd,
+      routedTo: "spec-author", gate: "spec", reason: "AC4 implied by AC2", consortDir: tdd,
     });
     expect(hasCycles(tdd)).toBe(false);
   });
@@ -333,7 +333,7 @@ describe("applyReviseSelfHeal (the revise self-heal transition)", () => {
   it("is NOT hollow: stales the owning author's artifacts + writes the verdict brief", () => {
     applyReviseSelfHeal({
       featureId: FEATURE, story: STORY, smell: "ac-overlap",
-      routedTo: "spec-author", gate: "spec", reason: "AC4 implied by AC2", sftddDir: tdd,
+      routedTo: "spec-author", gate: "spec", reason: "AC4 implied by AC2", consortDir: tdd,
     });
     // spec-gate revise clears the ACs (re-decomposition) + the test list, so the
     // design lane re-invokes spec-author, not just re-approve the same spec.
@@ -350,7 +350,7 @@ describe("applyReviseSelfHeal (the revise self-heal transition)", () => {
   it("test_list-gate revise stales the test list but KEEPS the ACs", () => {
     applyReviseSelfHeal({
       featureId: FEATURE, story: STORY, smell: "test-list-drift",
-      routedTo: "test-strategist", gate: "test_list", reason: "T1 already green", sftddDir: tdd,
+      routedTo: "test-strategist", gate: "test_list", reason: "T1 already green", consortDir: tdd,
     });
     expect(existsSync(storyTestListJson(tdd, FEATURE, STORY))).toBe(false);
     expect(existsSync(acJson(tdd, FEATURE, STORY, "AC1-x"))).toBe(true); // ACs preserved
@@ -368,7 +368,7 @@ describe("applyReviseSelfHeal (the revise self-heal transition)", () => {
     expect(reflectionVerdictWritten(tdd, FEATURE, STORY)).toBe(true);
     applyReviseSelfHeal({
       featureId: FEATURE, story: STORY, smell: "reflect-testlist-defect",
-      routedTo: "test-strategist", gate: "test_list", reason: "T1 routed to the wrong suite", sftddDir: tdd,
+      routedTo: "test-strategist", gate: "test_list", reason: "T1 routed to the wrong suite", consortDir: tdd,
     });
     // The stale verdict is gone: the design lane re-dispatches the Navigator, which
     // re-evaluates the corrected test-list instead of reusing passed:false (the loop
@@ -636,7 +636,7 @@ describe("revise-routing loop integration", () => {
         routedTo: a1.role,
         gate: a1.gate,
         reason: a1.reason,
-        sftddDir: tdd,
+        consortDir: tdd,
       });
     }
 
@@ -657,7 +657,7 @@ describe("revise-routing loop integration", () => {
     if (a1.kind === "revise-route") {
       applyReviseSelfHeal({
         featureId: FEATURE, story: a1.story, smell: "ac-overlap",
-        routedTo: a1.role, gate: a1.gate, reason: a1.reason, sftddDir: tdd,
+        routedTo: a1.role, gate: a1.gate, reason: a1.reason, consortDir: tdd,
       });
     }
     // Put the story back in build so build_active scopes the re-fire, then the

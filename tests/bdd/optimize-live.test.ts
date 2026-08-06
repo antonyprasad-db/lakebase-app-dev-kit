@@ -15,21 +15,21 @@ import { join } from "node:path";
 import { makeChampionWalkDeps, makeLiveSpawnTurn, type OptimizeLiveCtx, type SpawnTurn } from "../../consort/optimize/optimize-live";
 import { runChampionWalk } from "../../consort/optimize/optimize-harness";
 import { generateCandidates } from "../../consort/optimize/optimize-candidates";
-import { writeSftddConfig, defaultSftddConfig, loadSftddConfig } from "../../consort/orchestrator/settings/project-settings";
+import { writeConsortConfig, defaultConsortConfig, loadConsortConfig } from "../../consort/orchestrator/settings/project-settings";
 
 let projectDir: string;
-let sftddDir: string;
+let consortDir: string;
 const featureId = "F1";
 
 beforeEach(() => {
   projectDir = mkdtempSync(join(tmpdir(), "optimize-live-"));
-  sftddDir = join(projectDir, ".sftdd");
+  consortDir = join(projectDir, ".sftdd");
   mkdirSync(join(projectDir, ".claude", "agents"), { recursive: true });
-  writeSftddConfig(projectDir, defaultSftddConfig(), { force: true });
+  writeConsortConfig(projectDir, defaultConsortConfig(), { force: true });
   // Pre-seed a spec-author story so the design gate can be reached; the fake spawn
   // will fill in the artifacts that make it pass.
-  mkdirSync(join(sftddDir, "features", featureId, "stories", "S1", "acs"), { recursive: true });
-  writeFileSync(join(sftddDir, "features", featureId, "agent-log.jsonl"), "");
+  mkdirSync(join(consortDir, "features", featureId, "stories", "S1", "acs"), { recursive: true });
+  writeFileSync(join(consortDir, "features", featureId, "agent-log.jsonl"), "");
 });
 afterEach(() => {
   rmSync(projectDir, { recursive: true, force: true });
@@ -41,7 +41,7 @@ function fakeSpecAuthorSpawn(durationByCandidate: Record<string, number>, clock:
   return async ({ candidate }) => {
     const candidateId = candidate.id;
     // Write a minimal conformant spec so both the self-check + the spec gate pass.
-    const fdir = join(sftddDir, "features", featureId);
+    const fdir = join(consortDir, "features", featureId);
     writeFileSync(join(fdir, "feature-spec.json"), JSON.stringify({ stories: ["S1"] }));
     writeFileSync(join(fdir, "feature-spec.md"), "# spec\n");
     const acDir = join(fdir, "stories", "S1", "acs");
@@ -58,7 +58,7 @@ function fakeSpecAuthorSpawn(durationByCandidate: Record<string, number>, clock:
 function ctx(spawnTurn: SpawnTurn, clock: { now: number }): OptimizeLiveCtx {
   return {
     projectDir,
-    sftddDir,
+    consortDir,
     featureId,
     experimentsDir: join(projectDir, "experiments"),
     spawnTurn,
@@ -93,7 +93,7 @@ describe("makeChampionWalkDeps: hermetic DESIGN handoff", () => {
     // winner that APPENDS a distinct artifact building on what's already there; after
     // the walk BOTH winners' artifacts must coexist (A's fed B AND survived).
     const clock = { now: 0 };
-    const fdir = join(sftddDir, "features", featureId);
+    const fdir = join(consortDir, "features", featureId);
     const acDir = join(fdir, "stories", "S1", "acs");
     const seedSpec = () => {
       mkdirSync(acDir, { recursive: true });
@@ -138,7 +138,7 @@ describe("makeChampionWalkDeps: hermetic DESIGN handoff", () => {
     ];
     const spawn: SpawnTurn = async ({ candidate }) => {
       spawnCount++;
-      const fdir = join(sftddDir, "features", featureId);
+      const fdir = join(consortDir, "features", featureId);
       mkdirSync(join(fdir, "stories", "S1", "acs"), { recursive: true });
       // Tag the spec with WHICH candidate wrote it, so we can see whose survived.
       writeFileSync(join(fdir, "feature-spec.json"), JSON.stringify({ stories: ["S1"], by: candidate.id }));
@@ -155,7 +155,7 @@ describe("makeChampionWalkDeps: hermetic DESIGN handoff", () => {
     const result = await runChampionWalk({ handoffs: [handoff], candidates, trials: 1, alwaysAdvance: true }, deps);
     expect(result.walk[0].winner.candidateId).toBe("fast");
     // The WINNER's artifacts are on disk , restored from the winning trial, NOT a re-run.
-    const spec = JSON.parse(readFileSync(join(sftddDir, "features", featureId, "feature-spec.json"), "utf8"));
+    const spec = JSON.parse(readFileSync(join(consortDir, "features", featureId, "feature-spec.json"), "utf8"));
     expect(spec.by).toBe("fast");
     // Exactly ONE spawn per candidate (2 total) , recordWinner restored, did NOT re-spawn.
     expect(spawnCount).toBe(2);
@@ -173,7 +173,7 @@ describe("makeChampionWalkDeps: hermetic DESIGN handoff", () => {
     ];
     // Both write a structurally-conformant spec (structural gate passes for both).
     const spawn: SpawnTurn = async () => {
-      const fdir = join(sftddDir, "features", featureId);
+      const fdir = join(consortDir, "features", featureId);
       writeFileSync(join(fdir, "feature-spec.json"), JSON.stringify({ stories: ["S1"] }));
       writeFileSync(join(fdir, "feature-spec.md"), "# spec\n");
       writeFileSync(
@@ -213,7 +213,7 @@ describe("makeChampionWalkDeps: hermetic DESIGN handoff", () => {
     // baseline writes conformant artifacts; broken writes nothing (gate fails).
     const spawn: SpawnTurn = async ({ candidate }) => {
       if (candidate.id === "baseline") {
-        const fdir = join(sftddDir, "features", featureId);
+        const fdir = join(consortDir, "features", featureId);
         writeFileSync(join(fdir, "feature-spec.json"), JSON.stringify({ stories: ["S1"] }));
         writeFileSync(join(fdir, "feature-spec.md"), "# spec\n");
         writeFileSync(
@@ -237,10 +237,10 @@ describe("makeChampionWalkDeps: hermetic DESIGN handoff", () => {
     const seenConfigs: Array<string | undefined> = [];
     const spawn: SpawnTurn = async () => {
       // Capture the driver.green model the config had DURING this turn.
-      const cfg = loadSftddConfig(projectDir);
+      const cfg = loadConsortConfig(projectDir);
       const model = cfg?.roles?.driver?.model;
       seenConfigs.push(typeof model === "object" ? (model as Record<string, string>).green : (model as string));
-      const fdir = join(sftddDir, "features", featureId);
+      const fdir = join(consortDir, "features", featureId);
       writeFileSync(join(fdir, "feature-spec.json"), JSON.stringify({ stories: ["S1"] }));
       writeFileSync(join(fdir, "feature-spec.md"), "# spec\n");
       writeFileSync(
@@ -261,7 +261,7 @@ describe("makeChampionWalkDeps: hermetic DESIGN handoff", () => {
     // The override was live during the haiku-green turn...
     expect(seenConfigs).toContain("haiku");
     // ...and the on-disk config is back to the baseline (sonnet green) after.
-    const finalCfg = loadSftddConfig(projectDir);
+    const finalCfg = loadConsortConfig(projectDir);
     const finalModel = finalCfg?.roles?.driver?.model as Record<string, string>;
     expect(finalModel.green).not.toBe("haiku");
   });
@@ -297,7 +297,7 @@ describe("makeLiveSpawnTurn: recording is gated on the `record` flag (only winne
   function seams(recordDir: string, seenEnv: (v: string | undefined) => void) {
     return {
       recordDir,
-      buildCfg: () => ({ projectDir, sftddDir, featureId }) as never,
+      buildCfg: () => ({ projectDir, consortDir, featureId }) as never,
       execRunner: () => ({
         async run() {
           seenEnv(process.env[RECORD_ENV]);
@@ -348,7 +348,7 @@ describe("makeLiveSpawnTurn: runs the PINNED turn's interface, never re-plans", 
 
   function seams(ran: Array<{ kind?: string }>, commands: Array<{ kind?: string }>, sawAction: (a: unknown) => void) {
     return {
-      buildCfg: () => ({ projectDir, sftddDir, featureId }) as never,
+      buildCfg: () => ({ projectDir, consortDir, featureId }) as never,
       execRunner: () => ({ async run(cmd: unknown) { ran.push(cmd as { kind?: string }); } }),
       commandsFor: (action: unknown) => { sawAction(action); return commands; },
     };

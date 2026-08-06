@@ -21,7 +21,7 @@ import { dirname, join, relative } from "path";
 import { experimentDir } from "../../consort/experiment/experiment";
 
 export interface WriteArtifactArgs {
-  sftddDir: string;
+  consortDir: string;
   featureId: string;
   storyId: string;
   experimentSlug: string;
@@ -43,12 +43,12 @@ export interface ArtifactEntry {
   modified: string;
 }
 
-function artifactsRoot(sftddDir: string, featureId: string, storyId: string, experimentSlug: string): string {
-  return join(experimentDir(sftddDir, featureId, storyId, experimentSlug), "artifacts");
+function artifactsRoot(consortDir: string, featureId: string, storyId: string, experimentSlug: string): string {
+  return join(experimentDir(consortDir, featureId, storyId, experimentSlug), "artifacts");
 }
 
-function cycleDir(args: { sftddDir: string; featureId: string; storyId: string; experimentSlug: string; cycleId: string }): string {
-  return join(artifactsRoot(args.sftddDir, args.featureId, args.storyId, args.experimentSlug), args.cycleId);
+function cycleDir(args: { consortDir: string; featureId: string; storyId: string; experimentSlug: string; cycleId: string }): string {
+  return join(artifactsRoot(args.consortDir, args.featureId, args.storyId, args.experimentSlug), args.cycleId);
 }
 
 export function writeArtifact(args: WriteArtifactArgs): string {
@@ -67,13 +67,13 @@ export function writeArtifact(args: WriteArtifactArgs): string {
  * cycle-relative names so consumers can stable-sort by (cycle_id, name).
  */
 export function listArtifacts(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   storyId: string,
   experimentSlug: string,
   cycleId?: string
 ): ArtifactEntry[] {
-  const root = artifactsRoot(sftddDir, featureId, storyId, experimentSlug);
+  const root = artifactsRoot(consortDir, featureId, storyId, experimentSlug);
   if (!existsSync(root)) return [];
   const entries: ArtifactEntry[] = [];
   const cycleIds = cycleId
@@ -97,7 +97,7 @@ export function listArtifacts(
 }
 
 export function readArtifact(args: {
-  sftddDir: string;
+  consortDir: string;
   featureId: string;
   storyId: string;
   experimentSlug: string;

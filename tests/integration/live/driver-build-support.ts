@@ -40,7 +40,7 @@ import { buildDriveEffects } from "../../../consort/orchestrator/drive/orchestra
 import { execRunner } from "../../../consort/orchestrator/drive/claude-runner.js";
 import type { DriveEffectsConfig } from "../../../consort/orchestrator/drive/orchestrator-effects.js";
 import type { WorkflowAction } from "../../../consort/orchestrator/drive/orchestrator-drive.js";
-import { resolveSftddSettings } from "../../../consort/orchestrator/settings/project-settings.js";
+import { resolveConsortSettings } from "../../../consort/orchestrator/settings/project-settings.js";
 import { writePipeline, readPipeline } from "../../../consort/pipeline/story-pipeline.js";
 import { beginNextPendingBatch, storyTestProgress } from "../../../consort/pipeline/cycle-record.js";
 
@@ -140,7 +140,7 @@ export async function runDriverGreenLive(): Promise<void> {
   const lakebaseProjectId = handle.lakebaseProjectId!;
   const host = handle.databricksHost!;
   const parentBranch = handle.lakebaseDefaultBranch ?? "production";
-  const sftddDir = join(projectDir, ".sftdd");
+  const consortDir = join(projectDir, ".sftdd");
   const teardownCtx: LifecycleRunContext = { workspaceDir: KIT, setupHandle: setup.handle };
 
   try {
@@ -152,7 +152,7 @@ export async function runDriverGreenLive(): Promise<void> {
     // ── SEED (cut the paired experiment branch): writes .env DATABASE_URL; throws if unsynced. ──
     await cutExperiment({
       instance: lakebaseProjectId,
-      sftddDir,
+      consortDir,
       projectDir,
       featureId: b.feature,
       storyId: b.story,
@@ -162,7 +162,7 @@ export async function runDriverGreenLive(): Promise<void> {
     });
 
     // ── SEED (pipeline + open RED cycle): route nextTransition to driver GREEN for S3. ──
-    writePipeline(sftddDir, {
+    writePipeline(consortDir, {
       version: 1,
       feature_id: b.feature,
       stories: {
@@ -175,9 +175,9 @@ export async function runDriverGreenLive(): Promise<void> {
       build_queue: [b.story],
       build_active: b.story,
     } as never);
-    writeFileSync(join(sftddDir, "workflow-state.json"), JSON.stringify({ phase: "implementation", phase_feature_id: b.feature }));
-    beginNextPendingBatch({ sftddDir, featureId: b.feature, story: b.story }, { cap: Number.MAX_SAFE_INTEGER });
-    expect(storyTestProgress(sftddDir, b.feature, b.story).openRed.length, "setup: an open RED cycle exists").toBeGreaterThan(0);
+    writeFileSync(join(consortDir, "workflow-state.json"), JSON.stringify({ phase: "implementation", phase_feature_id: b.feature }));
+    beginNextPendingBatch({ consortDir, featureId: b.feature, story: b.story }, { cap: Number.MAX_SAFE_INTEGER });
+    expect(storyTestProgress(consortDir, b.feature, b.story).openRed.length, "setup: an open RED cycle exists").toBeGreaterThan(0);
 
     // Agent defs so the live `--agent driver` resolves , the shared provisioning primitive (KIT is
     // process.cwd(), layDownKitAgents's default kitDir), no inline copy.
@@ -188,10 +188,10 @@ export async function runDriverGreenLive(): Promise<void> {
 
     // ── DRIVE one real driver GREEN on the uncontained live executor (performViaExecutor). Driver
     //    tool-scope is WIDER than navigator RED , it needs Bash to run the project's tests. ──
-    const settings = resolveSftddSettings({ projectDir });
+    const settings = resolveConsortSettings({ projectDir });
     const cfg: DriveEffectsConfig = {
       projectDir,
-      sftddDir,
+      consortDir,
       featureId: b.feature,
       runner: { async run() {} },
       useManifestSteps: true,
@@ -215,9 +215,9 @@ export async function runDriverGreenLive(): Promise<void> {
 
     // ── ASSERT: the honest-GREEN product-channel proof ──
     expect(hasSourceFile(join(projectDir, "app")), "driver wrote product code under app/").toBe(true);
-    expect(storyTestProgress(sftddDir, b.feature, b.story).allGreen, "the AC's honest-GREEN cycle stamped green against the live branch").toBe(true);
+    expect(storyTestProgress(consortDir, b.feature, b.story).allGreen, "the AC's honest-GREEN cycle stamped green against the live branch").toBe(true);
     expect(result.stoppedAtBound || result.stoppedAtMax || result.iterations >= 1).toBe(true);
-    expect(readPipeline(sftddDir, b.feature).build_active).toBe(b.story);
+    expect(readPipeline(consortDir, b.feature).build_active).toBe(b.story);
     void host;
   } finally {
     // ── TEARDOWN (catalogue remove-project): runner + repo + Lakebase project + dir, never-leaking. ──

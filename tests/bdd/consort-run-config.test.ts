@@ -29,7 +29,7 @@ const modelForRole = (role: string): string =>
 function inputs(over: Partial<RunConfigInputs> = {}): RunConfigInputs {
   return {
     projectDir: proj,
-    sftddDir: tdd,
+    consortDir: tdd,
     bound: "full",
     gates: "proxy",
     uiTrack: true,

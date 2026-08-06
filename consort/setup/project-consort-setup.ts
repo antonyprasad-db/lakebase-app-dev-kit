@@ -10,12 +10,15 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import type {
+  // The scm-utils package (separate repo) still exports this under its original
+  // SFTDD-era name; it is an external contract, not a kit-local symbol, so it
+  // keeps that name here.
   SftddSetupHooks,
   ClientFramework,
 } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
-import { defaultSftddConfig, writeSftddConfig } from "../../consort/config/consort-config-file.js";
-import { adoptTdd } from "../lakebase/adopt-sftdd.js";
+import { defaultConsortConfig, writeConsortConfig } from "../../consort/config/consort-config-file.js";
+import { adoptTdd } from "../lakebase/adopt-consort.js";
 import { updateAgents } from "../lakebase/update-agents.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -221,31 +224,32 @@ export function resyncAgentsOnKitDrift(projectDir: string): {
 }
 
 /** Seed .lakebase/sftdd-config.json from per-role model overrides + UI knobs. */
-export function seedSftddConfig(
+export function seedConsortConfig(
   projectDir: string,
   opts: { agentModels?: Record<string, string>; uiTrack?: boolean; clientFramework?: string },
 ): void {
-  const sftddConfig = defaultSftddConfig();
+  const consortConfig = defaultConsortConfig();
   for (const [role, model] of Object.entries(opts.agentModels ?? {})) {
-    if (model && sftddConfig.roles?.[role as keyof typeof sftddConfig.roles]) {
-      sftddConfig.roles[role as keyof typeof sftddConfig.roles]!.model = model;
+    if (model && consortConfig.roles?.[role as keyof typeof consortConfig.roles]) {
+      consortConfig.roles[role as keyof typeof consortConfig.roles]!.model = model;
     }
   }
-  if (sftddConfig.project) {
-    sftddConfig.project.uiTrack = opts.uiTrack ?? false;
-    sftddConfig.project.clientFramework = opts.clientFramework as ClientFramework;
+  if (consortConfig.project) {
+    consortConfig.project.uiTrack = opts.uiTrack ?? false;
+    consortConfig.project.clientFramework = opts.clientFramework as ClientFramework;
   }
-  writeSftddConfig(projectDir, sftddConfig);
+  writeConsortConfig(projectDir, consortConfig);
 }
 
-/** The SFTDD hooks the kit injects into the base createProject. */
-export const kitSftddHooks: SftddSetupHooks = {
+/** The workflow-setup hooks the kit injects into the base createProject.
+ *  Typed by scm-utils' external SftddSetupHooks contract. */
+export const kitConsortHooks: SftddSetupHooks = {
   layDownScaffold: layDownTddScaffold,
-  seedConfig: seedSftddConfig,
+  seedConfig: seedConsortConfig,
 };
 
 /** The SFTDD adoption hook the kit injects into the base adoptLakebaseProject. */
-export function adoptSftddHook(projectDir: string): { added: string[] } {
+export function adoptConsortHook(projectDir: string): { added: string[] } {
   const result = adoptTdd({ projectDir });
   return { added: result.added.map((rel) => path.join(ARTIFACT_ROOT, rel)) };
 }

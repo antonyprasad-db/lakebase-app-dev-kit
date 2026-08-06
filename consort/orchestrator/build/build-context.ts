@@ -15,8 +15,8 @@ import { readConventions } from "../../architecture/architecture-conventions.js"
 import { storyAcIds, readAcLayer, architectureJson, designGuideJson } from "../../config/consort-paths.js";
 
 /** The .tdd artifact root for a project (identity: the sftdd dir IS the root). */
-function artifactRoot(sftddDir: string): string {
-  return sftddDir;
+function artifactRoot(consortDir: string): string {
+  return consortDir;
 }
 
 /**
@@ -36,23 +36,23 @@ function artifactRoot(sftddDir: string): string {
  * the full files, the prior behavior). This is the per-role context-compaction
  * lever: inject the slice, do not make each turn re-read the whole design tree.
  */
-function contextRubric(sftddDir: string, featureId: string, story: string, ac: string): string {
+function contextRubric(consortDir: string, featureId: string, story: string, ac: string): string {
   const parts: string[] = [];
 
   // Layer(s): the single AC in ac-loop; the union across the story's ACs at
   // story scope (so a story-level RED/GREEN/REVIEW/REFACTOR sees every boundary
   // its tests/code span, not just one).
   const layers = new Set<string>();
-  const acIds = ac ? [ac] : storyAcIds(sftddDir, featureId, story);
+  const acIds = ac ? [ac] : storyAcIds(consortDir, featureId, story);
   for (const id of acIds) {
-    const l = readAcLayer(sftddDir, featureId, id);
+    const l = readAcLayer(consortDir, featureId, id);
     if (l) layers.add(l);
   }
   if (layers.size) parts.push(`layer${layers.size > 1 ? "s" : ""}=${[...layers].join(", ")}`);
 
   // NFRs scoped to this story or applied feature-wide (applies_to === featureId).
   try {
-    const arch = JSON.parse(fs.readFileSync(architectureJson(sftddDir, featureId), "utf8")) as {
+    const arch = JSON.parse(fs.readFileSync(architectureJson(consortDir, featureId), "utf8")) as {
       nfrs?: Array<{ id?: string; brief?: string; applies_to?: string }>;
     };
     const nfrs = (arch.nfrs ?? []).filter(
@@ -69,7 +69,7 @@ function contextRubric(sftddDir: string, featureId: string, story: string, ac: s
   // non-UI majority need NO design-guide read at all.
   if (layers.has("E2E")) {
     try {
-      const dg = JSON.parse(fs.readFileSync(designGuideJson(sftddDir), "utf8")) as {
+      const dg = JSON.parse(fs.readFileSync(designGuideJson(consortDir), "utf8")) as {
         tokens?: Record<string, unknown>;
       };
       const groups = Object.keys(dg.tokens ?? (dg as Record<string, unknown>));
@@ -110,20 +110,20 @@ function rubricSourcesNote(rubric: string, featureId: string, root: string): str
  * that do not run the build test loop (RED has no code yet; REVIEW only judges).
  */
 function buildContextPack(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   story: string,
   ac: string,
   opts: { skipTestLoop?: boolean } = {},
 ): string {
-  const root = artifactRoot(sftddDir);
-  const rubric = contextRubric(sftddDir, featureId, story, ac);
+  const root = artifactRoot(consortDir);
+  const rubric = contextRubric(consortDir, featureId, story, ac);
   const parts: string[] = [];
   if (rubric) parts.push(rubric + rubricSourcesNote(rubric, featureId, root));
 
   // Module layout: the established role -> path map, so the Driver PLACES code
   // (and the Navigator/Reviewer JUDGES placement) without probing the tree.
-  const conventions = readConventions(sftddDir);
+  const conventions = readConventions(consortDir);
   if (conventions?.layers?.length) {
     const layout = conventions.layers
       .map((l) => `${l.role}=${l.module}${l.renders_via ? ` (${l.renders_via})` : ""}`)

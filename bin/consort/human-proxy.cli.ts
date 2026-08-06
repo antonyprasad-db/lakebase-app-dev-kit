@@ -37,14 +37,14 @@ function runSupplyCli(argv: string[]): number {
   let from: string | undefined;
   let to: string | undefined;
   let artifact: string | undefined;
-  let sftddDir: string | undefined;
+  let consortDir: string | undefined;
   let feature: string | undefined;
   for (let i = 0; i < argv.length; i++) {
     switch (argv[i]) {
       case "--from": from = argv[++i]; break;
       case "--to": to = argv[++i]; break;
       case "--artifact": artifact = argv[++i]; break;
-      case "--tdd-dir": sftddDir = argv[++i]; break;
+      case "--tdd-dir": consortDir = argv[++i]; break;
       case "--feature": feature = argv[++i]; break;
     }
   }
@@ -52,7 +52,7 @@ function runSupplyCli(argv: string[]): number {
     process.stderr.write("Error: supply requires --from <recorded> and --to <path>.\n");
     return 2;
   }
-  const result = supplyArtifact({ from, to, artifact, sftddDir, featureId: feature });
+  const result = supplyArtifact({ from, to, artifact, consortDir, featureId: feature });
   if (result.ok) {
     process.stdout.write(`human-proxy: supplied ${result.artifact} -> ${result.to}\n`);
     return 0;
@@ -73,17 +73,17 @@ function runSupplyCli(argv: string[]): number {
  *   consort-human-proxy supply-requests [--tdd-dir <dir>] [--approver <name>]
  */
 function runSupplyRequestsCli(argv: string[]): number {
-  let sftddDir: string | undefined;
+  let consortDir: string | undefined;
   let approver: string | undefined;
   let sprint: string | undefined;
   for (let i = 0; i < argv.length; i++) {
     switch (argv[i]) {
-      case "--tdd-dir": sftddDir = argv[++i]; break;
+      case "--tdd-dir": consortDir = argv[++i]; break;
       case "--approver": approver = argv[++i]; break;
       case "--sprint": sprint = argv[++i]; break;
     }
   }
-  const result = supplyRequests({ sftddDir, approver, sprint });
+  const result = supplyRequests({ consortDir, approver, sprint });
   if (result.supplied.length > 0) {
     process.stdout.write(`human-proxy: supplied ${result.supplied.length} feature-request(s): ${result.supplied.join(", ")}\n`);
   } else {
@@ -108,15 +108,15 @@ function runSupplyRequestsCli(argv: string[]): number {
  *   consort-human-proxy supply-proposals [--tdd-dir <dir>] [--ui]
  */
 function runSupplyProposalsCli(argv: string[]): number {
-  let sftddDir: string | undefined;
+  let consortDir: string | undefined;
   let uiTrack = false;
   for (let i = 0; i < argv.length; i++) {
     switch (argv[i]) {
-      case "--tdd-dir": sftddDir = argv[++i]; break;
+      case "--tdd-dir": consortDir = argv[++i]; break;
       case "--ui": uiTrack = true; break;
     }
   }
-  const result = supplyProposals({ sftddDir, uiTrack });
+  const result = supplyProposals({ consortDir, uiTrack });
   process.stdout.write(
     result.written
       ? `human-proxy: projected feature-proposals.md from ${result.count} recorded feature-request(s)\n`
@@ -143,7 +143,7 @@ function runDecideEscalationCli(argv: string[]): number {
   let gate: string | undefined;
   let reason: string | undefined;
   let approver: string | undefined;
-  let sftddDir: string | undefined;
+  let consortDir: string | undefined;
   for (let i = 0; i < argv.length; i++) {
     switch (argv[i]) {
       case "--feature": feature = argv[++i]; break;
@@ -153,7 +153,7 @@ function runDecideEscalationCli(argv: string[]): number {
       case "--gate": gate = argv[++i]; break;
       case "--reason": reason = argv[++i]; break;
       case "--approver": approver = argv[++i]; break;
-      case "--tdd-dir": sftddDir = argv[++i]; break;
+      case "--tdd-dir": consortDir = argv[++i]; break;
       // --project-dir is accepted (the effect passes it) but unused here.
       case "--project-dir": i++; break;
     }
@@ -181,7 +181,7 @@ function runDecideEscalationCli(argv: string[]): number {
       gate: gate as "spec" | "test_list" | "architecture",
       reason: reason ?? `revise ${smell} on ${story}`,
       approver,
-      sftddDir,
+      consortDir,
     });
     process.stdout.write(
       `human-proxy: revised ${story} (smell ${smell} -> ${r.routedTo}); ` +
@@ -198,7 +198,7 @@ interface ParsedArgs {
   feature?: string;
   sprint?: string;
   gate?: GateName;
-  sftddDir?: string;
+  consortDir?: string;
   approver?: string;
   promoteRef?: string;
   json?: boolean;
@@ -221,7 +221,7 @@ function parseArgs(argv: string[]): ParsedArgs {
         out.gate = argv[++i] as GateName;
         break;
       case "--tdd-dir":
-        out.sftddDir = argv[++i];
+        out.consortDir = argv[++i];
         break;
       case "--approver":
         out.approver = argv[++i];
@@ -286,7 +286,7 @@ export function runHumanProxyCli(argv: string[]): number {
       sprint: args.sprint,
       approver: args.approver ?? "human-proxy",
       hitlApproved: true,
-      sftddDir: args.sftddDir,
+      consortDir: args.consortDir,
     });
     if (res.ok) {
       process.stdout.write(
@@ -304,7 +304,7 @@ export function runHumanProxyCli(argv: string[]): number {
   try {
     const result = drainGatesAsHumanProxy({
       featureId: args.feature,
-      sftddDir: args.sftddDir,
+      consortDir: args.consortDir,
       approver: args.approver,
       onlyGate: args.gate,
       promoteRef: args.promoteRef,

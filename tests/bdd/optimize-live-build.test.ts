@@ -19,7 +19,7 @@ describe("makeBuildSnapshotDeps (git + re-fork injected)", () => {
     const deps = makeBuildSnapshotDeps({
       projectDir: "/p",
       story: "S1",
-      cutArgs: { instance: "inst", sftddDir: "/p/.sftdd", featureId: "F1", experimentSlug: "s1-opt", branch: "feat", parentBranch: "staging" },
+      cutArgs: { instance: "inst", consortDir: "/p/.sftdd", featureId: "F1", experimentSlug: "s1-opt", branch: "feat", parentBranch: "staging" },
       git: {
         sha: async () => {
           calls.push("sha");
@@ -45,7 +45,7 @@ describe("makeBuildSnapshotDeps (git + re-fork injected)", () => {
     const deps = makeBuildSnapshotDeps({
       projectDir: "/p",
       story: "S1",
-      cutArgs: { instance: "inst", sftddDir: "/p/.sftdd", featureId: "F1", experimentSlug: "s1-opt", branch: "feat", parentBranch: "staging" },
+      cutArgs: { instance: "inst", consortDir: "/p/.sftdd", featureId: "F1", experimentSlug: "s1-opt", branch: "feat", parentBranch: "staging" },
       git: { sha: async () => "x", resetHard: async () => {} },
       reForkImpl: async (args) => {
         resetStale = args.resetStaleBranch;
@@ -57,31 +57,31 @@ describe("makeBuildSnapshotDeps (git + re-fork injected)", () => {
 });
 
 describe("makeBuildGate (honest post-turn signal)", () => {
-  let sftddDir: string;
+  let consortDir: string;
   const featureId = "F1";
   const story = "S1";
   beforeEach(() => {
     const root = mkdtempSync(join(tmpdir(), "optimize-buildgate-"));
-    sftddDir = join(root, ".sftdd");
-    mkdirSync(join(sftddDir, "escalations"), { recursive: true });
+    consortDir = join(root, ".sftdd");
+    mkdirSync(join(consortDir, "escalations"), { recursive: true });
   });
-  afterEach(() => rmSync(join(sftddDir, ".."), { recursive: true, force: true }));
+  afterEach(() => rmSync(join(consortDir, ".."), { recursive: true, force: true }));
 
   function writeEscalation(id: string, resolved: boolean, storyId: string | undefined = story): void {
     writeFileSync(
-      join(sftddDir, "escalations", `${id}.json`),
+      join(consortDir, "escalations", `${id}.json`),
       JSON.stringify({ id, source: "driver-green", feature_id: featureId, story_id: storyId, ...(resolved ? { resolved_at: "2026-08-02T00:00:00Z" } : {}) }),
     );
   }
 
   it("PASSES when no unresolved story escalation exists after the turn", () => {
-    const gate = makeBuildGate(sftddDir, featureId);
+    const gate = makeBuildGate(consortDir, featureId);
     expect(gate({ handoff: { id: "S1-driver-green", role: "driver", story, buildMode: "green" } })).toEqual({ passed: true });
   });
 
   it("FAILS when the turn raised an unresolved escalation for this story (honest-GREEN halt)", () => {
     writeEscalation("e1", false);
-    const gate = makeBuildGate(sftddDir, featureId);
+    const gate = makeBuildGate(consortDir, featureId);
     const r = gate({ handoff: { id: "S1-driver-green", role: "driver", story, buildMode: "green" } });
     expect(r.passed).toBe(false);
     expect(r.reason).toMatch(/escalation/i);
@@ -89,13 +89,13 @@ describe("makeBuildGate (honest post-turn signal)", () => {
 
   it("ignores a RESOLVED escalation (the self-heal cleared it, so the turn is honest-green)", () => {
     writeEscalation("e1", true);
-    const gate = makeBuildGate(sftddDir, featureId);
+    const gate = makeBuildGate(consortDir, featureId);
     expect(gate({ handoff: { id: "S1-driver-green", role: "driver", story, buildMode: "green" } }).passed).toBe(true);
   });
 
   it("ignores an escalation for a DIFFERENT story", () => {
     writeEscalation("e2", false, "S2");
-    const gate = makeBuildGate(sftddDir, featureId);
+    const gate = makeBuildGate(consortDir, featureId);
     expect(gate({ handoff: { id: "S1-driver-green", role: "driver", story, buildMode: "green" } }).passed).toBe(true);
   });
 });

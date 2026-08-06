@@ -91,7 +91,7 @@ export async function runIntegrationChain(config: IntegrationChainConfig): Promi
     workspaceDir,
     cfg: {
       projectDir: workspaceDir,
-      sftddDir: join(workspaceDir, ARTIFACT_ROOT),
+      consortDir: join(workspaceDir, ARTIFACT_ROOT),
       featureId: config.feature,
     } as DriveEffectsConfig,
     agentContext,

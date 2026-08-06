@@ -2,7 +2,7 @@
 //
 // The base adoption lives in @databricks-solutions/lakebase-scm-utils and is
 // SFTDD-agnostic. This kit wrapper injects the optional `.sftdd/` adoption hook
-// so `enableSftdd` adoptions drop the SFTDD scaffold. assertAdoptionPreflight
+// so `enableConsort` adoptions drop the SFTDD scaffold. assertAdoptionPreflight
 // and the test fixture are pure substrate; they are re-exported unchanged.
 
 import {
@@ -12,7 +12,7 @@ import {
   type AdoptLakebaseProjectArgs,
   type AdoptLakebaseProjectResult,
 } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-import { adoptSftddHook } from "../../consort/setup/project-sftdd-setup.js";
+import { adoptConsortHook } from "../../consort/setup/project-consort-setup.js";
 
 export { assertAdoptionPreflight, _testMakeBrownfieldFixture };
 export type { AdoptLakebaseProjectArgs, AdoptLakebaseProjectResult };
@@ -22,6 +22,6 @@ export function adoptLakebaseProject(
 ): Promise<AdoptLakebaseProjectResult> {
   return baseAdoptLakebaseProject({
     ...args,
-    adoptSftddHook: args.adoptSftddHook ?? adoptSftddHook,
+    adoptSftddHook: args.adoptSftddHook ?? adoptConsortHook,
   });
 }

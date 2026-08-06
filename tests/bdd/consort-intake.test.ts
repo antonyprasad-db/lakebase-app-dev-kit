@@ -48,7 +48,7 @@ const markUiProject = (): void => {
 
 describe("checkIntakePreconditions", () => {
   it("fails when product-overview.md + nfrs.md are absent", () => {
-    const r = checkIntakePreconditions({ sftddDir: tdd });
+    const r = checkIntakePreconditions({ consortDir: tdd });
     expect(r.ok).toBe(false);
     expect(r.missing).toEqual(["product-overview.md", "nfrs.md"]);
   });
@@ -56,13 +56,13 @@ describe("checkIntakePreconditions", () => {
   it("passes with conformant product-overview.md + nfrs.md (no feature, no UI)", () => {
     writeFileSync(join(tdd, "product-overview.md"), PRODUCT_OVERVIEW);
     writeFileSync(join(tdd, "nfrs.md"), NFRS);
-    expect(checkIntakePreconditions({ sftddDir: tdd }).ok).toBe(true);
+    expect(checkIntakePreconditions({ consortDir: tdd }).ok).toBe(true);
   });
 
   it("flags a present-but-non-conformant nfrs.md", () => {
     writeFileSync(join(tdd, "product-overview.md"), PRODUCT_OVERVIEW);
     writeFileSync(join(tdd, "nfrs.md"), "# NFRs\n\nprose only, no required sections\n");
-    const r = checkIntakePreconditions({ sftddDir: tdd });
+    const r = checkIntakePreconditions({ consortDir: tdd });
     expect(r.ok).toBe(false);
     expect(r.nonConformant).toContain("nfrs.md");
   });
@@ -70,26 +70,26 @@ describe("checkIntakePreconditions", () => {
   it("requires the feature's feature-request.md when a featureId is given", () => {
     writeFileSync(join(tdd, "product-overview.md"), PRODUCT_OVERVIEW);
     writeFileSync(join(tdd, "nfrs.md"), NFRS);
-    const missing = checkIntakePreconditions({ sftddDir: tdd, featureId: FEATURE });
+    const missing = checkIntakePreconditions({ consortDir: tdd, featureId: FEATURE });
     expect(missing.ok).toBe(false);
     expect(missing.missing).toContain("feature-request.md");
 
     writeFileSync(join(tdd, "features", FEATURE, "feature-request.md"), FEATURE_REQUEST);
-    expect(checkIntakePreconditions({ sftddDir: tdd, featureId: FEATURE }).ok).toBe(true);
+    expect(checkIntakePreconditions({ consortDir: tdd, featureId: FEATURE }).ok).toBe(true);
   });
 
   it("requires design-brief.md only for UI projects (read from config.uiTrack, the single source)", () => {
     writeFileSync(join(tdd, "product-overview.md"), PRODUCT_OVERVIEW);
     writeFileSync(join(tdd, "nfrs.md"), NFRS);
-    expect(checkIntakePreconditions({ sftddDir: tdd }).ok).toBe(true); // non-UI (no config): fine
+    expect(checkIntakePreconditions({ consortDir: tdd }).ok).toBe(true); // non-UI (no config): fine
 
     markUiProject(); // project.uiTrack = true in sftdd-config.json
-    const uiMissing = checkIntakePreconditions({ sftddDir: tdd });
+    const uiMissing = checkIntakePreconditions({ consortDir: tdd });
     expect(uiMissing.ok).toBe(false);
     expect(uiMissing.missing).toContain("design-brief.md");
 
     mkdirSync(join(tdd, "design"), { recursive: true });
     writeFileSync(join(tdd, "design", "design-brief.md"), DESIGN_BRIEF);
-    expect(checkIntakePreconditions({ sftddDir: tdd }).ok).toBe(true);
+    expect(checkIntakePreconditions({ consortDir: tdd }).ok).toBe(true);
   });
 });

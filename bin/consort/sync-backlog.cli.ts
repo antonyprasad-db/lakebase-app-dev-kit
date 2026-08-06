@@ -23,7 +23,7 @@
 // Exit 0 = backlog committed (>= 1 feature); exit 2 = empty backlog (author the
 //          feature-request.md files first, or fix the declared membership).
 
-import { resolveSftddDir, syncBacklog, writeRequested, hasFeatureRequest } from "../../consort/config/consort-paths.js";
+import { resolveConsortDir, syncBacklog, writeRequested, hasFeatureRequest } from "../../consort/config/consort-paths.js";
 
 interface Parsed {
   sprint?: string;
@@ -66,19 +66,19 @@ if (!p.sprint) {
   process.stderr.write(`consort-sync-backlog: --sprint <name> is required.\n`);
   process.exit(2);
 }
-const sftddDir = p.tddDir ?? resolveSftddDir(p.projectDir);
+const consortDir = p.tddDir ?? resolveConsortDir(p.projectDir);
 
 // Declare membership first (if given), warning about any declared feature that has
 // no feature-request.md yet , it will be excluded from the backlog until authored.
 if (p.features.length > 0) {
-  const missing = p.features.filter((id) => !hasFeatureRequest(sftddDir, id));
-  writeRequested(sftddDir, p.sprint, p.features);
+  const missing = p.features.filter((id) => !hasFeatureRequest(consortDir, id));
+  writeRequested(consortDir, p.sprint, p.features);
   for (const id of missing) {
     process.stderr.write(`sync-backlog: WARNING , ${id} has no feature-request.md yet; excluded until authored.\n`);
   }
 }
 
-const backlog = syncBacklog(sftddDir, p.sprint);
+const backlog = syncBacklog(consortDir, p.sprint);
 const ids = backlog.features.map((f) => f.id);
 
 if (p.json) {

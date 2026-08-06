@@ -57,8 +57,8 @@ function normModule(m: string): string {
 }
 
 /** Read the persisted conventions, or undefined when none are established yet. */
-export function readConventions(sftddDir: string): ArchitectureConventions | undefined {
-  const f = architectureConventionsJson(sftddDir);
+export function readConventions(consortDir: string): ArchitectureConventions | undefined {
+  const f = architectureConventionsJson(consortDir);
   if (!existsSync(f)) return undefined;
   try {
     return JSON.parse(readFileSync(f, "utf8")) as ArchitectureConventions;
@@ -68,8 +68,8 @@ export function readConventions(sftddDir: string): ArchitectureConventions | und
 }
 
 /** True once the project conventions are on disk (the inherit/skip probe). */
-export function conventionsReady(sftddDir: string): boolean {
-  return existsSync(architectureConventionsJson(sftddDir));
+export function conventionsReady(consortDir: string): boolean {
+  return existsSync(architectureConventionsJson(consortDir));
 }
 
 /**
@@ -124,14 +124,14 @@ export interface EstablishResult {
  * layout becomes the project canon.
  */
 export function establishConventionsIfAbsent(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   now: () => Date = () => new Date(),
 ): EstablishResult {
-  const existing = readConventions(sftddDir);
+  const existing = readConventions(consortDir);
   if (existing) return { established: false, conventions: existing };
 
-  const archFile = architectureJson(sftddDir, featureId);
+  const archFile = architectureJson(consortDir, featureId);
   if (!existsSync(archFile)) return { established: false };
   let content: string;
   try {
@@ -142,7 +142,7 @@ export function establishConventionsIfAbsent(
   const conventions = deriveConventions(content, featureId, now);
   if (!conventions) return { established: false };
 
-  const out = architectureConventionsJson(sftddDir);
+  const out = architectureConventionsJson(consortDir);
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, JSON.stringify(conventions, null, 2) + "\n");
   return { established: true, conventions };

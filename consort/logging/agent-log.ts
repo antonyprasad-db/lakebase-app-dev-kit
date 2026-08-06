@@ -11,7 +11,7 @@
 // at line boundaries without corrupting each other (log lines are small).
 
 import { appendFileSync, existsSync, readFileSync } from "fs";
-import { resolveSftddDir } from "../../consort/config/consort-paths.js";
+import { resolveConsortDir } from "../../consort/config/consort-paths.js";
 import { join } from "path";
 import { getValidator, formatSchemaErrors } from "../../consort/orchestrator/validators/schema-loader.js";
 import { renderEventMessage, type AgentLogEventName } from "./agent-log-events.js";
@@ -92,13 +92,13 @@ export interface AgentLogEventInput {
 
 export interface AgentLogIoOpts {
   /** Path to the .sftdd/ root. Default: "./.sftdd". */
-  sftddDir?: string;
+  consortDir?: string;
   /** Test seam for a deterministic clock. */
   now?: () => Date;
 }
 
-function logFilePath(sftddDir: string): string {
-  return join(sftddDir, "agent-log.jsonl");
+function logFilePath(consortDir: string): string {
+  return join(consortDir, "agent-log.jsonl");
 }
 
 /**
@@ -152,10 +152,10 @@ function buildAgentLogEvent(input: AgentLogEventInput, now: () => Date): AgentLo
 }
 
 export function emitAgentLogEvent(input: AgentLogEventInput, opts: AgentLogIoOpts = {}): AgentLogEvent {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
+  const consortDir = opts.consortDir ?? resolveConsortDir();
   const now = opts.now ?? (() => new Date());
   const event = buildAgentLogEvent(input, now);
-  appendFileSync(logFilePath(sftddDir), `${JSON.stringify(event)}\n`, "utf8");
+  appendFileSync(logFilePath(consortDir), `${JSON.stringify(event)}\n`, "utf8");
   return event;
 }
 
@@ -169,10 +169,10 @@ export function emitAgentLogEvent(input: AgentLogEventInput, opts: AgentLogIoOpt
  */
 export function emitAgentLogEvents(inputs: AgentLogEventInput[], opts: AgentLogIoOpts = {}): AgentLogEvent[] {
   if (inputs.length === 0) return [];
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
+  const consortDir = opts.consortDir ?? resolveConsortDir();
   const now = opts.now ?? (() => new Date());
   const events = inputs.map((i) => buildAgentLogEvent(i, now)); // validates all before any write
-  appendFileSync(logFilePath(sftddDir), events.map((e) => `${JSON.stringify(e)}\n`).join(""), "utf8");
+  appendFileSync(logFilePath(consortDir), events.map((e) => `${JSON.stringify(e)}\n`).join(""), "utf8");
   return events;
 }
 
@@ -188,8 +188,8 @@ export interface ReadAgentLogOpts extends AgentLogIoOpts {
  * Malformed lines are skipped (a partially-written tail never throws).
  */
 export function readAgentLog(opts: ReadAgentLogOpts = {}): AgentLogEvent[] {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
-  const file = logFilePath(sftddDir);
+  const consortDir = opts.consortDir ?? resolveConsortDir();
+  const file = logFilePath(consortDir);
   if (!existsSync(file)) return [];
 
   const minRank = opts.minLevel !== undefined ? LEVEL_ORDER[opts.minLevel] : undefined;

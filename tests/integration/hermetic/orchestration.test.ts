@@ -93,7 +93,7 @@ describe("stockflow-demo: 2-turn replay orchestration through the StepExecutor",
 
     const ctx: StepCtx = {
       action: PO_SEED,
-      cfg: { projectDir: ws, sftddDir: join(ws, ".sftdd"), featureId: "F1-stock-visibility" } as StepCtx["cfg"],
+      cfg: { projectDir: ws, consortDir: join(ws, ".sftdd"), featureId: "F1-stock-visibility" } as StepCtx["cfg"],
       state: { phase: "planning" } as unknown as DriveState,
       validateBoundDeps: chainBoundDeps(SPEC_AUTHOR), // after the PO seed, the chain goes to spec-author
     };
@@ -146,7 +146,7 @@ describe("stockflow-demo: 2-turn replay orchestration through the StepExecutor",
 
     const ctx: StepCtx = {
       action: SPEC_AUTHOR,
-      cfg: { projectDir: ws, sftddDir: join(ws, ".sftdd"), featureId: "F1-stock-visibility" } as StepCtx["cfg"],
+      cfg: { projectDir: ws, consortDir: join(ws, ".sftdd"), featureId: "F1-stock-visibility" } as StepCtx["cfg"],
       state: { phase: "feature" } as unknown as DriveState,
       validateBoundDeps: chainBoundDeps({ kind: "design-complete" } as WorkflowAction), // after spec-author, design is complete
     };

@@ -12,13 +12,13 @@
 //   consort-canon-notes --feature <F> --story <S> [--tdd-dir <path>]
 
 import { projectStoryNotes, evaluateStoryCanon } from "../../consort/architecture/architecture-canon.js";
-import { resolveSftddDir } from "../../consort/config/consort-paths.js";
+import { resolveConsortDir } from "../../consort/config/consort-paths.js";
 import { writeSmellsLog } from "../../consort/smells/smells.js";
 
 interface Parsed {
   feature: string;
   story: string;
-  sftddDir?: string;
+  consortDir?: string;
 }
 
 function parse(argv: string[]): Parsed {
@@ -27,7 +27,7 @@ function parse(argv: string[]): Parsed {
     const a = argv[i];
     if (a === "--feature" && i + 1 < argv.length) out.feature = argv[++i];
     else if (a === "--story" && i + 1 < argv.length) out.story = argv[++i];
-    else if (a === "--tdd-dir" && i + 1 < argv.length) out.sftddDir = argv[++i];
+    else if (a === "--tdd-dir" && i + 1 < argv.length) out.consortDir = argv[++i];
     else if (a === "-h" || a === "--help") help();
   }
   return out;
@@ -48,16 +48,16 @@ if (!p.feature || !p.story) {
   process.exit(2);
 }
 
-const sftddDir = p.sftddDir ?? resolveSftddDir();
+const consortDir = p.consortDir ?? resolveConsortDir();
 
 // FAIL-TOWARD-PROJECTION with a reactive fallback: if the canon does NOT cover the
 // story (an AC layer / architecture dimension it has not seen), do NOT write a
 // blind note , raise the architect-canon-gap smell (spec-level, architect-owned).
 // The escalation machinery routes it to the architect (re-annotate + amend the
 // canon) via revise-routing, bounded to one revise then HITL. Otherwise project.
-const coverage = evaluateStoryCanon(sftddDir, p.feature, p.story);
+const coverage = evaluateStoryCanon(consortDir, p.feature, p.story);
 if (!coverage.ok) {
-  writeSmellsLog(sftddDir, [
+  writeSmellsLog(consortDir, [
     {
       smell: "architect-canon-gap",
       cycle_ids: [],
@@ -73,6 +73,6 @@ if (!coverage.ok) {
   process.exit(0);
 }
 
-const n = projectStoryNotes(sftddDir, p.feature, p.story);
+const n = projectStoryNotes(consortDir, p.feature, p.story);
 process.stdout.write(`canon-notes: projected architectural_notes onto ${n} AC(s) for ${p.feature}/${p.story}\n`);
 process.exit(0);

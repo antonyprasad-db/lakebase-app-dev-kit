@@ -9,7 +9,7 @@
 //      `tools:` frontmatter), or a whole agent-overlay (replace the file). These are
 //      APPLIED DIRECTLY by applyAgentMdLevers (safe, deterministic file writes).
 //   2. Config levers , model / effort / session-scope / loop live in TYPED SOURCE
-//      (sftdd-config.ts defaultSftddConfig + agent-models.ts RECOMMENDED_MODELS +
+//      (sftdd-config.ts defaultConsortConfig + agent-models.ts RECOMMENDED_MODELS +
 //      the role .md frontmatter `model:`). We NEVER regex-rewrite TS source; instead
 //      buildApplyPlan emits a precise SourceEditProposal (file + exact target + a
 //      regression-test note) for a normal reviewed edit. contextPackSuffix is
@@ -37,7 +37,7 @@ export interface AgentMdEdit {
  *  applied by regex). */
 export interface SourceEditProposal {
   file: string;
-  /** Human-readable target + intent (e.g. "defaultSftddConfig: driver.model.green -> haiku"). */
+  /** Human-readable target + intent (e.g. "defaultConsortConfig: driver.model.green -> haiku"). */
   rationale: string;
   /** A note describing the regression test that should accompany the edit. */
   regressionTest: string;
@@ -122,8 +122,8 @@ function modelDefaultEdit(role: string, turn: string | undefined, model: string)
   const where = turn ? `roles.${role}.model.${turn}` : `roles.${role}.model`;
   return {
     file: "consort/orchestrator/settings/project-settings.ts",
-    rationale: `defaultSftddConfig: set ${where} -> "${model}" (and mirror the role's frontmatter model: in skills/consort/agents/${role}.md + RECOMMENDED_MODELS in agent-models.ts if the BASE model changed).`,
-    regressionTest: `assert resolveSftddSettings().modelFor("${role}"${turn ? `, "${turn}"` : ""}) === "${model}" with no project override.`,
+    rationale: `defaultConsortConfig: set ${where} -> "${model}" (and mirror the role's frontmatter model: in skills/consort/agents/${role}.md + RECOMMENDED_MODELS in agent-models.ts if the BASE model changed).`,
+    regressionTest: `assert resolveConsortSettings().modelFor("${role}"${turn ? `, "${turn}"` : ""}) === "${model}" with no project override.`,
   };
 }
 
@@ -131,16 +131,16 @@ function effortDefaultEdit(role: string, turn: string | undefined, effort: strin
   const where = turn ? `roles.${role}.effort.${turn}` : `roles.${role}.effort`;
   return {
     file: "consort/orchestrator/settings/project-settings.ts",
-    rationale: `defaultSftddConfig / defaultEffort: set ${where} -> "${effort}".`,
-    regressionTest: `assert resolveSftddSettings().effortFor("${role}"${turn ? `, "${turn}"` : ""}) === "${effort}" with no project override.`,
+    rationale: `defaultConsortConfig / defaultEffort: set ${where} -> "${effort}".`,
+    regressionTest: `assert resolveConsortSettings().effortFor("${role}"${turn ? `, "${turn}"` : ""}) === "${effort}" with no project override.`,
   };
 }
 
 function buildDefaultEdit(key: string, value: string): SourceEditProposal {
   return {
     file: "consort/orchestrator/settings/project-settings.ts",
-    rationale: `defaultSftddConfig: set build.${key} -> ${JSON.stringify(value)}.`,
-    regressionTest: `assert resolveSftddSettings().build.${key} === ${JSON.stringify(value)} with no project override.`,
+    rationale: `defaultConsortConfig: set build.${key} -> ${JSON.stringify(value)}.`,
+    regressionTest: `assert resolveConsortSettings().build.${key} === ${JSON.stringify(value)} with no project override.`,
   };
 }
 
@@ -198,7 +198,7 @@ function mergeOverlay(base: unknown, over: unknown): unknown {
 }
 
 /** AUTO-APPLY a winning candidate's CONFIG levers (model/effort per turn/step, build
- *  knobs) into the kit's optimized-defaults.json , the data overlay defaultSftddConfig
+ *  knobs) into the kit's optimized-defaults.json , the data overlay defaultConsortConfig
  *  deep-merges. This is the unattended champion walk's persistence path: it writes
  *  DATA (never a TS regex-rewrite, so the single-source rule holds), and a rebuild
  *  inlines it into dist. Agent-.md (content) levers are applied separately by

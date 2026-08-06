@@ -19,7 +19,7 @@ const EXPERIMENT_BIN = "consort-experiment";
 function cfg(over: Partial<DriveEffectsConfig> = {}): DriveEffectsConfig {
   return {
     projectDir: "/p",
-    sftddDir: "/p/.tdd",
+    consortDir: "/p/.tdd",
     featureId: "F1-file-bug",
     runner: { async run() {} },
     modelForRole: () => "sonnet",

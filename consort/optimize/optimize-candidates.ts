@@ -11,7 +11,7 @@
 // (optimize-harness.ts). Keeping generation pure makes the sweep space unit-
 // testable without touching the filesystem or the cloud.
 
-import type { SftddConfigFile, RoleSettingsFile, BuildTurn, EffortLevel } from "../../consort/orchestrator/settings/project-settings.js";
+import type { ConsortConfigFile, RoleSettingsFile, BuildTurn, EffortLevel } from "../../consort/orchestrator/settings/project-settings.js";
 import { type SpawnableAgentRole, RECOMMENDED_MODELS } from "../../consort/config/agent-models.js";
 
 /** The identity candidate: no overrides, no content variant. Always first in a
@@ -42,7 +42,7 @@ export interface Candidate {
   /** Stable, unique, filesystem-safe id (also the experiments/ subdir name). */
   id: string;
   /** Config-file overrides deep-merged onto the base sftdd-config.json (Family 1). */
-  configOverrides: DeepPartial<SftddConfigFile>;
+  configOverrides: DeepPartial<ConsortConfigFile>;
   /** Extra env for the forked turn (e.g. CONTEXT_FREE_FRACTION), Family 1 knobs
    *  that ride on env rather than the config file. */
   env?: Record<string, string>;
@@ -103,7 +103,7 @@ export function generateCandidates(sweep: SweepSpec): Candidate[] {
           ].filter(Boolean);
           out.push({
             id: `${role}-${turn}-${parts.join("-")}`,
-            configOverrides: { roles: { [role]: roleSettings } as DeepPartial<SftddConfigFile>["roles"] },
+            configOverrides: { roles: { [role]: roleSettings } as DeepPartial<ConsortConfigFile>["roles"] },
           });
         }
       }
@@ -233,7 +233,7 @@ export function defaultLaneCandidates(handoff: HandoffLike): Candidate[] {
   const wrapEffort = (e: EffortLevel) => (isBuild ? { [turn as BuildTurn]: e } : e);
   const idPrefix = isBuild ? `${role}-${turn}` : role;
   const roleOverride = (settings: RoleSettingsFile): Candidate["configOverrides"] => ({
-    roles: { [role]: settings } as DeepPartial<SftddConfigFile>["roles"],
+    roles: { [role]: settings } as DeepPartial<ConsortConfigFile>["roles"],
   });
 
   const base = RECOMMENDED_MODELS[role as SpawnableAgentRole] ?? (isBuild ? "sonnet" : "opus");
@@ -283,8 +283,8 @@ const SCAN_TIGHTEN_SUFFIX =
  *  FRESH object (the base is never mutated). Arrays + scalars replace; nested
  *  objects merge key-by-key, so a per-turn model override keeps the role's other
  *  turns and the config's other roles/blocks. */
-export function applyCandidateConfig(base: SftddConfigFile, candidate: Candidate): SftddConfigFile {
-  return deepMerge(base, candidate.configOverrides) as SftddConfigFile;
+export function applyCandidateConfig(base: ConsortConfigFile, candidate: Candidate): ConsortConfigFile {
+  return deepMerge(base, candidate.configOverrides) as ConsortConfigFile;
 }
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {

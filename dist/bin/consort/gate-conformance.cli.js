@@ -6657,7 +6657,7 @@ import { join } from "path";
 var ARTIFACT_ROOT = ".consort";
 var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
 var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
-function resolveSftddDir(projectDir = process.cwd()) {
+function resolveConsortDir(projectDir = process.cwd()) {
   const next = join(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
   for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
@@ -6947,9 +6947,9 @@ function checkNfrCoverage(nfrsMd, architectureJson, otherFeatureBriefRefs = /* @
   }
   return finalize(violations);
 }
-function projectBriefRefs(sftddDir) {
+function projectBriefRefs(consortDir) {
   const refs = /* @__PURE__ */ new Set();
-  const fdir = featuresDir(sftddDir);
+  const fdir = featuresDir(consortDir);
   if (!existsSync3(fdir)) return refs;
   for (const feature of readdirSync2(fdir)) {
     const archPath = join3(fdir, feature, "architecture.json");
@@ -7153,8 +7153,8 @@ function canonicalArtifactName(path2) {
   if (basename(dirname(path2)) === "acs" && base.endsWith(".json")) return "ac.json";
   return base;
 }
-function scanFeatureConformance(sftddDir, featureId) {
-  const featuresDir2 = featuresDir(sftddDir);
+function scanFeatureConformance(consortDir, featureId) {
+  const featuresDir2 = featuresDir(consortDir);
   const candidates = existsSync3(featuresDir2) ? readdirSync2(featuresDir2).filter((d) => d.startsWith(featureId)) : [];
   if (candidates.length === 0) {
     throw new Error(`feature ${featureId} not found under ${featuresDir2}`);
@@ -7164,10 +7164,10 @@ function scanFeatureConformance(sftddDir, featureId) {
   const pushIfExists = (p) => {
     if (existsSync3(p)) paths.push(p);
   };
-  pushIfExists(join3(sftddDir, "product-overview.md"));
-  pushIfExists(join3(sftddDir, "nfrs.md"));
+  pushIfExists(join3(consortDir, "product-overview.md"));
+  pushIfExists(join3(consortDir, "nfrs.md"));
   for (const name of ["design-brief.md", "design-guide.md", "design-guide.json", "ia.md"]) {
-    pushIfExists(join3(sftddDir, "design", name));
+    pushIfExists(join3(consortDir, "design", name));
   }
   for (const name of ["feature-request.md", "feature-spec.json", "feature-spec.md", "nfrs.md", "architecture.md", "db-design.json", "plan.json", "test-list.json", "test-list.md"]) {
     pushIfExists(join3(featureDir, name));
@@ -7206,7 +7206,7 @@ function scanFeatureConformance(sftddDir, featureId) {
     const content = readFileSync3(p, "utf8");
     const result = checkArtifactConformance(canonicalArtifactName(p), content);
     return {
-      artifact: p.startsWith(sftddDir) ? p.slice(sftddDir.length).replace(/^\//, "") : p,
+      artifact: p.startsWith(consortDir) ? p.slice(consortDir.length).replace(/^\//, "") : p,
       ok: result.ok,
       violations: result.ok ? [] : result.violations
     };
@@ -7231,11 +7231,11 @@ function scanFeatureConformance(sftddDir, featureId) {
   const archPath = join3(featureDir, "architecture.json");
   if (existsSync3(archPath)) {
     const archContent = readFileSync3(archPath, "utf8");
-    const siblingRefs = projectBriefRefs(sftddDir);
-    for (const nfrsPath of [join3(sftddDir, "nfrs.md"), join3(featureDir, "nfrs.md")]) {
+    const siblingRefs = projectBriefRefs(consortDir);
+    for (const nfrsPath of [join3(consortDir, "nfrs.md"), join3(featureDir, "nfrs.md")]) {
       if (!existsSync3(nfrsPath)) continue;
       const cov = checkNfrCoverage(readFileSync3(nfrsPath, "utf8"), archContent, siblingRefs);
-      const rel = nfrsPath.startsWith(sftddDir) ? nfrsPath.slice(sftddDir.length).replace(/^\//, "") : nfrsPath;
+      const rel = nfrsPath.startsWith(consortDir) ? nfrsPath.slice(consortDir.length).replace(/^\//, "") : nfrsPath;
       entries.push({
         artifact: `${rel} -> architecture.json (NFR coverage)`,
         ok: cov.ok,
@@ -7285,7 +7285,7 @@ function parseArgs(argv) {
         out.feature = argv[++i];
         break;
       case "--tdd-dir":
-        out.sftddDir = argv[++i];
+        out.consortDir = argv[++i];
         break;
       case "--json":
         out.json = true;
@@ -7333,7 +7333,7 @@ ${HELP}
   }
   let report;
   try {
-    report = scanFeatureConformance(args.sftddDir ?? resolveSftddDir(), args.feature);
+    report = scanFeatureConformance(args.consortDir ?? resolveConsortDir(), args.feature);
   } catch (e) {
     process.stderr.write(`gate-conformance: ${e.message}
 `);

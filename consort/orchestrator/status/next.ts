@@ -400,36 +400,36 @@ export function buildNextSnapshot(
  * disk); buildNextSnapshot itself stays pure.
  */
 export function readFeatureNextSnapshot(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   projectDir: string,
   ctx: Omit<NextContext, "featureId" | "stories"> & { uiTrack?: boolean } = {},
 ): NextSnapshot {
-  const state = readDriveStateFromDisk(sftddDir, featureId, projectDir, { uiTrack: ctx.uiTrack });
+  const state = readDriveStateFromDisk(consortDir, featureId, projectDir, { uiTrack: ctx.uiTrack });
   return buildNextSnapshot("feature", state, {
     ...ctx,
     featureId,
-    stories: summarizeStories(sftddDir, featureId),
+    stories: summarizeStories(consortDir, featureId),
   });
 }
 
 /**
- * Emit the authoritative feature snapshot to `<sftddDir>/next.json`. The drive
+ * Emit the authoritative feature snapshot to `<consortDir>/next.json`. The drive
  * calls this on every stop (a gate, an escalation, feature-complete, an error,
  * a killed run), so an orchestrating agent's contract is simply: on any stop,
  * read next.json and present its options. Best-effort: an advisory artifact must
  * never break the run, so all failures are swallowed (FEIP-8017).
  */
 export function emitNextJson(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   projectDir: string,
   ctx: Omit<NextContext, "featureId" | "stories"> & { uiTrack?: boolean } = {},
 ): void {
   try {
-    const snap = readFeatureNextSnapshot(sftddDir, featureId, projectDir, ctx);
-    fs.mkdirSync(sftddDir, { recursive: true });
-    fs.writeFileSync(path.join(sftddDir, "next.json"), JSON.stringify(snap, null, 2) + "\n", "utf8");
+    const snap = readFeatureNextSnapshot(consortDir, featureId, projectDir, ctx);
+    fs.mkdirSync(consortDir, { recursive: true });
+    fs.writeFileSync(path.join(consortDir, "next.json"), JSON.stringify(snap, null, 2) + "\n", "utf8");
   } catch {
     /* best-effort: next.json is advisory; never let it fail the run */
   }

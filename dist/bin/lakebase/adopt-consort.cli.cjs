@@ -27,7 +27,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 var getImportMetaUrl = () => typeof document === "undefined" ? new URL(`file:${__filename}`).href : document.currentScript && document.currentScript.tagName.toUpperCase() === "SCRIPT" ? document.currentScript.src : new URL("main.js", document.baseURI).href;
 var importMetaUrl = /* @__PURE__ */ getImportMetaUrl();
 
-// consort/lakebase/adopt-sftdd.ts
+// consort/lakebase/adopt-consort.ts
 var fs2 = __toESM(require("fs"), 1);
 
 // consort/config/consort-paths.ts
@@ -37,7 +37,7 @@ var ARTIFACT_ROOT = ".consort";
 var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
 var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
 
-// consort/lakebase/adopt-sftdd.ts
+// consort/lakebase/adopt-consort.ts
 var path = __toESM(require("path"), 1);
 var import_node_url = require("url");
 function adoptTdd(args) {
@@ -138,7 +138,7 @@ function findBootstrapDir() {
   );
 }
 
-// bin/lakebase/adopt-sftdd.cli.ts
+// bin/lakebase/adopt-consort.cli.ts
 function parseArgs(argv) {
   const out = {};
   for (let i = 0; i < argv.length; i++) {
@@ -170,17 +170,18 @@ function parseArgs(argv) {
   }
   return out;
 }
-var HELP = `lakebase-adopt-sftdd \u2013 bootstrap the .sftdd/ workflow tree on an existing repo
+var HELP = `lakebase-adopt-consort \u2013 bootstrap the .consort/ workflow tree on an existing repo
+(aliases: lakebase-adopt-sftdd, lakebase-adopt-tdd)
 
 Usage:
-  lakebase-adopt-sftdd [path]                     fresh adoption; fails if .tdd/ exists
-  lakebase-adopt-sftdd [path] --update            report drift, add missing files
-  lakebase-adopt-sftdd [path] --update --force    additionally overwrite drifted files
-  lakebase-adopt-sftdd [path] --dry-run --update  preview without writing
+  lakebase-adopt-consort [path]                     fresh adoption; fails if .consort/ exists
+  lakebase-adopt-consort [path] --update            report drift, add missing files
+  lakebase-adopt-consort [path] --update --force    additionally overwrite drifted files
+  lakebase-adopt-consort [path] --dry-run --update  preview without writing
 
 Flags:
   --project-dir <path>, -C <path>   Project root (defaults to current directory)
-  --update                          Allow running on a project that already has .tdd/
+  --update                          Allow running on a project that already has .consort/
   --force                           Overwrite drifted template files (implies --update)
   --dry-run                         Report what would change; write nothing
   --help, -h                        Show this help
@@ -214,4 +215,4 @@ main().then(
     process.exit(1);
   }
 );
-//# sourceMappingURL=adopt-sftdd.cli.cjs.map
+//# sourceMappingURL=adopt-consort.cli.cjs.map

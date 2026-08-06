@@ -1,5 +1,5 @@
 // Auto-apply: the unattended champion walk bakes a winning candidate's CONFIG levers
-// into the kit as DATA (optimized-defaults.json), which defaultSftddConfig deep-merges.
+// into the kit as DATA (optimized-defaults.json), which defaultConsortConfig deep-merges.
 // No TS source rewrite (single-source rule holds); a rebuild inlines the overlay. These
 // tests cover the writer (applyWinnerToOverlay) against a temp kit tree, and the merge
 // semantics via a direct merge check , NOT against the live kit's committed overlay
@@ -83,13 +83,13 @@ describe("applyWinnerToOverlay: bake a config winner into the data overlay", () 
   });
 });
 
-describe("defaultSftddConfig reflects the committed overlay (spec-author breakdown winner)", () => {
+describe("defaultConsortConfig reflects the committed overlay (spec-author breakdown winner)", () => {
   it("the live kit overlay applies spec-author breakdown haiku+low via deep-merge", async () => {
     // The committed optimized-defaults.json carries the spec-author breakdown winner;
-    // defaultSftddConfig deep-merges it. This asserts the wiring end-to-end on the real
+    // defaultConsortConfig deep-merges it. This asserts the wiring end-to-end on the real
     // kit config (not a temp tree), proving the overlay path is load-bearing.
-    const { defaultSftddConfig } = await import("../../consort/orchestrator/settings/project-settings");
-    const cfg = defaultSftddConfig();
+    const { defaultConsortConfig } = await import("../../consort/orchestrator/settings/project-settings");
+    const cfg = defaultConsortConfig();
     const sa = cfg.roles?.["spec-author"];
     const model = sa?.model as Record<string, string> | string | undefined;
     const effort = sa?.effort as Record<string, string> | string | undefined;

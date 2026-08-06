@@ -22,7 +22,7 @@ import {
   type SchemaMigrationLanguage,
 } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { getFeatureStatus } from "../../consort/orchestrator/status/feature-status.js";
-import { resolveSftddDir } from "../../consort/config/consort-paths.js";
+import { resolveConsortDir } from "../../consort/config/consort-paths.js";
 // PR-flow MCP tools.
 import {
   createPullRequest,
@@ -337,14 +337,14 @@ export const TOOLS: ToolDefinition[] = [
       type: "object",
       properties: {
         featureId: { type: "string", description: "Feature id (e.g., 'F1-checkout')." },
-        sftddDir: { type: "string", description: "Path to the .tdd/ directory. Default: './.tdd'." },
+        consortDir: { type: "string", description: "Path to the .tdd/ directory. Default: './.tdd'." },
       },
       required: ["featureId"],
       additionalProperties: false,
     },
     handler: async (args) => {
       return getFeatureStatus(
-        optionalString(args, "sftddDir") ?? resolveSftddDir(),
+        optionalString(args, "consortDir") ?? resolveConsortDir(),
         requireString(args, "featureId")
       );
     },

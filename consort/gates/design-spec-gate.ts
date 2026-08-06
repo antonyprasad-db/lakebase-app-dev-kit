@@ -105,15 +105,15 @@ const KEYWORDS_FOR_GAPS = ["could", "either", "or", "alternatively", "consider",
 export interface AnalyzeForGateOptions {
   /**
    * Project root that holds `playwright.config.ts` etc. Defaults to the
-   * directory above sftddDir, which matches the canonical convention
-   * (`<projectRoot>/.sftdd/`). Pass explicitly when sftddDir lives outside
+   * directory above consortDir, which matches the canonical convention
+   * (`<projectRoot>/.sftdd/`). Pass explicitly when consortDir lives outside
    * the project root (BDD harness, non-standard layouts).
    */
   projectDir?: string;
 }
 
 export function analyzeForGate(
-  sftddDir: string,
+  consortDir: string,
   featureId: string,
   storyId: string,
   opts?: AnalyzeForGateOptions
@@ -121,11 +121,11 @@ export function analyzeForGate(
   // Experiments are story-scoped: analyze only this story's slice
   // of the master test list, so N (one experiment vs a race) is decided per
   // story, not per whole feature.
-  const master = readMasterTestList(sftddDir, featureId);
-  const list = scopeToStory(master, storyId, acsForStory(sftddDir, featureId, storyId));
+  const master = readMasterTestList(consortDir, featureId);
+  const list = scopeToStory(master, storyId, acsForStory(consortDir, featureId, storyId));
   const gaps = detectOpinionGaps(list);
-  const projectDir = opts?.projectDir ?? dirname(sftddDir);
-  const transition_blockers = checkE2eGate({ sftddDir, featureId, list, projectDir });
+  const projectDir = opts?.projectDir ?? dirname(consortDir);
+  const transition_blockers = checkE2eGate({ consortDir, featureId, list, projectDir });
   const mode: "N=1" | "N>=2" = gaps.length >= 2 ? "N>=2" : "N=1";
   const proposed: ExperimentPlan = {
     feature_id: featureId,
@@ -155,7 +155,7 @@ export function analyzeForGate(
         ? "Fewer than 2 opinion gaps detected – refine iteratively on a single branch."
         : `${gaps.length} opinion gaps detected – race up to 3 parallel strategies, then HITL chooses promote vs synthesize.`,
   };
-  const spike_inputs = collectSpikeInputs({ sftddDir, featureId });
+  const spike_inputs = collectSpikeInputs({ consortDir, featureId });
   if (spike_inputs.length > 0) {
     proposed.spike_inputs = spike_inputs;
   }
@@ -171,14 +171,14 @@ export function analyzeForGate(
  * or retag the ACs) to the PO.
  */
 export function checkE2eGate(args: {
-  sftddDir: string;
+  consortDir: string;
   featureId: string;
   list: TestList;
   projectDir: string;
 }): TransitionBlocker[] {
   const e2eAcIds = new Set<string>();
   for (const item of args.list.items) {
-    const layer = readAcLayer(args.sftddDir, args.featureId, item.ac_id) as AcLayer | undefined;
+    const layer = readAcLayer(args.consortDir, args.featureId, item.ac_id) as AcLayer | undefined;
     if (layer === "E2E") {
       e2eAcIds.add(item.ac_id);
     }
@@ -222,9 +222,9 @@ function detectOpinionGaps(list: TestList): OpinionGap[] {
   return gaps;
 }
 
-export function recordPlan(sftddDir: string, plan: ExperimentPlan, deciderEmail?: string): void {
-  mkdirSync(sftddDir, { recursive: true });
-  const logPath = join(sftddDir, "selection-log.md");
+export function recordPlan(consortDir: string, plan: ExperimentPlan, deciderEmail?: string): void {
+  mkdirSync(consortDir, { recursive: true });
+  const logPath = join(consortDir, "selection-log.md");
   const ts = new Date().toISOString();
   const lines = [
     "",
@@ -240,17 +240,17 @@ export function recordPlan(sftddDir: string, plan: ExperimentPlan, deciderEmail?
   appendFileSync(logPath, lines.join("\n"));
 }
 
-export function readPlan(sftddDir: string, featureId: string, storyId: string): ExperimentPlan | null {
-  const planPath = storyPlanJson(sftddDir, featureId, storyId);
+export function readPlan(consortDir: string, featureId: string, storyId: string): ExperimentPlan | null {
+  const planPath = storyPlanJson(consortDir, featureId, storyId);
   if (!existsSync(planPath)) return null;
   return JSON.parse(readFileSync(planPath, "utf8"));
 }
 
-export function writePlan(sftddDir: string, plan: ExperimentPlan): void {
+export function writePlan(consortDir: string, plan: ExperimentPlan): void {
   // Plan persists per story as features/<F>/stories/<story>/plan.json
   // for downstream readers (orchestrator). Conformance keys plan.json by
   // basename, so the per-story location still validates against plan.schema.json.
-  const planPath = storyPlanJson(sftddDir, plan.feature_id, plan.story_id);
+  const planPath = storyPlanJson(consortDir, plan.feature_id, plan.story_id);
   mkdirSync(dirname(planPath), { recursive: true });
   writeFileSync(planPath, JSON.stringify(plan, null, 2) + "\n");
 }

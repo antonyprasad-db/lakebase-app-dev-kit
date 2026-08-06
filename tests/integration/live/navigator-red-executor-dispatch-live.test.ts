@@ -30,7 +30,7 @@ import { buildDriveEffects } from "../../../consort/orchestrator/drive/orchestra
 import { execRunner } from "../../../consort/orchestrator/drive/claude-runner.js";
 import type { DriveEffectsConfig } from "../../../consort/orchestrator/drive/orchestrator-effects.js";
 import type { WorkflowAction } from "../../../consort/orchestrator/drive/orchestrator-drive.js";
-import { resolveSftddSettings } from "../../../consort/orchestrator/settings/project-settings.js";
+import { resolveConsortSettings } from "../../../consort/orchestrator/settings/project-settings.js";
 import { writePipeline } from "../../../consort/pipeline/story-pipeline.js";
 import { storyTestProgress } from "../../../consort/pipeline/cycle-record.js";
 
@@ -61,8 +61,8 @@ function hasTestFile(dir: string): boolean {
 describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE: the production drive dispatches navigator RED THROUGH the executor (product channel)", () => {
   it("runDriver -> performViaExecutor -> execute() authors the story's failing tests at the project root + stamps RED", async () => {
     const projectDir = mkdtempSync(join(tmpdir(), "drive-red-"));
-    const sftddDir = join(projectDir, ".sftdd");
-    const featureDir = join(sftddDir, "features", FEATURE);
+    const consortDir = join(projectDir, ".sftdd");
+    const featureDir = join(consortDir, "features", FEATURE);
     const storyDir = join(featureDir, "stories", STORY);
     mkdirSync(join(storyDir, "acs"), { recursive: true });
 
@@ -78,8 +78,8 @@ describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE: the production drive dispatch
     }
     cpSync(join(REC_ARTIFACTS, "stories", STORY, "acs", `${AC}.json`), join(storyDir, "acs", `${AC}.json`));
     // conventions.json (the module LAYOUT the context-pack projects) , seed from the recorded design.
-    mkdirSync(join(sftddDir, "architecture"), { recursive: true });
-    cpSync(join(FIXTURES, "recorded-artifacts/architecture/conventions.json"), join(sftddDir, "architecture", "conventions.json"));
+    mkdirSync(join(consortDir, "architecture"), { recursive: true });
+    cpSync(join(FIXTURES, "recorded-artifacts/architecture/conventions.json"), join(consortDir, "architecture", "conventions.json"));
 
     // 3. The per-story test-list (the manifest's `test-list` input + the RED coverage bar). Derived
     //    from the feature master's S3 items (ac_id AC1-split-fields-shown), in the per-story shape
@@ -93,7 +93,7 @@ describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE: the production drive dispatch
     //    is lean) + build_active on S3, so nextTransition routes STRAIGHT to `navigator RED` (its
     //    design gates are all satisfied by the seeded artifacts; the build lane's first pending step
     //    is !testsWritten -> navigator RED).
-    writePipeline(sftddDir, {
+    writePipeline(consortDir, {
       version: 1,
       feature_id: FEATURE,
       stories: {
@@ -106,7 +106,7 @@ describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE: the production drive dispatch
       build_queue: [STORY],
       build_active: STORY,
     } as never);
-    writeFileSync(join(sftddDir, "workflow-state.json"), JSON.stringify({ phase: "implementation", phase_feature_id: FEATURE }));
+    writeFileSync(join(consortDir, "workflow-state.json"), JSON.stringify({ phase: "implementation", phase_feature_id: FEATURE }));
 
     // Lay the kit's role agent defs so the live `--agent navigator` resolves (plain copy, no cloud).
     const agentsDst = join(projectDir, ".claude", "agents");
@@ -118,10 +118,10 @@ describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE: the production drive dispatch
     process.env.LAKEBASE_KIT_DIR = KIT;
 
     // Build the REAL production cfg + effects + runner (mirrors drive.cli's wiring).
-    const settings = resolveSftddSettings({ projectDir });
+    const settings = resolveConsortSettings({ projectDir });
     const cfg: DriveEffectsConfig = {
       projectDir,
-      sftddDir,
+      consortDir,
       featureId: FEATURE,
       runner: { async run() {} },
       useManifestSteps: true,
@@ -164,7 +164,7 @@ describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE: the production drive dispatch
       expect(statSync(testsDir).isDirectory(), `tests/ dir at ${testsDir}`).toBe(true);
       expect(hasTestFile(testsDir), "navigator authored >=1 test file under tests/ (product channel)").toBe(true);
       //   (b) a RED cycle was stamped (testsWritten flipped): the story now has an open RED cycle.
-      const progress = storyTestProgress(sftddDir, FEATURE, STORY);
+      const progress = storyTestProgress(consortDir, FEATURE, STORY);
       expect(progress.openRed.length > 0 || progress.allGreen, "a RED cycle was stamped for the story").toBe(true);
       //   (c) the loop advanced past RED (stopped at the bound), proving it consumed the executor's route.
       expect(result.stoppedAtBound || result.stoppedAtMax || result.iterations >= 1).toBe(true);

@@ -94,15 +94,15 @@ describe("green-failure-advisory preparer (byte-identical to the assess prompt's
 describe("context-pack preparer", () => {
   it("projects the LAYOUT map from conventions.json (delegates to buildContextPack)", () => {
     seedConventions();
-    const pack = PRECONDITION_PREPARERS["context-pack"]({ sftddDir: tdd, featureId: F, story: S, ac: AC });
+    const pack = PRECONDITION_PREPARERS["context-pack"]({ consortDir: tdd, featureId: F, story: S, ac: AC });
     expect(pack).toMatch(/LAYOUT \(place\/judge code/);
     expect(pack).toMatch(/service=app\/services/);
   });
 
   it("honors the skipTestLoop option (no TESTS line for RED/REVIEW)", () => {
     seedConventions();
-    const withLoop = PRECONDITION_PREPARERS["context-pack"]({ sftddDir: tdd, featureId: F, story: S, ac: AC });
-    const noLoop = PRECONDITION_PREPARERS["context-pack"]({ sftddDir: tdd, featureId: F, story: S, ac: AC, options: { skipTestLoop: true } });
+    const withLoop = PRECONDITION_PREPARERS["context-pack"]({ consortDir: tdd, featureId: F, story: S, ac: AC });
+    const noLoop = PRECONDITION_PREPARERS["context-pack"]({ consortDir: tdd, featureId: F, story: S, ac: AC, options: { skipTestLoop: true } });
     expect(withLoop).toMatch(/TESTS ::/);
     expect(noLoop).not.toMatch(/TESTS ::/);
   });

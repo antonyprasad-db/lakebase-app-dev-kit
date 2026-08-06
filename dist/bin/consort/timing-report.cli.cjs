@@ -6664,7 +6664,7 @@ var import_node_path = require("path");
 var ARTIFACT_ROOT = ".consort";
 var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
 var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
-function resolveSftddDir(projectDir = process.cwd()) {
+function resolveConsortDir(projectDir = process.cwd()) {
   const next = (0, import_node_path.join)(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
   for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
@@ -6762,12 +6762,12 @@ var AGENT_LOG_EVENT_NAMES = Object.keys(EVENT_TEMPLATES);
 
 // consort/logging/agent-log.ts
 var LEVEL_ORDER = { debug: 0, info: 1, warn: 2, error: 3 };
-function logFilePath(sftddDir) {
-  return (0, import_path2.join)(sftddDir, "agent-log.jsonl");
+function logFilePath(consortDir) {
+  return (0, import_path2.join)(consortDir, "agent-log.jsonl");
 }
 function readAgentLog(opts = {}) {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
-  const file = logFilePath(sftddDir);
+  const consortDir = opts.consortDir ?? resolveConsortDir();
+  const file = logFilePath(consortDir);
   if (!(0, import_fs2.existsSync)(file)) return [];
   const minRank = opts.minLevel !== void 0 ? LEVEL_ORDER[opts.minLevel] : void 0;
   const out = [];
@@ -7025,6 +7025,8 @@ var import_fs3 = require("fs");
 
 // consort/config/consort-env.ts
 init_cjs_shims();
+var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
+var ENV_PREFIX = ENV_PREFIXES[0];
 
 // consort/session/run-config.ts
 var import_path4 = require("path");
@@ -7052,8 +7054,8 @@ var import_node_path2 = require("path");
 
 // consort/session/run-config.ts
 var RUN_CONFIG_REL = (0, import_path4.join)(ARTIFACT_ROOT, "run-config.json");
-function readRunConfig(sftddDir) {
-  const f = (0, import_path4.join)(sftddDir, "run-config.json");
+function readRunConfig(consortDir) {
+  const f = (0, import_path4.join)(consortDir, "run-config.json");
   if (!(0, import_fs3.existsSync)(f)) return void 0;
   try {
     return JSON.parse((0, import_fs3.readFileSync)(f, "utf8"));
@@ -7096,7 +7098,7 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     switch (argv[i]) {
       case "--tdd-dir":
-        out.sftddDir = argv[++i];
+        out.consortDir = argv[++i];
         break;
       case "--feature":
         out.feature = argv[++i];
@@ -7154,11 +7156,11 @@ ${HELP}
     return 0;
   }
   const report = timingReportFromLog(
-    { sftddDir: parsed.sftddDir, featureId: parsed.feature },
+    { consortDir: parsed.consortDir, featureId: parsed.feature },
     { topN: parsed.top, skipPlanning: parsed.skipPlanning }
   );
-  const sftddDir = parsed.sftddDir ?? resolveSftddDir();
-  const config = readRunConfig(sftddDir) ?? null;
+  const consortDir = parsed.consortDir ?? resolveConsortDir();
+  const config = readRunConfig(consortDir) ?? null;
   if (parsed.json) {
     process.stdout.write(`${JSON.stringify({ config, timing: report }, null, 2)}
 `);

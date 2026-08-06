@@ -376,9 +376,9 @@ export function checkNfrCoverage(
  *  project (for the per-feature-relevance NFR check: a Required NFR satisfied by
  *  any one feature counts as covered project-wide). Best-effort: unreadable /
  *  invalid architecture.json files contribute nothing. */
-export function projectBriefRefs(sftddDir: string): Set<string> {
+export function projectBriefRefs(consortDir: string): Set<string> {
   const refs = new Set<string>();
-  const fdir = featuresDirOf(sftddDir);
+  const fdir = featuresDirOf(consortDir);
   if (!existsSync(fdir)) return refs;
   for (const feature of readdirSync(fdir)) {
     const archPath = join(fdir, feature, "architecture.json");
@@ -814,7 +814,7 @@ export function canonicalArtifactName(path: string): string {
 }
 
 export interface FeatureConformanceEntry {
-  /** Path relative to sftddDir, for display. */
+  /** Path relative to consortDir, for display. */
   artifact: string;
   ok: boolean;
   violations: string[];
@@ -834,8 +834,8 @@ export interface FeatureConformanceReport {
  * answers "do the artifacts that exist adhere to their format?". The standalone
  * counterpart to the gate-time check the human-proxy runs.
  */
-export function scanFeatureConformance(sftddDir: string, featureId: string): FeatureConformanceReport {
-  const featuresDir = featuresDirOf(sftddDir);
+export function scanFeatureConformance(consortDir: string, featureId: string): FeatureConformanceReport {
+  const featuresDir = featuresDirOf(consortDir);
   const candidates = existsSync(featuresDir)
     ? readdirSync(featuresDir).filter((d) => d.startsWith(featureId))
     : [];
@@ -850,12 +850,12 @@ export function scanFeatureConformance(sftddDir: string, featureId: string): Fea
   };
 
   // Top-level Product Owner project overview.
-  pushIfExists(join(sftddDir, "product-overview.md"));
+  pushIfExists(join(consortDir, "product-overview.md"));
   // HIL NFR brief: project-level + optional per-feature override.
-  pushIfExists(join(sftddDir, "nfrs.md"));
+  pushIfExists(join(consortDir, "nfrs.md"));
   // Project-level UX Designer artifacts (UI projects; absent otherwise).
   for (const name of ["design-brief.md", "design-guide.md", "design-guide.json", "ia.md"]) {
-    pushIfExists(join(sftddDir, "design", name));
+    pushIfExists(join(consortDir, "design", name));
   }
   // Feature-level artifacts.
   for (const name of ["feature-request.md", "feature-spec.json", "feature-spec.md", "nfrs.md", "architecture.md", "db-design.json", "plan.json", "test-list.json", "test-list.md"]) {
@@ -895,7 +895,7 @@ export function scanFeatureConformance(sftddDir: string, featureId: string): Fea
     const content = readFileSync(p, "utf8");
     const result = checkArtifactConformance(canonicalArtifactName(p), content);
     return {
-      artifact: p.startsWith(sftddDir) ? p.slice(sftddDir.length).replace(/^\//, "") : p,
+      artifact: p.startsWith(consortDir) ? p.slice(consortDir.length).replace(/^\//, "") : p,
       ok: result.ok,
       violations: result.ok ? [] : result.violations,
     };
@@ -939,11 +939,11 @@ export function scanFeatureConformance(sftddDir: string, featureId: string): Fea
     // Per-feature relevance: a project Required NFR is covered when THIS feature,
     // OR any sibling feature, realizes it (or this feature scopes it out). Collect
     // sibling coverage once.
-    const siblingRefs = projectBriefRefs(sftddDir);
-    for (const nfrsPath of [join(sftddDir, "nfrs.md"), join(featureDir, "nfrs.md")]) {
+    const siblingRefs = projectBriefRefs(consortDir);
+    for (const nfrsPath of [join(consortDir, "nfrs.md"), join(featureDir, "nfrs.md")]) {
       if (!existsSync(nfrsPath)) continue;
       const cov = checkNfrCoverage(readFileSync(nfrsPath, "utf8"), archContent, siblingRefs);
-      const rel = nfrsPath.startsWith(sftddDir) ? nfrsPath.slice(sftddDir.length).replace(/^\//, "") : nfrsPath;
+      const rel = nfrsPath.startsWith(consortDir) ? nfrsPath.slice(consortDir.length).replace(/^\//, "") : nfrsPath;
       entries.push({
         artifact: `${rel} -> architecture.json (NFR coverage)`,
         ok: cov.ok,

@@ -13,7 +13,7 @@ import {
   type CreateProjectResult,
   type ProgressCallback,
 } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-import { kitSftddHooks, layDownTddScaffold } from "../../consort/setup/project-sftdd-setup.js";
+import { kitConsortHooks, layDownTddScaffold } from "../../consort/setup/project-consort-setup.js";
 
 export type { CreateProjectArgs, CreateProjectResult, ProgressCallback };
 export { layDownTddScaffold };
@@ -23,7 +23,7 @@ export function createProject(
   progress?: ProgressCallback,
 ): Promise<CreateProjectResult> {
   return baseCreateProject(
-    { ...input, sftddHooks: input.sftddHooks ?? kitSftddHooks },
+    { ...input, sftddHooks: input.sftddHooks ?? kitConsortHooks },
     progress,
   );
 }

@@ -15,12 +15,12 @@
 //   3 = scan failure (e.g. feature not found)
 
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
-import { resolveSftddDir, ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
+import { resolveConsortDir, ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
 import { scanFeatureConformance } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
 
 interface ParsedArgs {
   feature?: string;
-  sftddDir?: string;
+  consortDir?: string;
   json?: boolean;
   pretty?: boolean;
   help?: boolean;
@@ -34,7 +34,7 @@ function parseArgs(argv: string[]): ParsedArgs {
         out.feature = argv[++i];
         break;
       case "--tdd-dir":
-        out.sftddDir = argv[++i];
+        out.consortDir = argv[++i];
         break;
       case "--json":
         out.json = true;
@@ -80,7 +80,7 @@ export function runGateConformanceCli(argv: string[]): number {
   }
   let report;
   try {
-    report = scanFeatureConformance(args.sftddDir ?? resolveSftddDir(), args.feature);
+    report = scanFeatureConformance(args.consortDir ?? resolveConsortDir(), args.feature);
   } catch (e) {
     process.stderr.write(`gate-conformance: ${(e as Error).message}\n`);
     return 3;

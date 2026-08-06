@@ -4,7 +4,7 @@
 // default, with no env or flag override at read time. Writers: create-project (create-time) and the
 // drive's write-through override flags. The resolved result is what the driver runs with and what
 // run-config.json snapshots. Run-mode knobs (record/replay/headless/debug) are not project settings;
-// they stay explicit env inputs, read via sftddEnv.
+// they stay explicit env inputs, read via consortEnv.
 //
 // The FILE half (shape, load/write, the build/plan/project resolution) lives DOWN in the config
 // primitive so a domain module that only reads the file (intake, project-sftdd-setup) depends
@@ -17,19 +17,19 @@
 // fallbackModel, maxBudgetUsd.
 
 import {
-  loadSftddConfig,
+  loadConsortConfig,
   resolveProjectSettings,
-  type SftddConfigFile,
+  type ConsortConfigFile,
   type RoleSettingsFile,
 } from "../../config/consort-config-file.js";
 // Re-export the config-file primitive's surface so callers that import these from the resolver
 // (their long-standing home) keep working unchanged. These are RE-EXPORTS, not definitions, so the
 // single-home guard (which matches definition tokens) still sees one home , the primitive.
 export {
-  loadSftddConfig,
-  writeSftddConfig,
+  loadConsortConfig,
+  writeConsortConfig,
   applyProjectOverrides,
-  defaultSftddConfig,
+  defaultConsortConfig,
   resolveProjectSettings,
   CONSORT_CONFIG_REL,
   LEGACY_CONFIG_RELS,
@@ -37,7 +37,7 @@ export {
   LEGACY_TDD_CONFIG_REL,
   TDD_CONFIG_REL,
 } from "../../config/consort-config-file.js";
-export type { SftddConfigFile, RoleSettingsFile, ProjectFileSettings } from "../../config/consort-config-file.js";
+export type { ConsortConfigFile, RoleSettingsFile, ProjectFileSettings } from "../../config/consort-config-file.js";
 import {
   ALL_AGENT_ROLES,
   RECOMMENDED_MODELS,
@@ -45,7 +45,7 @@ import {
   type SpawnableAgentRole,
 } from "../../config/agent-models.js";
 // The per-step config directory (step-manifests/*.json agentOptions) is the SINGLE declared home
-// for per-step model/effort. resolveSftddSettings reads it as the BASE per-step layer (below the
+// for per-step model/effort. resolveConsortSettings reads it as the BASE per-step layer (below the
 // project file + applied-winners overlay, above RECOMMENDED_MODELS) via agentOptionsForStep, which
 // indexes the shipped manifests by the SAME (role, turnKey) the drive derives.
 import { agentOptionsForStep } from "../steps/manifest.js";
@@ -92,8 +92,8 @@ interface ResolveInputs {
  * The build/plan/project half is resolved by the config-file primitive
  * (resolveProjectSettings); this composes the model/effort layer on top.
  */
-export function resolveSftddSettings(inputs: ResolveInputs): ResolvedSettings {
-  const file = loadSftddConfig(inputs.projectDir);
+export function resolveConsortSettings(inputs: ResolveInputs): ResolvedSettings {
+  const file = loadConsortConfig(inputs.projectDir);
   const legacy = readAgentConfig(inputs.projectDir); // models only
 
   const models: Record<string, string> = {};
@@ -117,7 +117,7 @@ export function resolveSftddSettings(inputs: ResolveInputs): ResolvedSettings {
   // map), above the per-role RECOMMENDED_MODELS base. Only consulted when a turn key is present
   // (an undefined key means "no distinct step" , use the role scalar, never a manifest). The
   // applied-optimization winners (optimized-defaults.json) sit ABOVE this layer but reach the
-  // resolver through the WRITTEN file (defaultSftddConfig bakes them in at scaffold), so a real
+  // resolver through the WRITTEN file (defaultConsortConfig bakes them in at scaffold), so a real
   // project's file already carries them and wins here as the file layer.
   const manifestStep = (role: string, turn?: TurnKey): { model?: string; effort?: string } | undefined =>
     turn ? agentOptionsForStep(role, turn, turnKeyForAction) : undefined;

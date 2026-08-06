@@ -35,8 +35,8 @@ function mkTdd(): string {
 }
 
 /** Write N AC json files into a story's acs/ dir (a story "has ACs"). */
-function writeAcs(sftddDir: string, feature: string, story: string, n: number): void {
-  const acsDir = path.join(sftddDir, "features", feature, "stories", story, "acs");
+function writeAcs(consortDir: string, feature: string, story: string, n: number): void {
+  const acsDir = path.join(consortDir, "features", feature, "stories", story, "acs");
   fs.mkdirSync(acsDir, { recursive: true });
   for (let i = 1; i <= n; i++) {
     fs.writeFileSync(path.join(acsDir, `AC${i}.json`), JSON.stringify({ id: `AC${i}` }));
@@ -47,63 +47,63 @@ const F = "F1-bug-tracker";
 
 describe("findBatchedDraftStories", () => {
   it("returns [] when only the story being gated has ACs (correct per-story scope)", () => {
-    const sftddDir = mkTdd();
+    const consortDir = mkTdd();
     const p = initPipeline(F);
     setStoryStatus(p, "S1", "designing");
     setStoryStatus(p, "S2", "designing");
     setStoryStatus(p, "S3", "designing");
-    writePipeline(sftddDir, p);
-    writeAcs(sftddDir, F, "S1", 2); // only S1 drafted
+    writePipeline(consortDir, p);
+    writeAcs(consortDir, F, "S1", 2); // only S1 drafted
 
-    expect(findBatchedDraftStories(sftddDir, F, readPipeline(sftddDir, F), "S1")).toEqual([]);
+    expect(findBatchedDraftStories(consortDir, F, readPipeline(consortDir, F), "S1")).toEqual([]);
   });
 
   it("flags sibling designing stories that already have ACs (batching)", () => {
-    const sftddDir = mkTdd();
+    const consortDir = mkTdd();
     const p = initPipeline(F);
     for (const s of ["S1", "S2", "S3"]) setStoryStatus(p, s, "designing");
-    writePipeline(sftddDir, p);
+    writePipeline(consortDir, p);
     // The Spec Author batched all three stories' ACs at once.
-    writeAcs(sftddDir, F, "S1", 2);
-    writeAcs(sftddDir, F, "S2", 1);
-    writeAcs(sftddDir, F, "S3", 3);
+    writeAcs(consortDir, F, "S1", 2);
+    writeAcs(consortDir, F, "S2", 1);
+    writeAcs(consortDir, F, "S3", 3);
 
-    expect(findBatchedDraftStories(sftddDir, F, readPipeline(sftddDir, F), "S1")).toEqual(["S2", "S3"]);
+    expect(findBatchedDraftStories(consortDir, F, readPipeline(consortDir, F), "S1")).toEqual(["S2", "S3"]);
   });
 
   it("allows already-gated stories (past designing) to have ACs while a later story is gated", () => {
-    const sftddDir = mkTdd();
+    const consortDir = mkTdd();
     const p = initPipeline(F);
     setStoryStatus(p, "S1", "building"); // gated + dispatched earlier (legit design-ahead)
     setStoryStatus(p, "S2", "designing"); // now being gated
     setStoryStatus(p, "S3", "designing"); // not yet drafted
-    writePipeline(sftddDir, p);
-    writeAcs(sftddDir, F, "S1", 2); // legitimately has ACs
-    writeAcs(sftddDir, F, "S2", 1); // the story being gated
+    writePipeline(consortDir, p);
+    writeAcs(consortDir, F, "S1", 2); // legitimately has ACs
+    writeAcs(consortDir, F, "S2", 1); // the story being gated
 
-    expect(findBatchedDraftStories(sftddDir, F, readPipeline(sftddDir, F), "S2")).toEqual([]);
+    expect(findBatchedDraftStories(consortDir, F, readPipeline(consortDir, F), "S2")).toEqual([]);
   });
 
   it("treats a story absent from the pipeline but with ACs on disk as batched", () => {
-    const sftddDir = mkTdd();
+    const consortDir = mkTdd();
     const p = initPipeline(F);
     setStoryStatus(p, "S1", "designing");
-    writePipeline(sftddDir, p); // S2 never entered the pipeline
-    writeAcs(sftddDir, F, "S1", 1);
-    writeAcs(sftddDir, F, "S2", 1); // drafted out of turn, not even tracked
+    writePipeline(consortDir, p); // S2 never entered the pipeline
+    writeAcs(consortDir, F, "S1", 1);
+    writeAcs(consortDir, F, "S2", 1); // drafted out of turn, not even tracked
 
-    expect(findBatchedDraftStories(sftddDir, F, readPipeline(sftddDir, F), "S1")).toEqual(["S2"]);
+    expect(findBatchedDraftStories(consortDir, F, readPipeline(consortDir, F), "S1")).toEqual(["S2"]);
   });
 
   it("ignores story dirs that have no ACs yet", () => {
-    const sftddDir = mkTdd();
+    const consortDir = mkTdd();
     const p = initPipeline(F);
     for (const s of ["S1", "S2"]) setStoryStatus(p, s, "designing");
-    writePipeline(sftddDir, p);
+    writePipeline(consortDir, p);
     // Both stubs exist on disk but only S1 has ACs.
-    fs.mkdirSync(path.join(sftddDir, "features", F, "stories", "S2"), { recursive: true });
-    writeAcs(sftddDir, F, "S1", 1);
+    fs.mkdirSync(path.join(consortDir, "features", F, "stories", "S2"), { recursive: true });
+    writeAcs(consortDir, F, "S1", 1);
 
-    expect(findBatchedDraftStories(sftddDir, F, readPipeline(sftddDir, F), "S1")).toEqual([]);
+    expect(findBatchedDraftStories(consortDir, F, readPipeline(consortDir, F), "S1")).toEqual([]);
   });
 });

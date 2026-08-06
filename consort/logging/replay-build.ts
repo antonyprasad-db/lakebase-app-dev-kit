@@ -89,7 +89,7 @@ export interface ReplayBuildTurnArgs {
   /** The target project working tree (the experiment branch is checked out). */
   projectDir: string;
   /** The target project .tdd dir. */
-  sftddDir: string;
+  consortDir: string;
   featureId: string;
   story: string;
   /** 1-based ordinal of THIS Navigator/Driver turn within the story's build. */
@@ -113,7 +113,7 @@ export interface ReplayBuildTurnArgs {
  * two artifacts a turn actually produces (code, and the review verdict).
  */
 export function replayBuildTurn(args: ReplayBuildTurnArgs): boolean {
-  const { replayBuildDir, projectDir, sftddDir, featureId, story, turnIndex } = args;
+  const { replayBuildDir, projectDir, consortDir, featureId, story, turnIndex } = args;
   // Skip the turns a trusted-green replay never RE-dispatches, so the Kth
   // dispatched build turn (RED/GREEN/review/refactor) maps to the Kth recorded
   // one. Two classes are capture-only:
@@ -146,7 +146,7 @@ export function replayBuildTurn(args: ReplayBuildTurnArgs): boolean {
   // live cycle-record CLIs own everything else in .tdd (RED/GREEN, review.json).
   const cyclesSrc = join(turnDir, "tdd", "cycles");
   if (existsSync(cyclesSrc)) {
-    cpSync(cyclesSrc, cyclesRootDir(sftddDir), {
+    cpSync(cyclesSrc, cyclesRootDir(consortDir), {
       recursive: true,
       force: true,
       filter: (src) => statSync(src).isDirectory() || src.endsWith("review-verdict.json"),

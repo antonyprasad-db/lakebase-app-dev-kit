@@ -31,7 +31,7 @@
 //   direct flag + atomic state transition.
 
 import { hashArtifact } from "../../consort/gates/gate-hash";
-import { resolveSftddDir } from "../../consort/config/consort-paths.js";
+import { resolveConsortDir } from "../../consort/config/consort-paths.js";
 import { withGatesLock } from "../../consort/gates/gates-lock";
 import {
   readGates,
@@ -66,7 +66,7 @@ export interface MutateTestListArgs {
    * (the write is unprotected in those states).
    */
   hitlReapproved: boolean;
-  sftddDir?: string;
+  consortDir?: string;
   /** Test seam: deterministic clock. */
   now?: () => Date;
 }
@@ -90,13 +90,13 @@ export function mutateTestList(args: MutateTestListArgs): MutateTestListResult {
     );
   }
 
-  const sftddDir = args.sftddDir ?? resolveSftddDir();
+  const consortDir = args.consortDir ?? resolveConsortDir();
   const now = args.now ?? (() => new Date());
 
   return withGatesLock(
     args.featureId,
     (): MutateTestListResult => {
-      const currentState = readGates(args.featureId, { sftddDir });
+      const currentState = readGates(args.featureId, { consortDir });
       const gateRecord = currentState.gates.test_list;
       const newContent = JSON.stringify(args.newTestList, null, 2) + "\n";
       const newHash = hashArtifact(newContent);
@@ -144,17 +144,17 @@ export function mutateTestList(args: MutateTestListArgs): MutateTestListResult {
           ...currentState,
           gates: { ...currentState.gates, test_list: newApprovedRecord },
         };
-        writeMasterTestList(sftddDir, args.newTestList);
-        writeGates(updated, { sftddDir });
+        writeMasterTestList(consortDir, args.newTestList);
+        writeGates(updated, { consortDir });
         return { state: updated, capturedHash: newHash, reapproved: true };
       }
 
       // Unprotected states: open / withdrawn / superseded. Write goes
       // through; gates state is unchanged.
-      writeMasterTestList(sftddDir, args.newTestList);
+      writeMasterTestList(consortDir, args.newTestList);
       return { state: currentState, capturedHash: newHash, reapproved: false };
     },
-    { sftddDir }
+    { consortDir }
   );
 }
 
@@ -162,10 +162,10 @@ export function mutateTestList(args: MutateTestListArgs): MutateTestListResult {
  * Convenience: predicate that callers can use to decide whether they
  * need to pass hitlReapproved without running into the throw.
  */
-export function isTestListProtected(featureId: string, opts: { sftddDir?: string } = {}): boolean {
-  const sftddDir = opts.sftddDir ?? resolveSftddDir();
+export function isTestListProtected(featureId: string, opts: { consortDir?: string } = {}): boolean {
+  const consortDir = opts.consortDir ?? resolveConsortDir();
   try {
-    const state = readGates(featureId, { sftddDir });
+    const state = readGates(featureId, { consortDir });
     return state.gates.test_list.status === "approved";
   } catch {
     return false;

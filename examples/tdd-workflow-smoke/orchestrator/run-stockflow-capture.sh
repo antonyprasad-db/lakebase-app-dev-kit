@@ -75,7 +75,7 @@ lk() { "$PROJECT_DIR/scripts/lk" "$@"; }
 
 # Intake on trunk (product-overview + nfrs + design-brief via human-proxy).
 git checkout main >/dev/null 2>&1 || git checkout master >/dev/null 2>&1 || true
-SFTDD_DIR="$(lk lakebase-resolve-sftdd-dir --project-dir "$PROJECT_DIR")"
+SFTDD_DIR="$(lk lakebase-resolve-consort-dir --project-dir "$PROJECT_DIR")"
 SFTDD_REL="$(basename "$SFTDD_DIR")"
 proxy_supply() { lk consort-human-proxy supply --from "$1" --to "$2" --artifact "$3"; }
 log "staging project intake"
