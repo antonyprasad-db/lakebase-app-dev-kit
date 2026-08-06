@@ -30,7 +30,7 @@ Live-proven: navigator RED (S3) green; navigator ASSESS (S1, the pure-supersessi
 
 Design docs already committed alongside this one:
 `PRE-CONDITIONING-AS-CONTRACT.md`, `ASSESS-ALIGNMENT-GATE-RETHINK.md`, `RESET-EXPERIMENT-DB-DESIGN.md`,
-`../optimize/evaluation/README.md`.
+`../../evaluation/reference-assets/stockflow/README.md`.
 
 ---
 
@@ -237,4 +237,4 @@ preconditions (each analyst declares exactly its slice's inputs), so #2 should l
 - TDD; drive byte-identical proven by the roleTaskBody/cycle-record prompt suites.
 - New shared logic MIGRATES to the orchestrator family (`consort/orchestrator/...`), not left in
   scripts/sftdd , the buildContextPack extraction + the green-failure-advisory preparer are the model.
-- Experiments read self-contained fixtures (`optimize/evaluation/fixtures/`), never the live corpus.
+- Experiments read self-contained fixtures (`consort/evaluation/reference-assets/stockflow/`), never the live corpus.

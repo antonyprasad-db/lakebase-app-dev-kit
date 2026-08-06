@@ -59,7 +59,7 @@ describe("consort foliation + bin/ move: scripts holds no source, bin holds only
     const offenders: string[] = [];
     for (const file of tracked("consort/")) {
       if (!file.endsWith(".ts") || file.endsWith(".test.ts")) continue;
-      if (file.includes("/evaluation/fixtures/")) continue; // recorded corpus, not kit source
+      if (file.includes("/reference-assets/stockflow/")) continue; // recorded corpus, not kit source
       const src = readFileSync(file, "utf-8");
       for (const line of src.split("\n")) {
         const m = line.match(/^\s*import\s+(type\s+)?[^;]*?from\s+["']([^"']+)["']/);

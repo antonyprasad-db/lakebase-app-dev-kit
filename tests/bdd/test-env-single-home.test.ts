@@ -6,7 +6,7 @@
 //   - .env.template.test.config       documents the knob (host shown only as a commented example)
 //   - examples/**                     runnable DEMOS with self-contained ${:-default} recipes +
 //                                     recorded corpus .env.example (captured app data, not config)
-//   - consort/optimize/evaluation/fixtures/**  recorded fixture data
+//   - consort/evaluation/reference-assets/stockflow/**  recorded fixture data
 //   - tests/integration/live/driver-green-setup/code-assets/**  the bundle's recorded app .env
 //   - docs/**                         prose documenting the validation target
 //   - this file                       (names the literal to assert on)
@@ -21,7 +21,7 @@ const ALLOWED = [
   ".env.local.test.config",
   ".env.template.test.config",
   "examples/",
-  "consort/optimize/evaluation/fixtures/",
+  "consort/evaluation/reference-assets/stockflow/",
   "tests/integration/live/driver-green-setup/code-assets/",
   "docs/",
   "tests/bdd/test-env-single-home.test.ts",

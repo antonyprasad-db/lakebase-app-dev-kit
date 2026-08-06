@@ -32,7 +32,7 @@ export const BUILD_MANIFESTS_REL = "tests/integration/manifests";
 // recorded-build/ code trees + the ground-truth assess marker), copied out of the live corpus. So
 // a durable experiment re-run / evidence review does NOT depend on the scenario corpus being
 // present (the corpus is a moving reference; the fixtures are pinned). See evaluation/README.md.
-export const BUILD_CORPUS_REL = "consort/optimize/evaluation/fixtures";
+export const BUILD_CORPUS_REL = "consort/evaluation/reference-assets/stockflow";
 export const BUILD_FEATURE = "F6-split-tracking-code";
 // RED runs on S3 (the richest test-authoring story). Its live green is proven there.
 export const BUILD_STORY = "S3-stock-shows-split-fields";

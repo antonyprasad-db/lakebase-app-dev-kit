@@ -229,7 +229,7 @@ What actually moved (a code trace corrected the original blanket plan):
     the sweep.
   - `consort/optimize/build-role-chains.ts` — **production**: `build-context.ts`
     (→ `orchestrator-effects.ts`, the live drive) imports it to inject the SAME context pack.
-  - `consort/optimize/evaluation/fixtures/` + `tests/integration/{intake,manifests}` —
+  - `consort/evaluation/reference-assets/stockflow/` + `tests/integration/{intake,manifests}` —
     the fixture-path constants (`INTAKE_REL`, `BUILD_MANIFESTS_REL`, `BUILD_CORPUS_REL`) live in the
     STAYING files and serve the integration tests too; moving them would make a staying/production
     file reach into `tests/optimization/`. They stay where every consumer already points.
