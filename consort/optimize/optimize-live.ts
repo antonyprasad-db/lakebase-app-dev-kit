@@ -79,7 +79,7 @@ export interface OptimizeLiveCtx {
    *  stopped, so it never inflates wall-clock. A below-threshold verdict disqualifies
    *  the candidate regardless of speed. Optional: absent (hermetic tests, or a build
    *  turn) => the semantic bar is not applied and the structural gate stands alone. */
-  semanticGate?(args: { handoff: HandoffPlan }): Promise<import("./optimize-semantic-gate.js").SemanticGateOutcome>;
+  semanticGate?(args: { handoff: HandoffPlan }): Promise<import("../evaluation/semantic-gate.js").SemanticGateOutcome>;
 }
 
 /** The on-disk config path relative to the project root. */

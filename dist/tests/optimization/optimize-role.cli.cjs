@@ -10212,7 +10212,7 @@ function roleCandidates(baseModel, caps = {}) {
 // tests/optimization/role-sweep.ts
 init_cjs_shims();
 
-// consort/optimize/optimize-semantic-gate.ts
+// consort/evaluation/semantic-gate.ts
 init_cjs_shims();
 var import_node_child_process4 = require("child_process");
 var import_node_fs17 = require("fs");

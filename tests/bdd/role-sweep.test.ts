@@ -8,7 +8,7 @@ import { runRoleSweep, type ChainRunner, type ChainRunResult } from "../optimiza
 import { reportRoleSweep, formatRoleSweepReport } from "../optimization/role-sweep-report";
 import { roleCandidates } from "../optimization/role-levers";
 import { ROLE_CHAINS } from "../../consort/optimize/role-chains";
-import type { SemanticJudge } from "../../consort/optimize/optimize-semantic-gate";
+import type { SemanticJudge } from "../../consort/evaluation/semantic-gate";
 import type { ManifestTurn } from "../../consort/orchestrator/runners/manifest-runner";
 
 const CHAIN = ROLE_CHAINS["test-strategist"];

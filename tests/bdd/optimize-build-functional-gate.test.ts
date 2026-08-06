@@ -16,7 +16,7 @@ import {
   buildOutputKind,
   FUNCTIONAL_THRESHOLD,
   type SemanticJudge,
-} from "../../consort/optimize/optimize-semantic-gate";
+} from "../../consort/evaluation/semantic-gate";
 
 let kitRoot: string;
 let projectDir: string;

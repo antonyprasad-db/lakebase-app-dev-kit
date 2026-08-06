@@ -13366,7 +13366,7 @@ function buildDriveEffects(cfg) {
   };
 }
 
-// consort/optimize/optimize-semantic-gate.ts
+// consort/evaluation/semantic-gate.ts
 init_esm_shims();
 import { execFile } from "child_process";
 import { existsSync as existsSync41, readFileSync as readFileSync38, readdirSync as readdirSync27, statSync as statSync19 } from "fs";

@@ -1,11 +1,13 @@
-// optimize-semantic-gate: the SEMANTIC-similarity quality bar for a design-turn
-// candidate. The structural self-check (optimize-gate.evaluateDesignGate) proves an
-// artifact is well-FORMED; this proves it is well-MEANING , that a candidate's
-// artifact conveys the SAME design/behavior as the artifact recorded at that same
-// step in the reference corpus, regardless of wording, slug, or how content is
-// split. A cheaper/faster model that drops material intent (a design-guide missing
-// the status-badge concept, a spec missing a behavior) must be disqualified no
-// matter how fast it was.
+// evaluation/semantic-gate: the SHARED comparison judges , the SEMANTIC / DISCRIMINATOR /
+// FUNCTIONAL / RED-coverage bar comparing a produced output to the reference recorded at that same
+// step. Used by BOTH the regression path (the executor-dispatch equivalence proofs) and the
+// optimization path (the champion-walk sweep) , ONE comparison mechanism, so it lives in
+// consort/evaluation/ (a peer family), not optimize-only. The structural self-check
+// (optimize-gate.evaluateDesignGate) proves an artifact is well-FORMED; this proves it is
+// well-MEANING , that the output conveys the SAME design/behavior as the reference recorded at that
+// same step, regardless of wording, slug, or how content is split. An output that drops material
+// intent (a design-guide missing the status-badge concept, a spec missing a behavior) is
+// disqualified no matter how fast it was produced.
 //
 // "Comparable" is a SEMANTIC judgment, not a structural diff, so it is judged by an
 // LLM-as-judge on a FIXED model (opus) , constant across candidates, so the bar

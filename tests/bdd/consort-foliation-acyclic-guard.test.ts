@@ -1,7 +1,7 @@
 // PERMANENT anti-recurrence guard for the scripts/sftdd foliation + the CLI move to bin/: the flat
 // scripts/sftdd/ pile was foliated into first-class consort/<domain>/ families (config, logging,
-// gates, experiment, pipeline, smells, architecture, intake, deploy, optimize, session, reports,
-// test-list, setup, lakebase) plus the orchestrator/ families, and every CLI moved to bin/. The
+// gates, experiment, pipeline, smells, architecture, intake, deploy, optimize, evaluation, session,
+// reports, test-list, setup, lakebase) plus the orchestrator/ families, and every CLI moved to bin/. The
 // dependency graph is now ONE-WAY:
 //
 //   consort/<family>/ libraries  ->  each other, DOWNWARD by layer  ->  bin/**/*.cli entrypoints

@@ -36,7 +36,7 @@ import {
   readTree,
   FUNCTIONAL_THRESHOLD,
   type DiscriminatorVerdict,
-} from "../../../consort/optimize/optimize-semantic-gate.js";
+} from "../../../consort/evaluation/semantic-gate.js";
 import { formatRoleTelemetry, writeRoleTelemetry, type RoleTelemetry } from "../../../consort/optimize/role-telemetry.js";
 import type { ManifestTurn } from "../../../consort/orchestrator/runners/manifest-runner.js";
 

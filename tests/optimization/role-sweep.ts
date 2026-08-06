@@ -13,7 +13,7 @@
 // falls through to its replay).
 
 import { ClaudeStepAgent, type AgentLevers } from "../../consort/orchestrator/agents/claude-step-agent.js";
-import { FUNCTIONAL_THRESHOLD, SEMANTIC_THRESHOLD, type SemanticJudge, type BuildOutputKind } from "../../consort/optimize/optimize-semantic-gate.js";
+import { FUNCTIONAL_THRESHOLD, SEMANTIC_THRESHOLD, type SemanticJudge, type BuildOutputKind } from "../../consort/evaluation/semantic-gate.js";
 import type { StepManifest } from "../../consort/orchestrator/steps/manifest.js";
 import type { StepAgent } from "../../consort/orchestrator/agents/agent-types.js";
 import type { ManifestTurn } from "../../consort/orchestrator/runners/manifest-runner.js";
@@ -40,7 +40,7 @@ export type ChainRunner = (
 ) => Promise<ChainRunResult>;
 
 /** The QUALITY gate config: score the candidate's captured artifact against a recorded baseline
- *  via the injected judge (reuses optimize-semantic-gate's SemanticJudge). `kind` picks the
+ *  via the injected judge (reuses the shared evaluation SemanticJudge). `kind` picks the
  *  functional-equivalence prompt (tests/code) vs the semantic-intent prompt (undefined). A
  *  candidate below `threshold` is conformant but THINNER than the baseline , not winner-eligible. */
 export interface QualityGate {

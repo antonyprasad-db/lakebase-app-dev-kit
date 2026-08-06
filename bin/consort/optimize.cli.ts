@@ -33,7 +33,7 @@ import { planNextAction, commandsForAction, turnKeyForAction } from "../../conso
 import { resolveConsortDir } from "../../consort/config/consort-paths.js";
 import { consortEnv, ENV_PREFIXES } from "../../consort/config/consort-env.js";
 import { kitRoot } from "../../consort/config/kit-bin.js";
-import { evaluateSemanticGate, makeOpusJudge } from "../../consort/optimize/optimize-semantic-gate.js";
+import { evaluateSemanticGate, makeOpusJudge } from "../../consort/evaluation/semantic-gate.js";
 import { makeChampionWalkDeps, makeLiveSpawnTurn, makeBuildGate, makeBuildSnapshotDeps, positionToBuildHandoff, positionToNextHandoff, runLaneSweep, readLastTurnTokens, type OptimizeLiveCtx } from "../../consort/optimize/optimize-live.js";
 import { actionLane } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 import { readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";

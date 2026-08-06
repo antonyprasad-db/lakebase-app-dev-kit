@@ -194,6 +194,6 @@ export async function runBuildRoleChainLive(chain: BuildRoleChain, opts: RunBuil
 // a future runBuildDriverChainLive swaps runIntegrationChain's temp-dir workspace for the
 // scaffolded project + a cutExperiment before the live driver turn, and resets the shared branch
 // DB to its baseline (one alembic_version row) between candidates so `alembic upgrade head`
-// rebuilds deterministically. The build-code DISCRIMINATOR judge (optimize-semantic-gate
+// rebuilds deterministically. The build-code DISCRIMINATOR judge (evaluation/semantic-gate
 // makeBuildDiscriminatorJudge) is the driver-turn quality gate , and its independent-oracle reuse
 // is what the navigator-ASSESS alignment gate already calls here.

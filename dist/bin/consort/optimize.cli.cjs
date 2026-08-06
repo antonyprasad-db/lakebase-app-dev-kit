@@ -13375,7 +13375,7 @@ function buildDriveEffects(cfg) {
   };
 }
 
-// consort/optimize/optimize-semantic-gate.ts
+// consort/evaluation/semantic-gate.ts
 init_cjs_shims();
 var import_node_child_process4 = require("child_process");
 var import_node_fs13 = require("fs");

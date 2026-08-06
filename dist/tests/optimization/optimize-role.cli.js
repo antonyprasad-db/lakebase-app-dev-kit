@@ -10203,7 +10203,7 @@ function roleCandidates(baseModel, caps = {}) {
 // tests/optimization/role-sweep.ts
 init_esm_shims();
 
-// consort/optimize/optimize-semantic-gate.ts
+// consort/evaluation/semantic-gate.ts
 init_esm_shims();
 import { execFile } from "child_process";
 import { existsSync as existsSync33, readFileSync as readFileSync31, readdirSync as readdirSync19, statSync as statSync11 } from "fs";
