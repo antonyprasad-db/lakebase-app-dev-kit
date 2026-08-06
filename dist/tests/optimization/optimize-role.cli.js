@@ -7019,6 +7019,9 @@ var navigator_assess_default = {
     { id: "green-failure", source: "story:green-failure.json", description: "The failed-GREEN marker (+ pre-localized superseded-test candidates) the Navigator discriminates." },
     { id: "acs", source: "story:acs", description: "The AC whose intent decides superseded vs genuine regression." }
   ],
+  preconditions: [
+    { id: "advisory", kind: "green-failure-advisory", position: "prepend", description: "The deterministic PRE-LOCALIZATION (verify failure output + contract-clean refs + superseded-test candidates) projected from green-failure.json , PREPENDED before the ASSESS directive so the Navigator starts from the real failure, not a re-scan." }
+  ],
   outputs: [],
   routing: {
     produced: { next: "state-derived" }
@@ -7042,7 +7045,9 @@ var navigator_assess_deploy_default = {
   inputs: [
     { id: "deploy-verify-assess", source: "story:deploy-verify-assess.json", description: "The story-level deploy-verify failure marker the Navigator scopes for contamination-fragile tests." }
   ],
-  outputs: [],
+  outputs: [
+    { id: "scope", filename: "deploy-verify-scope.json", channel: "meta", validator: "deployVerifyScopeConformant", optional: true, description: "The scope directives the Driver's refactor-deploy reads , OPTIONAL: the Navigator writes it when it confirms contamination-fragile tests, and writes NOTHING (its veto -> escalate) when it judges the classifier wrong. Absent = a clean pass (the escalation route); present = validated (a malformed scope is a hard reject)." }
+  ],
   routing: {
     produced: { next: "state-derived" }
   },
@@ -7775,6 +7780,32 @@ function acsDirConformant(producedPath) {
   }
   return violations.length === 0 ? { ok: true, violations: [] } : { ok: false, violations };
 }
+function deployVerifyScopeConformant(producedPath) {
+  let content;
+  try {
+    content = readFileSync4(producedPath, "utf8");
+  } catch {
+    return { ok: false, violations: [`deploy-verify-scope.json not readable at ${producedPath}`] };
+  }
+  let scope;
+  try {
+    scope = JSON.parse(content);
+  } catch (e) {
+    return { ok: false, violations: [`deploy-verify-scope.json is not valid JSON: ${e instanceof Error ? e.message : String(e)}`] };
+  }
+  const violations = [];
+  if (scope.version !== 1) violations.push(`deploy-verify-scope.json version must be 1 (got ${JSON.stringify(scope.version)})`);
+  if (!Array.isArray(scope.directives)) {
+    violations.push("deploy-verify-scope.json must carry a directives[] array");
+  } else {
+    scope.directives.forEach((d, i) => {
+      const dir = d;
+      if (typeof dir?.node_id !== "string" || !dir.node_id) violations.push(`directives[${i}].node_id must be a non-empty string`);
+      if (typeof dir?.directive !== "string" || !dir.directive) violations.push(`directives[${i}].directive must be a non-empty string`);
+    });
+  }
+  return violations.length === 0 ? { ok: true, violations: [] } : { ok: false, violations };
+}
 var acConformant = conformsTo("ac.json");
 var architectureConformant = conformsTo("architecture.json");
 var dbDesignConformant = conformsTo("db-design.json");
@@ -7801,6 +7832,9 @@ var VALIDATOR_REGISTRY = {
   // BUILD-turn navigator output validators (the lean per-role build chains).
   navigatorTestsAuthored,
   assessMarkerWritten,
+  // The navigator assess-deploy turn's OPTIONAL scope marker (Stage F optional-output contract's
+  // first shipped consumer): absent = the veto/escalate route (a clean pass), present = validated.
+  deployVerifyScopeConformant,
   // BUILD-turn driver output validator (the product-code floor; honest-GREEN is the real gate).
   driverCodePresent,
   // Schema-conformance validators for the design roles' primary artifacts (the integration
@@ -7915,10 +7949,14 @@ var Step = class {
     }
     await this.agent.invoke({ action, workspaceDir, inputs, instructions });
     const rootFor = (channel) => resolveChannelRoot(channel, { workspaceDir, artifactDir: provided.artifactDir, metaDir: provided.metaDir });
+    const specs = this.outputs(action);
+    if (specs.length === 0) {
+      return { produced: true, producedPaths: [] };
+    }
     const primary = primaryOutputId(this.manifest);
     const producedPaths = [];
     let primaryPresent = false;
-    for (const spec of this.outputs(action)) {
+    for (const spec of specs) {
       const rel = provided.outputPaths?.[spec.id] ?? spec.filename;
       const p = join5(rootFor(spec.channel), rel);
       if (this.exists(p)) {
@@ -7926,7 +7964,8 @@ var Step = class {
         if (spec.id === primary) primaryPresent = true;
       }
     }
-    if (!primaryPresent) {
+    const primarySpec = specs[0];
+    if (!primaryPresent && !primarySpec.optional) {
       return { produced: false, producedPaths: producedPaths.length ? producedPaths : void 0 };
     }
     return { produced: true, producedPaths };

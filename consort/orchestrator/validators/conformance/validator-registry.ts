@@ -263,6 +263,43 @@ export function acsDirConformant(producedPath: string): OutputValidationResult {
   return violations.length === 0 ? { ok: true, violations: [] } : { ok: false, violations };
 }
 
+/**
+ * deployVerifyScopeConformant validator: the navigator ASSESS-DEPLOY turn's OPTIONAL output ,
+ * deploy-verify-scope.json, the scope directives the Driver's refactor-deploy turn reads. This is
+ * the first shipped consumer of the optional-output contract (Stage F): the turn writes the file
+ * ONLY when it confirms contamination-fragile tests; when it judges the classifier wrong it writes
+ * NOTHING (its veto -> the orchestration escalates to a human). So ABSENT is a clean pass (the
+ * executor's phase 5 owns that); this validator only runs when the file is PRESENT , and then it
+ * must be a well-formed scope marker: version 1 + a directives[] array of {node_id, directive}.
+ * A present-but-malformed marker is a hard reject (a garbled scope would misdirect the Driver).
+ */
+export function deployVerifyScopeConformant(producedPath: string): OutputValidationResult {
+  let content: string;
+  try {
+    content = readFileSync(producedPath, "utf8");
+  } catch {
+    return { ok: false, violations: [`deploy-verify-scope.json not readable at ${producedPath}`] };
+  }
+  let scope: { version?: unknown; directives?: unknown };
+  try {
+    scope = JSON.parse(content) as { version?: unknown; directives?: unknown };
+  } catch (e) {
+    return { ok: false, violations: [`deploy-verify-scope.json is not valid JSON: ${e instanceof Error ? e.message : String(e)}`] };
+  }
+  const violations: string[] = [];
+  if (scope.version !== 1) violations.push(`deploy-verify-scope.json version must be 1 (got ${JSON.stringify(scope.version)})`);
+  if (!Array.isArray(scope.directives)) {
+    violations.push("deploy-verify-scope.json must carry a directives[] array");
+  } else {
+    scope.directives.forEach((d, i) => {
+      const dir = d as { node_id?: unknown; directive?: unknown };
+      if (typeof dir?.node_id !== "string" || !dir.node_id) violations.push(`directives[${i}].node_id must be a non-empty string`);
+      if (typeof dir?.directive !== "string" || !dir.directive) violations.push(`directives[${i}].directive must be a non-empty string`);
+    });
+  }
+  return violations.length === 0 ? { ok: true, violations: [] } : { ok: false, violations };
+}
+
 /** Per-artifact schema-conformance validators (the design roles' primary outputs), each
  *  gated to its canonical schema via checkArtifactConformance. */
 export const acConformant = conformsTo("ac.json");
@@ -297,6 +334,9 @@ export const VALIDATOR_REGISTRY: Record<string, OutputValidator> = {
   // BUILD-turn navigator output validators (the lean per-role build chains).
   navigatorTestsAuthored,
   assessMarkerWritten,
+  // The navigator assess-deploy turn's OPTIONAL scope marker (Stage F optional-output contract's
+  // first shipped consumer): absent = the veto/escalate route (a clean pass), present = validated.
+  deployVerifyScopeConformant,
   // BUILD-turn driver output validator (the product-code floor; honest-GREEN is the real gate).
   driverCodePresent,
   // Schema-conformance validators for the design roles' primary artifacts (the integration

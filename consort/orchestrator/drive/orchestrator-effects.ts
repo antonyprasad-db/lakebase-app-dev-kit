@@ -45,7 +45,7 @@ import { readConventions } from "../../architecture/architecture-conventions.js"
 // The build-turn CONTEXT PACK (rubric + layout + test locations) lives in the orchestrator
 // family as the single source of truth , the lean per-role build chains inject the SAME pack.
 import { contextRubric, buildContextPack } from "../build/build-context.js";
-import { buildGreenFailureAdvisory } from "../build/preconditions.js";
+import { buildGreenFailureAdvisory, resolvePreparer } from "../build/preconditions.js";
 import { sanitizeBranchName } from "@databricks-solutions/lakebase-scm-utils/util";
 
 export type DriveCommand =
@@ -420,8 +420,12 @@ function roleTask(
   uiTrack: boolean,
   consortDir: string,
   build?: BuildLoopOpts,
+  /** Precondition kinds the BODY omits (A-full executor path); see roleTaskBody. The handback
+   *  note still prepends FIRST (legacy order: handback + [omitted-inline pack] + directive), so a
+   *  prepend precondition the executor re-adds lands AFTER the handback , identical to inline. */
+  omit?: ReadonlySet<string>,
 ): string {
-  return consumeHandback(action, featureId, consortDir) + roleTaskBody(action, featureId, uiTrack, consortDir, build);
+  return consumeHandback(action, featureId, consortDir) + roleTaskBody(action, featureId, uiTrack, consortDir, build, omit);
 }
 
 /**
@@ -466,6 +470,12 @@ function roleTaskBody(
   uiTrack: boolean,
   consortDir: string,
   build?: BuildLoopOpts,
+  /** Precondition KINDS whose inline projection this body OMITS , the executor path (A-full)
+   *  declares those as `preconditions[]` and its PREPARE-PRECONDITIONS phase re-injects them in
+   *  the SAME position, so the assembled prompt stays byte-identical while the ONE injector moves
+   *  onto the formal face. Absent (the legacy path) => omit nothing (inline pack, byte-identical
+   *  to before A-full). See consort/orchestrator/build/preconditions.ts for the kinds. */
+  omit?: ReadonlySet<string>,
 ): string {
   // The artifact-root basename (.sftdd, or a legacy .tdd) every prompt path
   // below is built from, so what the agent is told to read/write matches the
@@ -745,7 +755,10 @@ function roleTaskBody(
         // orchestrator family (consort/orchestrator/build/preconditions.ts), so the same
         // block also feeds the executor's PREPARE-PRECONDITIONS phase. Empty when no marker.
         const gfAssess = action.ac ? readGreenFailure(consortDir, featureId, s, action.ac) : undefined;
-        const advisory = buildGreenFailureAdvisory(consortDir, featureId, s, action.ac ?? "");
+        // The green-failure advisory PREPENDS the ASSESS directive. On the executor path it is a
+        // DECLARED prepend precondition (re-injected by phase 2.5 in the SAME position), so omit it
+        // inline here; on the legacy path (omit absent) it stays inline. Byte-identical either way.
+        const advisory = omit?.has("green-failure-advisory") ? "" : buildGreenFailureAdvisory(consortDir, featureId, s, action.ac ?? "");
         // When the deterministic gate ALREADY pre-localized the superseded set
         // (supersededTestRefs present), the set above is authoritative , it is a
         // grep of the migration's net-dropped symbol across the test tree. Telling
@@ -1049,7 +1062,38 @@ function designArtifactExpectation(
  * effortForTurn, contextPackSuffix, taskSuffix, tool scope, resume scope) are honored exactly
  * as before , this is a pure move, not a behavior change.
  */
-export function buildClaudeCommand(action: Extract<WorkflowAction, { kind: "invoke-role" }>, cfg: DriveEffectsConfig): DriveCommand {
+/**
+ * The role's TASK BODY , roleTaskBody with the run's loop/cap + the given precondition KINDS
+ * omitted. NO handback prefix, NO terse/context/optimize suffixes (those are the envelope's, added
+ * by buildClaudeCommandWithBody). This is the seam A-full's executor path assembles as the step's
+ * base instruction prompt: it omits the DECLARED preconditions (so phase 2.5 re-injects them in
+ * position), while the legacy path calls it with omit=∅ (full inline pack). Pure + exported so the
+ * prompt-parity golden can assert the executor-assembled prompt === the legacy inline task.
+ */
+export function buildTaskBody(
+  action: Extract<WorkflowAction, { kind: "invoke-role" }>,
+  cfg: DriveEffectsConfig,
+  omit?: ReadonlySet<string>,
+): string {
+  const storyLoop: "ac" | "hybrid-a" | "story" | undefined =
+    "story" in action ? effectiveLoopForStory(cfg.loopGranularity ?? "story", action.story) : cfg.loopGranularity;
+  return roleTaskBody(action, cfg.featureId, cfg.uiTrack ?? false, cfg.consortDir, { loop: storyLoop, cap: cfg.batchCap }, omit);
+}
+
+/**
+ * The `claude` DriveCommand for an action, built around a GIVEN task body. The ENVELOPE
+ * (byte-identical to the pre-A-full buildClaudeCommand): the model/effort/session/lever
+ * resolution + the task = consumeHandback + body + contextPackSuffix + AGENT_TERSE_SUFFIX +
+ * taskSuffix. The handback lives HERE (not in the body) so a prepend precondition the executor
+ * re-adds to the body still lands AFTER the handback , the legacy order (handback + advisory +
+ * directive). buildClaudeCommand composes this with buildTaskBody(action,cfg); the A-full live
+ * seam composes it with the executor-assembled invocation.instructions.prompt.
+ */
+export function buildClaudeCommandWithBody(
+  action: Extract<WorkflowAction, { kind: "invoke-role" }>,
+  cfg: DriveEffectsConfig,
+  body: string,
+): DriveCommand {
   const f = cfg.featureId;
   const BUILD_ROLES = new Set(["navigator", "driver"]);
   const buildScope = cfg.buildSessionScope ?? "story";
@@ -1079,14 +1123,6 @@ export function buildClaudeCommand(action: Extract<WorkflowAction, { kind: "invo
       : "";
   const fallbackModel = cfg.fallbackModelForRole?.(action.role);
   const maxBudgetUsd = cfg.maxBudgetUsdForRole?.(action.role);
-  // Per-story granularity: a contract/cleanup story (drop column / remove
-  // endpoint / rename) auto-drops to the finest `ac` loop, since its lockstep
-  // DB+code change is too heavy for one story-level GREEN turn. This must reach
-  // the PROMPT (the RED/GREEN/REFACTOR task text) AND the cycle CLI loop flag,
-  // not only the routing in deriveDriveState; otherwise the driver is told to
-  // "make ALL of the story GREEN in one pass" while the substrate stamps per-AC.
-  const storyLoop: "ac" | "hybrid-a" | "story" | undefined =
-    "story" in action ? effectiveLoopForStory(cfg.loopGranularity ?? "story", action.story) : cfg.loopGranularity;
   return {
     kind: "claude",
     role: action.role,
@@ -1099,7 +1135,7 @@ export function buildClaudeCommand(action: Extract<WorkflowAction, { kind: "invo
     // is injected BEFORE the terse suffix (reads as context), the task suffix
     // AFTER it (reads as a trailing directive), and the tool scope is carried
     // on the command for the runner to translate to spawn flags. When the cfg
-    // sets none, this is byte-identical to `roleTask(...) + AGENT_TERSE_SUFFIX`.
+    // sets none, this is byte-identical to `body + AGENT_TERSE_SUFFIX`.
     ...(((): { allowedTools?: string[]; disallowedTools?: string[] } => {
       const allowed = cfg.allowedToolsForRole?.(action.role);
       const disallowed = cfg.disallowedToolsForRole?.(action.role);
@@ -1108,11 +1144,14 @@ export function buildClaudeCommand(action: Extract<WorkflowAction, { kind: "invo
         ...(disallowed && disallowed.length ? { disallowedTools: disallowed } : {}),
       };
     })()),
+    // The ENVELOPE: the handback prefix (informed-retry feedback, consumed here so a
+    // prepend precondition the executor re-adds to `body` still lands AFTER it , the legacy
+    // order) + the given task body + the context/terse/task suffixes. On the legacy path
+    // `body` is the full inline task (buildTaskBody with omit=∅); on the A-full executor path
+    // `body` is the executor-assembled prompt (declared preconditions re-injected in position).
     task:
-      roleTask(action, f, cfg.uiTrack ?? false, cfg.consortDir, {
-        loop: storyLoop,
-        cap: cfg.batchCap,
-      }) +
+      consumeHandback(action, f, cfg.consortDir) +
+      body +
       (cfg.contextPackSuffix?.(action.role, buildTurn) ?? "") +
       AGENT_TERSE_SUFFIX +
       (cfg.taskSuffix?.(action.role, buildTurn) ?? ""),
@@ -1126,6 +1165,18 @@ export function buildClaudeCommand(action: Extract<WorkflowAction, { kind: "invo
       story: "story" in action ? action.story : undefined,
     },
   };
+}
+
+/**
+ * The legacy `claude` command for an action: buildClaudeCommandWithBody around the FULL inline
+ * task body (omit=∅, so every precondition's inline projection is present). Byte-identical to the
+ * pre-A-full buildClaudeCommand , the extraction split the body (buildTaskBody) from the envelope
+ * (buildClaudeCommandWithBody) without moving a byte. The A-full executor path calls
+ * buildClaudeCommandWithBody directly with the executor-assembled prompt (declared preconditions
+ * re-injected) instead of the full inline body.
+ */
+export function buildClaudeCommand(action: Extract<WorkflowAction, { kind: "invoke-role" }>, cfg: DriveEffectsConfig): DriveCommand {
+  return buildClaudeCommandWithBody(action, cfg, buildTaskBody(action, cfg));
 }
 
 /**
@@ -1827,7 +1878,9 @@ export function buildDriveEffects(cfg: DriveEffectsConfig): DriveEffects {
     performViaExecutor(action, state, routerDeps) {
       return performTurnViaExecutor(action, state, routerDeps, cfg, {
         buildCycleCommand,
-        buildClaudeCommand,
+        buildClaudeCommandWithBody,
+        buildTaskBody,
+        preparerFor: resolvePreparer,
         readDriveStateFromDisk,
         binTokens: POST_TURN_BIN_TOKENS,
         logBin: LOG_BIN,

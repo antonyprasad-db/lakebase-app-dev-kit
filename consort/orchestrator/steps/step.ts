@@ -123,10 +123,19 @@ export class Step implements StepContract {
     const rootFor = (channel?: Channel): string =>
       resolveChannelRoot(channel, { workspaceDir, artifactDir: provided.artifactDir, metaDir: provided.metaDir });
 
+    const specs = this.outputs(action);
+    // A turn with NO declared outputs (a self-heal / judgment turn , assess / review / reflect ,
+    // whose correctness is its @build-cycle record + state-derived route, not a static artifact)
+    // has NO required primary: it PRODUCES by completing. Report produced:true so the executor's
+    // phase 5 does not flag a nonexistent "primary output" and the turn routes on its cycle record.
+    // (Distinct from a declared-but-OPTIONAL primary, which phase 5 still validates when present.)
+    if (specs.length === 0) {
+      return { produced: true, producedPaths: [] };
+    }
     const primary = primaryOutputId(this.manifest);
     const producedPaths: string[] = [];
     let primaryPresent = false;
-    for (const spec of this.outputs(action)) {
+    for (const spec of specs) {
       const rel = provided.outputPaths?.[spec.id] ?? spec.filename;
       const p = join(rootFor(spec.channel), rel);
       if (this.exists(p)) {
@@ -134,7 +143,10 @@ export class Step implements StepContract {
         if (spec.id === primary) primaryPresent = true;
       }
     }
-    if (!primaryPresent) {
+    // A declared-but-OPTIONAL primary that is ABSENT is still a clean produce (the executor's
+    // phase 5 owns the optional-absent=pass rule); only a REQUIRED absent primary is not produced.
+    const primarySpec = specs[0];
+    if (!primaryPresent && !primarySpec.optional) {
       return { produced: false, producedPaths: producedPaths.length ? producedPaths : undefined };
     }
     return { produced: true, producedPaths };

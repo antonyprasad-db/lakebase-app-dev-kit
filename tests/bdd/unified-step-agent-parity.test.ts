@@ -16,11 +16,13 @@
 import { describe, it, expect } from "vitest";
 import {
   commandsForAction,
-  buildClaudeCommand,
+  buildClaudeCommandWithBody,
+  buildTaskBody,
   readDriveStateFromDisk,
   type DriveCommand,
   type DriveEffectsConfig,
 } from "../../consort/orchestrator/drive/orchestrator-effects";
+import { resolvePreparer } from "../../consort/orchestrator/build/preconditions";
 import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 import { liveDispatchSeam, type ExecutorDispatchDeps } from "../../consort/orchestrator/drive/executor-dispatch";
 import { ClaudeStepAgent, type AgentLevers } from "../../consort/orchestrator/agents/claude-step-agent";
@@ -38,12 +40,15 @@ function cfg(over: Partial<DriveEffectsConfig> = {}): DriveEffectsConfig {
   };
 }
 
-/** The dispatch deps the live seam needs , buildClaudeCommand is the one under test; the rest are
- *  inert here (the seam only calls buildClaudeCommand + cfg.runner.run). */
+/** The dispatch deps the live seam needs. The seam wraps the executor-assembled prompt (or, absent
+ *  one, buildTaskBody's full inline body) in buildClaudeCommandWithBody's envelope; the rest are
+ *  inert here. */
 function dispatchDeps(): ExecutorDispatchDeps {
   return {
     buildCycleCommand: () => undefined,
-    buildClaudeCommand,
+    buildClaudeCommandWithBody,
+    buildTaskBody,
+    preparerFor: resolvePreparer,
     readDriveStateFromDisk,
     binTokens: {},
     logBin: "consort-log",
@@ -72,10 +77,12 @@ describe("unified ClaudeStepAgent , UNCONTAINED (live) seam ≡ the legacy claud
     const legacy = legacyClaude(action, c);
     expect(legacy, "the legacy branch must emit a claude command for this action").toBeDefined();
     // Drive the unified agent on its LIVE path (a liveDispatch seam supplied): invoke() delegates to
-    // the seam, which builds buildClaudeCommand + dispatches it through cfg.runner , exactly one
-    // command, byte-identical to the legacy claude spawn.
+    // the seam, which wraps the executor-assembled prompt in buildClaudeCommandWithBody + dispatches
+    // it through cfg.runner. For an un-migrated turn the executor's instructionsFor is
+    // buildTaskBody(action,cfg,∅) (the full inline body), so the wrapped command is byte-identical to
+    // the legacy claude spawn. Pass exactly that as the instruction prompt.
     const agent = new ClaudeStepAgent({ role: (action as { role: string }).role }, undefined, liveDispatchSeam(c, dispatchDeps()));
-    await agent.invoke({ action, workspaceDir: "/ignored-uncontained", inputs: {}, instructions: { prompt: "unused" } });
+    await agent.invoke({ action, workspaceDir: "/ignored-uncontained", inputs: {}, instructions: { prompt: buildTaskBody(action as never, c) } });
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0]).toEqual(legacy);
   });
@@ -90,7 +97,7 @@ describe("unified ClaudeStepAgent , UNCONTAINED (live) seam ≡ the legacy claud
     });
     const green: WorkflowAction = { kind: "invoke-role", role: "driver", story: "S1-record-stock" };
     const agent = new ClaudeStepAgent({ role: "driver" }, undefined, liveDispatchSeam(c, dispatchDeps()));
-    await agent.invoke({ action: green, workspaceDir: "/ignored", inputs: {}, instructions: { prompt: "unused" } });
+    await agent.invoke({ action: green, workspaceDir: "/ignored", inputs: {}, instructions: { prompt: buildTaskBody(green as never, c) } });
     expect(dispatched).toEqual([legacyClaude(green, c)]);
   });
 

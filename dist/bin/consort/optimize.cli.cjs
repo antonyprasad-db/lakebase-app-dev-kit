@@ -8019,6 +8019,9 @@ var navigator_assess_default = {
     { id: "green-failure", source: "story:green-failure.json", description: "The failed-GREEN marker (+ pre-localized superseded-test candidates) the Navigator discriminates." },
     { id: "acs", source: "story:acs", description: "The AC whose intent decides superseded vs genuine regression." }
   ],
+  preconditions: [
+    { id: "advisory", kind: "green-failure-advisory", position: "prepend", description: "The deterministic PRE-LOCALIZATION (verify failure output + contract-clean refs + superseded-test candidates) projected from green-failure.json , PREPENDED before the ASSESS directive so the Navigator starts from the real failure, not a re-scan." }
+  ],
   outputs: [],
   routing: {
     produced: { next: "state-derived" }
@@ -8042,7 +8045,9 @@ var navigator_assess_deploy_default = {
   inputs: [
     { id: "deploy-verify-assess", source: "story:deploy-verify-assess.json", description: "The story-level deploy-verify failure marker the Navigator scopes for contamination-fragile tests." }
   ],
-  outputs: [],
+  outputs: [
+    { id: "scope", filename: "deploy-verify-scope.json", channel: "meta", validator: "deployVerifyScopeConformant", optional: true, description: "The scope directives the Driver's refactor-deploy reads , OPTIONAL: the Navigator writes it when it confirms contamination-fragile tests, and writes NOTHING (its veto -> escalate) when it judges the classifier wrong. Absent = a clean pass (the escalation route); present = validated (a malformed scope is a hard reject)." }
+  ],
   routing: {
     produced: { next: "state-derived" }
   },
@@ -10148,6 +10153,32 @@ function acsDirConformant(producedPath) {
   }
   return violations.length === 0 ? { ok: true, violations: [] } : { ok: false, violations };
 }
+function deployVerifyScopeConformant(producedPath) {
+  let content;
+  try {
+    content = (0, import_node_fs4.readFileSync)(producedPath, "utf8");
+  } catch {
+    return { ok: false, violations: [`deploy-verify-scope.json not readable at ${producedPath}`] };
+  }
+  let scope;
+  try {
+    scope = JSON.parse(content);
+  } catch (e) {
+    return { ok: false, violations: [`deploy-verify-scope.json is not valid JSON: ${e instanceof Error ? e.message : String(e)}`] };
+  }
+  const violations = [];
+  if (scope.version !== 1) violations.push(`deploy-verify-scope.json version must be 1 (got ${JSON.stringify(scope.version)})`);
+  if (!Array.isArray(scope.directives)) {
+    violations.push("deploy-verify-scope.json must carry a directives[] array");
+  } else {
+    scope.directives.forEach((d, i) => {
+      const dir = d;
+      if (typeof dir?.node_id !== "string" || !dir.node_id) violations.push(`directives[${i}].node_id must be a non-empty string`);
+      if (typeof dir?.directive !== "string" || !dir.directive) violations.push(`directives[${i}].directive must be a non-empty string`);
+    });
+  }
+  return violations.length === 0 ? { ok: true, violations: [] } : { ok: false, violations };
+}
 var acConformant = conformsTo("ac.json");
 var architectureConformant = conformsTo("architecture.json");
 var dbDesignConformant = conformsTo("db-design.json");
@@ -10174,6 +10205,9 @@ var VALIDATOR_REGISTRY = {
   // BUILD-turn navigator output validators (the lean per-role build chains).
   navigatorTestsAuthored,
   assessMarkerWritten,
+  // The navigator assess-deploy turn's OPTIONAL scope marker (Stage F optional-output contract's
+  // first shipped consumer): absent = the veto/escalate route (a clean pass), present = validated.
+  deployVerifyScopeConformant,
   // BUILD-turn driver output validator (the product-code floor; honest-GREEN is the real gate).
   driverCodePresent,
   // Schema-conformance validators for the design roles' primary artifacts (the integration
@@ -10264,10 +10298,14 @@ var Step = class {
     }
     await this.agent.invoke({ action, workspaceDir, inputs, instructions });
     const rootFor = (channel) => resolveChannelRoot(channel, { workspaceDir, artifactDir: provided.artifactDir, metaDir: provided.metaDir });
+    const specs = this.outputs(action);
+    if (specs.length === 0) {
+      return { produced: true, producedPaths: [] };
+    }
     const primary = primaryOutputId(this.manifest);
     const producedPaths = [];
     let primaryPresent = false;
-    for (const spec of this.outputs(action)) {
+    for (const spec of specs) {
       const rel = provided.outputPaths?.[spec.id] ?? spec.filename;
       const p = (0, import_node_path6.join)(rootFor(spec.channel), rel);
       if (this.exists(p)) {
@@ -10275,7 +10313,8 @@ var Step = class {
         if (spec.id === primary) primaryPresent = true;
       }
     }
-    if (!primaryPresent) {
+    const primarySpec = specs[0];
+    if (!primaryPresent && !primarySpec.optional) {
       return { produced: false, producedPaths: producedPaths.length ? producedPaths : void 0 };
     }
     return { produced: true, producedPaths };
@@ -10437,6 +10476,12 @@ function executorDispatched(action) {
     if ((action.role === "navigator" || action.role === "driver") && "story" in action && !!action.story) {
       return true;
     }
+    return false;
+  }
+  if (action.role === "navigator" && "story" in action && !!action.story && "buildMode" in action) {
+    if (action.buildMode === "assess" || action.buildMode === "assess-deploy" || action.buildMode === "assess-refactor") {
+      return true;
+    }
   }
   return false;
 }
@@ -10460,6 +10505,9 @@ function manifestPostTurnCommands(manifest, when, action, cfg, deps) {
     out.push({ kind: "cli", bin: resolveBin(p.bin), args: expand(p.args) });
   }
   return out;
+}
+function declaredPreconditionKinds(manifest) {
+  return new Set((manifest.preconditions ?? []).map((p) => p.kind));
 }
 function outputPathsForAction(action, consortDir, featureId) {
   if (action.kind !== "invoke-role") return {};
@@ -10501,6 +10549,10 @@ function outputPathsForAction(action, consortDir, featureId) {
     if (action.role === "driver" && story) {
       return { code: "app", ...META };
     }
+    return {};
+  }
+  if (action.role === "navigator" && story && "buildMode" in action && action.buildMode === "assess-deploy") {
+    return { scope: rel((0, import_node_path7.join)(storyResolved(consortDir, f, story), "deploy-verify-scope.json")) };
   }
   return {};
 }
@@ -10510,7 +10562,8 @@ function liveDispatchSeam(cfg, deps) {
     if (a.kind !== "invoke-role") {
       throw new Error(`live dispatch only handles invoke-role actions; got ${JSON.stringify(a)}`);
     }
-    await cfg.runner.run(deps.buildClaudeCommand(a, cfg));
+    const body = invocation.instructions?.prompt ?? deps.buildTaskBody(a, cfg);
+    await cfg.runner.run(deps.buildClaudeCommandWithBody(a, cfg, body));
   };
 }
 async function performTurnViaExecutor(action, state, routerDeps, cfg, deps) {
@@ -10550,10 +10603,16 @@ async function performTurnViaExecutor(action, state, routerDeps, cfg, deps) {
     // resolve under the real .consort (artifactDir = metaDir = cfg.consortDir), so the orchestrator
     // places the design docs + the reconciled agent-log there , the manifest filename stays bare.
     provisionWorkspace: () => ({ workspaceDir: cfg.projectDir, artifactDir: cfg.consortDir, metaDir: cfg.consortDir, outputPaths: outputPathsForAction(action, cfg.consortDir, f) }),
-    // The prompt is the live seam's own (buildClaudeCommand -> roleTask, which still carries the
-    // inline pack until each turn's precondition migration lands in Stages G/H/I); the unified
-    // agent's live path ignores invocation.instructions, but the executor requires the dep.
-    instructionsFor: () => ({ prompt: "" }),
+    // The BASE instruction prompt = the role's task body with the manifest's DECLARED precondition
+    // kinds OMITTED (phase 2.5 re-injects those in position via deps.prepare). A turn that declares
+    // NO preconditions gets the full inline body (omit=∅) , byte-identical to the pre-A-full spawn.
+    // A migrated turn (e.g. assess declaring green-failure-advisory) gets the body MINUS that inline
+    // block; phase 2.5 prepends it back, so the assembled prompt matches the legacy inline order.
+    instructionsFor: () => action.kind === "invoke-role" ? { prompt: deps.buildTaskBody(action, cfg, declaredPreconditionKinds(manifest)) } : { prompt: "" },
+    // Phase 2.5: PROJECT each declared precondition via the injected preparer registry. The block
+    // is the SAME pure projection roleTaskBody used inline; phase 2.5 places it by the precondition's
+    // `position` (prepend for the green-failure advisory, append for the context-pack).
+    prepare: (kind, pre, _action) => deps.preparerFor(kind)({ consortDir: cfg.consortDir, featureId: f, story: story ?? "", ac: "ac" in action && typeof action.ac === "string" ? action.ac : "", ...pre.options ? { options: pre.options } : {} }),
     // Phase 2.7: the manifest's `before` CLIs (e.g. breakdown's reset-breakdown), run through the runner.
     preTurnEffects: async () => {
       for (const cmd of manifestPostTurnCommands(manifest, "before", action, cfg, deps)) await cfg.runner.run(cmd);
@@ -12534,6 +12593,20 @@ ${gfAssess.contractRefs}
 ` : "";
   return failureAdvisory + contractAdvisory + supersededAdvisory;
 }
+var PRECONDITION_PREPARERS = {
+  "context-pack": (ctx) => buildContextPack(ctx.consortDir, ctx.featureId, ctx.story, ctx.ac, {
+    skipTestLoop: !!(ctx.options && ctx.options.skipTestLoop)
+  }),
+  "green-failure-advisory": (ctx) => buildGreenFailureAdvisory(ctx.consortDir, ctx.featureId, ctx.story, ctx.ac)
+};
+function resolvePreparer(kind) {
+  const p = PRECONDITION_PREPARERS[kind];
+  if (!p) {
+    const known = Object.keys(PRECONDITION_PREPARERS).join(", ");
+    throw new Error(`preconditions: unknown preparer kind "${kind}" , register it in PRECONDITION_PREPARERS (known: ${known}).`);
+  }
+  return p;
+}
 
 // consort/orchestrator/drive/orchestrator-effects.ts
 var import_util3 = require("@databricks-solutions/lakebase-scm-utils/util");
@@ -12645,9 +12718,6 @@ function consumeHandback(action, featureId, consortDir) {
 
 ` : "";
 }
-function roleTask(action, featureId, uiTrack, consortDir, build) {
-  return consumeHandback(action, featureId, consortDir) + roleTaskBody(action, featureId, uiTrack, consortDir, build);
-}
 function architectConventionsDirective(consortDir) {
   const conventions = readConventions(consortDir);
   if (!conventions) {
@@ -12659,7 +12729,7 @@ function architectConventionsDirective(consortDir) {
 function designRootNote(root, featureId, s) {
   return ` Write every artifact under the ABSOLUTE artifact root ${root} (this feature: ${root}/features/${featureId}/; this story: ${root}/features/${featureId}/stories/${s}/); use that absolute path and never resolve or guess the project root yourself.`;
 }
-function roleTaskBody(action, featureId, uiTrack, consortDir, build) {
+function roleTaskBody(action, featureId, uiTrack, consortDir, build, omit) {
   const root = artifactRoot2(consortDir);
   if ("mode" in action) {
     switch (action.mode) {
@@ -12728,7 +12798,7 @@ function roleTaskBody(action, featureId, uiTrack, consortDir, build) {
       }
       if (action.buildMode === "assess") {
         const gfAssess = action.ac ? readGreenFailure(consortDir, featureId, s, action.ac) : void 0;
-        const advisory = buildGreenFailureAdvisory(consortDir, featureId, s, action.ac ?? "");
+        const advisory = omit?.has("green-failure-advisory") ? "" : buildGreenFailureAdvisory(consortDir, featureId, s, action.ac ?? "");
         const hasSupersededAdvisory = !!gfAssess?.supersededTestRefs;
         const scanDirective = hasSupersededAdvisory ? `(a) If the current AC INTENTIONALLY supersedes behavior those failing tests encode, FLAG them so the Driver may permissively refactor ONLY those. The DETERMINISTIC gate has ALREADY pre-localized the COMPLETE superseded set (the SUPERSEDED-TEST CANDIDATES above , a grep of the migration's dropped symbol across every test, including FITNESS / architecture / migration reversibility tests). TRUST it: flag EXACTLY those file(s) in ONE flag-superseded call and do NOT re-read each candidate to re-verify (that re-verification never converges on a large drop set , it is the assess-spin failure). Only search beyond the list if you have concrete reason to believe it MISSED a failing test; otherwise flag the list as-is:
 ` : `Inspect EVERY failing test (the COMPLETE set, not a sample) and decide per test:
@@ -12830,7 +12900,11 @@ function designArtifactExpectation(action, consortDir, featureId) {
   if (action.role === "test-strategist") return { anyOf: [featureTestListJson(consortDir, featureId)], label: "test-list.json" };
   return null;
 }
-function buildClaudeCommand(action, cfg) {
+function buildTaskBody(action, cfg, omit) {
+  const storyLoop = "story" in action ? effectiveLoopForStory(cfg.loopGranularity ?? "story", action.story) : cfg.loopGranularity;
+  return roleTaskBody(action, cfg.featureId, cfg.uiTrack ?? false, cfg.consortDir, { loop: storyLoop, cap: cfg.batchCap }, omit);
+}
+function buildClaudeCommandWithBody(action, cfg, body) {
   const f = cfg.featureId;
   const BUILD_ROLES = /* @__PURE__ */ new Set(["navigator", "driver"]);
   const buildScope = cfg.buildSessionScope ?? "story";
@@ -12848,7 +12922,6 @@ function buildClaudeCommand(action, cfg) {
   const effort = cfg.effortForTurn ? cfg.effortForTurn(action.role, turnKey) : isReviewTurn ? cfg.reviewEffort ?? "low" : "";
   const fallbackModel = cfg.fallbackModelForRole?.(action.role);
   const maxBudgetUsd = cfg.maxBudgetUsdForRole?.(action.role);
-  const storyLoop = "story" in action ? effectiveLoopForStory(cfg.loopGranularity ?? "story", action.story) : cfg.loopGranularity;
   return {
     kind: "claude",
     role: action.role,
@@ -12861,7 +12934,7 @@ function buildClaudeCommand(action, cfg) {
     // is injected BEFORE the terse suffix (reads as context), the task suffix
     // AFTER it (reads as a trailing directive), and the tool scope is carried
     // on the command for the runner to translate to spawn flags. When the cfg
-    // sets none, this is byte-identical to `roleTask(...) + AGENT_TERSE_SUFFIX`.
+    // sets none, this is byte-identical to `body + AGENT_TERSE_SUFFIX`.
     ...(() => {
       const allowed = cfg.allowedToolsForRole?.(action.role);
       const disallowed = cfg.disallowedToolsForRole?.(action.role);
@@ -12870,10 +12943,12 @@ function buildClaudeCommand(action, cfg) {
         ...disallowed && disallowed.length ? { disallowedTools: disallowed } : {}
       };
     })(),
-    task: roleTask(action, f, cfg.uiTrack ?? false, cfg.consortDir, {
-      loop: storyLoop,
-      cap: cfg.batchCap
-    }) + (cfg.contextPackSuffix?.(action.role, buildTurn) ?? "") + AGENT_TERSE_SUFFIX + (cfg.taskSuffix?.(action.role, buildTurn) ?? ""),
+    // The ENVELOPE: the handback prefix (informed-retry feedback, consumed here so a
+    // prepend precondition the executor re-adds to `body` still lands AFTER it , the legacy
+    // order) + the given task body + the context/terse/task suffixes. On the legacy path
+    // `body` is the full inline task (buildTaskBody with omit=∅); on the A-full executor path
+    // `body` is the executor-assembled prompt (declared preconditions re-injected in position).
+    task: consumeHandback(action, f, cfg.consortDir) + body + (cfg.contextPackSuffix?.(action.role, buildTurn) ?? "") + AGENT_TERSE_SUFFIX + (cfg.taskSuffix?.(action.role, buildTurn) ?? ""),
     replay: {
       mode: "mode" in action ? action.mode : void 0,
       // The build turn's mode (reflect / review / refactor / assess / repair),
@@ -12884,6 +12959,9 @@ function buildClaudeCommand(action, cfg) {
       story: "story" in action ? action.story : void 0
     }
   };
+}
+function buildClaudeCommand(action, cfg) {
+  return buildClaudeCommandWithBody(action, cfg, buildTaskBody(action, cfg));
 }
 function buildCycleCommand(action, cfg) {
   const f = cfg.featureId;
@@ -13265,7 +13343,9 @@ function buildDriveEffects(cfg) {
     performViaExecutor(action, state, routerDeps) {
       return performTurnViaExecutor(action, state, routerDeps, cfg, {
         buildCycleCommand,
-        buildClaudeCommand,
+        buildClaudeCommandWithBody,
+        buildTaskBody,
+        preparerFor: resolvePreparer,
         readDriveStateFromDisk,
         binTokens: POST_TURN_BIN_TOKENS,
         logBin: LOG_BIN

@@ -6,6 +6,9 @@
     { "id": "green-failure", "source": "story:green-failure.json", "description": "The failed-GREEN marker (+ pre-localized superseded-test candidates) the Navigator discriminates." },
     { "id": "acs", "source": "story:acs", "description": "The AC whose intent decides superseded vs genuine regression." }
   ],
+  "preconditions": [
+    { "id": "advisory", "kind": "green-failure-advisory", "position": "prepend", "description": "The deterministic PRE-LOCALIZATION (verify failure output + contract-clean refs + superseded-test candidates) projected from green-failure.json , PREPENDED before the ASSESS directive so the Navigator starts from the real failure, not a re-scan." }
+  ],
   "outputs": [],
   "routing": {
     "produced": { "next": "state-derived" }

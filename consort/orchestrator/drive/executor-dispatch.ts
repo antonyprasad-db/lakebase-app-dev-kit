@@ -45,12 +45,21 @@ export interface ExecutorDispatchDeps {
   /** The ONE shared cycle-CLI derivation (reflect-gate / begin / green / …), reused for the
    *  `@build-cycle` post-turn marker so the executor stamps the IDENTICAL cycle the legacy path did. */
   buildCycleCommand(action: Extract<WorkflowAction, { kind: "invoke-role" }>, cfg: DriveEffectsConfig): DriveCommand | undefined;
-  /** The legacy `claude` command derivation (roleTask + terse suffix + levers), injected so the
-   *  UNCONTAINED live dispatch seam builds the EXACT command the legacy perform() spawned , the
-   *  byte-identity that keeps routing the live turn through the executor from changing the spawn.
-   *  Injected (not imported) so this family module stays free of a runtime orchestrator-effects
-   *  edge (the acyclic-DI discipline the whole module is built on). */
-  buildClaudeCommand(action: Extract<WorkflowAction, { kind: "invoke-role" }>, cfg: DriveEffectsConfig): DriveCommand;
+  /** The `claude` command ENVELOPE built around a GIVEN task body (handback + body + suffixes +
+   *  levers), injected so the UNCONTAINED live dispatch seam wraps the EXECUTOR-ASSEMBLED prompt
+   *  (base directive + declared preconditions re-injected in position) , the A-full switch that
+   *  makes the formal precondition face the ONE injector on the live path while staying byte-
+   *  identical to the legacy inline spawn. Injected (not imported) so this family module stays free
+   *  of a runtime orchestrator-effects edge (the acyclic-DI discipline the whole module is built on). */
+  buildClaudeCommandWithBody(action: Extract<WorkflowAction, { kind: "invoke-role" }>, cfg: DriveEffectsConfig, body: string): DriveCommand;
+  /** The role's TASK BODY with the given precondition KINDS omitted (the executor re-injects the
+   *  DECLARED ones via phase 2.5). The executor path uses this as the step's base instruction
+   *  prompt; a turn that declares no preconditions gets the full inline body (omit=∅), byte-
+   *  identical to legacy. */
+  buildTaskBody(action: Extract<WorkflowAction, { kind: "invoke-role" }>, cfg: DriveEffectsConfig, omit?: ReadonlySet<string>): string;
+  /** Resolve a precondition KIND to its preparer (the registry), so phase 2.5 projects the declared
+   *  context block. Injected so this module has no static preparer-registry edge. */
+  preparerFor(kind: string): (ctx: { consortDir: string; featureId: string; story: string; ac: string; options?: Record<string, unknown> }) => string;
   /** Re-read the drive state FRESH from disk (post-turn), for the state-derived route authority. */
   readDriveStateFromDisk(consortDir: string, featureId: string, projectDir: string, opts: { uiTrack?: boolean }): DriveState;
   /** Symbolic bin token -> resolved CLI bin (PIPELINE_BIN, CYCLE_BIN, …), the same map
@@ -101,6 +110,17 @@ export function executorDispatched(action: WorkflowAction): boolean {
     // post-turn @build-cycle honest-GREEN verify needs a live Lakebase branch (cloud-gated proof),
     // but the dispatch path is identical.
     if ((action.role === "navigator" || action.role === "driver") && "story" in action && !!action.story) {
+      return true;
+    }
+    return false;
+  }
+  // ── BUILD SELF-HEAL LANE (turns carrying a buildMode) ────────────────────────────────────────
+  // The navigator ASSESS turns (assess / assess-deploy / assess-refactor): judgment turns verified
+  // by their @build-cycle record + state-derived route (NO static artifact output), the first
+  // consumers of the optional-output + no-required-primary contract. assess also declares the
+  // green-failure-advisory as a PREPEND precondition (re-injected by phase 2.5). All lean (no cloud).
+  if (action.role === "navigator" && "story" in action && !!action.story && "buildMode" in action) {
+    if (action.buildMode === "assess" || action.buildMode === "assess-deploy" || action.buildMode === "assess-refactor") {
       return true;
     }
   }
@@ -156,6 +176,14 @@ export function manifestPostTurnCommands(
  *  `<id>-<slug>` , the helper resolves the real dir; a hardcoded `features/<F>/...` would miss a slug
  *  dir a design role READS). The META agent-log is always bare `agent-log.jsonl` (reconcile writes
  *  it at <consortDir>/agent-log.jsonl). PRODUCT paths (tests/, app/) are project-root-relative. */
+/** The set of precondition KINDS a manifest declares , the kinds the base task body OMITS inline
+ *  (phase 2.5 re-injects them). Empty for a turn with no declared preconditions (byte-identical
+ *  full-inline body). One source of truth: derived from the manifest, so adding a `preconditions[]`
+ *  entry both omits its inline block AND re-injects it, keeping the assembled prompt byte-identical. */
+export function declaredPreconditionKinds(manifest: StepManifest): ReadonlySet<string> {
+  return new Set((manifest.preconditions ?? []).map((p) => p.kind));
+}
+
 export function outputPathsForAction(action: WorkflowAction, consortDir: string, featureId: string): Record<string, string> {
   if (action.kind !== "invoke-role") return {};
   const f = featureId;
@@ -212,6 +240,14 @@ export function outputPathsForAction(action: WorkflowAction, consortDir: string,
     if (action.role === "driver" && story) {
       return { code: "app", ...META };
     }
+    return {};
+  }
+  // ── BUILD SELF-HEAL LANE (turns carrying a buildMode) ────────────────────────────────────────
+  // navigator assess-deploy: the OPTIONAL scope marker (meta channel, story-scoped). Absent = the
+  // Navigator's veto (escalate); present = the Driver's refactor-deploy directives. The other two
+  // assess turns write via CLIs (flag-superseded / assess-regression), so declare no file output.
+  if (action.role === "navigator" && story && "buildMode" in action && action.buildMode === "assess-deploy") {
+    return { scope: rel(join(storyResolved(consortDir, f, story), "deploy-verify-scope.json")) };
   }
   return {};
 }
@@ -226,13 +262,18 @@ export function outputPathsForAction(action: WorkflowAction, consortDir: string,
  * never reach here (executorDispatched gates them out), but we guard defensively for parity with
  * the old command() contract.
  */
-export function liveDispatchSeam(cfg: DriveEffectsConfig, deps: ExecutorDispatchDeps): (invocation: { action: WorkflowAction }) => Promise<void> {
+export function liveDispatchSeam(cfg: DriveEffectsConfig, deps: ExecutorDispatchDeps): (invocation: { action: WorkflowAction; instructions?: { prompt: string } }) => Promise<void> {
   return async (invocation) => {
     const a = invocation.action;
     if (a.kind !== "invoke-role") {
       throw new Error(`live dispatch only handles invoke-role actions; got ${JSON.stringify(a)}`);
     }
-    await cfg.runner.run(deps.buildClaudeCommand(a, cfg));
+    // The task body is the EXECUTOR-ASSEMBLED prompt (the base directive with the DECLARED
+    // preconditions re-injected in position by phase 2.5) , NOT rebuilt here. buildClaudeCommandWithBody
+    // wraps it in the envelope (handback + suffixes + levers). For an un-migrated turn (no
+    // preconditions) the assembled prompt IS the full inline body, so this is byte-identical to legacy.
+    const body = invocation.instructions?.prompt ?? deps.buildTaskBody(a, cfg);
+    await cfg.runner.run(deps.buildClaudeCommandWithBody(a, cfg, body));
   };
 }
 
@@ -305,10 +346,20 @@ export async function performTurnViaExecutor(
     // resolve under the real .consort (artifactDir = metaDir = cfg.consortDir), so the orchestrator
     // places the design docs + the reconciled agent-log there , the manifest filename stays bare.
     provisionWorkspace: () => ({ workspaceDir: cfg.projectDir, artifactDir: cfg.consortDir, metaDir: cfg.consortDir, outputPaths: outputPathsForAction(action, cfg.consortDir, f) }),
-    // The prompt is the live seam's own (buildClaudeCommand -> roleTask, which still carries the
-    // inline pack until each turn's precondition migration lands in Stages G/H/I); the unified
-    // agent's live path ignores invocation.instructions, but the executor requires the dep.
-    instructionsFor: () => ({ prompt: "" }),
+    // The BASE instruction prompt = the role's task body with the manifest's DECLARED precondition
+    // kinds OMITTED (phase 2.5 re-injects those in position via deps.prepare). A turn that declares
+    // NO preconditions gets the full inline body (omit=∅) , byte-identical to the pre-A-full spawn.
+    // A migrated turn (e.g. assess declaring green-failure-advisory) gets the body MINUS that inline
+    // block; phase 2.5 prepends it back, so the assembled prompt matches the legacy inline order.
+    instructionsFor: () =>
+      action.kind === "invoke-role"
+        ? { prompt: deps.buildTaskBody(action, cfg, declaredPreconditionKinds(manifest)) }
+        : { prompt: "" },
+    // Phase 2.5: PROJECT each declared precondition via the injected preparer registry. The block
+    // is the SAME pure projection roleTaskBody used inline; phase 2.5 places it by the precondition's
+    // `position` (prepend for the green-failure advisory, append for the context-pack).
+    prepare: (kind, pre, _action) =>
+      deps.preparerFor(kind)({ consortDir: cfg.consortDir, featureId: f, story: story ?? "", ac: ("ac" in action && typeof action.ac === "string" ? action.ac : ""), ...(pre.options ? { options: pre.options } : {}) }),
     // Phase 2.7: the manifest's `before` CLIs (e.g. breakdown's reset-breakdown), run through the runner.
     preTurnEffects: async () => {
       for (const cmd of manifestPostTurnCommands(manifest, "before", action, cfg, deps)) await cfg.runner.run(cmd);
