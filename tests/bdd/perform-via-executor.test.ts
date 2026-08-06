@@ -272,12 +272,14 @@ describe("performViaExecutor (#590): navigator RED (the PRODUCT channel) through
     }
   });
 
-  it("returns undefined for a navigator turn that is NOT plain RED (e.g. a review/assess buildMode)", async () => {
+  it("returns undefined for a navigator turn still on the legacy path (reflect , not yet migrated)", async () => {
+    // review/assess ARE executor-dispatched now (Stages G/H); reflect is the remaining legacy
+    // navigator build turn (Stage I), so it stays the not-dispatched exemplar here.
     const projectDir = mkdtempSync(join(tmpdir(), "pve-red-"));
     try {
       const effects = buildDriveEffects(cfg(join(projectDir, ".consort"), projectDir, { useManifestSteps: true }));
-      const review: WorkflowAction = { kind: "invoke-role", role: "navigator", story: RED_STORY, buildMode: "review" } as WorkflowAction;
-      expect(await effects.performViaExecutor!(review, state, routerDeps)).toBeUndefined();
+      const reflect: WorkflowAction = { kind: "invoke-role", role: "navigator", story: RED_STORY, buildMode: "reflect" } as WorkflowAction;
+      expect(await effects.performViaExecutor!(reflect, state, routerDeps)).toBeUndefined();
     } finally {
       rmSync(projectDir, { recursive: true, force: true });
     }
@@ -362,12 +364,14 @@ describe("performViaExecutor (#594): driver GREEN through the StepExecutor", () 
     }
   });
 
-  it("returns undefined for a driver turn that is NOT plain GREEN (e.g. a refactor/repair buildMode)", async () => {
+  it("returns undefined for a driver turn still on the legacy path (refactor-deploy , not yet migrated)", async () => {
+    // refactor/repair ARE executor-dispatched now (Stage H); the deploy/superseded driver variants
+    // (Stage I) remain legacy, so refactor-deploy is the not-dispatched exemplar here.
     const projectDir = mkdtempSync(join(tmpdir(), "pve-green-"));
     try {
       const effects = buildDriveEffects(cfg(join(projectDir, ".consort"), projectDir, { useManifestSteps: true }));
-      const refactor: WorkflowAction = { kind: "invoke-role", role: "driver", story: RED_STORY, buildMode: "refactor" } as WorkflowAction;
-      expect(await effects.performViaExecutor!(refactor, state, routerDeps)).toBeUndefined();
+      const refactorDeploy: WorkflowAction = { kind: "invoke-role", role: "driver", story: RED_STORY, buildMode: "refactor-deploy" } as WorkflowAction;
+      expect(await effects.performViaExecutor!(refactorDeploy, state, routerDeps)).toBeUndefined();
     } finally {
       rmSync(projectDir, { recursive: true, force: true });
     }
@@ -398,14 +402,15 @@ describe("executorDispatched (Stage 1): the 7 widened design turns take the exec
     expect(executorDispatched(action)).toBe(true);
   });
 
-  // The turns that STAY on the legacy path (documented exclusions , the retirement map's
-  // "cannot retire" set): human-input, the deterministic-replay propose, estimate-committed, and the
-  // build self-heal turns (no declared manifest outputs => nothing for the channel/validate phases).
+  // The turns that STAY on the legacy path (documented exclusions): human-input, the
+  // deterministic-replay propose, estimate-committed, and (until Stage I) the reflect + deploy/
+  // superseded driver variants. review/refactor/repair + the assess turns ARE now dispatched
+  // (Stages G/H), so they are no longer in this set.
   const NOT_DISPATCHED: Array<[string, WorkflowAction]> = [
     ["product-owner author-requests (human input)", { kind: "invoke-role", role: "product-owner", mode: "author-requests" }],
     ["architect estimate-committed (re-syncs backlog)", { kind: "invoke-role", role: "architect-reviewer", mode: "estimate-committed" }],
-    ["navigator REVIEW (build self-heal, no outputs)", { kind: "invoke-role", role: "navigator", story: RED_STORY, buildMode: "review" }],
-    ["driver REFACTOR (build self-heal, no outputs)", { kind: "invoke-role", role: "driver", story: RED_STORY, buildMode: "refactor" }],
+    ["navigator reflect (design-gate turn, Stage I)", { kind: "invoke-role", role: "navigator", story: RED_STORY, buildMode: "reflect" }],
+    ["driver refactor-deploy (deploy self-heal, Stage I)", { kind: "invoke-role", role: "driver", story: RED_STORY, buildMode: "refactor-deploy" }],
   ] as unknown as Array<[string, WorkflowAction]>;
 
   it.each(NOT_DISPATCHED)("%s is NOT executorDispatched (stays on perform)", (_label, action) => {

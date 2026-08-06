@@ -7093,6 +7093,9 @@ var driver_refactor_default = {
   inputs: [
     { id: "code", source: "story:code", description: "The GREEN implementation the Driver restructures (behavior-preserving) after the story passes." }
   ],
+  preconditions: [
+    { id: "pack", kind: "context-pack", position: "append", description: "The context pack (rubric + module layout) APPENDED after the refactor directive so the Driver restructures against the known layout without re-reading the design tree." }
+  ],
   outputs: [],
   routing: {
     produced: { next: "state-derived" }

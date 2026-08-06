@@ -115,14 +115,21 @@ export function executorDispatched(action: WorkflowAction): boolean {
     return false;
   }
   // ── BUILD SELF-HEAL LANE (turns carrying a buildMode) ────────────────────────────────────────
-  // The navigator ASSESS turns (assess / assess-deploy / assess-refactor): judgment turns verified
-  // by their @build-cycle record + state-derived route (NO static artifact output), the first
-  // consumers of the optional-output + no-required-primary contract. assess also declares the
-  // green-failure-advisory as a PREPEND precondition (re-injected by phase 2.5). All lean (no cloud).
-  if (action.role === "navigator" && "story" in action && !!action.story && "buildMode" in action) {
-    if (action.buildMode === "assess" || action.buildMode === "assess-deploy" || action.buildMode === "assess-refactor") {
+  if ("story" in action && !!action.story && "buildMode" in action) {
+    // The navigator ASSESS turns (assess / assess-deploy / assess-refactor): judgment turns verified
+    // by their @build-cycle record + state-derived route (NO static artifact output), the first
+    // consumers of the optional-output + no-required-primary contract. assess also declares the
+    // green-failure-advisory as a PREPEND precondition (re-injected by phase 2.5). All lean (no cloud).
+    if (action.role === "navigator" && (action.buildMode === "assess" || action.buildMode === "assess-deploy" || action.buildMode === "assess-refactor")) {
       return true;
     }
+    // The navigator REVIEW + driver REFACTOR/REPAIR self-heal turns: also verified by their
+    // @build-cycle record (no static artifact). REFACTOR declares the context-pack APPEND
+    // precondition (re-injected by phase 2.5); REVIEW's pack is interpolated mid-directive (stays
+    // inline, byte-identical via omit=∅) and REPAIR carries no pack. REVIEW is lean; REFACTOR +
+    // REPAIR edit code + their @build-cycle verify needs a live branch (cloud-gated).
+    if (action.role === "navigator" && action.buildMode === "review") return true;
+    if (action.role === "driver" && (action.buildMode === "refactor" || action.buildMode === "repair")) return true;
   }
   return false;
 }

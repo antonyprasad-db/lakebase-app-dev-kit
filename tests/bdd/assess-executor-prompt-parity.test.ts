@@ -71,6 +71,28 @@ describe("assess executor prompt parity (Stage G): advisory prepend + omitted bo
     }
   });
 
+  it("refactor (Stage H): [base body] + [context-pack] byte-equals the legacy inline body (APPEND position)", () => {
+    // The refactor turn APPENDS the context pack (a clean suffix). On the executor path the pack is
+    // a declared APPEND precondition; the base body omits it and phase 2.5 re-appends it. So
+    // [base body] + [pack] must equal the legacy inline body , the append-position composition.
+    const projectDir = mkdtempSync(join(tmpdir(), "refactor-parity-"));
+    const consortDir = join(projectDir, ".consort");
+    mkdirSync(consortDir, { recursive: true });
+    try {
+      const c = cfg(consortDir);
+      const refactor = { kind: "invoke-role", role: "driver", story: STORY, buildMode: "refactor" } as Extract<WorkflowAction, { kind: "invoke-role" }>;
+      const legacyInline = buildTaskBody(refactor, c);
+      const executorBase = buildTaskBody(refactor, c, new Set(["context-pack"]));
+      const pack = resolvePreparer("context-pack")({ consortDir, featureId: FEATURE, story: STORY, ac: "" });
+      // APPEND: base body then the pack === legacy inline (the pack sits at the end of the directive).
+      expect(executorBase + pack).toBe(legacyInline);
+      // The base body does NOT already end with the pack (it was omitted).
+      expect(executorBase.endsWith(pack) && pack.length > 0).toBe(false);
+    } finally {
+      rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
   it("with NO marker: advisory is empty and the base body already equals the legacy inline body", () => {
     // No green-failure.json => the advisory projects "" (best-effort degrade). The omitted body and
     // the full inline body are then identical (nothing to omit), so the executor prompt is unchanged.

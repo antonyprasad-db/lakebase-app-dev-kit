@@ -938,6 +938,10 @@ function roleTaskBody(
         return regressionRepairDirective(consortDir, featureId, s) + supersededTestsDirective(consortDir, featureId, s);
       }
       if (action.buildMode === "refactor") {
+        // The context pack APPENDS at the end of the refactor directive (a clean suffix), so on the
+        // executor path it is a DECLARED append precondition (re-injected by phase 2.5); omit it
+        // inline here when context-pack is omitted. Legacy path (omit absent) keeps it inline.
+        const pack = (ac: string): string => (omit?.has("context-pack") ? "" : buildContextPack(consortDir, featureId, s, ac));
         // story granularity (default): REFACTOR the WHOLE story in one turn per
         // the story-level review (.tdd/cycles/<F>/<S>/review.json -> refactor_notes).
         if ((build?.loop ?? "story") === "story") {
@@ -950,7 +954,7 @@ function roleTaskBody(
             ` (e.g. \`consort-layering-clean --project-dir .\`) and fix exactly what it flags , typically extract the` +
             ` duplicated/misplaced code into one shared helper in its correct layer.` +
             ` Keep ALL the story's tests green and do not change what the outer-boundary tests check, refactor only.` +
-            buildContextPack(consortDir, featureId, s, "")
+            pack("")
           );
         }
         return (
@@ -962,7 +966,7 @@ function roleTaskBody(
           ` (e.g. \`consort-layering-clean --project-dir .\`) and fix exactly what it flags , typically extract the` +
           ` duplicated/misplaced code into one shared helper in its correct layer.` +
           ` Keep ALL tests green and do not change what the outer-boundary tests check, refactor only.` +
-          buildContextPack(consortDir, featureId, s, action.ac ?? "")
+          pack(action.ac ?? "")
         );
       }
       {
