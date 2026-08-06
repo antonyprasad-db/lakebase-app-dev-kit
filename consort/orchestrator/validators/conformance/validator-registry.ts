@@ -231,6 +231,38 @@ export function assessMarkerWritten(producedPath: string): OutputValidationResul
   return { ok: true, violations: [] };
 }
 
+/**
+ * acsDirConformant validator: the spec-author's per-story output is the `acs/` DIRECTORY (one
+ * acs/<AC>.json per acceptance criterion), NOT a fixed filename , the agent names each file after
+ * the AC it authors (AC1-file-stock-record.json, ...). producedPath is the acs/ dir (existsSync
+ * passes for a dir). The deterministic floor mirrors the legacy verify-artifact (the acs/ dir is
+ * non-empty) PLUS the design gate's per-file check: every acs/*.json must conform to ac.json. Used
+ * for the executor-dispatched spec-author per-story turn, whose declared output resolves to the dir
+ * (a single-file validator like nonEmptyFile cannot read a directory).
+ */
+export function acsDirConformant(producedPath: string): OutputValidationResult {
+  if (!existsSync(producedPath) || !statSync(producedPath).isDirectory()) {
+    return { ok: false, violations: [`spec-author wrote no acs/ dir at ${producedPath} (expected >=1 acs/<AC>.json)`] };
+  }
+  const acFiles = readdirSync(producedPath).filter((n) => n.endsWith(".json"));
+  if (acFiles.length === 0) {
+    return { ok: false, violations: [`acs/ dir at ${producedPath} holds no AC file (expected >=1 acs/<AC>.json)`] };
+  }
+  const violations: string[] = [];
+  for (const name of acFiles) {
+    let content: string;
+    try {
+      content = readFileSync(join(producedPath, name), "utf8");
+    } catch {
+      violations.push(`acs/${name} not readable`);
+      continue;
+    }
+    const conf = checkArtifactConformance("ac.json", content);
+    if (!conf.ok) violations.push(...conf.violations.map((v) => `acs/${name}: ${v}`));
+  }
+  return violations.length === 0 ? { ok: true, violations: [] } : { ok: false, violations };
+}
+
 /** Per-artifact schema-conformance validators (the design roles' primary outputs), each
  *  gated to its canonical schema via checkArtifactConformance. */
 export const acConformant = conformsTo("ac.json");
@@ -270,6 +302,9 @@ export const VALIDATOR_REGISTRY: Record<string, OutputValidator> = {
   // Schema-conformance validators for the design roles' primary artifacts (the integration
   // live chains gate the real agent's output to its canonical schema, not just non-emptiness).
   acConformant,
+  // The spec-author per-story primary is the acs/ DIRECTORY (dynamically-named AC files); the
+  // executor-dispatched turn resolves its output to that dir, so it needs a dir-aware validator.
+  acsDirConformant,
   architectureConformant,
   dbDesignConformant,
   testListConformant,

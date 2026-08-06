@@ -14,6 +14,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildDriveEffects, type DriveCommand, type DriveEffectsConfig } from "../../consort/orchestrator/drive/orchestrator-effects";
+import { executorDispatched, outputPathsForAction } from "../../consort/orchestrator/drive/executor-dispatch";
 import type { WorkflowAction, DriveState } from "../../consort/orchestrator/drive/orchestrator-drive";
 import type { ValidateBoundDeps } from "../../consort/orchestrator/steps/step-contract";
 
@@ -120,14 +121,14 @@ describe("performViaExecutor (Stage 2 2b): spec-author breakdown through the Ste
     }
   });
 
-  it("returns undefined for an action NOT on the executor allowlist (e.g. a design turn not yet migrated)", async () => {
+  it("returns undefined for an action NOT on the executor allowlist (a still-legacy invoke-role turn)", async () => {
     const projectDir = mkdtempSync(join(tmpdir(), "pve-"));
     try {
       const effects = buildDriveEffects(cfg(join(projectDir, ".consort"), projectDir, { useManifestSteps: true }));
-      // architect estimate is a design turn NOT yet on the allowlist (breakdown, navigator RED,
-      // driver GREEN are; the rest fall through to perform). Its own dedicated cases below cover
-      // the migrated build turns.
-      const notMigrated: WorkflowAction = { kind: "invoke-role", role: "architect-reviewer", mode: "estimate" } as WorkflowAction;
+      // estimate-committed is a design turn that stays on the LEGACY path , it re-syncs the sprint
+      // backlog via a dedicated commandsForAction branch with no shipped manifest, so it is
+      // deliberately EXCLUDED from executorDispatched (unlike plain `estimate`, which IS dispatched).
+      const notMigrated: WorkflowAction = { kind: "invoke-role", role: "architect-reviewer", mode: "estimate-committed" } as WorkflowAction;
       expect(await effects.performViaExecutor!(notMigrated, state, routerDeps)).toBeUndefined();
     } finally {
       rmSync(projectDir, { recursive: true, force: true });
@@ -369,6 +370,83 @@ describe("performViaExecutor (#594): driver GREEN through the StepExecutor", () 
       expect(await effects.performViaExecutor!(refactor, state, routerDeps)).toBeUndefined();
     } finally {
       rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+});
+
+// ─── the 7 remaining DESIGN roles: the executor DISPATCH GATE + channel PLACEMENT (Stage 1) ────────
+// This block asserts the two role-specific knobs the widening added , executorDispatched (the gate)
+// and outputPathsForAction (the per-output channel-relative path) , directly, since those are the
+// only role-specific parts of the otherwise role-agnostic performTurnViaExecutor.
+//
+// It does NOT run the FULL performViaExecutor for these roles yet: that surfaced a REAL latent bug in
+// the shipped design manifests' INPUT sources (see the note below) that must be fixed on the real path
+// before the full executor-dispatch parity + LIVE proof can pass. The retirement-map step (2) for
+// these roles is BLOCKED on that fix, which is tracked in the plan doc (channel-model-live-proof.md).
+describe("executorDispatched (Stage 1): the 7 widened design turns take the executor path", () => {
+  const DISPATCHED: Array<[string, WorkflowAction]> = [
+    ["spec-author per-story ACs", { kind: "invoke-role", role: "spec-author", story: RED_STORY }],
+    ["spec-author propose", { kind: "invoke-role", role: "spec-author", mode: "propose" }],
+    ["architect-reviewer per-story", { kind: "invoke-role", role: "architect-reviewer", story: RED_STORY }],
+    ["architect estimate", { kind: "invoke-role", role: "architect-reviewer", mode: "estimate" }],
+    ["dba per-story", { kind: "invoke-role", role: "dba", story: RED_STORY }],
+    ["test-strategist per-story", { kind: "invoke-role", role: "test-strategist", story: RED_STORY }],
+    ["ux-designer", { kind: "invoke-role", role: "ux-designer" }],
+  ] as unknown as Array<[string, WorkflowAction]>;
+
+  it.each(DISPATCHED)("%s is executorDispatched", (_label, action) => {
+    expect(executorDispatched(action)).toBe(true);
+  });
+
+  // The turns that STAY on the legacy path (documented exclusions , the retirement map's
+  // "cannot retire" set): human-input, the deterministic-replay propose, estimate-committed, and the
+  // build self-heal turns (no declared manifest outputs => nothing for the channel/validate phases).
+  const NOT_DISPATCHED: Array<[string, WorkflowAction]> = [
+    ["product-owner author-requests (human input)", { kind: "invoke-role", role: "product-owner", mode: "author-requests" }],
+    ["architect estimate-committed (re-syncs backlog)", { kind: "invoke-role", role: "architect-reviewer", mode: "estimate-committed" }],
+    ["navigator REVIEW (build self-heal, no outputs)", { kind: "invoke-role", role: "navigator", story: RED_STORY, buildMode: "review" }],
+    ["driver REFACTOR (build self-heal, no outputs)", { kind: "invoke-role", role: "driver", story: RED_STORY, buildMode: "refactor" }],
+  ] as unknown as Array<[string, WorkflowAction]>;
+
+  it.each(NOT_DISPATCHED)("%s is NOT executorDispatched (stays on perform)", (_label, action) => {
+    expect(executorDispatched(action)).toBe(false);
+  });
+});
+
+describe("outputPathsForAction (Stage 1): each design turn's artifact resolves feature/story-scoped under .consort", () => {
+  const CONSORT = "/p/.consort";
+  // The channel-relative artifact path each design turn's primary output must land at (derived from
+  // the consort-paths helpers = byte-identical to the legacy designArtifactExpectation), + the bare
+  // meta agent-log. Feature/story-scoped where the real tree scopes them.
+  const CASES: Array<[string, WorkflowAction, Record<string, string>]> = [
+    ["spec-author breakdown", { kind: "invoke-role", role: "spec-author", mode: "breakdown" },
+      { "feature-spec": `features/${FEATURE}/feature-spec.json`, "agent-log": "agent-log.jsonl" }],
+    ["spec-author per-story ACs", { kind: "invoke-role", role: "spec-author", story: RED_STORY },
+      { acs: `features/${FEATURE}/stories/${RED_STORY}/acs`, "agent-log": "agent-log.jsonl" }],
+    ["spec-author propose", { kind: "invoke-role", role: "spec-author", mode: "propose" },
+      { "feature-proposals": "planning/feature-proposals.md" }],
+    ["architect-reviewer", { kind: "invoke-role", role: "architect-reviewer", story: RED_STORY },
+      { architecture: `features/${FEATURE}/architecture.json`, "agent-log": "agent-log.jsonl" }],
+    ["architect estimate", { kind: "invoke-role", role: "architect-reviewer", mode: "estimate" },
+      { estimates: "planning/estimates.json" }],
+    ["dba", { kind: "invoke-role", role: "dba", story: RED_STORY },
+      { "db-design": `features/${FEATURE}/db-design.json`, "agent-log": "agent-log.jsonl" }],
+    ["test-strategist", { kind: "invoke-role", role: "test-strategist", story: RED_STORY },
+      { "test-list": `features/${FEATURE}/test-list.json`, "agent-log": "agent-log.jsonl" }],
+    ["ux-designer", { kind: "invoke-role", role: "ux-designer" },
+      { "design-guide": "design/design-guide.json", "agent-log": "agent-log.jsonl" }],
+    ["navigator RED (product)", { kind: "invoke-role", role: "navigator", story: RED_STORY },
+      { tests: "tests", "agent-log": "agent-log.jsonl" }],
+    ["driver GREEN (product)", { kind: "invoke-role", role: "driver", story: RED_STORY },
+      { code: "app", "agent-log": "agent-log.jsonl" }],
+  ] as unknown as Array<[string, WorkflowAction, Record<string, string>]>;
+
+  it.each(CASES)("%s: channel-relative output paths", (_label, action, expected) => {
+    expect(outputPathsForAction(action, CONSORT, FEATURE)).toEqual(expected);
+    // Every path is channel-RELATIVE , none re-encodes the .consort root (the double-encode guard).
+    for (const p of Object.values(outputPathsForAction(action, CONSORT, FEATURE))) {
+      expect(p.startsWith(".consort"), `${p} must not re-encode .consort`).toBe(false);
+      expect(p.startsWith("/"), `${p} must be relative`).toBe(false);
     }
   });
 });

@@ -18,8 +18,18 @@
 //     tests/ tree at the project root), post-turn `@build-cycle` (the RED cycle stamp).
 
 import * as fs from "node:fs";
-import { join } from "node:path";
-import { storyResolved } from "../../config/consort-paths.js";
+import { join, relative } from "node:path";
+import {
+  storyResolved,
+  featureSpecJson,
+  architectureJson,
+  dbDesignJson,
+  featureTestListJson,
+  designGuideJson,
+  acsDir,
+  featureProposalsMd,
+  planningEstimatesJson,
+} from "../../config/consort-paths.js";
 import { manifestForAction, type StepManifest } from "../steps/manifest.js";
 import { execute, type StepExecutorDeps } from "../turns/step-executor.js";
 import { Step } from "../steps/step.js";
@@ -44,23 +54,49 @@ export interface ExecutorDispatchDeps {
   logBin: string;
 }
 
-/** The invoke-role actions the live drive dispatches THROUGH the StepExecutor. Deliberately a SMALL
- *  allowlist , migrated one action at a time, each with its byte-identical golden:
- *   - spec-author breakdown (design, single-shot).
- *   - navigator RED (build, LEAN): the story's first authoring turn, no buildMode/mode, has a story.
- *  Everything else falls through to commandsForAction. */
+/** The invoke-role actions the live drive dispatches THROUGH the StepExecutor. Every action whose
+ *  shipped manifest declares outputs (so the executor's validate + channel-placement phases have
+ *  something to do) is dispatched here; the pure build turns with NO declared outputs
+ *  (review/reflect/assess/refactor/repair/superseded/deploy , verified by @build-cycle records, not
+ *  a static artifact) fall through to commandsForAction. The set:
+ *   DESIGN LANE (artifact + meta channels, LEAN , no cloud):
+ *     - spec-author breakdown | propose | per-story ACs
+ *     - architect-reviewer (architecture) | architect estimate (planning/estimates)
+ *     - dba (db-design) | test-strategist (test-list) | ux-designer (design-guide)
+ *   BUILD LANE (product + meta channels):
+ *     - navigator RED (LEAN , authors tests/) | driver GREEN (cloud-gated , honest-GREEN verify).
+ *  All dispatch through the SAME role-agnostic performTurnViaExecutor; the only per-role knobs are
+ *  this gate + outputPathsForAction's channel-relative path per output. */
 export function executorDispatched(action: WorkflowAction): boolean {
   if (action.kind !== "invoke-role") return false;
-  // spec-author breakdown (design lane).
-  if ("mode" in action && action.role === "spec-author" && action.mode === "breakdown") return true;
-  // navigator RED + driver GREEN (build lane): the plain story turn , no `mode` (not a design step)
-  // and no `buildMode` (not review/reflect/assess/refactor/repair), carrying the story. These are
-  // exactly the actions nextBuildAction emits for `!testsWritten` (navigator RED) and `!codeWritten`
-  // (driver GREEN) in orchestrator-drive.ts. NOTE: navigator RED runs lean (no cloud , authors
-  // tests); driver GREEN's post-turn @build-cycle honest-GREEN verify needs a live Lakebase branch,
-  // so its LIVE proof is cloud-gated , but the dispatch path itself is identical.
-  if (!("mode" in action) && !("buildMode" in action) && (action.role === "navigator" || action.role === "driver") && "story" in action && !!action.story) {
-    return true;
+
+  // ── DESIGN LANE ────────────────────────────────────────────────────────────────────────────
+  if ("mode" in action) {
+    // spec-author breakdown | propose; architect estimate (NOT estimate-committed , that re-syncs
+    // the backlog via a separate legacy branch with no shipped manifest).
+    if (action.role === "spec-author" && (action.mode === "breakdown" || action.mode === "propose")) return true;
+    if (action.role === "architect-reviewer" && action.mode === "estimate") return true;
+    return false; // author-requests + estimate-committed + any other mode: legacy path.
+  }
+  // The per-story / feature design turns carry NO mode and NO buildMode. Distinguish them from the
+  // build turns (navigator/driver) by role.
+  if (!("buildMode" in action)) {
+    // spec-author per-story ACs + architect-reviewer per-story + test-strategist: story-scoped.
+    if ((action.role === "spec-author" || action.role === "architect-reviewer" || action.role === "test-strategist") && "story" in action && !!action.story) {
+      return true;
+    }
+    // dba is story-scoped in the per-story lane; ux-designer is feature-scoped (no story). Both have
+    // a shipped manifest with an artifact output.
+    if (action.role === "dba" && "story" in action && !!action.story) return true;
+    if (action.role === "ux-designer") return true;
+    // ── BUILD LANE ─────────────────────────────────────────────────────────────────────────────
+    // navigator RED + driver GREEN: the plain story turn (no mode/buildMode, carries a story) ,
+    // exactly what nextBuildAction emits for `!testsWritten` / `!codeWritten`. RED runs lean; GREEN's
+    // post-turn @build-cycle honest-GREEN verify needs a live Lakebase branch (cloud-gated proof),
+    // but the dispatch path is identical.
+    if ((action.role === "navigator" || action.role === "driver") && "story" in action && !!action.story) {
+      return true;
+    }
   }
   return false;
 }
@@ -106,28 +142,70 @@ export function manifestPostTurnCommands(
 
 /** The on-disk locations the executor validates a dispatched turn's outputs at , resolved in each
  *  output's channel root (product -> workspaceDir, meta/artifact -> a workspace-relative path). The
- *  same nested paths the legacy designArtifactExpectation + cycle/agent-log writers use. */
-export function outputPathsForAction(action: WorkflowAction, featureId: string): Record<string, string> {
+ *  same nested paths the legacy designArtifactExpectation + cycle/agent-log writers use.
+ *
+ *  Every ARTIFACT-channel path is derived from the SAME consort-paths.ts helper the legacy
+ *  designArtifactExpectation uses, made CHANNEL-RELATIVE via `relative(consortDir, helper(...))`, so
+ *  it is byte-identical to legacy AND slug-dir-safe (features/<F> and stories/<S> may be `<id>` or
+ *  `<id>-<slug>` , the helper resolves the real dir; a hardcoded `features/<F>/...` would miss a slug
+ *  dir a design role READS). The META agent-log is always bare `agent-log.jsonl` (reconcile writes
+ *  it at <consortDir>/agent-log.jsonl). PRODUCT paths (tests/, app/) are project-root-relative. */
+export function outputPathsForAction(action: WorkflowAction, consortDir: string, featureId: string): Record<string, string> {
   if (action.kind !== "invoke-role") return {};
-  // Each path below is CHANNEL-RELATIVE: the executor joins it under the output's channel root
-  // (product -> workspaceDir/project root; artifact + meta -> the provisioned .consort). The
-  // orchestrator places the file; the manifest/override never re-encodes the root.
-  //
-  // spec-author breakdown: the feature-spec index (artifact channel -> under .consort) + the
-  // meta agent-log (meta channel -> under .consort, materialized by reconcile).
-  if ("mode" in action && action.role === "spec-author" && action.mode === "breakdown") {
-    return { "feature-spec": `features/${featureId}/feature-spec.json`, "agent-log": "agent-log.jsonl" };
+  const f = featureId;
+  const story = "story" in action && typeof action.story === "string" ? action.story : undefined;
+  // Channel-relative = the artifact's path within its channel's root (artifact/meta -> consortDir).
+  const rel = (abs: string): string => relative(consortDir, abs);
+  const META = { "agent-log": "agent-log.jsonl" }; // meta channel, always bare (reconcile places it).
+
+  // ── DESIGN LANE (artifact channel -> under .consort) ─────────────────────────────────────────
+  if ("mode" in action) {
+    // spec-author breakdown: the feature-spec index.
+    if (action.role === "spec-author" && action.mode === "breakdown") {
+      return { "feature-spec": rel(featureSpecJson(consortDir, f)), ...META };
+    }
+    // spec-author propose: the sprint's planning proposals (no agent-log , planning mode skips reconcile).
+    if (action.role === "spec-author" && action.mode === "propose") {
+      return { "feature-proposals": rel(featureProposalsMd(consortDir)) };
+    }
+    // architect estimate: the planning estimates (planning mode , no reconcile/agent-log).
+    if (action.role === "architect-reviewer" && action.mode === "estimate") {
+      return { estimates: rel(planningEstimatesJson(consortDir)) };
+    }
+    return {};
   }
-  // navigator RED: the PRODUCT tests/ tree at the project root (product channel -> workspaceDir) +
-  // the meta agent-log (meta channel -> .consort, bare + placed by the orchestrator).
-  if (!("mode" in action) && !("buildMode" in action) && action.role === "navigator" && "story" in action && !!action.story) {
-    return { tests: "tests", "agent-log": "agent-log.jsonl" };
-  }
-  // driver GREEN: the PRODUCT code (app/ at the project root, product channel -> workspaceDir) is
-  // the primary in-turn produced signal, + the meta agent-log (materialized post-run by reconcile).
-  // The real correctness gate is the post-turn @build-cycle honest-GREEN verify.
-  if (!("mode" in action) && !("buildMode" in action) && action.role === "driver" && "story" in action && !!action.story) {
-    return { code: "app", "agent-log": "agent-log.jsonl" };
+  if (!("buildMode" in action)) {
+    // spec-author per-story ACs: the story's acs/ DIRECTORY (the legacy designArtifactExpectation's
+    // anyOf is the DIR , the deliverable is "≥1 conformant AC", not a fixed filename).
+    if (action.role === "spec-author" && story) {
+      return { acs: rel(acsDir(consortDir, f, story)), ...META };
+    }
+    // architect-reviewer per-story: the feature architecture.
+    if (action.role === "architect-reviewer" && story) {
+      return { architecture: rel(architectureJson(consortDir, f)), ...META };
+    }
+    // dba per-story: the physical schema.
+    if (action.role === "dba" && story) {
+      return { "db-design": rel(dbDesignJson(consortDir, f)), ...META };
+    }
+    // test-strategist per-story: the feature master test-list.
+    if (action.role === "test-strategist" && story) {
+      return { "test-list": rel(featureTestListJson(consortDir, f)), ...META };
+    }
+    // ux-designer (feature-scoped, no story): the design system.
+    if (action.role === "ux-designer") {
+      return { "design-guide": rel(designGuideJson(consortDir)), ...META };
+    }
+    // ── BUILD LANE (product channel -> project root) ───────────────────────────────────────────
+    // navigator RED: the PRODUCT tests/ tree at the project root + the meta agent-log.
+    if (action.role === "navigator" && story) {
+      return { tests: "tests", ...META };
+    }
+    // driver GREEN: the PRODUCT code (app/ at the project root). The real correctness gate is the
+    // post-turn @build-cycle honest-GREEN verify; app/ is the in-turn produced signal.
+    if (action.role === "driver" && story) {
+      return { code: "app", ...META };
+    }
   }
   return {};
 }
@@ -187,7 +265,7 @@ export async function performTurnViaExecutor(
     // product-channel outputs (tests/, app/) land at the project root; artifact + meta channels
     // resolve under the real .consort (artifactDir = metaDir = cfg.consortDir), so the orchestrator
     // places the design docs + the reconciled agent-log there , the manifest filename stays bare.
-    provisionWorkspace: () => ({ workspaceDir: cfg.projectDir, artifactDir: cfg.consortDir, metaDir: cfg.consortDir, outputPaths: outputPathsForAction(action, f) }),
+    provisionWorkspace: () => ({ workspaceDir: cfg.projectDir, artifactDir: cfg.consortDir, metaDir: cfg.consortDir, outputPaths: outputPathsForAction(action, cfg.consortDir, f) }),
     // The prompt is the agent's own (buildClaudeCommand -> roleTask); unused by LiveDriveStepAgent,
     // but the executor requires the dep.
     instructionsFor: () => ({ prompt: "" }),

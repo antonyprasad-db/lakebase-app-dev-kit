@@ -7,7 +7,7 @@
     { "id": "product-overview", "source": "feature:product-overview.md", "description": "The PO's product overview , the feature framing (product-overview.md)." }
   ],
   "outputs": [
-    { "id": "acs", "filename": "acs/AC1.json", "channel": "artifact", "validator": "nonEmptyFile", "description": "The per-story acceptance criteria (one acs/<AC>.json per AC). The design gate validates every acs/*.json against the AC schema; the post-turn verify-artifact asserts the acs/ dir is non-empty." },
+    { "id": "acs", "filename": "acs", "channel": "artifact", "validator": "acsDirConformant", "description": "The per-story acceptance criteria , the acs/ DIRECTORY (one acs/<AC>.json per AC, each named after the AC it authors). acsDirConformant asserts the dir is non-empty AND every acs/*.json conforms to ac.json (the deterministic floor the legacy verify-artifact + design gate enforced)." },
     { "id": "agent-log", "filename": "agent-log.jsonl", "channel": "meta", "validator": "agentLogHasRoleEvent", "description": "The spec-author's structured log of the ACs it authored (shared agent-log script; agent-log-event.schema.json)." }
   ],
   "routing": {
