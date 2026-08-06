@@ -1,0 +1,20 @@
+{
+  "id": "design-equivalence-live",
+  "description": "The GATED design-equivalence live check, config-driven , scaffold ONE project, then run each design role's PRODUCTION-body turn in the UNCONSTRAINED channel (Bash + scripts/lk, so the role's ./scripts/lk self-check runs exactly as production does), judge the output against the pin, and RESET the built .consort artifacts between roles. The workspace is NOT hardcoded here , databricksHost is the REQUIRED ${DATABRICKS_HOST} marker, which design-equivalence-support.ts exports from the ONE config home (resolveTestEnv -> .env.local.test.config) before loading this. Same scaffold-project / remove-project lifecycle as driver-green + the stockflow demo (a real Lakebase project is created for consistency even though the design roles never touch the DB, so the design reset is filesystem-only).",
+  "setup": {
+    "kind": "scaffold-project",
+    "config": {
+      "projectName": "${DESIGN_EQUIV_PROJECT:-de-live-{{TS}}}",
+      "databricksHost": "${DATABRICKS_HOST}",
+      "createGithubRepo": "${DESIGN_EQUIV_CREATE_REPO:-false}",
+      "tiers": "${DESIGN_EQUIV_TIERS:-1}",
+      "uiTrack": "${DESIGN_EQUIV_UI:-false}",
+      "language": "${DESIGN_EQUIV_LANGUAGE:-python}",
+      "runnerType": "${DESIGN_EQUIV_RUNNER:-github-hosted}"
+    }
+  },
+  "teardown": {
+    "kind": "remove-project",
+    "config": {}
+  }
+}

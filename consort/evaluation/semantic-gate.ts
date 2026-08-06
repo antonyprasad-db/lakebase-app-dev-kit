@@ -130,8 +130,13 @@ export function resolveStepReference(args: {
   kitRoot: string;
   step: TurnKey;
   featureId: string;
+  /** For step==="acs" only: restrict the reference to ONE recorded story's ACs (a per-story
+   *  comparison) rather than the feature-aggregate union. Used when the candidate turn produced a
+   *  single story's ACs (a per-story dispatch), so the comparison is like-for-like. Ignored for
+   *  other steps. Omitted => the feature-aggregate union (the default coverage bar). */
+  storyId?: string;
 }): StepReference | null {
-  const { kitRoot, step, featureId } = args;
+  const { kitRoot, step, featureId, storyId } = args;
   if (!hasDesignReference(step)) return null;
   // recorded-artifacts/ is .tdd-shaped (features/<F>/..., design/...), so the sftdd-paths builders
   // resolve reference paths the same as live .consort paths. `corpus` is the provenance label.
@@ -140,18 +145,22 @@ export function resolveStepReference(args: {
   if (!existsSync(root)) return null;
 
   if (step === "acs") {
-    // Per-story ACs: the reference is the UNION of every recorded story's ACs (slugs
-    // + per-story split differ legitimately; the semantic bar is feature-aggregate
-    // coverage, not per-slug alignment). Story + acs dirs come from sftdd-paths.
+    // Per-story ACs. By default the reference is the UNION of every recorded story's ACs (the
+    // feature-aggregate coverage bar). When storyId is given, restrict to THAT story's recorded
+    // ACs , the like-for-like reference for a single-story turn (else a one-story candidate is
+    // unfairly judged against all stories' ACs, the scope-mismatch the equivalence suite hit).
     const sdir = storiesDir(root, featureId);
     if (!existsSync(sdir)) return null;
     const paths: string[] = [];
-    for (const story of readdirSync(sdir)) {
+    const stories = storyId ? [storyId] : readdirSync(sdir);
+    for (const story of stories) {
       const adir = acsDir(root, featureId, story);
       if (!existsSync(adir)) continue;
       for (const ac of readdirSync(adir)) if (ac.endsWith(".json")) paths.push(join(adir, ac));
     }
-    return paths.length ? { corpus, paths, label: "stories/*/acs/*.json (feature-aggregate)" } : null;
+    return paths.length
+      ? { corpus, paths, label: storyId ? `stories/${storyId}/acs/*.json` : "stories/*/acs/*.json (feature-aggregate)" }
+      : null;
   }
 
   const p = stepArtifactPath(root, step, featureId);
@@ -260,12 +269,21 @@ export async function evaluateSemanticGate(args: {
   step: TurnKey;
   judge: SemanticJudge;
   threshold?: number;
+  /** For step==="acs": restrict the reference to ONE recorded story (per-story like-for-like). */
+  storyId?: string;
+  /** ABSOLUTE reference file path(s) that REPLACE the resolved recorded reference. Used when the
+   *  turn's faithful reference is a per-story/per-scope SLICE that the pin only holds at feature
+   *  level (a story-scoped architect/test-list turn produces one story's slice, not the whole
+   *  feature). The label reports "(reference override)". Omitted => the resolved recorded reference. */
+  referencePaths?: string[];
 }): Promise<SemanticGateOutcome> {
-  const { kitRoot, consortDir, featureId, step, judge } = args;
+  const { kitRoot, consortDir, featureId, step, judge, storyId, referencePaths } = args;
   const threshold = args.threshold ?? SEMANTIC_THRESHOLD;
 
-  const ref = resolveStepReference({ kitRoot, step, featureId });
-  if (!ref) return { passed: true, skipped: true };
+  const ref = referencePaths?.length
+    ? { corpus: CANONICAL, paths: referencePaths.filter((p) => existsSync(p)), label: "(reference override)" }
+    : resolveStepReference({ kitRoot, step, featureId, ...(storyId ? { storyId } : {}) });
+  if (!ref || ref.paths.length === 0) return { passed: true, skipped: true };
 
   const candidate = readCandidateArtifact({ consortDir, step, featureId });
   if (candidate === null) {

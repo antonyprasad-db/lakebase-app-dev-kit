@@ -1,60 +1,64 @@
-// LIVE, LEAN (gated RUN_LIVE_STEP=1): the DESIGN half of the shared regression comparison suite.
+// GATED LIVE (RUN_LIVE_STEP=1 + LAKEBASE_TEST_E2E=1): the DESIGN half of the shared regression
+// comparison suite , the corpus-comparison the A-full executor-dispatch proofs left open.
 //
-//   RUN_LIVE_STEP=1 npx vitest run tests/integration/live/design-equivalence-live.test.ts
+//   RUN_LIVE_STEP=1 LAKEBASE_TEST_E2E=1 npx vitest run tests/integration/live/design-equivalence-live.test.ts
 //
-// This closes the corpus-comparison gap the A-full executor-dispatch proofs left open: those proved
-// each design turn DISPATCHES through the shipped executor + lands a well-FORMED artifact (conformance
-// validators), but NEVER compared the produced artifact SEMANTICALLY to the recorded reference. This
-// suite drives every design role through the SAME shipped performViaExecutor path (the catalogue's
-// DESIGN_LIVE_SPECS, one source of truth with the per-role dispatch proofs), then , before teardown ,
-// judges the produced artifact against the SHARED reference-asset pin via evaluateSemanticGate (the
-// relocated consort/evaluation judge, the SAME one the optimization sweep uses). Design bar: >= 0.85.
+// The A-full dispatch proofs showed each design turn DISPATCHES through the shipped executor + lands a
+// well-FORMED artifact, but never compared the output SEMANTICALLY to the recorded corpus. This suite
+// closes that: it drives each design role's PRODUCTION-body turn (buildTaskBody -> roleTaskBody, no
+// hand-written prompt) and judges the output against the SHARED reference-asset pin via the relocated
+// consort/evaluation semantic judge (the SAME one the optimization sweep uses). Design bar: >= 0.85.
 //
-// LEAN , model-API only, NO cloud (design roles are tool-scoped Write/Read, never touch Lakebase).
-// The judge is a FIXED opus `claude -p` (makeOpusJudge), constant across roles so the bar never moves.
-// Reference resolution honours CONSORT_REFERENCE_CORPUS (default = the shipped pin); a step with no
-// pinned reference skips its judgment (skipped:true) rather than false-passing , the coverage guard
-// (tests/bdd/reference-assets-coverage-guard.test.ts) is what asserts the pin HAS every design ref.
+// WHY SCAFFOLDED / UNCONSTRAINED (not lean): the production roleTaskBody ends each design turn with a
+// `./scripts/lk` self-check the agent must pass before returning, and `lk` runs only from the
+// unconstrained channel (Bash + the workspace scripts/lk shim). A lean tool-scoped (Write/Read)
+// throwaway .consort omits that self-correction step , it measured production-MINUS-self-check. So this
+// tier scaffolds ONE real project (Databricks + Lakebase, like driver-green , a Lakebase project is
+// created for consistency even though design roles never touch the DB), runs each role UNCONSTRAINED so
+// the real self-check runs, and RESETS the built .sftdd between roles (filesystem-only for design; the
+// build tier extends the reset with alembic downgrade + data purge). See design-equivalence-support.ts.
+//
+// DOUBLE-gated (needs the scaffold): RUN_LIVE_STEP=1 + LAKEBASE_TEST_E2E=1, and the config home must
+// resolve a host (resolveTestEnv) , an unconfigured env skips. NEVER interrupt before teardown (the
+// remove-project in afterAll deletes the Lakebase project; an interrupt leaks it).
 
-import { describe, it, expect } from "vitest";
+import { describe, it, beforeAll, afterAll } from "vitest";
 import {
-  runDesignExecutorDispatchLive,
-  designSpec,
+  scaffoldDesignEquivProject,
+  teardownDesignEquivProject,
+  runDesignEquivStep,
+  resolveDesignEquivRunConfig,
   DESIGN_LIVE_STEPS,
-  FEATURE,
-} from "./executor-dispatch-live-support.js";
-import { evaluateSemanticGate, makeOpusJudge, SEMANTIC_THRESHOLD } from "../../../consort/evaluation/semantic-gate.js";
+  type DesignEquivProject,
+} from "./design-equivalence-support.js";
 import type { TurnKey } from "../../../consort/orchestrator/settings/project-settings.js";
 
-const KIT = process.cwd();
+const cloudReady = !!process.env.RUN_LIVE_STEP && process.env.LAKEBASE_TEST_E2E === "1";
+const hostResolvable = (() => {
+  try {
+    return !!resolveDesignEquivRunConfig().host;
+  } catch {
+    return false;
+  }
+})();
 
-describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE: design artifacts are SEMANTICALLY equivalent to the pin (executor output vs recorded reference)", () => {
+describe.skipIf(!cloudReady || !hostResolvable)("GATED LIVE: design artifacts are SEMANTICALLY equivalent to the pin (production-body turns on a scaffolded project)", () => {
+  let project: DesignEquivProject;
+
+  beforeAll(async () => {
+    project = await scaffoldDesignEquivProject();
+  }, 1_800_000);
+
+  afterAll(async () => {
+    if (project) await teardownDesignEquivProject(project);
+  }, 600_000);
+
+  // ONE scaffold, all 8 design steps sequentially (each seeds -> production-body turn -> judge ->
+  // reset). Sequential (not it.each concurrency) so the shared .sftdd is reset cleanly between steps.
   it.each(DESIGN_LIVE_STEPS.map((s) => [s] as [TurnKey]))(
-    "design step %s: executor output >= %s semantic coverage of the pinned reference",
+    "design step %s: production-body output >= threshold semantic coverage of the pinned reference",
     async (step) => {
-      const spec = designSpec(step);
-      await runDesignExecutorDispatchLive(spec, {
-        afterProduce: async (consortDir) => {
-          // Judge the produced artifact against the pin at spec.step , the SHARED judge, the SHARED
-          // reference resolver. A step whose reference is not on disk skips (never a false pass); the
-          // coverage guard is the separate assertion that the pin CARRIES every design reference.
-          const outcome = await evaluateSemanticGate({
-            kitRoot: KIT,
-            consortDir,
-            featureId: FEATURE,
-            step: spec.step,
-            judge: makeOpusJudge({ cwd: KIT }),
-          });
-          // eslint-disable-next-line no-console
-          console.log(
-            `[design-equivalence] ${step}: ${outcome.skipped ? "SKIPPED (no pinned reference)" : outcome.passed ? `PASSED (score ${outcome.score?.toFixed(2)} >= ${SEMANTIC_THRESHOLD})` : `FAILED , ${outcome.reason}`}`,
-          );
-          expect(
-            outcome.passed,
-            `${step}: produced artifact not semantically equivalent to the pin , ${outcome.reason ?? "below threshold"}`,
-          ).toBe(true);
-        },
-      });
+      await runDesignEquivStep(project, step);
     },
     900_000,
   );

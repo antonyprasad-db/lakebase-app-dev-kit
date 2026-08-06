@@ -32,6 +32,10 @@ import type { TurnKey } from "../../../consort/orchestrator/settings/project-set
 
 const KIT = process.cwd();
 const INTAKE = join(KIT, "tests/integration/intake");
+/** The shipped reference-asset pin's recorded-artifacts , the FAITHFUL recorded upstream the
+ *  equivalence tier seeds from (so a turn is fed the same inputs the corpus turn consumed, and can
+ *  reproduce the feature-scoped artifact). NOT used by the dispatch proof (which seeds minimal). */
+const PIN_ARTIFACTS = join(KIT, "consort/evaluation/reference-assets/stockflow/recorded-artifacts");
 export const FEATURE = "F1-stock-visibility";
 export const STORY = "S1-file-stock";
 
@@ -53,6 +57,25 @@ export interface DesignLiveSpec {
   artifactIsDir?: boolean;
   /** The live-turn prompt (the agent writes ONLY artifactRel, tool-scoped, reports, no shell). */
   prompt: string;
+  /** OPTIONAL richer seed for the EQUIVALENCE suite ONLY (not the dispatch proof). The dispatch
+   *  proof seeds minimal inputs (it only checks a well-formed artifact lands); the equivalence judge
+   *  compares against the FULL recorded feature/sprint artifact, so a faithful comparison needs the
+   *  turn seeded with the SAME upstream the corpus turn consumed (all stories' ACs, both features'
+   *  proposals, etc). When present, the equivalence suite uses this instead of `seed`. The two roles
+   *  that already seed faithful upstream (dba<-recorded architecture, ux<-recorded brief) scored 1.00
+   *  with no equivalenceSeed , they need none. */
+  equivalenceSeed?: Array<{ rel: string; from?: string; fromAbs?: string; content?: string }>;
+  /** For step==="acs" in the EQUIVALENCE suite: the single recorded story the produced ACs are judged
+   *  against (per-story like-for-like, not the feature-aggregate union). Omitted => feature-aggregate. */
+  equivalenceStoryId?: string;
+  /** OPTIONAL absolute reference-path(s) for the EQUIVALENCE judge, computed from the kit root. Used
+   *  for STORY-SCOPED turns (architect, test-strategist) whose manifest reads only ONE story's ACs
+   *  (source: story:acs) but whose recorded artifact is the FEATURE-level accretion across all
+   *  stories' turns , a single per-story turn can only produce that story's slice, so the faithful
+   *  reference is the per-story SLICE (the optimize path's referenceFile precedent, e.g.
+   *  test-list.S1-slice.json), not the whole-feature recorded artifact. Omitted => the resolved
+   *  recorded reference at the step. */
+  equivalenceReferencePaths?(kitRoot: string): string[];
 }
 
 /** The role's live turn is tool-scoped to Write/Read (no Bash -> never runs ./scripts/lk), matching
@@ -93,22 +116,19 @@ function nonEmptyDir(dir: string): boolean {
   return existsSync(dir) && statSync(dir).isDirectory() && readdirSync(dir).length > 0;
 }
 
-/** Options for one dispatch-live run: an OPTIONAL `afterProduce` hook the caller uses to inspect the
- *  produced `.consort` tree BEFORE teardown (the equivalence suite runs its semantic judge here). */
-export interface RunDesignExecutorDispatchOptions {
-  /** Called with the provisioned consortDir after the artifact is produced + the dispatch assertions
-   *  pass, BEFORE the throwaway dir is removed. The equivalence proof judges the output here. */
-  afterProduce?(consortDir: string): Promise<void>;
-}
-
 /**
  * Run ONE design role's turn LIVE through the shipped performViaExecutor path + assert it produced
  * its artifact under the provisioned `.consort` (the artifact channel) + the reconciled agent-log
  * under `.consort` (meta). Seeds the role's inputs at their REAL feature/story scope so the shipped
- * manifest's {feature}/{story} source resolves on the tree. Throwaway dir, no cloud. An optional
- * `afterProduce` hook runs against the produced tree before teardown (the equivalence judge).
+ * manifest's {feature}/{story} source resolves on the tree. Throwaway dir, no cloud.
+ *
+ * This is the DISPATCH PROOF: a lean, tool-scoped (Write/Read) turn driven by a bespoke `spec.prompt`
+ * to check the executor DISPATCHES + places the artifact on the right channel. It does NOT run the
+ * production self-check (no Bash) and is NOT a semantic-equivalence proof , that is the scaffolded
+ * design-equivalence suite (design-equivalence-support.ts), which drives the PRODUCTION buildTaskBody
+ * unconstrained on a real project + judges vs the pin.
  */
-export async function runDesignExecutorDispatchLive(spec: DesignLiveSpec, opts: RunDesignExecutorDispatchOptions = {}): Promise<void> {
+export async function runDesignExecutorDispatchLive(spec: DesignLiveSpec): Promise<void> {
   const projectDir = mkdtempSync(join(tmpdir(), "design-exec-live-"));
   const consortDir = join(projectDir, ".consort");
   mkdirSync(consortDir, { recursive: true });
@@ -126,9 +146,10 @@ export async function runDesignExecutorDispatchLive(spec: DesignLiveSpec, opts: 
   process.env.LAKEBASE_SFTDD_USE_MANIFEST_STEPS = "1";
   process.env.LAKEBASE_KIT_DIR = KIT;
   const cfg = scopedCfg(projectDir, consortDir);
-  // The live agent's prompt is threaded through the cfg's task suffix seam , performViaExecutor's
-  // LiveDriveStepAgent builds the claude command from buildClaudeCommand(roleTask) + this suffix, so
-  // the design role receives the exact write-ONLY-this-file + report + no-shell instruction here.
+  // The dispatch-proof prompt is threaded through the taskSuffix seam (the executor builds the
+  // production body via buildTaskBody, then buildClaudeCommandWithBody APPENDS this suffix). The lean
+  // prompt only checks channel placement, so a terse write-ONLY-this-file directive keeps the
+  // tool-scoped turn from exploring the tree open-endedly.
   cfg.taskSuffix = () => `\n\n${spec.prompt}`;
 
   const state = { phase: "feature" } as unknown as DriveState;
@@ -157,9 +178,6 @@ export async function runDesignExecutorDispatchLive(spec: DesignLiveSpec, opts: 
 
     // A clean produce routed (no violations blocked it) , the executor returned a bounded action.
     expect(bounded!.action, `${spec.name} produced a route`).toBeDefined();
-
-    // The equivalence proof (when the caller supplied one) judges the produced tree BEFORE teardown.
-    if (opts.afterProduce) await opts.afterProduce(consortDir);
   } finally {
     delete process.env.LAKEBASE_SFTDD_USE_MANIFEST_STEPS;
     rmSync(projectDir, { recursive: true, force: true });
@@ -192,7 +210,9 @@ export const DESIGN_LIVE_SPECS: Partial<Record<TurnKey, DesignLiveSpec>> = {
     seed: [
       { rel: "product-overview.md", from: "product-overview.md" },
       { rel: "nfrs.md", from: "nfrs.md" },
-      { rel: "feature-request.md", from: "product-overview.md" },
+      // The manifest resolves feature:feature-request.md to the root of .consort (like
+      // product-overview), so seed it there , sourced from the feature-scoped intake file.
+      { rel: "feature-request.md", from: `features/${FEATURE}/feature-request.md` },
     ],
     artifactRel: `features/${FEATURE}/feature-spec.json`,
     prompt:
@@ -232,6 +252,10 @@ export const DESIGN_LIVE_SPECS: Partial<Record<TurnKey, DesignLiveSpec>> = {
     name: "spec-author-story",
     step: "acs",
     action: { kind: "invoke-role", role: "spec-author", story: STORY },
+    // EQUIVALENCE: the dispatch turn produces ONE story's ACs (S1), so judge against S1's recorded
+    // ACs (per-story like-for-like), NOT the feature-aggregate union of all 3 stories , the seed +
+    // turn are already correct for one story; only the reference scope needed narrowing.
+    equivalenceStoryId: STORY,
     seed: [
       { rel: `features/${FEATURE}/stories/${STORY}/story.json`, from: `features/${FEATURE}/stories/${STORY}/story.json` },
       { rel: "product-overview.md", from: "product-overview.md" },
@@ -270,6 +294,18 @@ export const DESIGN_LIVE_SPECS: Partial<Record<TurnKey, DesignLiveSpec>> = {
       "```agent-report\n" +
       `[{ "level": "info", "event": "artifact.written", "message": "<one line: what you wrote>" }]\n` +
       "```\n",
+    // EQUIVALENCE: architect-reviewer runs PER STORY (source: story:acs), accreting the feature
+    // architecture across stories in the real drive. So seed S1's FULL recorded ACs (file/retrieve/
+    // collision , the dispatch proof used one thin inline AC) + judge against a per-story SLICE of
+    // the recorded architecture (S1's PIs: unique/not-null/non-negative/upsert-atomic; PI5 migration-
+    // reversible is F6's refactor, not S1). Not the whole-feature architecture a single turn never builds.
+    equivalenceSeed: [
+      { rel: `features/${FEATURE}/stories/${STORY}/acs/AC1-file-stock-record.json`, fromAbs: join(PIN_ARTIFACTS, `features/${FEATURE}/stories/${STORY}/acs/AC1-file-stock-record.json`) },
+      { rel: `features/${FEATURE}/stories/${STORY}/acs/AC2-retrieve-stock-record.json`, fromAbs: join(PIN_ARTIFACTS, `features/${FEATURE}/stories/${STORY}/acs/AC2-retrieve-stock-record.json`) },
+      { rel: `features/${FEATURE}/stories/${STORY}/acs/AC3-collision-resolved-at-write.json`, fromAbs: join(PIN_ARTIFACTS, `features/${FEATURE}/stories/${STORY}/acs/AC3-collision-resolved-at-write.json`) },
+      { rel: "nfrs.md", from: "nfrs.md" },
+    ],
+    equivalenceReferencePaths: (kitRoot) => [join(kitRoot, "tests/integration/intake/features", FEATURE, "architecture.S1-slice.json")],
   },
   estimate: {
     name: "architect-estimator",
@@ -287,6 +323,12 @@ export const DESIGN_LIVE_SPECS: Partial<Record<TurnKey, DesignLiveSpec>> = {
       "```agent-report\n" +
       `[{ "level": "info", "event": "artifact.written", "message": "<one line: what you wrote>" }]\n` +
       "```\n",
+    // EQUIVALENCE: the estimate turn sizes the sprint PROPOSAL candidates (FP1-5) from feature-
+    // proposals.md , seed the RECORDED proposals so the candidate set matches. Judge against the
+    // FP-slice of recorded estimates (the F1/F6 entries in the full recorded file were added later by
+    // sync-backlog from committed-feature sizes, NOT this estimate turn , excluding them is faithful).
+    equivalenceSeed: [{ rel: "planning/feature-proposals.md", fromAbs: join(PIN_ARTIFACTS, "planning/feature-proposals.md") }],
+    equivalenceReferencePaths: (kitRoot) => [join(kitRoot, "tests/integration/intake/planning/estimates.FP-slice.json")],
   },
   dba: {
     name: "dba",
@@ -331,6 +373,20 @@ export const DESIGN_LIVE_SPECS: Partial<Record<TurnKey, DesignLiveSpec>> = {
       "```agent-report\n" +
       `[{ "level": "info", "event": "artifact.written", "message": "<one line: what you wrote>" }]\n` +
       "```\n",
+    // EQUIVALENCE: test-strategist runs PER STORY (source: story:acs), producing the story's slice of
+    // the feature master test-list. Seed S1's FULL recorded ACs (file/retrieve/collision , the dispatch
+    // used one thin inline AC) + the RECORDED architecture + db-design (so it covers every recorded PI),
+    // and judge against the recorded S1 SLICE of the test-list (test-list.S1-slice.json, 17 items across
+    // S1's 3 ACs + the 5 persistence-invariant fitness tests) , NOT the whole-feature master a single
+    // per-story turn never builds.
+    equivalenceSeed: [
+      { rel: `features/${FEATURE}/stories/${STORY}/acs/AC1-file-stock-record.json`, fromAbs: join(PIN_ARTIFACTS, `features/${FEATURE}/stories/${STORY}/acs/AC1-file-stock-record.json`) },
+      { rel: `features/${FEATURE}/stories/${STORY}/acs/AC2-retrieve-stock-record.json`, fromAbs: join(PIN_ARTIFACTS, `features/${FEATURE}/stories/${STORY}/acs/AC2-retrieve-stock-record.json`) },
+      { rel: `features/${FEATURE}/stories/${STORY}/acs/AC3-collision-resolved-at-write.json`, fromAbs: join(PIN_ARTIFACTS, `features/${FEATURE}/stories/${STORY}/acs/AC3-collision-resolved-at-write.json`) },
+      { rel: `features/${FEATURE}/architecture.json`, fromAbs: join(PIN_ARTIFACTS, `features/${FEATURE}/architecture.json`) },
+      { rel: `features/${FEATURE}/db-design.json`, fromAbs: join(PIN_ARTIFACTS, `features/${FEATURE}/db-design.json`) },
+    ],
+    equivalenceReferencePaths: (kitRoot) => [join(kitRoot, "tests/integration/intake/features", FEATURE, "test-list.S1-slice.json")],
   },
   ux: {
     name: "ux-designer",
