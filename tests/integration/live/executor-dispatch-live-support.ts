@@ -47,6 +47,13 @@ export interface DesignLiveSpec {
   /** The step key this role's output is judged as (turnKeyForAction(action)); the equivalence
    *  suite resolves the reference + reads the produced artifact via the semantic gate on this key. */
   step: TurnKey;
+  /** The model the CORPUS recorded this turn on (from the per-turn `turn.json` under
+   *  stockflow-rerecord). The equivalence suite PINS the live turn to this model so the comparison is
+   *  like-for-like , judging the current output against a same-model reference, not conflating
+   *  agent/prompt quality with a model-default downgrade (e.g. test-strategist's RECOMMENDED_MODELS
+   *  default is now "sonnet" but the corpus recorded it on "opus"). All 8 design turns were recorded
+   *  on opus except ux (sonnet). */
+  corpusModel: string;
   action: WorkflowAction;
   /** Files to seed under .consort at their REAL relative scope (the {feature}/{story} the manifest
    *  source resolves to). `from` copies the recorded intake file; `content` writes inline. */
@@ -206,6 +213,7 @@ export const DESIGN_LIVE_SPECS: Partial<Record<TurnKey, DesignLiveSpec>> = {
   breakdown: {
     name: "spec-author-breakdown",
     step: "breakdown",
+    corpusModel: "opus",
     action: { kind: "invoke-role", role: "spec-author", mode: "breakdown" },
     seed: [
       { rel: "product-overview.md", from: "product-overview.md" },
@@ -231,6 +239,7 @@ export const DESIGN_LIVE_SPECS: Partial<Record<TurnKey, DesignLiveSpec>> = {
   propose: {
     name: "spec-author-propose",
     step: "propose",
+    corpusModel: "opus",
     action: { kind: "invoke-role", role: "spec-author", mode: "propose" },
     seed: [
       { rel: "product-overview.md", from: "product-overview.md" },
@@ -251,6 +260,7 @@ export const DESIGN_LIVE_SPECS: Partial<Record<TurnKey, DesignLiveSpec>> = {
   acs: {
     name: "spec-author-story",
     step: "acs",
+    corpusModel: "opus",
     action: { kind: "invoke-role", role: "spec-author", story: STORY },
     // EQUIVALENCE: the dispatch turn produces ONE story's ACs (S1), so judge against S1's recorded
     // ACs (per-story like-for-like), NOT the feature-aggregate union of all 3 stories , the seed +
@@ -277,6 +287,7 @@ export const DESIGN_LIVE_SPECS: Partial<Record<TurnKey, DesignLiveSpec>> = {
   architect: {
     name: "architect-reviewer",
     step: "architect",
+    corpusModel: "opus",
     action: { kind: "invoke-role", role: "architect-reviewer", story: STORY },
     seed: [
       { rel: `features/${FEATURE}/stories/${STORY}/acs/AC1-file-stock-record.json`, content: S1_AC },
@@ -310,6 +321,7 @@ export const DESIGN_LIVE_SPECS: Partial<Record<TurnKey, DesignLiveSpec>> = {
   estimate: {
     name: "architect-estimator",
     step: "estimate",
+    corpusModel: "opus",
     action: { kind: "invoke-role", role: "architect-reviewer", mode: "estimate" },
     seed: [{ rel: "planning/feature-proposals.md", from: "planning/feature-proposals.md" }],
     artifactRel: "planning/estimates.json",
@@ -333,6 +345,7 @@ export const DESIGN_LIVE_SPECS: Partial<Record<TurnKey, DesignLiveSpec>> = {
   dba: {
     name: "dba",
     step: "dba",
+    corpusModel: "opus",
     action: { kind: "invoke-role", role: "dba", story: "S1-file-stock" },
     seed: [{ rel: `features/${FEATURE}/architecture.json`, from: `features/${FEATURE}/architecture.json` }],
     artifactRel: `features/${FEATURE}/db-design.json`,
@@ -353,6 +366,7 @@ export const DESIGN_LIVE_SPECS: Partial<Record<TurnKey, DesignLiveSpec>> = {
   "test-list": {
     name: "test-strategist",
     step: "test-list",
+    corpusModel: "opus",
     action: { kind: "invoke-role", role: "test-strategist", story: STORY },
     seed: [
       { rel: `features/${FEATURE}/stories/${STORY}/acs/AC1-file-stock-record.json`, content: S1_AC },
@@ -391,6 +405,7 @@ export const DESIGN_LIVE_SPECS: Partial<Record<TurnKey, DesignLiveSpec>> = {
   ux: {
     name: "ux-designer",
     step: "ux",
+    corpusModel: "sonnet",
     action: { kind: "invoke-role", role: "ux-designer" },
     seed: [
       { rel: "design/design-brief.md", from: "design-brief.md" },

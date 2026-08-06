@@ -209,8 +209,12 @@ async function cutStepWorktree(project: DesignEquivProject, step: TurnKey): Prom
 
 /** The DriveEffectsConfig for a design-equivalence turn: UNCONSTRAINED (Bash allowed) so the role's
  *  ./scripts/lk self-check runs exactly as production does. NO taskSuffix , the production buildTaskBody
- *  is the whole prompt (the equivalence proof measures the REAL production turn). */
-function equivCfg(projectDir: string, consortDir: string): DriveEffectsConfig {
+ *  is the whole prompt (the equivalence proof measures the REAL production turn). PINS the model to
+ *  `corpusModel` , the model the corpus recorded this turn on , so the comparison is LIKE-FOR-LIKE:
+ *  the judge scores the current output against a SAME-MODEL reference, isolating agent/prompt quality
+ *  from model-default drift (e.g. test-strategist's shipped default is now sonnet but the corpus is opus;
+ *  judging sonnet-vs-opus conflates the two). effort still follows the shipped per-role config. */
+function equivCfg(projectDir: string, consortDir: string, corpusModel: string): DriveEffectsConfig {
   const settings = resolveConsortSettings({ projectDir });
   const cfg: DriveEffectsConfig = {
     projectDir,
@@ -222,8 +226,9 @@ function equivCfg(projectDir: string, consortDir: string): DriveEffectsConfig {
     approver: "human-proxy",
     deployTarget: "local",
     loopGranularity: "story",
-    modelForRole: (role) => settings.models[role] ?? "sonnet",
-    modelForTurn: (role, turn) => settings.modelFor(role, turn),
+    // PIN the model to the corpus's recorded model for a fair, same-model comparison.
+    modelForRole: () => corpusModel,
+    modelForTurn: () => corpusModel,
     effortForTurn: (role, turn) => {
       const e = settings.effortFor(role, turn);
       return e === "default" ? "" : e;
@@ -264,7 +269,7 @@ export async function runDesignEquivStep(project: DesignEquivProject, step: Turn
   // (constant for the whole suite) so parallel steps never race a per-step set/delete.
   try {
     seedUpstream(consortDir, spec);
-    const cfg = equivCfg(wtDir, consortDir);
+    const cfg = equivCfg(wtDir, consortDir, spec.corpusModel);
     const state = { phase: "feature" } as unknown as DriveState;
     const effects = buildDriveEffects(cfg);
     const bounded = await effects.performViaExecutor!(spec.action, state, routerDeps);
@@ -292,7 +297,7 @@ export async function runDesignEquivStep(project: DesignEquivProject, step: Turn
     });
     // eslint-disable-next-line no-console
     console.log(
-      `[design-equivalence] ${step}: ${outcome.skipped ? "SKIPPED (no pinned reference)" : outcome.passed ? `PASSED (score ${outcome.score?.toFixed(2)} >= ${SEMANTIC_THRESHOLD})` : `FAILED , ${outcome.reason}`}`,
+      `[design-equivalence] ${step} (model=${spec.corpusModel}, corpus-pinned): ${outcome.skipped ? "SKIPPED (no pinned reference)" : outcome.passed ? `PASSED (score ${outcome.score?.toFixed(2)} >= ${SEMANTIC_THRESHOLD})` : `FAILED , ${outcome.reason}`}`,
     );
     expect(
       outcome.passed,
