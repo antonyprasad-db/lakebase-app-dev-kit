@@ -1,6 +1,7 @@
 {
   "id": "navigator-reflect",
   "role": "navigator",
+  "agent": { "kind": "claude", "config": { "role": "navigator" } },
   "match": { "kind": "invoke-role", "role": "navigator", "buildMode": "reflect" },
   "inputs": [
     { "id": "design", "source": "story:design", "description": "The story's design artifacts the reflect turn critiques for a spec-level blocking smell before build." }

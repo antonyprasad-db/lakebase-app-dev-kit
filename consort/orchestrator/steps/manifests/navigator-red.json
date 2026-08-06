@@ -1,6 +1,7 @@
 {
   "id": "navigator-red",
   "role": "navigator",
+  "agent": { "kind": "claude", "config": { "role": "navigator" } },
   "match": { "kind": "invoke-role", "role": "navigator", "buildMode": null },
   "inputs": [
     { "id": "test-list", "source": "story:test-list-per-story.json", "description": "The story's ordered test list , the Navigator authors ONE batch RED covering it." },

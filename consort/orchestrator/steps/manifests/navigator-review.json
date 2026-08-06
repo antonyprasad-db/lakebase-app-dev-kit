@@ -1,6 +1,7 @@
 {
   "id": "navigator-review",
   "role": "navigator",
+  "agent": { "kind": "claude", "config": { "role": "navigator" } },
   "match": { "kind": "invoke-role", "role": "navigator", "buildMode": "review" },
   "inputs": [
     { "id": "code", "source": "story:code", "description": "The Driver's implementation the Navigator critiques (story- or AC-scoped by the loop)." },

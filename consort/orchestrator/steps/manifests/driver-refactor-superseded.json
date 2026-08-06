@@ -1,6 +1,7 @@
 {
   "id": "driver-refactor-superseded",
   "role": "driver",
+  "agent": { "kind": "claude", "config": { "role": "driver" } },
   "match": { "kind": "invoke-role", "role": "driver", "buildMode": "refactor-superseded" },
   "inputs": [
     { "id": "superseded-tests", "source": "story:superseded-tests.json", "description": "The superseded tests the Navigator flagged during refactor-verify , the Driver edits ONLY these." }

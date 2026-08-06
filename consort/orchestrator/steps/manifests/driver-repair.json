@@ -1,6 +1,7 @@
 {
   "id": "driver-repair",
   "role": "driver",
+  "agent": { "kind": "claude", "config": { "role": "driver" } },
   "match": { "kind": "invoke-role", "role": "driver", "buildMode": "repair" },
   "inputs": [
     { "id": "regression-assessment", "source": "story:regression-assessment.json", "description": "The Navigator's genuine-regression diagnosis , the Driver's one bounded repair attempt fixes the product code." }

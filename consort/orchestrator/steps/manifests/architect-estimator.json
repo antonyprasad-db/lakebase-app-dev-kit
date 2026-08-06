@@ -1,6 +1,7 @@
 {
   "id": "architect-estimator",
   "role": "architect-reviewer",
+  "agent": { "kind": "claude", "config": { "role": "architect-reviewer" } },
   "match": { "kind": "invoke-role", "role": "architect-reviewer", "mode": "estimate" },
   "inputs": [
     { "id": "feature-proposals", "source": "feature:planning/feature-proposals.md", "description": "The Spec Author's candidate features the Architect t-shirt sizes (planning/feature-proposals.md)." }

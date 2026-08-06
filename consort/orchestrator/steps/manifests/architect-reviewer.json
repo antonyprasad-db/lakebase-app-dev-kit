@@ -1,6 +1,7 @@
 {
   "id": "architect-reviewer",
   "role": "architect-reviewer",
+  "agent": { "kind": "claude", "config": { "role": "architect-reviewer" } },
   "match": { "kind": "invoke-role", "role": "architect-reviewer", "mode": null },
   "inputs": [
     { "id": "acs", "source": "story:acs", "description": "The story's acceptance criteria the Architect annotates with per-AC architectural_notes." },

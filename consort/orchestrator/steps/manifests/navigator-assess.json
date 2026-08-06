@@ -1,6 +1,7 @@
 {
   "id": "navigator-assess",
   "role": "navigator",
+  "agent": { "kind": "claude", "config": { "role": "navigator" } },
   "match": { "kind": "invoke-role", "role": "navigator", "buildMode": "assess" },
   "inputs": [
     { "id": "green-failure", "source": "story:green-failure.json", "description": "The failed-GREEN marker (+ pre-localized superseded-test candidates) the Navigator discriminates." },

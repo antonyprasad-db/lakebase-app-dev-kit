@@ -1,6 +1,7 @@
 {
   "id": "test-strategist",
   "role": "test-strategist",
+  "agent": { "kind": "claude", "config": { "role": "test-strategist" } },
   "match": {
     "kind": "invoke-role",
     "role": "test-strategist"

@@ -1,6 +1,7 @@
 {
   "id": "spec-author-breakdown",
   "role": "spec-author",
+  "agent": { "kind": "claude", "config": { "role": "spec-author" } },
   "match": { "kind": "invoke-role", "role": "spec-author", "mode": "breakdown" },
   "inputs": [
     { "id": "product-overview", "source": "feature:product-overview.md", "description": "The PO's product overview (product-overview.md)." },

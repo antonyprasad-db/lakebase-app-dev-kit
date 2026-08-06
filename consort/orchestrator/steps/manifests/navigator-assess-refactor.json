@@ -1,6 +1,7 @@
 {
   "id": "navigator-assess-refactor",
   "role": "navigator",
+  "agent": { "kind": "claude", "config": { "role": "navigator" } },
   "match": { "kind": "invoke-role", "role": "navigator", "buildMode": "assess-refactor" },
   "inputs": [
     { "id": "refactor-verify-failure", "source": "story:refactor-verify-failure.json", "description": "The refactor-verify failure marker the Navigator discriminates for superseded tests vs a genuine regression." }

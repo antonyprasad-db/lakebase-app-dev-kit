@@ -1,6 +1,7 @@
 {
   "id": "driver-refactor",
   "role": "driver",
+  "agent": { "kind": "claude", "config": { "role": "driver" } },
   "match": { "kind": "invoke-role", "role": "driver", "buildMode": "refactor" },
   "inputs": [
     { "id": "code", "source": "story:code", "description": "The GREEN implementation the Driver restructures (behavior-preserving) after the story passes." }

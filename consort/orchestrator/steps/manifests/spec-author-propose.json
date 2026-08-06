@@ -1,6 +1,7 @@
 {
   "id": "spec-author-propose",
   "role": "spec-author",
+  "agent": { "kind": "claude", "config": { "role": "spec-author" } },
   "match": { "kind": "invoke-role", "role": "spec-author", "mode": "propose" },
   "inputs": [
     { "id": "product-overview", "source": "feature:product-overview.md", "description": "The PO's product overview , the framing the candidate features are proposed from (product-overview.md)." },

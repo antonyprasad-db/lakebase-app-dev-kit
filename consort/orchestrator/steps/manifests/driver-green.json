@@ -1,6 +1,7 @@
 {
   "id": "driver-green",
   "role": "driver",
+  "agent": { "kind": "claude", "config": { "role": "driver" } },
   "match": { "kind": "invoke-role", "role": "driver", "buildMode": null },
   "inputs": [
     { "id": "test-list", "source": "story:test-list-per-story.json", "description": "The story's ordered failing tests the Driver makes GREEN (story-level, or per-AC when the action carries an `ac`)." }
