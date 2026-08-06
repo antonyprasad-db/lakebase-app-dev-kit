@@ -60,7 +60,7 @@ function harness(opts: { writeSpec?: boolean; writeLog?: boolean; badSpec?: bool
 
   const ctx: StepCtx = {
     action: BREAKDOWN,
-    cfg: { projectDir: root, consortDir: join(root, ".sftdd"), featureId: "F1-x" } as StepCtx["cfg"],
+    cfg: { projectDir: root, consortDir: join(root, ".consort"), featureId: "F1-x" } as StepCtx["cfg"],
     state: { phase: "feature" } as unknown as DriveState,
     validateBoundDeps,
   };
@@ -168,7 +168,7 @@ describe("phase 2.5 PREPARE-PRECONDITIONS: declared preconditions are prepared +
     };
     return {
       action: BREAKDOWN,
-      cfg: { projectDir: root, consortDir: join(root, ".sftdd"), featureId: "F1-x" } as StepCtx["cfg"],
+      cfg: { projectDir: root, consortDir: join(root, ".consort"), featureId: "F1-x" } as StepCtx["cfg"],
       state: { phase: "feature" } as unknown as DriveState,
       validateBoundDeps,
     };
@@ -254,7 +254,7 @@ describe("phases 2.7/6.5 PRE/POST-TURN EFFECTS: the Template Method's expanded d
   function ctxFor(): StepCtx {
     return {
       action: BREAKDOWN,
-      cfg: { projectDir: root, consortDir: join(root, ".sftdd"), featureId: "F1-x" } as StepCtx["cfg"],
+      cfg: { projectDir: root, consortDir: join(root, ".consort"), featureId: "F1-x" } as StepCtx["cfg"],
       state: { phase: "feature" } as unknown as DriveState,
       validateBoundDeps: {
         allowed: () => ({ kind: "design-complete" }) as WorkflowAction,
@@ -337,7 +337,7 @@ describe("three-channel outputs: product->workspace, artifact->artifactDir, meta
   function ctxFor(): StepCtx {
     return {
       action,
-      cfg: { projectDir: root, consortDir: join(root, ".sftdd"), featureId: "F1-x" } as StepCtx["cfg"],
+      cfg: { projectDir: root, consortDir: join(root, ".consort"), featureId: "F1-x" } as StepCtx["cfg"],
       state: { phase: "feature" } as unknown as DriveState,
       validateBoundDeps: {
         allowed: () => ({ kind: "state-derived" }) as unknown as WorkflowAction,

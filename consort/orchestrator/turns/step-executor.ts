@@ -2,7 +2,7 @@
 // orchestrator (a state machine) runs for EVERY substep. Everything the orchestrator does
 // per step is unified into this fixed, no-exception 7-phase sequence:
 //
-//   1. resolve-inputs      read each input's CONTENTS from .sftdd (via deps.resolveInputs).
+//   1. resolve-inputs      read each input's CONTENTS from .consort (via deps.resolveInputs).
 //                          FAIL LOUD naming the missing logical id BEFORE any spawn.
 //   2. provision-workspace create/point the contained workspaceDir (+ output locations).
 //   2.5 prepare-preconditions  PREPARE each precondition the step DECLARES (via deps.prepare)
@@ -64,7 +64,7 @@ export interface StepCtx {
 /** What phase 2 hands back: the workspace + the optional per-channel roots + output locations. */
 export interface ProvisionedWorkspace {
   workspaceDir: string;
-  /** Root for `artifact`-channel outputs (the .sftdd design docs), when provisioned. MAY be
+  /** Root for `artifact`-channel outputs (the .consort design docs), when provisioned. MAY be
    *  contained. Absent => artifact falls back to workspaceDir. */
   artifactDir?: string;
   /** The CONTAINED zone for `meta`-channel outputs (orchestration bookkeeping , raw report /
@@ -95,8 +95,8 @@ export interface StepRecord {
 
 /**
  * The orchestrator-provided seams the executor drives. These are the "how to get the things
- * the step needs" the state machine owns , input resolution from .sftdd, workspace
- * provisioning, instruction sourcing, and turn logging. The executor NEVER resolves .sftdd
+ * the step needs" the state machine owns , input resolution from .consort, workspace
+ * provisioning, instruction sourcing, and turn logging. The executor NEVER resolves .consort
  * itself (containment): it calls these.
  */
 export interface StepExecutorDeps {
@@ -105,7 +105,7 @@ export interface StepExecutorDeps {
   /** Phase 2: provision (or point at) the contained workspace + output locations. */
   provisionWorkspace(action: WorkflowAction, cfg: DriveEffectsConfig): ProvisionedWorkspace;
   /** Phase 2.5: PREPARE one declared precondition , project its context block from on-disk
-   *  `.sftdd` (the preparer registry, resolved by kind). Returns the text block appended to
+   *  `.consort` (the preparer registry, resolved by kind). Returns the text block appended to
    *  the step's instructions. Optional: when absent the PREPARE-PRECONDITIONS phase is a
    *  no-op (the default/byte-identical executor path). The orchestrator owns the registry
    *  wiring; the executor stays generic. */
@@ -176,7 +176,7 @@ export async function execute(step: RunnableStep, ctx: StepCtx, deps: StepExecut
   }
 
   // Phase 2: provision-workspace , the workspace + output locations (+ the optional per-channel
-  // roots: artifactDir for .sftdd design docs, metaDir for orchestration bookkeeping).
+  // roots: artifactDir for .consort design docs, metaDir for orchestration bookkeeping).
   const { workspaceDir, artifactDir, metaDir, outputPaths } = deps.provisionWorkspace(action, cfg);
 
   // Phase 2.5: PREPARE-PRECONDITIONS , project each DECLARED precondition (context-pack /

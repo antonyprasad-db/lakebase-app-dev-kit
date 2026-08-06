@@ -7,8 +7,8 @@
     { "id": "product-overview", "source": "feature:product-overview.md", "description": "The PO's product overview , which stories produce screens (product-overview.md)." }
   ],
   "outputs": [
-    { "id": "design-guide", "filename": "design-guide.json", "validator": "designGuideConformant", "description": "The machine-checkable design tokens + components (design-guide.schema.json). The narrative design-guide.md + ia.md are authored alongside but the JSON is the gated artifact." },
-    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "uxDesignerLoggedAuthoring", "description": "The UX Designer's structured log of what it authored (shared agent-log script; agent-log-event.schema.json)." }
+    { "id": "design-guide", "filename": "design-guide.json", "channel": "artifact", "validator": "designGuideConformant", "description": "The machine-checkable design tokens + components (design-guide.schema.json). The narrative design-guide.md + ia.md are authored alongside but the JSON is the gated artifact." },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "channel": "meta", "validator": "uxDesignerLoggedAuthoring", "description": "The UX Designer's structured log of what it authored (shared agent-log script; agent-log-event.schema.json)." }
   ],
   "routing": {
     "produced": { "next": "state-derived" }

@@ -8,8 +8,8 @@
     { "id": "db-design", "source": "feature:db-design.json", "description": "The DBA's concrete tables/constraints the invariant tests assert against." }
   ],
   "outputs": [
-    { "id": "test-list", "filename": "test-list.json", "validator": "nonEmptyFile", "description": "The feature master test list (this story's ordered tests appended). The post-turn verify-artifact asserts test-list.json exists under the resolved root." },
-    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "testStrategistLoggedAuthoring", "description": "The Test Strategist's structured log of the test-list it authored for the story." }
+    { "id": "test-list", "filename": "test-list.json", "channel": "artifact", "validator": "nonEmptyFile", "description": "The feature master test list (this story's ordered tests appended). The post-turn verify-artifact asserts test-list.json exists under the resolved root." },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "channel": "meta", "validator": "testStrategistLoggedAuthoring", "description": "The Test Strategist's structured log of the test-list it authored for the story." }
   ],
   "routing": {
     "produced": { "next": "state-derived" }

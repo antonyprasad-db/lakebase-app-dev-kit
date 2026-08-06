@@ -24,7 +24,7 @@ import type { DriveState, WorkflowAction } from "../workflow/workflow-vocabulary
 /**
  * A step's INPUT contract, declared as LOGICAL descriptors , NOT filesystem paths. The
  * step is dumb + contained: it knows it needs "the PO's product overview", not WHERE that
- * lives. The ORCHESTRATOR (which owns .sftdd) reads the descriptor, resolves it to the
+ * lives. The ORCHESTRATOR (which owns .consort) reads the descriptor, resolves it to the
  * real artifact, and PROVIDES its contents to the step. `id` is the key the provided
  * contents are handed back under.
  */
@@ -40,7 +40,7 @@ export interface StepInputSpec {
  * CONTEXT a turn must be PRE-CONDITIONED with before dispatch (the pre-extracted design
  * rubric + module layout; the green-failure advisory). Distinct from `inputs`: an input's
  * CONTENTS are resolved + handed back under its id; a precondition names a PREPARER the
- * orchestrator runs to PROJECT a text block from on-disk `.sftdd` (never authored, cannot
+ * orchestrator runs to PROJECT a text block from on-disk `.consort` (never authored, cannot
  * drift), which the build-instructions phase appends to the prompt. The step is dumb + con-
  * tained: it declares "I need the context-pack", never HOW it is prepared (that is the
  * orchestrator's `PREPARE-PRECONDITIONS` phase + preparer registry). See
@@ -89,24 +89,73 @@ export interface OutputValidationResult {
  */
 export type OutputValidator = (producedPath: string) => OutputValidationResult;
 
+// ─── OUTPUT CHANNELS: contained vs uncontained file access ─────────────────────────────
+//
+// WHY THIS EXISTS. A step's outputs do not all belong in the same place. Some MUST be
+// written into the real, shared, uncontained code tree (each build turn reads the prior
+// turn's code, so the driver's `app/` and the navigator's `tests/` accumulate at the
+// project root and get committed / migrated / deployed). Others are per-turn bookkeeping
+// or per-feature design docs that the orchestrator wants to CONTAIN , place under a
+// dedicated root it owns, so a turn can be sandboxed (a per-experiment worktree, a scratch
+// dir) without polluting the shared tree. The channel model is the one rule that lets a
+// manifest declare WHICH kind each output is, without the step (or the manifest author)
+// hardcoding a directory. It is the seam between "the agent wrote a file called X" and
+// "the file X lives HERE for this run".
+//
+// THE THREE CHANNELS:
+//   product  , the application deliverable: app/ , tests/ , migrations. ALWAYS UNCONTAINED
+//              (resolves to workspaceDir = the real code tree). It accumulates across build
+//              turns and ships, so it can never be sandboxed away from the tree the next
+//              turn reads. e.g. the driver's `code` (app/), the navigator's `tests`.
+//   artifact , the .consort design documents the design roles author (feature-spec,
+//              architecture, db-design, test-list, design-guide, acs, estimates,
+//              proposals). Small + per-feature, so MAY be contained: resolves under
+//              `artifactDir` when the orchestrator provisions one, else the workspace.
+//   meta     , the orchestrator's bookkeeping ABOUT the turn (the reconciled agent-log,
+//              a reflect verdict, an assess marker). CONTAINED: resolves under `metaDir`
+//              when provisioned, else the workspace.
+//
+// HOW A MANIFEST USES IT (the rule for every step):
+//   1. Set `channel` to the kind of output it is (omit only for a legacy single-root turn;
+//      absent === product/workspaceDir, byte-identical to a pre-channel turn).
+//   2. Keep `filename` CHANNEL-RELATIVE , the path WITHIN that channel's root
+//      (e.g. "feature-spec.json", "features/<F>/feature-spec.json", "agent-log.jsonl",
+//      "app", "tests"). NEVER prefix it with ".consort/" or the project root; the
+//      orchestrator prepends the channel root. A leading ".consort/" double-encodes the
+//      root once artifactDir/metaDir are provisioned (=> `.consort/.consort/...`).
+//   3. The orchestrator resolves the placement: `resolveChannelRoot(channel, roots)` joins
+//      the file under product→workspaceDir / artifact→artifactDir / meta→metaDir (each
+//      falling back to workspaceDir when its contained root is not provisioned). A run that
+//      provisions neither contained root is byte-identical to a single-root turn , which is
+//      why an untagged / un-provisioned manifest keeps working.
+//
+// So a step stays dumb + contained: it declares "I produce the design-guide (artifact) and
+// an agent-log (meta)"; the orchestrator decides those land under `.consort` for a normal
+// run, or under a sandboxed artifact/meta root for a parallel-experiment run , the manifest
+// never changes. See provisioning/channels.ts for the resolver + ChannelRoots.
+//
 /**
  * A step's OUTPUT declaration, also LOGICAL. The step produces "the feature breakdown
- * index" into its provided workspace; the ORCHESTRATOR maps that id to a .sftdd path,
+ * index" into its provided workspace; the ORCHESTRATOR maps that id to a .consort path,
  * runs the output's `check` (in-code conformance), and PERSISTS it on pass. The step
- * never resolves .sftdd or validates , the validator is code the orchestrator runs.
+ * never resolves .consort or validates , the validator is code the orchestrator runs.
  */
 export interface StepOutputSpec {
   /** Stable logical id (e.g. "feature-spec"). */
   id: string;
   /** Human description of the produced artifact. */
   description: string;
-  /** The artifact's filename WITHIN the provided workspace (what the agent writes). */
+  /** The artifact's filename WITHIN the output's channel root (what the agent writes),
+   *  CHANNEL-RELATIVE , never prefixed with ".consort/" or the project root (the
+   *  orchestrator prepends the channel root; a leading ".consort/" double-encodes it). */
   filename: string;
-  /** WHICH channel this output lands in (absent = the primary workspace root, byte-identical):
-   *  `product` = the application deliverable (app/tests/migrations) resolved under the code tree
-   *  (MUST be uncontained , it accumulates + ships); `artifact` = the .sftdd design documents,
-   *  resolved under artifactDir when provisioned (else the workspace , MAY be contained); `meta`
-   *  = orchestration bookkeeping resolved under the contained metaDir when provisioned. */
+  /** WHICH channel this output lands in (see the "OUTPUT CHANNELS" note above; absent =
+   *  the primary workspace root, byte-identical to a single-root turn):
+   *  `product` = the application deliverable (app/tests/migrations) resolved under the code
+   *  tree (ALWAYS uncontained , it accumulates + ships); `artifact` = the .consort design
+   *  documents, resolved under artifactDir when provisioned (else the workspace , MAY be
+   *  contained); `meta` = orchestration bookkeeping resolved under the contained metaDir
+   *  when provisioned. */
   channel?: "product" | "artifact" | "meta";
   /** In-code conformance validator for this output. The orchestrator runs it on the
    *  produced artifact; a failure is a hard reject with named violations, NOT an

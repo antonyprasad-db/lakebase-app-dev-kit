@@ -27,13 +27,13 @@
     },
     "inputs": {
       "type": "array",
-      "description": "The logical inputs the orchestrator resolves from .sftdd and PROVIDES to the step (contents, keyed by id).",
+      "description": "The logical inputs the orchestrator resolves from .consort and PROVIDES to the step (contents, keyed by id).",
       "items": {
         "type": "object",
         "required": ["id", "source"],
         "properties": {
           "id": { "type": "string", "minLength": 1, "description": "Logical input id the contents are handed back under." },
-          "source": { "type": "string", "minLength": 1, "description": ".sftdd source locator, e.g. feature:product-overview.md." },
+          "source": { "type": "string", "minLength": 1, "description": ".consort source locator, e.g. feature:product-overview.md." },
           "description": { "type": "string", "description": "Human description for diagnostics." }
         },
         "additionalProperties": false
@@ -41,7 +41,7 @@
     },
     "preconditions": {
       "type": "array",
-      "description": "The pre-conditions the orchestrator PREPARES (via the preparer registry) and appends to the step's prompt before dispatch: the pre-extracted context-pack (rubric + module layout) and, for assess, the green-failure advisory. LOGICAL (by kind), never authored, projected deterministically from on-disk .sftdd. Absent = an affirmative 'nothing'; a declared preparer that yields empty is logged as an anomaly.",
+      "description": "The pre-conditions the orchestrator PREPARES (via the preparer registry) and appends to the step's prompt before dispatch: the pre-extracted context-pack (rubric + module layout) and, for assess, the green-failure advisory. LOGICAL (by kind), never authored, projected deterministically from on-disk .consort. Absent = an affirmative 'nothing'; a declared preparer that yields empty is logged as an anomaly.",
       "items": {
         "type": "object",
         "required": ["id", "kind"],
@@ -64,7 +64,7 @@
           "id": { "type": "string", "minLength": 1 },
           "filename": { "type": "string", "minLength": 1, "description": "Artifact filename within the provided workspace." },
           "validator": { "type": "string", "minLength": 1, "description": "Registered OutputValidator name (validator-registry.ts). resolveValidator throws loud on an unknown name." },
-          "channel": { "type": "string", "enum": ["product", "artifact", "meta"], "description": "WHICH channel this output lands in (absent = the primary workspace root, byte-identical to a single-root turn). product = the application deliverable that accumulates across build turns + gets committed/migrated/deployed (app/, tests/, migrations); MUST be uncontained (the real code tree; a per-experiment worktree when experiments run in parallel), since each build turn reads prior turns' code. artifact = the .sftdd design documents (feature-spec/architecture/test-list/design-guide) the design roles author; small + per-feature, so it MAY be contained (resolved under artifactDir when the orchestrator provisions one, else the workspace). meta = the orchestrator's bookkeeping about the turn (raw agent report, reflect verdict, assess marker), whose CONFORMANCE the orchestrator owns; contained (resolved under metaDir when provisioned, else the workspace). Each root defaults to workspaceDir, so an untagged / un-provisioned turn is byte-identical." },
+          "channel": { "type": "string", "enum": ["product", "artifact", "meta"], "description": "WHICH channel this output lands in (absent = the primary workspace root, byte-identical to a single-root turn). product = the application deliverable that accumulates across build turns + gets committed/migrated/deployed (app/, tests/, migrations); MUST be uncontained (the real code tree; a per-experiment worktree when experiments run in parallel), since each build turn reads prior turns' code. artifact = the .consort design documents (feature-spec/architecture/test-list/design-guide) the design roles author; small + per-feature, so it MAY be contained (resolved under artifactDir when the orchestrator provisions one, else the workspace). meta = the orchestrator's bookkeeping about the turn (raw agent report, reflect verdict, assess marker), whose CONFORMANCE the orchestrator owns; contained (resolved under metaDir when provisioned, else the workspace). Each root defaults to workspaceDir, so an untagged / un-provisioned turn is byte-identical." },
           "description": { "type": "string" }
         },
         "additionalProperties": false

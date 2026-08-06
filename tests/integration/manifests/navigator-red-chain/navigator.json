@@ -3,8 +3,8 @@
   "role": "navigator",
   "match": { "kind": "invoke-role", "role": "navigator", "story": "S3-stock-shows-split-fields" },
   "inputs": [
-    { "id": "test-list", "source": "feature:.sftdd/features/F6-split-tracking-code/test-list.json", "description": "The test-list spec , every item must be covered + faithfully asserted." },
-    { "id": "ac", "source": "feature:.sftdd/features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/acs/AC1-split-fields-shown.json", "description": "The story AC the tests encode." }
+    { "id": "test-list", "source": "feature:.consort/features/F6-split-tracking-code/test-list.json", "description": "The test-list spec , every item must be covered + faithfully asserted." },
+    { "id": "ac", "source": "feature:.consort/features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/acs/AC1-split-fields-shown.json", "description": "The story AC the tests encode." }
   ],
   "preconditions": [
     { "id": "context-pack", "kind": "context-pack", "description": "The pre-extracted RUBRIC + module LAYOUT (RED has no code yet, so no test-location line).", "options": { "skipTestLoop": true } }

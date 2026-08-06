@@ -4,11 +4,11 @@
   "match": { "kind": "invoke-role", "role": "product-owner", "mode": "author-requests" },
   "inputs": [],
   "outputs": [
-    { "id": "test-list", "filename": ".sftdd/features/F6-split-tracking-code/test-list.json", "validator": "testListConformant", "description": "The recorded test-list spec the Navigator authors RED tests against (coverage + faithfulness)." },
-    { "id": "architecture", "filename": ".sftdd/features/F6-split-tracking-code/architecture.json", "validator": "architectureConformant", "description": "The architect's contract (layers/NFRs) buildContextPack reads for the RUBRIC." },
-    { "id": "db-design", "filename": ".sftdd/features/F6-split-tracking-code/db-design.json", "validator": "dbDesignConformant", "description": "The physical schema the persistence tests assert." },
-    { "id": "ac", "filename": ".sftdd/features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/acs/AC1-split-fields-shown.json", "validator": "acConformant", "description": "The story's acceptance criterion the tests must cover." },
-    { "id": "conventions", "filename": ".sftdd/architecture/conventions.json", "validator": "nonEmptyFile", "description": "The module-layout projection buildContextPack reads for the real LAYOUT (role->path map)." },
+    { "id": "test-list", "filename": ".consort/features/F6-split-tracking-code/test-list.json", "validator": "testListConformant", "description": "The recorded test-list spec the Navigator authors RED tests against (coverage + faithfulness)." },
+    { "id": "architecture", "filename": ".consort/features/F6-split-tracking-code/architecture.json", "validator": "architectureConformant", "description": "The architect's contract (layers/NFRs) buildContextPack reads for the RUBRIC." },
+    { "id": "db-design", "filename": ".consort/features/F6-split-tracking-code/db-design.json", "validator": "dbDesignConformant", "description": "The physical schema the persistence tests assert." },
+    { "id": "ac", "filename": ".consort/features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/acs/AC1-split-fields-shown.json", "validator": "acConformant", "description": "The story's acceptance criterion the tests must cover." },
+    { "id": "conventions", "filename": ".consort/architecture/conventions.json", "validator": "nonEmptyFile", "description": "The module-layout projection buildContextPack reads for the real LAYOUT (role->path map)." },
     { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "productOwnerLoggedAuthoring", "description": "The replay seed's authoring log." }
   ],
   "routing": {
@@ -21,11 +21,11 @@
       "role": "product-owner",
       "seeds": [
         { "outputId": "pre-red-code", "kind": "tree", "from": "recorded-build/features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/turns/001-navigator-reflect/code", "to": "." },
-        { "outputId": "test-list", "from": "recorded-artifacts/features/F6-split-tracking-code/test-list.json", "to": ".sftdd/features/F6-split-tracking-code/test-list.json" },
-        { "outputId": "architecture", "from": "recorded-artifacts/features/F6-split-tracking-code/architecture.json", "to": ".sftdd/features/F6-split-tracking-code/architecture.json" },
-        { "outputId": "db-design", "from": "recorded-artifacts/features/F6-split-tracking-code/db-design.json", "to": ".sftdd/features/F6-split-tracking-code/db-design.json" },
-        { "outputId": "ac", "from": "recorded-artifacts/features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/acs/AC1-split-fields-shown.json", "to": ".sftdd/features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/acs/AC1-split-fields-shown.json" },
-        { "outputId": "conventions", "from": "recorded-artifacts/architecture/conventions.json", "to": ".sftdd/architecture/conventions.json" }
+        { "outputId": "test-list", "from": "recorded-artifacts/features/F6-split-tracking-code/test-list.json", "to": ".consort/features/F6-split-tracking-code/test-list.json" },
+        { "outputId": "architecture", "from": "recorded-artifacts/features/F6-split-tracking-code/architecture.json", "to": ".consort/features/F6-split-tracking-code/architecture.json" },
+        { "outputId": "db-design", "from": "recorded-artifacts/features/F6-split-tracking-code/db-design.json", "to": ".consort/features/F6-split-tracking-code/db-design.json" },
+        { "outputId": "ac", "from": "recorded-artifacts/features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/acs/AC1-split-fields-shown.json", "to": ".consort/features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/acs/AC1-split-fields-shown.json" },
+        { "outputId": "conventions", "from": "recorded-artifacts/architecture/conventions.json", "to": ".consort/architecture/conventions.json" }
       ]
     }
   }

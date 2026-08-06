@@ -7260,8 +7260,8 @@ var spec_author_breakdown_default = {
     { id: "feature-request", source: "feature:feature-request.md", description: "The PO's feature request for this feature (feature-request.md)." }
   ],
   outputs: [
-    { id: "feature-spec", filename: "feature-spec.json", validator: "featureSpecNonEmptyStories", description: "The feature breakdown index (feature-spec.json + a story stub per story)." },
-    { id: "agent-log", filename: "agent-log.jsonl", validator: "agentLogHasRoleEvent", description: "The agent's structured log of what it did + any issue surfaced (shared agent-log script; agent-log-event.schema.json)." }
+    { id: "feature-spec", filename: "feature-spec.json", channel: "artifact", validator: "featureSpecNonEmptyStories", description: "The feature breakdown index (feature-spec.json + a story stub per story). A .consort design document , the artifact channel." },
+    { id: "agent-log", filename: "agent-log.jsonl", channel: "meta", validator: "agentLogHasRoleEvent", description: "The agent's structured log of what it did + any issue surfaced (meta channel; shared agent-log script; agent-log-event.schema.json)." }
   ],
   routing: {
     produced: { next: "state-derived" }
@@ -7288,7 +7288,7 @@ var spec_author_propose_default = {
     { id: "nfrs", source: "feature:nfrs.md", description: "The PO's non-functional requirements the proposal accounts for (nfrs.md)." }
   ],
   outputs: [
-    { id: "feature-proposals", filename: "planning/feature-proposals.md", validator: "nonEmptyFile", description: "The sprint's candidate features, one per section, for the Architect to size + the PO to commit. The post-turn verify-artifact asserts planning/feature-proposals.md exists. Sprint-scoped, so NO reconcile (writes no feature artifact)." }
+    { id: "feature-proposals", filename: "planning/feature-proposals.md", channel: "artifact", validator: "nonEmptyFile", description: "The sprint's candidate features, one per section, for the Architect to size + the PO to commit. The post-turn verify-artifact asserts planning/feature-proposals.md exists. Sprint-scoped, so NO reconcile (writes no feature artifact)." }
   ],
   routing: {
     produced: { next: "state-derived" }
@@ -7311,8 +7311,8 @@ var spec_author_story_default = {
     { id: "product-overview", source: "feature:product-overview.md", description: "The PO's product overview , the feature framing (product-overview.md)." }
   ],
   outputs: [
-    { id: "acs", filename: "acs/AC1.json", validator: "nonEmptyFile", description: "The per-story acceptance criteria (one acs/<AC>.json per AC). The design gate validates every acs/*.json against the AC schema; the post-turn verify-artifact asserts the acs/ dir is non-empty." },
-    { id: "agent-log", filename: "agent-log.jsonl", validator: "agentLogHasRoleEvent", description: "The spec-author's structured log of the ACs it authored (shared agent-log script; agent-log-event.schema.json)." }
+    { id: "acs", filename: "acs/AC1.json", channel: "artifact", validator: "nonEmptyFile", description: "The per-story acceptance criteria (one acs/<AC>.json per AC). The design gate validates every acs/*.json against the AC schema; the post-turn verify-artifact asserts the acs/ dir is non-empty." },
+    { id: "agent-log", filename: "agent-log.jsonl", channel: "meta", validator: "agentLogHasRoleEvent", description: "The spec-author's structured log of the ACs it authored (shared agent-log script; agent-log-event.schema.json)." }
   ],
   routing: {
     produced: { next: "state-derived" }
@@ -7334,7 +7334,7 @@ var architect_estimator_default = {
     { id: "feature-proposals", source: "feature:planning/feature-proposals.md", description: "The Spec Author's candidate features the Architect t-shirt sizes (planning/feature-proposals.md)." }
   ],
   outputs: [
-    { id: "estimates", filename: "planning/estimates.json", validator: "nonEmptyFile", description: "The per-candidate t-shirt sizes (XS/S/M/L/XL) the PO commits a sprint-fitting backlog from. The post-turn verify-artifact asserts planning/estimates.json exists. Sprint-scoped, so NO reconcile. Matches the plain 'estimate' mode only, NOT 'estimate-committed' (which re-syncs the backlog)." }
+    { id: "estimates", filename: "planning/estimates.json", channel: "artifact", validator: "nonEmptyFile", description: "The per-candidate t-shirt sizes (XS/S/M/L/XL) the PO commits a sprint-fitting backlog from. The post-turn verify-artifact asserts planning/estimates.json exists. Sprint-scoped, so NO reconcile. Matches the plain 'estimate' mode only, NOT 'estimate-committed' (which re-syncs the backlog)." }
   ],
   routing: {
     produced: { next: "state-derived" }
@@ -7357,8 +7357,8 @@ var architect_reviewer_default = {
     { id: "nfrs", source: "feature:nfrs.md", description: "The PO's non-functional requirements the architecture must cover (nfrs.md)." }
   ],
   outputs: [
-    { id: "architecture", filename: "architecture.json", validator: "nonEmptyFile", description: "The feature architecture (service_backed, layers, persistence_invariants). The post-turn verify-artifact asserts architecture.json exists under the resolved root." },
-    { id: "agent-log", filename: "agent-log.jsonl", validator: "architectReviewerLoggedAuthoring", description: "The Architect Reviewer's structured log of the per-AC notes + architecture.json it authored." }
+    { id: "architecture", filename: "architecture.json", channel: "artifact", validator: "nonEmptyFile", description: "The feature architecture (service_backed, layers, persistence_invariants). The post-turn verify-artifact asserts architecture.json exists under the resolved root." },
+    { id: "agent-log", filename: "agent-log.jsonl", channel: "meta", validator: "architectReviewerLoggedAuthoring", description: "The Architect Reviewer's structured log of the per-AC notes + architecture.json it authored." }
   ],
   routing: {
     produced: { next: "state-derived" }
@@ -7380,8 +7380,8 @@ var dba_default = {
     { id: "architecture", source: "feature:architecture.json", description: "The Architect's logical contract (service_backed, layers, persistence_invariants) the DBA physically realizes , NOT re-authored." }
   ],
   outputs: [
-    { id: "db-design", filename: "db-design.json", validator: "nonEmptyFile", description: "The physical schema (tables + per-story schema_changes + realizes_invariants). A non-persisting or non-service-backed feature may leave this empty, so there is NO post-turn verify-artifact for the DBA (designArtifactExpectation returns null)." },
-    { id: "agent-log", filename: "agent-log.jsonl", validator: "dbaLoggedAuthoring", description: "The DBA's structured log of the physical schema it realized." }
+    { id: "db-design", filename: "db-design.json", channel: "artifact", validator: "nonEmptyFile", description: "The physical schema (tables + per-story schema_changes + realizes_invariants). A non-persisting or non-service-backed feature may leave this empty, so there is NO post-turn verify-artifact for the DBA (designArtifactExpectation returns null)." },
+    { id: "agent-log", filename: "agent-log.jsonl", channel: "meta", validator: "dbaLoggedAuthoring", description: "The DBA's structured log of the physical schema it realized." }
   ],
   routing: {
     produced: { next: "state-derived" }
@@ -7405,8 +7405,8 @@ var test_strategist_default = {
     { id: "db-design", source: "feature:db-design.json", description: "The DBA's concrete tables/constraints the invariant tests assert against." }
   ],
   outputs: [
-    { id: "test-list", filename: "test-list.json", validator: "nonEmptyFile", description: "The feature master test list (this story's ordered tests appended). The post-turn verify-artifact asserts test-list.json exists under the resolved root." },
-    { id: "agent-log", filename: "agent-log.jsonl", validator: "testStrategistLoggedAuthoring", description: "The Test Strategist's structured log of the test-list it authored for the story." }
+    { id: "test-list", filename: "test-list.json", channel: "artifact", validator: "nonEmptyFile", description: "The feature master test list (this story's ordered tests appended). The post-turn verify-artifact asserts test-list.json exists under the resolved root." },
+    { id: "agent-log", filename: "agent-log.jsonl", channel: "meta", validator: "testStrategistLoggedAuthoring", description: "The Test Strategist's structured log of the test-list it authored for the story." }
   ],
   routing: {
     produced: { next: "state-derived" }
@@ -7432,7 +7432,7 @@ var driver_green_default = {
   ],
   outputs: [
     { id: "code", filename: "app", channel: "product", validator: "driverCodePresent", description: "The PRODUCT code the Driver wrote at the project root to make the RED pass (app/ , the primary in-turn produced signal). The real correctness gate is the post-turn @build-cycle honest-GREEN verify (alembic upgrade + the project's tests against a live branch), which flips codeWritten , this floor just proves the driver produced code." },
-    { id: "agent-log", filename: ".sftdd/agent-log.jsonl", channel: "meta", validator: "driverLoggedAuthoring", description: "The Driver's authoring log (meta channel; materialized by the post-turn reconcile)." }
+    { id: "agent-log", filename: "agent-log.jsonl", channel: "meta", validator: "driverLoggedAuthoring", description: "The Driver's authoring log (meta channel; materialized by the post-turn reconcile)." }
   ],
   routing: {
     produced: { next: "state-derived" }
@@ -7458,8 +7458,8 @@ var ux_designer_default = {
     { id: "product-overview", source: "feature:product-overview.md", description: "The PO's product overview , which stories produce screens (product-overview.md)." }
   ],
   outputs: [
-    { id: "design-guide", filename: "design-guide.json", validator: "designGuideConformant", description: "The machine-checkable design tokens + components (design-guide.schema.json). The narrative design-guide.md + ia.md are authored alongside but the JSON is the gated artifact." },
-    { id: "agent-log", filename: "agent-log.jsonl", validator: "uxDesignerLoggedAuthoring", description: "The UX Designer's structured log of what it authored (shared agent-log script; agent-log-event.schema.json)." }
+    { id: "design-guide", filename: "design-guide.json", channel: "artifact", validator: "designGuideConformant", description: "The machine-checkable design tokens + components (design-guide.schema.json). The narrative design-guide.md + ia.md are authored alongside but the JSON is the gated artifact." },
+    { id: "agent-log", filename: "agent-log.jsonl", channel: "meta", validator: "uxDesignerLoggedAuthoring", description: "The UX Designer's structured log of what it authored (shared agent-log script; agent-log-event.schema.json)." }
   ],
   routing: {
     produced: { next: "state-derived" }
@@ -7483,7 +7483,7 @@ var navigator_red_default = {
   ],
   outputs: [
     { id: "tests", filename: "tests", channel: "product", validator: "navigatorTestsAuthored", description: "The RED test tree the Navigator authored at the project root (non-empty tests/ , the PRODUCT channel)." },
-    { id: "agent-log", filename: ".sftdd/agent-log.jsonl", channel: "meta", validator: "navigatorLoggedAuthoring", description: "The Navigator's authoring log (meta channel; shared agent-log script)." }
+    { id: "agent-log", filename: "agent-log.jsonl", channel: "meta", validator: "navigatorLoggedAuthoring", description: "The Navigator's authoring log (meta channel; shared agent-log script)." }
   ],
   routing: {
     produced: { next: "state-derived" }

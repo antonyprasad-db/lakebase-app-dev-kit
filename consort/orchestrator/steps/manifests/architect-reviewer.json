@@ -7,8 +7,8 @@
     { "id": "nfrs", "source": "feature:nfrs.md", "description": "The PO's non-functional requirements the architecture must cover (nfrs.md)." }
   ],
   "outputs": [
-    { "id": "architecture", "filename": "architecture.json", "validator": "nonEmptyFile", "description": "The feature architecture (service_backed, layers, persistence_invariants). The post-turn verify-artifact asserts architecture.json exists under the resolved root." },
-    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "architectReviewerLoggedAuthoring", "description": "The Architect Reviewer's structured log of the per-AC notes + architecture.json it authored." }
+    { "id": "architecture", "filename": "architecture.json", "channel": "artifact", "validator": "nonEmptyFile", "description": "The feature architecture (service_backed, layers, persistence_invariants). The post-turn verify-artifact asserts architecture.json exists under the resolved root." },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "channel": "meta", "validator": "architectReviewerLoggedAuthoring", "description": "The Architect Reviewer's structured log of the per-AC notes + architecture.json it authored." }
   ],
   "routing": {
     "produced": { "next": "state-derived" }

@@ -22,7 +22,7 @@ const FEATURE = "F1-stock-visibility";
 const RED_STORY = "S1-create-sku";
 const RED: WorkflowAction = { kind: "invoke-role", role: "navigator", story: RED_STORY };
 
-/** Seed the breakdown manifest's declared inputs into the real .sftdd (product-overview/nfrs/
+/** Seed the breakdown manifest's declared inputs into the real .consort (product-overview/nfrs/
  *  feature-request) , the uncontained agent reads them there, and the executor's phase-1 gate
  *  checks their presence. Absent them, resolveInputs returns {missing} and the agent never runs. */
 function seedBreakdownInputs(consortDir: string): void {
@@ -87,7 +87,7 @@ const state = { phase: "feature" } as unknown as DriveState;
 describe("performViaExecutor (Stage 2 2b): spec-author breakdown through the StepExecutor", () => {
   it("runs the SAME CLI sequence as the legacy path: reset-breakdown, claude, reconcile, sync-breakdown", async () => {
     const projectDir = mkdtempSync(join(tmpdir(), "pve-"));
-    const consortDir = join(projectDir, ".sftdd");
+    const consortDir = join(projectDir, ".consort");
     mkdirSync(consortDir, { recursive: true });
     seedBreakdownInputs(consortDir);
     try {
@@ -113,7 +113,7 @@ describe("performViaExecutor (Stage 2 2b): spec-author breakdown through the Ste
   it("returns undefined (falls through to perform) when useManifestSteps is OFF", async () => {
     const projectDir = mkdtempSync(join(tmpdir(), "pve-"));
     try {
-      const effects = buildDriveEffects(cfg(join(projectDir, ".sftdd"), projectDir)); // flag off
+      const effects = buildDriveEffects(cfg(join(projectDir, ".consort"), projectDir)); // flag off
       expect(await effects.performViaExecutor!(BREAKDOWN, state, routerDeps)).toBeUndefined();
     } finally {
       rmSync(projectDir, { recursive: true, force: true });
@@ -123,7 +123,7 @@ describe("performViaExecutor (Stage 2 2b): spec-author breakdown through the Ste
   it("returns undefined for an action NOT on the executor allowlist (e.g. a design turn not yet migrated)", async () => {
     const projectDir = mkdtempSync(join(tmpdir(), "pve-"));
     try {
-      const effects = buildDriveEffects(cfg(join(projectDir, ".sftdd"), projectDir, { useManifestSteps: true }));
+      const effects = buildDriveEffects(cfg(join(projectDir, ".consort"), projectDir, { useManifestSteps: true }));
       // architect estimate is a design turn NOT yet on the allowlist (breakdown, navigator RED,
       // driver GREEN are; the rest fall through to perform). Its own dedicated cases below cover
       // the migrated build turns.
@@ -136,7 +136,7 @@ describe("performViaExecutor (Stage 2 2b): spec-author breakdown through the Ste
 
   it("BLOCKS (no post-turn sync-breakdown) when the agent's artifact fails validation", async () => {
     const projectDir = mkdtempSync(join(tmpdir(), "pve-"));
-    const consortDir = join(projectDir, ".sftdd");
+    const consortDir = join(projectDir, ".consort");
     mkdirSync(consortDir, { recursive: true });
     seedBreakdownInputs(consortDir);
     try {
@@ -169,7 +169,7 @@ describe("performViaExecutor (Stage 2 2b): spec-author breakdown through the Ste
 // ─── navigator RED (a BUILD turn, LEAN , no cloud) through the StepExecutor ───────────────────────
 // Same performViaExecutor seam, widened to a build turn. The 3 divergences from breakdown:
 //   1. inputs are STORY-scoped (test-list-per-story.json + the story's acs/ DIR), not feature-flat.
-//   2. the output is the PRODUCT channel , a real tests/ tree at the PROJECT ROOT (not .sftdd).
+//   2. the output is the PRODUCT channel , a real tests/ tree at the PROJECT ROOT (not .consort).
 //   3. the post-turn CLI is the `@build-cycle` marker (the RED cycle stamp), NOT sync-breakdown , so
 //      the expander must RESOLVE the marker (via buildCycleCommand), not filter it. Absent that, no
 //      RED is stamped, testsWritten never flips, and the loop re-proposes RED and stalls.
@@ -223,7 +223,7 @@ function redRecordingRunner(projectDir: string, consortDir: string) {
 describe("performViaExecutor (#590): navigator RED (the PRODUCT channel) through the StepExecutor", () => {
   it("runs the build-turn CLI sequence: claude, @build-cycle (RED stamp), reconcile , and writes tests/ at the project ROOT", async () => {
     const projectDir = mkdtempSync(join(tmpdir(), "pve-red-"));
-    const consortDir = join(projectDir, ".sftdd");
+    const consortDir = join(projectDir, ".consort");
     mkdirSync(consortDir, { recursive: true });
     seedRedInputs(consortDir);
     try {
@@ -241,7 +241,7 @@ describe("performViaExecutor (#590): navigator RED (the PRODUCT channel) through
         "cli:log:--reconcile",
         "cli:cycle:begin",
       ]);
-      // The PRODUCT artifact landed at the project ROOT (the real code tree), not under .sftdd.
+      // The PRODUCT artifact landed at the project ROOT (the real code tree), not under .consort.
       expect(existsSync(join(projectDir, "tests", "test_create_sku.py"))).toBe(true);
     } finally {
       rmSync(projectDir, { recursive: true, force: true });
@@ -250,7 +250,7 @@ describe("performViaExecutor (#590): navigator RED (the PRODUCT channel) through
 
   it("BLOCKS (no RED cycle stamp) when the navigator writes no tests/ tree", async () => {
     const projectDir = mkdtempSync(join(tmpdir(), "pve-red-"));
-    const consortDir = join(projectDir, ".sftdd");
+    const consortDir = join(projectDir, ".consort");
     mkdirSync(consortDir, { recursive: true });
     seedRedInputs(consortDir);
     try {
@@ -274,7 +274,7 @@ describe("performViaExecutor (#590): navigator RED (the PRODUCT channel) through
   it("returns undefined for a navigator turn that is NOT plain RED (e.g. a review/assess buildMode)", async () => {
     const projectDir = mkdtempSync(join(tmpdir(), "pve-red-"));
     try {
-      const effects = buildDriveEffects(cfg(join(projectDir, ".sftdd"), projectDir, { useManifestSteps: true }));
+      const effects = buildDriveEffects(cfg(join(projectDir, ".consort"), projectDir, { useManifestSteps: true }));
       const review: WorkflowAction = { kind: "invoke-role", role: "navigator", story: RED_STORY, buildMode: "review" } as WorkflowAction;
       expect(await effects.performViaExecutor!(review, state, routerDeps)).toBeUndefined();
     } finally {
@@ -297,7 +297,7 @@ const GREEN: WorkflowAction = { kind: "invoke-role", role: "driver", story: RED_
 describe("performViaExecutor (#594): driver GREEN through the StepExecutor", () => {
   it("runs the build-turn CLI sequence: claude, reconcile, @build-cycle (green) , with agent-log as the validated meta output", async () => {
     const projectDir = mkdtempSync(join(tmpdir(), "pve-green-"));
-    const consortDir = join(projectDir, ".sftdd");
+    const consortDir = join(projectDir, ".consort");
     mkdirSync(consortDir, { recursive: true });
     seedRedInputs(consortDir); // same story-scoped inputs (test-list-per-story + acs)
     try {
@@ -340,7 +340,7 @@ describe("performViaExecutor (#594): driver GREEN through the StepExecutor", () 
 
   it("BLOCKS (no @build-cycle green) when the driver's turn produces no reconciled agent-log", async () => {
     const projectDir = mkdtempSync(join(tmpdir(), "pve-green-"));
-    const consortDir = join(projectDir, ".sftdd");
+    const consortDir = join(projectDir, ".consort");
     mkdirSync(consortDir, { recursive: true });
     seedRedInputs(consortDir);
     try {
@@ -364,7 +364,7 @@ describe("performViaExecutor (#594): driver GREEN through the StepExecutor", () 
   it("returns undefined for a driver turn that is NOT plain GREEN (e.g. a refactor/repair buildMode)", async () => {
     const projectDir = mkdtempSync(join(tmpdir(), "pve-green-"));
     try {
-      const effects = buildDriveEffects(cfg(join(projectDir, ".sftdd"), projectDir, { useManifestSteps: true }));
+      const effects = buildDriveEffects(cfg(join(projectDir, ".consort"), projectDir, { useManifestSteps: true }));
       const refactor: WorkflowAction = { kind: "invoke-role", role: "driver", story: RED_STORY, buildMode: "refactor" } as WorkflowAction;
       expect(await effects.performViaExecutor!(refactor, state, routerDeps)).toBeUndefined();
     } finally {

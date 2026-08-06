@@ -8,8 +8,8 @@
     { "id": "feature-request", "source": "feature:feature-request.md", "description": "The PO's feature request for this feature (feature-request.md)." }
   ],
   "outputs": [
-    { "id": "feature-spec", "filename": "feature-spec.json", "validator": "featureSpecNonEmptyStories", "description": "The feature breakdown index (feature-spec.json + a story stub per story)." },
-    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "agentLogHasRoleEvent", "description": "The agent's structured log of what it did + any issue surfaced (shared agent-log script; agent-log-event.schema.json)." }
+    { "id": "feature-spec", "filename": "feature-spec.json", "channel": "artifact", "validator": "featureSpecNonEmptyStories", "description": "The feature breakdown index (feature-spec.json + a story stub per story). A .consort design document , the artifact channel." },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "channel": "meta", "validator": "agentLogHasRoleEvent", "description": "The agent's structured log of what it did + any issue surfaced (meta channel; shared agent-log script; agent-log-event.schema.json)." }
   ],
   "routing": {
     "produced": { "next": "state-derived" }

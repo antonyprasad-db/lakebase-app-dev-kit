@@ -27,13 +27,13 @@
     },
     "inputs": {
       "type": "array",
-      "description": "The logical inputs the orchestrator resolves from .sftdd and PROVIDES to the step (contents, keyed by id).",
+      "description": "The logical inputs the orchestrator resolves from .consort and PROVIDES to the step (contents, keyed by id).",
       "items": {
         "type": "object",
         "required": ["id", "source"],
         "properties": {
           "id": { "type": "string", "minLength": 1, "description": "Logical input id the contents are handed back under." },
-          "source": { "type": "string", "minLength": 1, "description": ".sftdd source locator, e.g. feature:product-overview.md." },
+          "source": { "type": "string", "minLength": 1, "description": ".consort source locator, e.g. feature:product-overview.md." },
           "description": { "type": "string", "description": "Human description for diagnostics." }
         },
         "additionalProperties": false

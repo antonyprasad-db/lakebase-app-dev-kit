@@ -44,10 +44,10 @@ import driverRefactorSupersededManifest from "./manifests/driver-refactor-supers
 import driverRepairManifest from "./manifests/driver-repair.json" with { type: "json" };
 import driverGreenSupersededManifest from "./manifests/driver-green-superseded.json" with { type: "json" };
 
-/** A step's logical input , resolved from .sftdd by the orchestrator and provided by id. */
+/** A step's logical input , resolved from .consort by the orchestrator and provided by id. */
 export interface StepManifestInput {
   id: string;
-  /** .sftdd source locator, e.g. "feature:product-overview.md". */
+  /** .consort source locator, e.g. "feature:product-overview.md". */
   source: string;
   description?: string;
 }
@@ -72,7 +72,7 @@ export interface StepManifestOutput {
   validator: string;
   /** WHICH channel this output lands in (absent = the primary workspace root, byte-identical):
    *  `product` = the application deliverable (app/tests/migrations) that accumulates across
-   *  build turns + ships; MUST be uncontained (the real code tree). `artifact` = the .sftdd
+   *  build turns + ships; MUST be uncontained (the real code tree). `artifact` = the .consort
    *  design documents (feature-spec/architecture/test-list/design-guide); small + per-feature,
    *  so MAY be contained (resolved under artifactDir when provisioned, else the workspace).
    *  `meta` = orchestration bookkeeping (raw report / verdict / marker) whose conformance the

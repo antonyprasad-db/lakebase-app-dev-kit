@@ -109,20 +109,25 @@ export function manifestPostTurnCommands(
  *  same nested paths the legacy designArtifactExpectation + cycle/agent-log writers use. */
 export function outputPathsForAction(action: WorkflowAction, featureId: string): Record<string, string> {
   if (action.kind !== "invoke-role") return {};
-  // spec-author breakdown: the feature-spec index + the meta agent-log (both workspace-relative).
+  // Each path below is CHANNEL-RELATIVE: the executor joins it under the output's channel root
+  // (product -> workspaceDir/project root; artifact + meta -> the provisioned .consort). The
+  // orchestrator places the file; the manifest/override never re-encodes the root.
+  //
+  // spec-author breakdown: the feature-spec index (artifact channel -> under .consort) + the
+  // meta agent-log (meta channel -> under .consort, materialized by reconcile).
   if ("mode" in action && action.role === "spec-author" && action.mode === "breakdown") {
-    return { "feature-spec": `.sftdd/features/${featureId}/feature-spec.json`, "agent-log": ".sftdd/agent-log.jsonl" };
+    return { "feature-spec": `features/${featureId}/feature-spec.json`, "agent-log": "agent-log.jsonl" };
   }
-  // navigator RED: the PRODUCT tests/ tree at the project root (channel product -> workspaceDir) +
-  // the meta agent-log (workspace-relative, resolves under the project's .sftdd).
+  // navigator RED: the PRODUCT tests/ tree at the project root (product channel -> workspaceDir) +
+  // the meta agent-log (meta channel -> .consort, bare + placed by the orchestrator).
   if (!("mode" in action) && !("buildMode" in action) && action.role === "navigator" && "story" in action && !!action.story) {
-    return { tests: "tests", "agent-log": ".sftdd/agent-log.jsonl" };
+    return { tests: "tests", "agent-log": "agent-log.jsonl" };
   }
-  // driver GREEN: the PRODUCT code (app/ at the project root) is the primary in-turn produced
-  // signal (channel product -> workspaceDir), + the meta agent-log (materialized post-run by
-  // reconcile). The real correctness gate is the post-turn @build-cycle honest-GREEN verify.
+  // driver GREEN: the PRODUCT code (app/ at the project root, product channel -> workspaceDir) is
+  // the primary in-turn produced signal, + the meta agent-log (materialized post-run by reconcile).
+  // The real correctness gate is the post-turn @build-cycle honest-GREEN verify.
   if (!("mode" in action) && !("buildMode" in action) && action.role === "driver" && "story" in action && !!action.story) {
-    return { code: "app", "agent-log": ".sftdd/agent-log.jsonl" };
+    return { code: "app", "agent-log": "agent-log.jsonl" };
   }
   return {};
 }
@@ -179,8 +184,10 @@ export async function performTurnViaExecutor(
       return out;
     },
     // The workspace IS the real project (LiveDriveStepAgent's runner spawns in cfg.projectDir).
-    // artifact-channel outputs live under the real .sftdd; product-channel (tests/) at the root.
-    provisionWorkspace: () => ({ workspaceDir: cfg.projectDir, artifactDir: cfg.consortDir, outputPaths: outputPathsForAction(action, f) }),
+    // product-channel outputs (tests/, app/) land at the project root; artifact + meta channels
+    // resolve under the real .consort (artifactDir = metaDir = cfg.consortDir), so the orchestrator
+    // places the design docs + the reconciled agent-log there , the manifest filename stays bare.
+    provisionWorkspace: () => ({ workspaceDir: cfg.projectDir, artifactDir: cfg.consortDir, metaDir: cfg.consortDir, outputPaths: outputPathsForAction(action, f) }),
     // The prompt is the agent's own (buildClaudeCommand -> roleTask); unused by LiveDriveStepAgent,
     // but the executor requires the dep.
     instructionsFor: () => ({ prompt: "" }),

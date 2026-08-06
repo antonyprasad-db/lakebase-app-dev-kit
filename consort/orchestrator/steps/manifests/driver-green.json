@@ -7,7 +7,7 @@
   ],
   "outputs": [
     { "id": "code", "filename": "app", "channel": "product", "validator": "driverCodePresent", "description": "The PRODUCT code the Driver wrote at the project root to make the RED pass (app/ , the primary in-turn produced signal). The real correctness gate is the post-turn @build-cycle honest-GREEN verify (alembic upgrade + the project's tests against a live branch), which flips codeWritten , this floor just proves the driver produced code." },
-    { "id": "agent-log", "filename": ".sftdd/agent-log.jsonl", "channel": "meta", "validator": "driverLoggedAuthoring", "description": "The Driver's authoring log (meta channel; materialized by the post-turn reconcile)." }
+    { "id": "agent-log", "filename": "agent-log.jsonl", "channel": "meta", "validator": "driverLoggedAuthoring", "description": "The Driver's authoring log (meta channel; materialized by the post-turn reconcile)." }
   ],
   "routing": {
     "produced": { "next": "state-derived" }

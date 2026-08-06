@@ -6,7 +6,7 @@
 // each call site (the DRY consolidation , byte-identical to the prior inline copies).
 //
 //   product  : the real code tree , ALWAYS workspaceDir (uncontained).
-//   artifact : the .sftdd design documents , artifactDir when provisioned, else workspaceDir.
+//   artifact : the .consort design documents , artifactDir when provisioned, else workspaceDir.
 //   meta     : orchestration bookkeeping (raw report / verdict / marker) , metaDir when provisioned,
 //              else workspaceDir.
 //

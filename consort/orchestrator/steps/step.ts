@@ -3,12 +3,12 @@
 // manifest + (only if a new output type appears) one registered validator fn. A bespoke
 // StepContract class is the escape hatch, for a step whose run() logic is genuinely custom.
 //
-// Containment is unchanged from SpecAuthorBreakdownStep: the ORCHESTRATOR owns .sftdd,
+// Containment is unchanged from SpecAuthorBreakdownStep: the ORCHESTRATOR owns .consort,
 // resolves + PROVIDES the input contents + the workspace, and VALIDATES + persists the
 // produced output. This step is dumb: it declares its logical inputs/outputs (from the
 // manifest), forwards the provided instructions to its injected agent pointed at the
 // provided workspace, and reports what appeared THERE. Neither it nor its agent resolves
-// .sftdd or reaches outside what it was handed.
+// .consort or reaches outside what it was handed.
 //
 //   inputs()  -> manifest.inputs (logical ids; the orchestrator resolves + provides).
 //   outputs() -> manifest.outputs, each with check = resolveValidator(name).

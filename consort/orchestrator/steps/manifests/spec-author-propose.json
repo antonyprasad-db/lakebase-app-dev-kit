@@ -7,7 +7,7 @@
     { "id": "nfrs", "source": "feature:nfrs.md", "description": "The PO's non-functional requirements the proposal accounts for (nfrs.md)." }
   ],
   "outputs": [
-    { "id": "feature-proposals", "filename": "planning/feature-proposals.md", "validator": "nonEmptyFile", "description": "The sprint's candidate features, one per section, for the Architect to size + the PO to commit. The post-turn verify-artifact asserts planning/feature-proposals.md exists. Sprint-scoped, so NO reconcile (writes no feature artifact)." }
+    { "id": "feature-proposals", "filename": "planning/feature-proposals.md", "channel": "artifact", "validator": "nonEmptyFile", "description": "The sprint's candidate features, one per section, for the Architect to size + the PO to commit. The post-turn verify-artifact asserts planning/feature-proposals.md exists. Sprint-scoped, so NO reconcile (writes no feature artifact)." }
   ],
   "routing": {
     "produced": { "next": "state-derived" }
