@@ -1,6 +1,6 @@
 // Sprint mode: the Tier-1 `/sprint` orchestrator.
 //
-// `lakebase-sftdd-drive --sprint <name>` runs the whole sprint as one continuous
+// `consort-drive --sprint <name>` runs the whole sprint as one continuous
 // flow: sprint planning (to the approved plan gate) -> read the backlog -> for
 // each feature: claim its branch + drive it (design -> build -> deploy) to done.
 // One process holds it all, so the per-story pipeline streams within each
@@ -9,7 +9,7 @@
 // runSprint is pure over a SprintEffects seam (hermetically testable); the real
 // effects (drive planning via runDriver+the plan bound, claim via
 // lakebase-scm-claim-feature-branch, drive each feature via runDriver) are wired
-// in the lakebase-sftdd-drive CLI. The sprint-level reads (backlog manifest,
+// in the consort-drive CLI. The sprint-level reads (backlog manifest,
 // planning state) are the I/O helpers below, used to build those effects.
 
 import type { DriveState, WorkflowAction } from "../../consort/orchestrator/workflow/workflow-vocabulary.js";

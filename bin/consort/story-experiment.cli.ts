@@ -4,9 +4,9 @@
 // into the tested orchestration (experiment-lifecycle.ts) and records the
 // pipeline-state transition (story-pipeline.ts).
 //
-//   lakebase-sftdd-experiment cut      --feature F --story S --slug X --branch B --parent FB --instance I [--ttl T] [--reset-stale-branch] [--project-dir P] [--tdd-dir D]
-//   lakebase-sftdd-experiment merge    --feature F --story S --slug X --experiment-branch B --feature-branch FB --instance I --approver A [--at ISO] [--project-dir P] [--tdd-dir D]
-//   lakebase-sftdd-experiment discard  --feature F --story S --slug X --instance I --approver A --reason R [--revise] [--at ISO] [--tdd-dir D]
+//   consort-experiment cut      --feature F --story S --slug X --branch B --parent FB --instance I [--ttl T] [--reset-stale-branch] [--project-dir P] [--tdd-dir D]
+//   consort-experiment merge    --feature F --story S --slug X --experiment-branch B --feature-branch FB --instance I --approver A [--at ISO] [--project-dir P] [--tdd-dir D]
+//   consort-experiment discard  --feature F --story S --slug X --instance I --approver A --reason R [--revise] [--at ISO] [--tdd-dir D]
 //
 // cut  : fork the paired Lakebase branch off the feature branch + record the
 //        pipeline experiment ref (the build lane then builds on it).
@@ -50,7 +50,7 @@ function logExperimentEvent(sftddDir: string, event: "experiment.discarded" | "e
 function usage(msg: string): number {
   process.stderr.write(
     `${msg}\n` +
-      `Usage: lakebase-sftdd-experiment <cut|merge|discard> --feature <F> --story <S> --slug <X> --instance <I> [--tdd-dir <D>]\n` +
+      `Usage: consort-experiment <cut|merge|discard> --feature <F> --story <S> --slug <X> --instance <I> [--tdd-dir <D>]\n` +
       `  cut needs --branch <B> --parent <FB> [--ttl <T>] [--reset-stale-branch] [--project-dir <P>]\n` +
       `  merge needs --experiment-branch <B> --feature-branch <FB> --approver <A> [--at <ISO>] [--project-dir <P>]\n` +
       `  discard needs --approver <A> --reason <R> [--revise] [--at <ISO>]\n`,
@@ -99,7 +99,7 @@ async function main(): Promise<number> {
     }
     case "merge": {
       // The full accept effect (merge + record), via the shared core so this
-      // explicit-args recovery door and `lakebase-sftdd-pipeline accept` (the
+      // explicit-args recovery door and `consort-pipeline accept` (the
       // resolved-args normal door) behave identically (FEIP-8013).
       await mergeAndAcceptStory(
         {

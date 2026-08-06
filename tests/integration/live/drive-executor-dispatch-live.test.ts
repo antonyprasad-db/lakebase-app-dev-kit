@@ -5,7 +5,7 @@
 // This is the HONEST "the live drive uses the executor" proof: it drives the REAL production path
 //   buildDriveEffects(cfg) -> runDriver -> effects.performViaExecutor -> execute()
 // with a REAL `claude -p` spec-author breakdown turn, on a REAL seeded .sftdd, no cloud. The only
-// difference from `lakebase-sftdd-drive --only design` is the bound (stop after the one breakdown
+// difference from `consort-drive --only design` is the bound (stop after the one breakdown
 // turn) and that no Lakebase/GitHub project is claimed (breakdown is a design turn , it touches
 // neither). useManifestSteps is turned on via the same env the CLI reads (LAKEBASE_SFTDD_USE_
 // MANIFEST_STEPS), so the executor-dispatch path fires exactly as it would in production.

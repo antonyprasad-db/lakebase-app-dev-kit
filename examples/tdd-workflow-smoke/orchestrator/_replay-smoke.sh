@@ -7,7 +7,7 @@
 #
 # The two entry scripts set three vars, then call `replay_smoke "$@"`:
 #   SMOKE_NAME    label for logs + the usage line (e.g. run-to-navigator.sh)
-#   PAUSE_BEFORE  navigator | release-engineer  (lakebase-sftdd-drive --pause-before)
+#   PAUSE_BEFORE  navigator | release-engineer  (consort-drive --pause-before)
 #   REPLAY_BUILD  0 | 1  (1 also restores the recorded code tree + green cycles,
 #                 so the run skips the live build and reaches the RE handoff)
 #
@@ -159,7 +159,7 @@ replay_smoke() {
   SFTDD_DIR="$(lk lakebase-resolve-sftdd-dir --project-dir "$PROJECT_DIR")" || { err "could not resolve the runtime artifact dir"; return 2; }
   SFTDD_REL="$(basename "$SFTDD_DIR")"
   proxy_supply() {
-    lk lakebase-sftdd-human-proxy supply --from "$1" --to "$2" --artifact "$3"
+    lk consort-human-proxy supply --from "$1" --to "$2" --artifact "$3"
   }
   if [[ "$FRESH" == 1 ]]; then
     log "staging project intake (product-overview + nfrs + design-brief) via human-proxy"
@@ -216,8 +216,8 @@ replay_smoke() {
   local DESIGN_MODE; [[ "${REPLAY_DESIGN:-1}" == "1" ]] && DESIGN_MODE="REPLAYED" || DESIGN_MODE="LIVE (recording)"
   local BUILD_NOTE=""; [[ "$REPLAY_BUILD" == "1" ]] && BUILD_NOTE=" + build RESTORED"
   log "design ${DESIGN_MODE}${BUILD_NOTE}; pausing at the ${PAUSE_BEFORE} handoff${LAKEBASE_SFTDD_RECORD_DIR:+ (recording -> ${LAKEBASE_SFTDD_RECORD_DIR})}"
-  lk lakebase-sftdd-drive --feature "${FEATURE_ID}" --project-dir "$PROJECT_DIR" --pause-before "$PAUSE_BEFORE" $GATES_FLAG \
-    || { err "lakebase-sftdd-drive failed for ${FEATURE_ID}"; return 2; }
+  lk consort-drive --feature "${FEATURE_ID}" --project-dir "$PROJECT_DIR" --pause-before "$PAUSE_BEFORE" $GATES_FLAG \
+    || { err "consort-drive failed for ${FEATURE_ID}"; return 2; }
 
   log "✓ ${SMOKE_NAME} complete (paused at the ${PAUSE_BEFORE} handoff, resumed on your Y). Project: ${PROJECT_DIR}"
 }

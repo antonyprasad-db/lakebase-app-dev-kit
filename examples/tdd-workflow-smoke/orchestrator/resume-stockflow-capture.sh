@@ -64,7 +64,7 @@ bash "$KIT_LK" --warm || { err "kit lk --warm failed"; exit 1; }
 
 # --- F1: resume mid-drive (it is already claimed + on its experiment branch) ---
 log "=== F1-stock-visibility: RESUME drive (RE deploy -> accept -> S2/S3 -> promote) ==="
-lk lakebase-sftdd-drive --feature "F1-stock-visibility" --project-dir "$PROJECT_DIR" \
+lk consort-drive --feature "F1-stock-visibility" --project-dir "$PROJECT_DIR" \
   --pause-before navigator --gates proxy || { err "resume drive F1 failed"; exit 2; }
 log "=== F1-stock-visibility complete ==="
 
@@ -77,13 +77,13 @@ cp "${CORPUS_DIR}/features/${FID}/feature-request.md" "${SFTDD_DIR}/features/${F
 git add "${SFTDD_REL}/features/${FID}/feature-request.md" 2>/dev/null || true
 git commit -m "plan: feature-request for ${FID}" >/dev/null 2>&1 || true
 lk lakebase-scm-claim-feature-branch "${FID}" --project-dir "$PROJECT_DIR" --json || { err "claim ${FID} failed"; exit 2; }
-lk lakebase-sftdd-drive --feature "${FID}" --project-dir "$PROJECT_DIR" --pause-before navigator --gates proxy \
+lk consort-drive --feature "${FID}" --project-dir "$PROJECT_DIR" --pause-before navigator --gates proxy \
   || { err "drive ${FID} failed"; exit 2; }
 log "=== ${FID} complete ==="
 
 # --- reconstitute the agent-log (design verbatim + costs; build re-dated) ------
 log "reconstituting agent-log (design verbatim + costs; build re-dated to the capture timeline)"
-lk lakebase-sftdd-log --reconstitute --design-log "${CORPUS_DIR}/agent-log.design.jsonl" --tdd-dir "$SFTDD_DIR" \
+lk consort-log --reconstitute --design-log "${CORPUS_DIR}/agent-log.design.jsonl" --tdd-dir "$SFTDD_DIR" \
   || err "reconstitute-log failed (non-fatal)"
 cp "${SFTDD_DIR}/agent-log.jsonl" "${CORPUS_DIR}/agent-log.jsonl" 2>/dev/null || true
 

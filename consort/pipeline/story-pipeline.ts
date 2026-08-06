@@ -377,8 +377,8 @@ export function approveStoryGate(
 }
 
 /** The per-story-draft-invariant guidance, shared by every per-story spec-gate
- *  entry point (the `lakebase-sftdd-pipeline` surface/approve-gate subcommands
- *  AND the human-facing `lakebase-sftdd-approve-gate --story`), so all of them
+ *  entry point (the `consort-pipeline` surface/approve-gate subcommands
+ *  AND the human-facing `consort-approve-gate --story`), so all of them
  *  report a batched draft identically. */
 export function batchedDraftMessage(story: string, batched: string[]): string {
   return (
@@ -406,8 +406,8 @@ export interface ApproveStoryGateOutcome {
 /**
  * Approve a story's per-story spec gate end-to-end from disk: enforce the
  * per-story-draft invariant, record the approval, and persist. This is the ONE
- * place a CLI approves the per-story gate, shared by `lakebase-sftdd-pipeline
- * approve-gate` and the human-facing `lakebase-sftdd-approve-gate --story`, so
+ * place a CLI approves the per-story gate, shared by `consort-pipeline
+ * approve-gate` and the human-facing `consort-approve-gate --story`, so
  * both doors write byte-identical state (FEIP-8008). Returns a structured
  * outcome (never throws for a known-story miss) so each caller formats its own
  * message + exit code.

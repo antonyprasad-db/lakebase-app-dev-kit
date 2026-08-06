@@ -8020,7 +8020,7 @@ var SMELL_CATALOG = [
   },
   {
     name: "import-time-build-coupling",
-    description: "The app entry module requires an optional build artifact (e.g. client/dist) at module load time, an unconditional StaticFiles mount / asset read at import scope. It greens where the artifact happens to exist and crashes at import everywhere it does not (backend-only test runs, CI before the client build, fresh clones). Caught deterministically by the `lakebase-sftdd-imports-clean` gate; the Navigator may also flag it in REVIEW.",
+    description: "The app entry module requires an optional build artifact (e.g. client/dist) at module load time, an unconditional StaticFiles mount / asset read at import scope. It greens where the artifact happens to exist and crashes at import everywhere it does not (backend-only test runs, CI before the client build, fresh clones). Caught deterministically by the `consort-imports-clean` gate; the Navigator may also flag it in REVIEW.",
     proposed_remediation: "Guard the coupling: mount the compiled client ONLY when its directory exists, and serve a clear 503 from the SPA route when index.html is absent, so the module imports without the artifact. See the dev/prod-parity rule in software-design-principles."
   },
   {
@@ -8074,7 +8074,7 @@ var SMELL_CATALOG = [
   },
   {
     name: "layering-violation",
-    description: "The boundary/routes layer touches persistence directly (calls the DB session: .query/.add/.commit/.delete on a route handler) or business logic lives in the boundary/templates, instead of delegating to a service + repository. A fat controller violates the layered-architecture contract the architect declared in architecture.json `layers`. Distinct from `boundary-violation` (which is a TEST reaching a private method). Caught deterministically by `lakebase-sftdd-layering-clean`; the Navigator may also flag it in REVIEW.",
+    description: "The boundary/routes layer touches persistence directly (calls the DB session: .query/.add/.commit/.delete on a route handler) or business logic lives in the boundary/templates, instead of delegating to a service + repository. A fat controller violates the layered-architecture contract the architect declared in architecture.json `layers`. Distinct from `boundary-violation` (which is a TEST reaching a private method). Caught deterministically by `consort-layering-clean`; the Navigator may also flag it in REVIEW.",
     proposed_remediation: "Extract a service (business logic) + a repository (the ONLY layer that touches the ORM/session); the route handler validates input + delegates. Defended by the layering fitness test (tests/architecture/test_layering.py)."
   },
   {
@@ -8104,12 +8104,12 @@ var SMELL_CATALOG = [
   },
   {
     name: "contract-incompleteness",
-    description: 'A migration DROPPED (or renamed) a column the running code still references , the ORM model field, a query/repository, a serializer/DTO, or a template/view , so the app emits SQL for a column the migrated database no longer has and crashes at runtime ("column X does not exist") even though the migration itself succeeded. The contract half of expand/contract (software-design-principles hard rule 9) was left incomplete: the schema shrank but the code did not follow in the SAME change. Caught DETERMINISTICALLY by the `lakebase-sftdd-contract-clean` gate (it parses the migration\'s net column drops and greps the code tree for residual references), which enriches the GREEN-verify failure with the exact file:line list , no model judgment needed to notice OR localize it.',
+    description: 'A migration DROPPED (or renamed) a column the running code still references , the ORM model field, a query/repository, a serializer/DTO, or a template/view , so the app emits SQL for a column the migrated database no longer has and crashes at runtime ("column X does not exist") even though the migration itself succeeded. The contract half of expand/contract (software-design-principles hard rule 9) was left incomplete: the schema shrank but the code did not follow in the SAME change. Caught DETERMINISTICALLY by the `consort-contract-clean` gate (it parses the migration\'s net column drops and greps the code tree for residual references), which enriches the GREEN-verify failure with the exact file:line list , no model judgment needed to notice OR localize it.',
     proposed_remediation: "Driver REPAIR: remove or replace EVERY residual reference (model field, queries, serializers/DTOs, templates/views) in the same change so the code matches the migrated schema. Never edit the migration or a test to hide it. The green-failure fixDirective carries the precise file:line list, so this self-heals without a Navigator assess."
   },
   {
     name: "migration-app-coupling",
-    description: "A migration module imports application code at import scope (e.g. `from app.services... import parse_x`) to reuse app logic in a data migration. A migration is an IMMUTABLE historical artifact; the app is mutable. Coupling the two means a later rename/move/removal of that app symbol breaks replaying the migration from base (the historical revision can no longer import), and every alembic subcommand that builds the revision map (history/heads, not just upgrade) must load the module. It greens under `upgrade` (env.py puts the project root on sys.path) yet fails in CI's `alembic history`/`heads`. Caught DETERMINISTICALLY by the `lakebase-sftdd-migration-clean` gate (it scans the migration files for module-scope app imports), which runs proactively at GREEN even when the local verify passes, so it is fixed before the PR; the Navigator may also flag it in REVIEW.",
+    description: "A migration module imports application code at import scope (e.g. `from app.services... import parse_x`) to reuse app logic in a data migration. A migration is an IMMUTABLE historical artifact; the app is mutable. Coupling the two means a later rename/move/removal of that app symbol breaks replaying the migration from base (the historical revision can no longer import), and every alembic subcommand that builds the revision map (history/heads, not just upgrade) must load the module. It greens under `upgrade` (env.py puts the project root on sys.path) yet fails in CI's `alembic history`/`heads`. Caught DETERMINISTICALLY by the `consort-migration-clean` gate (it scans the migration files for module-scope app imports), which runs proactively at GREEN even when the local verify passes, so it is fixed before the PR; the Navigator may also flag it in REVIEW.",
     proposed_remediation: "Driver REPAIR: make the migration self-contained: inline a frozen copy of the needed logic in the migration file (or express the data change in raw SQL). Do not import from app.* at module scope, so the migration stays stable as the app evolves and loads under every alembic subcommand."
   }
 ];
@@ -8729,18 +8729,18 @@ function gateEnactCommand(gate, ctx = {}) {
   const f = ctx.featureId ?? "<feature-id>";
   switch (gate.kind) {
     case "approve-plan-gate":
-      return { bin: "lakebase-sftdd-approve-gate", args: ["--sprint", ctx.sprint ?? "<sprint>", "--approver", you] };
+      return { bin: "consort-approve-gate", args: ["--sprint", ctx.sprint ?? "<sprint>", "--approver", you] };
     case "approve-gate":
-      return { bin: "lakebase-sftdd-approve-gate", args: ["--feature", f, "--story", gate.story, "--approver", you] };
+      return { bin: "consort-approve-gate", args: ["--feature", f, "--story", gate.story, "--approver", you] };
     case "approve-deploy-gate":
-      return { bin: "lakebase-sftdd-approve-gate", args: ["--feature", f, "--gate", "deploy", "--approver", you] };
+      return { bin: "consort-approve-gate", args: ["--feature", f, "--gate", "deploy", "--approver", you] };
     case "approve-promote-gate":
       return {
-        bin: "lakebase-sftdd-approve-gate",
+        bin: "consort-approve-gate",
         args: ["--feature", f, "--gate", "promote", "--promote-ref", ctx.featureBranch ?? f, "--approver", you]
       };
     case "accept":
-      return { bin: "lakebase-sftdd-pipeline", args: ["accept", "--feature", f, "--story", gate.story, "--approver", you] };
+      return { bin: "consort-pipeline", args: ["accept", "--feature", f, "--story", gate.story, "--approver", you] };
     default:
       return null;
   }
@@ -8749,7 +8749,7 @@ function approveHint(gate, ctx = {}) {
   const cmd = gateEnactCommand(gate, ctx);
   if (cmd) return `${cmd.bin} ${cmd.args.join(" ")}`;
   const f = ctx.featureId ?? "<feature-id>";
-  return `lakebase-sftdd-approve-gate --feature ${f} --approver <you>`;
+  return `consort-approve-gate --feature ${f} --approver <you>`;
 }
 
 // consort/orchestrator/status/feature-status.ts
@@ -12076,7 +12076,7 @@ function roleTaskBody(action, featureId, uiTrack, sftddDir, build) {
       case "author-requests":
         return `Provide the sprint's feature-requests.`;
       case "breakdown":
-        return `Break feature ${featureId} down into its stories. WRITE the breakdown to ${root}: first ${root}/features/${featureId}/feature-spec.json (id, name, status "draft", tdd_mode, and a NON-EMPTY stories[] array of the story ids), then a stub dir per story under ${root}/features/${featureId}/stories/<S>/ (story.md + story.json, id + one-line scope; NO acceptance criteria here). ON EVERY STORY AFTER THE FIRST, its story.json MUST include "independence": { "distinct_from_prior": true, "rationale": "<the distinct behavior this story adds beyond the prior stories>" } , apply the story-independence test (could you build the earlier story fully and have this one still genuinely unbuilt?); if not, fold or re-scope it. A later story that omits independence hard-blocks its spec gate, so set it now. Then run the breakdown self-check (./scripts/lk lakebase-sftdd-response-formatter --role spec-author --feature ${featureId}, NO --story) and fix anything it flags before returning. feature-spec.json is REQUIRED , a prose list of stories in your reply is NOT the breakdown, and do NOT claim it "already exists".${uiTrack ? UI_TRACK_BREAKDOWN : ""}`;
+        return `Break feature ${featureId} down into its stories. WRITE the breakdown to ${root}: first ${root}/features/${featureId}/feature-spec.json (id, name, status "draft", tdd_mode, and a NON-EMPTY stories[] array of the story ids), then a stub dir per story under ${root}/features/${featureId}/stories/<S>/ (story.md + story.json, id + one-line scope; NO acceptance criteria here). ON EVERY STORY AFTER THE FIRST, its story.json MUST include "independence": { "distinct_from_prior": true, "rationale": "<the distinct behavior this story adds beyond the prior stories>" } , apply the story-independence test (could you build the earlier story fully and have this one still genuinely unbuilt?); if not, fold or re-scope it. A later story that omits independence hard-blocks its spec gate, so set it now. Then run the breakdown self-check (./scripts/lk consort-response-formatter --role spec-author --feature ${featureId}, NO --story) and fix anything it flags before returning. feature-spec.json is REQUIRED , a prose list of stories in your reply is NOT the breakdown, and do NOT claim it "already exists".${uiTrack ? UI_TRACK_BREAKDOWN : ""}`;
     }
   }
   if (action.role === "ux-designer") {
@@ -12139,9 +12139,9 @@ function roleTaskBody(action, featureId, uiTrack, sftddDir, build) {
 (a) If the current AC INTENTIONALLY supersedes behavior those failing tests encode (the latest AC wins; e.g. a prior feature's test asserts an outcome this AC deliberately changes), FLAG them so the Driver may permissively refactor ONLY those. Scan COMPREHENSIVELY: when this AC drops, removes, or renames a column / field / table / endpoint, the superseded set is NOT only the tests that NAME it in a query/INSERT/assertion , it ALSO includes FITNESS / architecture / migration tests that assert a PROPERTY of the now-gone shape (migration reversibility like "after up() then down(), <col> is reconstructed", schema-shape checks like "<col> exists", invariants over the old column). Those are superseded too , a reversibility/fitness test for an obsoleted column encodes abandoned behavior. Miss one and the verify stays red and escalates, so list ALL of them in ONE flag-superseded call:
 `;
         return advisory + `ASSESS a failed honest-GREEN verify for AC ${action.ac} in story ${s}. The Driver made the current test pass, but the full-suite verify against the running app FAILED, some OTHER test(s) now fail.
-` + scanDirective + `   lakebase-sftdd-cycle flag-superseded --feature ${featureId} --story ${s} --ac ${action.ac} --reason "<new AC + what changed>" --test <path_or_nodeid> [--test ...] --tdd-dir ${sftddDir}
+` + scanDirective + `   consort-cycle flag-superseded --feature ${featureId} --story ${s} --ac ${action.ac} --reason "<new AC + what changed>" --test <path_or_nodeid> [--test ...] --tdd-dir ${sftddDir}
 (b) If instead the failure is a GENUINE REGRESSION (the AC does NOT intend to change that behavior; the Driver's code is wrong), record your ROOT-CAUSE diagnosis so it travels to the Driver / the human instead of being lost. When the Driver can fix it, ALSO give a concrete repair directive (this routes a bounded Driver repair turn):
-   lakebase-sftdd-cycle assess-regression --feature ${featureId} --story ${s} --ac ${action.ac} --diagnosis "<the WHY: which behavior broke + the root cause>" [--fix "<what the Driver should change>"] --tdd-dir ${sftddDir}
+   consort-cycle assess-regression --feature ${featureId} --story ${s} --ac ${action.ac} --diagnosis "<the WHY: which behavior broke + the root cause>" [--fix "<what the Driver should change>"] --tdd-dir ${sftddDir}
    Include --fix ONLY when the fix is clear + within the Driver's reach (e.g. a wrong default, a missing filter, an off-by-one); OMIT --fix when it needs a human / a design or spec change (the orchestration then escalates carrying your diagnosis).
 Flag ONLY tests the new AC truly supersedes; never flag a test just to make a red go away. For a regression, always write a diagnosis , never nothing.`;
       }
@@ -12164,7 +12164,7 @@ Deterministic supersession advisory (prior tests referencing a symbol the refact
 ${marker.superseded_advisory}
 ` : "") + `
 Decide, per failing test: is it a PRIOR test this story legitimately SUPERSEDES (it asserts old behavior/fields this story deliberately retired), or a GENUINE regression the refactor introduced?
-Flag ONLY the genuinely superseded prior tests via \`./scripts/lk lakebase-sftdd-cycle flag-superseded --feature ${featureId} --story ${s} --ac <ac> --test <path::test> [--test ...] --reason "<why superseded>"\` , the Driver will then permissively refactor ONLY those. If instead the refactor broke CURRENT behavior (a real regression), flag NOTHING; the orchestration raises it to a human. Never flag a test just to make a red go away. Do NOT edit product code or tests in this turn.`;
+Flag ONLY the genuinely superseded prior tests via \`./scripts/lk consort-cycle flag-superseded --feature ${featureId} --story ${s} --ac <ac> --test <path::test> [--test ...] --reason "<why superseded>"\` , the Driver will then permissively refactor ONLY those. If instead the refactor broke CURRENT behavior (a real regression), flag NOTHING; the orchestration raises it to a human. Never flag a test just to make a red go away. Do NOT edit product code or tests in this turn.`;
       }
       if (action.buildMode === "review") {
         if ((build?.loop ?? "story") === "story") {
@@ -12194,9 +12194,9 @@ Edit ONLY the flagged test files. The orchestrator re-verifies the full suite af
       }
       if (action.buildMode === "refactor") {
         if ((build?.loop ?? "story") === "story") {
-          return `REFACTOR story ${s} per the Navigator's review (${root}/cycles/${featureId}/${s}/review.json -> refactor_notes), guided by the architecture (${root}/features/${featureId}/architecture.md), the NFRs (${root}/nfrs.md), + design guide (${root}/design/design-guide.md). If review.json has no refactor_notes, this refactor was queued by a BLOCKING build-quality gate (a layering / design-adherence / import-coupling smell in ${root}/smells.json): run that gate to see the violation (e.g. \`lakebase-sftdd-layering-clean --project-dir .\`) and fix exactly what it flags , typically extract the duplicated/misplaced code into one shared helper in its correct layer. Keep ALL the story's tests green and do not change what the outer-boundary tests check, refactor only.` + buildContextPack(sftddDir, featureId, s, "");
+          return `REFACTOR story ${s} per the Navigator's review (${root}/cycles/${featureId}/${s}/review.json -> refactor_notes), guided by the architecture (${root}/features/${featureId}/architecture.md), the NFRs (${root}/nfrs.md), + design guide (${root}/design/design-guide.md). If review.json has no refactor_notes, this refactor was queued by a BLOCKING build-quality gate (a layering / design-adherence / import-coupling smell in ${root}/smells.json): run that gate to see the violation (e.g. \`consort-layering-clean --project-dir .\`) and fix exactly what it flags , typically extract the duplicated/misplaced code into one shared helper in its correct layer. Keep ALL the story's tests green and do not change what the outer-boundary tests check, refactor only.` + buildContextPack(sftddDir, featureId, s, "");
         }
-        return `REFACTOR AC ${action.ac} in story ${s} per the Navigator's review (${root}/cycles/${featureId}/${s}/${action.ac}/review.json -> refactor_notes), guided by the architecture (${root}/features/${featureId}/architecture.md), the NFRs (${root}/nfrs.md), + design guide (${root}/design/design-guide.md). If review.json has no refactor_notes, this refactor was queued by a BLOCKING build-quality gate (a layering / design-adherence / import-coupling smell in ${root}/smells.json): run that gate to see the violation (e.g. \`lakebase-sftdd-layering-clean --project-dir .\`) and fix exactly what it flags , typically extract the duplicated/misplaced code into one shared helper in its correct layer. Keep ALL tests green and do not change what the outer-boundary tests check, refactor only.` + buildContextPack(sftddDir, featureId, s, action.ac ?? "");
+        return `REFACTOR AC ${action.ac} in story ${s} per the Navigator's review (${root}/cycles/${featureId}/${s}/${action.ac}/review.json -> refactor_notes), guided by the architecture (${root}/features/${featureId}/architecture.md), the NFRs (${root}/nfrs.md), + design guide (${root}/design/design-guide.md). If review.json has no refactor_notes, this refactor was queued by a BLOCKING build-quality gate (a layering / design-adherence / import-coupling smell in ${root}/smells.json): run that gate to see the violation (e.g. \`consort-layering-clean --project-dir .\`) and fix exactly what it flags , typically extract the duplicated/misplaced code into one shared helper in its correct layer. Keep ALL tests green and do not change what the outer-boundary tests check, refactor only.` + buildContextPack(sftddDir, featureId, s, action.ac ?? "");
       }
       {
         return ((build?.loop ?? "story") === "story" ? `Make ALL of story ${s}'s failing tests GREEN in one pass (simplest honest code); implement until every one of the story's tests passes, then run the story's tests once.` : build?.loop === "hybrid-a" ? `Make the failing tests for story ${s}'s current layer-batch ALL GREEN in one pass (simplest honest code); implement until every test in the open batch passes, then run that layer's runner once.` : `Make the failing test for story ${s} GREEN (simplest honest code).`) + (uiTrack ? uiTrackBuild(root) : "") + buildContextPack(sftddDir, featureId, s, action.ac ?? "") + supersededTestsDirective(sftddDir, featureId, s);
@@ -12205,15 +12205,15 @@ Edit ONLY the flagged test files. The orchestrator re-verifies the full suite af
       return `Work story ${s}.`;
   }
 }
-var PIPELINE_BIN = "lakebase-sftdd-pipeline";
-var EXPERIMENT_BIN = "lakebase-sftdd-experiment";
-var CYCLE_BIN = "lakebase-sftdd-cycle";
-var HUMAN_PROXY_BIN = "lakebase-sftdd-human-proxy";
-var LOG_BIN = "lakebase-sftdd-log";
-var TEST_LIST_BIN = "lakebase-sftdd-test-list";
-var DEPLOY_BIN = "lakebase-sftdd-deploy";
-var GATE_CONFORMANCE_BIN = "lakebase-sftdd-gate-conformance";
-var CANON_NOTES_BIN = "lakebase-sftdd-canon-notes";
+var PIPELINE_BIN = "consort-pipeline";
+var EXPERIMENT_BIN = "consort-experiment";
+var CYCLE_BIN = "consort-cycle";
+var HUMAN_PROXY_BIN = "consort-human-proxy";
+var LOG_BIN = "consort-log";
+var TEST_LIST_BIN = "consort-test-list";
+var DEPLOY_BIN = "consort-deploy";
+var GATE_CONFORMANCE_BIN = "consort-gate-conformance";
+var CANON_NOTES_BIN = "consort-canon-notes";
 var SCM_PREPARE_PR_BIN = "lakebase-scm-prepare-pr";
 var SCM_WAIT_CI_BIN = "lakebase-scm-wait-ci";
 var SCM_MERGE_BIN = "lakebase-scm-merge";
@@ -12692,7 +12692,7 @@ function buildDriveEffects(cfg) {
 
 // consort/orchestrator/status/next.ts
 function resumeCommand(ctx) {
-  return ctx.sprint && !ctx.featureId ? { bin: "lakebase-sftdd-drive", args: ["--sprint", ctx.sprint] } : { bin: "lakebase-sftdd-drive", args: ["--feature", ctx.featureId ?? "<feature-id>"] };
+  return ctx.sprint && !ctx.featureId ? { bin: "consort-drive", args: ["--sprint", ctx.sprint] } : { bin: "consort-drive", args: ["--feature", ctx.featureId ?? "<feature-id>"] };
 }
 function holdOption() {
   return {
@@ -12725,21 +12725,21 @@ function buildNextOptions(action, ctx) {
           hil_prompt: `Accept story ${story}? I will merge its experiment into the feature branch, run its migrations, and tear the experiment down.`,
           kind: "gate",
           enact: gateEnact
-          // lakebase-sftdd-pipeline accept ... (owns the merge)
+          // consort-pipeline accept ... (owns the merge)
         },
         {
           id: "acceptance.discard",
           title: `Discard story ${story}`,
           hil_prompt: `Discard story ${story}? Its experiment is torn down and it leaves the sprint; its code is NOT merged.`,
           kind: "action",
-          enact: { bin: "lakebase-sftdd-pipeline", args: ["discard", "--feature", f, "--story", story, "--approver", you, "--reason", "<reason>"] }
+          enact: { bin: "consort-pipeline", args: ["discard", "--feature", f, "--story", story, "--approver", you, "--reason", "<reason>"] }
         },
         {
           id: "acceptance.revise",
           title: `Revise story ${story}`,
           hil_prompt: `Send story ${story} back to designing? Its experiment is torn down and it re-enters the design lane; its code is NOT merged.`,
           kind: "action",
-          enact: { bin: "lakebase-sftdd-pipeline", args: ["revise", "--feature", f, "--story", story, "--approver", you, "--reason", "<reason>"] }
+          enact: { bin: "consort-pipeline", args: ["revise", "--feature", f, "--story", story, "--approver", you, "--reason", "<reason>"] }
         },
         holdOption()
       ];
@@ -13201,10 +13201,10 @@ function parseArgs(argv) {
   return out;
 }
 function help() {
-  return `lakebase-sftdd-drive (deterministic orchestrator driver)
+  return `consort-drive (deterministic orchestrator driver)
 
 Usage:
-  lakebase-sftdd-drive --feature <id> [flags]
+  consort-drive --feature <id> [flags]
 
 Flags:
   --feature <id>       Feature to drive (required)
@@ -13376,7 +13376,7 @@ function reportInput(action, sprint) {
     `[drive] PAUSED , awaiting human input (${describeAction(action)}). Nothing was approved or produced yet.
         The Product Owner must:
           1. author the sprint's feature-request(s) at .sftdd/features/<id>/feature-request.md, then
-          2. commit the backlog: lakebase-sftdd-sync-backlog --sprint ${s} --features <id[,id...]>
+          2. commit the backlog: consort-sync-backlog --sprint ${s} --features <id[,id...]>
         then re-run the drive , it will advance to the (interactive) plan gate.
 `
   );
@@ -13540,7 +13540,7 @@ async function main() {
     const m = migrateLegacyArtifactDir(projectDir);
     if (m.migrated) {
       process.stderr.write(
-        `lakebase-sftdd-drive: migrated legacy ${LEGACY_ARTIFACT_ROOT}/ to ${ARTIFACT_ROOT}/ (via ${m.via}).
+        `consort-drive: migrated legacy ${LEGACY_ARTIFACT_ROOT}/ to ${ARTIFACT_ROOT}/ (via ${m.via}).
 `
       );
     }
@@ -13554,12 +13554,12 @@ async function main() {
     const launchRef = resolveLaunchKitRef(pd, process.env);
     if (launchRef) {
       const drift = kitRefDriftWarning(pd, launchRef);
-      if (drift) process.stderr.write(`lakebase-sftdd-drive: ${drift}
+      if (drift) process.stderr.write(`consort-drive: ${drift}
 `);
       const r = pinRunKitRef(pd, launchRef);
       if (r.pinned) {
         process.stderr.write(
-          `lakebase-sftdd-drive: pinned kit-ref '${launchRef}' to .lakebase/kit-ref.local for this run` + (r.previous ? ` (was '${r.previous}')` : "") + `.
+          `consort-drive: pinned kit-ref '${launchRef}' to .lakebase/kit-ref.local for this run` + (r.previous ? ` (was '${r.previous}')` : "") + `.
 `
         );
       }
@@ -13567,7 +13567,7 @@ async function main() {
   }
   if (effectiveGates(args, args.projectDir ?? process.cwd()) === "proxy" && !hasNonInteractiveSignal()) {
     process.stderr.write(
-      `lakebase-sftdd-drive: gate mode 'proxy' (Human Proxy approves headlessly) requires an explicit
+      `consort-drive: gate mode 'proxy' (Human Proxy approves headlessly) requires an explicit
 non-interactive signal (LAKEBASE_SFTDD_AUTO_CONTINUE=1 or CI). Refusing to bypass HITL in an
 interactive/dev context. Unset LAKEBASE_SFTDD_HUMAN_PROXY, or pass --gates interactive.
 `
@@ -13579,7 +13579,7 @@ interactive/dev context. Unset LAKEBASE_SFTDD_HUMAN_PROXY, or pass --gates inter
     const auth = await driveAuthPreflight();
     if (!auth.ok) {
       process.stderr.write(
-        `lakebase-sftdd-drive: Databricks auth preflight FAILED , halting before any agent spawn.
+        `consort-drive: Databricks auth preflight FAILED , halting before any agent spawn.
 ${auth.message}
 `
       );
@@ -13590,7 +13590,7 @@ ${auth.message}
     return runSprintMode(args);
   }
   if (!args.feature) {
-    process.stderr.write(`lakebase-sftdd-drive: --feature is required.
+    process.stderr.write(`consort-drive: --feature is required.
 
 ${help()}`);
     return 2;
@@ -13599,7 +13599,7 @@ ${help()}`);
   if (args.planOnly) bound = "plan";
   if (args.only) {
     if (!["design", "build", "deploy"].includes(args.only)) {
-      process.stderr.write(`lakebase-sftdd-drive: --only must be design|build|deploy (got "${args.only}").
+      process.stderr.write(`consort-drive: --only must be design|build|deploy (got "${args.only}").
 `);
       return 2;
     }
@@ -13610,7 +13610,7 @@ ${help()}`);
   if (args.pauseBefore) {
     if (!["navigator", "release-engineer"].includes(args.pauseBefore)) {
       process.stderr.write(
-        `lakebase-sftdd-drive: --pause-before must be navigator|release-engineer (got "${args.pauseBefore}").
+        `consort-drive: --pause-before must be navigator|release-engineer (got "${args.pauseBefore}").
 `
       );
       return 2;
@@ -13624,7 +13624,7 @@ ${help()}`);
     const scm = readWorkflowState3(cfg.projectDir);
     if (isForeignFeatureClaim(scm, cfg.featureId)) {
       process.stderr.write(
-        `lakebase-sftdd-drive: refusing to drive "${cfg.featureId}" , the SCM workflow state records a
+        `consort-drive: refusing to drive "${cfg.featureId}" , the SCM workflow state records a
 DIFFERENT feature "${scm?.feature_id}" (branch ${scm?.branch ?? "?"}). Driving now would fork the
 experiment from the wrong branch and commit build output onto it. Claim this feature first
 (lakebase-scm-claim-feature-branch ${cfg.featureId}), or reconcile the prior out-of-band feature,

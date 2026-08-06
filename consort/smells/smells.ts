@@ -129,7 +129,7 @@ export const SMELL_CATALOG: SmellDefinition[] = [
       "module load time, an unconditional StaticFiles mount / asset read at import scope. " +
       "It greens where the artifact happens to exist and crashes at import everywhere it " +
       "does not (backend-only test runs, CI before the client build, fresh clones). Caught " +
-      "deterministically by the `lakebase-sftdd-imports-clean` gate; the Navigator may also " +
+      "deterministically by the `consort-imports-clean` gate; the Navigator may also " +
       "flag it in REVIEW.",
     proposed_remediation:
       "Guard the coupling: mount the compiled client ONLY when its directory exists, and " +
@@ -244,7 +244,7 @@ export const SMELL_CATALOG: SmellDefinition[] = [
       "repository. A fat controller violates the layered-architecture contract the " +
       "architect declared in architecture.json `layers`. Distinct from " +
       "`boundary-violation` (which is a TEST reaching a private method). Caught " +
-      "deterministically by `lakebase-sftdd-layering-clean`; the Navigator may also " +
+      "deterministically by `consort-layering-clean`; the Navigator may also " +
       "flag it in REVIEW.",
     proposed_remediation:
       "Extract a service (business logic) + a repository (the ONLY layer that touches " +
@@ -321,7 +321,7 @@ export const SMELL_CATALOG: SmellDefinition[] = [
       "does not exist\") even though the migration itself succeeded. The contract half of " +
       "expand/contract (software-design-principles hard rule 9) was left incomplete: the schema " +
       "shrank but the code did not follow in the SAME change. Caught DETERMINISTICALLY by the " +
-      "`lakebase-sftdd-contract-clean` gate (it parses the migration's net column drops and greps " +
+      "`consort-contract-clean` gate (it parses the migration's net column drops and greps " +
       "the code tree for residual references), which enriches the GREEN-verify failure with the " +
       "exact file:line list , no model judgment needed to notice OR localize it.",
     proposed_remediation:
@@ -340,7 +340,7 @@ export const SMELL_CATALOG: SmellDefinition[] = [
       "longer import), and every alembic subcommand that builds the revision map (history/heads, " +
       "not just upgrade) must load the module. It greens under `upgrade` (env.py puts the project " +
       "root on sys.path) yet fails in CI's `alembic history`/`heads`. Caught DETERMINISTICALLY by the " +
-      "`lakebase-sftdd-migration-clean` gate (it scans the migration files for module-scope app imports), " +
+      "`consort-migration-clean` gate (it scans the migration files for module-scope app imports), " +
       "which runs proactively at GREEN even when the local verify passes, so it is fixed before the PR; " +
       "the Navigator may also flag it in REVIEW.",
     proposed_remediation:

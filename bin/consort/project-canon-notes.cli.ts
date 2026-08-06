@@ -9,7 +9,7 @@
 // Idempotent: an AC that already carries architectural_notes is left untouched.
 //
 // Usage:
-//   lakebase-sftdd-canon-notes --feature <F> --story <S> [--tdd-dir <path>]
+//   consort-canon-notes --feature <F> --story <S> [--tdd-dir <path>]
 
 import { projectStoryNotes, evaluateStoryCanon } from "../../consort/architecture/architecture-canon.js";
 import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
@@ -35,16 +35,16 @@ function parse(argv: string[]): Parsed {
 
 function help(): never {
   process.stdout.write(
-    `lakebase-sftdd-canon-notes , project a story's per-AC architectural_notes from the canon\n\n` +
+    `consort-canon-notes , project a story's per-AC architectural_notes from the canon\n\n` +
       `Usage:\n` +
-      `  lakebase-sftdd-canon-notes --feature <F> --story <S> [--tdd-dir <path>]\n`,
+      `  consort-canon-notes --feature <F> --story <S> [--tdd-dir <path>]\n`,
   );
   process.exit(0);
 }
 
 const p = parse(process.argv.slice(2));
 if (!p.feature || !p.story) {
-  process.stderr.write("lakebase-sftdd-canon-notes: --feature and --story are required\n");
+  process.stderr.write("consort-canon-notes: --feature and --story are required\n");
   process.exit(2);
 }
 

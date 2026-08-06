@@ -140,10 +140,10 @@ function parse(argv) {
 }
 function help() {
   process.stdout.write(
-    `lakebase-sftdd-contract-clean , prove no code references a column a migration dropped
+    `consort-contract-clean , prove no code references a column a migration dropped
 
 Usage:
-  lakebase-sftdd-contract-clean [--project-dir <path>] [--migrations <rel> ...] [--code <rel> ...] [--json]
+  consort-contract-clean [--project-dir <path>] [--migrations <rel> ...] [--code <rel> ...] [--json]
 
 Exit 0 = clean (no drops, or all dropped symbols gone from code); exit 1 = residual references (hard rule 9).
 `

@@ -21,7 +21,7 @@ import type { AgentRole } from "../logging/agent-log.js";
  * <role>.md def + a model. Two log roles are NOT spawnable and are excluded:
  * "orchestrator" (the deterministic driver emits orchestration events under it)
  * and "release-engineer" (the deploy + promote phases are deterministic - the
- * driver runs lakebase-sftdd-deploy + lakebase-scm-merge - and log under this
+ * driver runs consort-deploy + lakebase-scm-merge - and log under this
  * label; there is no release-engineer agent). Both are code, with no .md + no
  * model, so they are excluded here.
  */

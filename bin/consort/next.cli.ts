@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// lakebase-sftdd-next: the authoritative, strictly READ-ONLY "what next" surface
+// consort-next: the authoritative, strictly READ-ONLY "what next" surface
 // (FEIP-8017). It reads the workflow state from disk and prints the decision menu
 // (JSON or human) built by next.ts. It NEVER spawns a model, NEVER writes a
 // workflow artifact, and NEVER performs an action; enacting a chosen option is
@@ -49,7 +49,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   return out;
 }
 
-const HELP = `lakebase-sftdd-next – the authoritative, read-only "what do I do next?" surface
+const HELP = `consort-next – the authoritative, read-only "what do I do next?" surface
 
 Answers, from the SAME engine the drive uses: where am I, what are my valid next
 options, how do I enact each, and how do I frame the decision for the human. It is
@@ -57,8 +57,8 @@ strictly read-only (no model, no writes, no actions). The drive also auto-emits
 this snapshot to .sftdd/next.json on every stop.
 
 Usage:
-  lakebase-sftdd-next --feature <F> [--json]
-  lakebase-sftdd-next --sprint <S> [--json]
+  consort-next --feature <F> [--json]
+  consort-next --sprint <S> [--json]
 
 Flags:
   --feature <F>    Feature/story scope (or pass the id as a bare argument)
@@ -71,9 +71,9 @@ Flags:
   --help, -h       Show this help
 
 Examples:
-  lakebase-sftdd-next --feature F1-checkout
-  lakebase-sftdd-next --feature F1-checkout --json | jq '.options[].enact'
-  lakebase-sftdd-next --sprint stockflow-s1 --json
+  consort-next --feature F1-checkout
+  consort-next --feature F1-checkout --json | jq '.options[].enact'
+  consort-next --sprint stockflow-s1 --json
 `;
 
 function main(): number {

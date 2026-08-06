@@ -73,7 +73,7 @@ Then, in any session, run:
 /consort:start
 ```
 
-**Your first run.** In a fresh folder, `/consort:start` walks you through creating a Lakebase-paired project: a repo, a paired database, and the role agents and commands scaffolded into it. In a project that already has a `.sftdd/` directory (Consort's spec-first, test-driven state), it resumes wherever you left off. (The command, skills, and MCP server ship in the plugin; the role agents live in your project's `.claude/agents/`, spawned by the orchestrator `lakebase-sftdd-drive` as `claude --agent <role>`.)
+**Your first run.** In a fresh folder, `/consort:start` walks you through creating a Lakebase-paired project: a repo, a paired database, and the role agents and commands scaffolded into it. In a project that already has a `.sftdd/` directory (Consort's spec-first, test-driven state), it resumes wherever you left off. (The command, skills, and MCP server ship in the plugin; the role agents live in your project's `.claude/agents/`, spawned by the orchestrator `consort-drive` as `claude --agent <role>`.)
 
 **What to expect.** Consort drives the loop `/plan -> /design -> /build -> /deploy` and stops at every gate for you:
 
@@ -169,7 +169,7 @@ Consort ships its own skill plus the engineering canon its roles import.
 
 The bins are Consort's command surface plus a few project-lifecycle helpers. Run any with `--help`.
 
-- **`lakebase-sftdd-drive`** the deterministic orchestrator: routes the design/build/deploy/promote phases, spawns the role agents, and holds the gates. The `lakebase-sftdd-*` family (`-intake`, `-cycle`, `-experiment`, `-spike`, `-deploy`, `-approve-gate`, `-gate-conformance`, `-next`, `-test-list`, `-human-proxy`, ...) are its building blocks.
+- **`consort-drive`** the deterministic orchestrator: routes the design/build/deploy/promote phases, spawns the role agents, and holds the gates. The `consort-*` family (`-intake`, `-cycle`, `-experiment`, `-spike`, `-deploy`, `-approve-gate`, `-gate-conformance`, `-next`, `-test-list`, `-human-proxy`, ...) are its building blocks.
 - **`lakebase-create-project`** end-to-end Lakebase-paired project bootstrap that also scaffolds the Consort commands.
 - **`lakebase-adopt-sftdd`** add Consort to an existing Lakebase-paired project.
 - **`lakebase-feature-status`** report where each feature sits in the loop.

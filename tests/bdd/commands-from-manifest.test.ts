@@ -99,7 +99,7 @@ describe("commandsFromManifest ≡ commandsForAction: ux-designer design turn (e
 // commands each role emits, which differs by role:
 //   - spec-author (per-story ACs) + architect-reviewer: [claude, verify-artifact, reconcile]
 //   - dba: [claude, reconcile]  (designArtifactExpectation returns null for dba, so NO verify)
-//   - test-strategist: [claude, verify-artifact, cli:lakebase-sftdd-test-list, reconcile]
+//   - test-strategist: [claude, verify-artifact, cli:consort-test-list, reconcile]
 //     (the test-list CLI is an `after` postTurn, between verify and reconcile)
 const STORY = "S1-stock-list";
 function kinds(cmds: DriveCommand[] | undefined): string[] {
@@ -114,7 +114,7 @@ describe("commandsFromManifest ≡ commandsForAction: spec-author per-story ACs"
   });
 
   it("structural order: [claude, verify-artifact, reconcile]", () => {
-    expect(kinds(commandsFromManifest(ACS, cfg()))).toEqual(["claude", "verify-artifact", "cli:lakebase-sftdd-log"]);
+    expect(kinds(commandsFromManifest(ACS, cfg()))).toEqual(["claude", "verify-artifact", "cli:consort-log"]);
   });
 
   it("the match sentinel EXCLUDES the breakdown turn (mode present)", () => {
@@ -122,7 +122,7 @@ describe("commandsFromManifest ≡ commandsForAction: spec-author per-story ACs"
     // Both a breakdown manifest AND the story manifest could theoretically hit; the null
     // sentinel keeps the story manifest off the breakdown action (breakdown routes to its own).
     expect(commandsFromManifest(breakdown, cfg())).toEqual(commandsForAction(breakdown, cfg()));
-    expect(kinds(commandsFromManifest(breakdown, cfg()))).toContain("cli:lakebase-sftdd-pipeline");
+    expect(kinds(commandsFromManifest(breakdown, cfg()))).toContain("cli:consort-pipeline");
   });
 });
 
@@ -134,7 +134,7 @@ describe("commandsFromManifest ≡ commandsForAction: architect-reviewer per-sto
   });
 
   it("structural order: [claude, verify-artifact, reconcile]", () => {
-    expect(kinds(commandsFromManifest(ARCH, cfg()))).toEqual(["claude", "verify-artifact", "cli:lakebase-sftdd-log"]);
+    expect(kinds(commandsFromManifest(ARCH, cfg()))).toEqual(["claude", "verify-artifact", "cli:consort-log"]);
   });
 
   it("the mode:null sentinel keeps the PER-STORY manifest off the estimate turn , estimate routes to architect-estimator instead (byte-identical), not the per-story manifest", () => {
@@ -158,7 +158,7 @@ describe("commandsFromManifest ≡ commandsForAction: dba per-story (no verify-a
   });
 
   it("structural order: [claude, reconcile] , NO verify-artifact (an empty db-design is valid)", () => {
-    expect(kinds(commandsFromManifest(DBA, cfg()))).toEqual(["claude", "cli:lakebase-sftdd-log"]);
+    expect(kinds(commandsFromManifest(DBA, cfg()))).toEqual(["claude", "cli:consort-log"]);
   });
 });
 
@@ -173,14 +173,14 @@ describe("commandsFromManifest ≡ commandsForAction: test-strategist per-story 
     expect(kinds(commandsFromManifest(TS, cfg()))).toEqual([
       "claude",
       "verify-artifact",
-      "cli:lakebase-sftdd-test-list",
-      "cli:lakebase-sftdd-log",
+      "cli:consort-test-list",
+      "cli:consort-log",
     ]);
   });
 
   it("the test-list CLI carries the positional [tddDir, feature, story] args", () => {
     const cmds = commandsFromManifest(TS, cfg())!;
-    const testList = cmds.find((c) => c.kind === "cli" && c.bin === "lakebase-sftdd-test-list");
+    const testList = cmds.find((c) => c.kind === "cli" && c.bin === "consort-test-list");
     expect(testList).toBeDefined();
     expect((testList as { args: string[] }).args).toEqual(["/p/.tdd", "F1-stock-visibility", STORY]);
   });

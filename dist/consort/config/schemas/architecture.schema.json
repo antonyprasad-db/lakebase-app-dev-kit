@@ -37,7 +37,7 @@
           },
           "renders_via": {
             "type": "string",
-            "description": "Boundary layer only (UI features): the templating framework the boundary renders through (e.g. \"jinja2\" + a templates/ dir). The boundary returns a rendered template, never an inline HTML string; lakebase-sftdd-layering-clean flags inline HTML with no templating seam. Omit for API/CLI/Infra boundaries that return data, not markup."
+            "description": "Boundary layer only (UI features): the templating framework the boundary renders through (e.g. \"jinja2\" + a templates/ dir). The boundary returns a rendered template, never an inline HTML string; consort-layering-clean flags inline HTML with no templating seam. Omit for API/CLI/Infra boundaries that return data, not markup."
           }
         },
         "additionalProperties": false

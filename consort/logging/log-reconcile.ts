@@ -1,5 +1,5 @@
 ///7422: make design-phase observability STRUCTURAL, not dependent on
-// each role model remembering to emit `lakebase-sftdd-log` events.
+// each role model remembering to emit `consort-log` events.
 //
 // Per-role logging is prose-instructed, so a role can do the substantive work
 // (write story stubs + ACs) while emitting nothing, exactly what happened when

@@ -6,8 +6,8 @@ CAUSE: `makeLiveSpawnTurn` (optimize-live.ts) used to run ONLY the `claude` comm
 FIX (DONE, c1c4a7f1, option b): `makeLiveSpawnTurn` now runs claude + the load-bearing substrate (cli/sync-backlog/set-phase), filtering out ONLY `verify-artifact` (the exit-3 ArtifactOutOfRootError thrower; the harness gates the artifact itself via evaluateDesignGate). The design snapshot restores the whole .sftdd between trials, so substrate mutations (pipeline.json) are undone per candidate. advanceOne also runs the full list (c8be6128). Test: optimize-live.test.ts "runs the claude turn AND its load-bearing substrate ... EXCLUDING only verify-artifact".
 
 ## Kit bin names (exact , do not guess)
-- pipeline CLI = `lakebase-sftdd-pipeline` (PIPELINE_BIN, orchestrator-effects.ts:1095). Subcommands: `sync-breakdown`, `reset-breakdown`, `accept`, ... Invoke via the PROJECT's `./scripts/lk lakebase-sftdd-pipeline <sub> --feature <F> --tdd-dir .sftdd` (run from the project dir; NOT from the kit dir).
-- there is NO `lakebase-sftdd-story-pipeline` bin (that name errors "unknown bin"). The source file is story-pipeline.ts but the bin is `lakebase-sftdd-pipeline`.
+- pipeline CLI = `consort-pipeline` (PIPELINE_BIN, orchestrator-effects.ts:1095). Subcommands: `sync-breakdown`, `reset-breakdown`, `accept`, ... Invoke via the PROJECT's `./scripts/lk consort-pipeline <sub> --feature <F> --tdd-dir .sftdd` (run from the project dir; NOT from the kit dir).
+- there is NO `consort-story-pipeline` bin (that name errors "unknown bin"). The source file is story-pipeline.ts but the bin is `consort-pipeline`.
 - design steps -> pipeline: breakdown writes stories/<S>/story.{json,md} + feature-spec.json; sync-breakdown reads storiesDir subdirs (storiesDirOf) and setStoryStatus "designing" for each -> pipeline.json.stories. The per-story design loop (architect/dba/test-strategist) only runs when pipeline.stories is non-empty.
 
 ## Archive report.md extraction (fixed)
@@ -24,7 +24,7 @@ over existing drive seams + a thin harness.
 ```
 optimize-scenario.sh (runbook)
   └─ pins local kit (cache symlink -> this repo), sets RECORD_DIR=$SCEN, NO LAKEBASE_KIT_DIR
-  └─ lk lakebase-sftdd-optimize  →  dist/bin/sftdd/optimize.cli.js
+  └─ lk consort-optimize  →  dist/bin/sftdd/optimize.cli.js
        ├─ SINGLE-handoff (default): planNextAction → position on ONE handoff →
        │    candidates = --candidates spec OR defaultLaneCandidates(handoff) fallback →
        │    runChampionWalk([handoff], candidates)
@@ -281,7 +281,7 @@ is what makes the wall-clock numbers comparable.
 ## Gotcha: role self-check ≠ the harness gate; the agent flies blind on structure in headless
 
 In headless `--permission-mode acceptEdits`, file Edit/Write is auto-approved but **Bash is
-NOT**. A design role's OWN structural self-check runs `./scripts/lk lakebase-sftdd-response-
+NOT**. A design role's OWN structural self-check runs `./scripts/lk consort-response-
 formatter ...` (a Bash cmd), so it is DENIED — the agent logs "self-check command needs
 approval which I can't grant" and returns without validating its own artifact structure.
 This is expected and NOT a run failure: the harness re-checks the artifact itself via
@@ -316,7 +316,7 @@ reports 0.0s baseline-only with candidate dirs present, read a trial `result.jso
 
 | File | Lines | What it is |
 |---|---|---|
-| `optimize.cli.ts` | 382 | The `lakebase-sftdd-optimize` bin. Arg/sweep parsing (`parseOptimizeArgs`, `parseSweepSpec`), `actionToHandoffPlan`, `isBuildHandoff`, `buildCtxForHandoff`, single-handoff + `--sweep-lane` orchestration. Reads `RECORD_DIR` once + clears it (threads to winner only). |
+| `optimize.cli.ts` | 382 | The `consort-optimize` bin. Arg/sweep parsing (`parseOptimizeArgs`, `parseSweepSpec`), `actionToHandoffPlan`, `isBuildHandoff`, `buildCtxForHandoff`, single-handoff + `--sweep-lane` orchestration. Reads `RECORD_DIR` once + clears it (threads to winner only). |
 | `optimize-harness.ts` | 239 | PURE engine. `runChampionWalk(args, deps)` + `selectWinner`/`summarize`. Types: `HandoffPlan`, `TrialResult`, `ChampionWalkDeps` (snapshot/runTrial/recordWinner), `ChampionWalkArgs` (trials, `proposeOnly`, `alwaysAdvance`), `HandoffResult`, `ChampionWalkResult`. No I/O. |
 | `optimize-live.ts` | 431 | Assembles the REAL deps over the drive. `makeChampionWalkDeps(ctx)`, `makeLiveSpawnTurn(seams)` (record-gated), `applyContentSeams`, `makeBuildSnapshotDeps`/`realBuildGitOps`, `makeBuildGate`, `readLastTurnTokens`, `runLaneSweep` (in this file, not harness), `positionToNextHandoff`/`positionToBuildHandoff`. `OptimizeLiveCtx`, `LiveDriveSeams`, `LaneSweepDeps`. |
 | `optimize-candidates.ts` | 271 | PURE candidate model. `Candidate`/`CandidateContent`/`SweepSpec`, `generateCandidates(sweep)` (Family 1+2 cross), `defaultLaneCandidates(handoff)` (per-role: baseline + cheaper-model + effort-low + scan-tighten; navigator-reflect = baseline only), `applyCandidateConfig`, `scanTightenContent`, `BASELINE_CANDIDATE_ID`. |
@@ -324,7 +324,7 @@ reports 0.0s baseline-only with candidate dirs present, read a trial `result.jso
 | `optimize-gate.ts` | 103 | `evaluateDesignGate` — the design-handoff quality bar (role self-check via response-formatter CHECKERS + the design gate). |
 | `optimize-report.ts` | 172 | PURE. `buildChampionWalkReport`, `formatChampionWalkReport` (markdown table + prompt-in + prompt-bound trim targets), `describeCandidateLevers`. `PROMPT_BOUND_MIN_*`. |
 | `optimize-agent-overlay.ts` | 43 | Swap a variant `.claude/agents/<role>.md` in for one forked turn, restore after. |
-| `optimize-apply.ts` | 215 | `lakebase-sftdd-optimize-apply` core: persist an APPROVED winner's levers to the KIT (agent-.md direct edits + typed-source SourceEditProposals). This is the propose→persist gate. |
+| `optimize-apply.ts` | 215 | `consort-optimize-apply` core: persist an APPROVED winner's levers to the KIT (agent-.md direct edits + typed-source SourceEditProposals). This is the propose→persist gate. |
 | `optimize-apply.cli.ts` | 121 | The apply bin. |
 
 ## The three fixes from the first live runs (commit e74d020a on branch fix/headless-permission-mode-acceptedits)

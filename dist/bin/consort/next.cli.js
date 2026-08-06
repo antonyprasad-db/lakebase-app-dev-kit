@@ -8193,18 +8193,18 @@ function gateEnactCommand(gate, ctx = {}) {
   const f = ctx.featureId ?? "<feature-id>";
   switch (gate.kind) {
     case "approve-plan-gate":
-      return { bin: "lakebase-sftdd-approve-gate", args: ["--sprint", ctx.sprint ?? "<sprint>", "--approver", you] };
+      return { bin: "consort-approve-gate", args: ["--sprint", ctx.sprint ?? "<sprint>", "--approver", you] };
     case "approve-gate":
-      return { bin: "lakebase-sftdd-approve-gate", args: ["--feature", f, "--story", gate.story, "--approver", you] };
+      return { bin: "consort-approve-gate", args: ["--feature", f, "--story", gate.story, "--approver", you] };
     case "approve-deploy-gate":
-      return { bin: "lakebase-sftdd-approve-gate", args: ["--feature", f, "--gate", "deploy", "--approver", you] };
+      return { bin: "consort-approve-gate", args: ["--feature", f, "--gate", "deploy", "--approver", you] };
     case "approve-promote-gate":
       return {
-        bin: "lakebase-sftdd-approve-gate",
+        bin: "consort-approve-gate",
         args: ["--feature", f, "--gate", "promote", "--promote-ref", ctx.featureBranch ?? f, "--approver", you]
       };
     case "accept":
-      return { bin: "lakebase-sftdd-pipeline", args: ["accept", "--feature", f, "--story", gate.story, "--approver", you] };
+      return { bin: "consort-pipeline", args: ["accept", "--feature", f, "--story", gate.story, "--approver", you] };
     default:
       return null;
   }
@@ -8438,7 +8438,7 @@ var SMELL_CATALOG = [
   },
   {
     name: "import-time-build-coupling",
-    description: "The app entry module requires an optional build artifact (e.g. client/dist) at module load time, an unconditional StaticFiles mount / asset read at import scope. It greens where the artifact happens to exist and crashes at import everywhere it does not (backend-only test runs, CI before the client build, fresh clones). Caught deterministically by the `lakebase-sftdd-imports-clean` gate; the Navigator may also flag it in REVIEW.",
+    description: "The app entry module requires an optional build artifact (e.g. client/dist) at module load time, an unconditional StaticFiles mount / asset read at import scope. It greens where the artifact happens to exist and crashes at import everywhere it does not (backend-only test runs, CI before the client build, fresh clones). Caught deterministically by the `consort-imports-clean` gate; the Navigator may also flag it in REVIEW.",
     proposed_remediation: "Guard the coupling: mount the compiled client ONLY when its directory exists, and serve a clear 503 from the SPA route when index.html is absent, so the module imports without the artifact. See the dev/prod-parity rule in software-design-principles."
   },
   {
@@ -8492,7 +8492,7 @@ var SMELL_CATALOG = [
   },
   {
     name: "layering-violation",
-    description: "The boundary/routes layer touches persistence directly (calls the DB session: .query/.add/.commit/.delete on a route handler) or business logic lives in the boundary/templates, instead of delegating to a service + repository. A fat controller violates the layered-architecture contract the architect declared in architecture.json `layers`. Distinct from `boundary-violation` (which is a TEST reaching a private method). Caught deterministically by `lakebase-sftdd-layering-clean`; the Navigator may also flag it in REVIEW.",
+    description: "The boundary/routes layer touches persistence directly (calls the DB session: .query/.add/.commit/.delete on a route handler) or business logic lives in the boundary/templates, instead of delegating to a service + repository. A fat controller violates the layered-architecture contract the architect declared in architecture.json `layers`. Distinct from `boundary-violation` (which is a TEST reaching a private method). Caught deterministically by `consort-layering-clean`; the Navigator may also flag it in REVIEW.",
     proposed_remediation: "Extract a service (business logic) + a repository (the ONLY layer that touches the ORM/session); the route handler validates input + delegates. Defended by the layering fitness test (tests/architecture/test_layering.py)."
   },
   {
@@ -8522,12 +8522,12 @@ var SMELL_CATALOG = [
   },
   {
     name: "contract-incompleteness",
-    description: 'A migration DROPPED (or renamed) a column the running code still references , the ORM model field, a query/repository, a serializer/DTO, or a template/view , so the app emits SQL for a column the migrated database no longer has and crashes at runtime ("column X does not exist") even though the migration itself succeeded. The contract half of expand/contract (software-design-principles hard rule 9) was left incomplete: the schema shrank but the code did not follow in the SAME change. Caught DETERMINISTICALLY by the `lakebase-sftdd-contract-clean` gate (it parses the migration\'s net column drops and greps the code tree for residual references), which enriches the GREEN-verify failure with the exact file:line list , no model judgment needed to notice OR localize it.',
+    description: 'A migration DROPPED (or renamed) a column the running code still references , the ORM model field, a query/repository, a serializer/DTO, or a template/view , so the app emits SQL for a column the migrated database no longer has and crashes at runtime ("column X does not exist") even though the migration itself succeeded. The contract half of expand/contract (software-design-principles hard rule 9) was left incomplete: the schema shrank but the code did not follow in the SAME change. Caught DETERMINISTICALLY by the `consort-contract-clean` gate (it parses the migration\'s net column drops and greps the code tree for residual references), which enriches the GREEN-verify failure with the exact file:line list , no model judgment needed to notice OR localize it.',
     proposed_remediation: "Driver REPAIR: remove or replace EVERY residual reference (model field, queries, serializers/DTOs, templates/views) in the same change so the code matches the migrated schema. Never edit the migration or a test to hide it. The green-failure fixDirective carries the precise file:line list, so this self-heals without a Navigator assess."
   },
   {
     name: "migration-app-coupling",
-    description: "A migration module imports application code at import scope (e.g. `from app.services... import parse_x`) to reuse app logic in a data migration. A migration is an IMMUTABLE historical artifact; the app is mutable. Coupling the two means a later rename/move/removal of that app symbol breaks replaying the migration from base (the historical revision can no longer import), and every alembic subcommand that builds the revision map (history/heads, not just upgrade) must load the module. It greens under `upgrade` (env.py puts the project root on sys.path) yet fails in CI's `alembic history`/`heads`. Caught DETERMINISTICALLY by the `lakebase-sftdd-migration-clean` gate (it scans the migration files for module-scope app imports), which runs proactively at GREEN even when the local verify passes, so it is fixed before the PR; the Navigator may also flag it in REVIEW.",
+    description: "A migration module imports application code at import scope (e.g. `from app.services... import parse_x`) to reuse app logic in a data migration. A migration is an IMMUTABLE historical artifact; the app is mutable. Coupling the two means a later rename/move/removal of that app symbol breaks replaying the migration from base (the historical revision can no longer import), and every alembic subcommand that builds the revision map (history/heads, not just upgrade) must load the module. It greens under `upgrade` (env.py puts the project root on sys.path) yet fails in CI's `alembic history`/`heads`. Caught DETERMINISTICALLY by the `consort-migration-clean` gate (it scans the migration files for module-scope app imports), which runs proactively at GREEN even when the local verify passes, so it is fixed before the PR; the Navigator may also flag it in REVIEW.",
     proposed_remediation: "Driver REPAIR: make the migration self-contained: inline a frozen copy of the needed logic in the migration file (or express the data change in raw SQL). Do not import from app.* at module scope, so the migration stays stable as the app evolves and loads under every alembic subcommand."
   }
 ];
@@ -9566,7 +9566,7 @@ init_esm_shims();
 import * as fs17 from "fs";
 import * as path10 from "path";
 function resumeCommand(ctx) {
-  return ctx.sprint && !ctx.featureId ? { bin: "lakebase-sftdd-drive", args: ["--sprint", ctx.sprint] } : { bin: "lakebase-sftdd-drive", args: ["--feature", ctx.featureId ?? "<feature-id>"] };
+  return ctx.sprint && !ctx.featureId ? { bin: "consort-drive", args: ["--sprint", ctx.sprint] } : { bin: "consort-drive", args: ["--feature", ctx.featureId ?? "<feature-id>"] };
 }
 function holdOption() {
   return {
@@ -9599,21 +9599,21 @@ function buildNextOptions(action, ctx) {
           hil_prompt: `Accept story ${story}? I will merge its experiment into the feature branch, run its migrations, and tear the experiment down.`,
           kind: "gate",
           enact: gateEnact
-          // lakebase-sftdd-pipeline accept ... (owns the merge)
+          // consort-pipeline accept ... (owns the merge)
         },
         {
           id: "acceptance.discard",
           title: `Discard story ${story}`,
           hil_prompt: `Discard story ${story}? Its experiment is torn down and it leaves the sprint; its code is NOT merged.`,
           kind: "action",
-          enact: { bin: "lakebase-sftdd-pipeline", args: ["discard", "--feature", f, "--story", story, "--approver", you, "--reason", "<reason>"] }
+          enact: { bin: "consort-pipeline", args: ["discard", "--feature", f, "--story", story, "--approver", you, "--reason", "<reason>"] }
         },
         {
           id: "acceptance.revise",
           title: `Revise story ${story}`,
           hil_prompt: `Send story ${story} back to designing? Its experiment is torn down and it re-enters the design lane; its code is NOT merged.`,
           kind: "action",
-          enact: { bin: "lakebase-sftdd-pipeline", args: ["revise", "--feature", f, "--story", story, "--approver", you, "--reason", "<reason>"] }
+          enact: { bin: "consort-pipeline", args: ["revise", "--feature", f, "--story", story, "--approver", you, "--reason", "<reason>"] }
         },
         holdOption()
       ];
@@ -9866,7 +9866,7 @@ function parseArgs(argv) {
   }
   return out;
 }
-var HELP = `lakebase-sftdd-next \u2013 the authoritative, read-only "what do I do next?" surface
+var HELP = `consort-next \u2013 the authoritative, read-only "what do I do next?" surface
 
 Answers, from the SAME engine the drive uses: where am I, what are my valid next
 options, how do I enact each, and how do I frame the decision for the human. It is
@@ -9874,8 +9874,8 @@ strictly read-only (no model, no writes, no actions). The drive also auto-emits
 this snapshot to .sftdd/next.json on every stop.
 
 Usage:
-  lakebase-sftdd-next --feature <F> [--json]
-  lakebase-sftdd-next --sprint <S> [--json]
+  consort-next --feature <F> [--json]
+  consort-next --sprint <S> [--json]
 
 Flags:
   --feature <F>    Feature/story scope (or pass the id as a bare argument)
@@ -9888,9 +9888,9 @@ Flags:
   --help, -h       Show this help
 
 Examples:
-  lakebase-sftdd-next --feature F1-checkout
-  lakebase-sftdd-next --feature F1-checkout --json | jq '.options[].enact'
-  lakebase-sftdd-next --sprint stockflow-s1 --json
+  consort-next --feature F1-checkout
+  consort-next --feature F1-checkout --json | jq '.options[].enact'
+  consort-next --sprint stockflow-s1 --json
 `;
 function main() {
   const args = parseArgs(process.argv.slice(2));

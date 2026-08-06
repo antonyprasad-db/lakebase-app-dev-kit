@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // CLI for the migration-app-clean gate: prove that no migration imports app code at
 // module scope (the migration-app-coupling smell). Deterministic + model-independent,
-// mirroring lakebase-sftdd-contract-clean / lakebase-sftdd-layering-clean.
+// mirroring consort-contract-clean / consort-layering-clean.
 //
 // Exit 0 = clean (no migration imports app.* at module scope).
 // Exit 1 = a migration imports app code at module scope, the `migration-app-coupling`
@@ -9,7 +9,7 @@
 //          of the logic, or use raw SQL).
 //
 // Usage:
-//   lakebase-sftdd-migration-clean [--project-dir <path>] [--migrations <rel> ...] [--json]
+//   consort-migration-clean [--project-dir <path>] [--migrations <rel> ...] [--json]
 
 import { checkMigrationAppClean, type MigrationAppCleanArgs } from "../../consort/architecture/migration-app-clean.js";
 
@@ -33,9 +33,9 @@ function parse(argv: string[]): Parsed {
 
 function help(): never {
   process.stdout.write(
-    `lakebase-sftdd-migration-clean: prove no migration imports app code at module scope\n\n` +
+    `consort-migration-clean: prove no migration imports app code at module scope\n\n` +
       `Usage:\n` +
-      `  lakebase-sftdd-migration-clean [--project-dir <path>] [--migrations <rel> ...] [--json]\n\n` +
+      `  consort-migration-clean [--project-dir <path>] [--migrations <rel> ...] [--json]\n\n` +
       `Exit 0 = clean; exit 1 = a migration imports app.* at module scope (migration-app-coupling).\n`,
   );
   process.exit(0);

@@ -3,7 +3,7 @@
 // REACHABLE (wired into App.tsx's <Routes>) and CONSUME the design guide (tokens
 // / the design-class vocabulary, not bare browser-default HTML). The deterministic,
 // model-independent backstop for the `ux-adherence` smell, mirroring
-// lakebase-sftdd-layering-clean. The build runs this at REVIEW (see cycle-record.ts
+// consort-layering-clean. The build runs this at REVIEW (see cycle-record.ts
 // flagUxAdherenceIfDirty); this CLI gives the Driver a way to SEE what to fix.
 //
 // Exit 0 = clean (every feature page routed + styled), OR the project has no
@@ -12,7 +12,7 @@
 //          + remediation.
 //
 // Usage:
-//   lakebase-sftdd-ux-clean [--project-dir <path>] [--client-src <path>]
+//   consort-ux-clean [--project-dir <path>] [--client-src <path>]
 //                           [--design-class <name> ...] [--json]
 //
 // --design-class repeats the design guide's component-class vocabulary (page,
@@ -43,9 +43,9 @@ function parse(argv: string[]): Parsed {
 
 function help(): never {
   process.stdout.write(
-    `lakebase-sftdd-ux-clean , prove feature pages are reachable + consume the design guide\n\n` +
+    `consort-ux-clean , prove feature pages are reachable + consume the design guide\n\n` +
       `Usage:\n` +
-      `  lakebase-sftdd-ux-clean [--project-dir <path>] [--client-src <path>] \\\n` +
+      `  consort-ux-clean [--project-dir <path>] [--client-src <path>] \\\n` +
       `                          [--design-class <name> ...] [--json]\n\n` +
       `Exit 0 = clean / no client workspace; exit 1 = an unreachable or bare feature page.\n`,
   );

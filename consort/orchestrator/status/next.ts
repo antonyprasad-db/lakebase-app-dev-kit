@@ -1,4 +1,4 @@
-// lakebase-sftdd-next: the authoritative, strictly READ-ONLY "what next" surface
+// consort-next: the authoritative, strictly READ-ONLY "what next" surface
 // (FEIP-8017).
 //
 // The deterministic drive knows exactly where the workflow is and what it would
@@ -120,8 +120,8 @@ export interface NextContext {
 /** The universal "resume the drive to the next stop" enact for a scope. */
 function resumeCommand(ctx: NextContext): EnactCommand {
   return ctx.sprint && !ctx.featureId
-    ? { bin: "lakebase-sftdd-drive", args: ["--sprint", ctx.sprint] }
-    : { bin: "lakebase-sftdd-drive", args: ["--feature", ctx.featureId ?? "<feature-id>"] };
+    ? { bin: "consort-drive", args: ["--sprint", ctx.sprint] }
+    : { bin: "consort-drive", args: ["--feature", ctx.featureId ?? "<feature-id>"] };
 }
 
 /** The always-present "stop here / checkpoint" option. */
@@ -170,21 +170,21 @@ export function buildNextOptions(action: WorkflowAction, ctx: NextContext): Next
           title: `Accept story ${story}`,
           hil_prompt: `Accept story ${story}? I will merge its experiment into the feature branch, run its migrations, and tear the experiment down.`,
           kind: "gate",
-          enact: gateEnact, // lakebase-sftdd-pipeline accept ... (owns the merge)
+          enact: gateEnact, // consort-pipeline accept ... (owns the merge)
         },
         {
           id: "acceptance.discard",
           title: `Discard story ${story}`,
           hil_prompt: `Discard story ${story}? Its experiment is torn down and it leaves the sprint; its code is NOT merged.`,
           kind: "action",
-          enact: { bin: "lakebase-sftdd-pipeline", args: ["discard", "--feature", f, "--story", story, "--approver", you, "--reason", "<reason>"] },
+          enact: { bin: "consort-pipeline", args: ["discard", "--feature", f, "--story", story, "--approver", you, "--reason", "<reason>"] },
         },
         {
           id: "acceptance.revise",
           title: `Revise story ${story}`,
           hil_prompt: `Send story ${story} back to designing? Its experiment is torn down and it re-enters the design lane; its code is NOT merged.`,
           kind: "action",
-          enact: { bin: "lakebase-sftdd-pipeline", args: ["revise", "--feature", f, "--story", story, "--approver", you, "--reason", "<reason>"] },
+          enact: { bin: "consort-pipeline", args: ["revise", "--feature", f, "--story", story, "--approver", you, "--reason", "<reason>"] },
         },
         holdOption(),
       ];

@@ -75,9 +75,9 @@ function setupLiveBreakdown(): { workspaceDir: string; inputs: Record<string, st
       `Break feature ${FEATURE} down into its stories from the provided inputs. WRITE ` +
       `${SPEC_REL} (id, name, status "draft", tdd_mode, NON-EMPTY stories[]) + a stub dir per ` +
       `story under .sftdd/features/${FEATURE}/stories/<S>/ (story.md + story.json). Then run your ` +
-      `self-check: ./scripts/lk lakebase-sftdd-response-formatter --role spec-author --feature ` +
+      `self-check: ./scripts/lk consort-response-formatter --role spec-author --feature ` +
       `${FEATURE} --tdd-dir .sftdd , and FIX anything it flags before returning. Then log what you ` +
-      `did: ./scripts/lk lakebase-sftdd-log --role spec-author --level info --event artifact.written ` +
+      `did: ./scripts/lk consort-log --role spec-author --level info --event artifact.written ` +
       `--message "<what you wrote>" --tdd-dir .sftdd (use --level warn to surface any ambiguity). ` +
       `Read ONLY the provided inputs.`,
     guidelines: [

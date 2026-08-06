@@ -2,12 +2,12 @@
 // CLI: emit (or read) a structured agent-log event. observability.
 //
 // Emit (the entry point a headless role agent shells out to):
-//   lakebase-sftdd-log --role spec-author --level info \
+//   consort-log --role spec-author --level info \
 //     --event artifact.written --message "wrote feature-spec.json" \
 //     --feature F1-initial-domain --data '{"path":"feature-spec.json"}'
 //
 // Read (tail / filter the centralized log):
-//   lakebase-sftdd-log --read [--role driver] [--min-level info] [--feature F1] [--json]
+//   consort-log --read [--role driver] [--min-level info] [--feature F1] [--json]
 //
 // Exit codes: 0 ok; 2 bad args; 3 emit/validation failure.
 
@@ -82,12 +82,12 @@ function parseArgs(argv: string[]): ParsedArgs {
   return out;
 }
 
-const HELP = `lakebase-sftdd-log
+const HELP = `consort-log
 
 Emit or read a structured TDD-workflow agent log event (.tdd/agent-log.jsonl).
 
 Emit:
-  lakebase-sftdd-log --role <r> --level <l> --event <e> --slot k=v [--slot k=v ...] [flags]
+  consort-log --role <r> --level <l> --event <e> --slot k=v [--slot k=v ...] [flags]
     --role     spec-author|ux-designer|architect-reviewer|test-strategist|
                orchestrator|navigator|driver|product-owner|release-engineer
     --level    debug|info|warn|error
@@ -101,17 +101,17 @@ Emit:
     --feature <id>   --phase <p>   --cycle <id>   --data '<json of extra slots>'
 
 Batch emit (ONE process + ONE append for a turn's several events, not N spawns):
-  lakebase-sftdd-log --events '[{"role":"navigator","level":"info","event":"reasoning",
+  consort-log --events '[{"role":"navigator","level":"info","event":"reasoning",
     "feature":"F1","cycle":"cycle-003","slots":{...}}, {"role":"navigator","level":"warn",
     "event":"smell.flagged","slots":{"smell":"...","severity":"...","detail":"..."}}]'
     Each item takes role/level/event (+ optional feature/phase/cycle/slots/data). Every
     event is validated FIRST; if any is invalid the whole batch fails and nothing is written.
 
 Read:
-  lakebase-sftdd-log --read [--role <r>] [--min-level <l>] [--feature <id>] [--json]
+  consort-log --read [--role <r>] [--min-level <l>] [--feature <id>] [--json]
 
 Reconcile (structural observability backstop):
-  lakebase-sftdd-log --reconcile --feature <id> [--json]
+  consort-log --reconcile --feature <id> [--json]
     Emit an artifact.written for every on-disk design artifact the log does not
     already cover, so observability does not depend on a role model emitting its
     own events. Idempotent. The orchestrator / smoke calls this after each phase.
@@ -142,7 +142,7 @@ export function runAgentLogCli(argv: string[]): number {
       else process.stdout.write(`reconstituted agent-log: ${final.length} entries\n`);
       return 0;
     } catch (e) {
-      process.stderr.write(`lakebase-sftdd-log --reconstitute: ${(e as Error).message}\n`);
+      process.stderr.write(`consort-log --reconstitute: ${(e as Error).message}\n`);
       return 3;
     }
   }
@@ -173,7 +173,7 @@ export function runAgentLogCli(argv: string[]): number {
       }
       return 0;
     } catch (e) {
-      process.stderr.write(`lakebase-sftdd-log --reconcile: ${(e as Error).message}\n`);
+      process.stderr.write(`consort-log --reconcile: ${(e as Error).message}\n`);
       return 3;
     }
   }
@@ -241,7 +241,7 @@ export function runAgentLogCli(argv: string[]): number {
       for (const inp of inputs) mirrorBlockingSmell(a.sftddDir ?? resolveSftddDir(), inp.event, inp.slots ?? {});
       return 0;
     } catch (e) {
-      process.stderr.write(`lakebase-sftdd-log --events: ${(e as Error).message}\n`);
+      process.stderr.write(`consort-log --events: ${(e as Error).message}\n`);
       return 3;
     }
   }
@@ -273,7 +273,7 @@ export function runAgentLogCli(argv: string[]): number {
     mirrorBlockingSmell(a.sftddDir ?? resolveSftddDir(), input.event, slots);
     return 0;
   } catch (e) {
-    process.stderr.write(`lakebase-sftdd-log: ${(e as Error).message}\n`);
+    process.stderr.write(`consort-log: ${(e as Error).message}\n`);
     return 3;
   }
 }

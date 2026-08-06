@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// lakebase-sftdd-response-formatter: the AGENT-SIDE precheck a role runs on its
+// consort-response-formatter: the AGENT-SIDE precheck a role runs on its
 // OWN output before returning. It type-checks the artifact the role just wrote
 // against that role's contract and THROWS (exit 1) listing the specific
 // violations, so a role catches its own nonconformance locally instead of
 // handing back null/garbage and forcing an orchestrator retry. A role whose
 // output conforms exits 0.
 //
-//   lakebase-sftdd-response-formatter --role test-strategist --feature F1 --story S2 [--tdd-dir D]
+//   consort-response-formatter --role test-strategist --feature F1 --story S2 [--tdd-dir D]
 //
 // Exit: 0 conforms; 1 violations (printed to stderr); 2 bad args.
 
@@ -36,7 +36,7 @@ function parse(argv: string[]): Args {
 
 function usage(msg: string): number {
   process.stderr.write(
-    `${msg}\nUsage: lakebase-sftdd-response-formatter --role <role> --feature <F> [--story <S>] [--tdd-dir <D>]\n` +
+    `${msg}\nUsage: consort-response-formatter --role <role> --feature <F> [--story <S>] [--tdd-dir <D>]\n` +
       `Type-checked roles: ${[...FORMATTED_ROLES].join(", ")} (others pass , no deterministic contract yet).\n`,
   );
   return 2;

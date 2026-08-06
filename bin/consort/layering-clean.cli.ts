@@ -2,7 +2,7 @@
 // CLI for the layering-clean gate: prove a service-backed feature's
 // boundary/routes layer does NOT touch persistence directly (a fat controller)
 // and that a repository layer exists. The deterministic, model-independent
-// backstop for the `layering-violation` smell, mirroring lakebase-sftdd-imports-clean.
+// backstop for the `layering-violation` smell, mirroring consort-imports-clean.
 //
 // Exit 0 = clean (layered, or the feature is not service-backed so layering is
 //          not warranted, or there is no boundary to scan).
@@ -11,7 +11,7 @@
 //          smell. Prints the offending lines + remediation.
 //
 // Usage:
-//   lakebase-sftdd-layering-clean [--project-dir <path>] [--architecture <path>]
+//   consort-layering-clean [--project-dir <path>] [--architecture <path>]
 //                               [--boundary <rel> ...] [--repository <rel> ...]
 //                               [--service-backed] [--json]
 //
@@ -55,9 +55,9 @@ function parse(argv: string[]): Parsed {
 
 function help(): never {
   process.stdout.write(
-    `lakebase-sftdd-layering-clean , prove the boundary/routes layer does not touch persistence\n\n` +
+    `consort-layering-clean , prove the boundary/routes layer does not touch persistence\n\n` +
       `Usage:\n` +
-      `  lakebase-sftdd-layering-clean [--project-dir <path>] [--architecture <path>] \\\n` +
+      `  consort-layering-clean [--project-dir <path>] [--architecture <path>] \\\n` +
       `                              [--boundary <rel> ...] [--repository <rel> ...] \\\n` +
       `                              [--service-backed] [--json]\n\n` +
       `service_backed + module paths are read from --architecture when given; flags override.\n` +

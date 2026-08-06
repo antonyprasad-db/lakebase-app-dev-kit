@@ -17,7 +17,7 @@ import { readFileSync } from "node:fs";
 
 const DRIVE_SRC = readFileSync(new URL("../../bin/consort/drive.cli.ts", import.meta.url), "utf8");
 
-describe("lakebase-sftdd-drive wires the foreign-claim refusal (FEIP-8023)", () => {
+describe("consort-drive wires the foreign-claim refusal (FEIP-8023)", () => {
   it("imports the isForeignFeatureClaim decision from the SCM workflow state module", () => {
     expect(DRIVE_SRC).toMatch(/import\s*\{[^}]*\bisForeignFeatureClaim\b[^}]*\}\s*from\s*["']@databricks-solutions\/lakebase-scm-utils\/lakebase/);
   });

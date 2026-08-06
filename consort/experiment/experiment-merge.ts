@@ -1,7 +1,7 @@
 // FEIP-8013: the ONE place a per-story experiment is merged into the feature
 // branch + recorded as accepted. Both entry points route through here:
-//   - `lakebase-sftdd-experiment merge` (explicit args; the recovery door), and
-//   - `lakebase-sftdd-pipeline accept` (args resolved from the persisted
+//   - `consort-experiment merge` (explicit args; the recovery door), and
+//   - `consort-pipeline accept` (args resolved from the persisted
 //     experiment record + scm-state; the normal PO-acceptance door).
 //
 // Before this, `pipeline accept` recorded ONLY the state (acceptStory) and the
@@ -92,7 +92,7 @@ export async function mergeAndAcceptStory(
   writePipeline(args.sftddDir, p);
 }
 
-/** Build the `lakebase-sftdd-experiment merge` argv for a PO acceptance from the
+/** Build the `consort-experiment merge` argv for a PO acceptance from the
  *  resolved inputs. `pipeline accept` builds this and spawns the experiment CLI
  *  (the single door that touches the merge substrate), rather than calling the
  *  merge in-process (FEIP-8013 routing). */
@@ -150,7 +150,7 @@ export function resolveAcceptMergeArgs(
   if (!exp) {
     return {
       ok: false,
-      error: `no experiment is recorded for story ${storyId} (nothing to merge). Cut + build the story first, or use lakebase-sftdd-experiment merge with explicit args.`,
+      error: `no experiment is recorded for story ${storyId} (nothing to merge). Cut + build the story first, or use consort-experiment merge with explicit args.`,
     };
   }
   const instance = opts.instance ?? readWorkflowState(projectDir)?.project_id;

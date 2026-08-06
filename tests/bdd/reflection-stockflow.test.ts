@@ -84,7 +84,7 @@ afterEach(() => rmSync(tdd, { recursive: true, force: true }));
 
 /** Scope the recorded feature test-list master to one story: keep the items
  *  whose ac_id belongs to that story's ACs, and write them where the driver's
- *  scoping step (lakebase-sftdd-test-list) would (test-list-per-story.json). This
+ *  scoping step (consort-test-list) would (test-list-per-story.json). This
  *  reproduces the design lane's per-story test-list scoping on the recorded data
  *  so the testListReady probe is satisfied, exactly as a real replay would. */
 function scopePerStoryTestList(story: string): void {

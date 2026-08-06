@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // CLI: per-turn TOOL-CALL report from a drive stdout log. Complements
-// lakebase-sftdd-timing (agent-log wall-clock) by answering WHY a turn is slow ,
+// consort-timing (agent-log wall-clock) by answering WHY a turn is slow ,
 // how many tool round-trips it made, and how many were pytest re-runs vs pure
 // discovery. The measurement enabler for the build-turn speed levers.
 //
-//   lakebase-sftdd-drive-log-report <log-file> [--top <n>] [--json]
-//   ... | lakebase-sftdd-drive-log-report [--top <n>] [--json]   (reads stdin)
+//   consort-drive-log-report <log-file> [--top <n>] [--json]
+//   ... | consort-drive-log-report [--top <n>] [--json]   (reads stdin)
 //
 // Exit codes: 0 ok; 2 bad args.
 
@@ -42,14 +42,14 @@ function parseArgs(argv: string[]): ParsedArgs | { error: string } {
   return out;
 }
 
-const HELP = `lakebase-sftdd-drive-log-report
+const HELP = `consort-drive-log-report
 
 Per-turn tool-call report from a drive stdout log. Counts the '· <tool>' lines
 between each '[drive] <role> turn <s>s (<model>)' close, rolled up by role and
 model, with the heaviest turns (by tool calls) and their pytest/discovery split.
 
-  lakebase-sftdd-drive-log-report <log-file> [flags]
-  ... | lakebase-sftdd-drive-log-report [flags]     (reads stdin when no file)
+  consort-drive-log-report <log-file> [flags]
+  ... | consort-drive-log-report [flags]     (reads stdin when no file)
     --top <n>   how many heaviest turns to surface (default 10)
     --json      emit the DriveLogReport as JSON (the machine API)
     -h, --help

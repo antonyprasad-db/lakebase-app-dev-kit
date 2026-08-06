@@ -57,8 +57,8 @@ function main() {
   }
   if (!args.role || !ALL_AGENT_ROLES.includes(args.role)) {
     process.stderr.write(
-      `Usage: lakebase-sftdd-agent-model --role <role> [--project-dir <dir>] [--json]
-       lakebase-sftdd-agent-model --list [--project-dir <dir>] [--json]
+      `Usage: consort-agent-model --role <role> [--project-dir <dir>] [--json]
+       consort-agent-model --list [--project-dir <dir>] [--json]
 roles: ${ALL_AGENT_ROLES.join(", ")}
 `
     );

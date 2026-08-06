@@ -1,6 +1,6 @@
 # Workflow state machine (SFTDD)
 
-The end-to-end state machine for `consort` (**Spec-First Test-Driven Development**). It composes two disciplines back to back: the **SDD** design lane (`/design`) and the **TDD** build lane (`/build`), wrapped by sprint planning (`/plan`), deploy (`/deploy`), promote (the PR + merge to the parent tier), and the top-level `/sprint` loop. The deterministic driver `lakebase-sftdd-drive` routes every transition; gates (keyed `plan` / `spec` / `test_list` / `promote` / `deploy`) are the HITL decision points.
+The end-to-end state machine for `consort` (**Spec-First Test-Driven Development**). It composes two disciplines back to back: the **SDD** design lane (`/design`) and the **TDD** build lane (`/build`), wrapped by sprint planning (`/plan`), deploy (`/deploy`), promote (the PR + merge to the parent tier), and the top-level `/sprint` loop. The deterministic driver `consort-drive` routes every transition; gates (keyed `plan` / `spec` / `test_list` / `promote` / `deploy`) are the HITL decision points.
 
 The driver's coarse phases (`DrivePhase`) run in order: **planning -> feature (design + build) -> deploy -> promote -> done**. Deploy proves working software (local target) before promote opens the PR and merges the feature up to its parent tier; `shipped` is reached only after that merge.
 
@@ -83,11 +83,11 @@ right. There are two kinds of step rectangle: a **white** one is an agent-driven
 **coral** agent circle is attached: Spec Author, Architect, DBA, Test Strategist, Navigator,
 Driver, Release Engineer, Product Owner); a **teal** one is a deterministic step the
 orchestrator runs (a tool like `sync-backlog`, `analyzeForGate`, `detectAll`,
-`compareExperiments`, `promoteExperiment`, `lakebase-sftdd-deploy`), never agent-authored;
+`compareExperiments`, `promoteExperiment`, `consort-deploy`), never agent-authored;
 the orchestrator's running of a teal step is shown by its teal color, not a separate edge.
 Diamonds are gates; **navy** circles are the human, who decides every gate, approve or
 reject (the human-in-the-loop checkpoint). **Gray** circles are the deterministic
-orchestrator (`lakebase-sftdd-drive`), which routes every transition, runs the deterministic
+orchestrator (`consort-drive`), which routes every transition, runs the deterministic
 steps, and presents gates; it is drawn once, routing the opening step. **Parchment** pills
 are artifacts (files written to disk), produced by the step they hang off; a pill with a
 **bold gold border** is frozen by its command's gate (the exact gate-to-artifact mapping is
@@ -293,7 +293,7 @@ flowchart LR
 flowchart LR
     ORCH(("orchestr-<br/>ator")) -. routes .-> deploy
     RE(("Release<br/>Engineer")) -. composes remote .-> deploy
-    deploy["① lakebase-sftdd-deploy<br/>deploy, poll reachable, feature-verify"] -. produces .-> evidence(["deploy-evidence<br/>reachability proof plus verify result"])
+    deploy["① consort-deploy<br/>deploy, poll reachable, feature-verify"] -. produces .-> evidence(["deploy-evidence<br/>reachability proof plus verify result"])
     deploy --> DeployGate
     HU(("human")) -. decides .-> DeployGate
     DeployGate{② deploy gate}
@@ -351,7 +351,7 @@ flowchart LR
 ## High-level state machine
 
 Each command is an orchestrator-driven sub-machine (detailed in the diagrams above); here
-they are black boxes wired together. The deterministic orchestrator (`lakebase-sftdd-drive`)
+they are black boxes wired together. The deterministic orchestrator (`consort-drive`)
 drives every transition; the circled numbers ① to ⑥ give its order through the phases, and
 each solid forward arrow leaving a phase is that phase's gate, approved by the human. Living
 outside the per-phase machines are the `intake` precondition (its three required inputs),
@@ -445,7 +445,7 @@ the `promote` gate then merges upstream.
 
 - **Spec-first within an increment.** The `spec` and `test_list` gates freeze the spec before any product code; the TDD lane refuses to start until they are approved.
 - **Evolutionary across increments.** The freeze is per increment, not forever: each `/plan` re-plans from the last working software; architecture evolves under fitness functions; the database evolves by migration on the paired branch, diffed against its parent.
-- **The orchestrator never writes spec/code/tests.** `lakebase-sftdd-drive` is deterministic routing; the nine role agents (Product Owner, Spec Author, UX Designer (UI only), Architect Reviewer, DBA, Test Strategist, Navigator, Driver, Release Engineer) do the work, communicating only through on-disk artifacts.
+- **The orchestrator never writes spec/code/tests.** `consort-drive` is deterministic routing; the nine role agents (Product Owner, Spec Author, UX Designer (UI only), Architect Reviewer, DBA, Test Strategist, Navigator, Driver, Release Engineer) do the work, communicating only through on-disk artifacts.
 - **Every gate is HITL.** Live, the human answers; headless, the Human Proxy answers only on present + format-conformant artifacts.
 - **Escalation pre-empts every transition.** While an unresolved escalation exists (a failed honest-GREEN, a blocking smell, a deploy verify-fail), the driver routes to a single raise-to-hil halt before any forward step. It is a routing rule, not a side effect, so it is not drawn as an edge on each diagram but applies to all of them.
 - **The design lane streams per story.** Stories flow through `/design` one at a time onto a ready queue; story N can be building while story N+1 is still being designed. The per-command diagrams show one story's path for clarity.

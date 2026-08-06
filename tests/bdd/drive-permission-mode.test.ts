@@ -2,7 +2,7 @@
 // .claude/settings.json, so without an explicit permission mode the subagent
 // DEFAULTS TO PROMPTING , and headless there is nothing to answer the prompt. A
 // headless SFTDD role agent must both WRITE its artifact (feature-spec.json, story
-// stubs, code) AND RUN kit CLIs (its self-check `lakebase-sftdd-response-formatter`,
+// stubs, code) AND RUN kit CLIs (its self-check `consort-response-formatter`,
 // the cycle stamps, ls/cat).
 //
 // The mode is acceptEdits, NOT bypassPermissions. An enterprise managed-settings

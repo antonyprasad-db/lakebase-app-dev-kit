@@ -162,7 +162,7 @@ export function emitAgentLogEvent(input: AgentLogEventInput, opts: AgentLogIoOpt
 /**
  * Emit MANY events in ONE process + ONE append (a single `\n`-joined write), so a
  * role that has several judgment events for a turn (reasoning + a smell flag + a
- * concern) pays ONE `lakebase-sftdd-log` subprocess spawn instead of N. Every
+ * concern) pays ONE `consort-log` subprocess spawn instead of N. Every
  * event is rendered + schema-validated FIRST; if ANY is invalid the whole batch
  * throws and NOTHING is written (no partial batch on disk). An empty list is a
  * no-op. Returns the events written.

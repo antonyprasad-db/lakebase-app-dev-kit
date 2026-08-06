@@ -5,7 +5,7 @@
 // create-project as flags , the ONE way in , instead of ignoring the manifest and
 // relying on the misnamed `--ui` flag (which wired only e2e, not the UX lane).
 //
-//   lakebase-sftdd-scenario-conditions --manifest <scenario.json> [--field <name>]
+//   consort-scenario-conditions --manifest <scenario.json> [--field <name>]
 //     --field <name>   print one field (uiTrack|tiers|pauseBefore|language|runner);
 //                      booleans as true/false, an absent optional as empty string.
 //     (no --field)     print every field as `name=value` lines.
@@ -47,7 +47,7 @@ function parseArgs(argv: string[]): ParsedArgs | { error: string } {
   return out;
 }
 
-const HELP = `lakebase-sftdd-scenario-conditions --manifest <scenario.json> [--field <name>]
+const HELP = `consort-scenario-conditions --manifest <scenario.json> [--field <name>]
   --field <name>   uiTrack | tiers | pauseBefore | language | runner
   (no --field)     print every field as name=value lines
 `;

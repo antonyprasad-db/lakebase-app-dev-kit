@@ -38,13 +38,13 @@
 # inherits its feature-request.md.
 #
 # What /plan does per sprint (run_plan_sprint):
-#   a. Enforce the project-intake precondition (lakebase-sftdd-intake, no
+#   a. Enforce the project-intake precondition (consort-intake, no
 #      --feature: product-overview.md + nfrs.md + design-brief.md present).
 #   b. Stage the PO's committed backlog: the human-proxy places each sprint
 #      item's recorded feature-request.md. Sprint membership is the orchestrator's
 #      call, so the requests are present before the drive; the driver's PO
 #      author-requests step affirms them and sync-backlog projects backlog.json.
-#   c. Drive planning via lakebase-sftdd-drive --plan-only --gates proxy --no-sizing
+#   c. Drive planning via consort-drive --plan-only --gates proxy --no-sizing
 #      (the same CLI the scaffolded /plan command runs): propose (Spec Author ->
 #      feature-proposals.md), author-requests (PO affirms), sync-backlog
 #      (-> backlog.json), then the Human Proxy approves the sprint plan gate. The
@@ -55,7 +55,7 @@
 # What each iteration does (the per-feature loop, after its request exists):
 #   1. Abandon prior feature (substrate CLI) if state is mid-flight.
 #   3. Claim the feature branch (lakebase-scm-claim-feature-branch).
-#   4. lakebase-sftdd-drive --feature <id>: the deterministic orchestrator drives
+#   4. consort-drive --feature <id>: the deterministic orchestrator drives
 #      the WHOLE feature in one process (design -> build -> accept each story ->
 #      deploy), spawning the role agents + surfacing every gate to the Human
 #      Proxy (--gates proxy headless). The release-engineer's deploy phase polls
@@ -222,7 +222,7 @@ fi
 export LAKEBASE_SFTDD_HUMAN_PROXY=1
 
 # Where the Human Proxy reads pre-recorded HIL intake answers in headless mode.
-# /design's intake precondition (lakebase-sftdd-intake) facilitates from here when
+# /design's intake precondition (consort-intake) facilitates from here when
 # an artifact is missing; this smoke also pre-supplies them (stage_project_intake)
 # for determinism. Same directory the recorded product-overview.md / nfrs.md live in.
 export LAKEBASE_SFTDD_RECORDED_INTAKE_DIR="${ORCHESTRATOR_DIR}"
@@ -234,7 +234,7 @@ export LAKEBASE_SFTDD_RECORDED_INTAKE_DIR="${ORCHESTRATOR_DIR}"
 # exercise the design-guide/IA/token-adherence track). no UI env door:
 # that was a second door for the same setting.
 
-# The smoke drives the deterministic orchestrator (`lakebase-sftdd-drive`) CLI
+# The smoke drives the deterministic orchestrator (`consort-drive`) CLI
 # directly for every phase (planning + per-feature design/build/deploy); it does
 # not boot a top-level `claude -p` slash-command session. The driver owns its own
 # role-agent invocation: it spawns each role with `claude -p --agent <role>` at
@@ -485,10 +485,10 @@ run_iteration() {
   # breaks the feature down + designs + builds + accepts each story + deploys.
   # The per-story pipeline streams (build starts on a story the moment its gate
   # is approved) and routing is code, not an LLM orchestrator. The driver is the
-  # ONLY orchestration path: the same lakebase-sftdd-drive runs headless here and
+  # ONLY orchestration path: the same consort-drive runs headless here and
   # under real human interaction; the sole difference is who answers the gates
   # (the Human Proxy here vs the actual human live).
-  log "  step 3: claim ${feature_id} + lakebase-sftdd-drive (design + build + deploy, gates via Human Proxy)"
+  log "  step 3: claim ${feature_id} + consort-drive (design + build + deploy, gates via Human Proxy)"
   "$PROJECT_DIR/scripts/lk" \
     lakebase-scm-claim-feature-branch "${feature_id}" --project-dir "$PROJECT_DIR" --json \
     || { err "claim-feature-branch failed for ${feature_id}"; exit 2; }
@@ -499,10 +499,10 @@ run_iteration() {
   "${ASSERT_DIR}/verify-workflow-state.sh" "$PROJECT_DIR" feature-claimed "$feature_id"
 
   # 4. Drive the feature to done (design -> build -> accept -> deploy).
-  log "  step 4: lakebase-sftdd-drive ${feature_id}"
+  log "  step 4: consort-drive ${feature_id}"
   "$PROJECT_DIR/scripts/lk" \
-    lakebase-sftdd-drive --feature "${feature_id}" --project-dir "$PROJECT_DIR" \
-    || { err "lakebase-sftdd-drive failed for ${feature_id}"; exit 2; }
+    consort-drive --feature "${feature_id}" --project-dir "$PROJECT_DIR" \
+    || { err "consort-drive failed for ${feature_id}"; exit 2; }
 
   # 4.5: advisory per-story pipeline check. If the orchestrator
   # drove the streaming per-story pipeline (feature decomposed into >1 story),
@@ -533,12 +533,12 @@ run_iteration() {
   fi
 
   # 6.5 The deploy ("working software" check the product overview asks for) is
-  # the driver's deploy phase, run in step 4: lakebase-sftdd-drive invokes the
+  # the driver's deploy phase, run in step 4: consort-drive invokes the
   # Release Engineer (deploy to target + poll reachable + run the feature verify
   # against the running app) and records the PO deploy gate via the Human Proxy.
   # There is no separate /deploy. We only ensure the app is stopped before the
   # next iteration (idempotent teardown).
-  "$PROJECT_DIR/scripts/lk" lakebase-sftdd-deploy --target local --project-dir "$PROJECT_DIR" --stop >/dev/null 2>&1 || true
+  "$PROJECT_DIR/scripts/lk" consort-deploy --target local --project-dir "$PROJECT_DIR" --stop >/dev/null 2>&1 || true
 
   # 7. local commit on the feature branch. The TDD-workflow smoke is a
   # TDD-workflow validation harness; the SCM-workflow CLIs
@@ -583,7 +583,7 @@ proxy_supply() {
   # `set -u`, "${arr[@]}" on an EMPTY array throws "unbound variable". The
   # ${arr[@]+...} guard yields nothing when empty. (stage_project_intake calls
   # this with no feature, so feat_flag is empty for project-level intake.)
-  "$PROJECT_DIR/scripts/lk" lakebase-sftdd-human-proxy supply \
+  "$PROJECT_DIR/scripts/lk" consort-human-proxy supply \
     --from "$from" --to "$to" --artifact "$artifact" \
     --tdd-dir "${PROJECT_DIR}/.tdd" ${feat_flag[@]+"${feat_flag[@]}"}
 }
@@ -646,7 +646,7 @@ run_plan_sprint() {
   # than a genuine unsatisfied intake. Only fail after the call fails 3x.
   local _intake_ok=""
   for _attempt in 1 2 3; do
-    if "$PROJECT_DIR/scripts/lk" lakebase-sftdd-intake; then _intake_ok=1; break; fi
+    if "$PROJECT_DIR/scripts/lk" consort-intake; then _intake_ok=1; break; fi
     log "    intake precondition attempt ${_attempt} failed (likely transient npx); retrying..."
     sleep 3
   done
@@ -688,8 +688,8 @@ run_plan_sprint() {
   # --no-sizing: each sprint is a SINGLE feature, so the Architect's t-shirt-sizing
   # (planning-poker) step adds nothing the PO needs to fit capacity. Skipping it
   # drops one estimate turn per sprint and goes straight propose -> author-requests.
-  log "  ${sprint_name}: lakebase-sftdd-drive --sprint ${sprint_name} --plan-only --gates proxy --no-sizing"
-  "$PROJECT_DIR/scripts/lk" lakebase-sftdd-drive \
+  log "  ${sprint_name}: consort-drive --sprint ${sprint_name} --plan-only --gates proxy --no-sizing"
+  "$PROJECT_DIR/scripts/lk" consort-drive \
     --sprint "${sprint_name}" --plan-only --gates proxy --no-sizing --project-dir "$PROJECT_DIR" \
     || { err "/plan ${sprint_name}: planning driver failed"; exit 2; }
 
@@ -706,7 +706,7 @@ run_plan_sprint() {
   git push origin "$_parent" >/dev/null 2>&1 || log "  ${sprint_name}: could not push ${_parent} backlog to origin"
 
   # Record the planning activity (the PO authored the sprint's requests).
-  "$PROJECT_DIR/scripts/lk" lakebase-sftdd-log \
+  "$PROJECT_DIR/scripts/lk" consort-log \
     --role orchestrator --level info --event phase.end \
     --tdd-dir "$PROJECT_DIR/.tdd" \
     --slot phase=plan --slot outcome=complete \

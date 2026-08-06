@@ -52,9 +52,9 @@ describe("commandsForAction: invoke-role -> claude", () => {
     // remains its only inter-role context, so correctness is unchanged.
     expect(cmds[0]).toMatchObject({ kind: "claude", role: "driver", model: "opus", resumeKey: "driver:S1" });
     expect((cmds[0] as { task: string }).task).toMatch(/GREEN/);
-    expect(cmds[1]).toMatchObject({ kind: "cli", bin: "lakebase-sftdd-cycle" });
+    expect(cmds[1]).toMatchObject({ kind: "cli", bin: "consort-cycle" });
     expect((cmds[1] as { args: string[] }).args[0]).toBe("green");
-    expect(cmds[2]).toMatchObject({ kind: "cli", bin: "lakebase-sftdd-log" });
+    expect(cmds[2]).toMatchObject({ kind: "cli", bin: "consort-log" });
     expect((cmds[2] as { args: string[] }).args).toContain("--reconcile");
   });
 
@@ -98,7 +98,7 @@ describe("commandsForAction: invoke-role -> claude", () => {
     expect(task).toMatch(/deploy-verify-scope\.json/);
     // The finalize is the deterministic assess-deploy-verify subcommand (NOT a
     // begin/review cycle turn).
-    const cycle = cmds.find((c) => (c as { bin?: string }).bin === "lakebase-sftdd-cycle") as { args: string[] };
+    const cycle = cmds.find((c) => (c as { bin?: string }).bin === "consort-cycle") as { args: string[] };
     expect(cycle.args[0]).toBe("assess-deploy-verify");
     expect(cycle.args).toContain("S1");
     expect(cmds.some((c) => (c as { args?: string[] }).args?.[0] === "begin")).toBe(false);
@@ -109,7 +109,7 @@ describe("commandsForAction: invoke-role -> claude", () => {
     const task = (cmds[0] as { task: string }).task;
     expect(task).toMatch(/SCOPE/);
     expect(task).toMatch(/do NOT change product code/i);
-    const cycle = cmds.find((c) => (c as { bin?: string }).bin === "lakebase-sftdd-cycle") as { args: string[] };
+    const cycle = cmds.find((c) => (c as { bin?: string }).bin === "consort-cycle") as { args: string[] };
     expect(cycle.args[0]).toBe("refactor-deploy-verify");
     // Crucially NOT a green/refactor cycle stamp (there is no open cycle).
     expect(cmds.some((c) => ["green", "refactor"].includes((c as { args?: string[] }).args?.[0] ?? ""))).toBe(false);
@@ -137,7 +137,7 @@ describe("commandsForAction: invoke-role -> claude", () => {
     expect(cmds[0]).toMatchObject({ kind: "claude", role: "navigator" });
     // P5: Navigator resumes per story (story-scoped resumeKey).
     expect((cmds[0] as { resumeKey?: string }).resumeKey).toBe("navigator:S1");
-    const cycle = cmds.find((c) => (c as { bin?: string }).bin === "lakebase-sftdd-cycle") as { args: string[] } | undefined;
+    const cycle = cmds.find((c) => (c as { bin?: string }).bin === "consort-cycle") as { args: string[] } | undefined;
     expect(cycle).toBeTruthy();
     expect(cycle!.args[0]).toBe("begin");
     expect(cycle!.args).toContain("S1");
@@ -159,7 +159,7 @@ describe("commandsForAction: invoke-role -> claude", () => {
     const cmds = commandsForAction({ kind: "invoke-role", role: "spec-author", mode: "propose" }, cfg({ recordedRequests: true }));
     // No claude spawn , the artifact is code-emitted from the recorded requests.
     expect(cmds.some((c) => (c as { kind?: string }).kind === "claude")).toBe(false);
-    expect(cmds[0]).toMatchObject({ kind: "cli", bin: "lakebase-sftdd-human-proxy" });
+    expect(cmds[0]).toMatchObject({ kind: "cli", bin: "consort-human-proxy" });
     expect((cmds[0] as { args: string[] }).args[0]).toBe("supply-proposals");
   });
 
@@ -179,7 +179,7 @@ describe("commandsForAction: invoke-role -> claude", () => {
 
   it("author-requests stays DETERMINISTIC (proxy commits the recorded request) even with livePropose", () => {
     const cmds = commandsForAction({ kind: "invoke-role", role: "product-owner", mode: "author-requests" }, cfg({ recordedRequests: true, livePropose: true }));
-    expect(cmds[0]).toMatchObject({ kind: "cli", bin: "lakebase-sftdd-human-proxy" });
+    expect(cmds[0]).toMatchObject({ kind: "cli", bin: "consort-human-proxy" });
     expect((cmds[0] as { args: string[] }).args[0]).toBe("supply-requests");
   });
 
@@ -300,7 +300,7 @@ describe("commandsForAction: invoke-role -> claude", () => {
     // sync-backlog projects the backlog. No claude agent invents them.
     const author = commandsForAction({ kind: "invoke-role", role: "product-owner", mode: "author-requests" }, cfg());
     expect(author).toHaveLength(2);
-    expect(author[0]).toMatchObject({ kind: "cli", bin: "lakebase-sftdd-human-proxy" });
+    expect(author[0]).toMatchObject({ kind: "cli", bin: "consort-human-proxy" });
     expect((author[0] as { args: string[] }).args[0]).toBe("supply-requests");
     expect(author[1]).toMatchObject({ kind: "sync-backlog" });
     expect(author.some((c) => (c as { kind?: string }).kind === "claude")).toBe(false);
@@ -311,13 +311,13 @@ describe("commandsForAction: invoke-role -> claude", () => {
     // [reset-breakdown (FEIP-8024), claude, verify-artifact (FEIP-8006 out-of-root
     // guard), sync-breakdown, reconcile].
     expect(cmds).toHaveLength(5);
-    expect(cmds[0]).toMatchObject({ kind: "cli", bin: "lakebase-sftdd-pipeline" });
+    expect(cmds[0]).toMatchObject({ kind: "cli", bin: "consort-pipeline" });
     expect((cmds[0] as { args: string[] }).args[0]).toBe("reset-breakdown"); // runs BEFORE the turn
     expect(cmds[1]).toMatchObject({ kind: "claude", role: "spec-author" });
     expect(cmds[2]).toMatchObject({ kind: "verify-artifact", role: "spec-author" });
-    expect(cmds[3]).toMatchObject({ kind: "cli", bin: "lakebase-sftdd-pipeline" });
+    expect(cmds[3]).toMatchObject({ kind: "cli", bin: "consort-pipeline" });
     expect((cmds[3] as { args: string[] }).args[0]).toBe("sync-breakdown");
-    expect(cmds[4]).toMatchObject({ kind: "cli", bin: "lakebase-sftdd-log" });
+    expect(cmds[4]).toMatchObject({ kind: "cli", bin: "consort-log" });
     expect((cmds[4] as { args: string[] }).args).toContain("--reconcile");
   });
 
@@ -328,7 +328,7 @@ describe("commandsForAction: invoke-role -> claude", () => {
     expect(propose).toHaveLength(2);
     expect(propose[0]).toMatchObject({ kind: "claude", role: "spec-author" });
     expect(propose[1]).toMatchObject({ kind: "verify-artifact", role: "spec-author" });
-    expect(propose.some((c) => (c as { bin?: string }).bin === "lakebase-sftdd-log")).toBe(false);
+    expect(propose.some((c) => (c as { bin?: string }).bin === "consort-log")).toBe(false);
   });
 });
 
@@ -402,7 +402,7 @@ describe("commandsForAction: unified config model-side payload (effort per turn 
 
 describe("commandsForAction: P8b loop granularity (hybrid-a layer-batched build)", () => {
   const cycleArgs = (cmds: ReturnType<typeof commandsForAction>): string[] =>
-    (cmds.find((c) => (c as { bin?: string }).bin === "lakebase-sftdd-cycle") as { args: string[] }).args;
+    (cmds.find((c) => (c as { bin?: string }).bin === "consort-cycle") as { args: string[] }).args;
   const navTask = (cmds: ReturnType<typeof commandsForAction>): string => (cmds[0] as { task: string }).task;
 
   it("default (story): the navigator begin command appends --loop story (whole-story RED)", () => {
@@ -491,12 +491,12 @@ describe("commandsForAction: P8b loop granularity (hybrid-a layer-batched build)
 });
 
 describe("commandsForAction: state transitions -> kit CLIs", () => {
-  it("dispatch / surface / approve-gate / complete route to lakebase-sftdd-pipeline", () => {
+  it("dispatch / surface / approve-gate / complete route to consort-pipeline", () => {
     expect(commandsForAction({ kind: "dispatch", story: "S1" }, cfg())).toEqual([
-      { kind: "cli", bin: "lakebase-sftdd-pipeline", args: ["dispatch", "--feature", "F1", "--tdd-dir", "/p/.tdd"] },
+      { kind: "cli", bin: "consort-pipeline", args: ["dispatch", "--feature", "F1", "--tdd-dir", "/p/.tdd"] },
     ]);
     expect(commandsForAction({ kind: "surface-gate", story: "S1" }, cfg())[0]).toMatchObject({
-      bin: "lakebase-sftdd-pipeline",
+      bin: "consort-pipeline",
     });
     const approve = commandsForAction({ kind: "approve-gate", story: "S1" }, cfg())[0] as { args: string[] };
     expect(approve.args).toContain("approve-gate");
@@ -523,10 +523,10 @@ describe("commandsForAction: state transitions -> kit CLIs", () => {
     expect(ref.length).toBeGreaterThan(0);
   });
 
-  it("cut-experiment routes to a COMPLETE lakebase-sftdd-experiment cut command", () => {
+  it("cut-experiment routes to a COMPLETE consort-experiment cut command", () => {
     const cmds = commandsForAction({ kind: "cut-experiment", story: "S1" }, cfg({ featureBranch: "feature/x" }));
     const cmd = cmds[0] as { bin: string; args: string[] };
-    expect(cmd.bin).toBe("lakebase-sftdd-experiment");
+    expect(cmd.bin).toBe("consort-experiment");
     expect(cmd.args[0]).toBe("cut");
     // Every flag the experiment CLI requires for `cut` must be emitted (the bug
     // that broke the smoke was an incomplete command; the contract test in
@@ -543,7 +543,7 @@ describe("commandsForAction: state transitions -> kit CLIs", () => {
     // The monolithic replay-build step is gone: build replay happens turn by turn
     // in the runner (per Navigator/Driver turn), so cut-experiment just cuts.
     const cmds = commandsForAction({ kind: "cut-experiment", story: "S1" }, cfg({ featureBranch: "feature/x" }));
-    expect(cmds[0]).toMatchObject({ kind: "cli", bin: "lakebase-sftdd-experiment" });
+    expect(cmds[0]).toMatchObject({ kind: "cli", bin: "consort-experiment" });
     expect(cmds.some((c) => (c as { kind: string }).kind === "replay-build")).toBe(false);
   });
 
@@ -581,7 +581,7 @@ describe("commandsForAction: state transitions -> kit CLIs", () => {
     const cmds = commandsForAction({ kind: "accept", story: "S1" }, cfg({ instance: "inst-x" }));
     expect(cmds).toHaveLength(1);
     const c = cmds[0] as { bin: string; args: string[] };
-    expect(c.bin).toBe("lakebase-sftdd-pipeline");
+    expect(c.bin).toBe("consort-pipeline");
     expect(c.args[0]).toBe("accept");
     expect(c.args).toContain("--story");
     expect(c.args).toContain("--approver");
@@ -589,15 +589,15 @@ describe("commandsForAction: state transitions -> kit CLIs", () => {
     expect(c.args).toContain("inst-x");
     expect(c.args).toContain("--project-dir");
     // No separate experiment-merge command any more.
-    expect(cmds.some((x) => (x as { bin?: string }).bin === "lakebase-sftdd-experiment")).toBe(false);
+    expect(cmds.some((x) => (x as { bin?: string }).bin === "consort-experiment")).toBe(false);
   });
 
-  it("deploy is run by the orchestration (deterministic lakebase-sftdd-deploy --gate), not the LLM", () => {
+  it("deploy is run by the orchestration (deterministic consort-deploy --gate), not the LLM", () => {
     const cmds = commandsForAction({ kind: "deploy" }, cfg({ featureBranch: "feature-f1" }));
     // teardown first (free the port), then the gated feature deploy.
-    expect(cmds[0]).toMatchObject({ kind: "cli", bin: "lakebase-sftdd-deploy" });
+    expect(cmds[0]).toMatchObject({ kind: "cli", bin: "consort-deploy" });
     expect((cmds[0] as { args: string[] }).args).toContain("--stop");
-    expect(cmds[1]).toMatchObject({ kind: "cli", bin: "lakebase-sftdd-deploy" });
+    expect(cmds[1]).toMatchObject({ kind: "cli", bin: "consort-deploy" });
     const g = (cmds[1] as { args: string[] }).args;
     expect(g).toContain("--gate"); // gate deploy: records evidence + escalates, never an LLM claim
     expect(g).toContain("--feature");
@@ -614,7 +614,7 @@ describe("commandsForAction: state transitions -> kit CLIs", () => {
   it("await-acceptance: runs the deterministic deploy gate as a CLI (not a spawned agent), then marks awaiting", () => {
     const cmds = commandsForAction({ kind: "await-acceptance", story: "S1" }, cfg());
     // teardown first (free the port).
-    expect(cmds[0]).toMatchObject({ kind: "cli", bin: "lakebase-sftdd-deploy" });
+    expect(cmds[0]).toMatchObject({ kind: "cli", bin: "consort-deploy" });
     expect((cmds[0] as { args: string[] }).args).toContain("--stop");
     // the deploy gate runs DETERMINISTICALLY as a synchronous CLI (the deploy is
     // the substrate, not a model's word; a live agent could background the long
@@ -622,27 +622,27 @@ describe("commandsForAction: state transitions -> kit CLIs", () => {
     // backstop. The logging layer still narrates the RE deploy handoff.
     const dep = cmds[1] as { kind: string; bin?: string; args?: string[] };
     expect(dep.kind).toBe("cli");
-    expect(dep.bin).toBe("lakebase-sftdd-deploy");
+    expect(dep.bin).toBe("consort-deploy");
     expect(dep.args).toContain("--gate");
     expect(dep.args).toContain("--story");
     expect(dep.args).toContain("S1");
     expect(dep.args).toContain("--lakebase-branch");
     expect(dep.args).not.toContain("--stop");
     // then the pipeline marks awaiting-acceptance.
-    expect(cmds[2]).toMatchObject({ kind: "cli", bin: "lakebase-sftdd-pipeline" });
+    expect(cmds[2]).toMatchObject({ kind: "cli", bin: "consort-pipeline" });
     expect((cmds[2] as { args: string[] }).args[0]).toBe("await-acceptance");
   });
 
   it("approve-deploy-gate is the PO gate via the Human Proxy", () => {
     const g = commandsForAction({ kind: "approve-deploy-gate" }, cfg())[0] as { bin: string; args: string[] };
-    expect(g.bin).toBe("lakebase-sftdd-human-proxy");
+    expect(g.bin).toBe("consort-human-proxy");
     expect(g.args).toContain("--gate");
     expect(g.args).toContain("deploy");
   });
 
   it("approve-plan-gate is the sprint plan gate via the Human Proxy (sprint-scoped)", () => {
     const g = commandsForAction({ kind: "approve-plan-gate" }, cfg({ sprintName: "sprint-1" }))[0] as { bin: string; args: string[] };
-    expect(g.bin).toBe("lakebase-sftdd-human-proxy");
+    expect(g.bin).toBe("consort-human-proxy");
     expect(g.args).toContain("--sprint");
     expect(g.args).toContain("sprint-1");
     expect(g.args).toContain("--gate");
@@ -656,7 +656,7 @@ describe("commandsForAction: coarse phase transitions -> set-phase", () => {
     // feature-complete runs the feature-design-complete conformance gate (a
     // deterministic feature-wide backstop) before advancing to the deploy phase.
     expect(commandsForAction({ kind: "feature-complete" }, cfg())).toEqual([
-      { kind: "cli", bin: "lakebase-sftdd-gate-conformance", args: ["--feature", "F1", "--tdd-dir", "/p/.tdd"] },
+      { kind: "cli", bin: "consort-gate-conformance", args: ["--feature", "F1", "--tdd-dir", "/p/.tdd"] },
       { kind: "set-phase", phase: "deploy" },
     ]);
     expect(commandsForAction({ kind: "done" }, cfg())).toEqual([{ kind: "set-phase", phase: "shipped" }]);
@@ -678,7 +678,7 @@ describe("buildDriveEffects", () => {
     await eff.perform({ kind: "accept", story: "S1" });
     // accept is now ONE command: pipeline accept (which performs the merge + records).
     expect(calls).toHaveLength(1);
-    expect((calls[0] as { bin: string }).bin).toBe("lakebase-sftdd-pipeline");
+    expect((calls[0] as { bin: string }).bin).toBe("consort-pipeline");
     expect((calls[0] as { args: string[] }).args[0]).toBe("accept");
   });
 
@@ -725,7 +725,7 @@ describe("buildDriveEffects", () => {
     expect(plan.action).toEqual({ kind: "invoke-role", role: "product-owner", mode: "author-requests" });
     // author-requests is a human-input step: the Human Proxy supplies the PO's
     // recorded feature-requests when asked, then sync-backlog. No LLM.
-    expect(plan.commands[0]).toMatchObject({ kind: "cli", bin: "lakebase-sftdd-human-proxy" });
+    expect(plan.commands[0]).toMatchObject({ kind: "cli", bin: "consort-human-proxy" });
     expect((plan.commands[0] as { args: string[] }).args[0]).toBe("supply-requests");
   });
 });
@@ -951,7 +951,7 @@ describe("commandsForAction: promote phase (PR review + merge to parent)", () =>
   it("approve-promote-gate approves the `promote` gate via the Human Proxy (with a promote-ref)", () => {
     const cmds = commandsForAction({ kind: "approve-promote-gate" }, cfg());
     expect(cmds).toHaveLength(1);
-    expect(cmds[0]).toMatchObject({ kind: "cli", bin: "lakebase-sftdd-human-proxy" });
+    expect(cmds[0]).toMatchObject({ kind: "cli", bin: "consort-human-proxy" });
     // The promote gate REQUIRES a non-empty promote_ref or the Human Proxy skips it
     // (and the driver stalls), so the orchestrator always supplies one (the feature
     // being promoted; falls back to the feature id when no featureBranch is set).
@@ -1143,7 +1143,7 @@ describe("commandsForAction: pre-build reflection gate (navigator reflect)", () 
 
   it("emits the DETERMINISTIC reflect-gate CLI step after the reflect turn (not a build begin/review)", () => {
     const cmds = commandsForAction(reflect, cfg());
-    const cli = cmds.find((c) => (c as { bin?: string }).bin === "lakebase-sftdd-cycle") as { args: string[] };
+    const cli = cmds.find((c) => (c as { bin?: string }).bin === "consort-cycle") as { args: string[] };
     expect(cli).toBeDefined();
     expect(cli.args).toEqual(["reflect-gate", "--feature", "F1", "--story", "S1", "--tdd-dir", expect.any(String)]);
     // It must NOT run the build-cycle `begin`/`review` verbs (that would start RED).

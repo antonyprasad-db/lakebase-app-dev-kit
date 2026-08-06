@@ -2,7 +2,7 @@
 // CLI for the contract-clean gate: prove that no production code still references a
 // column/symbol a migration DROPPED (software-design-principles hard rule 9, the
 // contract half of expand/contract). Deterministic + model-independent, mirroring
-// lakebase-sftdd-layering-clean / lakebase-sftdd-imports-clean.
+// consort-layering-clean / consort-imports-clean.
 //
 // Exit 0 = clean (no migration drops, or every dropped symbol is gone from the code).
 // Exit 1 = production code still references a net-dropped symbol , the
@@ -11,7 +11,7 @@
 //          the Driver).
 //
 // Usage:
-//   lakebase-sftdd-contract-clean [--project-dir <path>] [--migrations <rel> ...]
+//   consort-contract-clean [--project-dir <path>] [--migrations <rel> ...]
 //                               [--code <rel> ...] [--json]
 
 import { checkContractClean, type ContractCleanArgs } from "../../consort/architecture/contract-clean.js";
@@ -38,9 +38,9 @@ function parse(argv: string[]): Parsed {
 
 function help(): never {
   process.stdout.write(
-    `lakebase-sftdd-contract-clean , prove no code references a column a migration dropped\n\n` +
+    `consort-contract-clean , prove no code references a column a migration dropped\n\n` +
       `Usage:\n` +
-      `  lakebase-sftdd-contract-clean [--project-dir <path>] [--migrations <rel> ...] [--code <rel> ...] [--json]\n\n` +
+      `  consort-contract-clean [--project-dir <path>] [--migrations <rel> ...] [--code <rel> ...] [--json]\n\n` +
       `Exit 0 = clean (no drops, or all dropped symbols gone from code); exit 1 = residual references (hard rule 9).\n`,
   );
   process.exit(0);

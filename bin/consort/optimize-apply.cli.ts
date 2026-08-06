@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// lakebase-sftdd-optimize-apply: persist an APPROVED winning candidate's levers
+// consort-optimize-apply: persist an APPROVED winning candidate's levers
 // into the kit, so the NEXT invocation of that role uses them.
 //
-//   lakebase-sftdd-optimize-apply --project-dir <dir> --handoff <id> --candidate <id>
+//   consort-optimize-apply --project-dir <dir> --handoff <id> --candidate <id>
 //                                 [--kit-dir <dir>] [--dry-run]
 //
 // It reads the candidate from the sweep's audit trail
@@ -79,7 +79,7 @@ function defaultKitDir(): string {
 async function main(): Promise<number> {
   const args = parseApplyArgs(process.argv.slice(2));
   if (!args.projectDir || !args.handoff || !args.candidate) {
-    process.stderr.write("usage: lakebase-sftdd-optimize-apply --project-dir <dir> --handoff <id> --candidate <id> [--kit-dir <dir>] [--dry-run]\n");
+    process.stderr.write("usage: consort-optimize-apply --project-dir <dir> --handoff <id> --candidate <id> [--kit-dir <dir>] [--dry-run]\n");
     return 2;
   }
   const projectDir = resolve(args.projectDir);

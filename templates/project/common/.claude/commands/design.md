@@ -4,7 +4,7 @@ Drives a feature from idea to spec to architect review to test list. This wraps 
 
 ## Operating contract (drive, do not narrate)
 
-Follow `@consort/references/orchestrator-contract.md`: drive to completion via `lakebase-sftdd-next` (enact its `primary_action`, then continue), and stop for the human ONLY at a HITL gate or a blocker. Present the decision (the `next` option titles + their `hil_prompt`s), not the CLIs you ran; report outcomes, not per-command play-by-play. Verbose step narration is opt-in (`LAKEBASE_SFTDD_VERBOSE=1`), off by default.
+Follow `@consort/references/orchestrator-contract.md`: drive to completion via `consort-next` (enact its `primary_action`, then continue), and stop for the human ONLY at a HITL gate or a blocker. Present the decision (the `next` option titles + their `hil_prompt`s), not the CLIs you ran; report outcomes, not per-command play-by-play. Verbose step narration is opt-in (`LAKEBASE_SFTDD_VERBOSE=1`), off by default.
 
 ## Usage
 
@@ -56,7 +56,7 @@ The per-feature `feature-request.md` is NOT authored here. It is the Product Own
 - **Headless (`LAKEBASE_SFTDD_HUMAN_PROXY=1`):** there is no human to interview, so the orchestrator has the **Human Proxy supply** each missing artifact from the pre-recorded answers directory `$LAKEBASE_SFTDD_RECORDED_INTAKE_DIR` (validate-then-place; refuses a missing/non-conformant recording):
 
   ```bash
-  ./scripts/lk lakebase-sftdd-human-proxy supply \
+  ./scripts/lk consort-human-proxy supply \
     --from "$LAKEBASE_SFTDD_RECORDED_INTAKE_DIR/nfrs.md" --to ".sftdd/nfrs.md" --artifact nfrs.md
   ```
 
@@ -65,10 +65,10 @@ The per-feature `feature-request.md` is NOT authored here. It is the Product Own
 **Then enforce the precondition (the hard gate):**
 
 ```bash
-./scripts/lk lakebase-sftdd-intake --feature "<feature-id>"
+./scripts/lk consort-intake --feature "<feature-id>"
 ```
 
-`lakebase-sftdd-intake` exits non-zero (5) if any required intake artifact is missing or non-conformant, naming each. If it fails, **REFUSE to proceed to phase 1** and report what intake is missing. Do not work around it: the precondition is what makes intake un-skippable in both real and headless runs, exactly as Step 0's claim is un-skippable.
+`consort-intake` exits non-zero (5) if any required intake artifact is missing or non-conformant, naming each. If it fails, **REFUSE to proceed to phase 1** and report what intake is missing. Do not work around it: the precondition is what makes intake un-skippable in both real and headless runs, exactly as Step 0's claim is un-skippable.
 
 ## How it runs: the deterministic driver
 
@@ -80,7 +80,7 @@ gates so YOU answer each per-story spec gate (headless: the Human Proxy answers)
 ```bash
 GATES=interactive; [ "${LAKEBASE_SFTDD_HUMAN_PROXY:-}" = "1" ] && GATES=proxy
 ./scripts/lk \
-  lakebase-sftdd-drive --feature "<feature-id>" --only design --gates "$GATES" --project-dir "$PWD"
+  consort-drive --feature "<feature-id>" --only design --gates "$GATES" --project-dir "$PWD"
 ```
 
 The driver:
@@ -92,15 +92,15 @@ The driver:
   Author and Architect for UI projects.
 - **Routes deterministically** (routing is code, not an LLM orchestrator): it spawns each role as a
   subagent (`claude -p --agent <role>`, at the resolved per-role model via
-  `lakebase-sftdd-agent-model`) and emits the phase/handoff log to
-  `.sftdd/agent-log.jsonl` as code. Tail it: `lakebase-sftdd-log --read --feature <id> --min-level info`.
+  `consort-agent-model`) and emits the phase/handoff log to
+  `.sftdd/agent-log.jsonl` as code. Tail it: `consort-log --read --feature <id> --min-level info`.
 - `--only design` STOPS when every story's spec gate is approved, without
   building. The roles are `@consort/agents/{spec-author,ux-designer,architect-reviewer,test-strategist}`.
 
 **Gates.** Interactive: at each per-story spec gate the driver stops and prints a
 `GATE` marker with the pending action and the EXACT command to clear it. Surface
 that story's spec to the human; on their approval record it with the human-facing
-approver, naming the story (`lakebase-sftdd-approve-gate --feature <id> --story <s>
+approver, naming the story (`consort-approve-gate --feature <id> --story <s>
 --approver <human>`), then re-run the command to resume past it. (That is the one
 human door; it routes to the same per-story pipeline gate the headless Human Proxy
 approves. `--feature <id> --gate <name>` is for a feature-level gate, NOT a

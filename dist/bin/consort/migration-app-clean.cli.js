@@ -70,10 +70,10 @@ function parse(argv) {
 }
 function help() {
   process.stdout.write(
-    `lakebase-sftdd-migration-clean: prove no migration imports app code at module scope
+    `consort-migration-clean: prove no migration imports app code at module scope
 
 Usage:
-  lakebase-sftdd-migration-clean [--project-dir <path>] [--migrations <rel> ...] [--json]
+  consort-migration-clean [--project-dir <path>] [--migrations <rel> ...] [--json]
 
 Exit 0 = clean; exit 1 = a migration imports app.* at module scope (migration-app-coupling).
 `

@@ -9,10 +9,10 @@
 //
 // Command kinds (the runner interprets each):
 //   - "claude":    claude -p "<task>" --agent <role> --model <m> --strict-mcp-config
-//   - "cli":       a kit CLI invocation (lakebase-sftdd-pipeline / -experiment / etc.)
+//   - "cli":       a kit CLI invocation (consort-pipeline / -experiment / etc.)
 //   - "set-phase": write workflow-state.json `phase` (no CLI owns the coarse phase)
 //
-// The live runner (in the lakebase-sftdd-drive CLI) spawns these; the migration
+// The live runner (in the consort-drive CLI) spawns these; the migration
 // create + head-collapse + per-story experiment effects all surface here, in
 // code, plus deterministic per-action logging via the loop's onAction hook.
 
@@ -217,7 +217,7 @@ function uiTrackBuild(root: string): string {
 // response tokens are pure latency. Keep the model from narrating a plan,
 // summarizing what it did, or printing tables/rationale to stdout (all of that
 // is wasted output, the slowest part of each turn). Structured logging still
-// goes through the lakebase-sftdd-log CLI, not stdout prose.
+// goes through the consort-log CLI, not stdout prose.
 const AGENT_TERSE_SUFFIX =
   ` Be terse: produce ONLY the required artifact file(s) on disk, then stop with at most a one-line confirmation.` +
   ` Do NOT print a plan, a summary of what you did, rationale, tables, or restate the artifacts to stdout, that` +
@@ -521,7 +521,7 @@ function roleTaskBody(
           `beyond the prior stories>" } , apply the story-independence test (could you build the earlier story ` +
           `fully and have this one still genuinely unbuilt?); if not, fold or re-scope it. A later story that ` +
           `omits independence hard-blocks its spec gate, so set it now. Then run the breakdown self-check ` +
-          `(./scripts/lk lakebase-sftdd-response-formatter --role spec-author --feature ${featureId}, NO --story) ` +
+          `(./scripts/lk consort-response-formatter --role spec-author --feature ${featureId}, NO --story) ` +
           `and fix anything it flags before returning. feature-spec.json is REQUIRED , a prose list of stories in ` +
           `your reply is NOT the breakdown, and do NOT claim it "already exists".${uiTrack ? UI_TRACK_BREAKDOWN : ""}`
         );
@@ -659,7 +659,7 @@ function roleTaskBody(
         : "";
       // Author the FEATURE MASTER (append this story; keep other stories' items).
       // The orchestration generates the per-story + per-AC views FROM the master
-      // (lakebase-sftdd-test-list), so a per-story file the role writes is
+      // (consort-test-list), so a per-story file the role writes is
       // regenerated, author the master, not the per-story file.
       // Persistence coverage: a service-backed feature declares persistence_invariants
       // (the DB-level guarantees the schema enforces); the test-list must cover EVERY
@@ -779,13 +779,13 @@ function roleTaskBody(
           `ASSESS a failed honest-GREEN verify for AC ${action.ac} in story ${s}. The Driver made the current` +
           ` test pass, but the full-suite verify against the running app FAILED, some OTHER test(s) now fail.\n` +
           scanDirective +
-          `   lakebase-sftdd-cycle flag-superseded --feature ${featureId} --story ${s} --ac ${action.ac}` +
+          `   consort-cycle flag-superseded --feature ${featureId} --story ${s} --ac ${action.ac}` +
           ` --reason "<new AC + what changed>" --test <path_or_nodeid> [--test ...] --tdd-dir ${sftddDir}\n` +
           `(b) If instead the failure is a GENUINE REGRESSION (the AC does NOT intend to change that behavior;` +
           ` the Driver's code is wrong), record your ROOT-CAUSE diagnosis so it travels to the Driver / the human` +
           ` instead of being lost. When the Driver can fix it, ALSO give a concrete repair directive (this routes a` +
           ` bounded Driver repair turn):\n` +
-          `   lakebase-sftdd-cycle assess-regression --feature ${featureId} --story ${s} --ac ${action.ac}` +
+          `   consort-cycle assess-regression --feature ${featureId} --story ${s} --ac ${action.ac}` +
           ` --diagnosis "<the WHY: which behavior broke + the root cause>" [--fix "<what the Driver should change>"]` +
           ` --tdd-dir ${sftddDir}\n` +
           `   Include --fix ONLY when the fix is clear + within the Driver's reach (e.g. a wrong default, a missing` +
@@ -839,7 +839,7 @@ function roleTaskBody(
           `\nDecide, per failing test: is it a PRIOR test this story legitimately SUPERSEDES (it asserts old` +
           ` behavior/fields this story deliberately retired), or a GENUINE regression the refactor introduced?\n` +
           `Flag ONLY the genuinely superseded prior tests via` +
-          ` \`./scripts/lk lakebase-sftdd-cycle flag-superseded --feature ${featureId} --story ${s} --ac <ac> --test <path::test> [--test ...] --reason "<why superseded>"\`` +
+          ` \`./scripts/lk consort-cycle flag-superseded --feature ${featureId} --story ${s} --ac <ac> --test <path::test> [--test ...] --reason "<why superseded>"\`` +
           ` , the Driver will then permissively refactor ONLY those. If instead the refactor broke CURRENT behavior` +
           ` (a real regression), flag NOTHING; the orchestration raises it to a human. Never flag a test just to` +
           ` make a red go away. Do NOT edit product code or tests in this turn.`
@@ -934,7 +934,7 @@ function roleTaskBody(
             ` (${root}/features/${featureId}/architecture.md), the NFRs (${root}/nfrs.md), + design guide (${root}/design/design-guide.md).` +
             ` If review.json has no refactor_notes, this refactor was queued by a BLOCKING build-quality gate (a layering /` +
             ` design-adherence / import-coupling smell in ${root}/smells.json): run that gate to see the violation` +
-            ` (e.g. \`lakebase-sftdd-layering-clean --project-dir .\`) and fix exactly what it flags , typically extract the` +
+            ` (e.g. \`consort-layering-clean --project-dir .\`) and fix exactly what it flags , typically extract the` +
             ` duplicated/misplaced code into one shared helper in its correct layer.` +
             ` Keep ALL the story's tests green and do not change what the outer-boundary tests check, refactor only.` +
             buildContextPack(sftddDir, featureId, s, "")
@@ -946,7 +946,7 @@ function roleTaskBody(
           ` (${root}/features/${featureId}/architecture.md), the NFRs (${root}/nfrs.md), + design guide (${root}/design/design-guide.md).` +
           ` If review.json has no refactor_notes, this refactor was queued by a BLOCKING build-quality gate (a layering /` +
           ` design-adherence / import-coupling smell in ${root}/smells.json): run that gate to see the violation` +
-          ` (e.g. \`lakebase-sftdd-layering-clean --project-dir .\`) and fix exactly what it flags , typically extract the` +
+          ` (e.g. \`consort-layering-clean --project-dir .\`) and fix exactly what it flags , typically extract the` +
           ` duplicated/misplaced code into one shared helper in its correct layer.` +
           ` Keep ALL tests green and do not change what the outer-boundary tests check, refactor only.` +
           buildContextPack(sftddDir, featureId, s, action.ac ?? "")
@@ -973,15 +973,15 @@ function roleTaskBody(
   }
 }
 
-const PIPELINE_BIN = "lakebase-sftdd-pipeline";
-const EXPERIMENT_BIN = "lakebase-sftdd-experiment";
-const CYCLE_BIN = "lakebase-sftdd-cycle";
-const HUMAN_PROXY_BIN = "lakebase-sftdd-human-proxy";
-const LOG_BIN = "lakebase-sftdd-log";
-const TEST_LIST_BIN = "lakebase-sftdd-test-list";
-const DEPLOY_BIN = "lakebase-sftdd-deploy";
-const GATE_CONFORMANCE_BIN = "lakebase-sftdd-gate-conformance";
-const CANON_NOTES_BIN = "lakebase-sftdd-canon-notes";
+const PIPELINE_BIN = "consort-pipeline";
+const EXPERIMENT_BIN = "consort-experiment";
+const CYCLE_BIN = "consort-cycle";
+const HUMAN_PROXY_BIN = "consort-human-proxy";
+const LOG_BIN = "consort-log";
+const TEST_LIST_BIN = "consort-test-list";
+const DEPLOY_BIN = "consort-deploy";
+const GATE_CONFORMANCE_BIN = "consort-gate-conformance";
+const CANON_NOTES_BIN = "consort-canon-notes";
 // Promote phase, the SCM workflow CLIs (lakebase-scm-workflows). They read +
 // advance the SCM ladder in .lakebase/workflow-state.json, so they take
 // --project-dir (the project root), NOT --feature/--tdd-dir.
@@ -1489,7 +1489,7 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
       ];
 
     case "await-acceptance": {
-      // The deploy gate runs DETERMINISTICALLY here: `lakebase-sftdd-deploy --gate`
+      // The deploy gate runs DETERMINISTICALLY here: `consort-deploy --gate`
       // starts the app on the story's experiment branch, polls reachable, runs the
       // project verify (by default on a disposable child branch , isolated), and
       // writes the STORY-scoped deploy-evidence the acceptance gate reads. The CLI
@@ -1580,11 +1580,11 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
 
     case "deploy":
       // Ship the merged feature, deterministically (same contract as the per-story
-      // gate deploy above): the orchestration runs `lakebase-sftdd-deploy --gate`
+      // gate deploy above): the orchestration runs `consort-deploy --gate`
       // for the feature, which polls reachable, runs the feature verify, and writes
       // the FEATURE-scoped deploy-evidence the deploy gate reads. A failed/foreign
       // deploy is recorded as evidence + an escalation -> raise-to-hil, not an LLM
-      // claiming success. (For remote targets, `lakebase-sftdd-deploy` refuses
+      // claiming success. (For remote targets, `consort-deploy` refuses
       // cleanly until they land; that refusal surfaces as the escalation.)
       // --lakebase-branch = the FEATURE branch (no --story): a failed verify can
       // then fork an ephemeral child off it to classify shared-state contamination
@@ -1749,7 +1749,7 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
 
 /**
  * Compute the single next action + the commands that would carry it out,
- * without executing anything. Backs `lakebase-sftdd-drive --dry-run` ("what will
+ * without executing anything. Backs `consort-drive --dry-run` ("what will
  * the driver do next?") and is the testable core of that CLI path.
  */
 export async function planNextAction(
@@ -1764,7 +1764,7 @@ export async function planNextAction(
 /**
  * Read the feature's DriveState from disk (pipeline + artifact probe + context +
  * UI-track gating). The read-only half of buildDriveEffects.readState, extracted
- * so the strictly read-only consumers (lakebase-sftdd-next, the drive's next.json
+ * so the strictly read-only consumers (consort-next, the drive's next.json
  * auto-emit) get the EXACT same state the drive acts on without constructing a
  * full DriveEffectsConfig or importing the drive CLI (FEIP-8017).
  */

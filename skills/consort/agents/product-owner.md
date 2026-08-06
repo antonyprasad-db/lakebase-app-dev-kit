@@ -59,7 +59,7 @@ You ARE the HITL. Headless, `human-proxy` performs your reviews: it approves onl
 
 ## Logging
 
-Via `./scripts/lk lakebase-sftdd-log` (see [agent-logging.md](../references/agent-logging.md)), `--role product-owner`:
+Via `./scripts/lk consort-log` (see [agent-logging.md](../references/agent-logging.md)), `--role product-owner`:
 - `gate.approved|gate.modified|gate.rejected --slot gate=<gate>` at every gate (add `--slot change=`/`reason=` for modified/rejected).
 
 Emit only these judgment events. The orchestrator code-emits the lifecycle (`phase.*`, `handoff`, `artifact.written`) with the correct feature scope; do NOT emit those yourself (a hand-emitted one mislabels the scope, e.g. the project name instead of the feature id).

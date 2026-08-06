@@ -1,5 +1,5 @@
-// FEIP-8013: the shared merge+accept core that both `lakebase-sftdd-experiment
-// merge` and `lakebase-sftdd-pipeline accept` route through, so following the
+// FEIP-8013: the shared merge+accept core that both `consort-experiment
+// merge` and `consort-pipeline accept` route through, so following the
 // acceptance gate's instruction (`pipeline accept`) actually git-merges the
 // story's code onto the feature branch instead of recording state only.
 // Hermetic: the side-effectful ops are faked (no git / Lakebase).
@@ -120,7 +120,7 @@ describe("resolveAcceptMergeArgs", () => {
 });
 
 describe("experimentMergeArgv (the command pipeline accept delegates to)", () => {
-  it("builds a complete `lakebase-sftdd-experiment merge` argv from the resolved inputs", () => {
+  it("builds a complete `consort-experiment merge` argv from the resolved inputs", () => {
     // pipeline accept does NOT merge in-process (FEIP-8013 routing): it builds this
     // argv and spawns the experiment CLI, the single door for the merge substrate.
     const argv = experimentMergeArgv(

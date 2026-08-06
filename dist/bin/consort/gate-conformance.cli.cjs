@@ -7306,14 +7306,14 @@ function parseArgs(argv) {
   }
   return out;
 }
-var HELP = `lakebase-sftdd-gate-conformance
+var HELP = `consort-gate-conformance
 
 Check that a feature's artifacts adhere to the format their producing role is
 documented to emit. JSON artifacts validate against their schema; narrative MD
 artifacts must carry an H1 title plus their required sections.
 
 Usage:
-  lakebase-sftdd-gate-conformance --feature <id> [flags]
+  consort-gate-conformance --feature <id> [flags]
 
 Flags:
   --feature <id>          Feature id (required, e.g. F1-initial-domain)

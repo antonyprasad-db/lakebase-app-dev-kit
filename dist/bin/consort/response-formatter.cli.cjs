@@ -7332,7 +7332,7 @@ function parse(argv) {
 function usage(msg) {
   process.stderr.write(
     `${msg}
-Usage: lakebase-sftdd-response-formatter --role <role> --feature <F> [--story <S>] [--tdd-dir <D>]
+Usage: consort-response-formatter --role <role> --feature <F> [--story <S>] [--tdd-dir <D>]
 Type-checked roles: ${[...FORMATTED_ROLES].join(", ")} (others pass , no deterministic contract yet).
 `
   );

@@ -2,7 +2,7 @@
 # Convenient launcher for the TDD workflow.
 #
 # Opens a Claude Code session in the project. The orchestrator is the
-# deterministic driver (lakebase-sftdd-drive), invoked by the slash commands, not
+# deterministic driver (consort-drive), invoked by the slash commands, not
 # an LLM agent; the session just runs those commands, which spawn the role
 # agents and pause at gates. Optionally seeds the first turn with a command so
 # you land straight in it.

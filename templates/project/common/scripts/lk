@@ -6,8 +6,8 @@
 # the kit ONCE per ref into a shared cache and runs the bin via `node dist/...`
 # (~0.09s). Use it everywhere a kit CLI is invoked from a scaffolded project:
 #
-#   ./scripts/lk lakebase-sftdd-log --role spec-author --event progress --slot note="…" --slot step=drafting
-#   "$(git rev-parse --show-toplevel)/scripts/lk" lakebase-sftdd-intake --feature F1
+#   ./scripts/lk consort-log --role spec-author --event progress --slot note="…" --slot step=drafting
+#   "$(git rev-parse --show-toplevel)/scripts/lk" consort-intake --feature F1
 #
 # Ref resolution (so it works inside a `claude -p` agent's Bash tool, which does
 # NOT reliably inherit env vars): $LAKEBASE_KIT_REF -> .lakebase/kit-ref.local ->
@@ -21,7 +21,7 @@ set -euo pipefail
 
 bin="${1:-}"
 if [ -z "$bin" ]; then
-  echo "usage: lk <kit-bin> [args...]   (e.g. lk lakebase-sftdd-log --read)" >&2
+  echo "usage: lk <kit-bin> [args...]   (e.g. lk consort-log --read)" >&2
   exit 2
 fi
 shift
@@ -78,7 +78,7 @@ else
   # Completeness, not mere presence: the warm check used to accept any install
   # with a dist/ dir, but a RELEASE artifact can ship a dist/ that is missing an
   # entire bin family (the sftdd/ subtree was gitignored + never force-added, so
-  # 48 of 75 bins had no file). That reads as "warm" yet every lakebase-sftdd-*
+  # 48 of 75 bins had no file). That reads as "warm" yet every consort-*
   # call dies with MODULE_NOT_FOUND. This verifies EVERY package.json bin target
   # exists under the install, so a partial dist fails loud at warm time (and on
   # --rewarm) instead of silently at first use. Returns 0 when complete.

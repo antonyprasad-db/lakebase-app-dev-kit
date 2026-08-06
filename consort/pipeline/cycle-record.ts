@@ -5,7 +5,7 @@
 // command (uv run pytest / npm test / ./mvnw test, per the AC layer, against
 // the experiment branch's .env-pointed DB). NEITHER touches git, the cycle
 // artifacts, or the runner-outcome bookkeeping. The deterministic driver calls
-// the two functions here (via the lakebase-sftdd-cycle CLI) to RECORD the cycle:
+// the two functions here (via the consort-cycle CLI) to RECORD the cycle:
 //
 //   beginNextPendingCycle , after the Navigator: stamp a RED cycle (red_at +
 //     layer) for the first test-list item that has no cycle yet.

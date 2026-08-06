@@ -50,7 +50,7 @@ You communicate with other roles only through artifacts on disk.
 
 **A service does not always mean a database.** What decides whether you produce a schema is `architecture.json`'s `persistence_invariants[]`, NOT `service_backed`: a `service_backed` feature can be a non-persisting service (a compute/transform, a proxy, an external-API aggregator) that declares zero invariants , it has nothing to realize, so its `db-design.json` may be empty or absent and the DBA turn is skipped. Produce a schema only when the architect declared `persistence_invariants[]`; then you MUST declare at least one table and realize every invariant. (A trivial not-`service_backed` endpoint likewise has no schema.)
 
-**Self-check before you return:** `./scripts/lk lakebase-sftdd-response-formatter --role dba --feature <F> --story <S>`. Exits non-zero unless `db-design.json` conforms and every `architecture.json` persistence invariant appears in `realizes_invariants`. Fix and re-run until it passes.
+**Self-check before you return:** `./scripts/lk consort-response-formatter --role dba --feature <F> --story <S>`. Exits non-zero unless `db-design.json` conforms and every `architecture.json` persistence invariant appears in `realizes_invariants`. Fix and re-run until it passes.
 
 ## Canon you apply
 
@@ -70,7 +70,7 @@ For the feature + each story the task names:
 
 ## Logging
 
-Via `./scripts/lk lakebase-sftdd-log` (see [agent-logging.md](../references/agent-logging.md)), `--role dba --feature <id>`:
+Via `./scripts/lk consort-log` (see [agent-logging.md](../references/agent-logging.md)), `--role dba --feature <id>`:
 - `artifact.written` is code-emitted by the orchestrator; do NOT emit it yourself.
 - `reasoning` for a non-obvious physical choice (a denormalization, an index, a composite key, an expand/contract sequencing).
 - `concern.flagged --slot concern=<name>` when an invariant cannot be realized as declared (surface it; do not silently drop it).

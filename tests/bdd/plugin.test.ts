@@ -82,7 +82,7 @@ describe("/consort:start launcher command (commands/start.md)", () => {
   });
 
   it("drives via the deterministic orchestrator + the scaffolded role agents, coordinates only", () => {
-    expect(tdd).toMatch(/lakebase-sftdd-drive|deterministic orchestrator/); // the driver, not an LLM scrum-master
+    expect(tdd).toMatch(/consort-drive|deterministic orchestrator/); // the driver, not an LLM scrum-master
     expect(tdd).not.toMatch(/scrum-master/);
     expect(tdd).toMatch(/claude --agent <role>/); // documents how the driver spawns roles
     expect(tdd).toMatch(/coordinate only/i);

@@ -7500,12 +7500,12 @@ function parseArgs(argv) {
   }
   return out;
 }
-var HELP = `lakebase-sftdd-log
+var HELP = `consort-log
 
 Emit or read a structured TDD-workflow agent log event (.tdd/agent-log.jsonl).
 
 Emit:
-  lakebase-sftdd-log --role <r> --level <l> --event <e> --slot k=v [--slot k=v ...] [flags]
+  consort-log --role <r> --level <l> --event <e> --slot k=v [--slot k=v ...] [flags]
     --role     spec-author|ux-designer|architect-reviewer|test-strategist|
                orchestrator|navigator|driver|product-owner|release-engineer
     --level    debug|info|warn|error
@@ -7519,17 +7519,17 @@ Emit:
     --feature <id>   --phase <p>   --cycle <id>   --data '<json of extra slots>'
 
 Batch emit (ONE process + ONE append for a turn's several events, not N spawns):
-  lakebase-sftdd-log --events '[{"role":"navigator","level":"info","event":"reasoning",
+  consort-log --events '[{"role":"navigator","level":"info","event":"reasoning",
     "feature":"F1","cycle":"cycle-003","slots":{...}}, {"role":"navigator","level":"warn",
     "event":"smell.flagged","slots":{"smell":"...","severity":"...","detail":"..."}}]'
     Each item takes role/level/event (+ optional feature/phase/cycle/slots/data). Every
     event is validated FIRST; if any is invalid the whole batch fails and nothing is written.
 
 Read:
-  lakebase-sftdd-log --read [--role <r>] [--min-level <l>] [--feature <id>] [--json]
+  consort-log --read [--role <r>] [--min-level <l>] [--feature <id>] [--json]
 
 Reconcile (structural observability backstop):
-  lakebase-sftdd-log --reconcile --feature <id> [--json]
+  consort-log --reconcile --feature <id> [--json]
     Emit an artifact.written for every on-disk design artifact the log does not
     already cover, so observability does not depend on a role model emitting its
     own events. Idempotent. The orchestrator / smoke calls this after each phase.
@@ -7559,7 +7559,7 @@ function runAgentLogCli(argv) {
 `);
       return 0;
     } catch (e) {
-      process.stderr.write(`lakebase-sftdd-log --reconstitute: ${e.message}
+      process.stderr.write(`consort-log --reconstitute: ${e.message}
 `);
       return 3;
     }
@@ -7585,7 +7585,7 @@ function runAgentLogCli(argv) {
       }
       return 0;
     } catch (e) {
-      process.stderr.write(`lakebase-sftdd-log --reconcile: ${e.message}
+      process.stderr.write(`consort-log --reconcile: ${e.message}
 `);
       return 3;
     }
@@ -7654,7 +7654,7 @@ function runAgentLogCli(argv) {
       for (const inp of inputs) mirrorBlockingSmell(a.sftddDir ?? resolveSftddDir(), inp.event, inp.slots ?? {});
       return 0;
     } catch (e) {
-      process.stderr.write(`lakebase-sftdd-log --events: ${e.message}
+      process.stderr.write(`consort-log --events: ${e.message}
 `);
       return 3;
     }
@@ -7690,7 +7690,7 @@ ${HELP}
     mirrorBlockingSmell(a.sftddDir ?? resolveSftddDir(), input.event, slots);
     return 0;
   } catch (e) {
-    process.stderr.write(`lakebase-sftdd-log: ${e.message}
+    process.stderr.write(`consort-log: ${e.message}
 `);
     return 3;
   }

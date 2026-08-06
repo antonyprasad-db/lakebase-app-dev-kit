@@ -18,7 +18,7 @@ This directory is the canonical home for this project's TDD workflow state. It i
 ## Getting started
 
 1. Read [`skills/consort/SKILL.md`](../../../../skills/consort/SKILL.md) (or open via your agent's installed copy of the skill).
-2. You do not drive this by hand: the deterministic orchestrator (`lakebase-sftdd-drive`, run by the `/plan` -> `/design` -> `/build` -> `/deploy` commands) routes every phase, spawning the role agents under `skills/consort/agents/` and surfacing the HITL gates (`spec` / `plan` / `test_list` / `promote` / `deploy`) for approval.
+2. You do not drive this by hand: the deterministic orchestrator (`consort-drive`, run by the `/plan` -> `/design` -> `/build` -> `/deploy` commands) routes every phase, spawning the role agents under `skills/consort/agents/` and surfacing the HITL gates (`spec` / `plan` / `test_list` / `promote` / `deploy`) for approval.
 3. Per story, the design lane streams Spec Author -> Architect Reviewer -> Test Strategist, each followed by its per-story gate; an approved spec gate releases the story to the build lane.
 
 JSON files are validated against `scripts/sftdd/schemas/` by `scripts/sftdd/spec-sync.ts`. Drift is warned, not auto-corrected.

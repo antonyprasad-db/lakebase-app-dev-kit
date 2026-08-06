@@ -8947,14 +8947,14 @@ function parseArgs(argv) {
   }
   return out;
 }
-var HELP = `lakebase-sftdd-human-proxy
+var HELP = `consort-human-proxy
 
 Human Proxy for automated smoke / headless test runs. Calls
 approveGate on every open gate for a feature with hitlApproved=true,
 default approver "human-proxy". NOT for production use.
 
 Usage:
-  lakebase-sftdd-human-proxy --feature <id> [flags]
+  consort-human-proxy --feature <id> [flags]
 
 Flags:
   --feature <id>          Feature id (required, e.g. F1-initial-domain)

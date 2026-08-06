@@ -5,12 +5,12 @@
 # is the "record once" half of the loop whose "replay forever" half is
 # replay-scenario.sh; see SCENARIOS.md.
 #
-# It is a thin wrapper around the kit drive (lakebase-sftdd-drive) with the
+# It is a thin wrapper around the kit drive (consort-drive) with the
 # recorder env pointed at the scenario dir:
 #   LAKEBASE_SFTDD_RECORD_DIR        = <scenario>/            (turns/ + recorded-artifacts/)
 #   LAKEBASE_SFTDD_RECORD_BUILD_DIR  = <scenario>/recorded-build
 # The recorder (scripts/sftdd/turn-recorder.ts) writes every state-machine turn;
-# at the end the agent-log is reconstituted (lakebase-sftdd-log --reconstitute).
+# at the end the agent-log is reconstituted (consort-log --reconstitute).
 #
 # Usage:
 #   # Against an existing scaffolded project (design may be replayed if a corpus
@@ -53,7 +53,7 @@ SCENARIO=""
 PROJECT_DIR=""
 PAUSE_BEFORE=""
 # --only <phase>: bound the per-feature drive to ONE lane (design|build|deploy),
-# threaded to `lakebase-sftdd-drive --only`. The optimize launcher uses
+# threaded to `consort-drive --only`. The optimize launcher uses
 # `--only design` to scaffold + drive the design lane and STOP cleanly at the
 # build boundary, so the per-handoff sweep takes the build turns from there.
 ONLY=""
@@ -138,7 +138,7 @@ fi
 SCEN="${SCEN_DIR_ROOT}/${SCENARIO}"
 
 # ── Single-source kit resolution (makes the stale-shim / split-brain impossible) ──
-# The orchestrator (this script + lakebase-sftdd-drive) and the `claude -p` role
+# The orchestrator (this script + consort-drive) and the `claude -p` role
 # agents resolve the kit SEPARATELY: agents do NOT inherit env, so they read the
 # ref from the project's .lakebase/kit-ref and load it from the shared cache,
 # while LAKEBASE_KIT_DIR only redirects the orchestrator. Setting only
@@ -246,9 +246,9 @@ if [[ -n "$CREATE" ]]; then
   SFTDD_REL="$(basename "$SFTDD_DIR")"
   # Stage the project intake (the "3 original inputs") via the Human Proxy, then
   # each feature's feature-request (the per-feature design input).
-  clk lakebase-sftdd-human-proxy supply --from "${INTAKE_DIR}/product-overview.md" --to "${SFTDD_DIR}/product-overview.md" --artifact product-overview.md
-  clk lakebase-sftdd-human-proxy supply --from "${INTAKE_DIR}/nfrs.md" --to "${SFTDD_DIR}/nfrs.md" --artifact nfrs.md
-  [[ -f "${INTAKE_DIR}/design-brief.md" ]] && clk lakebase-sftdd-human-proxy supply --from "${INTAKE_DIR}/design-brief.md" --to "${SFTDD_DIR}/design/design-brief.md" --artifact design-brief.md
+  clk consort-human-proxy supply --from "${INTAKE_DIR}/product-overview.md" --to "${SFTDD_DIR}/product-overview.md" --artifact product-overview.md
+  clk consort-human-proxy supply --from "${INTAKE_DIR}/nfrs.md" --to "${SFTDD_DIR}/nfrs.md" --artifact nfrs.md
+  [[ -f "${INTAKE_DIR}/design-brief.md" ]] && clk consort-human-proxy supply --from "${INTAKE_DIR}/design-brief.md" --to "${SFTDD_DIR}/design/design-brief.md" --artifact design-brief.md
   git add "${SFTDD_REL}" >/dev/null 2>&1 || true
   git commit -m "intake: project product-overview + nfrs + design-brief" >/dev/null 2>&1 || true
   # PER-FEATURE mode: pre-seed each feature-request on the entry tier so the fork
@@ -333,7 +333,7 @@ if [[ ${#SPRINT_NAMES[@]} -gt 0 ]]; then
     # and the sprint's feature is still claimed. Advancing to the NEXT sprint would
     # then trip `already-claimed-other` on the open feature. Stop the capture here
     # so the human resolves the escalation and re-runs (the drive is resumable).
-    if ! lk lakebase-sftdd-drive --sprint "$sname" --project-dir "$PROJECT_DIR" --gates proxy ${pause_args[@]+"${pause_args[@]}"} ${only_args[@]+"${only_args[@]}"}; then
+    if ! lk consort-drive --sprint "$sname" --project-dir "$PROJECT_DIR" --gates proxy ${pause_args[@]+"${pause_args[@]}"} ${only_args[@]+"${only_args[@]}"}; then
       rc=$?
       echo "[capture-scenario] sprint '${sname}' halted (drive exit ${rc}); stopping before later sprints." >&2
       exit "$rc"
@@ -356,7 +356,7 @@ else
       continue
     fi
     echo "[capture-scenario] recording ${SCENARIO} feature ${FID} into ${SCEN}" >&2
-    lk lakebase-sftdd-drive --feature "$FID" --project-dir "$PROJECT_DIR" --gates proxy ${pause_args[@]+"${pause_args[@]}"} ${only_args[@]+"${only_args[@]}"}
+    lk consort-drive --feature "$FID" --project-dir "$PROJECT_DIR" --gates proxy ${pause_args[@]+"${pause_args[@]}"} ${only_args[@]+"${only_args[@]}"}
   done
 fi
 
@@ -369,7 +369,7 @@ fi
 DESIGN_LOG="${SCEN}/agent-log.design.jsonl"
 if [ -f "$DESIGN_LOG" ]; then
   echo "[capture-scenario] reconstituting agent-log onto the recorded timeline" >&2
-  lk lakebase-sftdd-log --reconstitute --design-log "$DESIGN_LOG" --tdd-dir "$SFTDD_DIR" \
+  lk consort-log --reconstitute --design-log "$DESIGN_LOG" --tdd-dir "$SFTDD_DIR" \
     || echo "[capture-scenario] reconstitute skipped" >&2
 else
   echo "[capture-scenario] no recorded design-lane log (design ran live); skipping reconstitute" >&2

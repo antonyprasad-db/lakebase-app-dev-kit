@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // CLI: "did this feature's artifacts adhere to the format expected?"
 //
-//   lakebase-sftdd-gate-conformance --feature <id>
-//   lakebase-sftdd-gate-conformance --feature <id> --json --pretty
+//   consort-gate-conformance --feature <id>
+//   consort-gate-conformance --feature <id> --json --pretty
 //
 // Layer 2. Scans a feature's on-disk artifacts and checks each that
 // exists against its declared format (JSON against its schema; narrative MD
@@ -51,14 +51,14 @@ function parseArgs(argv: string[]): ParsedArgs {
   return out;
 }
 
-const HELP = `lakebase-sftdd-gate-conformance
+const HELP = `consort-gate-conformance
 
 Check that a feature's artifacts adhere to the format their producing role is
 documented to emit. JSON artifacts validate against their schema; narrative MD
 artifacts must carry an H1 title plus their required sections.
 
 Usage:
-  lakebase-sftdd-gate-conformance --feature <id> [flags]
+  consort-gate-conformance --feature <id> [flags]
 
 Flags:
   --feature <id>          Feature id (required, e.g. F1-initial-domain)

@@ -94,10 +94,10 @@ function parse(argv) {
 }
 function help() {
   process.stdout.write(
-    `lakebase-sftdd-ux-clean , prove feature pages are reachable + consume the design guide
+    `consort-ux-clean , prove feature pages are reachable + consume the design guide
 
 Usage:
-  lakebase-sftdd-ux-clean [--project-dir <path>] [--client-src <path>] \\
+  consort-ux-clean [--project-dir <path>] [--client-src <path>] \\
                           [--design-class <name> ...] [--json]
 
 Exit 0 = clean / no client workspace; exit 1 = an unreachable or bare feature page.

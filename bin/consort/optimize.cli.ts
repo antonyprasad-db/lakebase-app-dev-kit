@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// lakebase-sftdd-optimize: the per-handoff optimization re-record CLI. It drives
+// consort-optimize: the per-handoff optimization re-record CLI. It drives
 // the champion walk (optimize-harness) over a scenario's handoffs, trying config +
 // content/scope candidates per handoff and keeping the fastest gate-passing turn.
 //
-//   lakebase-sftdd-optimize --scenario <dir> --feature <id> [--handoff <id>]
+//   consort-optimize --scenario <dir> --feature <id> [--handoff <id>]
 //                           [--only design|build] --candidates <spec> --trials N
 //                           [--dry-run]
 //
@@ -214,7 +214,7 @@ function buildCtxForHandoff(
 async function main(): Promise<number> {
   const args = parseOptimizeArgs(process.argv.slice(2));
   if (!args.scenario || !args.feature) {
-    process.stderr.write("usage: lakebase-sftdd-optimize --scenario <dir> --feature <id> [--handoff <id>] [--only design|build] --candidates <spec> --trials N [--dry-run]\n");
+    process.stderr.write("usage: consort-optimize --scenario <dir> --feature <id> [--handoff <id>] [--only design|build] --candidates <spec> --trials N [--dry-run]\n");
     return 2;
   }
   const projectDir = resolve(args.projectDir ?? process.cwd());
@@ -303,7 +303,7 @@ async function main(): Promise<number> {
     if (args.proposeOnly) {
       process.stderr.write(
         `[optimize] propose-only lane sweep: no winners recorded. Review the ranked report + experiments/, ` +
-          `then persist per handoff with lakebase-sftdd-optimize-apply --project-dir ${projectDir} --handoff <id> --candidate <id>\n`,
+          `then persist per handoff with consort-optimize-apply --project-dir ${projectDir} --handoff <id> --candidate <id>\n`,
       );
     }
     return 0;
@@ -380,7 +380,7 @@ async function main(): Promise<number> {
   if (args.proposeOnly) {
     process.stderr.write(
       `[optimize] propose-only: no winner recorded. Review the ranked candidates + experiments/${handoff.id}/, ` +
-        `then persist your choice with: lakebase-sftdd-optimize-apply --project-dir ${projectDir} --handoff ${handoff.id} --candidate <id>\n`,
+        `then persist your choice with: consort-optimize-apply --project-dir ${projectDir} --handoff ${handoff.id} --candidate <id>\n`,
     );
   }
   return 0;

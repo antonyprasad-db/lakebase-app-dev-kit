@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// lakebase-sftdd-spike: cut / list / delete throwaway spike branches.
+// consort-spike: cut / list / delete throwaway spike branches.
 //
-//   lakebase-sftdd-spike cut --slug <s> --instance <i> [--for <feature>]
+//   consort-spike cut --slug <s> --instance <i> [--for <feature>]
 //                          [--parent <branch>] [--ttl <t>] [--project-dir <d>] [--json]
-//   lakebase-sftdd-spike list [--project-dir <d>] [--json]
-//   lakebase-sftdd-spike delete --slug <s> --instance <i> [--keep-branch] [--project-dir <d>]
+//   consort-spike list [--project-dir <d>] [--json]
+//   consort-spike delete --slug <s> --instance <i> [--keep-branch] [--project-dir <d>]
 //
 // A spike is throwaway exploration OUTSIDE the TDD loop: it gets its own paired
 // Lakebase branch (spike/<slug> by convention), and its notes.md carries the
@@ -51,12 +51,12 @@ function parseArgs(argv: string[]): ParsedArgs {
   return out;
 }
 
-const HELP = `lakebase-sftdd-spike (throwaway spike branches)
+const HELP = `consort-spike (throwaway spike branches)
 
 Usage:
-  lakebase-sftdd-spike cut --slug <s> --instance <i> [--for <feature>] [--parent <b>] [--ttl <t>] [--project-dir <d>] [--json]
-  lakebase-sftdd-spike list [--project-dir <d>] [--json]
-  lakebase-sftdd-spike delete --slug <s> --instance <i> [--keep-branch] [--project-dir <d>]
+  consort-spike cut --slug <s> --instance <i> [--for <feature>] [--parent <b>] [--ttl <t>] [--project-dir <d>] [--json]
+  consort-spike list [--project-dir <d>] [--json]
+  consort-spike delete --slug <s> --instance <i> [--keep-branch] [--project-dir <d>]
 
 A spike is throwaway exploration outside the TDD loop. --for <feature> tags the
 notes so the learning carries forward into that feature's design-spec gate.
@@ -95,7 +95,7 @@ export async function runSpikeCli(argv: string[]): Promise<number> {
       process.stdout.write(
         args.json
           ? `${JSON.stringify(rec)}\n`
-          : `lakebase-sftdd-spike: cut ${rec.spike_slug} (branch ${rec.branch_id})${args.forFeature ? ` for ${args.forFeature}` : ""}\n`,
+          : `consort-spike: cut ${rec.spike_slug} (branch ${rec.branch_id})${args.forFeature ? ` for ${args.forFeature}` : ""}\n`,
       );
       return 0;
     }
@@ -125,14 +125,14 @@ export async function runSpikeCli(argv: string[]): Promise<number> {
         instance: args.instance ?? "",
         host: args.host,
       });
-      process.stdout.write(`lakebase-sftdd-spike: deleted ${args.slug}${args.keepBranch ? " (branch kept)" : ""}\n`);
+      process.stdout.write(`consort-spike: deleted ${args.slug}${args.keepBranch ? " (branch kept)" : ""}\n`);
       return 0;
     }
 
     process.stderr.write(`Error: unknown subcommand "${sub}".\n\n${HELP}`);
     return 2;
   } catch (e) {
-    process.stderr.write(`lakebase-sftdd-spike: ${e instanceof Error ? e.message : String(e)}\n`);
+    process.stderr.write(`consort-spike: ${e instanceof Error ? e.message : String(e)}\n`);
     return 7;
   }
 }

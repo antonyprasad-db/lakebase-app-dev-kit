@@ -19,10 +19,10 @@ If `.sftdd/` does not exist, this command hard-fails with the same setup hint `/
 Planning reads the HIL's intent from the PROJECT-level intake artifacts (`product-overview.md`, `nfrs.md`, and `design-brief.md` for UI projects). `/plan` is the first place project intake is needed, before any `/design`. These are the same project-level preconditions `/design` enforces; `/plan` enforces them too:
 
 ```bash
-./scripts/lk lakebase-sftdd-intake
+./scripts/lk consort-intake
 ```
 
-Note: no `--feature`. `lakebase-sftdd-intake` without a feature checks only the project-level artifacts (`product-overview.md` + `nfrs.md`, plus `design-brief.md` for UI projects). Whether the project is UI is read from its single source (`project.uiTrack` in `sftdd-config.json`, set at create via `--ui-track`), not a flag or env. It exits non-zero (5) and names what is missing or non-conformant if intake is incomplete. If it fails, the orchestrator facilitates project intake first (the interviews documented in `/design` Step 0.5: Product, NFR, and UX for UI projects), or, headless, the Human Proxy supplies the pre-recorded answers. Do not plan against missing intent.
+Note: no `--feature`. `consort-intake` without a feature checks only the project-level artifacts (`product-overview.md` + `nfrs.md`, plus `design-brief.md` for UI projects). Whether the project is UI is read from its single source (`project.uiTrack` in `sftdd-config.json`, set at create via `--ui-track`), not a flag or env. It exits non-zero (5) and names what is missing or non-conformant if intake is incomplete. If it fails, the orchestrator facilitates project intake first (the interviews documented in `/design` Step 0.5: Product, NFR, and UX for UI projects), or, headless, the Human Proxy supplies the pre-recorded answers. Do not plan against missing intent.
 
 ## Phase 1: Spec Author proposes the feature breakdown (the BA)
 
@@ -37,7 +37,7 @@ The orchestrator presents the Spec Author's proposals to the Product Owner. The 
 Each `feature-request.md` is the open-ended, plain-English ask in the PO's voice (an H1 title + a non-empty body, no rigid structure by design). It is what `/design`'s Spec Author later reads as input and never overwrites. Confirm each conforms:
 
 ```bash
-./scripts/lk lakebase-sftdd-intake --feature "<feature-id>"
+./scripts/lk consort-intake --feature "<feature-id>"
 ```
 
 (With `--feature`, the precondition additionally requires that feature's `feature-request.md` to exist and conform, the same check `/design <feature-id>` runs at its Step 0.5.)
@@ -47,7 +47,7 @@ Each `feature-request.md` is the open-ended, plain-English ask in the PO's voice
 There is no human to interview. The Human Proxy stands in for the PO and SUPPLIES each sprint item's `feature-request.md` from the pre-recorded sprint backlog (`$LAKEBASE_SFTDD_RECORDED_INTAKE_DIR`): the recorded files ARE the PO's groomed, prioritized sprint. Validate-then-place; it refuses a missing or non-conformant recording.
 
 ```bash
-./scripts/lk lakebase-sftdd-human-proxy supply \
+./scripts/lk consort-human-proxy supply \
   --from "$LAKEBASE_SFTDD_RECORDED_INTAKE_DIR/<feature-id>.md" \
   --to ".sftdd/features/<feature-id>/feature-request.md" \
   --artifact feature-request.md --feature "<feature-id>"
@@ -72,7 +72,7 @@ gates so YOU answer the sprint plan gate (headless: the Human Proxy):
 ```bash
 GATES=interactive; [ "${LAKEBASE_SFTDD_HUMAN_PROXY:-}" = "1" ] && GATES=proxy
 ./scripts/lk \
-  lakebase-sftdd-drive --sprint "<sprint-name>" --plan-only --gates "$GATES" --project-dir "$PWD"
+  consort-drive --sprint "<sprint-name>" --plan-only --gates "$GATES" --project-dir "$PWD"
 ```
 
 The driver routes planning to the role agents, at their resolved per-role models:
@@ -94,7 +94,7 @@ files alone does not advance planning. After you (the PO) author the sprint's
 
 ```bash
 ./scripts/lk \
-  lakebase-sftdd-sync-backlog --sprint "<sprint-name>" --features F1,F2 --project-dir "$PWD"
+  consort-sync-backlog --sprint "<sprint-name>" --features F1,F2 --project-dir "$PWD"
 ```
 
 `--features` declares this sprint's membership (recorded to
@@ -111,10 +111,10 @@ and execution). `--plan-only` STOPS there, it does not enter design/build/deploy
 **Gate.** Interactive: the driver stops at the plan gate + prints a `GATE` marker.
 Surface the proposed backlog to the human; on approval the human records it with
 the production, human-facing approver command
-(`lakebase-sftdd-approve-gate --sprint <name> --approver <human>`), then re-run to
-confirm planning complete. (`lakebase-sftdd-approve-gate` requires an explicit
+(`consort-approve-gate --sprint <name> --approver <human>`), then re-run to
+confirm planning complete. (`consort-approve-gate` requires an explicit
 `--approver` , the deciding human names themselves; it is the counterpart to the
-headless `lakebase-sftdd-human-proxy`, which is for smoke/CI only.) Headless
+headless `consort-human-proxy`, which is for smoke/CI only.) Headless
 (`--gates proxy`): the Human Proxy approves once `feature-proposals.md` exists +
 conforms. "Passing" on a re-plan =
 approving the standing backlog as-is. The driver emits the planning log as code.

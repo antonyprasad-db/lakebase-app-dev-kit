@@ -178,7 +178,7 @@ PO does not pre-author the whole backlog; they fold each sprint's working softwa
 is then the Spec Author's `/design` input; the structured deliverables the Spec
 Author composes (feature-spec, story, AC) carry the strong contracts.
 
-CLI: `lakebase-sftdd-gate-conformance --feature <id>` scans a feature's artifacts
+CLI: `consort-gate-conformance --feature <id>` scans a feature's artifacts
 and reports any that do not conform. Exit 1 if any artifact is non-conformant.
 
 ## Where this format does NOT go

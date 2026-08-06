@@ -8,7 +8,7 @@
 //          genuine import bug). Prints the importer error + remediation.
 //
 // Usage:
-//   lakebase-sftdd-imports-clean [--project-dir <path>] [--lang python|nodejs]
+//   consort-imports-clean [--project-dir <path>] [--lang python|nodejs]
 //                              [--artifact <rel> ...] [--json]
 
 import { checkImportsClean, type ImportsCleanArgs } from "../../consort/architecture/imports-clean.js";
@@ -36,9 +36,9 @@ function parse(argv: string[]): Parsed {
 
 function help(): never {
   process.stdout.write(
-    `lakebase-sftdd-imports-clean , import the app entry without a build artifact present\n\n` +
+    `consort-imports-clean , import the app entry without a build artifact present\n\n` +
       `Usage:\n` +
-      `  lakebase-sftdd-imports-clean [--project-dir <path>] [--lang python|nodejs] \\\n` +
+      `  consort-imports-clean [--project-dir <path>] [--lang python|nodejs] \\\n` +
       `                             [--artifact <rel> ...] [--json]\n\n` +
       `Exit 0 = clean; exit 1 = entry could not import with the artifact hidden.\n`,
   );

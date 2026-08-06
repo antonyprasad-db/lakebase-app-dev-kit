@@ -1,4 +1,4 @@
-// lakebase-sftdd-spike: cut/list/delete throwaway spike branches.
+// consort-spike: cut/list/delete throwaway spike branches.
 // cut/delete touch live Lakebase (covered by the live smoke); here we test the
 // hermetic parts: the carry-forward note tagging, list, and arg validation.
 

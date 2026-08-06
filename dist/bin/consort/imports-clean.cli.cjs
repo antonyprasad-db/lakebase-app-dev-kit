@@ -116,10 +116,10 @@ function parse(argv) {
 }
 function help() {
   process.stdout.write(
-    `lakebase-sftdd-imports-clean , import the app entry without a build artifact present
+    `consort-imports-clean , import the app entry without a build artifact present
 
 Usage:
-  lakebase-sftdd-imports-clean [--project-dir <path>] [--lang python|nodejs] \\
+  consort-imports-clean [--project-dir <path>] [--lang python|nodejs] \\
                              [--artifact <rel> ...] [--json]
 
 Exit 0 = clean; exit 1 = entry could not import with the artifact hidden.

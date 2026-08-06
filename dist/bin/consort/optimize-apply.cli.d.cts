@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { C as Candidate } from '../../optimize-candidates-BgkVWXMu.cjs';
+import { C as Candidate } from '../../optimize-candidates-C-tIpyOs.cjs';
 import '../../step-key-BxJC8fSh.cjs';
 
 interface ApplyCliArgs {

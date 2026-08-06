@@ -1,11 +1,11 @@
-# next.json / `lakebase-sftdd-next` schema
+# next.json / `consort-next` schema
 
 The authoritative, strictly read-only "what do I do next?" surface. It is produced two ways, from the SAME engine the deterministic drive runs on (so it can never disagree with what the drive would actually do):
 
-- **On demand**: `lakebase-sftdd-next --feature <F>` (or `--sprint <S>`), `--json` for the machine contract.
+- **On demand**: `consort-next --feature <F>` (or `--sprint <S>`), `--json` for the machine contract.
 - **Auto-emitted**: the drive writes this snapshot to `.sftdd/next.json` on every stop (a HITL gate, a raised escalation, feature-complete, an error, a killed run), feature scope.
 
-The contract for an orchestrating agent is therefore: **on any drive stop, read `.sftdd/next.json`, present its `options` to the human, and enact the chosen one.** Never reverse-engineer the next move from source, and never hand-edit workflow state. `lakebase-sftdd-next` is read-only: no model spawn, no writes to workflow artifacts, no actions performed. Enacting a chosen option is the caller's job (each option carries its exact command).
+The contract for an orchestrating agent is therefore: **on any drive stop, read `.sftdd/next.json`, present its `options` to the human, and enact the chosen one.** Never reverse-engineer the next move from source, and never hand-edit workflow state. `consort-next` is read-only: no model spawn, no writes to workflow artifacts, no actions performed. Enacting a chosen option is the caller's job (each option carries its exact command).
 
 ## Top-level shape
 
@@ -59,14 +59,14 @@ interface NextBlocker {
 
 | Stop | Options (besides `hold`) | Enact |
 |---|---|---|
-| Acceptance (`accept`) | `acceptance.accept` / `acceptance.discard` / `acceptance.revise` | `lakebase-sftdd-pipeline accept\|discard\|revise --feature <F> --story <S> --approver <you>` (accept owns the experiment git-merge) |
-| Per-story spec gate (`approve-gate`) | `spec.approve` | `lakebase-sftdd-approve-gate --feature <F> --story <S> --approver <you>` |
-| Sprint plan gate (`approve-plan-gate`) | `plan.approve` | `lakebase-sftdd-approve-gate --sprint <S> --approver <you>` |
-| Deploy gate (`approve-deploy-gate`) | `deploy.approve` | `lakebase-sftdd-approve-gate --feature <F> --gate deploy --approver <you>` |
-| Promote gate (`approve-promote-gate`) | `promote.approve` (outward-facing) | `lakebase-sftdd-approve-gate --feature <F> --gate promote --promote-ref <feature-branch> --approver <you>` (the `--promote-ref` is REQUIRED, else the approval is a silent no-op) |
-| Blocked (`raise-to-hil`) | `resume` (after resolving the blocker) | `lakebase-sftdd-drive --feature <F>` |
-| Feature complete | `resume` (deploy the feature) | `lakebase-sftdd-drive --feature <F>` |
-| Any other step | `resume` (carry out the next step) | `lakebase-sftdd-drive --feature <F>` |
+| Acceptance (`accept`) | `acceptance.accept` / `acceptance.discard` / `acceptance.revise` | `consort-pipeline accept\|discard\|revise --feature <F> --story <S> --approver <you>` (accept owns the experiment git-merge) |
+| Per-story spec gate (`approve-gate`) | `spec.approve` | `consort-approve-gate --feature <F> --story <S> --approver <you>` |
+| Sprint plan gate (`approve-plan-gate`) | `plan.approve` | `consort-approve-gate --sprint <S> --approver <you>` |
+| Deploy gate (`approve-deploy-gate`) | `deploy.approve` | `consort-approve-gate --feature <F> --gate deploy --approver <you>` |
+| Promote gate (`approve-promote-gate`) | `promote.approve` (outward-facing) | `consort-approve-gate --feature <F> --gate promote --promote-ref <feature-branch> --approver <you>` (the `--promote-ref` is REQUIRED, else the approval is a silent no-op) |
+| Blocked (`raise-to-hil`) | `resume` (after resolving the blocker) | `consort-drive --feature <F>` |
+| Feature complete | `resume` (deploy the feature) | `consort-drive --feature <F>` |
+| Any other step | `resume` (carry out the next step) | `consort-drive --feature <F>` |
 | Done | terminal noop (nothing to do) | (none) |
 
 `<you>` is a placeholder unless `--approver` is passed; the auto-emitted `next.json` leaves it as `<you>` for the human to fill.

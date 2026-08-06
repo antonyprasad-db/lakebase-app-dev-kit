@@ -1,13 +1,13 @@
 #!/usr/bin/env node
-// lakebase-sftdd-cycle: the substrate surface for TDD cycle bookkeeping.
+// consort-cycle: the substrate surface for TDD cycle bookkeeping.
 //
 // The ORCHESTRATION (deterministic driver) calls this around the pure
 // Navigator/Driver agents. The agents never record cycles or touch git:
 //   - Navigator writes the next failing test, then the driver runs:
-//       lakebase-sftdd-cycle begin --feature F --story S [--tdd-dir D]
+//       consort-cycle begin --feature F --story S [--tdd-dir D]
 //     to stamp the RED cycle for that test.
 //   - Driver writes code + runs the project's test command, then the driver runs:
-//       lakebase-sftdd-cycle green --feature F --story S [--tdd-dir D]
+//       consort-cycle green --feature F --story S [--tdd-dir D]
 //     to record the runner outcome + stamp GREEN.
 //
 // Exit: 0 ok; 2 bad args; 1 op failure (e.g. no open RED cycle to green).
@@ -97,7 +97,7 @@ function parse(argv: string[]): Args {
 
 function usage(msg: string): number {
   process.stderr.write(
-    `${msg}\nUsage: lakebase-sftdd-cycle <begin|green|review|refactor> --feature <F> --story <S> [--ac <AC>] [--tdd-dir <D>] [--loop ac|hybrid-a] [--batch-cap <n>]\n`,
+    `${msg}\nUsage: consort-cycle <begin|green|review|refactor> --feature <F> --story <S> [--ac <AC>] [--tdd-dir <D>] [--loop ac|hybrid-a] [--batch-cap <n>]\n`,
   );
   return 2;
 }

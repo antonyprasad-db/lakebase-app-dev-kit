@@ -9,9 +9,9 @@ import { approveHint } from "../../consort/logging/orchestrator-logging.js";
 import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 
 describe("approveHint: the right approval command per gate kind", () => {
-  it("per-story spec gate -> lakebase-sftdd-approve-gate --feature --story (NOT --gate spec)", () => {
+  it("per-story spec gate -> consort-approve-gate --feature --story (NOT --gate spec)", () => {
     const hint = approveHint({ kind: "approve-gate", story: "S1" } as WorkflowAction, { featureId: "F1" });
-    expect(hint).toContain("lakebase-sftdd-approve-gate");
+    expect(hint).toContain("consort-approve-gate");
     expect(hint).toContain("--feature F1");
     expect(hint).toContain("--story S1");
     // The bug was hinting the feature-level gates.json spec gate for a per-story stop.
@@ -20,7 +20,7 @@ describe("approveHint: the right approval command per gate kind", () => {
 
   it("plan gate -> --sprint (no story, no feature)", () => {
     const hint = approveHint({ kind: "approve-plan-gate" } as WorkflowAction, { sprint: "s1" });
-    expect(hint).toContain("lakebase-sftdd-approve-gate --sprint s1");
+    expect(hint).toContain("consort-approve-gate --sprint s1");
     expect(hint).not.toContain("--story");
     expect(hint).not.toContain("--feature");
   });
@@ -30,9 +30,9 @@ describe("approveHint: the right approval command per gate kind", () => {
     expect(approveHint({ kind: "approve-promote-gate" } as WorkflowAction, { featureId: "F1" })).toContain("--feature F1 --gate promote");
   });
 
-  it("PO acceptance -> lakebase-sftdd-pipeline accept --feature --story (a pipeline action, not a gates.json gate)", () => {
+  it("PO acceptance -> consort-pipeline accept --feature --story (a pipeline action, not a gates.json gate)", () => {
     const hint = approveHint({ kind: "accept", story: "S1" } as WorkflowAction, { featureId: "F1" });
-    expect(hint).toContain("lakebase-sftdd-pipeline accept");
+    expect(hint).toContain("consort-pipeline accept");
     expect(hint).toContain("--feature F1");
     expect(hint).toContain("--story S1");
   });

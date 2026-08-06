@@ -111,10 +111,10 @@ function parse(argv) {
 }
 function help() {
   process.stdout.write(
-    `lakebase-sftdd-sync-backlog , commit a sprint's backlog from authored feature-request.md files
+    `consort-sync-backlog , commit a sprint's backlog from authored feature-request.md files
 
 Usage:
-  lakebase-sftdd-sync-backlog --sprint <s> [--features F1,F2 ...] [--project-dir <path>] [--tdd-dir <path>] [--json]
+  consort-sync-backlog --sprint <s> [--features F1,F2 ...] [--project-dir <path>] [--tdd-dir <path>] [--json]
 
 --features declares this sprint's membership (recorded to sprints/<s>/requested.json); omit to re-project
 from the existing requested.json. Projects backlog.json = requested features that have a feature-request.md.
@@ -125,7 +125,7 @@ Exit 0 = backlog committed; exit 2 = empty (author the feature-request.md files 
 }
 var p = parse(process.argv.slice(2));
 if (!p.sprint) {
-  process.stderr.write(`lakebase-sftdd-sync-backlog: --sprint <name> is required.
+  process.stderr.write(`consort-sync-backlog: --sprint <name> is required.
 `);
   process.exit(2);
 }

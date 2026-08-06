@@ -8,7 +8,7 @@
     {
       "name": "consort",
       "source": "./",
-      "description": "Consort: a Spec-First Branched-Database TDD agent framework. Run /consort:start to launch the workflow (resumes in a scaffolded project, guides creation elsewhere). A deterministic orchestrator (lakebase-sftdd-drive) spawns the role agents (product-owner, spec-author, architect-reviewer, dba, test-strategist, ux-designer, navigator, driver) and holds human-in-the-loop gates."
+      "description": "Consort: a Spec-First Branched-Database TDD agent framework. Run /consort:start to launch the workflow (resumes in a scaffolded project, guides creation elsewhere). A deterministic orchestrator (consort-drive) spawns the role agents (product-owner, spec-author, architect-reviewer, dba, test-strategist, ux-designer, navigator, driver) and holds human-in-the-loop gates."
     }
   ]
 }

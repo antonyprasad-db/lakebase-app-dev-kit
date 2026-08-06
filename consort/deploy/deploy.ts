@@ -243,7 +243,7 @@ export interface ReleaseEngineerLogCtx extends AgentLogIoOpts {
 /**
  * Code-emit the Release Engineer's deploy START into the central agent log.
  *
- * The deterministic deploy (`lakebase-sftdd-deploy`) is what actually starts +
+ * The deterministic deploy (`consort-deploy`) is what actually starts +
  * verifies the app; the RE role model that invokes it may stay silent (a haiku
  * RE wrote zero log events while the deploy ran). So the deploy emits the RE's
  * own lifecycle , the same orchestrator-as-code logging principle , into the ONE
@@ -505,7 +505,7 @@ export async function deployToTarget(args: DeployArgs): Promise<DeployResult> {
       // Our own stale instance is gone and the port is free , fall through to a
       // clean deploy of this turn's code.
     } else {
-    const reason = `target port still serving a foreign process at ${url} after stopping our own instance; refusing to verify against it. Stop it first (lakebase-sftdd-deploy --target ${args.targetName} --stop, or free the port).`;
+    const reason = `target port still serving a foreign process at ${url} after stopping our own instance; refusing to verify against it. Stop it first (consort-deploy --target ${args.targetName} --stop, or free the port).`;
     const verify: VerifyResult = { passed: false, summary: reason };
     let evidencePath: string | undefined;
     if (args.featureId) {

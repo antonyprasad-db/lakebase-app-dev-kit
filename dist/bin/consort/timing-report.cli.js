@@ -7112,14 +7112,14 @@ function parseArgs(argv) {
   }
   return out;
 }
-var HELP = `lakebase-sftdd-timing
+var HELP = `consort-timing
 
 Per-turn timing report from the agent log (.tdd/agent-log.jsonl). Leads with the
 MEASURED per-turn compute (the driver's turn.usage duration_ms, rolled up by role
 and role/model with cost), the durable, baseline-comparable signal. Also rolls up
 inter-event gaps by phase / role / kind (for finding orchestration overhead).
 
-  lakebase-sftdd-timing [flags]
+  consort-timing [flags]
     --tdd-dir <path>   artifact root (default ./.sftdd, honors a legacy ./.tdd)
     --feature <id>     only this feature's events
     --top <n>          how many slowest spans to surface (default 10)

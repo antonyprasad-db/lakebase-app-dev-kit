@@ -54,7 +54,7 @@ The phases + gates above are the PER-FEATURE pipeline that `/design` (phases 0 t
 
 ## Orchestrated commands (the dev loop)
 
-Every command is a thin invocation of the deterministic orchestrator driver (`lakebase-sftdd-drive`), scoped to a phase range. The driver sequences the work and spawns each role as a subagent (`claude -p --agent <role>`); routing is code, not an LLM. Gates always pause for a human decision: `--gates interactive` (the default for the live slash commands) stops at each gate so the human answers; `--gates proxy` (headless / CI) has the Human Proxy answer.
+Every command is a thin invocation of the deterministic orchestrator driver (`consort-drive`), scoped to a phase range. The driver sequences the work and spawns each role as a subagent (`claude -p --agent <role>`); routing is code, not an LLM. Gates always pause for a human decision: `--gates interactive` (the default for the live slash commands) stops at each gate so the human answers; `--gates proxy` (headless / CI) has the Human Proxy answer.
 
 ```
 Tier 1:  /sprint  = plan ─> [PLAN GATE] ─> per feature: /design ─> /build ─> /deploy
@@ -64,12 +64,12 @@ Tier 2:  /plan  /design  /build  /deploy   (run ONE phase, then stop + suggest n
          /spike                            (throwaway exploration, outside the loop)
 ```
 
-- **`/sprint [name]`** (Tier 1, the top-level orchestrator): runs the whole sprint as one continuous flow, plan to the plan gate, then claim + drive each backlog feature `design` -> `build` -> `deploy`. Re-invoked per cycle; resumable (halts at the next HITL gate for the human, continues on re-run). `lakebase-sftdd-drive --sprint <name>`.
+- **`/sprint [name]`** (Tier 1, the top-level orchestrator): runs the whole sprint as one continuous flow, plan to the plan gate, then claim + drive each backlog feature `design` -> `build` -> `deploy`. Re-invoked per cycle; resumable (halts at the next HITL gate for the human, continues on re-run). `consort-drive --sprint <name>`.
 - **`/plan [name]`** (Tier 2, sprint planning, ABOVE the per-feature loop): the **Spec Author** proposes the candidate breakdown (`.sftdd/planning/feature-proposals.md`); the **Architect** t-shirt-sizes the candidates (`.sftdd/planning/estimates.json`, XS/S/M/L/XL); the **Product Owner** commits the backlog by authoring a `feature-request.md` per feature that fits sprint capacity; the deterministic `sync-backlog` step projects `.sftdd/sprints/<name>/backlog.json` (committed ids + sizes); the **sprint plan gate** is the HITL checkpoint. Stops there (does not flow into design). Requires project intake (`product-overview.md` + `nfrs.md`, +`design-brief.md` for UI) as a precondition. `--sprint <name> --plan-only`.
 - **`/design <feature-id>`**: the **SDD (Spec Driven Development)** lane. Claims the paired branch (Step 0), enforces the feature's `feature-request.md` + project intake (Step 0.5, a precondition, NOT a gate), then drives the per-story design lane (Spec Author -> Architect Reviewer -> DBA -> Test Strategist) to the spec + test_list gates, producing the executable spec. The DBA turns the architect's logical persistence contract into a physical schema (`db-design.json`). `--only design`.
 - **`/build <feature-id>`**: the **TDD (Test Driven Development)** lane. RED -> GREEN -> REVIEW -> REFACTOR cycles + per-story acceptance against the frozen spec, to ready-for-review (requires the SDD lane done). `--only build`.
 - **`/deploy <feature-id> [--target local] [--story <s>]`**: deploys the merged feature (or one story's branch) + verifies reachable + feature-verify; the **deploy gate** is the working-software review the PO signs off (the local target is the only one implemented; remote release is the scaffolded `merge.yml`). `--only deploy`. For a hands-on review the human can run `./scripts/run-dev.sh` to serve the app locally (migrates + hot-reload) and open it in a browser.
-- **`/spike <slug> [--for <feature>]`**: throwaway exploration on its own paired branch, OUTSIDE the workflow (no gates). Notes carry forward into a feature's design-spec gate; code is never promoted. `lakebase-sftdd-spike`.
+- **`/spike <slug> [--for <feature>]`**: throwaway exploration on its own paired branch, OUTSIDE the workflow (no gates). Notes carry forward into a feature's design-spec gate; code is never promoted. `consort-spike`.
 
 The same orchestrated path runs for real and headless; headless, the Human Proxy stands in for the human at every supply + gate (below).
 
@@ -77,12 +77,12 @@ The same orchestrated path runs for real and headless; headless, the Human Proxy
 
 By default every gate is HITL (the workflow halts for the Product Owner). When `LAKEBASE_SFTDD_HUMAN_PROXY=1` (set by CI and the smoke), the approver role is **performed by** the `human-proxy` identity, a diligent stand-in, not a rubber stamp. For the artifact gates (`spec`/`plan`/`test_list`/`promote`), it approves a `gates.json` gate and emits `gate.approved` only when both hold (the `deploy` gate is certified differently, see the `/deploy` bullet below):
 - **Given the artifacts:** the gate's expected artifacts EXIST (a missing one is refused).
-- **Format-conformant:** each validates against its declared format (JSON against its schema; narrative MD against its required sections, see `references/spec-format.md` + `lakebase-sftdd-gate-conformance`). A malformed artifact, or one missing a required section, is refused.
+- **Format-conformant:** each validates against its declared format (JSON against its schema; narrative MD against its required sections, see `references/spec-format.md` + `consort-gate-conformance`). A malformed artifact, or one missing a required section, is refused.
 
 So the producing role's job here is to HAND the approver complete, conformant artifacts, recording its recommended resolutions (decisions, NFR acceptances, orderings) INSIDE them rather than leaving open questions for a human reply. A gate advances because real well-formed work was verified, never because it was skipped; a missing/malformed artifact hard-blocks in CI exactly as for a human.
 
-Beyond the gates, the Human Proxy stands in wherever the path needs human input (`lakebase-sftdd-human-proxy` has two subcommands, `supply` and `approve`; both validate-then-place, neither fabricates or skips):
-- **Project intake** (precondition of `/plan` + `/design`): `supply`s `product-overview.md` / `nfrs.md` / `design-brief.md` from `$LAKEBASE_SFTDD_RECORDED_INTAKE_DIR`; `lakebase-sftdd-intake` then passes because they're present + conformant.
+Beyond the gates, the Human Proxy stands in wherever the path needs human input (`consort-human-proxy` has two subcommands, `supply` and `approve`; both validate-then-place, neither fabricates or skips):
+- **Project intake** (precondition of `/plan` + `/design`): `supply`s `product-overview.md` / `nfrs.md` / `design-brief.md` from `$LAKEBASE_SFTDD_RECORDED_INTAKE_DIR`; `consort-intake` then passes because they're present + conformant.
 - **`/plan` backlog:** the Architect sizes the candidates live; the Proxy `supply`s the recorded `feature-request.md` files (the PO's groomed sprint). `sync-backlog` projects `backlog.json` (committed ids + sizes).
 - **`/deploy` gate:** confirms the app came up reachable AND the verify passed, then records `gate.approved`; never approves a non-reachable or failed-verify deploy.
 
@@ -108,17 +108,17 @@ Each role is a separate agent definition under [`agents/`](agents/) with frontma
 - [`agents/test-strategist.md`](agents/test-strategist.md) – phase 2, builds the Beck-style ordered test list.
 - [`agents/navigator.md`](agents/navigator.md) – phase 4 PLAN + RED + REVIEW.
 - [`agents/driver.md`](agents/driver.md) – phase 4 GREEN + REFACTOR.
-- **Deploy + promote are deterministic (no agent).** The orchestrator itself runs `lakebase-sftdd-deploy` (deploy the increment, poll reachable, run the feature verify) and `lakebase-scm-merge` (promote via PR + CI + merge), surfacing the deploy and promote gates to the PO. These phases log under the `release-engineer` label but spawn no LLM agent.
-The **orchestrator** is the deterministic driver (`lakebase-sftdd-drive`), **not an LLM agent**: it routes over `workflow-state.json`, hands each phase to the right role agent above, carries artifacts forward, and surfaces every gate to the PO. It writes no spec/code/test/deploy.
+- **Deploy + promote are deterministic (no agent).** The orchestrator itself runs `consort-deploy` (deploy the increment, poll reachable, run the feature verify) and `lakebase-scm-merge` (promote via PR + CI + merge), surfacing the deploy and promote gates to the PO. These phases log under the `release-engineer` label but spawn no LLM agent.
+The **orchestrator** is the deterministic driver (`consort-drive`), **not an LLM agent**: it routes over `workflow-state.json`, hands each phase to the right role agent above, carries artifacts forward, and surfaces every gate to the PO. It writes no spec/code/test/deploy.
 
 **How the orchestrator runs them.** The role defs are scaffolded into the project's `.claude/agents/` (so Claude Code can discover + spawn them; the skill copy is the source). The driver computes the next action as a pure function of the recorded state, then spawns the role for that phase via `claude -p --agent <role>`. Routing is code, not a model: there is no LLM orchestrator session. Before spawning a role, the driver resolves the model from the project's `.lakebase/sftdd-config.json` via `resolveSftddSettings` (`roles.<role>.model`, the single source of truth for project settings). Resolution is `sftdd-config.json role model ?? legacy .lakebase/agent-config.json (override ?? recommended) ?? built-in recommended ?? inherit`: `agent-config.json` is honored only as a fallback for projects scaffolded before `sftdd-config.json`. The HIL sets per-project models at `lakebase-create-project`; each role's recommended model lives in its definition's `model:` (mirrored in `RECOMMENDED_MODELS`).
 
 ## References
 
 - [`references/spec-format.md`](references/spec-format.md) – full `.sftdd/` directory layout + markdown ↔ JSON contract.
-- [`references/orchestrator-contract.md`](references/orchestrator-contract.md) – how the agent DRIVING `/sprint` `/design` `/build` `/deploy` must behave: drive to completion via `lakebase-sftdd-next`, surface only HITL gates + blockers, report outcomes (not process), verbose/eval narration opt-in. The orchestrator's counterpart to `agent-operating-rules.md`; the command templates load it.
-- [`references/next-schema.md`](references/next-schema.md) – the `lakebase-sftdd-next` / `.sftdd/next.json` "what next" surface the orchestrator contract drives on.
-- [`references/agent-logging.md`](references/agent-logging.md) – structured agent log format + per-role emit points. Every role emits what it is doing via `lakebase-sftdd-log` (debug = reasoning, info = outputs) to the centralized `.sftdd/agent-log.jsonl`.
+- [`references/orchestrator-contract.md`](references/orchestrator-contract.md) – how the agent DRIVING `/sprint` `/design` `/build` `/deploy` must behave: drive to completion via `consort-next`, surface only HITL gates + blockers, report outcomes (not process), verbose/eval narration opt-in. The orchestrator's counterpart to `agent-operating-rules.md`; the command templates load it.
+- [`references/next-schema.md`](references/next-schema.md) – the `consort-next` / `.sftdd/next.json` "what next" surface the orchestrator contract drives on.
+- [`references/agent-logging.md`](references/agent-logging.md) – structured agent log format + per-role emit points. Every role emits what it is doing via `consort-log` (debug = reasoning, info = outputs) to the centralized `.sftdd/agent-log.jsonl`.
 - `scripts/sftdd/schemas/` – JSON Schemas validated by `spec-sync.ts`.
 - [`../software-design-principles/SKILL.md`](../software-design-principles/SKILL.md) – engineering canon (SOLID, DRY, clean code, layered architecture, cross-cutting concerns, NFRs). Required reading for Architect Reviewer and Navigator.
 
@@ -200,7 +200,7 @@ const exp = await cutExperiment({
 writeOutcomes(".sftdd", "F1", "S1-submit", "s1-submit", { status: "succeeded", tests_passed: 2 });
 
 // Teardown is HITL-gated. deleteBranchToo defaults to false – record survives.
-// (The lakebase-sftdd-experiment CLI's merge/discard drive this for the PO.)
+// (The consort-experiment CLI's merge/discard drive this for the PO.)
 await deleteExperiment({
   instance: "proj-checkout",
   tddDir: ".sftdd",
@@ -652,6 +652,6 @@ For non-agent invocation (debugging, CI introspection):
 | Command | Purpose |
 |---|---|
 | `lakebase-feature-status <featureId> [--tdd <dir>] [--json]` | One-screen snapshot of a feature's TDD workflow state. Use `--json` for machine-readable payload. |
-| `lakebase-sftdd-next (--feature <F> \| --sprint <S>) [--json]` | The authoritative, strictly read-only "what do I do next?" surface, computed from the same engine the drive runs on: the reconciled state, the decision menu (the real HIL choices, each with its correct enact command + a prompt to pose), and any blockers. The drive also auto-emits it to `.sftdd/next.json` on every stop, so an orchestrating agent's contract is "on any stop, read next.json and present its options" instead of improvising. See [`references/next-schema.md`](references/next-schema.md). |
+| `consort-next (--feature <F> \| --sprint <S>) [--json]` | The authoritative, strictly read-only "what do I do next?" surface, computed from the same engine the drive runs on: the reconciled state, the decision menu (the real HIL choices, each with its correct enact command + a prompt to pose), and any blockers. The drive also auto-emits it to `.sftdd/next.json` on every stop, so an orchestrating agent's contract is "on any stop, read next.json and present its options" instead of improvising. See [`references/next-schema.md`](references/next-schema.md). |
 | `node dist/bin/sftdd/spec-sync.cli.js <tddDir>` | Walk the `.sftdd/` tree and print drift reports. Exits 0 even when reports exist (warn-only). |
 | `node dist/bin/sftdd/test-list.cli.js <tddDir> <featureId> [storyId]` | Regenerate per-AC views from the feature-level master test list. With a `storyId`, instead write that story's scoped per-story test list (`stories/<story>/test-list-per-story.json`), the streaming build lane's per-story input. |

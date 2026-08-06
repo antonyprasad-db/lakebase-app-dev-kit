@@ -6,13 +6,13 @@ those govern each role's turn; this governs the agent DRIVING the workflow. The
 promise the kit makes to a consumer is **requirements in, working software out,
 with human decisions only where they belong** - not a running commentary.
 
-The deterministic driver (`lakebase-sftdd-drive`) already sequences the work and
+The deterministic driver (`consort-drive`) already sequences the work and
 spawns the roles; your job is to run it to completion and involve the human only
 at the decisions that are genuinely theirs. Drive, do not describe.
 
 ## Rules
 
-1. **Drive to completion.** On every stop, read `lakebase-sftdd-next` (or the
+1. **Drive to completion.** On every stop, read `consort-next` (or the
    auto-emitted `.sftdd/next.json`), enact its `primary_action`, and continue. Do
    NOT stop or ask unless `next` surfaces a HITL decision (a gate) or a blocker.
    Re-running the drive after a gate is part of driving, not a question to pose.

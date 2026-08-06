@@ -265,9 +265,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **Renamed to Consort.** The package is now `@databricks-solutions/consort` and the
   GitHub repo is `databricks-solutions/consort` (the old URL redirects). The framework
-  skill `lakebase-sftdd-workflows` is now `consort`, with a `/consort:*` plugin command
+  skill `consort-workflows` is now `consort`, with a `/consort:*` plugin command
   namespace and a Consort MCP identity. Consort is positioned as a Spec-First
-  Branched-Database TDD agent framework built on governance by construction. Internal `sftdd` module names, the `lakebase-sftdd-*` bin names, and the
+  Branched-Database TDD agent framework built on governance by construction. Internal `sftdd` module names, the `consort-*` bin names, and the
   scaffolded `.sftdd/` runtime dir are intentionally unchanged for back-compat with
   already-scaffolded projects.
 - Repinned the substrate dependency `@databricks-solutions/lakebase-scm-utils` to
@@ -326,7 +326,7 @@ Documentation audit remediation (FEIP-8085), plus one CLI help-text fix. Docs ma
 ### Fixed
 
 - **`lakebase-branch --help` no longer advertises the deleted `create-tier` subcommand.** The unpaired `create-tier` was removed, but the help text (usage line, flags section, example) and two code comments still listed it; repointed to the shipped `create-paired-tier`. Help-text and comments only, no logic change.
-- **Documentation brought current with the shipped code (FEIP-8085).** A four-agent audit corrected two classes of staleness: completed items still labeled proposal/future (eight `docs/refactor/*` proposals whose work shipped, five scaffolded command docs calling the shipped `lakebase-update-commands` bin "future", the SCM SKILL's shipped "future work" and stale `alpha.45` stamps), and instruction drift from the code. The largest drift fixes are in the `lakebase-sftdd-workflows` skill (read by agents at runtime): the experiment APIs are now documented story-scoped (a `storyId` threaded through the primitives + the `experiments/<feature>/<story>/<slug>/` path), the 5th `deploy` gate is in every gate list, and the model-resolution source, roles table, entry points, `feature-status-schema` example, and `CONFIG` `clientFramework` row are corrected. SCM/root docs dropped a phantom `lakebase-get-connection --write-env` flag, fixed `create-tier` -> `create-paired-tier` in the root README, `migrate-live*` -> `schema-migrate-live*` in CONTRIBUTING, and added the `.lakebase/kit-ref.local` run pin to the capture runbook's kit-ref resolution order.
+- **Documentation brought current with the shipped code (FEIP-8085).** A four-agent audit corrected two classes of staleness: completed items still labeled proposal/future (eight `docs/refactor/*` proposals whose work shipped, five scaffolded command docs calling the shipped `lakebase-update-commands` bin "future", the SCM SKILL's shipped "future work" and stale `alpha.45` stamps), and instruction drift from the code. The largest drift fixes are in the `consort-workflows` skill (read by agents at runtime): the experiment APIs are now documented story-scoped (a `storyId` threaded through the primitives + the `experiments/<feature>/<story>/<slug>/` path), the 5th `deploy` gate is in every gate list, and the model-resolution source, roles table, entry points, `feature-status-schema` example, and `CONFIG` `clientFramework` row are corrected. SCM/root docs dropped a phantom `lakebase-get-connection --write-env` flag, fixed `create-tier` -> `create-paired-tier` in the root README, `migrate-live*` -> `schema-migrate-live*` in CONTRIBUTING, and added the `.lakebase/kit-ref.local` run pin to the capture runbook's kit-ref resolution order.
 
 ### Added
 
@@ -353,12 +353,12 @@ Three field findings from the F4-pick-outbound feature of a live stockflow tier-
 
 ### Fixed
 
-- **A re-driven story now re-runs RED/GREEN instead of reusing its stale (false-GREEN) build (FEIP-8052, Finding 27).** `discard` / `pipeline revise` / `set --status building` reset the pipeline status but left the per-story cycle records under `.sftdd/cycles/` intact. The drive derives "build already GREEN" (`codeWritten` → `storyTestProgress.allGreen`) from those stale `green_at` files, so a story sent back to be rebuilt skipped the RED/GREEN cycle and jumped straight to deploy, re-failing the same deploy-verify in a loop; recovery required hand-deleting kit-internal cycle records + the paired Lakebase experiment branch. Root cause: split-brain, `resetStoryBuildState` (the exact clear-cycles primitive) existed but was wired into only the `lakebase-sftdd-experiment discard --revise` door. Now both revise doors (`applyReviseSelfHeal` + the plain reset) call it, so the operator `pipeline revise` and the driver's auto revise-route re-drive from a clean slate.
+- **A re-driven story now re-runs RED/GREEN instead of reusing its stale (false-GREEN) build (FEIP-8052, Finding 27).** `discard` / `pipeline revise` / `set --status building` reset the pipeline status but left the per-story cycle records under `.sftdd/cycles/` intact. The drive derives "build already GREEN" (`codeWritten` → `storyTestProgress.allGreen`) from those stale `green_at` files, so a story sent back to be rebuilt skipped the RED/GREEN cycle and jumped straight to deploy, re-failing the same deploy-verify in a loop; recovery required hand-deleting kit-internal cycle records + the paired Lakebase experiment branch. Root cause: split-brain, `resetStoryBuildState` (the exact clear-cycles primitive) existed but was wired into only the `consort-experiment discard --revise` door. Now both revise doors (`applyReviseSelfHeal` + the plain reset) call it, so the operator `pipeline revise` and the driver's auto revise-route re-drive from a clean slate.
 
 ### Added
 
-- **`lakebase-sftdd-pipeline rebuild-story` (Finding 27).** The sanctioned "re-drive this story from a clean slate" op, replacing the `rm -rf .sftdd/cycles/...` recovery dance. It clears the build cycles + test-list, BOTH HIL escalation sources (escalation files and blocking smells, the dual-source rule), marks the experiment for a clean re-fork, and puts the story back on the single build lane (refuses when the lane is busy with a different story).
-- **`lakebase-sftdd-experiment cut --reset-stale-branch` (Finding 27).** Drops a pre-existing paired branch of the same deterministic name before forking, so a re-cut after a discarded experiment re-forks clean off feature HEAD instead of reusing the branch that still carries the discarded build's schema (mirroring the ci-pr `--reset-stale-branch` precedent). The drive auto-passes it on a re-cut after a discarded experiment. The drop-then-fork ordering is hermetically tested via an injected paired-branch ops seam; the live DROP + re-fork against a real Lakebase branch is validated by a live drive.
+- **`consort-pipeline rebuild-story` (Finding 27).** The sanctioned "re-drive this story from a clean slate" op, replacing the `rm -rf .sftdd/cycles/...` recovery dance. It clears the build cycles + test-list, BOTH HIL escalation sources (escalation files and blocking smells, the dual-source rule), marks the experiment for a clean re-fork, and puts the story back on the single build lane (refuses when the lane is busy with a different story).
+- **`consort-experiment cut --reset-stale-branch` (Finding 27).** Drops a pre-existing paired branch of the same deterministic name before forking, so a re-cut after a discarded experiment re-forks clean off feature HEAD instead of reusing the branch that still carries the discarded build's schema (mirroring the ci-pr `--reset-stale-branch` precedent). The drive auto-passes it on a re-cut after a discarded experiment. The drop-then-fork ordering is hermetically tested via an injected paired-branch ops seam; the live DROP + re-fork against a real Lakebase branch is validated by a live drive.
 
 ## [0.3.0-beta.31] - 2026-07-16
 
@@ -373,9 +373,9 @@ Handover findings batch (FEIP-8050): six field findings from a stockflow tier-2 
 
 ### Fixed
 
-- **`lakebase-feature-status` no longer shows a shipped feature's deploy/promote as `open` (Finding 13).** It dumped the raw `gates.json` approval bit, so a feature the drive had already deployed + merged disagreed with `lakebase-sftdd-next` (which reconciles from `deploy-evidence.json` + the SCM workflow-state). feature-status now consumes the SAME reconciliation (`readDriveContext`) via a new `progression` snapshot field and renders `done (deployed)` / `done (merged)`. The CLI gains `--project-dir` to reach `.lakebase/`.
+- **`lakebase-feature-status` no longer shows a shipped feature's deploy/promote as `open` (Finding 13).** It dumped the raw `gates.json` approval bit, so a feature the drive had already deployed + merged disagreed with `consort-next` (which reconciles from `deploy-evidence.json` + the SCM workflow-state). feature-status now consumes the SAME reconciliation (`readDriveContext`) via a new `progression` snapshot field and renders `done (deployed)` / `done (merged)`. The CLI gains `--project-dir` to reach `.lakebase/`.
 - **CI workflows follow `.lakebase/kit-ref` instead of a baked version pin (Finding 24).** Scaffolded `pr.yml` / `merge.yml` hardcoded the scaffold-time kit version at every kit call site, so bumping `.lakebase/kit-ref` (which the runtime substrate follows) never reached CI, every run executed the stale kit. Both workflows now resolve `KIT_REF` from `.lakebase/kit-ref` (fallback = the scaffold version) and use `#"${KIT_REF}"` at all call sites. `lakebase-scm-doctor` gains a `ci-workflow-kit-pin` warning that flags workflows still carrying the literal pin.
-- **The `/design` reflect gate and `pipeline revise` now converge instead of looping (Findings 22 + 23).** The operator-facing `lakebase-sftdd-pipeline revise` was hollow: it reset the story but never cleared the blocking smell (so the next drive re-raised it at action 000) and never re-briefed the test-strategist (so the regenerated test block re-omitted the requested coverage, forever). `revise` now runs the same self-heal the driver's auto-route uses: it resolves the smell, writes a coverage-forcing hand-back brief so the test-strategist MUST add the named test, and spends the one-revise budget so a re-fire hard-halts to the human. `discard` clears a discarded story's blocking smell; a new `resolve-smell` subcommand replaces hand-editing `smells.json`.
+- **The `/design` reflect gate and `pipeline revise` now converge instead of looping (Findings 22 + 23).** The operator-facing `consort-pipeline revise` was hollow: it reset the story but never cleared the blocking smell (so the next drive re-raised it at action 000) and never re-briefed the test-strategist (so the regenerated test block re-omitted the requested coverage, forever). `revise` now runs the same self-heal the driver's auto-route uses: it resolves the smell, writes a coverage-forcing hand-back brief so the test-strategist MUST add the named test, and spends the one-revise budget so a re-fire hard-halts to the human. `discard` clears a discarded story's blocking smell; a new `resolve-smell` subcommand replaces hand-editing `smells.json`.
 - **The promote local-migrate fallback verifies the target before reporting in-sync (Finding 25).** It reported "git and Lakebase schema are in sync" purely from the apply exit code, a lie when the apply no-ops against the wrong branch or applies partially. `applyAndVerifyTierMigration` now reads the TARGET branch's status back (pending == 0) after applying; when it is not verified at head it reports `migrate-unconfirmed`, which BLOCKS workflow completion instead of printing a false in-sync.
 - **Shared tier reconcile + `ci-pr` reset (Finding 21).** Two gaps beyond the beta.27/.28 feature-branch recovery:
   - CI reused `ci-pr-<N>` across runs, so a branch first cut while its source tier was polluted rode that pollution through even after the tier was reconciled. `lakebase-ci-resolve-branch --reset-on-db-ahead` (wired in `pr.yml`) probes a reused, source-verified `ci-pr` for db-ahead-of-code and re-forks it from the now-clean source.
@@ -427,7 +427,7 @@ Handover findings batch (FEIP-8050): six field findings from a stockflow tier-2 
     resets an INCOMPLETE breakdown (story stubs present but `feature-spec.json`
     absent or empty-stories), so a re-dispatch always regenerates from a clean
     slate regardless of the agent's idempotency behavior. A no-op on a complete
-    breakdown or a clean slate. New `lakebase-sftdd-pipeline reset-breakdown`.
+    breakdown or a clean slate. New `consort-pipeline reset-breakdown`.
   - **Spec-author prompt.** The breakdown deliverable is now `feature-spec.json`
     (the feature index) + the stubs, with idempotency keyed on `feature-spec.json`.
 
@@ -443,7 +443,7 @@ Handover findings batch (FEIP-8050): six field findings from a stockflow tier-2 
   predecessor's branch as this feature's `featureBranch`, so the experiment forked
   from (and the build committed onto) the wrong branch, bypassing the experiment
   to feature to promote-PR flow entirely. Two hard-block guards, defense in depth:
-  - **Foreign-claim refusal.** `lakebase-sftdd-drive --feature <F>` now refuses
+  - **Foreign-claim refusal.** `consort-drive --feature <F>` now refuses
     loud (names both features + the remedy, exits non-zero) when the recorded SCM
     claim names a DIFFERENT feature, before the driver runs, killing the stale
     experiment-parent derivation at the source. Claim this feature (or reconcile
@@ -466,7 +466,7 @@ Handover findings batch (FEIP-8050): six field findings from a stockflow tier-2 
   and ask the human at each one. `references/orchestrator-contract.md` (loaded by
   the four command templates, the same way role prompts load
   `agent-operating-rules.md`) makes the default: drive to completion via
-  `lakebase-sftdd-next`, stop for the human ONLY at a HITL gate or a blocker,
+  `consort-next`, stop for the human ONLY at a HITL gate or a blocker,
   present the decision (option titles + `hil_prompt`) not the CLIs run, report
   outcomes not process, show working software at the acceptance + deploy gates;
   verbose/eval narration is explicit opt-in (`LAKEBASE_SFTDD_VERBOSE=1`), off by
@@ -478,10 +478,10 @@ Handover findings batch (FEIP-8050): six field findings from a stockflow tier-2 
   coarse feature phase across features (FEIP-8022).** Two coupled defects: (1)
   the coarse `phase` in `.sftdd/workflow-state.json` is per-PROJECT and was
   honored for any feature, so a prior feature's phase leaked into the next
-  (`lakebase-sftdd-next --feature F2` reported F2 at "deploy" with only a
+  (`consort-next --feature F2` reported F2 at "deploy" with only a
   feature-request). Now the phase is stamped with its owning feature and honored
   only for that feature (planning is sprint-global + exempt); an un-owned/foreign
-  phase falls back to "feature" so the drive AND `lakebase-sftdd-next` re-derive
+  phase falls back to "feature" so the drive AND `consort-next` re-derive
   from the feature's own artifacts. (2) the sprint loop re-claimed + re-drove a
   completed feature; it now SKIPS a backlog feature whose own workflow derives to
   `done`. A feature shipped fully out-of-band (promotion merged outside the drive)
@@ -493,7 +493,7 @@ Handover findings batch (FEIP-8050): six field findings from a stockflow tier-2 
 
 - **The surfaced promote-gate approval command now includes the required
   `--promote-ref` (FEIP-8019).** At the promote gate, both the drive's stop
-  message and `lakebase-sftdd-next` printed `lakebase-sftdd-approve-gate
+  message and `consort-next` printed `consort-approve-gate
   --feature <F> --gate promote --approver <you>` with no `--promote-ref`. The
   promote gate requires a non-empty `promote_ref`; running the surfaced command
   returned "skipped promote (no promote_ref supplied)", a silent no-op, and the
@@ -501,7 +501,7 @@ Handover findings batch (FEIP-8050): six field findings from a stockflow tier-2 
   supplied it (`cfg.featureBranch ?? feature`); only the human-facing command
   omitted it. The single structured `gateEnactCommand` map now emits the promote
   enact with `--promote-ref <feature-branch>` (read from the SCM workflow state),
-  and both `approveHint` (the drive hint) and `lakebase-sftdd-next` project from
+  and both `approveHint` (the drive hint) and `consort-next` project from
   it, so following the surfaced command records the approval.
 
 ### Added
@@ -532,13 +532,13 @@ Handover findings batch (FEIP-8050): six field findings from a stockflow tier-2 
 
 ### Added
 
-- **`lakebase-sftdd-next`: an authoritative, strictly read-only "what do I do
+- **`consort-next`: an authoritative, strictly read-only "what do I do
   next?" surface (FEIP-8017).** The deterministic drive knows exactly where the
   workflow is and what it would do next, but only WHILE it runs; every time it
   stops (a HITL gate, a raised escalation, feature-complete, an error, a killed
   run) an orchestrating agent otherwise reverse-engineers the next move from
   source and drifts into freeform (improvised CLIs, manual git, manual state
-  edits). `lakebase-sftdd-next (--feature <F> | --sprint <S>) [--json]` answers,
+  edits). `consort-next (--feature <F> | --sprint <S>) [--json]` answers,
   from the SAME engine the drive uses (`deriveDriveState` -> `nextTransition`, so
   it can never drift): the reconciled state (coarse + pipeline-derived phase,
   per-story statuses, open gates, blockers), the decision MENU (not just the one
@@ -554,7 +554,7 @@ Handover findings batch (FEIP-8050): six field findings from a stockflow tier-2 
 
 ### Fixed
 
-- **`lakebase-sftdd-feature-status` now reflects per-story-driven completion
+- **`consort-feature-status` now reflects per-story-driven completion
   (FEIP-8016).** A fully built + accepted feature rendered as `Phase: discovery`
   with its feature-level gates still `open`, because the coarse
   `workflow-state.json` phase is not advanced per story and so lags behind the
@@ -574,15 +574,15 @@ Handover findings batch (FEIP-8050): six field findings from a stockflow tier-2 
 ### Fixed
 
 - **The acceptance gate now LANDS the accepted story's code, not just its state
-  (FEIP-8013).** The drive's `accept` was two commands (`lakebase-sftdd-experiment
-  merge` + `lakebase-sftdd-pipeline accept`); the git-merge lived only in the
+  (FEIP-8013).** The drive's `accept` was two commands (`consort-experiment
+  merge` + `consort-pipeline accept`); the git-merge lived only in the
   experiment CLI and `pipeline accept` recorded state. Interactive, the gate stops
   before the accept effect, so a human running the hinted `pipeline accept` recorded
   `done` but never merged, and the accepted story's code stayed on the experiment
   branch (the next story then forked from a feature branch missing it). Now
-  running `lakebase-sftdd-pipeline accept` LANDS the code: it RESOLVES the merge
+  running `consort-pipeline accept` LANDS the code: it RESOLVES the merge
   args (experiment slug + branches from the persisted experiment record; instance
-  from `--instance` else scm-state) and DELEGATES to `lakebase-sftdd-experiment
+  from `--instance` else scm-state) and DELEGATES to `consort-experiment
   merge`, the single CLI that owns the git-merge (+ migrations + teardown) and
   records acceptance. `pipeline accept` itself never touches the merge substrate
   in-process, it routes through that CLI (as does the drive's single `accept`
@@ -594,18 +594,18 @@ Handover findings batch (FEIP-8050): six field findings from a stockflow tier-2 
 
 ### Fixed
 
-- **`lakebase-sftdd-approve-gate` is now the one human door for the per-story spec
+- **`consort-approve-gate` is now the one human door for the per-story spec
   gate too (FEIP-8008).** At a per-story spec gate the drive printed a generic hint
-  (`lakebase-sftdd-approve-gate --feature <id> [--gate <name>]`), but that records
+  (`consort-approve-gate --feature <id> [--gate <name>]`), but that records
   the FEATURE-level `gates.json` gate, not the PER-STORY gate the design lane blocks
-  on (managed by `pipeline.json`, approved by `lakebase-sftdd-pipeline approve-gate
+  on (managed by `pipeline.json`, approved by `consort-pipeline approve-gate
   --story`). Following it recorded the wrong gate, exited 0, and the drive never
-  advanced. `lakebase-sftdd-approve-gate` now accepts `--feature <id> --story <s>`
+  advanced. `consort-approve-gate` now accepts `--feature <id> --story <s>`
   and routes the per-story gate through a shared helper (`approveStoryGateFromDisk`)
-  that `lakebase-sftdd-pipeline approve-gate` also uses, so both write identical
+  that `consort-pipeline approve-gate` also uses, so both write identical
   state. The drive's `GATE` message now prints the EXACT command per gate kind:
   per-story spec → `--feature --story`, plan → `--sprint`, deploy/promote →
-  `--feature --gate <name>`, PO acceptance → `lakebase-sftdd-pipeline accept`.
+  `--feature --gate <name>`, PO acceptance → `consort-pipeline accept`.
 
 - **Scaffolded React client vitest collects its own `tests/` component-test layout
   (FEIP-8009).** `templates/project/client/vite.config.ts` set `test.include` to
@@ -668,18 +668,18 @@ Handover findings batch (FEIP-8050): six field findings from a stockflow tier-2 
 
 ### Added
 
-- **`lakebase-sftdd-approve-gate` , a human-facing gate-approval CLI (FEIP-8005).**
+- **`consort-approve-gate` , a human-facing gate-approval CLI (FEIP-8005).**
   The interactive plan gate (and per-feature HITL gates) await a human's approval,
-  but the only CLI that RECORDED an approval was `lakebase-sftdd-human-proxy`,
+  but the only CLI that RECORDED an approval was `consort-human-proxy`,
   which is explicitly labeled "NOT for production use" and defaults the approver
   to "human-proxy". A real Product Owner approving a real gate had to reach for a
-  not-for-production tool. The new `lakebase-sftdd-approve-gate` is the production
+  not-for-production tool. The new `consort-approve-gate` is the production
   counterpart: it REQUIRES an explicit `--approver` (no silent default identity,
   the deciding human names themselves) and reuses the SAME approval substrate
   (`approveSprintPlanGate` for the sprint plan gate; `drainGatesAsHumanProxy`,
   which assembles each open gate's artifact hashes and calls `approveGate`, for a
   feature's gates), so the recorded approval is byte-for-byte what the workflow
-  expects. Usage: `lakebase-sftdd-approve-gate --sprint <s> --approver <you>` (plan
+  expects. Usage: `consort-approve-gate --sprint <s> --approver <you>` (plan
   gate) or `--feature <id> --approver <you> [--gate <name>]` (a feature's gates).
   The tool records ATTRIBUTION; the decision must be the approver's. The `/plan`
   doc and the driver's `GATE` message now point humans at it; the Human Proxy
@@ -689,7 +689,7 @@ Handover findings batch (FEIP-8050): six field findings from a stockflow tier-2 
 
 ### Added
 
-- **`lakebase-sftdd-sync-backlog` , the human door to commit an interactive
+- **`consort-sync-backlog` , the human door to commit an interactive
   sprint backlog (FEIP-8002).** Interactive sprint planning deadlocked at
   `author-requests`: `backlog.json` (from which `requestsAuthored` is derived) is
   written only by the `author-requests` effect (`supply-requests` + `sync-backlog`),
@@ -697,7 +697,7 @@ Handover findings batch (FEIP-8050): six field findings from a stockflow tier-2 
   sprint membership only from the proxy env channel; and there was no standalone
   sync-backlog CLI. So a human-in-the-loop Product Owner could author
   `feature-request.md` files but never commit a backlog or reach the plan gate.
-  The new `lakebase-sftdd-sync-backlog --sprint <s> [--features F1,F2]` declares
+  The new `consort-sync-backlog --sprint <s> [--features F1,F2]` declares
   this sprint's membership to `sprints/<s>/requested.json` (the SAME one file the
   Human Proxy writes, via new shared `readRequested`/`writeRequested` helpers , one
   membership source, no contradictory door) and projects `backlog.json` from the
@@ -712,7 +712,7 @@ Handover findings batch (FEIP-8050): six field findings from a stockflow tier-2 
 ### Fixed
 
 - **Interactive `--plan-only` no longer misreports a PO pause as an approved plan
-  (FEIP-8001).** In interactive mode (the default), `lakebase-sftdd-drive --sprint
+  (FEIP-8001).** In interactive mode (the default), `consort-drive --sprint
   <s> --plan-only` correctly stops after the Architect's estimate at the Product
   Owner's `author-requests` (the human must write the feature-request(s)). But
   that stop is a human-INPUT action, not an approval gate, and the completion
@@ -833,7 +833,7 @@ unscoped test.
   handoff guard then aborted the run on the empty artifact. The directive is now
   explicit (WRITE `planning/feature-proposals.md`, author it fresh), and in
   capture/replay (recorded feature-requests present) the propose step is
-  DETERMINISTIC: a new `lakebase-sftdd-human-proxy supply-proposals` projects a
+  DETERMINISTIC: a new `consort-human-proxy supply-proposals` projects a
   conforming `feature-proposals.md` from the recorded requests instead of spawning
   the LLM. Interactive users keep the live propose turn.
 
@@ -943,7 +943,7 @@ hardening fixes surfaced by a full stockflow F1+F6 sprint run.
   fires only when a story is novel, recovered through the existing revise-routing
   self-heal (`architect-canon-gap` smell, owning role architect-reviewer). The
   establishing feature is exempt from gap-checking its own stories.
-- **Durable per-turn timing.** `lakebase-sftdd-timing` now rolls up the driver's
+- **Durable per-turn timing.** `consort-timing` now rolls up the driver's
   measured `turn.usage` durations by role and role/model (with cost), independent
   of stdout capture, plus a `--skip-planning` flag. The old inter-event gap
   rollups remain for orchestration-overhead analysis.
@@ -1076,7 +1076,7 @@ deploy + PR/CI).
 
 ### Added
 
-- **`migration-app-coupling` smell + `lakebase-sftdd-migration-clean` gate.** A
+- **`migration-app-coupling` smell + `consort-migration-clean` gate.** A
   deterministic check (mirroring contract-clean) that fails a build cycle when a
   migration imports app code at module scope, routing a repair to make the migration
   self-contained before it reaches CI.
@@ -1166,7 +1166,7 @@ create-project run with a GitHub repo).
   `resolveTddDir`) instead of being a `"./.tdd"` default copy-pasted across ~20 call
   sites. `resolveTddDir` is dual-read: it prefers `.sftdd`, falls back to a legacy
   `.tdd` when that is what exists, and defaults a fresh project to `.sftdd`. The
-  orchestrator (`lakebase-sftdd-drive`) auto-migrates a legacy `.tdd` to `.sftdd` on
+  orchestrator (`consort-drive`) auto-migrates a legacy `.tdd` to `.sftdd` on
   its next run (`git mv` to preserve history when possible, else a filesystem
   rename), and rewrites the project `.gitignore` entries to match.
 - **Per-story build granularity: contract/cleanup stories auto-drop to `ac`.** A
@@ -1198,8 +1198,8 @@ create-project run with a GitHub repo).
 
 - **Config file + env prefix renamed `tdd` -> `sftdd` (back-compat).** The unified
   config is now `.lakebase/sftdd-config.json` and the runtime env knobs are
-  `LAKEBASE_SFTDD_*`, matching the `lakebase-sftdd-workflows` skill, the `scripts/sftdd/`
-  dir, and the `lakebase-sftdd-*` bins. Both are dual-read: `loadTddConfig` prefers
+  `LAKEBASE_SFTDD_*`, matching the `consort-workflows` skill, the `scripts/sftdd/`
+  dir, and the `consort-*` bins. Both are dual-read: `loadTddConfig` prefers
   `sftdd-config.json` and falls back to a legacy `tdd-config.json`; every env read goes
   through `sftddEnv`, which falls back to `LAKEBASE_TDD_*`. Existing projects / shells
   keep working with no manual change; new writes use the canonical names.
@@ -1212,10 +1212,10 @@ create-project run with a GitHub repo).
   ASSESS and Driver REPAIR prompts enforce both.
 - **Artifact directory renamed `.tdd` -> `.sftdd`.** New projects (and the
   `sftdd-bootstrap` template) scaffold a `.sftdd/` directory to match the
-  `lakebase-sftdd-workflows` naming. Existing `.tdd` projects keep working (dual-read)
+  `consort-workflows` naming. Existing `.tdd` projects keep working (dual-read)
   and are auto-migrated on the next orchestrated run, so no manual action is required.
   The `tdd-paths.ts` module was renamed to `sftdd-paths.ts`.
-- **Spec Driven Development (SDD) framing.** `lakebase-sftdd-workflows` docs now name
+- **Spec Driven Development (SDD) framing.** `consort-workflows` docs now name
   the two lanes explicitly: the design lane (`/design`) is Spec Driven Development
   (SDD), which produces and freezes the executable spec at the `spec` + `test_list`
   gates; the build lane (`/build`) is Test Driven Development (TDD), which builds
@@ -1246,7 +1246,7 @@ Second beta on the 0.3.0 line. Consume via
   per-turn corpus: `turns/<NNNN>-<label>/` (manifest + the .tdd/code delta that
   turn produced) + `turns/index.json`, plus the cumulative `recorded-artifacts`
   and `recorded-build` mirrors the existing replay engine consumes.
-- **imports-clean gate** (`lakebase-sftdd-imports-clean`): the app entry must import
+- **imports-clean gate** (`consort-imports-clean`): the app entry must import
   without an optional build artifact (e.g. `client/dist`) present, catching
   import-time coupling before deploy. New `import-time-build-coupling` bad smell
   plus a dev/prod-parity rule in the `software-design-principles` canon.
@@ -1273,12 +1273,12 @@ Second beta on the 0.3.0 line. Consume via
   and the promote phase opens a clean PR. CI now builds the client before tests
   (dev/CI parity).
 - **Agent-loop performance (P0-P7).** Per-turn timing report
-  (`lakebase-sftdd-timing`), a leaner pre-digested REVIEW rubric, a fresh-per-story
+  (`consort-timing`), a leaner pre-digested REVIEW rubric, a fresh-per-story
   build session, a low-effort REVIEW turn, and reduced inter-phase shell overhead.
 - **Kit CLIs resolve through a project's `scripts/lk`** (ref-keyed cache or
   `LAKEBASE_KIT_DIR`) instead of per-call `npx` git resolution.
 - The orchestrator is a **deterministic state-machine driver**
-  (`lakebase-sftdd-drive`), not an LLM agent.
+  (`consort-drive`), not an LLM agent.
 
 ## [0.3.0-beta.0] - 2026-06-05
 
@@ -1294,10 +1294,10 @@ First beta on the 0.3.0 line, graduating from the alpha series. Consume via
 - New schemas shipped in `dist`: `agent-log-event`, `architecture`,
   `design-guide`, `plan`. Shared schema loader removes duplicated validation
   wiring.
-- `lakebase-sftdd-gate-conformance` CLI to scan a feature's artifacts for
+- `consort-gate-conformance` CLI to scan a feature's artifacts for
   conformance.
 - **Structured agent logging.** JSON-lines events (role, timestamp, level,
-  event) written to `.tdd/agent-log.jsonl`, with the `lakebase-sftdd-log` CLI.
+  event) written to `.tdd/agent-log.jsonl`, with the `consort-log` CLI.
   HITL decisions are recorded (the mock reviewer validates expected elements and
   the human response is captured).
 - **Per-role-agent contracts.** Relay headers on every role agent; a

@@ -102,7 +102,7 @@ cat >&2 <<EOF
 [optimize-live-run] DONE (propose-only, design + build lanes). Review, then decide:
   - ranked report printed above; per-candidate audit in ${PROJECT_DIR}/experiments/
   - persist a winner so the role's next invocation uses it:
-      lakebase-sftdd-optimize-apply --project-dir ${PROJECT_DIR} --handoff <id> --candidate <id>
+      consort-optimize-apply --project-dir ${PROJECT_DIR} --handoff <id> --candidate <id>
   - TEAR DOWN when finished (this run left the project + its Lakebase branches standing):
       (drop the project's Lakebase instance/branches + delete ${PROJECT_DIR}; the harness
        never pushed/merged/released, only forked throwaway child branches during the sweep.)

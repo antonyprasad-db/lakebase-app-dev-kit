@@ -276,7 +276,7 @@ export function claudeToolArgs(cmd: Extract<DriveCommand, { kind: "claude" }>): 
  * .claude/settings.json, so without an explicit mode a headless role agent DEFAULTS
  * TO PROMPTING , and there is no one to answer. A role agent must both WRITE its
  * artifact (feature-spec.json, story stubs, code) AND RUN kit CLIs (its self-check
- * `lakebase-sftdd-response-formatter`, the cycle stamps); acceptEdits auto-accepts
+ * `consort-response-formatter`, the cycle stamps); acceptEdits auto-accepts
  * both headlessly (verified: Write-tool AND Bash writes land with permission_denials
  * empty and is_error false).
  *

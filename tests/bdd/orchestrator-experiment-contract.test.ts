@@ -1,6 +1,6 @@
 // Contract test: the driver's emitted experiment-CLI commands are COMPLETE.
 //
-// The deterministic driver (commandsForAction) emits `lakebase-sftdd-experiment`
+// The deterministic driver (commandsForAction) emits `consort-experiment`
 // CLI invocations; the CLI (story-experiment.cli) validates required args. A
 // previous e2e tested experiment.ts DIRECTLY, so the driver->CLI glue was never
 // checked and a `cut` command missing --slug/--branch/--parent/--instance
@@ -14,7 +14,7 @@ import { commandsForAction, type DriveEffectsConfig } from "../../consort/orches
 import { parseExperimentArgs, validateExperimentArgs } from "../../consort/experiment/experiment-args";
 import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 
-const EXPERIMENT_BIN = "lakebase-sftdd-experiment";
+const EXPERIMENT_BIN = "consort-experiment";
 
 function cfg(over: Partial<DriveEffectsConfig> = {}): DriveEffectsConfig {
   return {
@@ -31,7 +31,7 @@ function cfg(over: Partial<DriveEffectsConfig> = {}): DriveEffectsConfig {
   };
 }
 
-/** The args of the single lakebase-sftdd-experiment command the action emits. */
+/** The args of the single consort-experiment command the action emits. */
 function experimentArgs(action: WorkflowAction, c: DriveEffectsConfig): string[] {
   const cmd = commandsForAction(action, c).find(
     (x): x is { kind: "cli"; bin: string; args: string[] } => x.kind === "cli" && x.bin === EXPERIMENT_BIN,
@@ -69,7 +69,7 @@ describe("driver -> experiment CLI contract (the shipped path, not the module)",
     const cmds = commandsForAction({ kind: "accept", story: "S1-create-bug-form" }, cfg());
     expect(cmds.some((x) => (x as { bin?: string }).bin === EXPERIMENT_BIN)).toBe(false);
     const accept = cmds.find(
-      (x): x is { kind: "cli"; bin: string; args: string[] } => x.kind === "cli" && x.bin === "lakebase-sftdd-pipeline",
+      (x): x is { kind: "cli"; bin: string; args: string[] } => x.kind === "cli" && x.bin === "consort-pipeline",
     );
     expect(accept?.args[0]).toBe("accept");
     // The instance + project-dir the merge needs are supplied by the orchestrator.

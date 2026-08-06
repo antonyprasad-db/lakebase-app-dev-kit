@@ -59,7 +59,7 @@ function parseArgs(argv) {
   if (!out.help && !out.manifest) return { error: "--manifest <scenario.json> is required" };
   return out;
 }
-var HELP = `lakebase-sftdd-scenario-conditions --manifest <scenario.json> [--field <name>]
+var HELP = `consort-scenario-conditions --manifest <scenario.json> [--field <name>]
   --field <name>   uiTrack | tiers | pauseBefore | language | runner
   (no --field)     print every field as name=value lines
 `;

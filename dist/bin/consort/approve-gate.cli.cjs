@@ -8330,16 +8330,16 @@ function parse(argv) {
   }
   return out;
 }
-var HELP = `lakebase-sftdd-approve-gate , record a HUMAN's HITL gate approval
+var HELP = `consort-approve-gate , record a HUMAN's HITL gate approval
 
 Records a genuine approval into the workflow state. The DECISION must be the
 approver's; this tool records ATTRIBUTION + the artifact hashes. Use the Human
-Proxy (lakebase-sftdd-human-proxy) instead ONLY for headless / smoke runs.
+Proxy (consort-human-proxy) instead ONLY for headless / smoke runs.
 
 Usage:
-  lakebase-sftdd-approve-gate --sprint <name> --approver <you>              # plan gate
-  lakebase-sftdd-approve-gate --feature <id> --story <s> --approver <you>   # per-story spec gate
-  lakebase-sftdd-approve-gate --feature <id> --approver <you> [--gate <name>] [--promote-ref <str>]
+  consort-approve-gate --sprint <name> --approver <you>              # plan gate
+  consort-approve-gate --feature <id> --story <s> --approver <you>   # per-story spec gate
+  consort-approve-gate --feature <id> --approver <you> [--gate <name>] [--promote-ref <str>]
                              [--project-dir <p>] [--tdd-dir <d>] [--json]
 
 --approver is REQUIRED (name the deciding human; there is no default identity).
@@ -8355,24 +8355,24 @@ function runApproveGateCli(argv) {
   }
   if (!p.approver || !p.approver.trim()) {
     process.stderr.write(
-      `lakebase-sftdd-approve-gate: --approver <name> is REQUIRED , a gate approval attributes the
-decision to a named human. (For headless/smoke runs use lakebase-sftdd-human-proxy.)
+      `consort-approve-gate: --approver <name> is REQUIRED , a gate approval attributes the
+decision to a named human. (For headless/smoke runs use consort-human-proxy.)
 `
     );
     return 2;
   }
   if (!p.sprint && !p.feature) {
-    process.stderr.write(`lakebase-sftdd-approve-gate: one of --sprint <name> or --feature <id> is required.
+    process.stderr.write(`consort-approve-gate: one of --sprint <name> or --feature <id> is required.
 `);
     return 2;
   }
   if (p.story && !p.feature) {
-    process.stderr.write(`lakebase-sftdd-approve-gate: --story requires --feature <id> (a per-story spec gate is feature-scoped).
+    process.stderr.write(`consort-approve-gate: --story requires --feature <id> (a per-story spec gate is feature-scoped).
 `);
     return 2;
   }
   if (p.story && p.sprint) {
-    process.stderr.write(`lakebase-sftdd-approve-gate: --story is a per-story feature gate; not valid with --sprint (the plan gate has no story).
+    process.stderr.write(`consort-approve-gate: --story is a per-story feature gate; not valid with --sprint (the plan gate has no story).
 `);
     return 2;
   }

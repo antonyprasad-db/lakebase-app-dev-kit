@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // CLI: the /deploy phase. Ship a built feature to a target and verify reachable.
 //
-//   lakebase-sftdd-deploy --target local --project-dir .          # start + poll-reachable
-//   lakebase-sftdd-deploy --target local --project-dir . --stop   # tear down
-//   lakebase-sftdd-deploy --target local --json
+//   consort-deploy --target local --project-dir .          # start + poll-reachable
+//   consort-deploy --target local --project-dir . --stop   # tear down
+//   consort-deploy --target local --json
 //
 // Only `type: local` targets are implemented; remote types are refused with a
 // clear message. Exit codes: 0 ok, 2 bad args, 6 deploy failed.
@@ -40,7 +40,7 @@ export async function runDeployCli(argv: string[]): Promise<number> {
       case "-h":
       case "--help":
         process.stdout.write(
-          "lakebase-sftdd-deploy --target <name> [--project-dir <dir>] [--feature <id>] [--story <id>] [--lakebase-branch <branch>] [--stop] [--json]\n" +
+          "consort-deploy --target <name> [--project-dir <dir>] [--feature <id>] [--story <id>] [--lakebase-branch <branch>] [--stop] [--json]\n" +
             "Ships a built feature to a target and verifies it is reachable. Only 'local' is implemented.\n" +
             "--feature writes features/<F>/deploy-evidence.json (the deploy gate's artifact);\n" +
             "--story (with --feature) writes it at story scope + binds the run to the story's experiment branch;\n" +
@@ -56,7 +56,7 @@ export async function runDeployCli(argv: string[]): Promise<number> {
 
   if (stop) {
     const r = stopLocal(projectDir, target);
-    process.stdout.write(`lakebase-sftdd-deploy: ${r.stopped ? "stopped" : "nothing to stop"} (${target})\n`);
+    process.stdout.write(`consort-deploy: ${r.stopped ? "stopped" : "nothing to stop"} (${target})\n`);
     return 0;
   }
 
@@ -83,9 +83,9 @@ export async function runDeployCli(argv: string[]): Promise<number> {
   if (json) {
     process.stdout.write(`${JSON.stringify(result)}\n`);
   } else if (result.ok) {
-    process.stdout.write(`lakebase-sftdd-deploy: ${target} reachable at ${result.url} (pid ${result.pid})\n`);
+    process.stdout.write(`consort-deploy: ${target} reachable at ${result.url} (pid ${result.pid})\n`);
   } else {
-    process.stderr.write(`lakebase-sftdd-deploy: ${target} deploy failed: ${result.reason}\n`);
+    process.stderr.write(`consort-deploy: ${target} deploy failed: ${result.reason}\n`);
   }
   // Gate deploys are run by the orchestration: a failure is recorded as honest
   // deploy-evidence + an escalation, and the deterministic driver routes that to

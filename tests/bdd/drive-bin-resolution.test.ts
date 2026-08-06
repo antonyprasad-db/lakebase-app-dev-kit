@@ -5,7 +5,7 @@
 // substrate's (for scm-* bins, which the kit no longer redeclares after Track C
 // Phase 4) , otherwise the driver falls back to a bare `spawn(<bin>)` which is not
 // on PATH under lk and dies with ENOENT (this is exactly what happened when
-// lakebase-sftdd-log was emitted but missing from the old hardcoded map).
+// consort-log was emitted but missing from the old hardcoded map).
 //
 // This test reads the *_BIN constants the effects layer declares and asserts each
 // resolves against the union of the kit + substrate bin maps, so a newly-emitted
@@ -22,7 +22,7 @@ const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 function emittedKitBins(): string[] {
   const src = readFileSync(new URL("../../consort/orchestrator/drive/orchestrator-effects.ts", import.meta.url), "utf8");
   const bins = new Set<string>();
-  for (const m of src.matchAll(/_BIN\s*=\s*"(lakebase-[a-z0-9-]+)"/g)) bins.add(m[1]);
+  for (const m of src.matchAll(/_BIN\s*=\s*"((?:consort|lakebase)-[a-z0-9-]+)"/g)) bins.add(m[1]);
   return [...bins];
 }
 

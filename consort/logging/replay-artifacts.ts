@@ -134,7 +134,7 @@ export function replayDesignTurn(args: ReplayArgs): boolean {
       return ok;
     }
     case "test-strategist": {
-      // Feature-level test list; the deterministic per-story scope (lakebase-sftdd-test-list)
+      // Feature-level test list; the deterministic per-story scope (consort-test-list)
       // runs as the orchestrator's own effect right after this turn.
       let ok = cp(join(cf, "test-list.json"), join(tf, "test-list.json"));
       cp(join(cf, "test-list.md"), join(tf, "test-list.md"));

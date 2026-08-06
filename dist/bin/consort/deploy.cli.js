@@ -7236,7 +7236,7 @@ async function deployToTarget(args) {
     });
     if (released.outcome === "done") {
     } else {
-      const reason = `target port still serving a foreign process at ${url} after stopping our own instance; refusing to verify against it. Stop it first (lakebase-sftdd-deploy --target ${args.targetName} --stop, or free the port).`;
+      const reason = `target port still serving a foreign process at ${url} after stopping our own instance; refusing to verify against it. Stop it first (consort-deploy --target ${args.targetName} --stop, or free the port).`;
       const verify2 = { passed: false, summary: reason };
       let evidencePath2;
       if (args.featureId) {
@@ -7441,7 +7441,7 @@ async function runDeployCli(argv) {
       case "-h":
       case "--help":
         process.stdout.write(
-          "lakebase-sftdd-deploy --target <name> [--project-dir <dir>] [--feature <id>] [--story <id>] [--lakebase-branch <branch>] [--stop] [--json]\nShips a built feature to a target and verifies it is reachable. Only 'local' is implemented.\n--feature writes features/<F>/deploy-evidence.json (the deploy gate's artifact);\n--story (with --feature) writes it at story scope + binds the run to the story's experiment branch;\n--lakebase-branch binds the run command to a story's experiment branch DB (per-story deploy).\n"
+          "consort-deploy --target <name> [--project-dir <dir>] [--feature <id>] [--story <id>] [--lakebase-branch <branch>] [--stop] [--json]\nShips a built feature to a target and verifies it is reachable. Only 'local' is implemented.\n--feature writes features/<F>/deploy-evidence.json (the deploy gate's artifact);\n--story (with --feature) writes it at story scope + binds the run to the story's experiment branch;\n--lakebase-branch binds the run command to a story's experiment branch DB (per-story deploy).\n"
         );
         return 0;
     }
@@ -7452,7 +7452,7 @@ async function runDeployCli(argv) {
   }
   if (stop) {
     const r = stopLocal(projectDir, target);
-    process.stdout.write(`lakebase-sftdd-deploy: ${r.stopped ? "stopped" : "nothing to stop"} (${target})
+    process.stdout.write(`consort-deploy: ${r.stopped ? "stopped" : "nothing to stop"} (${target})
 `);
     return 0;
   }
@@ -7474,10 +7474,10 @@ async function runDeployCli(argv) {
     process.stdout.write(`${JSON.stringify(result)}
 `);
   } else if (result.ok) {
-    process.stdout.write(`lakebase-sftdd-deploy: ${target} reachable at ${result.url} (pid ${result.pid})
+    process.stdout.write(`consort-deploy: ${target} reachable at ${result.url} (pid ${result.pid})
 `);
   } else {
-    process.stderr.write(`lakebase-sftdd-deploy: ${target} deploy failed: ${result.reason}
+    process.stderr.write(`consort-deploy: ${target} deploy failed: ${result.reason}
 `);
   }
   if (gate) return 0;

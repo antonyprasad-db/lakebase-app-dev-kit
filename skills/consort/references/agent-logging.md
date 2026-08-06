@@ -38,17 +38,17 @@ A role's work between phase boundaries can take minutes; emitting only at `phase
 Shell out through the project's `./scripts/lk` resolver (fast; no npx), always present at the project root:
 
 ```bash
-./scripts/lk lakebase-sftdd-log --role spec-author --level info \
+./scripts/lk consort-log --role spec-author --level info \
   --event artifact.written --slot artifact=feature-spec.json --slot summary="+ 3 stories" \
   --feature F1-initial-domain --data '{"path":"feature-spec.json","conformant":true}'
 ```
 
-Read/tail: `./scripts/lk lakebase-sftdd-log --read --feature F1-initial-domain --min-level info`. In-process callers use `emitAgentLogEvent` / `readAgentLog` from `scripts/sftdd/agent-log.ts`.
+Read/tail: `./scripts/lk consort-log --read --feature F1-initial-domain --min-level info`. In-process callers use `emitAgentLogEvent` / `readAgentLog` from `scripts/sftdd/agent-log.ts`.
 
-**Batch your turn's events into ONE call.** Each `lakebase-sftdd-log` invocation is a subprocess spawn, so a role with several events for a turn (a `reasoning` + a `progress` + a `smell.flagged`) should emit them together with `--events '<json array>'` (one process, one append) rather than N separate calls, that per-turn spawn count is real latency:
+**Batch your turn's events into ONE call.** Each `consort-log` invocation is a subprocess spawn, so a role with several events for a turn (a `reasoning` + a `progress` + a `smell.flagged`) should emit them together with `--events '<json array>'` (one process, one append) rather than N separate calls, that per-turn spawn count is real latency:
 
 ```bash
-./scripts/lk lakebase-sftdd-log --events '[
+./scripts/lk consort-log --events '[
   {"role":"navigator","level":"debug","event":"reasoning","feature":"F1","cycle":"cycle-003","slots":{"summary":"the test forces a repository seam"}},
   {"role":"navigator","level":"warn","event":"smell.flagged","feature":"F1","slots":{"smell":"fragility-ratio","severity":"advisory","detail":"..."}}
 ]'
@@ -62,7 +62,7 @@ Each item takes `role`/`level`/`event` (+ optional `feature`/`phase`/`cycle`/`sl
 
 ## 4. Who emits what
 
-- **The orchestrator owns the lifecycle as CODE.** The deterministic driver (`lakebase-sftdd-drive`) emits `handoff`, the role's `phase.start`/`phase.end`, the gate events (`gate.surfaced`/`gate.approved`), `experiment.cut`/`experiment.accepted`, and the entire **`cycle.*` family** (`cycle.red`/`green`/`review`/`refactored`). Its post-role reconcile code-emits `artifact.written` for everything left on disk. These are guaranteed every run, regardless of model. Emitting them yourself double-logs.
+- **The orchestrator owns the lifecycle as CODE.** The deterministic driver (`consort-drive`) emits `handoff`, the role's `phase.start`/`phase.end`, the gate events (`gate.surfaced`/`gate.approved`), `experiment.cut`/`experiment.accepted`, and the entire **`cycle.*` family** (`cycle.red`/`green`/`review`/`refactored`). Its post-role reconcile code-emits `artifact.written` for everything left on disk. These are guaranteed every run, regardless of model. Emitting them yourself double-logs.
 - **Each role adds only its in-flight JUDGMENT events** through the CLI: `progress`, `reasoning` (debug), `smell.flagged` (warn), and the recorded gate decision. The shared `.sftdd/agent-log.jsonl` is the bus; a subagent only returns its completion, not events.
 
 Per-role JUDGMENT events on top of the code-emitted skeleton:

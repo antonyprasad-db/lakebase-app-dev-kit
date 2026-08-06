@@ -10,7 +10,7 @@
 // a parameter. This module is a PURE action->event(s) mapper plus a thin hook
 // that feeds those events through that one function. Roles emit their own
 // in-flight judgment events (reasoning / smell.flagged / gate decisions) through
-// the SAME function via the lakebase-sftdd-log CLI, appending to the shared
+// the SAME function via the consort-log CLI, appending to the shared
 // .tdd/agent-log.jsonl; the orchestrator owns the skeleton, the roles add detail.
 
 import type { WorkflowAction } from "../../consort/orchestrator/workflow/workflow-vocabulary.js";
@@ -227,12 +227,12 @@ export interface GateEnactContext {
  * single generic command sent the human to the wrong door, e.g. the feature-level
  * `gates.json` spec gate for a PER-STORY spec stop, which recorded the wrong gate
  * and never advanced. Name the door that actually clears THIS stop:
- *   - plan gate      -> lakebase-sftdd-approve-gate --sprint
- *   - per-story spec -> lakebase-sftdd-approve-gate --feature --story
- *   - deploy/promote -> lakebase-sftdd-approve-gate --feature --gate <name>
- *   - PO acceptance  -> lakebase-sftdd-pipeline accept --feature --story
+ *   - plan gate      -> consort-approve-gate --sprint
+ *   - per-story spec -> consort-approve-gate --feature --story
+ *   - deploy/promote -> consort-approve-gate --feature --gate <name>
+ *   - PO acceptance  -> consort-pipeline accept --feature --story
  * Returns null for a non-gate action. Pure (no I/O); the SINGLE gate->CLI mapping
- * shared by approveHint (the drive's stdout hint) and lakebase-sftdd-next (the
+ * shared by approveHint (the drive's stdout hint) and consort-next (the
  * authoritative decision menu), so the two can never drift (FEIP-8017).
  */
 export function gateEnactCommand(
@@ -243,11 +243,11 @@ export function gateEnactCommand(
   const f = ctx.featureId ?? "<feature-id>";
   switch (gate.kind) {
     case "approve-plan-gate":
-      return { bin: "lakebase-sftdd-approve-gate", args: ["--sprint", ctx.sprint ?? "<sprint>", "--approver", you] };
+      return { bin: "consort-approve-gate", args: ["--sprint", ctx.sprint ?? "<sprint>", "--approver", you] };
     case "approve-gate": // the per-story spec gate (pipeline.json), NOT feature gates.json
-      return { bin: "lakebase-sftdd-approve-gate", args: ["--feature", f, "--story", gate.story, "--approver", you] };
+      return { bin: "consort-approve-gate", args: ["--feature", f, "--story", gate.story, "--approver", you] };
     case "approve-deploy-gate":
-      return { bin: "lakebase-sftdd-approve-gate", args: ["--feature", f, "--gate", "deploy", "--approver", you] };
+      return { bin: "consort-approve-gate", args: ["--feature", f, "--gate", "deploy", "--approver", you] };
     case "approve-promote-gate":
       // The promote gate REQUIRES a non-empty --promote-ref (what is being
       // promoted); without it the approval SKIPS as a silent no-op and the drive
@@ -256,11 +256,11 @@ export function gateEnactCommand(
       // promote_ref the engine's own internal approval supplies (orchestrator-
       // effects `approve-promote-gate`: cfg.featureBranch ?? feature).
       return {
-        bin: "lakebase-sftdd-approve-gate",
+        bin: "consort-approve-gate",
         args: ["--feature", f, "--gate", "promote", "--promote-ref", ctx.featureBranch ?? f, "--approver", you],
       };
     case "accept": // per-story PO acceptance (experiment merge), a pipeline action
-      return { bin: "lakebase-sftdd-pipeline", args: ["accept", "--feature", f, "--story", gate.story, "--approver", you] };
+      return { bin: "consort-pipeline", args: ["accept", "--feature", f, "--story", gate.story, "--approver", you] };
     default:
       return null;
   }
@@ -279,5 +279,5 @@ export function approveHint(
   if (cmd) return `${cmd.bin} ${cmd.args.join(" ")}`;
   // Non-gate fallthrough (never a gate in practice): the generic feature door.
   const f = ctx.featureId ?? "<feature-id>";
-  return `lakebase-sftdd-approve-gate --feature ${f} --approver <you>`;
+  return `consort-approve-gate --feature ${f} --approver <you>`;
 }

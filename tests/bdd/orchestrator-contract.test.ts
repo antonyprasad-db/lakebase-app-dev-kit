@@ -26,7 +26,7 @@ describe("orchestrator operating contract (FEIP-8021)", () => {
     expect(existsSync(CONTRACT)).toBe(true);
     const body = readFileSync(CONTRACT, "utf8");
     // Drive to completion via next; stop only for HITL/blockers.
-    expect(body).toMatch(/lakebase-sftdd-next/);
+    expect(body).toMatch(/consort-next/);
     expect(body).toMatch(/primary_action/);
     expect(body).toMatch(/HITL|gate|blocker/i);
     // Report outcomes, not process.
@@ -44,7 +44,7 @@ describe("orchestrator operating contract (FEIP-8021)", () => {
         `${cmd}: missing orchestrator-contract citation`,
       ).toMatch(/references\/orchestrator-contract\.md/);
       // and names the drive-not-narrate default so the wiring is not a dead link
-      expect(body, `${cmd}: missing drive-not-narrate rule`).toMatch(/lakebase-sftdd-next/);
+      expect(body, `${cmd}: missing drive-not-narrate rule`).toMatch(/consort-next/);
     }
   });
 });

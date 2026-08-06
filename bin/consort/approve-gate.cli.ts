@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// lakebase-sftdd-approve-gate: the HUMAN-facing command to record a HITL gate
+// consort-approve-gate: the HUMAN-facing command to record a HITL gate
 // approval (FEIP-8005). This is the production counterpart to
-// lakebase-sftdd-human-proxy, which is explicitly a headless / automated-smoke
+// consort-human-proxy, which is explicitly a headless / automated-smoke
 // stand-in ("NOT for production use") and defaults the approver to "human-proxy".
 //
 // A gate approval writes "this named human approved this artifact" into gates.json
@@ -26,9 +26,9 @@
 // per-story stop, which recorded the wrong gate and never advanced).
 //
 // Usage:
-//   lakebase-sftdd-approve-gate --sprint <name> --approver <you>              # sprint plan gate
-//   lakebase-sftdd-approve-gate --feature <id> --story <s> --approver <you>   # a per-story spec gate
-//   lakebase-sftdd-approve-gate --feature <id> --approver <you> [--gate <g>]  # a feature's gate(s)
+//   consort-approve-gate --sprint <name> --approver <you>              # sprint plan gate
+//   consort-approve-gate --feature <id> --story <s> --approver <you>   # a per-story spec gate
+//   consort-approve-gate --feature <id> --approver <you> [--gate <g>]  # a feature's gate(s)
 //                              [--promote-ref <str>] [--project-dir <p>] [--tdd-dir <d>] [--json]
 // Exit 0 = approval recorded (or already approved); 2 = usage error / nothing to
 // approve; 3 = per-story draft invariant violated.
@@ -71,14 +71,14 @@ function parse(argv: string[]): Parsed {
 }
 
 const HELP =
-  `lakebase-sftdd-approve-gate , record a HUMAN's HITL gate approval\n\n` +
+  `consort-approve-gate , record a HUMAN's HITL gate approval\n\n` +
   `Records a genuine approval into the workflow state. The DECISION must be the\n` +
   `approver's; this tool records ATTRIBUTION + the artifact hashes. Use the Human\n` +
-  `Proxy (lakebase-sftdd-human-proxy) instead ONLY for headless / smoke runs.\n\n` +
+  `Proxy (consort-human-proxy) instead ONLY for headless / smoke runs.\n\n` +
   `Usage:\n` +
-  `  lakebase-sftdd-approve-gate --sprint <name> --approver <you>              # plan gate\n` +
-  `  lakebase-sftdd-approve-gate --feature <id> --story <s> --approver <you>   # per-story spec gate\n` +
-  `  lakebase-sftdd-approve-gate --feature <id> --approver <you> [--gate <name>] [--promote-ref <str>]\n` +
+  `  consort-approve-gate --sprint <name> --approver <you>              # plan gate\n` +
+  `  consort-approve-gate --feature <id> --story <s> --approver <you>   # per-story spec gate\n` +
+  `  consort-approve-gate --feature <id> --approver <you> [--gate <name>] [--promote-ref <str>]\n` +
   `                             [--project-dir <p>] [--tdd-dir <d>] [--json]\n\n` +
   `--approver is REQUIRED (name the deciding human; there is no default identity).\n` +
   `Exit 0 = approved (or already approved); 2 = usage error / nothing to approve;\n` +
@@ -94,27 +94,27 @@ export function runApproveGateCli(argv: string[]): number {
   }
   if (!p.approver || !p.approver.trim()) {
     process.stderr.write(
-      `lakebase-sftdd-approve-gate: --approver <name> is REQUIRED , a gate approval attributes the\n` +
-        `decision to a named human. (For headless/smoke runs use lakebase-sftdd-human-proxy.)\n`,
+      `consort-approve-gate: --approver <name> is REQUIRED , a gate approval attributes the\n` +
+        `decision to a named human. (For headless/smoke runs use consort-human-proxy.)\n`,
     );
     return 2;
   }
   if (!p.sprint && !p.feature) {
-    process.stderr.write(`lakebase-sftdd-approve-gate: one of --sprint <name> or --feature <id> is required.\n`);
+    process.stderr.write(`consort-approve-gate: one of --sprint <name> or --feature <id> is required.\n`);
     return 2;
   }
   if (p.story && !p.feature) {
-    process.stderr.write(`lakebase-sftdd-approve-gate: --story requires --feature <id> (a per-story spec gate is feature-scoped).\n`);
+    process.stderr.write(`consort-approve-gate: --story requires --feature <id> (a per-story spec gate is feature-scoped).\n`);
     return 2;
   }
   if (p.story && p.sprint) {
-    process.stderr.write(`lakebase-sftdd-approve-gate: --story is a per-story feature gate; not valid with --sprint (the plan gate has no story).\n`);
+    process.stderr.write(`consort-approve-gate: --story is a per-story feature gate; not valid with --sprint (the plan gate has no story).\n`);
     return 2;
   }
   const sftddDir = p.tddDir ?? resolveSftddDir(p.projectDir);
 
   // Per-story spec gate (the pipeline gate the design lane blocks on). Routes
-  // through the SAME shared helper as `lakebase-sftdd-pipeline approve-gate`
+  // through the SAME shared helper as `consort-pipeline approve-gate`
   // (FEIP-8008), so the human door and the headless proxy write identical state.
   if (p.story) {
     const r = approveStoryGateFromDisk(sftddDir, p.feature as string, p.story, { approver: p.approver });

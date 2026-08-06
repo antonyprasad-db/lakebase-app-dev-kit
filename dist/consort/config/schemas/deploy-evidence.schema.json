@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://databricks-solutions.github.io/consort/schemas/deploy-evidence.schema.json",
   "title": "DeployEvidence",
-  "description": "The Release Engineer's deploy-gate evidence for a FEATURE, persisted as features/<F>/deploy-evidence.json by lakebase-sftdd-deploy. It records that the increment was deployed to a target, is reachable, and passed its feature-verify run against the RUNNING app. The deploy gate approves only when this artifact exists, is conformant, and records reachable=true AND verify.passed=true (the working-software teeth).",
+  "description": "The Release Engineer's deploy-gate evidence for a FEATURE, persisted as features/<F>/deploy-evidence.json by consort-deploy. It records that the increment was deployed to a target, is reachable, and passed its feature-verify run against the RUNNING app. The deploy gate approves only when this artifact exists, is conformant, and records reachable=true AND verify.passed=true (the working-software teeth).",
   "type": "object",
   "required": ["schema_version", "feature_id", "target", "url", "reachable", "verify", "deployed_at"],
   "properties": {

@@ -4,7 +4,7 @@
 // It runs one design/plan role's isolated chain (recorded inputs replayed in, only that role's turn
 // live) once per candidate lever patch (model tiers x effort rungs x scan-tight), gates each on the
 // role's conformance validator, and reports the fastest gate-passer vs the baseline. This is the
-// lightweight sibling of lakebase-sftdd-optimize (which sweeps a whole scaffolded drive); it needs
+// lightweight sibling of consort-optimize (which sweeps a whole scaffolded drive); it needs
 // NO cloud project , the isolation substrate (tests/integration/manifests/<role>-chain + intake) is
 // the whole thing.
 //

@@ -101,7 +101,7 @@ describe("TDD-workflow smoke: headless speed (MCP strip + per-role model tiering
   const runSmoke = fs.readFileSync(path.join(SMOKE_DIR, "run-smoke.sh"), "utf8");
 
   it("drives the orchestrator CLI directly, with no top-level claude -p session", () => {
-    // The smoke drives lakebase-sftdd-drive directly for every phase (planning +
+    // The smoke drives consort-drive directly for every phase (planning +
     // per-feature). It does NOT boot a top-level `claude -p` slash-command
     // session: that path does not reliably inherit LAKEBASE_SFTDD_HUMAN_PROXY into
     // its Bash tool, which silently flipped the plan gate to interactive. The
@@ -112,7 +112,7 @@ describe("TDD-workflow smoke: headless speed (MCP strip + per-role model tiering
     expect(topLevelCalls, `no top-level claude -p; found: ${topLevelCalls.join(" | ")}`).toHaveLength(0);
     // Planning runs the driver bounded to planning, with proxy gates explicit
     // (deterministic headless, not env-dependent).
-    expect(runSmoke).toMatch(/lakebase-sftdd-drive\b[\s\S]*--plan-only[\s\S]*--gates proxy/);
+    expect(runSmoke).toMatch(/consort-drive\b[\s\S]*--plan-only[\s\S]*--gates proxy/);
   });
 
   it("runs on kit-default models (NO per-role --agent-model pins), and patches effort=low for all roles EXCEPT the two AC-independence gatekeepers (spec-author + test-strategist run at default effort)", () => {
@@ -135,7 +135,7 @@ describe("TDD-workflow smoke: headless speed (MCP strip + per-role model tiering
   });
 
   // Role observability is now structural inside the deterministic driver
-  // (lakebase-sftdd-drive emits phase/handoff/gate events as code and reconciles
+  // (consort-drive emits phase/handoff/gate events as code and reconciles
   // artifacts internally), not a shell-level live-tail + --reconcile wrapped
   // around claude -p passes. The prior assertion for that shell mechanism was
   // removed with the gate-drain loop; the driver's logging is covered by its own
@@ -194,7 +194,7 @@ describe("TDD-workflow smoke: orchestrator supplies intake via the Human Proxy",
   const runSmoke = fs.readFileSync(path.join(SMOKE_DIR, "run-smoke.sh"), "utf8");
 
   it("stages project intake (product-overview.md + nfrs.md + design-brief.md) via human-proxy supply", () => {
-    expect(runSmoke).toMatch(/lakebase-sftdd-human-proxy supply/);
+    expect(runSmoke).toMatch(/consort-human-proxy supply/);
     expect(runSmoke).toMatch(/stage_project_intake/);
     expect(runSmoke).toMatch(/product-overview\.md/);
     expect(runSmoke).toMatch(/nfrs\.md/);
@@ -237,18 +237,18 @@ describe("TDD-workflow smoke: /plan authors each sprint's backlog (two sprints, 
     expect(runSmoke).toMatch(/run_sprint "sprint-2" "\$\{SPRINT2_ITERS\[@\]\}"/);
   });
 
-  it("/plan enforces the project-intake precondition (lakebase-sftdd-intake without --feature)", () => {
+  it("/plan enforces the project-intake precondition (consort-intake without --feature)", () => {
     // run_plan_sprint is defined after run_iteration; slice from its definition
     // to the run_sprint driver that follows it in the main block.
     const planFn = runSmoke.slice(
       runSmoke.indexOf("run_plan_sprint() {"),
       runSmoke.indexOf("run_sprint() {")
     );
-    // The project-level gate calls `lakebase-sftdd-intake` (no --feature), wrapped
+    // The project-level gate calls `consort-intake` (no --feature), wrapped
     // in a retry loop (transient npx flakes must not be fatal) that still exits
     // 2 after repeated failure. (The per-feature requests are no longer staged
     // here; the Human Proxy supplies them at the driver's author-requests step.)
-    expect(planFn).toMatch(/lakebase-sftdd-intake; then _intake_ok=1/);
+    expect(planFn).toMatch(/consort-intake; then _intake_ok=1/);
     expect(planFn).toMatch(/project-intake precondition failed after 3 attempts/);
   });
 
@@ -263,7 +263,7 @@ describe("TDD-workflow smoke: /plan authors each sprint's backlog (two sprints, 
     // claude -p "/plan" path did not reliably inherit the env, flipping the plan
     // gate to interactive headless).
     const planFn = runSmoke.slice(runSmoke.indexOf("run_plan_sprint() {"));
-    expect(planFn).toMatch(/lakebase-sftdd-drive[\s\S]*--sprint "\$\{sprint_name\}"[\s\S]*--plan-only[\s\S]*--gates proxy/);
+    expect(planFn).toMatch(/consort-drive[\s\S]*--sprint "\$\{sprint_name\}"[\s\S]*--plan-only[\s\S]*--gates proxy/);
     // No EXECUTABLE claude -p "/plan" line (a line-start invocation, not a comment).
     expect(planFn, "planning must not go through claude -p").not.toMatch(/^\s*claude -p "\/plan/m);
   });
@@ -273,7 +273,7 @@ describe("TDD-workflow smoke: /plan authors each sprint's backlog (two sprints, 
     // commit a backlog; --no-sizing drops the estimate turn (propose ->
     // author-requests). The driver invocation must carry the flag.
     const planFn = runSmoke.slice(runSmoke.indexOf("run_plan_sprint() {"));
-    expect(planFn).toMatch(/lakebase-sftdd-drive[\s\S]*--no-sizing/);
+    expect(planFn).toMatch(/consort-drive[\s\S]*--no-sizing/);
   });
 });
 
@@ -281,14 +281,14 @@ describe("TDD-workflow smoke: orchestrator deploys each iteration to local (work
   const runSmoke = fs.readFileSync(path.join(SMOKE_DIR, "run-smoke.sh"), "utf8");
 
   it("deploys through the driver's deploy phase (release-engineer), not a separate /deploy or substrate emulation", () => {
-    // Driver-only: there is no separate shell-level /deploy. lakebase-sftdd-drive
+    // Driver-only: there is no separate shell-level /deploy. consort-drive
     // runs the feature's deploy phase, which routes the deploy to the
     // release-engineer role (deploy + reachability + feature-verify + the PO
     // deploy gate). The single driver invocation carries it.
-    expect(runSmoke).toMatch(/lakebase-sftdd-drive --feature "\$\{feature_id\}"/);
+    expect(runSmoke).toMatch(/consort-drive --feature "\$\{feature_id\}"/);
     expect(runSmoke, "deploy must not be a separate shell-level claude -p call").not.toMatch(/claude -p "\/deploy/);
     // The smoke still tears the local app down between iterations (safety).
-    expect(runSmoke).toMatch(/lakebase-sftdd-deploy --target local --project-dir "\$PROJECT_DIR" --stop/);
+    expect(runSmoke).toMatch(/consort-deploy --target local --project-dir "\$PROJECT_DIR" --stop/);
   });
 
   it("no feature request carries per-PR deployment intent (that is the orchestrated deploy)", () => {
@@ -400,12 +400,12 @@ describe("TDD-workflow smoke: orchestrator is TDD-only (SCM workflow tested else
     expect(runSmoke).not.toMatch(/require_cmd\s+gh\b/);
   });
 
-  it("invokes lakebase-sftdd-human-proxy for headless intake + gate approval", () => {
+  it("invokes consort-human-proxy for headless intake + gate approval", () => {
     // The Human Proxy replaces the human at intake (supplies product-overview /
     // nfrs / design-brief / feature-request) and answers the HITL gates the
     // deterministic driver surfaces (--gates proxy). Stripping it would let the
     // smoke hang at the first gate.
-    expect(runSmoke).toMatch(/lakebase-sftdd-human-proxy\b/);
+    expect(runSmoke).toMatch(/consort-human-proxy\b/);
   });
 
   it("abandons the prior feature before claiming the next (substrate CLI)", () => {

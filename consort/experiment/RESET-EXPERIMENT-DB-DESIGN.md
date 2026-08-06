@@ -41,7 +41,7 @@ navigator-assess alignment gate reuses as its independent oracle.
 ## reset-experiment-db contract
 
 - **Lives:** `scripts/sftdd/reset-experiment-db.ts` + `reset-experiment-db.cli.ts`, shipping in `dist/`
-  as `lakebase-sftdd-reset-experiment-db` (beside `lakebase-sftdd-experiment`). It CALLS
+  as `consort-reset-experiment-db` (beside `consort-experiment`). It CALLS
   `@databricks-solutions/lakebase-scm-utils/lakebase` for any Lakebase ops (same import surface
   `experiment.ts` + `cycle-record.ts` already use); it does NOT re-implement branch management.
 - **Input:** the shared environment's branch `DATABASE_URL` (extracted from the project `.env` the

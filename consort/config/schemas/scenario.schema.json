@@ -68,7 +68,7 @@
       "type": "string",
       "enum": ["navigator", "release-engineer"],
       "default": "release-engineer",
-      "description": "Default handoff the live replay drives to (lakebase-sftdd-drive --pause-before)."
+      "description": "Default handoff the live replay drives to (consort-drive --pause-before)."
     }
   }
 }

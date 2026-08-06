@@ -91,28 +91,28 @@ state machine. Writes no spec / code / test / deploy.
 
 The kit is a Claude Code plugin (`.claude-plugin/plugin.json`, name `lakebase-app-dev-kit`, the broad umbrella, NOT rebranded to TDD). It exposes `skills/`, the role `agents` (pointed at `skills/consort/agents`, so the 8 role agents are plugin agents, no per-project copy needed for discoverability), and one launcher command `commands/tdd.md` -> **`/lakebase-app-dev-kit:tdd`**. A `.claude-plugin/marketplace.json` catalogs it so `/plugin marketplace add databricks-solutions/consort` + `/plugin install lakebase-app-dev-kit@lakebase-app-dev-kit` registers it.
 
-`/lakebase-app-dev-kit:tdd` is one smart command: in a scaffolded `.sftdd/` project it takes stock and resumes the `/plan -> /design -> /build -> /deploy` loop; elsewhere it guides project creation (`lakebase-create-project`), then resumes. The slash commands invoke the deterministic orchestrator (`lakebase-sftdd-drive`), which spawns the role agents. (Superseded by `orchestrator-deterministic-driver.md`: the orchestrator is now a deterministic driver, not an `--agent scrum-master` session.) NOT validated live yet (`/plugin marketplace add` + install + cross-reference resolution in plugin agents) , that is a manual smoke.
+`/lakebase-app-dev-kit:tdd` is one smart command: in a scaffolded `.sftdd/` project it takes stock and resumes the `/plan -> /design -> /build -> /deploy` loop; elsewhere it guides project creation (`lakebase-create-project`), then resumes. The slash commands invoke the deterministic orchestrator (`consort-drive`), which spawns the role agents. (Superseded by `orchestrator-deterministic-driver.md`: the orchestrator is now a deterministic driver, not an `--agent scrum-master` session.) NOT validated live yet (`/plugin marketplace add` + install + cross-reference resolution in plugin agents) , that is a manual smoke.
 
 ## Launching the workflow (Phase J)
 
-`scripts/sftdd.sh` (scaffolded into every project) is the convenient entry point: it opens a plain `claude` session optionally seeded with a phase command. `./scripts/sftdd.sh plan` starts sprint planning; `./scripts/sftdd.sh design <id>` / `build <id>` / `deploy <id>` jump straight in; bare opens a session to type into. The slash commands invoke the deterministic orchestrator (`lakebase-sftdd-drive`), which spawns the role agents. `lakebase-create-project` prints `Next: cd <dir> && ./scripts/sftdd.sh plan` on completion. (Superseded by `orchestrator-deterministic-driver.md`: routing is code, not an `--agent scrum-master` session.)
+`scripts/sftdd.sh` (scaffolded into every project) is the convenient entry point: it opens a plain `claude` session optionally seeded with a phase command. `./scripts/sftdd.sh plan` starts sprint planning; `./scripts/sftdd.sh design <id>` / `build <id>` / `deploy <id>` jump straight in; bare opens a session to type into. The slash commands invoke the deterministic orchestrator (`consort-drive`), which spawns the role agents. `lakebase-create-project` prints `Next: cd <dir> && ./scripts/sftdd.sh plan` on completion. (Superseded by `orchestrator-deterministic-driver.md`: routing is code, not an `--agent scrum-master` session.)
 
 ## Release Engineer substrate audit (Phase G)
 
 What the Release Engineer needs, vs what the substrate ships today:
 
 **Present**
-- Local target: `lakebase-sftdd-deploy` (run + poll reachable + stop) + the deploy gate. Covers the `local` working-software check end to end.
+- Local target: `consort-deploy` (run + poll reachable + stop) + the deploy gate. Covers the `local` working-software check end to end.
 - Remote building blocks exist as TS modules: `scripts/lakebase/deploy-app-endpoint.ts`, `deploy-app-yaml.ts`, `deploy-workspace-upload.ts`, `deploy-validate.ts`, `deploy-rollback.ts`; plus the `lakebase-cut-backup` bin and the release-on-merge `merge.yml` (snapshot -> migrate target -> verify) and the SCM CLIs (`prepare-pr` / `wait-ci` / `merge`).
 
 **Gaps (the Release Engineer cannot yet ship to a remote target end to end)**
-1. `lakebase-sftdd-deploy` implements only `type: local`; `databricks-app` is recognized but refused. No routing from a `databricks-app` deploy-target to the existing `deploy-app-*` primitives.
+1. `consort-deploy` implements only `type: local`; `databricks-app` is recognized but refused. No routing from a `databricks-app` deploy-target to the existing `deploy-app-*` primitives.
 2. The `deploy-app-*` + `deploy-rollback` modules are not exposed as bins / not composed into a single "deploy this feature to its remote target" surface the Release Engineer can call.
 3. The release-orchestrator primitives the methodology expects (`cutRC`, `regressionTest`, `migrate`, `release`) are documented as future work (roadmap), not shipped. So a full RC -> regression -> backup -> migrate -> app-deploy release is still the manual procedure + `cut-backup` + `merge.yml`.
 4. No rollback command surface wired for the Release Engineer (the module exists; no `/deploy --rollback` or bin).
 
 **Filed tickets (children of):**
-- route `lakebase-sftdd-deploy --target <databricks-app>` to the existing deploy-app-* primitives (remote-deploy surface for the Release Engineer).
+- route `consort-deploy --target <databricks-app>` to the existing deploy-app-* primitives (remote-deploy surface for the Release Engineer).
 - expose `deploy-rollback` as a Release Engineer rollback surface.
 - ship the release orchestrator primitives (`cutRC` / `regressionTest` / `migrate` / `release`).
 

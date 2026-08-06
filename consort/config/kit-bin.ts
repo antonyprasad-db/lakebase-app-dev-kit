@@ -1,8 +1,8 @@
 // Resolve + run a kit CLI bin by name. Shared by the deterministic driver (which
 // runs every kit CLI as a subprocess) and by any CLI that must route an operation
 // through ANOTHER kit CLI (the single door that owns that operation's substrate)
-// rather than calling the substrate in-process, e.g. `lakebase-sftdd-pipeline
-// accept` delegating the experiment git-merge to `lakebase-sftdd-experiment merge`.
+// rather than calling the substrate in-process, e.g. `consort-pipeline
+// accept` delegating the experiment git-merge to `consort-experiment merge`.
 
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";

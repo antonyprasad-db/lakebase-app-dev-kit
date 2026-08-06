@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // CLI: Human Proxy for automated smoke runs.
 //
-//   lakebase-sftdd-human-proxy --feature <id>           # approve all open gates
-//   lakebase-sftdd-human-proxy --feature <id> --gate spec
-//   lakebase-sftdd-human-proxy --feature <id> --json --pretty
+//   consort-human-proxy --feature <id>           # approve all open gates
+//   consort-human-proxy --feature <id> --gate spec
+//   consort-human-proxy --feature <id> --json --pretty
 //
 // Wraps drainGatesAsHumanProxy. Exit codes:
 //   0 = at least one gate approved (or all already-closed; idempotent no-op also returns 0)
@@ -28,7 +28,7 @@ import type { GateName } from "../../consort/gates/gates.js";
  * at an orchestrated intake step (validate-then-place), the stand-in for a
  * human authoring product-overview.md / nfrs.md / design-brief.md / etc.
  *
- *   lakebase-sftdd-human-proxy supply --from <recorded> --to <.tdd/path> [--artifact <name>] [--feature <id>]
+ *   consort-human-proxy supply --from <recorded> --to <.tdd/path> [--artifact <name>] [--feature <id>]
  *
  * Exit: 0 supplied, 2 bad args, 4 refused (missing/non-conformant recording).
  */
@@ -69,7 +69,7 @@ function runSupplyCli(argv: string[]): number {
  * non-conformant recording is logged + skipped, and the driver surfaces the
  * unmet need as a stall rather than advancing on absent artifacts.
  *
- *   lakebase-sftdd-human-proxy supply-requests [--tdd-dir <dir>] [--approver <name>]
+ *   consort-human-proxy supply-requests [--tdd-dir <dir>] [--approver <name>]
  */
 function runSupplyRequestsCli(argv: string[]): number {
   let sftddDir: string | undefined;
@@ -104,7 +104,7 @@ function runSupplyRequestsCli(argv: string[]): number {
  * propose protocol-violation abort). Always exits 0: an unset env is a no-op (the
  * live LLM propose runs for interactive users).
  *
- *   lakebase-sftdd-human-proxy supply-proposals [--tdd-dir <dir>] [--ui]
+ *   consort-human-proxy supply-proposals [--tdd-dir <dir>] [--ui]
  */
 function runSupplyProposalsCli(argv: string[]): number {
   let sftddDir: string | undefined;
@@ -131,7 +131,7 @@ function runSupplyProposalsCli(argv: string[]): number {
  * smell). The deterministic driver emits this for a `revise-route` action; it is
  * never invoked for a build-level/non-routable escalation (those hard-halt).
  *
- *   lakebase-sftdd-human-proxy decide-escalation --feature F --story S --smell N \
+ *   consort-human-proxy decide-escalation --feature F --story S --smell N \
  *       --routed-to spec-author --gate spec --reason "<verdict>" [--approver A] [--tdd-dir D]
  */
 function runDecideEscalationCli(argv: string[]): number {
@@ -243,14 +243,14 @@ function parseArgs(argv: string[]): ParsedArgs {
   return out;
 }
 
-const HELP = `lakebase-sftdd-human-proxy
+const HELP = `consort-human-proxy
 
 Human Proxy for automated smoke / headless test runs. Calls
 approveGate on every open gate for a feature with hitlApproved=true,
 default approver "human-proxy". NOT for production use.
 
 Usage:
-  lakebase-sftdd-human-proxy --feature <id> [flags]
+  consort-human-proxy --feature <id> [flags]
 
 Flags:
   --feature <id>          Feature id (required, e.g. F1-initial-domain)

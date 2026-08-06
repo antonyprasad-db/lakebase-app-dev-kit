@@ -450,7 +450,7 @@ describe("feature-status reconciles with the per-story pipeline (FEIP-8016)", ()
 
 // Finding 13 (handover 2026-07-16): feature-status showed deploy/promote gates as
 // `open` for a feature the drive had already deployed + merged, disagreeing with
-// lakebase-sftdd-next (which reconciles deploy/promote from deploy-evidence + the
+// consort-next (which reconciles deploy/promote from deploy-evidence + the
 // SCM workflow-state, not the raw gates.json approval bit). feature-status must
 // consume the SAME reconciliation (readDriveContext) so the two surfaces agree.
 describe("feature-status reconciles deploy/promote with the drive engine (Finding 13)", () => {

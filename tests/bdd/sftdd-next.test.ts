@@ -1,4 +1,4 @@
-// FEIP-8017: lakebase-sftdd-next, the authoritative, strictly read-only "what
+// FEIP-8017: consort-next, the authoritative, strictly read-only "what
 // next" surface. These tests pin the decision-MENU builder (the real HIL choices
 // per stop, each with its CORRECT enact CLI), the reconciled state + blockers,
 // the truthful phase-complete messaging, and the DRY invariant that the gate
@@ -34,31 +34,31 @@ const fixed = (action: WorkflowAction) => () => action;
 describe("gateEnactCommand: the ONE gate -> CLI mapping (DRY, subsumes Findings 10/12)", () => {
   it("routes each gate to its correct substrate door", () => {
     expect(gateEnactCommand({ kind: "approve-plan-gate" }, { sprint: "S1", approver: "you" })).toEqual({
-      bin: "lakebase-sftdd-approve-gate",
+      bin: "consort-approve-gate",
       args: ["--sprint", "S1", "--approver", "you"],
     });
     // per-story spec gate is pipeline-scoped (--feature --story), NOT feature gates.json
     expect(gateEnactCommand({ kind: "approve-gate", story: "S2" }, { featureId: "F1", approver: "you" })).toEqual({
-      bin: "lakebase-sftdd-approve-gate",
+      bin: "consort-approve-gate",
       args: ["--feature", "F1", "--story", "S2", "--approver", "you"],
     });
     expect(gateEnactCommand({ kind: "approve-deploy-gate" }, { featureId: "F1", approver: "you" })).toEqual({
-      bin: "lakebase-sftdd-approve-gate",
+      bin: "consort-approve-gate",
       args: ["--feature", "F1", "--gate", "deploy", "--approver", "you"],
     });
     // promote REQUIRES --promote-ref (FEIP-8019): defaults to the feature id, or
     // the feature branch when supplied.
     expect(gateEnactCommand({ kind: "approve-promote-gate" }, { featureId: "F1", approver: "you" })).toEqual({
-      bin: "lakebase-sftdd-approve-gate",
+      bin: "consort-approve-gate",
       args: ["--feature", "F1", "--gate", "promote", "--promote-ref", "F1", "--approver", "you"],
     });
     expect(gateEnactCommand({ kind: "approve-promote-gate" }, { featureId: "F1", featureBranch: "feat/orders", approver: "you" })).toEqual({
-      bin: "lakebase-sftdd-approve-gate",
+      bin: "consort-approve-gate",
       args: ["--feature", "F1", "--gate", "promote", "--promote-ref", "feat/orders", "--approver", "you"],
     });
     // acceptance routes through the pipeline accept (which owns the experiment merge)
     expect(gateEnactCommand({ kind: "accept", story: "S3" }, { featureId: "F1", approver: "you" })).toEqual({
-      bin: "lakebase-sftdd-pipeline",
+      bin: "consort-pipeline",
       args: ["accept", "--feature", "F1", "--story", "S3", "--approver", "you"],
     });
     expect(gateEnactCommand({ kind: "deploy" }, {})).toBeNull(); // non-gate
@@ -85,15 +85,15 @@ describe("buildNextOptions: the decision menu per stop", () => {
     const accept = opts.find((o) => o.id === "acceptance.accept")!;
     expect(accept.kind).toBe("gate");
     expect(accept.enact).toEqual({
-      bin: "lakebase-sftdd-pipeline",
+      bin: "consort-pipeline",
       args: ["accept", "--feature", "F1-checkout", "--story", "S3", "--approver", "po@example.com"],
     });
     expect(opts.find((o) => o.id === "acceptance.discard")!.enact).toEqual({
-      bin: "lakebase-sftdd-pipeline",
+      bin: "consort-pipeline",
       args: ["discard", "--feature", "F1-checkout", "--story", "S3", "--approver", "po@example.com", "--reason", "<reason>"],
     });
     expect(opts.find((o) => o.id === "acceptance.revise")!.enact).toEqual({
-      bin: "lakebase-sftdd-pipeline",
+      bin: "consort-pipeline",
       args: ["revise", "--feature", "F1-checkout", "--story", "S3", "--approver", "po@example.com", "--reason", "<reason>"],
     });
     // every option poses a question to the human
@@ -118,7 +118,7 @@ describe("buildNextOptions: the decision menu per stop", () => {
     const opts = buildNextOptions({ kind: "approve-promote-gate" }, { ...CTX, featureBranch: "feat/orders" });
     const promote = opts.find((o) => o.id === "promote.approve")!;
     expect(promote.enact).toEqual({
-      bin: "lakebase-sftdd-approve-gate",
+      bin: "consort-approve-gate",
       args: ["--feature", "F1-checkout", "--gate", "promote", "--promote-ref", "feat/orders", "--approver", "po@example.com"],
     });
   });
@@ -127,7 +127,7 @@ describe("buildNextOptions: the decision menu per stop", () => {
     for (const action of [{ kind: "prepare-pr" }, { kind: "merge" }] as const) {
       const resume = buildNextOptions(action, CTX)[0];
       expect(resume.outward_facing).toBe(true);
-      expect(resume.enact).toEqual({ bin: "lakebase-sftdd-drive", args: ["--feature", "F1-checkout"] });
+      expect(resume.enact).toEqual({ bin: "consort-drive", args: ["--feature", "F1-checkout"] });
     }
   });
 

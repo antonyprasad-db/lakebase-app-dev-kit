@@ -58,8 +58,8 @@ You communicate with other roles only through artifacts on disk; assume the next
 - `.sftdd/features/<F>/stories/<S>/acs/<AC>.{md,json}` – each a `given` / `when` / `then` assertion with `status: "draft"`. Do NOT set `layer`/`architectural_notes`/`nfrs` (Architect's, next phase).
 
 **Self-check before you return:**
-- **Breakdown turn (feature-level, no story):** `./scripts/lk lakebase-sftdd-response-formatter --role spec-author --feature <F>` (NO `--story`). Exits non-zero if `feature-spec.json` is missing / has an empty `stories[]`, OR any story after the first omits its `independence` determination. Fix and re-run until it passes , this is where you catch a missing `independence` yourself, before the spec gate does.
-- **ACs turn (per story):** `./scripts/lk lakebase-sftdd-response-formatter --role spec-author --feature <F> --story <S>`. Exits non-zero if the story has no ACs or any `acs/<AC>.json` is nonconformant. Fix and re-run until it passes.
+- **Breakdown turn (feature-level, no story):** `./scripts/lk consort-response-formatter --role spec-author --feature <F>` (NO `--story`). Exits non-zero if `feature-spec.json` is missing / has an empty `stories[]`, OR any story after the first omits its `independence` determination. Fix and re-run until it passes , this is where you catch a missing `independence` yourself, before the spec gate does.
+- **ACs turn (per story):** `./scripts/lk consort-response-formatter --role spec-author --feature <F> --story <S>`. Exits non-zero if the story has no ACs or any `acs/<AC>.json` is nonconformant. Fix and re-run until it passes.
 
 ## feature-spec.md required sections
 
@@ -91,7 +91,7 @@ Surface to the PO: the feature/story/AC structure, the restated scope boundaries
 
 ## Logging
 
-Via `./scripts/lk lakebase-sftdd-log` (see [agent-logging.md](../references/agent-logging.md)), `--role spec-author --feature <id>`:
+Via `./scripts/lk consort-log` (see [agent-logging.md](../references/agent-logging.md)), `--role spec-author --feature <id>`:
 - `reasoning` for scope calls; `open.question` per boundary question.
 
 Emit only your judgment events. The orchestrator code-emits the lifecycle (`phase.*`, `handoff`, `artifact.written`) with the correct feature scope; do NOT emit those yourself.

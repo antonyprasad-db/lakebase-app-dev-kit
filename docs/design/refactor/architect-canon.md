@@ -199,7 +199,7 @@ safety of the reactive route.
 - Live (gated): a stockflow F1+F6 sprint capture shows F1 establishing
   `architecture/canon.json` and F6's clean stories taking zero architect turns;
   compare architect-turn count against the recorded baseline with
-  `lakebase-sftdd-drive-log-report`.
+  `consort-drive-log-report`.
 
 ## Notes
 
@@ -223,7 +223,7 @@ Landed on `feip-7902-architect-canon`, each phase green:
   `architecture.json` (with feature-specific invariants, NOT canon-derivable), so
   the FIRST story of every feature still runs the architect to author it. The win
   is per-story WITHIN a feature: later non-novel stories project their per-AC notes
-  deterministically (via `lakebase-sftdd-canon-notes`), plus the canon informs the
+  deterministically (via `consort-canon-notes`), plus the canon informs the
   projected notes across features.
 - **Reactive fallback (the confirmed scope decision)** , the projection recognizer
   (`evaluateStoryCanon`) raises the `architect-canon-gap` smell (spec-level,

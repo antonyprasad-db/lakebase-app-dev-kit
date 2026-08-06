@@ -1,5 +1,5 @@
 // Pure arg parsing + the required-argument CONTRACT for the experiment CLI
-// (lakebase-sftdd-experiment cut|merge|discard). Lives in its own module (not the
+// (consort-experiment cut|merge|discard). Lives in its own module (not the
 // .cli entrypoint, which self-executes main() on import) so BOTH the CLI and the
 // orchestrator-glue contract test import the SAME parser + validator. A driver
 // command missing a required flag fails validateExperimentArgs in a hermetic

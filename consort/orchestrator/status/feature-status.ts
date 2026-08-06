@@ -70,7 +70,7 @@ export interface StoryStatusEntry {
 
 /** The deploy/promote completion RECONCILED from the drive engine's own context
  *  (deploy-evidence.json + the SCM workflow-state ladder), the SAME reconciliation
- *  lakebase-sftdd-next uses. Lets feature-status show a deployed + merged feature's
+ *  consort-next uses. Lets feature-status show a deployed + merged feature's
  *  deploy/promote as done instead of the stale gates.json approval bit (Finding 13).
  *  null when the drive context cannot be read (e.g. the feature was never authored). */
 export interface ProgressionSummary {
@@ -107,7 +107,7 @@ export interface FeatureStatusSnapshot {
    */
   gates: GatesSummary | null;
   /** Deploy/promote completion reconciled from the drive engine, so the gate
-   *  display agrees with lakebase-sftdd-next instead of dumping the raw (and
+   *  display agrees with consort-next instead of dumping the raw (and
    *  stale) gates.json approval bit (Finding 13). null when unreadable. */
   progression: ProgressionSummary | null;
 }
@@ -225,7 +225,7 @@ function readWorkflowState(sftddDir: string): {
 }
 
 /** The per-story rows from pipeline.json (empty when none tracked yet). Exported
- *  so lakebase-sftdd-next reuses the SAME reconciled view + derived phase as
+ *  so consort-next reuses the SAME reconciled view + derived phase as
  *  feature-status, and the two can never disagree (FEIP-8016/8017). */
 export function summarizeStories(sftddDir: string, featureId: string): StoryStatusEntry[] {
   let pipeline;
@@ -263,7 +263,7 @@ export function deriveFeaturePhase(stories: StoryStatusEntry[]): string | null {
 }
 
 /** Reconcile deploy/promote completion from the drive engine's context (the SAME
- *  readDriveContext lakebase-sftdd-next consumes), tolerant of an unreadable state.
+ *  readDriveContext consort-next consumes), tolerant of an unreadable state.
  *  `projectDir` reaches the SCM workflow-state at <projectDir>/.lakebase/. */
 function readProgression(
   sftddDir: string,

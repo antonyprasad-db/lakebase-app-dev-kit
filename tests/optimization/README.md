@@ -10,7 +10,7 @@ Two consumers share the same manifests + runner:
 - **Hermetic tests** (`hermetic/`, run under `npm test`) — prove each chain is well-formed WITHOUT
   spawning a model.
 - **Live tests** (`live/`, gated on `RUN_LIVE_STEP=1`) + the **per-role sweep**
-  (`lakebase-sftdd-optimize-role --role <r>`) — spawn the real agent.
+  (`consort-optimize-role --role <r>`) — spawn the real agent.
 
 ## Experiment reproducibility: preserve BOTH halves
 
@@ -212,7 +212,7 @@ Ownership model (settled with the user):
   need — self-contained copies by design (so the isolated tests don't depend on the moving corpus).
   A copy is the correct end state: NO drift guard, NO provenance link back to source.
 - **The per-role optimize machinery is INTERNAL agent perf-tuning tooling**, not shipped product
-  (the shipped drive-optimize bins `lakebase-sftdd-optimize`/`-apply` are separate and do NOT import
+  (the shipped drive-optimize bins `consort-optimize`/`-apply` are separate and do NOT import
   it). Note: `consort/` source isn't in the npm package at all (`files:` ships dist/scripts/skills/
   templates), so the real "unship" lever was the CLI **bin**, not the source location.
 
@@ -220,7 +220,7 @@ What actually moved (a code trace corrected the original blanket plan):
 - **Moved to `tests/optimization/`** (the harness-ONLY files): `role-levers.ts`, `role-sweep.ts`,
   `role-sweep-report.ts` (from `consort/optimize/`), `optimize-role.cli.ts` (from
   `scripts/sftdd/`), and this README.
-- **UNSHIPPED** `lakebase-sftdd-optimize-role` from `package.json` bin. It is still built to
+- **UNSHIPPED** `consort-optimize-role` from `package.json` bin. It is still built to
   `dist/tests/optimization/optimize-role.cli.js` (a tsup entry, NOT a bin) purely so
   `scripts/optimize-role.sh` can run the CJS build (the shared schema-loader needs `__dirname`).
 - **LEFT IN PLACE** (shared or production, NOT harness-only):

@@ -269,10 +269,10 @@ function parse(argv) {
 }
 function help() {
   process.stdout.write(
-    `lakebase-sftdd-layering-clean , prove the boundary/routes layer does not touch persistence
+    `consort-layering-clean , prove the boundary/routes layer does not touch persistence
 
 Usage:
-  lakebase-sftdd-layering-clean [--project-dir <path>] [--architecture <path>] \\
+  consort-layering-clean [--project-dir <path>] [--architecture <path>] \\
                               [--boundary <rel> ...] [--repository <rel> ...] \\
                               [--service-backed] [--json]
 

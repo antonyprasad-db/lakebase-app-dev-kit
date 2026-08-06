@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // CLI: /design intake precondition check.
 //
-//   lakebase-sftdd-intake                         # require product-overview.md + nfrs.md
-//   lakebase-sftdd-intake --feature F1-x          # + that feature's feature-request.md
-//   lakebase-sftdd-intake --json --pretty
+//   consort-intake                         # require product-overview.md + nfrs.md
+//   consort-intake --feature F1-x          # + that feature's feature-request.md
+//   consort-intake --json --pretty
 //
 // design-brief.md is additionally required for UI projects. Whether the project
 // is UI is read from the SINGLE source (project.uiTrack in sftdd-config.json, set
@@ -34,7 +34,7 @@ export function runIntakeCli(argv: string[]): number {
       case "-h":
       case "--help":
         process.stdout.write(
-          "lakebase-sftdd-intake [--feature <id>] [--tdd-dir <path>] [--project-dir <path>] [--json] [--pretty]\n" +
+          "consort-intake [--feature <id>] [--tdd-dir <path>] [--project-dir <path>] [--json] [--pretty]\n" +
             "Verifies the HIL intake artifacts /design requires before phase 1.\n" +
             "design-brief.md is required for UI projects (read from project.uiTrack in sftdd-config.json).\n",
         );
@@ -46,15 +46,15 @@ export function runIntakeCli(argv: string[]): number {
   if (json) {
     process.stdout.write(`${JSON.stringify(result, null, pretty ? 2 : 0)}\n`);
   } else if (result.ok) {
-    process.stdout.write(`lakebase-sftdd-intake: intake satisfied (${result.statuses.length} artifact(s) present + conformant)\n`);
+    process.stdout.write(`consort-intake: intake satisfied (${result.statuses.length} artifact(s) present + conformant)\n`);
   } else {
     if (result.missing.length > 0) {
-      process.stderr.write(`lakebase-sftdd-intake: MISSING intake artifact(s): ${result.missing.join(", ")}\n`);
+      process.stderr.write(`consort-intake: MISSING intake artifact(s): ${result.missing.join(", ")}\n`);
     }
     for (const s of result.statuses.filter((s) => s.present && !s.conformant)) {
-      process.stderr.write(`lakebase-sftdd-intake: non-conformant ${s.artifact}: ${s.violations.join("; ")}\n`);
+      process.stderr.write(`consort-intake: non-conformant ${s.artifact}: ${s.violations.join("; ")}\n`);
     }
-    process.stderr.write("lakebase-sftdd-intake: /design cannot proceed; the orchestrator must facilitate intake (interview the human, or Human Proxy supply in headless) first.\n");
+    process.stderr.write("consort-intake: /design cannot proceed; the orchestrator must facilitate intake (interview the human, or Human Proxy supply in headless) first.\n");
   }
   return result.ok ? 0 : 5;
 }

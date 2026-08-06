@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// lakebase-sftdd-sync-backlog: commit a sprint's backlog from the PO's authored
+// consort-sync-backlog: commit a sprint's backlog from the PO's authored
 // feature-request.md files , the HUMAN-in-the-loop door that the Human Proxy takes
 // headlessly at the planning `author-requests` step.
 //
@@ -18,7 +18,7 @@
 // then projects backlog.json = the requested features that have a feature-request.md.
 //
 // Usage:
-//   lakebase-sftdd-sync-backlog --sprint <s> [--features F1,F2 ...]
+//   consort-sync-backlog --sprint <s> [--features F1,F2 ...]
 //                               [--project-dir <path>] [--tdd-dir <path>] [--json]
 // Exit 0 = backlog committed (>= 1 feature); exit 2 = empty backlog (author the
 //          feature-request.md files first, or fix the declared membership).
@@ -51,9 +51,9 @@ function parse(argv: string[]): Parsed {
 
 function help(): never {
   process.stdout.write(
-    `lakebase-sftdd-sync-backlog , commit a sprint's backlog from authored feature-request.md files\n\n` +
+    `consort-sync-backlog , commit a sprint's backlog from authored feature-request.md files\n\n` +
       `Usage:\n` +
-      `  lakebase-sftdd-sync-backlog --sprint <s> [--features F1,F2 ...] [--project-dir <path>] [--tdd-dir <path>] [--json]\n\n` +
+      `  consort-sync-backlog --sprint <s> [--features F1,F2 ...] [--project-dir <path>] [--tdd-dir <path>] [--json]\n\n` +
       `--features declares this sprint's membership (recorded to sprints/<s>/requested.json); omit to re-project\n` +
       `from the existing requested.json. Projects backlog.json = requested features that have a feature-request.md.\n` +
       `Exit 0 = backlog committed; exit 2 = empty (author the feature-request.md files first).\n`,
@@ -63,7 +63,7 @@ function help(): never {
 
 const p = parse(process.argv.slice(2));
 if (!p.sprint) {
-  process.stderr.write(`lakebase-sftdd-sync-backlog: --sprint <name> is required.\n`);
+  process.stderr.write(`consort-sync-backlog: --sprint <name> is required.\n`);
   process.exit(2);
 }
 const sftddDir = p.tddDir ?? resolveSftddDir(p.projectDir);

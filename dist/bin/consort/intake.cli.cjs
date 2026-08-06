@@ -7028,7 +7028,7 @@ function runIntakeCli(argv) {
       case "-h":
       case "--help":
         process.stdout.write(
-          "lakebase-sftdd-intake [--feature <id>] [--tdd-dir <path>] [--project-dir <path>] [--json] [--pretty]\nVerifies the HIL intake artifacts /design requires before phase 1.\ndesign-brief.md is required for UI projects (read from project.uiTrack in sftdd-config.json).\n"
+          "consort-intake [--feature <id>] [--tdd-dir <path>] [--project-dir <path>] [--json] [--pretty]\nVerifies the HIL intake artifacts /design requires before phase 1.\ndesign-brief.md is required for UI projects (read from project.uiTrack in sftdd-config.json).\n"
         );
         return 0;
     }
@@ -7038,18 +7038,18 @@ function runIntakeCli(argv) {
     process.stdout.write(`${JSON.stringify(result, null, pretty ? 2 : 0)}
 `);
   } else if (result.ok) {
-    process.stdout.write(`lakebase-sftdd-intake: intake satisfied (${result.statuses.length} artifact(s) present + conformant)
+    process.stdout.write(`consort-intake: intake satisfied (${result.statuses.length} artifact(s) present + conformant)
 `);
   } else {
     if (result.missing.length > 0) {
-      process.stderr.write(`lakebase-sftdd-intake: MISSING intake artifact(s): ${result.missing.join(", ")}
+      process.stderr.write(`consort-intake: MISSING intake artifact(s): ${result.missing.join(", ")}
 `);
     }
     for (const s of result.statuses.filter((s2) => s2.present && !s2.conformant)) {
-      process.stderr.write(`lakebase-sftdd-intake: non-conformant ${s.artifact}: ${s.violations.join("; ")}
+      process.stderr.write(`consort-intake: non-conformant ${s.artifact}: ${s.violations.join("; ")}
 `);
     }
-    process.stderr.write("lakebase-sftdd-intake: /design cannot proceed; the orchestrator must facilitate intake (interview the human, or Human Proxy supply in headless) first.\n");
+    process.stderr.write("consort-intake: /design cannot proceed; the orchestrator must facilitate intake (interview the human, or Human Proxy supply in headless) first.\n");
   }
   return result.ok ? 0 : 5;
 }

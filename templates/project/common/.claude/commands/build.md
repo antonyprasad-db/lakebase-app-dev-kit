@@ -4,7 +4,7 @@ Drives a designed feature through TDD cycles to ready-for-review by delegating t
 
 ## Operating contract (drive, do not narrate)
 
-Follow `@consort/references/orchestrator-contract.md`: drive to completion via `lakebase-sftdd-next` (enact its `primary_action`, then continue), and stop for the human ONLY at a HITL gate (per-story acceptance) or a blocker. Present the decision (the `next` option titles + their `hil_prompt`s), not the CLIs you ran; report outcomes ("S2 accepted"), not per-command play-by-play; show working software at the acceptance gate. Verbose step narration is opt-in (`LAKEBASE_SFTDD_VERBOSE=1`), off by default.
+Follow `@consort/references/orchestrator-contract.md`: drive to completion via `consort-next` (enact its `primary_action`, then continue), and stop for the human ONLY at a HITL gate (per-story acceptance) or a blocker. Present the decision (the `next` option titles + their `hil_prompt`s), not the CLIs you ran; report outcomes ("S2 accepted"), not per-command play-by-play; show working software at the acceptance gate. Verbose step narration is opt-in (`LAKEBASE_SFTDD_VERBOSE=1`), off by default.
 
 ## Usage
 
@@ -23,7 +23,7 @@ acceptance (headless: the Human Proxy answers):
 ```bash
 GATES=interactive; [ "${LAKEBASE_SFTDD_HUMAN_PROXY:-}" = "1" ] && GATES=proxy
 ./scripts/lk \
-  lakebase-sftdd-drive --feature "<feature-id>" --only build --gates "$GATES" --project-dir "$PWD"
+  consort-drive --feature "<feature-id>" --only build --gates "$GATES" --project-dir "$PWD"
 ```
 
 The driver:
@@ -34,7 +34,7 @@ The driver:
   teeth) -> **accept** (merge the experiment) -> pull the next ready story.
 - routes deterministically (routing is code, not an LLM orchestrator): spawns `@consort/agents/{navigator,driver,release-engineer}`
   at their resolved per-role models, emits the cycle/handoff log as code. Tail:
-  `lakebase-sftdd-log --read --feature <id>`.
+  `consort-log --read --feature <id>`.
 - **requires design done**: `--only build` REFUSES (stops at iteration 0) if a
   story is not yet designed (its spec gate unapproved). If it refuses, run
   `/design <feature-id>` first.
@@ -42,8 +42,8 @@ The driver:
 
 **Gates.** Interactive: the driver stops at each per-story acceptance (and any
 test-list / promote gate) and prints a `GATE` marker. Surface the running story
-to the human; on accept, record it (`lakebase-sftdd-experiment merge` +
-`lakebase-sftdd-pipeline accept --story <s> --approver <human>`), then re-run to
+to the human; on accept, record it (`consort-experiment merge` +
+`consort-pipeline accept --story <s> --approver <human>`), then re-run to
 resume. Headless (`--gates proxy`): the Human Proxy validates + approves. A story
 that is not reachable + verify-green cannot be accepted (never a silent merge).
 

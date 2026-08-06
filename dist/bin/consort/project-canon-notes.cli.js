@@ -6951,17 +6951,17 @@ function parse(argv) {
 }
 function help() {
   process.stdout.write(
-    `lakebase-sftdd-canon-notes , project a story's per-AC architectural_notes from the canon
+    `consort-canon-notes , project a story's per-AC architectural_notes from the canon
 
 Usage:
-  lakebase-sftdd-canon-notes --feature <F> --story <S> [--tdd-dir <path>]
+  consort-canon-notes --feature <F> --story <S> [--tdd-dir <path>]
 `
   );
   process.exit(0);
 }
 var p = parse(process.argv.slice(2));
 if (!p.feature || !p.story) {
-  process.stderr.write("lakebase-sftdd-canon-notes: --feature and --story are required\n");
+  process.stderr.write("consort-canon-notes: --feature and --story are required\n");
   process.exit(2);
 }
 var sftddDir = p.sftddDir ?? resolveSftddDir();

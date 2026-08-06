@@ -50,7 +50,7 @@ function recordingRunner(sftddDir: string) {
         }
         if (cmd.kind === "cli") {
           const verb = cmd.args[0];
-          labels.push(`cli:${cmd.bin.replace("lakebase-sftdd-", "")}:${verb}`);
+          labels.push(`cli:${cmd.bin.replace("consort-", "")}:${verb}`);
           // The reconcile CLI materializes the agent-log , simulate that so validate-outputs passes.
           if (cmd.bin.endsWith("-log") && verb === "--reconcile") {
             writeFileSync(join(sftddDir, "agent-log.jsonl"),
@@ -207,7 +207,7 @@ function redRecordingRunner(projectDir: string, sftddDir: string) {
         }
         if (cmd.kind === "cli") {
           const verb = cmd.args[0];
-          labels.push(`cli:${cmd.bin.replace("lakebase-sftdd-", "")}:${verb}`);
+          labels.push(`cli:${cmd.bin.replace("consort-", "")}:${verb}`);
           if (cmd.bin.endsWith("-log") && verb === "--reconcile") {
             writeFileSync(join(sftddDir, "agent-log.jsonl"),
               JSON.stringify({ timestamp: "2026-08-05T00:00:00Z", level: "info", role: "navigator", event: "artifact.written", message: "wrote tests/test_create_sku.py" }) + "\n");
@@ -312,7 +312,7 @@ describe("performViaExecutor (#594): driver GREEN through the StepExecutor", () 
             return;
           }
           if (cmd.kind === "cli") {
-            labels.push(`cli:${cmd.bin.replace("lakebase-sftdd-", "")}:${cmd.args[0]}`);
+            labels.push(`cli:${cmd.bin.replace("consort-", "")}:${cmd.args[0]}`);
             if (cmd.bin.endsWith("-log") && cmd.args[0] === "--reconcile") {
               writeFileSync(join(sftddDir, "agent-log.jsonl"),
                 JSON.stringify({ timestamp: "2026-08-05T00:00:00Z", level: "info", role: "driver", event: "artifact.written", message: "wrote app/models.py" }) + "\n");

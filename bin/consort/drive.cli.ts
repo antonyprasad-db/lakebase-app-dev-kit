@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// lakebase-sftdd-drive: the deterministic orchestrator driver (phase 3b).
+// consort-drive: the deterministic orchestrator driver (phase 3b).
 //
-//   lakebase-sftdd-drive --feature <id> [--project-dir <dir>] [--tdd-dir <dir>]
+//   consort-drive --feature <id> [--project-dir <dir>] [--tdd-dir <dir>]
 //                      [--instance <i>] [--deploy-target <t>] [--approver <a>]
 //                      [--dry-run]
 //
@@ -103,10 +103,10 @@ function parseArgs(argv: string[]): ParsedArgs {
 }
 
 function help(): string {
-  return `lakebase-sftdd-drive (deterministic orchestrator driver)
+  return `consort-drive (deterministic orchestrator driver)
 
 Usage:
-  lakebase-sftdd-drive --feature <id> [flags]
+  consort-drive --feature <id> [flags]
 
 Flags:
   --feature <id>       Feature to drive (required)
@@ -337,7 +337,7 @@ function reportInput(action: WorkflowAction, sprint?: string): void {
     `[drive] PAUSED , awaiting human input (${describeAction(action)}). Nothing was approved or produced yet.\n` +
       `        The Product Owner must:\n` +
       `          1. author the sprint's feature-request(s) at .sftdd/features/<id>/feature-request.md, then\n` +
-      `          2. commit the backlog: lakebase-sftdd-sync-backlog --sprint ${s} --features <id[,id...]>\n` +
+      `          2. commit the backlog: consort-sync-backlog --sprint ${s} --features <id[,id...]>\n` +
       `        then re-run the drive , it will advance to the (interactive) plan gate.\n`,
   );
 }
@@ -564,7 +564,7 @@ async function main(): Promise<number> {
     const m = migrateLegacyArtifactDir(projectDir);
     if (m.migrated) {
       process.stderr.write(
-        `lakebase-sftdd-drive: migrated legacy ${LEGACY_ARTIFACT_ROOT}/ to ${ARTIFACT_ROOT}/ (via ${m.via}).\n`,
+        `consort-drive: migrated legacy ${LEGACY_ARTIFACT_ROOT}/ to ${ARTIFACT_ROOT}/ (via ${m.via}).\n`,
       );
     }
   }
@@ -592,11 +592,11 @@ async function main(): Promise<number> {
     const launchRef = resolveLaunchKitRef(pd, process.env);
     if (launchRef) {
       const drift = kitRefDriftWarning(pd, launchRef);
-      if (drift) process.stderr.write(`lakebase-sftdd-drive: ${drift}\n`);
+      if (drift) process.stderr.write(`consort-drive: ${drift}\n`);
       const r = pinRunKitRef(pd, launchRef);
       if (r.pinned) {
         process.stderr.write(
-          `lakebase-sftdd-drive: pinned kit-ref '${launchRef}' to .lakebase/kit-ref.local for this run` +
+          `consort-drive: pinned kit-ref '${launchRef}' to .lakebase/kit-ref.local for this run` +
             (r.previous ? ` (was '${r.previous}')` : "") +
             `.\n`,
         );
@@ -611,7 +611,7 @@ async function main(): Promise<number> {
   // LAKEBASE_SFTDD_AUTO_CONTINUE=1 (or CI), so they pass.
   if (effectiveGates(args, args.projectDir ?? process.cwd()) === "proxy" && !hasNonInteractiveSignal()) {
     process.stderr.write(
-      `lakebase-sftdd-drive: gate mode 'proxy' (Human Proxy approves headlessly) requires an explicit\n` +
+      `consort-drive: gate mode 'proxy' (Human Proxy approves headlessly) requires an explicit\n` +
         `non-interactive signal (LAKEBASE_SFTDD_AUTO_CONTINUE=1 or CI). Refusing to bypass HITL in an\n` +
         `interactive/dev context. Unset LAKEBASE_SFTDD_HUMAN_PROXY, or pass --gates interactive.\n`,
     );
@@ -634,7 +634,7 @@ async function main(): Promise<number> {
     const auth = await driveAuthPreflight();
     if (!auth.ok) {
       process.stderr.write(
-        `lakebase-sftdd-drive: Databricks auth preflight FAILED , halting before any agent spawn.\n${auth.message}\n`,
+        `consort-drive: Databricks auth preflight FAILED , halting before any agent spawn.\n${auth.message}\n`,
       );
       return 2;
     }
@@ -645,7 +645,7 @@ async function main(): Promise<number> {
     return runSprintMode(args);
   }
   if (!args.feature) {
-    process.stderr.write(`lakebase-sftdd-drive: --feature is required.\n\n${help()}`);
+    process.stderr.write(`consort-drive: --feature is required.\n\n${help()}`);
     return 2;
   }
 
@@ -655,7 +655,7 @@ async function main(): Promise<number> {
   if (args.planOnly) bound = "plan";
   if (args.only) {
     if (!["design", "build", "deploy"].includes(args.only)) {
-      process.stderr.write(`lakebase-sftdd-drive: --only must be design|build|deploy (got "${args.only}").\n`);
+      process.stderr.write(`consort-drive: --only must be design|build|deploy (got "${args.only}").\n`);
       return 2;
     }
     bound = args.only as DriverBound;
@@ -669,7 +669,7 @@ async function main(): Promise<number> {
   if (args.pauseBefore) {
     if (!["navigator", "release-engineer"].includes(args.pauseBefore)) {
       process.stderr.write(
-        `lakebase-sftdd-drive: --pause-before must be navigator|release-engineer (got "${args.pauseBefore}").\n`,
+        `consort-drive: --pause-before must be navigator|release-engineer (got "${args.pauseBefore}").\n`,
       );
       return 2;
     }
@@ -690,7 +690,7 @@ async function main(): Promise<number> {
     const scm = readWorkflowState(cfg.projectDir);
     if (isForeignFeatureClaim(scm, cfg.featureId)) {
       process.stderr.write(
-        `lakebase-sftdd-drive: refusing to drive "${cfg.featureId}" , the SCM workflow state records a\n` +
+        `consort-drive: refusing to drive "${cfg.featureId}" , the SCM workflow state records a\n` +
           `DIFFERENT feature "${scm?.feature_id}" (branch ${scm?.branch ?? "?"}). Driving now would fork the\n` +
           `experiment from the wrong branch and commit build output onto it. Claim this feature first\n` +
           `(lakebase-scm-claim-feature-branch ${cfg.featureId}), or reconcile the prior out-of-band feature,\n` +
@@ -839,7 +839,7 @@ async function main(): Promise<number> {
     // run), so an orchestrating agent's contract is "on any stop, read next.json
     // and present its options" instead of reverse-engineering the next move and
     // drifting into freeform (FEIP-8017). Feature scope only (the stops that need
-    // it); `lakebase-sftdd-next --sprint` answers sprint scope on demand. Skipped
+    // it); `consort-next --sprint` answers sprint scope on demand. Skipped
     // under replay/record so the recorded corpora stay clean; best-effort inside.
     const recordingOrReplaying =
       !!sftddEnv("REPLAY_DIR") || !!sftddEnv("REPLAY_BUILD_DIR") || !!sftddEnv("RECORD_BUILD_DIR") || !!sftddEnv("RECORD_DIR");

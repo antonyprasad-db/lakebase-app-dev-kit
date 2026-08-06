@@ -63,7 +63,7 @@ These are your only planning-phase artifacts. Everything below is `/design`-phas
   - **`persistence_invariants`** (array, REQUIRED when the feature PERSISTS DATA): the DB-level guarantees the schema enforces , the persistence contract the test-strategist must cover with a real-branch test each, and the DBA realizes physically. This array is the source of truth for "this feature has a database": declaring `>=1` invariant routes the feature through the DBA + DB-integration tests; declaring NONE marks it a non-persisting feature (no schema, DBA skipped). **A service does not always mean a database** , a `service_backed` feature can be a compute/transform, a proxy, or an external-API aggregator that persists nothing, and then `persistence_invariants` is legitimately empty. Declare every invariant a persisting feature relies on: unique/composite keys, foreign keys + cascade rules, NOT NULL / CHECK constraints, any transactional-atomicity boundary, and migration reversibility. Each entry: `{ "id": "PI1-<slug>", "type": "unique"|"foreign_key"|"cascade"|"not_null"|"check"|"transactional"|"migration_reversible", "table": "<table>", "brief": "<the guarantee to verify against the branch>" }`. The safety net against UNDER-declaring: if the feature shows persistence evidence (an `Infra`-layer AC, or a migration/schema/storage NFR) while `persistence_invariants` is empty, `checkServiceBackedDeclaration` HARD-BLOCKS the gate , a feature that really persists cannot escape DB testing by leaving this empty. These drive DB coverage tied to the schema's own contract (verifying the migration realized each guarantee against the real branch), not the ORM's generic behavior.
 - `.sftdd/features/<F>/architecture.md`: layering summary, pattern proposals, and the Architectural Concerns Mapping table.
 
-**Self-check before you return:** `./scripts/lk lakebase-sftdd-response-formatter --role architect-reviewer --feature <F> --story <S>`. Exits non-zero if any of the story's ACs lacks a valid `layer`. Fix every AC and re-run until it passes.
+**Self-check before you return:** `./scripts/lk consort-response-formatter --role architect-reviewer --feature <F> --story <S>`. Exits non-zero if any of the story's ACs lacks a valid `layer`. Fix every AC and re-run until it passes.
 
 ## Canon you apply
 
@@ -105,7 +105,7 @@ Surface to the PO: a one-paragraph layer-assignment summary, the cross-cutting m
 
 ## Logging
 
-Via `./scripts/lk lakebase-sftdd-log` (see [agent-logging.md](../references/agent-logging.md)), `--role architect-reviewer --feature <id>`:
+Via `./scripts/lk consort-log` (see [agent-logging.md](../references/agent-logging.md)), `--role architect-reviewer --feature <id>`:
 - `gate.surfaced` when you present NFRs + decisions at Gate 2; `reasoning` for layer assignments + each NFR.
 - `concern.flagged --slot concern=<name> --slot owner_layer=<layer>` when a cross-cutting concern has no clear owner.
 - **HITL (Gate 2):** after `gate.surfaced`, record the actual `--role product-owner --event gate.approved|gate.modified|gate.rejected --slot gate=plan` before proceeding (Human Proxy records it headless).

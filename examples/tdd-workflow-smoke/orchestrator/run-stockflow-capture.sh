@@ -77,7 +77,7 @@ lk() { "$PROJECT_DIR/scripts/lk" "$@"; }
 git checkout main >/dev/null 2>&1 || git checkout master >/dev/null 2>&1 || true
 SFTDD_DIR="$(lk lakebase-resolve-sftdd-dir --project-dir "$PROJECT_DIR")"
 SFTDD_REL="$(basename "$SFTDD_DIR")"
-proxy_supply() { lk lakebase-sftdd-human-proxy supply --from "$1" --to "$2" --artifact "$3"; }
+proxy_supply() { lk consort-human-proxy supply --from "$1" --to "$2" --artifact "$3"; }
 log "staging project intake"
 proxy_supply "${ORCH}/product-overview.md" "${SFTDD_DIR}/product-overview.md" "product-overview.md"
 proxy_supply "${ORCH}/nfrs.md" "${SFTDD_DIR}/nfrs.md" "nfrs.md"
@@ -94,7 +94,7 @@ for FID in "${FEATURES[@]}"; do
   git add "${SFTDD_REL}/features/${FID}/feature-request.md" 2>/dev/null || true
   git commit -m "plan: feature-request for ${FID}" >/dev/null 2>&1 || true
   lk lakebase-scm-claim-feature-branch "${FID}" --project-dir "$PROJECT_DIR" --json || { err "claim ${FID} failed"; exit 2; }
-  lk lakebase-sftdd-drive --feature "${FID}" --project-dir "$PROJECT_DIR" --pause-before navigator --gates proxy \
+  lk consort-drive --feature "${FID}" --project-dir "$PROJECT_DIR" --pause-before navigator --gates proxy \
     || { err "drive ${FID} failed"; exit 2; }
   log "=== feature ${FID} complete ==="
 done
@@ -105,7 +105,7 @@ done
 # synthetic "reconciled" placeholders dropped. Then store the reconstituted log in
 # the corpus so a future replay reproduces it verbatim.
 log "reconstituting agent-log (design verbatim + costs; build re-dated to the capture timeline)"
-lk lakebase-sftdd-log --reconstitute --design-log "${CORPUS_DIR}/agent-log.design.jsonl" --tdd-dir "$SFTDD_DIR" \
+lk consort-log --reconstitute --design-log "${CORPUS_DIR}/agent-log.design.jsonl" --tdd-dir "$SFTDD_DIR" \
   || err "reconstitute-log failed (non-fatal)"
 cp "${SFTDD_DIR}/agent-log.jsonl" "${CORPUS_DIR}/agent-log.jsonl" 2>/dev/null || true
 

@@ -181,14 +181,14 @@ function parseArgs(argv) {
   }
   return out;
 }
-var HELP = `lakebase-sftdd-drive-log-report
+var HELP = `consort-drive-log-report
 
 Per-turn tool-call report from a drive stdout log. Counts the '\xB7 <tool>' lines
 between each '[drive] <role> turn <s>s (<model>)' close, rolled up by role and
 model, with the heaviest turns (by tool calls) and their pytest/discovery split.
 
-  lakebase-sftdd-drive-log-report <log-file> [flags]
-  ... | lakebase-sftdd-drive-log-report [flags]     (reads stdin when no file)
+  consort-drive-log-report <log-file> [flags]
+  ... | consort-drive-log-report [flags]     (reads stdin when no file)
     --top <n>   how many heaviest turns to surface (default 10)
     --json      emit the DriveLogReport as JSON (the machine API)
     -h, --help

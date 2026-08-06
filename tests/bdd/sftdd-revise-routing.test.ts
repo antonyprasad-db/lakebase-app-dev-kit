@@ -212,7 +212,7 @@ describe("commandsForAction(revise-route)", () => {
     const c = cmds[0];
     expect(c.kind).toBe("cli");
     if (c.kind === "cli") {
-      expect(c.bin).toBe("lakebase-sftdd-human-proxy");
+      expect(c.bin).toBe("consort-human-proxy");
       expect(c.args[0]).toBe("decide-escalation");
       expect(c.args).toEqual(expect.arrayContaining(["--smell", "ac-overlap", "--routed-to", "spec-author", "--gate", "spec", "--story", STORY]));
       expect(c.args).toEqual(expect.arrayContaining(["--reason", "AC4 implied by AC2"]));

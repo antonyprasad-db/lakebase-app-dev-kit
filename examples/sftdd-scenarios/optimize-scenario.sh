@@ -7,12 +7,12 @@
 #
 # This is the "optimize" sibling of capture-scenario.sh: same kit-single-source
 # pinning (no split-brain), same recorder env, same teardown discipline. It is a
-# thin wrapper around the kit optimize bin (lakebase-sftdd-optimize), which drives
+# thin wrapper around the kit optimize bin (consort-optimize), which drives
 # the champion walk via optimize-harness + optimize-live.
 #
 # Usage:
 #   # Optimize the handoff the drive is positioned on (advance the drive first with
-#   # lakebase-sftdd-drive, or --pause-before, to reach the target build turn):
+#   # consort-drive, or --pause-before, to reach the target build turn):
 #   optimize-scenario.sh --scenario <name> --project-dir <dir> --feature <id> \
 #     --candidates '<sweep-spec>' [--trials N] [--only design|build] [--dry-run] \
 #     [--propose-only]
@@ -21,7 +21,7 @@
 # every candidate + writes <project>/experiments/<handoff>/ but records NO winner.
 # Inspect the printed report + experiments tree, then persist your chosen winner so
 # the NEXT invocation of that role uses it:
-#   lakebase-sftdd-optimize-apply --project-dir <dir> --handoff <id> --candidate <id>
+#   consort-optimize-apply --project-dir <dir> --handoff <id> --candidate <id>
 # That applies the winner's agent-.md levers (prompt / tool scope / directive) to
 # skills/consort/agents/<role>.md directly, and PRINTS any typed-source default
 # edits (model/effort/scope/loop) for a reviewed change. Kit edits are LOCAL;
@@ -134,7 +134,7 @@ if [[ -n "$SWEEP_LANE" ]]; then
 else
   echo "[optimize-scenario] sweeping the next handoff of ${FEATURE} (trials=${TRIALS}) with candidates: ${CANDIDATES}" >&2
 fi
-lk lakebase-sftdd-optimize \
+lk consort-optimize \
   --scenario "$SCENARIO" \
   --feature "$FEATURE" \
   --project-dir "$PROJECT_DIR" \

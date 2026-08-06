@@ -5,8 +5,8 @@
 // orchestrator to pass the right model per role.
 //
 // Usage:
-//   lakebase-sftdd-agent-model --role <role> [--project-dir <dir>] [--json]
-//   lakebase-sftdd-agent-model --list        [--project-dir <dir>] [--json]
+//   consort-agent-model --role <role> [--project-dir <dir>] [--json]
+//   consort-agent-model --list        [--project-dir <dir>] [--json]
 //
 // Exit: 0 ok; 2 bad args (unknown role / missing --role and --list).
 
@@ -56,8 +56,8 @@ function main(): number {
 
   if (!args.role || !ALL_AGENT_ROLES.includes(args.role as SpawnableAgentRole)) {
     process.stderr.write(
-      `Usage: lakebase-sftdd-agent-model --role <role> [--project-dir <dir>] [--json]\n` +
-        `       lakebase-sftdd-agent-model --list [--project-dir <dir>] [--json]\n` +
+      `Usage: consort-agent-model --role <role> [--project-dir <dir>] [--json]\n` +
+        `       consort-agent-model --list [--project-dir <dir>] [--json]\n` +
         `roles: ${ALL_AGENT_ROLES.join(", ")}\n`,
     );
     return 2;

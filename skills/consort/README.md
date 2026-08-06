@@ -53,10 +53,10 @@ This README is the human-facing overview. The agent's operating contract – har
 | **Architect Reviewer** | Applies layering lens; populates `layer` and `architectural_notes` per AC; imports `software-design-principles`. | [`agents/architect-reviewer.md`](agents/architect-reviewer.md) |
 | **DBA** | The physical-database lens. Consumes `architecture.json` and produces `db-design.json` (tables, columns/types, indexes, and a per-story schema-change plan) that realizes the architect's persistence invariants. Runs after the Architect Reviewer, before the Test Strategist. | [`agents/dba.md`](agents/dba.md) |
 | **Test Strategist** | Converts annotated ACs into a Beck-style ordered test list; emits per-AC views. | [`agents/test-strategist.md`](agents/test-strategist.md) |
-| **Orchestrator** | The deterministic driver (`lakebase-sftdd-drive`), not an agent. Routes over `workflow-state.json`: runs the design-spec gate; spawns experiments to budget; runs cycles; watches smells; presents outcomes to HITL. | `lakebase-sftdd-drive` (code, not an agent def). |
+| **Orchestrator** | The deterministic driver (`consort-drive`), not an agent. Routes over `workflow-state.json`: runs the design-spec gate; spawns experiments to budget; runs cycles; watches smells; presents outcomes to HITL. | `consort-drive` (code, not an agent def). |
 | **Navigator** | PLAN, RED (writes failing tests), REVIEW. Never weakens an assertion. | [`agents/navigator.md`](agents/navigator.md) |
 | **Driver** | GREEN (minimal honest code), REFACTOR. Never deletes or weakens a test. | [`agents/driver.md`](agents/driver.md) |
-| **Deploy + promote** (deterministic, no agent) | `/deploy`: the orchestrator runs `lakebase-sftdd-deploy` (deploy the increment, poll reachable, run the feature verify) and `lakebase-scm-merge` (promote via PR + CI + merge), surfacing the `deploy` and `promote` gates to the PO. Logged under the `release-engineer` label. | Deterministic phase (no agent). |
+| **Deploy + promote** (deterministic, no agent) | `/deploy`: the orchestrator runs `consort-deploy` (deploy the increment, poll reachable, run the feature verify) and `lakebase-scm-merge` (promote via PR + CI + merge), surfacing the `deploy` and `promote` gates to the PO. Logged under the `release-engineer` label. | Deterministic phase (no agent). |
 | **Product Owner / HITL** | Owns the project-level `product-overview.md` (open-ended intent; software is a product), ACs, test list ordering. Decides promote vs synthesize. Owns every gate. | The human. |
 
 ## Phases and gates
@@ -160,7 +160,7 @@ Every HITL decision is recorded in `.sftdd/features/<feature>/gates.json` via `a
 
 ## How to use
 
-Three flows – shown as what you'd prompt your agent to do, using a cart-checkout example throughout. The deterministic orchestrator (`lakebase-sftdd-drive`) routes the work and spawns the role agents (Navigator, Driver, and the rest), which read their prompts and run the workflow on your behalf.
+Three flows – shown as what you'd prompt your agent to do, using a cart-checkout example throughout. The deterministic orchestrator (`consort-drive`) routes the work and spawns the role agents (Navigator, Driver, and the rest), which read their prompts and run the workflow on your behalf.
 
 The project-level slash commands `/design` and `/build` are the canonical entry points. They're thin wrappers around the orchestrator, scaffolded into new projects by `lakebase-create-project` under `.claude/commands/` (opt-out via `--skip-commands`). Projects extend them with their own concerns (JIRA hierarchy, IDE branch suggestions, manual review gates) by dropping sibling `design.{pre,post}-hook.md` or `build.{pre,post}-hook.md` files next to the scaffolded command. If a slash command isn't installed in your project, just describe what you want to your agent directly; the prompts below work either way.
 
@@ -227,7 +227,7 @@ Consort ships no installed slash commands; the scaffolder writes the command fil
 
 ## Agents
 
-The role agents under [`agents/`](agents/) are self-contained prompts. `lakebase-create-project` scaffolds them into a project's `.claude/agents/`, and the deterministic orchestrator (`lakebase-sftdd-drive`) spawns them as `claude --agent <role>` when it delegates a phase. They are not shipped as plugin agents, so there is no `@consort/<role>` invocation; the orchestrator (code, not an agent) coordinates them.
+The role agents under [`agents/`](agents/) are self-contained prompts. `lakebase-create-project` scaffolds them into a project's `.claude/agents/`, and the deterministic orchestrator (`consort-drive`) spawns them as `claude --agent <role>` when it delegates a phase. They are not shipped as plugin agents, so there is no `@consort/<role>` invocation; the orchestrator (code, not an agent) coordinates them.
 
 | Agent | File | Invoked when |
 |---|---|---|

@@ -97,7 +97,7 @@ H1 title; `## Screens` (every screen the feature touches + what each is for); `#
 4. Define/update the **guide** (`design-guide.md` + `design-guide.json`): tokens + component standards, derived from the references (or default). Keep markdown and JSON in sync; the JSON is the token source of truth.
 5. State the **adherence contract**: which checks downstream UI must pass, run at the **E2E (Playwright) layer**.
 
-**Self-check before you return:** `./scripts/lk lakebase-sftdd-response-formatter --role ux-designer --feature <F>`. Exits 0 when `design-guide.json` conforms to its schema (the exact shape above); non-zero listing the specific problems otherwise. Fix and re-run until it passes, a non-conformant guide hard-fails Gate 3 and stalls the design lane.
+**Self-check before you return:** `./scripts/lk consort-response-formatter --role ux-designer --feature <F>`. Exits 0 when `design-guide.json` conforms to its schema (the exact shape above); non-zero listing the specific problems otherwise. Fix and re-run until it passes, a non-conformant guide hard-fails Gate 3 and stalls the design lane.
 
 ## How adherence is enforced
 
@@ -114,7 +114,7 @@ test("UI adheres to the design guide", async ({ page }) => {
 });
 ```
 
-That is **token-level** adherence: the design SYSTEM matches the guide (the right `:root` vars exist). It cannot see whether each component actually USES the tokens, nor whether the page a user needs is even reachable. **Element-level + structural** adherence closes that gap with pure checks in the same module (`checkHardcodedValues`, `checkRequiredSeams`, `checkFeedbackPresent`, `checkRouteReachability`, `checkTokenConsumption`), which take the rendered markup / source and need no browser. The last two run DETERMINISTICALLY at REVIEW (via `lakebase-sftdd-ux-clean` / the orchestration), so an unreachable or bare feature page is caught even if no one runs the rubric by hand.
+That is **token-level** adherence: the design SYSTEM matches the guide (the right `:root` vars exist). It cannot see whether each component actually USES the tokens, nor whether the page a user needs is even reachable. **Element-level + structural** adherence closes that gap with pure checks in the same module (`checkHardcodedValues`, `checkRequiredSeams`, `checkFeedbackPresent`, `checkRouteReachability`, `checkTokenConsumption`), which take the rendered markup / source and need no browser. The last two run DETERMINISTICALLY at REVIEW (via `consort-ux-clean` / the orchestration), so an unreachable or bare feature page is caught even if no one runs the rubric by hand.
 
 ## REVIEW (the UX adherence gate)
 
@@ -126,7 +126,7 @@ When you review downstream UI, run this rubric against the rendered markup/style
 - **Every feature page is reachable** (`checkRouteReachability`): each page under `client/src/pages/` is wired into `App.tsx`'s `<Routes>` (and reachable via a nav affordance your `ia.md` Navigation declares). A page with a passing component test but no route is dead to the user , the exact gap component tests miss.
 - **Every feature page consumes the guide** (`checkTokenConsumption`): each page that renders structure uses the component-class vocabulary you define (or `var(--token)`), never bare browser-default HTML. Defining tokens on `:root` is not enough; the feature screens must APPLY them.
 
-On any violation, flag a **blocking `ux-adherence` smell** -> the UI refactors to the guide; never weaken the guide to match the drift. Emit it with the structured slot so the substrate persists + halts: `lakebase-sftdd-log --event smell.flagged --slot smell=ux-adherence --slot severity=blocking --slot detail="<why>"`. Distinct from the engineering `layering-violation` smell: this is the experience lens.
+On any violation, flag a **blocking `ux-adherence` smell** -> the UI refactors to the guide; never weaken the guide to match the drift. Emit it with the structured slot so the substrate persists + halts: `consort-log --event smell.flagged --slot smell=ux-adherence --slot severity=blocking --slot detail="<why>"`. Distinct from the engineering `layering-violation` smell: this is the experience lens.
 
 ## HITL gate (UX adherence)
 
@@ -134,7 +134,7 @@ Surface to the PO: the IA (screens + flows), the design guide (or its changes), 
 
 ## Logging
 
-Via `./scripts/lk lakebase-sftdd-log` (see [agent-logging.md](../references/agent-logging.md)), `--role ux-designer --feature <id>`:
+Via `./scripts/lk consort-log` (see [agent-logging.md](../references/agent-logging.md)), `--role ux-designer --feature <id>`:
 - `reasoning` for token + IA choices (cite the reference each came from).
 - `--level error --event adherence.failed` when the adherence check (Playwright `:root` vs `design-guide.json`) fails.
 

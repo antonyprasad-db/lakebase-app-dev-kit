@@ -5,21 +5,21 @@
 // the story; the single build lane dispatches the head and completes it.
 //
 // Usage (all take --feature <F> [--tdd-dir <dir>]; default tdd-dir = $PWD/.sftdd, honors a legacy $PWD/.tdd):
-//   lakebase-sftdd-pipeline status        --feature F [--json]
-//   lakebase-sftdd-pipeline set            --feature F --story S --status <designing|awaiting-gate|ready|building|done>
-//   lakebase-sftdd-pipeline surface        --feature F --story S                 (design done -> awaiting-gate, open the gate)
-//   lakebase-sftdd-pipeline approve-gate   --feature F --story S --approver A [--spec-hash H] [--at ISO]
-//   lakebase-sftdd-pipeline withdraw-gate  --feature F --story S --approver A --reason R [--at ISO]
-//   lakebase-sftdd-pipeline enqueue        --feature F --story S                 (low-level: mark ready + queue, no gate)
-//   lakebase-sftdd-pipeline dispatch       --feature F                          (pull FIFO head into the single lane if idle)
-//   lakebase-sftdd-pipeline complete       --feature F                          (active story done, free the lane)
-//   lakebase-sftdd-pipeline cut-experiment --feature F --story S --slug X --branch B --parent FB [--lakebase-uid U] [--parent-sha SHA] [--n N]
-//   lakebase-sftdd-pipeline await-acceptance --feature F --story S              (built + deployed -> awaiting-acceptance)
-//   lakebase-sftdd-pipeline accept         --feature F --story S --approver A    (PO accepts -> experiment merged, story done, lane freed)
-//   lakebase-sftdd-pipeline discard        --feature F --story S --approver A --reason R   (PO discards -> torn down, out of sprint)
-//   lakebase-sftdd-pipeline revise         --feature F --story S --approver A --reason R   (PO sends back -> designing; self-heals a blocking smell)
-//   lakebase-sftdd-pipeline rebuild-story  --feature F --story S [--approver A] [--at ISO]  (clean-slate re-drive: clears build cycles + escalations + smells, re-forks the experiment, back on the build lane)
-//   lakebase-sftdd-pipeline resolve-smell  --feature F --smell NAME --approver A [--story S] [--reason R]   (clear a blocking smell without revise/discard)
+//   consort-pipeline status        --feature F [--json]
+//   consort-pipeline set            --feature F --story S --status <designing|awaiting-gate|ready|building|done>
+//   consort-pipeline surface        --feature F --story S                 (design done -> awaiting-gate, open the gate)
+//   consort-pipeline approve-gate   --feature F --story S --approver A [--spec-hash H] [--at ISO]
+//   consort-pipeline withdraw-gate  --feature F --story S --approver A --reason R [--at ISO]
+//   consort-pipeline enqueue        --feature F --story S                 (low-level: mark ready + queue, no gate)
+//   consort-pipeline dispatch       --feature F                          (pull FIFO head into the single lane if idle)
+//   consort-pipeline complete       --feature F                          (active story done, free the lane)
+//   consort-pipeline cut-experiment --feature F --story S --slug X --branch B --parent FB [--lakebase-uid U] [--parent-sha SHA] [--n N]
+//   consort-pipeline await-acceptance --feature F --story S              (built + deployed -> awaiting-acceptance)
+//   consort-pipeline accept         --feature F --story S --approver A    (PO accepts -> experiment merged, story done, lane freed)
+//   consort-pipeline discard        --feature F --story S --approver A --reason R   (PO discards -> torn down, out of sprint)
+//   consort-pipeline revise         --feature F --story S --approver A --reason R   (PO sends back -> designing; self-heals a blocking smell)
+//   consort-pipeline rebuild-story  --feature F --story S [--approver A] [--at ISO]  (clean-slate re-drive: clears build cycles + escalations + smells, re-forks the experiment, back on the build lane)
+//   consort-pipeline resolve-smell  --feature F --smell NAME --approver A [--story S] [--reason R]   (clear a blocking smell without revise/discard)
 //
 // The formal per-story spec gate is surface -> approve-gate; approve-gate is
 // what authorizes the ready transition (it enqueues). `enqueue` stays as the
@@ -114,7 +114,7 @@ function parse(argv: string[]): Args {
 function usage(msg: string): number {
   process.stderr.write(
     `${msg}\n` +
-      `Usage: lakebase-sftdd-pipeline <status|set|surface|approve-gate|withdraw-gate|enqueue|dispatch|complete|cut-experiment|await-acceptance|accept|discard|revise|rebuild-story|resolve-smell> --feature <F> [--tdd-dir <dir>]\n` +
+      `Usage: consort-pipeline <status|set|surface|approve-gate|withdraw-gate|enqueue|dispatch|complete|cut-experiment|await-acceptance|accept|discard|revise|rebuild-story|resolve-smell> --feature <F> [--tdd-dir <dir>]\n` +
       `  set additionally needs --story <S> --status <${STORY_STATUSES.join("|")}>\n` +
       `  surface needs --story <S>\n` +
       `  approve-gate needs --story <S> --approver <A> [--spec-hash <H>] [--at <ISO>]\n` +
@@ -222,7 +222,7 @@ async function main(): Promise<number> {
       if (!args.story) return usage("approve-gate needs --story");
       if (!args.approver) return usage("approve-gate needs --approver");
       // The per-story gate is approved through the ONE shared helper (FEIP-8008),
-      // the same path the human-facing lakebase-sftdd-approve-gate --story uses.
+      // the same path the human-facing consort-approve-gate --story uses.
       const r = approveStoryGateFromDisk(sftddDir, feature, args.story, {
         approver: args.approver,
         at: args.at,
@@ -308,7 +308,7 @@ async function main(): Promise<number> {
       // never fired, stranding the code on the experiment branch. This CLI does NOT
       // touch the merge substrate itself: it RESOLVES the merge args (slug/branches
       // from the persisted experiment record; instance from --instance else
-      // scm-state) and DELEGATES to `lakebase-sftdd-experiment merge`, the single
+      // scm-state) and DELEGATES to `consort-experiment merge`, the single
       // door that owns the git/Lakebase merge (which records acceptStory + is
       // idempotent). The human's `pipeline accept` therefore routes through that CLI.
       const projectDir = args.projectDir ?? process.cwd();
@@ -325,7 +325,7 @@ async function main(): Promise<number> {
         sftddDir,
         ...(args.at ? { at: args.at } : {}),
       });
-      return runKitBinSync("lakebase-sftdd-experiment", argv, projectDir);
+      return runKitBinSync("consort-experiment", argv, projectDir);
     }
     case "discard": {
       if (!args.story) return usage("discard needs --story");

@@ -81,7 +81,7 @@ door each; intentionally not routed through `sftddEnv`.
 ## Capture-time conditions (home: a scenario's `scenario.json`)
 
 Read only by `capture-scenario.sh` via `scripts/sftdd/scenario-conditions.ts`
-(`lakebase-sftdd-scenario-conditions`), then funneled into create-project flags. The
+(`consort-scenario-conditions`), then funneled into create-project flags. The
 manifest is the single declaration of a scenario's shape; the capture harness never
 hardcodes these.
 

@@ -8,7 +8,7 @@ only at the gates, the human answers them live; headless, the Human Proxy does.
 ## Operating contract (drive, do not narrate)
 
 Follow `@consort/references/orchestrator-contract.md`: drive to
-completion via `lakebase-sftdd-next` (enact its `primary_action`, then continue),
+completion via `consort-next` (enact its `primary_action`, then continue),
 and stop for the human ONLY at a HITL gate or a blocker. At a stop, present the
 decision (the `next` option titles + their `hil_prompt`s), not the CLIs you ran;
 report outcomes ("S2 accepted", "F1 shipped to staging"), not per-command
@@ -37,7 +37,7 @@ from the recorded backlog).
 ```bash
 GATES=interactive; [ "${LAKEBASE_SFTDD_HUMAN_PROXY:-}" = "1" ] && GATES=proxy
 ./scripts/lk \
-  lakebase-sftdd-drive --sprint "<sprint-name>" --gates "$GATES" --project-dir "$PWD"
+  consort-drive --sprint "<sprint-name>" --gates "$GATES" --project-dir "$PWD"
 ```
 
 It FLOWS: plan -> **[PLAN GATE]** -> for each backlog feature: claim its branch

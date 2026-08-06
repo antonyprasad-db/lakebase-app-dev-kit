@@ -57,12 +57,12 @@ log "kit=$LAKEBASE_KIT_DIR  project=$PROJECT_DIR  (F6 resume @ S3 GREEN)"
 bash "$KIT_LK" --warm || { err "kit lk --warm failed"; exit 1; }
 
 log "=== F6-split-tracking-code: RESUME drive (S3 GREEN -> S4 -> promote) ==="
-lk lakebase-sftdd-drive --feature "F6-split-tracking-code" --project-dir "$PROJECT_DIR" \
+lk consort-drive --feature "F6-split-tracking-code" --project-dir "$PROJECT_DIR" \
   --pause-before navigator --gates proxy || { err "resume drive F6 failed"; exit 2; }
 log "=== F6-split-tracking-code complete ==="
 
 log "reconstituting agent-log (design verbatim + costs; build re-dated to the capture timeline)"
-lk lakebase-sftdd-log --reconstitute --design-log "${CORPUS_DIR}/agent-log.design.jsonl" --tdd-dir "$SFTDD_DIR" \
+lk consort-log --reconstitute --design-log "${CORPUS_DIR}/agent-log.design.jsonl" --tdd-dir "$SFTDD_DIR" \
   || err "reconstitute-log failed (non-fatal)"
 cp "${SFTDD_DIR}/agent-log.jsonl" "${CORPUS_DIR}/agent-log.jsonl" 2>/dev/null || true
 

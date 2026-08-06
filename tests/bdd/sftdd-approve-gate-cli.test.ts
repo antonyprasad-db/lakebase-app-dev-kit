@@ -1,4 +1,4 @@
-// lakebase-sftdd-approve-gate CLI: the production, human-facing gate-approval
+// consort-approve-gate CLI: the production, human-facing gate-approval
 // command (FEIP-8005). Distinct from the headless Human Proxy: it REQUIRES an
 // explicit --approver (no silent "human-proxy" default) and reuses the same
 // approval substrate, so it records a genuine, attributed approval.
