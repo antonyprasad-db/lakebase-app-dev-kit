@@ -174,10 +174,21 @@ dba 37s, architect-estimate 18s, test-strategist 29s, spec-author-propose 38s, s
 retirement-map step (2)+(3) for the DESIGN lane , the design-role `commandsForAction` branches are now
 provably subsumed by the executor path.
 
-NOT yet (Stage 3): the cloud-gated driver-green LIVE proof (product channel on a real Lakebase branch)
-, authorized by the user; run per the RUNBOOK (`scripts/run-live-tests.sh`), never interrupt
-pre-teardown. navigator-red + driver-green executor dispatch were already live-proven earlier (#593/
-#594); Stage 3 re-confirms driver-green's product+meta channels hold after the bare-filename change.
+### Stage 3 DONE , driver-green product channel LIVE-proven on a real Lakebase branch
+`tests/integration/live/driver-green-executor-dispatch-live.test.ts` (RUN_LIVE_STEP=1 +
+LAKEBASE_TEST_E2E=1, ecparr): run-config -> scaffold-project -> seed bundle + cut a real Lakebase
+branch -> runDriver -> performViaExecutor -> execute() wrote app code -> the post-turn @build-cycle
+honest-GREEN verify ran the migration + the project's tests against the live branch (`cycle: GREEN
+cycle-001`, all 7 S3 tests passed) -> remove-project torn down. 344s, PASS. The PRODUCT + META
+channels hold after the bare-filename change, on the real cloud path.
+
+## COMPLETE , the channel model is proven end to end on the shipped path
+Every lane is now live-proven through `performViaExecutor`: the 7 DESIGN roles (artifact + meta
+channels, lean), navigator RED (product tests/ tree, lean), and driver GREEN (product app/ +
+honest-GREEN, cloud). Hermetic 3197 green; the `commandsForAction` per-agent-turn branches are
+provably subsumed by the executor path (their deletion is a future stage , this plan proved the
+executor path correct, which was the precondition). 6 LOCAL commits on
+`fix/headless-permission-mode-acceptedits`, NONE pushed.
 
 ## RUNBOOK , how a future reader runs this proof
 All commands run from the kit root (`~/code/databricks-solutions/consort`).
