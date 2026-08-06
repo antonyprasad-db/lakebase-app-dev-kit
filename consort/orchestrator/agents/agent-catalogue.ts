@@ -19,7 +19,7 @@
 
 import { join } from "node:path";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { ClaudeStepAgent, type AgentLevers } from "./claude-step-agent.js";
+import { ClaudeStepAgent, type AgentLevers, type LiveDispatchFn } from "./claude-step-agent.js";
 import { makeMockReplayAgent, type RecordedSeed } from "./mock-replay-agent.js";
 import type { StepAgent, AgentInvocation } from "./agent-types.js";
 
@@ -35,6 +35,13 @@ export interface AgentBuildContext {
   corpusRoot?: string;
   /** The kit checkout the `claude` kind resolves bins/agent-defs from (LAKEBASE_KIT_DIR). */
   kitDir?: string;
+  /** The UNCONTAINED production dispatch seam for the `claude` kind. When the runner supplies it
+   *  (the LIVE drive), buildClaude constructs the ClaudeStepAgent on its live path , the turn
+   *  dispatches through the production runner (execRunner: session/retry/replay/set-phase/
+   *  sync-backlog) instead of the contained raw spawn. Absent (integration chains, per-role sweep,
+   *  unit tests) => the contained raw-spawn path, byte-identical to before. This is what lets the
+   *  live drive and the tests share ONE dispatch process resolved from `manifest.agent`. */
+  liveDispatch?: LiveDispatchFn;
 }
 
 /** A manifest's agent declaration: WHICH kind + that kind's config (both DATA). */
@@ -55,10 +62,14 @@ export interface AgentCatalogueEntry {
 }
 
 /** The `claude` kind's config = the AgentLevers (role required; the rest optional). */
-function buildClaude(config: Record<string, unknown>, _context: AgentBuildContext): StepAgent {
+function buildClaude(config: Record<string, unknown>, context: AgentBuildContext): StepAgent {
   const c = config as Partial<AgentLevers> & { role?: string };
   if (!c.role) throw new Error(`agent-catalogue: kind "claude" requires config.role.`);
-  return new ClaudeStepAgent(c as AgentLevers);
+  // Third arg is the live dispatch seam: present (LIVE drive) => the uncontained live path,
+  // byte-identical to the inline `new ClaudeStepAgent({role}, undefined, liveDispatchSeam(...))`
+  // the executor used to hardcode; absent => the contained raw-spawn path (unchanged for every
+  // current caller, which passes no liveDispatch).
+  return new ClaudeStepAgent(c as AgentLevers, undefined, context.liveDispatch);
 }
 
 /** The `replay` kind's config = { role?, seeds[] }; corpusRoot comes from the context. */

@@ -93,4 +93,27 @@ describe("agent-catalogue: buildAgent assembles a StepAgent from kind + config +
   it("buildAgent THROWS loud on an unknown kind", () => {
     expect(() => buildAgent({ kind: "bogus", config: {} }, ctx())).toThrow(/bogus|unknown|not.*catalogue/i);
   });
+
+  it("kind:claude with context.liveDispatch takes the LIVE path (delegates to the seam, no raw spawn)", async () => {
+    // The LIVE drive supplies context.liveDispatch; buildClaude must pass it as the agent's third
+    // ctor arg so invoke() delegates to the production seam instead of spawning claude. This is the
+    // Stage A seam that lets the live drive resolve its agent from `manifest.agent` (same as tests).
+    let seamCalls = 0;
+    const liveDispatch = async () => {
+      seamCalls++;
+    };
+    const agent = buildAgent({ kind: "claude", config: { role: "spec-author" } }, ctx({ liveDispatch }));
+    await agent.invoke({ action: ACTION, workspaceDir: ws, inputs: {}, instructions: { prompt: "p" } });
+    expect(seamCalls).toBe(1);
+  });
+
+  it("kind:claude WITHOUT context.liveDispatch stays on the CONTAINED path (byte-identical to before)", () => {
+    // No liveDispatch => the contained raw-spawn agent, exactly as every current caller builds it.
+    // We assert construction + a buildCommand reflecting the levers (no spawn in a hermetic test).
+    const agent = buildAgent({ kind: "claude", config: { role: "spec-author", model: "sonnet" } }, ctx()) as {
+      buildCommand?: (inv: unknown) => { role: string };
+    };
+    expect(typeof agent.buildCommand).toBe("function");
+    expect(agent.buildCommand!({ action: ACTION, workspaceDir: ws, inputs: {}, instructions: { prompt: "p" } }).role).toBe("spec-author");
+  });
 });
