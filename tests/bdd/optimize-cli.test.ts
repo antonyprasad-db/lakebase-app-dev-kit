@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseOptimizeArgs,
   parseSweepSpec,
-} from "../../bin/sftdd/optimize.cli";
+} from "../../bin/consort/optimize.cli";
 import { actionToHandoffPlan } from "../../consort/optimize/handoff.js";
 
 describe("parseOptimizeArgs", () => {

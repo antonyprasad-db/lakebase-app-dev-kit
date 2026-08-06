@@ -6,7 +6,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { parseApplyArgs, readRecordedCandidate, roleFromHandoffId } from "../../bin/sftdd/optimize-apply.cli";
+import { parseApplyArgs, readRecordedCandidate, roleFromHandoffId } from "../../bin/consort/optimize-apply.cli";
 
 describe("parseApplyArgs", () => {
   it("parses the required flags + dry-run", () => {

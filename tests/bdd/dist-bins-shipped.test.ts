@@ -37,8 +37,8 @@ describe("shipped release artifact: every package.json bin is git-tracked in dis
     // bins live in @databricks-solutions/lakebase-scm-utils and are resolved by lk
     // (and the driver) from that package's own dist, so they are validated there,
     // never redeclared here. Normalize the bin path
-    // ("./dist/bin/sftdd/intake.cli.js") to the repo-relative form git ls-files
-    // emits ("dist/bin/sftdd/intake.cli.js").
+    // ("./dist/bin/consort/intake.cli.js") to the repo-relative form git ls-files
+    // emits ("dist/bin/consort/intake.cli.js").
     const missing = bins
       .map(([name, p]) => [name, p.replace(/^\.\//, "")] as const)
       .filter(([, p]) => !tracked.has(p));

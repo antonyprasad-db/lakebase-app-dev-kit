@@ -70,7 +70,7 @@ const FORBIDDEN_SYMBOL = /\b(createFeatureBranch|createTestBranch|createUatBranc
 // consort/ (the foliated function families the orchestration code moved into),
 // so the guard scans both roots , coverage follows a module when foliation
 // relocates it out of scripts/sftdd/ into a consort/<domain>/ family.
-const GUARDED_DIRS = [join(ROOT, "scripts", "sftdd"), join(ROOT, "consort")];
+const GUARDED_DIRS = [join(ROOT, "consort"), join(ROOT, "bin")];
 
 // Files exempt from the unpaired-import guard (deliberate, documented in the
 // header note). The ephemeral verify branch is a transient Lakebase-only child

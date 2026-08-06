@@ -13,10 +13,10 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(here, "..", "..");
-// The orchestration layer spans scripts/sftdd/ (bins + remaining libs) AND consort/
-// (the foliated function families it moved into), so scan both , coverage follows a
-// module when foliation relocates it out of scripts/sftdd/ into a consort/<domain>/.
-const SCAN_DIRS = [path.join(ROOT, "scripts", "sftdd"), path.join(ROOT, "consort")];
+// The orchestration layer is now the consort/ function families + the bin/ CLI entrypoints
+// (scripts/sftdd/ is gone after the foliation + the CLI move to bin/). Scan both so coverage
+// follows the code wherever it lives.
+const SCAN_DIRS = [path.join(ROOT, "consort"), path.join(ROOT, "bin")];
 
 // A kit-relative __dirname join that reaches a `lakebase/*.cli.js` file: the
 // telltale of resolving a substrate CLI from the (now-nonexistent) kit dist.

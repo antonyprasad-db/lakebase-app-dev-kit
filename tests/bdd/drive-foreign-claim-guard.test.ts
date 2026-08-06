@@ -15,7 +15,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 
-const DRIVE_SRC = readFileSync(new URL("../../bin/sftdd/drive.cli.ts", import.meta.url), "utf8");
+const DRIVE_SRC = readFileSync(new URL("../../bin/consort/drive.cli.ts", import.meta.url), "utf8");
 
 describe("lakebase-sftdd-drive wires the foreign-claim refusal (FEIP-8023)", () => {
   it("imports the isForeignFeatureClaim decision from the SCM workflow state module", () => {

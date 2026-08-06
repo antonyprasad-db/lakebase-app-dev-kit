@@ -9,7 +9,7 @@ import { join } from "node:path";
 
 import { spikeNotes } from "../../consort/experiment/spike";
 import { collectSpikeInputs } from "../../consort/experiment/spike-carryforward";
-import { runSpikeCli } from "../../bin/sftdd/spike.cli";
+import { runSpikeCli } from "../../bin/consort/spike.cli";
 
 let tdd: string;
 beforeEach(() => {
