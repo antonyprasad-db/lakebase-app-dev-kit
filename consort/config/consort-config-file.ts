@@ -1,4 +1,4 @@
-// The `.lakebase/sftdd-config.json` FILE primitive , the low config layer that reads/writes the
+// The `.lakebase/consort-config.json` FILE primitive , the low config layer that reads/writes the
 // on-disk project settings and resolves the non-model half (build/plan/project) from file -> code
 // default. It imports only config-layer modules (step-key types, agent-models, agent-log's AgentRole
 // type) so ANY layer may depend on it downward: the settings RESOLVER (which layers model/effort on
@@ -25,13 +25,22 @@ import OPTIMIZED_DEFAULTS from "./optimized-defaults.json";
 // AgentRole is referenced only to keep the type surface identical for re-exporters.
 export type { AgentRole };
 
-/** Project-relative path of the unified config (canonical name post-SFTDD rename). */
-export const SFTDD_CONFIG_REL = join(".lakebase", "sftdd-config.json");
-/** Legacy pre-rename name, still READ (dual-read) so existing scaffolded projects
- *  keep working until they migrate. New writes use SFTDD_CONFIG_REL. */
-export const LEGACY_TDD_CONFIG_REL = join(".lakebase", "tdd-config.json");
-/** @deprecated use SFTDD_CONFIG_REL. Kept as an alias for callers not yet updated. */
-export const TDD_CONFIG_REL = SFTDD_CONFIG_REL;
+/** Project-relative path of the unified config (canonical name, Consort era). */
+export const CONSORT_CONFIG_REL = join(".lakebase", "consort-config.json");
+/** Legacy config filenames, newest-first, still READ (tri-read) so projects
+ *  scaffolded before a rename keep working until they migrate. New writes use
+ *  CONSORT_CONFIG_REL. `sftdd-config.json` was the prior canonical name;
+ *  `tdd-config.json` the one before that. */
+export const LEGACY_CONFIG_RELS = [
+  join(".lakebase", "sftdd-config.json"),
+  join(".lakebase", "tdd-config.json"),
+] as const;
+/** @deprecated use CONSORT_CONFIG_REL. Kept as aliases for callers not yet updated. */
+export const SFTDD_CONFIG_REL = CONSORT_CONFIG_REL;
+/** @deprecated use CONSORT_CONFIG_REL. */
+export const TDD_CONFIG_REL = CONSORT_CONFIG_REL;
+/** @deprecated the immediate-predecessor legacy read path (`sftdd-config.json`). */
+export const LEGACY_TDD_CONFIG_REL = LEGACY_CONFIG_RELS[0];
 
 /** Per-role settings as written on disk. `model` and `effort` are each either one
  *  value for the whole role, or a per-turn map (only navigator/driver have multiple
@@ -74,11 +83,12 @@ export interface ProjectFileSettings {
   };
 }
 
-/** Read `.lakebase/sftdd-config.json` (canonical), falling back to the legacy
- *  `.lakebase/tdd-config.json` for projects scaffolded before the rename.
- *  Undefined when neither exists / both unparseable. */
+/** Read `.lakebase/consort-config.json` (canonical), falling back through the
+ *  legacy names (`sftdd-config.json`, then `tdd-config.json`) for projects
+ *  scaffolded before a rename. Undefined when none exists / the first found is
+ *  unparseable. */
 export function loadSftddConfig(projectDir: string): SftddConfigFile | undefined {
-  for (const rel of [SFTDD_CONFIG_REL, LEGACY_TDD_CONFIG_REL]) {
+  for (const rel of [CONSORT_CONFIG_REL, ...LEGACY_CONFIG_RELS]) {
     const f = join(projectDir, rel);
     if (!existsSync(f)) continue;
     try {
@@ -132,7 +142,7 @@ export function defaultSftddConfig(): SftddConfigFile {
             // 93 tool round-trips (haiku's trial-and-error), so wall-clock, not token
             // cost, dominated. Sonnet finishes GREEN in far fewer round-trips, faster
             // even at a higher per-token price. Overridable per project by editing
-            // sftdd-config.json (a project can flatten to a scalar `model`).
+            // consort-config.json (a project can flatten to a scalar `model`).
             { model: { red: RECOMMENDED_MODELS[role], green: RECOMMENDED_MODELS[role], refactor: "haiku" } }
           : // Every other role's base is just its recommended model. Optimization
             // winners (e.g. spec-author breakdown -> haiku+low) are NOT hardcoded here;
@@ -175,9 +185,9 @@ function mergeOptimizedDefaults<T>(base: T, overlay: unknown): T {
   return out as T;
 }
 
-/** Write a sftdd-config.json (scaffold/init). Does not overwrite unless force. */
+/** Write a consort-config.json (scaffold/init). Does not overwrite unless force. */
 export function writeSftddConfig(projectDir: string, config: SftddConfigFile, opts?: { force?: boolean }): boolean {
-  const f = join(projectDir, TDD_CONFIG_REL);
+  const f = join(projectDir, CONSORT_CONFIG_REL);
   if (existsSync(f) && !opts?.force) return false;
   mkdirSync(dirname(f), { recursive: true });
   writeFileSync(f, JSON.stringify(config, null, 2) + "\n");
@@ -187,7 +197,7 @@ export function writeSftddConfig(projectDir: string, config: SftddConfigFile, op
 /**
  * Write-through for the drive's ad-hoc override flags (`--deploy-target`,
  * `--no-sizing`). These are WRITERS, not parallel readers: a flag persists its
- * value into sftdd-config.json so the file stays the single source of truth.
+ * value into consort-config.json so the file stays the single source of truth.
  * No-op when no override is given, so a plain run never mutates the file. Loads
  * the existing config (or the default when none) so unrelated fields are kept.
  *
@@ -195,7 +205,7 @@ export function writeSftddConfig(projectDir: string, config: SftddConfigFile, op
  * flag must never rewrite the project's declared policy (that let one headless
  * `--gates proxy` invocation permanently flip an interactive project to proxy).
  * The drive resolves the effective gate mode as `--gates ?? project.gates` per
- * run and records it run-scoped in run-config.json; sftdd-config.json stays
+ * run and records it run-scoped in run-config.json; consort-config.json stays
  * authoritative and is only changed by editing the file.
  */
 export function applyProjectOverrides(

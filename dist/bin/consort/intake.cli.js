@@ -6699,17 +6699,20 @@ function formatSchemaErrors(validate) {
   });
 }
 
-// consort/config/sftdd-paths.ts
+// consort/config/consort-paths.ts
 init_esm_shims();
 import * as fs from "fs";
 import { join as join2 } from "path";
-var ARTIFACT_ROOT = ".sftdd";
-var LEGACY_ARTIFACT_ROOT = ".tdd";
+var ARTIFACT_ROOT = ".consort";
+var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
+var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
 function resolveSftddDir(projectDir = process.cwd()) {
   const next = join2(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
-  const legacy = join2(projectDir, LEGACY_ARTIFACT_ROOT);
-  if (fs.existsSync(legacy)) return legacy;
+  for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
+    const legacy = join2(projectDir, legacyName);
+    if (fs.existsSync(legacy)) return legacy;
+  }
   return next;
 }
 var featuresDir = (tdd) => join2(tdd, "features");
@@ -6904,7 +6907,7 @@ function checkTestListMd(content) {
   return violations;
 }
 
-// consort/config/sftdd-config-file.ts
+// consort/config/consort-config-file.ts
 init_esm_shims();
 import { existsSync as existsSync3, readFileSync as readFileSync3, mkdirSync as mkdirSync2, writeFileSync as writeFileSync2 } from "fs";
 import { dirname as dirname2, join as join4 } from "path";
@@ -6925,11 +6928,15 @@ var RECOMMENDED_MODELS = {
 var ALL_AGENT_ROLES = Object.keys(RECOMMENDED_MODELS);
 var AGENT_CONFIG_REL = join3(".lakebase", "agent-config.json");
 
-// consort/config/sftdd-config-file.ts
-var SFTDD_CONFIG_REL = join4(".lakebase", "sftdd-config.json");
-var LEGACY_TDD_CONFIG_REL = join4(".lakebase", "tdd-config.json");
+// consort/config/consort-config-file.ts
+var CONSORT_CONFIG_REL = join4(".lakebase", "consort-config.json");
+var LEGACY_CONFIG_RELS = [
+  join4(".lakebase", "sftdd-config.json"),
+  join4(".lakebase", "tdd-config.json")
+];
+var LEGACY_TDD_CONFIG_REL = LEGACY_CONFIG_RELS[0];
 function loadSftddConfig(projectDir) {
-  for (const rel of [SFTDD_CONFIG_REL, LEGACY_TDD_CONFIG_REL]) {
+  for (const rel of [CONSORT_CONFIG_REL, ...LEGACY_CONFIG_RELS]) {
     const f = join4(projectDir, rel);
     if (!existsSync3(f)) continue;
     try {

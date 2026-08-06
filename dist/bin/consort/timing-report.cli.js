@@ -6649,17 +6649,20 @@ var require_ajv = __commonJS({
 // bin/consort/timing-report.cli.ts
 init_esm_shims();
 
-// consort/config/sftdd-paths.ts
+// consort/config/consort-paths.ts
 init_esm_shims();
 import * as fs from "fs";
 import { join } from "path";
-var ARTIFACT_ROOT = ".sftdd";
-var LEGACY_ARTIFACT_ROOT = ".tdd";
+var ARTIFACT_ROOT = ".consort";
+var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
+var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
 function resolveSftddDir(projectDir = process.cwd()) {
   const next = join(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
-  const legacy = join(projectDir, LEGACY_ARTIFACT_ROOT);
-  if (fs.existsSync(legacy)) return legacy;
+  for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
+    const legacy = join(projectDir, legacyName);
+    if (fs.existsSync(legacy)) return legacy;
+  }
   return next;
 }
 
@@ -7012,7 +7015,7 @@ function formatTimingReport(report) {
 init_esm_shims();
 import { existsSync as existsSync5, mkdirSync as mkdirSync3, readFileSync as readFileSync5, writeFileSync as writeFileSync3 } from "fs";
 
-// consort/config/sftdd-env.ts
+// consort/config/consort-env.ts
 init_esm_shims();
 
 // consort/session/run-config.ts
@@ -7120,7 +7123,7 @@ and role/model with cost), the durable, baseline-comparable signal. Also rolls u
 inter-event gaps by phase / role / kind (for finding orchestration overhead).
 
   consort-timing [flags]
-    --tdd-dir <path>   artifact root (default ./.sftdd, honors a legacy ./.tdd)
+    --tdd-dir <path>   artifact root (default: ./${ARTIFACT_ROOT}, honors legacy roots)
     --feature <id>     only this feature's events
     --top <n>          how many slowest spans to surface (default 10)
     --skip-planning    drop the sprint-planning lane (propose/estimate/author-

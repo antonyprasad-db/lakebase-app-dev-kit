@@ -3,10 +3,12 @@
 // consort/lakebase/adopt-sftdd.ts
 import * as fs2 from "fs";
 
-// consort/config/sftdd-paths.ts
+// consort/config/consort-paths.ts
 import * as fs from "fs";
 import { join } from "path";
-var ARTIFACT_ROOT = ".sftdd";
+var ARTIFACT_ROOT = ".consort";
+var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
+var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
 
 // consort/lakebase/adopt-sftdd.ts
 import * as path from "path";

@@ -14,7 +14,7 @@
 // Exit codes: 0 ok, 2 bad args, 7 substrate failure.
 
 import * as path from "node:path";
-import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
+import { resolveSftddDir } from "../../consort/config/consort-paths.js";
 
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 import { cutSpike, listSpikes, deleteSpike, spikeNotes } from "../../consort/experiment/spike.js";

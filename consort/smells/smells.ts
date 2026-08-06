@@ -3,7 +3,7 @@ import { createHash } from "crypto";
 import { join } from "path";
 import { listCycles } from "../../consort/pipeline/run-cycle";
 import type { CycleScope, CycleArtifact } from "../../consort/pipeline/run-cycle";
-import { storyTestListJson } from "../../consort/config/sftdd-paths";
+import { storyTestListJson } from "../../consort/config/consort-paths";
 
 export type SmellName =
   | "test-list-drift"

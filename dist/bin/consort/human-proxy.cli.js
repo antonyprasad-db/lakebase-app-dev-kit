@@ -6654,7 +6654,7 @@ import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 init_esm_shims();
 import { existsSync as existsSync11, readFileSync as readFileSync11, writeFileSync as writeFileSync7, mkdirSync as mkdirSync5 } from "fs";
 
-// consort/config/sftdd-env.ts
+// consort/config/consort-env.ts
 init_esm_shims();
 function sftddEnv(suffix, env = process.env) {
   return env[`LAKEBASE_SFTDD_${suffix}`] ?? env[`LAKEBASE_TDD_${suffix}`];
@@ -6667,17 +6667,21 @@ import { dirname as dirname3, basename as basename2 } from "path";
 init_esm_shims();
 import { existsSync as existsSync4, readFileSync as readFileSync4, writeFileSync as writeFileSync4 } from "fs";
 
-// consort/config/sftdd-paths.ts
+// consort/config/consort-paths.ts
 init_esm_shims();
 import * as fs from "fs";
 import { join } from "path";
-var ARTIFACT_ROOT = ".sftdd";
-var LEGACY_ARTIFACT_ROOT = ".tdd";
+var ARTIFACT_ROOT = ".consort";
+var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
+var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
+var artifactRootsRegexAlternation = () => ALL_ARTIFACT_ROOTS.map((r) => r.replace(/[.]/g, "\\.")).join("|");
 function resolveSftddDir(projectDir = process.cwd()) {
   const next = join(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
-  const legacy = join(projectDir, LEGACY_ARTIFACT_ROOT);
-  if (fs.existsSync(legacy)) return legacy;
+  for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
+    const legacy = join(projectDir, legacyName);
+    if (fs.existsSync(legacy)) return legacy;
+  }
   return next;
 }
 var featuresDir = (tdd) => join(tdd, "features");
@@ -8494,6 +8498,13 @@ import { join as join17 } from "path";
 init_esm_shims();
 import { existsSync as existsSync20, readFileSync as readFileSync21, readdirSync as readdirSync13, statSync as statSync7 } from "fs";
 import { join as join18, relative, extname } from "path";
+var ARTIFACT_ROOTS_RE = artifactRootsRegexAlternation();
+var EXCLUDE_DIR = new RegExp(
+  `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build|tests?|alembic|migrations)(/|$)`
+);
+var EXCLUDE_DIR_JUNK = new RegExp(
+  `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build)(/|$)`
+);
 
 // consort/smells/refactor-verify-assess.ts
 init_esm_shims();
@@ -8951,7 +8962,7 @@ Usage:
 Flags:
   --feature <id>          Feature id (required, e.g. F1-initial-domain)
   --gate <name>           Approve only one gate (spec | plan | test_list | promote)
-  --tdd-dir <path>        artifact root (default: ./.sftdd, honors a legacy ./.tdd)
+  --tdd-dir <path>        artifact root (default: ./${ARTIFACT_ROOT}, honors legacy roots)
   --approver <name>       Approver identity (default: human-proxy)
   --promote-ref <str>     promote gate ref string (promote gate is skipped if omitted)
   --json                  Machine-readable JSON output

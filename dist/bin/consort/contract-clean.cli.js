@@ -1,12 +1,28 @@
 #!/usr/bin/env node
 
 // consort/architecture/contract-clean.ts
-import { existsSync, readFileSync, readdirSync, statSync } from "fs";
-import { join, relative, extname } from "path";
+import { existsSync as existsSync2, readFileSync as readFileSync2, readdirSync as readdirSync2, statSync as statSync2 } from "fs";
+import { join as join2, relative, extname } from "path";
+
+// consort/config/consort-paths.ts
+import * as fs from "fs";
+import { join } from "path";
+var ARTIFACT_ROOT = ".consort";
+var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
+var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
+var artifactRootsRegexAlternation = () => ALL_ARTIFACT_ROOTS.map((r2) => r2.replace(/[.]/g, "\\.")).join("|");
+
+// consort/architecture/contract-clean.ts
+var ARTIFACT_ROOTS_RE = artifactRootsRegexAlternation();
 var DEFAULT_MIGRATION_DIRS = ["alembic/versions", "migrations", "db/migrations", "src/migrations"];
 var DEFAULT_CODE_DIRS = ["app", "src", "lib", "templates"];
 var CODE_EXTS = /* @__PURE__ */ new Set([".py", ".ts", ".tsx", ".js", ".jsx", ".html", ".jinja", ".jinja2", ".sql"]);
-var EXCLUDE_DIR = /(^|\/)(node_modules|\.git|\.venv|venv|__pycache__|\.sftdd|\.tdd|\.lakebase|dist|build|tests?|alembic|migrations)(\/|$)/;
+var EXCLUDE_DIR = new RegExp(
+  `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build|tests?|alembic|migrations)(/|$)`
+);
+var EXCLUDE_DIR_JUNK = new RegExp(
+  `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build)(/|$)`
+);
 var DROP_COLUMN_PY = /op\.drop_column\(\s*['"][^'"]+['"]\s*,\s*['"]([a-zA-Z_][a-zA-Z0-9_]*)['"]/g;
 var ADD_COLUMN_PY = /op\.add_column\(\s*['"][^'"]+['"]\s*,\s*sa\.Column\(\s*['"]([a-zA-Z_][a-zA-Z0-9_]*)['"]/g;
 var DROP_COLUMN_SQL = /drop\s+column\s+(?:if\s+exists\s+)?["'`]?([a-zA-Z_][a-zA-Z0-9_]*)["'`]?/gi;
@@ -14,15 +30,15 @@ var ADD_COLUMN_SQL = /add\s+column\s+(?:if\s+not\s+exists\s+)?["'`]?([a-zA-Z_][a
 function walk(dir, keep, out = [], excludeDir = EXCLUDE_DIR) {
   let entries;
   try {
-    entries = readdirSync(dir);
+    entries = readdirSync2(dir);
   } catch {
     return out;
   }
   for (const e of entries) {
-    const abs = join(dir, e);
+    const abs = join2(dir, e);
     let st;
     try {
-      st = statSync(abs);
+      st = statSync2(abs);
     } catch {
       continue;
     }
@@ -61,8 +77,8 @@ function forwardMigrationBody(src, ext) {
 function netDroppedSymbols(projectDir, migrationDirs = DEFAULT_MIGRATION_DIRS) {
   const files = [];
   for (const md of migrationDirs) {
-    const abs = join(projectDir, md);
-    if (existsSync(abs)) {
+    const abs = join2(projectDir, md);
+    if (existsSync2(abs)) {
       for (const f of walk(abs, (p2) => /\.(py|sql|js|ts)$/.test(p2))) files.push(f);
     }
   }
@@ -71,7 +87,7 @@ function netDroppedSymbols(projectDir, migrationDirs = DEFAULT_MIGRATION_DIRS) {
   for (const f of files) {
     let src;
     try {
-      src = readFileSync(f, "utf8");
+      src = readFileSync2(f, "utf8");
     } catch {
       continue;
     }
@@ -92,12 +108,12 @@ function scanSymbolRefs(projectDir, dirs, dropped, excludeDir = EXCLUDE_DIR) {
   const matchers = dropped.map((s) => ({ symbol: s, re: symbolRefRegex(s) }));
   const hits = [];
   for (const cd of dirs) {
-    const abs = join(projectDir, cd);
-    if (!existsSync(abs)) continue;
+    const abs = join2(projectDir, cd);
+    if (!existsSync2(abs)) continue;
     for (const file of walk(abs, (p2) => CODE_EXTS.has(extname(p2)), [], excludeDir)) {
       let lines;
       try {
-        lines = readFileSync(file, "utf8").split("\n");
+        lines = readFileSync2(file, "utf8").split("\n");
       } catch {
         continue;
       }

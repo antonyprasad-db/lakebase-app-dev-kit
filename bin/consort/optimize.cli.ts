@@ -30,7 +30,7 @@ import type { BuildTurn, EffortLevel } from "../../consort/orchestrator/settings
 import type { SpawnableAgentRole } from "../../consort/config/agent-models.js";
 import { buildCfg, execRunner } from "../../consort/orchestrator/drive/claude-runner.js";
 import { planNextAction, commandsForAction, turnKeyForAction } from "../../consort/orchestrator/drive/orchestrator-effects.js";
-import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
+import { resolveSftddDir } from "../../consort/config/consort-paths.js";
 import { kitRoot } from "../../consort/config/kit-bin.js";
 import { evaluateSemanticGate, makeOpusJudge } from "../../consort/optimize/optimize-semantic-gate.js";
 import { makeChampionWalkDeps, makeLiveSpawnTurn, makeBuildGate, makeBuildSnapshotDeps, positionToBuildHandoff, positionToNextHandoff, runLaneSweep, readLastTurnTokens, type OptimizeLiveCtx } from "../../consort/optimize/optimize-live.js";

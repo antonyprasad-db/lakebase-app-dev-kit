@@ -22,7 +22,7 @@ import { join } from "node:path";
 import { deployClaudeAgents, deployClaudeSkills } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { checkArtifactConformance } from "../../consort/orchestrator/validators/conformance/artifact-conformance";
 import { resolveModelForRole } from "../../consort/config/agent-models";
-import { storyAcIds, readAcLayer } from "../../consort/config/sftdd-paths";
+import { storyAcIds, readAcLayer } from "../../consort/config/consort-paths";
 
 // Input fixtures = the LAST live run's real artifacts (snapshotted), not the
 // hand-curated corpus , this is what the agents actually produce today, junk

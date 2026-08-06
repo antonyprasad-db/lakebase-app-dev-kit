@@ -1,6 +1,6 @@
 // The project SETTINGS RESOLVER: it layers the per-step model/effort resolution (which needs the
 // shipped step-manifests + the action->turn-key map) ON TOP of the low config-file primitive
-// (consort/config/sftdd-config-file.ts). Every project setting resolves sftdd-config.json -> code
+// (consort/config/consort-config-file.ts). Every project setting resolves sftdd-config.json -> code
 // default, with no env or flag override at read time. Writers: create-project (create-time) and the
 // drive's write-through override flags. The resolved result is what the driver runs with and what
 // run-config.json snapshots. Run-mode knobs (record/replay/headless/debug) are not project settings;
@@ -21,7 +21,7 @@ import {
   resolveProjectSettings,
   type SftddConfigFile,
   type RoleSettingsFile,
-} from "../../config/sftdd-config-file.js";
+} from "../../config/consort-config-file.js";
 // Re-export the config-file primitive's surface so callers that import these from the resolver
 // (their long-standing home) keep working unchanged. These are RE-EXPORTS, not definitions, so the
 // single-home guard (which matches definition tokens) still sees one home , the primitive.
@@ -31,11 +31,13 @@ export {
   applyProjectOverrides,
   defaultSftddConfig,
   resolveProjectSettings,
+  CONSORT_CONFIG_REL,
+  LEGACY_CONFIG_RELS,
   SFTDD_CONFIG_REL,
   LEGACY_TDD_CONFIG_REL,
   TDD_CONFIG_REL,
-} from "../../config/sftdd-config-file.js";
-export type { SftddConfigFile, RoleSettingsFile, ProjectFileSettings } from "../../config/sftdd-config-file.js";
+} from "../../config/consort-config-file.js";
+export type { SftddConfigFile, RoleSettingsFile, ProjectFileSettings } from "../../config/consort-config-file.js";
 import {
   ALL_AGENT_ROLES,
   RECOMMENDED_MODELS,

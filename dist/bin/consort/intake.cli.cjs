@@ -6707,17 +6707,20 @@ function formatSchemaErrors(validate) {
   });
 }
 
-// consort/config/sftdd-paths.ts
+// consort/config/consort-paths.ts
 init_cjs_shims();
 var fs = __toESM(require("fs"), 1);
 var import_node_path = require("path");
-var ARTIFACT_ROOT = ".sftdd";
-var LEGACY_ARTIFACT_ROOT = ".tdd";
+var ARTIFACT_ROOT = ".consort";
+var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
+var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
 function resolveSftddDir(projectDir = process.cwd()) {
   const next = (0, import_node_path.join)(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
-  const legacy = (0, import_node_path.join)(projectDir, LEGACY_ARTIFACT_ROOT);
-  if (fs.existsSync(legacy)) return legacy;
+  for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
+    const legacy = (0, import_node_path.join)(projectDir, legacyName);
+    if (fs.existsSync(legacy)) return legacy;
+  }
   return next;
 }
 var featuresDir = (tdd) => (0, import_node_path.join)(tdd, "features");
@@ -6912,7 +6915,7 @@ function checkTestListMd(content) {
   return violations;
 }
 
-// consort/config/sftdd-config-file.ts
+// consort/config/consort-config-file.ts
 init_cjs_shims();
 var import_fs2 = require("fs");
 var import_path3 = require("path");
@@ -6933,11 +6936,15 @@ var RECOMMENDED_MODELS = {
 var ALL_AGENT_ROLES = Object.keys(RECOMMENDED_MODELS);
 var AGENT_CONFIG_REL = (0, import_path2.join)(".lakebase", "agent-config.json");
 
-// consort/config/sftdd-config-file.ts
-var SFTDD_CONFIG_REL = (0, import_path3.join)(".lakebase", "sftdd-config.json");
-var LEGACY_TDD_CONFIG_REL = (0, import_path3.join)(".lakebase", "tdd-config.json");
+// consort/config/consort-config-file.ts
+var CONSORT_CONFIG_REL = (0, import_path3.join)(".lakebase", "consort-config.json");
+var LEGACY_CONFIG_RELS = [
+  (0, import_path3.join)(".lakebase", "sftdd-config.json"),
+  (0, import_path3.join)(".lakebase", "tdd-config.json")
+];
+var LEGACY_TDD_CONFIG_REL = LEGACY_CONFIG_RELS[0];
 function loadSftddConfig(projectDir) {
-  for (const rel of [SFTDD_CONFIG_REL, LEGACY_TDD_CONFIG_REL]) {
+  for (const rel of [CONSORT_CONFIG_REL, ...LEGACY_CONFIG_RELS]) {
     const f = (0, import_path3.join)(projectDir, rel);
     if (!(0, import_fs2.existsSync)(f)) continue;
     try {

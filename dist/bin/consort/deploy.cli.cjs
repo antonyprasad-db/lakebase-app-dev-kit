@@ -6667,17 +6667,21 @@ var import_node_path7 = require("path");
 var import_lakebase7 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_util2 = require("@databricks-solutions/lakebase-scm-utils/util");
 
-// consort/config/sftdd-paths.ts
+// consort/config/consort-paths.ts
 init_cjs_shims();
 var fs = __toESM(require("fs"), 1);
 var import_node_path = require("path");
-var ARTIFACT_ROOT = ".sftdd";
-var LEGACY_ARTIFACT_ROOT = ".tdd";
+var ARTIFACT_ROOT = ".consort";
+var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
+var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
+var artifactRootsRegexAlternation = () => ALL_ARTIFACT_ROOTS.map((r) => r.replace(/[.]/g, "\\.")).join("|");
 function resolveSftddDir(projectDir = process.cwd()) {
   const next = (0, import_node_path.join)(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
-  const legacy = (0, import_node_path.join)(projectDir, LEGACY_ARTIFACT_ROOT);
-  if (fs.existsSync(legacy)) return legacy;
+  for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
+    const legacy = (0, import_node_path.join)(projectDir, legacyName);
+    if (fs.existsSync(legacy)) return legacy;
+  }
   return next;
 }
 var featuresDir = (tdd) => (0, import_node_path.join)(tdd, "features");
@@ -6876,7 +6880,7 @@ function emitAgentLogEvent(input, opts = {}) {
 // consort/pipeline/cycle-record.ts
 init_cjs_shims();
 
-// consort/config/sftdd-env.ts
+// consort/config/consort-env.ts
 init_cjs_shims();
 function sftddEnv(suffix, env = process.env) {
   return env[`LAKEBASE_SFTDD_${suffix}`] ?? env[`LAKEBASE_TDD_${suffix}`];
@@ -6899,6 +6903,13 @@ var import_node_path3 = require("path");
 init_cjs_shims();
 var import_node_fs2 = require("fs");
 var import_node_path4 = require("path");
+var ARTIFACT_ROOTS_RE = artifactRootsRegexAlternation();
+var EXCLUDE_DIR = new RegExp(
+  `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build|tests?|alembic|migrations)(/|$)`
+);
+var EXCLUDE_DIR_JUNK = new RegExp(
+  `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build)(/|$)`
+);
 
 // consort/smells/refactor-verify-assess.ts
 init_cjs_shims();

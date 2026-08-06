@@ -8,7 +8,7 @@
 // Exit codes: 0 ok; 2 bad args.
 
 import { join } from "path";
-import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
+import { resolveSftddDir, ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 import { timingReportFromLog, formatTimingReport } from "../../consort/reports/timing-report.js";
 import { readRunConfig, formatRunConfig } from "../../consort/session/run-config.js";
@@ -51,7 +51,7 @@ and role/model with cost), the durable, baseline-comparable signal. Also rolls u
 inter-event gaps by phase / role / kind (for finding orchestration overhead).
 
   consort-timing [flags]
-    --tdd-dir <path>   artifact root (default ./.sftdd, honors a legacy ./.tdd)
+    --tdd-dir <path>   artifact root (default: ./${ARTIFACT_ROOT}, honors legacy roots)
     --feature <id>     only this feature's events
     --top <n>          how many slowest spans to surface (default 10)
     --skip-planning    drop the sprint-planning lane (propose/estimate/author-

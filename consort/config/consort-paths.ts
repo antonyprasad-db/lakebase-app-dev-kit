@@ -14,24 +14,49 @@ import { join } from "node:path";
 // ── Artifact root name (single source of truth) ───────────────────
 //
 // The on-disk directory that holds all workflow artifacts + logs. Named
-// ".sftdd" to match the consort skill. It was historically
-// ".tdd" and that name was copy-pasted as a default across ~20 call sites; this
-// is the one place the name is now defined. Existing projects keep their legacy
-// ".tdd" (dual-read via resolveSftddDir) and are auto-migrated to ".sftdd" by the
-// orchestrator on the next run (see migrate-artifact-dir.ts).
-export const ARTIFACT_ROOT = ".sftdd";
-export const LEGACY_ARTIFACT_ROOT = ".tdd";
+// ".consort" to match the Consort skill. It was historically ".tdd", then
+// ".sftdd" (the consort-skill-rename era), and that name was copy-pasted as a
+// default across ~20 call sites; this is the one place the name is now defined.
+// Existing projects keep whichever legacy root they have (tri-read via
+// resolveSftddDir, newest-first: ".sftdd" then ".tdd") and are auto-migrated to
+// ".consort" by the orchestrator on the next run (see migrate-artifact-dir.ts).
+export const ARTIFACT_ROOT = ".consort";
+/** Prior artifact-root names, newest-first. READ (never written) for backward
+ *  compatibility: a project still on ".sftdd" or the older ".tdd" is honored in
+ *  place and auto-migrated to ".consort" on the next run. */
+export const LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"] as const;
+/** The immediate predecessor root. Retained as a named constant for the few
+ *  call sites that reference "the legacy root" singularly; new code should use
+ *  LEGACY_ARTIFACT_ROOTS (the full tri-read chain). */
+export const LEGACY_ARTIFACT_ROOT: (typeof LEGACY_ARTIFACT_ROOTS)[number] = ".sftdd";
+
+/** Every artifact-root directory name the kit recognises, current first then
+ *  legacy (newest-first). The SINGLE source any scanner/skip-list uses to
+ *  exclude the workflow bookkeeping dir , so a future rename touches only the
+ *  constants above, never a hardcoded ".consort"/".sftdd"/".tdd" literal
+ *  scattered across the tree. */
+export const ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS] as const;
+
+/** The artifact-root names as a regex-escaped alternation (`\.consort|\.sftdd|\.tdd`)
+ *  for embedding in a directory-exclusion pattern. Derived from ALL_ARTIFACT_ROOTS so
+ *  a scanner's skip-list stays in lockstep with the root rename , the ONE place the
+ *  alternation is built (no consumer re-escapes the literal). */
+export const artifactRootsRegexAlternation = (): string =>
+  ALL_ARTIFACT_ROOTS.map((r) => r.replace(/[.]/g, "\\.")).join("|");
 
 /** Resolve the artifact-root path for a project. Prefers the current
- *  ".sftdd"; honors a legacy ".tdd" when that is what exists on disk; defaults
- *  to ".sftdd" for a fresh project. Pure read: never creates or renames. Pass
- *  the project dir (defaults to the current working directory) and use the
- *  result anywhere a ".tdd"/"./.tdd" default literal used to be hardcoded. */
+ *  ".consort"; honors a legacy root (".sftdd", then ".tdd") when that is what
+ *  exists on disk; defaults to ".consort" for a fresh project. Pure read: never
+ *  creates or renames. Pass the project dir (defaults to the current working
+ *  directory) and use the result anywhere a bare artifact-root literal used to
+ *  be hardcoded. */
 export function resolveSftddDir(projectDir: string = process.cwd()): string {
   const next = join(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
-  const legacy = join(projectDir, LEGACY_ARTIFACT_ROOT);
-  if (fs.existsSync(legacy)) return legacy;
+  for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
+    const legacy = join(projectDir, legacyName);
+    if (fs.existsSync(legacy)) return legacy;
+  }
   return next;
 }
 

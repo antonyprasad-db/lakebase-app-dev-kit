@@ -19,7 +19,7 @@
 // cycle with `status:"red"` instead of the `red_at` the probe reads).
 
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync, mkdirSync, rmSync } from "fs";
-import { sftddEnv } from "../../consort/config/sftdd-env.js";
+import { sftddEnv } from "../../consort/config/consort-env.js";
 import { join, dirname } from "path";
 import {
   storyTestListJson,
@@ -28,7 +28,8 @@ import {
   acReviewVerdictJson,
   storyReviewJson,
   storyReviewVerdictJson,
-} from "../../consort/config/sftdd-paths.js";
+  ALL_ARTIFACT_ROOTS,
+} from "../../consort/config/consort-paths.js";
 import { markTestItemGreen } from "../test-list/test-list.js";
 import { listExperiments } from "../../consort/experiment/experiment.js";
 import { ensureDeployedAndVerify } from "../deploy/deploy.js";
@@ -117,12 +118,16 @@ export async function commitExperimentCode(projectDir: string, message: string):
   return commitAllIfChanged({
     cwd: projectDir,
     message,
-    // Also exclude per-agent local memory (.claude/agent-memory/): like .tdd
-    // observability it churns every run and is not feature code; committing it
-    // onto the experiment branch would diverge from the feature branch (and it
-    // already blocks the fork via assertCleanForFork). Gitignored too.
-    exclude: [".sftdd", ".tdd", ".lakebase", ".claude/agent-memory"],
-    include: [".sftdd/design", ".sftdd/architecture", ".tdd/design", ".tdd/architecture"],
+    // Also exclude per-agent local memory (.claude/agent-memory/): like the
+    // artifact-root observability it churns every run and is not feature code;
+    // committing it onto the experiment branch would diverge from the feature
+    // branch (and it already blocks the fork via assertCleanForFork). Gitignored
+    // too. The artifact roots (.consort + legacy) come from the single source of
+    // truth, so a root rename never leaves a stale literal here.
+    exclude: [...ALL_ARTIFACT_ROOTS, ".lakebase", ".claude/agent-memory"],
+    // ...but DO commit the design + architecture artifacts under whichever root
+    // this project uses (the design lane's durable output belongs on the branch).
+    include: ALL_ARTIFACT_ROOTS.flatMap((r) => [`${r}/design`, `${r}/architecture`]),
     // Allow-list NEW untracked files to the project's source/test/migration roots
     // (tracked edits anywhere are still staged). A design-lane agent that writes a
     // mis-quoted junk file to the repo root must not get it committed onto the

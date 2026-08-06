@@ -42,13 +42,13 @@
 // belongs in the orchestrator once the phase<->gate<->mode mapping is settled.
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from "node:fs";
-import { sftddEnv } from "../../consort/config/sftdd-env.js";
+import { sftddEnv } from "../../consort/config/consort-env.js";
 import { join, dirname, basename } from "node:path";
 import { approveGate } from "../../consort/gates/approve-gate.js";
 import { readGates, GATE_NAMES, type GateName, type GatesState } from "../../consort/gates/gates.js";
 import { checkArtifactConformance, canonicalArtifactName } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
 import { emitAgentLogEvent } from "../../consort/logging/agent-log.js";
-import { featureRequestMd, resolveSftddDir, writeRequested, featureProposalsMd, planningDir } from "../../consort/config/sftdd-paths.js";
+import { featureRequestMd, resolveSftddDir, writeRequested, featureProposalsMd, planningDir } from "../../consort/config/consort-paths.js";
 // The gate CONDITION (what makes a gate advanceable) is a state-machine property,
 // not a proxy decision; it lives in the guard and is enforced on the advance path.
 import { resolveArtifactInputs, featureDir } from "../../consort/gates/gate-conformance-guard.js";

@@ -23,16 +23,19 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
-// consort/config/sftdd-paths.ts
+// consort/config/consort-paths.ts
 var fs = __toESM(require("fs"), 1);
 var import_node_path = require("path");
-var ARTIFACT_ROOT = ".sftdd";
-var LEGACY_ARTIFACT_ROOT = ".tdd";
+var ARTIFACT_ROOT = ".consort";
+var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
+var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
 function resolveSftddDir(projectDir2 = process.cwd()) {
   const next = (0, import_node_path.join)(projectDir2, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
-  const legacy = (0, import_node_path.join)(projectDir2, LEGACY_ARTIFACT_ROOT);
-  if (fs.existsSync(legacy)) return legacy;
+  for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
+    const legacy = (0, import_node_path.join)(projectDir2, legacyName);
+    if (fs.existsSync(legacy)) return legacy;
+  }
   return next;
 }
 

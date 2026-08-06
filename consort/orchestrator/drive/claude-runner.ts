@@ -10,9 +10,9 @@
 // isCliEntry, so importing it NEVER drags a CLI entry point.
 
 import { spawn } from "node:child_process";
-import { sftddEnv } from "../../config/sftdd-env.js";
+import { sftddEnv } from "../../config/consort-env.js";
 import { resyncAgentsOnKitDrift } from "../../setup/project-sftdd-setup.js";
-import { resolveSftddDir } from "../../config/sftdd-paths.js";
+import { resolveSftddDir } from "../../config/consort-paths.js";
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";

@@ -9,7 +9,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import * as P from "../../consort/config/sftdd-paths";
+import * as P from "../../consort/config/consort-paths";
 
 let tdd: string;
 beforeEach(() => {

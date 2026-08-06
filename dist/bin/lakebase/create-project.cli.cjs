@@ -35,12 +35,14 @@ var fs4 = __toESM(require("fs"), 1);
 var path3 = __toESM(require("path"), 1);
 var import_node_url2 = require("url");
 
-// consort/config/sftdd-paths.ts
+// consort/config/consort-paths.ts
 var fs = __toESM(require("fs"), 1);
 var import_node_path = require("path");
-var ARTIFACT_ROOT = ".sftdd";
+var ARTIFACT_ROOT = ".consort";
+var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
+var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
 
-// consort/config/sftdd-config-file.ts
+// consort/config/consort-config-file.ts
 var import_fs = require("fs");
 var import_path2 = require("path");
 
@@ -78,10 +80,13 @@ var optimized_defaults_default = {
   }
 };
 
-// consort/config/sftdd-config-file.ts
-var SFTDD_CONFIG_REL = (0, import_path2.join)(".lakebase", "sftdd-config.json");
-var LEGACY_TDD_CONFIG_REL = (0, import_path2.join)(".lakebase", "tdd-config.json");
-var TDD_CONFIG_REL = SFTDD_CONFIG_REL;
+// consort/config/consort-config-file.ts
+var CONSORT_CONFIG_REL = (0, import_path2.join)(".lakebase", "consort-config.json");
+var LEGACY_CONFIG_RELS = [
+  (0, import_path2.join)(".lakebase", "sftdd-config.json"),
+  (0, import_path2.join)(".lakebase", "tdd-config.json")
+];
+var LEGACY_TDD_CONFIG_REL = LEGACY_CONFIG_RELS[0];
 function defaultSftddConfig() {
   const roles = {};
   for (const role of ALL_AGENT_ROLES) {
@@ -92,7 +97,7 @@ function defaultSftddConfig() {
       // 93 tool round-trips (haiku's trial-and-error), so wall-clock, not token
       // cost, dominated. Sonnet finishes GREEN in far fewer round-trips, faster
       // even at a higher per-token price. Overridable per project by editing
-      // sftdd-config.json (a project can flatten to a scalar `model`).
+      // consort-config.json (a project can flatten to a scalar `model`).
       { model: { red: RECOMMENDED_MODELS[role], green: RECOMMENDED_MODELS[role], refactor: "haiku" } }
     ) : (
       // Every other role's base is just its recommended model. Optimization
@@ -124,7 +129,7 @@ function mergeOptimizedDefaults(base, overlay) {
   return out;
 }
 function writeSftddConfig(projectDir, config, opts) {
-  const f = (0, import_path2.join)(projectDir, TDD_CONFIG_REL);
+  const f = (0, import_path2.join)(projectDir, CONSORT_CONFIG_REL);
   if ((0, import_fs.existsSync)(f) && !opts?.force) return false;
   (0, import_fs.mkdirSync)((0, import_path2.dirname)(f), { recursive: true });
   (0, import_fs.writeFileSync)(f, JSON.stringify(config, null, 2) + "\n");

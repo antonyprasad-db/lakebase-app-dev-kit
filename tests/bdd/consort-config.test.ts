@@ -1,6 +1,6 @@
-// Unified TDD config (.lakebase/sftdd-config.json): one declarative source for the
-// per-role/turn model+effort matrix + build/plan/project knobs. Resolution is
-// sftdd-config.json -> code default, per setting. The file is the SINGLE source of
+// Unified Consort config (.lakebase/consort-config.json): one declarative source for
+// the per-role/turn model+effort matrix + build/plan/project knobs. Resolution is
+// consort-config.json -> code default, per setting. The file is the SINGLE source of
 // truth for project settings; there is NO env override at read time (the env door
 // is what let a UI project silently run with the UX lane off).
 
@@ -9,8 +9,8 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 
-import { resolveSftddSettings, loadSftddConfig, defaultSftddConfig, writeSftddConfig, applyProjectOverrides, TDD_CONFIG_REL, SFTDD_CONFIG_REL, LEGACY_TDD_CONFIG_REL } from "../../consort/orchestrator/settings/project-settings.js";
-import { sftddEnv } from "../../consort/config/sftdd-env.js";
+import { resolveSftddSettings, loadSftddConfig, defaultSftddConfig, writeSftddConfig, applyProjectOverrides, TDD_CONFIG_REL, CONSORT_CONFIG_REL, SFTDD_CONFIG_REL, LEGACY_CONFIG_RELS, LEGACY_TDD_CONFIG_REL } from "../../consort/orchestrator/settings/project-settings.js";
+import { sftddEnv } from "../../consort/config/consort-env.js";
 
 let proj: string;
 const writeConfig = (obj: unknown): void => {
@@ -23,26 +23,39 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(proj, { recursive: true, force: true }));
 
-// SFTDD rename back-compat: the config file is now `.lakebase/sftdd-config.json`
-// and env vars are `LAKEBASE_SFTDD_*`, but pre-rename projects/shells still use
-// `tdd-config.json` / `LAKEBASE_TDD_*`. Both must keep working (new name preferred).
-describe("SFTDD rename back-compat (config file + env prefix)", () => {
-  it("canonical path is sftdd-config.json; the deprecated alias points at it", () => {
-    expect(SFTDD_CONFIG_REL).toBe(join(".lakebase", "sftdd-config.json"));
-    expect(LEGACY_TDD_CONFIG_REL).toBe(join(".lakebase", "tdd-config.json"));
-    expect(TDD_CONFIG_REL).toBe(SFTDD_CONFIG_REL);
+// Consort rename back-compat: the config file is now `.lakebase/consort-config.json`
+// (env vars are `LAKEBASE_SFTDD_*`), but pre-rename projects/shells still use the
+// legacy `sftdd-config.json` / older `tdd-config.json` / `LAKEBASE_TDD_*`. All must
+// keep working (new name preferred, newest legacy first).
+describe("Consort rename back-compat (config file + env prefix)", () => {
+  it("canonical path is consort-config.json; deprecated aliases point at it; legacy read chain is newest-first", () => {
+    expect(CONSORT_CONFIG_REL).toBe(join(".lakebase", "consort-config.json"));
+    expect(SFTDD_CONFIG_REL).toBe(CONSORT_CONFIG_REL);
+    expect(TDD_CONFIG_REL).toBe(CONSORT_CONFIG_REL);
+    expect(LEGACY_CONFIG_RELS).toEqual([
+      join(".lakebase", "sftdd-config.json"),
+      join(".lakebase", "tdd-config.json"),
+    ]);
+    expect(LEGACY_TDD_CONFIG_REL).toBe(join(".lakebase", "sftdd-config.json"));
   });
 
-  it("loadSftddConfig reads the LEGACY tdd-config.json when only it exists", () => {
+  it("loadSftddConfig reads the older legacy tdd-config.json when only it exists", () => {
     mkdirSync(join(proj, ".lakebase"), { recursive: true });
-    writeFileSync(join(proj, LEGACY_TDD_CONFIG_REL), JSON.stringify({ version: 1, roles: { navigator: { model: "haiku" } } }));
+    writeFileSync(join(proj, LEGACY_CONFIG_RELS[1]), JSON.stringify({ version: 1, roles: { navigator: { model: "haiku" } } }));
     expect(loadSftddConfig(proj)?.roles?.navigator?.model).toBe("haiku");
   });
 
-  it("prefers sftdd-config.json over the legacy file when BOTH exist", () => {
+  it("reads the legacy sftdd-config.json over the older tdd-config.json", () => {
     mkdirSync(join(proj, ".lakebase"), { recursive: true });
-    writeFileSync(join(proj, LEGACY_TDD_CONFIG_REL), JSON.stringify({ version: 1, roles: { navigator: { model: "haiku" } } }));
-    writeFileSync(join(proj, SFTDD_CONFIG_REL), JSON.stringify({ version: 1, roles: { navigator: { model: "opus" } } }));
+    writeFileSync(join(proj, LEGACY_CONFIG_RELS[1]), JSON.stringify({ version: 1, roles: { navigator: { model: "haiku" } } }));
+    writeFileSync(join(proj, LEGACY_CONFIG_RELS[0]), JSON.stringify({ version: 1, roles: { navigator: { model: "sonnet" } } }));
+    expect(loadSftddConfig(proj)?.roles?.navigator?.model).toBe("sonnet");
+  });
+
+  it("prefers consort-config.json over any legacy file when they coexist", () => {
+    mkdirSync(join(proj, ".lakebase"), { recursive: true });
+    writeFileSync(join(proj, LEGACY_CONFIG_RELS[0]), JSON.stringify({ version: 1, roles: { navigator: { model: "haiku" } } }));
+    writeFileSync(join(proj, CONSORT_CONFIG_REL), JSON.stringify({ version: 1, roles: { navigator: { model: "opus" } } }));
     expect(loadSftddConfig(proj)?.roles?.navigator?.model).toBe("opus");
   });
 

@@ -6712,17 +6712,20 @@ function formatSchemaErrors(validate) {
   });
 }
 
-// consort/config/sftdd-paths.ts
+// consort/config/consort-paths.ts
 init_esm_shims();
 import * as fs from "fs";
 import { join as join2 } from "path";
-var ARTIFACT_ROOT = ".sftdd";
-var LEGACY_ARTIFACT_ROOT = ".tdd";
+var ARTIFACT_ROOT = ".consort";
+var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
+var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
 function resolveSftddDir(projectDir = process.cwd()) {
   const next = join2(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
-  const legacy = join2(projectDir, LEGACY_ARTIFACT_ROOT);
-  if (fs.existsSync(legacy)) return legacy;
+  for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
+    const legacy = join2(projectDir, legacyName);
+    if (fs.existsSync(legacy)) return legacy;
+  }
   return next;
 }
 var featuresDir = (tdd) => join2(tdd, "features");
@@ -7353,7 +7356,7 @@ function approveSprintPlanGate(args) {
 init_esm_shims();
 import { existsSync as existsSync12, readFileSync as readFileSync12, writeFileSync as writeFileSync8, mkdirSync as mkdirSync6 } from "fs";
 
-// consort/config/sftdd-env.ts
+// consort/config/consort-env.ts
 init_esm_shims();
 
 // consort/gates/human-proxy.ts

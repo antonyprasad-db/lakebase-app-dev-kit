@@ -191,7 +191,7 @@ describe("deployToTarget (local)", () => {
     expect(result.ok).toBe(true);
     expect(result.pid).toBe(4242);
     expect(result.url).toBe("http://localhost:8000/");
-    expect(existsSync(join(dir, ".sftdd", "deploy", "local.pid"))).toBe(true);
+    expect(existsSync(join(dir, ".consort", "deploy", "local.pid"))).toBe(true);
   });
 
   it("binds LAKEBASE_BRANCH_ID to the experiment branch for a per-story deploy", async () => {
@@ -459,9 +459,9 @@ describe("stopLocal", () => {
       sleep: async () => {},
       now: (() => { let t = 0; return () => new Date((t += 100)); })(),
     });
-    expect(existsSync(join(dir, ".sftdd", "deploy", "local.pid"))).toBe(true);
+    expect(existsSync(join(dir, ".consort", "deploy", "local.pid"))).toBe(true);
     expect(stopLocal(dir, "local").stopped).toBe(true);
-    expect(existsSync(join(dir, ".sftdd", "deploy", "local.pid"))).toBe(false);
+    expect(existsSync(join(dir, ".consort", "deploy", "local.pid"))).toBe(false);
   });
 
   it("reports nothing to stop when no pid file exists", () => {

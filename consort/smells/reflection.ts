@@ -15,7 +15,7 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from "fs";
 import { dirname } from "path";
-import { reflectVerdictJson } from "../../consort/config/sftdd-paths.js";
+import { reflectVerdictJson } from "../../consort/config/consort-paths.js";
 import { writeSmellsLog, hasOpenSmell, resolveOpenSmells, type SmellHit, type SmellName } from "./smells.js";
 
 /** Who owns the fix for a reflection finding, and thus which smell/gate it

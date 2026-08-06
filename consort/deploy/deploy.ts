@@ -18,7 +18,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { dirname, join } from "node:path";
 import { readTargets } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { pollUntil } from "@databricks-solutions/lakebase-scm-utils/util";
-import { resolveSftddDir, findFeatureDir } from "../../consort/config/sftdd-paths.js";
+import { resolveSftddDir, findFeatureDir } from "../../consort/config/consort-paths.js";
 import { writeEscalation } from "../../consort/gates/escalation.js";
 import {
   parseFailedNodeIds,
@@ -31,7 +31,7 @@ import { checkE2eRegexClean, summarizeE2eRegexViolations, E2E_REGEX_REMEDIATION 
 import { emitAgentLogEvent, type AgentLogIoOpts } from "../../consort/logging/agent-log.js";
 import type { AgentLogEventName } from "../../consort/logging/agent-log-events.js";
 import { withEphemeralVerifyBranch, ephemeralVerifyBranchName } from "../../consort/smells/ephemeral-verify.js";
-import { sftddEnv } from "../../consort/config/sftdd-env.js";
+import { sftddEnv } from "../../consort/config/consort-env.js";
 
 /** Read the Lakebase project id from the project's .env (LAKEBASE_PROJECT_ID). */
 function readProjectInstance(projectDir: string): string | undefined {

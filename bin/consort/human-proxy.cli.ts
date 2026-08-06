@@ -20,6 +20,7 @@ import {
 // The revise self-heal is a state-machine transition, not a proxy decision; the
 // CLI verb triggers it but the logic lives in the driver's service layer.
 import { applyReviseSelfHeal } from "../../consort/orchestrator/status/revise.js";
+import { ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
 import { approveSprintPlanGate } from "../../consort/gates/sprint-gates.js";
 import type { GateName } from "../../consort/gates/gates.js";
 
@@ -255,7 +256,7 @@ Usage:
 Flags:
   --feature <id>          Feature id (required, e.g. F1-initial-domain)
   --gate <name>           Approve only one gate (spec | plan | test_list | promote)
-  --tdd-dir <path>        artifact root (default: ./.sftdd, honors a legacy ./.tdd)
+  --tdd-dir <path>        artifact root (default: ./${ARTIFACT_ROOT}, honors legacy roots)
   --approver <name>       Approver identity (default: human-proxy)
   --promote-ref <str>     promote gate ref string (promote gate is skipped if omitted)
   --json                  Machine-readable JSON output

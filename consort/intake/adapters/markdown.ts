@@ -2,7 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 import type { SpecAdapter, AdapterContext, SpecEntity } from "./types";
 import type { Feature, Story, AC } from "../../../consort/intake/spec-sync";
-import { featuresDir as featuresDirOf } from "../../../consort/config/sftdd-paths.js";
+import { featuresDir as featuresDirOf } from "../../../consort/config/consort-paths.js";
 
 /**
  * Typed external_id encoding. push* methods emit these so pull can

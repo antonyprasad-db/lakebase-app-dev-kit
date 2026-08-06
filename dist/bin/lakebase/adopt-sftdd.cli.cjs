@@ -30,10 +30,12 @@ var importMetaUrl = /* @__PURE__ */ getImportMetaUrl();
 // consort/lakebase/adopt-sftdd.ts
 var fs2 = __toESM(require("fs"), 1);
 
-// consort/config/sftdd-paths.ts
+// consort/config/consort-paths.ts
 var fs = __toESM(require("fs"), 1);
 var import_node_path = require("path");
-var ARTIFACT_ROOT = ".sftdd";
+var ARTIFACT_ROOT = ".consort";
+var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
+var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
 
 // consort/lakebase/adopt-sftdd.ts
 var path = __toESM(require("path"), 1);

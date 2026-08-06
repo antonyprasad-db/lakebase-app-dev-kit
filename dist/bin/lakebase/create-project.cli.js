@@ -10,12 +10,14 @@ import * as fs4 from "fs";
 import * as path3 from "path";
 import { fileURLToPath as fileURLToPath2 } from "url";
 
-// consort/config/sftdd-paths.ts
+// consort/config/consort-paths.ts
 import * as fs from "fs";
 import { join } from "path";
-var ARTIFACT_ROOT = ".sftdd";
+var ARTIFACT_ROOT = ".consort";
+var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
+var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
 
-// consort/config/sftdd-config-file.ts
+// consort/config/consort-config-file.ts
 import { existsSync as existsSync2, readFileSync as readFileSync2, mkdirSync as mkdirSync2, writeFileSync as writeFileSync2 } from "fs";
 import { dirname as dirname2, join as join3 } from "path";
 
@@ -53,10 +55,13 @@ var optimized_defaults_default = {
   }
 };
 
-// consort/config/sftdd-config-file.ts
-var SFTDD_CONFIG_REL = join3(".lakebase", "sftdd-config.json");
-var LEGACY_TDD_CONFIG_REL = join3(".lakebase", "tdd-config.json");
-var TDD_CONFIG_REL = SFTDD_CONFIG_REL;
+// consort/config/consort-config-file.ts
+var CONSORT_CONFIG_REL = join3(".lakebase", "consort-config.json");
+var LEGACY_CONFIG_RELS = [
+  join3(".lakebase", "sftdd-config.json"),
+  join3(".lakebase", "tdd-config.json")
+];
+var LEGACY_TDD_CONFIG_REL = LEGACY_CONFIG_RELS[0];
 function defaultSftddConfig() {
   const roles = {};
   for (const role of ALL_AGENT_ROLES) {
@@ -67,7 +72,7 @@ function defaultSftddConfig() {
       // 93 tool round-trips (haiku's trial-and-error), so wall-clock, not token
       // cost, dominated. Sonnet finishes GREEN in far fewer round-trips, faster
       // even at a higher per-token price. Overridable per project by editing
-      // sftdd-config.json (a project can flatten to a scalar `model`).
+      // consort-config.json (a project can flatten to a scalar `model`).
       { model: { red: RECOMMENDED_MODELS[role], green: RECOMMENDED_MODELS[role], refactor: "haiku" } }
     ) : (
       // Every other role's base is just its recommended model. Optimization
@@ -99,7 +104,7 @@ function mergeOptimizedDefaults(base, overlay) {
   return out;
 }
 function writeSftddConfig(projectDir, config, opts) {
-  const f = join3(projectDir, TDD_CONFIG_REL);
+  const f = join3(projectDir, CONSORT_CONFIG_REL);
   if (existsSync2(f) && !opts?.force) return false;
   mkdirSync2(dirname2(f), { recursive: true });
   writeFileSync2(f, JSON.stringify(config, null, 2) + "\n");

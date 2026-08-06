@@ -15,7 +15,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { findFeatureDir } from "../../consort/config/sftdd-paths.js";
+import { findFeatureDir } from "../../consort/config/consort-paths.js";
 
 export interface RefactorVerifyAssessMarker {
   version: 1;

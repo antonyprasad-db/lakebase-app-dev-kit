@@ -19,6 +19,8 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
+import { ALL_ARTIFACT_ROOTS } from "../../consort/config/consort-paths.js";
+
 // ─── A4: no duplicate class definitions (declaration-independent) ──
 // A repo-wide invariant: a top-level class name is defined in exactly one module.
 // Two modules defining the same top-level class (e.g. `Recipe` in both a leftover
@@ -30,10 +32,12 @@ import { join } from "node:path";
 // Nested classes (Pydantic `Config`, Django `Meta`) are intentionally ignored ,
 // only column-0 `class` defs count, so common nested helpers never false-positive.
 
-/** Directory names that are never application source (vendor / test / migration). */
-const SOURCE_SKIP_DIRS = new Set([
+/** Directory names that are never application source (vendor / test / migration).
+ *  The workflow bookkeeping roots (.consort + legacy) come from the single source
+ *  of truth, never hardcoded here. */
+const SOURCE_SKIP_DIRS = new Set<string>([
   "node_modules", "__pycache__", ".venv", "venv", ".git", "build", "dist",
-  ".sftdd", ".tdd", ".lakebase", "alembic", "migrations", "tests", "test",
+  ...ALL_ARTIFACT_ROOTS, ".lakebase", "alembic", "migrations", "tests", "test",
   ".mypy_cache", ".pytest_cache", ".ruff_cache",
 ]);
 

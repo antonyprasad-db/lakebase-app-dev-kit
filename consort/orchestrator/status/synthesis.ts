@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, cpSync } from "fs";
 import { join } from "path";
 import { listExperiments } from "../../../consort/experiment/experiment";
 import { cutExperiment } from "../../../consort/experiment/experiment";
-import { findFeatureDir } from "../../../consort/config/sftdd-paths.js";
+import { findFeatureDir } from "../../../consort/config/consort-paths.js";
 import type { ExperimentRecord } from "../../../consort/experiment/experiment";
 import type { BranchLookupOpts } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 

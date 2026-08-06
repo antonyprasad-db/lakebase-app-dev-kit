@@ -19,6 +19,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runManifestStep, type ManifestRunnerDeps } from "../runners/manifest-runner.js";
 import { loadStepManifests, type StepManifest } from "../steps/manifest.js";
+import { ARTIFACT_ROOT } from "../../config/consort-paths.js";
 import { catalogueLifecycleDeps } from "../provisioning/lifecycle-catalogue.js";
 import type { LifecycleOp } from "../provisioning/lifecycle-types.js";
 import type { WorkflowAction } from "../workflow/workflow-vocabulary.js";
@@ -83,10 +84,10 @@ export async function runRouteScenario(
 ): Promise<RouteScenarioResult> {
   const manifests = loadStepManifests(scenario.manifestDir);
   const workspaceDir = mkdtempSync(join(tmpdir(), `route-scn-${scenario.id}-`));
-  mkdirSync(join(workspaceDir, ".sftdd"), { recursive: true });
+  mkdirSync(join(workspaceDir, ARTIFACT_ROOT), { recursive: true });
   const cfg = {
     projectDir: workspaceDir,
-    sftddDir: join(workspaceDir, ".sftdd"),
+    sftddDir: join(workspaceDir, ARTIFACT_ROOT),
     featureId: scenario.feature,
   } as DriveEffectsConfig;
 

@@ -20,7 +20,7 @@ import {
   hasEstimates,
   readEstimates,
   readBacklog,
-} from "../../consort/config/sftdd-paths.js";
+} from "../../consort/config/consort-paths.js";
 import * as fs from "node:fs";
 
 // Sprint-backlog read/write + SprintBacklog live in sftdd-paths (single source of
@@ -32,7 +32,7 @@ export {
   syncBacklog,
   type SprintBacklog,
   type BacklogFeature,
-} from "../../consort/config/sftdd-paths.js";
+} from "../../consort/config/consort-paths.js";
 
 // --- Sprint planning readState -----------------------------------------------
 

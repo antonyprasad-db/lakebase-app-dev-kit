@@ -6647,23 +6647,28 @@ var require_ajv = __commonJS({
 // bin/consort/drive.cli.ts
 init_cjs_shims();
 
-// consort/config/sftdd-env.ts
+// consort/config/consort-env.ts
 init_cjs_shims();
 function sftddEnv(suffix, env = process.env) {
   return env[`LAKEBASE_SFTDD_${suffix}`] ?? env[`LAKEBASE_TDD_${suffix}`];
 }
 
-// consort/config/sftdd-paths.ts
+// consort/config/consort-paths.ts
 init_cjs_shims();
 var fs = __toESM(require("fs"), 1);
 var import_node_path = require("path");
-var ARTIFACT_ROOT = ".sftdd";
-var LEGACY_ARTIFACT_ROOT = ".tdd";
+var ARTIFACT_ROOT = ".consort";
+var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
+var LEGACY_ARTIFACT_ROOT = ".sftdd";
+var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
+var artifactRootsRegexAlternation = () => ALL_ARTIFACT_ROOTS.map((r) => r.replace(/[.]/g, "\\.")).join("|");
 function resolveSftddDir(projectDir = process.cwd()) {
   const next = (0, import_node_path.join)(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
-  const legacy = (0, import_node_path.join)(projectDir, LEGACY_ARTIFACT_ROOT);
-  if (fs.existsSync(legacy)) return legacy;
+  for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
+    const legacy = (0, import_node_path.join)(projectDir, legacyName);
+    if (fs.existsSync(legacy)) return legacy;
+  }
   return next;
 }
 var featuresDir = (tdd) => (0, import_node_path.join)(tdd, "features");
@@ -6840,20 +6845,24 @@ function rewriteGitignore(projectDir) {
   const gi = (0, import_node_path2.join)(projectDir, ".gitignore");
   if (!fs2.existsSync(gi)) return;
   const before = fs2.readFileSync(gi, "utf8");
-  const after = before.replace(
-    new RegExp(`(^|\\s)${LEGACY_ARTIFACT_ROOT.replace(".", "\\.")}/`, "gm"),
-    `$1${ARTIFACT_ROOT}/`
-  );
+  let after = before;
+  for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
+    after = after.replace(
+      new RegExp(`(^|\\s)${legacyName.replace(".", "\\.")}/`, "gm"),
+      `$1${ARTIFACT_ROOT}/`
+    );
+  }
   if (after !== before) fs2.writeFileSync(gi, after);
 }
 function migrateLegacyArtifactDir(projectDir = process.cwd()) {
   const next = (0, import_node_path2.join)(projectDir, ARTIFACT_ROOT);
-  const legacy = (0, import_node_path2.join)(projectDir, LEGACY_ARTIFACT_ROOT);
   if (fs2.existsSync(next)) return { migrated: false, root: next };
-  if (!fs2.existsSync(legacy)) return { migrated: false, root: next };
+  const legacyName = LEGACY_ARTIFACT_ROOTS.find((name) => fs2.existsSync((0, import_node_path2.join)(projectDir, name)));
+  if (!legacyName) return { migrated: false, root: next };
+  const legacy = (0, import_node_path2.join)(projectDir, legacyName);
   if (isGitRepo(projectDir)) {
     try {
-      (0, import_node_child_process.execFileSync)("git", ["mv", LEGACY_ARTIFACT_ROOT, ARTIFACT_ROOT], {
+      (0, import_node_child_process.execFileSync)("git", ["mv", legacyName, ARTIFACT_ROOT], {
         cwd: projectDir,
         stdio: "ignore"
       });
@@ -6884,8 +6893,7 @@ var import_fs = require("fs");
 var import_path = require("path");
 var SCAFFOLD_OWNED = /* @__PURE__ */ new Set([
   ".git",
-  ".sftdd",
-  ".tdd",
+  ...ALL_ARTIFACT_ROOTS,
   ".lakebase",
   "scripts",
   ".claude",
@@ -8312,6 +8320,13 @@ function hasPendingRegressionFix(tdd, feature, story, ac) {
 init_cjs_shims();
 var import_node_fs5 = require("fs");
 var import_node_path8 = require("path");
+var ARTIFACT_ROOTS_RE = artifactRootsRegexAlternation();
+var EXCLUDE_DIR = new RegExp(
+  `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build|tests?|alembic|migrations)(/|$)`
+);
+var EXCLUDE_DIR_JUNK = new RegExp(
+  `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build)(/|$)`
+);
 
 // consort/smells/refactor-verify-assess.ts
 init_cjs_shims();
@@ -10612,7 +10627,7 @@ var fs11 = __toESM(require("fs"), 1);
 var path6 = __toESM(require("path"), 1);
 var import_node_url2 = require("url");
 
-// consort/config/sftdd-config-file.ts
+// consort/config/consort-config-file.ts
 init_cjs_shims();
 var import_fs13 = require("fs");
 var import_path10 = require("path");
@@ -10663,12 +10678,15 @@ var optimized_defaults_default = {
   }
 };
 
-// consort/config/sftdd-config-file.ts
-var SFTDD_CONFIG_REL = (0, import_path10.join)(".lakebase", "sftdd-config.json");
-var LEGACY_TDD_CONFIG_REL = (0, import_path10.join)(".lakebase", "tdd-config.json");
-var TDD_CONFIG_REL = SFTDD_CONFIG_REL;
+// consort/config/consort-config-file.ts
+var CONSORT_CONFIG_REL = (0, import_path10.join)(".lakebase", "consort-config.json");
+var LEGACY_CONFIG_RELS = [
+  (0, import_path10.join)(".lakebase", "sftdd-config.json"),
+  (0, import_path10.join)(".lakebase", "tdd-config.json")
+];
+var LEGACY_TDD_CONFIG_REL = LEGACY_CONFIG_RELS[0];
 function loadSftddConfig(projectDir) {
-  for (const rel of [SFTDD_CONFIG_REL, LEGACY_TDD_CONFIG_REL]) {
+  for (const rel of [CONSORT_CONFIG_REL, ...LEGACY_CONFIG_RELS]) {
     const f = (0, import_path10.join)(projectDir, rel);
     if (!(0, import_fs13.existsSync)(f)) continue;
     try {
@@ -10708,7 +10726,7 @@ function defaultSftddConfig() {
       // 93 tool round-trips (haiku's trial-and-error), so wall-clock, not token
       // cost, dominated. Sonnet finishes GREEN in far fewer round-trips, faster
       // even at a higher per-token price. Overridable per project by editing
-      // sftdd-config.json (a project can flatten to a scalar `model`).
+      // consort-config.json (a project can flatten to a scalar `model`).
       { model: { red: RECOMMENDED_MODELS[role], green: RECOMMENDED_MODELS[role], refactor: "haiku" } }
     ) : (
       // Every other role's base is just its recommended model. Optimization
@@ -10740,7 +10758,7 @@ function mergeOptimizedDefaults(base, overlay) {
   return out;
 }
 function writeSftddConfig(projectDir, config, opts) {
-  const f = (0, import_path10.join)(projectDir, TDD_CONFIG_REL);
+  const f = (0, import_path10.join)(projectDir, CONSORT_CONFIG_REL);
   if ((0, import_fs13.existsSync)(f) && !opts?.force) return false;
   (0, import_fs13.mkdirSync)((0, import_path10.dirname)(f), { recursive: true });
   (0, import_fs13.writeFileSync)(f, JSON.stringify(config, null, 2) + "\n");
@@ -11254,7 +11272,7 @@ function relocateStrayDesignArtifacts(projectDir) {
   const sibling = malformedSiblingRoot(projectDir);
   if (!(0, import_node_fs12.existsSync)(sibling)) return { relocated: false, moved: [] };
   const moved = [];
-  for (const artRoot of [".sftdd", ".tdd"]) {
+  for (const artRoot of ALL_ARTIFACT_ROOTS) {
     const strayRoot = (0, import_node_path15.join)(sibling, artRoot);
     if (!(0, import_node_fs12.existsSync)(strayRoot)) continue;
     for (const rel of listFilesRel(strayRoot)) moved.push((0, import_node_path15.join)(artRoot, rel));
@@ -13198,7 +13216,7 @@ Usage:
 Flags:
   --feature <id>       Feature to drive (required)
   --project-dir <dir>  Project root (default: cwd)
-  --tdd-dir <dir>      artifact root (default: <project-dir>/.sftdd, honors a legacy .tdd)
+  --tdd-dir <dir>      artifact root (default: <project-dir>/${ARTIFACT_ROOT}, honors legacy roots)
   --instance <id>      Lakebase instance id (threaded to experiment branch ops)
   --deploy-target <t>  Deploy target for the deploy phase (default: local)
   --approver <name>    Headless gate approver (default: human-proxy)
@@ -13364,7 +13382,7 @@ function reportInput(action, sprint) {
   process.stderr.write(
     `[drive] PAUSED , awaiting human input (${describeAction(action)}). Nothing was approved or produced yet.
         The Product Owner must:
-          1. author the sprint's feature-request(s) at .sftdd/features/<id>/feature-request.md, then
+          1. author the sprint's feature-request(s) at ${ARTIFACT_ROOT}/features/<id>/feature-request.md, then
           2. commit the backlog: consort-sync-backlog --sprint ${s} --features <id[,id...]>
         then re-run the drive , it will advance to the (interactive) plan gate.
 `

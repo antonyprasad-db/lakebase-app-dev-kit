@@ -16,7 +16,7 @@
 // every item maps to one of the story's ACs (the S2 live-stall bug).
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { storyAcIds, readAcLayer, readAcArchitecturalNotes, storyTestListJson, acsDir, designGuideJson, architectureJson, dbDesignJson, featureSpecJson, storiesDir } from "../../consort/config/sftdd-paths.js";
+import { storyAcIds, readAcLayer, readAcArchitecturalNotes, storyTestListJson, acsDir, designGuideJson, architectureJson, dbDesignJson, featureSpecJson, storiesDir } from "../../consort/config/consort-paths.js";
 import { checkArtifactConformance, canonicalArtifactName, checkDbDesign, checkStoryIndependence } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
 
 export interface FormatViolation {

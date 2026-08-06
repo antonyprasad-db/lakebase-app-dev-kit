@@ -1,11 +1,20 @@
 #!/usr/bin/env node
 
 // bin/consort/layering-clean.cli.ts
-import { readFileSync as readFileSync2 } from "fs";
+import { readFileSync as readFileSync3 } from "fs";
 
 // consort/architecture/layering-clean.ts
-import { existsSync, readFileSync, readdirSync, statSync } from "fs";
+import { existsSync as existsSync2, readFileSync as readFileSync2, readdirSync as readdirSync2, statSync as statSync2 } from "fs";
+import { join as join2 } from "path";
+
+// consort/config/consort-paths.ts
+import * as fs from "fs";
 import { join } from "path";
+var ARTIFACT_ROOT = ".consort";
+var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
+var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
+
+// consort/architecture/layering-clean.ts
 var SOURCE_SKIP_DIRS = /* @__PURE__ */ new Set([
   "node_modules",
   "__pycache__",
@@ -14,8 +23,7 @@ var SOURCE_SKIP_DIRS = /* @__PURE__ */ new Set([
   ".git",
   "build",
   "dist",
-  ".sftdd",
-  ".tdd",
+  ...ALL_ARTIFACT_ROOTS,
   ".lakebase",
   "alembic",
   "migrations",
@@ -31,15 +39,15 @@ function isTestFile(name) {
 function sourcePyFilesRec(dir, out) {
   let entries;
   try {
-    entries = readdirSync(dir, { withFileTypes: true });
+    entries = readdirSync2(dir, { withFileTypes: true });
   } catch {
     return;
   }
   for (const e of entries) {
     if (e.isDirectory()) {
-      if (!SOURCE_SKIP_DIRS.has(e.name)) sourcePyFilesRec(join(dir, e.name), out);
+      if (!SOURCE_SKIP_DIRS.has(e.name)) sourcePyFilesRec(join2(dir, e.name), out);
     } else if (e.isFile() && e.name.endsWith(".py") && !isTestFile(e.name)) {
-      out.push(join(dir, e.name));
+      out.push(join2(dir, e.name));
     }
   }
 }
@@ -48,10 +56,10 @@ var TOP_LEVEL_CLASS = /^class\s+([A-Za-z_]\w*)\s*[:(]/;
 function checkDuplicateClasses(projectDir, roots = ["app", "src"]) {
   const files = [];
   for (const r of roots) {
-    const abs = join(projectDir, r);
-    if (!existsSync(abs)) continue;
+    const abs = join2(projectDir, r);
+    if (!existsSync2(abs)) continue;
     try {
-      if (statSync(abs).isDirectory()) sourcePyFilesRec(abs, files);
+      if (statSync2(abs).isDirectory()) sourcePyFilesRec(abs, files);
       else if (abs.endsWith(".py") && !isTestFile(r)) files.push(abs);
     } catch {
     }
@@ -59,7 +67,7 @@ function checkDuplicateClasses(projectDir, roots = ["app", "src"]) {
   const defs = /* @__PURE__ */ new Map();
   for (const file of files) {
     const shown = file.startsWith(projectDir) ? file.slice(projectDir.length).replace(/^\//, "") : file;
-    for (const line of readFileSync(file, "utf8").split("\n")) {
+    for (const line of readFileSync2(file, "utf8").split("\n")) {
       const m = TOP_LEVEL_CLASS.exec(line);
       if (!m) continue;
       const set = defs.get(m[1]) ?? /* @__PURE__ */ new Set();
@@ -82,23 +90,23 @@ var REMEDIATION = "The boundary/routes layer calls the DB session directly (a fa
 var DEFAULT_BOUNDARY = ["app/main.py", "app/routes"];
 var DEFAULT_REPOSITORY = ["app/repositories", "app/repository.py"];
 function pyFilesFor(projectDir, rel) {
-  const abs = join(projectDir, rel);
-  if (!existsSync(abs)) return [];
+  const abs = join2(projectDir, rel);
+  if (!existsSync2(abs)) return [];
   let isDir = false;
   try {
-    isDir = statSync(abs).isDirectory();
+    isDir = statSync2(abs).isDirectory();
   } catch {
     return [];
   }
   if (!isDir) return rel.endsWith(".py") ? [abs] : [];
   const out = [];
-  for (const f of readdirSync(abs)) {
-    if (f.endsWith(".py") && f !== "__init__.py") out.push(join(abs, f));
+  for (const f of readdirSync2(abs)) {
+    if (f.endsWith(".py") && f !== "__init__.py") out.push(join2(abs, f));
   }
   return out;
 }
 function repositoryExists(projectDir, repositoryModules) {
-  return repositoryModules.some((rel) => existsSync(join(projectDir, rel)));
+  return repositoryModules.some((rel) => existsSync2(join2(projectDir, rel)));
 }
 function checkLayeringClean(args) {
   if (!args.serviceBacked) {
@@ -111,7 +119,7 @@ function checkLayeringClean(args) {
   for (const rel of boundary2) {
     for (const file of pyFilesFor(args.projectDir, rel)) {
       scanned.push(file.startsWith(args.projectDir) ? file.slice(args.projectDir.length).replace(/^\//, "") : file);
-      const lines = readFileSync(file, "utf8").split("\n");
+      const lines = readFileSync2(file, "utf8").split("\n");
       lines.forEach((line, i) => {
         if (SESSION_OP.test(line)) {
           const shown = file.startsWith(args.projectDir) ? file.slice(args.projectDir.length).replace(/^\//, "") : file;
@@ -150,9 +158,9 @@ function layeringConfigFromArchitecture(architectureJson) {
 function checkModulePlacement(projectDir, allModules2) {
   const violations = [];
   const kindOf = (abs) => {
-    if (!existsSync(abs)) return "missing";
+    if (!existsSync2(abs)) return "missing";
     try {
-      return statSync(abs).isDirectory() ? "dir" : "file";
+      return statSync2(abs).isDirectory() ? "dir" : "file";
     } catch {
       return "missing";
     }
@@ -161,15 +169,15 @@ function checkModulePlacement(projectDir, allModules2) {
     const base = module.replace(/\/$/, "");
     const wantDir = module.endsWith("/");
     const wantFile = module.endsWith(".py");
-    const here = kindOf(join(projectDir, base));
+    const here = kindOf(join2(projectDir, base));
     if (wantDir) {
       if (here === "dir") {
-        if (kindOf(join(projectDir, `${base}.py`)) === "file") {
+        if (kindOf(join2(projectDir, `${base}.py`)) === "file") {
           violations.push(`declared ${role} layer "${module}" is a package, but a stale flat ${base}.py also exists alongside it (an orphan from a flat->package migration, shadowed + duplicating this layer); delete ${base}.py so only the package defines this layer`);
         }
         continue;
       }
-      if (kindOf(join(projectDir, `${base}.py`)) === "file") {
+      if (kindOf(join2(projectDir, `${base}.py`)) === "file") {
         violations.push(`declared ${role} layer "${module}" is a package directory but the build created a flat file ${base}.py (organize this layer under ${module})`);
       } else {
         violations.push(`declared ${role} layer module "${module}" not found (the build placed this layer's code elsewhere)`);
@@ -179,7 +187,7 @@ function checkModulePlacement(projectDir, allModules2) {
       if (here === "dir") violations.push(`declared ${role} layer module "${module}" is a file but a directory exists there`);
       else violations.push(`declared ${role} layer module "${module}" not found (the build placed this layer's code elsewhere)`);
     } else {
-      if (here !== "missing" || kindOf(join(projectDir, `${base}.py`)) === "file") continue;
+      if (here !== "missing" || kindOf(join2(projectDir, `${base}.py`)) === "file") continue;
       violations.push(`declared ${role} layer module "${module}" not found (the build placed this layer's code elsewhere)`);
     }
   }
@@ -193,7 +201,7 @@ function checkInlineRendering(projectDir, boundaryModules, rendersVia2) {
   const violations = [];
   for (const rel of boundary2) {
     for (const file of pyFilesFor(projectDir, rel)) {
-      const src = readFileSync(file, "utf8");
+      const src = readFileSync2(file, "utf8");
       const hasInline = INLINE_HTML.test(src);
       const hasSeam = TEMPLATE_SEAM.test(src);
       if (hasInline && !hasSeam) {
@@ -216,7 +224,7 @@ function checkCodeBudget(projectDir, sourcePaths, opts = {}) {
   for (const rel of sourcePaths) files.push(...pyFilesFor(projectDir, rel));
   for (const file of files) {
     const shown = file.startsWith(projectDir) ? file.slice(projectDir.length).replace(/^\//, "") : file;
-    const lines = readFileSync(file, "utf8").split("\n");
+    const lines = readFileSync2(file, "utf8").split("\n");
     for (let i = 0; i < lines.length; i++) {
       const m = /^(\s*)def\s+(\w+)/.exec(lines[i]);
       if (!m) continue;
@@ -235,7 +243,7 @@ function checkCodeBudget(projectDir, sourcePaths, opts = {}) {
   const reported = /* @__PURE__ */ new Set();
   for (const file of files) {
     const shown = file.startsWith(projectDir) ? file.slice(projectDir.length).replace(/^\//, "") : file;
-    const lines = readFileSync(file, "utf8").split("\n").map((l) => l.trim()).filter(nontrivial);
+    const lines = readFileSync2(file, "utf8").split("\n").map((l) => l.trim()).filter(nontrivial);
     for (let i = 0; i + dupWin <= lines.length; i++) {
       const key = lines.slice(i, i + dupWin).join("");
       if (key.length < dupWin * 3) continue;
@@ -290,7 +298,7 @@ var rendersVia;
 if (p.architecture) {
   let archJson = "";
   try {
-    archJson = readFileSync2(p.architecture, "utf8");
+    archJson = readFileSync3(p.architecture, "utf8");
   } catch {
     process.stderr.write(`layering-clean: cannot read architecture file ${p.architecture}
 `);

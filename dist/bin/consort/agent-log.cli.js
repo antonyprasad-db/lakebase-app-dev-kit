@@ -6650,17 +6650,21 @@ var require_ajv = __commonJS({
 init_esm_shims();
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 
-// consort/config/sftdd-paths.ts
+// consort/config/consort-paths.ts
 init_esm_shims();
 import * as fs from "fs";
 import { join } from "path";
-var ARTIFACT_ROOT = ".sftdd";
-var LEGACY_ARTIFACT_ROOT = ".tdd";
+var ARTIFACT_ROOT = ".consort";
+var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
+var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
+var artifactRootsRegexAlternation = () => ALL_ARTIFACT_ROOTS.map((r) => r.replace(/[.]/g, "\\.")).join("|");
 function resolveSftddDir(projectDir = process.cwd()) {
   const next = join(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
-  const legacy = join(projectDir, LEGACY_ARTIFACT_ROOT);
-  if (fs.existsSync(legacy)) return legacy;
+  for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
+    const legacy = join(projectDir, legacyName);
+    if (fs.existsSync(legacy)) return legacy;
+  }
   return next;
 }
 var featuresDir = (tdd) => join(tdd, "features");
@@ -7313,7 +7317,7 @@ function hasOpenSmell(sftddDir, smell, story_id) {
 // consort/pipeline/cycle-record.ts
 init_esm_shims();
 
-// consort/config/sftdd-env.ts
+// consort/config/consort-env.ts
 init_esm_shims();
 
 // consort/test-list/test-list.ts
@@ -7359,6 +7363,13 @@ import { join as join12 } from "path";
 init_esm_shims();
 import { existsSync as existsSync14, readFileSync as readFileSync14, readdirSync as readdirSync8, statSync as statSync5 } from "fs";
 import { join as join13, relative as relative2, extname } from "path";
+var ARTIFACT_ROOTS_RE = artifactRootsRegexAlternation();
+var EXCLUDE_DIR = new RegExp(
+  `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build|tests?|alembic|migrations)(/|$)`
+);
+var EXCLUDE_DIR_JUNK = new RegExp(
+  `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build)(/|$)`
+);
 
 // consort/smells/refactor-verify-assess.ts
 init_esm_shims();
@@ -7527,7 +7538,7 @@ Reconcile (structural observability backstop):
     own events. Idempotent. The orchestrator / smoke calls this after each phase.
 
 Common:
-  --tdd-dir <path>   artifact root (default ./.sftdd, honors a legacy ./.tdd)
+  --tdd-dir <path>   artifact root (default: ./${ARTIFACT_ROOT}, honors legacy roots)
   -h, --help
 `;
 function runAgentLogCli(argv) {

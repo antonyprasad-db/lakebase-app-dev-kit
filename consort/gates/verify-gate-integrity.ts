@@ -17,7 +17,7 @@
 // flows.
 
 import { hashArtifact } from "./gate-hash";
-import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
+import { resolveSftddDir } from "../../consort/config/consort-paths.js";
 import { readGates, type GateName, type GateStatus } from "./gates";
 
 export interface VerifyGateIntegrityArgs {

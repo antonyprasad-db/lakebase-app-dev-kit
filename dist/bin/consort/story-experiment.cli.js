@@ -6731,17 +6731,21 @@ async function deleteExperiment(args) {
   }
 }
 
-// consort/config/sftdd-paths.ts
+// consort/config/consort-paths.ts
 init_esm_shims();
 import * as fs from "fs";
 import { join as join2 } from "path";
-var ARTIFACT_ROOT = ".sftdd";
-var LEGACY_ARTIFACT_ROOT = ".tdd";
+var ARTIFACT_ROOT = ".consort";
+var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
+var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
+var artifactRootsRegexAlternation = () => ALL_ARTIFACT_ROOTS.map((r) => r.replace(/[.]/g, "\\.")).join("|");
 function resolveSftddDir(projectDir = process.cwd()) {
   const next = join2(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
-  const legacy = join2(projectDir, LEGACY_ARTIFACT_ROOT);
-  if (fs.existsSync(legacy)) return legacy;
+  for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
+    const legacy = join2(projectDir, legacyName);
+    if (fs.existsSync(legacy)) return legacy;
+  }
   return next;
 }
 var featuresDir = (tdd) => join2(tdd, "features");
@@ -6969,7 +6973,7 @@ import { mergePaired } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 init_esm_shims();
 import { existsSync as existsSync15, readFileSync as readFileSync16, readdirSync as readdirSync11, statSync as statSync8, writeFileSync as writeFileSync9, mkdirSync as mkdirSync9, rmSync as rmSync6 } from "fs";
 
-// consort/config/sftdd-env.ts
+// consort/config/consort-env.ts
 init_esm_shims();
 
 // consort/pipeline/cycle-record.ts
@@ -7151,6 +7155,13 @@ import { join as join11 } from "path";
 init_esm_shims();
 import { existsSync as existsSync12, readFileSync as readFileSync13, readdirSync as readdirSync9, statSync as statSync6 } from "fs";
 import { join as join12, relative, extname } from "path";
+var ARTIFACT_ROOTS_RE = artifactRootsRegexAlternation();
+var EXCLUDE_DIR = new RegExp(
+  `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build|tests?|alembic|migrations)(/|$)`
+);
+var EXCLUDE_DIR_JUNK = new RegExp(
+  `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build)(/|$)`
+);
 
 // consort/smells/refactor-verify-assess.ts
 init_esm_shims();
@@ -7170,12 +7181,16 @@ async function commitExperimentCode(projectDir, message) {
   return commitAllIfChanged({
     cwd: projectDir,
     message,
-    // Also exclude per-agent local memory (.claude/agent-memory/): like .tdd
-    // observability it churns every run and is not feature code; committing it
-    // onto the experiment branch would diverge from the feature branch (and it
-    // already blocks the fork via assertCleanForFork). Gitignored too.
-    exclude: [".sftdd", ".tdd", ".lakebase", ".claude/agent-memory"],
-    include: [".sftdd/design", ".sftdd/architecture", ".tdd/design", ".tdd/architecture"],
+    // Also exclude per-agent local memory (.claude/agent-memory/): like the
+    // artifact-root observability it churns every run and is not feature code;
+    // committing it onto the experiment branch would diverge from the feature
+    // branch (and it already blocks the fork via assertCleanForFork). Gitignored
+    // too. The artifact roots (.consort + legacy) come from the single source of
+    // truth, so a root rename never leaves a stale literal here.
+    exclude: [...ALL_ARTIFACT_ROOTS, ".lakebase", ".claude/agent-memory"],
+    // ...but DO commit the design + architecture artifacts under whichever root
+    // this project uses (the design lane's durable output belongs on the branch).
+    include: ALL_ARTIFACT_ROOTS.flatMap((r) => [`${r}/design`, `${r}/architecture`]),
     // Allow-list NEW untracked files to the project's source/test/migration roots
     // (tracked edits anywhere are still staged). A design-lane agent that writes a
     // mis-quoted junk file to the repo root must not get it committed onto the

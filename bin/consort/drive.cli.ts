@@ -15,8 +15,8 @@
 // --dry-run computes + prints the SINGLE next action and the commands it would
 // run, then exits (no execution) - a safe "what will the driver do next?".
 
-import { sftddEnv } from "../../consort/config/sftdd-env.js";
-import { resolveSftddDir, ARTIFACT_ROOT, LEGACY_ARTIFACT_ROOT } from "../../consort/config/sftdd-paths.js";
+import { sftddEnv } from "../../consort/config/consort-env.js";
+import { resolveSftddDir, ARTIFACT_ROOT, LEGACY_ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
 import { migrateLegacyArtifactDir } from "../../consort/config/migrate-artifact-dir.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -111,7 +111,7 @@ Usage:
 Flags:
   --feature <id>       Feature to drive (required)
   --project-dir <dir>  Project root (default: cwd)
-  --tdd-dir <dir>      artifact root (default: <project-dir>/.sftdd, honors a legacy .tdd)
+  --tdd-dir <dir>      artifact root (default: <project-dir>/${ARTIFACT_ROOT}, honors legacy roots)
   --instance <id>      Lakebase instance id (threaded to experiment branch ops)
   --deploy-target <t>  Deploy target for the deploy phase (default: local)
   --approver <name>    Headless gate approver (default: human-proxy)
@@ -336,7 +336,7 @@ function reportInput(action: WorkflowAction, sprint?: string): void {
   process.stderr.write(
     `[drive] PAUSED , awaiting human input (${describeAction(action)}). Nothing was approved or produced yet.\n` +
       `        The Product Owner must:\n` +
-      `          1. author the sprint's feature-request(s) at .sftdd/features/<id>/feature-request.md, then\n` +
+      `          1. author the sprint's feature-request(s) at ${ARTIFACT_ROOT}/features/<id>/feature-request.md, then\n` +
       `          2. commit the backlog: consort-sync-backlog --sprint ${s} --features <id[,id...]>\n` +
       `        then re-run the drive , it will advance to the (interactive) plan gate.\n`,
   );
@@ -556,9 +556,9 @@ async function main(): Promise<number> {
     process.stdout.write(help());
     return 0;
   }
-  // Auto-migrate a legacy ".tdd" artifact dir to ".sftdd" before any mode runs,
-  // so existing projects move to the current name on their next orchestrated run
-  // (no-op once ".sftdd" exists). History follows via git mv when possible.
+  // Auto-migrate a legacy artifact dir (".sftdd"/".tdd") to ".consort" before any
+  // mode runs, so existing projects move to the current name on their next
+  // orchestrated run (no-op once ".consort" exists). History follows via git mv.
   if (!args.sftddDir) {
     const projectDir = args.projectDir ?? process.cwd();
     const m = migrateLegacyArtifactDir(projectDir);
@@ -834,7 +834,7 @@ async function main(): Promise<number> {
     process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
     return 1;
   } finally {
-    // Auto-emit the authoritative "what next" snapshot to .sftdd/next.json on
+    // Auto-emit the authoritative "what next" snapshot to <root>/next.json on
     // EVERY stop (a gate, an escalation, feature-complete, an error, a killed
     // run), so an orchestrating agent's contract is "on any stop, read next.json
     // and present its options" instead of reverse-engineering the next move and

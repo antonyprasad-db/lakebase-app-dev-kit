@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { runManifestChain, type ManifestRunnerDeps, type ManifestTurn } from "../runners/manifest-runner.js";
 import { loadStepManifests, type StepManifest } from "../steps/manifest.js";
+import { ARTIFACT_ROOT } from "../../config/consort-paths.js";
 import type { StepInstructions } from "../agents/agent-types.js";
 import type { WorkflowAction } from "../workflow/workflow-vocabulary.js";
 import type { DriveEffectsConfig } from "../drive/orchestrator-effects.js";
@@ -73,7 +74,7 @@ export interface IntegrationChainResult {
 export async function runIntegrationChain(config: IntegrationChainConfig): Promise<IntegrationChainResult> {
   const manifests = loadStepManifests(config.manifestDir);
   const workspaceDir = mkdtempSync(join(tmpdir(), "integration-chain-"));
-  mkdirSync(join(workspaceDir, ".sftdd"), { recursive: true });
+  mkdirSync(join(workspaceDir, ARTIFACT_ROOT), { recursive: true });
   // Lay the kit's role agent definitions into <workspaceDir>/.claude/agents/ so a LIVE claude
   // step can resolve `--agent <role>` (spec-author / ux-designer / ...). This is the ONE thing a
   // live agent needs from the workspace that a bare temp dir lacks , a plain file copy from the
@@ -90,7 +91,7 @@ export async function runIntegrationChain(config: IntegrationChainConfig): Promi
     workspaceDir,
     cfg: {
       projectDir: workspaceDir,
-      sftddDir: join(workspaceDir, ".sftdd"),
+      sftddDir: join(workspaceDir, ARTIFACT_ROOT),
       featureId: config.feature,
     } as DriveEffectsConfig,
     agentContext,
@@ -122,7 +123,7 @@ export async function runIntegrationChain(config: IntegrationChainConfig): Promi
     // must survive the throwaway workspace , telemetry alone cannot reproduce or re-judge a
     // result (see the preserve-experiment-artifacts rule). A caller persists this to a durable
     // per-experiment dir. Never optional.
-    const producedArtifacts = snapshotTree(join(workspaceDir, ".sftdd"), workspaceDir);
+    const producedArtifacts = snapshotTree(join(workspaceDir, ARTIFACT_ROOT), workspaceDir);
     // A BUILD chain's navigator/driver writes CODE at the workspace root (tests/, app/); the
     // default `.sftdd`-only snapshot drops it. Merge in any declared extra roots so the produced
     // code survives teardown too. Design chains pass none => this is a no-op (byte-identical).

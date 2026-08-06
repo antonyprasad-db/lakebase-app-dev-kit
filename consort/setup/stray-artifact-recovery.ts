@@ -13,6 +13,8 @@
 import { existsSync, mkdirSync, cpSync, rmSync, readdirSync, statSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
 
+import { ALL_ARTIFACT_ROOTS } from "../../consort/config/consort-paths.js";
+
 /** The one malformed sibling a mis-resolving subagent writes to:
  *  `${dirname(projectDir)}-${basename(projectDir)}` (parent + project, hyphen-joined). */
 export function malformedSiblingRoot(projectDir: string): string {
@@ -56,7 +58,9 @@ export function relocateStrayDesignArtifacts(projectDir: string): StrayRelocatio
   if (!existsSync(sibling)) return { relocated: false, moved: [] };
 
   const moved: string[] = [];
-  for (const artRoot of [".sftdd", ".tdd"]) {
+  // Every artifact-root name the kit recognises (.consort + legacy), from the single
+  // source of truth , so a stray tree under any historical root is recovered.
+  for (const artRoot of ALL_ARTIFACT_ROOTS) {
     const strayRoot = join(sibling, artRoot);
     if (!existsSync(strayRoot)) continue;
     for (const rel of listFilesRel(strayRoot)) moved.push(join(artRoot, rel));

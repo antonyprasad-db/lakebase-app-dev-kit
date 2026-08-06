@@ -15,8 +15,8 @@
 // is mirrored to the corpus root so a replay carries its own provenance.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
-import { sftddEnv } from "../../consort/config/sftdd-env.js";
-import { ARTIFACT_ROOT } from "../../consort/config/sftdd-paths.js";
+import { sftddEnv } from "../../consort/config/consort-env.js";
+import { ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
 import { join } from "path";
 import { ALL_AGENT_ROLES } from "../../consort/config/agent-models.js";
 import { resolveLaunchKitRef } from "../../consort/config/kit-ref.js";

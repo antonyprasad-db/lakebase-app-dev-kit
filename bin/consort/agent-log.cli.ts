@@ -12,7 +12,7 @@
 // Exit codes: 0 ok; 2 bad args; 3 emit/validation failure.
 
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
-import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
+import { resolveSftddDir, ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
 import {
   emitAgentLogEvent,
   emitAgentLogEvents,
@@ -117,7 +117,7 @@ Reconcile (structural observability backstop):
     own events. Idempotent. The orchestrator / smoke calls this after each phase.
 
 Common:
-  --tdd-dir <path>   artifact root (default ./.sftdd, honors a legacy ./.tdd)
+  --tdd-dir <path>   artifact root (default: ./${ARTIFACT_ROOT}, honors legacy roots)
   -h, --help
 `;
 

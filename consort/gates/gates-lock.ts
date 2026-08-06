@@ -34,7 +34,7 @@
 import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "fs";
 import { join } from "path";
 import type { GatesIoOpts } from "./gates";
-import { resolveSftddDir, requireFeatureDir as findFeatureDir } from "../../consort/config/sftdd-paths.js";
+import { resolveSftddDir, requireFeatureDir as findFeatureDir } from "../../consort/config/consort-paths.js";
 
 export interface WithGatesLockOpts extends GatesIoOpts {
   /** Max retry attempts before giving up. Default 5. */

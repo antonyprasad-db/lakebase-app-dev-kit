@@ -50,7 +50,7 @@ state-machine turn), then reconstitutes the agent-log onto the recorded timeline
 Author `scenario.json`, then commit the corpus.
 
 ### 2. Guard (always-on, hermetic, no workspace)
-`tests/bdd/sftdd-scenarios.test.ts` runs under `npm test` everywhere. For every
+`tests/bdd/consort-scenarios.test.ts` runs under `npm test` everywhere. For every
 scenario it asserts the corpus is well-formed + replay-ready: the manifest is
 valid, each feature has a `recorded-artifacts/features/<id>/` (and a
 `recorded-build/features/<id>/` when `buildReplay`), and `turns/index.json` has

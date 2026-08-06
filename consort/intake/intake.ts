@@ -11,8 +11,8 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { checkArtifactConformance } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
-import { resolveSftddDir, featureRequestMd } from "../../consort/config/sftdd-paths.js";
-import { resolveProjectSettings } from "../../consort/config/sftdd-config-file.js";
+import { resolveSftddDir, featureRequestMd } from "../../consort/config/consort-paths.js";
+import { resolveProjectSettings } from "../../consort/config/consort-config-file.js";
 
 export interface IntakeCheckArgs {
   /** Artifact root. Default ./.sftdd (honors a legacy ./.tdd) */

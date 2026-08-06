@@ -25,7 +25,7 @@
 
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "fs";
 import { join } from "path";
-import { featurePlanJson } from "../../consort/config/sftdd-paths.js";
+import { featurePlanJson } from "../../consort/config/consort-paths.js";
 
 export interface SpikeInput {
   /** Spike directory name under `.tdd/spikes/`. */

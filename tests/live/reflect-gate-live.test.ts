@@ -20,7 +20,7 @@ import { spawnSync } from "node:child_process";
 
 import { commandsForAction } from "../../consort/orchestrator/drive/orchestrator-effects.js";
 import { recordReflectionGate, readReflectVerdict } from "../../consort/smells/reflection.js";
-import { storyAcIds, storyTestListJson, acsDir } from "../../consort/config/sftdd-paths.js";
+import { storyAcIds, storyTestListJson, acsDir } from "../../consort/config/consort-paths.js";
 
 const KIT = process.cwd();
 const CORPUS = join(KIT, "examples/sftdd-scenarios/stockflow/recorded-artifacts");

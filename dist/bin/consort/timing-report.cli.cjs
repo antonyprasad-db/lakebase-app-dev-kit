@@ -6657,17 +6657,20 @@ __export(timing_report_cli_exports, {
 module.exports = __toCommonJS(timing_report_cli_exports);
 init_cjs_shims();
 
-// consort/config/sftdd-paths.ts
+// consort/config/consort-paths.ts
 init_cjs_shims();
 var fs = __toESM(require("fs"), 1);
 var import_node_path = require("path");
-var ARTIFACT_ROOT = ".sftdd";
-var LEGACY_ARTIFACT_ROOT = ".tdd";
+var ARTIFACT_ROOT = ".consort";
+var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
+var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
 function resolveSftddDir(projectDir = process.cwd()) {
   const next = (0, import_node_path.join)(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
-  const legacy = (0, import_node_path.join)(projectDir, LEGACY_ARTIFACT_ROOT);
-  if (fs.existsSync(legacy)) return legacy;
+  for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
+    const legacy = (0, import_node_path.join)(projectDir, legacyName);
+    if (fs.existsSync(legacy)) return legacy;
+  }
   return next;
 }
 
@@ -7020,7 +7023,7 @@ function formatTimingReport(report) {
 init_cjs_shims();
 var import_fs3 = require("fs");
 
-// consort/config/sftdd-env.ts
+// consort/config/consort-env.ts
 init_cjs_shims();
 
 // consort/session/run-config.ts
@@ -7128,7 +7131,7 @@ and role/model with cost), the durable, baseline-comparable signal. Also rolls u
 inter-event gaps by phase / role / kind (for finding orchestration overhead).
 
   consort-timing [flags]
-    --tdd-dir <path>   artifact root (default ./.sftdd, honors a legacy ./.tdd)
+    --tdd-dir <path>   artifact root (default: ./${ARTIFACT_ROOT}, honors legacy roots)
     --feature <id>     only this feature's events
     --top <n>          how many slowest spans to surface (default 10)
     --skip-planning    drop the sprint-planning lane (propose/estimate/author-

@@ -15,7 +15,7 @@
 //   3 = scan failure (e.g. feature not found)
 
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
-import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
+import { resolveSftddDir, ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
 import { scanFeatureConformance } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
 
 interface ParsedArgs {
@@ -62,7 +62,7 @@ Usage:
 
 Flags:
   --feature <id>          Feature id (required, e.g. F1-initial-domain)
-  --tdd-dir <path>        artifact root (default: ./.sftdd, honors a legacy ./.tdd)
+  --tdd-dir <path>        artifact root (default: ./${ARTIFACT_ROOT}, honors legacy roots)
   --json                  Machine-readable JSON output
   --pretty                Pretty-print JSON
   -h, --help              Show this help

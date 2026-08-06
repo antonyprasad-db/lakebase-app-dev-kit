@@ -6666,17 +6666,21 @@ import * as fs4 from "fs";
 import * as path4 from "path";
 import { fileURLToPath as fileURLToPath3 } from "url";
 
-// consort/config/sftdd-paths.ts
+// consort/config/consort-paths.ts
 init_esm_shims();
 import * as fs from "fs";
 import { join } from "path";
-var ARTIFACT_ROOT = ".sftdd";
-var LEGACY_ARTIFACT_ROOT = ".tdd";
+var ARTIFACT_ROOT = ".consort";
+var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
+var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
+var artifactRootsRegexAlternation = () => ALL_ARTIFACT_ROOTS.map((r) => r.replace(/[.]/g, "\\.")).join("|");
 function resolveSftddDir(projectDir = process.cwd()) {
   const next = join(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
-  const legacy = join(projectDir, LEGACY_ARTIFACT_ROOT);
-  if (fs.existsSync(legacy)) return legacy;
+  for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
+    const legacy = join(projectDir, legacyName);
+    if (fs.existsSync(legacy)) return legacy;
+  }
   return next;
 }
 var featuresDir = (tdd) => join(tdd, "features");
@@ -6736,7 +6740,7 @@ function readEstimates(tdd) {
 }
 var hasEstimates = (tdd) => readEstimates(tdd).length > 0;
 
-// consort/config/sftdd-config-file.ts
+// consort/config/consort-config-file.ts
 init_esm_shims();
 import { existsSync as existsSync2, readFileSync as readFileSync2, mkdirSync as mkdirSync2, writeFileSync as writeFileSync2 } from "fs";
 import { dirname as dirname2, join as join3 } from "path";
@@ -6776,10 +6780,13 @@ var optimized_defaults_default = {
   }
 };
 
-// consort/config/sftdd-config-file.ts
-var SFTDD_CONFIG_REL = join3(".lakebase", "sftdd-config.json");
-var LEGACY_TDD_CONFIG_REL = join3(".lakebase", "tdd-config.json");
-var TDD_CONFIG_REL = SFTDD_CONFIG_REL;
+// consort/config/consort-config-file.ts
+var CONSORT_CONFIG_REL = join3(".lakebase", "consort-config.json");
+var LEGACY_CONFIG_RELS = [
+  join3(".lakebase", "sftdd-config.json"),
+  join3(".lakebase", "tdd-config.json")
+];
+var LEGACY_TDD_CONFIG_REL = LEGACY_CONFIG_RELS[0];
 function defaultSftddConfig() {
   const roles = {};
   for (const role of ALL_AGENT_ROLES) {
@@ -6790,7 +6797,7 @@ function defaultSftddConfig() {
       // 93 tool round-trips (haiku's trial-and-error), so wall-clock, not token
       // cost, dominated. Sonnet finishes GREEN in far fewer round-trips, faster
       // even at a higher per-token price. Overridable per project by editing
-      // sftdd-config.json (a project can flatten to a scalar `model`).
+      // consort-config.json (a project can flatten to a scalar `model`).
       { model: { red: RECOMMENDED_MODELS[role], green: RECOMMENDED_MODELS[role], refactor: "haiku" } }
     ) : (
       // Every other role's base is just its recommended model. Optimization
@@ -6822,7 +6829,7 @@ function mergeOptimizedDefaults(base, overlay) {
   return out;
 }
 function writeSftddConfig(projectDir, config, opts) {
-  const f = join3(projectDir, TDD_CONFIG_REL);
+  const f = join3(projectDir, CONSORT_CONFIG_REL);
   if (existsSync2(f) && !opts?.force) return false;
   mkdirSync2(dirname2(f), { recursive: true });
   writeFileSync2(f, JSON.stringify(config, null, 2) + "\n");
@@ -7113,7 +7120,7 @@ var AGENT_LOG_EVENT_NAMES = Object.keys(EVENT_TEMPLATES);
 // consort/pipeline/cycle-record.ts
 init_esm_shims();
 
-// consort/config/sftdd-env.ts
+// consort/config/consort-env.ts
 init_esm_shims();
 
 // consort/test-list/test-list.ts
@@ -7205,6 +7212,13 @@ import { join as join14 } from "path";
 init_esm_shims();
 import { existsSync as existsSync15, readFileSync as readFileSync16, readdirSync as readdirSync11, statSync as statSync6 } from "fs";
 import { join as join15, relative, extname } from "path";
+var ARTIFACT_ROOTS_RE = artifactRootsRegexAlternation();
+var EXCLUDE_DIR = new RegExp(
+  `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build|tests?|alembic|migrations)(/|$)`
+);
+var EXCLUDE_DIR_JUNK = new RegExp(
+  `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build)(/|$)`
+);
 
 // consort/smells/refactor-verify-assess.ts
 init_esm_shims();

@@ -22,6 +22,7 @@ import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { createProject } from "../../lakebase/create-project.js";
 import { writeEscalation } from "../../gates/escalation.js";
+import { ARTIFACT_ROOT } from "../../config/consort-paths.js";
 import type { LifecycleOp, LifecycleResult, LifecycleRunContext, LifecycleDeps } from "./lifecycle-types.js";
 
 /** One catalogue entry: a description + the executor for that op kind. */
@@ -192,7 +193,7 @@ async function injectEscalation(config: Record<string, unknown>, context: Lifecy
   if (!c.source) return { ok: false, error: "inject-escalation requires config.source (e.g. \"smell:reflect-spec-defect\")" };
   if (!c.reason) return { ok: false, error: "inject-escalation requires config.reason" };
   try {
-    const esc = writeEscalation(join(context.workspaceDir, ".sftdd"), {
+    const esc = writeEscalation(join(context.workspaceDir, ARTIFACT_ROOT), {
       source: c.source,
       reason: c.reason,
       ...(c.feature_id ? { feature_id: c.feature_id } : {}),

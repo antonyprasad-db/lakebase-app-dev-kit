@@ -16,7 +16,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync
 import { tmpdir } from "os";
 import { join } from "path";
 import { drainGatesAsHumanProxy, supplyArtifact, supplyRequests, supplyProposals } from "../../consort/gates/human-proxy";
-import { featureProposalsMd } from "../../consort/config/sftdd-paths";
+import { featureProposalsMd } from "../../consort/config/consort-paths";
 import { checkArtifactConformance } from "../../consort/orchestrator/validators/conformance/artifact-conformance";
 import { readGates } from "../../consort/gates/gates";
 import { hashArtifact } from "../../consort/gates/gate-hash";

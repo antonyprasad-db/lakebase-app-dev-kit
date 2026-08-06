@@ -31,7 +31,7 @@
 //   direct flag + atomic state transition.
 
 import { hashArtifact } from "../../consort/gates/gate-hash";
-import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
+import { resolveSftddDir } from "../../consort/config/consort-paths.js";
 import { withGatesLock } from "../../consort/gates/gates-lock";
 import {
   readGates,

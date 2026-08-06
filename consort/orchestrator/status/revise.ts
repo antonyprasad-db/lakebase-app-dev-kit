@@ -27,7 +27,7 @@ import {
   handbackFile,
   storyAcIds,
   resolveSftddDir,
-} from "../../../consort/config/sftdd-paths.js";
+} from "../../../consort/config/consort-paths.js";
 import { readPipeline, writePipeline, reviseStory, setStoryStatus } from "../../../consort/pipeline/story-pipeline.js";
 import {
   markSmellResolved,

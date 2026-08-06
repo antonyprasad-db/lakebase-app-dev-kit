@@ -45,7 +45,7 @@
 #
 # NOTE: a capture is a full live drive (real agents + workspace); it is the
 # expensive authoring step, not a CI test. The cheap always-on guard is
-# tests/bdd/sftdd-scenarios.test.ts; the live replay is replay-scenario.sh.
+# tests/bdd/consort-scenarios.test.ts; the live replay is replay-scenario.sh.
 set -euo pipefail
 
 SCEN_DIR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

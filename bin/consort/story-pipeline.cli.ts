@@ -4,7 +4,7 @@
 // status as it streams; on a per-story gate approval the orchestrator enqueues
 // the story; the single build lane dispatches the head and completes it.
 //
-// Usage (all take --feature <F> [--tdd-dir <dir>]; default tdd-dir = $PWD/.sftdd, honors a legacy $PWD/.tdd):
+// Usage (all take --feature <F> [--tdd-dir <dir>]; default tdd-dir = $PWD/.consort, honors legacy $PWD/.sftdd + $PWD/.tdd):
 //   consort-pipeline status        --feature F [--json]
 //   consort-pipeline set            --feature F --story S --status <designing|awaiting-gate|ready|building|done>
 //   consort-pipeline surface        --feature F --story S                 (design done -> awaiting-gate, open the gate)
@@ -56,7 +56,7 @@ import {
   type StoryPipeline,
 } from "../../consort/pipeline/story-pipeline";
 import { join } from "path";
-import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
+import { resolveSftddDir, ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
 import { reviseStoryWithSelfHeal, clearStoryBlockingSmellOnDiscard, rebuildStory } from "../../consort/orchestrator/status/revise.js";
 import { markSmellResolved } from "../../consort/smells/smells.js";
 import { resolveAcceptMergeArgs, experimentMergeArgv } from "../../consort/experiment/experiment-merge.js";

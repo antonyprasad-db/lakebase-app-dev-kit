@@ -5,7 +5,7 @@
 // round-trip live in one place.
 
 import * as fs from "node:fs";
-import { workflowStateJson } from "../../consort/config/sftdd-paths.js";
+import { workflowStateJson } from "../../consort/config/consort-paths.js";
 
 /** Terminal phases a finished feature stamps into the per-project phase slot. */
 const TERMINAL_PHASES = new Set(["done", "shipped"]);

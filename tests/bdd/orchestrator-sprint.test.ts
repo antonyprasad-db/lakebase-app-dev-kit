@@ -15,7 +15,7 @@ import {
   deriveSprintPlanningState,
   type SprintEffects,
 } from "../../consort/intake/orchestrator-sprint";
-import { writeEstimates } from "../../consort/config/sftdd-paths";
+import { writeEstimates } from "../../consort/config/consort-paths";
 import { writeSprintGates } from "../../consort/gates/sprint-gates";
 
 const SPRINT = "sprint-1";

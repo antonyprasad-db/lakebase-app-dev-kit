@@ -1,13 +1,51 @@
 #!/usr/bin/env node
 "use strict";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
 
 // consort/architecture/contract-clean.ts
 var import_node_fs = require("fs");
+var import_node_path2 = require("path");
+
+// consort/config/consort-paths.ts
+var fs = __toESM(require("fs"), 1);
 var import_node_path = require("path");
+var ARTIFACT_ROOT = ".consort";
+var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
+var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
+var artifactRootsRegexAlternation = () => ALL_ARTIFACT_ROOTS.map((r2) => r2.replace(/[.]/g, "\\.")).join("|");
+
+// consort/architecture/contract-clean.ts
+var ARTIFACT_ROOTS_RE = artifactRootsRegexAlternation();
 var DEFAULT_MIGRATION_DIRS = ["alembic/versions", "migrations", "db/migrations", "src/migrations"];
 var DEFAULT_CODE_DIRS = ["app", "src", "lib", "templates"];
 var CODE_EXTS = /* @__PURE__ */ new Set([".py", ".ts", ".tsx", ".js", ".jsx", ".html", ".jinja", ".jinja2", ".sql"]);
-var EXCLUDE_DIR = /(^|\/)(node_modules|\.git|\.venv|venv|__pycache__|\.sftdd|\.tdd|\.lakebase|dist|build|tests?|alembic|migrations)(\/|$)/;
+var EXCLUDE_DIR = new RegExp(
+  `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build|tests?|alembic|migrations)(/|$)`
+);
+var EXCLUDE_DIR_JUNK = new RegExp(
+  `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build)(/|$)`
+);
 var DROP_COLUMN_PY = /op\.drop_column\(\s*['"][^'"]+['"]\s*,\s*['"]([a-zA-Z_][a-zA-Z0-9_]*)['"]/g;
 var ADD_COLUMN_PY = /op\.add_column\(\s*['"][^'"]+['"]\s*,\s*sa\.Column\(\s*['"]([a-zA-Z_][a-zA-Z0-9_]*)['"]/g;
 var DROP_COLUMN_SQL = /drop\s+column\s+(?:if\s+exists\s+)?["'`]?([a-zA-Z_][a-zA-Z0-9_]*)["'`]?/gi;
@@ -20,7 +58,7 @@ function walk(dir, keep, out = [], excludeDir = EXCLUDE_DIR) {
     return out;
   }
   for (const e of entries) {
-    const abs = (0, import_node_path.join)(dir, e);
+    const abs = (0, import_node_path2.join)(dir, e);
     let st;
     try {
       st = (0, import_node_fs.statSync)(abs);
@@ -62,7 +100,7 @@ function forwardMigrationBody(src, ext) {
 function netDroppedSymbols(projectDir, migrationDirs = DEFAULT_MIGRATION_DIRS) {
   const files = [];
   for (const md of migrationDirs) {
-    const abs = (0, import_node_path.join)(projectDir, md);
+    const abs = (0, import_node_path2.join)(projectDir, md);
     if ((0, import_node_fs.existsSync)(abs)) {
       for (const f of walk(abs, (p2) => /\.(py|sql|js|ts)$/.test(p2))) files.push(f);
     }
@@ -76,7 +114,7 @@ function netDroppedSymbols(projectDir, migrationDirs = DEFAULT_MIGRATION_DIRS) {
     } catch {
       continue;
     }
-    const ext = (0, import_node_path.extname)(f);
+    const ext = (0, import_node_path2.extname)(f);
     const isPy = ext === ".py";
     const body = forwardMigrationBody(src, ext);
     const drops = isPy ? collectAll(DROP_COLUMN_PY, body) : collectAll(DROP_COLUMN_SQL, body);
@@ -93,9 +131,9 @@ function scanSymbolRefs(projectDir, dirs, dropped, excludeDir = EXCLUDE_DIR) {
   const matchers = dropped.map((s) => ({ symbol: s, re: symbolRefRegex(s) }));
   const hits = [];
   for (const cd of dirs) {
-    const abs = (0, import_node_path.join)(projectDir, cd);
+    const abs = (0, import_node_path2.join)(projectDir, cd);
     if (!(0, import_node_fs.existsSync)(abs)) continue;
-    for (const file of walk(abs, (p2) => CODE_EXTS.has((0, import_node_path.extname)(p2)), [], excludeDir)) {
+    for (const file of walk(abs, (p2) => CODE_EXTS.has((0, import_node_path2.extname)(p2)), [], excludeDir)) {
       let lines;
       try {
         lines = (0, import_node_fs.readFileSync)(file, "utf8").split("\n");
@@ -105,7 +143,7 @@ function scanSymbolRefs(projectDir, dirs, dropped, excludeDir = EXCLUDE_DIR) {
       lines.forEach((text, i) => {
         for (const { symbol, re } of matchers) {
           if (re.test(text)) {
-            hits.push({ file: (0, import_node_path.relative)(projectDir, file), line: i + 1, symbol, text: text.trim().slice(0, 200) });
+            hits.push({ file: (0, import_node_path2.relative)(projectDir, file), line: i + 1, symbol, text: text.trim().slice(0, 200) });
           }
         }
       });

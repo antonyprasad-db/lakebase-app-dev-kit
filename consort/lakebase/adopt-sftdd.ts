@@ -13,7 +13,7 @@
 // drive every behavior without spawning a process.
 
 import * as fs from "node:fs";
-import { ARTIFACT_ROOT } from "../../consort/config/sftdd-paths.js";
+import { ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 

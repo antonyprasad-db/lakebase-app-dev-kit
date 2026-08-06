@@ -19,7 +19,7 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { dirname } from "path";
-import { architectureConventionsJson, architectureJson } from "../../consort/config/sftdd-paths.js";
+import { architectureConventionsJson, architectureJson } from "../../consort/config/consort-paths.js";
 
 /** One layer of the established layout: a role pinned to a module path (and, for
  *  a UI boundary, the rendering framework). */

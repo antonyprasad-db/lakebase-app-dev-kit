@@ -7,7 +7,7 @@ import {
   featureTestListMd,
   storyTestListJson,
   acJson,
-} from "../../consort/config/sftdd-paths.js";
+} from "../../consort/config/consort-paths.js";
 
 export interface TestListItem {
   id: string;

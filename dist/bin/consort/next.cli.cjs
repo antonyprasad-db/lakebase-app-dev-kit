@@ -6647,17 +6647,21 @@ var require_ajv = __commonJS({
 // bin/consort/next.cli.ts
 init_cjs_shims();
 
-// consort/config/sftdd-paths.ts
+// consort/config/consort-paths.ts
 init_cjs_shims();
 var fs = __toESM(require("fs"), 1);
 var import_node_path = require("path");
-var ARTIFACT_ROOT = ".sftdd";
-var LEGACY_ARTIFACT_ROOT = ".tdd";
+var ARTIFACT_ROOT = ".consort";
+var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
+var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
+var artifactRootsRegexAlternation = () => ALL_ARTIFACT_ROOTS.map((r) => r.replace(/[.]/g, "\\.")).join("|");
 function resolveSftddDir(projectDir = process.cwd()) {
   const next = (0, import_node_path.join)(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
-  const legacy = (0, import_node_path.join)(projectDir, LEGACY_ARTIFACT_ROOT);
-  if (fs.existsSync(legacy)) return legacy;
+  for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
+    const legacy = (0, import_node_path.join)(projectDir, legacyName);
+    if (fs.existsSync(legacy)) return legacy;
+  }
   return next;
 }
 var featuresDir = (tdd) => (0, import_node_path.join)(tdd, "features");
@@ -6819,7 +6823,7 @@ function readBacklog(tdd, sprint) {
 // consort/orchestrator/settings/project-settings.ts
 init_cjs_shims();
 
-// consort/config/sftdd-config-file.ts
+// consort/config/consort-config-file.ts
 init_cjs_shims();
 var import_fs2 = require("fs");
 var import_path2 = require("path");
@@ -6846,11 +6850,15 @@ function readAgentConfig(projectDir) {
   return JSON.parse((0, import_fs.readFileSync)(p, "utf8"));
 }
 
-// consort/config/sftdd-config-file.ts
-var SFTDD_CONFIG_REL = (0, import_path2.join)(".lakebase", "sftdd-config.json");
-var LEGACY_TDD_CONFIG_REL = (0, import_path2.join)(".lakebase", "tdd-config.json");
+// consort/config/consort-config-file.ts
+var CONSORT_CONFIG_REL = (0, import_path2.join)(".lakebase", "consort-config.json");
+var LEGACY_CONFIG_RELS = [
+  (0, import_path2.join)(".lakebase", "sftdd-config.json"),
+  (0, import_path2.join)(".lakebase", "tdd-config.json")
+];
+var LEGACY_TDD_CONFIG_REL = LEGACY_CONFIG_RELS[0];
 function loadSftddConfig(projectDir) {
-  for (const rel of [SFTDD_CONFIG_REL, LEGACY_TDD_CONFIG_REL]) {
+  for (const rel of [CONSORT_CONFIG_REL, ...LEGACY_CONFIG_RELS]) {
     const f = (0, import_path2.join)(projectDir, rel);
     if (!(0, import_fs2.existsSync)(f)) continue;
     try {
@@ -7962,7 +7970,7 @@ init_cjs_shims();
 init_cjs_shims();
 var import_node_child_process2 = require("child_process");
 
-// consort/config/sftdd-env.ts
+// consort/config/consort-env.ts
 init_cjs_shims();
 function sftddEnv(suffix, env = process.env) {
   return env[`LAKEBASE_SFTDD_${suffix}`] ?? env[`LAKEBASE_TDD_${suffix}`];
@@ -8000,6 +8008,15 @@ init_cjs_shims();
 
 // consort/logging/replay-build.ts
 init_cjs_shims();
+var SCAFFOLD_OWNED = /* @__PURE__ */ new Set([
+  ".git",
+  ...ALL_ARTIFACT_ROOTS,
+  ".lakebase",
+  "scripts",
+  ".claude",
+  ".github",
+  "node_modules"
+]);
 
 // consort/logging/agent-log.ts
 init_cjs_shims();
@@ -8796,6 +8813,13 @@ function hasPendingRegressionFix(tdd, feature, story, ac) {
 init_cjs_shims();
 var import_node_fs9 = require("fs");
 var import_node_path12 = require("path");
+var ARTIFACT_ROOTS_RE = artifactRootsRegexAlternation();
+var EXCLUDE_DIR = new RegExp(
+  `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build|tests?|alembic|migrations)(/|$)`
+);
+var EXCLUDE_DIR_JUNK = new RegExp(
+  `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build)(/|$)`
+);
 
 // consort/smells/refactor-verify-assess.ts
 init_cjs_shims();
@@ -9869,7 +9893,7 @@ var HELP = `consort-next \u2013 the authoritative, read-only "what do I do next?
 Answers, from the SAME engine the drive uses: where am I, what are my valid next
 options, how do I enact each, and how do I frame the decision for the human. It is
 strictly read-only (no model, no writes, no actions). The drive also auto-emits
-this snapshot to .sftdd/next.json on every stop.
+this snapshot to ${ARTIFACT_ROOT}/next.json on every stop.
 
 Usage:
   consort-next --feature <F> [--json]
@@ -9881,7 +9905,7 @@ Flags:
   --json           Print the snapshot as JSON (the machine contract) instead of text
   --approver <n>   Fill this approver into the enact commands (default: <you> placeholder)
   --project-dir <d>  Project root (default: cwd)
-  --sftdd-dir <d>  Artifact root (default: ./.sftdd, honors a legacy ./.tdd)
+  --sftdd-dir <d>  Artifact root (default: ./${ARTIFACT_ROOT}, honors legacy roots)
   --no-sizing      Sprint scope: the plan skips the architect sizing step
   --help, -h       Show this help
 

@@ -19,7 +19,7 @@
 
 import * as fs from "node:fs";
 import { join } from "node:path";
-import { storyResolved } from "../../config/sftdd-paths.js";
+import { storyResolved } from "../../config/consort-paths.js";
 import { manifestForAction, type StepManifest } from "../steps/manifest.js";
 import { execute, type StepExecutorDeps } from "../turns/step-executor.js";
 import { Step } from "../steps/step.js";

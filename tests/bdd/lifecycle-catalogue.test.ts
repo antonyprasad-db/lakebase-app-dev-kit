@@ -146,8 +146,8 @@ describe("lifecycle-catalogue", () => {
     expect(existsSync(projectDir)).toBe(false);
   });
 
-  it("inject-escalation writes a conformant escalation into the workspace .sftdd (drives revise/escalate)", async () => {
-    mkdirSync(join(root, ".sftdd"), { recursive: true });
+  it("inject-escalation writes a conformant escalation into the workspace .consort (drives revise/escalate)", async () => {
+    mkdirSync(join(root, ".consort"), { recursive: true });
     const r = await catalogueLifecycleDeps.run(
       {
         kind: "inject-escalation",
@@ -156,7 +156,7 @@ describe("lifecycle-catalogue", () => {
       { workspaceDir: root },
     );
     expect(r.ok, r.error).toBe(true);
-    const escalations = readEscalations(join(root, ".sftdd"));
+    const escalations = readEscalations(join(root, ".consort"));
     expect(escalations).toHaveLength(1);
     expect(escalations[0].source).toBe("smell:reflect-spec-defect");
     expect(escalations[0].story_id).toBe("S1-a");

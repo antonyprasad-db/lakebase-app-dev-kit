@@ -6649,7 +6649,7 @@ var require_ajv = __commonJS({
 init_esm_shims();
 import { spawn } from "child_process";
 
-// consort/config/sftdd-env.ts
+// consort/config/consort-env.ts
 init_esm_shims();
 function sftddEnv(suffix, env = process.env) {
   return env[`LAKEBASE_SFTDD_${suffix}`] ?? env[`LAKEBASE_TDD_${suffix}`];
@@ -6661,24 +6661,27 @@ import * as fs4 from "fs";
 import * as path4 from "path";
 import { fileURLToPath as fileURLToPath3 } from "url";
 
-// consort/config/sftdd-paths.ts
+// consort/config/consort-paths.ts
 init_esm_shims();
 import * as fs from "fs";
 import { join } from "path";
-var ARTIFACT_ROOT = ".sftdd";
-var LEGACY_ARTIFACT_ROOT = ".tdd";
+var ARTIFACT_ROOT = ".consort";
+var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
+var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
 function resolveSftddDir(projectDir = process.cwd()) {
   const next = join(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
-  const legacy = join(projectDir, LEGACY_ARTIFACT_ROOT);
-  if (fs.existsSync(legacy)) return legacy;
+  for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
+    const legacy = join(projectDir, legacyName);
+    if (fs.existsSync(legacy)) return legacy;
+  }
   return next;
 }
 var featuresDir = (tdd) => join(tdd, "features");
 var cyclesRootDir = (tdd) => join(tdd, "cycles");
 var workflowStateJson = (tdd) => join(tdd, "workflow-state.json");
 
-// consort/config/sftdd-config-file.ts
+// consort/config/consort-config-file.ts
 init_esm_shims();
 import { existsSync as existsSync3, readFileSync as readFileSync3, mkdirSync as mkdirSync3, writeFileSync as writeFileSync3 } from "fs";
 import { dirname as dirname2, join as join3 } from "path";
@@ -6710,11 +6713,15 @@ function resolveModelForRole(role, projectDir) {
   return entry?.override ?? entry?.recommended ?? RECOMMENDED_MODELS[spawnable] ?? "inherit";
 }
 
-// consort/config/sftdd-config-file.ts
-var SFTDD_CONFIG_REL = join3(".lakebase", "sftdd-config.json");
-var LEGACY_TDD_CONFIG_REL = join3(".lakebase", "tdd-config.json");
+// consort/config/consort-config-file.ts
+var CONSORT_CONFIG_REL = join3(".lakebase", "consort-config.json");
+var LEGACY_CONFIG_RELS = [
+  join3(".lakebase", "sftdd-config.json"),
+  join3(".lakebase", "tdd-config.json")
+];
+var LEGACY_TDD_CONFIG_REL = LEGACY_CONFIG_RELS[0];
 function loadSftddConfig(projectDir) {
-  for (const rel of [SFTDD_CONFIG_REL, LEGACY_TDD_CONFIG_REL]) {
+  for (const rel of [CONSORT_CONFIG_REL, ...LEGACY_CONFIG_RELS]) {
     const f = join3(projectDir, rel);
     if (!existsSync3(f)) continue;
     try {
@@ -6958,8 +6965,7 @@ import { existsSync as existsSync8, cpSync as cpSync2, readdirSync as readdirSyn
 import { join as join8 } from "path";
 var SCAFFOLD_OWNED = /* @__PURE__ */ new Set([
   ".git",
-  ".sftdd",
-  ".tdd",
+  ...ALL_ARTIFACT_ROOTS,
   ".lakebase",
   "scripts",
   ".claude",
@@ -8145,7 +8151,7 @@ function relocateStrayDesignArtifacts(projectDir) {
   const sibling = malformedSiblingRoot(projectDir);
   if (!existsSync14(sibling)) return { relocated: false, moved: [] };
   const moved = [];
-  for (const artRoot of [".sftdd", ".tdd"]) {
+  for (const artRoot of ALL_ARTIFACT_ROOTS) {
     const strayRoot = join13(sibling, artRoot);
     if (!existsSync14(strayRoot)) continue;
     for (const rel of listFilesRel(strayRoot)) moved.push(join13(artRoot, rel));

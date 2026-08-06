@@ -13,8 +13,8 @@ import type {
   SftddSetupHooks,
   ClientFramework,
 } from "@databricks-solutions/lakebase-scm-utils/lakebase";
-import { ARTIFACT_ROOT } from "../../consort/config/sftdd-paths.js";
-import { defaultSftddConfig, writeSftddConfig } from "../../consort/config/sftdd-config-file.js";
+import { ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
+import { defaultSftddConfig, writeSftddConfig } from "../../consort/config/consort-config-file.js";
 import { adoptTdd } from "../lakebase/adopt-sftdd.js";
 import { updateAgents } from "../lakebase/update-agents.js";
 

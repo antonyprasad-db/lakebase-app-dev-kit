@@ -2,7 +2,7 @@
 // Thin CLI wrapper around getFeatureStatus + renderFeatureStatus.
 
 import { getFeatureStatus, renderFeatureStatus } from "../../consort/orchestrator/status/feature-status.js";
-import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
+import { resolveSftddDir, ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
 
 interface ParsedArgs {
   featureId?: string;
@@ -47,7 +47,7 @@ Usage:
   lakebase-feature-status <feature-id> [--tdd <dir>] [--json]
 
 Flags:
-  --tdd <dir>          Path to the artifact root (default: ./.sftdd, honors a legacy ./.tdd)
+  --tdd <dir>          Path to the artifact root (default: ./${ARTIFACT_ROOT}, honors legacy roots)
   --project-dir <dir>  Project root that holds .lakebase/ (default: the parent of --tdd);
                        used to reconcile deploy/promote from the SCM workflow-state
   --json               Print the snapshot as JSON instead of human-readable text
@@ -56,7 +56,7 @@ Flags:
 Examples:
   lakebase-feature-status F1-checkout
   lakebase-feature-status F1-checkout --json | jq '.experiments[].slug'
-  lakebase-feature-status F1-checkout --tdd path/to/.sftdd
+  lakebase-feature-status F1-checkout --tdd path/to/.consort
 `;
 
 function main(): number {

@@ -12,7 +12,7 @@ import {
   acsDir as acsDirOf,
   featureSpecJson,
   featureSpecMd,
-} from "../../consort/config/sftdd-paths.js";
+} from "../../consort/config/consort-paths.js";
 import { featureDir, storyAcsConformanceReason, storyIndependenceForStoryReason } from "../../consort/gates/gate-conformance-guard.js";
 
 export const STORY_STATUSES = [

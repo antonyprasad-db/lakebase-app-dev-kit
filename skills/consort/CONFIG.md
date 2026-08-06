@@ -95,7 +95,7 @@ hardcodes these.
 
 ## The guard
 
-`tests/bdd/sftdd-config-single-source-guard.test.ts` is the anti-recurrence teeth:
+`tests/bdd/consort-config-single-source-guard.test.ts` is the anti-recurrence teeth:
 
 - **Source guard:** `resolveSftddSettings`'s module must never reference `process.env`
   or import `sftddEnv`. This fails even if a FUTURE project setting is given an env

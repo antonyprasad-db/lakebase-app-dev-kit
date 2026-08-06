@@ -18,7 +18,7 @@ import {
   type AgentLogEvent,
   type AgentRole,
 } from "./agent-log.js";
-import { resolveSftddDir, featureResolved, storyTestListJson, designGuideJson, architectureConventionsJson } from "../../consort/config/sftdd-paths.js";
+import { resolveSftddDir, featureResolved, storyTestListJson, designGuideJson, architectureConventionsJson } from "../../consort/config/consort-paths.js";
 import { establishConventionsIfAbsent } from "../architecture/architecture-conventions.js";
 import { establishCanonFromDisk } from "../architecture/architecture-canon.js";
 import { normalizeStoryJson } from "../intake/spec-sync.js";

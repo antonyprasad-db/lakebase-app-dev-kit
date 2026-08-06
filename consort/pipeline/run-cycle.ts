@@ -12,7 +12,7 @@ import {
   type ExperimentTag,
 } from "../../consort/experiment/experiment";
 import { emitAgentLogEvent, type AgentLogEventInput } from "../../consort/logging/agent-log";
-import { readAcLayer as readAcLayerFromPaths } from "../../consort/config/sftdd-paths.js";
+import { readAcLayer as readAcLayerFromPaths } from "../../consort/config/consort-paths.js";
 
 /**
  * Emit a cycle event to the centralized agent log from the SUBSTRATE, not

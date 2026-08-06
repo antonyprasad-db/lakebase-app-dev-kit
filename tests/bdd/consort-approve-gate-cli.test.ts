@@ -9,7 +9,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { runApproveGateCli } from "../../bin/consort/approve-gate.cli.js";
 import { readSprintGates } from "../../consort/gates/sprint-gates.js";
-import { planningDir, acsDir } from "../../consort/config/sftdd-paths.js";
+import { planningDir, acsDir } from "../../consort/config/consort-paths.js";
 import { writePipeline, readPipeline, type StoryPipeline } from "../../consort/pipeline/story-pipeline.js";
 
 const SPRINT = "s1";

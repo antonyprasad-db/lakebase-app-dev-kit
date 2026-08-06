@@ -19,6 +19,12 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, extname } from "node:path";
 
+import { artifactRootsRegexAlternation } from "../../consort/config/consort-paths.js";
+
+// The workflow bookkeeping roots (.consort + legacy), as a regex fragment derived
+// from the single source of truth , never hardcoded here.
+const ARTIFACT_ROOTS_RE = artifactRootsRegexAlternation();
+
 export interface ContractCleanArgs {
   /** Project working-tree root. */
   projectDir: string;
@@ -60,10 +66,14 @@ const DEFAULT_TEST_DIRS = ["tests", "test"];
 const CODE_EXTS = new Set([".py", ".ts", ".tsx", ".js", ".jsx", ".html", ".jinja", ".jinja2", ".sql"]);
 // Never scan these for residual refs (the migration legitimately names the dropped
 // symbol; tests are refactored via supersession, not this gate; junk dirs).
-const EXCLUDE_DIR = /(^|\/)(node_modules|\.git|\.venv|venv|__pycache__|\.sftdd|\.tdd|\.lakebase|dist|build|tests?|alembic|migrations)(\/|$)/;
+const EXCLUDE_DIR = new RegExp(
+  `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build|tests?|alembic|migrations)(/|$)`,
+);
 // Junk/vendor dirs to skip even when the caller WANTS to descend into tests (the
 // supersession-candidate scan): everything above EXCEPT tests?/alembic/migrations.
-const EXCLUDE_DIR_JUNK = /(^|\/)(node_modules|\.git|\.venv|venv|__pycache__|\.sftdd|\.tdd|\.lakebase|dist|build)(\/|$)/;
+const EXCLUDE_DIR_JUNK = new RegExp(
+  `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build)(/|$)`,
+);
 
 /** alembic: op.drop_column('table', 'col')  /  op.add_column('table', sa.Column('col' ... */
 const DROP_COLUMN_PY = /op\.drop_column\(\s*['"][^'"]+['"]\s*,\s*['"]([a-zA-Z_][a-zA-Z0-9_]*)['"]/g;

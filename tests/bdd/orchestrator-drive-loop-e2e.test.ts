@@ -18,7 +18,7 @@ import { deriveDriveState } from "../../consort/orchestrator/state/orchestrator-
 import { diskArtifactProbe, readDriveContext } from "../../consort/orchestrator/state/orchestrator-probe";
 import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 import { writeCycleArtifact } from "../../consort/pipeline/run-cycle";
-import { acReviewJson, storyReviewJson } from "../../consort/config/sftdd-paths";
+import { acReviewJson, storyReviewJson } from "../../consort/config/consort-paths";
 import {
   readPipeline,
   writePipeline,

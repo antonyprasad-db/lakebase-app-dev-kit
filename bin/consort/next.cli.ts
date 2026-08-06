@@ -5,7 +5,7 @@
 // workflow artifact, and NEVER performs an action; enacting a chosen option is
 // the caller's job (each option carries its exact command).
 
-import { resolveSftddDir } from "../../consort/config/sftdd-paths.js";
+import { resolveSftddDir, ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
 import { resolveSftddSettings } from "../../consort/orchestrator/settings/project-settings.js";
 import { readDriveStateFromDisk } from "../../consort/orchestrator/drive/orchestrator-effects.js";
 import { readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
@@ -54,7 +54,7 @@ const HELP = `consort-next – the authoritative, read-only "what do I do next?"
 Answers, from the SAME engine the drive uses: where am I, what are my valid next
 options, how do I enact each, and how do I frame the decision for the human. It is
 strictly read-only (no model, no writes, no actions). The drive also auto-emits
-this snapshot to .sftdd/next.json on every stop.
+this snapshot to ${ARTIFACT_ROOT}/next.json on every stop.
 
 Usage:
   consort-next --feature <F> [--json]
@@ -66,7 +66,7 @@ Flags:
   --json           Print the snapshot as JSON (the machine contract) instead of text
   --approver <n>   Fill this approver into the enact commands (default: <you> placeholder)
   --project-dir <d>  Project root (default: cwd)
-  --sftdd-dir <d>  Artifact root (default: ./.sftdd, honors a legacy ./.tdd)
+  --sftdd-dir <d>  Artifact root (default: ./${ARTIFACT_ROOT}, honors legacy roots)
   --no-sizing      Sprint scope: the plan skips the architect sizing step
   --help, -h       Show this help
 

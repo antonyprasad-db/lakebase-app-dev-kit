@@ -1,12 +1,43 @@
 #!/usr/bin/env node
 "use strict";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
 
 // bin/consort/layering-clean.cli.ts
 var import_node_fs2 = require("fs");
 
 // consort/architecture/layering-clean.ts
 var import_node_fs = require("fs");
+var import_node_path2 = require("path");
+
+// consort/config/consort-paths.ts
+var fs = __toESM(require("fs"), 1);
 var import_node_path = require("path");
+var ARTIFACT_ROOT = ".consort";
+var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
+var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
+
+// consort/architecture/layering-clean.ts
 var SOURCE_SKIP_DIRS = /* @__PURE__ */ new Set([
   "node_modules",
   "__pycache__",
@@ -15,8 +46,7 @@ var SOURCE_SKIP_DIRS = /* @__PURE__ */ new Set([
   ".git",
   "build",
   "dist",
-  ".sftdd",
-  ".tdd",
+  ...ALL_ARTIFACT_ROOTS,
   ".lakebase",
   "alembic",
   "migrations",
@@ -38,9 +68,9 @@ function sourcePyFilesRec(dir, out) {
   }
   for (const e of entries) {
     if (e.isDirectory()) {
-      if (!SOURCE_SKIP_DIRS.has(e.name)) sourcePyFilesRec((0, import_node_path.join)(dir, e.name), out);
+      if (!SOURCE_SKIP_DIRS.has(e.name)) sourcePyFilesRec((0, import_node_path2.join)(dir, e.name), out);
     } else if (e.isFile() && e.name.endsWith(".py") && !isTestFile(e.name)) {
-      out.push((0, import_node_path.join)(dir, e.name));
+      out.push((0, import_node_path2.join)(dir, e.name));
     }
   }
 }
@@ -49,7 +79,7 @@ var TOP_LEVEL_CLASS = /^class\s+([A-Za-z_]\w*)\s*[:(]/;
 function checkDuplicateClasses(projectDir, roots = ["app", "src"]) {
   const files = [];
   for (const r of roots) {
-    const abs = (0, import_node_path.join)(projectDir, r);
+    const abs = (0, import_node_path2.join)(projectDir, r);
     if (!(0, import_node_fs.existsSync)(abs)) continue;
     try {
       if ((0, import_node_fs.statSync)(abs).isDirectory()) sourcePyFilesRec(abs, files);
@@ -83,7 +113,7 @@ var REMEDIATION = "The boundary/routes layer calls the DB session directly (a fa
 var DEFAULT_BOUNDARY = ["app/main.py", "app/routes"];
 var DEFAULT_REPOSITORY = ["app/repositories", "app/repository.py"];
 function pyFilesFor(projectDir, rel) {
-  const abs = (0, import_node_path.join)(projectDir, rel);
+  const abs = (0, import_node_path2.join)(projectDir, rel);
   if (!(0, import_node_fs.existsSync)(abs)) return [];
   let isDir = false;
   try {
@@ -94,12 +124,12 @@ function pyFilesFor(projectDir, rel) {
   if (!isDir) return rel.endsWith(".py") ? [abs] : [];
   const out = [];
   for (const f of (0, import_node_fs.readdirSync)(abs)) {
-    if (f.endsWith(".py") && f !== "__init__.py") out.push((0, import_node_path.join)(abs, f));
+    if (f.endsWith(".py") && f !== "__init__.py") out.push((0, import_node_path2.join)(abs, f));
   }
   return out;
 }
 function repositoryExists(projectDir, repositoryModules) {
-  return repositoryModules.some((rel) => (0, import_node_fs.existsSync)((0, import_node_path.join)(projectDir, rel)));
+  return repositoryModules.some((rel) => (0, import_node_fs.existsSync)((0, import_node_path2.join)(projectDir, rel)));
 }
 function checkLayeringClean(args) {
   if (!args.serviceBacked) {
@@ -162,15 +192,15 @@ function checkModulePlacement(projectDir, allModules2) {
     const base = module2.replace(/\/$/, "");
     const wantDir = module2.endsWith("/");
     const wantFile = module2.endsWith(".py");
-    const here = kindOf((0, import_node_path.join)(projectDir, base));
+    const here = kindOf((0, import_node_path2.join)(projectDir, base));
     if (wantDir) {
       if (here === "dir") {
-        if (kindOf((0, import_node_path.join)(projectDir, `${base}.py`)) === "file") {
+        if (kindOf((0, import_node_path2.join)(projectDir, `${base}.py`)) === "file") {
           violations.push(`declared ${role} layer "${module2}" is a package, but a stale flat ${base}.py also exists alongside it (an orphan from a flat->package migration, shadowed + duplicating this layer); delete ${base}.py so only the package defines this layer`);
         }
         continue;
       }
-      if (kindOf((0, import_node_path.join)(projectDir, `${base}.py`)) === "file") {
+      if (kindOf((0, import_node_path2.join)(projectDir, `${base}.py`)) === "file") {
         violations.push(`declared ${role} layer "${module2}" is a package directory but the build created a flat file ${base}.py (organize this layer under ${module2})`);
       } else {
         violations.push(`declared ${role} layer module "${module2}" not found (the build placed this layer's code elsewhere)`);
@@ -180,7 +210,7 @@ function checkModulePlacement(projectDir, allModules2) {
       if (here === "dir") violations.push(`declared ${role} layer module "${module2}" is a file but a directory exists there`);
       else violations.push(`declared ${role} layer module "${module2}" not found (the build placed this layer's code elsewhere)`);
     } else {
-      if (here !== "missing" || kindOf((0, import_node_path.join)(projectDir, `${base}.py`)) === "file") continue;
+      if (here !== "missing" || kindOf((0, import_node_path2.join)(projectDir, `${base}.py`)) === "file") continue;
       violations.push(`declared ${role} layer module "${module2}" not found (the build placed this layer's code elsewhere)`);
     }
   }

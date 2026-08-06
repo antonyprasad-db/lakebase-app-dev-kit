@@ -89,7 +89,7 @@ require_cmd() {
 
 # Replay every recorded scenario under examples/sftdd-scenarios/<name>/ live
 # (design replay + build restore -> deterministic orchestrator to the RE handoff),
-# headless. The hermetic guard (tests/bdd/sftdd-scenarios.test.ts) checks corpus
+# headless. The hermetic guard (tests/bdd/consort-scenarios.test.ts) checks corpus
 # shape on every `npm test`; THIS is the workspace-backed end-to-end replay.
 run_scenarios() {
   local scen_root="$REPO_ROOT/examples/sftdd-scenarios"

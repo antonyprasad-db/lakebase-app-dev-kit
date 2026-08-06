@@ -6708,17 +6708,21 @@ function readOutcomes(sftddDir, featureId, storyId, slug) {
 // consort/logging/agent-log.ts
 init_esm_shims();
 
-// consort/config/sftdd-paths.ts
+// consort/config/consort-paths.ts
 init_esm_shims();
 import * as fs from "fs";
 import { join as join2 } from "path";
-var ARTIFACT_ROOT = ".sftdd";
-var LEGACY_ARTIFACT_ROOT = ".tdd";
+var ARTIFACT_ROOT = ".consort";
+var LEGACY_ARTIFACT_ROOTS = [".sftdd", ".tdd"];
+var ALL_ARTIFACT_ROOTS = [ARTIFACT_ROOT, ...LEGACY_ARTIFACT_ROOTS];
+var artifactRootsRegexAlternation = () => ALL_ARTIFACT_ROOTS.map((r) => r.replace(/[.]/g, "\\.")).join("|");
 function resolveSftddDir(projectDir = process.cwd()) {
   const next = join2(projectDir, ARTIFACT_ROOT);
   if (fs.existsSync(next)) return next;
-  const legacy = join2(projectDir, LEGACY_ARTIFACT_ROOT);
-  if (fs.existsSync(legacy)) return legacy;
+  for (const legacyName of LEGACY_ARTIFACT_ROOTS) {
+    const legacy = join2(projectDir, legacyName);
+    if (fs.existsSync(legacy)) return legacy;
+  }
   return next;
 }
 var featuresDir = (tdd) => join2(tdd, "features");
@@ -6856,7 +6860,7 @@ var AGENT_LOG_EVENT_NAMES = Object.keys(EVENT_TEMPLATES);
 // consort/pipeline/cycle-record.ts
 init_esm_shims();
 
-// consort/config/sftdd-env.ts
+// consort/config/consort-env.ts
 init_esm_shims();
 
 // consort/test-list/test-list.ts
@@ -6948,6 +6952,13 @@ import { join as join9 } from "path";
 init_esm_shims();
 import { existsSync as existsSync11, readFileSync as readFileSync12, readdirSync as readdirSync8, statSync as statSync5 } from "fs";
 import { join as join10, relative, extname } from "path";
+var ARTIFACT_ROOTS_RE = artifactRootsRegexAlternation();
+var EXCLUDE_DIR = new RegExp(
+  `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build|tests?|alembic|migrations)(/|$)`
+);
+var EXCLUDE_DIR_JUNK = new RegExp(
+  `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build)(/|$)`
+);
 
 // consort/smells/refactor-verify-assess.ts
 init_esm_shims();
@@ -7493,7 +7504,7 @@ Usage:
   lakebase-feature-status <feature-id> [--tdd <dir>] [--json]
 
 Flags:
-  --tdd <dir>          Path to the artifact root (default: ./.sftdd, honors a legacy ./.tdd)
+  --tdd <dir>          Path to the artifact root (default: ./${ARTIFACT_ROOT}, honors legacy roots)
   --project-dir <dir>  Project root that holds .lakebase/ (default: the parent of --tdd);
                        used to reconcile deploy/promote from the SCM workflow-state
   --json               Print the snapshot as JSON instead of human-readable text
@@ -7502,7 +7513,7 @@ Flags:
 Examples:
   lakebase-feature-status F1-checkout
   lakebase-feature-status F1-checkout --json | jq '.experiments[].slug'
-  lakebase-feature-status F1-checkout --tdd path/to/.sftdd
+  lakebase-feature-status F1-checkout --tdd path/to/.consort
 `;
 function main() {
   const args = parseArgs(process.argv.slice(2));
