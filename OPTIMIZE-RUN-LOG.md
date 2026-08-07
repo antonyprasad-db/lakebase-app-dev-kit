@@ -8,6 +8,45 @@ Branch: `fix/headless-permission-mode-acceptedits`. LOCAL only; nothing pushed.
 
 ---
 
+## AUDIT , camp provenance + the manufactured-slice reversal (user-requested)
+
+RULE (user): the camp (consort/evaluation/reference-assets/) is the ONE canonical test-data home for
+integration tests + experiments; EVERYTHING in it must come from the mine (examples/replay/corpora)
+verbatim , nothing manufactured. Judge a turn against WHAT THAT TURN RECORDED, never a hand-carved slice.
+
+AUDIT RESULTS (byte-hash vs the mine):
+- Existing camp `reference-assets/stockflow`: **ALL 348 files trace byte-identically to the mine. Zero orphans.** Clean.
+- The manufactured SLICES live in `tests/integration/intake` (NOT the camp), and the audit shows they were wrong-headed:
+  - `architecture.S1-slice.json` , NO mine match (name or bytes) = **purely fabricated**. DELETE.
+  - `estimates.FP-slice.json` , byte-identical to `turns/0001-architect-reviewer-estimate/files/.sftdd/planning/estimates.json` = a RENAMED copy of the real recorded estimate-turn output. Point the estimate chain at that turn's output; DELETE the slice.
+  - `test-list.S1-slice.json` , byte-identical to `turns/0018-driver-repair/files/.sftdd/features/F1-stock-visibility/test-list.json` = a renamed real turn output too. Point at the turn; DELETE the slice.
+- CORRECTION (#705, supersedes the d0d32f57 "FP-slice fix"): every chain's reference = the real per-turn recorded output (turns/<NNNN>-<role>/files/...), extracted into the camp. Delete all manufactured slices + acs-spec-author-slice/.
+
+## AUDIT , sweep reference-scope vs the live/equivalence tests (earlier, now SUPERSEDED by the per-turn-output rule)
+
+Each chain has a recorded corpus segment its LIVE test seeds from + judges against. The SWEEP must
+judge against the SAME scoped reference (only the lever varies). Cross-checked ROLE_CHAINS.referenceFile
+(sweep) against DESIGN_LIVE_SPECS.equivalenceReferencePaths (live test source of truth):
+
+| chain | live test judges vs | sweep judges vs | aligned? |
+|---|---|---|---|
+| spec-author-propose | whole feature-proposals.md | feature-proposals.md | YES |
+| spec-author-story (acs) | acs-spec-author-slice/ (3 AC files, a DIR) | acs/AC1-...json (ONE file, outputFile) | **NO , scope + shape mismatch** |
+| architect-reviewer | architecture.S1-slice.json | architecture.json (FULL) | **NO , scope mismatch** |
+| architect-estimator | estimates.FP-slice.json | estimates.FP-slice.json | YES (fixed d0d32f57) |
+| dba | whole db-design.json | db-design.json | YES |
+| test-strategist | test-list.S1-slice.json | test-list.S1-slice.json | YES (fixed) |
+| ux-designer | whole design-guide.json | design-guide.json | YES |
+
+**TWO chains still misaligned** (same bug class as estimate): (1) architect-reviewer , the per-story turn
+accretes the feature architecture, so judge the S1 SLICE not the full file , CLEAN one-line referenceFile
+fix. (2) spec-author-story , produces an acs/ DIR of multiple ACs, but the sweep's readReference reads ONE
+file + the gate scores producedArtifacts[outputFile] (one AC) , needs the reference to be the acs-slice AND
+the sweep to score the DIR (structurally harder; the file-based gate doesn't fit a dir-output turn).
+STATUS: fixes queued behind the in-flight subagents (navigator + driver-green touch role-chains.ts /
+optimize-role.cli.ts); apply once they land to avoid a mid-flight collision. The design-batch spec-author-story
+(-63%) + architect-reviewer results were scored against the WRONG-scope reference , re-run both after the fix.
+
 ## Chain inventory decisions (what IS and ISN'T a sweepable chain)
 
 - **Plan lane:** the two DISTINCT agent turns , `spec-author-propose` and `architect-estimator` (estimate) , ARE swept (design set). `author-requests` / `gate-plan` / `planning-complete` are deterministic substrate (no agent), correctly not swept.
