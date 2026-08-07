@@ -101,12 +101,17 @@ describe("scenario corpus: every replay artifact the driver restores is tracked 
 
       // scenario.json drives feature-level replay knobs (uiTrack -> design-guide;
       // buildReplay -> recorded-build turns). Absent knobs take the replay defaults.
-      let manifest: { uiTrack?: boolean; features?: Array<{ id?: string; buildReplay?: boolean }> } = {};
+      let manifest: { uiTrack?: boolean; planOnly?: boolean; features?: Array<{ id?: string; buildReplay?: boolean }> } = {};
       try {
         manifest = JSON.parse(readFileSync(join(REPO_ROOT, root, "scenario.json"), "utf8"));
       } catch {
         /* keep defaults */
       }
+      // A PLANNING-ONLY corpus (planOnly:true) records the planning lane only , feature-proposals,
+      // estimates, requested.json + backlog.json , and ships NO per-story design/build artifacts by
+      // construction. The story-artifact checks below (which require >=1 shipped story) do not apply;
+      // its integrity (the plan turns + conditions) is covered by consort-scenarios + scenario-conditions.
+      if (manifest.planOnly) return;
       const buildReplayFor = (feature: string): boolean =>
         manifest.features?.find((f) => f.id === feature)?.buildReplay !== false;
 
