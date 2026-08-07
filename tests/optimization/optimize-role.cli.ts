@@ -26,24 +26,32 @@ import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { ROLE_CHAINS, runRoleChainLive, INTAKE_REL, type RoleChain } from "../../consort/optimize/role-chains.js";
+import { BUILD_ROLE_CHAINS, runBuildRoleChainLive, type BuildRoleChain } from "../../consort/optimize/build-role-chains.js";
 import { roleCandidates, testStrategistCandidates } from "./role-levers.js";
 import { runRoleSweep, type SweepTrial, type ChainRunner } from "./role-sweep.js";
 import { reportRoleSweep, formatRoleSweepReport, type SweepReport } from "./role-sweep-report.js";
-import { makeOpusJudge } from "../../consort/evaluation/semantic-gate.js";
+import { makeOpusJudge, makeVerdictAlignmentJudge, parseVerdictFile, FUNCTIONAL_THRESHOLD, type SemanticJudge, type BuildOutputKind } from "../../consort/evaluation/semantic-gate.js";
 import { enabledAnalysts } from "../../consort/test-list/test-analyst-catalogue.js";
 import { RECOMMENDED_MODELS, type SpawnableAgentRole } from "../../consort/config/agent-models.js";
 import type { StepManifest } from "../../consort/orchestrator/steps/manifest.js";
 import type { StepAgent } from "../../consort/orchestrator/agents/agent-types.js";
 
 /** The chain SET keywords that expand to a group of handles. "design" = every design role chain
- *  (the lean, no-cloud tier). Navigator + driver build chains are added at their own stages. */
+ *  (the lean, no-cloud tier); "navigator" = navigator build chains (red/assess/review/reflect). */
 const CHAIN_SETS: Record<string, string[]> = {
   design: Object.keys(ROLE_CHAINS),
+  navigator: Object.keys(BUILD_ROLE_CHAINS),
 };
 
+/** Combined universe of all chains (design + build). Used for validation. */
+function allChains(): Record<string, RoleChain | BuildRoleChain> {
+  return { ...ROLE_CHAINS, ...BUILD_ROLE_CHAINS };
+}
+
 /** Expand a --chains spec (a set keyword OR a comma list of handles) into concrete chain handles,
- *  validated against ROLE_CHAINS. Pure + exported for a unit test. De-dupes while preserving order. */
-export function expandChains(spec: string, chains: Record<string, RoleChain> = ROLE_CHAINS): string[] {
+ *  validated against ROLE_CHAINS + BUILD_ROLE_CHAINS. Pure + exported for a unit test.
+ *  De-dupes while preserving order. */
+export function expandChains(spec: string, chains: Record<string, RoleChain | BuildRoleChain> = allChains()): string[] {
   const raw = CHAIN_SETS[spec] ?? spec.split(",").map((s) => s.trim()).filter(Boolean);
   const seen = new Set<string>();
   const out: string[] = [];
@@ -67,7 +75,7 @@ export interface OptimizeRoleArgs {
 
 /** Parse argv (pure + exported for a unit test). Accepts --chains <set|list> OR the back-compat
  *  single --role <handle>. Throws loud on an unknown/absent chain. */
-export function parseArgs(argv: string[], chains: Record<string, RoleChain> = ROLE_CHAINS): OptimizeRoleArgs {
+export function parseArgs(argv: string[], chains: Record<string, RoleChain | BuildRoleChain> = allChains()): OptimizeRoleArgs {
   const get = (flag: string): string | undefined => {
     const i = argv.indexOf(flag);
     return i >= 0 && i + 1 < argv.length ? argv[i + 1] : undefined;
@@ -107,13 +115,19 @@ function baseModelFor(role: string, override?: string): string {
 
 /** Sweep ONE chain end to end + persist its evidence + report under <runRoot>/<handle>/. Returns
  *  the chain's report (for the multi-chain roll-up). LIVE , each candidate spawns a real claude
- *  turn; candidates fan out under `concurrency`. */
+ *  turn; candidates fan out under `concurrency`. Handles both design role chains and build chains. */
 export async function sweepOneChain(
   handle: string,
   runRoot: string,
   opts: { baseModel?: string; concurrency?: number; baselineDir?: string } = {},
 ): Promise<SweepReport> {
-  const chain = ROLE_CHAINS[handle];
+  // Determine if this is a design or build chain.
+  const isBuildChain = handle in BUILD_ROLE_CHAINS;
+  const chain = isBuildChain ? BUILD_ROLE_CHAINS[handle] : ROLE_CHAINS[handle];
+  if (!chain) {
+    throw new Error(`optimize-role: unknown chain "${handle}"`);
+  }
+
   const baseModel = baseModelFor(handle, opts.baseModel);
   // The test-strategist is a SUPERVISOR , its optimization target is the per-analyst SUBAGENT levers,
   // not its own model. Its candidate set permutes ALL enabled analysts (behavior/fitness/client);
@@ -125,26 +139,54 @@ export async function sweepOneChain(
   const runDir = join(runRoot, handle);
   mkdirSync(runDir, { recursive: true });
 
-  // The QUALITY gate reference: the RECORDED baseline artifact for this chain (the intake seed the
-  // chain replays), scored functionally (test-list = build-ish artifact, looser bar). Absent
-  // reference -> quality gate skipped (conformance-only), never a false pass.
-  const referenceText = readReference(chain, handle);
-  const quality = referenceText
-    ? { referenceText, judge: makeOpusJudge({ cwd: process.cwd() }), kind: "tests" as const }
-    : undefined;
+  // BUILD CHAINS: route to appropriate quality gate.
+  // DESIGN CHAINS: use the recorded baseline reference + opus judge (functional for tests).
+  let quality: { referenceText: string; judge: SemanticJudge; kind?: BuildOutputKind; threshold?: number } | undefined;
+
+  if (isBuildChain) {
+    const bChain = chain as BuildRoleChain;
+    if (bChain.assertKind === "red") {
+      // RED: functional coverage gate (handled in runRedCoverageGate).
+      // For the sweep, we score the produced tests against the recorded reference.
+      const refPath = join(process.cwd(), "consort/evaluation/reference-assets/stockflow/recorded-artifacts", "features/F6-split-tracking-code/test-list.json");
+      const referenceText = existsSync(refPath) ? readFileSync(refPath, "utf8") : undefined;
+      quality = referenceText
+        ? { referenceText, judge: makeOpusJudge({ cwd: process.cwd() }), kind: "tests", threshold: FUNCTIONAL_THRESHOLD }
+        : undefined;
+    } else if (bChain.assertKind === "assess") {
+      // ASSESS: discriminator alignment (handled in runAssessAlignmentGate).
+      // For the sweep, we skip the quality gate (handled post-run via the verdict judge).
+      quality = undefined;
+    } else if (bChain.assertKind === "review" || bChain.assertKind === "reflect") {
+      // REVIEW/REFLECT: verdict-alignment gate (custom judge on the verdict file).
+      // For the sweep, we skip here and handle in onDone post-run.
+      quality = undefined;
+    }
+  } else {
+    // DESIGN CHAIN: use the recorded baseline artifact.
+    const referenceText = readReference(chain as RoleChain, handle);
+    quality = referenceText
+      ? { referenceText, judge: makeOpusJudge({ cwd: process.cwd() }), kind: undefined }
+      : undefined;
+  }
 
   // eslint-disable-next-line no-console
   console.log(
-    `[optimize-role] ${handle}: baseline model=${baseModel}, ${candidates.length} candidates, concurrency=${opts.concurrency ?? 1}. ` +
-      `quality gate: ${quality ? "ON (functional vs recorded baseline)" : "OFF (no reference on disk)"}. run dir: ${runDir}`,
+    `[optimize-role] ${handle}: ${isBuildChain ? "BUILD" : "DESIGN"} chain, baseline model=${baseModel}, ${candidates.length} candidates, concurrency=${opts.concurrency ?? 1}. ` +
+      `quality gate: ${quality ? "ON" : "OFF (no reference on disk)"}. run dir: ${runDir}`,
   );
 
-  const runChain: ChainRunner = async (c, agentFor, _id, levers) =>
-    runRoleChainLive(c as RoleChain, {
-      agentFor: agentFor as (m: StepManifest) => StepAgent | undefined,
-      // TEST-STRATEGIST: forward the candidate's per-analyst overrides into the roster preparer.
-      ...(levers.analystOverrides ? { analystOverrides: levers.analystOverrides } : {}),
-    });
+  const runChain: ChainRunner = isBuildChain
+    ? async (c, agentFor, _id, levers) =>
+        runBuildRoleChainLive(c as BuildRoleChain, {
+          agentFor: agentFor as (m: StepManifest) => StepAgent | undefined,
+        })
+    : async (c, agentFor, _id, levers) =>
+        runRoleChainLive(c as RoleChain, {
+          agentFor: agentFor as (m: StepManifest) => StepAgent | undefined,
+          // TEST-STRATEGIST: forward the candidate's per-analyst overrides into the roster preparer.
+          ...(levers.analystOverrides ? { analystOverrides: levers.analystOverrides } : {}),
+        });
   const trials = await runRoleSweep(chain, candidates, runChain, {
     ...(quality ? { quality } : {}),
     ...(opts.concurrency ? { concurrency: opts.concurrency } : {}),

@@ -66,25 +66,40 @@ const NO_SHELL =
 
 /** One build-role chain's definition. `assertKind` tells the live test/sweep which output shape to
  *  expect: "red" = a tests/ tree (functional coverage judge), "assess" = a discriminator marker in
- *  the AC cycle dir (alignment judge). `outputKind` is the build-output kind for the functional
- *  reference (navigator=tests). `extraSnapshotRoots` names the workspace-root dirs (tests/) the
- *  navigator writes, so producedArtifacts preserves them past teardown. */
+ *  the AC cycle dir (alignment judge), "review"/"reflect" = verdict files (verdict-alignment judge).
+ *  `outputKind` is the build-output kind for the functional reference (navigator=tests).
+ *  `extraSnapshotRoots` names the workspace-root dirs (tests/) the navigator writes, so
+ *  producedArtifacts preserves them past teardown. */
 export interface BuildRoleChain {
   name: string;
   dir: string;
   start: WorkflowAction;
-  assertKind: "red" | "assess";
+  assertKind: "red" | "assess" | "review" | "reflect";
   /** The primary output path the live role writes (workspace-relative). For RED = "tests"; for
-   *  ASSESS = the AC cycle dir. Matches the manifest's first output filename. */
+   *  ASSESS = the AC cycle dir; for REVIEW/REFLECT = the verdict file path. Matches the manifest's
+   *  first output filename. */
   outputFile: string;
   /** Workspace-root dirs to also snapshot (the code the navigator writes lives outside .sftdd). */
   extraSnapshotRoots: string[];
   prompt: string;
+  /** Optional: for REVIEW/REFLECT chains, the workspace-relative path where the verdict lands
+   *  (the producedArtifacts key that holds the recorded reference verdict). REVIEW =>
+   *  `.sftdd/cycles/<F>/<S>/review-verdict.json`; REFLECT =>
+   *  `features/<F>/stories/<S>/reflect-verdict.json`. Omitted for RED/ASSESS (no verdict). */
+  verdictFile?: string;
 }
 
 /** The AC cycle dir (workspace-relative) the assess marker lands in, mirroring cycleDir().
  *  Assess runs on S1, so the cycle dir is S1's. */
 const AC_CYCLE_DIR = `.sftdd/cycles/${BUILD_FEATURE}/${ASSESS_STORY}/${ASSESS_AC}`;
+
+/** The review verdict path (workspace-relative) the navigator-review role reads and judges.
+ *  Review runs on S1 after a driver completes, so it reads the recorded review-verdict there. */
+const REVIEW_VERDICT_PATH = `.sftdd/cycles/${BUILD_FEATURE}/${ASSESS_STORY}/${ASSESS_AC}/review-verdict.json`;
+
+/** The reflect verdict path (workspace-relative) the navigator-reflect role reads and judges.
+ *  Reflect runs at DESIGN-time, so it writes to the feature/story path. */
+const REFLECT_VERDICT_PATH = `features/${BUILD_FEATURE}/stories/${BUILD_STORY}/reflect-verdict.json`;
 
 /** The per-BUILD-role chain catalogue. Navigator turns only (lean); driver turns are the gated
  *  cloud phase (seam below). Keyed by a short handle. */
@@ -129,6 +144,57 @@ export const BUILD_ROLE_CHAINS: Record<string, BuildRoleChain> = {
       `intend to change that behavior), write regression-assessment.json = {"diagnosis":"<root cause: which behavior broke + why>", "fixDirective":"<what the Driver should change>"}. ` +
       `OMIT fixDirective ONLY when it needs a human / a design change.\n` +
       `Write ONLY the ONE correct marker. Do NOT edit product code or tests in this turn.` +
+      NO_SHELL + REPORT_BLOCK,
+  },
+  "navigator-review": {
+    name: "navigator REVIEW (evaluate the driver's code against design NFRs)",
+    dir: "navigator-review-chain",
+    start: { kind: "invoke-role", role: "navigator", story: ASSESS_STORY, buildMode: "review", ac: ASSESS_AC } as WorkflowAction,
+    assertKind: "review",
+    outputFile: REVIEW_VERDICT_PATH,
+    extraSnapshotRoots: ["tests", "app", "client"],
+    verdictFile: REVIEW_VERDICT_PATH,
+    prompt:
+      `You are the Navigator REVIEWING the Driver's code after a successful honest-GREEN for AC ` +
+      `${ASSESS_AC} in story ${ASSESS_STORY}. The Driver's implementation passed all tests. Your ` +
+      `task: evaluate whether the Driver's code respects the DESIGN NFRs (layer boundaries, ` +
+      `naming conventions, cohesion, testability). From the provided architecture contract + ` +
+      `design conventions, INSPECT the code tree (app/, tests/, client/) and determine if ` +
+      `refactoring is warranted (design debt / cleanups / minor improvements) or if the code ` +
+      `already adheres cleanly to the design.\n` +
+      `Write a single verdict file into ${REVIEW_VERDICT_PATH} (relative to your current ` +
+      `working directory):\n` +
+      `  review-verdict.json = {"refactor": <bool>, "notes": "<analysis of NFR compliance + ` +
+      `concrete improvement suggestions if refactor=true, or 'no improvement' if false>"}.\n` +
+      `Do NOT edit product code or tests. Run no command.` +
+      NO_SHELL + REPORT_BLOCK,
+  },
+  "navigator-reflect": {
+    name: "navigator REFLECT (evaluate design completeness at story end)",
+    dir: "navigator-reflect-chain",
+    start: { kind: "invoke-role", role: "navigator", story: BUILD_STORY, buildMode: "reflect" } as WorkflowAction,
+    assertKind: "reflect",
+    outputFile: REFLECT_VERDICT_PATH,
+    extraSnapshotRoots: ["tests", "app", "client"],
+    verdictFile: REFLECT_VERDICT_PATH,
+    prompt:
+      `You are the Navigator REFLECTING at the end of story ${BUILD_STORY}. The feature has ` +
+      `passed all test-list items, all acceptance criteria, and design review. Your task: ` +
+      `evaluate whether the design is COMPLETE + CONSISTENT: have all design decisions been ` +
+      `faithfully implemented? Are there unresolved design gaps or inconsistencies between the ` +
+      `spec (test-list, ACs, architecture) and the produced code?\n` +
+      `Inspect the produced tree (app/, tests/, client/) against the design (test-list, ACs, ` +
+      `architecture, db-design, conventions). Evaluate the following dimensions:\n` +
+      `  - Test coverage completeness (every test-list item + AC covered)\n` +
+      `  - Architecture compliance (layers, boundaries, responsibilities)\n` +
+      `  - DB schema alignment (migrations, constraints, schema)\n` +
+      `  - Design token delivery (if visual)\n` +
+      `  - Naming + conventions (module layout, symbol names, file structure)\n` +
+      `Write a single verdict file into ${REFLECT_VERDICT_PATH} (relative to your current ` +
+      `working directory):\n` +
+      `  reflect-verdict.json = {"version": 1, "passed": <bool>, "findings": ["<gap or ` +
+      `inconsistency if passed=false>", ...]}.\n` +
+      `Do NOT edit product code or specs. Run no command.` +
       NO_SHELL + REPORT_BLOCK,
   },
 };

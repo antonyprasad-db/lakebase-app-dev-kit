@@ -1,0 +1,28 @@
+{
+  "id": "navigator-review-chain-seed",
+  "role": "product-owner",
+  "match": { "kind": "invoke-role", "role": "product-owner", "mode": "author-requests" },
+  "inputs": [],
+  "outputs": [
+    { "id": "architecture", "filename": ".consort/features/F6-split-tracking-code/architecture.json", "validator": "architectureConformant", "description": "The architect contract the Navigator reviews against for NFR compliance." },
+    { "id": "ac", "filename": ".consort/features/F6-split-tracking-code/stories/S1-split-columns-migration/acs/AC1-batch-serial-columns-added.json", "validator": "acConformant", "description": "The story AC whose design intent guides the review." },
+    { "id": "conventions", "filename": ".consort/architecture/conventions.json", "validator": "nonEmptyFile", "description": "The module-layout projection the Navigator uses for naming/structure review." },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "productOwnerLoggedAuthoring", "description": "The replay seed's authoring log." }
+  ],
+  "routing": {
+    "produced": { "next": { "kind": "invoke-role", "role": "navigator", "story": "S1-split-columns-migration", "buildMode": "review", "ac": "AC1-batch-serial-columns-added" } }
+  },
+  "agentOptions": { "session": "fresh", "resumeKeyFrom": "none" },
+  "agent": {
+    "kind": "replay",
+    "config": {
+      "role": "product-owner",
+      "seeds": [
+        { "outputId": "post-green-code", "kind": "tree", "from": "recorded-build/features/F6-split-tracking-code/stories/S1-split-columns-migration/turns/003-driver/code", "to": "." },
+        { "outputId": "architecture", "from": "recorded-artifacts/features/F6-split-tracking-code/architecture.json", "to": ".consort/features/F6-split-tracking-code/architecture.json" },
+        { "outputId": "ac", "from": "recorded-artifacts/features/F6-split-tracking-code/stories/S1-split-columns-migration/acs/AC1-batch-serial-columns-added.json", "to": ".consort/features/F6-split-tracking-code/stories/S1-split-columns-migration/acs/AC1-batch-serial-columns-added.json" },
+        { "outputId": "conventions", "from": "recorded-artifacts/architecture/conventions.json", "to": ".consort/architecture/conventions.json" }
+      ]
+    }
+  }
+}

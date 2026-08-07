@@ -866,3 +866,117 @@ export function makeBuildDiscriminatorJudge(opts: { cwd: string }): (args: { kin
       (msg) => ({ score: 0, missing: [msg], classification: "insufficient", nextStep: "escalate" }),
     );
 }
+
+/** A REVIEW/REFLECT verdict as produced by the navigator. For REVIEW: {"refactor": bool,
+ *  "notes": "..."}. For REFLECT: {"version": 1, "passed": bool, "findings": [...]}. */
+export interface VerdictOutput {
+  refactor?: boolean; // REVIEW only
+  passed?: boolean;   // REFLECT only
+  version?: number;   // REFLECT only
+  notes?: string;     // REVIEW only
+  findings?: string[]; // REFLECT only
+}
+
+/** Parse a verdict file (review or reflect) from JSON into the VerdictOutput shape. */
+export function parseVerdictFile(body: string): VerdictOutput {
+  try {
+    return JSON.parse(body) as VerdictOutput;
+  } catch {
+    return {};
+  }
+}
+
+/** Build the VERDICT-ALIGNMENT judge prompt: given the RECORDED verdict + the CANDIDATE
+ *  verdict from a review or reflect turn, decide if the DECISION matches (refactor? /
+ *  passed?). Hard gate: decisions must align. For REVIEW: also check the notes are
+ *  substantive + consistent with recorded critique (not a judge-score but a binary match:
+ *  either the navigator is reasoning clearly or not). Fail-safe: an unparseable verdict
+ *  or a decision mismatch always fails. */
+export function buildVerdictAlignmentJudgePrompt(recordedVerdict: VerdictOutput, candidateVerdict: VerdictOutput, kind: "review" | "reflect"): string {
+  const recordedJson = JSON.stringify(recordedVerdict, null, 2);
+  const candidateJson = JSON.stringify(candidateVerdict, null, 2);
+  if (kind === "review") {
+    return [
+      `You are a strict senior engineer comparing two REVIEW verdicts for the same driver turn.`,
+      `The RECORDED GROUND-TRUTH verdict is the canonical navigator's review for this turn. The CANDIDATE is a newly produced review verdict.`,
+      ``,
+      `Judge two things:`,
+      `  (1) DECISION: does the candidate's refactor decision match the recorded decision (both true, or both false)? This is a HARD gate: mismatched decisions always fail.`,
+      `  (2) SUBSTANCE: if decisions match, are the candidate's notes substantive and consistent with the recorded critique? Substantive means: specific NFR analysis + concrete observations. Consistency means: the candidate's notes support the same decision (e.g. if refactor=false, the notes say "no improvement warranted" or similar; if refactor=true, the notes cite specific NFR gaps).`,
+      ``,
+      `Return ONLY a JSON object on a single line: {"decisionMatch": <bool>, "substantive": <bool>, "reason": "<brief explanation>"}. decisionMatch is hard-required; substantive is only checked when decisionMatch=true.`,
+      ``,
+      `RECORDED verdict:`,
+      "```json",
+      recordedJson,
+      "```",
+      ``,
+      `CANDIDATE verdict:`,
+      "```json",
+      candidateJson,
+      "```",
+    ].join("\n");
+  } else {
+    // kind === "reflect"
+    return [
+      `You are a strict senior engineer comparing two REFLECT verdicts for the same story end.`,
+      `The RECORDED GROUND-TRUTH verdict is the canonical navigator's reflect for this story. The CANDIDATE is a newly produced reflect verdict.`,
+      ``,
+      `Judge two things:`,
+      `  (1) DECISION: does the candidate's passed decision match the recorded decision (both true, or both false)? This is a HARD gate: mismatched decisions always fail.`,
+      `  (2) SUBSTANCE: if decisions match, are the candidate's findings substantive and consistent with the recorded findings? Substantive means: specific design gaps / inconsistencies identified (e.g. "test coverage missing <item>", "layer boundary violation in <file>"). Consistency means: the candidate identifies real gaps that align with the recorded findings (or correctly finds none when passed=true).`,
+      ``,
+      `Return ONLY a JSON object on a single line: {"decisionMatch": <bool>, "substantive": <bool>, "reason": "<brief explanation>"}. decisionMatch is hard-required; substantive is only checked when decisionMatch=true.`,
+      ``,
+      `RECORDED verdict:`,
+      "```json",
+      recordedJson,
+      "```",
+      ``,
+      `CANDIDATE verdict:`,
+      "```json",
+      candidateJson,
+      "```",
+    ].join("\n");
+  }
+}
+
+/** Parse a verdict-alignment judge reply into a pass/fail outcome. */
+export interface VerdictAlignmentOutcome {
+  passed: boolean;
+  decisionMatch: boolean;
+  substantive?: boolean;
+  reason: string;
+}
+
+export function parseVerdictAlignmentReply(reply: string): VerdictAlignmentOutcome {
+  const m = reply.match(/\{[\s\S]*"decisionMatch"[\s\S]*\}/);
+  if (!m) {
+    return { passed: false, decisionMatch: false, reason: "verdict-alignment judge reply not parseable" };
+  }
+  try {
+    const obj = JSON.parse(m[0]) as { decisionMatch?: unknown; substantive?: unknown; reason?: unknown };
+    const decisionMatch = obj.decisionMatch === true;
+    const substantive = obj.substantive === true;
+    const reason = typeof obj.reason === "string" ? obj.reason : "no reason provided";
+    // Hard gate: decisionMatch must be true. If true, check substantive (if provided).
+    const passed = decisionMatch && (obj.substantive === undefined ? true : substantive);
+    return { passed, decisionMatch, ...(obj.substantive !== undefined ? { substantive } : {}), reason };
+  } catch {
+    return { passed: false, decisionMatch: false, reason: "verdict-alignment judge reply not parseable" };
+  }
+}
+
+/** The VERDICT-ALIGNMENT judge: a FIXED-opus `claude -p` that compares a recorded verdict
+ *  (ground truth from the canonical navigator) against a candidate verdict from a review or
+ *  reflect turn. Decisions must align (hard gate); substance is checked when decisions match.
+ *  Fail-safe: unparseable or mismatched decisions always fail. */
+export function makeVerdictAlignmentJudge(opts: { cwd: string }): (args: { recordedVerdict: VerdictOutput; candidateVerdict: VerdictOutput; kind: "review" | "reflect" }) => Promise<VerdictAlignmentOutcome> {
+  return ({ recordedVerdict, candidateVerdict, kind }) =>
+    spawnOpusJudge(
+      opts.cwd,
+      buildVerdictAlignmentJudgePrompt(recordedVerdict, candidateVerdict, kind),
+      parseVerdictAlignmentReply,
+      (msg) => ({ passed: false, decisionMatch: false, reason: msg }),
+    );
+}

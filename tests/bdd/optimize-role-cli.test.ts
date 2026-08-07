@@ -1,11 +1,12 @@
-// optimize-role CLI arg parsing + chain-set expansion: --chains is a SET keyword (design) or a
-// comma list of handles; --role is the back-compat single-chain alias; --concurrency caps in-flight
-// candidates. The live run itself (runOptimizeRole) spawns real agents, so it is exercised by the
-// gated live sweep, not here , this pins only the pure parser + expander.
+// optimize-role CLI arg parsing + chain-set expansion: --chains is a SET keyword (design or
+// navigator) or a comma list of handles; --role is the back-compat single-chain alias;
+// --concurrency caps in-flight candidates. The live run itself (runOptimizeRole) spawns real
+// agents, so it is exercised by the gated live sweep, not here; this pins only the parser + expander.
 
 import { describe, it, expect } from "vitest";
 import { parseArgs, expandChains } from "../optimization/optimize-role.cli";
 import { ROLE_CHAINS } from "../../consort/optimize/role-chains";
+import { BUILD_ROLE_CHAINS } from "../../consort/optimize/build-role-chains";
 
 describe("optimize-role expandChains", () => {
   it("expands the 'design' set to EVERY design role chain", () => {
@@ -14,6 +15,15 @@ describe("optimize-role expandChains", () => {
     expect(handles).toContain("spec-author-story");
     expect(handles).toContain("test-strategist");
     expect(handles).toContain("ux-designer");
+  });
+
+  it("expands the 'navigator' set to EVERY navigator build chain", () => {
+    const handles = expandChains("navigator");
+    expect(handles).toEqual(Object.keys(BUILD_ROLE_CHAINS));
+    expect(handles).toContain("navigator-red");
+    expect(handles).toContain("navigator-assess");
+    expect(handles).toContain("navigator-review");
+    expect(handles).toContain("navigator-reflect");
   });
 
   it("expands a comma list of handles, de-duping while preserving order", () => {

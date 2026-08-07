@@ -1,0 +1,32 @@
+{
+  "id": "navigator-reflect-chain-live",
+  "role": "navigator",
+  "match": { "kind": "invoke-role", "role": "navigator", "story": "S3-stock-shows-split-fields", "buildMode": "reflect" },
+  "inputs": [
+    { "id": "test-list", "source": "feature:.consort/features/F6-split-tracking-code/test-list.json", "description": "The test-list spec for coverage + implementation completeness." },
+    { "id": "architecture", "source": "feature:.consort/features/F6-split-tracking-code/architecture.json", "description": "The architect's contract for design alignment." },
+    { "id": "db-design", "source": "feature:.consort/features/F6-split-tracking-code/db-design.json", "description": "The DB schema design for implementation fidelity." },
+    { "id": "ac", "source": "feature:.consort/features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/acs/AC1-split-fields-shown.json", "description": "The story AC for acceptance-criteria completeness." }
+  ],
+  "preconditions": [
+    { "id": "reflect-context", "kind": "context-pack", "description": "The complete design context (spec + architecture + schema + conventions + design guide) for reflect evaluation." }
+  ],
+  "outputs": [
+    { "id": "reflect-verdict", "filename": "features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/reflect-verdict.json", "validator": "nonEmptyFile", "description": "The Navigator's reflect verdict: {version: 1, passed: bool, findings: [\"<gap or inconsistency>\", ...]}" },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "navigatorLoggedAuthoring", "description": "The Navigator's authoring log." }
+  ],
+  "routing": {
+    "produced": { "next": { "kind": "design-complete" } }
+  },
+  "agentOptions": { "model": "sonnet", "effort": "default", "session": "fresh", "resumeKeyFrom": "role" },
+  "agent": {
+    "kind": "claude",
+    "config": {
+      "role": "navigator",
+      "model": "sonnet",
+      "session": "fresh",
+      "allowedTools": ["Write", "Read", "Grep", "Glob"],
+      "disallowedTools": ["Bash", "WebFetch", "WebSearch", "Task"]
+    }
+  }
+}

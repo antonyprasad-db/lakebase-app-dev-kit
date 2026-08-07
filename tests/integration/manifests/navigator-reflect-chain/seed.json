@@ -1,0 +1,34 @@
+{
+  "id": "navigator-reflect-chain-seed",
+  "role": "product-owner",
+  "match": { "kind": "invoke-role", "role": "product-owner", "mode": "author-requests" },
+  "inputs": [],
+  "outputs": [
+    { "id": "test-list", "filename": ".consort/features/F6-split-tracking-code/test-list.json", "validator": "testListConformant", "description": "The test-list spec the Navigator reflects against for coverage completeness." },
+    { "id": "architecture", "filename": ".consort/features/F6-split-tracking-code/architecture.json", "validator": "architectureConformant", "description": "The architect contract for design compliance." },
+    { "id": "db-design", "filename": ".consort/features/F6-split-tracking-code/db-design.json", "validator": "dbDesignConformant", "description": "The schema design for DB alignment." },
+    { "id": "ac", "filename": ".consort/features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/acs/AC1-split-fields-shown.json", "validator": "acConformant", "description": "The story AC whose design defines reflect completeness." },
+    { "id": "conventions", "filename": ".consort/architecture/conventions.json", "validator": "nonEmptyFile", "description": "The module-layout projection for naming + structure review." },
+    { "id": "design-guide", "filename": ".consort/design/design-guide.json", "validator": "nonEmptyFile", "description": "Design tokens + visual convention for UI completeness check." },
+    { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "productOwnerLoggedAuthoring", "description": "The replay seed's authoring log." }
+  ],
+  "routing": {
+    "produced": { "next": { "kind": "invoke-role", "role": "navigator", "story": "S3-stock-shows-split-fields", "buildMode": "reflect" } }
+  },
+  "agentOptions": { "session": "fresh", "resumeKeyFrom": "none" },
+  "agent": {
+    "kind": "replay",
+    "config": {
+      "role": "product-owner",
+      "seeds": [
+        { "outputId": "final-code", "kind": "tree", "from": "recorded-build/features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/turns/001-navigator-reflect/code", "to": "." },
+        { "outputId": "test-list", "from": "recorded-artifacts/features/F6-split-tracking-code/test-list.json", "to": ".consort/features/F6-split-tracking-code/test-list.json" },
+        { "outputId": "architecture", "from": "recorded-artifacts/features/F6-split-tracking-code/architecture.json", "to": ".consort/features/F6-split-tracking-code/architecture.json" },
+        { "outputId": "db-design", "from": "recorded-artifacts/features/F6-split-tracking-code/db-design.json", "to": ".consort/features/F6-split-tracking-code/db-design.json" },
+        { "outputId": "ac", "from": "recorded-artifacts/features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/acs/AC1-split-fields-shown.json", "to": ".consort/features/F6-split-tracking-code/stories/S3-stock-shows-split-fields/acs/AC1-split-fields-shown.json" },
+        { "outputId": "conventions", "from": "recorded-artifacts/architecture/conventions.json", "to": ".consort/architecture/conventions.json" },
+        { "outputId": "design-guide", "from": "recorded-artifacts/design/design-guide.json", "to": ".consort/design/design-guide.json" }
+      ]
+    }
+  }
+}
