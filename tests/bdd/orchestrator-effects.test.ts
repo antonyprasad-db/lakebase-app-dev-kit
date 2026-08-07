@@ -306,6 +306,23 @@ describe("commandsForAction: invoke-role -> claude", () => {
     expect(author.some((c) => (c as { kind?: string }).kind === "claude")).toBe(false);
   });
 
+  it("author-requests scopes supply-requests + sync-backlog to cfg.sprintName (so the deriver reads the SAME sprint's backlog)", () => {
+    // J2 planning stall: author-requests writes backlog.json under `cfg.sprintName ?? "sprint"`,
+    // but deriveSprintPlanningState reads the backlog for the REAL --sprint name. If drivePlanning
+    // leaves sprintName unset, the perform writes sprint "sprint" while the deriver reads e.g.
+    // "stockflow-rerecord-s1" => empty backlog => requestsAuthored stays false => the loop re-derives
+    // author-requests => DRIVER STALL. The two must agree: when sprintName is set, BOTH the
+    // supply-requests and the sync-backlog carry it (this pins the perform side; drive.cli must set it).
+    const author = commandsForAction(
+      { kind: "invoke-role", role: "product-owner", mode: "author-requests" },
+      cfg({ sprintName: "stockflow-rerecord-s1" }),
+    );
+    const supply = author[0] as { args: string[] };
+    expect(supply.args).toContain("--sprint");
+    expect(supply.args[supply.args.indexOf("--sprint") + 1]).toBe("stockflow-rerecord-s1");
+    expect(author[1]).toMatchObject({ kind: "sync-backlog", sprint: "stockflow-rerecord-s1" });
+  });
+
   it("spec-author breakdown resets partial state, then seeds the pipeline (reset + claude + verify-artifact + sync-breakdown)", () => {
     const cmds = commandsForAction({ kind: "invoke-role", role: "spec-author", mode: "breakdown" }, cfg());
     // [reset-breakdown (FEIP-8024), claude, verify-artifact (FEIP-8006 out-of-root

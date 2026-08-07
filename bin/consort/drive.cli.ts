@@ -382,6 +382,14 @@ async function runSprintMode(args: ParsedArgs): Promise<number> {
     async drivePlanning() {
       const cfg = buildCfg(args, "");
       cfg.runner = execRunner(cfg);
+      // Scope the planning primitives to THIS sprint. author-requests emits
+      // supply-requests + sync-backlog keyed on `cfg.sprintName ?? "sprint"`, and the plan gate
+      // reads it too; deriveSprintPlanningState (readState / readFreshDriveState below) reads the
+      // backlog for `sprint`. If sprintName is unset, the perform writes backlog.json under the
+      // "sprint" FALLBACK while the deriver reads <sprint> => empty backlog => requestsAuthored
+      // never flips => the loop re-derives author-requests => DRIVER STALL (the J2 planning stall).
+      // Set it to the real --sprint so both sides agree.
+      cfg.sprintName = sprint;
       snapshotRunConfig(cfg, "plan", gates);
       // Build effects via buildDriveEffects so the PLANNING lane gets the SAME executor path the
       // feature drive has: its performViaExecutor dispatches the planning AGENT turns (spec-author
