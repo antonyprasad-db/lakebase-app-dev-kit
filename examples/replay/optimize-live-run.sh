@@ -115,24 +115,25 @@ done
 # its reference, results land directly in the committed corpus (--results-dir). The
 # drive --sweep-lane path below is the back-compat scaffolded route (design + build).
 if [[ -n "$CHAINS" ]]; then
-  RESULTS_DIR="${RESULTS_DIR:-${ROOT}/optimize-results}"
-  STAMP="$(date +%Y%m%d-%H%M%S)"
-  RUN_DIR="${RESULTS_DIR}/chains-${STAMP}"
+  # Results land in the VISIBLE, git-tracked corpus examples/replay/optimize-results/runs/<stamp>/
+  # (the CLI's own default , do NOT pass --telemetry-dir, so the CLI also picks the newest prior run
+  # as the BASELINE and prints a per-chain delta). Runs accumulate under runs/; a summary.json per
+  # chain makes them durable + diffable.
   if [[ -n "$DRY_RUN" ]]; then
     echo "[optimize-live-run] DRY RUN , lean chain sweep"
     echo "  chains       : ${CHAINS}"
     echo "  concurrency  : ${CONCURRENCY}"
     echo "  trials/cand  : (per-candidate single run; the chain sweep measures 1 trial per candidate)"
-    echo "  results dir  : ${RUN_DIR}"
-    echo "  command      : scripts/optimize-role.sh --chains ${CHAINS} --concurrency ${CONCURRENCY} --telemetry-dir ${RUN_DIR}"
+    echo "  results dir  : examples/replay/optimize-results/runs/<timestamp>/ (visible + committed; summary.json per chain)"
+    echo "  baseline     : the newest prior run under runs/ (delta printed per chain)"
+    echo "  command      : scripts/optimize-role.sh --chains ${CHAINS} --concurrency ${CONCURRENCY}"
     echo "  (design + navigator chains are LEAN , no scaffold, no cloud. driver chains need Stage 4 + cloud.)"
     exit 0
   fi
-  echo "[optimize-live-run] lean chain sweep: chains='${CHAINS}' concurrency=${CONCURRENCY} -> ${RUN_DIR}" >&2
-  mkdir -p "$RUN_DIR"
+  echo "[optimize-live-run] lean chain sweep: chains='${CHAINS}' concurrency=${CONCURRENCY} -> examples/replay/optimize-results/runs/<timestamp>/" >&2
   # The ONE chain-sweep door (scripts/optimize-role.sh runs the built dist CLI). Every chain seeds +
-  # judges against its recorded reference; the CLI writes per-chain evidence + a rollup.txt into RUN_DIR.
-  exec bash "${KIT_ROOT}/scripts/optimize-role.sh" --chains "$CHAINS" --concurrency "$CONCURRENCY" --telemetry-dir "$RUN_DIR"
+  # judges against its recorded reference; the CLI writes per-chain summary.json + evidence + rollup.
+  exec bash "${KIT_ROOT}/scripts/optimize-role.sh" --chains "$CHAINS" --concurrency "$CONCURRENCY"
 fi
 
 [[ -n "$SCENARIO" ]] || { echo "optimize-live-run: --scenario is required" >&2; exit 2; }

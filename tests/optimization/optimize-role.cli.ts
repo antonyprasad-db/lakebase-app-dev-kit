@@ -23,7 +23,7 @@
 // the agent-report channel, in a throwaway .sftdd workspace , nothing to tear down.
 
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { ROLE_CHAINS, runRoleChainLive, INTAKE_REL, type RoleChain } from "../../consort/optimize/role-chains.js";
 import { roleCandidates, testStrategistCandidates } from "./role-levers.js";
@@ -111,7 +111,7 @@ function baseModelFor(role: string, override?: string): string {
 export async function sweepOneChain(
   handle: string,
   runRoot: string,
-  opts: { baseModel?: string; concurrency?: number } = {},
+  opts: { baseModel?: string; concurrency?: number; baselineDir?: string } = {},
 ): Promise<SweepReport> {
   const chain = ROLE_CHAINS[handle];
   const baseModel = baseModelFor(handle, opts.baseModel);
@@ -168,9 +168,72 @@ export async function sweepOneChain(
   const report = reportRoleSweep(trials);
   // Write the report itself into the chain's run dir , the run's own summary lives with its evidence.
   writeFileSync(join(runDir, "report.txt"), formatRoleSweepReport(report) + "\n");
+
+  // Write a machine-readable summary.json (winner + per-candidate median/gate) in the SAME shape the
+  // committed design-lane corpus (examples/replay/optimize-results/<handle>/summary.json) uses, so a
+  // run is durable + diffable. When a PRIOR summary exists for this chain (a baseline / last run),
+  // print the delta so "repeat + compare" is a first-class output, not a manual diff.
+  const summary = buildChainSummary(handle, baseModel, trials, report);
+  const prior = opts.baselineDir ? readPriorSummary(opts.baselineDir, handle) : undefined;
+  writeFileSync(join(runDir, "summary.json"), JSON.stringify(summary, null, 2) + "\n");
+
   // eslint-disable-next-line no-console
   console.log(`\n[${handle}]\n` + formatRoleSweepReport(report));
+  if (prior) {
+    // eslint-disable-next-line no-console
+    console.log(formatBaselineDelta(handle, prior, summary));
+  }
   return report;
+}
+
+/** One chain's durable summary , winner + per-candidate median ms / gate / quality. Mirrors the
+ *  committed examples/replay/optimize-results/<handle>/summary.json shape so both corpora are diffable. */
+interface ChainSummary {
+  chain: string;
+  baseModel: string;
+  winner: string | null;
+  baselineMs: number | null;
+  capturedAt: string;
+  candidates: Array<{ candidate: string; gatePassed: boolean; qualityPassed?: boolean; medianMs: number | null; disqualified?: boolean }>;
+}
+
+function buildChainSummary(handle: string, baseModel: string, trials: SweepTrial[], report: ReturnType<typeof reportRoleSweep>): ChainSummary {
+  return {
+    chain: handle,
+    baseModel,
+    winner: report.winner?.candidateId ?? null,
+    baselineMs: report.baselineMs ?? null,
+    capturedAt: new Date().toISOString(),
+    candidates: trials.map((t) => ({
+      candidate: t.candidateId,
+      gatePassed: t.gatePassed,
+      ...(t.qualityPassed !== undefined ? { qualityPassed: t.qualityPassed } : {}),
+      medianMs: t.telemetry?.outerDurationMs ?? null,
+      ...(t.disqualified ? { disqualified: true } : {}),
+    })),
+  };
+}
+
+/** Read a prior run's summary.json for a chain (the baseline to compare against), if present. */
+function readPriorSummary(baselineDir: string, handle: string): ChainSummary | undefined {
+  const p = join(baselineDir, handle, "summary.json");
+  if (!existsSync(p)) return undefined;
+  try {
+    return JSON.parse(readFileSync(p, "utf8")) as ChainSummary;
+  } catch {
+    return undefined;
+  }
+}
+
+/** A human delta line comparing this run's summary to a prior one: winner change + baseline wall-clock drift. */
+function formatBaselineDelta(handle: string, prior: ChainSummary, now: ChainSummary): string {
+  const winnerChange = prior.winner === now.winner ? `winner unchanged (${now.winner ?? "none"})` : `winner CHANGED: ${prior.winner ?? "none"} -> ${now.winner ?? "none"}`;
+  const ms = (v: number | null) => (v == null ? "?" : `${(v / 1000).toFixed(1)}s`);
+  const drift =
+    prior.baselineMs != null && now.baselineMs != null
+      ? ` , baseline ${ms(prior.baselineMs)} -> ${ms(now.baselineMs)} (${(((now.baselineMs - prior.baselineMs) / prior.baselineMs) * 100).toFixed(0)}%)`
+      : "";
+  return `[compare] ${handle}: ${winnerChange}${drift} , prior run ${prior.capturedAt}`;
 }
 
 /** Run the sweep for EVERY requested chain, each standalone against its reference example, and
@@ -178,16 +241,24 @@ export async function sweepOneChain(
  *  sequence; each chain's candidates fan out under `concurrency` (a global cap , the chains do not
  *  overlap, so N concurrency is N in-flight candidates at any moment). */
 export async function runOptimizeRole(args: OptimizeRoleArgs): Promise<Record<string, SweepReport>> {
-  const runRoot = args.telemetryDir ?? join(process.cwd(), ".role-telemetry", `sweep-${args.chains.join("+").slice(0, 40)}-${runStamp()}`);
+  // Results land in the VISIBLE, git-tracked corpus (examples/replay/optimize-results/), NOT a hidden
+  // dir , so a run is durable + reviewable + diffable. Each run gets a timestamped subdir under runs/
+  // so prior runs accumulate; the newest prior run (if any) is the BASELINE this run's summary.json is
+  // compared against + a delta printed. Override with --telemetry-dir for an ad-hoc scratch run.
+  const resultsHome = join(process.cwd(), "examples/replay/optimize-results");
+  const runsDir = join(resultsHome, "runs");
+  const baselineDir = latestRunDir(runsDir); // the most recent prior run, or undefined on the first
+  const runRoot = args.telemetryDir ?? join(runsDir, runStamp());
   mkdirSync(runRoot, { recursive: true });
   // eslint-disable-next-line no-console
-  console.log(`[optimize-role] sweeping ${args.chains.length} chain(s): ${args.chains.join(", ")} , run root ${runRoot}`);
+  console.log(`[optimize-role] sweeping ${args.chains.length} chain(s): ${args.chains.join(", ")} , run root ${runRoot}${baselineDir ? ` (baseline: ${baselineDir})` : " (no prior run , this is the baseline)"}`);
 
   const reports: Record<string, SweepReport> = {};
   for (const handle of args.chains) {
     reports[handle] = await sweepOneChain(handle, runRoot, {
       ...(args.baseModel ? { baseModel: args.baseModel } : {}),
       ...(args.concurrency ? { concurrency: args.concurrency } : {}),
+      ...(baselineDir ? { baselineDir } : {}),
     });
   }
 
@@ -210,6 +281,15 @@ export async function runOptimizeRole(args: OptimizeRoleArgs): Promise<Record<st
 /** A compact UTC run stamp so repeat sweeps land in distinct, non-clobbering dirs. */
 function runStamp(): string {
   return new Date().toISOString().replace(/[-:T]/g, "").slice(0, 15); // YYYYMMDDHHMMSS-ish
+}
+
+/** The most recent prior run dir under runs/ (the baseline this run compares against), or undefined
+ *  on the first-ever run. Run dirs are timestamp-named (runStamp), so lexical max = newest. */
+function latestRunDir(runsDir: string): string | undefined {
+  if (!existsSync(runsDir)) return undefined;
+  const dirs = readdirSync(runsDir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort();
+  const newest = dirs[dirs.length - 1];
+  return newest ? join(runsDir, newest) : undefined;
 }
 
 /** The recorded baseline artifact the quality gate scores a candidate against: the role's

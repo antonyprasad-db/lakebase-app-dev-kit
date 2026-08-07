@@ -24,3 +24,30 @@ tier (opus→sonnet→haiku), cheaper effort rungs (low, medium), the model×eff
 cross at low, and a hard scan-tighten (deny Grep/Glob). Fastest gate-passing wins;
 its artifacts advance to the next role. Winners applied to the kit are noted in
 each `summary.json` and the kit commit log.
+
+## Chain-sweep runs (`runs/`) — repeat + compare
+
+The per-CHAIN lever sweep (`scripts/optimize-role.sh --chains <set|list>`, or
+`examples/replay/optimize-live-run.sh --chains …`) writes each run to a
+timestamped subdir here:
+
+```
+optimize-results/
+  runs/
+    <YYYYMMDDHHMMSS>/            one run
+      rollup.txt                 one winner line per chain
+      <chain>/
+        summary.json             winner + per-candidate median ms / gate / quality
+        report.txt               the ranked report
+        <candidate>/             telemetry.json + artifacts/ + replay.json
+```
+
+**Repeat the experiment:** just run `--chains <set>` again. Each run lands in a new
+`runs/<timestamp>/` (prior runs are never clobbered).
+
+**Compare against a baseline / prior run:** the CLI automatically picks the **newest
+prior run under `runs/`** as the baseline and prints a per-chain delta
+(`[compare] <chain>: winner unchanged/CHANGED … baseline <ms> -> <ms>`). To pin a
+specific baseline, keep its `runs/<timestamp>/` dir committed; to diff by hand,
+`diff` two `summary.json` files. `summary.json` is the durable, diffable record —
+same shape as the design-lane `<handle>/summary.json` above.

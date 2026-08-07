@@ -118,7 +118,12 @@ export function roleCandidates(baseModel: string, caps: RoleSweepCapabilities = 
  *   - a-all-low          : every enabled analyst at effort low (fastest; does coverage survive?)
  *   - a-cheap-hold-fit   : behavior (+client) haiku/low, fitness held sonnet/high (the headline lever)
  *   - a-fitness-low      : drop fitness to low effort (probe: is fitness's high effort load-bearing?)
- * `enabledKinds` filters each permutation to the project's analysts (no client override on a
+ * PLUS the SUPERVISOR's own levers (the reconcile/assemble turn, distinct from the analysts):
+ *   - s-low              : supervisor effort low, analysts baseline
+ *   - s-haiku            : supervisor on haiku, analysts baseline
+ *   - s-low+a-all-low    : supervisor lean AND analysts at the winning lever (effort=low)
+ *   - s-haiku+a-all-low  : cheapest end to end (supervisor haiku/low + all analysts low)
+ * `enabledKinds` filters each analyst permutation to the project's analysts (no client override on a
  * no-frontend project). Ids are stable + filesystem-safe.
  */
 export function testStrategistCandidates(enabledKinds: string[]): RoleCandidate[] {
@@ -148,6 +153,18 @@ export function testStrategistCandidates(enabledKinds: string[]): RoleCandidate[
   });
   // Probe whether fitness's high effort is load-bearing: drop ONLY fitness to low.
   if (has("fitness")) out.push({ id: "a-fitness-low", levers: { analystOverrides: pick({ fitness: { effort: "low" } }) } });
+
+  // ── SUPERVISOR levers (the reconciler/assembler turn itself, distinct from the analysts) ──
+  // The supervisor's OWN model/effort ride RoleLeverPatch.model/effort (agentForCandidate applies
+  // them to the live test-strategist manifest). It does NOT author test items , it spawns analysts,
+  // reconciles their slices, orders the master, assigns T-ids , so a leaner supervisor may hold
+  // quality while cutting the reconcile wall-clock. Swept ALONE and COMBINED with the analysts pinned
+  // at the winning lever (effort=low), to see if a lean supervisor ATOP optimized analysts still holds.
+  const analystsLow = pick({ behavior: { effort: "low" }, fitness: { effort: "low" }, client: { effort: "low" } });
+  out.push({ id: "s-low", levers: { effort: "low" } }); // supervisor effort low, analysts baseline
+  out.push({ id: "s-haiku", levers: { model: "haiku" } }); // supervisor on haiku, analysts baseline
+  out.push({ id: "s-low+a-all-low", levers: { effort: "low", analystOverrides: analystsLow } }); // both lean
+  out.push({ id: "s-haiku+a-all-low", levers: { model: "haiku", effort: "low", analystOverrides: analystsLow } }); // cheapest end to end
 
   return out;
 }

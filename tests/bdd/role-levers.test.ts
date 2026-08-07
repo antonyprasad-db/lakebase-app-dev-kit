@@ -80,14 +80,32 @@ describe("testStrategistCandidates: per-analyst SUBAGENT lever permutations (sup
     expect(cs[0].levers.analystOverrides).toBeUndefined();
   });
 
-  it("every non-baseline candidate carries analystOverrides (never a supervisor model/effort patch)", () => {
+  it("analyst candidates (a-*) carry analystOverrides + NO supervisor patch; supervisor candidates (s-*) carry a supervisor model/effort patch", () => {
     const cs = testStrategistCandidates(["behavior", "fitness"]);
     for (const c of cs.slice(1)) {
-      expect(c.levers.analystOverrides, `${c.id} has analystOverrides`).toBeDefined();
-      // The supervisor's OWN model/effort is never the lever , only the per-analyst overrides.
-      expect(c.levers.model).toBeUndefined();
-      expect(c.levers.effort).toBeUndefined();
+      if (c.id.startsWith("a-")) {
+        // Pure analyst-lever candidates: only the per-analyst overrides, supervisor untouched.
+        expect(c.levers.analystOverrides, `${c.id} has analystOverrides`).toBeDefined();
+        expect(c.levers.model, `${c.id} no supervisor model`).toBeUndefined();
+        expect(c.levers.effort, `${c.id} no supervisor effort`).toBeUndefined();
+      } else if (c.id.startsWith("s-")) {
+        // Supervisor-lever candidates: the supervisor's OWN model/effort is patched (may ALSO pin analysts).
+        expect(c.levers.model !== undefined || c.levers.effort !== undefined, `${c.id} patches the supervisor`).toBe(true);
+      }
     }
+  });
+
+  it("sweeps the SUPERVISOR itself , alone AND combined with the winning analyst lever (effort=low)", () => {
+    const cs = testStrategistCandidates(["behavior", "fitness", "client"]);
+    const sLow = cs.find((c) => c.id === "s-low")!;
+    expect(sLow.levers.effort).toBe("low");
+    expect(sLow.levers.analystOverrides).toBeUndefined(); // supervisor-only
+    const combined = cs.find((c) => c.id === "s-low+a-all-low")!;
+    expect(combined.levers.effort).toBe("low"); // supervisor lean
+    expect(combined.levers.analystOverrides!.fitness).toEqual({ effort: "low" }); // AND analysts pinned at the winner
+    const cheapest = cs.find((c) => c.id === "s-haiku+a-all-low")!;
+    expect(cheapest.levers.model).toBe("haiku");
+    expect(cheapest.levers.analystOverrides!.behavior).toEqual({ effort: "low" });
   });
 
   it("filters overrides to ENABLED kinds only (a no-frontend project never gets a client override)", () => {
@@ -109,7 +127,7 @@ describe("testStrategistCandidates: per-analyst SUBAGENT lever permutations (sup
 
   it("is BOUNDED (a targeted set, not the full model^kinds x effort cartesian product)", () => {
     const cs = testStrategistCandidates(["behavior", "fitness", "client"]);
-    expect(cs.length).toBeLessThanOrEqual(8); // baseline + a handful of targeted permutations
+    expect(cs.length).toBeLessThanOrEqual(12); // baseline + ~5 analyst permutations + 4 supervisor permutations
     // ids are unique.
     expect(new Set(cs.map((c) => c.id)).size).toBe(cs.length);
   });

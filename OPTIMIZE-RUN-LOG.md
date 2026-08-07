@@ -8,6 +8,14 @@ Branch: `fix/headless-permission-mode-acceptedits`. LOCAL only; nothing pushed.
 
 ---
 
+## Chain inventory decisions (what IS and ISN'T a sweepable chain)
+
+- **Plan lane:** the two DISTINCT agent turns , `spec-author-propose` and `architect-estimator` (estimate) , ARE swept (design set). `author-requests` / `gate-plan` / `planning-complete` are deterministic substrate (no agent), correctly not swept.
+- **`estimate-committed` , NOT a separate chain.** It's the SAME architect-reviewer role in a different mode (turn-key.ts collapses both modes to "estimate"); the only difference from plain estimate is scope (sizes committed F-ids + merges vs. candidate FPs). No specialized agent role => no shipped manifest, no separate optimize chain , its lever space is identical to architect-estimator (already swept, winner e-low -23%). (Considered adding a manifest + executor migration; backed out per "no specialized role => not a manifest".)
+- **uiTrack FIX VALIDATED (the client-analyst gap):** the test-strategist rerun with uiTrack ON now produces CLIENT test items (baseline 6 behavior / 7 client / 15 fitness; a-all-low 5/10/16) where the uiTrack-off run had ZERO client items. All three analysts participate + the output is comparable to the client-containing reference. uiTrack now defaults ON everywhere (commit 88fd4510).
+
+---
+
 ## Stage 0 — parallelize the chain-sweep engine (hermetic) ✓ DONE
 
 - Commit `5539d523`. `runRoleSweep` gained `concurrency` (default 1 = prior sequential path, byte-identical); >1 fans candidates out over `runExperimentsInParallel`.
