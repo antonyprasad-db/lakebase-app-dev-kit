@@ -103,6 +103,22 @@ describe("expectationFor: each role handoff declares its non-null return contrac
     expect(arch.satisfiedBy(baseState())).toBe(true);
   });
 
+  it("architect-reviewer PLANNING modes (estimate + estimate-committed) expect a t-shirt size, NOT per-AC design notes", () => {
+    // Regression (J2 planning drive): estimate-committed is a sprint-scoped PLANNING turn (no story)
+    // that writes planning/estimates.json. It must inherit the ESTIMATE expectation (satisfied by
+    // planning.estimated), not the per-story DESIGN expectation , else the ledger fails it right after
+    // the plan gate (it wrote no ACs) and aborts the planning drive.
+    for (const mode of ["estimate", "estimate-committed"]) {
+      const exp = expectationFor({ kind: "invoke-role", role: "architect-reviewer", mode } as unknown as WorkflowAction)!;
+      expect(exp, `expectationFor architect-reviewer/${mode}`).toBeTruthy();
+      expect(exp.expected).toBe("a t-shirt size estimate");
+      const estimated = baseState(); estimated.planning = { proposed: true, estimated: true, requestsAuthored: true };
+      const notYet = baseState(); notYet.planning = { proposed: true, estimated: false, requestsAuthored: true };
+      expect(exp.satisfiedBy(estimated), `${mode} satisfied when planning.estimated`).toBe(true);
+      expect(exp.satisfiedBy(notYet), `${mode} unmet when not estimated`).toBe(false);
+    }
+  });
+
   it("architect-reviewer's hand-back names the per-AC architectural_notes gap (the S2 abort: architecture.json already existed from S1)", () => {
     // Regression: architectAnnotated requires architectural_notes on EVERY AC, but
     // the directive only emphasized the feature-level architecture.json. On S2 that

@@ -130,7 +130,12 @@ export function expectationFor(action: WorkflowAction): Handoff | null {
   if (responder === "spec-author") {
     return { ...base, expected: "drafted acceptance criteria (non-empty)", satisfiedBy: (s) => storyView(s)?.design.hasAcs === true };
   }
-  if (responder === "architect-reviewer" && "mode" in action && action.mode === "estimate") {
+  // PLANNING-mode architect turns (estimate + estimate-committed) produce t-shirt sizes in
+  // planning/estimates.json , NOT per-AC design notes. They are sprint-scoped (no story), so they
+  // must NOT inherit the per-story DESIGN expectation below (layer/NFR-annotated ACs), or the ledger
+  // fails them right after the plan gate (the estimate turn wrote no ACs) and aborts the planning
+  // drive. estimate-committed re-sizes the committed features, still satisfied by planning.estimated.
+  if (responder === "architect-reviewer" && "mode" in action && (action.mode === "estimate" || action.mode === "estimate-committed")) {
     return { ...base, expected: "a t-shirt size estimate", satisfiedBy: (s) => s.planning?.estimated === true };
   }
   if (responder === "architect-reviewer") {
