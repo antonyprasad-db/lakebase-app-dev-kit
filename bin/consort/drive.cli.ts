@@ -383,13 +383,16 @@ async function runSprintMode(args: ParsedArgs): Promise<number> {
       const cfg = buildCfg(args, "");
       cfg.runner = execRunner(cfg);
       snapshotRunConfig(cfg, "plan", gates);
+      // Build effects via buildDriveEffects so the PLANNING lane gets the SAME executor path the
+      // feature drive has: its performViaExecutor dispatches the planning AGENT turns (spec-author
+      // propose, architect estimate , both executor-allowlisted + manifested) through the StepExecutor,
+      // while its perform runs the deterministic planning primitives (author-requests, sync-backlog,
+      // estimate-committed, the plan gate). Only readState differs from a feature drive , override it
+      // with the sprint-planning deriver.
       const planning: DriveEffects = {
+        ...buildDriveEffects(cfg),
         // Sizing is ON by default; --no-sizing (or config plan.sizing:false) opts out.
         readState: async () => deriveSprintPlanningState(consortDir, sprint, { skipSizing }),
-        async perform(action) {
-          for (const cmd of commandsForAction(action, cfg)) await cfg.runner.run(cmd);
-        },
-        onAction: cfg.onAction,
       };
       const base = driverBoundOptions("plan");
       const r = await runDriver(withTurnRecording(planning, cfg), {
