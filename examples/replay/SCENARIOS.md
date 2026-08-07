@@ -44,7 +44,7 @@ examples/replay/capture-scenario.sh \
   --scenario <name> --project-dir <live-project> --feature F1-... [--feature F6-...]
 ```
 
-It sets `LAKEBASE_SFTDD_RECORD_DIR` + `LAKEBASE_SFTDD_RECORD_BUILD_DIR` into the
+It sets `LAKEBASE_CONSORT_RECORD_DIR` + `LAKEBASE_CONSORT_RECORD_BUILD_DIR` into the
 scenario dir (the kit recorder, `scripts/sftdd/turn-recorder.ts`, writes every
 state-machine turn), then reconstitutes the agent-log onto the recorded timeline.
 Author `scenario.json`, then commit the corpus.

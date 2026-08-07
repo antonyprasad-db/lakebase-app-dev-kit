@@ -7,8 +7,8 @@
 #
 # It is a thin wrapper around the kit drive (consort-drive) with the
 # recorder env pointed at the scenario dir:
-#   LAKEBASE_SFTDD_RECORD_DIR        = <scenario>/            (turns/ + recorded-artifacts/)
-#   LAKEBASE_SFTDD_RECORD_BUILD_DIR  = <scenario>/recorded-build
+#   LAKEBASE_CONSORT_RECORD_DIR        = <scenario>/            (turns/ + recorded-artifacts/)
+#   LAKEBASE_CONSORT_RECORD_BUILD_DIR  = <scenario>/recorded-build
 # The recorder (scripts/sftdd/turn-recorder.ts) writes every state-machine turn;
 # at the end the agent-log is reconstituted (consort-log --reconstitute).
 #
@@ -288,8 +288,8 @@ if [[ -n "$CREATE" ]]; then
 fi
 
 mkdir -p "$SCEN"
-export LAKEBASE_SFTDD_RECORD_DIR="$SCEN"
-export LAKEBASE_SFTDD_RECORD_BUILD_DIR="${SCEN}/recorded-build"
+export LAKEBASE_CONSORT_RECORD_DIR="$SCEN"
+export LAKEBASE_CONSORT_RECORD_BUILD_DIR="${SCEN}/recorded-build"
 
 cd "$PROJECT_DIR"
 # Pin + verify the project resolves the SAME kit as the orchestrator BEFORE any

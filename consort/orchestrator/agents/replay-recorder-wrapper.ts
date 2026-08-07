@@ -21,9 +21,9 @@ import type { WorkflowAction } from "../workflow/workflow-vocabulary.js";
 
 /** What the recorder decorator needs from the run (the paths the corpus writers key on). */
 export interface RecorderContext {
-  /** LAKEBASE_SFTDD_RECORD_DIR , the corpus root the turns/ timeline is written under. */
+  /** LAKEBASE_CONSORT_RECORD_DIR , the corpus root the turns/ timeline is written under. */
   recordDir: string;
-  /** LAKEBASE_SFTDD_RECORD_BUILD_DIR , the build-corpus root (recorded-build/); when set, a
+  /** LAKEBASE_CONSORT_RECORD_BUILD_DIR , the build-corpus root (recorded-build/); when set, a
    *  navigator/driver turn also snapshots its code tree there. Absent => design-only recording. */
   recordBuildDir?: string;
   /** The project working tree root. */

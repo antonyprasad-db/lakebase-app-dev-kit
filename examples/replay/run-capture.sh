@@ -10,7 +10,7 @@
 # RESUME the SAME run into the live build , one process, so the turn recorder +
 # logs span design and build CONTINUOUSLY (as if there were no pause).
 #
-# Recording: set LAKEBASE_SFTDD_RECORD_DIR to a PERSISTENT path (NOT under the
+# Recording: set LAKEBASE_CONSORT_RECORD_DIR to a PERSISTENT path (NOT under the
 # scaffolded project dir, which is cleaned up). The recorder writes
 #   <RECORD_DIR>/turns/<NNNN>-<label>/   per-turn manifest + .tdd/code delta
 #   <RECORD_DIR>/turns/index.json        the ordered timeline of every turn
@@ -21,7 +21,7 @@
 # ABSENT to HOLD at the navigator gate; write Y to it to RESUME into the build.
 #
 # Usage:
-#   LAKEBASE_SFTDD_RECORD_DIR=<dir> LAKEBASE_SFTDD_GATE_ANSWER_FILE=<file> \
+#   LAKEBASE_CONSORT_RECORD_DIR=<dir> LAKEBASE_SFTDD_GATE_ANSWER_FILE=<file> \
 #     run-capture.sh --tiers 2 [--kit-ref <ref>] [--project-name <n>]
 #                    [--project-dir <dir>] [--feature <id>] [--corpus <dir>]
 # Env: DATABRICKS_HOST, GITHUB_OWNER, a CLI profile (same as run-smoke.sh).

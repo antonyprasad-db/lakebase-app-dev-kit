@@ -34,7 +34,7 @@ import { recordTurn, seedRecorderBaseline } from "../../consort/logging/turn-rec
  *  the fallback for recordWinner's from-restored-state corpus record. Defined at
  *  module top so both makeChampionWalkDeps (recordWinner) and makeLiveSpawnTurn can
  *  reference it (a `const` is not hoisted). */
-const RECORD_DIR_ENV = "LAKEBASE_SFTDD_RECORD_DIR";
+const RECORD_DIR_ENV = "LAKEBASE_CONSORT_RECORD_DIR";
 
 /** Spawn ONE role turn for a candidate (the cloud/model leaf). The real impl runs
  *  the handoff's `claude -p` command through execRunner (applying the candidate's
@@ -306,7 +306,7 @@ export interface LiveDriveSeams {
  *  Recording is gated on the `record` flag , the load-bearing anti-pollution fix.
  *  A champion walk runs N candidates x M TRIALS per handoff; only the WINNER (a
  *  single record:true re-run) may land in the recorded corpus. So this sets
- *  LAKEBASE_SFTDD_RECORD_DIR (which the agent subprocess + the drive recorder read)
+ *  LAKEBASE_CONSORT_RECORD_DIR (which the agent subprocess + the drive recorder read)
  *  ONLY when record is true, and restores the prior env afterward so a winner
  *  capture never leaks recording into the next handoff's trials. A trial
  *  (record:false) runs with the env cleared, so no losing candidate touches the

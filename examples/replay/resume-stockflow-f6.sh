@@ -35,8 +35,8 @@ export GITHUB_OWNER="${GITHUB_OWNER:-${LAKEBASE_TEST_GITHUB_OWNER:-}}"
 
 # --- recording env (IDENTICAL to the original capture) ------------------------
 export LAKEBASE_KIT_DIR="${LAKEBASE_KIT_DIR:-$KIT_ROOT}"          # use the freshly-built dist (mid-turn retry)
-export LAKEBASE_SFTDD_RECORD_DIR="${PARENT}/_capture-stockflow"     # continue the SAME record dir
-export LAKEBASE_SFTDD_RECORD_BUILD_DIR="${LAKEBASE_SFTDD_RECORD_DIR}/recorded-build"
+export LAKEBASE_CONSORT_RECORD_DIR="${PARENT}/_capture-stockflow"     # continue the SAME record dir
+export LAKEBASE_CONSORT_RECORD_BUILD_DIR="${LAKEBASE_CONSORT_RECORD_DIR}/recorded-build"
 export LAKEBASE_SFTDD_REPLAY_DIR="${CORPUS_DIR}"                    # design replays from the corpus
 # (Build cadence is a PROJECT setting: build.loopGranularity in the resumed
 # project's sftdd-config.json, "story" by default. Not an env door.)
@@ -66,4 +66,4 @@ lk consort-log --reconstitute --design-log "${CORPUS_DIR}/agent-log.design.jsonl
   || err "reconstitute-log failed (non-fatal)"
 cp "${SFTDD_DIR}/agent-log.jsonl" "${CORPUS_DIR}/agent-log.jsonl" 2>/dev/null || true
 
-log "✓ stockflow capture (F6) RESUMED + complete. project=$PROJECT_DIR  record=$LAKEBASE_SFTDD_RECORD_DIR"
+log "✓ stockflow capture (F6) RESUMED + complete. project=$PROJECT_DIR  record=$LAKEBASE_CONSORT_RECORD_DIR"

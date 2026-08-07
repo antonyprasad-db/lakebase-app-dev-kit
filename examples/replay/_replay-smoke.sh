@@ -99,14 +99,14 @@ replay_smoke() {
   # below), not an env door. Only the run-mode Human Proxy is env here.
   export LAKEBASE_SFTDD_HUMAN_PROXY=1
 
-  # When recording a run (LAKEBASE_SFTDD_RECORD_DIR set), capture the BUILD corpus
+  # When recording a run (LAKEBASE_CONSORT_RECORD_DIR set), capture the BUILD corpus
   # too, not just the design mirror: default the per-turn build-record dir under
   # the same record root so recordBuildTurn fires for every Navigator/Driver turn.
   # Without this a capture produces recorded-artifacts/ but NOT recorded-build/,
   # so the build-replay (run-to-release-engineer) has nothing to restore. Mirrors
   # run-smoke.sh. Honor an explicit override.
-  if [[ -n "${LAKEBASE_SFTDD_RECORD_DIR:-}" ]]; then
-    export LAKEBASE_SFTDD_RECORD_BUILD_DIR="${LAKEBASE_SFTDD_RECORD_BUILD_DIR:-${LAKEBASE_SFTDD_RECORD_DIR}/recorded-build}"
+  if [[ -n "${LAKEBASE_CONSORT_RECORD_DIR:-}" ]]; then
+    export LAKEBASE_CONSORT_RECORD_BUILD_DIR="${LAKEBASE_CONSORT_RECORD_BUILD_DIR:-${LAKEBASE_CONSORT_RECORD_DIR}/recorded-build}"
   fi
 
   local C='\033[1;34m' R='\033[1;31m' Z='\033[0m'
@@ -210,7 +210,7 @@ replay_smoke() {
   # ─── 4. drive, PAUSE just before the chosen handoff ─
   # By default LAKEBASE_SFTDD_REPLAY_DIR replays each DESIGN-lane role turn from the
   # corpus. With REPLAY_DESIGN=0 the design lane runs LIVE (real role agents) , the
-  # CAPTURE path , and (when LAKEBASE_SFTDD_RECORD_DIR is set) every turn is recorded.
+  # CAPTURE path , and (when LAKEBASE_CONSORT_RECORD_DIR is set) every turn is recorded.
   # Live design needs an approver for its per-story spec/test_list gates: the Human
   # Proxy approves them headless (--gates proxy), the same path run-smoke uses.
   # When REPLAY_BUILD=1 the recorded code tree + GREEN cycles are restored too
@@ -237,7 +237,7 @@ replay_smoke() {
   fi
   local DESIGN_MODE; [[ "${REPLAY_DESIGN:-1}" == "1" ]] && DESIGN_MODE="REPLAYED" || DESIGN_MODE="LIVE (recording)"
   local BUILD_NOTE=""; [[ "$REPLAY_BUILD" == "1" ]] && BUILD_NOTE=" + build RESTORED"
-  log "design ${DESIGN_MODE}${BUILD_NOTE}; pausing at the ${PAUSE_BEFORE} handoff${LAKEBASE_SFTDD_RECORD_DIR:+ (recording -> ${LAKEBASE_SFTDD_RECORD_DIR})}"
+  log "design ${DESIGN_MODE}${BUILD_NOTE}; pausing at the ${PAUSE_BEFORE} handoff${LAKEBASE_CONSORT_RECORD_DIR:+ (recording -> ${LAKEBASE_CONSORT_RECORD_DIR})}"
   lk consort-drive --feature "${FEATURE_ID}" --project-dir "$PROJECT_DIR" --pause-before "$PAUSE_BEFORE" $GATES_FLAG \
     || { err "consort-drive failed for ${FEATURE_ID}"; return 2; }
 

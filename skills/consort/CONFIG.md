@@ -70,7 +70,7 @@ belong in `sftdd-config.json`.
 | Verbose agent | `LAKEBASE_SFTDD_VERBOSE_AGENT` | tee every assistant text delta |
 | Trace | `LAKEBASE_SFTDD_TRACE` | append raw action JSON to drive stderr |
 | Ephemeral verify | `LAKEBASE_SFTDD_EPHEMERAL_VERIFY` | `0` opts out of the disposable-branch verify |
-| Record corpus | `LAKEBASE_SFTDD_RECORD_DIR` / `_RECORD_BUILD_DIR` | per-turn corpus capture |
+| Record corpus | `LAKEBASE_CONSORT_RECORD_DIR` / `_RECORD_BUILD_DIR` | per-turn corpus capture |
 | Replay corpus | `LAKEBASE_SFTDD_REPLAY_DIR` / `_REPLAY_BUILD_DIR` | no-agent replay |
 | Human proxy | `LAKEBASE_SFTDD_HUMAN_PROXY` | consumed agent-side by the command instructions (headless approver) |
 

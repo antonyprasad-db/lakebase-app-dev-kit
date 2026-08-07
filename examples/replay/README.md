@@ -1,194 +1,111 @@
-# End-to-End TDD Workflow Smoke
+# examples/replay/ — replay, capture, and optimize machinery
 
-Drives a real bug-tracker project through 2 evolution iterations (v1..v2),
-grouped into two sprints, to exercise the kit's TDD workflow end to end:
-`/plan` -> `/design` -> `/build` -> `/deploy`, with every HITL gate stood in
-for by the Human Proxy so the smoke runs headless. Closes ("Kit:
-end-to-end [E2E] cycle smoke against a scaffolded project").
+One home for every script that drives a **real** Consort project (scaffold →
+`/plan` → `/design` → `/build` → `/deploy`) against your own Databricks
+workspace + GitHub owner. The machinery lives here; the recorded corpora it
+replays/records live under [`corpora/<name>/`](corpora/) (each a self-contained
+`recorded-artifacts/` design lane + `recorded-build/` build corpus + `turns/`
+timeline + a `scenario.json` manifest). See [`SCENARIOS.md`](SCENARIOS.md) for
+the corpus format and [`CAPTURE-RUNBOOK.md`](CAPTURE-RUNBOOK.md) for capture
+mechanics.
 
-This directory ships with the kit so the smoke is versioned alongside the code
-it tests. The actual scaffold lives outside the kit repo (default:
-`~/code/tdd-workflow-smoke/bug-tracker/`).
+All scripts resolve the kit through the committed `lk` resolver and default to
+**THIS checkout's built `dist/`** (offline, deterministic) unless you pass
+`--kit-ref <ref>`. All are **full cloud**: they scaffold a real repo + runner +
+Lakebase project. Provide `DATABRICKS_HOST` (or a CLI profile) + `GITHUB_OWNER`,
+or let a launcher source them from `.env.local.test.config`.
 
-**Scope.** This smoke validates the TDD workflow. The SCM workflow CLIs
-(`lakebase-scm-prepare-pr` / `wait-ci` / `merge --wait-migrate`) are tested
-separately by `tests/integration/scm-workflow-e2e-live.test.ts` (discovered by
-`scripts/run-all-live-tests.sh`). Iterations stay local (never merged to main);
-the next iteration abandons the prior feature so the SCM state machine allows a
-fresh claim. The legacy `--fast` / `--standard` / `--full` flags are
-accepted-but-ignored.
+## The scripts, by job
 
-## What this proves
-
-The orchestrated path runs headless, identical to a real run except the Human
-Proxy stands in for the human:
-
-- **`/plan` per sprint** (run once, above the per-feature loop): the Human Proxy
-  supplies the sprint's `feature-request.md` files from the recorded backlog
-  (the PO's groomed sprint), after the project-intake precondition passes. The
-  backlog is committed to trunk so each feature branch inherits its request.
-- **`/design` per feature**: claims the paired Lakebase + git branch via the
-  substrate (Step 0), enforces the intake precondition (Step 0.5), runs the
-  Spec Author -> Architect -> Test Strategist phases; gates approved by the
-  Human Proxy.
-- **`/build` per feature**: the TDD cycles to green; promote gate approved by
-  the Human Proxy.
-- **`/deploy --target local` per feature**: runs the app locally and polls until
-  reachable, the per-sprint "working software" check; the Human Proxy approves
-  the deploy gate only after reachability, then the app is torn down.
-
-### Two sprints (the `/plan` feedback loop)
-
-| Sprint | Iterations | Planned |
-|--------|------------|---------|
-| sprint-1 | v1 | up front |
-| sprint-2 | v2 | after sprint-1 ships working software |
-
-sprint-2 is planned only after sprint-1's features have passed their `/deploy`
-gates, modeling the Product Owner folding what they saw into the next sprint's
-requests. The sprints are slices of the canonical `ITERATIONS=(...)` list in
-`run-smoke.sh` (DRY: order lives in one place).
-
-## Domain: bug-tracker
-
-A small bug-tracking app (Python + FastAPI + SQLAlchemy + Alembic +
-Playwright) that evolves across 2 browser-facing iterations:
-
-| Iter | Headline | What the user does |
-|------|----------|--------------------|
-| v1 | File a bug in the browser | Fill a create form, submit, land on `/bugs/{id}` (the bug starts `open`) |
-| v2 | Move a bug through its states | Change status on the detail page; unrecognized values are rejected at save |
-
-These seed feature-requests are what the Spec Author proposed from
-`product-overview.md` + `nfrs.md` alone (the closed-loop smoke: the workflow's
-own proposal becomes the deterministic seed). Both are user-facing, so each
-ships an E2E (browser) story under the UI track.
-
-Product Owner overview: [`orchestrator/product-overview.md`](orchestrator/product-overview.md).
-NFR brief (the Architect's intake): [`orchestrator/nfrs.md`](orchestrator/nfrs.md).
-UX design brief (UI track): [`orchestrator/design-brief.md`](orchestrator/design-brief.md).
-The sprint's feature requests (authored by the PO at `/plan`):
-[`orchestrator/feature-requests/`](orchestrator/feature-requests/).
-
-This is a UI project (`project.uiTrack: true` in `sftdd-config.json`, set at create by `--ui-track`), so the UX Designer phase runs and
-`design-brief.md` is required at intake; the UX track (design-guide + ia +
-token adherence) is exercised.
-
-### Tier topology: 2-tier (prod + staging)
-
-This smoke is opinionated: the bug-tracker project is **2-tier**. The kit counts
-long-running tiers only, NOT feature branches:
-
-| `--tiers` | Long-running tiers | Where features fork from |
-|-----------|--------------------|--------------------------|
-| 1 | prod | prod |
-| 2 | prod + staging | staging |
-| 3 | prod + staging + dev | dev |
-
-Features fork from `staging`, so the project must be 2-tier. `run-smoke.sh`
-enforces `--tiers 2`; 1 or 3 are rejected.
-
-### Final state after v2
-
-Tables: `bugs` (id, title, description, status), `alembic_version`. The exact
-columns + how status is modeled are the Architect's / implementation's concern,
-derived from the feature-requests, not the Product Owner's `product-overview.md`.
-
-Endpoints + screens: a create form, the bug detail page at `/bugs/{id}` (showing
-title / description / status / identifier), and a status control on the detail
-page. The precise routes are the Architect's call; the generic deploy-gate
-verify (`assertions/verify-deploy-gate.sh`) asserts the net effect rather than a
-hand-coded endpoint list.
-
-## How to run
-
-### Prerequisites
-
-- `git`, `npx`, `jq` on PATH
-- `claude` CLI on PATH (drives the `/design` + `/build` skills)
-- `DATABRICKS_HOST` + `DATABRICKS_TOKEN` env vars OR `~/.databrickscfg`
-- `GITHUB_OWNER` env var (for the scaffold's repo creation)
-- A workspace where you can create Lakebase projects + branches
-
-### Run
-
-```bash
-bash examples/replay/run-smoke.sh --tiers 2
-```
-
-Scaffolds the project, stages project intake, then runs sprint-1 (`/plan` + v1)
-and sprint-2 (`/plan` + v2). Headless throughout
-(`LAKEBASE_SFTDD_HUMAN_PROXY=1`, set by the script).
-
-### Resume
-
-If an iteration fails and you've fixed it:
-
-```bash
-bash examples/replay/run-smoke.sh --resume v2 --skip-scaffold
-```
-
-Re-plans each sprint (idempotent) and starts the per-feature loop at v2.
-
-### The scripts (one job each)
-
-`orchestrator/` holds exactly four runnable scripts (plus sourced helpers
-`_replay-smoke.sh` and `assertions/_*.sh`). All resolve the kit through the
-committed `lk` resolver, and the three smokes default to THIS checkout's built
-`dist/` (deterministic + offline) unless you pass `--kit-ref`:
+### Replay a recorded corpus (deterministic, no model spawns)
 
 | Script | What it does |
 |--------|--------------|
-| `run-smoke.sh` | Full end-to-end: scaffold → plan → design → build → deploy, live, nothing replayed. |
-| `run-to-navigator.sh` | Replays the design lane, then PAUSES just before the Navigator build handoff (`[Y/n]` gate). Answer Y to resume into the live build. |
-| `run-to-release-engineer.sh` | Replays design + restores the recorded build, then PAUSES just before the Release Engineer deploy handoff (`[Y/n]` gate). Answer Y to resume into deploy + verify. |
-| `rebuild-push-warm.sh` | Publishes the current branch: rebuild + commit `dist/` + push + warm the lk cache. Run it when you want the pushed/published bits; the smokes don't need it. |
+| `replay-scenario.sh --scenario <name> [--to <handoff>] [--sprint <name>]` | The generic engine wrapper. For each feature in the scenario's `scenario.json`, in order, replays that feature's DESIGN lane + restores its recorded BUILD, driving one project to the chosen handoff. Multi-feature scenarios chain in ONE project (later features build on earlier merged state). `--sprint` replays the PLANNING lane once on the first feature. |
+| `replay-stockflow-rerecord.sh [--to <handoff>] [--sprint <name>\|--no-sprint]` | One-line launcher for the standing `stockflow-rerecord` mechanics regression: rebuilds dist if stale, sources `.env.local.test.config`, turns on the manifest-driven executor, and delegates to `replay-scenario.sh`. `--sprint` defaults to `stockflow-rerecord-s1` (planning lane replayed through the executor); pass `--no-sprint` to skip it. |
 
-`run-to-*` PAUSE at the handoff (a `[Y/n]` prompt) and RESUME the same run on Y ,
-they never bail out of the state machine. Set `LAKEBASE_SFTDD_AUTO_CONTINUE=1` to
-auto-confirm in non-interactive / CI runs.
+Replayed agent turns dispatch through the shipped **StepExecutor** (the
+step-aware replay agent materializes each turn's recorded slice — no model
+spawn). Each executor-dispatched turn logs `[executor] dispatch <manifest>
+(<role>[/<mode>], <lane>)`, so a run's log shows exactly which turns went
+through the executor (e.g. the planning `spec-author/propose` +
+`architect-reviewer/estimate` turns under `--sprint`).
 
-### Other useful flags
+### The bug-tracker smoke (live, nothing replayed)
+
+The default corpus is [`corpora/bug-tracker/`](corpora/bug-tracker/) — a small
+FastAPI + SQLAlchemy + Alembic + Playwright app that evolves across two
+browser-facing iterations (v1 file-a-bug, v2 transition-status), grouped into
+two sprints. The engine (`_replay-smoke.sh`, sourced) resolves its intake docs
++ feature-requests from there.
+
+| Script | What it does |
+|--------|--------------|
+| `run-smoke.sh --tiers 2` | Full end-to-end, live, nothing replayed: scaffold → plan → design → build → deploy across both sprints. Headless (Human Proxy stands in for every HITL gate). |
+| `run-to-navigator.sh --tiers 2` | Replays the design lane, then PAUSES just before the Navigator build handoff (`[Y/n]`). Answer Y to resume into the live build. |
+| `run-to-release-engineer.sh --tiers 2` | Replays design + restores the recorded build, then PAUSES just before the Release Engineer deploy handoff (`[Y/n]`). Answer Y to resume into deploy + verify. |
+
+`run-to-*` PAUSE at the handoff and RESUME the same run on Y (they never bail
+out of the state machine). Set `LAKEBASE_CONSORT_AUTO_CONTINUE=1` to auto-confirm
+in CI. The smoke is **2-tier** (prod + staging; features fork from staging);
+`run-smoke.sh` enforces `--tiers 2`.
+
+### Capture a new corpus (record every turn)
+
+Recording is gated on `LAKEBASE_CONSORT_RECORD_DIR` (+
+`LAKEBASE_CONSORT_RECORD_BUILD_DIR` for the build corpus). When set, every
+state-machine turn's artifact delta is written into the corpus, so a later run
+can replay it.
+
+| Script | What it does |
+|--------|--------------|
+| `run-capture.sh` | FULL LIVE CAPTURE — real design AND real build — recording every turn, paused just before the Navigator handoff. |
+| `capture-scenario.sh` | Capture a new named scenario: drive a real feature live with the per-turn recorder on, recording straight into `corpora/<name>/`; reads `scenario.json[.pending]` for the run's conditions. |
+| `run-stockflow-capture.sh` | Stockflow F1+F6 reference capture: DESIGN lane REPLAYED from `corpora/stockflow/recorded-artifacts/`, BUILD lane runs LIVE and is recorded per turn. |
+| `resume-stockflow-capture.sh` | RESUME the stockflow F1+F6 capture after a mid-run halt (no scaffold, no intake; continues the same record dir). |
+| `resume-stockflow-f6.sh` | RESUME just F6-split-tracking-code after its driver GREEN turn overflowed (narrow resume). |
+
+### Optimize (per-handoff champion-walk sweep)
+
+| Script | What it does |
+|--------|--------------|
+| `optimize-scenario.sh` | Run a per-handoff optimization sweep against a scenario's feature: at the handoff the drive sits on, try config + content/scope candidates, keep the FASTEST gate-passing turn, emit a report. Only the winner records into the corpus. |
+| `optimize-live-run.sh` | One-command live optimization first pass (P1+P3+P4): scaffold a fresh project, drive the DESIGN lane live to the build boundary, then run the champion-walk sweep (propose-only). |
+| `archive-optimize-results.sh` | Archive one role's champion-walk results out of the throwaway project (destroyed at teardown) into the committable `optimize-results/<handoff>/` so the full lever sweep accumulates across roles. |
+
+See [`../../consort/optimize/OPTIMIZE-INDEX.md`](../../consort/optimize/OPTIMIZE-INDEX.md)
+for the sweep model and lever catalogue.
+
+### Shared infrastructure
+
+| Script | What it does |
+|--------|--------------|
+| `_replay-smoke.sh` | The shared replay/capture engine (SOURCED, not run directly). Scaffolds a real project, stages intake, claims the feature branch, replays/records the lanes, drives to a handoff. The `run-to-*` / `run-capture` / `replay-scenario` entry scripts source it and set `PAUSE_BEFORE` / `REPLAY_BUILD` / `REPLAY_DESIGN`. |
+| `rebuild-push-warm.sh` | The shared WARMING + infra-readiness preflight: publish the current kit branch, warm the shared `lk` cache, free the deploy port. Run it when you want the pushed/published bits; the offline smokes don't need it. |
+| `watch-artifacts.sh` | Monitor-friendly watcher: stream ONE line per newly-produced (or grown) run artifact — a live run is "healthy" only when artifacts land on disk. |
+
+## Common flags (entry scripts)
 
 | Flag | Meaning |
 |------|---------|
-| `--kit-ref <ref>` | Pull the kit from a branch / tag / sha (validate an unreleased build) |
-| `--project-dir <dir>` | Override the scaffold target directory |
-| `--skip-scaffold` | Reuse an existing scaffold instead of running `lakebase-create-project` |
-| `--no-keep-on-failure` | Clean up Lakebase branches + project dir on failure (default: keep) |
+| `--kit-ref <ref>` | Resolve the kit from a branch / tag / sha (validate an unreleased build) instead of this checkout's dist. |
+| `--project-dir <dir>` | Override the scaffold target directory. |
+| `--to <handoff>` | (replay) Pause before `navigator` or `release-engineer`. |
+| `--sprint <name>` / `--no-sprint` | (replay) Replay the PLANNING lane once on the first feature, or skip it. |
 
-## What the smoke does NOT prove
+## Guards
 
-- Quality of `/design` + `/build` output (that's the agent-eval pyramid).
-- The SCM workflow PR + CI + merge cycle (tested separately, see Scope above).
-- Remote deploy targets (only `local` is implemented; remote release is `merge.yml`).
-- Multi-user / auth flows; visual regression past structural assertions; performance.
+- `tests/bdd/consort-workflow-smoke.test.ts` — the bug-tracker smoke's shape +
+  authored-doc conventions.
+- `tests/bdd/consort-scenarios.test.ts` + `scenario-corpus-integrity.test.ts` —
+  every committed corpus under `corpora/` is well-formed + replay-ready.
+- `tests/bdd/replay-layout-guard.test.ts` — the canonical layout (this
+  machinery dir + `corpora/`) can't silently re-scatter.
 
-## Maintaining the smoke
+## Scope
 
-The smoke's structure is guarded by `tests/bdd/consort-workflow-smoke.test.ts`, which
-asserts (among others):
-
-- `product-overview.md` (Product Owner voice), `nfrs.md`, and `design-brief.md`
-  exist and carry their required sections.
-- A `feature-requests/` subdir holds one request per iteration, each in
-  feature-request voice (no SQL / HTTP verbs / table names / file paths, no
-  Acceptance Criteria tables, no operational metadata).
-- The orchestrator runs two sprints sliced from `ITERATIONS=(...)` (sprint-1 =
-  v1, sprint-2 = v2), supplies each sprint's requests via the Human Proxy at
-  `/plan`, enforces the intake precondition, and commits the backlog to trunk.
-- `/deploy --target local` runs per iteration and records the deploy gate.
-- `claude` is a required-on-PATH check; the SCM PR/CI CLIs are NOT invoked.
-- Every iteration is verified by the single generic
-  `assertions/verify-deploy-gate.sh` (migration + routes + tests + an E2E AC +
-  the approved PO deploy gate); there are no bespoke per-iteration scripts.
-
-To add a new iteration: append the feature request under `feature-requests/`,
-extend the `ITERATIONS=(...)` line in `run-smoke.sh` (and the `SPRINT*_ITERS`
-slices), and update the BDD test's `ITERATIONS` constant + the sprint-slice
-assertions. The generic deploy-gate verify needs no per-iteration change.
-
-## Status
-
-Landed by the PR that introduced this directory. The smoke is run manually
-for now; nightly CI invocation can be wired later as a separate ticket.
+These scripts validate the state-machine + TDD workflow end to end. The SCM
+workflow CLIs (`lakebase-scm-prepare-pr` / `wait-ci` / `merge --wait-migrate`)
+are tested separately by `tests/integration/scm-workflow-e2e-live.test.ts`.
+They do NOT prove `/design` + `/build` output quality (the agent-eval pyramid),
+remote deploy targets, or multi-user / auth flows.

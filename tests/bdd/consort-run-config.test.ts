@@ -102,9 +102,9 @@ describe("run-config: write / read / mirror", () => {
     expect(read?.models.driver).toBe("sonnet");
   });
 
-  it("mirrors a copy to LAKEBASE_SFTDD_RECORD_DIR when recording", () => {
+  it("mirrors a copy to LAKEBASE_CONSORT_RECORD_DIR when recording", () => {
     const recordDir = join(proj, "_recorded");
-    writeRunConfig(inputs({ env: { LAKEBASE_SFTDD_RECORD_DIR: recordDir } }));
+    writeRunConfig(inputs({ env: { LAKEBASE_CONSORT_RECORD_DIR: recordDir } }));
     expect(existsSync(join(recordDir, "run-config.json"))).toBe(true);
     const mirrored = JSON.parse(readFileSync(join(recordDir, "run-config.json"), "utf8"));
     expect(mirrored.models.navigator).toBe("sonnet");

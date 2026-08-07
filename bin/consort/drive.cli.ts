@@ -203,7 +203,7 @@ function makeConfirmContinue(): (action: WorkflowAction) => Promise<void> {
 }
 
 /**
- * Wrap effects so that, when LAKEBASE_SFTDD_RECORD_BUILD_DIR is set, the driver
+ * Wrap effects so that, when LAKEBASE_CONSORT_RECORD_BUILD_DIR is set, the driver
  * snapshots each Navigator/Driver turn AFTER its effect lands , the per-turn
  * build corpus the event-by-event replay plays back. A no-op when unset, so a
  * normal run is unaffected. Only build turns (invoke-role navigator|driver) are
@@ -249,7 +249,7 @@ function withBuildRecording(inner: DriveEffects, cfg: DriveEffectsConfig): Drive
 }
 
 /**
- * Wrap effects so that, when LAKEBASE_SFTDD_RECORD_DIR is set, the driver records
+ * Wrap effects so that, when LAKEBASE_CONSORT_RECORD_DIR is set, the driver records
  * EVERY state-machine turn AFTER its effect lands , the universal per-turn
  * timeline (design, gates, build, deploy, accept, promote), not just the build
  * lane. Each turn writes turns/<NNNN>-<label>/ (manifest + the .tdd/code delta it

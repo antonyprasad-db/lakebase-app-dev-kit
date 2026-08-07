@@ -11,7 +11,7 @@
 // both the interactive `/` commands and the smoke runners), capturing the
 // RESOLVED matrix (not just the override list). The timing report prints it as a
 // `config:` header and nests it in --json, so a comparison is a self-describing
-// { config, timing } pair. When recording (LAKEBASE_SFTDD_RECORD_DIR set), a copy
+// { config, timing } pair. When recording (LAKEBASE_CONSORT_RECORD_DIR set), a copy
 // is mirrored to the corpus root so a replay carries its own provenance.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
@@ -113,7 +113,7 @@ export function buildRunConfig(inputs: RunConfigInputs): RunConfig {
 
 /**
  * Write the run-config snapshot to `.sftdd/run-config.json`, and , when recording
- * (LAKEBASE_SFTDD_RECORD_DIR set) , mirror a copy to the corpus root so a replay
+ * (LAKEBASE_CONSORT_RECORD_DIR set) , mirror a copy to the corpus root so a replay
  * carries its own provenance. Best-effort: a write failure never breaks a run
  * (the snapshot is observability, like the agent log).
  */

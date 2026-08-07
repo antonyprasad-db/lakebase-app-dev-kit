@@ -42,8 +42,8 @@ export GITHUB_OWNER="${GITHUB_OWNER:-${LAKEBASE_TEST_GITHUB_OWNER:-}}"
 
 # --- recording env (IDENTICAL to the original capture) ------------------------
 export LAKEBASE_KIT_DIR="${LAKEBASE_KIT_DIR:-$KIT_ROOT}"          # use the freshly-built dist
-export LAKEBASE_SFTDD_RECORD_DIR="${PARENT}/_capture-stockflow"     # continue the SAME record dir
-export LAKEBASE_SFTDD_RECORD_BUILD_DIR="${LAKEBASE_SFTDD_RECORD_DIR}/recorded-build"
+export LAKEBASE_CONSORT_RECORD_DIR="${PARENT}/_capture-stockflow"     # continue the SAME record dir
+export LAKEBASE_CONSORT_RECORD_BUILD_DIR="${LAKEBASE_CONSORT_RECORD_DIR}/recorded-build"
 export LAKEBASE_SFTDD_REPLAY_DIR="${CORPUS_DIR}"                    # design replays from the corpus
 # Build cadence (story) + UI track are PROJECT settings in the resumed project's
 # sftdd-config.json (single source), not env doors, so no LOOP / UI export here.
@@ -58,7 +58,7 @@ SFTDD_DIR="$(lk lakebase-resolve-consort-dir --project-dir "$PROJECT_DIR")"
 SFTDD_REL="$(basename "$SFTDD_DIR")"
 
 log "kit=$LAKEBASE_KIT_DIR  project=$PROJECT_DIR"
-log "record(continue)=$LAKEBASE_SFTDD_RECORD_DIR  replay=$CORPUS_DIR  loop=story"
+log "record(continue)=$LAKEBASE_CONSORT_RECORD_DIR  replay=$CORPUS_DIR  loop=story"
 
 bash "$KIT_LK" --warm || { err "kit lk --warm failed"; exit 1; }
 
@@ -87,5 +87,5 @@ lk consort-log --reconstitute --design-log "${CORPUS_DIR}/agent-log.design.jsonl
   || err "reconstitute-log failed (non-fatal)"
 cp "${SFTDD_DIR}/agent-log.jsonl" "${CORPUS_DIR}/agent-log.jsonl" 2>/dev/null || true
 
-log "✓ stockflow capture RESUMED + complete. project=$PROJECT_DIR  record=$LAKEBASE_SFTDD_RECORD_DIR"
+log "✓ stockflow capture RESUMED + complete. project=$PROJECT_DIR  record=$LAKEBASE_CONSORT_RECORD_DIR"
 echo "LOG_FILE=$LOG_FILE" >&2

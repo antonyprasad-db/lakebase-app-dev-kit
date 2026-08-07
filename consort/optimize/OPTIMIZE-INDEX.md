@@ -335,7 +335,7 @@ reports 0.0s baseline-only with candidate dirs present, read a trial `result.jso
 2. **Lane advance vs kit-persist.** `alwaysAdvance` arg: a lane sweep records the winner
    locally (so the next handoff can plan) even under `proposeOnly`; `proposeOnly` gates
    ONLY kit persistence (the separate `optimize-apply` step). Test: `optimize-harness.test.ts`.
-3. **Only winners record.** `makeLiveSpawnTurn` sets `LAKEBASE_SFTDD_RECORD_DIR` only for
+3. **Only winners record.** `makeLiveSpawnTurn` sets `LAKEBASE_CONSORT_RECORD_DIR` only for
    a `record:true` (winner) spawn, clears it for trials, restores prior env after.
    `optimize.cli` reads RECORD_DIR once + clears the ambient env. Test: `optimize-live.test.ts`.
 

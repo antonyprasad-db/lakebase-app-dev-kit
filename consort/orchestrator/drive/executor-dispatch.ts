@@ -317,6 +317,18 @@ export async function performTurnViaExecutor(
   const manifest = manifestForAction(action);
   if (!manifest) return undefined;
 
+  // Observable dispatch marker: this turn is committing to the StepExecutor path (manifest matched +
+  // flag on), NOT the legacy commandsForAction spawn. One line per executor-dispatched turn, naming
+  // the manifest + role[/mode] + lane (live/replay/record), so a run's log unambiguously shows WHICH
+  // turns went through the executor , e.g. the sprint-planning turns (spec-author/propose,
+  // architect-reviewer/estimate) prove the planning lane dispatches here, not through the old arm.
+  {
+    const mode = "mode" in action && typeof action.mode === "string" ? `/${action.mode}` : "";
+    const role = "role" in action && typeof action.role === "string" ? action.role : action.kind;
+    const lane = consortEnv("REPLAY_DIR")?.trim() ? "replay" : consortEnv("RECORD_DIR")?.trim() ? "record" : "live";
+    process.stderr.write(`[executor] dispatch ${manifest.id} (${role}${mode}, ${lane})\n`);
+  }
+
   // Resolve the step's agent from the MANIFEST (agent:{kind,config}) via the shared catalogue ,
   // the SAME seam the integration tests use (manifest-runner's buildAgent). The shipped manifests
   // declare kind "claude"; we supply the live dispatch seam in the build context so buildClaude

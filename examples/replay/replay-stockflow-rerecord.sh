@@ -17,18 +17,26 @@
 # FULL CLOUD: this scaffolds a real repo + runner + Lakebase project. Requires the config home to
 # resolve a host + a profile authenticated (`databricks auth login --profile <p>`) + gh auth.
 #
-# Usage:  bash examples/replay/replay-stockflow-rerecord.sh [--to navigator|release-engineer]
+# Usage:  bash examples/replay/replay-stockflow-rerecord.sh [--to navigator|release-engineer] [--sprint <name>|--no-sprint]
 # Env:    everything comes from .env.local.test.config (profile/host/owner); no flags needed.
+#
+# --sprint <name> (DEFAULT: stockflow-rerecord-s1) replays the PLANNING lane once, on the first
+# feature's project, BEFORE the feature drive: spec-author/propose + architect/estimate dispatch
+# through the manifest-driven StepExecutor (look for `[executor] dispatch ...propose/estimate...`),
+# while author-requests stays deterministic. Pass --no-sprint to skip planning and drive features only.
 set -euo pipefail
 
 SCEN_DIR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # examples/replay (machinery dir; corpora/ underneath)
 REPO_ROOT="$(cd "$SCEN_DIR_ROOT/../.." && pwd)"                 # repo root (two up)
 SCENARIO="stockflow-rerecord"
 TO="release-engineer"
+SPRINT="stockflow-rerecord-s1"   # default: replay the recorded PLANNING lane for sprint 1 (executor-dispatched)
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --to) TO="$2"; shift 2 ;;
-    *)    echo "replay-stockflow-rerecord: unknown arg '$1' (only --to <handoff>)" >&2; exit 2 ;;
+    --to)         TO="$2"; shift 2 ;;
+    --sprint)     SPRINT="$2"; shift 2 ;;
+    --no-sprint)  SPRINT=""; shift ;;
+    *)    echo "replay-stockflow-rerecord: unknown arg '$1' (only --to <handoff>, --sprint <name>, --no-sprint)" >&2; exit 2 ;;
   esac
 done
 
@@ -100,6 +108,10 @@ export LAKEBASE_SFTDD_USE_MANIFEST_STEPS=1
 export LAKEBASE_SFTDD_AUTO_CONTINUE=1
 
 # ── 5. Delegate to the generic scenario replay ────────────────────────────────
-blue "==> Replaying $SCENARIO end to end (manifest-driven executor + step-aware replay, to=$TO)"
-bash "$SCEN_DIR_ROOT/replay-scenario.sh" --scenario "$SCENARIO" --to "$TO"
+# --sprint (when set) replays the PLANNING lane once on the first feature: propose + estimate
+# dispatch through the executor (grep the log for `[executor] dispatch`), author-requests deterministic.
+args=( --scenario "$SCENARIO" --to "$TO" )
+[[ -n "$SPRINT" ]] && args+=( --sprint "$SPRINT" )
+blue "==> Replaying $SCENARIO end to end (manifest-driven executor + step-aware replay, to=$TO${SPRINT:+, sprint=$SPRINT})"
+bash "$SCEN_DIR_ROOT/replay-scenario.sh" "${args[@]}"
 green "==> $SCENARIO replay complete"

@@ -164,7 +164,7 @@ function buildCtxForHandoff(
       // Only the WINNER capture records into the corpus. makeLiveSpawnTurn sets
       // RECORD_DIR for record:true and clears it for trials, so a losing candidate
       // never pollutes the shippable corpus. The corpus dir is the runbook's
-      // LAKEBASE_SFTDD_RECORD_DIR (read ONCE here, not left ambient), so the
+      // LAKEBASE_CONSORT_RECORD_DIR (read ONCE here, not left ambient), so the
       // recorder never fires for a trial even if the shell exported it.
       ...(loc.recordDir ? { recordDir: loc.recordDir } : {}),
     }),

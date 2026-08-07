@@ -14,7 +14,7 @@ import { featuresDir, cyclesRootDir, experimentsRootDir } from "../../consort/co
 import { codeTreeFilter, storyTurnsDir } from "../../consort/logging/replay-build.js";
 
 export interface RecordBuildTurnArgs {
-  /** The corpus root to write into (LAKEBASE_SFTDD_RECORD_BUILD_DIR). */
+  /** The corpus root to write into (LAKEBASE_CONSORT_RECORD_BUILD_DIR). */
   recordBuildDir: string;
   /** The project working tree (the experiment branch is checked out). */
   projectDir: string;

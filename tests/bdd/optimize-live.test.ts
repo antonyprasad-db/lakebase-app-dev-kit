@@ -284,11 +284,11 @@ describe("makeChampionWalkDeps: hermetic DESIGN handoff", () => {
 describe("makeLiveSpawnTurn: recording is gated on the `record` flag (only winners record)", () => {
   // The corpus-pollution bug: a live sweep runs N candidates x M trials; only the
   // WINNER should record into the recorded corpus (recorded-artifacts/ + turns/).
-  // Recording is driven by LAKEBASE_SFTDD_RECORD_DIR, which the agent subprocess
+  // Recording is driven by LAKEBASE_CONSORT_RECORD_DIR, which the agent subprocess
   // (and the drive's recorder wrapper) reads. So the spawn must set that env ONLY
   // when record:true, and leave it unset for trials. We capture the env visible at
   // the moment the runner runs a command.
-  const RECORD_ENV = "LAKEBASE_SFTDD_RECORD_DIR";
+  const RECORD_ENV = "LAKEBASE_CONSORT_RECORD_DIR";
 
   // The pinned handoff carries its action; commandsFor returns that action's command
   // list (a claude turn + the drive appendix). The spawn runs ONLY the claude turn.

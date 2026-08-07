@@ -37,9 +37,9 @@ mkdir -p "$PARENT"
 [[ -d "$CORPUS_DIR/features/${FEATURES[0]}" ]] || { err "design corpus missing ${FEATURES[0]}"; exit 2; }
 
 # Capture: record the design mirror AND the per-turn build corpus.
-export LAKEBASE_SFTDD_RECORD_DIR="${LAKEBASE_SFTDD_RECORD_DIR:-${PARENT}/_capture-sf-${TS}}"
-export LAKEBASE_SFTDD_RECORD_BUILD_DIR="${LAKEBASE_SFTDD_RECORD_DIR}/recorded-build"
-mkdir -p "$LAKEBASE_SFTDD_RECORD_DIR"
+export LAKEBASE_CONSORT_RECORD_DIR="${LAKEBASE_CONSORT_RECORD_DIR:-${PARENT}/_capture-sf-${TS}}"
+export LAKEBASE_CONSORT_RECORD_BUILD_DIR="${LAKEBASE_CONSORT_RECORD_DIR}/recorded-build"
+mkdir -p "$LAKEBASE_CONSORT_RECORD_DIR"
 # Design REPLAYED from the faithful stockflow corpus; build runs LIVE.
 export LAKEBASE_SFTDD_REPLAY_DIR="${CORPUS_DIR}"
 # Build cadence (story-by-story) and the UI track are PROJECT settings, resolved
@@ -60,7 +60,7 @@ AGENT_MODELS="${AGENT_MODELS:-}"
 AGENT_MODEL_FLAGS=""; for _p in $AGENT_MODELS; do AGENT_MODEL_FLAGS="$AGENT_MODEL_FLAGS --agent-model $_p"; done
 
 log "kit=$LAKEBASE_KIT_DIR  project=$PROJECT_NAME  tiers=$TIERS"
-log "design REPLAYED <- $CORPUS_DIR ; build LIVE + recorded -> $LAKEBASE_SFTDD_RECORD_DIR"
+log "design REPLAYED <- $CORPUS_DIR ; build LIVE + recorded -> $LAKEBASE_CONSORT_RECORD_DIR"
 log "features: ${FEATURES[*]}  models: ${AGENT_MODELS:-kit defaults}"
 
 bash "$KIT_LK" --warm || { err "kit lk --warm failed"; exit 1; }
@@ -109,5 +109,5 @@ lk consort-log --reconstitute --design-log "${CORPUS_DIR}/agent-log.design.jsonl
   || err "reconstitute-log failed (non-fatal)"
 cp "${SFTDD_DIR}/agent-log.jsonl" "${CORPUS_DIR}/agent-log.jsonl" 2>/dev/null || true
 
-log "✓ stockflow capture complete. project=$PROJECT_DIR  record=$LAKEBASE_SFTDD_RECORD_DIR"
+log "✓ stockflow capture complete. project=$PROJECT_DIR  record=$LAKEBASE_CONSORT_RECORD_DIR"
 echo "LOG_FILE=$LOG_FILE" >&2

@@ -115,8 +115,8 @@ got="$("$PROJECT_DIR/scripts/lk" lakebase-resolve-consort-dir --project-dir "$PR
 # shippable corpus even though the same corpus dir is the record target: trials run
 # with the recorder env unset. (Design-lane sweeps produce no recorded-build/.)
 mkdir -p "$SCEN"
-export LAKEBASE_SFTDD_RECORD_DIR="$SCEN"
-export LAKEBASE_SFTDD_RECORD_BUILD_DIR="${SCEN}/recorded-build"
+export LAKEBASE_CONSORT_RECORD_DIR="$SCEN"
+export LAKEBASE_CONSORT_RECORD_BUILD_DIR="${SCEN}/recorded-build"
 
 cd "$PROJECT_DIR"
 lk() { "$PROJECT_DIR/scripts/lk" "$@"; }
