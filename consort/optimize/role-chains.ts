@@ -146,6 +146,13 @@ export const ROLE_CHAINS: Record<string, RoleChain> = {
     name: "architect-estimator (estimate)",
     dir: "architect-estimator-chain",
     outputFile: `planning/estimates.json`,
+    // The isolated estimate turn is seeded ONLY the sprint proposals (feature-proposals.md), so it can
+    // produce ONLY the sprint-candidate (FP) estimates. The recorded full estimates.json ALSO carries
+    // the F1/F6 committed-feature sizes that sync-backlog added LATER (not this turn), so scoring
+    // against it penalizes every candidate , even the baseline , for a SCOPE reason, not quality (the
+    // observed all-candidates-0.6x quality-FAIL). Judge against the FP-slice, matching the isolated
+    // turn's scope (the DESIGN_LIVE_SPECS.estimate.equivalenceReferencePaths precedent).
+    referenceFile: `planning/estimates.FP-slice.json`,
     prompt:
       `You are the Architect estimating the sprint's candidate features. From the provided ` +
       `feature-proposals.md (in this prompt), t-shirt size each candidate. WRITE exactly this file, ` +
