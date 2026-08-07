@@ -16,7 +16,7 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 
 const REPO_ROOT = join(__dirname, "..", "..");
-const SCENARIOS = "examples/replay-scenarios";
+const SCENARIOS = "examples/replay/corpora";
 
 function tracked(paths: string): Set<string> {
   // maxBuffer is generous: a full recorded corpus is thousands of tracked files,

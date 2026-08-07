@@ -103,7 +103,7 @@ different kit is the split-brain trap.
 
 ```
 LAKEBASE_SFTDD_AUTO_CONTINUE=1 DATABRICKS_CONFIG_PROFILE=<profile> \
-bash examples/replay-scenarios/capture-scenario.sh \
+bash examples/replay/capture-scenario.sh \
   --scenario <name> --create \
   --databricks-host <url> --github-owner <owner> \
   --tiers 2 --ui \
@@ -111,7 +111,7 @@ bash examples/replay-scenarios/capture-scenario.sh \
   --feature <F1> [--feature <F2> ...]
 ```
 
-Recording lands in `examples/replay-scenarios/<name>/` (`turns/`,
+Recording lands in `examples/replay/corpora/<name>/` (`turns/`,
 `recorded-artifacts/`, `recorded-build/`).
 
 ### Sprint mode (exercise the planning lane + emit `backlog.json`)

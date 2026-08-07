@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Capture a new SFTDD replay scenario: drive a real feature live with the per-turn
-# recorder on, recording straight into examples/replay-scenarios/<name>/ so the
+# recorder on, recording straight into examples/replay/<name>/ so the
 # result is immediately a committable, replayable integration-test corpus. This
 # is the "record once" half of the loop whose "replay forever" half is
 # replay-scenario.sh; see SCENARIOS.md.
@@ -48,7 +48,9 @@
 # tests/bdd/consort-scenarios.test.ts; the live replay is replay-scenario.sh.
 set -euo pipefail
 
-SCEN_DIR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# The machinery dir (examples/replay/); scenarios/corpora live under its corpora/ subdir.
+REPLAY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCEN_DIR_ROOT="${REPLAY_ROOT}/corpora"
 SCENARIO=""
 PROJECT_DIR=""
 PAUSE_BEFORE=""
@@ -148,8 +150,8 @@ SCEN="${SCEN_DIR_ROOT}/${SCENARIO}"
 # orchestrator, and write it into the project for the agents. Never LAKEBASE_KIT_DIR.
 # Shared single source for local-kit pinning (cache symlink + recovery hint),
 # used here AND by the teardown/restart coordinators so the wiring lives once.
-source "${SCEN_DIR_ROOT}/lib/pin-local-kit.sh"
-KIT_ROOT="$(cd "${SCEN_DIR_ROOT}/../.." && pwd)"
+source "${REPLAY_ROOT}/lib/pin-local-kit.sh"
+KIT_ROOT="$(cd "${REPLAY_ROOT}/../.." && pwd)"
 CAPTURE_KIT_REF="${CAPTURE_KIT_REF:-$LOCAL_KIT_REF_DEFAULT}"
 KIT_CACHE_LINK="$(local_kit_cache_link "$CAPTURE_KIT_REF")"
 
@@ -202,7 +204,7 @@ if [[ -n "$CREATE" ]]; then
   # the reader bin is absent (stale dist).
   #
   # An IN-PROGRESS scenario holds its manifest as scenario.json.pending (so
-  # replay-scenarios.test.ts does not treat the unfinished dir as a shippable corpus;
+  # consort-scenarios.test.ts does not treat the unfinished dir as a shippable corpus;
   # it is renamed to scenario.json only at finalization). That .pending file IS the
   # authored manifest, so a capture/optimize run must read it: prefer scenario.json,
   # fall back to scenario.json.pending. Without this fallback every condition

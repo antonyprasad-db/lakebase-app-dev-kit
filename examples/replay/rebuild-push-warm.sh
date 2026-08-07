@@ -28,7 +28,7 @@
 set -euo pipefail
 
 ORCH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-KIT_DIR="$(cd "$ORCH_DIR/../../.." && pwd)"   # examples/tdd-workflow-smoke/orchestrator -> kit root
+KIT_DIR="$(cd "$ORCH_DIR/../.." && pwd)"   # examples/replay -> kit root
 PKG="@databricks-solutions/consort"
 GH="github:databricks-solutions/consort"
 GH_URL="https://github.com/databricks-solutions/consort.git"

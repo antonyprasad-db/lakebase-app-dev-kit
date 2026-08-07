@@ -23,7 +23,7 @@ import { recordReflectionGate, readReflectVerdict } from "../../consort/smells/r
 import { storyAcIds, storyTestListJson, acsDir } from "../../consort/config/consort-paths.js";
 
 const KIT = process.cwd();
-const CORPUS = join(KIT, "examples/replay-scenarios/stockflow/recorded-artifacts");
+const CORPUS = join(KIT, "examples/replay/corpora/stockflow/recorded-artifacts");
 const FEATURE = "F1-stock-visibility";
 const STORY = "S1-record-stock";
 

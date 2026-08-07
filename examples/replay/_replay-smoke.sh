@@ -28,23 +28,23 @@
 replay_smoke() {
   set -euo pipefail
 
-  local ORCHESTRATOR_DIR ASSERT_DIR CORPUS_DIR BUILD_CORPUS_DIR INTAKE_DIR
+  local REPLAY_DIR ASSERT_DIR CORPUS_DIR BUILD_CORPUS_DIR INTAKE_DIR
   # Resolve from the ENGINE's own path (BASH_SOURCE[0]), not the caller's
-  # (BASH_SOURCE[1]): the engine self-locates to orchestrator/ regardless of the
+  # (BASH_SOURCE[1]): the engine self-locates to examples/replay/ regardless of the
   # current directory. In a multi-feature scenario the earlier feature's drive
   # cd'd into the project, so cwd is no longer where the run was launched; a
   # cwd-relative caller path would then break on feature N+1. Both callers place
-  # their entry script in orchestrator/ alongside this engine, so [0] and [1]
+  # their entry script in examples/replay/ alongside this engine, so [0] and [1]
   # resolve to the same dir , [0] is just cwd-independent.
-  ORCHESTRATOR_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  # ASSERT_DIR + INTAKE_DIR default next to this engine (the bug-tracker smoke),
-  # but a generic caller (examples/replay-scenarios/replay-scenario.sh, which lives
-  # at a different depth) overrides them so it can reuse the shared assertions +
-  # supply a per-scenario intake set.
-  ASSERT_DIR="${REPLAY_ASSERT_DIR:-${ORCHESTRATOR_DIR}/assertions}"
-  INTAKE_DIR="${REPLAY_INTAKE_DIR:-${ORCHESTRATOR_DIR}}"
-  CORPUS_DIR="${ORCHESTRATOR_DIR}/../recorded-artifacts"
-  BUILD_CORPUS_DIR="${LAKEBASE_SFTDD_REPLAY_BUILD_DIR:-${ORCHESTRATOR_DIR}/../recorded-build}"
+  REPLAY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  # ASSERT_DIR + the DEFAULT corpus/intake are the bug-tracker smoke's, which lives
+  # under this machinery dir at corpora/bug-tracker/. A generic caller
+  # (replay-scenario.sh) OVERRIDES them (REPLAY_ASSERT_DIR / REPLAY_INTAKE_DIR /
+  # --corpus / LAKEBASE_SFTDD_REPLAY_BUILD_DIR) to point at its own corpora/<name>/.
+  ASSERT_DIR="${REPLAY_ASSERT_DIR:-${REPLAY_DIR}/assertions}"
+  INTAKE_DIR="${REPLAY_INTAKE_DIR:-${REPLAY_DIR}/corpora/bug-tracker}"
+  CORPUS_DIR="${REPLAY_DIR}/corpora/bug-tracker/recorded-artifacts"
+  BUILD_CORPUS_DIR="${LAKEBASE_SFTDD_REPLAY_BUILD_DIR:-${REPLAY_DIR}/corpora/bug-tracker/recorded-build}"
 
   local FEATURE_ID="F1-file-bug"
   local REPLAY_SPRINT="${REPLAY_SPRINT:-}"   # when set (once per project), replay the PLANNING lane
@@ -81,11 +81,11 @@ replay_smoke() {
 
   local KIT_ROOT KIT_LK
   # Depth-independent kit root (the git toplevel), so the engine is reusable from
-  # any orchestrator depth; fall back to the historical 3-levels-up expression.
+  # any depth; fall back to 2-levels-up (examples/replay/ -> repo root).
   # `||` + `&&` are equal precedence (left-assoc), so the fallback MUST be a
   # subshell , else `pwd` runs on BOTH paths and concatenates two lines into
   # KIT_ROOT. The subshell also keeps the cd local (doesn't move the caller's CWD).
-  KIT_ROOT="$(git -C "${ORCHESTRATOR_DIR}" rev-parse --show-toplevel 2>/dev/null || (cd "${ORCHESTRATOR_DIR}/../../.." && pwd))"
+  KIT_ROOT="$(git -C "${REPLAY_DIR}" rev-parse --show-toplevel 2>/dev/null || (cd "${REPLAY_DIR}/../.." && pwd))"
   KIT_LK="${KIT_ROOT}/templates/project/common/scripts/lk"
 
   # Deterministic kit resolution (in code): explicit $LAKEBASE_KIT_DIR wins; else

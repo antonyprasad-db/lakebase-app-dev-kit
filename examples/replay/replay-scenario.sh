@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Replay a recorded SFTDD scenario end to end (the live, workspace-backed
-# integration test). A scenario lives at examples/replay-scenarios/<name>/ as a
+# integration test). A scenario lives at examples/replay/<name>/ as a
 # self-contained corpus (recorded-artifacts/ + recorded-build/ + turns/) plus a
 # scenario.json manifest; see SCENARIOS.md.
 #
 # This is a THIN wrapper over the shared replay engine
-# examples/tdd-workflow-smoke/orchestrator/_replay-smoke.sh (replay_smoke): for
+# examples/replay/_replay-smoke.sh (replay_smoke): for
 # each feature in the manifest, in order, it replays that feature's DESIGN lane
 # and restores its recorded BUILD, then drives the deterministic orchestrator to
 # the chosen handoff. Multi-feature scenarios chain in ONE project so later
@@ -20,10 +20,12 @@
 # Exit: 0 ok; 2 bad args / missing scenario; non-zero from a failed replay step.
 set -euo pipefail
 
-SCEN_DIR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENGINE="${SCEN_DIR_ROOT}/../tdd-workflow-smoke/orchestrator/_replay-smoke.sh"
+# The machinery dir (examples/replay/); scenarios live under its corpora/ subdir.
+REPLAY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCEN_DIR_ROOT="${REPLAY_ROOT}/corpora"
+ENGINE="${REPLAY_ROOT}/_replay-smoke.sh"
 # Reuse the existing assertion library (deploy-gate / story-pipeline / workflow-state).
-export REPLAY_ASSERT_DIR="${SCEN_DIR_ROOT}/../tdd-workflow-smoke/orchestrator/assertions"
+export REPLAY_ASSERT_DIR="${REPLAY_ROOT}/assertions"
 
 SCENARIO=""
 TO="release-engineer"

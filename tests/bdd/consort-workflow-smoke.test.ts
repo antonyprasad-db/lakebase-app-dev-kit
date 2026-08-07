@@ -1,6 +1,6 @@
 // hermetic guard rails on the smoke artifacts.
 //
-// The smoke itself (examples/tdd-workflow-smoke/orchestrator/run-smoke.sh)
+// The smoke itself (examples/replay/run-smoke.sh)
 // drives a real scaffolded project through 2 iterations + CI; it's
 // expensive and not appropriate as a vitest. This test only asserts
 // the smoke's SHAPE and that its authored documents follow the kit's
@@ -18,7 +18,10 @@ import { checkArtifactConformance, parseRequiredNfrs } from "../../consort/orche
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
-const SMOKE_DIR = path.join(REPO_ROOT, "examples", "tdd-workflow-smoke", "orchestrator");
+// The replay machinery (run-smoke.sh, assertions/) lives at examples/replay/; the bug-tracker
+// intake docs + feature-requests are its recorded corpus, under corpora/bug-tracker/.
+const SMOKE_DIR = path.join(REPO_ROOT, "examples", "replay");
+const BUG_TRACKER = path.join(SMOKE_DIR, "corpora", "bug-tracker");
 
 const ITERATIONS = [
   "v1-file-bug",
@@ -26,24 +29,24 @@ const ITERATIONS = [
 ];
 
 describe("TDD-workflow smoke: directory structure", () => {
-  it("ships under examples/tdd-workflow-smoke/orchestrator/", () => {
+  it("ships under examples/replay/", () => {
     expect(fs.existsSync(SMOKE_DIR)).toBe(true);
   });
 
   it("has the Product Owner requirements doc at product-overview.md", () => {
-    expect(fs.existsSync(path.join(SMOKE_DIR, "product-overview.md"))).toBe(true);
+    expect(fs.existsSync(path.join(BUG_TRACKER, "product-overview.md"))).toBe(true);
   });
 
   it("has the recorded HIL NFR brief at nfrs.md", () => {
-    expect(fs.existsSync(path.join(SMOKE_DIR, "nfrs.md"))).toBe(true);
+    expect(fs.existsSync(path.join(BUG_TRACKER, "nfrs.md"))).toBe(true);
   });
 
   it("has the recorded HIL design brief at design-brief.md (UI smoke)", () => {
-    expect(fs.existsSync(path.join(SMOKE_DIR, "design-brief.md"))).toBe(true);
+    expect(fs.existsSync(path.join(BUG_TRACKER, "design-brief.md"))).toBe(true);
   });
 
   it("has a feature-requests/ subdir with the seed specs (one per iteration)", () => {
-    const reqDir = path.join(SMOKE_DIR, "feature-requests");
+    const reqDir = path.join(BUG_TRACKER, "feature-requests");
     expect(fs.existsSync(reqDir)).toBe(true);
     for (const iter of ITERATIONS) {
       expect(fs.existsSync(path.join(reqDir, `${iter}.md`)), `missing feature-requests/${iter}.md`).toBe(true);
@@ -147,7 +150,7 @@ describe("TDD-workflow smoke: product-overview.md is well-formed (Product Owner 
   // product is for + what they need to accomplish, open-ended and
   // refined across iterations. Stack, schema, endpoints, and tier flags
   // are the Architect's / harness's concern (the smoke README), not here.
-  const md = fs.readFileSync(path.join(SMOKE_DIR, "product-overview.md"), "utf8");
+  const md = fs.readFileSync(path.join(BUG_TRACKER, "product-overview.md"), "utf8");
 
   it("carries YAML frontmatter declaring author: Product Owner", () => {
     expect(md).toMatch(/^---\n[\s\S]*?\bauthor:\s*Product Owner\b[\s\S]*?\n---\n/);
@@ -172,12 +175,12 @@ describe("TDD-workflow smoke: product-overview.md is well-formed (Product Owner 
 
 describe("TDD-workflow smoke: recorded HIL intake artifacts conform (Human Proxy answers)", () => {
   it("product-overview.md conforms to its declared format", () => {
-    const md = fs.readFileSync(path.join(SMOKE_DIR, "product-overview.md"), "utf8");
+    const md = fs.readFileSync(path.join(BUG_TRACKER, "product-overview.md"), "utf8");
     expect(checkArtifactConformance("product-overview.md", md)).toEqual({ ok: true });
   });
 
   it("nfrs.md conforms (Required / Preferences / Out of bounds) and carries R<n> ids", () => {
-    const md = fs.readFileSync(path.join(SMOKE_DIR, "nfrs.md"), "utf8");
+    const md = fs.readFileSync(path.join(BUG_TRACKER, "nfrs.md"), "utf8");
     expect(checkArtifactConformance("nfrs.md", md)).toEqual({ ok: true });
     const ids = parseRequiredNfrs(md).map((r) => r.id);
     expect(ids.length).toBeGreaterThanOrEqual(1);
@@ -185,7 +188,7 @@ describe("TDD-workflow smoke: recorded HIL intake artifacts conform (Human Proxy
   });
 
   it("design-brief.md conforms (has a References section)", () => {
-    const md = fs.readFileSync(path.join(SMOKE_DIR, "design-brief.md"), "utf8");
+    const md = fs.readFileSync(path.join(BUG_TRACKER, "design-brief.md"), "utf8");
     expect(checkArtifactConformance("design-brief.md", md)).toEqual({ ok: true });
   });
 });
@@ -293,7 +296,7 @@ describe("TDD-workflow smoke: orchestrator deploys each iteration to local (work
 
   it("no feature request carries per-PR deployment intent (that is the orchestrated deploy)", () => {
     for (const iter of ITERATIONS) {
-      const md = fs.readFileSync(path.join(SMOKE_DIR, "feature-requests", `${iter}.md`), "utf8");
+      const md = fs.readFileSync(path.join(BUG_TRACKER, "feature-requests", `${iter}.md`), "utf8");
       expect(md, `${iter} should not carry per-PR deployment intent (that is the orchestrated deploy)`).not.toMatch(/pull request|deployed to a new environment/i);
     }
   });
@@ -314,7 +317,7 @@ describe("TDD-workflow smoke: iteration specs are well-formed (feature-request.m
 
   for (const iter of ITERATIONS) {
     describe(iter, () => {
-      const md = fs.readFileSync(path.join(SMOKE_DIR, "feature-requests", `${iter}.md`), "utf8");
+      const md = fs.readFileSync(path.join(BUG_TRACKER, "feature-requests", `${iter}.md`), "utf8");
 
       it("carries YAML frontmatter declaring author: Feature Requester", () => {
         // Every artifact in the kit's workflow records the ROLE that

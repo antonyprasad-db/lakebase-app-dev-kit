@@ -185,7 +185,7 @@ export LAKEBASE_KIT_NPX="$KIT_NPX"
 # requires an Arborist constructor" on a SHA committish) and honors a pre-built
 # $LAKEBASE_KIT_DIR install when set. One resolution path => identical bits on
 # every step of every run.
-KIT_ROOT="$(cd "${ORCHESTRATOR_DIR}/../../.." && pwd)"
+KIT_ROOT="$(cd "${ORCHESTRATOR_DIR}/../.." && pwd)"
 KIT_LK="${KIT_ROOT}/templates/project/common/scripts/lk"
 # Deterministic kit resolution (in code): explicit $LAKEBASE_KIT_DIR wins; else an
 # explicit --kit-ref resolves via lk; else default to THIS checkout's built dist

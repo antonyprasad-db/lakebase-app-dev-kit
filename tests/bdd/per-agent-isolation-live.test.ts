@@ -28,7 +28,7 @@ import { storyAcIds, readAcLayer } from "../../consort/config/consort-paths";
 // hand-curated corpus , this is what the agents actually produce today, junk
 // (e.g. acs/<ac>-tests.json) and all, so the isolation tests run against
 // representative real input.
-const CORPUS = join(__dirname, "..", "..", "examples", "tdd-workflow-smoke", "recorded-agent-inputs");
+const CORPUS = join(__dirname, "..", "..", "examples", "replay", "corpora", "bug-tracker", "recorded-agent-inputs");
 const FEATURE = "F1-file-bug";
 const STORY = "S1-create-bug";
 

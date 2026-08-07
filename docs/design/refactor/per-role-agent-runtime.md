@@ -73,7 +73,7 @@ state machine. Writes no spec / code / test / deploy.
 - State machine: `scripts/sftdd/schemas/workflow-state.schema.json` (+ helpers/tests)
 - Model config: new `scripts/sftdd/agent-models.ts` + `scripts/sftdd/schemas/agent-models.schema.json`; `scripts/lakebase/create-project.ts` + `create-project.cli.ts` + `scripts/lakebase/scaffold.ts`
 - Commands: `templates/project/common/.claude/commands/{plan,design,build,deploy}.md`; `skills/consort/SKILL.md`
-- Smoke: `examples/tdd-workflow-smoke/orchestrator/run-smoke.sh`, `tests/bdd/tdd-workflow-smoke.test.ts`
+- Smoke: `examples/replay/run-smoke.sh`, `tests/bdd/tdd-workflow-smoke.test.ts`
 - Release skill (compose + audit): `skills/lakebase-release-workflows/`
 
 ## Reuse (do not reinvent)

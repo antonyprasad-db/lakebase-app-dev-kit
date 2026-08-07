@@ -1,16 +1,16 @@
 // Recorded-scenario replay framework: hermetic integrity guard.
 //
 // A "scenario" is a self-contained replay corpus under
-// examples/replay-scenarios/<name>/ : a recorded-artifacts/ design lane, a
+// examples/replay/corpora/<name>/ : a recorded-artifacts/ design lane, a
 // recorded-build/ build corpus, a turns/ per-turn timeline, and a scenario.json
 // manifest (consort/config/schemas/scenario.schema.json). replay-scenario.sh
 // replays it live; THIS test is the always-on (no-workspace) guard that every
 // committed scenario is well-formed + replay-ready, so a corpus can never rot
-// into an un-replayable state unnoticed. See examples/replay-scenarios/SCENARIOS.md.
+// into an un-replayable state unnoticed. See examples/replay/SCENARIOS.md.
 //
 // The structural assertions live in assertScenarioCorpus() so they are exercised
 // here against the existing bug-tracker corpus immediately (proving the checks),
-// and run per scenario discovered under examples/replay-scenarios/ (guarding new
+// and run per scenario discovered under examples/replay/corpora/ (guarding new
 // captures like stockflow the moment they are dropped in).
 
 import { describe, it, expect, afterAll, beforeEach, afterEach } from "vitest";
@@ -21,7 +21,9 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
-const SCENARIOS_DIR = path.join(REPO_ROOT, "examples", "replay-scenarios");
+// The replay MACHINERY dir (engine, launchers, SCENARIOS.md); corpora live under its corpora/ subdir.
+const REPLAY_DIR = path.join(REPO_ROOT, "examples", "replay");
+const SCENARIOS_DIR = path.join(REPLAY_DIR, "corpora");
 
 interface ScenarioManifest {
   name: string;
@@ -137,12 +139,12 @@ function readManifest(scenarioDir: string): ScenarioManifest {
 describe("replay-scenarios: framework scaffolding", () => {
   it("ships the scenarios home + the SCENARIOS.md capture/replay guide", () => {
     expect(fs.existsSync(SCENARIOS_DIR)).toBe(true);
-    expect(fs.existsSync(path.join(SCENARIOS_DIR, "SCENARIOS.md"))).toBe(true);
+    expect(fs.existsSync(path.join(REPLAY_DIR, "SCENARIOS.md"))).toBe(true);
   });
 
   it("ships the generic replay + capture entry scripts", () => {
-    expect(fs.existsSync(path.join(SCENARIOS_DIR, "replay-scenario.sh"))).toBe(true);
-    expect(fs.existsSync(path.join(SCENARIOS_DIR, "capture-scenario.sh"))).toBe(true);
+    expect(fs.existsSync(path.join(REPLAY_DIR, "replay-scenario.sh"))).toBe(true);
+    expect(fs.existsSync(path.join(REPLAY_DIR, "capture-scenario.sh"))).toBe(true);
   });
 });
 
@@ -150,7 +152,7 @@ describe("replay-scenarios: framework scaffolding", () => {
 // for a scenario's conditions) and funnels it into create-project as flags. It must
 // not set the e2e-scaffold door while the drive reads a different uiTrack door.
 describe("capture-scenario.sh funnels scenario.json into create-project (one way in)", () => {
-  const src = fs.readFileSync(path.join(SCENARIOS_DIR, "capture-scenario.sh"), "utf8");
+  const src = fs.readFileSync(path.join(REPLAY_DIR, "capture-scenario.sh"), "utf8");
 
   it("reads the manifest via the tested scenario-conditions reader", () => {
     expect(src).toMatch(/scenario-conditions\.cli\.js/);
@@ -274,7 +276,7 @@ describe("assertScenarioCorpus: build-turn replay-consistency guard", () => {
 
 describe("replay-scenarios: every committed scenario is well-formed + replay-ready", () => {
   // A subdir is a COMMITTED scenario only once it carries a scenario.json manifest.
-  // A capture records INTO examples/replay-scenarios/<name>/ and only writes the
+  // A capture records INTO examples/replay/corpora/<name>/ and only writes the
   // manifest when the author finalizes it ("add scenario.json, then commit"), so a
   // manifest-less dir is an in-progress / uncommitted capture, NOT a scenario to
   // validate. Requiring the manifest here keeps a live capture from breaking `npm test`.

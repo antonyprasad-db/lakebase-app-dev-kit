@@ -12,7 +12,7 @@
 #
 # Usage:
 #   LAKEBASE_SFTDD_AUTO_CONTINUE=1 DATABRICKS_CONFIG_PROFILE=<profile> \
-#   bash examples/replay-scenarios/optimize-live-run.sh \
+#   bash examples/replay/optimize-live-run.sh \
 #     --scenario stockflow-optimize --feature F1-stock-visibility \
 #     --databricks-host <url> --github-owner <owner> \
 #     --candidates 'navigator.red.model=sonnet,haiku' [--trials 3]

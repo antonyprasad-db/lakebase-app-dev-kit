@@ -87,12 +87,12 @@ require_cmd() {
   fi
 }
 
-# Replay every recorded scenario under examples/replay-scenarios/<name>/ live
+# Replay every recorded scenario under examples/replay/corpora/<name>/ live
 # (design replay + build restore -> deterministic orchestrator to the RE handoff),
 # headless. The hermetic guard (tests/bdd/consort-scenarios.test.ts) checks corpus
 # shape on every `npm test`; THIS is the workspace-backed end-to-end replay.
 run_scenarios() {
-  local scen_root="$REPO_ROOT/examples/replay-scenarios"
+  local scen_root="$REPO_ROOT/examples/replay/corpora"
   local ran=0 d name
   for d in "$scen_root"/*/; do
     [[ -f "${d}scenario.json" ]] || continue
@@ -103,7 +103,7 @@ run_scenarios() {
     ran=$((ran + 1))
   done
   if [[ "$ran" -eq 0 ]]; then
-    yellow "  no scenarios under examples/replay-scenarios/ yet (nothing to replay)"
+    yellow "  no scenarios under examples/replay/corpora/ yet (nothing to replay)"
   fi
 }
 

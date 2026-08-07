@@ -84,7 +84,7 @@ describe("loadRunConfig: resolves markers + coerces types", () => {
     setEnv("DATABRICKS_HOST", undefined);
     setEnv("STOCKFLOW_DEMO_GH_OWNER", undefined);
     setEnv("STOCKFLOW_DEMO_PROJECT", undefined);
-    const shipped = join(process.cwd(), "examples/replay-scenarios/stockflow/stockflow-demo.run.json");
+    const shipped = join(process.cwd(), "examples/replay/corpora/stockflow/stockflow-demo.run.json");
     const cfg = loadRunConfig(shipped);
     expect(cfg.id).toBe("stockflow-demo");
     const c = cfg.setup!.config as Record<string, unknown>;
