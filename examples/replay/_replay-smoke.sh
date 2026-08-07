@@ -179,17 +179,26 @@ replay_smoke() {
   # When --sprint <name> is given, replay the recorded PLANNING lane through the SAME
   # executor path a live sprint uses (drivePlanning now builds effects via
   # buildDriveEffects, so spec-author propose + architect estimate dispatch through
-  # performViaExecutor). LAKEBASE_SFTDD_REPLAY_DIR (set by the caller) makes those
-  # design turns restore their recorded output from the corpus instead of spawning;
-  # author-requests is deterministic (the Human Proxy supplies the recorded requests
-  # via LAKEBASE_SFTDD_SPRINT_REQUESTS, exactly as capture does). This proves the
-  # planning lane on the unified path. Runs ONCE (FRESH==1): a resumed/multi-feature
+  # performViaExecutor). Exporting LAKEBASE_CONSORT_REPLAY_DIR=<recorded-artifacts> makes those
+  # design turns RESTORE their recorded output from the corpus (the executor swaps the manifest's
+  # agent kind claude->replay) instead of spawning a live agent; author-requests is deterministic
+  # (the Human Proxy supplies the recorded requests via SPRINT_REQUESTS, exactly as capture does).
+  # This proves the planning lane on the unified path. Runs ONCE (FRESH==1): a resumed/multi-feature
   # project already planned.
+  #
+  # The REPLAY env var MUST be exported HERE, before the planning drive , the design-lane export
+  # below (step 4) runs AFTER this block, so without setting it here the planning turns would
+  # resolve the manifest's live claude agent and SPAWN (the J2-run symptom: the markers read
+  # `(propose, live)` not `(propose, replay)`). Gated on REPLAY_DESIGN=1 (the replay direction); a
+  # capture (REPLAY_DESIGN=0) leaves it unset so planning runs live. (CORPUS_DIR is the recorded-
+  # artifacts subdir; the local REPLAY_DIR shell var above is the MACHINERY dir , different thing.)
   if [[ -n "${REPLAY_SPRINT}" && "$FRESH" == 1 ]]; then
     local FR="${CORPUS_DIR}/features/${FEATURE_ID}/feature-request.md"
     [[ -f "$FR" ]] || { err "planning replay needs the recorded feature-request at ${FR}"; return 2; }
+    [[ "${REPLAY_DESIGN:-1}" == "1" ]] && export LAKEBASE_CONSORT_REPLAY_DIR="${CORPUS_DIR}"
     export LAKEBASE_SFTDD_SPRINT_REQUESTS="${FEATURE_ID}"$'\t'"${FR}"$'\n'
-    log "replay PLANNING lane , sprint '${REPLAY_SPRINT}' (propose + estimate via the executor; author-requests deterministic)"
+    local _plan_mode; [[ "${REPLAY_DESIGN:-1}" == "1" ]] && _plan_mode="REPLAYED from corpus" || _plan_mode="LIVE"
+    log "replay PLANNING lane , sprint '${REPLAY_SPRINT}' (propose + estimate ${_plan_mode} via the executor; author-requests deterministic)"
     lk consort-drive --sprint "$REPLAY_SPRINT" --project-dir "$PROJECT_DIR" --gates proxy \
       || { err "planning-lane replay (--sprint ${REPLAY_SPRINT}) failed"; return 2; }
     unset LAKEBASE_SFTDD_SPRINT_REQUESTS
@@ -229,7 +238,7 @@ replay_smoke() {
   # self-describing behavior for an automated run.
   local GATES_FLAG="--gates proxy"
   if [[ "${REPLAY_DESIGN:-1}" == "1" ]]; then
-    export LAKEBASE_SFTDD_REPLAY_DIR="${CORPUS_DIR}"
+    export LAKEBASE_CONSORT_REPLAY_DIR="${CORPUS_DIR}"
   fi
   if [[ "$REPLAY_BUILD" == "1" ]]; then
     [[ -d "$BUILD_CORPUS_DIR" ]] || { err "build corpus missing: $BUILD_CORPUS_DIR"; return 2; }
