@@ -1266,6 +1266,18 @@ function buildCycleCommand(
  * The golden-equivalence test asserts it deep-equals commandsForAction for the migrated
  * action; a legacy branch is only retired once its golden passes.
  */
+/**
+ * The ONE resolution the drive uses to turn an action into its command list: the manifest
+ * (executor-aligned) view when useManifestSteps is on and a manifest matches, else the deterministic
+ * commandsForAction list. perform, planNextAction (--dry-run / interactive preview), and the optimize
+ * sweep ALL go through this, so the swept/previewed/performed command list is one and the same. This
+ * is also the single seam J5 rewrites: when commandsForAction's agent arm is deleted, the fallback
+ * becomes the deterministic-only helper and every caller follows without change.
+ */
+export function commandsForActionResolved(action: WorkflowAction, cfg: DriveEffectsConfig): DriveCommand[] {
+  return (cfg.useManifestSteps ? commandsFromManifest(action, cfg) : undefined) ?? commandsForAction(action, cfg);
+}
+
 export function commandsFromManifest(action: WorkflowAction, cfg: DriveEffectsConfig): DriveCommand[] | undefined {
   if (action.kind !== "invoke-role") return undefined;
   const manifest = manifestForAction(action);
@@ -1833,7 +1845,7 @@ export async function planNextAction(
   // interactive 'what's next' preview is a prompt constructor back to the human, so it must show
   // what the drive WILL do (not a stale shape). Identical today (manifests are golden-equivalent);
   // after J5 deletes commandsForAction's agent arm this resolves the agent turn via the manifest.
-  const commands = (cfg.useManifestSteps ? commandsFromManifest(action, cfg) : undefined) ?? commandsForAction(action, cfg);
+  const commands = commandsForActionResolved(action, cfg);
   return { action, commands };
 }
 
@@ -1891,8 +1903,7 @@ export function buildDriveEffects(cfg: DriveEffectsConfig): DriveEffects {
       // assemble its commands from the manifest (golden-equivalent to the legacy branch).
       // Falls back to commandsForAction when the flag is off OR no manifest matches, so
       // the default drive is byte-identical.
-      const cmds =
-        (cfg.useManifestSteps ? commandsFromManifest(action, cfg) : undefined) ?? commandsForAction(action, cfg);
+      const cmds = commandsForActionResolved(action, cfg);
       for (const cmd of cmds) {
         await cfg.runner.run(cmd);
       }

@@ -10,12 +10,14 @@ import { join } from "node:path";
 import {
   commandsForAction,
   commandsFromManifest,
+  commandsForActionResolved,
   buildDriveEffects,
   planNextAction,
   type DriveCommand,
   type DriveEffectsConfig,
   type CommandRunner,
 } from "../../consort/orchestrator/drive/orchestrator-effects";
+import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive";
 import { existsSync, readFileSync } from "node:fs";
 import { handbackFile } from "../../consort/config/consort-paths";
 import { beginNextPendingCycle } from "../../consort/pipeline/cycle-record";
@@ -767,8 +769,28 @@ describe("buildDriveEffects", () => {
     const plan = await planNextAction(c);
     expect(plan.action).toEqual({ kind: "invoke-role", role: "spec-author", mode: "breakdown" });
     // The commands MUST equal perform's resolution for the same action + cfg (the executor-aligned view).
-    const performView = commandsFromManifest(plan.action, c) ?? commandsForAction(plan.action, c);
+    const performView = commandsForActionResolved(plan.action, c);
     expect(plan.commands).toEqual(performView);
+  });
+
+  it("J4: the optimize sweep resolver (commandsForActionResolved) builds the pinned agent command IDENTICALLY to commandsForAction today", () => {
+    // The optimize sweep runs a PINNED handoff's OWN role turn via commandsForActionResolved (the
+    // drive's one resolver). With useManifestSteps on + a golden-equivalent manifest, that view is
+    // byte-identical to the legacy commandsForAction , so the swept command is unchanged today, and
+    // the sweep survives J5 (the resolver's fallback becomes deterministic-only, manifest wins for agents).
+    const swept: WorkflowAction[] = [
+      { kind: "invoke-role", role: "spec-author", mode: "breakdown" } as WorkflowAction,
+      { kind: "invoke-role", role: "spec-author", story: "S1" } as unknown as WorkflowAction,
+      { kind: "invoke-role", role: "architect-reviewer", story: "S1" } as unknown as WorkflowAction,
+      { kind: "invoke-role", role: "dba", story: "S1" } as unknown as WorkflowAction,
+      { kind: "invoke-role", role: "test-strategist", story: "S1" } as unknown as WorkflowAction,
+    ];
+    const c = cfg({ useManifestSteps: true });
+    for (const action of swept) {
+      expect(commandsForActionResolved(action, c), `resolved == legacy for ${JSON.stringify(action)}`).toEqual(
+        commandsForAction(action, c),
+      );
+    }
   });
 });
 

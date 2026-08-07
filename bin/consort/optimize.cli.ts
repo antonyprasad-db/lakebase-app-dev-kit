@@ -29,7 +29,7 @@ import { runChampionWalk, type HandoffPlan, type HandoffResult } from "../../con
 import type { BuildTurn, EffortLevel } from "../../consort/orchestrator/settings/project-settings.js";
 import type { SpawnableAgentRole } from "../../consort/config/agent-models.js";
 import { buildCfg, execRunner } from "../../consort/orchestrator/drive/claude-runner.js";
-import { planNextAction, commandsForAction, turnKeyForAction } from "../../consort/orchestrator/drive/orchestrator-effects.js";
+import { planNextAction, commandsForActionResolved, turnKeyForAction } from "../../consort/orchestrator/drive/orchestrator-effects.js";
 import { resolveConsortDir } from "../../consort/config/consort-paths.js";
 import { consortEnv, ENV_PREFIXES } from "../../consort/config/consort-env.js";
 import { kitRoot } from "../../consort/config/kit-bin.js";
@@ -157,10 +157,12 @@ function buildCtxForHandoff(
     spawnTurn: makeLiveSpawnTurn(featureId, {
       buildCfg: (fid) => buildCfg({ feature: fid, projectDir } as never, fid),
       execRunner: (cfg) => execRunner(cfg as never) as { run(cmd: unknown): Promise<void> },
-      // Build the PINNED action's command list (commandsForAction), so the spawn runs
-      // the handoff's OWN role turn , NOT planNextAction's "what's next" (which would
-      // advance to the next role once the artifact lands).
-      commandsFor: (action, cfg) => commandsForAction(action as never, cfg as never),
+      // Build the PINNED action's command list via the drive's ONE resolver
+      // (commandsForActionResolved = executor-aligned manifest view when on, else deterministic), so
+      // the spawn runs the handoff's OWN role turn EXACTLY as perform would , NOT planNextAction's
+      // "what's next" (which would advance to the next role once the artifact lands). Identical today
+      // (manifests are golden-equivalent); after J5 this resolves the agent turn via the manifest.
+      commandsFor: (action, cfg) => commandsForActionResolved(action as never, cfg as never),
       // Only the WINNER capture records into the corpus. makeLiveSpawnTurn sets
       // RECORD_DIR for record:true and clears it for trials, so a losing candidate
       // never pollutes the shippable corpus. The corpus dir is the runbook's
@@ -296,7 +298,7 @@ async function main(): Promise<number> {
         process.stderr.write(`[optimize] handoff ${h.id}: ADVANCE (settled upstream; full baseline turn, not swept)\n`);
         const cfg = buildCfg({ feature: featureId, projectDir } as never, featureId);
         const runner = execRunner(cfg as never) as { run(cmd: unknown): Promise<void> };
-        const commands = commandsForAction(h.action as never, cfg as never) as unknown[];
+        const commands = commandsForActionResolved(h.action as never, cfg as never) as unknown[];
         for (const cmd of commands) await runner.run(cmd);
       },
     }, args.from ? { startFrom: args.from } : {});
