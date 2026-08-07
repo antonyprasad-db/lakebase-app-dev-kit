@@ -322,7 +322,9 @@ export async function runOptimizeRole(args: OptimizeRoleArgs): Promise<Record<st
 
 /** A compact UTC run stamp so repeat sweeps land in distinct, non-clobbering dirs. */
 function runStamp(): string {
-  return new Date().toISOString().replace(/[-:T]/g, "").slice(0, 15); // YYYYMMDDHHMMSS-ish
+  // YYYYMMDDHHMMSS (14 digits). toISOString -> 2026-08-07T13:46:37.123Z; strip separators + the
+  // fractional-seconds tail so the dir name is clean (no trailing dot from slicing mid-fraction).
+  return new Date().toISOString().replace(/[-:T]/g, "").replace(/\..*$/, "");
 }
 
 /** The most recent prior run dir under runs/ (the baseline this run compares against), or undefined
