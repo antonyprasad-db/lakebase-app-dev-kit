@@ -1096,7 +1096,7 @@ export function buildTaskBody(
 ): string {
   const storyLoop: "ac" | "hybrid-a" | "story" | undefined =
     "story" in action ? effectiveLoopForStory(cfg.loopGranularity ?? "story", action.story) : cfg.loopGranularity;
-  return roleTaskBody(action, cfg.featureId, cfg.uiTrack ?? false, cfg.consortDir, { loop: storyLoop, cap: cfg.batchCap }, omit);
+  return roleTaskBody(action, cfg.featureId, cfg.uiTrack ?? true, cfg.consortDir, { loop: storyLoop, cap: cfg.batchCap }, omit);
 }
 
 /**
@@ -1870,7 +1870,7 @@ export function readDriveStateFromDisk(
   const state = deriveDriveState(pipeline, probe, ctx);
   // UI track: gate the UX Designer step. uiTrack is config (env); the design
   // guide's existence is disk truth (project-level, authored once + reused).
-  state.uiTrack = opts.uiTrack ?? false;
+  state.uiTrack = opts.uiTrack ?? true;
   // The guide is "ready" only when it EXISTS and CONFORMS to its schema, not
   // merely exists. Otherwise a non-conformant design-guide.json (the UX
   // Designer drifting on shape) sails through the design lane and only

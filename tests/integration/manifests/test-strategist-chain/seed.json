@@ -9,6 +9,8 @@
     { "id": "ac3", "filename": "features/F1-stock-visibility/stories/S1-file-stock/acs/AC3-collision-resolved-at-write.json", "validator": "acConformant", "description": "Story S1's AC3 (the real drive gives the strategist ALL the story's ACs)." },
     { "id": "architecture", "filename": "features/F1-stock-visibility/architecture.json", "validator": "architectureConformant", "description": "The architecture (persistence_invariants) the fitness tests cover." },
     { "id": "db-design", "filename": "features/F1-stock-visibility/db-design.json", "validator": "dbDesignConformant", "description": "The DBA's concrete schema the invariant tests assert against." },
+    { "id": "design-guide", "filename": "design/design-guide.json", "validator": "nonEmptyFile", "description": "The design-guide the CLIENT test-analyst reads (uiTrack ON , all THREE analysts participate)." },
+    { "id": "consort-config", "filename": ".lakebase/consort-config.json", "validator": "nonEmptyFile", "description": "uiTrack:true , so the roster preparer ENABLES the client analyst (never omit uiTrack)." },
     { "id": "agent-log", "filename": "agent-log.jsonl", "validator": "productOwnerLoggedAuthoring", "description": "The replay seed's authoring log." }
   ],
   "routing": {
@@ -24,7 +26,9 @@
         { "outputId": "ac2", "from": "features/F1-stock-visibility/stories/S1-file-stock/acs/AC2-retrieve-stock-record.json", "to": "features/F1-stock-visibility/stories/S1-file-stock/acs/AC2-retrieve-stock-record.json" },
         { "outputId": "ac3", "from": "features/F1-stock-visibility/stories/S1-file-stock/acs/AC3-collision-resolved-at-write.json", "to": "features/F1-stock-visibility/stories/S1-file-stock/acs/AC3-collision-resolved-at-write.json" },
         { "outputId": "architecture", "from": "features/F1-stock-visibility/architecture.json", "to": "features/F1-stock-visibility/architecture.json" },
-        { "outputId": "db-design", "from": "features/F1-stock-visibility/db-design.json", "to": "features/F1-stock-visibility/db-design.json" }
+        { "outputId": "db-design", "from": "features/F1-stock-visibility/db-design.json", "to": "features/F1-stock-visibility/db-design.json" },
+        { "outputId": "design-guide", "from": "design/design-guide.json", "to": "design/design-guide.json" },
+        { "outputId": "consort-config", "from": ".lakebase/consort-config.json", "to": ".lakebase/consort-config.json" }
       ]
     }
   }

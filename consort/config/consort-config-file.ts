@@ -115,7 +115,7 @@ export function resolveProjectSettings(projectDir: string): ProjectFileSettings 
     sessionScope: (file?.build?.sessionScope ?? "story") as "story" | "cycle",
   };
   const project = {
-    uiTrack: file?.project?.uiTrack ?? false,
+    uiTrack: file?.project?.uiTrack ?? true,
     // HITL-first: the declared project policy defaults to interactive (a human
     // approves each gate). Headless (proxy) is a deliberate opt-in, set in the
     // file or as a RUN-SCOPED --gates override (never persisted by a flag).
@@ -155,7 +155,7 @@ export function defaultConsortConfig(): ConsortConfigFile {
     roles,
     build: { loopGranularity: "story", batchCap: 3, sessionScope: "story" },
     plan: { sizing: true },
-    project: { uiTrack: false, gates: "interactive", deployTarget: "local", clientFramework: "none" },
+    project: { uiTrack: true, gates: "interactive", deployTarget: "local", clientFramework: "none" },
   };
   // Deep-merge the auto-applied optimization winners (optimized-defaults.json) on top.
   // The champion walk's auto-apply writes DATA into that file (never a TS rewrite, so

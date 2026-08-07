@@ -95,11 +95,10 @@ export const PRECONDITION_PREPARERS: Record<string, PreconditionPreparer> = {
   "green-failure-advisory": (ctx) => buildGreenFailureAdvisory(ctx.consortDir, ctx.featureId, ctx.story, ctx.ac),
   // The test-analyst roster: project the ENABLED test-analyst catalogue (client gated on the
   // project's uiTrack) into the test-strategist supervisor's turn so it Task-spawns one analyst
-  // subagent per enabled kind. Reads project.uiTrack from projectDir (absent => uiTrack false, the
-  // no-frontend default => behavior+fitness only).
+  // subagent per enabled kind. Reads project.uiTrack from projectDir; absent => true.
   "test-analyst-roster": (ctx) => {
     const projectDir = ctx.projectDir ?? "";
-    const uiTrack = projectDir ? resolveProjectSettings(projectDir).project.uiTrack : false;
+    const uiTrack = projectDir ? resolveProjectSettings(projectDir).project.uiTrack : true;
     // Per-analyst lever overrides (the optimize sweep's target) ride the precondition `options`,
     // so they are per-turn (parallel-safe , no env, no shared file). The normal drive sets none.
     const overrides = (ctx.options as { analystOverrides?: Record<string, { model?: string; effort?: "low" | "default" | "high"; toolScope?: string[] }> } | undefined)?.analystOverrides;

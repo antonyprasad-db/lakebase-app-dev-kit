@@ -26,7 +26,7 @@ export interface ScenarioConditions {
 
 /** Schema-documented defaults for an absent or partial manifest. */
 export const SCENARIO_CONDITION_DEFAULTS: ScenarioConditions = {
-  uiTrack: false,
+  uiTrack: true,
   tiers: 2,
   pauseBefore: "release-engineer",
 };

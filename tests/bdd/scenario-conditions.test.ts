@@ -35,7 +35,7 @@ describe("readScenarioConditions", () => {
   it("returns schema defaults for an ABSENT manifest (never throws)", () => {
     const c = readScenarioConditions(join(dir, "nope.json"));
     expect(c).toEqual(SCENARIO_CONDITION_DEFAULTS);
-    expect(c.uiTrack).toBe(false);
+    expect(c.uiTrack).toBe(true); // uiTrack defaults ON
     expect(c.language).toBeUndefined(); // optional, undeclared
   });
 

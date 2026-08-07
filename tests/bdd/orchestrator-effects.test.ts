@@ -38,6 +38,9 @@ function cfg(over: Partial<DriveEffectsConfig> = {}): DriveEffectsConfig {
     approver: "human-proxy",
     deployTarget: "local",
     instance: "inst-x",
+    // uiTrack defaults ON in production; the "off" cases in these directive-logic tests must set it
+    // explicitly, so the helper baseline is off and a test opts in with cfg({ uiTrack: true }).
+    uiTrack: false,
     ...over,
   };
 }

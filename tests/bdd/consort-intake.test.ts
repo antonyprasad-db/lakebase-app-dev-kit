@@ -46,14 +46,26 @@ const markUiProject = (): void => {
   );
 };
 
+/** Mark the project a NON-UI project explicitly (uiTrack defaults ON, so a no-frontend
+ *  project must opt out via its config , the single source). */
+const markNonUiProject = (): void => {
+  mkdirSync(join(proj, ".lakebase"), { recursive: true });
+  writeFileSync(
+    join(proj, ".lakebase", "sftdd-config.json"),
+    JSON.stringify({ version: 1, project: { uiTrack: false } }),
+  );
+};
+
 describe("checkIntakePreconditions", () => {
   it("fails when product-overview.md + nfrs.md are absent", () => {
+    markNonUiProject(); // isolate the project-doc preconditions from the UI (design-brief) one
     const r = checkIntakePreconditions({ consortDir: tdd });
     expect(r.ok).toBe(false);
     expect(r.missing).toEqual(["product-overview.md", "nfrs.md"]);
   });
 
   it("passes with conformant product-overview.md + nfrs.md (no feature, no UI)", () => {
+    markNonUiProject();
     writeFileSync(join(tdd, "product-overview.md"), PRODUCT_OVERVIEW);
     writeFileSync(join(tdd, "nfrs.md"), NFRS);
     expect(checkIntakePreconditions({ consortDir: tdd }).ok).toBe(true);
@@ -68,6 +80,7 @@ describe("checkIntakePreconditions", () => {
   });
 
   it("requires the feature's feature-request.md when a featureId is given", () => {
+    markNonUiProject(); // isolate the feature-request precondition from the UI (design-brief) one
     writeFileSync(join(tdd, "product-overview.md"), PRODUCT_OVERVIEW);
     writeFileSync(join(tdd, "nfrs.md"), NFRS);
     const missing = checkIntakePreconditions({ consortDir: tdd, featureId: FEATURE });
@@ -81,7 +94,8 @@ describe("checkIntakePreconditions", () => {
   it("requires design-brief.md only for UI projects (read from config.uiTrack, the single source)", () => {
     writeFileSync(join(tdd, "product-overview.md"), PRODUCT_OVERVIEW);
     writeFileSync(join(tdd, "nfrs.md"), NFRS);
-    expect(checkIntakePreconditions({ consortDir: tdd }).ok).toBe(true); // non-UI (no config): fine
+    markNonUiProject(); // uiTrack defaults ON, so a no-UI project must opt out explicitly
+    expect(checkIntakePreconditions({ consortDir: tdd }).ok).toBe(true); // non-UI: design-brief not required
 
     markUiProject(); // project.uiTrack = true in sftdd-config.json
     const uiMissing = checkIntakePreconditions({ consortDir: tdd });

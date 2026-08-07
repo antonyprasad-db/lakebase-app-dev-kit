@@ -234,7 +234,9 @@ describe("on-disk: read is side-effect-free; the drive auto-emit writes next.jso
   it("readFeatureNextSnapshot reflects the on-disk pipeline and writes NOTHING", () => {
     stageCompleted();
     const before = fileSet(tdd);
-    const snap = readFeatureNextSnapshot(tdd, F, tdd, { version: "v-test" });
+    // Non-UI reconciliation test: uiTrack:false so a fully-accepted feature's next step is
+    // feature-complete, not a pending UX Designer step (uiTrack defaults ON in production).
+    const snap = readFeatureNextSnapshot(tdd, F, tdd, { version: "v-test", uiTrack: false });
     // reconciled: derived phase = complete even though the coarse phase is stale
     expect(snap.state.derived_phase).toBe("complete");
     expect(snap.state.stories).toEqual({ S1: "done", S2: "done" });

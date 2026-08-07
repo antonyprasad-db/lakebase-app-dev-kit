@@ -116,11 +116,11 @@ export async function sweepOneChain(
   const chain = ROLE_CHAINS[handle];
   const baseModel = baseModelFor(handle, opts.baseModel);
   // The test-strategist is a SUPERVISOR , its optimization target is the per-analyst SUBAGENT levers,
-  // not its own model. Its candidate set permutes the enabled analysts (the lean isolated chain runs
-  // no-frontend => behavior + fitness); every other chain uses the single-role model/effort set.
+  // not its own model. Its candidate set permutes ALL enabled analysts (behavior/fitness/client);
+  // every other chain uses the single-role model/effort set.
   const candidates =
     handle === "test-strategist"
-      ? testStrategistCandidates(enabledAnalysts({ projectDir: "", uiTrack: false }).map((a) => a.kind))
+      ? testStrategistCandidates(enabledAnalysts({ projectDir: "", uiTrack: true }).map((a) => a.kind))
       : roleCandidates(baseModel);
   const runDir = join(runRoot, handle);
   mkdirSync(runDir, { recursive: true });

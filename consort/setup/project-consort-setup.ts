@@ -232,7 +232,7 @@ export function seedConsortConfig(
     }
   }
   if (consortConfig.project) {
-    consortConfig.project.uiTrack = opts.uiTrack ?? false;
+    consortConfig.project.uiTrack = opts.uiTrack ?? true;
     consortConfig.project.clientFramework = opts.clientFramework as ClientFramework;
   }
   writeConsortConfig(projectDir, consortConfig);

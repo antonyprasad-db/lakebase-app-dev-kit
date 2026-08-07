@@ -25,8 +25,8 @@
     },
     "uiTrack": {
       "type": "boolean",
-      "default": false,
-      "description": "Whether the scenario has a user-facing UI. The single source for the UX track: the capture harness passes it to create-project (--ui-track), which persists project.uiTrack (the drive reads it to run the UX Designer + design-guide/IA + adherence gate) and always wires the e2e harness for a UI project."
+      "default": true,
+      "description": "Whether the scenario has a user-facing UI (default true). The single source for the UX track: the capture harness passes it to create-project (--ui-track), which persists project.uiTrack (the drive reads it to run the UX Designer + design-guide/IA + adherence gate) and always wires the e2e harness for a UI project."
     },
     "language": {
       "type": "string",

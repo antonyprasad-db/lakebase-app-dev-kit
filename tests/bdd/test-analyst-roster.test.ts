@@ -114,8 +114,8 @@ describe('resolvePreparer("test-analyst-roster"): reads project.uiTrack from pro
     const roster = parseRoster(resolvePreparer("test-analyst-roster")(ctx(projectDir)));
     expect(roster.analysts.map((a) => a.kind).sort()).toEqual(["behavior", "fitness"]);
   });
-  it("no projectDir => defaults to no-frontend (behavior + fitness)", () => {
+  it("no projectDir => defaults uiTrack ON (all three analysts, client included)", () => {
     const roster = parseRoster(resolvePreparer("test-analyst-roster")({ consortDir: "/tmp/c", featureId: "F1-x", story: "S1-y", ac: "" }));
-    expect(roster.analysts.map((a) => a.kind).sort()).toEqual(["behavior", "fitness"]);
+    expect(roster.analysts.map((a) => a.kind).sort()).toEqual(["behavior", "client", "fitness"]);
   });
 });
