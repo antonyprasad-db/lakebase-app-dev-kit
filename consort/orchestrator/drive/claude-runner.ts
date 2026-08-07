@@ -666,10 +666,11 @@ export function buildCfg(args: ParsedArgs, featureId: string): DriveEffectsConfi
     // full plan lane): the Spec Author proposes from product-overview + nfrs,
     // the proxy still commits the recorded request at author-requests.
     livePropose: !!consortEnv("LIVE_PROPOSE")?.trim(),
-    // Stage 2 (#578): route the migrated agent turns (currently spec-author breakdown)
-    // THROUGH the StepExecutor instead of commandsForAction. Opt-in via
-    // LAKEBASE_SFTDD_USE_MANIFEST_STEPS; default OFF = byte-identical legacy dispatch.
-    useManifestSteps: !!consortEnv("USE_MANIFEST_STEPS")?.trim(),
+    // Agent turns dispatch THROUGH the StepExecutor (the unified path) , now the DEFAULT (J1). Every
+    // executor-allowlisted action has a shipped manifest (guarded by executor-dispatch-coverage.test),
+    // so the executor is the sole agent path. LAKEBASE_SFTDD_USE_MANIFEST_STEPS is a one-cycle escape
+    // hatch: set it to 0/false/off/no to force the legacy commandsForAction dispatch (retired in J5).
+    useManifestSteps: !/^(0|false|off|no)$/i.test(consortEnv("USE_MANIFEST_STEPS")?.trim() ?? ""),
     // RECORD lane (Stage G): hand the executor's ReplayRecorderWrapper the just-completed live
     // turn's transcript, so an executor-dispatched turn records prompt + reasoning + tools alongside
     // its delta , the SAME source the effects-level withTurnRecording uses. Colocated with
