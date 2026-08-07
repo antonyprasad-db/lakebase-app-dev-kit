@@ -65,7 +65,28 @@ test-strategist: winner a-all-low (223.4s vs baseline 665.7s, saved 66%; $0.29 c
 
 ---
 
+## Design-set batches (Stages 0-3, no new code)
+
+Run per-chain in batches under the ~55min bg-task cap.
+
+### Batch 1 (spec-author-propose, architect-estimator, spec-author-story, architect-reviewer @ concurrency 4) , COMPLETE
+
+```
+spec-author-propose: winner e-low   (29.6s vs baseline 49.0s, -39%; $0.04 cheaper)   [m-haiku, m-haiku-e-low DISQUALIFIED: haiku too weak for propose]
+spec-author-story:   winner e-low   (11.5s vs baseline 31.0s, -63%; $0.04 cheaper)
+architect-estimator: NO WINNER (stale-ref run: baseline quality 0.68 vs the WRONG reference) , RE-RUN needed after the FP-slice fix (d0d32f57)
+architect-reviewer:  NO WINNER (baseline DISQUALIFIED , see finding below)
+```
+
+**FINDING , architect-reviewer chain reliability (a real per-lever signal, NOT a tooling bug):** 4/8 candidates BLOCKED by writing NO artifact at all (verified: only replay.json persisted, no architecture.json). The split is by REASONING LOAD: the blocked ones are the HIGH-capability/effort runs (baseline=opus-default, m-sonnet, m-sonnet-e-low, opus+scan-tight); the PASSERS are the lower-effort ones (opus e-low, e-medium, haiku, haiku-e-low). I.e. higher-reasoning architect turns sometimes over-explore + don't converge on writing `architecture.json` at the exact path, while low-effort turns reliably do. The sweep faithfully surfaced this , it's about the architect-reviewer ROLE's behavior under levers, not the parallel-sweep code. (Also: when baseline itself is disqualified, "no winner, baseline stands" is misleading , the real read is "e-low/e-medium are the reliable+fast options here.") Non-blocking for the tooling; a role-prompt reliability follow-up.
+
+Live findings during the run (the sweep working as designed):
+- `spec-author-propose`: `m-haiku` AND `m-haiku-e-low` DISQUALIFIED (emitted "blocked" past retry budget) , a real signal that **haiku is too weak for the propose turn**; baseline/e-low/e-medium/m-sonnet/m-sonnet-e-low PASSED. Sweep continued (disqualify-and-continue works live under parallelism).
+- `architect-estimator`: **baseline itself quality-FAILED (0.68)** vs its reference. CALIBRATION FOLLOW-UP (not a crash): the estimate chain's `referenceFile` likely scores the isolated estimate turn against a WIDER `estimates.json` than the turn is seeded to produce (the F1/F6 entries added later by sync-backlog) , the same scope-mismatch `DESIGN_LIVE_SPECS.estimate.equivalenceReferencePaths` fixes with `estimates.FP-slice.json`. When baseline fails quality, the chain yields "no winner" (baseline levers stand). FIX (queued): point `ROLE_CHAINS["architect-estimator"].referenceFile` at the FP-slice. Non-blocking , other chains unaffected.
+
 ## Stage 4 — driver build chains (live cloud) , pre-approved, in progress
+
+SEED RESOLVED: the faithful pre-GREEN driver seed is the recorded `002-navigator` tree (RED tests present, impl absent , 46 files) under `examples/replay/corpora/stockflow-rerecord/recorded-build/features/F1-stock-visibility/stories/S1-file-stock/turns/002-navigator/code`; `003-driver` (54 files, impl added) is the GREEN result to judge against. Driver-green chain = seed 002 -> live driver GREEN turn -> honest-GREEN verify on a per-candidate Lakebase branch -> discriminator judge vs 003. Build pending (see [[project_optimize_every_chain_parallel]] for the full Stage 4 spec).
 
 ---
 
@@ -75,6 +96,10 @@ test-strategist: winner a-all-low (223.4s vs baseline 665.7s, saved 66%; $0.29 c
 |---|---|---|---|---|---|
 | dba | 29.5s (opus) | m-sonnet-e-low | 20.9s | 29% | model=sonnet, effort=low |
 | test-strategist | 665.7s (sonnet) | a-all-low | 223.4s | 66% | analysts behavior+fitness effort=low |
-| _spec-author-story, architect-reviewer, spec-author-propose, architect-estimator, ux-designer_ | | | | | _pending full design-set run (per-chain batches under the cap)_ |
-| _navigator-red, navigator-assess_ | | | | | _pending (lean build chains)_ |
+| spec-author-propose | 49.0s (opus) | e-low | 29.6s | 39% | effort=low (haiku disqualified) |
+| spec-author-story | 31.0s (opus) | e-low | 11.5s | 63% | effort=low |
+| architect-estimator | 17.9s (opus) | _re-run pending_ | | | (batch-1 stale ref; FP-slice fix d0d32f57) |
+| architect-reviewer | (opus, baseline blocked) | _re-run pending_ | | | e-low/e-medium reliably pass; hi-effort blocks (role reliability finding) |
+| _ux-designer_ | | | | | _pending batch 2_ |
+| _navigator-red, navigator-assess_ | | | | | _pending (lean build chains, wire into CLI chain-set)_ |
 | _driver-green, driver-refactor_ | | | | | _pending Stage 4 (cloud)_ |
