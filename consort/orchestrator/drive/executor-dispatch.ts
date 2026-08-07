@@ -468,9 +468,19 @@ export async function performTurnViaExecutor(
   // (the synced pipeline now shows breakdownDone / testsWritten). Using the stale pre-turn state
   // re-derives the just-performed turn and the loop stalls. The rest of routerDeps (revise budget,
   // retry ledger) is preserved.
+  //
+  // Which fresh reader: the DRIVE'S OWN (cfg.readFreshDriveState) when set, else the feature probe.
+  // A feature drive has no readFreshDriveState => the feature probe (byte-identical to before). A
+  // PLANNING drive (drivePlanning) sets it to deriveSprintPlanningState, whose DriveState carries
+  // phase:"planning" , which nextTransition needs to route propose->estimate->author-requests. The
+  // feature probe reports phase:"feature" (no planning block), so re-deriving a planning turn through
+  // it wrongly yields `breakdown` (the J2 defect). Re-deriving through the drive's own reader keeps
+  // the executor's routing authority IDENTICAL to the drive's readState , one source, both lanes.
+  const readFresh = (): DriveState =>
+    cfg.readFreshDriveState?.() ?? deps.readDriveStateFromDisk(cfg.consortDir, cfg.featureId, cfg.projectDir, { uiTrack: cfg.uiTrack });
   const freshRouterDeps: ValidateBoundDeps = {
     ...routerDeps,
-    allowed: () => routerDeps.allowed(deps.readDriveStateFromDisk(cfg.consortDir, cfg.featureId, cfg.projectDir, { uiTrack: cfg.uiTrack })),
+    allowed: () => routerDeps.allowed(readFresh()),
   };
   const ctx = { action, cfg, state, validateBoundDeps: freshRouterDeps };
   const result = await execute(step, ctx, executorDeps);

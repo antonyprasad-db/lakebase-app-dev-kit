@@ -389,6 +389,14 @@ async function runSprintMode(args: ParsedArgs): Promise<number> {
       // while its perform runs the deterministic planning primitives (author-requests, sync-backlog,
       // estimate-committed, the plan gate). Only readState differs from a feature drive , override it
       // with the sprint-planning deriver.
+      //
+      // The executor's post-turn `state-derived` re-derive must ALSO use the planning deriver, not the
+      // feature probe: a propose turn routes state-derived, and the feature probe reports phase:"feature"
+      // (no planning block), so nextTransition would derive `breakdown` instead of `estimate` (the J2
+      // defect). cfg.readFreshDriveState is the executor's fresh-reader seam , point it at the SAME
+      // deriveSprintPlanningState so the executor's routing authority matches this drive's readState.
+      // It is SYNC (the executor's `allowed` is sync); deriveSprintPlanningState is sync.
+      cfg.readFreshDriveState = () => deriveSprintPlanningState(consortDir, sprint, { skipSizing });
       const planning: DriveEffects = {
         ...buildDriveEffects(cfg),
         // Sizing is ON by default; --no-sizing (or config plan.sizing:false) opts out.

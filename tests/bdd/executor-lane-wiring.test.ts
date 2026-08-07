@@ -13,6 +13,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { buildDriveEffects, type DriveCommand, type DriveEffectsConfig } from "../../consort/orchestrator/drive/orchestrator-effects";
 import { resetStepReplayCursor } from "../../consort/orchestrator/agents/mock-replay-agent";
+import { nextTransition } from "../../consort/orchestrator/drive/orchestrator-drive";
 import type { WorkflowAction, DriveState } from "../../consort/orchestrator/drive/orchestrator-drive";
 import type { ValidateBoundDeps } from "../../consort/orchestrator/steps/step-contract";
 
@@ -152,6 +153,47 @@ describe("Stage G: executor RECORD lane wraps the agent (records the turn's delt
       resetStepReplayCursor(corpus);
       rmSync(corpus, { recursive: true, force: true });
       rmSync(recordDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("Executor state-derived re-derive uses the drive's OWN fresh-state reader (planning lane consistency)", () => {
+  // J2 defect: a PLANNING turn (propose) has a `state-derived` manifest route, so the executor
+  // re-derives the next action post-turn. It hardcoded readDriveStateFromDisk (the FEATURE probe,
+  // phase != "planning"), so nextTransition skipped the planning block and derived `breakdown`
+  // (a feature turn) instead of `estimate`. breakdown then failed loud (missing feature-request).
+  // The drive's readState IS the planning deriver (drivePlanning wires deriveSprintPlanningState);
+  // the executor must re-derive through the SAME reader. cfg.readFreshDriveState is that seam:
+  // present => the executor re-derives through it; absent => the feature reader (byte-identical).
+  const PROPOSE: WorkflowAction = { kind: "invoke-role", role: "spec-author", mode: "propose" };
+
+  it("propose re-derives to `estimate` when cfg.readFreshDriveState returns planning state (NOT `breakdown`)", async () => {
+    const corpus = mkdtempSync(join(tmpdir(), "lane-plan-"));
+    try {
+      // Recorded propose turn: its files/ delta carries planning/feature-proposals.md.
+      const turnDir = join(corpus, "turns", "0000-spec-author-propose");
+      mkdirSync(join(turnDir, "files", ".sftdd", "planning"), { recursive: true });
+      writeFileSync(join(turnDir, "turn.json"), JSON.stringify({ action: PROPOSE, produced: [".sftdd/planning/feature-proposals.md"] }));
+      writeFileSync(join(turnDir, "files", ".sftdd", "planning", "feature-proposals.md"), "# FP1\ncandidate\n");
+
+      // The PLANNING transition authority: proposed:true (propose just ran), estimated:false, so
+      // nextTransition(planning) => architect-reviewer/estimate (orchestrator-drive.ts:208).
+      const planningState = {
+        phase: "planning",
+        planning: { proposed: true, estimated: false, requestsAuthored: false, committedEstimated: false, gateApproved: false, skipSizing: false },
+      } as unknown as DriveState;
+      // The router's allowed is the SAME nextTransition runDriver uses (feeds it whatever state it gets).
+      const planRouterDeps: ValidateBoundDeps = { ...routerDeps, allowed: (s: DriveState) => nextTransition(s) };
+
+      process.env.LAKEBASE_CONSORT_REPLAY_DIR = corpus;
+      const effects = buildDriveEffects(cfg(consortDir, projectDir, { readFreshDriveState: () => planningState }));
+      const bounded = await effects.performViaExecutor!(PROPOSE, planningState, planRouterDeps);
+
+      expect(bounded, "propose dispatched via executor").toBeDefined();
+      expect(bounded!.action).toEqual({ kind: "invoke-role", role: "architect-reviewer", mode: "estimate" });
+    } finally {
+      resetStepReplayCursor(corpus);
+      rmSync(corpus, { recursive: true, force: true });
     }
   });
 });

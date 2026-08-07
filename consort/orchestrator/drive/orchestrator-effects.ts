@@ -99,6 +99,15 @@ export interface DriveEffectsConfig {
   approver?: string;
   /** Sprint name, threaded to the sprint plan gate in the planning phase. */
   sprintName?: string;
+  /** OPTIONAL fresh-state reader for the executor's post-turn `state-derived` re-derive. A turn
+   *  whose manifest routes `state-derived` has the executor re-derive the next action from disk
+   *  (executor-dispatch phase 7). By default that uses readDriveStateFromDisk (the FEATURE probe),
+   *  which is correct for a feature drive. But a PLANNING drive (drivePlanning) reads state through
+   *  deriveSprintPlanningState , its DriveState carries phase:"planning", which nextTransition needs
+   *  to route propose->estimate->author-requests. When this is set, the executor re-derives through
+   *  it INSTEAD of the feature probe, so the executor's routing authority matches the drive's own
+   *  readState (single source). Absent => the feature reader, byte-identical to before. */
+  readFreshDriveState?(): import("./orchestrator-drive.js").DriveState;
   /** Recorded feature-requests are available (capture/replay via
    *  $LAKEBASE_SFTDD_SPRINT_REQUESTS). When true, the planning PROPOSE step is
    *  DETERMINISTIC (project feature-proposals.md from those requests via the
