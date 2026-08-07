@@ -35,6 +35,12 @@
 #   # The whole-sprint orchestrator plans to the plan gate (sync-backlog projects
 #   # backlog.json from just these features), then claims + drives each. The
 #   # feature-requests are supplied to planning via LAKEBASE_SFTDD_SPRINT_REQUESTS.
+#
+#   # Plan-only: capture JUST the planning lane (propose/estimate via the executor +
+#   # author-requests/sync-backlog/estimate-committed/gate-plan) and STOP at
+#   # planning-complete , no feature drive. Requires --sprint:
+#   capture-scenario.sh --scenario <name> --create ... \
+#     --sprint <name> --feature <F1> --plan-only
 # Env: DATABRICKS_HOST, DATABRICKS_CONFIG_PROFILE, GITHUB_OWNER.
 #      LAKEBASE_SFTDD_AUTO_CONTINUE=1 to run headless (required for --create).
 #      Do NOT set LAKEBASE_KIT_DIR: the script refuses it (it would split-brain
@@ -59,6 +65,11 @@ PAUSE_BEFORE=""
 # `--only design` to scaffold + drive the design lane and STOP cleanly at the
 # build boundary, so the per-handoff sweep takes the build turns from there.
 ONLY=""
+# --plan-only: sprint mode only , drive the PLANNING lane to planning-complete + STOP (no per-feature
+# claim/drive), so the capture records JUST the plan turns (propose/estimate via the executor +
+# author-requests/sync-backlog/estimate-committed/gate-plan) into the scenario. The result is a
+# planning-only corpus that replays identically on the current state machine.
+PLAN_ONLY=""
 # --no-drive: scaffold + stage intake + CLAIM the feature, but do NOT run the
 # drive. The optimize LANE sweep needs the project positioned at the start of the
 # design lane (claimed, nothing designed) so IT owns + experiments on every design
@@ -106,6 +117,7 @@ while [[ $# -gt 0 ]]; do
       shift 2 ;;
     --pause-before)   PAUSE_BEFORE="$2"; shift 2 ;;
     --only)           ONLY="$2"; shift 2 ;;
+    --plan-only)      PLAN_ONLY=1; shift ;;   # sprint mode: capture the PLANNING lane, then STOP (no feature drive)
     --no-drive)       NO_DRIVE=1; shift ;;
     --create)         CREATE=1; shift ;;
     --project-name)   PROJECT_NAME="$2"; shift 2 ;;
@@ -300,6 +312,10 @@ SFTDD_DIR="$(lk lakebase-resolve-consort-dir --project-dir "$PROJECT_DIR")"
 
 pause_args=(); [[ -n "$PAUSE_BEFORE" ]] && pause_args=( --pause-before "$PAUSE_BEFORE" )
 only_args=(); [[ -n "$ONLY" ]] && only_args=( --only "$ONLY" )
+plan_args=(); [[ -n "$PLAN_ONLY" ]] && plan_args=( --plan-only )
+if [[ -n "$PLAN_ONLY" && ${#SPRINT_NAMES[@]} -eq 0 ]]; then
+  echo "capture-scenario: --plan-only requires --sprint <name> (it captures the planning lane)" >&2; exit 2
+fi
 
 if [[ ${#SPRINT_NAMES[@]} -gt 0 ]]; then
   # ── Sprint mode: drive the whole-sprint orchestrator per sprint IN ORDER
@@ -335,11 +351,15 @@ if [[ ${#SPRINT_NAMES[@]} -gt 0 ]]; then
     # and the sprint's feature is still claimed. Advancing to the NEXT sprint would
     # then trip `already-claimed-other` on the open feature. Stop the capture here
     # so the human resolves the escalation and re-runs (the drive is resumable).
-    if ! lk consort-drive --sprint "$sname" --project-dir "$PROJECT_DIR" --gates proxy ${pause_args[@]+"${pause_args[@]}"} ${only_args[@]+"${only_args[@]}"}; then
+    if ! lk consort-drive --sprint "$sname" --project-dir "$PROJECT_DIR" --gates proxy ${pause_args[@]+"${pause_args[@]}"} ${only_args[@]+"${only_args[@]}"} ${plan_args[@]+"${plan_args[@]}"}; then
       rc=$?
       echo "[capture-scenario] sprint '${sname}' halted (drive exit ${rc}); stopping before later sprints." >&2
       exit "$rc"
     fi
+    # --plan-only: the planning lane is the whole capture; consort-drive --plan-only stops at
+    # planning-complete (no per-feature claim/drive inside the orchestrator), so record just the
+    # plan turns and move to the next sprint (if any) rather than any feature build.
+    [[ -n "$PLAN_ONLY" ]] && echo "[capture-scenario] sprint '${sname}' PLAN-ONLY captured (stopped at planning-complete)" >&2
   done
 else
   for FID in "${FEATURES[@]}"; do

@@ -19,10 +19,31 @@ or let a launcher source them from `.env.local.test.config`.
 
 ### Replay a recorded corpus (deterministic, no model spawns)
 
-| Script | What it does |
-|--------|--------------|
-| `replay-scenario.sh --scenario <name> [--to <handoff>] [--sprint <name>]` | The generic engine wrapper. For each feature in the scenario's `scenario.json`, in order, replays that feature's DESIGN lane + restores its recorded BUILD, driving one project to the chosen handoff. Multi-feature scenarios chain in ONE project (later features build on earlier merged state). `--sprint` replays the PLANNING lane once on the first feature. |
-| `replay-stockflow-rerecord.sh [--to <handoff>] [--sprint <name>\|--no-sprint]` | One-line launcher for the standing `stockflow-rerecord` mechanics regression: rebuilds dist if stale, sources `.env.local.test.config`, turns on the manifest-driven executor, and delegates to `replay-scenario.sh`. `--sprint` defaults to `stockflow-rerecord-s1` (planning lane replayed through the executor); pass `--no-sprint` to skip it. |
+**`replay-scenario.sh`** — the generic playback door. For each feature in the
+scenario's `scenario.json`, in order, replays that feature's DESIGN lane +
+restores its recorded BUILD, driving one project to the chosen handoff.
+Multi-feature scenarios chain in ONE project (later features build on earlier
+merged state).
+
+| Option | Meaning |
+|--------|---------|
+| `--scenario <name>` | **Required.** The corpus under `corpora/<name>/` to replay. |
+| `--to navigator\|release-engineer` | Handoff to pause before (default `release-engineer`, or the scenario's `pauseBefore`). |
+| `--sprint <name>` | Replay the PLANNING lane once, on the first feature, before its design/build. |
+| `--plan-only` | With `--sprint`: replay ONLY the planning lane, then STOP at planning-complete (no feature drive). For a planning-only corpus. |
+| `--kit-ref <ref>` | Resolve the kit from a branch/tag/sha instead of this checkout's dist. |
+| `--project-dir <dir>` | Override the scaffold target directory. |
+
+**`replay-stockflow-rerecord.sh`** — one-line launcher for the standing
+`stockflow-rerecord` mechanics regression: rebuilds dist if stale, sources
+`.env.local.test.config`, turns on the manifest-driven executor, delegates to
+`replay-scenario.sh`.
+
+| Option | Meaning |
+|--------|---------|
+| `--to navigator\|release-engineer` | Handoff to pause before (default `release-engineer`). |
+| `--sprint <name>` | Planning-lane sprint to replay (default `stockflow-rerecord-s1`). |
+| `--no-sprint` | Skip the planning lane; drive features only. |
 
 Replayed agent turns dispatch through the shipped **StepExecutor** (the
 step-aware replay agent materializes each turn's recorded slice — no model
@@ -52,15 +73,43 @@ in CI. The smoke is **2-tier** (prod + staging; features fork from staging);
 
 ### Capture a new corpus (record every turn)
 
+**`capture-scenario.sh`** is the ONE door to author a corpus. It drives a real
+project live with the per-turn recorder on, recording straight into
+`corpora/<name>/` (`turns/` + `recorded-artifacts/` + `recorded-build/`), so the
+result is immediately a committable, replayable corpus. Every other capture
+script (below) is a thin preset over it or the engine.
+
+| Option | Meaning |
+|--------|---------|
+| `--scenario <name>` | **Required.** Records into `corpora/<name>/`. |
+| `--create` | Scaffold a FRESH project first (needs `--project-name`, `--databricks-host`, `--github-owner`, `--tiers`). Without it, drives an existing `--project-dir`. |
+| `--project-name <n>` / `--project-dir <dir>` | Scaffold name (with `--create`) / existing project to drive. |
+| `--databricks-host <url>` / `--github-owner <o>` / `--tiers <n>` / `--ui` | Scaffold conditions (with `--create`). |
+| `--inputs-from <corpus-dir>` | Read intake (`intake/*.md`) + per-feature `feature-request.md` from another corpus, recording into THIS one (re-record from the same inputs). |
+| `--sprint <name>` | Drive the whole-sprint orchestrator (PLANNING lane → plan gate → per-feature), backlog scoped to the `--feature` ids after it. Repeatable. |
+| `--feature <id>` | A feature to drive; after a `--sprint`, joins that sprint's backlog. Repeatable. |
+| `--plan-only` | With `--sprint`: capture ONLY the planning lane, then STOP at planning-complete (no feature drive). Produces a planning-only corpus. |
+| `--only design\|build\|deploy` | Bound each per-feature drive to one lane. |
+| `--pause-before navigator\|release-engineer` | Pause the drive at that handoff. |
+| `--no-drive` | Scaffold + stage inputs only; don't drive (set up for a manual run). |
+
+Env: `DATABRICKS_HOST`, `DATABRICKS_CONFIG_PROFILE`, `GITHUB_OWNER`;
+`LAKEBASE_CONSORT_AUTO_CONTINUE=1` for headless (required with `--create`). Do
+NOT set `LAKEBASE_KIT_DIR` (the script refuses it — it would split-brain the
+orchestrator vs the `claude -p` agents; it pins one dev ref for both). See
+[`CAPTURE-RUNBOOK.md`](CAPTURE-RUNBOOK.md).
+
 Recording is gated on `LAKEBASE_CONSORT_RECORD_DIR` (+
-`LAKEBASE_CONSORT_RECORD_BUILD_DIR` for the build corpus). When set, every
-state-machine turn's artifact delta is written into the corpus, so a later run
-can replay it.
+`LAKEBASE_CONSORT_RECORD_BUILD_DIR` for the build corpus), which
+`capture-scenario.sh` points at the scenario dir for you.
+
+**Presets over the engine** (`_replay-smoke.sh`, sourced — they set
+`REPLAY_DESIGN=0` so design runs live + records, and forward `--sprint` /
+`--feature` / `--plan-only` to it):
 
 | Script | What it does |
 |--------|--------------|
-| `run-capture.sh` | FULL LIVE CAPTURE — real design AND real build — recording every turn, paused just before the Navigator handoff. |
-| `capture-scenario.sh` | Capture a new named scenario: drive a real feature live with the per-turn recorder on, recording straight into `corpora/<name>/`; reads `scenario.json[.pending]` for the run's conditions. |
+| `run-capture.sh [--sprint <name>] [--plan-only] [--feature <id>]` | FULL LIVE CAPTURE — real design AND real build — recording every turn, paused just before the Navigator handoff. With `--sprint --plan-only`, captures the planning lane and stops. |
 | `run-stockflow-capture.sh` | Stockflow F1+F6 reference capture: DESIGN lane REPLAYED from `corpora/stockflow/recorded-artifacts/`, BUILD lane runs LIVE and is recorded per turn. |
 | `resume-stockflow-capture.sh` | RESUME the stockflow F1+F6 capture after a mid-run halt (no scaffold, no intake; continues the same record dir). |
 | `resume-stockflow-f6.sh` | RESUME just F6-split-tracking-code after its driver GREEN turn overflowed (narrow resume). |

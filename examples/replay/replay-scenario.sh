@@ -32,6 +32,7 @@ TO="release-engineer"
 KIT_REF=""
 PROJECT_DIR=""
 SPRINT=""   # opt-in: when set, replay the PLANNING lane once (for the first feature's project)
+PLAN_ONLY=0 # opt-in: with --sprint, replay ONLY the planning lane then STOP (no feature drive)
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --scenario)    SCENARIO="$2"; shift 2 ;;
@@ -39,10 +40,12 @@ while [[ $# -gt 0 ]]; do
     --kit-ref)     KIT_REF="$2"; shift 2 ;;
     --project-dir) PROJECT_DIR="$2"; shift 2 ;;
     --sprint)      SPRINT="$2"; shift 2 ;;   # opt-in: replay the PLANNING lane for the FIRST feature
+    --plan-only)   PLAN_ONLY=1; shift ;;     # opt-in: replay ONLY planning (requires --sprint), then stop
     -h|--help)     sed -n '1,22p' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) echo "replay-scenario: unknown arg: $1" >&2; exit 2 ;;
   esac
 done
+[[ "$PLAN_ONLY" == "1" && -z "$SPRINT" ]] && { echo "replay-scenario: --plan-only requires --sprint <name>" >&2; exit 2; }
 
 [[ -n "$SCENARIO" ]] || { echo "replay-scenario: --scenario <name> is required" >&2; exit 2; }
 SCEN="${SCEN_DIR_ROOT}/${SCENARIO}"
@@ -92,6 +95,9 @@ for FID in "${FEATURES[@]}"; do
   # Replay the PLANNING lane ONCE, on the FIRST feature (it scaffolds the project); the engine
   # runs it only when FRESH==1, so later features never re-plan even if --sprint were repeated.
   [[ -n "$SPRINT" && $i -eq 0 ]] && args+=( --sprint "$SPRINT" )
+  # --plan-only: with --sprint on the FIRST feature, replay ONLY the planning lane then stop (the
+  # engine returns after planning-complete, no feature drive). A plan-only corpus has no build turns.
+  [[ "$PLAN_ONLY" == "1" && $i -eq 0 ]] && args+=( --plan-only )
   replay_smoke "${args[@]}"
   i=$((i + 1))
 done
