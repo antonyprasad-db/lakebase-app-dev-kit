@@ -18,9 +18,19 @@ import { runExperimentsInParallel } from "../../consort/experiment/parallel-runn
 import type { StepManifest } from "../../consort/orchestrator/steps/manifest.js";
 import type { StepAgent } from "../../consort/orchestrator/agents/agent-types.js";
 import type { ManifestTurn } from "../../consort/orchestrator/runners/manifest-runner.js";
-import type { RoleChain } from "../../consort/optimize/role-chains.js";
 import type { RoleCandidate, RoleLeverPatch } from "./role-levers.js";
 import type { RoleTelemetry } from "../../consort/optimize/role-telemetry.js";
+
+/** The structural minimum a sweepable chain must expose , the subset the sweep engine reads (the
+ *  manifest dir names the seed/live ids, outputFile is the primary artifact the gate + telemetry
+ *  key on, prompt rides the telemetry transcript). Both the design `RoleChain` and the build
+ *  `BuildRoleChain` satisfy this, so ONE engine sweeps either family (a build chain judges via a
+ *  different quality gate the CLI supplies, but the RUN loop is identical). */
+export interface SweepableChain {
+  dir: string;
+  outputFile: string;
+  prompt: string;
+}
 
 /** What one chain run returns: the turns PLUS the PRESERVED produced-artifact tree ({relpath ->
  *  contents}, every file the run wrote, captured before teardown). The whole tree is kept , a
@@ -35,7 +45,7 @@ export interface ChainRunResult {
  *  turns + the preserved artifact tree. The candidateId is passed for logging/routing. The live
  *  CLI binds runRoleChainLive; tests bind a fake. */
 export type ChainRunner = (
-  chain: RoleChain,
+  chain: SweepableChain,
   agentFor: (m: StepManifest) => StepAgent | undefined,
   candidateId: string,
 ) => Promise<ChainRunResult>;
@@ -71,7 +81,7 @@ export interface SweepTrial {
 
 /** Build the agentFor override for a candidate: for the live-role manifest, a ClaudeStepAgent
  *  from the manifest's base agent.config MERGED with the candidate patch; undefined otherwise. */
-function agentForCandidate(chain: RoleChain, patch: RoleLeverPatch): (m: StepManifest) => StepAgent | undefined {
+function agentForCandidate(chain: SweepableChain, patch: RoleLeverPatch): (m: StepManifest) => StepAgent | undefined {
   const liveId = `${chain.dir}-live`;
   return (m: StepManifest) => {
     if (m.id !== liveId) return undefined; // seed + others fall through to the catalogue
@@ -95,7 +105,7 @@ function agentForCandidate(chain: RoleChain, patch: RoleLeverPatch): (m: StepMan
 }
 
 /** Assemble a RoleTelemetry from a candidate's live turns (the last turn is the live role's). */
-function trialTelemetry(chain: RoleChain, candidate: RoleCandidate, turns: ManifestTurn[]): { gatePassed: boolean; telemetry: RoleTelemetry } {
+function trialTelemetry(chain: SweepableChain, candidate: RoleCandidate, turns: ManifestTurn[]): { gatePassed: boolean; telemetry: RoleTelemetry } {
   const liveTurn = turns[turns.length - 1];
   const t = liveTurn?.telemetry;
   const usage = t?.agentResult?.usage;
@@ -164,7 +174,7 @@ export interface SweepOptions extends SweepHooks {
  *  into the parallel pool. Pure w.r.t. shared state: the only mutation is inside runChain's own
  *  mkdtemp workspace. */
 async function runOneCandidate(
-  chain: RoleChain,
+  chain: SweepableChain,
   candidate: RoleCandidate,
   runChain: ChainRunner,
   quality: QualityGate | undefined,
@@ -217,7 +227,7 @@ async function runOneCandidate(
 }
 
 export async function runRoleSweep(
-  chain: RoleChain,
+  chain: SweepableChain,
   candidates: RoleCandidate[],
   runChain: ChainRunner,
   options: SweepOptions = {},
