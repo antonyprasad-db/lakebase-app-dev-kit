@@ -62,7 +62,7 @@ replay_smoke() {
       --project-dir)  PROJECT_DIR="$2"; shift 2 ;;
       --feature)      FEATURE_ID="$2"; shift 2 ;;
       --sprint)       REPLAY_SPRINT="$2"; shift 2 ;;
-      --plan-only)    PLAN_ONLY=1 ;;   # capture/replay the PLANNING lane, then STOP (no feature drive)
+      --plan-only)    PLAN_ONLY=1; shift ;;   # capture/replay the PLANNING lane, then STOP (no feature drive)
       --corpus)       CORPUS_DIR="$2"; shift 2 ;;
       -h|--help)      sed -n '1,40p' "${BASH_SOURCE[1]}"; return 0 ;;
       *) echo "${SMOKE_NAME}: unknown arg: $1" >&2; return 2 ;;
