@@ -29,12 +29,14 @@ SCENARIO=""
 TO="release-engineer"
 KIT_REF=""
 PROJECT_DIR=""
+SPRINT=""   # opt-in: when set, replay the PLANNING lane once (for the first feature's project)
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --scenario)    SCENARIO="$2"; shift 2 ;;
     --to)          TO="$2"; shift 2 ;;
     --kit-ref)     KIT_REF="$2"; shift 2 ;;
     --project-dir) PROJECT_DIR="$2"; shift 2 ;;
+    --sprint)      SPRINT="$2"; shift 2 ;;   # opt-in: replay the PLANNING lane for the FIRST feature
     -h|--help)     sed -n '1,22p' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) echo "replay-scenario: unknown arg: $1" >&2; exit 2 ;;
   esac
@@ -85,6 +87,9 @@ for FID in "${FEATURES[@]}"; do
   args=( --scenario-noop )  # placeholder to keep the array non-empty under set -u
   args=( --tiers "$TIERS" --feature "$FID" --corpus "${SCEN}/recorded-artifacts" --project-dir "$PROJECT_DIR" )
   [[ -n "$KIT_REF" ]] && args+=( --kit-ref "$KIT_REF" )
+  # Replay the PLANNING lane ONCE, on the FIRST feature (it scaffolds the project); the engine
+  # runs it only when FRESH==1, so later features never re-plan even if --sprint were repeated.
+  [[ -n "$SPRINT" && $i -eq 0 ]] && args+=( --sprint "$SPRINT" )
   replay_smoke "${args[@]}"
   i=$((i + 1))
 done

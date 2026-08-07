@@ -47,6 +47,7 @@ replay_smoke() {
   BUILD_CORPUS_DIR="${LAKEBASE_SFTDD_REPLAY_BUILD_DIR:-${ORCHESTRATOR_DIR}/../recorded-build}"
 
   local FEATURE_ID="F1-file-bug"
+  local REPLAY_SPRINT="${REPLAY_SPRINT:-}"   # when set (once per project), replay the PLANNING lane
   local TIERS="${TIERS:-}"
   local KIT_REF="${LAKEBASE_KIT_REF:-}"
   local PROJECT_NAME="bug-tracker-ff-$(date +%Y%m%d-%H%M%S)"
@@ -59,6 +60,7 @@ replay_smoke() {
       --project-name) PROJECT_NAME="$2"; shift 2 ;;
       --project-dir)  PROJECT_DIR="$2"; shift 2 ;;
       --feature)      FEATURE_ID="$2"; shift 2 ;;
+      --sprint)       REPLAY_SPRINT="$2"; shift 2 ;;
       --corpus)       CORPUS_DIR="$2"; shift 2 ;;
       -h|--help)      sed -n '1,40p' "${BASH_SOURCE[1]}"; return 0 ;;
       *) echo "${SMOKE_NAME}: unknown arg: $1" >&2; return 2 ;;
@@ -171,6 +173,26 @@ replay_smoke() {
       || { err "human-proxy refused design-brief.md"; return 2; }
     git add "${SFTDD_REL}/product-overview.md" "${SFTDD_REL}/nfrs.md" "${SFTDD_REL}/design/design-brief.md" 2>/dev/null || true
     git commit -m "intake: project product-overview + nfrs + design-brief" >/dev/null 2>&1 || true
+  fi
+
+  # ─── 2.5 PLANNING lane replay (optional, once per project) ──
+  # When --sprint <name> is given, replay the recorded PLANNING lane through the SAME
+  # executor path a live sprint uses (drivePlanning now builds effects via
+  # buildDriveEffects, so spec-author propose + architect estimate dispatch through
+  # performViaExecutor). LAKEBASE_SFTDD_REPLAY_DIR (set by the caller) makes those
+  # design turns restore their recorded output from the corpus instead of spawning;
+  # author-requests is deterministic (the Human Proxy supplies the recorded requests
+  # via LAKEBASE_SFTDD_SPRINT_REQUESTS, exactly as capture does). This proves the
+  # planning lane on the unified path. Runs ONCE (FRESH==1): a resumed/multi-feature
+  # project already planned.
+  if [[ -n "${REPLAY_SPRINT}" && "$FRESH" == 1 ]]; then
+    local FR="${CORPUS_DIR}/features/${FEATURE_ID}/feature-request.md"
+    [[ -f "$FR" ]] || { err "planning replay needs the recorded feature-request at ${FR}"; return 2; }
+    export LAKEBASE_SFTDD_SPRINT_REQUESTS="${FEATURE_ID}"$'\t'"${FR}"$'\n'
+    log "replay PLANNING lane , sprint '${REPLAY_SPRINT}' (propose + estimate via the executor; author-requests deterministic)"
+    lk consort-drive --sprint "$REPLAY_SPRINT" --project-dir "$PROJECT_DIR" --gates proxy \
+      || { err "planning-lane replay (--sprint ${REPLAY_SPRINT}) failed"; return 2; }
+    unset LAKEBASE_SFTDD_SPRINT_REQUESTS
   fi
 
   # ─── 3. feature-request on trunk, then claim the paired branch ─
