@@ -1828,7 +1828,13 @@ export async function planNextAction(
 ): Promise<{ action: WorkflowAction; commands: DriveCommand[] }> {
   const state = await buildDriveEffects(cfg).readState();
   const action = transition(state);
-  return { action, commands: commandsForAction(action, cfg) };
+  // Resolve commands EXACTLY as perform does , the manifest (executor-aligned) view when
+  // useManifestSteps is on and a manifest matches, else the deterministic list. --dry-run + the
+  // interactive 'what's next' preview is a prompt constructor back to the human, so it must show
+  // what the drive WILL do (not a stale shape). Identical today (manifests are golden-equivalent);
+  // after J5 deletes commandsForAction's agent arm this resolves the agent turn via the manifest.
+  const commands = (cfg.useManifestSteps ? commandsFromManifest(action, cfg) : undefined) ?? commandsForAction(action, cfg);
+  return { action, commands };
 }
 
 /**

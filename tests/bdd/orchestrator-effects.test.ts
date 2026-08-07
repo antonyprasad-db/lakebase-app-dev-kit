@@ -9,6 +9,7 @@ import { join } from "node:path";
 
 import {
   commandsForAction,
+  commandsFromManifest,
   buildDriveEffects,
   planNextAction,
   type DriveCommand,
@@ -744,6 +745,30 @@ describe("buildDriveEffects", () => {
     // recorded feature-requests when asked, then sync-backlog. No LLM.
     expect(plan.commands[0]).toMatchObject({ kind: "cli", bin: "consort-human-proxy" });
     expect((plan.commands[0] as { args: string[] }).args[0]).toBe("supply-requests");
+  });
+
+  it("planNextAction resolves an agent action's commands the SAME way perform does (J3: --dry-run/interactive preview == what the drive performs; survives J5)", async () => {
+    // --dry-run + the interactive 'what's next' preview is a prompt constructor back to the human: it
+    // must show what the drive WILL do. perform resolves an agent turn via
+    // `commandsFromManifest(action,cfg) ?? commandsForAction(action,cfg)` (useManifestSteps default on).
+    // planNextAction MUST use that SAME resolution , identical today (the breakdown manifest is
+    // golden-equivalent), and , the point of J3 , still correct after J5 deletes commandsForAction's
+    // agent arm (planNextAction then resolves via the manifest, not a deleted arm).
+    const featureDir = join(consortDir, "features", "F1");
+    mkdirSync(featureDir, { recursive: true });
+    writeFileSync(join(consortDir, "workflow-state.json"), JSON.stringify({ phase: "design" }));
+    // No breakdown yet => the design lane's first action is spec-author breakdown (executor-dispatched).
+    writeFileSync(
+      join(featureDir, "pipeline.json"),
+      JSON.stringify({ version: 1, feature_id: "F1", build_queue: [], build_active: null, stories: {} }),
+    );
+
+    const c = cfg({ consortDir });
+    const plan = await planNextAction(c);
+    expect(plan.action).toEqual({ kind: "invoke-role", role: "spec-author", mode: "breakdown" });
+    // The commands MUST equal perform's resolution for the same action + cfg (the executor-aligned view).
+    const performView = commandsFromManifest(plan.action, c) ?? commandsForAction(plan.action, c);
+    expect(plan.commands).toEqual(performView);
   });
 });
 
