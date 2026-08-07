@@ -73,6 +73,86 @@ describe("runRoleSweep: iterate candidates, gate on conformance, disqualify cras
   });
 });
 
+describe("runRoleSweep parallel: candidates fan out under a concurrency cap, order stays stable", () => {
+  /** A runner that tracks peak concurrency by holding each call for a tick, so overlapping calls
+   *  register a peak >1. Records the candidate order it was invoked with. */
+  function trackingRunner(peak: { value: number }, order: string[]): ChainRunner {
+    let inFlight = 0;
+    return async (_c, _a, candidateId) => {
+      inFlight += 1;
+      if (inFlight > peak.value) peak.value = inFlight;
+      order.push(candidateId);
+      await new Promise((r) => setTimeout(r, 5)); // hold so siblings overlap
+      inFlight -= 1;
+      return fakeRun(CHAIN, { ms: 100 });
+    };
+  }
+
+  it("honors the concurrency cap (peak in-flight <= cap) and returns ALL trials", async () => {
+    const cands = roleCandidates("sonnet"); // 8 candidates
+    const peak = { value: 0 };
+    const order: string[] = [];
+    const trials = await runRoleSweep(CHAIN, cands, trackingRunner(peak, order), { concurrency: 3 });
+    expect(trials.length).toBe(cands.length);
+    expect(peak.value).toBeGreaterThan(1); // actually ran in parallel
+    expect(peak.value).toBeLessThanOrEqual(3); // never exceeded the cap
+    expect(trials.every((t) => t.gatePassed)).toBe(true);
+  });
+
+  it("returns trials in CANDIDATE order (baseline first) regardless of completion order", async () => {
+    const cands = roleCandidates("sonnet");
+    // A runner whose duration is INVERSE to index, so later candidates finish first , the pool
+    // returns completion order, but runRoleSweep must re-sort to candidate order.
+    const runner: ChainRunner = async (_c, _a, candidateId) => {
+      const idx = cands.findIndex((c) => c.id === candidateId);
+      await new Promise((r) => setTimeout(r, (cands.length - idx) * 3));
+      return fakeRun(CHAIN, { ms: 100 });
+    };
+    const trials = await runRoleSweep(CHAIN, cands, runner, { concurrency: 4 });
+    expect(trials.map((t) => t.candidateId)).toEqual(cands.map((c) => c.id));
+    expect(trials[0].candidateId).toBe("baseline");
+  });
+
+  it("DISQUALIFIES a crashing candidate under parallelism WITHOUT aborting siblings", async () => {
+    const cands = roleCandidates("sonnet").slice(0, 4);
+    const runner: ChainRunner = async (_c, _a, candidateId) => {
+      if (candidateId === cands[1].id) throw new Error("boom (parallel candidate crashed)");
+      return fakeRun(CHAIN, { ms: 100 });
+    };
+    const trials = await runRoleSweep(CHAIN, cands, runner, { concurrency: 4 });
+    expect(trials.length).toBe(4);
+    expect(trials[1].disqualified).toBe(true);
+    expect(trials[1].reason).toMatch(/boom/);
+    // siblings still ran + gate-passed.
+    expect(trials[0].gatePassed).toBe(true);
+    expect(trials[2].gatePassed).toBe(true);
+    expect(trials[3].gatePassed).toBe(true);
+  });
+
+  it("fires onStart + onDone for every candidate under parallelism", async () => {
+    const cands = roleCandidates("sonnet").slice(0, 4);
+    const started = new Set<string>();
+    const done = new Set<string>();
+    await runRoleSweep(CHAIN, cands, async () => fakeRun(CHAIN, { ms: 50 }), {
+      concurrency: 4,
+      onStart: (c) => started.add(c.id),
+      onDone: (t) => done.add(t.candidateId),
+    });
+    expect(started.size).toBe(4);
+    expect(done.size).toBe(4);
+  });
+
+  it("concurrency 1 (default) is the sequential path: strict candidate order, one at a time", async () => {
+    const cands = roleCandidates("sonnet").slice(0, 3);
+    const peak = { value: 0 };
+    const order: string[] = [];
+    const trials = await runRoleSweep(CHAIN, cands, trackingRunner(peak, order), { concurrency: 1 });
+    expect(peak.value).toBe(1); // never overlapped
+    expect(order).toEqual(cands.map((c) => c.id)); // strict order
+    expect(trials.map((t) => t.candidateId)).toEqual(cands.map((c) => c.id));
+  });
+});
+
 describe("runRoleSweep with a QUALITY gate: score the captured artifact vs a baseline", () => {
   it("a thorough artifact passes quality; a THIN one fails it (but conformance still passed)", async () => {
     // baseline is thorough; the one candidate produces a THIN artifact.

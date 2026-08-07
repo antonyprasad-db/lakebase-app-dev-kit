@@ -14,6 +14,7 @@
 
 import { ClaudeStepAgent, type AgentLevers } from "../../consort/orchestrator/agents/claude-step-agent.js";
 import { FUNCTIONAL_THRESHOLD, SEMANTIC_THRESHOLD, type SemanticJudge, type BuildOutputKind } from "../../consort/evaluation/semantic-gate.js";
+import { runExperimentsInParallel } from "../../consort/experiment/parallel-runner.js";
 import type { StepManifest } from "../../consort/orchestrator/steps/manifest.js";
 import type { StepAgent } from "../../consort/orchestrator/agents/agent-types.js";
 import type { ManifestTurn } from "../../consort/orchestrator/runners/manifest-runner.js";
@@ -147,9 +148,72 @@ export interface SweepHooks {
 
 /** Options for a sweep: progress hooks + an OPTIONAL quality gate (score each conformant
  *  candidate's produced artifact against a recorded baseline). Both optional , omitting quality
- *  is the conformance-only sweep (prior behavior). Back-compat: a bare SweepHooks is accepted. */
+ *  is the conformance-only sweep (prior behavior). Back-compat: a bare SweepHooks is accepted.
+ *  `concurrency` caps in-flight candidates: 1 (default) = the sequential loop, byte-identical to
+ *  the prior behavior; >1 fans candidates out over runExperimentsInParallel. Safe to parallelize
+ *  because each candidate's runChain (runIntegrationChain) mkdtemps its OWN isolated workspace and
+ *  the candidate levers ride IN-MEMORY on the ClaudeStepAgent , no shared config file / env / .md. */
 export interface SweepOptions extends SweepHooks {
   quality?: QualityGate;
+  concurrency?: number;
+}
+
+/** Run ONE candidate end to end: chain run + conformance telemetry + optional quality gate. NEVER
+ *  throws , a crash (infra error, a chain that never reached the live turn) becomes a disqualified
+ *  SweepTrial, so one bad candidate never aborts the sweep (the optimize lesson) and never rejects
+ *  into the parallel pool. Pure w.r.t. shared state: the only mutation is inside runChain's own
+ *  mkdtemp workspace. */
+async function runOneCandidate(
+  chain: RoleChain,
+  candidate: RoleCandidate,
+  runChain: ChainRunner,
+  quality: QualityGate | undefined,
+): Promise<SweepTrial> {
+  try {
+    const { turns, producedArtifacts } = await runChain(chain, agentForCandidate(chain, candidate.levers), candidate.id);
+    const { gatePassed, telemetry } = trialTelemetry(chain, candidate, turns);
+    // PRESERVE the produced artifacts on the trial so the caller persists the actual outputs.
+    const trial: SweepTrial = { candidateId: candidate.id, levers: candidate.levers, gatePassed, telemetry, producedArtifacts };
+    // QUALITY gate: for a conformant candidate whose PRIMARY artifact is present + a gate is
+    // configured. Score the primary file vs the baseline; below threshold = conformant-but-
+    // thinner, not winner-eligible. The primary is chain.outputFile within the preserved tree.
+    const primary = producedArtifacts[chain.outputFile];
+    if (quality && gatePassed && primary !== undefined) {
+      const threshold = quality.threshold ?? (quality.kind ? FUNCTIONAL_THRESHOLD : SEMANTIC_THRESHOLD);
+      const verdict = await quality.judge({
+        step: "test-list" as never,
+        reference: quality.referenceText,
+        candidate: primary,
+        ...(quality.kind ? { functional: quality.kind } : {}),
+      });
+      // DISCRIMINATOR verdict (a build sweep whose judge returns a classification): the pass is
+      // CLASSIFICATION-driven, not score>=threshold. A clean "equivalent"/accept is the BEST
+      // outcome (converged with no self-heal), viable "superseded-shift"/"regression"+fix also
+      // pass; only "insufficient" fails. Record the classification/nextStep so the report can
+      // surface a clean-converged candidate as a POSITIVE, not merely "passed".
+      const disc = verdict as { classification?: string; nextStep?: string };
+      if (disc.classification) {
+        trial.qualityPassed = disc.classification !== "insufficient";
+        if (trial.telemetry) {
+          trial.telemetry.semanticScore = verdict.score;
+          trial.telemetry.classification = disc.classification;
+          if (disc.nextStep) trial.telemetry.nextStep = disc.nextStep;
+        }
+      } else {
+        trial.qualityPassed = verdict.score >= threshold;
+        if (trial.telemetry) trial.telemetry.semanticScore = verdict.score;
+      }
+    }
+    return trial;
+  } catch (e) {
+    return {
+      candidateId: candidate.id,
+      levers: candidate.levers,
+      gatePassed: false,
+      disqualified: true,
+      reason: e instanceof Error ? e.message : String(e),
+    };
+  }
 }
 
 export async function runRoleSweep(
@@ -160,58 +224,42 @@ export async function runRoleSweep(
 ): Promise<SweepTrial[]> {
   const hooks = options;
   const quality = options.quality;
-  const trials: SweepTrial[] = [];
-  let index = 0;
-  for (const candidate of candidates) {
-    index += 1;
-    hooks.onStart?.(candidate, index, candidates.length);
-    let trial: SweepTrial;
-    try {
-      const { turns, producedArtifacts } = await runChain(chain, agentForCandidate(chain, candidate.levers), candidate.id);
-      const { gatePassed, telemetry } = trialTelemetry(chain, candidate, turns);
-      // PRESERVE the produced artifacts on the trial so the caller persists the actual outputs.
-      trial = { candidateId: candidate.id, levers: candidate.levers, gatePassed, telemetry, producedArtifacts };
-      // QUALITY gate: for a conformant candidate whose PRIMARY artifact is present + a gate is
-      // configured. Score the primary file vs the baseline; below threshold = conformant-but-
-      // thinner, not winner-eligible. The primary is chain.outputFile within the preserved tree.
-      const primary = producedArtifacts[chain.outputFile];
-      if (quality && gatePassed && primary !== undefined) {
-        const threshold = quality.threshold ?? (quality.kind ? FUNCTIONAL_THRESHOLD : SEMANTIC_THRESHOLD);
-        const verdict = await quality.judge({
-          step: "test-list" as never,
-          reference: quality.referenceText,
-          candidate: primary,
-          ...(quality.kind ? { functional: quality.kind } : {}),
-        });
-        // DISCRIMINATOR verdict (a build sweep whose judge returns a classification): the pass is
-        // CLASSIFICATION-driven, not score>=threshold. A clean "equivalent"/accept is the BEST
-        // outcome (converged with no self-heal), viable "superseded-shift"/"regression"+fix also
-        // pass; only "insufficient" fails. Record the classification/nextStep so the report can
-        // surface a clean-converged candidate as a POSITIVE, not merely "passed".
-        const disc = verdict as { classification?: string; nextStep?: string };
-        if (disc.classification) {
-          trial.qualityPassed = disc.classification !== "insufficient";
-          if (trial.telemetry) {
-            trial.telemetry.semanticScore = verdict.score;
-            trial.telemetry.classification = disc.classification;
-            if (disc.nextStep) trial.telemetry.nextStep = disc.nextStep;
-          }
-        } else {
-          trial.qualityPassed = verdict.score >= threshold;
-          if (trial.telemetry) trial.telemetry.semanticScore = verdict.score;
-        }
-      }
-    } catch (e) {
-      trial = {
-        candidateId: candidate.id,
-        levers: candidate.levers,
-        gatePassed: false,
-        disqualified: true,
-        reason: e instanceof Error ? e.message : String(e),
-      };
+  const concurrency = Math.max(1, options.concurrency ?? 1);
+  const total = candidates.length;
+
+  // Sequential (concurrency 1): the prior behavior, byte-identical , baseline first, onStart then
+  // onDone per candidate in order. Kept as its own path so the default sweep is unchanged.
+  if (concurrency === 1) {
+    const trials: SweepTrial[] = [];
+    let index = 0;
+    for (const candidate of candidates) {
+      index += 1;
+      hooks.onStart?.(candidate, index, total);
+      const trial = await runOneCandidate(chain, candidate, runChain, quality);
+      trials.push(trial);
+      hooks.onDone?.(trial, index, total);
     }
-    trials.push(trial);
-    hooks.onDone?.(trial, index, candidates.length);
+    return trials;
   }
-  return trials;
+
+  // Parallel: fan candidates out over the bounded-concurrency pool. Each candidate maps to one
+  // experiment keyed by its 1-based index (so results re-sort to candidate order regardless of
+  // completion order). runOneCandidate never throws, so the pool's failure path never fires; the
+  // hooks fire around each candidate's own run. Isolation is by runChain's per-call mkdtemp.
+  const trialByIndex = new Map<number, SweepTrial>();
+  await runExperimentsInParallel<SweepTrial>({
+    concurrency,
+    experiments: candidates.map((_, i) => ({ slug: String(i + 1) })),
+    runner: async ({ slug }) => {
+      const index = Number(slug);
+      const candidate = candidates[index - 1];
+      hooks.onStart?.(candidate, index, total);
+      const trial = await runOneCandidate(chain, candidate, runChain, quality);
+      trialByIndex.set(index, trial);
+      hooks.onDone?.(trial, index, total);
+      return trial;
+    },
+  });
+  // Re-sort into candidate (baseline-first) order , the pool returns completion order.
+  return candidates.map((_, i) => trialByIndex.get(i + 1)!);
 }
