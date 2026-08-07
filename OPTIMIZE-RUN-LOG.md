@@ -12,7 +12,8 @@ Branch: `fix/headless-permission-mode-acceptedits`. LOCAL only; nothing pushed.
 
 - **Plan lane:** the two DISTINCT agent turns , `spec-author-propose` and `architect-estimator` (estimate) , ARE swept (design set). `author-requests` / `gate-plan` / `planning-complete` are deterministic substrate (no agent), correctly not swept.
 - **`estimate-committed` , NOT a separate chain.** It's the SAME architect-reviewer role in a different mode (turn-key.ts collapses both modes to "estimate"); the only difference from plain estimate is scope (sizes committed F-ids + merges vs. candidate FPs). No specialized agent role => no shipped manifest, no separate optimize chain , its lever space is identical to architect-estimator (already swept, winner e-low -23%). (Considered adding a manifest + executor migration; backed out per "no specialized role => not a manifest".)
-- **uiTrack FIX VALIDATED (the client-analyst gap):** the test-strategist rerun with uiTrack ON now produces CLIENT test items (baseline 6 behavior / 7 client / 15 fitness; a-all-low 5/10/16) where the uiTrack-off run had ZERO client items. All three analysts participate + the output is comparable to the client-containing reference. uiTrack now defaults ON everywhere (commit 88fd4510).
+- **uiTrack FIX VALIDATED + RE-SWEPT (the client-analyst gap):** the test-strategist rerun with uiTrack ON now produces CLIENT test items in EVERY candidate (7-13 client each: baseline 6b/7c/15f, a-fitness-opus 5/13/19, a-behavior-haiku 3/12/21, a-all-low 5/10/16, a-cheap-hold-fit 3/7/14, a-fitness-low 4/11/15) where the uiTrack-off run had ZERO. All three analysts participate + judged vs the client-containing reference. uiTrack now defaults ON everywhere (commit 88fd4510). CORRECTED WINNER: **a-all-low (all 3 analysts effort=low) 318.4s vs 820.8s baseline (-61%, $0.47 cheaper)** , the uiTrack-off -66% number is SUPERSEDED (invalid, no client). Evidence: `.role-telemetry/stage2-tstrat-uitrack/`.
+  NOTE: this valid rerun used the 6-candidate set (analyst levers only); the SUPERVISOR-lever candidates (s-low/s-haiku/s-low+a-all-low/s-haiku+a-all-low, commit 682e4da9) landed AFTER it built, so a fresh test-strategist run on the rebuilt dist (10 candidates) is queued to land in the visible runs/ dir with baseline compare.
 
 ---
 
@@ -113,7 +114,8 @@ SEED RESOLVED: the faithful pre-GREEN driver seed is the recorded `002-navigator
 | Chain | Baseline | Winner | Winner time | Saved | Winner levers |
 |---|---|---|---|---|---|
 | dba | 29.5s (opus) | m-sonnet-e-low | 20.9s | 29% | model=sonnet, effort=low |
-| test-strategist | 665.7s (sonnet) | a-all-low | 223.4s | 66% | analysts behavior+fitness effort=low |
+| test-strategist (uiTrack ON, 3 analysts) | 820.8s | a-all-low | 318.4s | 61% | behavior+fitness+CLIENT all effort=low ($0.47 cheaper) |
+| ~~test-strategist (uiTrack off , INVALID, no client)~~ | ~~665.7s~~ | ~~a-all-low~~ | ~~223.4s~~ | ~~66%~~ | superseded , dropped the client analyst |
 | spec-author-propose | 49.0s (opus) | e-low | 29.6s | 39% | effort=low (haiku disqualified) |
 | spec-author-story | 31.0s (opus) | e-low | 11.5s | 63% | effort=low |
 | architect-estimator | 19.0s (opus) | e-low | 14.6s | 23% | effort=low (FP-slice fix validated) |
