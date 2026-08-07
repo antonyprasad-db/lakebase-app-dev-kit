@@ -26,6 +26,13 @@ export interface RoleLeverPatch {
    *  per-story build warmth). Only meaningful on a MULTI-TURN substrate that ran a prior turn to
    *  resume , the single-turn chain cannot measure it (see `roleCandidates` multiTurn gate). */
   session?: "fresh" | "resume";
+  /** TEST-STRATEGIST ONLY: per-analyst subagent lever overrides (behavior/fitness/client), keyed by
+   *  analyst kind. The test-strategist is a SUPERVISOR , its own model/effort is not the interesting
+   *  lever; what matters is the per-analyst subagent levers it fans out to. This patch does NOT touch
+   *  the supervisor's AgentLevers; it is projected into the injected test-analyst roster (see
+   *  renderTestAnalystRoster overrides), so the supervisor spawns each analyst Task with the swept
+   *  model/effort/tool_scope. Absent on every non-test-strategist candidate. */
+  analystOverrides?: Record<string, { model?: string; effort?: "low" | "default" | "high"; toolScope?: string[] }>;
 }
 
 /** One point in the sweep space: a stable id + the lever patch it applies. */
@@ -91,6 +98,56 @@ export function roleCandidates(baseModel: string, caps: RoleSweepCapabilities = 
   out.push({ id: "scan-tight", levers: scanTightPatch() });
   // (5) session-warm , ONLY on a multi-turn substrate (a single-turn chain cannot measure warmth).
   if (caps.multiTurn) out.push({ id: "session-warm", levers: { session: "resume" } });
+
+  return out;
+}
+
+/**
+ * TEST-STRATEGIST candidate set , the SUPERVISOR's real optimization target is the per-analyst
+ * subagent levers, not its own model. The supervisor fans out to enabled analysts (behavior +
+ * fitness always; client only when uiTrack), each spawned as a Task at that analyst's model/effort.
+ * A candidate here carries `analystOverrides` (projected into the injected roster by
+ * renderTestAnalystRoster), NOT a supervisor model/effort patch.
+ *
+ * BOUNDED , targeted permutations, never the full cartesian product (which would be
+ * models^kinds x efforts). The fitness analyst is the densest reasoner + the sole invariant_id
+ * owner, so the interesting axis is "cheapen the cheap slices while holding fitness high":
+ *   - baseline           : catalogue defaults (behavior/client sonnet-default, fitness sonnet-high)
+ *   - a-fitness-opus     : raise ONLY fitness to opus (does the invariant coverage improve?)
+ *   - a-behavior-haiku   : cheapen ONLY behavior to haiku (does the cheap slice hold at a faster model?)
+ *   - a-all-low          : every enabled analyst at effort low (fastest; does coverage survive?)
+ *   - a-cheap-hold-fit   : behavior (+client) haiku/low, fitness held sonnet/high (the headline lever)
+ *   - a-fitness-low      : drop fitness to low effort (probe: is fitness's high effort load-bearing?)
+ * `enabledKinds` filters each permutation to the project's analysts (no client override on a
+ * no-frontend project). Ids are stable + filesystem-safe.
+ */
+export function testStrategistCandidates(enabledKinds: string[]): RoleCandidate[] {
+  const has = (k: string) => enabledKinds.includes(k);
+  const pick = (ov: Record<string, { model?: string; effort?: "low" | "default" | "high"; toolScope?: string[] }>) => {
+    // Keep only overrides for kinds actually enabled (a client override on a no-frontend project is inert).
+    const out: RoleLeverPatch["analystOverrides"] = {};
+    for (const [k, v] of Object.entries(ov)) if (has(k)) out![k] = v;
+    return out;
+  };
+  const out: RoleCandidate[] = [{ id: BASELINE_ID, levers: {} }];
+
+  if (has("fitness")) out.push({ id: "a-fitness-opus", levers: { analystOverrides: pick({ fitness: { model: "opus" } }) } });
+  if (has("behavior")) out.push({ id: "a-behavior-haiku", levers: { analystOverrides: pick({ behavior: { model: "haiku" } }) } });
+
+  // Every enabled analyst at effort low (the fastest permutation).
+  out.push({
+    id: "a-all-low",
+    levers: { analystOverrides: pick({ behavior: { effort: "low" }, fitness: { effort: "low" }, client: { effort: "low" } }) },
+  });
+  // The headline lever: cheapen the cheap slices (behavior + client) to haiku/low, HOLD fitness high.
+  out.push({
+    id: "a-cheap-hold-fit",
+    levers: {
+      analystOverrides: pick({ behavior: { model: "haiku", effort: "low" }, client: { model: "haiku", effort: "low" }, fitness: { model: "sonnet", effort: "high" } }),
+    },
+  });
+  // Probe whether fitness's high effort is load-bearing: drop ONLY fitness to low.
+  if (has("fitness")) out.push({ id: "a-fitness-low", levers: { analystOverrides: pick({ fitness: { effort: "low" } }) } });
 
   return out;
 }

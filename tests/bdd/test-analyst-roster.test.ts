@@ -52,6 +52,41 @@ describe("renderTestAnalystRoster: uiTrack gates client", () => {
     expect(block).toMatch(/effort/i);
     expect(block).toMatch(/tool_scope|Confine your work/i);
   });
+  it("CONSISTENCY FIX: the header makes model MANDATORY + effort/tool_scope VERBATIM + a per-analyst reasoning log", () => {
+    const block = renderTestAnalystRoster({ projectDir: "/tmp/p", uiTrack: true });
+    expect(block).toMatch(/MUST set the Task's model.*EXACTLY|never substitute your own model/i);
+    expect(block).toMatch(/MUST RESTATE.*VERBATIM/i);
+    expect(block).toMatch(/log a one-line reasoning event|auditable/i);
+  });
+});
+
+describe("renderTestAnalystRoster overrides: per-analyst lever sweep (the sub-agent optimization target)", () => {
+  it("overrides a single analyst's model, leaving the others at catalogue defaults", () => {
+    const roster = parseRoster(renderTestAnalystRoster({ projectDir: "/tmp/p", uiTrack: false }, { overrides: { fitness: { model: "opus" } } }));
+    const fitness = roster.analysts.find((a) => a.kind === "fitness")!;
+    const behavior = roster.analysts.find((a) => a.kind === "behavior")!;
+    expect(fitness.model).toBe("opus"); // overridden
+    expect(behavior.model).toBe("sonnet"); // catalogue default, untouched
+  });
+  it("overrides model + effort + tool_scope together", () => {
+    const roster = parseRoster(
+      renderTestAnalystRoster({ projectDir: "/tmp/p", uiTrack: false }, { overrides: { behavior: { model: "haiku", effort: "low", toolScope: ["Read", "Grep"] } } }),
+    );
+    const behavior = roster.analysts.find((a) => a.kind === "behavior")!;
+    expect(behavior.model).toBe("haiku");
+    expect(behavior.effort).toBe("low");
+    expect(behavior.tool_scope).toEqual(["Read", "Grep"]);
+  });
+  it("an override for a DISABLED/absent kind is inert (never enables it)", () => {
+    // client is disabled (uiTrack:false); an override for it must NOT add it to the roster.
+    const roster = parseRoster(renderTestAnalystRoster({ projectDir: "/tmp/p", uiTrack: false }, { overrides: { client: { model: "opus" } } }));
+    expect(roster.analysts.map((a) => a.kind).sort()).toEqual(["behavior", "fitness"]);
+  });
+  it("no overrides => byte-identical to the default roster (the normal drive path)", () => {
+    const withEmpty = renderTestAnalystRoster({ projectDir: "/tmp/p", uiTrack: true }, {});
+    const bare = renderTestAnalystRoster({ projectDir: "/tmp/p", uiTrack: true });
+    expect(withEmpty).toBe(bare);
+  });
 });
 
 describe('resolvePreparer("test-analyst-roster"): reads project.uiTrack from projectDir', () => {

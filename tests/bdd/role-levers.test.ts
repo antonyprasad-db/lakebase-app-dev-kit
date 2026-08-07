@@ -4,7 +4,7 @@
 // machinery as every candidate. Pure , no I/O.
 
 import { describe, it, expect } from "vitest";
-import { roleCandidates, BASELINE_ID } from "../optimization/role-levers";
+import { roleCandidates, testStrategistCandidates, BASELINE_ID } from "../optimization/role-levers";
 
 describe("roleCandidates: model tiers x effort rungs x scan-tight, baseline first", () => {
   it("baseline is always first, with no lever patch", () => {
@@ -70,5 +70,54 @@ describe("roleCandidates: model tiers x effort rungs x scan-tight, baseline firs
       for (const c of base) expect(multi.map((m) => m.id)).toContain(c.id);
       expect(multi.length).toBe(base.length + 1);
     });
+  });
+});
+
+describe("testStrategistCandidates: per-analyst SUBAGENT lever permutations (supervisor's real target)", () => {
+  it("baseline first, with NO analystOverrides (the catalogue defaults)", () => {
+    const cs = testStrategistCandidates(["behavior", "fitness"]);
+    expect(cs[0].id).toBe(BASELINE_ID);
+    expect(cs[0].levers.analystOverrides).toBeUndefined();
+  });
+
+  it("every non-baseline candidate carries analystOverrides (never a supervisor model/effort patch)", () => {
+    const cs = testStrategistCandidates(["behavior", "fitness"]);
+    for (const c of cs.slice(1)) {
+      expect(c.levers.analystOverrides, `${c.id} has analystOverrides`).toBeDefined();
+      // The supervisor's OWN model/effort is never the lever , only the per-analyst overrides.
+      expect(c.levers.model).toBeUndefined();
+      expect(c.levers.effort).toBeUndefined();
+    }
+  });
+
+  it("filters overrides to ENABLED kinds only (a no-frontend project never gets a client override)", () => {
+    const cs = testStrategistCandidates(["behavior", "fitness"]); // no client
+    for (const c of cs) {
+      for (const k of Object.keys(c.levers.analystOverrides ?? {})) {
+        expect(["behavior", "fitness"], `${c.id} overrides only enabled kinds`).toContain(k);
+      }
+    }
+  });
+
+  it("includes the headline lever (cheap slices haiku/low, fitness held sonnet/high)", () => {
+    const cs = testStrategistCandidates(["behavior", "fitness", "client"]);
+    const hold = cs.find((c) => c.id === "a-cheap-hold-fit")!;
+    expect(hold.levers.analystOverrides!.fitness).toEqual({ model: "sonnet", effort: "high" });
+    expect(hold.levers.analystOverrides!.behavior).toEqual({ model: "haiku", effort: "low" });
+    expect(hold.levers.analystOverrides!.client).toEqual({ model: "haiku", effort: "low" });
+  });
+
+  it("is BOUNDED (a targeted set, not the full model^kinds x effort cartesian product)", () => {
+    const cs = testStrategistCandidates(["behavior", "fitness", "client"]);
+    expect(cs.length).toBeLessThanOrEqual(8); // baseline + a handful of targeted permutations
+    // ids are unique.
+    expect(new Set(cs.map((c) => c.id)).size).toBe(cs.length);
+  });
+
+  it("with client enabled, a-all-low includes a client override too", () => {
+    const withClient = testStrategistCandidates(["behavior", "fitness", "client"]);
+    const noClient = testStrategistCandidates(["behavior", "fitness"]);
+    expect(withClient.find((c) => c.id === "a-all-low")!.levers.analystOverrides!.client).toEqual({ effort: "low" });
+    expect(noClient.find((c) => c.id === "a-all-low")!.levers.analystOverrides!.client).toBeUndefined();
   });
 });

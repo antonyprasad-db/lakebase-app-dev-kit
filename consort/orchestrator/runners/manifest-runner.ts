@@ -70,6 +70,12 @@ export interface ManifestRunnerDeps {
   probeEscalation?: boolean;
   /** Optional: turn-record sink (default no-op). */
   onRecord?: StepExecutorDeps["onRecord"];
+  /** Optional: extra options merged into a precondition preparer's `options`, keyed by precondition
+   *  KIND. Per-turn + parallel-safe (rides the in-memory deps, not env / a shared file), so a caller
+   *  (the optimize sweep) can vary a preparer's projection per run , e.g. the test-analyst-roster
+   *  preparer reads `analystOverrides` here to sweep per-analyst subagent levers. The manifest's own
+   *  `pre.options` still apply; these are shallow-merged ON TOP. Absent => byte-identical to before. */
+  preconditionOptions?: Record<string, Record<string, unknown>>;
 }
 
 /** One turn's outcome in a chain. */
@@ -216,6 +222,9 @@ function executorWiring(
     prepare: (kind: string, pre: StepPrecondition, a: WorkflowAction) => {
       const story = "story" in a && typeof a.story === "string" ? a.story : "";
       const ac = "ac" in a && typeof a.ac === "string" ? a.ac : "";
+      // The manifest's static options + any per-turn caller options for this kind (the sweep's
+      // analystOverrides), shallow-merged (caller wins). Undefined when neither is set => omit.
+      const mergedOptions = { ...(pre.options ?? {}), ...(deps.preconditionOptions?.[kind] ?? {}) };
       return resolvePreparer(kind)({
         consortDir: deps.cfg.consortDir,
         featureId: deps.cfg.featureId,
@@ -224,7 +233,7 @@ function executorWiring(
         // Thread the project root so a preparer can read project-level config (the test-analyst
         // roster preparer resolves project.uiTrack to gate the client analyst).
         ...(deps.cfg.projectDir ? { projectDir: deps.cfg.projectDir } : {}),
-        ...(pre.options ? { options: pre.options } : {}),
+        ...(Object.keys(mergedOptions).length > 0 ? { options: mergedOptions } : {}),
       });
     },
     // When enabled, format the agent's report into a conformant agent-log.jsonl

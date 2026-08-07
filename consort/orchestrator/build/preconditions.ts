@@ -100,7 +100,10 @@ export const PRECONDITION_PREPARERS: Record<string, PreconditionPreparer> = {
   "test-analyst-roster": (ctx) => {
     const projectDir = ctx.projectDir ?? "";
     const uiTrack = projectDir ? resolveProjectSettings(projectDir).project.uiTrack : false;
-    return renderTestAnalystRoster({ projectDir, uiTrack });
+    // Per-analyst lever overrides (the optimize sweep's target) ride the precondition `options`,
+    // so they are per-turn (parallel-safe , no env, no shared file). The normal drive sets none.
+    const overrides = (ctx.options as { analystOverrides?: Record<string, { model?: string; effort?: "low" | "default" | "high"; toolScope?: string[] }> } | undefined)?.analystOverrides;
+    return renderTestAnalystRoster({ projectDir, uiTrack }, overrides ? { overrides } : {});
   },
 };
 

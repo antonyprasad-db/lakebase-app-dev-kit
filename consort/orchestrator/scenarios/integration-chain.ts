@@ -50,6 +50,10 @@ export interface IntegrationChainConfig {
    *  those roots here preserves them. Default empty ⇒ design chains snapshot only `.sftdd`
    *  (byte-identical to before). */
   extraSnapshotRoots?: string[];
+  /** OPTIONAL per-precondition-kind options merged into that preparer's projection (parallel-safe,
+   *  per-run). The test-strategist sweep passes `{ "test-analyst-roster": { analystOverrides } }` so
+   *  the supervisor spawns each analyst Task with the swept per-analyst levers. Absent ⇒ unchanged. */
+  preconditionOptions?: Record<string, Record<string, unknown>>;
 }
 
 /** What one integration-chain run reports. */
@@ -112,6 +116,7 @@ export async function runIntegrationChain(config: IntegrationChainConfig): Promi
       const outputPaths = config.outputPathsByRole?.[m.role];
       return outputPaths ? { workspaceDir, outputPaths } : { workspaceDir };
     },
+    ...(config.preconditionOptions ? { preconditionOptions: config.preconditionOptions } : {}),
   };
   // A live claude agent resolves the kit for its self-check/log; point at the kit root.
   process.env.LAKEBASE_KIT_DIR = process.cwd();

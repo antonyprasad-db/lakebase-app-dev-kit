@@ -26,10 +26,11 @@ import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { ROLE_CHAINS, runRoleChainLive, INTAKE_REL, type RoleChain } from "../../consort/optimize/role-chains.js";
-import { roleCandidates } from "./role-levers.js";
+import { roleCandidates, testStrategistCandidates } from "./role-levers.js";
 import { runRoleSweep, type SweepTrial, type ChainRunner } from "./role-sweep.js";
 import { reportRoleSweep, formatRoleSweepReport, type SweepReport } from "./role-sweep-report.js";
 import { makeOpusJudge } from "../../consort/evaluation/semantic-gate.js";
+import { enabledAnalysts } from "../../consort/test-list/test-analyst-catalogue.js";
 import { RECOMMENDED_MODELS, type SpawnableAgentRole } from "../../consort/config/agent-models.js";
 import type { StepManifest } from "../../consort/orchestrator/steps/manifest.js";
 import type { StepAgent } from "../../consort/orchestrator/agents/agent-types.js";
@@ -114,7 +115,13 @@ export async function sweepOneChain(
 ): Promise<SweepReport> {
   const chain = ROLE_CHAINS[handle];
   const baseModel = baseModelFor(handle, opts.baseModel);
-  const candidates = roleCandidates(baseModel);
+  // The test-strategist is a SUPERVISOR , its optimization target is the per-analyst SUBAGENT levers,
+  // not its own model. Its candidate set permutes the enabled analysts (the lean isolated chain runs
+  // no-frontend => behavior + fitness); every other chain uses the single-role model/effort set.
+  const candidates =
+    handle === "test-strategist"
+      ? testStrategistCandidates(enabledAnalysts({ projectDir: "", uiTrack: false }).map((a) => a.kind))
+      : roleCandidates(baseModel);
   const runDir = join(runRoot, handle);
   mkdirSync(runDir, { recursive: true });
 
@@ -132,7 +139,12 @@ export async function sweepOneChain(
       `quality gate: ${quality ? "ON (functional vs recorded baseline)" : "OFF (no reference on disk)"}. run dir: ${runDir}`,
   );
 
-  const runChain: ChainRunner = async (c, agentFor) => runRoleChainLive(c as RoleChain, { agentFor: agentFor as (m: StepManifest) => StepAgent | undefined });
+  const runChain: ChainRunner = async (c, agentFor, _id, levers) =>
+    runRoleChainLive(c as RoleChain, {
+      agentFor: agentFor as (m: StepManifest) => StepAgent | undefined,
+      // TEST-STRATEGIST: forward the candidate's per-analyst overrides into the roster preparer.
+      ...(levers.analystOverrides ? { analystOverrides: levers.analystOverrides } : {}),
+    });
   const trials = await runRoleSweep(chain, candidates, runChain, {
     ...(quality ? { quality } : {}),
     ...(opts.concurrency ? { concurrency: opts.concurrency } : {}),

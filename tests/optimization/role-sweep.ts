@@ -42,12 +42,15 @@ export interface ChainRunResult {
 }
 
 /** The runner seam: run ONE chain with an optional per-manifest agent override + return the
- *  turns + the preserved artifact tree. The candidateId is passed for logging/routing. The live
- *  CLI binds runRoleChainLive; tests bind a fake. */
+ *  turns + the preserved artifact tree. The candidateId is passed for logging/routing; the
+ *  candidate's full lever PATCH is passed so a runner can thread non-agent levers (the
+ *  test-strategist's per-analyst `analystOverrides`, which ride the roster preparer, not the
+ *  supervisor's AgentLevers). The live CLI binds runRoleChainLive; tests bind a fake. */
 export type ChainRunner = (
   chain: SweepableChain,
   agentFor: (m: StepManifest) => StepAgent | undefined,
   candidateId: string,
+  levers: RoleLeverPatch,
 ) => Promise<ChainRunResult>;
 
 /** The QUALITY gate config: score the candidate's captured artifact against a recorded baseline
@@ -180,7 +183,7 @@ async function runOneCandidate(
   quality: QualityGate | undefined,
 ): Promise<SweepTrial> {
   try {
-    const { turns, producedArtifacts } = await runChain(chain, agentForCandidate(chain, candidate.levers), candidate.id);
+    const { turns, producedArtifacts } = await runChain(chain, agentForCandidate(chain, candidate.levers), candidate.id, candidate.levers);
     const { gatePassed, telemetry } = trialTelemetry(chain, candidate, turns);
     // PRESERVE the produced artifacts on the trial so the caller persists the actual outputs.
     const trial: SweepTrial = { candidateId: candidate.id, levers: candidate.levers, gatePassed, telemetry, producedArtifacts };

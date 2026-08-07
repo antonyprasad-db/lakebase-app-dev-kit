@@ -184,6 +184,11 @@ export interface RunRoleChainOptions {
    *  Return undefined for a manifest to fall through to the catalogue (the seed steps). The sweep
    *  returns a lever-patched ClaudeStepAgent for the live-role manifest here. */
   agentFor?(manifest: StepManifest): StepAgent | undefined;
+  /** TEST-STRATEGIST ONLY: per-analyst subagent lever overrides, projected into the injected
+   *  test-analyst roster the supervisor fans out from (parallel-safe , rides the precondition
+   *  options, not env). Absent on every other chain. See renderTestAnalystRoster + role-levers'
+   *  testStrategistCandidates. */
+  analystOverrides?: Record<string, { model?: string; effort?: "low" | "default" | "high"; toolScope?: string[] }>;
 }
 
 /** What a role chain run returns: the turns PLUS the preserved produced-artifact tree (every
@@ -222,6 +227,9 @@ export async function runRoleChainLive(chain: RoleChain, opts: RunRoleChainOptio
         ? { prompt: chain.prompt, guidelines: [`Write ONLY ${chain.outputFile}; end with the agent-report block; run no command.`] }
         : { prompt: `Replay-seed for ${chain.name}.`, guidelines: [] },
     ...(opts.agentFor ? { agentFor: opts.agentFor } : {}),
+    // TEST-STRATEGIST sweep: thread per-analyst overrides into the roster preparer's options so the
+    // supervisor spawns each analyst Task with the swept levers (the sub-agent optimization target).
+    ...(opts.analystOverrides ? { preconditionOptions: { "test-analyst-roster": { analystOverrides: opts.analystOverrides } } } : {}),
   });
   return { turns, producedArtifacts };
 }
