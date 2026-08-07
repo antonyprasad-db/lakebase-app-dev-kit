@@ -12,7 +12,7 @@
 import { spawn } from "node:child_process";
 import { consortEnv } from "../../config/consort-env.js";
 import { resyncAgentsOnKitDrift } from "../../setup/project-consort-setup.js";
-import { resolveConsortDir } from "../../config/consort-paths.js";
+import { resolveConsortDir, syncBacklog } from "../../config/consort-paths.js";
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -331,9 +331,13 @@ export function execRunner(cfg: DriveEffectsConfig): CommandRunner {
         return;
       }
       if (cmd.kind === "sync-backlog") {
-        // Deterministic, in-process (no CLI): project backlog.json from the
-        // PO's committed feature-requests + the Architect's estimates.
-        // (This is handled by imported orchestrator-effects module)
+        // Deterministic, in-process (no CLI): project sprints/<sprint>/backlog.json from the PO's
+        // committed feature-requests (scoped by requested.json) + the Architect's estimates. This is
+        // the ONE bridge from "author-requests supplied the request" to the backlog the planning
+        // deriver reads; without it deriveSprintPlanningState sees an empty backlog, requestsAuthored
+        // never flips, and the planning loop re-derives author-requests forever (the J2 stall). The
+        // arm was previously a no-op (the comment claimed another module handled it , nothing did).
+        syncBacklog(cfg.consortDir, cmd.sprint);
         return;
       }
       if (cmd.kind === "claude") {

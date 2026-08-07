@@ -17,8 +17,11 @@ import {
   writeRequested,
   syncBacklog,
   backlogFeatureIds,
+  backlogJson,
 } from "../../consort/config/consort-paths.js";
 import { deriveSprintPlanningState } from "../../consort/intake/orchestrator-sprint.js";
+import { execRunner } from "../../consort/orchestrator/drive/claude-runner.js";
+import type { DriveEffectsConfig } from "../../consort/orchestrator/drive/orchestrator-effects.js";
 
 const SPRINT = "s1";
 let tdd: string;
@@ -85,5 +88,31 @@ describe("the deadlock break: requestsAuthored flips true after authoring + sync
     writeRequested(tdd, SPRINT, ["F1"]); // declared, but no feature-request.md authored
     syncBacklog(tdd, SPRINT);
     expect(deriveSprintPlanningState(tdd, SPRINT, { skipSizing: true }).planning?.requestsAuthored).toBe(false);
+  });
+});
+
+describe("the drive runner executes a sync-backlog command (not a no-op)", () => {
+  it("execRunner run({kind:'sync-backlog'}) projects backlog.json so requestsAuthored flips (J2 planning stall)", async () => {
+    // The J2 planning drive stalled at author-requests: its perform emits [supply-requests,
+    // sync-backlog], but the runner's sync-backlog arm was a NO-OP (`return;`), so backlog.json
+    // was never written => deriveSprintPlanningState read an empty backlog => requestsAuthored
+    // stayed false => the loop re-derived author-requests forever. The runner MUST actually project
+    // the backlog. (supply-requests' effect , the authored request + requested.json membership , is
+    // the precondition; here we set it up directly, then prove the runner's sync-backlog does the work.)
+    authorRequest("F1");
+    writeRequested(tdd, SPRINT, ["F1"]);
+    expect(deriveSprintPlanningState(tdd, SPRINT, { skipSizing: true }).planning?.requestsAuthored).toBe(false);
+
+    const runner = execRunner({
+      consortDir: tdd,
+      projectDir: tdd,
+      featureId: "",
+      runner: { async run() {} },
+      modelForRole: () => "opus",
+    } as unknown as DriveEffectsConfig);
+    await runner.run({ kind: "sync-backlog", sprint: SPRINT });
+
+    expect(existsSync(backlogJson(tdd, SPRINT)), "runner's sync-backlog wrote backlog.json").toBe(true);
+    expect(deriveSprintPlanningState(tdd, SPRINT, { skipSizing: true }).planning?.requestsAuthored).toBe(true);
   });
 });
