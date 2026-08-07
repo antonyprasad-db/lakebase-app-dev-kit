@@ -24,7 +24,9 @@ import type { ChampionWalkDeps, HandoffPlan, HandoffSnapshot, TrialResult, Hando
 import { defaultConsortConfig, loadConsortConfig, writeConsortConfig, type ConsortConfigFile } from "../../consort/orchestrator/settings/project-settings.js";
 import { isBuildHandoff, actionToHandoffPlan } from "./handoff.js";
 import type { DriveEffectsConfig } from "../../consort/orchestrator/drive/orchestrator-effects.js";
-import { actionLane, type WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";
+import type { DriveEffects } from "../../consort/orchestrator/drive/orchestrator-run.js";
+import type { ValidateBoundDeps } from "../../consort/orchestrator/steps/step-contract.js";
+import { actionLane, nextTransition, type WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 import { cutExperiment, type CutExperimentArgs } from "../../consort/experiment/experiment.js";
 import { readEscalations } from "../../consort/gates/escalation.js";
 import { readAgentLog } from "../../consort/logging/agent-log.js";
@@ -270,13 +272,12 @@ export function applyContentSeams(cfg: DriveEffectsConfig, content: Candidate["c
  *  The CLI supplies the real trio. */
 export interface LiveDriveSeams {
   buildCfg(featureId: string): DriveEffectsConfig;
-  execRunner(cfg: DriveEffectsConfig): { run(cmd: unknown): Promise<void> };
-  /** Build the drive command list for a SPECIFIC (pinned) action, i.e.
-   *  orchestrator-effects `commandsForAction`. The walk runs the PINNED handoff's
-   *  action , it does NOT call planNextAction (which reads current disk state and,
-   *  once the turn's artifact lands, returns the NEXT role, running the wrong turn).
-   *  Injected (not imported) so optimize-live stays hermetically testable. */
-  commandsFor(action: WorkflowAction, cfg: DriveEffectsConfig): unknown[];
+  /** Build a DriveEffects bound to the (candidate-aware) cfg, i.e. orchestrator-effects
+   *  `buildDriveEffects`. The walk runs the PINNED handoff's action THROUGH the executor
+   *  (eff.performViaExecutor) , the SAME primitive the live drive + lean chains use , so
+   *  the sweep survives J5's deletion of commandsForAction. Injected (not imported) so
+   *  optimize-live stays hermetically testable. */
+  buildEffects(cfg: DriveEffectsConfig): DriveEffects;
   /** The corpus dir a WINNER capture records into (turns/ + recorded-artifacts/).
    *  A TRIAL (record:false) must NOT record , only the winner. When absent, no turn
    *  records (a pure-timing sweep). This is the single door for "does this turn land
@@ -285,33 +286,58 @@ export interface LiveDriveSeams {
 }
 
 
+/** The permissive router deps a PINNED-turn sweep passes to performViaExecutor. The
+ *  sweep runs exactly ONE turn and IGNORES the BoundedRoute (it never routes to a next
+ *  role), so this just satisfies the executor's phase-7 validateAndBound: `allowed`
+ *  re-derives from state via nextTransition (the same default the live drive uses),
+ *  the revise budget is closed (a sweep never revises), and a "blocked" outcome is
+ *  unsanctioned (the executor returns a blocked route , which the sweep ignores; the
+ *  harness gate then fails naturally because a blocked/nonconformant turn produced no
+ *  conformant artifact). Mirrors orchestrator-run.ts's routerDeps minus the retry
+ *  ledger (irrelevant to a single un-routed turn). */
+export const SWEEP_ROUTER_DEPS: ValidateBoundDeps = {
+  allowed: (s) => nextTransition(s),
+  reviseBudgetAvailable: () => false,
+  recordRetry: () => ({ sanctioned: false }),
+};
+
 /** Build the REAL spawnTurn: for a candidate, construct a fresh drive cfg, thread
- *  the candidate's content seams, and run the PINNED handoff's ROLE TURN through
- *  execRunner (which spawns the `claude -p` turn + emits turn.usage).
+ *  the candidate's content seams, and run the PINNED handoff's ROLE TURN through the
+ *  StepExecutor (eff.performViaExecutor) , the SAME primitive the live drive + lean
+ *  chains use. performViaExecutor runs the manifest's preconditions + the agent turn
+ *  (emitting turn.usage) + the post-turn substrate CLIs (sync-breakdown etc.) + phase-5
+ *  structural validate, then returns a BoundedRoute. The sweep IGNORES that route: it
+ *  runs the ONE pinned turn, it does not advance to the next role. (Before J4 this ran
+ *  the pinned action's command LIST via execRunner; converging onto the executor makes
+ *  the sweep survive J5's deletion of commandsForAction , the whole point of J4.)
  *
  *  It runs the handoff's OWN action (handoff.action), NOT "whatever planNextAction
  *  says is next". planNextAction reads current disk state, so once the turn's artifact
  *  lands it returns the NEXT role , a spec-author sweep would then run ux-designer,
- *  which flakes and crashes the whole sweep on the drive's exit path. Each handoff is
- *  a well-defined interface (role + inputs -> artifact passing a gate); the walk runs
- *  THAT interface. From the pinned action's command list we run ONLY the `claude`
- *  command , the role satisfying its interface. The drive-bookkeeping commands
- *  (reset-breakdown / verify-artifact / sync-breakdown / test-list / reconcile) are
- *  role-specific IMPLEMENTATION DETAIL of a full drive turn; they are NOT needed here
- *  (the harness's own gate, evaluateDesignGate in runTrial, reads the raw artifact the
- *  agent wrote) and verify-artifact in particular throws on the drive's process-level
- *  exit-3 path, OUTSIDE the walk's guards. Running just the agent's turn keeps the
- *  crash-handling inside the harness.
+ *  which flakes and crashes the whole sweep. Each handoff is a well-defined interface
+ *  (role + inputs -> artifact passing a gate); the walk runs THAT interface.
+ *
+ *  STRUCTURAL vs QUALITY: performViaExecutor's phase-5 validate-outputs is structural
+ *  conformance (registry validators); on a violation it returns a BLOCKED route (no
+ *  throw). The harness gate (evaluateDesignGate / semanticGate in runTrial) scores
+ *  QUALITY by reading the PRODUCED artifact , so a blocked/nonconformant turn produces
+ *  no conformant artifact and the harness gate fails naturally. No violation plumbing
+ *  is needed here; the sweep discards the route.
+ *
+ *  Non-dispatched action fallback: performViaExecutor returns undefined only for an
+ *  action NOT on the executor allowlist (no shipped manifest). Today every swept design
+ *  role IS dispatched, so this is defensive , we fall to eff.perform (the deterministic
+ *  substrate path) to keep the sweep running rather than silently no-op the turn.
  *
  *  Recording is gated on the `record` flag , the load-bearing anti-pollution fix.
  *  A champion walk runs N candidates x M TRIALS per handoff; only the WINNER (a
  *  single record:true re-run) may land in the recorded corpus. So this sets
- *  LAKEBASE_CONSORT_RECORD_DIR (which the agent subprocess + the drive recorder read)
- *  ONLY when record is true, and restores the prior env afterward so a winner
- *  capture never leaks recording into the next handoff's trials. A trial
- *  (record:false) runs with the env cleared, so no losing candidate touches the
- *  corpus even if the ambient shell exported RECORD_DIR. NEVER sets
- *  LAKEBASE_SFTDD_REPLAY_BUILD_DIR (that would fake GREEN). */
+ *  LAKEBASE_CONSORT_RECORD_DIR (which the executor's recorder decorator reads) ONLY
+ *  when record is true, and restores the prior env afterward so a winner capture never
+ *  leaks recording into the next handoff's trials. A trial (record:false) runs with the
+ *  env cleared, so no losing candidate touches the corpus even if the ambient shell
+ *  exported RECORD_DIR. NEVER sets LAKEBASE_SFTDD_REPLAY_BUILD_DIR (that would fake
+ *  GREEN). */
 export function makeLiveSpawnTurn(featureId: string, seams: LiveDriveSeams): SpawnTurn {
   return async ({ handoff, candidate, record }) => {
     // The walk pins the action at positioning; a HandoffPlan without one is a caller
@@ -330,19 +356,16 @@ export function makeLiveSpawnTurn(featureId: string, seams: LiveDriveSeams): Spa
     else delete process.env[RECORD_DIR_ENV];
     try {
       const cfg = applyContentSeams(seams.buildCfg(featureId), candidate.content);
-      const runner = seams.execRunner(cfg);
-      // Build the PINNED action's command list. Run the role's `claude` turn AND its
-      // LOAD-BEARING substrate (cli/sync-backlog/set-phase , e.g. breakdown's
-      // sync-breakdown, which projects pipeline.json from the stories/ stubs; without
-      // it the per-story design loop is empty and the lane stalls at feature-complete).
-      // EXCLUDE only `verify-artifact`: that is the drive's post-turn precheck which
-      // throws ArtifactOutOfRootError on the exit-3 path, and the harness re-checks the
-      // artifact itself via its own gate (evaluateDesignGate). The design snapshot
-      // restores the whole .sftdd between trials, so substrate mutations (pipeline.json)
-      // are undone for the next candidate. No planNextAction: run the pinned turn only.
-      const commands = seams.commandsFor(handoff.action, cfg) as Array<{ kind?: string }>;
-      const toRun = commands.filter((c) => c.kind !== "verify-artifact");
-      for (const cmd of toRun) await runner.run(cmd);
+      const eff = seams.buildEffects(cfg);
+      const state = await eff.readState();
+      // Dispatch the PINNED turn THROUGH the executor. It runs preconditions + the agent
+      // turn + the load-bearing post-turn substrate + structural validate, and hands back
+      // a BoundedRoute the sweep IGNORES (it runs one turn, it does not route). A blocked
+      // route (structural violation) is fine here , the harness gate scores the produced
+      // artifact and fails a nonconformant one. undefined => action not executor-dispatched
+      // (no manifest); fall to the deterministic substrate path so the sweep keeps running.
+      const bounded = await eff.performViaExecutor?.(handoff.action, state, SWEEP_ROUTER_DEPS);
+      if (bounded === undefined) await eff.perform(handoff.action);
     } finally {
       if (prior === undefined) delete process.env[RECORD_DIR_ENV];
       else process.env[RECORD_DIR_ENV] = prior;

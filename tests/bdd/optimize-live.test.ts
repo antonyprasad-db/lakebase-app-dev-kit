@@ -290,20 +290,28 @@ describe("makeLiveSpawnTurn: recording is gated on the `record` flag (only winne
   // the moment the runner runs a command.
   const RECORD_ENV = "LAKEBASE_CONSORT_RECORD_DIR";
 
-  // The pinned handoff carries its action; commandsFor returns that action's command
-  // list (a claude turn + the drive appendix). The spawn runs ONLY the claude turn.
+  // The pinned handoff carries its action; the spawn dispatches it through the executor
+  // (eff.performViaExecutor), which reads RECORD_DIR from the env to decide whether to wrap
+  // the agent with the recorder decorator. So we capture the env visible at the moment
+  // performViaExecutor runs. It returns a truthy BoundedRoute, so perform is not called.
   const specAuthorAction = { kind: "invoke-role", role: "spec-author", story: "S1" } as never;
   const pinnedHandoff = { id: "S1-spec-author", role: "spec-author", action: specAuthorAction };
   function seams(recordDir: string, seenEnv: (v: string | undefined) => void) {
     return {
       recordDir,
       buildCfg: () => ({ projectDir, consortDir, featureId }) as never,
-      execRunner: () => ({
-        async run() {
+      buildEffects: () => ({
+        async readState() {
+          return {} as never;
+        },
+        async performViaExecutor() {
           seenEnv(process.env[RECORD_ENV]);
+          return { route: { kind: "done" } } as never; // truthy => perform not called
+        },
+        async perform() {
+          throw new Error("perform must not run when performViaExecutor dispatched the turn");
         },
       }),
-      commandsFor: () => [{ kind: "claude" }],
     };
   }
 
@@ -337,62 +345,73 @@ describe("makeLiveSpawnTurn: recording is gated on the `record` flag (only winne
   });
 });
 
-describe("makeLiveSpawnTurn: runs the PINNED turn's interface, never re-plans", () => {
+describe("makeLiveSpawnTurn: dispatches the PINNED turn THROUGH the executor, never re-plans", () => {
   // The wrong-role bug: the spawn used to call planNextAction, which reads CURRENT
   // disk state and, once the turn's artifact lands, returns the NEXT role , a
   // spec-author sweep then ran a ux-designer turn that flaked + crashed the sweep.
-  // Fix: the spawn runs handoff.action's OWN command list (commandsFor), and only its
-  // `claude` command (the role satisfying its interface) , not the drive-bookkeeping
-  // appendix (reset/verify/sync/test), and never a re-planned "next" turn.
+  // Fix (J4): the spawn dispatches handoff.action's OWN turn through the executor
+  // (eff.performViaExecutor) , the SAME primitive the live drive + lean chains use ,
+  // so the sweep survives J5's deletion of commandsForAction. It never re-plans, and
+  // it IGNORES the returned BoundedRoute (it runs one turn, it does not route).
   const specAuthorAction = { kind: "invoke-role", role: "spec-author", story: "S1" } as never;
 
-  function seams(ran: Array<{ kind?: string }>, commands: Array<{ kind?: string }>, sawAction: (a: unknown) => void) {
+  function seams(
+    dispatched: { action?: unknown; performed?: unknown },
+    opts: { returnUndefined?: boolean } = {},
+  ) {
     return {
       buildCfg: () => ({ projectDir, consortDir, featureId }) as never,
-      execRunner: () => ({ async run(cmd: unknown) { ran.push(cmd as { kind?: string }); } }),
-      commandsFor: (action: unknown) => { sawAction(action); return commands; },
+      buildEffects: () => ({
+        async readState() {
+          return {} as never;
+        },
+        async performViaExecutor(action: unknown) {
+          dispatched.action = action;
+          // undefined => the action is not executor-dispatched (no manifest); the sweep
+          // must fall through to perform. Truthy => the executor ran the turn + bounded it.
+          return opts.returnUndefined ? undefined : ({ route: { kind: "done" } } as never);
+        },
+        async perform(action: unknown) {
+          dispatched.performed = action;
+        },
+      }),
     };
   }
 
-  it("runs the claude turn AND its load-bearing substrate (sync-breakdown etc.), EXCLUDING only verify-artifact", async () => {
-    const ran: Array<{ kind?: string; bin?: string }> = [];
-    let passedAction: unknown;
-    // commandsFor returns a full drive command list. The spawn must run the claude
-    // turn + the substrate (reset-breakdown/sync-breakdown/test-list , sync-breakdown
-    // is LOAD-BEARING: it projects pipeline.json so the per-story design lane can
-    // progress). It must EXCLUDE only verify-artifact (the exit-3 thrower; the harness
-    // re-checks the artifact via its own gate).
-    const fullList = [
-      { kind: "cli", bin: "reset-breakdown" },
-      { kind: "claude", role: "spec-author" },
-      { kind: "verify-artifact", role: "spec-author" },
-      { kind: "cli", bin: "sync-breakdown" },
-      { kind: "cli", bin: "test-list" },
-    ];
-    const spawn = makeLiveSpawnTurn(featureId, seams(ran, fullList, (a) => (passedAction = a)) as never);
+  it("dispatches the PINNED action through performViaExecutor (never re-plans), ignoring the returned route", async () => {
+    const dispatched: { action?: unknown; performed?: unknown } = {};
+    const spawn = makeLiveSpawnTurn(featureId, seams(dispatched) as never);
     await spawn({
       handoff: { id: "S1-spec-author", role: "spec-author", action: specAuthorAction },
       candidate: { id: "baseline", configOverrides: {} },
       record: false,
     });
-    // Everything BUT verify-artifact ran, in order , crucially sync-breakdown is present.
-    expect(ran).toEqual([
-      { kind: "cli", bin: "reset-breakdown" },
-      { kind: "claude", role: "spec-author" },
-      { kind: "cli", bin: "sync-breakdown" },
-      { kind: "cli", bin: "test-list" },
-    ]);
-    expect(ran.some((c) => c.kind === "verify-artifact")).toBe(false); // the exit-3 thrower excluded
-    // commandsFor was asked for the PINNED action, not a re-planned "next" one.
-    expect(passedAction).toBe(specAuthorAction);
+    // The executor was handed the PINNED action, not a re-planned "next" one.
+    expect(dispatched.action).toBe(specAuthorAction);
+    // Executor dispatched it (truthy route) => the deterministic perform fallback did NOT run.
+    expect(dispatched.performed).toBeUndefined();
+  });
+
+  it("falls back to perform when the action is NOT executor-dispatched (performViaExecutor returns undefined)", async () => {
+    const dispatched: { action?: unknown; performed?: unknown } = {};
+    const spawn = makeLiveSpawnTurn(featureId, seams(dispatched, { returnUndefined: true }) as never);
+    await spawn({
+      handoff: { id: "S1-spec-author", role: "spec-author", action: specAuthorAction },
+      candidate: { id: "baseline", configOverrides: {} },
+      record: false,
+    });
+    // Not dispatched => the sweep performed the action via the deterministic substrate path.
+    expect(dispatched.action).toBe(specAuthorAction);
+    expect(dispatched.performed).toBe(specAuthorAction);
   });
 
   it("throws if the handoff carries no pinned action (never re-plans to recover it)", async () => {
-    const ran: Array<{ kind?: string }> = [];
-    const spawn = makeLiveSpawnTurn(featureId, seams(ran, [{ kind: "claude" }], () => {}) as never);
+    const dispatched: { action?: unknown; performed?: unknown } = {};
+    const spawn = makeLiveSpawnTurn(featureId, seams(dispatched) as never);
     await expect(
       spawn({ handoff: { id: "S1-spec-author", role: "spec-author" }, candidate: { id: "baseline", configOverrides: {} }, record: false }),
     ).rejects.toThrow(/no pinned action|actionToHandoffPlan/);
-    expect(ran).toEqual([]); // nothing ran
+    expect(dispatched.action).toBeUndefined(); // nothing dispatched
+    expect(dispatched.performed).toBeUndefined();
   });
 });

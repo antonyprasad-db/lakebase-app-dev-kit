@@ -29,12 +29,12 @@ import { runChampionWalk, type HandoffPlan, type HandoffResult } from "../../con
 import type { BuildTurn, EffortLevel } from "../../consort/orchestrator/settings/project-settings.js";
 import type { SpawnableAgentRole } from "../../consort/config/agent-models.js";
 import { buildCfg, execRunner } from "../../consort/orchestrator/drive/claude-runner.js";
-import { planNextAction, commandsForActionResolved, turnKeyForAction } from "../../consort/orchestrator/drive/orchestrator-effects.js";
+import { planNextAction, buildDriveEffects, turnKeyForAction } from "../../consort/orchestrator/drive/orchestrator-effects.js";
 import { resolveConsortDir } from "../../consort/config/consort-paths.js";
 import { consortEnv, ENV_PREFIXES } from "../../consort/config/consort-env.js";
 import { kitRoot } from "../../consort/config/kit-bin.js";
 import { evaluateSemanticGate, makeOpusJudge } from "../../consort/evaluation/semantic-gate.js";
-import { makeChampionWalkDeps, makeLiveSpawnTurn, makeBuildGate, makeBuildSnapshotDeps, positionToBuildHandoff, positionToNextHandoff, runLaneSweep, readLastTurnTokens, type OptimizeLiveCtx } from "../../consort/optimize/optimize-live.js";
+import { makeChampionWalkDeps, makeLiveSpawnTurn, makeBuildGate, makeBuildSnapshotDeps, positionToBuildHandoff, positionToNextHandoff, runLaneSweep, readLastTurnTokens, SWEEP_ROUTER_DEPS, type OptimizeLiveCtx } from "../../consort/optimize/optimize-live.js";
 import { actionLane } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 import { readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { buildChampionWalkReport, formatChampionWalkReport } from "../../consort/optimize/optimize-report.js";
@@ -156,13 +156,11 @@ function buildCtxForHandoff(
     experimentsDir: join(projectDir, "experiments"),
     spawnTurn: makeLiveSpawnTurn(featureId, {
       buildCfg: (fid) => buildCfg({ feature: fid, projectDir } as never, fid),
-      execRunner: (cfg) => execRunner(cfg as never) as { run(cmd: unknown): Promise<void> },
-      // Build the PINNED action's command list via the drive's ONE resolver
-      // (commandsForActionResolved = executor-aligned manifest view when on, else deterministic), so
-      // the spawn runs the handoff's OWN role turn EXACTLY as perform would , NOT planNextAction's
-      // "what's next" (which would advance to the next role once the artifact lands). Identical today
-      // (manifests are golden-equivalent); after J5 this resolves the agent turn via the manifest.
-      commandsFor: (action, cfg) => commandsForActionResolved(action as never, cfg as never),
+      // Dispatch the PINNED turn THROUGH the executor (buildDriveEffects.performViaExecutor) ,
+      // the SAME primitive the live drive + lean chains use, so the sweep survives J5's deletion
+      // of commandsForAction. It runs the handoff's OWN role turn (+ its post-turn substrate), NOT
+      // planNextAction's "what's next" (which would advance to the next role once the artifact lands).
+      buildEffects: (cfg) => buildDriveEffects(cfg as never),
       // Only the WINNER capture records into the corpus. makeLiveSpawnTurn sets
       // RECORD_DIR for record:true and clears it for trials, so a losing candidate
       // never pollutes the shippable corpus. The corpus dir is the runbook's
@@ -288,18 +286,19 @@ async function main(): Promise<number> {
       },
       // advanceOne: a settled upstream handoff (before --from) whose winner is already
       // applied to the kit , run its baseline turn to move the drive forward, do NOT
-      // re-sweep. This must run the FULL command list (the claude turn AND the drive
-      // appendix , sync-breakdown, gates), exactly as a normal drive turn would, so the
-      // substrate advances (e.g. breakdown's sync-breakdown populates pipeline.json). A
-      // sweep TRIAL runs only the claude command (isolated measurement); advancing is
-      // real progression, so it runs the whole turn through the real runner.
+      // re-sweep. Dispatched THROUGH the executor (the SAME performViaExecutor the sweep +
+      // live drive use), which runs the agent turn AND its post-turn substrate (e.g.
+      // breakdown's sync-breakdown populates pipeline.json), advancing the drive exactly as
+      // a normal turn would. The BoundedRoute is ignored (advance runs one turn, the lane
+      // sweep re-positions). undefined => action not executor-dispatched; fall to perform.
       advanceOne: async (h) => {
         if (!h.action) throw new Error(`optimize advanceOne: handoff '${h.id}' has no pinned action to advance.`);
         process.stderr.write(`[optimize] handoff ${h.id}: ADVANCE (settled upstream; full baseline turn, not swept)\n`);
         const cfg = buildCfg({ feature: featureId, projectDir } as never, featureId);
-        const runner = execRunner(cfg as never) as { run(cmd: unknown): Promise<void> };
-        const commands = commandsForActionResolved(h.action as never, cfg as never) as unknown[];
-        for (const cmd of commands) await runner.run(cmd);
+        const eff = buildDriveEffects(cfg as never);
+        const state = await eff.readState();
+        const bounded = await eff.performViaExecutor?.(h.action as never, state, SWEEP_ROUTER_DEPS);
+        if (bounded === undefined) await eff.perform(h.action as never);
       },
     }, args.from ? { startFrom: args.from } : {});
     laneWalk.push(...result.walk);
