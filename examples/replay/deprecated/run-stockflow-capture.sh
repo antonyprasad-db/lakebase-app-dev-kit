@@ -14,8 +14,8 @@
 set -euo pipefail
 
 ORCH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CORPUS_DIR="${ORCH}/corpora/stockflow/recorded-artifacts"
-KIT_ROOT="$(cd "${ORCH}/../.." && pwd)"
+CORPUS_DIR="${ORCH}/../corpora/stockflow/recorded-artifacts"
+KIT_ROOT="$(cd "${ORCH}/../../.." && pwd)"
 KIT_LK="${KIT_ROOT}/templates/project/common/scripts/lk"
 ASSERT_DIR="${ORCH}/assertions"
 FEATURES=(F1-stock-visibility F6-split-tracking-code)

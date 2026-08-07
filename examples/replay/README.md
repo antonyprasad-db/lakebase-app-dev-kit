@@ -110,9 +110,19 @@ Recording is gated on `LAKEBASE_CONSORT_RECORD_DIR` (+
 | Script | What it does |
 |--------|--------------|
 | `run-capture.sh [--sprint <name>] [--plan-only] [--feature <id>]` | FULL LIVE CAPTURE — real design AND real build — recording every turn, paused just before the Navigator handoff. With `--sprint --plan-only`, captures the planning lane and stops. |
-| `run-stockflow-capture.sh` | Stockflow F1+F6 reference capture: DESIGN lane REPLAYED from `corpora/stockflow/recorded-artifacts/`, BUILD lane runs LIVE and is recorded per turn. |
-| `resume-stockflow-capture.sh` | RESUME the stockflow F1+F6 capture after a mid-run halt (no scaffold, no intake; continues the same record dir). |
-| `resume-stockflow-f6.sh` | RESUME just F6-split-tracking-code after its driver GREEN turn overflowed (narrow resume). |
+
+#### Deprecated (`deprecated/`)
+
+Superseded stockflow-specific capturers on the OLD `LAKEBASE_KIT_DIR` kit
+mechanism (split-brains the orchestrator vs the `claude -p` agents). Use
+`capture-scenario.sh --create --inputs-from corpora/stockflow ... --sprint ...`
+instead. Kept for reference / a resume-in-flight only; not a supported path.
+
+| Script | Was |
+|--------|-----|
+| `deprecated/run-stockflow-capture.sh` | Stockflow F1+F6 reference capture (design REPLAYED, build LIVE + recorded). |
+| `deprecated/resume-stockflow-capture.sh` | RESUME the stockflow F1+F6 capture after a mid-run halt. |
+| `deprecated/resume-stockflow-f6.sh` | RESUME just F6-split-tracking-code after its driver GREEN turn overflowed. |
 
 ### Optimize (per-handoff champion-walk sweep)
 

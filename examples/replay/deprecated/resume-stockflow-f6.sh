@@ -11,8 +11,8 @@
 set -euo pipefail
 
 ORCH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CORPUS_DIR="${ORCH}/corpora/stockflow/recorded-artifacts"
-KIT_ROOT="$(cd "${ORCH}/../.." && pwd)"
+CORPUS_DIR="${ORCH}/../corpora/stockflow/recorded-artifacts"
+KIT_ROOT="$(cd "${ORCH}/../../.." && pwd)"
 KIT_LK="${KIT_ROOT}/templates/project/common/scripts/lk"
 
 PARENT="$HOME/code/tdd-workflow-smoke"
@@ -27,7 +27,7 @@ err() { printf "\n${R}[sf-resume-f6 ERROR]${Z} %s\n" "$*" >&2; }
 # --- workspace / auth (from the ONE config home) ------------------------------
 # The workspace/profile/owner is NOT hardcoded here , it lives in the single
 # home .env.local.test.config (gitignored; see .env.template.test.config).
-REPO_ROOT_CFG="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+REPO_ROOT_CFG="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 [[ -f "$REPO_ROOT_CFG/.env.local.test.config" ]] && . "$REPO_ROOT_CFG/.env.local.test.config"
 export DATABRICKS_HOST DATABRICKS_CONFIG_PROFILE
 export GITHUB_OWNER="${GITHUB_OWNER:-${LAKEBASE_TEST_GITHUB_OWNER:-}}"
