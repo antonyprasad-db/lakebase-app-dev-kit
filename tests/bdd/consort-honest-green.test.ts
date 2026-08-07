@@ -19,7 +19,6 @@ import {
   reviewAc,
   refactorAc,
   firstRefactorPendingAc,
-  replayTrustVerifier,
   greenVerifierForEnv,
   type GreenVerifier,
 } from "../../consort/pipeline/cycle-record.js";
@@ -169,33 +168,17 @@ describe("honest GREEN: greenOpenCycle runs a real verify before stamping green"
   });
 });
 
-// in replay-build mode the per-turn honest-GREEN full-suite verify is
-// invalid mid-build (a later AC's test is legitimately RED while its code is not
-// yet overlaid), so it must NOT fail the cycle. The replay trusts the recorded
-// GREEN per turn; the final all-ACs state is still verified at the deploy gate.
-describe("replay-build: per-turn green trusts the recorded outcome", () => {
-  it("replayTrustVerifier passes without running a real verify (no deploy)", async () => {
-    const r = await replayTrustVerifier({ projectDir: "/does/not/exist", consortDir: tdd, featureId: F, story: S });
-    expect(r.passed).toBe(true);
-    expect(r.summary).toMatch(/replay-build/i);
-  });
-
-  it("greenOpenCycle with the replay verifier greens an open RED cycle where a real full-suite verify would fail", async () => {
-    beginNextPendingCycle({ consortDir: tdd, featureId: F, story: S });
-    const r = await greenOpenCycle({ consortDir: tdd, featureId: F, story: S, verify: replayTrustVerifier });
-    expect(r.recorded).toBe(true);
-    expect(r.escalated).toBeFalsy();
-    expect(r.needsAssess).toBeFalsy();
-    expect(cycle("AC1").green_at).toBeTruthy();
-    expect(readEscalations(tdd).filter((e) => !e.resolved_at).length).toBe(0);
-  });
-
-  it("greenVerifierForEnv returns the replay verifier ONLY when LAKEBASE_SFTDD_REPLAY_BUILD_DIR is set", async () => {
+// FAITHFUL REPLAY: the per-turn honest-GREEN verify runs even under a build replay , the tree is
+// SYNCED byte-identical to record-time (replayBuildTurn), so the same verify reaches the same
+// verdict the recording did. The old replayTrustVerifier (hardcoded passed:true) is GONE: faking a
+// pass let the tree never disagree, skipping recorded assess/repair turns and orphaning a
+// repair-authored file. greenVerifierForEnv therefore always returns undefined (use the real
+// defaultGreenVerifier), on the live drive AND under replay; a live-vs-recorded verdict divergence
+// is surfaced by the replay's divergence guard instead.
+describe("replay-build: the per-turn verify is honest (no fabricated green)", () => {
+  it("greenVerifierForEnv returns undefined even when LAKEBASE_SFTDD_REPLAY_BUILD_DIR is set (real verify runs)", async () => {
     expect(greenVerifierForEnv({})).toBeUndefined();
-    const v = greenVerifierForEnv({ LAKEBASE_SFTDD_REPLAY_BUILD_DIR: "/corpus" });
-    expect(v).toBeDefined();
-    const r = await v!({ projectDir: "/x", consortDir: tdd, featureId: F, story: S });
-    expect(r.passed).toBe(true);
+    expect(greenVerifierForEnv({ LAKEBASE_SFTDD_REPLAY_BUILD_DIR: "/corpus" })).toBeUndefined();
   });
 });
 

@@ -92,9 +92,64 @@ describe("makeStepReplayAgent: materializes the recorded turn matching the actio
     ).rejects.toThrow(/no recorded turn|cannot fabricate/i);
   });
 
+  it("resolves turns/ from the PARENT when pointed at the recorded-artifacts subdir (the live engine's REPLAY_DIR)", async () => {
+    // The live replay engine sets LAKEBASE_SFTDD_REPLAY_DIR = <scenario>/recorded-artifacts, but the
+    // turns/ timeline lives at <scenario>/turns. The agent must find it via the parent.
+    const action: WorkflowAction = { kind: "invoke-role", role: "spec-author", story: "S1" };
+    recordTurn("0006-spec-author", action, { ".sftdd/x.json": "{}" }); // writes <corpus>/turns/...
+    const subdir = join(corpus, "recorded-artifacts");
+    mkdirSync(subdir, { recursive: true });
+    const agent = makeStepReplayAgent({ corpusRoot: subdir }); // pointed at the SUBDIR, not the root
+    try {
+      await agent.invoke(invoke(action));
+      expect(existsSync(join(ws, ".consort/x.json"))).toBe(true); // found turns/ at the parent + materialized
+    } finally {
+      resetStepReplayCursor(subdir);
+    }
+  });
+
   it("throws loud when the corpus has no turns/ timeline at all", async () => {
     rmSync(join(corpus, "turns"), { recursive: true, force: true });
     const agent = makeStepReplayAgent({ corpusRoot: corpus });
     await expect(agent.invoke(invoke({ kind: "invoke-role", role: "spec-author", story: "S1" }))).rejects.toThrow(/no turns\/ timeline/i);
+  });
+
+  // A navigator/driver BUILD turn is not a delta materialization , it SYNCS the cumulative recorded
+  // -build snapshot for the story's Kth build turn (replayBuildTurn), so the working tree is
+  // byte-identical to record-time and a repair-authored file lands AT its turn. Design turns keep
+  // the delta path. This is the executor's build-lane replay (the live drive dispatches build turns
+  // through here, not the runner short-circuit).
+  it("a BUILD turn (navigator/driver) SYNCS the recorded-build snapshot via replayBuildTurn (cumulative, not delta)", async () => {
+    const buildCorpus = mkdtempSync(join(tmpdir(), "step-replay-build-"));
+    const feature = "F1";
+    const story = "S1-file-stock";
+    // recorded-build snapshots: RED lays the client test, GREEN lays backend only, the recorded
+    // repair authors the frontend page.
+    const bt = (slug: string, files: Record<string, string>): void => {
+      for (const [rel, body] of Object.entries(files)) {
+        const p = join(buildCorpus, "features", feature, "stories", story, "turns", slug, "code", rel);
+        mkdirSync(join(p, ".."), { recursive: true });
+        writeFileSync(p, body);
+      }
+    };
+    bt("001-navigator", { "client/tests/pages/Stock.test.tsx": "import '../../src/pages/StockPage';\n" });
+    bt("002-driver", { "app/main.py": "# backend\n" });
+    bt("003-driver-repair", { "app/main.py": "# backend\n", "client/src/pages/StockPage.tsx": "export default () => null;\n" });
+    try {
+      const agent = makeStepReplayAgent({ corpusRoot: corpus, buildCorpusRoot: buildCorpus, featureId: feature, consortDir: join(ws, ".consort") });
+      const red: WorkflowAction = { kind: "invoke-role", role: "navigator", story };
+      const green: WorkflowAction = { kind: "invoke-role", role: "driver", story };
+      const repair = { kind: "invoke-role", role: "driver", story, buildMode: "repair", ac: "AC1" } as WorkflowAction;
+      await agent.invoke(invoke(red));   // build turn 1 -> RED snapshot
+      expect(existsSync(join(ws, "client/tests/pages/Stock.test.tsx"))).toBe(true);
+      await agent.invoke(invoke(green)); // build turn 2 -> GREEN snapshot (backend only; frontend NOT yet)
+      expect(existsSync(join(ws, "app/main.py"))).toBe(true);
+      expect(existsSync(join(ws, "client/src/pages/StockPage.tsx"))).toBe(false);
+      await agent.invoke(invoke(repair)); // build turn 3 -> repair snapshot lands the frontend AT this turn
+      expect(existsSync(join(ws, "client/src/pages/StockPage.tsx"))).toBe(true);
+    } finally {
+      resetStepReplayCursor(corpus);
+      rmSync(buildCorpus, { recursive: true, force: true });
+    }
   });
 });

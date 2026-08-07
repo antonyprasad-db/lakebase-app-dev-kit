@@ -469,28 +469,20 @@ const defaultGreenVerifier: GreenVerifier = async ({ projectDir, branchId }) => 
 };
 
 /**
- * Replay-build verifier: trust the recorded GREEN for this turn
- * instead of re-running the full-suite honest-GREEN against the overlaid code.
- * During a build replay the project tree at an intermediate turn carries the
- * WHOLE recorded test set while only the current AC's code is in place, so a
- * later AC's test is legitimately RED , re-running the full suite per turn would
- * fail the cycle on a not-yet-built AC, which is not a regression. The corpus is
- * the source of truth that the turn was green when recorded; the final all-ACs
- * state is still honestly verified at the deploy gate. No deploy, no I/O.
+ * Pick the GREEN/REFACTOR verifier for the current environment. Always `undefined` , greenOpenCycle
+ * / refactorAc use the real `defaultGreenVerifier`, on the LIVE drive AND under a build replay.
+ *
+ * FAITHFUL REPLAY: replayBuildTurn now SYNCS each turn's recorded snapshot onto the tree (mirror +
+ * in-scope delete), so at every turn the working tree is byte-identical to record-time. The honest
+ * per-turn verify therefore reproduces the RECORDED verdict by construction: a recorded GREEN
+ * failure re-fails (the router routes assess -> repair on its own; the repair snapshot lands the
+ * code at the turn it was authored), a recorded GREEN pass re-passes. There is no reason to fake a
+ * pass , the old `replayTrustVerifier` (which hardcoded passed:true) let the tree never disagree,
+ * skipping the recorded self-heal turns and orphaning a repair-authored file. A live verdict that
+ * DIVERGES from the recorded one is a genuine regression, surfaced by the replay's divergence guard.
  */
-export const replayTrustVerifier: GreenVerifier = async () => ({
-  passed: true,
-  summary: "replay-build: trusting recorded GREEN (per-turn verify skipped; final state verified at the deploy gate)",
-});
-
-/**
- * Pick the GREEN/REFACTOR verifier for the current environment: the
- * replay-trust verifier when a build replay is in flight
- * (LAKEBASE_SFTDD_REPLAY_BUILD_DIR set), else undefined so greenOpenCycle /
- * refactorAc fall back to the real defaultGreenVerifier.
- */
-export function greenVerifierForEnv(env: NodeJS.ProcessEnv = process.env): GreenVerifier | undefined {
-  return consortEnv("REPLAY_BUILD_DIR", env) ? replayTrustVerifier : undefined;
+export function greenVerifierForEnv(_env: NodeJS.ProcessEnv = process.env): GreenVerifier | undefined {
+  return undefined;
 }
 
 /**

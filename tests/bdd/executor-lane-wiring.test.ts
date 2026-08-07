@@ -94,6 +94,38 @@ describe("Stage G: executor selects the REPLAY lane from env (kind swap, corpus 
   });
 });
 
+describe("Stage G: REPLAY lane does NOT fail-loud on a missing declared input (replay agent doesn't consume them)", () => {
+  it("a breakdown turn whose declared inputs are ABSENT still dispatches under REPLAY (materializes from corpus)", async () => {
+    // The recorded design-lane replay clean-syncs recorded-artifacts over .consort, which lacks the
+    // PO intake docs (product-overview/nfrs/feature-request) a LIVE breakdown turn would read. Under
+    // replay the step-aware agent materializes the recorded OUTPUT regardless, so a missing input must
+    // NOT fail the turn (the live presence-gate stays for the non-replay path). Note: this test does
+    // NOT seed the breakdown inputs (unlike the others) , that absence is the point.
+    const corpus = mkdtempSync(join(tmpdir(), "lane-noinput-"));
+    const proj = mkdtempSync(join(tmpdir(), "lane-noinput-proj-"));
+    const cd = join(proj, ".consort");
+    mkdirSync(join(cd, "features", FEATURE), { recursive: true });
+    try {
+      const turnDir = join(corpus, "turns", "0004-spec-author-breakdown");
+      mkdirSync(join(turnDir, "files", ".sftdd", "features", FEATURE), { recursive: true });
+      writeFileSync(join(turnDir, "turn.json"), JSON.stringify({ action: BREAKDOWN, produced: [".sftdd/features/" + FEATURE + "/feature-spec.json"] }));
+      writeFileSync(join(turnDir, "files", ".sftdd", "features", FEATURE, "feature-spec.json"),
+        JSON.stringify({ id: FEATURE, name: "Stock", status: "draft", tdd_mode: "N=1", stories: ["S1-a"] }) + "\n");
+
+      process.env.LAKEBASE_CONSORT_REPLAY_DIR = corpus;
+      const effects = buildDriveEffects(cfg(cd, proj, { runner: { async run() {} } }));
+      const bounded = await effects.performViaExecutor!(BREAKDOWN, state, routerDeps);
+      // Did NOT throw MissingInputError; dispatched + materialized the recorded spec.
+      expect(bounded).toBeDefined();
+      expect(existsSync(join(cd, "features", FEATURE, "feature-spec.json"))).toBe(true);
+    } finally {
+      resetStepReplayCursor(corpus);
+      rmSync(corpus, { recursive: true, force: true });
+      rmSync(proj, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("Stage G: executor RECORD lane wraps the agent (records the turn's delta)", () => {
   it("RECORD_DIR => the turn is recorded into turns/NNNN-<label>/ after the (replay) agent produces it", async () => {
     // Use REPLAY as the inner agent (hermetic, no spawn) AND RECORD on: proves the wrapper records

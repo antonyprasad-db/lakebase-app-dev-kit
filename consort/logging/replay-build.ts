@@ -15,8 +15,8 @@
 // tdd/{cycles,experiments}. Turns are ordinal-keyed; the Kth Navigator/Driver
 // turn of a deterministic drive maps to the Kth recorded turn dir (sorted).
 
-import { existsSync, cpSync, readdirSync, statSync } from "fs";
-import { join } from "path";
+import { existsSync, cpSync, readdirSync, statSync, rmSync, readFileSync } from "fs";
+import { join, relative } from "path";
 import { featuresDir, cyclesRootDir, ALL_ARTIFACT_ROOTS } from "../../consort/config/consort-paths.js";
 
 /** Project paths the scaffold owns , never overwrite them from the snapshot, or
@@ -71,6 +71,39 @@ export function codeTreeFilter(root: string): (src: string) => boolean {
   };
 }
 
+/** Recursively collect the codeTreeFilter-INCLUDED file paths under `root`, relative to it. The
+ *  same filter record + replay share, so the "in scope" set is identical on both sides. */
+function inScopeFiles(root: string): Set<string> {
+  const keep = codeTreeFilter(root);
+  const out = new Set<string>();
+  const walk = (abs: string): void => {
+    for (const name of readdirSync(abs)) {
+      const p = join(abs, name);
+      if (!keep(p)) continue; // scaffold-owned / junk / secret , never in scope
+      if (statSync(p).isDirectory()) walk(p);
+      else out.add(relative(root, p));
+    }
+  };
+  if (existsSync(root)) walk(root);
+  return out;
+}
+
+/** SYNC the project's working tree to a recorded `code/` snapshot: mirror it so the tree becomes
+ *  byte-identical to record-time WITHIN the captured scope. Copies new/changed files from the
+ *  snapshot AND DELETES files present in the project but ABSENT from the snapshot , but ONLY for
+ *  files codeTreeFilter includes (scaffold-owned top dirs, junk, secrets, lockfiles are never
+ *  touched, exactly as the copy side skips them). An additive copy alone would leave a prior turn's
+ *  abandoned file behind and break fidelity; the delete pass is what makes replay faithful. */
+function syncTreeFromSnapshot(codeSrc: string, projectDir: string): void {
+  // 1) Delete in-scope project files the snapshot does not carry (the mirror's removal half).
+  const snapshot = inScopeFiles(codeSrc);
+  for (const rel of inScopeFiles(projectDir)) {
+    if (!snapshot.has(rel)) rmSync(join(projectDir, rel), { force: true });
+  }
+  // 2) Copy the snapshot over the tree (add + overwrite), same filter as before.
+  cpSync(codeSrc, projectDir, { recursive: true, force: true, filter: codeTreeFilter(codeSrc) });
+}
+
 /** The story's per-turn corpus dir (…/stories/<S>/turns). */
 export function storyTurnsDir(replayBuildDir: string, featureId: string, story: string): string {
   return join(featuresDir(replayBuildDir), featureId, "stories", story, "turns");
@@ -114,43 +147,137 @@ export interface ReplayBuildTurnArgs {
  */
 export function replayBuildTurn(args: ReplayBuildTurnArgs): boolean {
   const { replayBuildDir, projectDir, consortDir, featureId, story, turnIndex } = args;
-  // Skip the turns a trusted-green replay never RE-dispatches, so the Kth
-  // dispatched build turn (RED/GREEN/review/refactor) maps to the Kth recorded
-  // one. Two classes are capture-only:
-  //   - reflect: a DESIGN gate restored verdict-only by the driver (no code).
-  //   - assess/repair: per-turn-verify FAILURE detours. On replay per-turn verify
-  //     is skipped, so the Navigator-assess -> Driver-repair pair never fires; the
-  //     recording still holds them (+ their cumulative code), so leaving them in
-  //     would shift `review` onto the pre-repair snapshot (its source may not yet
-  //     exist), the exact drift that froze a story before its page was written.
-  //   - *-superseded: the supersession self-heal driver turns (green-superseded,
-  //     refactor-superseded). Same class: a live verify FAILED, the Navigator
-  //     flagged prior tests the story supersedes, the Driver permissively re-greened
-  //     /re-refactored ONLY those. Replay trusts the verify, so the assess -> re-run
-  //     pair never dispatches; leaving the bare re-run in shows a spurious extra
-  //     `green` in the kept shape ([red,green,green,review]).
-  // Snapshots are cumulative, so dropping a detour is lossless: the next kept
-  // turn's tree already carries the detour's effect.
-  const turns = listBuildTurns(replayBuildDir, featureId, story).filter(
-    (n) => !/reflect|assess|repair|superseded/i.test(n),
-  );
+  // Replay EVERY recorded Navigator/Driver turn, each SYNCING its own snapshot , the honest
+  // per-turn model. Because the tree becomes byte-identical to record-time, the LIVE verify
+  // reproduces the recorded verdict: a recorded GREEN failure re-fails, the router routes
+  // assess -> repair on its own, and the repair turn's snapshot lands the code AT the turn it
+  // was authored. So assess/repair/superseded detours are KEPT (the router re-dispatches them);
+  // dropping them was the old trusted-green model that orphaned a repair-authored file.
+  //   - reflect is the ONE exception: a DESIGN gate that runs in the build lane, verdict-only
+  //     (no code). The runner restores its verdict separately (restoreReflectVerdict) and does
+  //     NOT count it as a build turn, so it stays filtered from the turn INDEX (the Kth counted
+  //     Navigator/Driver dispatch maps to the Kth non-reflect recorded turn).
+  const turns = listBuildTurns(replayBuildDir, featureId, story).filter((n) => !/reflect/i.test(n));
   if (turnIndex < 1 || turnIndex > turns.length) return false; // uncovered -> live
   const turnDir = join(storyTurnsDir(replayBuildDir, featureId, story), turns[turnIndex - 1]);
 
   const codeSrc = join(turnDir, "code");
   if (!existsSync(codeSrc)) return false;
-  cpSync(codeSrc, projectDir, { recursive: true, force: true, filter: codeTreeFilter(codeSrc) });
+  // SYNC (mirror + in-scope delete), not an additive copy: the tree must match record-time so a
+  // later turn's absent-file (e.g. a page authored two turns on) is not left behind from a prior turn.
+  syncTreeFromSnapshot(codeSrc, projectDir);
 
-  // Deliver the Navigator's review verdicts (refactor decisions) so the live
-  // review drives the recorded refactor turns. ONLY review-verdict.json , the
-  // live cycle-record CLIs own everything else in .tdd (RED/GREEN, review.json).
+  // Deliver the Navigator's recorded JUDGMENT markers , the role OUTPUTS the live cycle CLIs read
+  // to route the recorded self-heal, exactly as they were decided at record time:
+  //   - review-verdict.json      : the REVIEW turn's refactor decision (drives the refactor turns);
+  //   - regression-assessment.json + superseded-tests.json : the ASSESS turn's classification
+  //       (driver-fixable regression w/ fixDirective -> routes a Driver REPAIR; supersession -> a
+  //       permissive green). Without these the live assess CLI re-derives from a bare failure marker
+  //       and mis-routes a recorded driver-fixable regression to HIL, freezing the story before the
+  //       repair turn that authors its code.
+  // Everything ELSE in tdd/cycles (RED/GREEN timestamps, review.json, the bare green-failure) stays
+  // owned by the live cycle-record CLIs , the honest verify + @build-cycle stamps produce it.
+  const REPLAYED_VERDICTS = ["review-verdict.json", "regression-assessment.json", "superseded-tests.json"];
   const cyclesSrc = join(turnDir, "tdd", "cycles");
   if (existsSync(cyclesSrc)) {
     cpSync(cyclesSrc, cyclesRootDir(consortDir), {
       recursive: true,
       force: true,
-      filter: (src) => statSync(src).isDirectory() || src.endsWith("review-verdict.json"),
+      filter: (src) => statSync(src).isDirectory() || REPLAYED_VERDICTS.some((v) => src.endsWith(v)),
     });
   }
   return true;
+}
+
+/** The GREEN verdict a recorded build turn captured, read from its snapshot's `tdd/cycles/<F>/<S>/`.
+ *  This is the ORACLE the divergence guard compares the LIVE verify against under a faithful replay:
+ *  because the tree is synced byte-identical to record-time, the live verify MUST reach this same
+ *  verdict. Returns:
+ *   - "pass" : a cycle whose `green_at` is set + no unassessed green-failure (the turn was GREEN);
+ *   - "fail" : an unassessed `green-failure.json` present (a GREEN failure that drove assess->repair);
+ *   - undefined : this recorded turn has no GREEN verdict (RED-only, review-verdict-only, or the
+ *     turnIndex is out of range / the snapshot has no cycle state) , the guard skips it.
+ *  turnIndex is the 1-based Kth Navigator/Driver dispatch, mapped to the Kth NON-reflect recorded
+ *  turn (reflect is verdict-only + not counted , same index space as replayBuildTurn). */
+/** Read a GREEN verdict from a story's cycles dir (`<root>/<F>/<S>/` holding per-AC dirs). Shared by
+ *  the recorded oracle (snapshot's tdd/cycles) AND the live tree (consortDir's cycles) so both read
+ *  the verdict IDENTICALLY. An unassessed green-failure (FAIL) dominates a greened cycle; a greened
+ *  cycle with no unassessed failure is PASS; neither present is undefined (a RED/verdict-only turn). */
+function verdictFromStoryCyclesDir(storyCyclesDir: string): "pass" | "fail" | undefined {
+  if (!existsSync(storyCyclesDir)) return undefined;
+  let sawPass = false;
+  for (const ac of readdirSync(storyCyclesDir)) {
+    const acDir = join(storyCyclesDir, ac);
+    if (!statSync(acDir).isDirectory()) continue;
+    const gf = join(acDir, "green-failure.json");
+    if (existsSync(gf)) {
+      try {
+        if (JSON.parse(readFileSync(gf, "utf8")).assessed === false) return "fail";
+      } catch { /* unparseable marker: ignore, fall through */ }
+    }
+    for (const f of readdirSync(acDir)) {
+      if (!/^cycle-.*\.json$/.test(f)) continue;
+      try {
+        if (JSON.parse(readFileSync(join(acDir, f), "utf8")).green_at) sawPass = true;
+      } catch { /* ignore */ }
+    }
+  }
+  return sawPass ? "pass" : undefined;
+}
+
+export function recordedBuildVerdict(
+  replayBuildDir: string,
+  featureId: string,
+  story: string,
+  turnIndex: number,
+): "pass" | "fail" | undefined {
+  const turns = listBuildTurns(replayBuildDir, featureId, story).filter((n) => !/reflect/i.test(n));
+  if (turnIndex < 1 || turnIndex > turns.length) return undefined;
+  return verdictFromStoryCyclesDir(
+    join(storyTurnsDir(replayBuildDir, featureId, story), turns[turnIndex - 1], "tdd", "cycles", featureId, story),
+  );
+}
+
+/** The LIVE GREEN verdict on the project tree after a build turn's @build-cycle verify ran , read
+ *  from `<consortDir>/cycles/<F>/<S>/`. Compared against recordedBuildVerdict by the divergence guard. */
+export function liveBuildVerdict(consortDir: string, featureId: string, story: string): "pass" | "fail" | undefined {
+  return verdictFromStoryCyclesDir(join(cyclesRootDir(consortDir), featureId, story));
+}
+
+/** A faithful replay reproduces the RECORDED verdict at each turn (the tree is synced byte-identical
+ *  to record-time, so the honest live verify must reach the same pass/fail). A live verdict that
+ *  DIVERGES from the recording is a regression , the corpus + code no longer agree , and must HALT
+ *  the replay loudly rather than silently drift (mirrors ReplayCorpusMissError's discipline). */
+export class ReplayDivergenceError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ReplayDivergenceError";
+  }
+}
+
+/** Guard: after a build turn's live @build-cycle verify ran, assert the LIVE verdict matches what the
+ *  Kth recorded build turn captured. THROWS ReplayDivergenceError on a true divergence:
+ *   - recorded PASS but live FAIL  (a regression the recording never had), or
+ *   - recorded FAIL but live PASS  (the recorded self-heal turn won't be dispatched , the tree drifted).
+ *  A MATCH (pass==pass, fail==fail) is silent , recorded-FAIL+live-FAIL is the NORMAL self-heal path
+ *  (the router will dispatch the recorded assess->repair). When either verdict is undefined (a RED-only
+ *  / verdict-only turn, or no recorded cycle state) there is nothing to compare , no-op. Replay-only:
+ *  callers gate on REPLAY_BUILD_DIR being set. */
+export function assertReplayBuildVerdictMatch(args: {
+  replayBuildDir: string;
+  consortDir: string;
+  featureId: string;
+  story: string;
+  turnIndex: number;
+  role: string;
+}): void {
+  const recorded = recordedBuildVerdict(args.replayBuildDir, args.featureId, args.story, args.turnIndex);
+  if (!recorded) return; // this recorded turn has no GREEN verdict to compare
+  const live = liveBuildVerdict(args.consortDir, args.featureId, args.story);
+  if (!live || live === recorded) return; // undefined = nothing produced yet; equal = match
+  throw new ReplayDivergenceError(
+    `[drive] REPLAY DIVERGENCE: build turn ${args.turnIndex} (${args.role} ${args.story}) , recorded verdict was ${recorded.toUpperCase()} ` +
+      `but the live verify returned ${live.toUpperCase()}. The synced tree reproduces record-time, so a differing verdict means the ` +
+      `corpus + code have drifted (a regression). Halting , debug the turn's snapshot vs the live verify; do not silently continue.`,
+  );
 }

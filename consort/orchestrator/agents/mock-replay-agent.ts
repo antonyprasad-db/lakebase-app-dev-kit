@@ -12,7 +12,7 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, cpSync, readdirSync, statSync } from "node:fs";
 import { join, dirname, relative, sep } from "node:path";
-import { codeTreeFilter } from "../../logging/replay-build.js";
+import { codeTreeFilter, replayBuildTurn } from "../../logging/replay-build.js";
 import { ARTIFACT_ROOT, LEGACY_ARTIFACT_ROOTS } from "../../config/consort-paths.js";
 import type { StepAgent, AgentInvocation } from "./agent-types.js";
 import type { WorkflowAction } from "../workflow/workflow-vocabulary.js";
@@ -131,9 +131,30 @@ interface CorpusCursor {
 
 const CORPUS_CURSORS = new Map<string, CorpusCursor>();
 
+/** Per-story BUILD-turn ordinals for one replay run, keyed `<corpusRoot>::<story>`. A build turn
+ *  (navigator/driver) SYNCS the story's Kth recorded-build snapshot (replayBuildTurn), so the Kth
+ *  build invocation for a story maps to its Kth recorded turn , the same monotonic per-story counter
+ *  the runner short-circuit keeps (claude-runner's `buildTurns`). Module-scoped because the executor
+ *  rebuilds the agent every turn (an instance field would reset). */
+const BUILD_TURN_CURSORS = new Map<string, number>();
+
 /** A stable signature for an action , the discriminators a corpus turn is keyed on. */
 function actionSignature(a: WorkflowAction): string {
   return JSON.stringify(a);
+}
+
+/** Resolve the recorded `turns/` timeline from a corpus root. The scenario layout is
+ *  `<scenario>/turns/` alongside `<scenario>/recorded-artifacts/` + `<scenario>/recorded-build/`.
+ *  Callers point us at different roots: a test at the scenario root, but the live replay engine at
+ *  `<scenario>/recorded-artifacts` (its LAKEBASE_SFTDD_REPLAY_DIR = the DESIGN corpus subdir). So
+ *  look for `turns/` under the given root FIRST, then its PARENT (the scenario root when the root is
+ *  the recorded-artifacts subdir). Returns the resolved turns dir, or undefined if neither has one. */
+function resolveTurnsDir(corpusRoot: string): string | undefined {
+  const here = join(corpusRoot, "turns");
+  if (existsSync(here)) return here;
+  const parent = join(dirname(corpusRoot), "turns");
+  if (existsSync(parent)) return parent;
+  return undefined;
 }
 
 /** Load (once per corpusRoot) the ordered list of recorded turns from `turns/`. Sorted by the
@@ -141,10 +162,10 @@ function actionSignature(a: WorkflowAction): string {
 function loadCursor(corpusRoot: string): CorpusCursor {
   const existing = CORPUS_CURSORS.get(corpusRoot);
   if (existing) return existing;
-  const turnsDir = join(corpusRoot, "turns");
-  if (!existsSync(turnsDir)) {
+  const turnsDir = resolveTurnsDir(corpusRoot);
+  if (!turnsDir) {
     throw new Error(
-      `makeStepReplayAgent: no turns/ timeline under corpus root ${corpusRoot} , a step-aware replay needs the recorded turns/ dir (each turns/NNNN-<label>/turn.json + files/).`,
+      `makeStepReplayAgent: no turns/ timeline under corpus root ${corpusRoot} (nor its parent) , a step-aware replay needs the recorded turns/ dir (each turns/NNNN-<label>/turn.json + files/).`,
     );
   }
   const turns: CorpusTurn[] = [];
@@ -165,9 +186,35 @@ function loadCursor(corpusRoot: string): CorpusCursor {
 }
 
 /** Reset the corpus cursor for a root (call at the start of a fresh replay run so a re-run in
- *  the same process starts from turn 0 rather than continuing a prior run's cursor). */
+ *  the same process starts from turn 0 rather than continuing a prior run's cursor). Also clears
+ *  the per-story build-turn ordinals rooted at this corpus. */
 export function resetStepReplayCursor(corpusRoot: string): void {
   CORPUS_CURSORS.delete(corpusRoot);
+  for (const key of [...BUILD_TURN_CURSORS.keys()]) {
+    if (key.startsWith(`${corpusRoot}::`)) BUILD_TURN_CURSORS.delete(key);
+  }
+}
+
+/** The build-turn ordinal the step-replay agent LAST synced for a story (the Kth recorded-build turn),
+ *  so a post-verify divergence guard can read the SAME index the agent used without re-deriving the
+ *  cursor. Returns 0 if no build turn has been synced for this corpus+story yet. */
+export function lastSyncedBuildTurnIndex(corpusRoot: string, story: string): number {
+  return BUILD_TURN_CURSORS.get(`${corpusRoot}::${story}`) ?? 0;
+}
+
+/** A code-bearing BUILD turn: a navigator/driver turn scoped to a story, EXCEPT reflect (a design
+ *  gate that runs in the build lane, verdict-only, no code , it stays on the delta path so its
+ *  reflect-verdict materializes). These SYNC the story's Kth recorded-build snapshot instead of a
+ *  per-turn delta, so the tree is byte-identical to record-time and the live verify is honest. */
+export function isBuildTurn(a: WorkflowAction): a is WorkflowAction & { role: string; story: string } {
+  return (
+    a.kind === "invoke-role" &&
+    (a.role === "navigator" || a.role === "driver") &&
+    "story" in a &&
+    typeof a.story === "string" &&
+    !!a.story &&
+    !("buildMode" in a && a.buildMode === "reflect")
+  );
 }
 
 /** Rewrite a recorded corpus-relative path onto the LIVE artifact root: the corpus was recorded
@@ -205,14 +252,46 @@ function materializeFiles(filesDir: string, workspaceDir: string): string[] {
   return out;
 }
 
-/** Build a STEP-AWARE corpus replay agent. On invoke it resolves the recorded turn matching the
- *  invocation's action (next not-yet-consumed instance in corpus order, so a recurring action
- *  resolves deterministically), materializes that turn's `files/` delta into the workspace, and
- *  appends the recorded authoring log line stamped with the action's role. A corpus MISS is a
- *  HARD failure (a replay must never silently fabricate a turn's output). */
-export function makeStepReplayAgent(opts: { corpusRoot: string }): StepAgent {
+/** Build a STEP-AWARE corpus replay agent. Two lanes, both step-addressed:
+ *   - DESIGN turns: resolve the recorded turn matching the invocation's action (next not-yet-consumed
+ *     instance in corpus order, so a recurring action resolves deterministically), MATERIALIZE that
+ *     turn's `files/` DELTA into the workspace (independent accumulating artifacts).
+ *   - BUILD turns (navigator/driver, not reflect): SYNC the story's Kth recorded-build SNAPSHOT
+ *     (replayBuildTurn , mirror + in-scope delete) so the tree is byte-identical to record-time and
+ *     the live @build-cycle verify reproduces the recorded verdict. Needs buildCorpusRoot + featureId
+ *     + consortDir in opts (the runner supplies them from env). The Kth build invocation of a story
+ *     maps to its Kth recorded-build turn via a per-story ordinal cursor.
+ *  A corpus MISS is a HARD failure either way (a replay must never silently fabricate a turn's output). */
+export function makeStepReplayAgent(opts: {
+  corpusRoot: string;
+  buildCorpusRoot?: string;
+  featureId?: string;
+  consortDir?: string;
+}): StepAgent {
   return {
     async invoke(invocation: AgentInvocation): Promise<void> {
+      // BUILD lane , sync the cumulative recorded-build snapshot for the story's next build turn.
+      if (isBuildTurn(invocation.action) && opts.buildCorpusRoot && opts.featureId && opts.consortDir) {
+        const story = invocation.action.story;
+        const key = `${opts.corpusRoot}::${story}`;
+        const turnIndex = (BUILD_TURN_CURSORS.get(key) ?? 0) + 1;
+        BUILD_TURN_CURSORS.set(key, turnIndex);
+        const synced = replayBuildTurn({
+          replayBuildDir: opts.buildCorpusRoot,
+          projectDir: invocation.workspaceDir,
+          consortDir: opts.consortDir,
+          featureId: opts.featureId,
+          story,
+          turnIndex,
+        });
+        if (!synced) {
+          throw new Error(
+            `makeStepReplayAgent: no recorded-build turn ${turnIndex} for ${opts.featureId}/${story} under ${opts.buildCorpusRoot} , a replay cannot fabricate it (the drive dispatched more build turns than the corpus recorded).`,
+          );
+        }
+        return;
+      }
+
       const cursor = loadCursor(opts.corpusRoot);
       const sig = actionSignature(invocation.action);
       const already = cursor.consumed.get(sig) ?? 0;

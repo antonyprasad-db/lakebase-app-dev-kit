@@ -35,6 +35,8 @@ import { execute, type StepExecutorDeps } from "../turns/step-executor.js";
 import { Step } from "../steps/step.js";
 import { buildAgent, type AgentSpec } from "../agents/agent-catalogue.js";
 import { wrapWithRecorder } from "../agents/replay-recorder-wrapper.js";
+import { isBuildTurn, lastSyncedBuildTurnIndex } from "../agents/mock-replay-agent.js";
+import { assertReplayBuildVerdictMatch } from "../../logging/replay-build.js";
 import { consortEnv } from "../../config/consort-env.js";
 import type { WorkflowAction, DriveState } from "./orchestrator-drive.js";
 import type { BoundedRoute, ValidateBoundDeps } from "../steps/step-contract.js";
@@ -333,12 +335,18 @@ export async function performTurnViaExecutor(
   //    recorder decorator (writes this turn's delta into the corpus by step). Records a LIVE claude
   //    run, or , with REPLAY also set , re-records a replay (corpus migration).
   const replayDir = consortEnv("REPLAY_DIR")?.trim();
+  const replayBuildDir = consortEnv("REPLAY_BUILD_DIR")?.trim();
   const recordDir = consortEnv("RECORD_DIR")?.trim();
   const spec: AgentSpec = replayDir ? { ...manifest.agent!, kind: "replay", config: {} } : manifest.agent!;
   let agent = buildAgent(spec, {
     workspaceDir: cfg.projectDir,
     liveDispatch: liveDispatchSeam(cfg, deps),
     ...(replayDir ? { corpusRoot: replayDir } : {}),
+    // Build-lane replay: a navigator/driver turn SYNCS its cumulative recorded-build snapshot
+    // (replayBuildTurn) instead of a delta, so the tree matches record-time + the live verify is honest.
+    ...(replayDir && replayBuildDir
+      ? { buildCorpusRoot: replayBuildDir, buildFeatureId: cfg.featureId, buildConsortDir: cfg.consortDir }
+      : {}),
   });
   if (recordDir) {
     agent = wrapWithRecorder(agent, {
@@ -384,8 +392,16 @@ export async function performTurnViaExecutor(
         const p = inputPath(input.source);
         if (!fs.existsSync(p)) {
           // An OPTIONAL input that is absent is skipped (e.g. design-guide.json on a no-frontend
-          // project) , not handed back, not a turn failure. A required input still fails loud.
+          // project) , not handed back, not a turn failure. A required input still fails loud , EXCEPT
+          // under the REPLAY lane: the step-aware replay agent materializes this turn's recorded output
+          // from the corpus and does NOT consume the declared inputs, so a missing input is not a turn
+          // failure there (the recorded design-lane replay clean-syncs recorded-artifacts over .consort,
+          // which legitimately lacks the PO intake docs a live turn would read). SATISFY it with an
+          // empty sentinel (rather than skip) so BOTH input gates pass , this executor's presence-check
+          // AND ManifestStep.run's own `spec.id in inputs` re-check, which a skip would still trip. The
+          // LIVE presence-gate is unchanged when replayDir is unset.
           if (input.optional) continue;
+          if (replayDir) { out[input.id] = ""; continue; }
           return { missing: input.id };
         }
         out[input.id] = fs.statSync(p).isDirectory() ? "" : fs.readFileSync(p, "utf8");
@@ -446,5 +462,20 @@ export async function performTurnViaExecutor(
   };
   const ctx = { action, cfg, state, validateBoundDeps: freshRouterDeps };
   const result = await execute(step, ctx, executorDeps);
+
+  // Divergence guard (replay-only, build turns): the turn synced the recorded snapshot + the postTurn
+  // @build-cycle verify has now run live. Because the tree is byte-identical to record-time, the live
+  // verdict MUST match what the recording captured; a mismatch is a regression -> HARD-STOP (never
+  // silently continue). Uses the SAME per-story ordinal the step-replay agent just advanced.
+  if (replayDir && replayBuildDir && isBuildTurn(action)) {
+    assertReplayBuildVerdictMatch({
+      replayBuildDir,
+      consortDir: cfg.consortDir,
+      featureId: cfg.featureId,
+      story: action.story,
+      turnIndex: lastSyncedBuildTurnIndex(replayDir, action.story),
+      role: action.role,
+    });
+  }
   return result.bounded;
 }

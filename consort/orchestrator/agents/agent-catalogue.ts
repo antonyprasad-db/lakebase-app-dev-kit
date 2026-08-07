@@ -33,6 +33,14 @@ export interface AgentBuildContext {
   workspaceDir: string;
   /** Root the `replay` kind resolves its recorded seed files under. */
   corpusRoot?: string;
+  /** The recorded-BUILD corpus root (REPLAY_BUILD_DIR). When present, the step-aware `replay` kind
+   *  SYNCS a navigator/driver build turn's cumulative snapshot from here (replayBuildTurn) instead of
+   *  materializing a delta , the faithful per-turn build replay. Needs buildFeatureId + buildConsortDir. */
+  buildCorpusRoot?: string;
+  /** The feature id the build corpus is scoped to (recorded-build is feature-scoped). */
+  buildFeatureId?: string;
+  /** The project's `.consort` dir , where replayBuildTurn delivers review verdicts. */
+  buildConsortDir?: string;
   /** The kit checkout the `claude` kind resolves bins/agent-defs from (LAKEBASE_KIT_DIR). */
   kitDir?: string;
   /** The UNCONTAINED production dispatch seam for the `claude` kind. When the runner supplies it
@@ -87,7 +95,14 @@ function buildReplay(config: Record<string, unknown>, context: AgentBuildContext
   if (Array.isArray(c.seeds) && c.seeds.length > 0) {
     return makeMockReplayAgent({ corpusRoot: context.corpusRoot, role: c.role, seeds: c.seeds });
   }
-  return makeStepReplayAgent({ corpusRoot: context.corpusRoot });
+  // Build-lane snapshot sync (when the runner supplies the build corpus): a navigator/driver turn
+  // SYNCS its cumulative recorded-build snapshot instead of a delta. Design turns keep the delta path.
+  return makeStepReplayAgent({
+    corpusRoot: context.corpusRoot,
+    ...(context.buildCorpusRoot ? { buildCorpusRoot: context.buildCorpusRoot } : {}),
+    ...(context.buildFeatureId ? { featureId: context.buildFeatureId } : {}),
+    ...(context.buildConsortDir ? { consortDir: context.buildConsortDir } : {}),
+  });
 }
 
 /** The `mock` kind's config = { outputs: { filename: contents } }; a test double writing
