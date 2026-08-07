@@ -114,6 +114,15 @@ export function replayDesignTurn(args: ReplayArgs): boolean {
       return false;
     }
     case "architect-reviewer": {
+      // PLANNING modes (sprint-scoped, featureId is empty): the Architect ESTIMATE + ESTIMATE-COMMITTED
+      // size candidate/committed features into planning/estimates.json (mirroring propose ->
+      // feature-proposals.md). They are NOT feature-scoped, so replay from planning/, not features/<f>/.
+      // The sprint backlog is re-derived by the separate sync-backlog command from these estimates, so
+      // only estimates.json is restored here. Without this a --sprint planning replay hard-misses on
+      // estimate-committed (it is not executor-dispatched, so it reaches this legacy path).
+      if (turn.mode === "estimate" || turn.mode === "estimate-committed") {
+        return cp(join(replayDir, "planning", "estimates.json"), join(consortDir, "planning", "estimates.json"));
+      }
       // Feature architecture + the layer-annotated ACs (re-copied verbatim).
       let ok = cp(join(cf, "architecture.json"), join(tf, "architecture.json"));
       cp(join(cf, "architecture.md"), join(tf, "architecture.md"));

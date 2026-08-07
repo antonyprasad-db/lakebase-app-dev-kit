@@ -46,6 +46,7 @@ beforeEach(() => {
   wj(join(corpus, "design", "design-guide.json"), { tokens: {} });
   mkdirSync(join(corpus, "planning"), { recursive: true });
   writeFileSync(join(corpus, "planning", "feature-proposals.md"), "# proposals\n");
+  wj(join(corpus, "planning", "estimates.json"), { estimates: [{ feature_id: "FP1", size: "M" }] });
 });
 
 afterEach(() => {
@@ -95,6 +96,25 @@ describe("replayDesignTurn: each stage's output is replayed per-turn", () => {
 
   it("a story the corpus does not cover returns false (a corpus miss; the driver hard-fails, never runs a live agent)", () => {
     expect(replayDesignTurn({ turn: { role: "spec-author", story: "S2-not-recorded" }, replayDir: corpus, consortDir: tdd, featureId: F })).toBe(false);
+  });
+
+  // PLANNING-lane turns (no feature scope): the Spec Author PROPOSE + the Architect ESTIMATE /
+  // ESTIMATE-COMMITTED are sprint-scoped (featureId is EMPTY), so they must replay from
+  // planning/*.json, NOT features/<f>/. A planning replay (--sprint) drives these; the legacy
+  // path missed estimate/estimate-committed (it tried features//architecture.json), causing a
+  // REPLAY CORPUS MISS on a --sprint replay. The recorded estimate turns produce planning/estimates.json;
+  // sync-backlog (a separate command) re-derives the sprint backlog from it, so only estimates.json
+  // needs restoring here.
+  it("spec-author propose replays planning/feature-proposals.md (feature-less)", () => {
+    expect(replayDesignTurn({ turn: { role: "spec-author", mode: "propose" }, replayDir: corpus, consortDir: tdd, featureId: "" })).toBe(true);
+    expect(existsSync(join(tdd, "planning", "feature-proposals.md"))).toBe(true);
+  });
+
+  it("architect-reviewer estimate + estimate-committed replay planning/estimates.json (feature-less, NOT a corpus miss)", () => {
+    expect(replayDesignTurn({ turn: { role: "architect-reviewer", mode: "estimate" }, replayDir: corpus, consortDir: tdd, featureId: "" })).toBe(true);
+    expect(existsSync(join(tdd, "planning", "estimates.json"))).toBe(true);
+    // estimate-committed re-sizes the committed features into the SAME estimates.json.
+    expect(replayDesignTurn({ turn: { role: "architect-reviewer", mode: "estimate-committed" }, replayDir: corpus, consortDir: tdd, featureId: "" })).toBe(true);
   });
 
   // Anti-recurrence guard: every design role the router can dispatch must be
