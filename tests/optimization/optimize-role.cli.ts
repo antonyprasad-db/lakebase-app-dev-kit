@@ -23,6 +23,7 @@
 // the agent-report channel, in a throwaway .sftdd workspace , nothing to tear down.
 
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
+import { deleteLakebaseProject } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { ROLE_CHAINS, runRoleChainLive, INTAKE_REL, type RoleChain } from "../../consort/optimize/role-chains.js";
@@ -30,6 +31,8 @@ import { BUILD_ROLE_CHAINS, runBuildRoleChainLive, type BuildRoleChain } from ".
 import { roleCandidates, testStrategistCandidates } from "./role-levers.js";
 import { runRoleSweep, type SweepTrial, type ChainRunner } from "./role-sweep.js";
 import { reportRoleSweep, formatRoleSweepReport, type SweepReport } from "./role-sweep-report.js";
+import { runDriverGreenSweep, type DriverGreenRunner, type DriverSweepTrial } from "./driver-sweep.js";
+import { runDriverGreenLive, type RunDriverGreenResult } from "../integration/live/driver-build-support.js";
 import { makeOpusJudge, makeVerdictAlignmentJudge, parseVerdictFile, FUNCTIONAL_THRESHOLD, type SemanticJudge, type BuildOutputKind } from "../../consort/evaluation/semantic-gate.js";
 import { enabledAnalysts } from "../../consort/test-list/test-analyst-catalogue.js";
 import { RECOMMENDED_MODELS, type SpawnableAgentRole } from "../../consort/config/agent-models.js";
@@ -37,21 +40,24 @@ import type { StepManifest } from "../../consort/orchestrator/steps/manifest.js"
 import type { StepAgent } from "../../consort/orchestrator/agents/agent-types.js";
 
 /** The chain SET keywords that expand to a group of handles. "design" = every design role chain
- *  (the lean, no-cloud tier); "navigator" = navigator build chains (red/assess/review/reflect). */
+ *  (the lean, no-cloud tier); "navigator" = navigator build chains (red/assess/review/reflect);
+ *  "driver" = driver LIVE lever sweeps (requires RUN_LIVE_STEP + LAKEBASE_TEST_E2E). */
 const CHAIN_SETS: Record<string, string[]> = {
   design: Object.keys(ROLE_CHAINS),
   navigator: Object.keys(BUILD_ROLE_CHAINS),
+  driver: ["driver-green"],
 };
 
-/** Combined universe of all chains (design + build). Used for validation. */
-function allChains(): Record<string, RoleChain | BuildRoleChain> {
-  return { ...ROLE_CHAINS, ...BUILD_ROLE_CHAINS };
+/** Combined universe of all chains (design + build + driver). Used for validation. "driver-green"
+ *  is a synthetic handle that routes to runDriverGreenSweep. */
+function allChains(): Record<string, RoleChain | BuildRoleChain | { id: string }> {
+  return { ...ROLE_CHAINS, ...BUILD_ROLE_CHAINS, "driver-green": { id: "driver-green" } };
 }
 
 /** Expand a --chains spec (a set keyword OR a comma list of handles) into concrete chain handles,
- *  validated against ROLE_CHAINS + BUILD_ROLE_CHAINS. Pure + exported for a unit test.
+ *  validated against ROLE_CHAINS + BUILD_ROLE_CHAINS + synthetic handles (driver-green). Pure + exported for a unit test.
  *  De-dupes while preserving order. */
-export function expandChains(spec: string, chains: Record<string, RoleChain | BuildRoleChain> = allChains()): string[] {
+export function expandChains(spec: string, chains: Record<string, unknown> = allChains()): string[] {
   const raw = CHAIN_SETS[spec] ?? spec.split(",").map((s) => s.trim()).filter(Boolean);
   const seen = new Set<string>();
   const out: string[] = [];
@@ -75,7 +81,7 @@ export interface OptimizeRoleArgs {
 
 /** Parse argv (pure + exported for a unit test). Accepts --chains <set|list> OR the back-compat
  *  single --role <handle>. Throws loud on an unknown/absent chain. */
-export function parseArgs(argv: string[], chains: Record<string, RoleChain | BuildRoleChain> = allChains()): OptimizeRoleArgs {
+export function parseArgs(argv: string[], chains: Record<string, unknown> = allChains()): OptimizeRoleArgs {
   const get = (flag: string): string | undefined => {
     const i = argv.indexOf(flag);
     return i >= 0 && i + 1 < argv.length ? argv[i + 1] : undefined;
@@ -111,6 +117,82 @@ function baseModelFor(role: string, override?: string): string {
   };
   const r = spawnable[role];
   return (r && RECOMMENDED_MODELS[r]) || "sonnet";
+}
+
+/** The driver-green sweep: a CLOUD LIVE run (requires RUN_LIVE_STEP + LAKEBASE_TEST_E2E to be set).
+ *  Each candidate runs a FULL driver-GREEN cycle with the levers patched, gates on honest-GREEN,
+ *  and reports duration + classification. Returns a per-candidate summary in runs/<stamp>/driver-green/. */
+export async function sweepDriverGreen(
+  handle: string,
+  runRoot: string,
+  opts: { concurrency?: number } = {},
+): Promise<{ summary: { chain: string; baseModel: string; winner: string | null; candidates: Array<{ candidate: string; honestGreen: boolean; durationMs: number; classify: { outcome: string }; disqualified?: boolean }> } }> {
+  // GATED: only meaningful with a live test env (RUN_LIVE_STEP + LAKEBASE_TEST_E2E).
+  if (!process.env.RUN_LIVE_STEP || !process.env.LAKEBASE_TEST_E2E) {
+    throw new Error(
+      `optimize-role: driver-green sweep requires RUN_LIVE_STEP=1 LAKEBASE_TEST_E2E=1 (live cloud gate). ` +
+        `This is a LIVE driver-GREEN harness, not a lean chain run. Use the driver-build-support harness directly or set the gates.`,
+    );
+  }
+
+  const runDir = join(runRoot, handle);
+  mkdirSync(runDir, { recursive: true });
+
+  // eslint-disable-next-line no-console
+  console.log(`[optimize-role] ${handle}: CLOUD LIVE driver-GREEN sweep, ${roleCandidates("sonnet").length} candidates, concurrency=${opts.concurrency ?? 1}. run dir: ${runDir}`);
+
+  const candidates = roleCandidates("sonnet");
+  const trials: DriverSweepTrial[] = [];
+  const runner: DriverGreenRunner = async (candidateId, _levers, slug, branch) => {
+    // Call the live harness with per-candidate overrides.
+    const result = (await runDriverGreenLive({
+      experimentSlug: slug,
+      branch,
+      leverOverride: candidates.find((c) => c.id === candidateId)?.levers,
+    })) as RunDriverGreenResult | undefined;
+
+    if (!result) throw new Error(`runDriverGreenLive returned void (expected RunDriverGreenResult)`);
+    return result;
+  };
+
+  await runDriverGreenSweep(candidates, runner, {
+    concurrency: opts.concurrency ?? 1,
+    orphanParentDir: process.cwd(),
+    deleteLakebaseProject: async (args) => {
+      await deleteLakebaseProject(args);
+    },
+    onStart: (candidate, i, total) => {
+      // eslint-disable-next-line no-console
+      console.log(`[optimize-role] ${handle} (${i}/${total}) running ${candidate.id} ...`);
+    },
+    onDone: (trial, i, total) => {
+      trials.push(trial);
+      const status = trial.disqualified ? `DISQUALIFIED (${trial.reason})` : trial.honestGreen ? "PASSED" : "FAILED";
+      // eslint-disable-next-line no-console
+      console.log(`[optimize-role] ${handle} (${i}/${total}) ${trial.candidateId}: ${status}${trial.durationMs ? ` , ${(trial.durationMs / 1000).toFixed(1)}s` : ""}`);
+    },
+  });
+
+  // Build a summary in the same shape as role-sweep (but driver-GREEN specific).
+  const winner = trials.filter((t) => !t.disqualified && t.honestGreen).sort((a, b) => a.durationMs - b.durationMs)[0] ?? null;
+  const summary = {
+    chain: handle,
+    baseModel: "sonnet",
+    winner: winner?.candidateId ?? null,
+    candidates: trials.map((t) => ({
+      candidate: t.candidateId,
+      honestGreen: t.honestGreen,
+      durationMs: t.durationMs,
+      classify: t.classify,
+      ...(t.disqualified ? { disqualified: true } : {}),
+    })),
+  };
+
+  writeFileSync(join(runDir, "summary.json"), JSON.stringify(summary, null, 2) + "\n");
+  // eslint-disable-next-line no-console
+  console.log(`\n[${handle}] winner: ${summary.winner ?? "none (no honest-GREEN candidate)"}, ${trials.length} candidates total`);
+
+  return { summary };
 }
 
 /** Sweep ONE chain end to end + persist its evidence + report under <runRoot>/<handle>/. Returns
@@ -282,7 +364,7 @@ function formatBaselineDelta(handle: string, prior: ChainSummary, now: ChainSumm
  *  print a per-chain report + a roll-up. Returns the reports keyed by handle. LIVE. Chains run in
  *  sequence; each chain's candidates fan out under `concurrency` (a global cap , the chains do not
  *  overlap, so N concurrency is N in-flight candidates at any moment). */
-export async function runOptimizeRole(args: OptimizeRoleArgs): Promise<Record<string, SweepReport>> {
+export async function runOptimizeRole(args: OptimizeRoleArgs): Promise<Record<string, SweepReport | { summary: unknown }>> {
   // Results land in the VISIBLE, git-tracked corpus (examples/replay/optimize-results/), NOT a hidden
   // dir , so a run is durable + reviewable + diffable. Each run gets a timestamped subdir under runs/
   // so prior runs accumulate; the newest prior run (if any) is the BASELINE this run's summary.json is
@@ -295,28 +377,50 @@ export async function runOptimizeRole(args: OptimizeRoleArgs): Promise<Record<st
   // eslint-disable-next-line no-console
   console.log(`[optimize-role] sweeping ${args.chains.length} chain(s): ${args.chains.join(", ")} , run root ${runRoot}${baselineDir ? ` (baseline: ${baselineDir})` : " (no prior run , this is the baseline)"}`);
 
-  const reports: Record<string, SweepReport> = {};
+  const reports: Record<string, SweepReport | { summary: unknown }> = {};
   for (const handle of args.chains) {
-    reports[handle] = await sweepOneChain(handle, runRoot, {
-      ...(args.baseModel ? { baseModel: args.baseModel } : {}),
-      ...(args.concurrency ? { concurrency: args.concurrency } : {}),
-      ...(baselineDir ? { baselineDir } : {}),
-    });
+    if (handle === "driver-green") {
+      reports[handle] = await sweepDriverGreen(handle, runRoot, {
+        ...(args.concurrency ? { concurrency: args.concurrency } : {}),
+      });
+    } else {
+      reports[handle] = await sweepOneChain(handle, runRoot, {
+        ...(args.baseModel ? { baseModel: args.baseModel } : {}),
+        ...(args.concurrency ? { concurrency: args.concurrency } : {}),
+        ...(baselineDir ? { baselineDir } : {}),
+      });
+    }
   }
 
   // Roll-up: one winner line per chain, written to the run root + printed.
-  const rollup = args.chains
+  // Driver-green is CLOUD LIVE and has a different result shape, so we skip it from the role-sweep rollup.
+  const rollupChains = args.chains.filter((h) => h !== "driver-green");
+  const rollup = rollupChains
     .map((h) => {
-      const rep = reports[h];
+      const rep = reports[h] as SweepReport | undefined;
+      if (!rep) return `${h}: (no report)`;
       const w = rep.winner;
       return w
         ? `${h}: winner ${w.candidateId} (${(w.outerDurationMs / 1000).toFixed(1)}s vs baseline ${(rep.baselineMs / 1000).toFixed(1)}s, saved ${w.speedupPct.toFixed(0)}%)`
         : `${h}: no winner (no quality-holding candidate beat the baseline)`;
     })
     .join("\n");
-  writeFileSync(join(runRoot, "rollup.txt"), rollup + "\n");
-  // eslint-disable-next-line no-console
-  console.log(`\n=== ROLL-UP ===\n${rollup}\n\n(full evidence per chain -> ${runRoot}/<handle>/)`);
+
+  // Driver-green summary (if present).
+  const driverResult = reports["driver-green"];
+  if (driverResult && "summary" in driverResult) {
+    const s = (driverResult.summary as { winner?: string | null; candidates?: Array<{ candidate: string }> }) ?? {};
+    const w = s.winner;
+    const driverLine = w ? `driver-green: winner ${w}` : `driver-green: no winner`;
+    // eslint-disable-next-line no-console
+    console.log(`\n[driver-green]\n${driverLine}`);
+  }
+
+  if (rollup) {
+    writeFileSync(join(runRoot, "rollup.txt"), rollup + "\n");
+    // eslint-disable-next-line no-console
+    console.log(`\n=== ROLL-UP ===\n${rollup}\n\n(full evidence per chain -> ${runRoot}/<handle>/)`);
+  }
   return reports;
 }
 

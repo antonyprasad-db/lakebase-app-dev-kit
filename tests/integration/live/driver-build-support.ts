@@ -28,6 +28,7 @@ import { expect } from "vitest";
 import { readFileSync, writeFileSync, existsSync, statSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
+import { classifyBuildTrial, type BuildTrialSignals } from "../../../consort/optimize/optimize-build-trial.js";
 import { loadRunConfig } from "../../../consort/orchestrator/runners/run-config-loader.js";
 import { resolveTestEnv } from "../../../consort/orchestrator/provisioning/test-env.js";
 import { layDownKitAgents, overlayBundle } from "../../../consort/orchestrator/provisioning/bundle.js";
@@ -133,6 +134,36 @@ export interface DriverGreenContext {
  *  produced code against the pin (the CODE-equivalence proof) BEFORE the project is torn down. */
 export interface RunDriverGreenOptions {
   afterGreen?(ctx: DriverGreenContext): Promise<void>;
+  /** Per-candidate override for experimentSlug (default: "s3-driver-green"). Must be unique per
+   *  concurrent candidate so branch+project names don't collide. */
+  experimentSlug?: string;
+  /** Per-candidate override for the experiment branch name (default: "experiment/S3-stock-shows-split-fields").
+   *  Must be unique per concurrent candidate. */
+  branch?: string;
+  /** Per-candidate lever overrides: model, effort, allowedTools, disallowedTools. Merged into the
+   *  driver turn's config ONLY (does not affect navigator or other roles). When absent, uses the
+   *  settings defaults. */
+  leverOverride?: {
+    model?: string;
+    effort?: string;
+    allowedTools?: string[];
+    disallowedTools?: string[];
+  };
+}
+
+/** Result of a live driver-GREEN run: the outcome (honestGreen), wall-clock duration, produced app
+ *  dir, escalation flag, and a classification verdict. */
+export interface RunDriverGreenResult {
+  /** The honest-GREEN gate passed (all-green cycle). */
+  honestGreen: boolean;
+  /** Wall-clock milliseconds from start to finish (includes all retries + repairs). */
+  durationMs: number;
+  /** The scaffolded project directory where app/ + .sftdd live (caller can inspect before it's torn down). */
+  producedCodeDir: string;
+  /** Raised-to-HIL during the run (the loop did not self-heal). */
+  escalated?: boolean;
+  /** The build trial classification (self-healed / not-viable / systemic). */
+  classify: { outcome: "self-healed" | "not-viable" | "systemic"; reason?: string };
 }
 
 /**
@@ -143,11 +174,15 @@ export interface RunDriverGreenOptions {
  *   -> remove-project (catalogue, finally).
  * An optional afterGreen hook runs against the produced code (before teardown) , the CODE-equivalence
  * comparison drives this to judge the driver's app/ tree against the pin's recorded-build reference.
+ * When leverOverride is provided, only the DRIVER turn's config is patched; navigator and other
+ * roles run with their defaults. Returns a RunDriverGreenResult; when options are absent, returns
+ * void for backwards compatibility (the default single-call path).
  */
-export async function runDriverGreenLive(opts: RunDriverGreenOptions = {}): Promise<void> {
+export async function runDriverGreenLive(opts: RunDriverGreenOptions = {}): Promise<RunDriverGreenResult | void> {
   const b = DRIVER_GREEN_BUNDLE;
   const { scaffoldConfig } = resolveDriverGreenRunConfig();
-  const experimentSlug = "s3-driver-green";
+  const experimentSlug = opts.experimentSlug ?? "s3-driver-green";
+  const branchName = opts.branch ?? `experiment/${b.story}`;
 
   // ── SETUP (catalogue scaffold-project): a REAL project on the config-resolved host. The op reads
   //    databricksHost from the run-config, ships deploy infra + alembic env, returns the handle. ──
@@ -176,7 +211,7 @@ export async function runDriverGreenLive(opts: RunDriverGreenOptions = {}): Prom
       featureId: b.feature,
       storyId: b.story,
       experimentSlug,
-      branch: `experiment/${b.story}`,
+      branch: branchName,
       parentBranch,
     });
 
@@ -188,7 +223,7 @@ export async function runDriverGreenLive(opts: RunDriverGreenOptions = {}): Prom
         [b.story]: {
           status: "ready",
           gate: { status: "approved", approver: "human-proxy", approved_at: "2026-08-05T00:00:00Z", history: [] },
-          experiment: { slug: experimentSlug, branch: `experiment/${b.story}`, parent: parentBranch, n: 1, status: "active", cut_at: "2026-08-05T00:00:00Z" },
+          experiment: { slug: experimentSlug, branch: branchName, parent: parentBranch, n: 1, status: "active", cut_at: "2026-08-05T00:00:00Z" },
         },
       },
       build_queue: [b.story],
@@ -206,8 +241,14 @@ export async function runDriverGreenLive(opts: RunDriverGreenOptions = {}): Prom
     process.env.LAKEBASE_KIT_DIR = KIT;
 
     // ── DRIVE one real driver GREEN on the uncontained live executor (performViaExecutor). Driver
-    //    tool-scope is WIDER than navigator RED , it needs Bash to run the project's tests. ──
+    //    tool-scope is WIDER than navigator RED , it needs Bash to run the project's tests.
+    //    When leverOverride is provided, patch the driver turn's model/effort/tools. ──
     const settings = resolveConsortSettings({ projectDir });
+    const driverModel = opts.leverOverride?.model;
+    const driverEffort = opts.leverOverride?.effort;
+    const driverAllowedTools = opts.leverOverride?.allowedTools;
+    const driverDisallowedTools = opts.leverOverride?.disallowedTools;
+
     const cfg: DriveEffectsConfig = {
       projectDir,
       consortDir,
@@ -218,31 +259,76 @@ export async function runDriverGreenLive(opts: RunDriverGreenOptions = {}): Prom
       approver: "human-proxy",
       deployTarget: "local",
       loopGranularity: "story",
-      modelForRole: (role) => settings.models[role] ?? "sonnet",
-      modelForTurn: (role, turn) => settings.modelFor(role, turn),
+      modelForRole: (role) => {
+        if (role === "driver" && driverModel) return driverModel;
+        return settings.models[role] ?? "sonnet";
+      },
+      modelForTurn: (role, turn) => {
+        if (role === "driver" && driverModel) return driverModel;
+        return settings.modelFor(role, turn);
+      },
       effortForTurn: (role, turn) => {
+        if (role === "driver" && driverEffort) {
+          return driverEffort === "default" ? "" : driverEffort;
+        }
         const e = settings.effortFor(role, turn);
         return e === "default" ? "" : e;
       },
-      allowedToolsForRole: (role) => (role === "driver" ? ["Write", "Read", "Edit", "Bash"] : undefined),
+      allowedToolsForRole: (role) => {
+        if (role === "driver") {
+          if (driverAllowedTools) return driverAllowedTools;
+          return ["Write", "Read", "Edit", "Bash"];
+        }
+        return undefined;
+      },
+      disallowedToolsForRole: (role) => {
+        if (role === "driver" && driverDisallowedTools) return driverDisallowedTools;
+        return undefined;
+      },
     } as DriveEffectsConfig;
     cfg.runner = execRunner(cfg);
 
+    const startTime = Date.now();
     const isGreen = (a: WorkflowAction): boolean =>
       a.kind === "invoke-role" && a.role === "driver" && !("mode" in a) && !("buildMode" in a) && "story" in a && a.story === b.story;
     const result = await runDriver(buildDriveEffects(cfg), { stopWhen: (a: WorkflowAction) => !isGreen(a), maxSteps: 4 });
+    const durationMs = Date.now() - startTime;
 
     // ── ASSERT: the honest-GREEN product-channel proof ──
-    expect(hasSourceFile(join(projectDir, "app")), "driver wrote product code under app/").toBe(true);
-    expect(storyTestProgress(consortDir, b.feature, b.story).allGreen, "the AC's honest-GREEN cycle stamped green against the live branch").toBe(true);
+    const productCodeExists = hasSourceFile(join(projectDir, "app"));
+    const storyProgress = storyTestProgress(consortDir, b.feature, b.story);
+    const allGreen = storyProgress.allGreen;
+    expect(productCodeExists, "driver wrote product code under app/").toBe(true);
+    expect(allGreen, "the AC's honest-GREEN cycle stamped green against the live branch").toBe(true);
     expect(result.stoppedAtBound || result.stoppedAtMax || result.iterations >= 1).toBe(true);
     expect(readPipeline(consortDir, b.feature).build_active).toBe(b.story);
     void host;
+
+    // Classify the build trial for sweep reporting (self-healed / not-viable / systemic).
+    const classify = classifyBuildTrial({
+      result: {
+        escalated: result.escalated ?? false,
+        stoppedAtBound: result.stoppedAtBound ?? false,
+        escalation: result.escalation,
+      },
+      honestGreen: { passed: allGreen },
+    } as BuildTrialSignals);
 
     // The CODE-equivalence proof (when the caller supplied one) judges the driver's app/ tree against
     // the pin BEFORE teardown. S3 is the 2nd recorded F6 story => storyIndex 1 (resolveBuildReference
     // matches positionally, since slugs differ across corpora).
     if (opts.afterGreen) await opts.afterGreen({ projectDir, featureId: b.feature, storyIndex: 1 });
+
+    // Return the result when called with options (sweep scenario); void when called with defaults (test scenario).
+    if (opts.experimentSlug || opts.branch || opts.leverOverride) {
+      return {
+        honestGreen: allGreen,
+        durationMs,
+        producedCodeDir: projectDir,
+        escalated: result.escalated,
+        classify,
+      };
+    }
   } finally {
     // ── TEARDOWN (catalogue remove-project): runner + repo + Lakebase project + dir, never-leaking. ──
     delete process.env.LAKEBASE_SFTDD_USE_MANIFEST_STEPS;
