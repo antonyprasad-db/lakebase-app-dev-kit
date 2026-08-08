@@ -475,6 +475,21 @@ The record dir also carries three run-level streams (siblings to `turns/`):
 | `correspondence.jsonl` | per HIL exchange: the orchestrator's REQUEST + the HIL's ANSWER/SUBMISSION + outcome + presentation (§6.6) | `recordCorrespondence`, via `onCorrespondence` |
 | `run-config.json` | the resolved model/effort/option matrix for the run | `writeRunConfig` |
 
+**The three logs and how they key together.** A run's timeline lives in three sibling logs under the
+record dir, each carrying a DIFFERENT subset of the join keys:
+- `turns/index.json` (+ each `turns/<NNNN>/turn.json`) — keyed by **`ordinal`** (0-based, monotonic =
+  index length at record time) + `action`; `iteration`/`seq` are **`null`** (the recorder assigns its
+  own `ordinal`, it is not handed the drive `iteration`).
+- `routing-decisions.jsonl` — keyed by **`iteration`** + `action`; no `ordinal`.
+- `correspondence.jsonl` — keyed by **`seq`** + **`iteration`** (+ `phase`, `request.kind`); no `ordinal`.
+
+So `correspondence` and `turns` share NO literal key; the bridge is the drive-loop counter
+(`correspondence.iteration` ↔ `turn.ordinal`, scoped by `phase`; 1:1 in planning, kickoff = `iteration
+-1` before turn 0) — a POSITIONAL join, not a hard foreign key. `routing-decisions.jsonl` is the
+reconstruction bridge (it and `turns/` are both drive-loop-ordered and both carry `action`). The
+go-forward fix (stamp an explicit shared key) and the retroactive backfill (zip routing↔turns on
+`action` to recover `iteration → ordinal`) are in **§9.6**.
+
 **Marker lifecycle is observable through the delta:** a written `green-failure.json` lands in
 `produced[]` + `files/`, so the produce→consume of a process event is visible without special casing.
 
@@ -872,3 +887,39 @@ NOT from the contract work above: (a) `tests/optimization/optimize-role.cli.ts` 
 hermetic suite is otherwise green); (b) a navigator-reflect `agentOptions` model/effort resolver-parity
 mismatch; (c) the `#595` workspace-host guard flags `OPTIMIZE-RUN-LOG.md`. These belong to whoever owns
 the optimize-sweep + run-log work; they must be resolved before `massive-update` merges.
+
+### 9.6 correspondence ⇄ turns join key (positional today; add an explicit key + a backfill)
+A consumer that wants to align the human-proxy exchange with the turn it belongs to can do so today,
+but the join is POSITIONAL, not a hard foreign key. Three sibling logs under the record dir carry
+different subsets of the keys (verified live 2026-08-08):
+- `correspondence.jsonl` — `seq` + `iteration` (+ `phase`, `request.kind`). **No `ordinal`/`dir`.**
+- `routing-decisions.jsonl` — `iteration` + `action` (+ state bag). **No `ordinal`.**
+- `turns/index.json` (+ each `turn.json`) — `ordinal` + `action` + `label`/`role`/`mode`/`story`/`ac`.
+  **`iteration`/`seq` are `null` on turn records** (the recorder assigns its own monotonic `ordinal` =
+  index length at record time; it never receives the drive `iteration`).
+The reliable correlation: `correspondence.iteration` ↔ `turn.ordinal`, scoped by `phase` — the same
+drive-loop counter, verified 1:1 in planning (iteration 2 ↔ ordinal 2 author-requests; iteration 4 ↔
+ordinal 4 gate-plan; kickoff is `iteration: -1`, before turn 0). RISK: not guaranteed 1:1 across every
+phase — a build cycle can dispatch several turns under one iteration, and kickoff has no turn — so a
+naive `iteration==ordinal` join silently misaligns outside planning.
+
+**Go-forward fix (one-field add; do NOT change mid-run — it forks the schema between an already-written
+sprint 1 and sprint 2):** stamp the turn's `ordinal` (or `dir`) onto the correspondence entry in
+`recordCorrespondence`, and/or the drive `iteration` onto `turn.json` in `recordTurn`
+(`consort/logging/turn-recorder.ts`). Then the join is an explicit shared key, phase-independent.
+
+**Retroactive backfill (for corpora already captured without the key):** the key is RECONSTRUCTIBLE —
+no data was lost. `routing-decisions.jsonl` is the bridge: it and `turns/index.json` are BOTH appended
+in drive-loop order and BOTH carry `action`, so a monotonic zip (i-th routing decision ↔ i-th turn of a
+dispatching kind) yields an authoritative `iteration → ordinal` map without guessing. Algorithm:
+(1) read routing-decisions in order → the `iteration` sequence of dispatched actions; (2) read
+turns/index.json in order → the `ordinal` sequence, filtered to dispatching kinds (`invoke-role` +
+gate turns, matched on `action`); (3) zip to build `iteration → {ordinal, dir}` (assert `action`
+agrees at each step — a mismatch means the two streams diverged and the backfill must FAIL loud, not
+guess); (4) rewrite each `turns/<dir>/turn.json` with the recovered `iteration`, and each
+`correspondence.jsonl` entry with the matched `ordinal`/`dir` (kickoff `iteration:-1` → the pre-turn-0
+sentinel, no ordinal). This is the SAME "reconstruct from the ordered deltas" technique as §9.2's
+forward-delta collapse. Build it as a `bin/consort/backfill-correspondence-key.cli.ts` idempotent
+migration (re-runnable; a second pass is a no-op once keys are present) + a hermetic test that a
+backfilled corpus round-trips to the same join a go-forward capture would produce. Until it runs, the
+positional `iteration↔ordinal` join above is the documented workaround.
