@@ -194,8 +194,13 @@ replay_smoke() {
   # design turns RESTORE their recorded output from the corpus (the executor swaps the manifest's
   # agent kind claude->replay) instead of spawning a live agent; author-requests is deterministic
   # (the Human Proxy supplies the recorded requests via SPRINT_REQUESTS, exactly as capture does).
-  # This proves the planning lane on the unified path. Runs ONCE (FRESH==1): a resumed/multi-feature
-  # project already planned.
+  # This proves the planning lane on the unified path. Runs ONCE PER SPRINT: gated on whether THIS
+  # sprint has already been planned (sprints/<sprint>/requested.json present, written by the
+  # author-requests turn), NOT on FRESH. A multi-SPRINT capture reuses ONE project (FRESH=0 on sprint
+  # 2+), but each sprint still needs its own planning (propose its features + author their requests),
+  # so gating on FRESH would skip sprint 2's planning entirely (it would reach the claim with no
+  # feature-request). The project INTAKE above stays FRESH-gated (product-overview/nfrs are
+  # project-level, refined across sprints, supplied once); planning is per-sprint.
   #
   # The REPLAY env var MUST be exported HERE, before the planning drive , the design-lane export
   # below (step 4) runs AFTER this block, so without setting it here the planning turns would
@@ -203,7 +208,9 @@ replay_smoke() {
   # `(propose, live)` not `(propose, replay)`). Gated on REPLAY_DESIGN=1 (the replay direction); a
   # capture (REPLAY_DESIGN=0) leaves it unset so planning runs live. (CORPUS_DIR is the recorded-
   # artifacts subdir; the local REPLAY_DIR shell var above is the MACHINERY dir , different thing.)
-  if [[ -n "${REPLAY_SPRINT}" && "$FRESH" == 1 ]]; then
+  local _sprint_planned=0
+  [[ -n "${REPLAY_SPRINT}" && -f "${SFTDD_DIR}/sprints/${REPLAY_SPRINT}/requested.json" ]] && _sprint_planned=1
+  if [[ -n "${REPLAY_SPRINT}" && "$_sprint_planned" == 0 ]]; then
     local FR="${CORPUS_DIR}/features/${FEATURE_ID}/feature-request.md"
     [[ -f "$FR" ]] || { err "planning replay needs the recorded feature-request at ${FR}"; return 2; }
     [[ "${REPLAY_DESIGN:-1}" == "1" ]] && export LAKEBASE_CONSORT_REPLAY_DIR="${CORPUS_DIR}"

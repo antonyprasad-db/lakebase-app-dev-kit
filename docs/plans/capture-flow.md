@@ -127,6 +127,27 @@ and BOTH consumers already resolve the pair: the aggregate conformance iterates
 5. **Launcher rebuild (D5, step 6):** /sprint-driven capture, proxy as HIL, in-run intake, no pre-seed.
 6. **Tests + docs (D6, step 7):** hermetic coverage + intake-doc status + SKILL.
 
+## CF Stage 5 — BUILT (launcher, no live run yet)
+- `launch-stockflow-instrumented.sh` rewritten to LOOP two sprints on ONE shared project-dir:
+  s1→F1 then s2→F6, each `run-capture.sh --sprint <s> --feature <f> --project-dir <shared>`. First
+  scaffolds (FRESH=1), second reuses (FRESH=0). Per-sprint /sprint kickoff + correspondence land under
+  one RECORD_DIR.
+- **`_replay-smoke.sh` planning-gate fix (real bug found):** the planning lane was gated on `FRESH==1`
+  (once per PROJECT), which would SKIP sprint 2's planning entirely (it would reach the claim with no
+  feature-request). Changed to per-SPRINT: gated on whether `sprints/<sprint>/requested.json` exists.
+  Project INTAKE stays FRESH-gated (product-overview/nfrs are project-level, supplied once). Intake is
+  supplied IN-RUN by the proxy (`consort-human-proxy supply` from REPLAY_INTAKE_DIR), recorded as
+  `intake.supplied` correspondence , not a raw cp.
+- Proxy full-lifecycle YES: `--gates proxy` drives design→build→deploy→promote to done per feature; the
+  proxy approves every gate (verified: drainGatesAsHumanProxy iterates all GATE_NAMES incl.
+  deploy+promote). The "next sprint" is the launcher advancing s1→s2 (two invocations), not a gate.
+- **LIVE-RUN RISKS (not hermetically provable; verify on the gated run):** (a) on sprint 2 the intake
+  block checks out `staging` on a project that already shipped+promoted F1 , confirm the checkout is
+  clean and staging is still the right parent tier after s1's promote; (b) the parent-tier push before
+  s2's claim must carry s1's merged state so F6 forks from the correct tip; (c) correspondence.jsonl
+  must show TWO kickoff entries (one per sprint) + both sprints' gate/intake exchanges. These are
+  Stage-5-live checks, gated with #727.
+
 ## Constraints
 LOCAL; source-only (dist rebuilt by launcher). One path for real + proxy (the doc's core principle).
 The proxy NEVER invents intent (refuses on missing/non-conformant recorded material). Correspondence

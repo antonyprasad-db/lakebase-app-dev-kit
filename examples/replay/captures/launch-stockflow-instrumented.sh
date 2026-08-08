@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
-# Launch the instrumented live re-record of stockflow-rerecord (F1 -> F6), recording EVERY turn +
-# the routing-decisions.jsonl diagnostic stream, to a NEW capture dir. One-shot; auto-continues the
-# navigator pause so it runs unattended. Env is prepared here (the capture engine requires
-# DATABRICKS_HOST + GITHUB_OWNER EXPORTED; _replay-smoke.sh does not source the test config itself).
+# Launch the instrumented live re-record of stockflow-rerecord as an INTERACTIVE-MIMIC capture:
+# TWO sprints driven from a real /sprint, the Human Proxy standing in for the HIL, recording EVERY
+# turn + routing-decisions.jsonl + the run-level correspondence.jsonl (the orchestrator<->proxy
+# exchange). One-shot, unattended (proxy auto-answers YES through the whole lifecycle , spec/plan/
+# accept/deploy/promote gates , for both sprints).
+#
+# TWO SPRINTS (shared project): stockflow-rerecord-s1 ships F1-stock-visibility, then
+# stockflow-rerecord-s2 ships F6-split-tracking-code. The SECOND run reuses the same project dir
+# (_replay-smoke.sh sets FRESH=0 when the project's .git exists, so it skips scaffold + goes straight
+# to the sprint's planning + feature drive), so s2 builds on s1's merged state , the real sprint cadence.
+#
+# Env is prepared here (the capture engine requires DATABRICKS_HOST + GITHUB_OWNER EXPORTED;
+# _replay-smoke.sh does not source the test config itself). Kit resolution is the ONE split-brain-safe
+# path (resolve_kit_single_source, wired in _replay-smoke.sh).
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$REPO_ROOT"
@@ -11,16 +21,24 @@ STAMP="${STAMP:-$(date +%Y%m%d-%H%M%S)}"
 REC="$REPO_ROOT/examples/replay/captures/stockflow-instrumented-$STAMP"
 SCEN="$REPO_ROOT/examples/replay/corpora/stockflow-rerecord"
 CORPUS="$SCEN/recorded-artifacts"
-FEATURE="${FEATURE:-F1-stock-visibility}"
-# CRITICAL: --corpus only sets CORPUS_DIR (the recorded design/build artifacts). INTAKE is a
-# SEPARATE dir resolved from REPLAY_INTAKE_DIR (defaults to bug-tracker!), which replay-scenario.sh
-# exports as "${SCEN}/intake". Omitting it makes intake stage bug-tracker's product-overview/nfrs,
-# which the spec-author breakdown then fails to reconcile ("missing input nfrs"). Point it at the
-# scenario's own intake dir. (This is the launcher bug that killed the first live capture.)
+PROJECT_NAME="stockflow-instrumented-$STAMP"
+PROJECT_DIR="$HOME/code/tdd-workflow-smoke/$PROJECT_NAME"
+
+# The TWO sprints, in order, each paired with the feature it ships. The launcher loops these; the
+# first scaffolds the project, the second reuses it (FRESH=0). Format: "<sprint> <feature>".
+SPRINTS=(
+  "stockflow-rerecord-s1 F1-stock-visibility"
+  "stockflow-rerecord-s2 F6-split-tracking-code"
+)
+
+# CRITICAL (the launcher bug that killed the first live capture): --corpus sets ONLY CORPUS_DIR (the
+# recorded design/build artifacts). INTAKE is a SEPARATE dir resolved from REPLAY_INTAKE_DIR (defaults
+# to bug-tracker!). Point it at THIS scenario's intake so the proxy supplies stockflow's
+# product-overview/nfrs/design-brief in-run, not bug-tracker's.
 export REPLAY_INTAKE_DIR="$SCEN/intake"
 mkdir -p "$REC"
 
-# --- env prep (mirror replay-stockflow-rerecord.sh: source config, resolve host from profile) ---
+# --- env prep (source config, resolve host from profile) ---
 [[ -f "$REPO_ROOT/.env.template.test.config" ]] && . "$REPO_ROOT/.env.template.test.config"
 [[ -f "$REPO_ROOT/.env.local.test.config" ]] || { echo "MISSING .env.local.test.config" >&2; exit 1; }
 . "$REPO_ROOT/.env.local.test.config"
@@ -36,21 +54,37 @@ export GITHUB_OWNER="${GITHUB_OWNER:-${LAKEBASE_TEST_GITHUB_OWNER:-}}"
 [[ -n "$GITHUB_OWNER" ]] || { echo "set LAKEBASE_TEST_GITHUB_OWNER" >&2; exit 1; }
 
 # --- recording + unattended resume ---
-export LAKEBASE_CONSORT_RECORD_DIR="$REC"
-export LAKEBASE_SFTDD_AUTO_CONTINUE=1   # auto-confirm the navigator pause (line 241 _replay-smoke.sh)
+export LAKEBASE_CONSORT_RECORD_DIR="$REC"   # turns/ + routing-decisions.jsonl + correspondence.jsonl
+export LAKEBASE_SFTDD_AUTO_CONTINUE=1        # auto-confirm the navigator pause (unattended)
 
 echo "[launch] record dir : $REC"
-echo "[launch] corpus     : $CORPUS  feature=$FEATURE"
+echo "[launch] project    : $PROJECT_NAME  ($PROJECT_DIR)"
 echo "[launch] host       : $DATABRICKS_HOST  owner=$GITHUB_OWNER  profile=$PROFILE"
+echo "[launch] sprints    : ${SPRINTS[*]}"
 
-# --sprint runs the PLANNING lane so the human-proxy supplies the feature-request THROUGH the
-# author-requests turn (the PO stand-in answering the orchestrator's ask, via SPRINT_REQUESTS),
-# IDENTICAL to the interactive path , instead of the bare-cp side-channel that skipped it. Without
-# --sprint, planning is skipped, feature-request is injected out-of-band, and the automated path
-# diverges from interactive. stockflow-rerecord-s1 is the sprint that ships F1-stock-visibility.
-exec bash "$REPO_ROOT/examples/replay/run-capture.sh" \
-  --tiers 2 \
-  --corpus "$CORPUS" \
-  --feature "$FEATURE" \
-  --sprint stockflow-rerecord-s1 \
-  --project-name "stockflow-instrumented-$STAMP"
+# Drive each sprint in order on the SHARED project. run-capture.sh -> _replay-smoke.sh scaffolds on the
+# first (FRESH=1) and reuses on the second (FRESH=0, .git present). Each --sprint runs the PLANNING lane
+# (proxy supplies the feature-request THROUGH author-requests + intake via supply, IDENTICAL to
+# interactive) then drives design+build+deploy+promote to done with the proxy approving every gate. The
+# kickoff + correspondence for each sprint land under the same RECORD_DIR (per-sprint /sprint entries).
+i=0
+for pair in "${SPRINTS[@]}"; do
+  sprint="${pair%% *}"; feature="${pair##* }"
+  i=$((i + 1))
+  echo ""
+  echo "════════════════════════════════════════════════════════════════════"
+  echo "[launch] SPRINT $i/${#SPRINTS[@]}: $sprint  ships  $feature"
+  echo "════════════════════════════════════════════════════════════════════"
+  bash "$REPO_ROOT/examples/replay/run-capture.sh" \
+    --tiers 2 \
+    --corpus "$CORPUS" \
+    --feature "$feature" \
+    --sprint "$sprint" \
+    --project-name "$PROJECT_NAME" \
+    --project-dir "$PROJECT_DIR" \
+    || { echo "[launch] SPRINT $i ($sprint) FAILED , halting the capture" >&2; exit 2; }
+done
+
+echo ""
+echo "[launch] ✓ BOTH sprints complete , capture at $REC"
+echo "[launch]   correspondence: $REC/correspondence.jsonl   turns: $REC/turns/   routing: $REC/routing-decisions.jsonl"

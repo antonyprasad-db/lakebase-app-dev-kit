@@ -587,6 +587,47 @@ reports per-turn expression gaps + routing-log completeness. `requireAssess:true
 asserts the failing-green→assess path was captured. This is the loop engine: audit → fix
 expression → re-record until `clean`.
 
+## 6.6 The INTERACTIVE-MIMIC capture — two sprints from a real /sprint + correspondence
+
+The capture MIMICS an interactive session, not a headless side-channel. Step 0 is a real
+`/sprint <name> --gates proxy`; the orchestrator ASKS for intake (the `/plan` Step 0 / `/design`
+Step 0.5 interviews) and the **Human Proxy** answers (supplies the recorded product-overview / nfrs /
+design-brief + the feature-requests, approves every gate). All of it is recorded.
+
+**Two sprints, one project (the launcher loops):** `launch-stockflow-instrumented.sh` drives
+`stockflow-rerecord-s1` (ships F1-stock-visibility) then `stockflow-rerecord-s2` (ships
+F6-split-tracking-code) on ONE shared `--project-dir`. The first `run-capture.sh` invocation scaffolds
+(`FRESH=1`); the second reuses (`FRESH=0`, `.git` present) so s2 builds on s1's merged state , the real
+sprint cadence. Each sprint runs its own planning + feature drive to done.
+
+**The per-sprint planning gate (a bug this flow fixed):** `_replay-smoke.sh`'s planning lane was gated
+on `FRESH==1` (once per PROJECT), which SKIPPED sprint 2's planning entirely (it would reach the claim
+with no feature-request). It is now gated PER-SPRINT on `sprints/<sprint>/requested.json` (written by the
+author-requests turn): planning runs when `--sprint` is set AND that sprint is not yet planned. Project
+INTAKE stays `FRESH`-gated (product-overview/nfrs are project-level, refined across sprints, supplied
+once); planning is per-sprint. Intake is supplied IN-RUN by the proxy (`consort-human-proxy supply` from
+`REPLAY_INTAKE_DIR`), never a raw `cp`.
+
+**Proxy full-lifecycle YES:** under `--gates proxy` the drive runs design→build→deploy→promote to done
+per feature and the proxy approves EVERY gate (`drainGatesAsHumanProxy` iterates all `GATE_NAMES` incl.
+deploy + promote). "Move to the next sprint" is the launcher advancing s1→s2 (two `/sprint`
+invocations), NOT a gate.
+
+**Correspondence (the recorded transcript):** `<RECORD_DIR>/correspondence.jsonl` records the
+orchestrator↔HIL exchange , the orchestrator's REQUEST (kickoff / intake-interview / gate /
+author-requests) paired with the proxy's ANSWER/SUBMISSION (intake.supplied artifact refs, gate
+approve/reject + violations) + outcome, WITH the rich `presentation` (formatting/highlighting preserved
+so a renderer reproduces the session). Types + writer: `CorrespondenceEntry` / `recordCorrespondence`
+(`turn-recorder.ts`); emitted from the `withTurnRecording` wrapper's `onCorrespondence` (drive.cli.ts)
+after each HIL touchpoint perform, plus a seq-0 kickoff entry at each `/sprint` start. A two-sprint
+capture shows TWO kickoff entries.
+
+**LIVE-RUN checks (not hermetically provable , verify on the gated run):** on sprint 2 the intake block
+checks out `staging` on a project that already shipped+promoted F1 (confirm the checkout is clean +
+staging is still the parent tier after s1's promote); the parent-tier push before s2's claim must carry
+s1's merged state so F6 forks from the correct tip; `correspondence.jsonl` must show both sprints'
+kickoff + gate/intake exchanges.
+
 ---
 
 ## 7. Per-step payloads — every chain (from its manifest)
@@ -741,6 +782,25 @@ complete (pre-project/inputs/prompt/levers all present). Its orphan Lakebase pro
 (zero orphans). The transcript fix + hard-fail audit are NOT yet in a dist that ran live.
 
 ### 8.4 OPEN — resume points, in order
+
+**Session 2026-08-08 landed 3 workstreams (branch `capture/replay-set-instrumentation-and-fixes`,
+source-only, hermetic-green modulo the 3 pre-existing WIP failures below). Plans in `docs/plans/`:**
+- **Route→contract interface** (`docs/plans/route-contract-interface.md`) — declared process events +
+  pre-dispatch `assertRouteSatisfiable` (names the ROUTE, not a bare "missing input") + #735 fixed as
+  its first demo. Commits `595b21c4`. DONE.
+- **Kit resolution — one way** (`docs/plans/kit-resolution.md`) — split-brain-safe `pin-local-kit`
+  everywhere + TS twin + guard. Commit `d25aae02`. DONE.
+- **Capture flow** (`docs/plans/capture-flow.md`, #750) — CF1-3 DONE (correspondence types+writer+hook,
+  emitters+kickoff+presentation, NFR hard-block + per-feature nfrs). CF4 = intake interviews FOUND
+  ALREADY BUILT (design.md/plan.md). CF5 = two-sprint launcher BUILT (§6.6), NOT live-run. CF6 = tests
+  +docs pending. Commits `03996e1a`, `cd76d623`, `16f8144a`, `86418db1`, + CF5.
+- **#736 (build-code collapse)** — unblocked as OPTION 2 forward-delta (existing corpora lack
+  turns/pre-project; reconstruct from `files/` deltas). NOT built. Sequenced after a fresh capture.
+- **Pre-existing WIP failures (NOT this session's, on branch): #749** optimize-role.cli.ts imports
+  missing `./driver-sweep.js` (12 tsc + 1 test); navigator-reflect agentOptions parity; `#595` host in
+  `OPTIMIZE-RUN-LOG.md`. All from the `massive-update` parked WIP (commit `b19e9628`).
+
+**Resume points, in order:**
 1. **#734 + #732 — DONE.** author-requests + estimate-committed are named in the sanctioned
    `deterministicAgentless` allowlist (they are NOT agent turns); the runtime hard-stop
    `assertNotStrandedAgentTurn` fires at the top of `perform` for any invoke-role action that
