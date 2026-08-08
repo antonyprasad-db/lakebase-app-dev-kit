@@ -128,9 +128,10 @@ instead. Kept for reference / a resume-in-flight only; not a supported path.
 
 | Script | What it does |
 |--------|--------------|
-| `optimize-scenario.sh` | Run a per-handoff optimization sweep against a scenario's feature: at the handoff the drive sits on, try config + content/scope candidates, keep the FASTEST gate-passing turn, emit a report. Only the winner records into the corpus. |
-| `optimize-live-run.sh` | One-command live optimization first pass (P1+P3+P4): scaffold a fresh project, drive the DESIGN lane live to the build boundary, then run the champion-walk sweep (propose-only). |
+| `../../scripts/optimize-role.sh` | **THE optimize launcher.** Sweeps the manifest turn-chains (design / navigator / driver-green) across levers + models, candidates in parallel, each seeded + judged vs its recorded reference; writes per-chain `summary.json` + evidence + rollup under `optimize-results/runs/<stamp>/`. Always rebuilds dist first (never runs stale). `scripts/optimize-role.sh --chains <set\|list> --concurrency N`. |
+| `deprecated/optimize-scenario.sh` | **DEPRECATED (moved 2026-08-07).** The per-handoff champion-walk door: at the handoff the drive sits on, try candidates, keep the FASTEST gate-passing turn. Superseded by the judged `scripts/optimize-role.sh` — the champion walk did NOT run a mandatory LLM judge on every candidate. Kept for provenance only. |
 | `archive-optimize-results.sh` | Archive one role's champion-walk results out of the throwaway project (destroyed at teardown) into the committable `optimize-results/<handoff>/` so the full lever sweep accumulates across roles. |
+| `deprecated/optimize-live-run.sh` | DEPRECATED. Its `--chains` path was a pass-through to `scripts/optimize-role.sh` (use that directly); its scaffolded-drive path is the old substrate replaced by the shared-scaffold refactor. |
 
 See [`../../consort/optimize/OPTIMIZE-INDEX.md`](../../consort/optimize/OPTIMIZE-INDEX.md)
 for the sweep model and lever catalogue.

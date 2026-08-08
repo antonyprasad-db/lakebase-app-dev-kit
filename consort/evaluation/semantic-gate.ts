@@ -980,3 +980,148 @@ export function makeVerdictAlignmentJudge(opts: { cwd: string }): (args: { recor
       (msg) => ({ passed: false, decisionMatch: false, reason: msg }),
     );
 }
+
+// ── The DRIVER-TURN discriminator: judge a driver candidate by the NEXT-STEP navigator's determination ──
+//
+// A driver candidate is judged the way the real workflow judges it: run the navigator evaluation turn
+// that actually follows that driver turn (pinned opus-high, done by the harness), then compare THAT
+// navigator's determination to the recorded navigator determination at the same step. The verdict is
+// DIRECTIONAL on the issues found (candidate's issues vs the recorded issues):
+//   - PASS               , the candidate's determination reaches the SAME / coverage-equivalent conclusion.
+//   - PASS-WITH-HONORS    , the candidate's determination found FEWER / NO issues where recorded found some
+//                           (better than the recorded run). ALWAYS surfaced/flagged, never a silent pass.
+//   - FAIL                , the candidate's determination found MORE / DIFFERENT issues than recorded.
+// None of the existing judges model this direction, so this is the one new discriminator; it REUSES the
+// existing parsers + judges (parseNavigatorAssessMarker / makeSupersessionDeltaJudge for assess;
+// parseVerdictFile / makeVerdictAlignmentJudge for review) and adds only the directional decision on top.
+
+/** The directional outcome of comparing a candidate driver turn's next-step navigator determination to
+ *  the recorded one. `verdict` is the trichotomy; `betterThanRecorded` flags the with-honors case so the
+ *  report can surface it distinctly. `recordedClass`/`candidateClass` are the two assess classifications
+ *  (or "review:refactor"/"review:clean" for the review evaluator) for the record. */
+export interface NextStepOutcome {
+  verdict: "pass" | "pass-with-honors" | "fail";
+  recordedClass: string;
+  candidateClass: string;
+  reason: string;
+  /** true only on pass-with-honors , the candidate's determination was cleaner than the recorded run. */
+  betterThanRecorded?: boolean;
+}
+
+/** ASSESS-evaluator directional comparison (driver-green, driver-repair). Both determinations are read
+ *  from their marker DIRS via parseNavigatorAssessMarker (superseded-tests.json / regression-assessment.json
+ *  / none => equivalent). Directional rule: candidate issues ⊆ recorded issues => pass (strict ⊂ => honors);
+ *  candidate ⊋ / different / worse => fail. The superseded SET delta is judged by the shared
+ *  makeSupersessionDeltaJudge (never re-implemented here). */
+async function evaluateAssessNextStep(args: {
+  recordedMarkerDir: string;
+  candidateMarkerDir: string;
+  deltaJudge: SupersessionDeltaJudge;
+}): Promise<NextStepOutcome> {
+  const recorded = parseNavigatorAssessMarker(args.recordedMarkerDir);
+  const candidate = parseNavigatorAssessMarker(args.candidateMarkerDir);
+  const rc = recorded.classification;
+  const cc = candidate.classification;
+  const base = { recordedClass: rc, candidateClass: cc };
+
+  // Candidate found NO issues (equivalent) where recorded found some => strictly fewer => HONORS.
+  if (cc === "equivalent" && rc !== "equivalent") {
+    return { ...base, verdict: "pass-with-honors", betterThanRecorded: true, reason: `candidate's next-step navigator found the code clean (equivalent) where the recorded run found "${rc}" , fewer issues` };
+  }
+  // Candidate escalated to a WORSE classification (a regression/insufficient) where recorded was
+  // clean or a benign shift => more/worse issues => FAIL.
+  if ((cc === "regression" || cc === "insufficient") && (rc === "equivalent" || rc === "superseded-shift")) {
+    return { ...base, verdict: "fail", reason: `candidate's next-step navigator escalated to "${cc}" where the recorded determination was "${rc}" , more/worse issues than recorded` };
+  }
+  // Both superseded-shift: compare the flagged SET directionally via the shared delta judge.
+  if (rc === "superseded-shift" && cc === "superseded-shift") {
+    const recSet = [...(recorded.supersededTests ?? [])].sort();
+    const navSet = [...(candidate.supersededTests ?? [])].sort();
+    const recIn = new Set(recSet);
+    const navIn = new Set(navSet);
+    const identical = navSet.length === recSet.length && navSet.every((t, i) => t === recSet[i]);
+    if (identical) {
+      return { ...base, verdict: "pass", reason: `candidate's superseded set is identical to the recorded ground truth (${navSet.length} tests)` };
+    }
+    const candidateSubset = navSet.every((t) => recIn.has(t)) && navSet.length < recSet.length; // strict ⊂
+    const candidateSuperset = recSet.every((t) => navIn.has(t)) && navSet.length > recSet.length; // ⊋
+    const verdict = await args.deltaJudge({ navigatorSet: navSet, recordedSet: recSet, reason: (candidate as { reason?: string }).reason });
+    if (verdict.equivalent) {
+      return { ...base, verdict: "pass", reason: `candidate's superseded set is coverage-equivalent to the recorded ground truth (delta-judged)` };
+    }
+    // Not equivalent: a strict subset (candidate flagged fewer, all within recorded) is fewer issues =>
+    // HONORS; a superset or a divergent set (over-flag / different tests) is more/different => FAIL.
+    if (candidateSubset) {
+      return { ...base, verdict: "pass-with-honors", betterThanRecorded: true, reason: `candidate flagged a strict subset of the recorded superseded set (${navSet.length} of ${recSet.length}) , fewer issues: ${(verdict.materialDifferences ?? []).join("; ")}` };
+    }
+    return { ...base, verdict: "fail", reason: `candidate's superseded set differs materially from the recorded ground truth${candidateSuperset ? " (over-flagged more tests)" : ""}: ${(verdict.materialDifferences ?? []).join("; ") || "sets not coverage-equivalent"}` };
+  }
+  // Same classification with nothing to diff (equivalent==equivalent, regression==regression, etc.) => PASS.
+  if (cc === rc) {
+    return { ...base, verdict: "pass", reason: `candidate's next-step navigator reached the same determination ("${cc}")` };
+  }
+  // Any other classification divergence is a mismatch => FAIL (do not silently pass an off-axis change).
+  return { ...base, verdict: "fail", reason: `candidate's next-step navigator determination "${cc}" diverges from the recorded "${rc}"` };
+}
+
+/** REVIEW-evaluator comparison for driver-REFACTOR (RESOLUTION semantics, not match). The corpus has no
+ *  navigator turn after the refactor; the recorded review verdict is the UPSTREAM directive the refactor
+ *  executes (refactor=true + the issue notes). A good candidate refactor RESOLVES that issue, so its OWN
+ *  post-refactor review verdict should come back refactor=false. Directional:
+ *   - candidate review refactor=false => PASS (the flagged cleanup landed; nothing left to refactor).
+ *   - candidate review still refactor=true => FAIL (issue not resolved) , the alignment judge confirms the
+ *     candidate's notes are still about the SAME issue the recorded directive raised (a different, genuinely
+ *     new issue is also a FAIL: the refactor introduced/left a different problem).
+ *  Uses makeVerdictAlignmentJudge to check the candidate's review notes concern the recorded directive's
+ *  issue (not to require decision-MATCH , here a matching refactor=true would mean "unresolved"). */
+async function evaluateReviewResolution(args: {
+  recordedDirective: VerdictOutput; // the recorded upstream review (refactor:true + issue notes)
+  candidateReview: VerdictOutput; // the candidate's OWN post-refactor review verdict
+  verdictJudge: (a: { recordedVerdict: VerdictOutput; candidateVerdict: VerdictOutput; kind: "review" | "reflect" }) => Promise<VerdictAlignmentOutcome>;
+}): Promise<NextStepOutcome> {
+  const base = { recordedClass: "review:refactor-requested", candidateClass: args.candidateReview.refactor ? "review:refactor-requested" : "review:clean" };
+  // The candidate's post-refactor review says the code is clean => the flagged cleanup was resolved => PASS.
+  if (args.candidateReview.refactor === false) {
+    return { ...base, verdict: "pass", reason: `candidate's post-refactor review is clean (refactor=false) , the recorded directive's issue was resolved` };
+  }
+  // Still refactor-requested: confirm (via the alignment judge) whether it is the SAME issue (unresolved)
+  // or a genuinely new one , both are FAIL, but we name which for the record.
+  const align = await args.verdictJudge({ recordedVerdict: args.recordedDirective, candidateVerdict: args.candidateReview, kind: "review" });
+  return {
+    ...base,
+    verdict: "fail",
+    reason: align.decisionMatch
+      ? `candidate's post-refactor review STILL requests refactor for the same issue (unresolved): ${align.reason}`
+      : `candidate's post-refactor review requests refactor for a DIFFERENT issue than the recorded directive (introduced/left a new problem): ${align.reason}`,
+  };
+}
+
+/** Evaluate a driver candidate by its NEXT-STEP navigator determination vs the recorded determination.
+ *  `evaluatorKind` picks the comparison: "assess" (driver-green, driver-repair , directional over the
+ *  recorded vs candidate assess markers) or "review" (driver-refactor , resolution semantics: the
+ *  candidate's post-refactor review must come back clean). Reuses the existing parsers + judges; the only
+ *  new logic is the directional trichotomy (pass / pass-with-honors / fail). */
+export async function evaluateNextStepDetermination(args: {
+  evaluatorKind: "assess" | "review";
+  /** The recorded next-step determination: a marker DIR (assess) whose files parseNavigatorAssessMarker
+   *  reads, OR (review) the recorded upstream review VerdictOutput (the directive). */
+  recordedMarkerDir?: string;
+  recordedReviewDirective?: VerdictOutput;
+  /** The candidate's produced next-step determination: a marker DIR (assess), OR (review) the candidate's
+   *  OWN post-refactor review VerdictOutput. */
+  candidateMarkerDir?: string;
+  candidateReview?: VerdictOutput;
+  deltaJudge: SupersessionDeltaJudge;
+  verdictJudge: (a: { recordedVerdict: VerdictOutput; candidateVerdict: VerdictOutput; kind: "review" | "reflect" }) => Promise<VerdictAlignmentOutcome>;
+}): Promise<NextStepOutcome> {
+  if (args.evaluatorKind === "assess") {
+    if (args.recordedMarkerDir === undefined || args.candidateMarkerDir === undefined) {
+      throw new Error("evaluateNextStepDetermination(assess) requires recordedMarkerDir + candidateMarkerDir");
+    }
+    return evaluateAssessNextStep({ recordedMarkerDir: args.recordedMarkerDir, candidateMarkerDir: args.candidateMarkerDir, deltaJudge: args.deltaJudge });
+  }
+  if (args.recordedReviewDirective === undefined || args.candidateReview === undefined) {
+    throw new Error("evaluateNextStepDetermination(review) requires recordedReviewDirective + candidateReview");
+  }
+  return evaluateReviewResolution({ recordedDirective: args.recordedReviewDirective, candidateReview: args.candidateReview, verdictJudge: args.verdictJudge });
+}

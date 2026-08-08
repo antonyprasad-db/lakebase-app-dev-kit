@@ -28,6 +28,17 @@ is the preserve-experiment-artifacts discipline applied to INPUTS + REFERENCES, 
 - `recorded-artifacts/` , design references (feature-spec / architecture / db-design / test-list /
   design-guide / proposals / estimates / ACs) + `architecture/conventions.json` (the module LAYOUT
   buildContextPack projects). F6 today; the F1 design slice is added as design-role comparison lands.
+- `recorded-turns/<NNNN>-<role>/…` , RECORDED PER-TURN OUTPUTS, each extracted VERBATIM from
+  `examples/replay/corpora/stockflow-rerecord/turns/<NNNN>-<role>/files/.sftdd/…` (byte-identical).
+  The honest reference for an ISOLATED design turn whose accreted artifact is wider than the turn's
+  scope (the #705 model , replaced the manufactured `*.S1-slice`/`*.FP-slice`/`acs-spec-author-slice`):
+  - `0001-architect-reviewer-estimate/planning/estimates.json` , the estimate turn's FP-only sizing
+    (before sync-backlog added the F1/F6 committed sizes) , the architect-estimator chain's reference.
+  - `0006-spec-author/acs/{AC1,AC2,AC3}.json` , S1's ACs as spec-author wrote them (before the
+    architect added per-AC `architectural_notes`) , the spec-author acs equivalence reference.
+  - `0018-driver-repair/test-list.json` , the F1 test-list as recorded , the test-strategist chain +
+    equivalence reference. (The F1 `architecture.json` is authored in ONE turn, 0007, so its accreted
+    `recorded-artifacts/…/architecture.json` IS that turn's output , judged there directly, no extract.)
 - `recorded-build/features/F6-split-tracking-code/stories/...` , the build seeds + judged refs:
   - `S3-.../turns/001-navigator-reflect/code` , the pre-RED tree the RED chain overlays (SEED).
   - `S1-.../turns/003-driver/code` + its `tdd/.../green-failure.json` , the post-GREEN tree + the

@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+# DEPRECATED , moved to deprecated/ (was examples/replay/optimize-live-run.sh). The ONE optimize
+# launcher is now `scripts/optimize-role.sh` (runs the built chain-sweep CLI, always rebuilds dist
+# first). This script's `--chains` path was a pure pass-through to that door; its scaffolded-drive
+# `--sweep-lane` path is the old concurrency-hostile substrate the shared-scaffold refactor replaced.
+# Kept for reference only. To sweep chains: `scripts/optimize-role.sh --chains <set|list> --concurrency N`.
+# The scaffolded-drive building blocks it composed still live at examples/replay/ (capture-scenario.sh,
+# optimize-scenario.sh, archive-optimize-results.sh) and can be called directly if needed.
+#
 # ONE door to run an optimize EXPERIMENT across the levers + models, end to end.
 #
 # Sweeps the legitimate role-turn chains of a feature (the design lane by default:
@@ -72,7 +80,10 @@
 # (printed at the end).
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# This script now lives in examples/replay/deprecated/; its sibling scripts (capture-scenario.sh,
+# optimize-scenario.sh, archive-optimize-results.sh, the scenario dirs) live one level UP in
+# examples/replay/, and the kit root is three levels up. Resolve both relative to that, not to this dir.
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 KIT_ROOT="$(cd "${ROOT}/../.." && pwd)"
 SCENARIO=""
 FEATURE=""

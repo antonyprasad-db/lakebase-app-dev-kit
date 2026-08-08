@@ -1,0 +1,11 @@
+{
+  "handle": "navigator-red",
+  "candidateId": "m-opus-e-low",
+  "rejudgeable": true,
+  "fresh": {
+    "passed": true,
+    "score": 0.8
+  },
+  "stored": null,
+  "reproduce": "first-verdict (never judged before)"
+}

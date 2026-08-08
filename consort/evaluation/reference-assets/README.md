@@ -45,6 +45,15 @@ All resolve their seed + reference paths against this root (one constant , see t
 ## Layout
 
 Per-scenario subdirs (e.g. `stockflow/`). Each holds:
-- `recorded-artifacts/` , the design artifacts (per feature/story) a turn is seeded with or judged against.
+- `recorded-artifacts/` , the ACCRETED design artifacts (per feature/story), the whole-feature form
+  merged across every story's turns. A turn is seeded with these; a single-turn artifact (e.g. the F1
+  `architecture.json`, authored in one turn) is judged against its accreted form directly.
+- `recorded-turns/<NNNN>-<role>/…` , the RECORDED PER-TURN OUTPUTS: the exact files a single corpus
+  turn wrote, extracted verbatim. These are the honest references for an ISOLATED turn whose accreted
+  artifact is a wider scope than the turn produced (estimate turn 0001, spec-author acs turn 0006,
+  test-list turn 0018). Judge the isolated turn against its own recorded output , matching scope by
+  construction , NEVER a hand-carved slice of the accreted artifact (see the "reference IS" rule above
+  + `feedback_judge_against_recorded_turn_output`). This replaced the manufactured `*.S1-slice` /
+  `*.FP-slice` / `acs-spec-author-slice` fixtures (#705).
 - `recorded-build/` , the per-turn code trees (navigator RED, driver GREEN, …) for the build lane.
-- a per-scenario `README.md` with the extraction provenance.
+- a per-scenario `README.md` with the extraction provenance (which corpus scenario + turn each file came from).

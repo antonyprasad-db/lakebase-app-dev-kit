@@ -90,14 +90,19 @@ describe.each(CHAINS)("design-role LIVE chain: $dir", ({ dir, liveRole }) => {
 // EVERY per-role sweep must be able to QUALITY-score its candidates, which requires a recorded
 // baseline artifact for the role's primary output. Preservation is always-on (the whole .sftdd
 // tree is snapshotted), but the quality gate SKIPS silently when no baseline exists , so a role
-// added without one would run scoreless. Assert every chain in ROLE_CHAINS has its baseline on
-// disk under intake, so that gap fails a test rather than passing unnoticed.
+// added without one would run scoreless. Assert every chain in ROLE_CHAINS resolves a baseline on
+// disk, mirroring readReference: an explicit referenceFile is a RECORDED PER-TURN OUTPUT under the
+// CAMP (recorded-turns/, the #705 model); an absent one falls back to outputFile under the intake
+// seed corpus. So a gap fails a test rather than passing unnoticed.
 describe("per-role sweep: every role has a recorded baseline for the quality gate", () => {
   const INTAKE = join(KIT, "tests/integration/intake");
-  it.each(Object.values(ROLE_CHAINS).map((c) => [c.dir, c.referenceFile ?? c.outputFile] as const))(
-    "%s has a baseline at intake/%s",
-    (_dir, referenceFile) => {
-      expect(existsSync(join(INTAKE, referenceFile)), `missing recorded baseline for ${referenceFile} , the quality gate would silently skip this role`).toBe(true);
+  const CAMP = join(KIT, "consort/evaluation/reference-assets/stockflow");
+  it.each(Object.values(ROLE_CHAINS).map((c) => [c.dir, c.referenceFile, c.outputFile] as const))(
+    "%s has a resolvable recorded baseline",
+    (_dir, referenceFile, outputFile) => {
+      // Same precedence as readReference: referenceFile -> camp; else outputFile -> intake.
+      const resolved = referenceFile ? join(CAMP, referenceFile) : join(INTAKE, outputFile);
+      expect(existsSync(resolved), `missing recorded baseline (${referenceFile ?? outputFile}) , the quality gate would silently skip this role`).toBe(true);
     },
   );
 });

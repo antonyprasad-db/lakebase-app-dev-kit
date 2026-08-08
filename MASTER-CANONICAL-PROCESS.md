@@ -738,20 +738,42 @@ capture is driven by `examples/replay/captures/launch-stockflow-instrumented.sh`
 dispatching) with 18 turns + 11 replay-sets recorded, before being stopped to fix the transcript
 bug. It PROVED: breakdown passes, navigator-reflect passes (the `story:acs` fix), replay-sets are
 complete (pre-project/inputs/prompt/levers all present). Its orphan Lakebase project was reclaimed
-(zero orphans). The transcript fix + hard-fail audit are NOT yet in a dist that ran live.
+(zero orphans). The transcript fix + hard-fail audit landed AFTER this capture, so the next live
+launch is the first to exercise them end-to-end.
 
 ### 8.4 OPEN — resume points, in order
 1. **#734 + #732 — DONE.** author-requests + estimate-committed are named in the sanctioned
    `deterministicAgentless` allowlist (they are NOT agent turns); the runtime hard-stop
    `assertNotStrandedAgentTurn` fires at the top of `perform` for any invoke-role action that
    escapes the executor without being sanctioned. Proven (`legacy-path-guard.test.ts`). See §0.5.
-2. **#727 (the re-record) — the main remaining action:** rebuild dist (transcript fix + hard-fail
-   audit + manifest fixes + the new guard), then re-launch the capture via the launcher (§6.4).
-   Pre-flight: zero orphans, auth `AUTH_OK`, dist fresh. GATED — ~$300 + live Lakebase; needs
-   explicit go each launch. The hard-fail audit (§6.5) now protects the corpus (a dropped artifact
+2. **#727 (the re-record) — the main remaining action.** Run the pre-flight (§8.6), then launch via
+   the launcher (§6.4). GATED — ~$300 + live Lakebase; needs explicit go each launch (an earlier
+   "go" does NOT carry forward). The hard-fail audit (§6.5) protects the corpus (a dropped artifact
    aborts at that turn); the guard (§0.5) ensures no agent turn silently runs on legacy.
 3. **#684 (standing, separate):** fully retire the `commandsForAction` agent arm. Not required for
    the capture — the guard already makes any residual agent arm fail loud.
+
+### 8.6 Pre-flight — the steps to repeat before every live capture launch
+Run each of these before launching #727 (or any gated live capture); all must pass first.
+1. **Rebuild dist** — `npm run build` must be clean. Manifests + TS bundle into dist; a stale dist
+   runs old code (§8.5).
+2. **Auth** — `databricks current-user me --profile "$DATABRICKS_CONFIG_PROFILE"` returns the
+   expected user. Source the profile from `.env.local.test.config`; never inline it (#595).
+3. **Target namespace clean** — `databricks postgres list-projects --profile "$DATABRICKS_CONFIG_PROFILE"`
+   shows zero `stockflow-instrumented` projects, so the capture can claim freely. Any left over from
+   a stopped run must be reclaimed first (§8.5 orphan-reclaim).
+4. **Confirm the branch** carries the committed capture fixes.
+
+**Orphan hygiene (separate from the launch).** `postgres list-projects` also surfaces leaked
+projects from prior *optimize* sweeps (`stockflow-optimize-*`) and other efforts — live capacity
+that should be reclaimed. This is NOT a #727 prerequisite (different namespace) and is a distinct
+external-effect action needing its own go. Reclaim = one `databricks postgres delete-project
+projects/<name> --profile "$DATABRICKS_CONFIG_PROFILE"` per name. NEVER delete the standing demos:
+`stockflow`, `stockflow-interactive`, `app-dev-lakebase-demo`, `partner-asset-tracker`.
+
+**Launch** — once pre-flight passes: the ~$300 live capture via the launcher (§6.4), detached,
+tracked by log path + `postgres list-projects` (NOT the outer stamp — the launcher computes its
+own, §8.5).
 
 ### 8.5 Hard-won operational rules (do not relearn)
 - **Rebuild dist before any live run** — manifests + TS are bundled; a stale dist runs old code.
@@ -775,6 +797,10 @@ complete (pre-project/inputs/prompt/levers all present). Its orphan Lakebase pro
   breakdown declares `postTurn` hooks (`reset-breakdown` / `sync-breakdown`) — real things a step
   does that the interface did not name. Added the types, the two interface methods, the
   `STEP_CONTRACT_MEMBERS` compile-pinned allowlist, and `assertExactStepContract`.
+- **2026-08-08 (later)** — Turned §8.6 into a repeatable pre-flight checklist (rebuild dist, auth,
+  target namespace clean, branch) plus the orphan-hygiene procedure + the standing demos that must
+  never be deleted. (Replaced a one-off "today's run" writeup — the doc holds procedure, not
+  transient run state.)
 - **2026-08-08** — Transcript double-consume race fixed (peek-not-take); per-turn hard-fail record
   audit added (`assertTurnComplete`); per-agent-turn replay set added (`recordReplaySet`, §6.5);
   routing-decision stream added (`recordRoutingDecision`). Dispatch split + legacy deprecation plan

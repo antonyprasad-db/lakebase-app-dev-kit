@@ -1,0 +1,6 @@
+{
+  "handle": "navigator-reflect",
+  "candidateId": "scan-tight",
+  "rejudgeable": false,
+  "reason": "judge target not preserved: no reflect-verdict produced to judge"
+}

@@ -358,15 +358,30 @@ function hasClientWorkspace(projectDir: string): boolean {
   return existsSync(join(projectDir, "client", "package.json"));
 }
 
-function defaultRunVerify(cmd: string, cwd: string, env?: NodeJS.ProcessEnv): VerifyRun {
+/** Wall-clock bound (ms) for ONE verify pass (pytest / client build / migration). A wedged verify
+ *  subprocess , an app server that never returns, a client build stuck on a watcher/socket , must
+ *  FAIL the pass (non-zero), NOT hang the caller forever (the 4.5h driver-sweep stall, 2026-08-08).
+ *  execSync's `timeout` sends SIGTERM on expiry; the throw is caught below => passed:false. Read at
+ *  CALL time (not module load) so it is overridable via LAKEBASE_VERIFY_TIMEOUT_MS + testable; default
+ *  15min is generous for a full pytest + client-build pass. */
+function verifyTimeoutMs(): number {
+  return Math.max(1, Number(process.env.LAKEBASE_VERIFY_TIMEOUT_MS) || 900_000);
+}
+
+export function defaultRunVerify(cmd: string, cwd: string, env?: NodeJS.ProcessEnv): VerifyRun {
+  const timeout = verifyTimeoutMs();
   try {
-    const out = execSync(cmd, { cwd, stdio: "pipe", env: env ?? process.env });
+    const out = execSync(cmd, { cwd, stdio: "pipe", env: env ?? process.env, timeout, killSignal: "SIGTERM" });
     return { passed: true, output: out?.toString() ?? "" };
   } catch (err) {
-    const e = err as { stdout?: Buffer; stderr?: Buffer };
-    const output = `${e.stdout?.toString() ?? ""}${e.stderr?.toString() ?? ""}`.trimEnd();
+    const e = err as { stdout?: Buffer; stderr?: Buffer; killed?: boolean; signal?: string; code?: string };
+    // A timeout kill (killed/signal SIGTERM, or ETIMEDOUT) is a FAILED verify with a clear reason , not a
+    // silent hang. Surface it distinctly so a wedged pass is obvious in the log.
+    const timedOut = e.killed === true || e.signal === "SIGTERM" || e.code === "ETIMEDOUT";
+    const output = `${e.stdout?.toString() ?? ""}${e.stderr?.toString() ?? ""}`.trimEnd()
+      + (timedOut ? `\n[deploy] VERIFY TIMED OUT after ${timeout}ms (SIGTERM) , failing this pass rather than hanging.` : "");
     const tail = output.split("\n").slice(-30).join("\n");
-    process.stderr.write(`\n[deploy] feature-verify failed; last output:\n${tail}\n`);
+    process.stderr.write(`\n[deploy] feature-verify ${timedOut ? "TIMED OUT" : "failed"}; last output:\n${tail}\n`);
     return { passed: false, output };
   }
 }

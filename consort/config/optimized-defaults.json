@@ -1,17 +1,43 @@
 {
-  "_comment": "Auto-applied optimization winners, deep-merged onto defaultSftddConfig()'s base. Written by optimize-apply (data, never a TS rewrite) so an unattended champion walk can bake each winner into the kit default; inlined into dist at build time. roles.<role>.{model,effort} may be a scalar or a per-turn/step map keyed by TurnKey (breakdown/acs/architect/dba/test-list/ux for design; red/green/review/refactor/assess/repair for build). Edit via the apply path, not by hand.",
+  "_comment": "Auto-applied optimization winners, deep-merged onto defaultConsortConfig()'s base. Written by optimize-apply (data, never a TS rewrite) so an unattended champion walk can bake each winner into the kit default; inlined into dist at build time. roles.<role>.{model,effort} may be a scalar or a per-turn/step map keyed by TurnKey (breakdown/acs/architect/dba/test-list/ux for design; red/green/review/refactor/reflect/assess/repair for build). A per-turn map is REQUIRED where a role has multiple turns (e.g. navigator red vs assess/review) so a winner does not clobber a sibling turn. Only winners judged against a REAL recorded comparable are baked here; sweeps still judged against a manufactured slice (architect-estimator, test-strategist analysts) are held pending the reference-model correction. Edit via the apply path, not by hand.",
   "roles": {
     "spec-author": {
       "model": {
         "breakdown": "haiku"
       },
       "effort": {
-        "breakdown": "low"
+        "breakdown": "low",
+        "propose": "low",
+        "acs": "low"
+      }
+    },
+    "architect-reviewer": {
+      "effort": {
+        "architect": "low"
+      }
+    },
+    "dba": {
+      "model": {
+        "dba": "sonnet"
+      },
+      "effort": {
+        "dba": "low"
       }
     },
     "ux-designer": {
       "model": "opus",
       "effort": "low"
+    },
+    "navigator": {
+      "model": {
+        "red": "opus",
+        "reflect": "haiku"
+      },
+      "effort": {
+        "review": "low",
+        "red": "low",
+        "reflect": "low"
+      }
     }
   }
 }

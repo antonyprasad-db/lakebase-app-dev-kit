@@ -7,7 +7,12 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: ["tests/**/*.test.ts", "tests/**/*.test.js"],
-    exclude: ["templates/**", "node_modules/**", "dist/**"],
+    // The driver-green setup bundle's code-assets (green + *-seed) are SCAFFOLD FIXTURES: a recorded app
+    // tree with its own client tests, meant to run AFTER scaffold (against a real project), NOT as part of
+    // our suite , same rationale as templates/**. Exclude every seed code-asset tree so their *.test.* are
+    // never collected here (was implicitly tolerated for the green code-assets; explicit now the *-seed
+    // trees add react-importing client tests).
+    exclude: ["templates/**", "node_modules/**", "dist/**", "tests/integration/live/driver-green-setup/**/code-assets/**"],
     // The git-fixture tests (git-*, github-*) are hermetic but spawn CHAINS
     // of real git subprocesses against tempdir bare repos (init/clone/push/
     // fetch). When the pre-push hook runs the FULL suite with parallel

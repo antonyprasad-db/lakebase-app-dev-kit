@@ -13,7 +13,6 @@
 // falls through to its replay).
 
 import { ClaudeStepAgent, type AgentLevers } from "../../consort/orchestrator/agents/claude-step-agent.js";
-import { FUNCTIONAL_THRESHOLD, SEMANTIC_THRESHOLD, type SemanticJudge, type BuildOutputKind } from "../../consort/evaluation/semantic-gate.js";
 import { runExperimentsInParallel } from "../../consort/experiment/parallel-runner.js";
 import type { StepManifest } from "../../consort/orchestrator/steps/manifest.js";
 import type { StepAgent } from "../../consort/orchestrator/agents/agent-types.js";
@@ -39,6 +38,18 @@ export interface SweepableChain {
 export interface ChainRunResult {
   turns: ManifestTurn[];
   producedArtifacts: Record<string, string>;
+  /** OPTIONAL conformance verdict supplied by the runner when the design/navigator-shaped derivation
+   *  (produced outputFile + no violations + terminated at design-complete) does NOT apply , e.g. a
+   *  DRIVER-GREEN chain whose conformance is honest-GREEN (alembic + pytest vs a live branch), not a
+   *  design-complete terminal. When present it IS the gate; when absent the template derives it from
+   *  the turns. So the ONE sweep engine handles design, navigator, AND driver with no second engine. */
+  gate?: { passed: boolean; reason?: string };
+  /** OPTIONAL wall-clock duration (ms) supplied by the runner when the sweep cannot read it off a live
+   *  turn's telemetry , e.g. a DRIVER-GREEN chain that returns `turns: []` (its work is a full GREEN
+   *  cycle measured by the driver harness, not a single ManifestTurn). When present it OVERRIDES the
+   *  turn-derived `outerDurationMs` so the report can RANK candidates (the winner is the fastest
+   *  quality-holding candidate); absent => the turn-derived value stands (design/navigator chains). */
+  durationMs?: number;
 }
 
 /** The runner seam: run ONE chain with an optional per-manifest agent override + return the
@@ -53,15 +64,29 @@ export type ChainRunner = (
   levers: RoleLeverPatch,
 ) => Promise<ChainRunResult>;
 
-/** The QUALITY gate config: score the candidate's captured artifact against a recorded baseline
- *  via the injected judge (reuses the shared evaluation SemanticJudge). `kind` picks the
- *  functional-equivalence prompt (tests/code) vs the semantic-intent prompt (undefined). A
- *  candidate below `threshold` is conformant but THINNER than the baseline , not winner-eligible. */
+/** One candidate's judge verdict. `passed` is the pass bar (>= threshold for a semantic/functional
+ *  score judge; classification != "insufficient" for a discriminator/verdict-alignment judge). The
+ *  optional fields carry the discriminator/verdict-alignment detail so the report + summary can
+ *  surface WHY (a clean "equivalent"/accept is a positive, not merely "passed"). */
+export interface QualityVerdict {
+  passed: boolean;
+  score?: number;
+  classification?: string;
+  nextStep?: string;
+  reason?: string;
+}
+
+/** The MANDATORY quality gate for a sweep: a per-chain judge CLOSURE that scores a conformant
+ *  candidate's produced output against the recorded reference and returns a QualityVerdict. This is
+ *  a closure (not a fixed reference+judge pair) so EVERY chain kind supplies its OWN discriminator ,
+ *  design/red use the opus text judge, assess uses the marker-alignment discriminator, review/reflect
+ *  use the verdict-alignment judge, driver-green uses the build-code discriminator. The judge is
+ *  REQUIRED: a conformant candidate whose judge is absent, throws, or yields no verdict is DISQUALIFIED
+ *  (never silently unscored) , an LLM judge is a hard requirement of every evaluation, the only thing
+ *  that guarantees product-result equivalence. `producedArtifacts` is the candidate's captured output
+ *  tree, so a judge that needs more than the primary file (a code/verdict tree) can read it. */
 export interface QualityGate {
-  referenceText: string;
-  judge: SemanticJudge;
-  kind?: BuildOutputKind;
-  threshold?: number;
+  judgeCandidate: (args: { candidateId: string; primary: string | undefined; producedArtifacts: Record<string, string> }) => Promise<QualityVerdict>;
 }
 
 /** One candidate's measured outcome. `gatePassed` is the conformance bar (no violations + the
@@ -183,38 +208,44 @@ async function runOneCandidate(
   quality: QualityGate | undefined,
 ): Promise<SweepTrial> {
   try {
-    const { turns, producedArtifacts } = await runChain(chain, agentForCandidate(chain, candidate.levers), candidate.id, candidate.levers);
-    const { gatePassed, telemetry } = trialTelemetry(chain, candidate, turns);
+    const { turns, producedArtifacts, gate, durationMs } = await runChain(chain, agentForCandidate(chain, candidate.levers), candidate.id, candidate.levers);
+    const derived = trialTelemetry(chain, candidate, turns);
+    // A runner-supplied gate (driver-green's honest-GREEN) overrides the design/navigator-shaped
+    // derivation; otherwise the derived gate stands. ONE engine, all chain kinds.
+    const gatePassed = gate ? gate.passed : derived.gatePassed;
+    const telemetry = derived.telemetry;
+    // A runner-supplied wall-clock (driver-green returns turns:[], so the turn-derived duration is 0)
+    // OVERRIDES the derived outerDurationMs so the report can RANK the candidates. Absent => keep the
+    // turn-derived value (design/navigator chains, whose duration IS the live turn's). The report reads
+    // outerDurationMs, so this is the single place the driver's measured cycle time enters the ranking.
+    if (durationMs !== undefined) telemetry.outerDurationMs = durationMs;
     // PRESERVE the produced artifacts on the trial so the caller persists the actual outputs.
     const trial: SweepTrial = { candidateId: candidate.id, levers: candidate.levers, gatePassed, telemetry, producedArtifacts };
-    // QUALITY gate: for a conformant candidate whose PRIMARY artifact is present + a gate is
-    // configured. Score the primary file vs the baseline; below threshold = conformant-but-
-    // thinner, not winner-eligible. The primary is chain.outputFile within the preserved tree.
-    const primary = producedArtifacts[chain.outputFile];
-    if (quality && gatePassed && primary !== undefined) {
-      const threshold = quality.threshold ?? (quality.kind ? FUNCTIONAL_THRESHOLD : SEMANTIC_THRESHOLD);
-      const verdict = await quality.judge({
-        step: "test-list" as never,
-        reference: quality.referenceText,
-        candidate: primary,
-        ...(quality.kind ? { functional: quality.kind } : {}),
-      });
-      // DISCRIMINATOR verdict (a build sweep whose judge returns a classification): the pass is
-      // CLASSIFICATION-driven, not score>=threshold. A clean "equivalent"/accept is the BEST
-      // outcome (converged with no self-heal), viable "superseded-shift"/"regression"+fix also
-      // pass; only "insufficient" fails. Record the classification/nextStep so the report can
-      // surface a clean-converged candidate as a POSITIVE, not merely "passed".
-      const disc = verdict as { classification?: string; nextStep?: string };
-      if (disc.classification) {
-        trial.qualityPassed = disc.classification !== "insufficient";
-        if (trial.telemetry) {
-          trial.telemetry.semanticScore = verdict.score;
-          trial.telemetry.classification = disc.classification;
-          if (disc.nextStep) trial.telemetry.nextStep = disc.nextStep;
-        }
-      } else {
-        trial.qualityPassed = verdict.score >= threshold;
-        if (trial.telemetry) trial.telemetry.semanticScore = verdict.score;
+    // MANDATORY QUALITY JUDGE: every conformant candidate MUST be judged against the recorded
+    // reference , an LLM judge is a hard requirement of the evaluation (the only guarantee of
+    // product-result equivalence). A judge that is absent, throws, or yields no verdict DISQUALIFIES
+    // the candidate (never silently unscored). Only a candidate that failed the CONFORMANCE gate is
+    // exempt (it produced nothing conformant to judge; it's already not winner-eligible).
+    if (gatePassed) {
+      const primary = producedArtifacts[chain.outputFile];
+      if (!quality) {
+        trial.disqualified = true;
+        trial.reason = "no judge configured , an LLM judge is required for every evaluation";
+        return trial;
+      }
+      let verdict: QualityVerdict;
+      try {
+        verdict = await quality.judgeCandidate({ candidateId: candidate.id, primary, producedArtifacts });
+      } catch (e) {
+        trial.disqualified = true;
+        trial.reason = `judge threw: ${e instanceof Error ? e.message : String(e)}`;
+        return trial;
+      }
+      trial.qualityPassed = verdict.passed;
+      if (trial.telemetry) {
+        if (verdict.score !== undefined) trial.telemetry.semanticScore = verdict.score;
+        if (verdict.classification) trial.telemetry.classification = verdict.classification;
+        if (verdict.nextStep) trial.telemetry.nextStep = verdict.nextStep;
       }
     }
     return trial;

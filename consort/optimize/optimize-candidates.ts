@@ -188,13 +188,13 @@ const CHEAPER_EFFORTS: EffortLevel[] = ["low", "medium"];
  *  so the sweep keys the SAME turn the drive will resolve: specialized buildModes fold
  *  onto their base family (refactor-* -> refactor, assess-* -> assess,
  *  green-superseded -> green), a plain navigator turn is RED, a plain driver turn is
- *  GREEN. reflect returns undefined (baseline-only critic). */
+ *  GREEN. reflect is its own tunable turn (the optimize sweep measured it distinctly). */
 export function buildTurnForHandoff(handoff: HandoffLike): BuildTurn | undefined {
   const { role, buildMode } = handoff;
   if (role !== "navigator" && role !== "driver") return undefined;
   switch (buildMode) {
     case "reflect":
-      return undefined;
+      return "reflect";
     case "review":
       return "review";
     case "refactor":

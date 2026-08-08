@@ -24,6 +24,10 @@ import {
   evaluateNavigatorAssessAlignment,
   buildSupersessionDeltaPrompt,
   type DiscriminatorVerdict,
+  // The DRIVER-TURN discriminator: directional next-step navigator determination vs recorded.
+  evaluateNextStepDetermination,
+  type VerdictOutput,
+  type VerdictAlignmentOutcome,
 } from "../../consort/evaluation/semantic-gate";
 
 let kitRoot: string;
@@ -371,6 +375,96 @@ describe("evaluateNavigatorAssessAlignment: navigator verdict vs the RECORDED GR
     expect(r.passed).toBe(true);
     expect(judged).toBe(false); // non-superseded classification => classification-match is the whole gate
     rmSync(markerDir, { recursive: true, force: true });
+  });
+});
+
+describe("evaluateNextStepDetermination: driver-turn discriminator = next-step navigator determination vs recorded (directional)", () => {
+  // assess evaluator (driver-green / driver-repair): compare the candidate's assess marker to the recorded one.
+  const writeMarker = (files: Record<string, unknown>): string => {
+    const dir = mkdtempSync(join(tmpdir(), "nextstep-marker-"));
+    for (const [name, body] of Object.entries(files)) writeFileSync(join(dir, name), JSON.stringify(body));
+    return dir;
+  };
+  const equivalentDelta = async () => ({ equivalent: true, materialDifferences: [] });
+  const materialDelta = async () => ({ equivalent: false, materialDifferences: ["navigator over-flagged tests/keep.py , still-live coverage"] });
+  // A verdict-alignment stub: decisionMatch true => same issue; false => different issue.
+  const sameIssueJudge = async (): Promise<VerdictAlignmentOutcome> => ({ passed: false, decisionMatch: true, reason: "same issue still open" });
+  const diffIssueJudge = async (): Promise<VerdictAlignmentOutcome> => ({ passed: false, decisionMatch: false, reason: "a different issue" });
+
+  it("assess: identical superseded set => PASS (no delta judge needed)", async () => {
+    const rec = writeMarker({ "superseded-tests.json": { tests: ["tests/a.py", "tests/b.py"], reason: "r" } });
+    const cand = writeMarker({ "superseded-tests.json": { tests: ["tests/a.py", "tests/b.py"], reason: "r" } });
+    let judged = false;
+    const spy = async () => { judged = true; return { equivalent: false, materialDifferences: ["x"] }; };
+    const r = await evaluateNextStepDetermination({ evaluatorKind: "assess", recordedMarkerDir: rec, candidateMarkerDir: cand, deltaJudge: spy, verdictJudge: sameIssueJudge });
+    expect(r.verdict).toBe("pass");
+    expect(judged).toBe(false);
+    rmSync(rec, { recursive: true, force: true }); rmSync(cand, { recursive: true, force: true });
+  });
+
+  it("assess: candidate CLEAN (equivalent) where recorded found superseded => PASS-WITH-HONORS (fewer issues, flagged)", async () => {
+    const rec = writeMarker({ "superseded-tests.json": { tests: ["tests/a.py", "tests/b.py"], reason: "r" } });
+    const cand = mkdtempSync(join(tmpdir(), "nextstep-empty-")); // no marker => equivalent
+    const r = await evaluateNextStepDetermination({ evaluatorKind: "assess", recordedMarkerDir: rec, candidateMarkerDir: cand, deltaJudge: equivalentDelta, verdictJudge: sameIssueJudge });
+    expect(r.verdict).toBe("pass-with-honors");
+    expect(r.betterThanRecorded).toBe(true);
+    rmSync(rec, { recursive: true, force: true }); rmSync(cand, { recursive: true, force: true });
+  });
+
+  it("assess: candidate strict SUBSET (delta not equivalent) => PASS-WITH-HONORS (fewer, flagged)", async () => {
+    const rec = writeMarker({ "superseded-tests.json": { tests: ["tests/a.py", "tests/b.py", "tests/c.py"], reason: "r" } });
+    const cand = writeMarker({ "superseded-tests.json": { tests: ["tests/a.py", "tests/b.py"], reason: "r" } }); // ⊂
+    const r = await evaluateNextStepDetermination({ evaluatorKind: "assess", recordedMarkerDir: rec, candidateMarkerDir: cand, deltaJudge: materialDelta, verdictJudge: sameIssueJudge });
+    expect(r.verdict).toBe("pass-with-honors");
+    rmSync(rec, { recursive: true, force: true }); rmSync(cand, { recursive: true, force: true });
+  });
+
+  it("assess: candidate OVER-flags (superset, material) => FAIL (more issues)", async () => {
+    const rec = writeMarker({ "superseded-tests.json": { tests: ["tests/a.py"], reason: "r" } });
+    const cand = writeMarker({ "superseded-tests.json": { tests: ["tests/a.py", "tests/keep.py"], reason: "r" } }); // ⊋
+    const r = await evaluateNextStepDetermination({ evaluatorKind: "assess", recordedMarkerDir: rec, candidateMarkerDir: cand, deltaJudge: materialDelta, verdictJudge: sameIssueJudge });
+    expect(r.verdict).toBe("fail");
+    rmSync(rec, { recursive: true, force: true }); rmSync(cand, { recursive: true, force: true });
+  });
+
+  it("assess: candidate escalates to REGRESSION where recorded was superseded => FAIL (worse)", async () => {
+    const rec = writeMarker({ "superseded-tests.json": { tests: ["tests/a.py"], reason: "r" } });
+    const cand = writeMarker({ "regression-assessment.json": { diagnosis: "bug", fixDirective: "fix it" } });
+    const r = await evaluateNextStepDetermination({ evaluatorKind: "assess", recordedMarkerDir: rec, candidateMarkerDir: cand, deltaJudge: equivalentDelta, verdictJudge: sameIssueJudge });
+    expect(r.verdict).toBe("fail");
+    rmSync(rec, { recursive: true, force: true }); rmSync(cand, { recursive: true, force: true });
+  });
+
+  it("review (driver-refactor): candidate post-refactor review CLEAN (refactor=false) => PASS (issue resolved)", async () => {
+    const directive: VerdictOutput = { refactor: true, notes: "client still uses inventory_code" };
+    const candidate: VerdictOutput = { refactor: false, notes: "swapped to batch/serial; clean" };
+    let judged = false;
+    const spy = async () => { judged = true; return { passed: false, decisionMatch: true, reason: "x" }; };
+    const r = await evaluateNextStepDetermination({ evaluatorKind: "review", recordedReviewDirective: directive, candidateReview: candidate, deltaJudge: equivalentDelta, verdictJudge: spy });
+    expect(r.verdict).toBe("pass");
+    expect(judged).toBe(false); // clean short-circuits, no alignment spawn
+  });
+
+  it("review (driver-refactor): candidate STILL refactor=true, same issue => FAIL (unresolved)", async () => {
+    const directive: VerdictOutput = { refactor: true, notes: "client still uses inventory_code" };
+    const candidate: VerdictOutput = { refactor: true, notes: "client still uses inventory_code" };
+    const r = await evaluateNextStepDetermination({ evaluatorKind: "review", recordedReviewDirective: directive, candidateReview: candidate, deltaJudge: equivalentDelta, verdictJudge: sameIssueJudge });
+    expect(r.verdict).toBe("fail");
+    expect(r.reason).toMatch(/unresolved|same issue/i);
+  });
+
+  it("review (driver-refactor): candidate refactor=true for a DIFFERENT issue => FAIL (introduced/left a new problem)", async () => {
+    const directive: VerdictOutput = { refactor: true, notes: "client still uses inventory_code" };
+    const candidate: VerdictOutput = { refactor: true, notes: "unrelated token-class problem" };
+    const r = await evaluateNextStepDetermination({ evaluatorKind: "review", recordedReviewDirective: directive, candidateReview: candidate, deltaJudge: equivalentDelta, verdictJudge: diffIssueJudge });
+    expect(r.verdict).toBe("fail");
+    expect(r.reason).toMatch(/different issue|new problem/i);
+  });
+
+  it("throws when an assess evaluation is missing its marker dirs (missing reference = invalid, never silent)", async () => {
+    await expect(
+      evaluateNextStepDetermination({ evaluatorKind: "assess", deltaJudge: equivalentDelta, verdictJudge: sameIssueJudge }),
+    ).rejects.toThrow(/requires recordedMarkerDir/);
   });
 });
 

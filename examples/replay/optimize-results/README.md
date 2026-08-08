@@ -27,9 +27,8 @@ each `summary.json` and the kit commit log.
 
 ## Chain-sweep runs (`runs/`) — repeat + compare
 
-The per-CHAIN lever sweep (`scripts/optimize-role.sh --chains <set|list>`, or
-`examples/replay/optimize-live-run.sh --chains …`) writes each run to a
-timestamped subdir here:
+The per-CHAIN lever sweep (`scripts/optimize-role.sh --chains <set|list>` , the
+one launcher) writes each run to a timestamped subdir here:
 
 ```
 optimize-results/

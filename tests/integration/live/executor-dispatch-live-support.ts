@@ -35,7 +35,12 @@ const INTAKE = join(KIT, "tests/integration/intake");
 /** The shipped reference-asset pin's recorded-artifacts , the FAITHFUL recorded upstream the
  *  equivalence tier seeds from (so a turn is fed the same inputs the corpus turn consumed, and can
  *  reproduce the feature-scoped artifact). NOT used by the dispatch proof (which seeds minimal). */
-const PIN_ARTIFACTS = join(KIT, "consort/evaluation/reference-assets/stockflow/recorded-artifacts");
+const PIN_ARTIFACTS_REL = "consort/evaluation/reference-assets/stockflow/recorded-artifacts";
+const PIN_ARTIFACTS = join(KIT, PIN_ARTIFACTS_REL);
+/** The camp's RECORDED PER-TURN OUTPUTS (recorded-turns/<NNNN>-<role>/...), each extracted verbatim
+ *  from the corpus mine. The #705 reference model: an isolated turn is judged against the SAME turn's
+ *  recorded output (matching scope by construction), never a hand-carved slice of the accreted artifact. */
+const PIN_TURNS = "consort/evaluation/reference-assets/stockflow/recorded-turns";
 export const FEATURE = "F1-stock-visibility";
 export const STORY = "S1-file-stock";
 
@@ -76,12 +81,11 @@ export interface DesignLiveSpec {
    *  against (per-story like-for-like, not the feature-aggregate union). Omitted => feature-aggregate. */
   equivalenceStoryId?: string;
   /** OPTIONAL absolute reference-path(s) for the EQUIVALENCE judge, computed from the kit root. Used
-   *  for STORY-SCOPED turns (architect, test-strategist) whose manifest reads only ONE story's ACs
-   *  (source: story:acs) but whose recorded artifact is the FEATURE-level accretion across all
-   *  stories' turns , a single per-story turn can only produce that story's slice, so the faithful
-   *  reference is the per-story SLICE (the optimize path's referenceFile precedent, e.g.
-   *  test-list.S1-slice.json), not the whole-feature recorded artifact. Omitted => the resolved
-   *  recorded reference at the step. */
+   *  for turns whose accreted recorded artifact is a WIDER scope than the isolated turn produces.
+   *  #705: the faithful reference is the RECORDED PER-TURN OUTPUT , the exact file the corresponding
+   *  corpus turn wrote, extracted verbatim into the camp under recorded-turns/<NNNN>-<role>/... , NOT
+   *  a hand-carved slice of the accreted artifact (see feedback_judge_against_recorded_turn_output +
+   *  the camp README). Omitted => the resolved recorded reference at the step. */
   equivalenceReferencePaths?(kitRoot: string): string[];
 }
 
@@ -270,10 +274,14 @@ export const DESIGN_LIVE_SPECS: Partial<Record<TurnKey, DesignLiveSpec>> = {
     // spec-author-slice holds exactly what turn 0006 wrote (id/given/when/then/status/layer
     // [+independence], NO architectural_notes) , the like-role-for-like-role reference. Proven by the
     // per-turn diff: 0006 keys lack architectural_notes; 0007 adds it.
+    // #705: judge against the RECORDED PER-TURN OUTPUT , the acs the spec-author turn 0006 actually
+    // wrote (extracted verbatim into the camp under recorded-turns/), NOT a hand-carved slice. Turn
+    // 0006's acs/ predates the architect's per-AC architectural_notes (added by a later turn), so its
+    // scope is exactly the like-role-for-like-role reference by construction.
     equivalenceReferencePaths: (kitRoot) => [
-      join(kitRoot, "tests/integration/intake/features", FEATURE, "stories", STORY, "acs-spec-author-slice", "AC1-file-stock-record.json"),
-      join(kitRoot, "tests/integration/intake/features", FEATURE, "stories", STORY, "acs-spec-author-slice", "AC2-retrieve-stock-record.json"),
-      join(kitRoot, "tests/integration/intake/features", FEATURE, "stories", STORY, "acs-spec-author-slice", "AC3-collision-resolved-at-write.json"),
+      join(kitRoot, PIN_TURNS, "0006-spec-author", "acs", "AC1-file-stock-record.json"),
+      join(kitRoot, PIN_TURNS, "0006-spec-author", "acs", "AC2-retrieve-stock-record.json"),
+      join(kitRoot, PIN_TURNS, "0006-spec-author", "acs", "AC3-collision-resolved-at-write.json"),
     ],
     seed: [
       { rel: `features/${FEATURE}/stories/${STORY}/story.json`, from: `features/${FEATURE}/stories/${STORY}/story.json` },
@@ -314,18 +322,19 @@ export const DESIGN_LIVE_SPECS: Partial<Record<TurnKey, DesignLiveSpec>> = {
       "```agent-report\n" +
       `[{ "level": "info", "event": "artifact.written", "message": "<one line: what you wrote>" }]\n` +
       "```\n",
-    // EQUIVALENCE: architect-reviewer runs PER STORY (source: story:acs), accreting the feature
-    // architecture across stories in the real drive. So seed S1's FULL recorded ACs (file/retrieve/
-    // collision , the dispatch proof used one thin inline AC) + judge against a per-story SLICE of
-    // the recorded architecture (S1's PIs: unique/not-null/non-negative/upsert-atomic; PI5 migration-
-    // reversible is F6's refactor, not S1). Not the whole-feature architecture a single turn never builds.
+    // EQUIVALENCE: architect-reviewer authors the F1 feature architecture. In the recorded corpus it
+    // was authored in ONE turn (0007-architect-reviewer) whose output IS the accreted architecture.json
+    // byte-for-byte (verified) , F1 architecture is not accreted across stories. So seed S1's FULL
+    // recorded ACs + judge against the RECORDED PER-TURN OUTPUT = the accreted architecture.json (all 5
+    // PIs, incl. PI5 migration-reversible). The prior architecture.S1-slice was a hand-carved 4-PI
+    // subset that DROPPED PI5 , exactly the manufactured-reference mistake #705 removes.
     equivalenceSeed: [
       { rel: `features/${FEATURE}/stories/${STORY}/acs/AC1-file-stock-record.json`, fromAbs: join(PIN_ARTIFACTS, `features/${FEATURE}/stories/${STORY}/acs/AC1-file-stock-record.json`) },
       { rel: `features/${FEATURE}/stories/${STORY}/acs/AC2-retrieve-stock-record.json`, fromAbs: join(PIN_ARTIFACTS, `features/${FEATURE}/stories/${STORY}/acs/AC2-retrieve-stock-record.json`) },
       { rel: `features/${FEATURE}/stories/${STORY}/acs/AC3-collision-resolved-at-write.json`, fromAbs: join(PIN_ARTIFACTS, `features/${FEATURE}/stories/${STORY}/acs/AC3-collision-resolved-at-write.json`) },
       { rel: "nfrs.md", from: "nfrs.md" },
     ],
-    equivalenceReferencePaths: (kitRoot) => [join(kitRoot, "tests/integration/intake/features", FEATURE, "architecture.S1-slice.json")],
+    equivalenceReferencePaths: (kitRoot) => [join(kitRoot, PIN_ARTIFACTS_REL, `features/${FEATURE}/architecture.json`)],
   },
   estimate: {
     name: "architect-estimator",
@@ -345,11 +354,12 @@ export const DESIGN_LIVE_SPECS: Partial<Record<TurnKey, DesignLiveSpec>> = {
       `[{ "level": "info", "event": "artifact.written", "message": "<one line: what you wrote>" }]\n` +
       "```\n",
     // EQUIVALENCE: the estimate turn sizes the sprint PROPOSAL candidates (FP1-5) from feature-
-    // proposals.md , seed the RECORDED proposals so the candidate set matches. Judge against the
-    // FP-slice of recorded estimates (the F1/F6 entries in the full recorded file were added later by
-    // sync-backlog from committed-feature sizes, NOT this estimate turn , excluding them is faithful).
+    // proposals.md , seed the RECORDED proposals so the candidate set matches. #705: judge against the
+    // RECORDED PER-TURN OUTPUT , the estimate turn 0001 actually wrote (extracted into the camp), whose
+    // scope matches by construction (the F1/F6 entries in the accreted file were added later by
+    // sync-backlog, NOT this turn). NOT a hand-carved FP-slice.
     equivalenceSeed: [{ rel: "planning/feature-proposals.md", fromAbs: join(PIN_ARTIFACTS, "planning/feature-proposals.md") }],
-    equivalenceReferencePaths: (kitRoot) => [join(kitRoot, "tests/integration/intake/planning/estimates.FP-slice.json")],
+    equivalenceReferencePaths: (kitRoot) => [join(kitRoot, PIN_TURNS, "0001-architect-reviewer-estimate", "planning", "estimates.json")],
   },
   dba: {
     name: "dba",
@@ -396,12 +406,11 @@ export const DESIGN_LIVE_SPECS: Partial<Record<TurnKey, DesignLiveSpec>> = {
       "```agent-report\n" +
       `[{ "level": "info", "event": "artifact.written", "message": "<one line: what you wrote>" }]\n` +
       "```\n",
-    // EQUIVALENCE: test-strategist runs PER STORY (source: story:acs), producing the story's slice of
-    // the feature master test-list. Seed S1's FULL recorded ACs (file/retrieve/collision , the dispatch
-    // used one thin inline AC) + the RECORDED architecture + db-design (so it covers every recorded PI),
-    // and judge against the recorded S1 SLICE of the test-list (test-list.S1-slice.json, 17 items across
-    // S1's 3 ACs + the 5 persistence-invariant fitness tests) , NOT the whole-feature master a single
-    // per-story turn never builds.
+    // EQUIVALENCE: test-strategist authors the feature test-list. #705: judge against the RECORDED
+    // PER-TURN OUTPUT , the test-list turn 0018-driver-repair actually wrote (extracted into the camp),
+    // whose scope matches this isolated turn by construction. Seed S1's FULL recorded ACs (the dispatch
+    // used one thin inline AC) + the RECORDED architecture + db-design (so it covers every recorded PI).
+    // NOT a hand-carved S1 slice of the accreted master.
     equivalenceSeed: [
       { rel: `features/${FEATURE}/stories/${STORY}/acs/AC1-file-stock-record.json`, fromAbs: join(PIN_ARTIFACTS, `features/${FEATURE}/stories/${STORY}/acs/AC1-file-stock-record.json`) },
       { rel: `features/${FEATURE}/stories/${STORY}/acs/AC2-retrieve-stock-record.json`, fromAbs: join(PIN_ARTIFACTS, `features/${FEATURE}/stories/${STORY}/acs/AC2-retrieve-stock-record.json`) },
@@ -409,7 +418,7 @@ export const DESIGN_LIVE_SPECS: Partial<Record<TurnKey, DesignLiveSpec>> = {
       { rel: `features/${FEATURE}/architecture.json`, fromAbs: join(PIN_ARTIFACTS, `features/${FEATURE}/architecture.json`) },
       { rel: `features/${FEATURE}/db-design.json`, fromAbs: join(PIN_ARTIFACTS, `features/${FEATURE}/db-design.json`) },
     ],
-    equivalenceReferencePaths: (kitRoot) => [join(kitRoot, "tests/integration/intake/features", FEATURE, "test-list.S1-slice.json")],
+    equivalenceReferencePaths: (kitRoot) => [join(kitRoot, PIN_TURNS, "0018-driver-repair", "test-list.json")],
   },
   ux: {
     name: "ux-designer",

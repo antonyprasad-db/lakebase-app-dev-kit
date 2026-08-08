@@ -77,14 +77,17 @@ describe("resolveConsortSettings: defaults when no file + no env", () => {
     expect(s.models.navigator).toBe("sonnet");
     expect(s.models["spec-author"]).toBe("opus");
     expect(s.effortFor("navigator", "review")).toBe("low");
-    expect(s.effortFor("navigator", "red")).toBe("default");
+    // navigator RED was swept (winner opus+low, judged against the recorded RED test-list),
+    // so its per-turn effort default is now low; navigator's base model stays sonnet, RED's
+    // per-turn model is opus (see the model-tiering block).
+    expect(s.effortFor("navigator", "red")).toBe("low");
     expect(s.effortFor("driver", "green")).toBe("default");
-    // spec-author's effort is keyed on the STEP, not the role: the optimize sweep
-    // measured the BREAKDOWN step faster at low effort, so ONLY breakdown defaults
-    // low; the per-story AC-authoring step (a different task) keeps the model default
-    // until its own sweep. "Apply to the step, not the role."
+    // spec-author's effort is keyed on the STEP, not the role. The optimize sweep measured
+    // BREAKDOWN (haiku+low), PROPOSE (opus+low), and the per-story ACS step (opus+low) against
+    // real recorded comparables, so each defaults low. "Apply to the step, not the role."
     expect(s.effortFor("spec-author", "breakdown")).toBe("low");
-    expect(s.effortFor("spec-author", "acs")).toBe("default");
+    expect(s.effortFor("spec-author", "propose")).toBe("low");
+    expect(s.effortFor("spec-author", "acs")).toBe("low");
     expect(s.effortFor("spec-author")).toBe("default"); // no key -> scalar default
     // test-strategist's TEST-LIST step defaults low: the #556 quality-gated sweep measured
     // effort=low on sonnet -89% wall (71.5s vs 679.9s) with quality 0.90 (ABOVE the sonnet
@@ -177,26 +180,29 @@ describe("resolveConsortSettings: per-turn model tiering (driver GREEN/REFACTOR 
     // recommended model finishes in fewer round-trips, faster in wall-clock.
     expect(s.modelFor("driver", "green")).toBe("sonnet");
     expect(s.modelFor("driver", "refactor")).toBe("haiku");
-    // navigator + design roles keep their scalar recommended model.
-    expect(s.modelFor("navigator", "red")).toBe("sonnet");
+    // navigator RED's applied winner is opus (per-turn map); the navigator base scalar
+    // stays sonnet (assess/review ride it). Design roles keep their scalar recommended model.
+    expect(s.modelFor("navigator", "red")).toBe("opus");
+    expect(s.modelFor("navigator")).toBe("sonnet"); // base scalar unchanged
     expect(s.modelFor("architect-reviewer")).toBe("opus");
   });
 
-  it("defaultConsortConfig applies the spec-author winner PER STEP: breakdown haiku+low, AC-authoring untouched", () => {
-    // The optimize sweep measured the BREAKDOWN step (haiku+low, -44%). The winner is
-    // applied keyed to `breakdown` ONLY , the per-story AC-authoring step is a
-    // different task and keeps the recommended model + default effort until its own
-    // sweep. This is the "apply to the step, not the role" invariant.
+  it("defaultConsortConfig applies the spec-author winners PER STEP: breakdown haiku+low, ACS opus+low", () => {
+    // The optimize sweep measured each step distinctly. BREAKDOWN won at haiku+low; the
+    // per-story ACS step won at opus+low (judged against the recorded ACS output). So the
+    // MODEL winner differs per step (haiku for breakdown, recommended opus for acs) while
+    // both drop to low effort. This is the "apply to the step, not the role" invariant.
     writeConsortConfig(proj, defaultConsortConfig());
     const s = resolveConsortSettings({ projectDir: proj });
-    // breakdown step: the applied winner.
+    // breakdown step: the applied winner (cheaper model + low effort).
     expect(s.modelFor("spec-author", "breakdown")).toBe("haiku");
     expect(s.effortFor("spec-author", "breakdown")).toBe("low");
-    // AC-authoring step: NOT the breakdown winner , recommended model, default effort.
+    // ACS step: recommended model, but its own swept low-effort winner.
     expect(s.modelFor("spec-author", "acs")).toBe("opus");
-    expect(s.effortFor("spec-author", "acs")).toBe("default");
-    // base (no key) also stays recommended , the breakdown lever does not leak.
+    expect(s.effortFor("spec-author", "acs")).toBe("low");
+    // base (no key) stays recommended + default , a per-step lever does not leak to the scalar.
     expect(s.modelFor("spec-author")).toBe("opus");
+    expect(s.effortFor("spec-author")).toBe("default");
   });
 });
 
@@ -311,7 +317,9 @@ describe("defaultConsortConfig + write/load round-trip", () => {
     expect(wrote).toBe(true);
     const loaded = loadConsortConfig(proj);
     expect(loaded?.version).toBe(1);
-    expect(loaded?.roles?.navigator?.model).toBe("sonnet");
+    // navigator.model is a per-turn map after the RED (opus) + REFLECT (haiku) winners applied;
+    // the base (recommended sonnet) is reached via the resolver's fallback, not a scalar here.
+    expect(loaded?.roles?.navigator?.model).toEqual({ red: "opus", reflect: "haiku" });
     expect((loaded?.roles?.navigator?.effort as { review?: string })?.review).toBe("low");
     // Does not overwrite without force.
     expect(writeConsortConfig(proj, defaultConsortConfig())).toBe(false);

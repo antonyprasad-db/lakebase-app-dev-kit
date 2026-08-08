@@ -54,13 +54,18 @@ export interface RoleChain {
   outputFile: string;
   /** The live-turn prompt handed to the real agent. */
   prompt: string;
-  /** OPTIONAL quality-gate reference override (intake-relative). When the recorded `outputFile`
-   *  is a WIDER scope than what the isolated turn is given the inputs to produce (e.g. the
-   *  test-strategist writes the feature MASTER test-list, but a per-story chain is seeded ONE
-   *  story's ACs), the discriminator must score against the matching SLICE, not the full artifact
-   *  , else every candidate scores "thin" for a scope reason, not a quality reason. Absent =>
-   *  score against `outputFile` (the default; the produced artifact IS the whole recorded one). */
+  /** OPTIONAL quality-gate reference override , the RECORDED PER-TURN OUTPUT this isolated turn is
+   *  judged against, resolved relative to the CAMP root (consort/evaluation/reference-assets/stockflow).
+   *  When the accreted `outputFile` (the whole-feature artifact merged across every story/turn) is a
+   *  WIDER scope than what the isolated turn was given the inputs to produce, judge against the EXACT
+   *  output the corresponding recorded turn wrote (extracted verbatim under recorded-turns/<NNNN>-<role>),
+   *  NOT a hand-carved slice (see feedback_judge_against_recorded_turn_output + the camp README).
+   *  Absent => score against `outputFile` under recorded-artifacts (the produced artifact IS the whole
+   *  recorded one, e.g. the F1 architecture is authored in one turn so it equals the accreted form). */
   referenceFile?: string;
+  /** Where `referenceFile` is resolved from: "camp" (default , the extracted recorded-turns/ output)
+   *  or "intake" (legacy, the seed corpus). Only "camp" is used now; the field documents intent. */
+  referenceRoot?: "camp" | "intake";
 }
 
 /** The per-role chain catalogue, keyed by a short handle (also the live role). Each maps 1:1 to a
@@ -112,11 +117,11 @@ export const ROLE_CHAINS: Record<string, RoleChain> = {
     name: "test-strategist per-story",
     dir: "test-strategist-chain",
     outputFile: `features/${FEATURE}/test-list.json`,
-    // Scored against the S1 SLICE of the recorded master, not the full 32-item/3-story master:
-    // this chain is invoked for story S1 (the real drive's per-story invocation unit) and seeded
-    // S1's ACs, so the faithful reference is the S1-scoped items. All 5 persistence invariants are
-    // covered within S1's slice, so an S1 test-list still passes the coverage gate.
-    referenceFile: `features/${FEATURE}/test-list.S1-slice.json`,
+    // Judged against the RECORDED PER-TURN OUTPUT , the test-list turn 0018-driver-repair actually
+    // wrote (extracted verbatim into the camp). NOT a hand-carved slice: the recorded turn's own
+    // output is the honest reference, matching this isolated turn's scope by construction (same
+    // inputs -> same scope). See feedback_judge_against_recorded_turn_output.
+    referenceFile: `recorded-turns/0018-driver-repair/test-list.json`,
     prompt:
       `You are the Test Strategist, invoked for story ${STORY}. From the provided inputs (ALL of ` +
       `story ${STORY}'s ACs + architecture.json + db-design.json, in this prompt , do NOT search the ` +
@@ -147,12 +152,12 @@ export const ROLE_CHAINS: Record<string, RoleChain> = {
     dir: "architect-estimator-chain",
     outputFile: `planning/estimates.json`,
     // The isolated estimate turn is seeded ONLY the sprint proposals (feature-proposals.md), so it can
-    // produce ONLY the sprint-candidate (FP) estimates. The recorded full estimates.json ALSO carries
-    // the F1/F6 committed-feature sizes that sync-backlog added LATER (not this turn), so scoring
-    // against it penalizes every candidate , even the baseline , for a SCOPE reason, not quality (the
-    // observed all-candidates-0.6x quality-FAIL). Judge against the FP-slice, matching the isolated
-    // turn's scope (the DESIGN_LIVE_SPECS.estimate.equivalenceReferencePaths precedent).
-    referenceFile: `planning/estimates.FP-slice.json`,
+    // produce ONLY the sprint-candidate (FP) estimates. The accreted estimates.json ALSO carries the
+    // F1/F6 committed-feature sizes that sync-backlog added LATER (not this turn). Judge against the
+    // RECORDED PER-TURN OUTPUT , the estimate turn 0001-architect-reviewer-estimate actually wrote
+    // (extracted verbatim into the camp), whose scope matches this isolated turn by construction. NOT
+    // a hand-carved slice. See feedback_judge_against_recorded_turn_output.
+    referenceFile: `recorded-turns/0001-architect-reviewer-estimate/planning/estimates.json`,
     prompt:
       `You are the Architect estimating the sprint's candidate features. From the provided ` +
       `feature-proposals.md (in this prompt), t-shirt size each candidate. WRITE exactly this file, ` +
