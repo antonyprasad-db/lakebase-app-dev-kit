@@ -819,8 +819,19 @@ the only remaining step is the launch (gated — live Lakebase, needs explicit g
    build FAILURE leaves dist EMPTY. The build was unblocked by dropping the broken `optimize-role.cli`
    entry from `tsup.config.ts` (it imported an uncommitted `./driver-sweep.js`, #749); if the build
    fails again, dist is empty and the capture cannot run — fix the build before launching.
-2. **Pre-flight** — auth OK; capture namespace has zero orphan `stockflow-instrumented` projects; the
-   branch carries the fixes.
+2. **Pre-flight** —
+   - **Profile: the ONE source is `.env.local.test.config` (`DATABRICKS_CONFIG_PROFILE`).** The launcher
+     resolves its profile + host from that file (§8.6); NEVER hand-pick a profile from a shell
+     profile-list, the SessionStart context, or `.databrickscfg` — those list every profile on the
+     machine, most of them wrong for this capture. Read the one value the launcher will use:
+     `grep DATABRICKS_CONFIG_PROFILE .env.local.test.config`.
+   - **Validate the LIVE token, not just the config.** `databricks auth describe` only reads the file and
+     resolves a host — it passes even when the cached credential is dead. Mint a real token against the
+     resolved profile: `databricks current-user me --profile "<that profile>"`. Only a returned
+     `userName` proves auth; a `stored credentials from older CLI versions` / `error getting token`
+     failure means re-login is needed (`databricks auth login --profile "<that profile>"`, interactive)
+     BEFORE launching — a dead token half-provisions then orphans cloud resources.
+   - Capture namespace has zero orphan `stockflow-instrumented` projects; the branch carries the fixes.
 3. **Launch** `examples/replay/captures/launch-stockflow-instrumented.sh` (detached; tracked by log +
    `postgres list-projects`).
 4. **Verify (live-only, can't be proven hermetically):** correspondence.jsonl has TWO kickoff entries
