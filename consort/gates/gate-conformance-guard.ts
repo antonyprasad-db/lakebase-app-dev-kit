@@ -240,7 +240,12 @@ function nfrCoverageReason(consortDir: string, featureId: string): string | null
   // so a feature that touches no code a project-wide NFR governs is not forced to
   // manufacture nominal coverage (it is upheld by the feature that owns it).
   const r = checkNfrCoverage(nfrsContent, arch, projectBriefRefs(consortDir));
-  return r.ok ? null : `NFR coverage failed: ${r.violations.join("; ")}`;
+  if (r.ok) return null;
+  // Name WHICH nfrs.md (feature override vs project) + that this HARD-BLOCKS the spec gate, so the
+  // HIL/agent sees the exact uncovered Required NFR and where it was declared , the architect must add
+  // a matching brief_ref (or nfr_out_of_scope) before the gate opens.
+  const src = nfrsFile === featureNfrs ? `per-feature nfrs.md (features/${featureId}/nfrs.md)` : "project nfrs.md";
+  return `NFR coverage HARD-BLOCK (spec gate): architecture.json does not cover every ## Required NFR in the ${src} , ${r.violations.join("; ")}. Add a matching brief_ref on architecture.json (or declare nfr_out_of_scope).`;
 }
 
 /**

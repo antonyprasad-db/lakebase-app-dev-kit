@@ -66,16 +66,22 @@ response side is faithful (extend human-proxy to write its per-question answers,
   pause for the HIL (interactive) or are answered by the proxy (headless), consistent with the existing
   author-requests/gate touchpoints.
 
-### D3. NFR coverage — hard-block (Decision 2 = hard-block)
-- When `nfrs.md` exists, the Architect's `architecture.json` MUST cover every `## Required` NFR. An
-  uncovered Required NFR HARD-BLOCKS immediately (fail loud at the architect turn / conformance), not a
-  warn-then-gate. Uses Decision-1's `brief_ref` (already landed) for the coverage match.
+### D3. NFR coverage — hard-block (REVISED after code review; user re-confirmed)
+FINDING: NFR Required-coverage is ALREADY built + wired. `checkNfrCoverage` (artifact-conformance.ts:327)
+runs both in the aggregate conformance (`:945`) and as the SPEC-GATE condition `nfrCoverageReason`
+(gate-conformance-guard.ts:225) , so a feature CANNOT pass the design/spec gate with an uncovered
+`## Required` NFR. That gate block IS the hard block. The design doc's "step 5 remains" was stale.
+DECISION (user): KEEP the spec-gate block. Do NOT add an immediate architect-turn fail-loud , the
+existing gate timing is deliberate: coverage is only judgeable once architecture.json exists AND
+sibling-feature coverage + nfr_out_of_scope are considered (a project NFR may be owned by a sibling
+feature), which a "fail the moment architecture.json misses X" would wrongly trip. Stage 3 = CONFIRM
+the wiring + add regression tests + strengthen the failure message. No behavior change to the check.
 
-### D4. nfrs scope — project + per-feature override (Decision 3)
-- Project-level `nfrs.md` (`.consort/nfrs.md`) is the base; an optional per-feature
-  `.consort/features/<F>/nfrs.md` overrides/extends it. Resolver: feature override wins where present,
-  else project. Conformance + coverage read the resolved set. (New `ac:`/feature scope already exists
-  from the route-contract work for input resolution patterns.)
+### D4. nfrs scope — project + per-feature override (ALREADY built)
+FINDING: both path builders exist (`nfrsMd` project, `featureNfrsMd` per-feature, consort-paths.ts:99/150)
+and BOTH consumers already resolve the pair: the aggregate conformance iterates
+`[nfrs.md, features/<F>/nfrs.md]` (`:943`), and the gate reason prefers feature-else-project
+(`gate-conformance-guard.ts:230`). D4 is DONE. Stage 3 = add a regression test pinning the precedence.
 
 ### D5. Launcher — drive from /sprint, TWO sprints, proxy says yes to the whole lifecycle (step 6)
 - Rebuild the capture launcher (examples/replay/captures/launch-stockflow-instrumented.sh +

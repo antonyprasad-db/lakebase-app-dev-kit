@@ -326,7 +326,7 @@ describe("drainGatesAsHumanProxy: hard-blocks non-conformant artifacts (Layer 2)
     writeFileSync(join(fdir, "architecture.json"), JSON.stringify({ nfrs: [] }));
     const blocked = drainGatesAsHumanProxy({ featureId: FEATURE_ID, consortDir: tdd });
     expect(blocked.approved).not.toContain("spec");
-    expect(blocked.skipped.find((s) => s.gate === "spec")?.reason ?? "").toMatch(/NFR coverage failed.*R1/i);
+    expect(blocked.skipped.find((s) => s.gate === "spec")?.reason ?? "").toMatch(/NFR coverage HARD-BLOCK.*R1/i);
 
     // Cover R1 via a brief_ref -> spec approves.
     writeFileSync(

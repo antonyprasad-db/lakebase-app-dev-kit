@@ -169,4 +169,36 @@ describe("scanFeatureConformance: enforces NFR coverage once architecture.json e
     const cov = report.entries.find((e) => e.artifact.includes("NFR coverage"));
     expect(cov?.ok).toBe(true);
   });
+
+  // D4 (per-feature nfrs override): a feature-level nfrs.md is ENFORCED alongside the project one ,
+  // its Required ids must ALSO be covered by this feature's architecture.json. Pins the precedence
+  // (both are scanned; the feature file is not ignored) so the override never silently drops coverage.
+  it("enforces a per-feature nfrs.md's Required NFRs (feature override is scanned, not ignored)", () => {
+    writeFileSync(join(tdd, "nfrs.md"), CONFORMANT_NFRS); // project R1 + R2
+    const FEATURE_NFRS = [
+      "# NFRs", "", "## Required",
+      "- R3: per-feature , tenant isolation enforced at the row level",
+      "", "## Preferences", "- none", "", "## Out of bounds", "- none", "",
+    ].join("\n");
+    writeFileSync(join(fdir, "nfrs.md"), FEATURE_NFRS); // feature adds R3
+    // Architecture covers the project's R1+R2 but NOT the feature's R3.
+    writeFileSync(join(fdir, "architecture.json"), ARCH(["R1", "R2"]));
+    const report = scanFeatureConformance(tdd, FEATURE);
+    expect(report.ok).toBe(false);
+    // The FEATURE-level nfrs.md entry is present + flags R3 (proves the per-feature file is enforced).
+    const featureCov = report.entries.find((e) => e.artifact.includes("features/") && e.artifact.includes("NFR coverage"));
+    expect(featureCov, "the per-feature nfrs.md coverage entry must exist").toBeDefined();
+    expect(featureCov?.ok).toBe(false);
+    expect(featureCov?.violations.join(" ")).toMatch(/R3 .*not covered/);
+  });
+
+  it("passes when the per-feature nfrs.md's Required NFRs are ALSO covered", () => {
+    writeFileSync(join(tdd, "nfrs.md"), CONFORMANT_NFRS);
+    const FEATURE_NFRS = ["# NFRs", "", "## Required", "- R3: tenant isolation", "", "## Preferences", "- none", "", "## Out of bounds", "- none", ""].join("\n");
+    writeFileSync(join(fdir, "nfrs.md"), FEATURE_NFRS);
+    writeFileSync(join(fdir, "architecture.json"), ARCH(["R1", "R2", "R3"]));
+    const report = scanFeatureConformance(tdd, FEATURE);
+    const featureCov = report.entries.find((e) => e.artifact.includes("features/") && e.artifact.includes("NFR coverage"));
+    expect(featureCov?.ok).toBe(true);
+  });
 });
