@@ -177,6 +177,39 @@ export interface StepOutputSpec {
   validate: OutputValidator;
 }
 
+/**
+ * A DETERMINISTIC pipeline hook the orchestrator runs AROUND the agent turn (never the
+ * agent itself) , e.g. breakdown's `reset-breakdown` (before) / `sync-breakdown` (after).
+ * Mirrors a manifest `postTurn` entry. This is a real thing a step DOES beyond
+ * inputs/outputs/route, so the canonical model names it. Empty list = no hooks.
+ */
+export interface PostTurnHook {
+  /** The bin token the orchestrator resolves (e.g. "PIPELINE_BIN"). */
+  bin: string;
+  /** Arguments passed to the resolved bin. */
+  args: string[];
+  /** Whether the hook runs BEFORE or AFTER the agent turn. */
+  when: "before" | "after";
+}
+
+/**
+ * The per-step AGENT SPAWN configuration , the model/effort/session levers that drive the
+ * `claude -p` spawn for this step. Mirrors a manifest `agentOptions` block. Every step that
+ * dispatches an agent carries one, so the canonical model names it (it is a thing the step
+ * DECLARES, distinct from what it produces or where it routes). The optimize sweep patches
+ * these levers per candidate; the resolver reads them here.
+ */
+export interface AgentOptions {
+  /** Model tier for the spawn (e.g. "opus", "sonnet", "haiku"). */
+  model?: string;
+  /** Reasoning effort ("" / "low" / "medium" / "high" / "default"). */
+  effort?: string;
+  /** Session policy: "fresh" starts clean, "resume" continues a keyed session. */
+  session?: "fresh" | "resume";
+  /** Which scope the resume key derives from ("role" / "story" / "feature"). */
+  resumeKeyFrom?: string;
+}
+
 /** What a step reports about its own completion , the routing intent, not the action. */
 export type StepOutcome =
   /** The step produced its artifact; proceed to the proposed next step. */
@@ -224,7 +257,58 @@ export interface StepContract {
   preconditions(action: WorkflowAction): StepPrecondition[];
   /** The logical output(s) this step produces. The orchestrator maps + validates them. */
   outputs(action: WorkflowAction): StepOutputSpec[];
+  /** The deterministic pipeline hooks the orchestrator runs AROUND the turn (not the agent).
+   *  Empty list = an affirmative "no hooks". */
+  postTurn(action: WorkflowAction): PostTurnHook[];
+  /** The per-step agent-spawn levers (model/effort/session). The orchestrator reads these to
+   *  configure the spawn; the optimize sweep patches them per candidate. */
+  agentOptions(action: WorkflowAction): AgentOptions;
   route(completed: WorkflowAction, ctx: StepRouteContext): RouteProposal;
+}
+
+/**
+ * The EXACT set of faces the canonical StepContract names, pinned to the interface at COMPILE
+ * time: `satisfies Record<keyof StepContract, true>` fails tsc if a face is added to the
+ * interface without being listed here, OR if a key here is not a real face. This is the single
+ * source the runtime exactness guard reads , the allowlist can never silently drift from the
+ * interface. To ADD a face: add it to StepContract AND here (that IS "update the canonical
+ * model"). See `assertExactStepContract`.
+ */
+export const STEP_CONTRACT_MEMBERS = {
+  inputs: true,
+  preconditions: true,
+  outputs: true,
+  postTurn: true,
+  agentOptions: true,
+  route: true,
+} satisfies Record<keyof StepContract, true>;
+
+/**
+ * OUTRIGHT FAIL a StepContract implementation that declares a member the canonical model does
+ * NOT name. TypeScript's `implements` is a structural LOWER bound (an extra method is legal +
+ * invisible to tsc), so exactness is not compiler-enforceable , this is the runtime backstop.
+ * It walks the instance + its prototype for own members and rejects any not in
+ * STEP_CONTRACT_MEMBERS. The rule this enforces: a StepContract impl keeps private helpers as
+ * MODULE-LEVEL functions, not methods (matching the "step is dumb + contained" design), so the
+ * only members on the class are the canonical faces. Call at registration + assert over every
+ * impl in a guard test.
+ */
+export function assertExactStepContract(impl: StepContract, label: string): void {
+  const allowed = new Set(Object.keys(STEP_CONTRACT_MEMBERS));
+  const own = Object.getOwnPropertyNames(impl);
+  const proto = Object.getPrototypeOf(impl) as object | null;
+  const protoMembers = proto ? Object.getOwnPropertyNames(proto) : [];
+  const members = new Set<string>([...own, ...protoMembers]);
+  members.delete("constructor");
+  const extras = [...members].filter((k) => !allowed.has(k));
+  if (extras.length > 0) {
+    throw new Error(
+      `${label}: implements StepContract but declares member(s) the canonical model does not name: ` +
+        `${extras.sort().join(", ")}. Either remove them (keep private helpers as module-level ` +
+        `functions, not methods), OR add the face to StepContract + STEP_CONTRACT_MEMBERS ` +
+        `(that is updating the canonical model). No step may do what the model does not name.`,
+    );
+  }
 }
 
 const signature = (a: WorkflowAction): string => JSON.stringify(a);
@@ -243,6 +327,8 @@ export class MockStepContract implements StepContract {
       inputs?: Record<string, StepInputSpec[]>;
       preconditions?: Record<string, StepPrecondition[]>;
       outputs?: Record<string, StepOutputSpec[]>;
+      postTurn?: Record<string, PostTurnHook[]>;
+      agentOptions?: Record<string, AgentOptions>;
       route?: Record<string, RouteProposal>;
     },
   ) {}
@@ -257,6 +343,14 @@ export class MockStepContract implements StepContract {
 
   outputs(action: WorkflowAction): StepOutputSpec[] {
     return this.script.outputs?.[signature(action)] ?? [];
+  }
+
+  postTurn(action: WorkflowAction): PostTurnHook[] {
+    return this.script.postTurn?.[signature(action)] ?? [];
+  }
+
+  agentOptions(action: WorkflowAction): AgentOptions {
+    return this.script.agentOptions?.[signature(action)] ?? {};
   }
 
   route(completed: WorkflowAction, _ctx: StepRouteContext): RouteProposal {

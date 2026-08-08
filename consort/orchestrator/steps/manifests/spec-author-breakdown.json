@@ -6,7 +6,7 @@
   "inputs": [
     { "id": "product-overview", "source": "feature:product-overview.md", "description": "The PO's product overview (product-overview.md)." },
     { "id": "nfrs", "source": "feature:nfrs.md", "description": "The PO's non-functional requirements brief (nfrs.md)." },
-    { "id": "feature-request", "source": "feature:feature-request.md", "description": "The PO's feature request for this feature (feature-request.md)." }
+    { "id": "feature-request", "source": "feature:features/{feature}/feature-request.md", "description": "The PO's feature request for this feature (features/<feature>/feature-request.md; {feature} expands to the run's feature id)." }
   ],
   "outputs": [
     { "id": "feature-spec", "filename": "feature-spec.json", "channel": "artifact", "validator": "featureSpecNonEmptyStories", "description": "The feature breakdown index (feature-spec.json + a story stub per story). A .consort design document , the artifact channel." },

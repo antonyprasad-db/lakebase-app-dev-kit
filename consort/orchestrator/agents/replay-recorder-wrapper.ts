@@ -14,7 +14,7 @@
 // Baseline: recordTurn diffs the workspace against a delta baseline seeded once per corpus. The
 // wrapper seeds it lazily on the first wrapped invoke (guarded), mirroring withTurnRecording.
 
-import { seedRecorderBaseline, recordTurn, type RecordedTranscript } from "../../logging/turn-recorder.js";
+import { seedRecorderBaseline, recordTurn, recordReplaySet, turnDirFor, assertTurnComplete, type RecordedTranscript } from "../../logging/turn-recorder.js";
 import { recordBuildTurn, nextBuildTurnNumber } from "../../pipeline/record-build.js";
 import type { StepAgent, AgentInvocation } from "./agent-types.js";
 import type { WorkflowAction } from "../workflow/workflow-vocabulary.js";
@@ -36,6 +36,11 @@ export interface RecorderContext {
    *  persist alongside the delta. The live drive supplies takeLastAgentTranscript; a hermetic test
    *  omits it. */
   takeTranscript?: () => RecordedTranscript | undefined;
+  /** OPTIONAL: the RESOLVED agent levers (model/effort/session/toolScope) for this invocation , the
+   *  levers.json of the replay set. Supplied by the live wiring where the ClaudeStepAgent + its
+   *  levers are constructed (the levers are private on the agent + off the StepAgent interface, so
+   *  they cannot be read off `inner`). Absent (test doubles) => levers.json is `{}`. */
+  resolveLevers?: (invocation: AgentInvocation) => Record<string, unknown>;
 }
 
 /**
@@ -57,6 +62,24 @@ export function wrapWithRecorder(inner: StepAgent, ctx: RecorderContext): StepAg
         seedRecorderBaseline({ recordDir: ctx.recordDir, projectDir: ctx.projectDir, consortDir: ctx.consortDir });
         seeded = true;
       }
+
+      // PRE-STATE replay set , captured BEFORE the agent mutates the tree, into the SAME turn dir
+      // recordTurn will fill after (turnDirFor computes the identical next-ordinal name; no index
+      // append happens between here and recordTurn below, so they agree). Bundles the full project
+      // code pre-state + the resolved inputs/prompt/levers , everything an optimization sweep needs
+      // to replay THIS step in isolation under swept levers. `.consort` is delta-tracked by
+      // recordTurn (not snapshotted here). Only agent turns get a replay set (this decorator only
+      // wraps agent invokes).
+      const turnDir = turnDirFor(ctx.recordDir, invocation.action);
+      recordReplaySet({
+        turnDir,
+        projectDir: ctx.projectDir,
+        consortDir: ctx.consortDir,
+        inputs: invocation.inputs,
+        prompt: invocation.instructions.prompt,
+        ...(invocation.instructions.guidelines ? { guidelines: invocation.instructions.guidelines } : {}),
+        ...(ctx.resolveLevers ? { levers: ctx.resolveLevers(invocation) } : {}),
+      });
 
       // Let the inner agent (live claude / contained / replay) produce its delta first. The
       // invocation is forwarded verbatim , the wrapper NEVER alters the inner agent's inputs.
@@ -92,6 +115,18 @@ export function wrapWithRecorder(inner: StepAgent, ctx: RecorderContext): StepAg
           ...("buildMode" in action && typeof action.buildMode === "string" ? { mode: action.buildMode } : {}),
         });
       }
+
+      // 3) PER-TURN AUDIT (hard-fail): the turn is now fully captured , assert EVERY file the
+      //    template requires is present. Throws loud + aborts the capture if any is missing, so an
+      //    incomplete turn can never silently enter the corpus (the transcript-drop bug). turnDir is
+      //    the SAME dir recordReplaySet + recordTurn wrote (turnDirFor, computed pre-invoke).
+      //    SCOPE: the full agent-turn bundle (transcript.md + replay-set) is a LIVE-CAPTURE artifact.
+      //    This wrapper also records REPLAY agents (corpus migration) + test doubles, which have no
+      //    live transcript + no meaningful pre-state , they legitimately lack the bundle. The signal
+      //    for a live capture is ctx.takeTranscript being supplied (the live drive supplies it;
+      //    replay/migration/tests do not). So enforce the FULL bundle only for a live capture; for a
+      //    non-live record still require the base set (turn.json + files/).
+      assertTurnComplete(turnDir, action, { liveCapture: ctx.takeTranscript !== undefined });
   };
 
   // Return a TRUE PASS-THROUGH: every property/method of the inner agent is visible unchanged

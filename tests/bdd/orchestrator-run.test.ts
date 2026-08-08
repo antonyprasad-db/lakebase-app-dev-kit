@@ -352,6 +352,8 @@ describe("runDriver: output-driven routing seam (options.contract)", () => {
   const passthroughContract = (transition: (s: DriveState) => WorkflowAction): import("../../consort/orchestrator/steps/step-contract").StepContract => ({
     inputs: () => [],
     preconditions: () => [],
+    postTurn: () => [],
+    agentOptions: () => ({ session: "fresh" }),
     outputs: () => [],
     route(_completed, ctx) {
       return { outcome: "produced", proposedNext: transition(ctx.state) };
@@ -392,6 +394,8 @@ describe("runDriver: output-driven routing seam (options.contract)", () => {
     const offGraphContract: import("../../consort/orchestrator/steps/step-contract").StepContract = {
       inputs: () => [],
       preconditions: () => [],
+      postTurn: () => [],
+      agentOptions: () => ({ session: "fresh" }),
       outputs: () => [],
       route() {
         return { outcome: "produced", proposedNext: { kind: "merge" } }; // never allowed mid-design
@@ -401,5 +405,30 @@ describe("runDriver: output-driven routing seam (options.contract)", () => {
     const result = await runDriver(effects, { contract: offGraphContract });
     expect(state.phase).toBe("done"); // fell back to state-derivation every step
     expect(result.escalated).toBeUndefined();
+  });
+});
+
+describe("runDriver: onRoutingDecision fires per iteration with the state that chose the action", () => {
+  it("emits one routing decision per performed action, each carrying the action + a state snapshot", async () => {
+    const { effects } = makeFakeWorld(["S1"]);
+    const decisions: Array<{ action: WorkflowAction; iteration: number; source: string; hadState: boolean }> = [];
+    effects.onRoutingDecision = (action, s, iteration, source) => {
+      decisions.push({ action, iteration, source, hadState: s != null && typeof (s as { phase?: unknown }).phase === "string" });
+    };
+    const actions: WorkflowAction[] = [];
+    const innerOnAction = effects.onAction;
+    effects.onAction = (a, i) => { actions.push(a); innerOnAction?.(a, i); };
+
+    await runDriver(effects);
+
+    // A routing decision is emitted for EVERY iteration (including the terminal `done`), and each
+    // carries the DriveState it was derived from (hadState) , the "why" the turn recorder omits.
+    expect(decisions.length).toBeGreaterThan(0);
+    expect(decisions.every((d) => d.hadState)).toBe(true);
+    expect(decisions.every((d) => d.source === "nextTransition")).toBe(true); // no contract wired
+    // Iterations are monotonic from 0.
+    expect(decisions.map((d) => d.iteration)).toEqual(decisions.map((_, i) => i));
+    // Every action that was performed also produced a routing decision (same actions, same order).
+    expect(decisions.map((d) => JSON.stringify(d.action))).toEqual(actions.map((a) => JSON.stringify(a)));
   });
 });

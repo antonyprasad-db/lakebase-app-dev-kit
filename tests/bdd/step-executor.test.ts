@@ -92,6 +92,8 @@ function preconditionStep(pre: import("../../consort/orchestrator/steps/step-con
   return {
     inputs: () => [],
     preconditions: () => pre,
+    postTurn: () => [],
+    agentOptions: () => ({ session: "fresh" as const }),
     outputs: () => [],
     route: () => ({ outcome: "produced" as const, proposedNext: { kind: "design-complete" } as WorkflowAction }),
     async run() {
@@ -319,6 +321,8 @@ describe("optional outputs: absent-optional passes, present-nonconformant fails,
     return {
       inputs: () => [],
       preconditions: () => [],
+      postTurn: () => [],
+      agentOptions: () => ({ session: "fresh" as const }),
       outputs: () => [{ id: "assess-marker", description: "the marker", filename: "marker.json", channel: "meta" as const, optional: true, validate }],
       route: () => ({ outcome: "produced" as const, proposedNext: { kind: "state-derived" } as unknown as WorkflowAction }),
       async run(provided: import("../../consort/orchestrator/steps/step-run-types").ProvidedStepRun) {
@@ -383,6 +387,8 @@ describe("phases 2.7/6.5 PRE/POST-TURN EFFECTS: the Template Method's expanded d
     const step = {
       inputs: () => [],
       preconditions: () => [],
+      postTurn: () => [],
+      agentOptions: () => ({ session: "fresh" as const }),
       outputs: () => [],
       route: () => ({ outcome: "produced" as const, proposedNext: { kind: "design-complete" } as WorkflowAction }),
       async run() { order.push("dispatch"); return { produced: true, producedPaths: [] }; },
@@ -407,6 +413,8 @@ describe("phases 2.7/6.5 PRE/POST-TURN EFFECTS: the Template Method's expanded d
     const step = {
       inputs: () => [],
       preconditions: () => [],
+      postTurn: () => [],
+      agentOptions: () => ({ session: "fresh" as const }),
       outputs: () => [{ id: "spec", description: "x", filename: "missing.json", validate: () => ({ ok: true as const, violations: [] as string[] }) }],
       route: () => ({ outcome: "produced" as const, proposedNext: { kind: "design-complete" } as WorkflowAction }),
       async run() { return { produced: true, producedPaths: [] }; }, // claims produced but writes nothing
@@ -429,6 +437,8 @@ describe("phases 2.7/6.5 PRE/POST-TURN EFFECTS: the Template Method's expanded d
     const step = {
       inputs: () => [],
       preconditions: () => [],
+      postTurn: () => [],
+      agentOptions: () => ({ session: "fresh" as const }),
       outputs: () => [],
       route: () => ({ outcome: "produced" as const, proposedNext: { kind: "design-complete" } as WorkflowAction }),
       async run() { dispatched = true; return { produced: true, producedPaths: [] }; },
@@ -472,6 +482,8 @@ describe("three-channel outputs: product->workspace, artifact->artifactDir, meta
     return {
       inputs: () => [],
       preconditions: () => [],
+      postTurn: () => [],
+      agentOptions: () => ({ session: "fresh" as const }),
       outputs: () => outputs,
       route: () => ({ outcome: "produced" as const, proposedNext: { kind: "state-derived" } as unknown as WorkflowAction }),
       async run(provided: import("../../consort/orchestrator/steps/step-run-types").ProvidedStepRun) {

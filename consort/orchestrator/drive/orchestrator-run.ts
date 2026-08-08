@@ -56,6 +56,20 @@ export interface DriveEffects {
   /** Optional deterministic logging hook (code-emitted, fires before perform). */
   onAction?(action: WorkflowAction, iteration: number): void;
   /**
+   * OPTIONAL routing-decision observability hook: fires once per iteration with BOTH the derived
+   * action AND the DriveState it was derived from, so a diagnostic recorder can capture the
+   * state bag (reviewStoryPending / assessGreenAc / ...) that CHOSE the action , the "why" the
+   * turn recorder does not persist (it logs only the action + file delta). Purely observational:
+   * it never influences routing. `source` says how the action was resolved this iteration.
+   * Default absent => byte-identical to before (no routing log emitted).
+   */
+  onRoutingDecision?(
+    action: WorkflowAction,
+    state: DriveState,
+    iteration: number,
+    source: "nextTransition" | "bounded" | "contract",
+  ): void;
+  /**
    * Optional hand-back hook: fires when a role's prior handoff contract was
    * UNMET and a retry remains. The runner delivers `detail` (what the responder
    * failed to return) so the imminent re-dispatch of that role is informed , the
@@ -266,6 +280,16 @@ export async function runDriver(
     } else {
       action = transitionFn(state);
     }
+
+    // Routing-decision observability: emit the action + the state bag that chose it, BEFORE any
+    // terminal/stall/perform handling, so every iteration's decision (including a terminal one) is
+    // captured with its inputs. Purely observational , the value is already fixed above.
+    effects.onRoutingDecision?.(
+      action,
+      state,
+      i,
+      pendingBounded !== undefined ? "bounded" : options.contract && pendingProposal !== undefined ? "contract" : "nextTransition",
+    );
 
     if (action.kind === "done") {
       effects.onAction?.(action, i);

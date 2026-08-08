@@ -23,13 +23,18 @@ const FEATURE = "F1-stock-visibility";
 const RED_STORY = "S1-create-sku";
 const RED: WorkflowAction = { kind: "invoke-role", role: "navigator", story: RED_STORY };
 
-/** Seed the breakdown manifest's declared inputs into the real .consort (product-overview/nfrs/
- *  feature-request) , the uncontained agent reads them there, and the executor's phase-1 gate
- *  checks their presence. Absent them, resolveInputs returns {missing} and the agent never runs. */
+/** Seed the breakdown manifest's declared inputs into the real .consort , the uncontained agent
+ *  reads them there, and the executor's phase-1 gate checks their presence. product-overview + nfrs
+ *  are PROJECT-level (.consort root); feature-request is FEATURE-scoped at
+ *  features/<F>/feature-request.md (featureRequestMd / the corrected breakdown manifest source
+ *  feature:features/{feature}/feature-request.md). Absent them, resolveInputs returns {missing}. */
 function seedBreakdownInputs(consortDir: string): void {
-  for (const f of ["product-overview.md", "nfrs.md", "feature-request.md"]) {
+  for (const f of ["product-overview.md", "nfrs.md"]) {
     writeFileSync(join(consortDir, f), `# ${f}\nseed\n`);
   }
+  const frDir = join(consortDir, "features", FEATURE);
+  mkdirSync(frDir, { recursive: true });
+  writeFileSync(join(frDir, "feature-request.md"), `# feature-request.md\nseed\n`);
 }
 
 /** A recording runner: captures each command as a compact label, and (crucially) SIMULATES the

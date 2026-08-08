@@ -22,6 +22,7 @@
 
 import { createHash } from "node:crypto";
 import {
+  appendFileSync,
   cpSync,
   existsSync,
   mkdirSync,
@@ -91,6 +92,200 @@ export interface RecordedTurn {
 /** Append-only log + recorder bookkeeping that must NOT count as a turn's
  *  produced artifact (they churn every turn / are the recorder's own state). */
 const NON_ARTIFACT_TDD = new Set(["agent-log.jsonl"]);
+
+/** The build state-bag booleans/ids the router read to CHOOSE this iteration's action , the
+ *  routing "why" the turn recorder does not persist. Extracted from the DriveState's active
+ *  story build view (the same fields §4 of MASTER-CANONICAL-PROCESS.md graphs). All optional:
+ *  a non-build phase (planning/deploy/promote) simply has no active build story. */
+export interface RoutingStateBag {
+  phase?: string;
+  buildActive?: string | null;
+  experimentCut?: boolean;
+  testsWritten?: boolean;
+  codeWritten?: boolean;
+  reviewStoryPending?: boolean;
+  refactorStoryPending?: boolean;
+  reviewAc?: string | null;
+  refactorAc?: string | null;
+  assessGreenAc?: string | null;
+  repairRegressionAc?: string | null;
+  greenSupersededAc?: string | null;
+  awaitingAcceptance?: boolean;
+  deployVerified?: boolean;
+  accepted?: boolean;
+}
+
+/** One appended routing-decision record: the action chosen this iteration, HOW it was resolved,
+ *  and the state bag that produced it. Written to routing-decisions.jsonl (sibling of turns/). */
+export interface RoutingDecisionRecord {
+  iteration: number;
+  source: "nextTransition" | "bounded" | "contract";
+  action: WorkflowAction;
+  stateBag: RoutingStateBag;
+  at: string;
+}
+
+/** Project a RoutingStateBag from a DriveState-shaped value , the active build story's bag plus
+ *  the phase. Defensive (state shapes vary across lanes); reads only what is present. */
+export function projectRoutingStateBag(state: unknown): RoutingStateBag {
+  const s = (state ?? {}) as Record<string, unknown>;
+  const bag: RoutingStateBag = {};
+  if (typeof s.phase === "string") bag.phase = s.phase;
+  const active = s.buildActive as string | null | undefined;
+  if (active !== undefined) bag.buildActive = active;
+  const stories = (s.stories ?? {}) as Record<string, { build?: Record<string, unknown> }>;
+  const b = active ? stories[active]?.build : undefined;
+  if (b) {
+    for (const k of [
+      "experimentCut", "testsWritten", "codeWritten", "reviewStoryPending", "refactorStoryPending",
+      "reviewAc", "refactorAc", "assessGreenAc", "repairRegressionAc", "greenSupersededAc",
+      "awaitingAcceptance", "deployVerified", "accepted",
+    ] as const) {
+      if (b[k] !== undefined) (bag as Record<string, unknown>)[k] = b[k];
+    }
+  }
+  return bag;
+}
+
+/** Append one routing-decision record to routing-decisions.jsonl under the record dir. This is the
+ *  diagnostic stream the turn recorder lacks: it captures the ROUTING INPUTS (the state bag), so a
+ *  recorded run can answer "why did this turn route here" , not just "what was chosen". */
+export function recordRoutingDecision(
+  recordDir: string,
+  action: WorkflowAction,
+  state: unknown,
+  iteration: number,
+  source: "nextTransition" | "bounded" | "contract",
+): void {
+  const rec: RoutingDecisionRecord = {
+    iteration,
+    source,
+    action,
+    stateBag: projectRoutingStateBag(state),
+    at: new Date().toISOString(),
+  };
+  mkdirSync(recordDir, { recursive: true });
+  appendFileSync(join(recordDir, "routing-decisions.jsonl"), JSON.stringify(rec) + "\n");
+}
+
+/**
+ * The PRE-STATE + levers an agent turn needs to be replayed IN ISOLATION , the "replay set" bundled
+ * per manifest step for optimization experiments. Distinct from the turn's OUTPUT delta (recordTurn):
+ * this captures what the step CONSUMED, so a sweep can re-run the SAME turn under different levers.
+ *
+ * Written under the turn dir as `replay-set/`:
+ *   pre-project/        , FULL project code tree BEFORE the agent ran (codeTreeFilter: app/tests/
+ *                         migrations, NEVER .consort/junk) , the exact tree the turn starts from, so
+ *                         the step replays without reconstructing it from prior turns. Agent turns are
+ *                         the sole mutators of the project code tree (deploy/hooks touch only .consort
+ *                         + pid), so a snapshot here is the complete code pre-state.
+ *   inputs/<id>         , the resolved input CONTENTS the orchestrator handed the step (keyed by id).
+ *   prompt.txt          , the FULLY ASSEMBLED prompt the agent saw (preconditions already inlined).
+ *   guidelines.json     , the instruction guidelines (empty array when none).
+ *   levers.json         , the RESOLVED agent levers (model/effort/session/toolScope) the turn ran
+ *                         with , exactly what an optimization sweep varies.
+ * `.consort` is NOT snapshotted here (it is delta-tracked every turn by recordTurn + the cumulative
+ * recorded-artifacts mirror); the replay set is the CODE pre-state + the invocation conditions.
+ * MUST be called BEFORE the agent mutates the tree (pre-state), from the record wrapper.
+ */
+export function recordReplaySet(args: {
+  /** The turn's dir: `<recordDir>/turns/<NNNN>-<label>` (the SAME dir recordTurn will fill). */
+  turnDir: string;
+  projectDir: string;
+  consortDir: string;
+  /** Resolved input contents, keyed by logical input id (invocation.inputs). */
+  inputs: Record<string, string>;
+  /** The fully-assembled prompt the agent received (invocation.instructions.prompt). */
+  prompt: string;
+  /** Instruction guidelines, if any (invocation.instructions.guidelines). */
+  guidelines?: string[];
+  /** The resolved levers the turn ran with (model/effort/session/toolScope/...). */
+  levers?: Record<string, unknown>;
+}): void {
+  const { turnDir, projectDir, consortDir, inputs, prompt, guidelines, levers } = args;
+  const setDir = join(turnDir, "replay-set");
+  mkdirSync(setDir, { recursive: true });
+
+  // pre-project/ , the full code tree BEFORE the turn (codeTreeFilter excludes .consort + junk).
+  const keep = codeTreeFilter(projectDir);
+  const preDir = join(setDir, "pre-project");
+  for (const abs of walk(projectDir, keep)) {
+    const rel = relative(projectDir, abs);
+    const dst = join(preDir, rel);
+    mkdirSync(dirname(dst), { recursive: true });
+    cpSync(abs, dst);
+  }
+  void consortDir; // .consort is delta-tracked by recordTurn, not snapshotted into the replay set.
+
+  // inputs/<id> , the resolved contents handed to the step.
+  const inDir = join(setDir, "inputs");
+  mkdirSync(inDir, { recursive: true });
+  for (const [id, content] of Object.entries(inputs)) {
+    // ids are logical (e.g. "product-overview", "feature-request") , filesystem-safe already, but
+    // guard a path separator so an id can never escape the inputs dir.
+    writeFileSync(join(inDir, id.replace(/[/\\]/g, "_")), content);
+  }
+
+  // prompt.txt + guidelines.json + levers.json , the invocation conditions.
+  writeFileSync(join(setDir, "prompt.txt"), prompt);
+  writeFileSync(join(setDir, "guidelines.json"), JSON.stringify(guidelines ?? [], null, 2) + "\n");
+  writeFileSync(join(setDir, "levers.json"), JSON.stringify(levers ?? {}, null, 2) + "\n");
+}
+
+/**
+ * THE TEMPLATE: the files every AGENT turn (invoke-role, dispatched through the executor + record
+ * wrapper) MUST have recorded, relative to its turn dir. This is the contract the per-turn audit
+ * (assertTurnComplete) hard-fails on , so a turn that silently dropped an artifact (e.g. the
+ * transcript double-consume bug) aborts the capture at that turn instead of corrupting the corpus.
+ *
+ * An agent turn's complete set:
+ *   turn.json                     , the manifest (action + produced/deleted delta) , recordTurn
+ *   files/                        , the OUTPUT delta (code + .consort) this turn produced , recordTurn
+ *   transcript.md                 , the prompt + final reasoning + tools , recordTurn (from takeTranscript)
+ *   replay-set/pre-project/       , the code pre-state , recordReplaySet
+ *   replay-set/inputs/            , the resolved inputs , recordReplaySet
+ *   replay-set/prompt.txt         , the assembled prompt , recordReplaySet
+ *   replay-set/guidelines.json    , the guidelines , recordReplaySet
+ *   replay-set/levers.json        , the resolved levers , recordReplaySet
+ * A NON-agent turn (gate / dispatch / cut-experiment: no agent ran) requires only turn.json + files/.
+ *
+ * `liveCapture` scopes the FULL agent bundle (transcript.md + replay-set) to a LIVE capture. The same
+ * wrapper also records REPLAY agents (corpus migration) + test doubles, which have no live transcript
+ * and no meaningful pre-state , they legitimately lack the bundle, so a non-live record requires only
+ * the base set (turn.json + files/) even for an invoke-role turn.
+ */
+export function expectedTurnFiles(action: WorkflowAction, opts: { liveCapture?: boolean } = {}): string[] {
+  const base = ["turn.json", "files"];
+  if (action.kind !== "invoke-role" || !opts.liveCapture) return base;
+  return [
+    ...base,
+    "transcript.md",
+    "replay-set/pre-project",
+    "replay-set/inputs",
+    "replay-set/prompt.txt",
+    "replay-set/guidelines.json",
+    "replay-set/levers.json",
+  ];
+}
+
+/**
+ * The PER-TURN AUDIT (hard-fail): after a turn is captured, assert EVERY file the template
+ * (expectedTurnFiles) requires for this turn kind exists in its dir. Throws loud on the FIRST
+ * missing one , naming the turn + the missing files , so a capture aborts at the defective turn
+ * rather than silently producing an incomplete corpus (the failure mode that let 11/12 agent turns
+ * record with no transcript.md unnoticed). Called at end-of-turn from the record wrapper.
+ */
+export function assertTurnComplete(turnDir: string, action: WorkflowAction, opts: { liveCapture?: boolean } = {}): void {
+  const missing = expectedTurnFiles(action, opts).filter((rel) => !existsSync(join(turnDir, rel)));
+  if (missing.length > 0) {
+    throw new Error(
+      `RECORD AUDIT FAILED , turn ${turnDir} (${labelForAction(action)}) is missing required recorded ` +
+        `file(s): ${missing.join(", ")}. The capture is aborting so the corpus is not silently ` +
+        `incomplete. Every ${action.kind === "invoke-role" ? "agent" : ""} turn must record its full set ` +
+        `(see expectedTurnFiles). Fix the recorder path that dropped it, then re-capture.`,
+    );
+  }
+}
 
 /** Short, filesystem-safe label for a turn dir, derived from the action. */
 export function labelForAction(action: WorkflowAction): string {
@@ -241,6 +436,17 @@ function readIndex(recordDir: string): IndexEntry[] {
 
 function pad(n: number): string {
   return String(n).padStart(4, "0");
+}
+
+/**
+ * The turn dir `recordTurn` WILL write for this action, computed the SAME way (next ordinal from the
+ * on-disk index + labelForAction). Exported so the record wrapper can write the PRE-state replay set
+ * (recordReplaySet) into the identical dir BEFORE recordTurn fills its output delta. Both read the
+ * index at the same point (no turn appended yet between them), so the ordinals agree. Callers MUST
+ * invoke recordReplaySet(turnDirFor(...)) then recordTurn(...) with no intervening index append.
+ */
+export function turnDirFor(recordDir: string, action: WorkflowAction): string {
+  return join(recordDir, "turns", `${pad(readIndex(recordDir).length)}-${labelForAction(action)}`);
 }
 
 /**

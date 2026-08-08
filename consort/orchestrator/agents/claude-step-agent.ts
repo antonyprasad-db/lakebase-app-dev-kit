@@ -24,7 +24,7 @@
 // managed-settings policy honors headlessly (see claude-runner claudeBaseArgs docs).
 
 import { randomUUID } from "node:crypto";
-import { claudeBaseArgs, claudeToolArgs, spawnClaudeStreaming, takeLastAgentTranscript } from "../drive/claude-runner.js";
+import { claudeBaseArgs, claudeToolArgs, spawnClaudeStreaming, peekLastAgentTranscript } from "../drive/claude-runner.js";
 import type { TurnUsage } from "../../session/claude-usage.js";
 import type { DriveCommand } from "../drive/orchestrator-effects.js";
 import type { WorkflowAction } from "../workflow/workflow-vocabulary.js";
@@ -178,7 +178,10 @@ export class ClaudeStepAgent implements StepAgent {
     // caller of this seam needs to import the runner's transcript machinery.
     if (this.liveDispatch) {
       await this.liveDispatch(invocation);
-      const finalText = takeLastAgentTranscript()?.finalText;
+      // PEEK, do not take: the record wrapper (when a RECORD capture is active) is the sole
+      // take()-clearer at end of turn. Taking here robbed it => transcript.md was never written for
+      // executor-dispatched turns (the double-consume race). Peeking leaves the transcript for it.
+      const finalText = peekLastAgentTranscript()?.finalText;
       // The uncontained runner logs usage/tokens itself; the transcript carries the final text only.
       this.lastResult = finalText ? { finalText } : {};
       return;
@@ -187,9 +190,9 @@ export class ClaudeStepAgent implements StepAgent {
     // CONTAINED: spawn with the PROVIDED workspace as cwd, so the agent's Write/Bash tools
     // land inside the workspace the orchestrator gave it , never elsewhere.
     const usage = await this.spawn(args, invocation.workspaceDir);
-    // Capture the turn's final assistant text (the report channel). takeLastAgentTranscript
-    // is set by spawnClaudeStreaming on close; undefined under an injected test spawn.
-    const finalText = takeLastAgentTranscript()?.finalText;
+    // Capture the turn's final assistant text (the report channel). PEEK (not take) for the same
+    // reason as the live path: the record wrapper is the sole clearer. Undefined under a test spawn.
+    const finalText = peekLastAgentTranscript()?.finalText;
     this.lastResult = { usage, finalText };
   }
 }

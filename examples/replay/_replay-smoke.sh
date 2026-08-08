@@ -156,9 +156,16 @@ replay_smoke() {
   # never a hardcoded name: lakebase-resolve-consort-dir prints resolveTddDir() (the
   # one rule , prefer .sftdd, fall back to legacy .tdd). Defined ONCE + reused;
   # the CLIs below also default --tdd-dir to resolveTddDir, so we never pass it.
-  # Back to trunk before each feature-request (the first feature's promote leaves
-  # the project on the staging tier).
-  git checkout main >/dev/null 2>&1 || git checkout master >/dev/null 2>&1 || true
+  # Onto the PARENT TIER before staging intake + the feature-request. The claim
+  # (scm-claim-feature resolveParentBranch) forks the feature from the tier the topology dictates:
+  # tier-2 -> "staging", tier-3 -> "dev", tier-1 -> the default branch (VERIFIED in scm-utils). So
+  # intake committed on `main` never reaches a tier-2 feature branch (which forks from staging) ->
+  # spec-author breakdown fails "missing input nfrs" at turn 0. Check out the staging tier when it
+  # exists (tier 2/3), else main (tier 1), so intake lands on the branch the feature actually forks
+  # from. (Proven git-only: intake-on-staging -> nfrs.md present on the claimed feature branch.)
+  git checkout staging >/dev/null 2>&1 \
+    || git checkout main >/dev/null 2>&1 \
+    || git checkout master >/dev/null 2>&1 || true
   local SFTDD_DIR SFTDD_REL
   SFTDD_DIR="$(lk lakebase-resolve-consort-dir --project-dir "$PROJECT_DIR")" || { err "could not resolve the runtime artifact dir"; return 2; }
   SFTDD_REL="$(basename "$SFTDD_DIR")"
@@ -214,11 +221,32 @@ replay_smoke() {
   fi
 
   # ─── 3. feature-request on trunk, then claim the paired branch ─
-  log "replay: feature-request.md -> trunk (the PO's committed ask)"
-  mkdir -p "${SFTDD_DIR}/features/${FEATURE_ID}"
-  cp "${CORPUS_DIR}/features/${FEATURE_ID}/feature-request.md" "${SFTDD_DIR}/features/${FEATURE_ID}/feature-request.md"
-  git add "${SFTDD_REL}/features/${FEATURE_ID}/feature-request.md"
-  git commit -m "plan: feature-request for ${FEATURE_ID}" >/dev/null 2>&1 || true
+  # The feature-request is the PO's ask. When the PLANNING lane ran (--sprint), the human-proxy
+  # ALREADY authored it THROUGH the author-requests turn (the PO stand-in answering the orchestrator,
+  # via SPRINT_REQUESTS) , IDENTICAL to interactive. Re-copying it here would be the out-of-band
+  # side-channel that breaks that equivalence. So the bare-cp fallback runs ONLY when planning did
+  # NOT author it (no --sprint): a request-less quick path. featureRequestMd() (consort-paths.ts)
+  # puts it at features/<F>/feature-request.md , the SAME path spec-author-breakdown's input reads.
+  if [[ -z "${REPLAY_SPRINT}" ]]; then
+    log "no planning lane (--sprint unset): staging feature-request.md directly (fallback path)"
+    mkdir -p "${SFTDD_DIR}/features/${FEATURE_ID}"
+    cp "${CORPUS_DIR}/features/${FEATURE_ID}/feature-request.md" "${SFTDD_DIR}/features/${FEATURE_ID}/feature-request.md"
+    git add "${SFTDD_REL}/features/${FEATURE_ID}/feature-request.md"
+    git commit -m "plan: feature-request for ${FEATURE_ID}" >/dev/null 2>&1 || true
+  else
+    log "planning lane authored the feature-request via author-requests (proxy PO stand-in); no side-channel copy"
+  fi
+
+  # PUSH the PARENT TIER (with intake + feature-request) to origin BEFORE claiming. The claim's git
+  # fork point is resolveFeatureStartPoint(parentBranch), which PREFERS origin/<parentBranch>. For a
+  # tier-2 project (stockflow-rerecord) resolveParentBranch => "staging", so the feature forks from
+  # origin/staging. Intake + feature-request were committed on the parent tier (checked out above);
+  # this push makes origin/<parent> carry them. Without it, origin/<parent> stays at the scaffold
+  # commit, the feature forks WITHOUT intake, and spec-author breakdown fails "missing input nfrs"
+  # at turn 0 (after cloud provisioning). HEAD is the parent tier here (staging on tier-2/3, main on
+  # tier-1), so pushing HEAD pushes the right branch.
+  local _PARENT; _PARENT="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)"
+  git push -q origin "$_PARENT" 2>/dev/null || log "  (warn: could not push ${_PARENT} to origin; claim may fork from a stale tip)"
 
   log "claim the paired feature branch for ${FEATURE_ID} (REAL substrate)"
   lk lakebase-scm-claim-feature-branch "${FEATURE_ID}" --project-dir "$PROJECT_DIR" --json \

@@ -368,6 +368,12 @@ export async function performTurnViaExecutor(
       consortDir: cfg.consortDir,
       featureId: cfg.featureId,
       ...(cfg.takeTranscript ? { takeTranscript: cfg.takeTranscript } : {}),
+      // The RESOLVED agent levers for the replay set's levers.json: the manifest's agent config IS
+      // the AgentLevers the claude kind is built from (agent-catalogue buildClaude: config as
+      // Partial<AgentLevers>), so this is the authoritative lever set (role/model/effort/toolScope),
+      // captured with no duplication of the resolution. Merged with the manifest's agentOptions
+      // (model/effort/session), the documented per-step lever home the optimize sweep varies.
+      resolveLevers: () => ({ ...(manifest.agentOptions ?? {}), ...((manifest.agent?.config as Record<string, unknown>) ?? {}) }),
     });
   }
   const step = new Step(manifest, agent);

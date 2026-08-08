@@ -176,6 +176,16 @@ export function takeLastAgentTranscript(): TurnTranscript | undefined {
   lastAgentTranscript = undefined;
   return t;
 }
+/** PEEK the last turn's transcript WITHOUT clearing it , for an intermediate consumer (the
+ *  ClaudeStepAgent reads finalText for its lastResult) that must NOT rob the recorder wrapper's
+ *  take() of the transcript. The take()-clears contract is a single-consumer design; when TWO
+ *  consumers run per turn (the agent's lastResult + the record wrapper), the earlier one MUST peek,
+ *  or the wrapper gets undefined and transcript.md is silently never written (the bug this fixes:
+ *  every executor-dispatched agent turn lost its transcript to the double-consume race). The record
+ *  wrapper remains the sole take()-clearer, at end of turn. */
+export function peekLastAgentTranscript(): TurnTranscript | undefined {
+  return lastAgentTranscript;
+}
 
 export function spawnClaudeStreaming(args: string[], cwd: string): Promise<TurnUsage | undefined> {
   return new Promise((resolve, reject) => {

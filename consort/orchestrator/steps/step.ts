@@ -31,6 +31,8 @@ import type {
   StepRouteContext,
   StepOutcome,
   ConformanceValidator,
+  PostTurnHook,
+  AgentOptions,
 } from "./step-contract.js";
 import type { StepAgent } from "../agents/agent-types.js";
 import type { ProvidedStepRun, ProvidedStepResult, ExistsFn } from "./step-run-types.js";
@@ -86,6 +88,29 @@ export class Step implements StepContract {
       ...(o.optional ? { optional: true } : {}),
       validate: resolveValidator(o.validator),
     }));
+  }
+
+  /** WHAT deterministic hooks the orchestrator runs AROUND this turn (not the agent), from the
+   *  manifest. Absent on the manifest = an affirmative "no hooks" (empty). A hook with no `when`
+   *  defaults to "after" (the manifest convention). */
+  postTurn(_action: WorkflowAction): PostTurnHook[] {
+    return (this.manifest.postTurn ?? []).map((h) => ({
+      bin: h.bin,
+      args: h.args,
+      when: h.when ?? "after",
+    }));
+  }
+
+  /** The per-step agent-spawn levers, from the manifest. The orchestrator reads these to
+   *  configure the spawn; the optimize sweep patches them per candidate. */
+  agentOptions(_action: WorkflowAction): AgentOptions {
+    const o = this.manifest.agentOptions;
+    return {
+      ...(o.model ? { model: o.model } : {}),
+      ...(o.effort ? { effort: o.effort } : {}),
+      session: o.session,
+      ...(o.resumeKeyFrom ? { resumeKeyFrom: o.resumeKeyFrom } : {}),
+    };
   }
 
   /** The conformance validators EXPOSED TO THE AGENT, so it self-checks its draft in-turn.

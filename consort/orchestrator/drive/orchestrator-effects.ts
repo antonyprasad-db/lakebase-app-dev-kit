@@ -18,7 +18,7 @@
 
 import * as fs from "node:fs";
 import { dirname, join } from "node:path";
-import { nextTransition, type WorkflowAction } from "./orchestrator-drive.js";
+import { nextTransition, type WorkflowAction, type DriveState } from "./orchestrator-drive.js";
 import { manifestForAction, type StepManifestPostTurn } from "../steps/manifest.js";
 import { performTurnViaExecutor } from "./executor-dispatch.js";
 import { formatAgentReport } from "../turns/agent-report-formatter.js";
@@ -196,6 +196,14 @@ export interface DriveEffectsConfig {
    *  once its manifest + golden test are proven. Unset => the legacy path runs. */
   useManifestSteps?: boolean;
   onAction?(action: WorkflowAction, iteration: number): void;
+  /** OPTIONAL routing-decision observability hook, threaded to the loop's DriveEffects. Fires per
+   *  iteration with the action + the DriveState that chose it (the routing "why"). Observational. */
+  onRoutingDecision?(
+    action: WorkflowAction,
+    state: DriveState,
+    iteration: number,
+    source: "nextTransition" | "bounded" | "contract",
+  ): void;
   /** OPTIONAL (RECORD lane): read + clear the just-completed live turn's transcript (prompt + final
    *  reasoning + tools) so the executor's ReplayRecorderWrapper persists it alongside the recorded
    *  delta. Supplied by the CLI (takeLastAgentTranscript) only when a RECORD_DIR capture is active;
@@ -1923,6 +1931,7 @@ export function buildDriveEffects(cfg: DriveEffectsConfig): DriveEffects {
       });
     },
     onAction: cfg.onAction,
+    onRoutingDecision: cfg.onRoutingDecision,
     // Hand-back delivery: when a role's prior turn failed its expectation
     // contract, write the violation detail where THAT role's next prompt will
     // consume it (consumeHandback in roleTask), so the retry is informed.

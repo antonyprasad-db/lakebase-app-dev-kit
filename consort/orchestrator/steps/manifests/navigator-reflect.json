@@ -4,15 +4,15 @@
   "agent": { "kind": "claude", "config": { "role": "navigator" } },
   "match": { "kind": "invoke-role", "role": "navigator", "buildMode": "reflect" },
   "inputs": [
-    { "id": "design", "source": "story:design", "description": "The story's design artifacts the reflect turn critiques for a spec-level blocking smell before build." }
+    { "id": "acs", "source": "story:acs", "description": "The story's acceptance criteria (acs/ dir) , the core design artifact the reflect turn critiques for a spec-level blocking smell before build. story:acs resolves to storyResolved/acs, always present by reflect time (spec-author authors it before the architect/dba/test-strategist/reflect sequence); the prior 'story:design' had no writer/resolver and failed loud." }
   ],
   "outputs": [],
   "routing": {
     "produced": { "next": "state-derived" }
   },
   "agentOptions": {
-    "model": "sonnet",
-    "effort": "default",
+    "model": "haiku",
+    "effort": "low",
     "session": "resume",
     "resumeKeyFrom": "story"
   },
