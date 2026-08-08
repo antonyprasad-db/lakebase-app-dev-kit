@@ -1,21 +1,22 @@
 # Master Canonical Process
 
-The authoritative record of what the orchestration **does**: its observable routes (as graphs)
-and, per step, what it consumes, **emits / reports / produces**, and where it routes next.
+The contract-level specification of Consort: **how the framework works, and how you would rebuild it
+from scratch.** It describes the orchestration's state machine, its step contract, its dispatch +
+recording seams, and its per-step payloads — the invariants a reimplementation must honor, not an
+implementation walkthrough. Read top to bottom: the phase machine (§0), the drive loop + dispatch
+(§0.4–0.5), the step contract + process events (§1), the per-step template + chains (§2–§4, §7), the
+recording + capture surfaces (§5–§6), and the build-from-scratch contract summary (§8).
 
-> **Resuming after a context compact/clear?** This document IS the context. Read **§8 Working state
-> & resume context** (at the end) FIRST — it carries what is fixed, what is in flight, what is
-> blocked, and the exact resume points, so you do not need to re-derive from code or reload prior
-> conversation. Then use the sections below (routes, dispatch, recorder, per-step payloads) as the
-> reference they cite by `file:line`.
+> **Resuming / picking up unfinished work?** §0–§8 are the current, live contract (what IS). **§9 Open
+> work** lists what is NOT yet resolved — the gated live capture, the build-code collapse, the
+> capture-flow tail, standing hygiene, and pre-existing WIP on a sibling branch. Start there.
 
-**Derived from source, not from prose.** Every node, edge, and payload below is read out of the
-code and the shipped manifests (`consort/orchestrator/steps/manifests/*.json`), the step contract
-(`consort/orchestrator/steps/step-contract.ts`), and the routing/state code
-(`consort/orchestrator/drive/orchestrator-drive.ts`, `consort/orchestrator/state/*`,
-`consort/pipeline/cycle-record.ts`). If the orchestration is observed to emit / report / do
-something this document's canonical model does not name, **the canonical model is updated** (see
-the change log at the bottom) — the code is the ground truth, this doc follows it.
+**The code is the ground truth; this doc states the contract it must satisfy.** Every node, edge, and
+payload is derived from the routing/state code (`consort/orchestrator/drive/orchestrator-drive.ts`,
+`orchestrator/state/*`, `pipeline/cycle-record.ts`), the step contract
+(`orchestrator/steps/step-contract.ts`), and the shipped manifests
+(`orchestrator/steps/manifests/*.json`). If the code is observed to do something this model does not
+name, the model is wrong and must be updated — with `file:line` citations kept current.
 
 Two dimensions:
 - **Graphs** — the observable ROUTES. The orchestrator is a deterministic state machine
@@ -24,9 +25,17 @@ Two dimensions:
 - **Tables** — the per-node PAYLOAD (inputs → emits → produces, channels, validators, agent
   config), which is tabular, not topological. See the per-step template + chain sections.
 
-Status: IN PROGRESS. Documented so far: the **top-level phase machine**, the **planning** and
-**feature (design + build)** lane graphs, the canonical model (StepContract), the **spec-author**
-chain, and the **review-vs-assess** routing mechanism. Remaining per-step payloads are TODO.
+**The load-bearing invariants** (the things a rebuild MUST get right; each detailed below):
+1. Routing is a PURE function of recorded state (`nextTransition`); no I/O, no model in the router (§0).
+2. Every played turn dispatches through the ONE executor Template Method; the legacy path is guarded
+   dead (§0.5).
+3. A step is dumb + contained; the orchestrator owns `.consort`, resolves inputs, validates outputs,
+   and is the sole routing authority (§1).
+4. A route to a turn is BOUND to that turn's input contract via declared process events + the
+   pre-dispatch route-satisfiable check , a mis-route fails loud naming the route, never silently (§1.1).
+5. The HIL is one interface with two implementations (human / Human Proxy); the automated path is
+   IDENTICAL to interactive, only the HIL impl differs (§6.6).
+6. Every turn + every HIL exchange is recorded deterministically, so a run is fully replayable (§5–§6).
 
 ---
 
@@ -211,8 +220,8 @@ sanctioned **`deterministicAgentless`** allowlist (`executor-dispatch.ts`). The 
 `deterministicAgentless` **throws loud** (a real agent turn escaped the executor , silent-corruption
 class). Non-invoke-role drive actions (gates/dispatch/phase transitions/set-phase) are exempt.
 Proven by `tests/bdd/legacy-path-guard.test.ts`. So a live run can no longer silently run an agent
-turn on legacy. (Full retirement of the `commandsForAction` agent arm itself is the separate
-standing #684; the guard makes any residual agent arm fail loud in the meantime.)
+turn on legacy. (Full retirement of the `commandsForAction` agent arm is standing hygiene, §9.4; the
+guard makes any residual agent arm fail loud in the meantime.)
 
 ---
 
@@ -222,7 +231,7 @@ standing #684; the guard makes any residual agent arm fail loud in the meantime.
 A step is dumb + contained: it declares logical descriptors; the **orchestrator** owns `.consort`,
 resolves them to real paths, provides contents, validates outputs, and decides the route.
 
-A step has **six faces**:
+A step has **eight faces**:
 
 | Face | Signature | What it declares |
 |---|---|---|
@@ -231,9 +240,15 @@ A step has **six faces**:
 | `outputs` | `(action) => StepOutputSpec[]` | Logical artifacts it produces: id, description, channel-relative `filename`, `channel`, `optional?`, and an in-code `validate` (hard reject on fail, no agent round-trip). |
 | `postTurn` | `(action) => PostTurnHook[]` | Deterministic pipeline hooks the orchestrator runs AROUND the turn (not the agent): `{bin, args, when: before\|after}`. |
 | `agentOptions` | `(action) => AgentOptions` | Per-step agent-spawn levers: `{model?, effort?, session, resumeKeyFrom?}`. The optimize sweep patches these per candidate. |
+| `raises` | `(action) => TurnEventSpec[]` | The process EVENTS this step may raise on completion (see §1.1). Empty = an affirmative "raises nothing". |
+| `requiresEvents` | `(action) => TurnEventKind[]` | The process EVENTS a route to this step depends on , the markers a prior turn must have raised before it may be dispatched (see §1.1). Empty = "requires no event". |
 | `route` | `(completed, ctx) => RouteProposal` | The routing intent it EMITS on completion: `{outcome, proposedNext, reason?}`. |
 
 **`StepOutcome`** (what a step REPORTS): `produced` \| `blocked` \| `revise` \| `escalate`.
+
+The single real implementation is `Step` (`steps/step.ts`), driven ENTIRELY by a manifest + the
+validator registry + an injected agent — every face reads from the manifest. `MockStepContract` is the
+test double. There is no bespoke per-role class.
 
 **Output channels** (where a produced file lands):
 - `product` — the app deliverable (`app/`, `tests/`, migrations). ALWAYS uncontained (the real
@@ -257,6 +272,37 @@ declares a member the canonical model does not name (TypeScript `implements` is 
 bound and cannot reject an extra method). The allowlist `STEP_CONTRACT_MEMBERS` is pinned to the
 interface at compile time via `satisfies Record<keyof StepContract, true>`, so it can never drift.
 A StepContract impl therefore keeps private helpers as MODULE-LEVEL functions, not methods.
+
+### 1.1 Process events + the route→contract binding
+
+The build lane is producers→consumers: one turn writes a marker, a later turn's ROUTE depends on it.
+Those markers are declared as first-class **process events** (`steps/turn-events.ts`), so the
+producer→event→router→consumer chain is one checkable contract instead of four disconnected files.
+
+`TurnEventKind` (the closed set, each a JSON marker in the cycle dir): `green-failure`,
+`superseded-tests`, `regression-assessment`, `review-verdict`. Each has a `TurnEventSpec` in the
+`TURN_EVENTS` registry (`satisfies Record<TurnEventKind, TurnEventSpec>`, pinned) declaring its
+`filename` and an ACTION-AWARE `scopeFor(action)`: `feature` | `story` | `ac` | `cycle`. Most events are
+fixed-scope (`green-failure`/`superseded-tests`/`regression-assessment` = `cycle`); `review-verdict` is
+dual-scoped (`cycle` when the action carries an `ac`, `story` otherwise).
+
+A step declares what it `raises` and what it `requiresEvents` (the two faces above). The MANIFEST is the
+single source: `driver-green` raises `green-failure`; `navigator-assess` requires `green-failure` +
+raises `superseded-tests`/`regression-assessment`; `navigator-review` raises `review-verdict`;
+`driver-repair` requires `regression-assessment`; `driver-refactor` requires `review-verdict`.
+
+**The pre-dispatch route-satisfiable check** (`steps/assert-route-satisfiable.ts`) is the seam that
+BINDS a route to the input contract of the turn it targets. Before dispatch, it resolves the routed
+action's required events and presence-checks each artifact at its scope; a missing one throws
+`RouteContractError` naming the ROUTE ("route selected turn assess (AC1) but its required event
+green-failure was not produced; expected …"), NOT a bare late "missing input". It is wired as an
+optional `DriveEffects` hook the loop calls before dispatch, so an unwired driver is byte-identical; the
+executor's own input presence-check (`MissingInputError`, `step-executor.ts`) stays as defense-in-depth.
+
+**Input scope.** A manifest input `source` prefix selects where the orchestrator resolves it:
+`feature:<rel>` under the feature dir, `story:<rel>` under `storyResolved`, `cycle:<rel>` / `ac:<rel>`
+under `cycleDir(f, s, ac)`. The cycle scope is what lets a turn read a marker the router saw at AC scope
+(e.g. `navigator-assess` reads `cycle:green-failure.json`).
 
 ---
 
@@ -397,19 +443,12 @@ the open-RED cycle's AC, when its GREEN verify FAILED and left a green-failure m
 - **Review is ALL-GREEN-driven.** A green that passes the full suite makes the story all-green
   with no pending review → review. This is correct: a clean green SHOULD be reviewed.
 
-### Consequence for the driver-green optimize seed (the bug)
+### Consequence (canonical)
 
-The driver-green sweep seed drives a green that **passes its own suite** (`6 passed.` in the run
-log). All tests green, no failure marker → `reviewStoryPending` → **review**. The review step's
-`code` input (`story:code` → `<storyDir>/app`) is unmet (the driver writes `app/` at the project
-ROOT), so it fails loud with `missing input "code"` → DISQUALIFIED.
-
-**Therefore the assess route can only be reached by a green that genuinely FAILS the full suite**
-(e.g. a correct change that breaks a prior test the story supersedes). The fix is NOT "rewind the
-seed to a pre-contract code state" (no such faithful state exists in the recorded corpus — RED and
-green trees are byte-identical there); it is to give the seed a **failing precondition** (a prior
-test a correct green breaks) so the full-suite verify fails → `green-failure.json` → assess.
-Capturing that transition faithfully is the motivation for a fresh, fully-logged re-record.
+The assess route is reachable ONLY by a green that genuinely FAILS the full suite (e.g. a correct
+change that breaks a prior test the story supersedes → `green-failure.json` → assess). A green that
+passes its own suite is all-green with no failure marker → `reviewStoryPending` → review. The two are
+mutually exclusive by construction: a failure marker routes to assess and pre-empts review.
 
 ---
 
@@ -428,62 +467,47 @@ Capturing that transition faithfully is the motivation for a fresh, fully-logged
 | `turns/index.json` | ordered list of every turn | appended each turn |
 | `.recorder-state.json` | relpath→sha map for the next turn's delta | rewritten each turn |
 
-**What IS captured:** the action chosen, the full file delta (so a written `green-failure.json`
-lands in `produced[]` + `files/` — the marker lifecycle is observable through the delta), and the
-agent transcript.
+The record dir also carries three run-level streams (siblings to `turns/`):
 
-**What is NOT captured (the instrumentation gap):** the **routing decision inputs** — the
-`DriveState` build state-bag (`reviewStoryPending`, `assessGreenAc`, `allTestsGreen`, …) that
-`nextTransition` read to CHOOSE the action. It is derived fresh each iteration (`orchestrator-run.ts:234`)
-and discarded; `onAction` receives only the action (§0.4). So the recorder shows *what* was chosen
-and *what files resulted*, never *why that branch won*.
+| Stream | Content | Writer |
+|---|---|---|
+| `routing-decisions.jsonl` | per iteration: `{iteration, source, action, stateBag, at}` — the build state-bag (`reviewStoryPending`, `assessGreenAc`, `allTestsGreen`, …) that `nextTransition` READ to choose the action , the routing "why" | `recordRoutingDecision`, via the `onRoutingDecision` DriveEffects hook |
+| `correspondence.jsonl` | per HIL exchange: the orchestrator's REQUEST + the HIL's ANSWER/SUBMISSION + outcome + presentation (§6.6) | `recordCorrespondence`, via `onCorrespondence` |
+| `run-config.json` | the resolved model/effort/option matrix for the run | `writeRunConfig` |
 
-**Why the recorded stockflow corpus has no assess markers:** assess requires a green that FAILS
-(writes `green-failure.json`). The recorded greens PASSED → route to review → no marker written →
-nothing to record. This is not a recorder gap; the recorded runs simply never produced a failing
-green. A re-record that must capture the assess path needs a green that genuinely fails (§6).
+**Marker lifecycle is observable through the delta:** a written `green-failure.json` lands in
+`produced[]` + `files/`, so the produce→consume of a process event is visible without special casing.
+
+**Per-turn hard-fail audit.** In a LIVE capture, `assertTurnComplete` (`turn-recorder.ts`) aborts the
+moment any agent turn is missing an expected file (transcript, replay-set, delta), so a dropped
+artifact fails at that turn instead of yielding a silently-incomplete corpus. `expectedTurnFiles`
+is the template of what each turn must carry.
+
+**Post-run corpus audit.** `auditCorpus(recordDir)` (`consort/logging/audit-corpus.ts`) reports
+per-turn completeness + routing-log coverage; `requireAssess:true` additionally asserts the
+failing-green→assess path was captured.
 
 ---
 
-## 6. Instrumentation plan for a diagnostic re-record
+## 6. The recording surfaces
 
-Goal: a re-record whose log answers *"why did each turn route where it did"* and captures the
-assess path — the two things the current corpus cannot show.
+A recorded run is fully replayable: the recorder captures every turn's output delta + transcript, the
+routing decision that chose each turn, and the HIL correspondence. Recording is on when
+`LAKEBASE_CONSORT_RECORD_DIR` is set; `recorded-build/` (the per-turn code corpus) is auto-derived.
 
-**6.1 Routing-decision instrumentation (the load-bearing add).**
-The seam is `onAction` (§0.4): it already receives `action`; the `state` it was derived from is in
-the same scope (`orchestrator-run.ts:234-267`). Add a per-iteration routing record capturing, at
-minimum, the build state-bag booleans + the derived action + iteration:
-`{iteration, action, stateBag: {reviewStoryPending, refactorStoryPending, assessGreenAc,
-repairRegressionAc, greenSupersededAc, testsWritten, codeWritten, allTestsGreen, ...}, source:
-"nextTransition"|"bounded"|"contract"}`. Written to a `routing-decisions.jsonl` under the record
-dir (a new meta stream, sibling to `turns/`). This is additive — it does not change routing, only
-observes it. HERMETIC PROOF before any live run: a unit test that drives a known state and asserts
-the routing record contains the bag that produced the action.
-
-**6.2 Ensure the assess path is exercised.**
-Per §4.1: assess fires only on a FAILING green. A faithful re-record that captures assess needs the
-feature/story to contain a prior test a correct green legitimately breaks (the supersession case),
-so the full-suite verify fails → `green-failure.json` → assess. This is a SEED/scenario property,
-not a code change — the stockflow F6/S3 split-tracking story is the natural carrier (a correct
-`inventory_code`-split green breaks the old combined-column tests). Confirm the recorded scenario
-actually drives that failing green; if it does not, the re-record captures only the review path
-again.
-
-**6.3 New output directory + post-run audit.**
-Record to a NEW `LAKEBASE_CONSORT_RECORD_DIR` (never overwrite an existing corpus). After the run,
-audit: (a) `routing-decisions.jsonl` has one record per iteration with a non-empty state bag;
-(b) at least one assess turn exists with its `green-failure.json` in `files/`; (c) `turns/index.json`
-count matches the routing-decision count; (d) every invoke-role turn has a `transcript.md`.
+The assess path is only captured when a green genuinely FAILS (§4.1): the scenario must contain a prior
+test a correct green breaks (the supersession case) so the full-suite verify fails →
+`green-failure.json` → assess. The stockflow F6/S3 split-tracking story is the natural carrier (a
+correct `inventory_code`-split green breaks the old combined-column tests). A scenario whose greens all
+pass captures only the review path.
 
 ---
 
 ## 6.4 The capture launcher — how a live re-record is driven (from the shell code)
 
 The live re-record ("capture": design AND build run LIVE, every turn recorded) is driven by
-`examples/replay/run-capture.sh` → `examples/replay/_replay-smoke.sh` (`replay_smoke`). Documented
-from the shell source because the invocation contract is non-obvious and getting it wrong wastes a
-live run.
+`examples/replay/run-capture.sh` → `examples/replay/_replay-smoke.sh` (`replay_smoke`). The invocation
+contract below is what a launcher must satisfy for a live capture to succeed.
 
 **Invocation contract (`replay_smoke` arg parser, `_replay-smoke.sh:58`):**
 - Accepted flags: `--tiers` (**required**, e.g. `2` = prod+staging), `--kit-ref`, `--project-name`,
@@ -504,60 +528,34 @@ the correct args.
 **Recording + unattended resume:**
 - `LAKEBASE_CONSORT_RECORD_DIR=<persistent dir NOT under the project>` turns recording on;
   `_replay-smoke.sh` auto-derives `LAKEBASE_CONSORT_RECORD_BUILD_DIR=<RECORD_DIR>/recorded-build`.
-  With the §6.1 instrumentation, `routing-decisions.jsonl` is written at the same `recordDir` by
-  the `withTurnRecording` seam.
+  `routing-decisions.jsonl` + `correspondence.jsonl` (§5) are written at the same `recordDir`.
 - `run-capture.sh` sets `PAUSE_BEFORE=navigator`; `LAKEBASE_SFTDD_AUTO_CONTINUE=1` auto-confirms
-  that pause (`_replay-smoke.sh:241`) so the run does design→build in one process, unattended.
+  that pause so the run does design→build in one process, unattended.
+- The manifest-steps path is pinned ON (`LAKEBASE_SFTDD_USE_MANIFEST_STEPS=1`) so the executor is the
+  sole agent path + the route-satisfiable seam fires; a stray `=0` cannot drop the capture to legacy.
 
-**The scaffold-vs-reuse trap (`_replay-smoke.sh:127`):** `FRESH=1` unless `$PROJECT_DIR/.git`
-exists, in which case `FRESH=0` → "reusing existing project, skip scaffold". A multi-feature
-scenario relies on this (only the first feature scaffolds). But a **half-initialized project dir**
-left by a crashed prior launch (a `.git` but no scaffold, so no `scripts/lk` shim) makes the engine
-wrongly "reuse" it → the `lk` resolve fails with "could not resolve the runtime artifact dir". A
-capture must therefore start from a project name/dir with **no pre-existing `.git`** (fresh stamp,
-or clean the dir first). This is an $0 pre-cloud failure, but it blocks the run.
+**Scaffold-vs-reuse:** `FRESH=1` unless `$PROJECT_DIR/.git` exists, in which case `FRESH=0` → reuse
+(skip scaffold). This is what lets a multi-sprint / multi-feature capture share ONE project (only the
+first invocation scaffolds; see §6.6). A capture must start from a project dir with no pre-existing
+`.git` (a half-initialized dir from a crashed prior launch has a `.git` but no `scripts/lk` shim, so
+the reuse path then fails "could not resolve the runtime artifact dir") — use a fresh stamp or clean
+the dir first.
 
-**The intake-dir trap (`_replay-smoke.sh:45`) — costs cloud if missed:** `--corpus` sets ONLY
-`CORPUS_DIR` (the recorded design/build artifacts). The INTAKE dir (product-overview / nfrs /
-design-brief the project is seeded with) is a SEPARATE resolution: `INTAKE_DIR=${REPLAY_INTAKE_DIR:-
-${REPLAY_DIR}/corpora/bug-tracker}`. So a launcher that sets `--corpus` but not `REPLAY_INTAKE_DIR`
-stages **bug-tracker's** intake into a stockflow project; the spec-author breakdown then fails loud
-at turn 0 with `missing input "nfrs"` (bug-tracker's intake does not reconcile against the stockflow
-feature). `replay-scenario.sh:70` is the pattern: it exports `REPLAY_INTAKE_DIR="${SCEN}/intake"`. A
-capture launcher MUST set `REPLAY_INTAKE_DIR` to the scenario's own `intake/` dir. Unlike the two
-traps above, this one fails AFTER provisioning (scaffold + runner + tier already cut), so it DOES
-cost cloud — the launcher `launch-stockflow-instrumented.sh` now sets it.
+**Intake-dir invariant:** `--corpus` sets ONLY `CORPUS_DIR` (recorded design/build artifacts). The
+INTAKE dir (product-overview / nfrs / design-brief the project is seeded with) is resolved SEPARATELY
+from `REPLAY_INTAKE_DIR` (default `corpora/bug-tracker`). A launcher MUST export `REPLAY_INTAKE_DIR` to
+the scenario's own `intake/` dir; otherwise a foreign intake is staged and the spec-author breakdown
+fails at turn 0 with `missing input "nfrs"` (after provisioning — it costs cloud).
 
-**The feature-branch base defect (SCM claim) — the live blocker, verified from git:** on a fresh
-capture the harness commits intake (`product-overview` + `nfrs` + `design-brief`) then the
-feature-request to LOCAL `main` (commits `intake:…` then `plan: feature-request…`). But
-`lk lakebase-scm-claim-feature-branch` cuts the feature branch from the **scaffold commit** (where
-`origin/main` / `origin/staging` / `staging` still point — the pushed refs), NOT from local `main`
-where intake was just committed. Observed git graph:
-```
-* a6c6910 (main) plan: feature-request for F1-stock-visibility   <- intake + request are HERE
-* 333e5af        intake: product-overview + nfrs + design-brief  <- nfrs.md committed HERE, on main
-* 715153f (HEAD -> feature-f1-..., origin/main, origin/staging, staging) Initial project scaffold
-```
-So the feature branch (cut from `715153f`) lacks the intake commits → `.consort/nfrs.md` is absent
-on the branch the spec-author breakdown reads → `missing input "nfrs"` at turn 0 (AFTER cloud
-provisioning).
-
-**FIX LOCATION — the HARNESS, and it is a TIER bug (corrected + proven).** Two facts from
-scm-utils, verified in source: (1) the claim's parent branch is `resolveParentBranch(tier_topology)`
-— **tier-2 ⇒ `"staging"`**, tier-3 ⇒ `"dev"`, tier-1 ⇒ the default branch. (2) the git fork point
-is `resolveFeatureStartPoint(parentBranch)`, which **prefers `origin/<parentBranch>`** (the paired
-Lakebase branch was cut from that promoted state; git must match). stockflow-rerecord is
-**`"tiers": 2`** (`scenario.json`), so its feature forks from **`origin/staging`**. But
-`_replay-smoke.sh` checked out **`main`** for intake (line 161) and committed there — intake never
-reached staging, so the feature (forked from staging@scaffold) lacked `nfrs.md` → breakdown fails
-turn 0. This was misdiagnosed twice (as an intake-dir bug, then a push-to-main bug — both real but
-insufficient); the true cause is the **wrong tier**. FIX (applied, PROVEN git-only end-to-end in a
-throwaway origin-backed repo): (a) check out `staging` (the parent tier) before staging intake, not
-`main`; (b) push the parent tier to origin before the claim so `origin/staging` carries intake. Do
-NOT change scm-utils' tier/pushed-tip logic — it is correct; the harness was committing to the
-wrong branch. Proof: intake-on-staging + push ⇒ the feature forked from `origin/staging` contains
-`nfrs.md` + `feature-request.md`.
+**Feature-branch base invariant (SCM claim + tier topology):** intake + the feature-request must be
+committed on the PARENT TIER and pushed to origin BEFORE the claim. `lk lakebase-scm-claim-feature-branch`
+forks the feature from `resolveFeatureStartPoint(resolveParentBranch(tier))`, which prefers
+`origin/<parentBranch>` (the git fork point must match the paired Lakebase branch's promoted state).
+Parent branch by topology: tier-2 ⇒ `staging`, tier-3 ⇒ `dev`, tier-1 ⇒ the default branch. So for a
+tier-2 scenario the harness checks out `staging`, commits intake + feature-request there, and pushes
+`origin/staging` before claiming — else the feature forks WITHOUT intake and breakdown fails
+`missing input "nfrs"` at turn 0. (scm-utils' tier/fork-point logic is authoritative; the launcher
+commits to the branch it dictates, never the reverse.)
 
 ## 6.5 The per-agent-turn REPLAY SET (for optimization experiments)
 
@@ -582,10 +580,8 @@ mirror). The turn's OUTPUT (post-state) is the `recordTurn` delta (code + `.cons
 the bundle is pre-state (`pre-project/` + inputs/prompt/levers) + post-state (delta) = a full replay
 set. Only agent turns get one (the record wrapper only wraps agent invokes); gates/deploy do not.
 
-**Post-run audit:** run `auditCorpus(<RECORD_DIR>)` (`consort/logging/audit-corpus.ts`, §6.3): it
-reports per-turn expression gaps + routing-log completeness. `requireAssess:true` additionally
-asserts the failing-green→assess path was captured. This is the loop engine: audit → fix
-expression → re-record until `clean`.
+**Post-run audit:** `auditCorpus(<RECORD_DIR>)` (§5) reports per-turn completeness + routing-log
+coverage; `requireAssess:true` asserts the failing-green→assess path was captured.
 
 ## 6.6 The INTERACTIVE-MIMIC capture — two sprints from a real /sprint + correspondence
 
@@ -742,103 +738,118 @@ design/build chains route `produced → state-derived` (the orchestrator re-deri
 
 ---
 
-## 8. Working state & resume context (read FIRST after a compact/clear)
+## 8. Rebuilding Consort from scratch — the contract checklist
 
-The live state of the capture/instrumentation effort, so this doc alone re-establishes context.
+To reimplement Consort, satisfy these contracts in order. Each maps to a section above. This is the
+minimal set of invariants; get these right and the framework's behavior follows.
 
-### 8.1 The goal
-Produce a **fresh live stockflow-rerecord capture** where every agent turn is fully recorded as a
-**replay set** (§6.5) — the corpus that seeds per-manifest-step optimization experiments. The
-capture is driven by `examples/replay/captures/launch-stockflow-instrumented.sh` (§6.4), records to
-`examples/replay/captures/stockflow-instrumented-<stamp>/`.
+### 8.1 The state machine (§0, §4)
+- A single pure `nextTransition(DriveState) → WorkflowAction`: no I/O, no model. Escalation
+  (`escalationPreempt`) pre-empts every phase. Phases: planning → feature (design+build per story) →
+  deploy → promote → done.
+- The build sub-router `nextBuildAction(story, build)` picks the next build turn from the story's
+  state bag ALONE, in a fixed precedence (assess/repair/superseded before plain RED/GREEN; review vs
+  refactor by loop granularity). Assess is FAILURE-driven (a `green-failure.json` on an open-RED
+  cycle); review is ALL-GREEN-driven; the two are mutually exclusive.
+- State is DERIVED from disk each iteration (the probe reads pipeline + cycle records + markers), never
+  held in memory — so a run is resumable and a re-derive after any turn is authoritative.
 
-### 8.2 What is DONE + PROVEN (in source + dist; full suite green ~3480)
-- **Routing-decision instrumentation** — `onRoutingDecision` per iteration → `routing-decisions.jsonl`
-  (the "why" the recorder lacked). `turn-recorder.ts` `recordRoutingDecision`/`projectRoutingStateBag`.
-- **Per-agent-turn replay set** (§6.5) — `recordReplaySet` writes `replay-set/{pre-project/, inputs/,
-  prompt.txt, guidelines.json, levers.json}`; verbatim `prompt.txt`; full project code pre-snapshot;
-  `.consort` stays delta-tracked. Wired in `replay-recorder-wrapper.ts` via `turnDirFor`.
-- **Transcript double-consume race — FIXED** — `claude-step-agent.ts` now `peekLastAgentTranscript`
-  (not take), leaving the record wrapper the sole taker; else executor turns dropped `transcript.md`.
-- **Per-turn hard-fail audit** — `assertTurnComplete` + `expectedTurnFiles` (`turn-recorder.ts`):
-  a LIVE capture aborts the moment any agent turn is missing an expected file (scoped via
-  `liveCapture = ctx.takeTranscript !== undefined`, so replay/migration/test records are exempt).
-- **Corpus audit tool** — `consort/logging/audit-corpus.ts` `auditCorpus(recordDir)` (§6.3).
-- **Capture harness fixes** (all in `_replay-smoke.sh` + the launcher): intake staged on the PARENT
-  TIER (staging for tier-2), pushed to origin before the claim; `REPLAY_INTAKE_DIR` = scenario intake;
-  feature-request authored via the author-requests turn (not bare cp) when `--sprint` is set.
-- **Manifest input-path fixes**: `spec-author-breakdown` feature-request → `feature:features/{feature}/
-  feature-request.md`; `navigator-reflect` `story:design` → `story:acs` (both had no
-  writer/resolver at the declared path). Manifests are BUNDLED INTO DIST at build → **rebuild dist
-  after any manifest edit** or the live run uses the stale path.
-- **Dispatch split documented** (§0.5). Legacy-path audit (§0.5) done: 1 real divergence (transcript,
-  fixed) + 1 false positive (set-phase — a deterministic drive-loop concern, NOT an executor gap).
+### 8.2 The step contract (§1, §1.1)
+- ONE `StepContract` with the eight faces; ONE real impl (`Step`) driven entirely by a manifest + the
+  validator registry + an injected agent. Exactness guard + compile-pinned member allowlist.
+- A step is dumb + contained: declares logical descriptors; the orchestrator owns `.consort`, resolves
+  inputs (feature/story/cycle scope), validates outputs (in-code, hard reject), and is the SOLE routing
+  authority (`validateAndBound` bounds a step's route proposal against the pure transition + budgets).
+- Process events (`turn-events.ts`) are first-class: a step declares `raises`/`requiresEvents`; the
+  pre-dispatch `assertRouteSatisfiable` binds a route to the target turn's input contract and fails
+  loud NAMING THE ROUTE. The manifest is the single source of the event contract.
 
-### 8.3 Last live capture (stopped intentionally)
-`stockflow-instrumented-20260808-103314` reached the BUILD lane (navigator-RED done, driver-green
-dispatching) with 18 turns + 11 replay-sets recorded, before being stopped to fix the transcript
-bug. It PROVED: breakdown passes, navigator-reflect passes (the `story:acs` fix), replay-sets are
-complete (pre-project/inputs/prompt/levers all present). Its orphan Lakebase project was reclaimed
-(zero orphans). The transcript fix + hard-fail audit are NOT yet in a dist that ran live.
+### 8.3 Dispatch + recording (§0.4, §0.5, §5, §6)
+- Every played agent turn dispatches through ONE executor Template Method (`performViaExecutor` →
+  `execute()` phases: resolve-inputs → provision → dispatch → capture → route). The legacy
+  `commandsForAction` arm is guarded dead: `assertNotStrandedAgentTurn` throws if an invoke-role action
+  reaches legacy without being executor-dispatched or a sanctioned deterministic-agentless action.
+- Recording (gated on `LAKEBASE_CONSORT_RECORD_DIR`): per-turn delta + transcript + replay-set under
+  `turns/<NNNN>/`; run-level `routing-decisions.jsonl` (the routing why) + `correspondence.jsonl` (the
+  HIL exchange) + `run-config.json`; cumulative `recorded-artifacts/` + `recorded-build/`. A live
+  capture hard-fails the moment a turn drops an expected artifact (`assertTurnComplete`).
 
-### 8.4 OPEN — resume points, in order
+### 8.4 The HIL + capture (§6.6)
+- The HIL is ONE interface, two impls: a real human (interactive; the driver halts at gates) or the
+  Human Proxy (headless; validates + approves/supplies from recorded material). The automated path is
+  IDENTICAL to interactive — only the impl differs. The proxy never invents intent (refuses on
+  missing/non-conformant material) and approves the full lifecycle (spec/plan/test_list/accept/deploy/
+  promote).
+- A capture MIMICS an interactive session: a real `/sprint --gates proxy` kicks it off; the orchestrator
+  ASKS for intake (the `/plan` Step 0 / `/design` Step 0.5 interviews) and the proxy answers; two
+  sprints run on one shared project (scaffold once, reuse; planning is PER-SPRINT); every exchange is
+  recorded to `correspondence.jsonl` with its presentation preserved.
 
-**Session 2026-08-08 landed 3 workstreams (branch `capture/replay-set-instrumentation-and-fixes`,
-source-only, hermetic-green modulo the 3 pre-existing WIP failures below). Plans in `docs/plans/`:**
-- **Route→contract interface** (`docs/plans/route-contract-interface.md`) — declared process events +
-  pre-dispatch `assertRouteSatisfiable` (names the ROUTE, not a bare "missing input") + #735 fixed as
-  its first demo. Commits `595b21c4`. DONE.
-- **Kit resolution — one way** (`docs/plans/kit-resolution.md`) — split-brain-safe `pin-local-kit`
-  everywhere + TS twin + guard. Commit `d25aae02`. DONE.
-- **Capture flow** (`docs/plans/capture-flow.md`, #750) — CF1-3 DONE (correspondence types+writer+hook,
-  emitters+kickoff+presentation, NFR hard-block + per-feature nfrs). CF4 = intake interviews FOUND
-  ALREADY BUILT (design.md/plan.md). CF5 = two-sprint launcher BUILT (§6.6), NOT live-run. CF6 = tests
-  +docs pending. Commits `03996e1a`, `cd76d623`, `16f8144a`, `86418db1`, + CF5.
-- **#736 (build-code collapse)** — unblocked as OPTION 2 forward-delta (existing corpora lack
-  turns/pre-project; reconstruct from `files/` deltas). NOT built. Sequenced after a fresh capture.
-- **Pre-existing WIP failures (NOT this session's, on branch): #749** optimize-role.cli.ts imports
-  missing `./driver-sweep.js` (12 tsc + 1 test); navigator-reflect agentOptions parity; `#595` host in
-  `OPTIMIZE-RUN-LOG.md`. All from the `massive-update` parked WIP (commit `b19e9628`).
+### 8.5 The kit-resolution contract (one way)
+- EXACTLY ONE way to resolve the kit for a run (`resolve_kit_single_source`, `pin-local-kit.sh`):
+  pin a local ref whose cache slot symlinks the working tree + write the ref into the project, so the
+  orchestrator AND the env-less `claude -p` agents load IDENTICAL bits. NEVER `LAKEBASE_KIT_DIR` alone
+  (orchestrator-only = split-brain). `--kit-ref` is the published escape hatch. A guard test forbids a
+  second policy.
 
-**Resume points, in order:**
-1. **#734 + #732 — DONE.** author-requests + estimate-committed are named in the sanctioned
-   `deterministicAgentless` allowlist (they are NOT agent turns); the runtime hard-stop
-   `assertNotStrandedAgentTurn` fires at the top of `perform` for any invoke-role action that
-   escapes the executor without being sanctioned. Proven (`legacy-path-guard.test.ts`). See §0.5.
-2. **#727 (the re-record) — the main remaining action:** rebuild dist (route-contract + kit + capture
-   -flow + the manifest-steps flag pin), then re-launch the TWO-SPRINT capture via the launcher (§6.6).
-   Pre-flight: zero orphans, auth `AUTH_OK`, dist fresh. GATED — live Lakebase; needs explicit go each
-   launch. The hard-fail audit (§6.5) protects the corpus; the route-contract seam (§0.5 / §1) fails
-   loud on a mis-routed turn; correspondence.jsonl records the proxy↔orchestrator exchange per sprint.
-3. **`useManifestSteps` flag — decided (2026-08-08): NOT retired, pinned ON.** User rule: retire only
-   if it prevents capture, else flag on. It does NOT prevent capture (defaults ON at
-   `claude-runner.ts:687`; nothing in the capture path disables it; now set EXPLICITLY in the launcher).
-   #684 (fully retire the toggle + the legacy `commandsForAction` arm) is standing hygiene, NOT a #727
-   gate — the `assertNotStrandedAgentTurn` guard already makes any residual agent arm fail loud.
-
-### 8.5 Hard-won operational rules (do not relearn)
-- **Rebuild dist before any live run** — manifests + TS are bundled; a stale dist runs old code.
-- **Orphan reclaim after any stopped run:** `databricks postgres delete-project projects/<name>
-  --profile <the test profile>`, one name per call; confirm zero `stockflow-instrumented` projects
-  remain. The profile is NOT hardcoded anywhere , it lives in `.env.local.test.config`
-  (`DATABRICKS_CONFIG_PROFILE`), read via `provisioning/test-env.ts` (`resolveTestEnv`); the `#595`
-  guard forbids re-hardcoding the workspace host in source (incl. this doc).
-- **The launcher computes its OWN stamp** (its `date` differs from an outer stamp) — track the run
-  by the log path + `postgres list-projects`, not the outer stamp.
-- **`--no-verify` is blocked** in this environment — never bypass git hooks; drop the flag.
-- Owner + profile + host come from `.env.local.test.config` (never inline them). Scenario is tier-2;
-  sprint `stockflow-rerecord-s1` ships F1, `-s2` ships F6 (the assess / expand-contract path).
+### 8.6 Operational invariants (a live run)
+- **Dist is a build artifact:** manifests + TS bundle into `dist` at build; rebuild dist after any
+  source/manifest edit or a run executes stale code. Commit source only.
+- **Config has one home:** owner + profile + host live in `.env.local.test.config`
+  (`DATABRICKS_CONFIG_PROFILE`), read via `provisioning/test-env.ts` (`resolveTestEnv`). Never inline
+  the workspace host in source (a guard enforces this).
+- **Reclaim orphans** after any stopped run: `databricks postgres delete-project projects/<name>
+  --profile "$DATABRICKS_CONFIG_PROFILE"`, one per call; confirm zero left in the capture namespace.
+- Never bypass git hooks (`--no-verify` is blocked). Track a live run by its log path +
+  `postgres list-projects`, not an outer stamp (the launcher computes its own).
 
 ---
 
-## Canonical model change log
+## 9. Open work — unresolved (resume here)
 
-- **2026-08-08** — Added `postTurn` and `agentOptions` as first-class `StepContract` faces.
-  Discovered while documenting the spec-author chain: every manifest declares `agentOptions`, and
-  breakdown declares `postTurn` hooks (`reset-breakdown` / `sync-breakdown`) — real things a step
-  does that the interface did not name. Added the types, the two interface methods, the
-  `STEP_CONTRACT_MEMBERS` compile-pinned allowlist, and `assertExactStepContract`.
-- **2026-08-08** — Transcript double-consume race fixed (peek-not-take); per-turn hard-fail record
-  audit added (`assertTurnComplete`); per-agent-turn replay set added (`recordReplaySet`, §6.5);
-  routing-decision stream added (`recordRoutingDecision`). Dispatch split + legacy deprecation plan
-  documented (§0.5). Capture harness + two manifest input-path bugs fixed (§8.2).
+What is built + committed vs what remains. Everything above (§0–§8) is the current contract; the items
+below are NOT yet done. Branch `capture/replay-set-instrumentation-and-fixes`; plans in `docs/plans/`.
+
+### 9.1 The GATED live capture (the main remaining action)
+The two-sprint `/sprint`-driven capture (§6.6) is BUILT but has NOT been run live. To run it (gated —
+live Lakebase, needs explicit go):
+1. **Rebuild dist** — all committed source changes (route-contract, kit-resolution, capture-flow,
+   the manifest-steps flag pin) must be bundled or the run executes stale code.
+2. **Pre-flight** — auth OK; capture namespace has zero orphan `stockflow-instrumented` projects; the
+   branch carries the fixes.
+3. **Launch** `examples/replay/captures/launch-stockflow-instrumented.sh` (detached; tracked by log +
+   `postgres list-projects`).
+4. **Verify (live-only, can't be proven hermetically):** correspondence.jsonl has TWO kickoff entries
+   (one per sprint) + both sprints' gate/intake exchanges; sprint-2's `staging` checkout is clean after
+   s1's promote; the parent-tier push before s2's claim carries s1's merged state so F6 forks correctly;
+   the run gets PAST the navigator-assess turn (the route-contract + green-failure `cycle:` scope fix).
+   Prior blocker (now fixed): the run died at navigator-assess with `missing input "green-failure"` —
+   the assess input was declared `story:` but the marker is written at `cycle:` scope (§1.1).
+
+### 9.2 Build-code home collapse (unblocked, NOT built)
+A build turn's code is recorded twice (`recorded-build/` story-keyed full trees + `turns/` flat
+delta+pre-project). Collapse to `turns/` as the single home via OPTION 2 — reconstruct each turn's full
+tree by replaying `turns/<n>/files/` deltas forward from turn 0 (existing corpora predate
+`replay-set/pre-project/`, so per-turn snapshots are unavailable). Must PROVE byte-identical
+reconstruction vs `recorded-build/code/` on a dual-home corpus before repointing `replayBuildTurn`;
+then deprecate the `recorded-build` writer to fail loud if called. Plan: `docs/plans/build-code-collapse.md`.
+
+### 9.3 Capture-flow finish (CF Stage 6)
+Hermetic guard on the launcher shape (two sprints declared; per-sprint planning gate) + a SKILL/doc
+pass. The correspondence machinery + NFR/nfrs work + the launcher are done and committed; this is the
+test-coverage + docs tail. Plan: `docs/plans/capture-flow.md`.
+
+### 9.4 Standing hygiene (not blocking any capture)
+- **Fully retire the `useManifestSteps` toggle + the legacy `commandsForAction`/`commandsFromManifest`
+  arm.** Decided NOT required for capture (the flag is pinned ON; the `assertNotStrandedAgentTurn`
+  guard makes any residual legacy agent arm fail loud). Retiring = delete the config field + env
+  escape hatch + the legacy arm + rebaseline goldens.
+
+### 9.5 Pre-existing WIP on the `massive-update` branch (NOT this work; carried over)
+Parked uncommitted work was committed to a sibling `massive-update` branch (source-only; dist +
+capture output excluded). It carries THREE known-broken items that fail the full suite / tsc and are
+NOT from the contract work above: (a) `tests/optimization/optimize-role.cli.ts` imports a missing
+`./driver-sweep.js` (12 tsc errors + 1 test failure; it is a CLI helper vitest does not run, so the
+hermetic suite is otherwise green); (b) a navigator-reflect `agentOptions` model/effort resolver-parity
+mismatch; (c) the `#595` workspace-host guard flags `OPTIMIZE-RUN-LOG.md`. These belong to whoever owns
+the optimize-sweep + run-log work; they must be resolved before `massive-update` merges.
