@@ -811,10 +811,14 @@ What is built + committed vs what remains. Everything above (§0–§8) is the c
 below are NOT yet done. Branch `capture/replay-set-instrumentation-and-fixes`; plans in `docs/plans/`.
 
 ### 9.1 The GATED live capture (the main remaining action)
-The two-sprint `/sprint`-driven capture (§6.6) is BUILT but has NOT been run live. To run it (gated —
-live Lakebase, needs explicit go):
-1. **Rebuild dist** — all committed source changes (route-contract, kit-resolution, capture-flow,
-   the manifest-steps flag pin) must be bundled or the run executes stale code.
+The two-sprint `/sprint`-driven capture (§6.6) is BUILT but has NOT been run live. **READY-STATE (as of
+this doc): dist rebuilt clean, auth OK, capture namespace has zero orphans, working tree committed** —
+the only remaining step is the launch (gated — live Lakebase, needs explicit go). To run it:
+1. **Dist** — must be freshly built (route-contract, kit-resolution, capture-flow, the manifest-steps
+   flag pin all bundled) or the run executes stale code. NOTE: `npm run build` cleans dist first, so a
+   build FAILURE leaves dist EMPTY. The build was unblocked by dropping the broken `optimize-role.cli`
+   entry from `tsup.config.ts` (it imported an uncommitted `./driver-sweep.js`, #749); if the build
+   fails again, dist is empty and the capture cannot run — fix the build before launching.
 2. **Pre-flight** — auth OK; capture namespace has zero orphan `stockflow-instrumented` projects; the
    branch carries the fixes.
 3. **Launch** `examples/replay/captures/launch-stockflow-instrumented.sh` (detached; tracked by log +
