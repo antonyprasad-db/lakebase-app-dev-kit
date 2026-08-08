@@ -130,6 +130,16 @@
         "config": { "type": "object", "description": "The kind's own config (claude levers / replay seeds / mock outputs)." }
       },
       "additionalProperties": false
+    },
+    "raises": {
+      "type": "array",
+      "description": "The process EVENTS this step may RAISE on completion (event kinds; scope resolves through TURN_EVENTS). The coverage guard confirms every REQUIRED event is raised somewhere. Absent = raises nothing.",
+      "items": { "type": "string", "enum": ["green-failure", "superseded-tests", "regression-assessment", "review-verdict"] }
+    },
+    "requiresEvents": {
+      "type": "array",
+      "description": "The process EVENTS a ROUTE to this step depends on (event kinds a prior turn must have raised before dispatch). The pre-dispatch route-satisfiable check asserts each exists at its scope. Absent = requires no event.",
+      "items": { "type": "string", "enum": ["green-failure", "superseded-tests", "regression-assessment", "review-verdict"] }
     }
   },
   "additionalProperties": false,

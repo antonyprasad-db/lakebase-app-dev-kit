@@ -21,6 +21,7 @@ import { dirname, join } from "node:path";
 import { nextTransition, type WorkflowAction, type DriveState } from "./orchestrator-drive.js";
 import { manifestForAction, type StepManifestPostTurn } from "../steps/manifest.js";
 import { performTurnViaExecutor, assertNotStrandedAgentTurn } from "./executor-dispatch.js";
+import { assertRouteSatisfiable } from "../steps/assert-route-satisfiable.js";
 import { formatAgentReport } from "../turns/agent-report-formatter.js";
 import type { DriveEffects } from "./orchestrator-run.js";
 import { deriveDriveState, effectiveLoopForStory } from "../state/orchestrator-derive.js";
@@ -1932,6 +1933,24 @@ export function buildDriveEffects(cfg: DriveEffectsConfig): DriveEffects {
         logBin: LOG_BIN,
       });
     },
+    // Pre-dispatch route-contract check (route→event→consumer): resolve the routed action's manifest
+    // and assert its REQUIRED process events exist before dispatch, so a mis-fired route fails loud
+    // naming the route (RouteContractError) instead of the executor's later bare "missing input". Only
+    // active under useManifestSteps (same gate as the executor path); a non-agent action or a turn
+    // requiring no event is a no-op. The manifest's requiresEvents is the single contract source.
+    ...(cfg.useManifestSteps
+      ? {
+          assertRouteSatisfiable(action: WorkflowAction) {
+            const manifest = manifestForAction(action);
+            if (!manifest || !(manifest.requiresEvents?.length)) return;
+            assertRouteSatisfiable(
+              action,
+              { requiresEvents: () => manifest.requiresEvents ?? [] },
+              { consortDir: cfg.consortDir, featureId: cfg.featureId },
+            );
+          },
+        }
+      : {}),
     onAction: cfg.onAction,
     onRoutingDecision: cfg.onRoutingDecision,
     // Hand-back delivery: when a role's prior turn failed its expectation

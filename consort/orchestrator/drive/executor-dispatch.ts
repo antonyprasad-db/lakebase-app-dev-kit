@@ -21,6 +21,7 @@ import * as fs from "node:fs";
 import { join, relative } from "node:path";
 import {
   storyResolved,
+  cycleDir,
   featureSpecJson,
   architectureJson,
   dbDesignJson,
@@ -427,6 +428,7 @@ export async function performTurnViaExecutor(
   const step = new Step(manifest, agent);
   const f = cfg.featureId;
   const story = "story" in action && typeof action.story === "string" ? action.story : undefined;
+  const ac = "ac" in action && typeof action.ac === "string" ? action.ac : undefined;
 
   // Resolve a manifest input `source` to its on-disk path on the LIVE tree. `feature:<rel>` is
   // rooted at <consortDir>; `story:<rel>` at the story's resolved dir (test-list-per-story.json,
@@ -439,6 +441,16 @@ export async function performTurnViaExecutor(
   const expandRel = (rel: string): string =>
     rel.replace(/\{feature\}/g, f).replace(/\{story\}/g, story ?? "");
   const inputPath = (source: string): string => {
+    // `cycle:`/`ac:` , the per-cycle dir (cycleDir(f, s, ac)), where the build lane's process-event
+    // markers live (green-failure.json / superseded-tests.json / regression-assessment.json). An AC and
+    // its cycle share a dir; both prefixes read naturally at a call site and resolve identically. This
+    // is the scope `story:` LACKED , declaring an input at cycle scope is what lets resolveInputs find a
+    // marker the router already saw at AC scope (the green-failure scope-mismatch bug this closes).
+    if (source.startsWith("cycle:") || source.startsWith("ac:")) {
+      const rel = expandRel(source.slice(source.indexOf(":") + 1));
+      if (!story || !ac) return join(cfg.consortDir, rel); // no story/ac on the action , resolve under consortDir (will miss + fail loud)
+      return join(cycleDir(cfg.consortDir, f, story, ac), rel);
+    }
     if (source.startsWith("story:")) {
       const rel = expandRel(source.slice("story:".length));
       if (!story) return join(cfg.consortDir, rel); // no story on the action , resolve under consortDir (will miss + fail loud)

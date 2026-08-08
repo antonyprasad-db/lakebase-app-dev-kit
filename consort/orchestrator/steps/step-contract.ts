@@ -20,6 +20,7 @@
 // so the per-step isolated runner + `--step` CLI can consume them next.
 
 import type { DriveState, WorkflowAction } from "../workflow/workflow-vocabulary.js";
+import type { TurnEventKind, TurnEventSpec } from "./turn-events.js";
 
 /**
  * A step's INPUT contract, declared as LOGICAL descriptors , NOT filesystem paths. The
@@ -263,6 +264,15 @@ export interface StepContract {
   /** The per-step agent-spawn levers (model/effort/session). The orchestrator reads these to
    *  configure the spawn; the optimize sweep patches them per candidate. */
   agentOptions(action: WorkflowAction): AgentOptions;
+  /** The process EVENTS this step may RAISE on completion (green-failure / superseded-tests /
+   *  regression-assessment / review-verdict). Declared as full specs so the coverage guard can
+   *  confirm every REQUIRED event is raised somewhere. Empty = an affirmative "raises nothing". */
+  raises(action: WorkflowAction): TurnEventSpec[];
+  /** The process EVENTS a ROUTE to this step depends on , the markers a prior turn must have raised
+   *  before this turn is dispatched. Declared as KINDS (scope resolves through TURN_EVENTS, one
+   *  scope-truth); the pre-dispatch route-satisfiable check asserts each exists. Empty = "requires
+   *  no event" (the plain RED/GREEN turns). This is the face that ties a route to its inputs. */
+  requiresEvents(action: WorkflowAction): TurnEventKind[];
   route(completed: WorkflowAction, ctx: StepRouteContext): RouteProposal;
 }
 
@@ -280,6 +290,8 @@ export const STEP_CONTRACT_MEMBERS = {
   outputs: true,
   postTurn: true,
   agentOptions: true,
+  raises: true,
+  requiresEvents: true,
   route: true,
 } satisfies Record<keyof StepContract, true>;
 
@@ -329,6 +341,8 @@ export class MockStepContract implements StepContract {
       outputs?: Record<string, StepOutputSpec[]>;
       postTurn?: Record<string, PostTurnHook[]>;
       agentOptions?: Record<string, AgentOptions>;
+      raises?: Record<string, TurnEventSpec[]>;
+      requiresEvents?: Record<string, TurnEventKind[]>;
       route?: Record<string, RouteProposal>;
     },
   ) {}
@@ -351,6 +365,14 @@ export class MockStepContract implements StepContract {
 
   agentOptions(action: WorkflowAction): AgentOptions {
     return this.script.agentOptions?.[signature(action)] ?? {};
+  }
+
+  raises(action: WorkflowAction): TurnEventSpec[] {
+    return this.script.raises?.[signature(action)] ?? [];
+  }
+
+  requiresEvents(action: WorkflowAction): TurnEventKind[] {
+    return this.script.requiresEvents?.[signature(action)] ?? [];
   }
 
   route(completed: WorkflowAction, _ctx: StepRouteContext): RouteProposal {

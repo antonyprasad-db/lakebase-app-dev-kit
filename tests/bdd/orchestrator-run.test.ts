@@ -354,6 +354,8 @@ describe("runDriver: output-driven routing seam (options.contract)", () => {
     preconditions: () => [],
     postTurn: () => [],
     agentOptions: () => ({ session: "fresh" }),
+    raises: () => [],
+    requiresEvents: () => [],
     outputs: () => [],
     route(_completed, ctx) {
       return { outcome: "produced", proposedNext: transition(ctx.state) };
@@ -396,6 +398,8 @@ describe("runDriver: output-driven routing seam (options.contract)", () => {
       preconditions: () => [],
       postTurn: () => [],
       agentOptions: () => ({ session: "fresh" }),
+      raises: () => [],
+      requiresEvents: () => [],
       outputs: () => [],
       route() {
         return { outcome: "produced", proposedNext: { kind: "merge" } }; // never allowed mid-design

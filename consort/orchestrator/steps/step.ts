@@ -37,6 +37,7 @@ import type {
 import type { StepAgent } from "../agents/agent-types.js";
 import type { ProvidedStepRun, ProvidedStepResult, ExistsFn } from "./step-run-types.js";
 import { resolveChannelRoot, type Channel } from "../provisioning/channels.js";
+import { TURN_EVENTS, type TurnEventKind, type TurnEventSpec } from "./turn-events.js";
 
 /** Which output id is the PRIMARY artifact (the one that must be present for produced:true).
  *  Convention: the first declared output. */
@@ -111,6 +112,20 @@ export class Step implements StepContract {
       session: o.session,
       ...(o.resumeKeyFrom ? { resumeKeyFrom: o.resumeKeyFrom } : {}),
     };
+  }
+
+  /** The process EVENTS this step may RAISE, from the manifest (`raises`: a list of event kinds).
+   *  Each kind resolves to its full spec through TURN_EVENTS (the one scope-truth). Absent on the
+   *  manifest = an affirmative "raises nothing" (empty). */
+  raises(_action: WorkflowAction): TurnEventSpec[] {
+    return (this.manifest.raises ?? []).map((kind) => TURN_EVENTS[kind]);
+  }
+
+  /** The process EVENTS a ROUTE to this step depends on, from the manifest (`requiresEvents`: a
+   *  list of event kinds). Declared as kinds; the route-satisfiable check resolves scope through
+   *  TURN_EVENTS. Absent = an affirmative "requires no event" (the plain RED/GREEN turns). */
+  requiresEvents(_action: WorkflowAction): TurnEventKind[] {
+    return this.manifest.requiresEvents ?? [];
   }
 
   /** The conformance validators EXPOSED TO THE AGENT, so it self-checks its draft in-turn.

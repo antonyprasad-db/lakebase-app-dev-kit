@@ -33,7 +33,7 @@ import { outputPathsForAction } from "../../consort/orchestrator/drive/executor-
 import { SHIPPED_MANIFESTS, type StepManifest } from "../../consort/orchestrator/steps/manifest";
 import { resolvePreparer } from "../../consort/orchestrator/build/preconditions";
 import { writeGreenFailure } from "../../consort/smells/supersession";
-import { storyResolved } from "../../consort/config/consort-paths";
+import { storyResolved, cycleDir } from "../../consort/config/consort-paths";
 import type { WorkflowAction, DriveState } from "../../consort/orchestrator/drive/orchestrator-drive";
 import type { ValidateBoundDeps } from "../../consort/orchestrator/steps/step-contract";
 
@@ -55,19 +55,26 @@ function actionFromMatch(m: StepManifest): Extract<WorkflowAction, { kind: "invo
   const hasMode = "mode" in m.match && m.match.mode !== null;
   const hasBuildMode = "buildMode" in m.match && m.match.buildMode !== null;
   if (STORY_SCOPED.has(m.role) && !hasMode && !("story" in a)) a.story = STORY;
-  // assess/repair carry an ac in the real drive (per-AC cycle); seed one so the advisory + cycle args resolve.
-  if (hasBuildMode && (m.match.buildMode === "assess") && !("ac" in a)) a.ac = AC;
+  // assess/repair carry an ac in the real drive (per-AC cycle); seed one so the advisory + the
+  // cycle-scoped inputs (green-failure / regression-assessment) resolve at cycleDir, not the story dir.
+  if (hasBuildMode && (m.match.buildMode === "assess" || m.match.buildMode === "repair") && !("ac" in a)) a.ac = AC;
   return a as unknown as Extract<WorkflowAction, { kind: "invoke-role" }>;
 }
 
 /** Seed one declared input at the path the executor resolves it to (feature: under consortDir,
- *  story: under the story dir), copying a faithful body from the intake fixtures when we have one,
- *  else a minimal stub. A `code`/`design`/`acs` source is a DIRECTORY input (presence-checked). */
-function seedInput(consortDir: string, source: string): void {
+ *  story: under the story dir, cycle:/ac: under the AC cycle dir), copying a faithful body from the
+ *  intake fixtures when we have one, else a minimal stub. A `code`/`design`/`acs` source is a
+ *  DIRECTORY input (presence-checked). `ac` is required to resolve a cycle:/ac: source. */
+function seedInput(consortDir: string, source: string, ac?: string): void {
   const expand = (rel: string): string => rel.replace(/\{feature\}/g, FEATURE).replace(/\{story\}/g, STORY);
   const isStory = source.startsWith("story:");
-  const rel = expand(source.replace(/^(story:|feature:)/, ""));
-  const abs = isStory ? join(storyResolved(consortDir, FEATURE, STORY), rel) : join(consortDir, rel);
+  const isCycle = source.startsWith("cycle:") || source.startsWith("ac:");
+  const rel = expand(source.replace(/^(story:|feature:|cycle:|ac:)/, ""));
+  const abs = isCycle
+    ? join(cycleDir(consortDir, FEATURE, STORY, ac ?? AC), rel)
+    : isStory
+      ? join(storyResolved(consortDir, FEATURE, STORY), rel)
+      : join(consortDir, rel);
   const base = basename(rel);
 
   // Directory inputs (no file extension): acs/ (seed an AC), code/ + design/ (seed a sentinel file).
@@ -146,8 +153,9 @@ describe("every agent manifest dispatches through the executor (A-full #649)", (
       const consortDir = join(projectDir, ".consort");
       mkdirSync(consortDir, { recursive: true });
       try {
-        // Seed every declared input at its resolved path.
-        for (const input of manifest.inputs) seedInput(consortDir, input.source);
+        // Seed every declared input at its resolved path. A cycle:/ac: source needs the action's ac.
+        const actionAc = "ac" in action && typeof action.ac === "string" ? action.ac : undefined;
+        for (const input of manifest.inputs) seedInput(consortDir, input.source, actionAc);
         // The green-failure-advisory preparer reads from the AC CYCLE dir (not the story dir the
         // manifest input names), so a turn that declares it also needs the marker seeded there for
         // the advisory to project non-empty. Faithful shape mirrors the intake build-marker.

@@ -70,6 +70,15 @@ export interface DriveEffects {
     source: "nextTransition" | "bounded" | "contract",
   ): void;
   /**
+   * OPTIONAL pre-dispatch route-contract check: fires AFTER the action is resolved and BEFORE any
+   * dispatch, so a route to a turn whose REQUIRED process event was not produced fails LOUD naming
+   * the ROUTE (RouteContractError), not later with a bare "missing input" blaming the turn. The impl
+   * (which owns consortDir/featureId) resolves the routed action's manifest, reads its requiresEvents,
+   * and presence-checks each at its scope. A turn requiring no event is a no-op. Default absent =>
+   * byte-identical to before (the executor's own input presence-check stays as defense-in-depth).
+   */
+  assertRouteSatisfiable?(action: WorkflowAction, state: DriveState): void;
+  /**
    * Optional hand-back hook: fires when a role's prior handoff contract was
    * UNMET and a retry remains. The runner delivers `detail` (what the responder
    * failed to return) so the imminent re-dispatch of that role is informed , the
@@ -339,6 +348,12 @@ export async function runDriver(
       const handoff = expectationFor(action);
       if (handoff) expectations.push(handoff);
     }
+
+    // Pre-dispatch route-contract check (route→event→consumer): assert the routed turn's REQUIRED
+    // process events were produced BEFORE dispatch, so a mis-fired route fails loud naming the route
+    // (RouteContractError) instead of the executor's later bare "missing input". No-op for a turn
+    // that requires no event (plain RED/GREEN, every design turn) and when the hook is unwired.
+    effects.assertRouteSatisfiable?.(action, state);
 
     effects.onAction?.(action, i);
     // Executor-dispatch seam (Stage 2, #578): when the effects wire performViaExecutor AND it

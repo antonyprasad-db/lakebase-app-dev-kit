@@ -15,6 +15,7 @@ import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { getValidator, formatSchemaErrors } from "../validators/schema-loader.js";
 import type { WorkflowAction } from "../workflow/workflow-vocabulary.js";
+import type { TurnEventKind } from "./turn-events.js";
 // The SHIPPED manifests are imported as JSON modules so the bundler INLINES them into
 // the build , no runtime fs read, no __dirname/dist path to keep in sync, no copy step.
 // (resolveJsonModule is on.) External/scenario manifests are still loaded from a directory
@@ -151,6 +152,13 @@ export interface StepManifest {
   };
   agentOptions: StepManifestAgentOptions;
   postTurn?: StepManifestPostTurn[];
+  /** The process EVENTS this step may RAISE on completion (event kinds; scope resolves through
+   *  TURN_EVENTS). Optional; absent = raises nothing. Read by Step.raises. */
+  raises?: TurnEventKind[];
+  /** The process EVENTS a ROUTE to this step depends on (event kinds a prior turn must have raised
+   *  before dispatch). Optional; absent = requires no event. Read by Step.requiresEvents + the
+   *  pre-dispatch route-satisfiable check. */
+  requiresEvents?: TurnEventKind[];
   /** WHICH agent this step uses (kind + config), resolved via the agent catalogue. Optional
    *  so legacy manifests (agent injected by the caller) still validate; the runner requires
    *  one OR an explicit agentFor override. */
