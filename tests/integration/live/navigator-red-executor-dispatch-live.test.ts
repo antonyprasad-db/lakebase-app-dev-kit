@@ -33,6 +33,7 @@ import type { WorkflowAction } from "../../../consort/orchestrator/drive/orchest
 import { resolveConsortSettings } from "../../../consort/orchestrator/settings/project-settings.js";
 import { writePipeline } from "../../../consort/pipeline/story-pipeline.js";
 import { storyTestProgress } from "../../../consort/pipeline/cycle-record.js";
+import { resolveKitSingleSource } from "./kit-resolution.js";
 
 const KIT = process.cwd();
 const FIXTURES = join(KIT, "consort/evaluation/reference-assets/stockflow");
@@ -115,7 +116,7 @@ describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE: the production drive dispatch
 
     // Turn on executor dispatch via the SAME env the production CLI reads.
     process.env.LAKEBASE_SFTDD_USE_MANIFEST_STEPS = "1";
-    process.env.LAKEBASE_KIT_DIR = KIT;
+    resolveKitSingleSource(KIT);
 
     // Build the REAL production cfg + effects + runner (mirrors drive.cli's wiring).
     const settings = resolveConsortSettings({ projectDir });

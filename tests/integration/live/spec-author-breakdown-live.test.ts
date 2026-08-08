@@ -21,6 +21,7 @@ import { runManifestChain, type ManifestRunnerDeps } from "../../../consort/orch
 import { loadStepManifests, type StepManifest } from "../../../consort/orchestrator/steps/manifest.js";
 import type { WorkflowAction } from "../../../consort/orchestrator/drive/orchestrator-drive.js";
 import type { DriveEffectsConfig } from "../../../consort/orchestrator/drive/orchestrator-effects.js";
+import { resolveKitSingleSource } from "./kit-resolution.js";
 
 const KIT = process.cwd();
 const CORPUS = join(KIT, "tests/integration");
@@ -86,7 +87,7 @@ describe.skipIf(!process.env.RUN_LIVE_STEP)("LIVE (lean): mock PO -> live spec-a
           ? { workspaceDir, outputPaths: { "feature-spec": SPEC_REL, "agent-log": LOG_REL } }
           : { workspaceDir },
     };
-    process.env.LAKEBASE_KIT_DIR = KIT;
+    resolveKitSingleSource(KIT);
 
     try {
       // Cap at the 2 turns this test is about (PO seed -> live spec-author breakdown). The

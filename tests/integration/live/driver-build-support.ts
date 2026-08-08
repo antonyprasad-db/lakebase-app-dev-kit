@@ -32,6 +32,7 @@ import { classifyBuildTrial, type BuildTrialSignals } from "../../../consort/opt
 import { loadRunConfig } from "../../../consort/orchestrator/runners/run-config-loader.js";
 import { resolveTestEnv } from "../../../consort/orchestrator/provisioning/test-env.js";
 import { layDownKitAgents, overlayBundle } from "../../../consort/orchestrator/provisioning/bundle.js";
+import { resolveKitSingleSource, assertKitSingleSource, clearKitSingleSource } from "./kit-resolution.js";
 import { catalogueLifecycleDeps } from "../../../consort/orchestrator/provisioning/lifecycle-catalogue.js";
 import type { LifecycleRunContext } from "../../../consort/orchestrator/provisioning/lifecycle-types.js";
 import type { ScaffoldHandle } from "../../../consort/orchestrator/provisioning/lifecycle-catalogue.js";
@@ -238,7 +239,11 @@ export async function runDriverGreenLive(opts: RunDriverGreenOptions = {}): Prom
     layDownKitAgents(projectDir, KIT);
 
     process.env.LAKEBASE_SFTDD_USE_MANIFEST_STEPS = "1";
-    process.env.LAKEBASE_KIT_DIR = KIT;
+    // ONE kit resolution (split-brain-safe): pin the local ref's cache slot to THIS checkout + write
+    // the ref hint into the project so the env-less claude -p driver resolves the SAME bits (never
+    // LAKEBASE_KIT_DIR, which the agent process does not inherit).
+    resolveKitSingleSource(KIT);
+    assertKitSingleSource(projectDir, KIT);
 
     // ── DRIVE one real driver GREEN on the uncontained live executor (performViaExecutor). Driver
     //    tool-scope is WIDER than navigator RED , it needs Bash to run the project's tests.
@@ -332,6 +337,7 @@ export async function runDriverGreenLive(opts: RunDriverGreenOptions = {}): Prom
   } finally {
     // ── TEARDOWN (catalogue remove-project): runner + repo + Lakebase project + dir, never-leaking. ──
     delete process.env.LAKEBASE_SFTDD_USE_MANIFEST_STEPS;
+    clearKitSingleSource();
     await catalogueLifecycleDeps.run({ kind: "remove-project", config: {} }, teardownCtx);
   }
 }

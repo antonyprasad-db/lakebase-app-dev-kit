@@ -1,6 +1,33 @@
 # Kit resolution — EXACTLY ONE way
 
-Status: DESIGN COMPLETE (approved). Not yet implemented.
+Status: IMPLEMENTED (all 6 stages). Kit guard 13/13 green; kit work adds zero tsc errors / zero test
+failures (the 3 pre-existing tree failures are unrelated WIP — see below). NOT committed / dist not rebuilt.
+
+## What shipped
+- `pin-local-kit.sh`: `resolve_kit_single_source <start_dir> [published_ref] [local_ref]` (git-toplevel
+  KIT_ROOT one way; refuses LAKEBASE_KIT_DIR; pins local ref + cache symlink; exports KIT_SINGLE_ROOT/REF)
+  + promoted `assert_kit_single_source` (hint + drift-assert). Published `--kit-ref` escape hatch preserved.
+- Repointed `_replay-smoke.sh` (fixes the live launcher), both `run-smoke.sh`, `capture-scenario.sh`
+  (now a thin caller). No launcher exports LAKEBASE_KIT_DIR.
+- `tests/integration/live/kit-resolution.ts`: TS twin (default ref `sftdd-livetest-local`, DISTINCT from
+  the shell's `sftdd-capture-local`). Routed all 7 `LAKEBASE_KIT_DIR = KIT` sites through it; real-scaffold
+  supports call resolve + assert at scaffold and clear in teardown.
+- `tests/bdd/kit-single-source-guard.test.ts`: launchers source+call the resolver & never export
+  LAKEBASE_KIT_DIR; live tests import+call the TS twin & never assign LAKEBASE_KIT_DIR; exactly ONE decl
+  of each resolver. 13/13 green.
+
+## Pre-existing tree failures (NOT this workstream — proven via stash)
+Whole-project tsc + full vitest show 12 tsc errors + 3 failing test files that exist WITH AND WITHOUT the
+kit changes: `optimize-role.cli.ts` → missing `./driver-sweep.js` (tracked #749); navigator-reflect
+haiku/sonnet resolver-parity mismatch; #595 host-hardcode in `OPTIMIZE-RUN-LOG.md`. All from the parked
+massive-update WIP. Not kit, not route-contract.
+
+## NOT YET DONE
+Commit (source-only, by explicit path); dist rebuild.
+
+---
+
+(original design follows)
 
 ## Context
 Chasing repeated live-capture failures surfaced that "the kit" is resolved by TWO incompatible

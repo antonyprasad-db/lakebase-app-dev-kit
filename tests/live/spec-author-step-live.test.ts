@@ -33,6 +33,7 @@ import { execute, type StepExecutorDeps, type StepCtx } from "../../consort/orch
 import type { ValidateBoundDeps } from "../../consort/orchestrator/steps/step-contract.js";
 import type { DriveState } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";
+import { resolveKitSingleSource } from "../integration/live/kit-resolution.js";
 
 const KIT = process.cwd();
 const CORPUS = join(KIT, "examples/replay/corpora/stockflow/recorded-artifacts");
@@ -58,7 +59,7 @@ function setupLiveBreakdown(): { workspaceDir: string; inputs: Record<string, st
     cpSync(lkSrc, join(workspaceDir, "scripts", "lk"));
     chmodSync(join(workspaceDir, "scripts", "lk"), 0o755);
   }
-  process.env.LAKEBASE_KIT_DIR = KIT; // dev override: lk resolves kit bins from this checkout
+  resolveKitSingleSource(KIT);
 
   const inputs: Record<string, string> = {
     "product-overview": existsSync(join(CORPUS, "product-overview.md"))

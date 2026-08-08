@@ -163,35 +163,13 @@ SCEN="${SCEN_DIR_ROOT}/${SCENARIO}"
 # Shared single source for local-kit pinning (cache symlink + recovery hint),
 # used here AND by the teardown/restart coordinators so the wiring lives once.
 source "${REPLAY_ROOT}/lib/pin-local-kit.sh"
-KIT_ROOT="$(cd "${REPLAY_ROOT}/../.." && pwd)"
+# ONE kit resolution via the shared resolver: pins the local CAPTURE_KIT_REF's cache slot to THIS
+# working tree + refuses LAKEBASE_KIT_DIR (split-brain), so orchestrator AND the env-less claude -p
+# agents load identical bits. assert_kit_single_source (the lib's; called per-project below) writes
+# the ref hint into each scaffolded project. This script was the reference impl; it is now a caller.
 CAPTURE_KIT_REF="${CAPTURE_KIT_REF:-$LOCAL_KIT_REF_DEFAULT}"
-KIT_CACHE_LINK="$(local_kit_cache_link "$CAPTURE_KIT_REF")"
-
-if [[ -n "${LAKEBASE_KIT_DIR:-}" ]]; then
-  echo "capture-scenario: refuse to run with LAKEBASE_KIT_DIR set , it redirects only the orchestrator and leaves the claude -p agents on the stale cache (split-brain). Unset it; this script pins ref '${CAPTURE_KIT_REF}' for everyone." >&2
-  exit 2
-fi
-# Point the ref's cache slot at THIS working tree (idempotent; fails loud if dist
-# is missing). A bin run then finds dist with no GitHub install, and because this
-# ref is not a remote ref a moved-branch reinstall can never clobber it.
-pin_local_kit_cache "$KIT_ROOT" "$CAPTURE_KIT_REF" || exit 2
-export LAKEBASE_KIT_REF="$CAPTURE_KIT_REF"
-echo "[capture-scenario] kit pinned , ref '${CAPTURE_KIT_REF}' -> ${KIT_ROOT} (cache symlink + LAKEBASE_KIT_REF; LAKEBASE_KIT_DIR unset)" >&2
-
-# Write the ref into the project (so the env-less agents resolve it too) and
-# assert the shim will load THIS working tree. Fails loud on any drift so a run
-# can never silently execute a stale/other kit.
-assert_kit_single_source() {
-  local project_dir="$1"
-  # Write kit-ref (so env-less agents resolve the ref) + kit-local-dir (so lk can
-  # self-heal the cache symlink if it is ever lost mid-run).
-  record_local_kit_hint "$project_dir" "$KIT_ROOT" "$CAPTURE_KIT_REF"
-  local want got
-  want="$(cd "$KIT_ROOT" && pwd -P)"
-  got="$(cd "$KIT_CACHE_LINK" 2>/dev/null && pwd -P || true)"
-  [[ "$got" == "$want" ]] || { echo "capture-scenario: kit resolution drift , ref '${CAPTURE_KIT_REF}' resolves to '${got:-<missing>}', expected '${want}'. Aborting so the run cannot use a stale/other kit." >&2; exit 2; }
-  echo "[capture-scenario] verified: ${project_dir} resolves kit ref '${CAPTURE_KIT_REF}' -> ${want}" >&2
-}
+resolve_kit_single_source "${REPLAY_ROOT}" "" "$CAPTURE_KIT_REF" || exit 2
+KIT_ROOT="$KIT_SINGLE_ROOT"
 
 # ── --create: scaffold a fresh project + stage this scenario's intake, then run
 #    the FULL LIVE design lane (no replay) so the design roles + the pre-build

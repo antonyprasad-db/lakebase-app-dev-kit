@@ -60,6 +60,7 @@ import type { ValidateBoundDeps } from "../../../consort/orchestrator/steps/step
 import { evaluateSemanticGate, makeOpusJudge, SEMANTIC_THRESHOLD } from "../../../consort/evaluation/semantic-gate.js";
 import type { TurnKey } from "../../../consort/orchestrator/settings/project-settings.js";
 import { designSpec, DESIGN_LIVE_STEPS, FEATURE, type DesignLiveSpec } from "./executor-dispatch-live-support.js";
+import { resolveKitSingleSource, assertKitSingleSource, clearKitSingleSource } from "./kit-resolution.js";
 
 export const KIT = process.cwd();
 const SETUP_DIR = join(KIT, "tests/integration/live/design-equivalence-setup");
@@ -144,7 +145,12 @@ export async function scaffoldDesignEquivProject(): Promise<DesignEquivProject> 
   // Suite-scoped env, set ONCE (constant for every step) so PARALLEL steps never race a per-step
   // set/delete: the manifest-step path + the kit dir the `lk` shim resolves. Cleared in teardown.
   process.env.LAKEBASE_SFTDD_USE_MANIFEST_STEPS = "1";
-  process.env.LAKEBASE_KIT_DIR = KIT;
+  // ONE kit resolution (split-brain-safe): pin the local ref's cache slot to THIS checkout + write the
+  // ref hint into the project so the env-less claude -p design agents resolve the SAME bits. Per-step
+  // worktrees are cut off this scaffold's HEAD and share the same kit root + pinned ref (never
+  // LAKEBASE_KIT_DIR, which the agent process does not inherit).
+  resolveKitSingleSource(KIT);
+  assertKitSingleSource(projectDir, KIT);
   return { projectDir, handle, teardownCtx: { workspaceDir: KIT, setupHandle: setup.handle }, worktreesRoot };
 }
 
@@ -155,6 +161,7 @@ export async function teardownDesignEquivProject(project: DesignEquivProject): P
     await catalogueLifecycleDeps.run({ kind: "remove-project", config: {} }, project.teardownCtx);
   } finally {
     delete process.env.LAKEBASE_SFTDD_USE_MANIFEST_STEPS;
+    clearKitSingleSource();
     rmSync(project.worktreesRoot, { recursive: true, force: true });
     await sweepDesignEquivOrphans();
   }

@@ -203,15 +203,18 @@ export LAKEBASE_KIT_NPX="$KIT_NPX"
 # requires an Arborist constructor" on a SHA committish) and honors a pre-built
 # $LAKEBASE_KIT_DIR install when set. One resolution path => identical bits on
 # every step of every run.
-KIT_ROOT="$(cd "${ORCHESTRATOR_DIR}/../../.." && pwd)"
+# ONE kit resolution (split-brain-safe), via the shared resolver in examples/replay/lib. With no
+# published --kit-ref it pins a LOCAL ref + cache symlink to THIS checkout instead of exporting
+# LAKEBASE_KIT_DIR (orchestrator-only = split-brain vs the env-less claude -p agents); the ref is
+# written into the project (assert_kit_single_source) so the agents resolve the same bits. --kit-ref
+# is the PUBLISHED escape hatch. (The shared resolver lives under examples/replay/lib , this couples
+# the two example harnesses; a neutral shared home would be cleaner if a third consumer appears.)
+_KIT_TOPLEVEL="$(git -C "${ORCHESTRATOR_DIR}" rev-parse --show-toplevel 2>/dev/null || (cd "${ORCHESTRATOR_DIR}/../../.." && pwd))"
+# shellcheck source=/dev/null
+source "${_KIT_TOPLEVEL}/examples/replay/lib/pin-local-kit.sh"
+resolve_kit_single_source "${ORCHESTRATOR_DIR}" "${KIT_REF}" || exit 1
+KIT_ROOT="${KIT_SINGLE_ROOT}"
 KIT_LK="${KIT_ROOT}/templates/project/common/scripts/lk"
-# Deterministic kit resolution (in code): explicit $LAKEBASE_KIT_DIR wins; else an
-# explicit --kit-ref resolves via lk; else default to THIS checkout's built dist
-# (offline, content-stable), so a plain end-to-end run is deterministic without a
-# push. Run rebuild-push-warm.sh + pass --kit-ref to validate the published path.
-if [[ -z "${LAKEBASE_KIT_DIR:-}" && -z "$KIT_REF" ]]; then
-  export LAKEBASE_KIT_DIR="$KIT_ROOT"
-fi
 
 # Headless run: the human reviewer at each HITL gate is performed by
 # human-proxy, which validates the gate's artifacts exist + carry their
@@ -416,6 +419,10 @@ scaffold_project() {
   else
     log "WARNING: $_tdc absent after scaffold; could not set effort=low"
   fi
+
+  # Write the kit-ref hint into the project (so the env-less claude -p agents resolve the SAME ref)
+  # + assert the shim resolves THIS working tree; fail loud on drift. No-op under a published --kit-ref.
+  assert_kit_single_source "$PROJECT_DIR" || { err "kit single-source assertion failed"; exit 1; }
 
   log "scaffold complete. Project at $PROJECT_DIR."
 }

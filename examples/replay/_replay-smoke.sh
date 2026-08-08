@@ -17,10 +17,11 @@
 #
 # Determinism (in code): the create-project bootstrap, the scaffolded project's
 # scripts/lk, and every drive turn all resolve the kit through the SAME committed
-# lk resolver. With no explicit --kit-ref / $LAKEBASE_KIT_DIR, the run defaults to
-# THIS checkout's freshly-built dist (offline, content-stable), so a plain run is
-# deterministic without a push. Pass --kit-ref <ref> to resolve a published ref
-# instead, or export LAKEBASE_KIT_DIR to pin a pre-built install.
+# lk resolver via the ONE shared resolver (lib/pin-local-kit.sh resolve_kit_single_source).
+# With no explicit --kit-ref, a plain run pins a LOCAL ref whose cache slot symlinks THIS
+# checkout AND writes that ref into the project (assert_kit_single_source), so the orchestrator
+# AND the env-less claude -p agents resolve IDENTICAL bits (no LAKEBASE_KIT_DIR split-brain).
+# Pass --kit-ref <ref> for the PUBLISHED escape hatch (resolved from github, no local pin).
 #
 # Env: DATABRICKS_HOST, GITHUB_OWNER, a CLI profile (same as run-smoke.sh).
 # Exit: 0 ok (incl. the clean stop-before-handoff); 1 scaffold; 2 a step failed.
@@ -82,20 +83,16 @@ replay_smoke() {
   [[ -d "$CORPUS_DIR/features/$FEATURE_ID" ]] || { echo "${SMOKE_NAME}: corpus missing $CORPUS_DIR/features/$FEATURE_ID" >&2; return 2; }
 
   local KIT_ROOT KIT_LK
-  # Depth-independent kit root (the git toplevel), so the engine is reusable from
-  # any depth; fall back to 2-levels-up (examples/replay/ -> repo root).
-  # `||` + `&&` are equal precedence (left-assoc), so the fallback MUST be a
-  # subshell , else `pwd` runs on BOTH paths and concatenates two lines into
-  # KIT_ROOT. The subshell also keeps the cd local (doesn't move the caller's CWD).
-  KIT_ROOT="$(git -C "${REPLAY_DIR}" rev-parse --show-toplevel 2>/dev/null || (cd "${REPLAY_DIR}/../.." && pwd))"
+  # ONE kit resolution (split-brain-safe): defer to the shared resolver so orchestrator AND the
+  # env-less claude -p agents load IDENTICAL bits. It computes KIT_ROOT one way (git toplevel of
+  # REPLAY_DIR, fallback 2-up), and , with no published --kit-ref , pins a local ref + cache symlink
+  # instead of exporting LAKEBASE_KIT_DIR (which redirects only the orchestrator = split-brain). An
+  # explicit --kit-ref is the PUBLISHED escape hatch (resolved from github, no local pin).
+  # shellcheck source=/dev/null
+  source "${REPLAY_DIR}/lib/pin-local-kit.sh"
+  resolve_kit_single_source "${REPLAY_DIR}" "${KIT_REF}" || return 1
+  KIT_ROOT="${KIT_SINGLE_ROOT}"
   KIT_LK="${KIT_ROOT}/templates/project/common/scripts/lk"
-
-  # Deterministic kit resolution (in code): explicit $LAKEBASE_KIT_DIR wins; else
-  # an explicit --kit-ref resolves via lk; else default to THIS checkout's dist.
-  if [[ -z "${LAKEBASE_KIT_DIR:-}" && -z "$KIT_REF" ]]; then
-    export LAKEBASE_KIT_DIR="$KIT_ROOT"
-  fi
-  [[ -n "$KIT_REF" ]] && export LAKEBASE_KIT_REF="$KIT_REF"
 
   # UI track is a PROJECT setting (project.uiTrack, set at create by --ui-track
   # below), not an env door. Only the run-mode Human Proxy is env here.
@@ -121,7 +118,7 @@ replay_smoke() {
   # + stages project intake; feature 2+ finds the project already there and goes
   # straight to its feature-request + claim + drive, so it builds on the earlier
   # features' MERGED state (the recorded DB + git lineage the capture recorded).
-  log "kit = ${LAKEBASE_KIT_DIR:-ref ${KIT_REF:-main}}  (pause-before: ${PAUSE_BEFORE}, replay-build: ${REPLAY_BUILD})"
+  log "kit = ref ${KIT_SINGLE_REF:-${KIT_REF:-main}} -> ${KIT_ROOT}  (pause-before: ${PAUSE_BEFORE}, replay-build: ${REPLAY_BUILD})"
   : "${DATABRICKS_HOST:?${SMOKE_NAME}: DATABRICKS_HOST required}"
   : "${GITHUB_OWNER:?${SMOKE_NAME}: GITHUB_OWNER required}"
   local FRESH=1
@@ -150,6 +147,11 @@ replay_smoke() {
     log "reusing existing project ${PROJECT_DIR} (multi-feature scenario , skip scaffold + intake)"
   fi
   cd "$PROJECT_DIR"
+
+  # Write the kit-ref hint into the project (so the env-less claude -p agents resolve the SAME ref as
+  # the orchestrator) + assert the shim resolves THIS working tree , fail loud on drift. Idempotent, so
+  # a reused multi-feature project re-verifies. A no-op under a published --kit-ref (no local cache).
+  assert_kit_single_source "$PROJECT_DIR" || { err "kit single-source assertion failed"; return 1; }
 
   # ─── 2. project intake on trunk (REAL precondition, once per project) ──
   # Resolve the runtime artifact dir through the kit's SINGLE point of entry,

@@ -29,6 +29,7 @@ import { layDownKitAgents } from "../../../consort/orchestrator/provisioning/bun
 import type { WorkflowAction, DriveState } from "../../../consort/orchestrator/drive/orchestrator-drive.js";
 import type { ValidateBoundDeps } from "../../../consort/orchestrator/steps/step-contract.js";
 import type { TurnKey } from "../../../consort/orchestrator/settings/project-settings.js";
+import { resolveKitSingleSource } from "./kit-resolution.js";
 
 const KIT = process.cwd();
 const INTAKE = join(KIT, "tests/integration/intake");
@@ -151,7 +152,7 @@ export async function runDesignExecutorDispatchLive(spec: DesignLiveSpec): Promi
   layDownKitAgents(projectDir);
 
   process.env.LAKEBASE_SFTDD_USE_MANIFEST_STEPS = "1";
-  process.env.LAKEBASE_KIT_DIR = KIT;
+  resolveKitSingleSource(KIT);
   const cfg = scopedCfg(projectDir, consortDir);
   // The dispatch-proof prompt is threaded through the taskSuffix seam (the executor builds the
   // production body via buildTaskBody, then buildClaudeCommandWithBody APPENDS this suffix). The lean
