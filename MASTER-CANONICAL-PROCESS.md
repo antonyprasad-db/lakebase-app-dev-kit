@@ -832,7 +832,11 @@ delta+pre-project). Collapse to `turns/` as the single home via OPTION 2 — rec
 tree by replaying `turns/<n>/files/` deltas forward from turn 0 (existing corpora predate
 `replay-set/pre-project/`, so per-turn snapshots are unavailable). Must PROVE byte-identical
 reconstruction vs `recorded-build/code/` on a dual-home corpus before repointing `replayBuildTurn`;
-then deprecate the `recorded-build` writer to fail loud if called. Plan: `docs/plans/build-code-collapse.md`.
+then deprecate the `recorded-build` writer to fail loud if called. **Once a REPLAY confirms
+`replayBuildTurn` reconstructs faithfully from `turns/` alone, the separate `recorded-build/` build-turn
+subdirectory is no longer needed and can be RETIRED/REMOVED** (stop writing it + delete the existing
+per-corpus `recorded-build/` trees) — the replay is the proof gate for removal. Plan:
+`docs/plans/build-code-collapse.md`.
 
 ### 9.3 Capture-flow finish (CF Stage 6)
 Hermetic guard on the launcher shape (two sprints declared; per-sprint planning gate) + a SKILL/doc

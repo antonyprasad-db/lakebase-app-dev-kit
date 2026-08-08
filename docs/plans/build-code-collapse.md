@@ -70,6 +70,11 @@ mode!=reflect` → sort by ordinal → pick `[turnIndex-1]`. (recorded-build bak
 - Deprecation (two commits): (1) repoint the READER at turns/ and prove byte-identical restore on a
   corpus; (2) THEN stop writing recorded-build (`drive.cli.ts:233-244` / `replay-recorder-wrapper.ts`) and
   delete `record-build.ts`'s writer. Do NOT delete the writer before the reader is proven.
+- **Retire the subdirectory itself once a REPLAY confirms it is no longer needed:** after
+  `replayBuildTurn` reconstructs faithfully from `turns/` alone (proven by an actual replay, not just
+  the hermetic byte-diff), the separate `recorded-build/` build-turn subdirectory can be REMOVED , both
+  the writer AND the existing per-corpus `recorded-build/` trees. The replay passing is the proof gate
+  for deleting the dir.
 - Tests: `consort-replay-build.test.ts` rewritten to build a turns/ structure;
   `consort-record-build.test.ts` retired with the writer.
 
