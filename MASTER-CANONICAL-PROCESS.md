@@ -805,13 +805,16 @@ source-only, hermetic-green modulo the 3 pre-existing WIP failures below). Plans
    `deterministicAgentless` allowlist (they are NOT agent turns); the runtime hard-stop
    `assertNotStrandedAgentTurn` fires at the top of `perform` for any invoke-role action that
    escapes the executor without being sanctioned. Proven (`legacy-path-guard.test.ts`). See §0.5.
-2. **#727 (the re-record) — the main remaining action:** rebuild dist (transcript fix + hard-fail
-   audit + manifest fixes + the new guard), then re-launch the capture via the launcher (§6.4).
-   Pre-flight: zero orphans, auth `AUTH_OK`, dist fresh. GATED — ~$300 + live Lakebase; needs
-   explicit go each launch. The hard-fail audit (§6.5) now protects the corpus (a dropped artifact
-   aborts at that turn); the guard (§0.5) ensures no agent turn silently runs on legacy.
-3. **#684 (standing, separate):** fully retire the `commandsForAction` agent arm. Not required for
-   the capture — the guard already makes any residual agent arm fail loud.
+2. **#727 (the re-record) — the main remaining action:** rebuild dist (route-contract + kit + capture
+   -flow + the manifest-steps flag pin), then re-launch the TWO-SPRINT capture via the launcher (§6.6).
+   Pre-flight: zero orphans, auth `AUTH_OK`, dist fresh. GATED — live Lakebase; needs explicit go each
+   launch. The hard-fail audit (§6.5) protects the corpus; the route-contract seam (§0.5 / §1) fails
+   loud on a mis-routed turn; correspondence.jsonl records the proxy↔orchestrator exchange per sprint.
+3. **`useManifestSteps` flag — decided (2026-08-08): NOT retired, pinned ON.** User rule: retire only
+   if it prevents capture, else flag on. It does NOT prevent capture (defaults ON at
+   `claude-runner.ts:687`; nothing in the capture path disables it; now set EXPLICITLY in the launcher).
+   #684 (fully retire the toggle + the legacy `commandsForAction` arm) is standing hygiene, NOT a #727
+   gate — the `assertNotStrandedAgentTurn` guard already makes any residual agent arm fail loud.
 
 ### 8.5 Hard-won operational rules (do not relearn)
 - **Rebuild dist before any live run** — manifests + TS are bundled; a stale dist runs old code.
