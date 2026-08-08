@@ -147,6 +147,54 @@ export function executorDispatched(action: WorkflowAction): boolean {
 }
 
 /**
+ * The SANCTIONED deterministic, agent-LESS invoke-role actions , the ones that legitimately do NOT
+ * go through the agent executor because no LLM runs for them:
+ *   - product-owner `author-requests` : a HUMAN-INPUT step (the Human Proxy supplies the recorded
+ *     feature-requests via SPRINT_REQUESTS; no agent turn, no artifact to record).
+ *   - architect-reviewer `estimate-committed` : re-runs the estimate then does a deterministic
+ *     sync-backlog to stamp the committed F-keyed sizes (the distinguishing work is the sync).
+ * These are handled deterministically by `commandsForAction` , NOT a defect, NOT an agent turn on a
+ * legacy path. This allowlist is what lets `assertNotStrandedAgentTurn` tell an INTENTIONAL
+ * deterministic action apart from a real agent turn that wrongly escaped the executor. The
+ * transcript/replay-set recorder concerns do not apply (nothing spawns).
+ *
+ * NOTE (deprecation, #684): the goal is to fold these into a first-class deterministic-action path
+ * (`extract deterministicCommandsForAction`), retiring the broad `commandsForAction` agent arm. Until
+ * then they stay named here so the runtime guard has an explicit sanctioned set.
+ */
+export function deterministicAgentless(action: WorkflowAction): boolean {
+  if (action.kind !== "invoke-role" || !("mode" in action)) return false;
+  if (action.role === "product-owner" && action.mode === "author-requests") return true;
+  if (action.role === "architect-reviewer" && action.mode === "estimate-committed") return true;
+  return false;
+}
+
+/**
+ * HARD-STOP GUARD (#732): a live drive must never run an AGENT turn on the legacy (non-executor)
+ * path. Every invoke-role action is EITHER executor-dispatched (an agent turn through the
+ * StepExecutor) OR a sanctioned deterministic-agentless action (author-requests / estimate-committed,
+ * no LLM). Anything else , an invoke-role action that is neither , is a real agent turn that escaped
+ * the executor (a coverage gap, a bad env override forcing legacy, an un-migrated role): it would
+ * silently run through commandsForAction with NONE of the executor's recording/validation/contract.
+ * That is exactly the class of silent corruption this project is eliminating, so we THROW LOUD
+ * rather than let it run. Non-invoke-role actions (gates, dispatch, cut-experiment, phase
+ * transitions, set-phase) are deterministic drive actions and are never subject to this.
+ */
+export function assertNotStrandedAgentTurn(action: WorkflowAction): void {
+  if (action.kind !== "invoke-role") return;
+  if (executorDispatched(action) || deterministicAgentless(action)) return;
+  throw new Error(
+    `LEGACY AGENT-PATH GUARD: invoke-role action ${JSON.stringify(action)} is neither executor-` +
+      `dispatched nor a sanctioned deterministic-agentless action (author-requests / estimate-` +
+      `committed). A real agent turn must NEVER run on the legacy commandsForAction path , it would ` +
+      `skip the executor's recording, output validation, and routing contract (silent corruption). ` +
+      `Fix: add it to the executor allowlist (executorDispatched) with a shipped manifest, or , if it ` +
+      `is genuinely agent-less , to deterministicAgentless. Do NOT run it on legacy. (Likely cause: a ` +
+      `coverage gap, or LAKEBASE_SFTDD_USE_MANIFEST_STEPS forcing the legacy path.)`,
+  );
+}
+
+/**
  * Expand a manifest's postTurn entries for a `when` phase into DriveCommands. Resolves the bin token
  * + the `--tdd` / {feature}/{story}/{tddDir} placeholders (the SAME substitution commandsFromManifest
  * uses) AND the `@build-cycle` marker (delegated to the shared buildCycleCommand, so a navigator/

@@ -20,7 +20,7 @@ import * as fs from "node:fs";
 import { dirname, join } from "node:path";
 import { nextTransition, type WorkflowAction, type DriveState } from "./orchestrator-drive.js";
 import { manifestForAction, type StepManifestPostTurn } from "../steps/manifest.js";
-import { performTurnViaExecutor } from "./executor-dispatch.js";
+import { performTurnViaExecutor, assertNotStrandedAgentTurn } from "./executor-dispatch.js";
 import { formatAgentReport } from "../turns/agent-report-formatter.js";
 import type { DriveEffects } from "./orchestrator-run.js";
 import { deriveDriveState, effectiveLoopForStory } from "../state/orchestrator-derive.js";
@@ -1907,10 +1907,12 @@ export function buildDriveEffects(cfg: DriveEffectsConfig): DriveEffects {
       return readDriveStateFromDisk(cfg.consortDir, cfg.featureId, cfg.projectDir, { uiTrack: cfg.uiTrack });
     },
     async perform(action) {
-      // Opt-in manifest path (default off): when a step manifest matches this action,
-      // assemble its commands from the manifest (golden-equivalent to the legacy branch).
-      // Falls back to commandsForAction when the flag is off OR no manifest matches, so
-      // the default drive is byte-identical.
+      // HARD-STOP GUARD (#732): reaching perform for an invoke-role action means the executor
+      // DECLINED it (performViaExecutor returned undefined). A real AGENT turn must never run here
+      // on the legacy commandsForAction path , it would skip the executor's recording + validation +
+      // routing contract (silent corruption). Only the sanctioned deterministic-agentless actions
+      // (author-requests / estimate-committed, no LLM) may proceed; anything else throws loud.
+      assertNotStrandedAgentTurn(action);
       const cmds = commandsForActionResolved(action, cfg);
       for (const cmd of cmds) {
         await cfg.runner.run(cmd);

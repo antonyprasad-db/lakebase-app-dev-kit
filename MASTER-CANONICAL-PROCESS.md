@@ -202,11 +202,17 @@ leaving the record wrapper as the sole taker. A per-turn hard-fail audit (`asser
 now aborts a live capture the moment any agent turn is missing its expected recorded files, so a
 silent drop like this cannot recur.
 
-**Deprecation plan:** `author-requests` + `estimate-committed` are being migrated to the executor;
-once no agent action falls to legacy, a runtime guard will HARD-STOP + flag any legacy agent
-invocation (today only a test — `executor-dispatch-coverage` — guards it; nothing stops it at
-runtime). Until the migration lands, a blanket hard-stop would halt every run at planning
-(author-requests fires each sprint), so the guard follows the migration.
+**Deprecation — DONE (runtime hard-stop live).** `author-requests` + `estimate-committed` are
+NOT agent turns (author-requests is human-input via the proxy; estimate-committed's work is a
+deterministic sync-backlog), so instead of migrating them to the agent executor they are named in a
+sanctioned **`deterministicAgentless`** allowlist (`executor-dispatch.ts`). The runtime guard
+**`assertNotStrandedAgentTurn`** now runs at the TOP of `perform` (orchestrator-effects.ts): any
+`invoke-role` action reaching the legacy path that is neither `executorDispatched` NOR
+`deterministicAgentless` **throws loud** (a real agent turn escaped the executor , silent-corruption
+class). Non-invoke-role drive actions (gates/dispatch/phase transitions/set-phase) are exempt.
+Proven by `tests/bdd/legacy-path-guard.test.ts`. So a live run can no longer silently run an agent
+turn on legacy. (Full retirement of the `commandsForAction` agent arm itself is the separate
+standing #684; the guard makes any residual agent arm fail loud in the meantime.)
 
 ---
 
@@ -735,31 +741,30 @@ complete (pre-project/inputs/prompt/levers all present). Its orphan Lakebase pro
 (zero orphans). The transcript fix + hard-fail audit are NOT yet in a dist that ran live.
 
 ### 8.4 OPEN — resume points, in order
-1. **#734 (RESCOPED — needs a design decision, do NOT migrate as agent turns):** `author-requests`
-   is a HUMAN-INPUT step (Human Proxy supplies; no LLM; no artifact) and `estimate-committed`'s work
-   is a deterministic `sync-backlog`. They are NOT agent turns — the transcript/replay-set concern
-   does not apply. Decide: give them a first-class DETERMINISTIC action path (overlaps existing #684
-   `extract deterministicCommandsForAction`), NOT the agent executor. This is a shipped-dispatch
-   change — get explicit direction before editing.
-2. **#732 (blocked on #734):** once no AGENT action falls to legacy, add a RUNTIME hard-stop that
-   flags any legacy agent invocation (today only the `executor-dispatch-coverage` test guards it;
-   nothing stops it at runtime). Sequenced AFTER #734 because a blanket hard-stop today halts every
-   run at planning (author-requests fires each sprint).
-3. **#727 (the re-record):** rebuild dist (transcript fix + hard-fail audit + manifest fixes), then
-   re-launch the capture via the launcher (§6.4). Pre-flight: zero orphans, auth `AUTH_OK`, dist
-   fresh. GATED — ~$300 + live Lakebase; needs explicit go each launch. The hard-fail audit now
-   protects the corpus: a dropped artifact aborts at that turn instead of silently corrupting.
+1. **#734 + #732 — DONE.** author-requests + estimate-committed are named in the sanctioned
+   `deterministicAgentless` allowlist (they are NOT agent turns); the runtime hard-stop
+   `assertNotStrandedAgentTurn` fires at the top of `perform` for any invoke-role action that
+   escapes the executor without being sanctioned. Proven (`legacy-path-guard.test.ts`). See §0.5.
+2. **#727 (the re-record) — the main remaining action:** rebuild dist (transcript fix + hard-fail
+   audit + manifest fixes + the new guard), then re-launch the capture via the launcher (§6.4).
+   Pre-flight: zero orphans, auth `AUTH_OK`, dist fresh. GATED — ~$300 + live Lakebase; needs
+   explicit go each launch. The hard-fail audit (§6.5) now protects the corpus (a dropped artifact
+   aborts at that turn); the guard (§0.5) ensures no agent turn silently runs on legacy.
+3. **#684 (standing, separate):** fully retire the `commandsForAction` agent arm. Not required for
+   the capture — the guard already makes any residual agent arm fail loud.
 
 ### 8.5 Hard-won operational rules (do not relearn)
 - **Rebuild dist before any live run** — manifests + TS are bundled; a stale dist runs old code.
 - **Orphan reclaim after any stopped run:** `databricks postgres delete-project projects/<name>
-  --profile fevm-serverless-stable-ecparr`, one name per call; confirm zero `stockflow-instrumented`
-  projects remain.
+  --profile <the test profile>`, one name per call; confirm zero `stockflow-instrumented` projects
+  remain. The profile is NOT hardcoded anywhere , it lives in `.env.local.test.config`
+  (`DATABRICKS_CONFIG_PROFILE`), read via `provisioning/test-env.ts` (`resolveTestEnv`); the `#595`
+  guard forbids re-hardcoding the workspace host in source (incl. this doc).
 - **The launcher computes its OWN stamp** (its `date` differs from an outer stamp) — track the run
   by the log path + `postgres list-projects`, not the outer stamp.
 - **`--no-verify` is blocked** in this environment — never bypass git hooks; drop the flag.
-- Profile `fevm-serverless-stable-ecparr`, owner `kevin-hartman`, scenario tier-2, sprint
-  `stockflow-rerecord-s1` (ships F1), `-s2` (ships F6, the assess/expand-contract path).
+- Owner + profile + host come from `.env.local.test.config` (never inline them). Scenario is tier-2;
+  sprint `stockflow-rerecord-s1` ships F1, `-s2` ships F6 (the assess / expand-contract path).
 
 ---
 
