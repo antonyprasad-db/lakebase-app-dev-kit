@@ -168,6 +168,73 @@ export function recordRoutingDecision(
   appendFileSync(join(recordDir, "routing-decisions.jsonl"), JSON.stringify(rec) + "\n");
 }
 
+// ─── Correspondence: the human-proxy <-> orchestrator exchange, recorded as a faithful transcript ──
+// The turn recorder captures agent turns + routing decisions, but NOT the human-in-the-loop layer:
+// the orchestrator's QUESTIONS/requests (the /sprint kickoff, the intake interview, a gate
+// presentation) and the HIL's ANSWERS/SUBMISSIONS (interview answers, the artifact it supplied, an
+// approve/reject decision). correspondence.jsonl records BOTH sides + the outcome, so a recorded run
+// reads like the interactive session it mimics , what was asked, what the (proxy) human answered, and
+// whether it validated/approved. One entry per exchange, correlated to the drive iteration.
+
+/** One question the orchestrator asked + the HIL's answer (an intake-interview Q/A pair). */
+export interface CorrespondenceQA {
+  question: string;
+  answer: string;
+}
+
+/** What the HIL SUBMITTED in response (an artifact it authored/supplied). `contentRef` points into
+ *  the turn's files/ delta (or recorded-artifacts) where the full content lives , the entry carries
+ *  the reference, not a duplicate copy of the bytes. */
+export interface CorrespondenceSubmission {
+  artifact: string;
+  from?: string;
+  contentRef?: string;
+}
+
+/** One recorded exchange between the orchestrator and the HIL (human or proxy). */
+export interface CorrespondenceEntry {
+  /** Monotonic 0-based sequence in the correspondence stream (seq 0 = the kickoff). */
+  seq: number;
+  /** The drive iteration this exchange sits at (kickoff = -1, before the loop). */
+  iteration: number;
+  at: string;
+  phase?: string;
+  step?: string;
+  /** What the orchestrator ASKED. */
+  request: {
+    kind: "kickoff" | "intake-interview" | "gate" | "author-requests";
+    /** A human-readable rendering of the ask (the command, the gate presentation, the interview intro). */
+    prompt: string;
+    /** For an intake interview: the question set posed to the HIL. */
+    questions?: string[];
+  };
+  /** What the HIL ANSWERED / SUBMITTED. */
+  response: {
+    by: "human-proxy" | "human";
+    /** Intake-interview answers (paired to request.questions). */
+    answers?: CorrespondenceQA[];
+    /** The artifact(s) the HIL submitted in response. */
+    submitted?: CorrespondenceSubmission[];
+    /** A gate/approval decision. */
+    decision?: "approved" | "rejected";
+  };
+  /** The outcome of the exchange (conformance + approval). */
+  outcome: {
+    validated: boolean;
+    approved?: boolean;
+    violations?: string[];
+  };
+}
+
+/** Append one correspondence exchange to correspondence.jsonl under the record dir. This is the
+ *  run-level HIL transcript the recorder otherwise lacks , the orchestrator's question paired with the
+ *  proxy's answer/submission + outcome, so a recorded capture reads like the interactive session it
+ *  mimics. Seq is the caller's monotonic counter (kickoff = 0). */
+export function recordCorrespondence(recordDir: string, entry: CorrespondenceEntry): void {
+  mkdirSync(recordDir, { recursive: true });
+  appendFileSync(join(recordDir, "correspondence.jsonl"), JSON.stringify(entry) + "\n");
+}
+
 /**
  * The PRE-STATE + levers an agent turn needs to be replayed IN ISOLATION , the "replay set" bundled
  * per manifest step for optimization experiments. Distinct from the turn's OUTPUT delta (recordTurn):

@@ -1,0 +1,117 @@
+# Capture flow: /sprint-driven recording + orchestrated intake interviews + full correspondence (#750)
+
+Status: PLAN (approved to build, full scope). Sequenced BEFORE #736 (a fresh /sprint recording also
+exercises the forward-delta chain #736 needs).
+
+## Context / intent (user, 2026-08-08)
+The recorded capture must MIMIC an interactive session, not a headless side-channel:
+- **Step 0 = a real `/sprint`** issued by the human proxy (`consort-drive --sprint --gates proxy`).
+- The **orchestrator RESPONDS by asking** for project-specific details — the intake files
+  (product-overview / nfrs / design-brief) — via the already-designed HIL intake INTERVIEW, and the
+  proxy answers. No out-of-band file pre-seeding.
+- **Record ALL correspondence** between the human proxy and the orchestrator: every orchestrator
+  QUESTION/request AND every proxy ANSWER/SUBMISSION (the actual content it supplies — interview
+  answers, artifacts) AND the outcome (validated/approved). A faithful interactive transcript.
+
+## What's already true (from the 3-agent review)
+- `/sprint` → `consort-drive --sprint --gates interactive|proxy`; proxy mode auto-answers, interactive
+  stops at HITL gates + author-requests. (bin/consort/drive.cli.ts runSprintMode ~362)
+- The proxy is ALREADY request→response + synchronous: the orchestrator calls `consort-human-proxy`
+  on-demand (supply / supply-requests / gate approve), the proxy validates + places + logs to
+  `.consort/agent-log.jsonl`. (consort/gates/human-proxy.ts; bin/consort/human-proxy.cli.ts)
+- The intake INTERVIEW flow is designed + PARTIALLY built: `docs/design/refactor/hil-intake-interview.md`
+  steps 1,2,4,5 + Decision-1 `brief_ref` landed; **steps 3, 6, 7 remain** (the interviews themselves,
+  the launcher rebuild, tests).
+- The recorder captures agent turns fully + routing-decisions.jsonl + gates/human actions as turns —
+  but only the RESULT, never the orchestrator's request, the gate presentation, the /sprint kickoff, or
+  the proxy's submitted content/answers. No run-level correspondence log exists (net-new).
+
+## Locked decisions (user)
+- **Intake:** finish the HIL intake-interview flow (steps 3/6/7).
+- **Correspondence home:** new `correspondence.jsonl` (paired request→answer→outcome).
+- **Correspondence content:** record BOTH sides — orchestrator questions AND proxy answers/submissions
+  (interview answer text + supplied artifact refs), plus outcome.
+- **Uncovered `## Required` NFR:** HARD-BLOCK immediately (fail loud, like a missing input).
+- **nfrs scope:** project-level + per-feature override.
+- **Build scope:** FULL — interviews + correspondence + launcher, staged commits.
+
+## Design
+
+### D1. Correspondence surface (net-new) — `correspondence.jsonl`
+A run-level JSONL the recorder writes at `<recordDir>/correspondence.jsonl`, one entry per exchange:
+```
+{ seq, iteration, at, phase, step,
+  request:  { kind: "kickoff"|"intake-interview"|"gate"|"author-requests", prompt, questions?[] },
+  response: { by: "human-proxy"|"human", answers?[], submitted?: { artifact, from, contentRef }, decision? },
+  outcome:  { validated: bool, approved?: bool, violations?[] } }
+```
+- **kickoff** entry (seq 0): the `/sprint <name> --gates proxy` command + args (step 0 in the timeline).
+- **intake-interview** entry: the orchestrator's question set (from hil-intake-interview.md §68-118) as
+  `request.questions`, and the proxy's `response.answers` (the per-question answers it supplied) +
+  `submitted` (the resulting product-overview/nfrs/design-brief, with a contentRef into files/).
+- **gate** entry: the gate presentation (what was shown) + the proxy's approve/reject decision + violations.
+- **author-requests** entry: the request + the feature-request.md files the proxy submitted (refs).
+Writer: a new `recordCorrespondence(recordDir, entry)` in turn-recorder.ts; emitted from a new OPTIONAL
+DriveEffects hook `onCorrespondence?(entry)` (mirrors onRoutingDecision), implemented in
+orchestrator-effects where the proxy CLI is invoked (so both the request it builds AND the proxy's
+logged response are paired). The proxy CLI additionally emits its answers/submission content so the
+response side is faithful (extend human-proxy to write its per-question answers, not just the artifact).
+
+### D2. Finish the intake interviews (hil-intake-interview.md step 3)
+- Add the orchestrated intake interview to the `/design` entry (→ product-overview.md) and `/build`
+  entry (→ nfrs.md; + design-brief.md for UI): the orchestrator presents the question set, the HIL
+  (human or proxy) answers, a draft artifact is generated, HIL reviews. In proxy mode the proxy answers
+  from pre-recorded material AND its answers are recorded (D1).
+- These are new HIL touchpoints in the planning/design lanes: model them as orchestrator requests that
+  pause for the HIL (interactive) or are answered by the proxy (headless), consistent with the existing
+  author-requests/gate touchpoints.
+
+### D3. NFR coverage — hard-block (Decision 2 = hard-block)
+- When `nfrs.md` exists, the Architect's `architecture.json` MUST cover every `## Required` NFR. An
+  uncovered Required NFR HARD-BLOCKS immediately (fail loud at the architect turn / conformance), not a
+  warn-then-gate. Uses Decision-1's `brief_ref` (already landed) for the coverage match.
+
+### D4. nfrs scope — project + per-feature override (Decision 3)
+- Project-level `nfrs.md` (`.consort/nfrs.md`) is the base; an optional per-feature
+  `.consort/features/<F>/nfrs.md` overrides/extends it. Resolver: feature override wins where present,
+  else project. Conformance + coverage read the resolved set. (New `ac:`/feature scope already exists
+  from the route-contract work for input resolution patterns.)
+
+### D5. Launcher — drive from /sprint (step 6)
+- Rebuild the capture launcher (examples/replay/captures/launch-stockflow-instrumented.sh +
+  _replay-smoke.sh) to START at `/sprint` with `--gates proxy`, the proxy wired as HIL, and the intake
+  interviews driving intake IN-RUN (no pre-seed cp). Pre-record the interview answers + intake artifacts
+  as the proxy's material. Correspondence + kickoff recorded from seq 0.
+
+### D6. Tests + docs (step 7)
+- Hermetic: correspondence.jsonl shape + pairing; interview question/answer capture; NFR hard-block
+  coverage (uncovered Required → throws); per-feature nfrs override resolution. Update the intake doc
+  status + SKILL.
+
+## Stages (smallest-first; tsc + targeted test between each)
+1. **Correspondence types + writer (inert):** `CorrespondenceEntry` type + `recordCorrespondence` in
+   turn-recorder.ts + `onCorrespondence?` on DriveEffects. No emitter yet. Full suite unchanged.
+2. **Kickoff + gate + author-requests emitters:** emit correspondence from orchestrator-effects where
+   the proxy CLI is called + a kickoff entry at sprint start. Proxy CLI extended to surface its
+   answers/submission content. (Records the CURRENT supply mechanism's exchange.)
+3. **NFR coverage hard-block (D3) + per-feature nfrs override (D4):** conformance + resolver + tests.
+4. **Intake interviews (D2, step 3):** /design → product-overview, /build → nfrs (+design-brief),
+   question sets + draft + HIL-answer, proxy answers recorded via D1.
+5. **Launcher rebuild (D5, step 6):** /sprint-driven capture, proxy as HIL, in-run intake, no pre-seed.
+6. **Tests + docs (D6, step 7):** hermetic coverage + intake-doc status + SKILL.
+
+## Constraints
+LOCAL; source-only (dist rebuilt by launcher). One path for real + proxy (the doc's core principle).
+The proxy NEVER invents intent (refuses on missing/non-conformant recorded material). Correspondence
+records BOTH sides (question + answer/submission + outcome). Do NOT pre-seed intake via shell cp.
+
+## Critical files
+- consort/logging/turn-recorder.ts (recordCorrespondence + CorrespondenceEntry)
+- consort/orchestrator/drive/orchestrator-run.ts (onCorrespondence hook on DriveEffects)
+- consort/orchestrator/drive/orchestrator-effects.ts (emit correspondence at proxy-CLI call sites + kickoff)
+- consort/gates/human-proxy.ts + bin/consort/human-proxy.cli.ts (surface answers/submission content; interview answers)
+- consort/gates/artifact-conformance.ts (NFR Required-coverage hard-block)
+- consort/config/consort-paths.ts + resolver (per-feature nfrs.md override)
+- templates/project/common/.claude/commands/{design,build}.md (orchestrated intake interviews)
+- examples/replay/captures/launch-stockflow-instrumented.sh + _replay-smoke.sh (/sprint-driven)
+- docs/design/refactor/hil-intake-interview.md (status update)

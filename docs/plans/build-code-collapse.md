@@ -19,7 +19,29 @@ pre-existing build recorder rather than replacing it, so the duplication is hist
 
 Same bytes, two layouts, feeding two machineries built at different times.
 
-## Feasibility verdict: FEASIBLE, no information loss — turns/ can be the single home
+## ⚠️ BLOCKED (2026-08-08): the feasibility assumption is FALSE on existing corpora
+The analysis assumed `turns/` carries `replay-set/pre-project/` (a full pre-turn tree). VERIFIED FALSE:
+`examples/replay/corpora/stockflow-rerecord/turns` has **zero** pre-project dirs (41 build turns, 0
+pre-project). The `replay-set/pre-project/` instrumentation was added THIS SESSION (route-contract /
+capture work); EVERY existing committed corpus (stockflow, stockflow-rerecord, stockflow-live,
+bug-tracker, s3-selfheal) predates it — they have `recorded-build/code/` but NO `turns/…/pre-project/`.
+So repointing `replayBuildTurn` off `recorded-build/` would break every corpus the replay lane reads
+today, and the byte-identical proof would have nothing to reconstruct from.
+
+What IS still true: `turn.json` carries `story` + `ordinal` (and `label` encodes role/mode), so the
+story/AC keying + reflect-filtering is recoverable from `turns/`. Only the FULL-TREE source is missing.
+
+### Unblock options (decision needed before any code)
+- **(a) Re-record then repoint** — re-capture all corpora with the pre-project instrumentation, THEN do
+  the repoint as designed. Large + gated live (Lakebase). Cleanest end state.
+- **(b) Forward delta-accumulation** — reconstruct a turn's full tree by replaying `turns/<n>/files/`
+  deltas (+ `turn.json.deleted[]`) FORWARD from turn 0, instead of a per-turn pre-project snapshot. No
+  re-record needed, but must PROVE the delta chain reconstructs byte-identical to `recorded-build/code/`
+  on an existing corpus (the same safety proof, different source).
+- **(c) Narrow the dedup** — keep `recorded-build/` as the build-restore home; only collapse the DESIGN
+  mirror duplication. Smallest, preserves the deterministic build restore untouched.
+
+## (original feasibility verdict — assumed pre-project present; SUPERSEDED by the block above)
 turns/ HAS everything recorded-build gives:
 - `replay-set/pre-project/` is a FULL pre-turn code tree (same codeTreeFilter as recorded-build's `code/`).
 - `files/` + `turn.json.deleted[]` is the OUTPUT delta.

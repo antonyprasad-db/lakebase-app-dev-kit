@@ -79,6 +79,14 @@ export interface DriveEffects {
    */
   assertRouteSatisfiable?(action: WorkflowAction, state: DriveState): void;
   /**
+   * OPTIONAL correspondence hook: fires when a HIL touchpoint action (author-requests, a gate) is
+   * about to be performed, so the recorder captures the orchestrator<->HIL exchange (the question the
+   * orchestrator asks + the proxy's answer/submission + outcome) as a run-level transcript. The impl
+   * builds the request side + reads the proxy's logged response. Purely observational; default absent
+   * => byte-identical to before (no correspondence recorded).
+   */
+  onCorrespondence?(action: WorkflowAction, state: DriveState, iteration: number): void;
+  /**
    * Optional hand-back hook: fires when a role's prior handoff contract was
    * UNMET and a retry remains. The runner delivers `detail` (what the responder
    * failed to return) so the imminent re-dispatch of that role is informed , the
