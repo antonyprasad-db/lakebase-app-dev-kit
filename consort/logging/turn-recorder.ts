@@ -191,6 +191,22 @@ export interface CorrespondenceSubmission {
   contentRef?: string;
 }
 
+/** The RICH PRESENTATION of a correspondence side , what was actually SHOWN/EXCHANGED, with its
+ *  formatting preserved, so a renderer can reproduce the interactive session faithfully (not just
+ *  plain text). Captures the source markdown (which carries headings/bold/lists/tables/etc.), any
+ *  terminal styling as raw ANSI, and structured highlight spans (offset+length+style) over the text
+ *  , whichever the surface produced. All optional: a surface fills what it has. */
+export interface CorrespondencePresentation {
+  /** The formatting the content is authored in (drives how a renderer reproduces it). */
+  format?: "markdown" | "ansi" | "plain";
+  /** The rendered/authored content WITH its formatting intact (e.g. markdown source, or ANSI text). */
+  rendered?: string;
+  /** Raw ANSI-styled text as printed to the terminal (colors/bold/underline preserved verbatim). */
+  ansi?: string;
+  /** Structured styling spans over the plain text (font/weight/color/highlight), for a non-ANSI renderer. */
+  highlights?: Array<{ offset: number; length: number; style: string }>;
+}
+
 /** One recorded exchange between the orchestrator and the HIL (human or proxy). */
 export interface CorrespondenceEntry {
   /** Monotonic 0-based sequence in the correspondence stream (seq 0 = the kickoff). */
@@ -207,6 +223,8 @@ export interface CorrespondenceEntry {
     prompt: string;
     /** For an intake interview: the question set posed to the HIL. */
     questions?: string[];
+    /** The RICH presentation of the ask exactly as SHOWN (formatting/fonts/highlighting preserved). */
+    presentation?: CorrespondencePresentation;
   };
   /** What the HIL ANSWERED / SUBMITTED. */
   response: {
@@ -217,6 +235,8 @@ export interface CorrespondenceEntry {
     submitted?: CorrespondenceSubmission[];
     /** A gate/approval decision. */
     decision?: "approved" | "rejected";
+    /** The RICH presentation of the answer/submission as SHOWN (formatting/fonts/highlighting preserved). */
+    presentation?: CorrespondencePresentation;
   };
   /** The outcome of the exchange (conformance + approval). */
   outcome: {

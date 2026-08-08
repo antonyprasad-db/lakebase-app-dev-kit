@@ -375,6 +375,11 @@ export async function runDriver(
       pendingBounded = { bounded, completed: action };
     } else {
       await effects.perform(action);
+      // Correspondence: a HIL touchpoint (author-requests, a gate) just ran on the legacy perform
+      // path , the proxy has now LOGGED its response (intake.supplied / gate.approved). Fire the
+      // hook AFTER perform so it can pair the orchestrator's request with the proxy's fresh answer +
+      // submission. No-op for non-HIL actions + when the hook is unwired.
+      effects.onCorrespondence?.(action, state, i);
       // Output-driven routing: after the step ran, ask the contract where it proposes to
       // go next; the NEXT iteration's top consumes it via validateAndBound. No contract =>
       // no proposal => next iteration derives from state (the default path). The contract

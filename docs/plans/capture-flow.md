@@ -77,11 +77,24 @@ response side is faithful (extend human-proxy to write its per-question answers,
   else project. Conformance + coverage read the resolved set. (New `ac:`/feature scope already exists
   from the route-contract work for input resolution patterns.)
 
-### D5. Launcher — drive from /sprint (step 6)
+### D5. Launcher — drive from /sprint, TWO sprints, proxy says yes to the whole lifecycle (step 6)
 - Rebuild the capture launcher (examples/replay/captures/launch-stockflow-instrumented.sh +
   _replay-smoke.sh) to START at `/sprint` with `--gates proxy`, the proxy wired as HIL, and the intake
   interviews driving intake IN-RUN (no pre-seed cp). Pre-record the interview answers + intake artifacts
   as the proxy's material. Correspondence + kickoff recorded from seq 0.
+- **TWO SPRINTS (user req):** the launcher must recognize + drive TWO sprints in the replay cycle —
+  stockflow-rerecord-s1 (ships F1) THEN stockflow-rerecord-s2 (ships F6 / the expand-contract path).
+  Each sprint gets its own `/sprint <name>` kickoff + correspondence stream; the cycle runs s1 to done,
+  then s2 to done. (No single "next-sprint" gate exists; it is two `/sprint` invocations — the launcher
+  loops the sprint list. Verify the recorder keeps correspondence per-sprint.)
+- **Proxy says YES to the FULL lifecycle (user req):** under `--gates proxy` the HIL proxy approves
+  EVERY gate to done — spec/plan/test_list, ACCEPT, DEPLOY, PROMOTE — for BOTH sprints, without a human.
+  VERIFIED: drainGatesAsHumanProxy iterates all GATE_NAMES incl. deploy+promote (human-proxy.ts:128-165),
+  and `--gates proxy` auto-continues (no stopWhen halt), so a single /sprint drives features
+  design→build→deploy→promote to done. The "move to the next sprint" is the launcher advancing s1→s2
+  (two invocations), NOT a gate. So requirement (2) is satisfied at the gate level today; the launcher
+  just must drive both sprints + the proxy must have recorded material (interview answers, feature-
+  requests, promote refs) for BOTH.
 
 ### D6. Tests + docs (step 7)
 - Hermetic: correspondence.jsonl shape + pairing; interview question/answer capture; NFR hard-block

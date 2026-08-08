@@ -22,9 +22,11 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readline from "node:readline";
 
-import { recordTurn, seedRecorderBaseline } from "../../consort/logging/turn-recorder.js";
+import { recordTurn, seedRecorderBaseline, recordCorrespondence, type CorrespondenceEntry } from "../../consort/logging/turn-recorder.js";
+import { readAgentLog } from "../../consort/logging/agent-log.js";
 import { recordBuildTurn, nextBuildTurnNumber } from "../../consort/pipeline/record-build.js";
 import { runDriver, driverBoundOptions, ProtocolViolationError, UnexpectedCallbackError, type DriveEffects, type DriverBound, type RunDriverResult, type RunDriverOptions } from "../../consort/orchestrator/drive/orchestrator-run.js";
+import type { DriveState } from "../../consort/orchestrator/workflow/workflow-vocabulary.js";
 import { writeEscalation } from "../../consort/gates/escalation.js";
 import { emitNextJson } from "../../consort/orchestrator/status/next.js";
 import { emitAgentLogEvent } from "../../consort/logging/agent-log.js";
@@ -258,6 +260,71 @@ function withBuildRecording(inner: DriveEffects, cfg: DriveEffectsConfig): Drive
  * recorded-build for replayBuildTurn), so one recordDir holds the whole
  * record/replay corpus. A no-op when unset, so a normal run is unaffected.
  */
+/** Project a HIL touchpoint (author-requests / a gate) + the proxy's fresh agent-log entries into a
+ *  CorrespondenceEntry: the orchestrator's REQUEST paired with the proxy's ANSWER/SUBMISSION + outcome.
+ *  Reads the response side from what the proxy LOGGED this turn (intake.supplied / gate.approved /
+ *  their refused variants) , the faithful record of what the proxy submitted + whether it validated.
+ *  Stage 4 adds interview answers[]; here the response is the artifact submission + gate decision. */
+function projectCorrespondence(
+  seq: number,
+  iteration: number,
+  action: WorkflowAction,
+  state: DriveState,
+  fresh: import("../../consort/logging/agent-log.js").AgentLogEvent[],
+  isGate: boolean,
+): CorrespondenceEntry {
+  const phase = (state as { phase?: string }).phase;
+  const kind: CorrespondenceEntry["request"]["kind"] = isGate ? "gate" : "author-requests";
+  const supplied = fresh.filter((e) => e.event === "intake.supplied");
+  const gateEv = fresh.find((e) => e.event === "gate.approved" || e.event === "gate.rejected");
+  const anyRefused = fresh.some((e) => e.event === "intake.refused" || e.event === "gate.rejected");
+  const violations = fresh.flatMap((e) => {
+    const v = (e.metadata as { violations?: unknown })?.violations;
+    return Array.isArray(v) ? (v as string[]) : [];
+  });
+  const submitted = supplied.map((e) => {
+    const md = (e.metadata ?? {}) as { artifact?: string; from?: string; to?: string };
+    return { artifact: md.artifact ?? "artifact", ...(md.from ? { from: md.from } : {}), ...(md.to ? { contentRef: md.to } : {}) };
+  });
+  const approved = isGate ? (gateEv?.event === "gate.approved") : undefined;
+  return {
+    seq,
+    iteration,
+    at: new Date().toISOString(),
+    ...(phase ? { phase } : {}),
+    request: {
+      kind,
+      prompt: isGate
+        ? `orchestrator presents ${describeAction(action)} for HIL approval`
+        : `orchestrator asks the PO to author the sprint's feature-requests (${describeAction(action)})`,
+      // Presentation: the ask rendered as markdown so a renderer reproduces its formatting. The
+      // proxy's stderr banner (reportGate) is ANSI-styled; capture it verbatim when present.
+      presentation: {
+        format: "markdown",
+        rendered: isGate
+          ? `**HIL approval requested** , ${describeAction(action)}`
+          : `**PO input requested** , author the sprint's feature-requests (${describeAction(action)})`,
+      },
+    },
+    response: {
+      by: "human-proxy",
+      ...(submitted.length ? { submitted } : {}),
+      ...(isGate ? { decision: approved ? ("approved" as const) : ("rejected" as const) } : {}),
+      // Presentation: the proxy's decision/submission as shown , the agent-log message lines it wrote,
+      // preserved so the recorded transcript reads like the interactive exchange.
+      presentation: {
+        format: "markdown",
+        rendered: fresh.map((e) => `- ${e.message}`).join("\n"),
+      },
+    },
+    outcome: {
+      validated: !anyRefused,
+      ...(isGate ? { approved: !!approved } : {}),
+      ...(violations.length ? { violations } : {}),
+    },
+  };
+}
+
 function withTurnRecording(inner: DriveEffects, cfg: DriveEffectsConfig): DriveEffects {
   const recordDir = consortEnv("RECORD_DIR")?.trim();
   if (!recordDir) return inner;
@@ -265,10 +332,30 @@ function withTurnRecording(inner: DriveEffects, cfg: DriveEffectsConfig): DriveE
   // so the first recorded turn reports only what it produced, not the pre-existing
   // scaffold. A no-op once a baseline exists (later drive processes in the run).
   seedRecorderBaseline({ recordDir, projectDir: cfg.projectDir, consortDir: cfg.consortDir });
+  // Correspondence bookkeeping: snapshot the agent-log length BEFORE each perform so onCorrespondence
+  // (fired AFTER perform, in the loop) can read exactly the entries the proxy appended THIS turn +
+  // pair them with the orchestrator's request. seq is the monotonic correspondence counter.
+  let corrSeq = 0;
+  let logLenBeforePerform = readAgentLog({ consortDir: cfg.consortDir }).length;
   return {
     readState: () => inner.readState(),
     onAction: inner.onAction ? (a, i) => inner.onAction!(a, i) : undefined,
     onHandback: inner.onHandback ? (h, d) => inner.onHandback!(h, d) : undefined,
+    // Correspondence: a HIL touchpoint (author-requests / a gate) just ran on the perform path; the
+    // proxy has appended its response to agent-log. Pair the orchestrator's REQUEST with the proxy's
+    // fresh ANSWER/SUBMISSION + outcome, and record it as a run-level transcript entry. Non-HIL
+    // actions record nothing. Delegates the inner hook first (routing observability stays intact).
+    onCorrespondence(action, state, iteration) {
+      inner.onCorrespondence?.(action, state, iteration);
+      const isGate = isHitlGateAction(action);
+      const isInput = isHumanInputAction(action);
+      if (!isGate && !isInput) return;
+      const after = readAgentLog({ consortDir: cfg.consortDir });
+      const fresh = after.slice(logLenBeforePerform); // entries the proxy appended this turn
+      const entry = projectCorrespondence(corrSeq, iteration, action, state, fresh, isGate);
+      recordCorrespondence(recordDir, entry);
+      corrSeq += 1;
+    },
     // Forward the executor-dispatch seam UNCHANGED: an executor-dispatched turn runs THROUGH the
     // executor (whose ReplayRecorderWrapper records it, from cfg.takeTranscript) and NEVER reaches
     // perform, so this effects-level recorder only fires for the NON-dispatched (perform) turns ,
@@ -276,6 +363,7 @@ function withTurnRecording(inner: DriveEffects, cfg: DriveEffectsConfig): DriveE
     // Dropping this property silently disabled the executor path under recording , the bug this fixes.
     performViaExecutor: inner.performViaExecutor ? (a, s, r) => inner.performViaExecutor!(a, s, r) : undefined,
     async perform(action) {
+      logLenBeforePerform = readAgentLog({ consortDir: cfg.consortDir }).length; // pre-perform cursor for correspondence
       await inner.perform(action);
       if (action.kind === "done") return; // terminal no-op, produces nothing
       // An invoke-role action just ran an agent; grab its outcome-level
@@ -377,6 +465,23 @@ async function runSprintMode(args: ParsedArgs): Promise<number> {
   const gates = effectiveGates(args, projectDir);
   const interactive = gates === "interactive";
   const skipSizing = !settings.plan.sizing;
+
+  // Correspondence step 0 (the kickoff): record the /sprint command that STARTED this session, so a
+  // recorded capture's transcript begins where the user begins , the real /sprint, not the first agent
+  // turn. Only when recording (RECORD_DIR set); the command + its formatting are preserved.
+  const recordDirForKickoff = consortEnv("RECORD_DIR")?.trim();
+  if (recordDirForKickoff) {
+    const cmd = `/sprint ${sprint} --gates ${gates}`;
+    recordCorrespondence(recordDirForKickoff, {
+      seq: 0,
+      iteration: -1,
+      at: new Date().toISOString(),
+      phase: "planning",
+      request: { kind: "kickoff", prompt: cmd, presentation: { format: "markdown", rendered: `\`${cmd}\`` } },
+      response: { by: interactive ? "human" : "human-proxy" },
+      outcome: { validated: true },
+    });
+  }
 
   const effects: SprintEffects = {
     async drivePlanning() {
