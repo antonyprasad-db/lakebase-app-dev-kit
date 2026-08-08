@@ -57,14 +57,22 @@ orchestrator-effects where the proxy CLI is invoked (so both the request it buil
 logged response are paired). The proxy CLI additionally emits its answers/submission content so the
 response side is faithful (extend human-proxy to write its per-question answers, not just the artifact).
 
-### D2. Finish the intake interviews (hil-intake-interview.md step 3)
-- Add the orchestrated intake interview to the `/design` entry (→ product-overview.md) and `/build`
-  entry (→ nfrs.md; + design-brief.md for UI): the orchestrator presents the question set, the HIL
-  (human or proxy) answers, a draft artifact is generated, HIL reviews. In proxy mode the proxy answers
-  from pre-recorded material AND its answers are recorded (D1).
-- These are new HIL touchpoints in the planning/design lanes: model them as orchestrator requests that
-  pause for the HIL (interactive) or are answered by the proxy (headless), consistent with the existing
-  author-requests/gate touchpoints.
+### D2. Intake interviews — ALREADY BUILT in the command templates (CF Stage 4 finding)
+FINDING (code review): the intake interviews the design doc called "step 3 remains" are ALREADY
+documented + wired end-to-end:
+- `/design` Step 0.5 (design.md:44-71): the full Product / NFR / UX interview question sets, the
+  interactive-vs-headless split, the Human Proxy `supply` path from `$LAKEBASE_SFTDD_RECORDED_INTAKE_DIR`,
+  and the `consort-intake` precondition (exit 5, un-skippable) that REFUSES phase 1 until intake conforms.
+- `/plan` Step 0 (plan.md:17-25): the SAME project intake facilitated at planning , and `/plan` is what
+  `/sprint` runs FIRST, so a sprint-first run hits intake at planning. Headless, the Human Proxy supplies
+  from the recorded intake dir; interactive, the orchestrator runs the interviews.
+So the orchestrator ALREADY asks for intake (interview or proxy-supply) at the start of a /sprint-driven
+run. CF Stage 4 does NOT need to build the interviews. The remaining gap folds into Stage 5 (launcher):
+drive from /sprint with the proxy supplying intake IN-RUN (not smoke-preseeded) + the correspondence
+emitter (CF Stage 2) captures the supply exchange (intake.supplied) as a recorded entry. The interview
+Q/A answers[] on the response side (D1) require the proxy to surface per-question answers , a small
+proxy enhancement folded into Stage 5's proxy-material prep (only if we want the answer text, not just
+the artifact; the artifact submission + validation are already captured).
 
 ### D3. NFR coverage — hard-block (REVISED after code review; user re-confirmed)
 FINDING: NFR Required-coverage is ALREADY built + wired. `checkNfrCoverage` (artifact-conformance.ts:327)
