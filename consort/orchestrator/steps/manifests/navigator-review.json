@@ -4,7 +4,7 @@
   "agent": { "kind": "claude", "config": { "role": "navigator" } },
   "match": { "kind": "invoke-role", "role": "navigator", "buildMode": "review" },
   "inputs": [
-    { "id": "code", "source": "story:code", "description": "The Driver's implementation the Navigator critiques (story- or AC-scoped by the loop)." },
+    { "id": "code", "source": "story:code", "optional": true, "description": "The Driver's implementation the Navigator critiques. OPTIONAL: 'code' is the project tree (client/src, app/…) the UNCONTAINED agent reads directly, NOT a `.consort` artifact file — there is no <storyDir>/code path to presence-check, so a required gate here fails loud on every review turn. The agent reads the real code itself." },
     { "id": "acs", "source": "story:acs", "description": "The acceptance criteria the review holds the code to." }
   ],
   "raises": ["review-verdict"],
