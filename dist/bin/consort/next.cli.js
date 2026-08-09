@@ -7250,7 +7250,7 @@ var navigator_review_default = {
   agent: { kind: "claude", config: { role: "navigator" } },
   match: { kind: "invoke-role", role: "navigator", buildMode: "review" },
   inputs: [
-    { id: "code", source: "story:code", description: "The Driver's implementation the Navigator critiques (story- or AC-scoped by the loop)." },
+    { id: "code", source: "story:code", optional: true, description: "The Driver's implementation the Navigator critiques. OPTIONAL: 'code' is the project tree (client/src, app/\u2026) the UNCONTAINED agent reads directly, NOT a `.consort` artifact file \u2014 there is no <storyDir>/code path to presence-check, so a required gate here fails loud on every review turn. The agent reads the real code itself." },
     { id: "acs", source: "story:acs", description: "The acceptance criteria the review holds the code to." }
   ],
   raises: ["review-verdict"],
@@ -7283,8 +7283,8 @@ var navigator_reflect_default = {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "haiku",
-    effort: "low",
+    model: "sonnet",
+    effort: "default",
     session: "resume",
     resumeKeyFrom: "story"
   },
@@ -7380,7 +7380,7 @@ var driver_refactor_default = {
   agent: { kind: "claude", config: { role: "driver" } },
   match: { kind: "invoke-role", role: "driver", buildMode: "refactor" },
   inputs: [
-    { id: "code", source: "story:code", description: "The GREEN implementation the Driver restructures (behavior-preserving) after the story passes." }
+    { id: "code", source: "story:code", optional: true, description: "The GREEN implementation the Driver restructures (behavior-preserving). OPTIONAL: 'code' is the project tree the UNCONTAINED agent reads directly, NOT a `.consort` artifact file \u2014 there is no <storyDir>/code path to presence-check, so a required gate fails loud on every refactor turn. The agent reads the real code itself." }
   ],
   preconditions: [
     { id: "pack", kind: "context-pack", position: "append", description: "The context pack (rubric + module layout) APPENDED after the refactor directive so the Driver restructures against the known layout without re-reading the design tree." }
@@ -7632,7 +7632,7 @@ function resolveConsortSettings(inputs) {
 // consort/orchestrator/drive/orchestrator-effects.ts
 init_esm_shims();
 import * as fs15 from "fs";
-import { dirname as dirname16 } from "path";
+import { dirname as dirname16, join as join34 } from "path";
 
 // consort/orchestrator/drive/orchestrator-drive.ts
 init_esm_shims();
@@ -7778,7 +7778,7 @@ function toDesignView(state) {
 // consort/orchestrator/drive/executor-dispatch.ts
 init_esm_shims();
 import * as fs8 from "fs";
-import { join as join18, relative as relative3 } from "path";
+import { join as join19, relative as relative3 } from "path";
 
 // consort/orchestrator/turns/step-executor.ts
 init_esm_shims();
@@ -8049,7 +8049,7 @@ init_esm_shims();
 
 // consort/orchestrator/agents/agent-catalogue.ts
 init_esm_shims();
-import { join as join16 } from "path";
+import { join as join17 } from "path";
 import { readFileSync as readFileSync13, writeFileSync as writeFileSync8, existsSync as existsSync16 } from "fs";
 
 // consort/orchestrator/agents/claude-step-agent.ts
@@ -8356,8 +8356,8 @@ var TRANSIENT_BACKOFF_MS = Number(consortEnv("TRANSIENT_BACKOFF_MS") ?? "5000");
 
 // consort/orchestrator/agents/mock-replay-agent.ts
 init_esm_shims();
-import { readFileSync as readFileSync12, writeFileSync as writeFileSync7, existsSync as existsSync15, mkdirSync as mkdirSync9, cpSync as cpSync3, readdirSync as readdirSync9, statSync as statSync6 } from "fs";
-import { join as join15, dirname as dirname9, relative, sep } from "path";
+import { readFileSync as readFileSync12, writeFileSync as writeFileSync7, existsSync as existsSync15, mkdirSync as mkdirSync10, cpSync as cpSync3, readdirSync as readdirSync9, statSync as statSync6 } from "fs";
+import { join as join16, dirname as dirname9, relative, sep } from "path";
 
 // consort/orchestrator/agents/replay-recorder-wrapper.ts
 init_esm_shims();
@@ -8369,14 +8369,14 @@ import {
   appendFileSync,
   cpSync as cpSync4,
   existsSync as existsSync17,
-  mkdirSync as mkdirSync10,
+  mkdirSync as mkdirSync11,
   readFileSync as readFileSync14,
   readdirSync as readdirSync10,
   rmSync as rmSync2,
   statSync as statSync7,
   writeFileSync as writeFileSync9
 } from "fs";
-import { dirname as dirname10, join as join17, relative as relative2 } from "path";
+import { dirname as dirname10, join as join18, relative as relative2 } from "path";
 
 // consort/pipeline/record-build.ts
 init_esm_shims();
@@ -8384,7 +8384,7 @@ init_esm_shims();
 // consort/orchestrator/steps/assert-route-satisfiable.ts
 init_esm_shims();
 import { existsSync as existsSync19 } from "fs";
-import { join as join19 } from "path";
+import { join as join20 } from "path";
 
 // consort/orchestrator/state/orchestrator-derive.ts
 init_esm_shims();
@@ -8498,8 +8498,8 @@ function coveredTestIds(c) {
 
 // consort/pipeline/cycle-record.ts
 init_esm_shims();
-import { existsSync as existsSync29, readFileSync as readFileSync26, readdirSync as readdirSync17, statSync as statSync12, writeFileSync as writeFileSync16, mkdirSync as mkdirSync16, rmSync as rmSync7 } from "fs";
-import { join as join29, dirname as dirname14 } from "path";
+import { existsSync as existsSync29, readFileSync as readFileSync26, readdirSync as readdirSync17, statSync as statSync12, writeFileSync as writeFileSync16, mkdirSync as mkdirSync17, rmSync as rmSync7 } from "fs";
+import { join as join30, dirname as dirname14 } from "path";
 
 // consort/test-list/test-list.ts
 init_esm_shims();
@@ -8508,8 +8508,8 @@ init_esm_shims();
 init_esm_shims();
 import { execSync, spawn as spawn2 } from "child_process";
 import { randomBytes } from "crypto";
-import { existsSync as existsSync23, mkdirSync as mkdirSync13, readFileSync as readFileSync20, rmSync as rmSync4, writeFileSync as writeFileSync13 } from "fs";
-import { dirname as dirname12, join as join23 } from "path";
+import { existsSync as existsSync23, mkdirSync as mkdirSync14, readFileSync as readFileSync20, rmSync as rmSync4, writeFileSync as writeFileSync13 } from "fs";
+import { dirname as dirname12, join as join24 } from "path";
 import { readTargets } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { pollUntil } from "@databricks-solutions/lakebase-scm-utils/util";
 
@@ -8521,7 +8521,7 @@ import * as fs9 from "fs";
 init_esm_shims();
 import { existsSync as existsSync20, readFileSync as readFileSync16, writeFileSync as writeFileSync10 } from "fs";
 import { createHash as createHash2 } from "crypto";
-import { join as join20 } from "path";
+import { join as join21 } from "path";
 var SMELL_CATALOG = [
   {
     name: "test-list-drift",
@@ -8699,7 +8699,7 @@ function hasOpenBuildRefactorRoutableSmell(consortDir, story_id) {
   );
 }
 function readSmellsLog(consortDir) {
-  const file = join20(consortDir, "smells.json");
+  const file = join21(consortDir, "smells.json");
   if (!existsSync20(file)) return { detected: [] };
   return JSON.parse(readFileSync16(file, "utf8"));
 }
@@ -8862,7 +8862,7 @@ function deployVerifyNeedsAssess(consortDir, featureId, storyId) {
 // consort/architecture/e2e-regex-clean.ts
 init_esm_shims();
 import { readdirSync as readdirSync12, readFileSync as readFileSync19, statSync as statSync9 } from "fs";
-import { join as join22 } from "path";
+import { join as join23 } from "path";
 
 // consort/smells/ephemeral-verify.ts
 init_esm_shims();
@@ -8886,20 +8886,20 @@ function readDeployEvidence(file) {
 function storyDeployVerified(consortDir, featureId, storyId) {
   const fdir = findFeatureDir(consortDir, featureId);
   if (!fdir) return false;
-  return deployEvidencePasses(readDeployEvidence(join23(fdir, "stories", storyId, "deploy-evidence.json")));
+  return deployEvidencePasses(readDeployEvidence(join24(fdir, "stories", storyId, "deploy-evidence.json")));
 }
 
 // consort/architecture/design-adherence.ts
 init_esm_shims();
 import { existsSync as existsSync24, readFileSync as readFileSync21, readdirSync as readdirSync14 } from "fs";
-import { join as join24 } from "path";
+import { join as join25 } from "path";
 
 // consort/smells/supersession.ts
 init_esm_shims();
 import * as fs11 from "fs";
-import { join as join25 } from "path";
+import { join as join26 } from "path";
 function supersededTestsJson(tdd, feature, story, ac) {
-  return join25(cycleDir(tdd, feature, story, ac), "superseded-tests.json");
+  return join26(cycleDir(tdd, feature, story, ac), "superseded-tests.json");
 }
 function readSupersededTests(tdd, feature, story, ac) {
   const file = supersededTestsJson(tdd, feature, story, ac);
@@ -8917,7 +8917,7 @@ function hasPendingSupersession(tdd, feature, story, ac) {
   return s !== void 0 && s.refactored !== true;
 }
 function greenFailureJson(tdd, feature, story, ac) {
-  return join25(cycleDir(tdd, feature, story, ac), "green-failure.json");
+  return join26(cycleDir(tdd, feature, story, ac), "green-failure.json");
 }
 function readGreenFailure(tdd, feature, story, ac) {
   const file = greenFailureJson(tdd, feature, story, ac);
@@ -8940,7 +8940,7 @@ function hasPendingRegressionFix(tdd, feature, story, ac) {
 // consort/architecture/contract-clean.ts
 init_esm_shims();
 import { existsSync as existsSync26, readFileSync as readFileSync23, readdirSync as readdirSync15, statSync as statSync10 } from "fs";
-import { join as join26, relative as relative4, extname } from "path";
+import { join as join27, relative as relative4, extname } from "path";
 var ARTIFACT_ROOTS_RE = artifactRootsRegexAlternation();
 var EXCLUDE_DIR = new RegExp(
   `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build|tests?|alembic|migrations)(/|$)`
@@ -8979,7 +8979,7 @@ function refactorVerifyRefactorPending(consortDir, featureId, storyId) {
 // consort/architecture/migration-app-clean.ts
 init_esm_shims();
 import { existsSync as existsSync28, readFileSync as readFileSync25, readdirSync as readdirSync16, statSync as statSync11 } from "fs";
-import { join as join28, relative as relative5, extname as extname2 } from "path";
+import { join as join29, relative as relative5, extname as extname2 } from "path";
 
 // consort/pipeline/cycle-record.ts
 import { commitAllIfChanged } from "@databricks-solutions/lakebase-scm-utils/git";
@@ -8993,11 +8993,11 @@ function readStoryItems(consortDir, featureId, story) {
   return Array.isArray(data.items) ? data.items : [];
 }
 function storyCycles(consortDir, featureId, story) {
-  const base = join29(cyclesRootDir(consortDir), featureId, story);
+  const base = join30(cyclesRootDir(consortDir), featureId, story);
   if (!existsSync29(base)) return [];
   const out = [];
   for (const acDir of readdirSync17(base)) {
-    const dir = join29(base, acDir);
+    const dir = join30(base, acDir);
     try {
       if (!statSync12(dir).isDirectory()) continue;
     } catch {
@@ -9006,7 +9006,7 @@ function storyCycles(consortDir, featureId, story) {
     for (const f of readdirSync17(dir)) {
       if (!/^cycle-\d+\.json$/.test(f)) continue;
       try {
-        out.push(JSON.parse(readFileSync26(join29(dir, f), "utf8")));
+        out.push(JSON.parse(readFileSync26(join30(dir, f), "utf8")));
       } catch {
       }
     }
@@ -9123,7 +9123,7 @@ function refactorPending(consortDir, featureId, story) {
 // consort/gates/gates.ts
 init_esm_shims();
 import { existsSync as existsSync30, readFileSync as readFileSync27, renameSync, unlinkSync, writeFileSync as writeFileSync17 } from "fs";
-import { join as join30 } from "path";
+import { join as join31 } from "path";
 var GATES_SCHEMA_VERSION = 1;
 var GATE_STATUSES = ["open", "approved", "superseded", "withdrawn"];
 function defaultGatesState(featureId) {
@@ -9156,7 +9156,7 @@ function readGates(featureId, opts = {}) {
   return validateGatesState(parsed, file);
 }
 function gatesFilePath(consortDir, featureId) {
-  return join30(requireFeatureDir(consortDir, featureId), "gates.json");
+  return join31(requireFeatureDir(consortDir, featureId), "gates.json");
 }
 function validateGatesState(parsed, file) {
   if (typeof parsed !== "object" || parsed === null) {
@@ -9219,7 +9219,7 @@ import { readWorkflowState as readWorkflowState2, SCM_STATES } from "@databricks
 
 // consort/smells/reflection.ts
 init_esm_shims();
-import { existsSync as existsSync31, readFileSync as readFileSync28, writeFileSync as writeFileSync18, mkdirSync as mkdirSync17, rmSync as rmSync8 } from "fs";
+import { existsSync as existsSync31, readFileSync as readFileSync28, writeFileSync as writeFileSync18, mkdirSync as mkdirSync18, rmSync as rmSync8 } from "fs";
 var SMELL_FOR_OWNER = {
   "spec-author": "reflect-spec-defect",
   "test-strategist": "reflect-testlist-defect"
@@ -9243,7 +9243,7 @@ var REFLECT_SMELLS = Object.values(SMELL_FOR_OWNER);
 
 // consort/architecture/architecture-canon.ts
 init_esm_shims();
-import { existsSync as existsSync32, readFileSync as readFileSync29, writeFileSync as writeFileSync19, mkdirSync as mkdirSync18, readdirSync as readdirSync19 } from "fs";
+import { existsSync as existsSync32, readFileSync as readFileSync29, writeFileSync as writeFileSync19, mkdirSync as mkdirSync19, readdirSync as readdirSync19 } from "fs";
 function uniq(xs) {
   return [...new Set(xs.filter((x) => typeof x === "string" && x.length > 0))];
 }
@@ -9550,12 +9550,12 @@ function diskArtifactProbe(consortDir, featureId, buildActive) {
 
 // consort/pipeline/story-pipeline.ts
 init_esm_shims();
-import { existsSync as existsSync35, readFileSync as readFileSync32, writeFileSync as writeFileSync20, mkdirSync as mkdirSync19, readdirSync as readdirSync22, statSync as statSync15, rmSync as rmSync9 } from "fs";
+import { existsSync as existsSync35, readFileSync as readFileSync32, writeFileSync as writeFileSync20, mkdirSync as mkdirSync20, readdirSync as readdirSync22, statSync as statSync15, rmSync as rmSync9 } from "fs";
 
 // consort/gates/gate-conformance-guard.ts
 init_esm_shims();
 import { existsSync as existsSync34, readFileSync as readFileSync31, readdirSync as readdirSync21, statSync as statSync14 } from "fs";
-import { join as join32 } from "path";
+import { join as join33 } from "path";
 
 // consort/architecture/architecture-conventions.ts
 init_esm_shims();
@@ -9623,7 +9623,7 @@ var TEST_ANALYST_CATALOGUE = {
     effort: "high",
     toolScope: ["Read"],
     inputs: ["architecture-invariants", "db-design"],
-    focusPrompt: 'You are the FITNESS test analyst , the SOLE owner of `invariant_id`. Two duties: (1) Walk the architecture (layers, service_backed, ORM-only, config-in-env, each accepted NFR budget) and emit >=1 `kind:"fitness"` item per architectural constraint the story touches: the layering contract (boundary must not import the DB session; persistence only in the repository), the ORM-only contract (ONLY the repository touches the ORM/session , the service AND boundary contain no ORM imports; this is DISTINCT from the routes-vs-session check), config-from-env, and any service-layer guard an NFR demands (e.g. a write-time rejection of an overcommitting / negative-quantity write at the SERVICE layer , distinct from a DB CHECK constraint). A COMPOUND defense (an `and`/`+`/comma joining two checkable claims) needs ONE item PER conjunct, never one for the pair. (2) Walk architecture.json `persistence_invariants[]` and emit one `kind:"fitness"` item per invariant with `invariant_id` set to that invariant\'s id, verified DIRECTLY against the real branch database (never a mock, never a generic ORM round-trip). A migration that carries data needs TWO items: reversibility (single-step downgrade/upgrade, @pytest.mark.migration, NEVER downgrade base) AND data-preservation (seed rows, migrate, assert they survive with expected values); the created_at/audit immutability on an in-place upsert is its OWN item. Whole-table aggregate assertions must scope to the test\'s own rows (a delta), never an absolute total. Fitness items MUST NOT carry a `.feature` `scenario_file`. Seed idempotently with a per-run-unique key. ' + SLICE_CONTRACT + " Set `invariant_id` on each item that covers a declared persistence invariant."
+    focusPrompt: "You are the FITNESS test analyst , the SOLE owner of `invariant_id`. Two duties: (1) Walk the architecture (layers, service_backed, ORM-only, config-in-env, each accepted NFR budget) and emit >=1 `kind:\"fitness\"` item per architectural constraint the story touches: the layering contract (boundary must not import the DB session; persistence only in the repository), the ORM-only contract (ONLY the repository touches the ORM/session , the service AND boundary contain no ORM imports; this is DISTINCT from the routes-vs-session check), config-from-env, and any service-layer guard an NFR demands (e.g. a write-time rejection of an overcommitting / negative-quantity write at the SERVICE layer , distinct from a DB CHECK constraint). A COMPOUND defense (an `and`/`+`/comma joining two checkable claims) needs ONE item PER conjunct, never one for the pair. (2) Walk architecture.json `persistence_invariants[]` and emit one `kind:\"fitness\"` item per invariant with `invariant_id` set to that invariant's id, verified DIRECTLY against the real branch database (never a mock, never a generic ORM round-trip). A migration reversibility is ALWAYS one item: reversibility (single-step downgrade/upgrade, @pytest.mark.migration, NEVER downgrade base) asserting the SCHEMA is recreated , the table + its columns/constraints are present again after downgrade-then-upgrade (NOT that data survives). Data-preservation (seed rows, migrate, assert they survive with expected values) is a SEPARATE item that applies ONLY to an ADDITIVE migration on a PRE-EXISTING table (a later story adding a column/constraint, where single-step downgrade removes only that addition and prior rows persist). NEVER author a data-preservation item for an INITIAL create-table migration: single-step downgrade drops the whole table, so 'rows survive' is UNSATISFIABLE and no code can make it pass (it dead-locks the assess/repair loop). If the story's migration is the table's FIRST (create-table), emit ONLY the schema-recreation reversibility item, not data-preservation. The created_at/audit immutability on an in-place upsert is its OWN item. Whole-table aggregate assertions must scope to the test's own rows (a delta), never an absolute total. Fitness items MUST NOT carry a `.feature` `scenario_file`. Seed idempotently with a per-run-unique key. " + SLICE_CONTRACT + " Set `invariant_id` on each item that covers a declared persistence invariant."
   },
   client: {
     kind: "client",
@@ -9658,7 +9658,7 @@ init_esm_shims();
 
 // consort/gates/sprint-gates.ts
 init_esm_shims();
-import { existsSync as existsSync38, mkdirSync as mkdirSync21, readFileSync as readFileSync36, renameSync as renameSync2, unlinkSync as unlinkSync2, writeFileSync as writeFileSync22 } from "fs";
+import { existsSync as existsSync38, mkdirSync as mkdirSync22, readFileSync as readFileSync36, renameSync as renameSync2, unlinkSync as unlinkSync2, writeFileSync as writeFileSync22 } from "fs";
 
 // consort/gates/gate-hash.ts
 init_esm_shims();

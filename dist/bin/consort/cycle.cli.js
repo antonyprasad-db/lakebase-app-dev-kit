@@ -7956,15 +7956,25 @@ function regressionAssessmentJson(tdd, feature, story, ac) {
   return join12(cycleDir(tdd, feature, story, ac), "regression-assessment.json");
 }
 function readRegressionAssessment(tdd, feature, story, ac) {
-  const file = regressionAssessmentJson(tdd, feature, story, ac);
-  if (!fs4.existsSync(file)) return void 0;
-  try {
-    const parsed = JSON.parse(fs4.readFileSync(file, "utf8"));
-    if (typeof parsed.diagnosis !== "string" || parsed.diagnosis.length === 0) return void 0;
-    return parsed;
-  } catch {
-    return void 0;
+  const dir = cycleDir(tdd, feature, story, ac);
+  const candidates = [
+    regressionAssessmentJson(tdd, feature, story, ac),
+    // canonical: regression-assessment.json
+    join12(dir, "assess-regression.json")
+    // agent-natural filename (mirrors the CLI verb)
+  ];
+  for (const file of candidates) {
+    if (!fs4.existsSync(file)) continue;
+    try {
+      const raw = JSON.parse(fs4.readFileSync(file, "utf8"));
+      const diagnosis = raw.diagnosis;
+      if (typeof diagnosis !== "string" || diagnosis.length === 0) continue;
+      const fixDirective = typeof raw.fixDirective === "string" && raw.fixDirective.length > 0 ? raw.fixDirective : typeof raw.fix === "string" && raw.fix.length > 0 ? raw.fix : void 0;
+      return { diagnosis, ...fixDirective ? { fixDirective } : {} };
+    } catch {
+    }
   }
+  return void 0;
 }
 function writeRegressionAssessment(tdd, feature, story, ac, value) {
   fs4.mkdirSync(cycleDir(tdd, feature, story, ac), { recursive: true });

@@ -7231,6 +7231,10 @@ function readIndex(recordDir) {
 function pad(n) {
   return String(n).padStart(4, "0");
 }
+function lastRecordedOrdinal(recordDir) {
+  const idx = readIndex(recordDir);
+  return idx.length ? idx[idx.length - 1].ordinal : null;
+}
 function turnDirFor(recordDir, action) {
   return join4(recordDir, "turns", `${pad(readIndex(recordDir).length)}-${labelForAction(action)}`);
 }
@@ -7317,7 +7321,37 @@ function recordTurn(args) {
   mkdirSync2(join4(recordDir, "turns"), { recursive: true });
   writeFileSync3(join4(recordDir, "turns", "index.json"), JSON.stringify({ turns: index }, null, 2) + "\n");
   writeRecorderState(recordDir, cur);
+  try {
+    if (existsSync4(join4(recordDir, "correspondence.jsonl"))) {
+      recordCorrespondence(recordDir, {
+        seq: -1,
+        // progress entries are keyed by ordinal (their FK), not by the HIL seq counter
+        direction: "orch-to-hil",
+        ordinal,
+        iteration: -1,
+        at: (/* @__PURE__ */ new Date()).toISOString(),
+        ...manifest.step !== void 0 ? { step: String(manifest.step) } : {},
+        request: {
+          kind: "progress",
+          prompt: progressNarration(manifest, produced.length, deleted.length)
+        },
+        response: { by: "orchestrator" },
+        outcome: { validated: true }
+      });
+    }
+  } catch {
+  }
   return { ordinal, dir: dirName, produced, deleted };
+}
+function progressNarration(m, producedCount, deletedCount) {
+  const who = m.role ?? m.kind;
+  const scope = [m.story, m.ac].filter(Boolean).join(" / ");
+  const parts = [
+    m.mode ? `${who} ${m.mode}` : who,
+    scope ? `(${scope})` : "",
+    `, ${producedCount} file(s) produced${deletedCount ? `, ${deletedCount} removed` : ""}`
+  ];
+  return parts.filter(Boolean).join(" ").replace(" ,", ",");
 }
 
 // consort/logging/agent-log.ts
@@ -9812,7 +9846,7 @@ function deriveFeaturePhase(stories) {
 // consort/orchestrator/drive/orchestrator-effects.ts
 init_esm_shims();
 import * as fs16 from "fs";
-import { dirname as dirname17 } from "path";
+import { dirname as dirname17, join as join39 } from "path";
 
 // consort/orchestrator/steps/manifest.ts
 init_esm_shims();
@@ -10132,7 +10166,7 @@ var navigator_review_default = {
   agent: { kind: "claude", config: { role: "navigator" } },
   match: { kind: "invoke-role", role: "navigator", buildMode: "review" },
   inputs: [
-    { id: "code", source: "story:code", description: "The Driver's implementation the Navigator critiques (story- or AC-scoped by the loop)." },
+    { id: "code", source: "story:code", optional: true, description: "The Driver's implementation the Navigator critiques. OPTIONAL: 'code' is the project tree (client/src, app/\u2026) the UNCONTAINED agent reads directly, NOT a `.consort` artifact file \u2014 there is no <storyDir>/code path to presence-check, so a required gate here fails loud on every review turn. The agent reads the real code itself." },
     { id: "acs", source: "story:acs", description: "The acceptance criteria the review holds the code to." }
   ],
   raises: ["review-verdict"],
@@ -10165,8 +10199,8 @@ var navigator_reflect_default = {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "haiku",
-    effort: "low",
+    model: "sonnet",
+    effort: "default",
     session: "resume",
     resumeKeyFrom: "story"
   },
@@ -10262,7 +10296,7 @@ var driver_refactor_default = {
   agent: { kind: "claude", config: { role: "driver" } },
   match: { kind: "invoke-role", role: "driver", buildMode: "refactor" },
   inputs: [
-    { id: "code", source: "story:code", description: "The GREEN implementation the Driver restructures (behavior-preserving) after the story passes." }
+    { id: "code", source: "story:code", optional: true, description: "The GREEN implementation the Driver restructures (behavior-preserving). OPTIONAL: 'code' is the project tree the UNCONTAINED agent reads directly, NOT a `.consort` artifact file \u2014 there is no <storyDir>/code path to presence-check, so a required gate fails loud on every refactor turn. The agent reads the real code itself." }
   ],
   preconditions: [
     { id: "pack", kind: "context-pack", position: "append", description: "The context pack (rubric + module layout) APPENDED after the refactor directive so the Driver restructures against the known layout without re-reading the design tree." }
@@ -10472,7 +10506,7 @@ function manifestForAction(action, manifests = SHIPPED_MANIFESTS) {
 // consort/orchestrator/drive/executor-dispatch.ts
 init_esm_shims();
 import * as fs14 from "fs";
-import { join as join36, relative as relative6 } from "path";
+import { join as join37, relative as relative6 } from "path";
 
 // consort/orchestrator/turns/step-executor.ts
 init_esm_shims();
@@ -10526,12 +10560,12 @@ async function execute(step, ctx, deps) {
   const agentResult = step.lastAgentResult?.();
   await deps.materializeOutputs?.(workspaceDir, action, cfg);
   const outputSpecs = step.outputs(action);
-  const primaryIsOptional = outputSpecs.length > 0 && outputSpecs[0].optional === true;
+  const noRequiredPrimary = outputSpecs.length === 0 || outputSpecs[0].optional === true;
   const violations = [];
   if (!runResult.produced) {
     if (runResult.missingInput) {
       violations.push(`missing input "${runResult.missingInput}"`);
-    } else if (!primaryIsOptional) {
+    } else if (!noRequiredPrimary) {
       violations.push("the step's primary output was not produced in the workspace");
     }
   }
@@ -10863,7 +10897,10 @@ var Step = class {
   inputs(_action) {
     return this.manifest.inputs.map((i) => ({
       id: i.id,
-      description: i.description ?? `${i.id} (from ${i.source})`
+      description: i.description ?? `${i.id} (from ${i.source})`,
+      // Carry `optional` through so run()'s presence re-check honors it (an optional-absent input
+      // is skipped by resolveInputs and MUST NOT trip run's `spec.id in inputs` gate).
+      ...i.optional ? { optional: true } : {}
     }));
   }
   /** WHAT this step needs PRE-CONDITIONED (logical), from the manifest. The orchestrator's
@@ -10942,7 +10979,7 @@ var Step = class {
   async run(provided) {
     const { action, workspaceDir, inputs, instructions } = provided;
     for (const spec of this.inputs(action)) {
-      if (!(spec.id in inputs)) {
+      if (!(spec.id in inputs) && !spec.optional) {
         return { produced: false, missingInput: spec.id };
       }
     }
@@ -11027,7 +11064,7 @@ var Step = class {
 
 // consort/orchestrator/agents/agent-catalogue.ts
 init_esm_shims();
-import { join as join35 } from "path";
+import { join as join36 } from "path";
 import { readFileSync as readFileSync35, writeFileSync as writeFileSync22, existsSync as existsSync39 } from "fs";
 
 // consort/orchestrator/agents/claude-step-agent.ts
@@ -11770,6 +11807,29 @@ function spawnClaudeStreaming(args, cwd) {
     let sawTooLong = false;
     let sawTransient = false;
     const verboseAgent = !!consortEnv("VERBOSE_AGENT");
+    const liveLogDir = consortEnv("RECORD_DIR")?.trim();
+    let liveLog;
+    if (liveLogDir) {
+      try {
+        fs13.mkdirSync(liveLogDir, { recursive: true });
+        liveLog = fs13.openSync(path9.join(liveLogDir, "agent-live.log"), "a");
+        const pIdxL = args.indexOf("-p"), rIdxL = args.indexOf("--agent");
+        const role = rIdxL >= 0 ? args[rIdxL + 1] : "agent";
+        const task = pIdxL >= 0 ? (args[pIdxL + 1] ?? "").slice(0, 120) : "";
+        fs13.writeSync(liveLog, `
+=== ${(/* @__PURE__ */ new Date()).toISOString()} TURN START role=${role} :: ${task}
+`);
+      } catch {
+        liveLog = void 0;
+      }
+    }
+    const liveWrite = (s) => {
+      if (liveLog === void 0) return;
+      try {
+        fs13.writeSync(liveLog, s);
+      } catch {
+      }
+    };
     let lastText = "";
     const allTools = [];
     const rl = readline.createInterface({ input: child.stdout });
@@ -11780,7 +11840,12 @@ function spawnClaudeStreaming(args, cwd) {
       if (verboseAgent) {
         const text2 = assistantTextFromLine(line);
         if (text2) process.stderr.write(text2);
-        for (const t of assistantEventSummary(line).tools) allTools.push(t);
+        if (text2) liveWrite(text2);
+        for (const t of assistantEventSummary(line).tools) {
+          allTools.push(t);
+          liveWrite(`  \xB7 ${t}
+`);
+        }
         return;
       }
       const { text, tools } = assistantEventSummary(line);
@@ -11788,8 +11853,14 @@ function spawnClaudeStreaming(args, cwd) {
         process.stderr.write(`  \xB7 ${t}
 `);
         allTools.push(t);
+        liveWrite(`  \xB7 ${t}
+`);
       }
-      if (text) lastText = text;
+      if (text) {
+        lastText = text;
+        liveWrite(text.endsWith("\n") ? text : `${text}
+`);
+      }
     });
     const erl = readline.createInterface({ input: child.stderr });
     erl.on("line", (line) => {
@@ -11798,12 +11869,26 @@ function spawnClaudeStreaming(args, cwd) {
       process.stderr.write(`${line}
 `);
     });
-    child.on("error", (err) => reject(err));
+    const closeLiveLog = () => {
+      if (liveLog === void 0) return;
+      try {
+        fs13.closeSync(liveLog);
+      } catch {
+      }
+      liveLog = void 0;
+    };
+    child.on("error", (err) => {
+      closeLiveLog();
+      reject(err);
+    });
     child.on("close", (code) => {
       rl.close();
       erl.close();
       if (!verboseAgent && lastText) process.stderr.write(`${lastText}
 `);
+      liveWrite(`--- ${(/* @__PURE__ */ new Date()).toISOString()} TURN CLOSE code=${code}${lastText ? ` :: ${lastText.slice(0, 200)}` : ""}
+`);
+      closeLiveLog();
       if (code !== 0) return reject(new ClaudeTurnError(`claude exited ${code}`, sawTooLong, sawTransient));
       const pIdx = args.indexOf("-p");
       const rIdx = args.indexOf("--agent");
@@ -12238,26 +12323,26 @@ ${instructions.guidelines.map((g) => `- ${g}`).join("\n")}` : "";
 
 // consort/orchestrator/agents/mock-replay-agent.ts
 init_esm_shims();
-import { readFileSync as readFileSync34, writeFileSync as writeFileSync21, existsSync as existsSync38, mkdirSync as mkdirSync22, cpSync as cpSync6, readdirSync as readdirSync25, statSync as statSync16 } from "fs";
-import { join as join34, dirname as dirname16, relative as relative5, sep } from "path";
+import { readFileSync as readFileSync34, writeFileSync as writeFileSync21, existsSync as existsSync38, mkdirSync as mkdirSync23, cpSync as cpSync6, readdirSync as readdirSync25, statSync as statSync16 } from "fs";
+import { join as join35, dirname as dirname16, relative as relative5, sep } from "path";
 function makeMockReplayAgent(opts) {
   const role = opts.role ?? "product-owner";
   return {
     async invoke(invocation) {
       const materialized = [];
       for (const seed of opts.seeds) {
-        const src = join34(opts.corpusRoot, seed.from);
+        const src = join35(opts.corpusRoot, seed.from);
         if (!existsSync38(src)) {
           throw new Error(
             `ReplayPoMockAgent: recorded seed for "${seed.outputId}" not found at ${src} , a replay cannot fabricate it. Check the corpus root + recorded path.`
           );
         }
-        const dst = join34(invocation.workspaceDir, seed.to);
+        const dst = join35(invocation.workspaceDir, seed.to);
         if (seed.kind === "tree") {
-          mkdirSync22(dst, { recursive: true });
+          mkdirSync23(dst, { recursive: true });
           cpSync6(src, dst, { recursive: true, force: true, filter: codeTreeFilter(src) });
         } else {
-          mkdirSync22(dirname16(dst), { recursive: true });
+          mkdirSync23(dirname16(dst), { recursive: true });
           writeFileSync21(dst, readFileSync34(src, "utf8"));
         }
         materialized.push(seed.to);
@@ -12269,7 +12354,7 @@ function makeMockReplayAgent(opts) {
         event: "artifact.written",
         message: `replayed PO authoring: ${materialized.join(", ")}`
       };
-      const logPath = join34(invocation.workspaceDir, "agent-log.jsonl");
+      const logPath = join35(invocation.workspaceDir, "agent-log.jsonl");
       const prior = existsSync38(logPath) ? readFileSync34(logPath, "utf8") : "";
       writeFileSync21(logPath, prior + JSON.stringify(event) + "\n");
     }
@@ -12281,9 +12366,9 @@ function actionSignature(a) {
   return JSON.stringify(a);
 }
 function resolveTurnsDir(corpusRoot) {
-  const here = join34(corpusRoot, "turns");
+  const here = join35(corpusRoot, "turns");
   if (existsSync38(here)) return here;
-  const parent = join34(dirname16(corpusRoot), "turns");
+  const parent = join35(dirname16(corpusRoot), "turns");
   if (existsSync38(parent)) return parent;
   return void 0;
 }
@@ -12298,8 +12383,8 @@ function loadCursor(corpusRoot) {
   }
   const turns = [];
   for (const name of readdirSync25(turnsDir).sort()) {
-    const dir = join34(turnsDir, name);
-    const tj = join34(dir, "turn.json");
+    const dir = join35(turnsDir, name);
+    const tj = join35(dir, "turn.json");
     if (!existsSync38(tj) || !statSync16(dir).isDirectory()) continue;
     try {
       const parsed = JSON.parse(readFileSync34(tj, "utf8"));
@@ -12329,14 +12414,14 @@ function materializeFiles(filesDir, workspaceDir) {
   const out = [];
   const walk2 = (abs) => {
     for (const name of readdirSync25(abs)) {
-      const src = join34(abs, name);
+      const src = join35(abs, name);
       if (statSync16(src).isDirectory()) {
         walk2(src);
         continue;
       }
       const rel = remapArtifactRoot(relative5(filesDir, src));
-      const dst = join34(workspaceDir, rel);
-      mkdirSync22(dirname16(dst), { recursive: true });
+      const dst = join35(workspaceDir, rel);
+      mkdirSync23(dirname16(dst), { recursive: true });
       writeFileSync21(dst, readFileSync34(src));
       out.push(rel);
     }
@@ -12378,7 +12463,7 @@ function makeStepReplayAgent(opts) {
         );
       }
       cursor.consumed.set(sig2, already + 1);
-      const filesDir = join34(turn.dir, "files");
+      const filesDir = join35(turn.dir, "files");
       const materialized = existsSync38(filesDir) ? materializeFiles(filesDir, invocation.workspaceDir) : [];
       const role = invocation.action.kind === "invoke-role" ? invocation.action.role : "orchestrator";
       const event = {
@@ -12388,7 +12473,7 @@ function makeStepReplayAgent(opts) {
         event: "artifact.written",
         message: `replayed ${role} turn ${turn.dir.split(sep).pop()}: ${materialized.join(", ") || "(no files delta)"}`
       };
-      const logPath = join34(invocation.workspaceDir, "agent-log.jsonl");
+      const logPath = join35(invocation.workspaceDir, "agent-log.jsonl");
       const prior = existsSync38(logPath) ? readFileSync34(logPath, "utf8") : "";
       writeFileSync21(logPath, prior + JSON.stringify(event) + "\n");
     }
@@ -12422,9 +12507,9 @@ function buildMock(config, _context) {
   return {
     async invoke(invocation) {
       for (const [filename, contents] of Object.entries(outputs)) {
-        writeFileSync22(join35(invocation.workspaceDir, filename), contents);
+        writeFileSync22(join36(invocation.workspaceDir, filename), contents);
       }
-      const logPath = join35(invocation.workspaceDir, "agent-log.jsonl");
+      const logPath = join36(invocation.workspaceDir, "agent-log.jsonl");
       const prior = existsSync39(logPath) ? readFileSync35(logPath, "utf8") : "";
       const event = { timestamp: (/* @__PURE__ */ new Date()).toISOString(), level: "info", role, event: "artifact.written", message: `mock wrote ${Object.keys(outputs).join(", ") || "(nothing)"}` };
       writeFileSync22(logPath, prior + JSON.stringify(event) + "\n");
@@ -12625,7 +12710,7 @@ function outputPathsForAction(action, consortDir, featureId) {
     return {};
   }
   if (action.role === "navigator" && story && "buildMode" in action && action.buildMode === "assess-deploy") {
-    return { scope: rel(join36(storyResolved(consortDir, f, story), "deploy-verify-scope.json")) };
+    return { scope: rel(join37(storyResolved(consortDir, f, story), "deploy-verify-scope.json")) };
   }
   return {};
 }
@@ -12686,15 +12771,15 @@ async function performTurnViaExecutor(action, state, routerDeps, cfg, deps) {
   const inputPath = (source) => {
     if (source.startsWith("cycle:") || source.startsWith("ac:")) {
       const rel = expandRel(source.slice(source.indexOf(":") + 1));
-      if (!story || !ac) return join36(cfg.consortDir, rel);
-      return join36(cycleDir(cfg.consortDir, f, story, ac), rel);
+      if (!story || !ac) return join37(cfg.consortDir, rel);
+      return join37(cycleDir(cfg.consortDir, f, story, ac), rel);
     }
     if (source.startsWith("story:")) {
       const rel = expandRel(source.slice("story:".length));
-      if (!story) return join36(cfg.consortDir, rel);
-      return join36(storyResolved(cfg.consortDir, f, story), rel);
+      if (!story) return join37(cfg.consortDir, rel);
+      return join37(storyResolved(cfg.consortDir, f, story), rel);
     }
-    return join36(cfg.consortDir, expandRel(source.replace(/^feature:/, "")));
+    return join37(cfg.consortDir, expandRel(source.replace(/^feature:/, "")));
   };
   const executorDeps = {
     // Uncontained: the agent reads the tree itself, but Step still gates on the presence of
@@ -12777,7 +12862,7 @@ async function performTurnViaExecutor(action, state, routerDeps, cfg, deps) {
 // consort/orchestrator/steps/assert-route-satisfiable.ts
 init_esm_shims();
 import { existsSync as existsSync41 } from "fs";
-import { join as join37 } from "path";
+import { join as join38 } from "path";
 var RouteContractError = class extends Error {
   constructor(action, event, expectedPath) {
     super(
@@ -12800,14 +12885,14 @@ function eventArtifactPath(event, action, ctx) {
   const f = ctx.featureId;
   switch (scope) {
     case "feature":
-      return join37(featuresDir(ctx.consortDir), f, spec.filename);
+      return join38(featuresDir(ctx.consortDir), f, spec.filename);
     case "story":
-      if (!story) return join37(ctx.consortDir, spec.filename);
-      return join37(storyResolved(ctx.consortDir, f, story), spec.filename);
+      if (!story) return join38(ctx.consortDir, spec.filename);
+      return join38(storyResolved(ctx.consortDir, f, story), spec.filename);
     case "ac":
     case "cycle":
-      if (!story || !ac) return join37(ctx.consortDir, spec.filename);
-      return join37(cycleDir(ctx.consortDir, f, story, ac), spec.filename);
+      if (!story || !ac) return join38(ctx.consortDir, spec.filename);
+      return join38(cycleDir(ctx.consortDir, f, story, ac), spec.filename);
   }
 }
 function assertRouteSatisfiable(action, step, ctx, exists = existsSync41) {
@@ -12920,7 +13005,7 @@ var TEST_ANALYST_CATALOGUE = {
     effort: "high",
     toolScope: ["Read"],
     inputs: ["architecture-invariants", "db-design"],
-    focusPrompt: 'You are the FITNESS test analyst , the SOLE owner of `invariant_id`. Two duties: (1) Walk the architecture (layers, service_backed, ORM-only, config-in-env, each accepted NFR budget) and emit >=1 `kind:"fitness"` item per architectural constraint the story touches: the layering contract (boundary must not import the DB session; persistence only in the repository), the ORM-only contract (ONLY the repository touches the ORM/session , the service AND boundary contain no ORM imports; this is DISTINCT from the routes-vs-session check), config-from-env, and any service-layer guard an NFR demands (e.g. a write-time rejection of an overcommitting / negative-quantity write at the SERVICE layer , distinct from a DB CHECK constraint). A COMPOUND defense (an `and`/`+`/comma joining two checkable claims) needs ONE item PER conjunct, never one for the pair. (2) Walk architecture.json `persistence_invariants[]` and emit one `kind:"fitness"` item per invariant with `invariant_id` set to that invariant\'s id, verified DIRECTLY against the real branch database (never a mock, never a generic ORM round-trip). A migration that carries data needs TWO items: reversibility (single-step downgrade/upgrade, @pytest.mark.migration, NEVER downgrade base) AND data-preservation (seed rows, migrate, assert they survive with expected values); the created_at/audit immutability on an in-place upsert is its OWN item. Whole-table aggregate assertions must scope to the test\'s own rows (a delta), never an absolute total. Fitness items MUST NOT carry a `.feature` `scenario_file`. Seed idempotently with a per-run-unique key. ' + SLICE_CONTRACT + " Set `invariant_id` on each item that covers a declared persistence invariant."
+    focusPrompt: "You are the FITNESS test analyst , the SOLE owner of `invariant_id`. Two duties: (1) Walk the architecture (layers, service_backed, ORM-only, config-in-env, each accepted NFR budget) and emit >=1 `kind:\"fitness\"` item per architectural constraint the story touches: the layering contract (boundary must not import the DB session; persistence only in the repository), the ORM-only contract (ONLY the repository touches the ORM/session , the service AND boundary contain no ORM imports; this is DISTINCT from the routes-vs-session check), config-from-env, and any service-layer guard an NFR demands (e.g. a write-time rejection of an overcommitting / negative-quantity write at the SERVICE layer , distinct from a DB CHECK constraint). A COMPOUND defense (an `and`/`+`/comma joining two checkable claims) needs ONE item PER conjunct, never one for the pair. (2) Walk architecture.json `persistence_invariants[]` and emit one `kind:\"fitness\"` item per invariant with `invariant_id` set to that invariant's id, verified DIRECTLY against the real branch database (never a mock, never a generic ORM round-trip). A migration reversibility is ALWAYS one item: reversibility (single-step downgrade/upgrade, @pytest.mark.migration, NEVER downgrade base) asserting the SCHEMA is recreated , the table + its columns/constraints are present again after downgrade-then-upgrade (NOT that data survives). Data-preservation (seed rows, migrate, assert they survive with expected values) is a SEPARATE item that applies ONLY to an ADDITIVE migration on a PRE-EXISTING table (a later story adding a column/constraint, where single-step downgrade removes only that addition and prior rows persist). NEVER author a data-preservation item for an INITIAL create-table migration: single-step downgrade drops the whole table, so 'rows survive' is UNSATISFIABLE and no code can make it pass (it dead-locks the assess/repair loop). If the story's migration is the table's FIRST (create-table), emit ONLY the schema-recreation reversibility item, not data-preservation. The created_at/audit immutability on an in-place upsert is its OWN item. Whole-table aggregate assertions must scope to the test's own rows (a delta), never an absolute total. Fitness items MUST NOT carry a `.feature` `scenario_file`. Seed idempotently with a per-run-unique key. " + SLICE_CONTRACT + " Set `invariant_id` on each item that covers a declared persistence invariant."
   },
   client: {
     kind: "client",
@@ -13211,7 +13296,8 @@ function roleTaskBody(action, featureId, uiTrack, consortDir, build, omit) {
 (b) If instead the failure is a GENUINE REGRESSION (the AC does NOT intend to change that behavior; the Driver's code is wrong), record your ROOT-CAUSE diagnosis so it travels to the Driver / the human instead of being lost. When the Driver can fix it, ALSO give a concrete repair directive (this routes a bounded Driver repair turn):
    ./scripts/lk consort-cycle assess-regression --feature ${featureId} --story ${s} --ac ${action.ac} --diagnosis "<the WHY: which behavior broke + the root cause>" [--fix "<what the Driver should change>"] --tdd-dir ${consortDir}
    Include --fix ONLY when the fix is clear + within the Driver's reach (e.g. a wrong default, a missing filter, an off-by-one); OMIT --fix when it needs a human / a design or spec change (the orchestration then escalates carrying your diagnosis).
-Flag ONLY tests the new AC truly supersedes; never flag a test just to make a red go away. For a regression, always write a diagnosis , never nothing.`;
+CRITICAL , recording the verdict is the ONLY output of this turn. The orchestration reads your verdict from ${join39(cycleDir(consortDir, featureId, s, action.ac ?? ""), "regression-assessment.json")} (the assess-regression command writes it). Writing green-failure.json or just explaining the fix in prose is NOT the verdict , without that file a DRIVER-FIXABLE regression wrongly escalates to a human and the sprint halts. Run the ONE command above as a SINGLE line (do not split across lines, do not wrap in bash -c). If for any reason the command will not run, FALL BACK to writing the file directly with the Write tool: {"diagnosis":"<why>","fix":"<what to change>"} at that exact path , the orchestration honors that too.
+Flag ONLY tests the new AC truly supersedes; never flag a test just to make a red go away. For a regression, always record a diagnosis (+ fix when driver-fixable) , never nothing.`;
       }
       if (action.buildMode === "assess-deploy") {
         const marker = readDeployVerifyAssessMarker(consortDir, featureId, s);
@@ -14042,7 +14128,7 @@ init_esm_shims();
 
 // consort/gates/sprint-gates.ts
 init_esm_shims();
-import { existsSync as existsSync44, mkdirSync as mkdirSync25, readFileSync as readFileSync40, renameSync as renameSync3, unlinkSync as unlinkSync2, writeFileSync as writeFileSync25 } from "fs";
+import { existsSync as existsSync44, mkdirSync as mkdirSync26, readFileSync as readFileSync40, renameSync as renameSync3, unlinkSync as unlinkSync2, writeFileSync as writeFileSync25 } from "fs";
 
 // consort/gates/gate-hash.ts
 init_esm_shims();
@@ -14149,17 +14235,17 @@ async function driveAuthPreflight(host, check = checkDatabricksAuth) {
 
 // consort/session/run-config.ts
 init_esm_shims();
-import { existsSync as existsSync47, mkdirSync as mkdirSync27, readFileSync as readFileSync42, writeFileSync as writeFileSync27 } from "fs";
-import { join as join41 } from "path";
+import { existsSync as existsSync47, mkdirSync as mkdirSync28, readFileSync as readFileSync42, writeFileSync as writeFileSync27 } from "fs";
+import { join as join42 } from "path";
 
 // consort/config/kit-ref.ts
 init_esm_shims();
-import { existsSync as existsSync46, readFileSync as readFileSync41, writeFileSync as writeFileSync26, mkdirSync as mkdirSync26 } from "fs";
-import { dirname as dirname18, join as join40 } from "path";
+import { existsSync as existsSync46, readFileSync as readFileSync41, writeFileSync as writeFileSync26, mkdirSync as mkdirSync27 } from "fs";
+import { dirname as dirname18, join as join41 } from "path";
 var KIT_REF_FILE = "kit-ref";
 var KIT_REF_LOCAL_FILE = "kit-ref.local";
 function lakebaseFile(projectDir, name) {
-  return join40(projectDir, ".lakebase", name);
+  return join41(projectDir, ".lakebase", name);
 }
 function readTrimmed(file) {
   if (!existsSync46(file)) return void 0;
@@ -14186,7 +14272,7 @@ function pinRunKitRef(projectDir, ref) {
   const file = lakebaseFile(projectDir, KIT_REF_LOCAL_FILE);
   const previous = readTrimmed(file);
   if (previous === ref) return { pinned: false, ref };
-  mkdirSync26(dirname18(file), { recursive: true });
+  mkdirSync27(dirname18(file), { recursive: true });
   writeFileSync26(file, ref + "\n", "utf8");
   return { pinned: true, ref, ...previous ? { previous } : {} };
 }
@@ -14197,7 +14283,7 @@ function kitRefDriftWarning(projectDir, launchRef) {
 }
 
 // consort/session/run-config.ts
-var RUN_CONFIG_REL = join41(ARTIFACT_ROOT, "run-config.json");
+var RUN_CONFIG_REL = join42(ARTIFACT_ROOT, "run-config.json");
 function buildRunConfig(inputs) {
   const env = inputs.env ?? process.env;
   const models = {};
@@ -14228,12 +14314,12 @@ function writeRunConfig(inputs) {
   const cfg = buildRunConfig(inputs);
   const body = JSON.stringify(cfg, null, 2) + "\n";
   try {
-    mkdirSync27(inputs.consortDir, { recursive: true });
-    writeFileSync27(join41(inputs.consortDir, "run-config.json"), body);
+    mkdirSync28(inputs.consortDir, { recursive: true });
+    writeFileSync27(join42(inputs.consortDir, "run-config.json"), body);
     const recordDir = consortEnv("RECORD_DIR", inputs.env ?? process.env)?.trim();
     if (recordDir) {
-      mkdirSync27(recordDir, { recursive: true });
-      writeFileSync27(join41(recordDir, "run-config.json"), body);
+      mkdirSync28(recordDir, { recursive: true });
+      writeFileSync27(join42(recordDir, "run-config.json"), body);
     }
   } catch {
   }
@@ -14434,7 +14520,7 @@ function withBuildRecording(inner, cfg) {
     }
   };
 }
-function projectCorrespondence(seq, iteration, action, state, fresh, isGate) {
+function projectCorrespondence(seq, iteration, action, state, fresh, isGate, recordDir) {
   const phase = state.phase;
   const kind = isGate ? "gate" : "author-requests";
   const supplied = fresh.filter((e) => e.event === "intake.supplied");
@@ -14451,6 +14537,11 @@ function projectCorrespondence(seq, iteration, action, state, fresh, isGate) {
   const approved = isGate ? gateEv?.event === "gate.approved" : void 0;
   return {
     seq,
+    direction: "hil-to-orch",
+    // Explicit FK to the turn this exchange ran at: onCorrespondence fires after perform() recorded the
+    // turn (author-requests / gate ARE recorded turns), so the just-recorded turn is the last index
+    // entry. null only if nothing was recorded (should not happen for a HIL touchpoint).
+    ordinal: lastRecordedOrdinal(recordDir),
     iteration,
     at: (/* @__PURE__ */ new Date()).toISOString(),
     ...phase ? { phase } : {},
@@ -14503,7 +14594,7 @@ function withTurnRecording(inner, cfg) {
       if (!isGate && !isInput) return;
       const after = readAgentLog({ consortDir: cfg.consortDir });
       const fresh = after.slice(logLenBeforePerform);
-      const entry = projectCorrespondence(corrSeq, iteration, action, state, fresh, isGate);
+      const entry = projectCorrespondence(corrSeq, iteration, action, state, fresh, isGate, recordDir);
       recordCorrespondence(recordDir, entry);
       corrSeq += 1;
     },
@@ -14572,13 +14663,26 @@ async function runSprintMode(args) {
   const recordDirForKickoff = consortEnv("RECORD_DIR")?.trim();
   if (recordDirForKickoff) {
     const cmd = `/sprint ${sprint} --gates ${gates}`;
+    const intakeCandidates = [
+      { artifact: "product-overview.md", rel: "product-overview.md" },
+      { artifact: "nfrs.md", rel: "nfrs.md" },
+      { artifact: "design-brief.md", rel: path11.join("design", "design-brief.md") },
+      { artifact: "warehouse.png", rel: path11.join("design", "assets", "warehouse.png"), binary: true }
+    ];
+    const submitted = intakeCandidates.map((c) => ({ ...c, abs: path11.join(consortDir, c.rel) })).filter((c) => fs19.existsSync(c.abs)).map((c) => ({ artifact: c.artifact, contentRef: c.abs, ...c.binary ? { binary: true } : {} }));
     recordCorrespondence(recordDirForKickoff, {
       seq: 0,
+      direction: "hil-to-orch",
+      ordinal: null,
       iteration: -1,
       at: (/* @__PURE__ */ new Date()).toISOString(),
       phase: "planning",
       request: { kind: "kickoff", prompt: cmd, presentation: { format: "markdown", rendered: `\`${cmd}\`` } },
-      response: { by: interactive ? "human" : "human-proxy" },
+      response: {
+        by: interactive ? "human" : "human-proxy",
+        ...submitted.length ? { submitted } : {},
+        ...submitted.length ? { presentation: { format: "markdown", rendered: submitted.map((s) => `- INTAKE supplied ${s.artifact}`).join("\n") } } : {}
+      },
       outcome: { validated: true }
     });
   }

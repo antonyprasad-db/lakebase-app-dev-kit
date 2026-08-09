@@ -7646,7 +7646,7 @@ function composeReviseBrief(input) {
   if (isCoverageDefect) {
     return `REVISE (reflection gate): ${input.reason}
 
-Re-author this story's ${artifact} to ADD the specific coverage named above. This coverage is REQUIRED: add the missing test(s)/criterion that assert the exact behavior described , do NOT omit it, weaken it, or defer it to an open question. If the stated behavior genuinely cannot be tested as written, name the concrete blocker; do not punt.`;
+PRESERVE every ${artifact} item this story ALREADY has , they passed prior gates and MUST remain. This is an ADDITIVE revise: keep all existing files/entries intact (do not delete, rename, renumber, merge, or overwrite them) and ADD the specific coverage named above alongside them. The named coverage is REQUIRED: add the missing test(s)/criterion that assert the exact behavior described , do NOT omit it, weaken it, or defer it to an open question. If the stated behavior genuinely cannot be tested as written, name the concrete blocker; do not punt. After writing, the story's ${artifact} set = every prior item PLUS the added one(s).`;
   }
   return `REVISE (Product Owner): ${input.reason}
 

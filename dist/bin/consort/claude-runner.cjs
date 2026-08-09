@@ -7647,7 +7647,7 @@ var navigator_review_default = {
   agent: { kind: "claude", config: { role: "navigator" } },
   match: { kind: "invoke-role", role: "navigator", buildMode: "review" },
   inputs: [
-    { id: "code", source: "story:code", description: "The Driver's implementation the Navigator critiques (story- or AC-scoped by the loop)." },
+    { id: "code", source: "story:code", optional: true, description: "The Driver's implementation the Navigator critiques. OPTIONAL: 'code' is the project tree (client/src, app/\u2026) the UNCONTAINED agent reads directly, NOT a `.consort` artifact file \u2014 there is no <storyDir>/code path to presence-check, so a required gate here fails loud on every review turn. The agent reads the real code itself." },
     { id: "acs", source: "story:acs", description: "The acceptance criteria the review holds the code to." }
   ],
   raises: ["review-verdict"],
@@ -7680,8 +7680,8 @@ var navigator_reflect_default = {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "haiku",
-    effort: "low",
+    model: "sonnet",
+    effort: "default",
     session: "resume",
     resumeKeyFrom: "story"
   },
@@ -7777,7 +7777,7 @@ var driver_refactor_default = {
   agent: { kind: "claude", config: { role: "driver" } },
   match: { kind: "invoke-role", role: "driver", buildMode: "refactor" },
   inputs: [
-    { id: "code", source: "story:code", description: "The GREEN implementation the Driver restructures (behavior-preserving) after the story passes." }
+    { id: "code", source: "story:code", optional: true, description: "The GREEN implementation the Driver restructures (behavior-preserving). OPTIONAL: 'code' is the project tree the UNCONTAINED agent reads directly, NOT a `.consort` artifact file \u2014 there is no <storyDir>/code path to presence-check, so a required gate fails loud on every refactor turn. The agent reads the real code itself." }
   ],
   preconditions: [
     { id: "pack", kind: "context-pack", position: "append", description: "The context pack (rubric + module layout) APPENDED after the refactor directive so the Driver restructures against the known layout without re-reading the design tree." }
@@ -8416,6 +8416,29 @@ function spawnClaudeStreaming(args, cwd) {
     let sawTooLong = false;
     let sawTransient = false;
     const verboseAgent = !!consortEnv("VERBOSE_AGENT");
+    const liveLogDir = consortEnv("RECORD_DIR")?.trim();
+    let liveLog;
+    if (liveLogDir) {
+      try {
+        fs7.mkdirSync(liveLogDir, { recursive: true });
+        liveLog = fs7.openSync(path5.join(liveLogDir, "agent-live.log"), "a");
+        const pIdxL = args.indexOf("-p"), rIdxL = args.indexOf("--agent");
+        const role = rIdxL >= 0 ? args[rIdxL + 1] : "agent";
+        const task = pIdxL >= 0 ? (args[pIdxL + 1] ?? "").slice(0, 120) : "";
+        fs7.writeSync(liveLog, `
+=== ${(/* @__PURE__ */ new Date()).toISOString()} TURN START role=${role} :: ${task}
+`);
+      } catch {
+        liveLog = void 0;
+      }
+    }
+    const liveWrite = (s) => {
+      if (liveLog === void 0) return;
+      try {
+        fs7.writeSync(liveLog, s);
+      } catch {
+      }
+    };
     let lastText = "";
     const allTools = [];
     const rl = readline.createInterface({ input: child.stdout });
@@ -8426,7 +8449,12 @@ function spawnClaudeStreaming(args, cwd) {
       if (verboseAgent) {
         const text2 = assistantTextFromLine(line);
         if (text2) process.stderr.write(text2);
-        for (const t of assistantEventSummary(line).tools) allTools.push(t);
+        if (text2) liveWrite(text2);
+        for (const t of assistantEventSummary(line).tools) {
+          allTools.push(t);
+          liveWrite(`  \xB7 ${t}
+`);
+        }
         return;
       }
       const { text, tools } = assistantEventSummary(line);
@@ -8434,8 +8462,14 @@ function spawnClaudeStreaming(args, cwd) {
         process.stderr.write(`  \xB7 ${t}
 `);
         allTools.push(t);
+        liveWrite(`  \xB7 ${t}
+`);
       }
-      if (text) lastText = text;
+      if (text) {
+        lastText = text;
+        liveWrite(text.endsWith("\n") ? text : `${text}
+`);
+      }
     });
     const erl = readline.createInterface({ input: child.stderr });
     erl.on("line", (line) => {
@@ -8444,12 +8478,26 @@ function spawnClaudeStreaming(args, cwd) {
       process.stderr.write(`${line}
 `);
     });
-    child.on("error", (err) => reject(err));
+    const closeLiveLog = () => {
+      if (liveLog === void 0) return;
+      try {
+        fs7.closeSync(liveLog);
+      } catch {
+      }
+      liveLog = void 0;
+    };
+    child.on("error", (err) => {
+      closeLiveLog();
+      reject(err);
+    });
     child.on("close", (code) => {
       rl.close();
       erl.close();
       if (!verboseAgent && lastText) process.stderr.write(`${lastText}
 `);
+      liveWrite(`--- ${(/* @__PURE__ */ new Date()).toISOString()} TURN CLOSE code=${code}${lastText ? ` :: ${lastText.slice(0, 200)}` : ""}
+`);
+      closeLiveLog();
       if (code !== 0) return reject(new ClaudeTurnError(`claude exited ${code}`, sawTooLong, sawTransient));
       const pIdx = args.indexOf("-p");
       const rIdx = args.indexOf("--agent");

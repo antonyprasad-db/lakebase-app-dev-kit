@@ -8138,7 +8138,7 @@ var navigator_review_default = {
   agent: { kind: "claude", config: { role: "navigator" } },
   match: { kind: "invoke-role", role: "navigator", buildMode: "review" },
   inputs: [
-    { id: "code", source: "story:code", description: "The Driver's implementation the Navigator critiques (story- or AC-scoped by the loop)." },
+    { id: "code", source: "story:code", optional: true, description: "The Driver's implementation the Navigator critiques. OPTIONAL: 'code' is the project tree (client/src, app/\u2026) the UNCONTAINED agent reads directly, NOT a `.consort` artifact file \u2014 there is no <storyDir>/code path to presence-check, so a required gate here fails loud on every review turn. The agent reads the real code itself." },
     { id: "acs", source: "story:acs", description: "The acceptance criteria the review holds the code to." }
   ],
   raises: ["review-verdict"],
@@ -8171,8 +8171,8 @@ var navigator_reflect_default = {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "haiku",
-    effort: "low",
+    model: "sonnet",
+    effort: "default",
     session: "resume",
     resumeKeyFrom: "story"
   },
@@ -8268,7 +8268,7 @@ var driver_refactor_default = {
   agent: { kind: "claude", config: { role: "driver" } },
   match: { kind: "invoke-role", role: "driver", buildMode: "refactor" },
   inputs: [
-    { id: "code", source: "story:code", description: "The GREEN implementation the Driver restructures (behavior-preserving) after the story passes." }
+    { id: "code", source: "story:code", optional: true, description: "The GREEN implementation the Driver restructures (behavior-preserving). OPTIONAL: 'code' is the project tree the UNCONTAINED agent reads directly, NOT a `.consort` artifact file \u2014 there is no <storyDir>/code path to presence-check, so a required gate fails loud on every refactor turn. The agent reads the real code itself." }
   ],
   preconditions: [
     { id: "pack", kind: "context-pack", position: "append", description: "The context pack (rubric + module layout) APPENDED after the refactor directive so the Driver restructures against the known layout without re-reading the design tree." }
@@ -8946,6 +8946,29 @@ function spawnClaudeStreaming(args, cwd) {
     let sawTooLong = false;
     let sawTransient = false;
     const verboseAgent = !!consortEnv("VERBOSE_AGENT");
+    const liveLogDir = consortEnv("RECORD_DIR")?.trim();
+    let liveLog;
+    if (liveLogDir) {
+      try {
+        fs7.mkdirSync(liveLogDir, { recursive: true });
+        liveLog = fs7.openSync(path5.join(liveLogDir, "agent-live.log"), "a");
+        const pIdxL = args.indexOf("-p"), rIdxL = args.indexOf("--agent");
+        const role = rIdxL >= 0 ? args[rIdxL + 1] : "agent";
+        const task = pIdxL >= 0 ? (args[pIdxL + 1] ?? "").slice(0, 120) : "";
+        fs7.writeSync(liveLog, `
+=== ${(/* @__PURE__ */ new Date()).toISOString()} TURN START role=${role} :: ${task}
+`);
+      } catch {
+        liveLog = void 0;
+      }
+    }
+    const liveWrite = (s) => {
+      if (liveLog === void 0) return;
+      try {
+        fs7.writeSync(liveLog, s);
+      } catch {
+      }
+    };
     let lastText = "";
     const allTools = [];
     const rl = readline.createInterface({ input: child.stdout });
@@ -8956,7 +8979,12 @@ function spawnClaudeStreaming(args, cwd) {
       if (verboseAgent) {
         const text2 = assistantTextFromLine(line);
         if (text2) process.stderr.write(text2);
-        for (const t of assistantEventSummary(line).tools) allTools.push(t);
+        if (text2) liveWrite(text2);
+        for (const t of assistantEventSummary(line).tools) {
+          allTools.push(t);
+          liveWrite(`  \xB7 ${t}
+`);
+        }
         return;
       }
       const { text, tools } = assistantEventSummary(line);
@@ -8964,8 +8992,14 @@ function spawnClaudeStreaming(args, cwd) {
         process.stderr.write(`  \xB7 ${t}
 `);
         allTools.push(t);
+        liveWrite(`  \xB7 ${t}
+`);
       }
-      if (text) lastText = text;
+      if (text) {
+        lastText = text;
+        liveWrite(text.endsWith("\n") ? text : `${text}
+`);
+      }
     });
     const erl = readline.createInterface({ input: child.stderr });
     erl.on("line", (line) => {
@@ -8974,12 +9008,26 @@ function spawnClaudeStreaming(args, cwd) {
       process.stderr.write(`${line}
 `);
     });
-    child.on("error", (err) => reject(err));
+    const closeLiveLog = () => {
+      if (liveLog === void 0) return;
+      try {
+        fs7.closeSync(liveLog);
+      } catch {
+      }
+      liveLog = void 0;
+    };
+    child.on("error", (err) => {
+      closeLiveLog();
+      reject(err);
+    });
     child.on("close", (code) => {
       rl.close();
       erl.close();
       if (!verboseAgent && lastText) process.stderr.write(`${lastText}
 `);
+      liveWrite(`--- ${(/* @__PURE__ */ new Date()).toISOString()} TURN CLOSE code=${code}${lastText ? ` :: ${lastText.slice(0, 200)}` : ""}
+`);
+      closeLiveLog();
       if (code !== 0) return reject(new ClaudeTurnError(`claude exited ${code}`, sawTooLong, sawTransient));
       const pIdx = args.indexOf("-p");
       const rIdx = args.indexOf("--agent");
@@ -9635,12 +9683,12 @@ async function execute(step, ctx, deps) {
   const agentResult = step.lastAgentResult?.();
   await deps.materializeOutputs?.(workspaceDir, action, cfg);
   const outputSpecs = step.outputs(action);
-  const primaryIsOptional = outputSpecs.length > 0 && outputSpecs[0].optional === true;
+  const noRequiredPrimary = outputSpecs.length === 0 || outputSpecs[0].optional === true;
   const violations = [];
   if (!runResult.produced) {
     if (runResult.missingInput) {
       violations.push(`missing input "${runResult.missingInput}"`);
-    } else if (!primaryIsOptional) {
+    } else if (!noRequiredPrimary) {
       violations.push("the step's primary output was not produced in the workspace");
     }
   }
@@ -10475,7 +10523,10 @@ var Step = class {
   inputs(_action) {
     return this.manifest.inputs.map((i) => ({
       id: i.id,
-      description: i.description ?? `${i.id} (from ${i.source})`
+      description: i.description ?? `${i.id} (from ${i.source})`,
+      // Carry `optional` through so run()'s presence re-check honors it (an optional-absent input
+      // is skipped by resolveInputs and MUST NOT trip run's `spec.id in inputs` gate).
+      ...i.optional ? { optional: true } : {}
     }));
   }
   /** WHAT this step needs PRE-CONDITIONED (logical), from the manifest. The orchestrator's
@@ -10554,7 +10605,7 @@ var Step = class {
   async run(provided) {
     const { action, workspaceDir, inputs, instructions } = provided;
     for (const spec of this.inputs(action)) {
-      if (!(spec.id in inputs)) {
+      if (!(spec.id in inputs) && !spec.optional) {
         return { produced: false, missingInput: spec.id };
       }
     }
@@ -10959,6 +11010,10 @@ var import_node_crypto3 = require("crypto");
 var import_node_fs8 = require("fs");
 var import_node_path9 = require("path");
 var NON_ARTIFACT_TDD = /* @__PURE__ */ new Set(["agent-log.jsonl"]);
+function recordCorrespondence(recordDir, entry) {
+  (0, import_node_fs8.mkdirSync)(recordDir, { recursive: true });
+  (0, import_node_fs8.appendFileSync)((0, import_node_path9.join)(recordDir, "correspondence.jsonl"), JSON.stringify(entry) + "\n");
+}
 function recordReplaySet(args) {
   const { turnDir, projectDir, consortDir, inputs, prompt, guidelines, levers } = args;
   const setDir = (0, import_node_path9.join)(turnDir, "replay-set");
@@ -11187,7 +11242,37 @@ function recordTurn(args) {
   (0, import_node_fs8.mkdirSync)((0, import_node_path9.join)(recordDir, "turns"), { recursive: true });
   (0, import_node_fs8.writeFileSync)((0, import_node_path9.join)(recordDir, "turns", "index.json"), JSON.stringify({ turns: index }, null, 2) + "\n");
   writeRecorderState(recordDir, cur);
+  try {
+    if ((0, import_node_fs8.existsSync)((0, import_node_path9.join)(recordDir, "correspondence.jsonl"))) {
+      recordCorrespondence(recordDir, {
+        seq: -1,
+        // progress entries are keyed by ordinal (their FK), not by the HIL seq counter
+        direction: "orch-to-hil",
+        ordinal,
+        iteration: -1,
+        at: (/* @__PURE__ */ new Date()).toISOString(),
+        ...manifest.step !== void 0 ? { step: String(manifest.step) } : {},
+        request: {
+          kind: "progress",
+          prompt: progressNarration(manifest, produced.length, deleted.length)
+        },
+        response: { by: "orchestrator" },
+        outcome: { validated: true }
+      });
+    }
+  } catch {
+  }
   return { ordinal, dir: dirName, produced, deleted };
+}
+function progressNarration(m, producedCount, deletedCount) {
+  const who = m.role ?? m.kind;
+  const scope = [m.story, m.ac].filter(Boolean).join(" / ");
+  const parts = [
+    m.mode ? `${who} ${m.mode}` : who,
+    scope ? `(${scope})` : "",
+    `, ${producedCount} file(s) produced${deletedCount ? `, ${deletedCount} removed` : ""}`
+  ];
+  return parts.filter(Boolean).join(" ").replace(" ,", ",");
 }
 
 // consort/pipeline/record-build.ts
@@ -13548,7 +13633,7 @@ var TEST_ANALYST_CATALOGUE = {
     effort: "high",
     toolScope: ["Read"],
     inputs: ["architecture-invariants", "db-design"],
-    focusPrompt: 'You are the FITNESS test analyst , the SOLE owner of `invariant_id`. Two duties: (1) Walk the architecture (layers, service_backed, ORM-only, config-in-env, each accepted NFR budget) and emit >=1 `kind:"fitness"` item per architectural constraint the story touches: the layering contract (boundary must not import the DB session; persistence only in the repository), the ORM-only contract (ONLY the repository touches the ORM/session , the service AND boundary contain no ORM imports; this is DISTINCT from the routes-vs-session check), config-from-env, and any service-layer guard an NFR demands (e.g. a write-time rejection of an overcommitting / negative-quantity write at the SERVICE layer , distinct from a DB CHECK constraint). A COMPOUND defense (an `and`/`+`/comma joining two checkable claims) needs ONE item PER conjunct, never one for the pair. (2) Walk architecture.json `persistence_invariants[]` and emit one `kind:"fitness"` item per invariant with `invariant_id` set to that invariant\'s id, verified DIRECTLY against the real branch database (never a mock, never a generic ORM round-trip). A migration that carries data needs TWO items: reversibility (single-step downgrade/upgrade, @pytest.mark.migration, NEVER downgrade base) AND data-preservation (seed rows, migrate, assert they survive with expected values); the created_at/audit immutability on an in-place upsert is its OWN item. Whole-table aggregate assertions must scope to the test\'s own rows (a delta), never an absolute total. Fitness items MUST NOT carry a `.feature` `scenario_file`. Seed idempotently with a per-run-unique key. ' + SLICE_CONTRACT + " Set `invariant_id` on each item that covers a declared persistence invariant."
+    focusPrompt: "You are the FITNESS test analyst , the SOLE owner of `invariant_id`. Two duties: (1) Walk the architecture (layers, service_backed, ORM-only, config-in-env, each accepted NFR budget) and emit >=1 `kind:\"fitness\"` item per architectural constraint the story touches: the layering contract (boundary must not import the DB session; persistence only in the repository), the ORM-only contract (ONLY the repository touches the ORM/session , the service AND boundary contain no ORM imports; this is DISTINCT from the routes-vs-session check), config-from-env, and any service-layer guard an NFR demands (e.g. a write-time rejection of an overcommitting / negative-quantity write at the SERVICE layer , distinct from a DB CHECK constraint). A COMPOUND defense (an `and`/`+`/comma joining two checkable claims) needs ONE item PER conjunct, never one for the pair. (2) Walk architecture.json `persistence_invariants[]` and emit one `kind:\"fitness\"` item per invariant with `invariant_id` set to that invariant's id, verified DIRECTLY against the real branch database (never a mock, never a generic ORM round-trip). A migration reversibility is ALWAYS one item: reversibility (single-step downgrade/upgrade, @pytest.mark.migration, NEVER downgrade base) asserting the SCHEMA is recreated , the table + its columns/constraints are present again after downgrade-then-upgrade (NOT that data survives). Data-preservation (seed rows, migrate, assert they survive with expected values) is a SEPARATE item that applies ONLY to an ADDITIVE migration on a PRE-EXISTING table (a later story adding a column/constraint, where single-step downgrade removes only that addition and prior rows persist). NEVER author a data-preservation item for an INITIAL create-table migration: single-step downgrade drops the whole table, so 'rows survive' is UNSATISFIABLE and no code can make it pass (it dead-locks the assess/repair loop). If the story's migration is the table's FIRST (create-table), emit ONLY the schema-recreation reversibility item, not data-preservation. The created_at/audit immutability on an in-place upsert is its OWN item. Whole-table aggregate assertions must scope to the test's own rows (a delta), never an absolute total. Fitness items MUST NOT carry a `.feature` `scenario_file`. Seed idempotently with a per-run-unique key. " + SLICE_CONTRACT + " Set `invariant_id` on each item that covers a declared persistence invariant."
   },
   client: {
     kind: "client",
@@ -13839,7 +13924,8 @@ function roleTaskBody(action, featureId, uiTrack, consortDir, build, omit) {
 (b) If instead the failure is a GENUINE REGRESSION (the AC does NOT intend to change that behavior; the Driver's code is wrong), record your ROOT-CAUSE diagnosis so it travels to the Driver / the human instead of being lost. When the Driver can fix it, ALSO give a concrete repair directive (this routes a bounded Driver repair turn):
    ./scripts/lk consort-cycle assess-regression --feature ${featureId} --story ${s} --ac ${action.ac} --diagnosis "<the WHY: which behavior broke + the root cause>" [--fix "<what the Driver should change>"] --tdd-dir ${consortDir}
    Include --fix ONLY when the fix is clear + within the Driver's reach (e.g. a wrong default, a missing filter, an off-by-one); OMIT --fix when it needs a human / a design or spec change (the orchestration then escalates carrying your diagnosis).
-Flag ONLY tests the new AC truly supersedes; never flag a test just to make a red go away. For a regression, always write a diagnosis , never nothing.`;
+CRITICAL , recording the verdict is the ONLY output of this turn. The orchestration reads your verdict from ${(0, import_node_path19.join)(cycleDir(consortDir, featureId, s, action.ac ?? ""), "regression-assessment.json")} (the assess-regression command writes it). Writing green-failure.json or just explaining the fix in prose is NOT the verdict , without that file a DRIVER-FIXABLE regression wrongly escalates to a human and the sprint halts. Run the ONE command above as a SINGLE line (do not split across lines, do not wrap in bash -c). If for any reason the command will not run, FALL BACK to writing the file directly with the Write tool: {"diagnosis":"<why>","fix":"<what to change>"} at that exact path , the orchestration honors that too.
+Flag ONLY tests the new AC truly supersedes; never flag a test just to make a red go away. For a regression, always record a diagnosis (+ fix when driver-fixable) , never nothing.`;
       }
       if (action.buildMode === "assess-deploy") {
         const marker = readDeployVerifyAssessMarker(consortDir, featureId, s);
