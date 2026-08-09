@@ -549,10 +549,23 @@ async function runSprintMode(args: ParsedArgs): Promise<number> {
       outcome: { validated: true },
     });
 
-    // Beat 2 , the HIL SUBMITS the intake (each artifact that exists on disk).
+    // Beat 2 , the HIL SUBMITS the intake. COPY each submitted artifact INTO the record dir
+    // (`<REC>/intake/<rel>`) and reference THAT copy , the recording OWNS the bytes and never points
+    // at an external/ephemeral source (the project `.consort/` is deleted on reclaim; the seed folder
+    // can change). contentRef is stored record-relative (`intake/<rel>`) so the corpus is portable.
+    const intakeCopyDir = path.join(recordDirForKickoff, "intake");
     const submitted = resolved
       .filter((c) => fs.existsSync(c.abs))
-      .map((c) => ({ artifact: c.artifact, contentRef: c.abs, ...(c.binary ? { binary: true } : {}) }));
+      .map((c) => {
+        const dest = path.join(intakeCopyDir, c.rel);
+        try {
+          fs.mkdirSync(path.dirname(dest), { recursive: true });
+          fs.copyFileSync(c.abs, dest); // binary-safe (byte copy), so the PNG icon is preserved
+        } catch {
+          /* best-effort: a failed intake copy must never break the run */
+        }
+        return { artifact: c.artifact, contentRef: path.join("intake", c.rel), ...(c.binary ? { binary: true } : {}) };
+      });
     recordCorrespondence(recordDirForKickoff, {
       seq: 2,
       direction: "hil-to-orch",
