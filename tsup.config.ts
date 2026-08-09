@@ -30,6 +30,7 @@ export default defineConfig({
     "bin/consort/deploy.cli": "bin/consort/deploy.cli.ts",
     "bin/consort/gate-conformance.cli": "bin/consort/gate-conformance.cli.ts",
     "bin/consort/agent-log.cli": "bin/consort/agent-log.cli.ts",
+    "bin/consort/finalize-corpus.cli": "bin/consort/finalize-corpus.cli.ts",
     "bin/consort/timing-report.cli": "bin/consort/timing-report.cli.ts",
     "bin/consort/drive-log-report.cli": "bin/consort/drive-log-report.cli.ts",
     "bin/consort/contract-clean.cli": "bin/consort/contract-clean.cli.ts",
