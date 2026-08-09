@@ -181,7 +181,7 @@ DECISIONS: isolation = WORKTREE + own Lakebase branch per candidate (parallel, #
 mandatory in finally + orphan sweep; SCOPE = driver-green ONLY first (refactor/repair after it's proven).
 Reuse: snapshotBuild/BuildSnapshotDeps/turnMutatesDb, makeBuildSnapshotDeps + cutExperiment(resetStaleBranch)/
 deleteExperiment, createWorktree (design-equivalence-support). Build seam: runBuildDriverChainLive at
-build-role-chains.ts:183. Creds: .env.local.test.config (profile fevm-serverless-stable-ecparr, owner kevin-hartman).
+build-role-chains.ts:183. Creds: resolved from the single test-env home (.env.local.test.config , profile + owner read via resolveTestEnv; the literal host/profile live only in that gitignored file, never inlined here).
 
 SEED RESOLVED: the faithful pre-GREEN driver seed is the recorded `002-navigator` tree (RED tests present, impl absent , 46 files) under `examples/replay/corpora/stockflow-rerecord/recorded-build/features/F1-stock-visibility/stories/S1-file-stock/turns/002-navigator/code`; `003-driver` (54 files, impl added) is the GREEN result to judge against. Driver-green chain = seed 002 -> live driver GREEN turn -> honest-GREEN verify on a per-candidate Lakebase branch -> discriminator judge vs 003. Build pending (see [[project_optimize_every_chain_parallel]] for the full Stage 4 spec).
 

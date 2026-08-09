@@ -879,14 +879,22 @@ test-coverage + docs tail. Plan: `docs/plans/capture-flow.md`.
   guard makes any residual legacy agent arm fail loud). Retiring = delete the config field + env
   escape hatch + the legacy arm + rebaseline goldens.
 
-### 9.5 Pre-existing WIP on the `massive-update` branch (NOT this work; carried over)
-Parked uncommitted work was committed to a sibling `massive-update` branch (source-only; dist +
-capture output excluded). It carries THREE known-broken items that fail the full suite / tsc and are
-NOT from the contract work above: (a) `tests/optimization/optimize-role.cli.ts` imports a missing
-`./driver-sweep.js` (12 tsc errors + 1 test failure; it is a CLI helper vitest does not run, so the
-hermetic suite is otherwise green); (b) a navigator-reflect `agentOptions` model/effort resolver-parity
-mismatch; (c) the `#595` workspace-host guard flags `OPTIMIZE-RUN-LOG.md`. These belong to whoever owns
-the optimize-sweep + run-log work; they must be resolved before `massive-update` merges.
+### 9.5 Pre-existing WIP (carried over) — (b) + (c) RESOLVED; (a) = the one open future-work item
+Three known-broken items pre-dated the capture work. Status after 2026-08-09:
+- **(a) OPEN — FUTURE WORK (#749): `tests/optimization/optimize-role.cli.ts` imports a missing
+  `./driver-sweep.js`** → 12 tsc errors + 1 vitest LOAD failure (`Failed to load url ./driver-sweep.js`).
+  It is a mid-refactor CLI helper referencing a module that was never created; vitest cannot load the
+  file so it counts as a failing test file, and `tsup.config.ts` drops this entry so `dist` still builds.
+  Belongs to whoever owns the optimize-sweep work; create `driver-sweep.ts` (extract the sweep engine it
+  expects) or remove the dangling import + entry. Until then the full suite shows this ONE file failing;
+  it does NOT touch the drive/capture path. This is the standing future-work item to pick up.
+- **(b) FIXED 2026-08-09:** navigator-reflect `agentOptions` was stale `haiku/low`; the resolver runs
+  reflect on the navigator BASE model (turnKeyForAction returns undefined for reflect , "design-lane
+  critic, runs on the base model"), i.e. `sonnet` (confirmed: run 9's reflect turns ran sonnet). Aligned
+  the manifest to `sonnet`/`default` (the values actually used); parity guard green.
+- **(c) FIXED 2026-08-09:** the `#595` workspace-host guard flagged `OPTIMIZE-RUN-LOG.md:184`, which
+  inlined the literal profile/host in prose. Rewrote the line to reference the single test-env home by
+  name (resolveTestEnv) instead of the literal; guard green.
 
 ### 9.6 correspondence ⇄ turns join key (positional today; add an explicit key + a backfill)
 A consumer that wants to align the human-proxy exchange with the turn it belongs to can do so today,
