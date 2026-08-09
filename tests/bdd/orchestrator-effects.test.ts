@@ -990,8 +990,11 @@ describe("commandsForAction: promote phase (PR review + merge to parent)", () =>
   });
 
   it("prepare-pr / wait-ci / merge invoke the SCM-workflow CLIs against --project-dir", () => {
+    // --force: at promote the tree is dirty with the PRODUCED .consort corpus the
+    // build never commits (code-only commits; corpus is recorder-captured run-state).
+    // Promote CI reads only code, so prepare-pr must push past the corpus dirty-tree.
     expect(commandsForAction({ kind: "prepare-pr" }, cfg())).toEqual([
-      { kind: "cli", bin: "lakebase-scm-prepare-pr", args: ["--project-dir", "/p"] },
+      { kind: "cli", bin: "lakebase-scm-prepare-pr", args: ["--project-dir", "/p", "--force"] },
     ]);
     expect(commandsForAction({ kind: "wait-ci" }, cfg())).toEqual([
       { kind: "cli", bin: "lakebase-scm-wait-ci", args: ["--project-dir", "/p"] },

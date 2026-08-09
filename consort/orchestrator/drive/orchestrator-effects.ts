@@ -1716,7 +1716,20 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
       // PR review step 1: push the feature branch + open the PR (SCM
       // feature-claimed -> pr-ready). The SCM CLIs operate on the SCM ladder in
       // .lakebase/workflow-state.json, so they take --project-dir, not the feature.
-      return [{ kind: "cli", bin: SCM_PREPARE_PR_BIN, args: ["--project-dir", cfg.projectDir] }];
+      //
+      // --force skips prepare-pr's dirty-working-tree refusal. At promote the tree
+      // is dirty with the PRODUCED .consort corpus (features/<F>/*, cycles/,
+      // experiments/, pipeline.json, ...) that the build turns intentionally never
+      // commit: verified across a full clean build, every per-story green/refactor
+      // commit is CODE-ONLY, and that produced corpus is ephemeral run-state the
+      // turn-recorder captures into the record dir (recorded-artifacts/), not branch
+      // content. Promote CI (pr.yml / merge.yml) reads only code (migrations + pytest
+      // + vitest), never .consort. So the PR must carry exactly what the build
+      // committed (the code); forcing past the corpus dirty-tree is the on-behavior
+      // fix, NOT a green-wash of uncommitted CODE (there is none , 0 code files dirty
+      // at promote). Without it, the first feature to reach promote hard-halts on its
+      // own capture artifacts.
+      return [{ kind: "cli", bin: SCM_PREPARE_PR_BIN, args: ["--project-dir", cfg.projectDir, "--force"] }];
 
     case "wait-ci":
       // PR review step 2: wait for the PR's regression gate to go green (the
