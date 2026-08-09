@@ -22,6 +22,7 @@ import {
 } from "node:fs";
 import { join, dirname, relative } from "node:path";
 import { PROJECT_ROOT_TOKEN } from "./turn-recorder.js";
+import { ARTIFACT_ROOT } from "../config/consort-paths.js";
 
 /** Recursively list files (relative to `root`). */
 function listFiles(root: string): string[] {
@@ -52,7 +53,7 @@ export interface MirrorReport {
 export function buildConsortMirror(recordDir: string): MirrorReport {
   const producedDir = join(recordDir, "recorded-artifacts");
   const intakeDir = join(recordDir, "intake");
-  const mirrorDir = join(recordDir, ".consort");
+  const mirrorDir = join(recordDir, ARTIFACT_ROOT);
   const report: MirrorReport = { fromProduced: 0, fromIntake: 0, collisions: [] };
 
   const copy = (srcRoot: string, rel: string): void => {
@@ -117,7 +118,7 @@ function sweepTargets(recordDir: string): string[] {
  * (honest fallback — no dangling absolute path). Idempotent. Call AFTER buildConsortMirror.
  */
 export function sweepRecordedPaths(recordDir: string, liveProjectRoot?: string): SweepReport {
-  const mirrorDir = join(recordDir, ".consort");
+  const mirrorDir = join(recordDir, ARTIFACT_ROOT);
   const report: SweepReport = { filesScanned: 0, rewrittenToConsort: 0, leftAsToken: 0 };
 
   // Normalize any residual absolute project root to the token first, so both forms are handled uniformly.
@@ -129,9 +130,9 @@ export function sweepRecordedPaths(recordDir: string, liveProjectRoot?: string):
     let changed = false;
 
     for (const root of roots) {
-      // Match `<root>/.consort/<tail>` where <tail> is a path token (no whitespace/quote). Only rewrite
-      // to a relative path when the mirror actually has the file; otherwise leave the token in place.
-      const re = new RegExp(escapeRegExp(root) + "/\\.consort/([^\\s\"'`)\\]]+)", "g");
+      // Match `<root>/<ARTIFACT_ROOT>/<tail>` where <tail> is a path token (no whitespace/quote). Only
+      // rewrite to a relative path when the mirror actually has the file; otherwise leave the token.
+      const re = new RegExp(escapeRegExp(root) + "/" + escapeRegExp(ARTIFACT_ROOT) + "/([^\\s\"'`)\\]]+)", "g");
       text = text.replace(re, (whole, rawTail: string) => {
         // The matched tail can absorb TRAILING sentence punctuation (a path ending a sentence, e.g.
         // "...feature-proposals.md."). Try the tail as-is, then progressively trim trailing . , ; : )
@@ -142,7 +143,7 @@ export function sweepRecordedPaths(recordDir: string, liveProjectRoot?: string):
           if (existsSync(join(mirrorDir, tail))) {
             report.rewrittenToConsort += 1;
             changed = true;
-            return "./.consort/" + tail + trailer;
+            return "./" + ARTIFACT_ROOT + "/" + tail + trailer;
           }
           const m = /[.,;:)\]]$/.exec(tail);
           if (!m) break;
