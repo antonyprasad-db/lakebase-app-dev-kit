@@ -6,7 +6,7 @@ import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 // consort/session/scenario-conditions.ts
 import { existsSync, readFileSync } from "fs";
 var SCENARIO_CONDITION_DEFAULTS = {
-  uiTrack: false,
+  uiTrack: true,
   tiers: 2,
   pauseBefore: "release-engineer"
 };

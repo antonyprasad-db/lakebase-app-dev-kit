@@ -35,7 +35,7 @@ var import_util = require("@databricks-solutions/lakebase-scm-utils/util");
 // consort/session/scenario-conditions.ts
 var import_fs = require("fs");
 var SCENARIO_CONDITION_DEFAULTS = {
-  uiTrack: false,
+  uiTrack: true,
   tiers: 2,
   pauseBefore: "release-engineer"
 };

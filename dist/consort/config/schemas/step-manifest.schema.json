@@ -34,6 +34,7 @@
         "properties": {
           "id": { "type": "string", "minLength": 1, "description": "Logical input id the contents are handed back under." },
           "source": { "type": "string", "minLength": 1, "description": ".consort source locator, e.g. feature:product-overview.md." },
+          "optional": { "type": "boolean", "description": "When true, a MISSING source is skipped (not handed back) instead of failing the turn , for an input that legitimately may be absent (e.g. design-guide.json on a no-frontend project). Default false: a missing required input fails loud." },
           "description": { "type": "string", "description": "Human description for diagnostics." }
         },
         "additionalProperties": false
@@ -129,6 +130,16 @@
         "config": { "type": "object", "description": "The kind's own config (claude levers / replay seeds / mock outputs)." }
       },
       "additionalProperties": false
+    },
+    "raises": {
+      "type": "array",
+      "description": "The process EVENTS this step may RAISE on completion (event kinds; scope resolves through TURN_EVENTS). The coverage guard confirms every REQUIRED event is raised somewhere. Absent = raises nothing.",
+      "items": { "type": "string", "enum": ["green-failure", "superseded-tests", "regression-assessment", "review-verdict"] }
+    },
+    "requiresEvents": {
+      "type": "array",
+      "description": "The process EVENTS a ROUTE to this step depends on (event kinds a prior turn must have raised before dispatch). The pre-dispatch route-satisfiable check asserts each exists at its scope. Absent = requires no event.",
+      "items": { "type": "string", "enum": ["green-failure", "superseded-tests", "regression-assessment", "review-verdict"] }
     }
   },
   "additionalProperties": false,

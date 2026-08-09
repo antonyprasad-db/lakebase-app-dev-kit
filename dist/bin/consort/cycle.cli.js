@@ -8378,12 +8378,8 @@ var defaultGreenVerifier = async ({ projectDir, branchId }) => {
   const r = await ensureDeployedAndVerify({ projectDir, lakebaseBranch: branchId });
   return { passed: r.passed, summary: r.summary, ...r.failureOutput ? { failureOutput: r.failureOutput } : {} };
 };
-var replayTrustVerifier = async () => ({
-  passed: true,
-  summary: "replay-build: trusting recorded GREEN (per-turn verify skipped; final state verified at the deploy gate)"
-});
-function greenVerifierForEnv(env = process.env) {
-  return consortEnv("REPLAY_BUILD_DIR", env) ? replayTrustVerifier : void 0;
+function greenVerifierForEnv(_env = process.env) {
+  return void 0;
 }
 async function greenOpenCycle(args) {
   const { consortDir, featureId, story } = args;

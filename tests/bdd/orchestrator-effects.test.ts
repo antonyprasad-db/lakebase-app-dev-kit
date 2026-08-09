@@ -1192,6 +1192,25 @@ describe("commandsForAction: assess directive scans fitness/migration tests for 
     )[0] as { task: string }).task;
     expect(t).toMatch(/Scan COMPREHENSIVELY/);
   });
+
+  it("the assess directive invokes consort-cycle via ./scripts/lk (bare `consort-cycle` is NOT on the scaffolded PATH)", () => {
+    // Regression guard: the navigator RUNS these verdict commands itself from the
+    // project dir, where `consort-cycle` is reachable ONLY as `./scripts/lk consort-cycle`.
+    // A bare `consort-cycle assess-regression`/`flag-superseded` in the directive is
+    // `command not found`, so the navigator cannot record its fixDirective/superseded
+    // verdict -> the driver-fixable regression WRONGLY escalates to HIL and the sprint
+    // halts. Both flag-superseded (path a) and assess-regression (path b) must be
+    // lk-prefixed. Two live captures halted on exactly this before the fix.
+    const t = (commandsForAction(
+      { kind: "invoke-role", role: "navigator", story: "S9-plain", buildMode: "assess", ac: "AC1" },
+      cfg(),
+    )[0] as { task: string }).task;
+    expect(t).toMatch(/\.\/scripts\/lk consort-cycle flag-superseded/);
+    expect(t).toMatch(/\.\/scripts\/lk consort-cycle assess-regression/);
+    // ...and never the bare form the agent cannot resolve.
+    expect(t).not.toMatch(/(^|[^k] )consort-cycle assess-regression/m);
+    expect(t).not.toMatch(/(^|[^k] )consort-cycle flag-superseded/m);
+  });
 });
 
 describe("commandsForAction: pre-build reflection gate (navigator reflect)", () => {

@@ -3682,49 +3682,49 @@ var require_fast_uri = __commonJS({
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
-    function resolveComponent(base, relative, options, skipNormalization) {
+    function resolveComponent(base, relative2, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
         base = parse(serialize(base, options), options);
-        relative = parse(serialize(relative, options), options);
+        relative2 = parse(serialize(relative2, options), options);
       }
       options = options || {};
-      if (!options.tolerant && relative.scheme) {
-        target.scheme = relative.scheme;
-        target.userinfo = relative.userinfo;
-        target.host = relative.host;
-        target.port = relative.port;
-        target.path = removeDotSegments(relative.path || "");
-        target.query = relative.query;
+      if (!options.tolerant && relative2.scheme) {
+        target.scheme = relative2.scheme;
+        target.userinfo = relative2.userinfo;
+        target.host = relative2.host;
+        target.port = relative2.port;
+        target.path = removeDotSegments(relative2.path || "");
+        target.query = relative2.query;
       } else {
-        if (relative.userinfo !== void 0 || relative.host !== void 0 || relative.port !== void 0) {
-          target.userinfo = relative.userinfo;
-          target.host = relative.host;
-          target.port = relative.port;
-          target.path = removeDotSegments(relative.path || "");
-          target.query = relative.query;
+        if (relative2.userinfo !== void 0 || relative2.host !== void 0 || relative2.port !== void 0) {
+          target.userinfo = relative2.userinfo;
+          target.host = relative2.host;
+          target.port = relative2.port;
+          target.path = removeDotSegments(relative2.path || "");
+          target.query = relative2.query;
         } else {
-          if (!relative.path) {
+          if (!relative2.path) {
             target.path = base.path;
-            if (relative.query !== void 0) {
-              target.query = relative.query;
+            if (relative2.query !== void 0) {
+              target.query = relative2.query;
             } else {
               target.query = base.query;
             }
           } else {
-            if (relative.path[0] === "/") {
-              target.path = removeDotSegments(relative.path);
+            if (relative2.path[0] === "/") {
+              target.path = removeDotSegments(relative2.path);
             } else {
               if ((base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0) && !base.path) {
-                target.path = "/" + relative.path;
+                target.path = "/" + relative2.path;
               } else if (!base.path) {
-                target.path = relative.path;
+                target.path = relative2.path;
               } else {
-                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative.path;
+                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative2.path;
               }
               target.path = removeDotSegments(target.path);
             }
-            target.query = relative.query;
+            target.query = relative2.query;
           }
           target.userinfo = base.userinfo;
           target.host = base.host;
@@ -3732,7 +3732,7 @@ var require_fast_uri = __commonJS({
         }
         target.scheme = base.scheme;
       }
-      target.fragment = relative.fragment;
+      target.fragment = relative2.fragment;
       return target;
     }
     function equal(uriA, uriB, options) {
@@ -6658,6 +6658,7 @@ __export(claude_runner_exports, {
   claudeBaseArgs: () => claudeBaseArgs,
   claudeToolArgs: () => claudeToolArgs,
   execRunner: () => execRunner,
+  peekLastAgentTranscript: () => peekLastAgentTranscript,
   spawnClaudeStreaming: () => spawnClaudeStreaming,
   spawnCmd: () => spawnCmd,
   takeLastAgentTranscript: () => takeLastAgentTranscript
@@ -6701,8 +6702,69 @@ function resolveConsortDir(projectDir = process.cwd()) {
   return next;
 }
 var featuresDir = (tdd) => (0, import_node_path.join)(tdd, "features");
+var planningDir = (tdd) => (0, import_node_path.join)(tdd, "planning");
+var sprintsDir = (tdd) => (0, import_node_path.join)(tdd, "sprints");
 var cyclesRootDir = (tdd) => (0, import_node_path.join)(tdd, "cycles");
 var workflowStateJson = (tdd) => (0, import_node_path.join)(tdd, "workflow-state.json");
+var sprintDir = (tdd, sprint) => (0, import_node_path.join)(sprintsDir(tdd), sprint);
+var backlogJson = (tdd, sprint) => (0, import_node_path.join)(sprintDir(tdd, sprint), "backlog.json");
+var sprintRequestedJson = (tdd, sprint) => (0, import_node_path.join)(sprintDir(tdd, sprint), "requested.json");
+var TSHIRT_SIZES = /* @__PURE__ */ new Set(["XS", "S", "M", "L", "XL"]);
+var isTshirtSize = (x) => typeof x === "string" && TSHIRT_SIZES.has(x);
+var planningEstimatesJson = (tdd) => (0, import_node_path.join)(planningDir(tdd), "estimates.json");
+function readEstimates(tdd) {
+  const file = planningEstimatesJson(tdd);
+  if (!fs.existsSync(file)) return [];
+  try {
+    const data = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (!Array.isArray(data.estimates)) return [];
+    return data.estimates.flatMap((e) => {
+      const id = e?.feature_id;
+      const size = e?.size;
+      if (typeof id !== "string" || !id || !isTshirtSize(size)) return [];
+      const rationale = e?.rationale;
+      return [{ feature_id: id, size, ...typeof rationale === "string" ? { rationale } : {} }];
+    });
+  } catch {
+    return [];
+  }
+}
+function writeBacklog(tdd, backlog) {
+  fs.mkdirSync(sprintDir(tdd, backlog.sprint), { recursive: true });
+  fs.writeFileSync(backlogJson(tdd, backlog.sprint), JSON.stringify(backlog, null, 2) + "\n", "utf8");
+}
+function readRequested(tdd, sprint) {
+  const file = sprintRequestedJson(tdd, sprint);
+  if (!fs.existsSync(file)) return void 0;
+  try {
+    const p = JSON.parse(fs.readFileSync(file, "utf8"));
+    return Array.isArray(p) ? p.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+function syncBacklog(tdd, sprint) {
+  const sizeOf = new Map(readEstimates(tdd).map((e) => [e.feature_id, e.size]));
+  const root = featuresDir(tdd);
+  const requested = readRequested(tdd, sprint);
+  const scope = requested ? new Set(requested) : void 0;
+  const committed = fs.existsSync(root) ? fs.readdirSync(root).filter((d) => {
+    try {
+      if (!fs.statSync((0, import_node_path.join)(root, d)).isDirectory()) return false;
+      if (!fs.existsSync((0, import_node_path.join)(root, d, "feature-request.md"))) return false;
+      return scope ? scope.has(d) : true;
+    } catch {
+      return false;
+    }
+  }).sort() : [];
+  const features = committed.map((id) => {
+    const size = sizeOf.get(id);
+    return { id, ...size ? { size } : {} };
+  });
+  const backlog = { sprint, features };
+  writeBacklog(tdd, backlog);
+  return backlog;
+}
 
 // consort/config/consort-config-file.ts
 init_cjs_shims();
@@ -6763,7 +6825,7 @@ function resolveProjectSettings(projectDir) {
     sessionScope: file?.build?.sessionScope ?? "story"
   };
   const project = {
-    uiTrack: file?.project?.uiTrack ?? false,
+    uiTrack: file?.project?.uiTrack ?? true,
     // HITL-first: the declared project policy defaults to interactive (a human
     // approves each gate). Headless (proxy) is a deliberate opt-in, set in the
     // file or as a RUN-SCOPED --gates override (never persisted by a flag).
@@ -6942,6 +7004,9 @@ function replayDesignTurn(args) {
       return false;
     }
     case "architect-reviewer": {
+      if (turn.mode === "estimate" || turn.mode === "estimate-committed") {
+        return cp((0, import_path3.join)(replayDir, "planning", "estimates.json"), (0, import_path3.join)(consortDir, "planning", "estimates.json"));
+      }
       let ok = cp((0, import_path3.join)(cf, "architecture.json"), (0, import_path3.join)(tf, "architecture.json"));
       cp((0, import_path3.join)(cf, "architecture.md"), (0, import_path3.join)(tf, "architecture.md"));
       if (turn.story) {
@@ -7026,6 +7091,27 @@ function codeTreeFilter(root) {
     return !(JUNK_FILES.has(base) || base.endsWith(".pyc"));
   };
 }
+function inScopeFiles(root) {
+  const keep = codeTreeFilter(root);
+  const out = /* @__PURE__ */ new Set();
+  const walk = (abs) => {
+    for (const name of (0, import_fs4.readdirSync)(abs)) {
+      const p = (0, import_path4.join)(abs, name);
+      if (!keep(p)) continue;
+      if ((0, import_fs4.statSync)(p).isDirectory()) walk(p);
+      else out.add((0, import_path4.relative)(root, p));
+    }
+  };
+  if ((0, import_fs4.existsSync)(root)) walk(root);
+  return out;
+}
+function syncTreeFromSnapshot(codeSrc, projectDir) {
+  const snapshot = inScopeFiles(codeSrc);
+  for (const rel of inScopeFiles(projectDir)) {
+    if (!snapshot.has(rel)) (0, import_fs4.rmSync)((0, import_path4.join)(projectDir, rel), { force: true });
+  }
+  (0, import_fs4.cpSync)(codeSrc, projectDir, { recursive: true, force: true, filter: codeTreeFilter(codeSrc) });
+}
 function storyTurnsDir(replayBuildDir, featureId, story) {
   return (0, import_path4.join)(featuresDir(replayBuildDir), featureId, "stories", story, "turns");
 }
@@ -7036,20 +7122,19 @@ function listBuildTurns(replayBuildDir, featureId, story) {
 }
 function replayBuildTurn(args) {
   const { replayBuildDir, projectDir, consortDir, featureId, story, turnIndex } = args;
-  const turns = listBuildTurns(replayBuildDir, featureId, story).filter(
-    (n) => !/reflect|assess|repair|superseded/i.test(n)
-  );
+  const turns = listBuildTurns(replayBuildDir, featureId, story).filter((n) => !/reflect/i.test(n));
   if (turnIndex < 1 || turnIndex > turns.length) return false;
   const turnDir = (0, import_path4.join)(storyTurnsDir(replayBuildDir, featureId, story), turns[turnIndex - 1]);
   const codeSrc = (0, import_path4.join)(turnDir, "code");
   if (!(0, import_fs4.existsSync)(codeSrc)) return false;
-  (0, import_fs4.cpSync)(codeSrc, projectDir, { recursive: true, force: true, filter: codeTreeFilter(codeSrc) });
+  syncTreeFromSnapshot(codeSrc, projectDir);
+  const REPLAYED_VERDICTS = ["review-verdict.json", "regression-assessment.json", "superseded-tests.json"];
   const cyclesSrc = (0, import_path4.join)(turnDir, "tdd", "cycles");
   if ((0, import_fs4.existsSync)(cyclesSrc)) {
     (0, import_fs4.cpSync)(cyclesSrc, cyclesRootDir(consortDir), {
       recursive: true,
       force: true,
-      filter: (src) => (0, import_fs4.statSync)(src).isDirectory() || src.endsWith("review-verdict.json")
+      filter: (src) => (0, import_fs4.statSync)(src).isDirectory() || REPLAYED_VERDICTS.some((v) => src.endsWith(v))
     });
   }
   return true;
@@ -7253,11 +7338,12 @@ var import_node_path2 = require("path");
 var spec_author_breakdown_default = {
   id: "spec-author-breakdown",
   role: "spec-author",
+  agent: { kind: "claude", config: { role: "spec-author" } },
   match: { kind: "invoke-role", role: "spec-author", mode: "breakdown" },
   inputs: [
     { id: "product-overview", source: "feature:product-overview.md", description: "The PO's product overview (product-overview.md)." },
     { id: "nfrs", source: "feature:nfrs.md", description: "The PO's non-functional requirements brief (nfrs.md)." },
-    { id: "feature-request", source: "feature:feature-request.md", description: "The PO's feature request for this feature (feature-request.md)." }
+    { id: "feature-request", source: "feature:features/{feature}/feature-request.md", description: "The PO's feature request for this feature (features/<feature>/feature-request.md; {feature} expands to the run's feature id)." }
   ],
   outputs: [
     { id: "feature-spec", filename: "feature-spec.json", channel: "artifact", validator: "featureSpecNonEmptyStories", description: "The feature breakdown index (feature-spec.json + a story stub per story). A .consort design document , the artifact channel." },
@@ -7282,6 +7368,7 @@ var spec_author_breakdown_default = {
 var spec_author_propose_default = {
   id: "spec-author-propose",
   role: "spec-author",
+  agent: { kind: "claude", config: { role: "spec-author" } },
   match: { kind: "invoke-role", role: "spec-author", mode: "propose" },
   inputs: [
     { id: "product-overview", source: "feature:product-overview.md", description: "The PO's product overview , the framing the candidate features are proposed from (product-overview.md)." },
@@ -7305,6 +7392,7 @@ var spec_author_propose_default = {
 var spec_author_story_default = {
   id: "spec-author-story",
   role: "spec-author",
+  agent: { kind: "claude", config: { role: "spec-author" } },
   match: { kind: "invoke-role", role: "spec-author", mode: null, buildMode: null },
   inputs: [
     { id: "story-stub", source: "story:story.json", description: "The story stub (asA/iWantTo/soThat) the Spec Author drafts ACs for." },
@@ -7329,6 +7417,7 @@ var spec_author_story_default = {
 var architect_estimator_default = {
   id: "architect-estimator",
   role: "architect-reviewer",
+  agent: { kind: "claude", config: { role: "architect-reviewer" } },
   match: { kind: "invoke-role", role: "architect-reviewer", mode: "estimate" },
   inputs: [
     { id: "feature-proposals", source: "feature:planning/feature-proposals.md", description: "The Spec Author's candidate features the Architect t-shirt sizes (planning/feature-proposals.md)." }
@@ -7351,6 +7440,7 @@ var architect_estimator_default = {
 var architect_reviewer_default = {
   id: "architect-reviewer",
   role: "architect-reviewer",
+  agent: { kind: "claude", config: { role: "architect-reviewer" } },
   match: { kind: "invoke-role", role: "architect-reviewer", mode: null },
   inputs: [
     { id: "acs", source: "story:acs", description: "The story's acceptance criteria the Architect annotates with per-AC architectural_notes." },
@@ -7375,6 +7465,7 @@ var architect_reviewer_default = {
 var dba_default = {
   id: "dba",
   role: "dba",
+  agent: { kind: "claude", config: { role: "dba" } },
   match: { kind: "invoke-role", role: "dba" },
   inputs: [
     { id: "architecture", source: "feature:features/{feature}/architecture.json", description: "The Architect's logical contract (service_backed, layers, persistence_invariants) the DBA physically realizes , NOT re-authored. Feature-scoped: the {feature} placeholder expands to the run's feature id (the real on-disk location, features/<F>/architecture.json)." }
@@ -7398,18 +7489,56 @@ var dba_default = {
 var test_strategist_default = {
   id: "test-strategist",
   role: "test-strategist",
-  match: { kind: "invoke-role", role: "test-strategist" },
+  agent: { kind: "claude", config: { role: "test-strategist" } },
+  match: {
+    kind: "invoke-role",
+    role: "test-strategist"
+  },
   inputs: [
-    { id: "acs", source: "story:acs", description: "The story's acceptance criteria , each test's ac_id maps to one of these." },
-    { id: "architecture", source: "feature:features/{feature}/architecture.json", description: "The architecture (persistence_invariants) each real-branch fitness test must cover. Feature-scoped: {feature} expands to the run's feature id (features/<F>/architecture.json)." },
-    { id: "db-design", source: "feature:features/{feature}/db-design.json", description: "The DBA's concrete tables/constraints the invariant tests assert against. Feature-scoped: {feature} expands to the run's feature id (features/<F>/db-design.json)." }
+    {
+      id: "acs",
+      source: "story:acs",
+      description: "The story's acceptance criteria , each test's ac_id maps to one of these."
+    },
+    {
+      id: "architecture",
+      source: "feature:features/{feature}/architecture.json",
+      description: "The architecture (persistence_invariants) each real-branch fitness test must cover. Feature-scoped: {feature} expands to the run's feature id (features/<F>/architecture.json)."
+    },
+    {
+      id: "db-design",
+      source: "feature:features/{feature}/db-design.json",
+      description: "The DBA's concrete tables/constraints the invariant tests assert against. Feature-scoped: {feature} expands to the run's feature id (features/<F>/db-design.json)."
+    }
+  ],
+  preconditions: [
+    {
+      id: "test-analyst-roster",
+      kind: "test-analyst-roster",
+      position: "append",
+      description: "The ENABLED per-kind test-analyst roster (behavior/fitness/client; client omitted when the project's uiTrack is off) + each analyst's focus prompt, projected from the TEST_ANALYST_CATALOGUE. The supervisor Task-spawns one subagent per entry, then reconciles + assembles."
+    }
   ],
   outputs: [
-    { id: "test-list", filename: "test-list.json", channel: "artifact", validator: "nonEmptyFile", description: "The feature master test list (this story's ordered tests appended). The post-turn verify-artifact asserts test-list.json exists under the resolved root." },
-    { id: "agent-log", filename: "agent-log.jsonl", channel: "meta", validator: "testStrategistLoggedAuthoring", description: "The Test Strategist's structured log of the test-list it authored for the story." }
+    {
+      id: "test-list",
+      filename: "test-list.json",
+      channel: "artifact",
+      validator: "nonEmptyFile",
+      description: "The feature master test list (this story's ordered tests appended). The post-turn verify-artifact asserts test-list.json exists under the resolved root."
+    },
+    {
+      id: "agent-log",
+      filename: "agent-log.jsonl",
+      channel: "meta",
+      validator: "testStrategistLoggedAuthoring",
+      description: "The Test Strategist's structured log of the test-list it authored for the story."
+    }
   ],
   routing: {
-    produced: { next: "state-derived" }
+    produced: {
+      next: "state-derived"
+    }
   },
   agentOptions: {
     model: "sonnet",
@@ -7418,7 +7547,15 @@ var test_strategist_default = {
     resumeKeyFrom: "role"
   },
   postTurn: [
-    { bin: "TEST_LIST_BIN", args: ["{tddDir}", "{feature}", "{story}"], when: "after" }
+    {
+      bin: "TEST_LIST_BIN",
+      args: [
+        "{tddDir}",
+        "{feature}",
+        "{story}"
+      ],
+      when: "after"
+    }
   ]
 };
 
@@ -7426,6 +7563,7 @@ var test_strategist_default = {
 var driver_green_default = {
   id: "driver-green",
   role: "driver",
+  agent: { kind: "claude", config: { role: "driver" } },
   match: { kind: "invoke-role", role: "driver", buildMode: null },
   inputs: [
     { id: "test-list", source: "story:test-list-per-story.json", description: "The story's ordered failing tests the Driver makes GREEN (story-level, or per-AC when the action carries an `ac`)." }
@@ -7434,6 +7572,7 @@ var driver_green_default = {
     { id: "code", filename: "app", channel: "product", validator: "driverCodePresent", description: "The PRODUCT code the Driver wrote at the project root to make the RED pass (app/ , the primary in-turn produced signal). The real correctness gate is the post-turn @build-cycle honest-GREEN verify (alembic upgrade + the project's tests against a live branch), which flips codeWritten , this floor just proves the driver produced code." },
     { id: "agent-log", filename: "agent-log.jsonl", channel: "meta", validator: "driverLoggedAuthoring", description: "The Driver's authoring log (meta channel; materialized by the post-turn reconcile)." }
   ],
+  raises: ["green-failure"],
   routing: {
     produced: { next: "state-derived" }
   },
@@ -7452,6 +7591,7 @@ var driver_green_default = {
 var ux_designer_default = {
   id: "ux-designer",
   role: "ux-designer",
+  agent: { kind: "claude", config: { role: "ux-designer" } },
   match: { kind: "invoke-role", role: "ux-designer" },
   inputs: [
     { id: "design-guideline", source: "feature:design/design-brief.md", description: "The HIL design brief the UX Designer extracts the look FROM. Lives under design/ on the real tree (design/design-brief.md, per intake.ts)." },
@@ -7476,6 +7616,7 @@ var ux_designer_default = {
 var navigator_red_default = {
   id: "navigator-red",
   role: "navigator",
+  agent: { kind: "claude", config: { role: "navigator" } },
   match: { kind: "invoke-role", role: "navigator", buildMode: null },
   inputs: [
     { id: "test-list", source: "story:test-list-per-story.json", description: "The story's ordered test list , the Navigator authors ONE batch RED covering it." },
@@ -7503,11 +7644,13 @@ var navigator_red_default = {
 var navigator_review_default = {
   id: "navigator-review",
   role: "navigator",
+  agent: { kind: "claude", config: { role: "navigator" } },
   match: { kind: "invoke-role", role: "navigator", buildMode: "review" },
   inputs: [
     { id: "code", source: "story:code", description: "The Driver's implementation the Navigator critiques (story- or AC-scoped by the loop)." },
     { id: "acs", source: "story:acs", description: "The acceptance criteria the review holds the code to." }
   ],
+  raises: ["review-verdict"],
   outputs: [],
   routing: {
     produced: { next: "state-derived" }
@@ -7527,17 +7670,18 @@ var navigator_review_default = {
 var navigator_reflect_default = {
   id: "navigator-reflect",
   role: "navigator",
+  agent: { kind: "claude", config: { role: "navigator" } },
   match: { kind: "invoke-role", role: "navigator", buildMode: "reflect" },
   inputs: [
-    { id: "design", source: "story:design", description: "The story's design artifacts the reflect turn critiques for a spec-level blocking smell before build." }
+    { id: "acs", source: "story:acs", description: "The story's acceptance criteria (acs/ dir) , the core design artifact the reflect turn critiques for a spec-level blocking smell before build. story:acs resolves to storyResolved/acs, always present by reflect time (spec-author authors it before the architect/dba/test-strategist/reflect sequence); the prior 'story:design' had no writer/resolver and failed loud." }
   ],
   outputs: [],
   routing: {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "sonnet",
-    effort: "default",
+    model: "haiku",
+    effort: "low",
     session: "resume",
     resumeKeyFrom: "story"
   },
@@ -7550,14 +7694,17 @@ var navigator_reflect_default = {
 var navigator_assess_default = {
   id: "navigator-assess",
   role: "navigator",
+  agent: { kind: "claude", config: { role: "navigator" } },
   match: { kind: "invoke-role", role: "navigator", buildMode: "assess" },
   inputs: [
-    { id: "green-failure", source: "story:green-failure.json", description: "The failed-GREEN marker (+ pre-localized superseded-test candidates) the Navigator discriminates." },
+    { id: "green-failure", source: "cycle:green-failure.json", description: "The failed-GREEN marker (+ pre-localized superseded-test candidates) the Navigator discriminates. Written per-cycle (cycleDir); the assess route carries an `ac`, so it resolves at cycle scope , NOT story (the #735 scope-mismatch fix)." },
     { id: "acs", source: "story:acs", description: "The AC whose intent decides superseded vs genuine regression." }
   ],
   preconditions: [
     { id: "advisory", kind: "green-failure-advisory", position: "prepend", description: "The deterministic PRE-LOCALIZATION (verify failure output + contract-clean refs + superseded-test candidates) projected from green-failure.json , PREPENDED before the ASSESS directive so the Navigator starts from the real failure, not a re-scan." }
   ],
+  requiresEvents: ["green-failure"],
+  raises: ["superseded-tests", "regression-assessment"],
   outputs: [],
   routing: {
     produced: { next: "state-derived" }
@@ -7577,6 +7724,7 @@ var navigator_assess_default = {
 var navigator_assess_deploy_default = {
   id: "navigator-assess-deploy",
   role: "navigator",
+  agent: { kind: "claude", config: { role: "navigator" } },
   match: { kind: "invoke-role", role: "navigator", buildMode: "assess-deploy" },
   inputs: [
     { id: "deploy-verify-assess", source: "story:deploy-verify-assess.json", description: "The story-level deploy-verify failure marker the Navigator scopes for contamination-fragile tests." }
@@ -7602,6 +7750,7 @@ var navigator_assess_deploy_default = {
 var navigator_assess_refactor_default = {
   id: "navigator-assess-refactor",
   role: "navigator",
+  agent: { kind: "claude", config: { role: "navigator" } },
   match: { kind: "invoke-role", role: "navigator", buildMode: "assess-refactor" },
   inputs: [
     { id: "refactor-verify-failure", source: "story:refactor-verify-failure.json", description: "The refactor-verify failure marker the Navigator discriminates for superseded tests vs a genuine regression." }
@@ -7625,6 +7774,7 @@ var navigator_assess_refactor_default = {
 var driver_refactor_default = {
   id: "driver-refactor",
   role: "driver",
+  agent: { kind: "claude", config: { role: "driver" } },
   match: { kind: "invoke-role", role: "driver", buildMode: "refactor" },
   inputs: [
     { id: "code", source: "story:code", description: "The GREEN implementation the Driver restructures (behavior-preserving) after the story passes." }
@@ -7632,6 +7782,7 @@ var driver_refactor_default = {
   preconditions: [
     { id: "pack", kind: "context-pack", position: "append", description: "The context pack (rubric + module layout) APPENDED after the refactor directive so the Driver restructures against the known layout without re-reading the design tree." }
   ],
+  requiresEvents: ["review-verdict"],
   outputs: [],
   routing: {
     produced: { next: "state-derived" }
@@ -7651,6 +7802,7 @@ var driver_refactor_default = {
 var driver_refactor_deploy_default = {
   id: "driver-refactor-deploy",
   role: "driver",
+  agent: { kind: "claude", config: { role: "driver" } },
   match: { kind: "invoke-role", role: "driver", buildMode: "refactor-deploy" },
   inputs: [
     { id: "deploy-verify-scope", source: "story:deploy-verify-scope.json", description: "The contamination-fragile tests the Navigator flagged , the Driver edits ONLY these (no product code)." }
@@ -7674,6 +7826,7 @@ var driver_refactor_deploy_default = {
 var driver_refactor_superseded_default = {
   id: "driver-refactor-superseded",
   role: "driver",
+  agent: { kind: "claude", config: { role: "driver" } },
   match: { kind: "invoke-role", role: "driver", buildMode: "refactor-superseded" },
   inputs: [
     { id: "superseded-tests", source: "story:superseded-tests.json", description: "The superseded tests the Navigator flagged during refactor-verify , the Driver edits ONLY these." }
@@ -7697,10 +7850,12 @@ var driver_refactor_superseded_default = {
 var driver_repair_default = {
   id: "driver-repair",
   role: "driver",
+  agent: { kind: "claude", config: { role: "driver" } },
   match: { kind: "invoke-role", role: "driver", buildMode: "repair" },
   inputs: [
-    { id: "regression-assessment", source: "story:regression-assessment.json", description: "The Navigator's genuine-regression diagnosis , the Driver's one bounded repair attempt fixes the product code." }
+    { id: "regression-assessment", source: "cycle:regression-assessment.json", description: "The Navigator's genuine-regression diagnosis , the Driver's one bounded repair attempt fixes the product code. Written per-cycle (cycleDir); the repair route carries an `ac`, so it resolves at cycle scope , NOT story (same scope-mismatch class as #735)." }
   ],
+  requiresEvents: ["regression-assessment"],
   outputs: [],
   routing: {
     produced: { next: "state-derived" }
@@ -7720,6 +7875,7 @@ var driver_repair_default = {
 var driver_green_superseded_default = {
   id: "driver-green-superseded",
   role: "driver",
+  agent: { kind: "claude", config: { role: "driver" } },
   match: { kind: "invoke-role", role: "driver", buildMode: "green-superseded" },
   inputs: [
     { id: "test-list", source: "story:test-list.json", description: "The story's tests the Driver makes GREEN after a superseded-test refactor re-opened the cycle." }
@@ -8250,6 +8406,9 @@ function takeLastAgentTranscript() {
   lastAgentTranscript = void 0;
   return t;
 }
+function peekLastAgentTranscript() {
+  return lastAgentTranscript;
+}
 function spawnClaudeStreaming(args, cwd) {
   return new Promise((resolve3, reject) => {
     const child = (0, import_node_child_process2.spawn)("claude", args, { cwd, stdio: ["inherit", "pipe", "pipe"] });
@@ -8341,6 +8500,7 @@ function execRunner(cfg) {
         return;
       }
       if (cmd.kind === "sync-backlog") {
+        syncBacklog(cfg.consortDir, cmd.sprint);
         return;
       }
       if (cmd.kind === "claude") {
@@ -8562,10 +8722,17 @@ function buildCfg(args, featureId) {
     // full plan lane): the Spec Author proposes from product-overview + nfrs,
     // the proxy still commits the recorded request at author-requests.
     livePropose: !!consortEnv("LIVE_PROPOSE")?.trim(),
-    // Stage 2 (#578): route the migrated agent turns (currently spec-author breakdown)
-    // THROUGH the StepExecutor instead of commandsForAction. Opt-in via
-    // LAKEBASE_SFTDD_USE_MANIFEST_STEPS; default OFF = byte-identical legacy dispatch.
-    useManifestSteps: !!consortEnv("USE_MANIFEST_STEPS")?.trim(),
+    // Agent turns dispatch THROUGH the StepExecutor (the unified path) , now the DEFAULT (J1). Every
+    // executor-allowlisted action has a shipped manifest (guarded by executor-dispatch-coverage.test),
+    // so the executor is the sole agent path. LAKEBASE_SFTDD_USE_MANIFEST_STEPS is a one-cycle escape
+    // hatch: set it to 0/false/off/no to force the legacy commandsForAction dispatch (retired in J5).
+    useManifestSteps: !/^(0|false|off|no)$/i.test(consortEnv("USE_MANIFEST_STEPS")?.trim() ?? ""),
+    // RECORD lane (Stage G): hand the executor's ReplayRecorderWrapper the just-completed live
+    // turn's transcript, so an executor-dispatched turn records prompt + reasoning + tools alongside
+    // its delta , the SAME source the effects-level withTurnRecording uses. Colocated with
+    // takeLastAgentTranscript (this module) so there's no runtime edge from the executor onto the
+    // runner. The recorder only reads it when RECORD_DIR is set; a normal drive never calls it.
+    takeTranscript: takeLastAgentTranscript,
     instance: args.instance ?? scm?.project_id,
     featureBranch: scm?.branch,
     parentBranch: scm?.parent_branch,
@@ -8641,6 +8808,7 @@ function composeOnAction(...hooks) {
   claudeBaseArgs,
   claudeToolArgs,
   execRunner,
+  peekLastAgentTranscript,
   spawnClaudeStreaming,
   spawnCmd,
   takeLastAgentTranscript

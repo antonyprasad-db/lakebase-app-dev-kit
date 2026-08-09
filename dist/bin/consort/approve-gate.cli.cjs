@@ -7986,7 +7986,9 @@ function nfrCoverageReason(consortDir, featureId) {
     return null;
   }
   const r = checkNfrCoverage(nfrsContent, arch, projectBriefRefs(consortDir));
-  return r.ok ? null : `NFR coverage failed: ${r.violations.join("; ")}`;
+  if (r.ok) return null;
+  const src = nfrsFile === featureNfrs ? `per-feature nfrs.md (features/${featureId}/nfrs.md)` : "project nfrs.md";
+  return `NFR coverage HARD-BLOCK (spec gate): architecture.json does not cover every ## Required NFR in the ${src} , ${r.violations.join("; ")}. Add a matching brief_ref on architecture.json (or declare nfr_out_of_scope).`;
 }
 function fitnessCoverageReason(consortDir, featureId, testListJson) {
   const arch = readArchitecture(consortDir, featureId);

@@ -6963,7 +6963,7 @@ function resolveProjectSettings(projectDir) {
     sessionScope: file?.build?.sessionScope ?? "story"
   };
   const project = {
-    uiTrack: file?.project?.uiTrack ?? false,
+    uiTrack: file?.project?.uiTrack ?? true,
     // HITL-first: the declared project policy defaults to interactive (a human
     // approves each gate). Headless (proxy) is a deliberate opt-in, set in the
     // file or as a RUN-SCOPED --gates override (never persisted by a flag).

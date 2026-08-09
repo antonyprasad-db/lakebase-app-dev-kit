@@ -816,13 +816,13 @@ function roleTaskBody(
           `ASSESS a failed honest-GREEN verify for AC ${action.ac} in story ${s}. The Driver made the current` +
           ` test pass, but the full-suite verify against the running app FAILED, some OTHER test(s) now fail.\n` +
           scanDirective +
-          `   consort-cycle flag-superseded --feature ${featureId} --story ${s} --ac ${action.ac}` +
+          `   ./scripts/lk consort-cycle flag-superseded --feature ${featureId} --story ${s} --ac ${action.ac}` +
           ` --reason "<new AC + what changed>" --test <path_or_nodeid> [--test ...] --tdd-dir ${consortDir}\n` +
           `(b) If instead the failure is a GENUINE REGRESSION (the AC does NOT intend to change that behavior;` +
           ` the Driver's code is wrong), record your ROOT-CAUSE diagnosis so it travels to the Driver / the human` +
           ` instead of being lost. When the Driver can fix it, ALSO give a concrete repair directive (this routes a` +
           ` bounded Driver repair turn):\n` +
-          `   consort-cycle assess-regression --feature ${featureId} --story ${s} --ac ${action.ac}` +
+          `   ./scripts/lk consort-cycle assess-regression --feature ${featureId} --story ${s} --ac ${action.ac}` +
           ` --diagnosis "<the WHY: which behavior broke + the root cause>" [--fix "<what the Driver should change>"]` +
           ` --tdd-dir ${consortDir}\n` +
           `   Include --fix ONLY when the fix is clear + within the Driver's reach (e.g. a wrong default, a missing` +

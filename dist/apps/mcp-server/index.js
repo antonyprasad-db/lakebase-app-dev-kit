@@ -6818,7 +6818,7 @@ function defaultConsortConfig() {
     roles,
     build: { loopGranularity: "story", batchCap: 3, sessionScope: "story" },
     plan: { sizing: true },
-    project: { uiTrack: false, gates: "interactive", deployTarget: "local", clientFramework: "none" }
+    project: { uiTrack: true, gates: "interactive", deployTarget: "local", clientFramework: "none" }
   };
   return mergeOptimizedDefaults(base, optimized_defaults_default);
 }
@@ -6962,7 +6962,7 @@ function seedConsortConfig(projectDir, opts) {
     }
   }
   if (consortConfig.project) {
-    consortConfig.project.uiTrack = opts.uiTrack ?? false;
+    consortConfig.project.uiTrack = opts.uiTrack ?? true;
     consortConfig.project.clientFramework = opts.clientFramework;
   }
   writeConsortConfig(projectDir, consortConfig);
