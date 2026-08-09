@@ -36,6 +36,27 @@ import { dirname, join, relative } from "node:path";
 import { codeTreeFilter } from "./replay-build.js";
 import type { WorkflowAction } from "../../consort/orchestrator/workflow/workflow-vocabulary.js";
 
+/** The portable token the LIVE, ephemeral project root is rewritten to in recorded text (prompt.txt,
+ *  transcript.md, tool markers). The scaffolded project dir (…/tdd-workflow-smoke/<project>) is deleted
+ *  on reclaim, so an absolute path embedded in a recorded prompt DANGLES when the corpus is examined
+ *  later. Rewriting it to a stable placeholder keeps the recording self-referential + portable; a reader
+ *  (or a replay) resolves `<PROJECT_ROOT>` against whatever tree the corpus is rehydrated into. */
+export const PROJECT_ROOT_TOKEN = "<PROJECT_ROOT>";
+
+/** Replace every occurrence of the live absolute project root in `text` with PROJECT_ROOT_TOKEN, so the
+ *  RECORDED copy never points at the ephemeral scaffold path. Applied ONLY to what is written into the
+ *  corpus (never to the live prompt the agent actually receives). No-op on empty projectDir. Also
+ *  collapses a trailing slash form so `<root>/` and `<root>` both normalize. */
+export function relativizeProjectPaths(text: string, projectDir: string): string {
+  if (!text || !projectDir) return text;
+  const root = projectDir.replace(/\/+$/, "");
+  if (!root) return text;
+  // Replace the root (with an optional trailing slash) , longest-match first so `<root>/x` becomes
+  // `<PROJECT_ROOT>/x` and a bare `<root>` becomes `<PROJECT_ROOT>`. Plain string split/join (not regex)
+  // so path characters never need escaping.
+  return text.split(root + "/").join(PROJECT_ROOT_TOKEN + "/").split(root).join(PROJECT_ROOT_TOKEN);
+}
+
 /** A relpath the recorder watches, keyed to its scan root (so the cumulative
  *  .tdd mirror can be re-rooted under recorded-artifacts). */
 interface ScannedFile {
@@ -184,11 +205,14 @@ export interface CorrespondenceQA {
 
 /** What the HIL SUBMITTED in response (an artifact it authored/supplied). `contentRef` points into
  *  the turn's files/ delta (or recorded-artifacts) where the full content lives , the entry carries
- *  the reference, not a duplicate copy of the bytes. */
+ *  the reference, not a duplicate copy of the bytes. `binary: true` marks a non-text asset (e.g. the
+ *  brand icon warehouse.png) recorded BY REFERENCE only , its bytes are never inlined (they are not
+ *  UTF-8), so a consumer follows contentRef to the file rather than expecting content in the log. */
 export interface CorrespondenceSubmission {
   artifact: string;
   from?: string;
   contentRef?: string;
+  binary?: boolean;
 }
 
 /** The RICH PRESENTATION of a correspondence side , what was actually SHOWN/EXCHANGED, with its
@@ -207,28 +231,42 @@ export interface CorrespondencePresentation {
   highlights?: Array<{ offset: number; length: number; style: string }>;
 }
 
+/** Which way the exchange flows. `hil-to-orch` = the HIL asked-and-answered (kickoff/intake/gate/
+ *  author-requests: the orchestrator poses a request, the HIL submits/decides). `orch-to-hil` = the
+ *  orchestrator NARRATES progress back to the HIL (the `progress` kind: a status notice per recorded
+ *  turn, no response expected) , the running commentary a human sees scroll by in an interactive run. */
+export type CorrespondenceDirection = "hil-to-orch" | "orch-to-hil";
+
 /** One recorded exchange between the orchestrator and the HIL (human or proxy). */
 export interface CorrespondenceEntry {
   /** Monotonic 0-based sequence in the correspondence stream (seq 0 = the kickoff). */
   seq: number;
+  /** Which way this exchange flows (default hil-to-orch for the ask/answer kinds; progress = orch-to-hil). */
+  direction?: CorrespondenceDirection;
+  /** The turn this entry keys to, as an EXPLICIT foreign key into turns/index.json (not positional).
+   *  For an orch->HIL `progress` entry: the ordinal of the turn it narrates (progress is 1:1 with turns).
+   *  For a HIL->orch ask/answer: the ordinal of the perform-turn it ran at (author-requests IS ord2,
+   *  gate-plan IS ord4). `null` for the kickoff (it precedes turn 0, so no turn exists to key to). */
+  ordinal?: number | null;
   /** The drive iteration this exchange sits at (kickoff = -1, before the loop). */
   iteration: number;
   at: string;
   phase?: string;
   step?: string;
-  /** What the orchestrator ASKED. */
+  /** What the orchestrator ASKED (hil-to-orch) or NARRATED (orch-to-hil `progress`). */
   request: {
-    kind: "kickoff" | "intake-interview" | "gate" | "author-requests";
-    /** A human-readable rendering of the ask (the command, the gate presentation, the interview intro). */
+    kind: "kickoff" | "intake" | "intake-interview" | "gate" | "author-requests" | "progress";
+    /** A human-readable rendering of the ask/notice (the command, the gate presentation, the progress line). */
     prompt: string;
     /** For an intake interview: the question set posed to the HIL. */
     questions?: string[];
     /** The RICH presentation of the ask exactly as SHOWN (formatting/fonts/highlighting preserved). */
     presentation?: CorrespondencePresentation;
   };
-  /** What the HIL ANSWERED / SUBMITTED. */
+  /** What the HIL ANSWERED / SUBMITTED. For an orch->HIL `progress` notice there is nothing to answer,
+   *  so `by` is the ORCHESTRATOR and the other fields are typically absent. */
   response: {
-    by: "human-proxy" | "human";
+    by: "human-proxy" | "human" | "orchestrator";
     /** Intake-interview answers (paired to request.questions). */
     answers?: CorrespondenceQA[];
     /** The artifact(s) the HIL submitted in response. */
@@ -313,8 +351,11 @@ export function recordReplaySet(args: {
     writeFileSync(join(inDir, id.replace(/[/\\]/g, "_")), content);
   }
 
-  // prompt.txt + guidelines.json + levers.json , the invocation conditions.
-  writeFileSync(join(setDir, "prompt.txt"), prompt);
+  // prompt.txt + guidelines.json + levers.json , the invocation conditions. The prompt is stored with
+  // the ephemeral project root rewritten to PROJECT_ROOT_TOKEN so it stays resolvable after the
+  // scaffold is reclaimed (the live prompt the agent received was the real absolute path; only the
+  // RECORDED copy is relativized).
+  writeFileSync(join(setDir, "prompt.txt"), relativizeProjectPaths(prompt, projectDir));
   writeFileSync(join(setDir, "guidelines.json"), JSON.stringify(guidelines ?? [], null, 2) + "\n");
   writeFileSync(join(setDir, "levers.json"), JSON.stringify(levers ?? {}, null, 2) + "\n");
 }
@@ -525,6 +566,16 @@ function pad(n: number): string {
   return String(n).padStart(4, "0");
 }
 
+/** The ordinal of the LAST turn recorded to `turns/index.json`, or null when none. The correspondence
+ *  emitter reads this to stamp a HIL exchange's `ordinal` as an EXPLICIT FK to its turn: onCorrespondence
+ *  fires AFTER perform() has recorded the turn (author-requests / gate ARE recorded turns), so the just-
+ *  recorded turn is the last index entry. Kickoff precedes turn 0 => this returns null there, matching
+ *  the null-ordinal contract for kickoff. */
+export function lastRecordedOrdinal(recordDir: string): number | null {
+  const idx = readIndex(recordDir);
+  return idx.length ? idx[idx.length - 1]!.ordinal : null;
+}
+
 /**
  * The turn dir `recordTurn` WILL write for this action, computed the SAME way (next ordinal from the
  * on-disk index + labelForAction). Exported so the record wrapper can write the PRE-state replay set
@@ -597,7 +648,18 @@ export function recordTurn(args: RecordTurnArgs): RecordedTurn {
   // knows a transcript exists without reading it. Non-agent turns have none.
   let transcriptSummary: { role?: string; model?: string; toolCount: number; finalTextChars: number } | undefined;
   if (transcript) {
-    writeFileSync(join(turnDir, "transcript.md"), renderTranscriptMd(transcript, label));
+    // Rewrite the ephemeral project root to PROJECT_ROOT_TOKEN in the RECORDED transcript (prompt +
+    // final reasoning + tool markers) so its paths stay resolvable after the scaffold is reclaimed ,
+    // same portability rule as prompt.txt. The live transcript object is untouched (a fresh relativized
+    // copy is rendered).
+    const rel = (s: string): string => relativizeProjectPaths(s, projectDir);
+    const portable: RecordedTranscript = {
+      ...transcript,
+      prompt: rel(transcript.prompt),
+      finalText: rel(transcript.finalText),
+      tools: transcript.tools.map(rel),
+    };
+    writeFileSync(join(turnDir, "transcript.md"), renderTranscriptMd(portable, label));
     transcriptSummary = {
       role: transcript.role,
       model: transcript.model,
@@ -645,5 +707,51 @@ export function recordTurn(args: RecordTurnArgs): RecordedTurn {
   // Persist the new file-state for the next turn's delta.
   writeRecorderState(recordDir, cur);
 
+  // orch->HIL PROGRESS (the running commentary a human sees in an interactive /sprint, made first-class
+  // and recorded): one progress correspondence entry per recorded turn, keyed to THIS turn's ordinal, so
+  // the correspondence stream mirrors turns/index.json and every progress entry has a STRUCTURAL FK to
+  // its turn (emitted HERE, from the post-turn seam where the ordinal is finalized , not stamped after
+  // the fact). Self-gated to a LIVE CAPTURE: only when correspondence.jsonl already exists (the drive
+  // wrote the kickoff at start), so hermetic recordTurn unit tests , which never write a kickoff , stay
+  // byte-identical (no correspondence side effect). Best-effort: progress is observability, never a gate.
+  try {
+    if (existsSync(join(recordDir, "correspondence.jsonl"))) {
+      recordCorrespondence(recordDir, {
+        seq: -1, // progress entries are keyed by ordinal (their FK), not by the HIL seq counter
+        direction: "orch-to-hil",
+        ordinal,
+        iteration: -1,
+        at: new Date().toISOString(),
+        ...(manifest.step !== undefined ? { step: String(manifest.step) } : {}),
+        request: {
+          kind: "progress",
+          prompt: progressNarration(manifest, produced.length, deleted.length),
+        },
+        response: { by: "orchestrator" },
+        outcome: { validated: true },
+      });
+    }
+  } catch {
+    /* progress is observability; a failed write must never break the turn record */
+  }
+
   return { ordinal, dir: dirName, produced, deleted };
+}
+
+/** A one-line human-readable status for a recorded turn, the orch->HIL progress notice's prompt. Built
+ *  purely from the manifest so it needs no extra state , "what just happened" a human would see scroll
+ *  by: the role/kind + mode + story/ac scope + the size of the delta it produced. */
+function progressNarration(
+  m: { kind: string; role?: string; mode?: string; story?: string; ac?: string; label: string },
+  producedCount: number,
+  deletedCount: number,
+): string {
+  const who = m.role ?? m.kind;
+  const scope = [m.story, m.ac].filter(Boolean).join(" / ");
+  const parts = [
+    m.mode ? `${who} ${m.mode}` : who,
+    scope ? `(${scope})` : "",
+    `, ${producedCount} file(s) produced${deletedCount ? `, ${deletedCount} removed` : ""}`,
+  ];
+  return parts.filter(Boolean).join(" ").replace(" ,", ",");
 }

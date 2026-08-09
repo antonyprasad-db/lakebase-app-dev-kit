@@ -9,7 +9,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { recordTurn, labelForAction, seedRecorderBaseline } from "../../consort/logging/turn-recorder.js";
+import { recordTurn, labelForAction, seedRecorderBaseline, relativizeProjectPaths, PROJECT_ROOT_TOKEN } from "../../consort/logging/turn-recorder.js";
 import { replayDesignTurn } from "../../consort/logging/replay-artifacts.js";
 import type { WorkflowAction } from "../../consort/orchestrator/drive/orchestrator-drive.js";
 
@@ -207,5 +207,28 @@ describe("recordTurn: agent transcript (demo/visualization)", () => {
     expect(m.transcript).toBeUndefined();
     const idx = readJson(join(record, "turns", "index.json"));
     expect(idx.turns[t.ordinal].hasTranscript).toBeUndefined();
+  });
+});
+
+describe("relativizeProjectPaths: recorded text never embeds the ephemeral project root", () => {
+  const proj = "/Users/kevin.hartman/code/tdd-workflow-smoke/stockflow-instrumented-20260809-105157";
+
+  it("rewrites the live project root to PROJECT_ROOT_TOKEN (with + without trailing path)", () => {
+    const prompt = `Read ${proj}/.consort/product-overview.md and write to ${proj}/.consort/planning/x.md. Root is ${proj}.`;
+    const out = relativizeProjectPaths(prompt, proj);
+    expect(out).not.toContain(proj); // no dangling absolute path survives
+    expect(out).toContain(`${PROJECT_ROOT_TOKEN}/.consort/product-overview.md`);
+    expect(out).toContain(`${PROJECT_ROOT_TOKEN}/.consort/planning/x.md`);
+    expect(out).toContain(`Root is ${PROJECT_ROOT_TOKEN}.`); // bare root (no trailing slash) too
+  });
+
+  it("is a no-op on empty text or empty projectDir", () => {
+    expect(relativizeProjectPaths("", proj)).toBe("");
+    expect(relativizeProjectPaths("some text", "")).toBe("some text");
+  });
+
+  it("leaves unrelated absolute paths untouched", () => {
+    const t = "See /Users/other/thing.md and ~/.claude/settings.json";
+    expect(relativizeProjectPaths(t, proj)).toBe(t);
   });
 });
