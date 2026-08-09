@@ -121,4 +121,60 @@ describe("turn-monitor controller", () => {
     expect(onTimeout).not.toHaveBeenCalled();
     expect(seen.filter((p) => p.kind === "heartbeat")).toHaveLength(0);
   });
+
+  // --- inactivityTimeoutMs (the stalled-stream kill deadline; re-arms on progress) ---
+
+  it("inactivityTimeoutMs fires onTimeout after a stretch of pure silence", () => {
+    const { clock, advance } = fakeClock();
+    const onTimeout = vi.fn();
+    const monitor: TurnMonitor = { inactivityTimeoutMs: 5000 };
+    const ctl = createMonitorController(monitor, onTimeout, clock);
+    ctl.start();
+    advance(5000);
+    expect(onTimeout).toHaveBeenCalledTimes(1);
+  });
+
+  it("inactivityTimeoutMs RE-ARMS on every progress event, so a streaming turn never trips however long it runs", () => {
+    const { clock, advance } = fakeClock();
+    const onTimeout = vi.fn();
+    const monitor: TurnMonitor = { inactivityTimeoutMs: 5000 };
+    const ctl = createMonitorController(monitor, onTimeout, clock);
+    ctl.start();
+    // A turn that keeps streaming a line every 4s for a "long" 40s never goes silent
+    // for the full 5s window, so it must NOT be killed (the 45-min driver-green case).
+    for (let i = 0; i < 10; i++) {
+      advance(4000);
+      ctl.progress({ kind: "tool", tool: "Bash" });
+    }
+    expect(onTimeout).not.toHaveBeenCalled();
+    // ...but once it goes truly silent past the window, it fires.
+    advance(5000);
+    expect(onTimeout).toHaveBeenCalledTimes(1);
+  });
+
+  it("inactivity fires at most once and stop() after it is safe", () => {
+    const { clock, advance } = fakeClock();
+    const onTimeout = vi.fn();
+    const monitor: TurnMonitor = { inactivityTimeoutMs: 3000 };
+    const ctl = createMonitorController(monitor, onTimeout, clock);
+    ctl.start();
+    advance(3000);
+    expect(onTimeout).toHaveBeenCalledTimes(1);
+    ctl.stop();
+    advance(10_000);
+    expect(onTimeout).toHaveBeenCalledTimes(1);
+  });
+
+  it("whichever of inactivity vs hard timeout elapses first wins (both route to onTimeout, once)", () => {
+    const { clock, advance } = fakeClock();
+    const onTimeout = vi.fn();
+    // Hard cap 4s, inactivity 10s: with no activity the HARD cap fires first.
+    const monitor: TurnMonitor = { inactivityTimeoutMs: 10_000, timeoutMs: 4000 };
+    const ctl = createMonitorController(monitor, onTimeout, clock);
+    ctl.start();
+    advance(4000);
+    expect(onTimeout).toHaveBeenCalledTimes(1);
+    advance(10_000); // the still-armed inactivity timer must not double-fire
+    expect(onTimeout).toHaveBeenCalledTimes(1);
+  });
 });

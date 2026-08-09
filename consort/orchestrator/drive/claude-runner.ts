@@ -42,6 +42,7 @@ import { resolveKitBinJs } from "../../config/kit-bin.js";
 import { readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { relocateStrayDesignArtifacts, malformedSiblingRoot } from "../../setup/stray-artifact-recovery.js";
 import type { WorkflowAction } from "./orchestrator-drive.js";
+import { createMonitorController, type TurnMonitor } from "../turns/turn-monitor.js";
 
 // How many times a single role turn that overflows the model window mid-turn
 // ("Prompt is too long") is retried on a FRESH session before the failure
@@ -55,6 +56,21 @@ const MAX_PROMPT_TOO_LONG_RETRIES = 2;
 // cannot kill a multi-hour unattended capture. Overridable for tests.
 const MAX_TRANSIENT_RETRIES = Number(consortEnv("MAX_TRANSIENT_RETRIES") ?? "5");
 const TRANSIENT_BACKOFF_MS = Number(consortEnv("TRANSIENT_BACKOFF_MS") ?? "5000");
+// Per-turn INACTIVITY timeout: how long the agent stream may go completely silent
+// (no stdout/stderr line) before we treat the turn as wedged, tree-kill the child,
+// and re-run it as a transient failure. This is the fix for the stalled-API-stream
+// wedge: the child stays alive with an open TLS socket but no bytes ever arrive, so
+// `close` never fires and the await hangs forever. Silence, not duration, is the
+// signal , a turn that keeps streaming (a 45-min driver-green doing `uv sync` + live
+// pytest) re-arms the timer on every tool marker and never trips. The threshold must
+// exceed the longest SINGLE quiet tool step (a cold dependency sync, a long test run);
+// 10 min is comfortably past that while still catching a true stall in one heartbeat
+// window. 0/empty disables (byte-identical to before). Overridable for tests + ops.
+const TURN_INACTIVITY_TIMEOUT_MS = Number(consortEnv("TURN_INACTIVITY_TIMEOUT_MS") ?? String(10 * 60 * 1000));
+// How long the stream may be silent before we EMIT a heartbeat line to the sidecar
+// (liveness marker, not a kill). Shorter than the kill deadline so a watcher sees
+// "still alive, waiting" beats before any timeout. 0/empty disables.
+const TURN_HEARTBEAT_MS = Number(consortEnv("TURN_HEARTBEAT_MS") ?? String(60 * 1000));
 
 export interface ParsedArgs {
   feature?: string;
@@ -103,6 +119,11 @@ export class ClaudeTurnError extends Error {
     /** The turn's output matched a transient API/network failure (connection
      *  dropped, overloaded, rate-limited, 5xx), so re-running it may succeed. */
     readonly transient = false,
+    /** The turn was tree-killed by the inactivity monitor (stream went silent past
+     *  the deadline , a stalled API stream that would otherwise hang forever). A
+     *  stall IS a transient (retry on a fresh session), flagged distinctly so the
+     *  retry log names it as a stall, not a wire blip. */
+    readonly stalled = false,
   ) {
     super(message);
     this.name = "ClaudeTurnError";
@@ -187,7 +208,24 @@ export function peekLastAgentTranscript(): TurnTranscript | undefined {
   return lastAgentTranscript;
 }
 
-export function spawnClaudeStreaming(args: string[], cwd: string): Promise<TurnUsage | undefined> {
+/** Build the default per-turn monitor from the module timeout constants. A turn with
+ *  neither an inactivity nor a heartbeat window returns undefined (a byte-identical
+ *  no-op controller). Exposed as its own function so tests can assert the mapping and
+ *  callers can override. */
+export function defaultTurnMonitor(sink: (p: import("../turns/turn-monitor.js").TurnProgress) => void): TurnMonitor | undefined {
+  const heartbeatMs = TURN_HEARTBEAT_MS > 0 ? TURN_HEARTBEAT_MS : undefined;
+  const inactivityTimeoutMs = TURN_INACTIVITY_TIMEOUT_MS > 0 ? TURN_INACTIVITY_TIMEOUT_MS : undefined;
+  if (heartbeatMs === undefined && inactivityTimeoutMs === undefined) return undefined;
+  return { onProgress: sink, heartbeatMs, inactivityTimeoutMs };
+}
+
+export function spawnClaudeStreaming(
+  args: string[],
+  cwd: string,
+  /** Override the per-turn liveness monitor (tests inject a fake-clock-driven one).
+   *  Omitted => the default built from TURN_INACTIVITY_TIMEOUT_MS / TURN_HEARTBEAT_MS. */
+  monitorOverride?: TurnMonitor,
+): Promise<TurnUsage | undefined> {
   return new Promise((resolve, reject) => {
     // Capture BOTH stdout (the stream-json events) and stderr (claude's own
     // errors), teeing the human-readable parts to the console, so a context-
@@ -233,9 +271,40 @@ export function spawnClaudeStreaming(args: string[], cwd: string): Promise<TurnU
     };
     let lastText = "";
     const allTools: string[] = []; // accumulate for the recorded transcript
+    // Per-turn liveness monitor (Slice 3): fed one progress event per stream line, it
+    // re-arms an inactivity deadline on every line and, after a stretch of total silence
+    // (a stalled API stream: child alive, socket open, no bytes, so `close` never fires),
+    // tree-kills the child and lets the close handler reject with a STALLED transient
+    // ClaudeTurnError , which the existing transient-retry envelope re-runs on a fresh
+    // session. Heartbeats are written to the sidecar so a `tail -f` sees "still waiting"
+    // beats before any kill. Default no-op when both windows are disabled.
+    let stalled = false;
+    const monitor = monitorOverride ?? defaultTurnMonitor((p) => {
+      if (p.kind === "heartbeat") {
+        liveWrite(`  ⏳ ${new Date().toISOString()} no agent output for ~${Math.round((TURN_HEARTBEAT_MS || 0) / 1000)}s (waiting; kills at ${Math.round((TURN_INACTIVITY_TIMEOUT_MS || 0) / 1000)}s of silence)\n`);
+      }
+    });
+    const monitorCtl = createMonitorController(monitor, () => {
+      // Inactivity deadline hit: the stream has been silent past the threshold. Kill the
+      // whole child process group (a stalled `claude` may have live child procs holding
+      // the socket) so `close` fires; the close handler then rejects as STALLED.
+      stalled = true;
+      liveWrite(`  ✖ ${new Date().toISOString()} INACTIVITY TIMEOUT (~${Math.round((TURN_INACTIVITY_TIMEOUT_MS || 0) / 1000)}s silent) , tree-killing pid ${child.pid} for a fresh-session retry\n`);
+      process.stderr.write(`[drive] turn stalled: no agent output for ~${Math.round((TURN_INACTIVITY_TIMEOUT_MS || 0) / 1000)}s; killing pid ${child.pid} and retrying on a fresh session\n`);
+      try {
+        // Negative pid => kill the process GROUP. spawn() puts the child in its own group
+        // only with detached; without it, SIGKILL the pid directly (its children are
+        // reparented but the socket dies with the main process, unblocking the await).
+        child.kill("SIGKILL");
+      } catch {
+        /* best-effort: if the kill races the natural close, close still fires */
+      }
+    });
+    monitorCtl.start();
     const rl = readline.createInterface({ input: child.stdout! });
     rl.on("line", (line) => {
       lines.push(line);
+      monitorCtl.progress({ kind: "text" }); // any line = liveness; re-arm the silence clock
       if (isPromptTooLongSignal(line)) sawTooLong = true;
       if (isTransientApiErrorSignal(line)) sawTransient = true;
       if (verboseAgent) {
@@ -265,6 +334,7 @@ export function spawnClaudeStreaming(args: string[], cwd: string): Promise<TurnU
     });
     const erl = readline.createInterface({ input: child.stderr! });
     erl.on("line", (line) => {
+      monitorCtl.progress({ kind: "text" }); // stderr activity is liveness too; re-arm silence clock
       if (isPromptTooLongSignal(line)) sawTooLong = true;
       if (isTransientApiErrorSignal(line)) sawTransient = true;
       process.stderr.write(`${line}\n`); // tee: keep claude's own errors visible
@@ -279,10 +349,12 @@ export function spawnClaudeStreaming(args: string[], cwd: string): Promise<TurnU
       liveLog = undefined;
     };
     child.on("error", (err) => {
+      monitorCtl.stop();
       closeLiveLog();
       reject(err);
     });
     child.on("close", (code) => {
+      monitorCtl.stop(); // clear the inactivity/heartbeat timers; safe after a timeout too
       rl.close();
       erl.close();
       // The turn's final assistant text = the outcome (rule 5). Print it once,
@@ -290,6 +362,12 @@ export function spawnClaudeStreaming(args: string[], cwd: string): Promise<TurnU
       if (!verboseAgent && lastText) process.stderr.write(`${lastText}\n`);
       liveWrite(`--- ${new Date().toISOString()} TURN CLOSE code=${code}${lastText ? ` :: ${lastText}` : ""}\n`);
       closeLiveLog();
+      // A stall killed the child: reject as a STALLED transient so the retry envelope
+      // re-runs on a fresh session. Take this branch regardless of the (kill-induced)
+      // exit code, and BEFORE the generic non-zero branch.
+      if (stalled) {
+        return reject(new ClaudeTurnError(`claude turn stalled (inactivity timeout); killed for retry`, false, true, true));
+      }
       if (code !== 0) return reject(new ClaudeTurnError(`claude exited ${code}`, sawTooLong, sawTransient));
       // Stash this turn's outcome-level transcript for the recorder. `-p <task>`
       // and `--agent <role>` / `--model <m>` are positional in the args we built.
@@ -562,8 +640,13 @@ export function execRunner(cfg: DriveEffectsConfig): CommandRunner {
         // auth failure is deliberately not transient, so it still surfaces.
         let overflowRetries = 0;
         let transientRetries = 0;
+        // A stalled turn was tree-killed, so its retry must NOT resume the (suspect)
+        // killed session. This one-shot flag forces the next attempt fresh without
+        // spending the prompt-too-long budget on an unrelated cause.
+        let forceFreshAfterStall = false;
         for (;;) {
-          const args = [...baseArgs, ...sessionArgsFor(overflowRetries > 0)];
+          const args = [...baseArgs, ...sessionArgsFor(overflowRetries > 0 || forceFreshAfterStall)];
+          forceFreshAfterStall = false;
           try {
             usage = await spawnClaudeStreaming(args, cfg.projectDir);
             break;
@@ -579,9 +662,13 @@ export function execRunner(cfg: DriveEffectsConfig): CommandRunner {
             if (e instanceof ClaudeTurnError && e.transient && transientRetries < MAX_TRANSIENT_RETRIES) {
               transientRetries++;
               const backoff = TRANSIENT_BACKOFF_MS * transientRetries;
+              // A stall was already tree-killed, so force its retry onto a FRESH session
+              // (the killed session is suspect) and name it a stall in the log.
+              const kind = e.stalled ? "stalled turn (inactivity timeout)" : "transient API error";
+              if (e.stalled) forceFreshAfterStall = true;
               process.stderr.write(
-                `[drive] transient API error on ${cmd.role} (${cmd.model}); ` +
-                  `retry ${transientRetries}/${MAX_TRANSIENT_RETRIES} after ${(backoff / 1000).toFixed(0)}s\n`,
+                `[drive] ${kind} on ${cmd.role} (${cmd.model}); ` +
+                  `retry ${transientRetries}/${MAX_TRANSIENT_RETRIES} after ${(backoff / 1000).toFixed(0)}s${e.stalled ? " on a FRESH session" : ""}\n`,
               );
               await new Promise((r) => setTimeout(r, backoff));
               continue;

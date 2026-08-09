@@ -23,13 +23,20 @@ export interface TurnProgress {
  *  - onProgress: called once per stream line (liveness) + on start/end/heartbeat.
  *  - heartbeatMs: emit a "heartbeat" if no progress for this long (detects a stalled turn);
  *    re-arms after each beat + resets on any real progress.
- *  - timeoutMs: hard deadline; when reached the caller's onTimeout fires (tree-kill the
- *    child + reject with a transient ClaudeTurnError). Fires at most once.
+ *  - inactivityTimeoutMs: SILENCE deadline; fires the caller's onTimeout after this long with
+ *    NO progress, and RE-ARMS on every real event (so a turn that keeps streaming never trips,
+ *    however long it runs , the wedge signature is silence, not duration). This is the primary
+ *    guard against a stalled API stream (child alive, socket open, but no bytes ever arriving,
+ *    so `close` never fires and the await hangs forever). Fires at most once.
+ *  - timeoutMs: HARD deadline from start; fires onTimeout when reached regardless of activity.
+ *    A backstop for a turn that streams forever without finishing. Fires at most once.
+ *    When both are set, whichever elapses first wins (both routed to the same onTimeout).
  */
 export interface TurnMonitor {
   /** Called with a fully-stamped event (the controller always supplies atMs). */
   onProgress?(p: TurnProgress): void;
   heartbeatMs?: number;
+  inactivityTimeoutMs?: number;
   timeoutMs?: number;
 }
 
@@ -72,12 +79,20 @@ export function createMonitorController(
   }
 
   let heartbeatTimer: ReturnType<typeof setTimeout> | undefined;
+  let inactivityTimer: ReturnType<typeof setTimeout> | undefined;
   let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
   let timedOut = false;
   let stopped = false;
 
   const emit = (kind: TurnProgress["kind"], tool?: string) => {
     monitor.onProgress?.({ kind, tool, atMs: clock.now() });
+  };
+
+  const fireTimeout = () => {
+    if (stopped || timedOut) return;
+    timedOut = true;
+    clearAll();
+    onTimeout();
   };
 
   const armHeartbeat = () => {
@@ -90,10 +105,21 @@ export function createMonitorController(
     }, monitor.heartbeatMs);
   };
 
+  // The inactivity (silence) deadline re-arms on every real event, exactly like the
+  // heartbeat, but its firing is the hard onTimeout (kill + transient reject) rather than
+  // a mere beat. This is what a stalled stream trips: no line for inactivityTimeoutMs.
+  const armInactivity = () => {
+    if (monitor.inactivityTimeoutMs === undefined) return;
+    if (inactivityTimer !== undefined) clock.clearTimer(inactivityTimer);
+    inactivityTimer = clock.setTimer(fireTimeout, monitor.inactivityTimeoutMs);
+  };
+
   const clearAll = () => {
     if (heartbeatTimer !== undefined) clock.clearTimer(heartbeatTimer);
+    if (inactivityTimer !== undefined) clock.clearTimer(inactivityTimer);
     if (timeoutTimer !== undefined) clock.clearTimer(timeoutTimer);
     heartbeatTimer = undefined;
+    inactivityTimer = undefined;
     timeoutTimer = undefined;
   };
 
@@ -101,19 +127,18 @@ export function createMonitorController(
     start() {
       emit("start");
       armHeartbeat();
+      armInactivity();
+      // Hard deadline from start: fires regardless of activity (a turn that streams
+      // forever without finishing). Armed once, never re-armed by progress.
       if (monitor.timeoutMs !== undefined) {
-        timeoutTimer = clock.setTimer(() => {
-          if (stopped || timedOut) return;
-          timedOut = true;
-          clearAll();
-          onTimeout();
-        }, monitor.timeoutMs);
+        timeoutTimer = clock.setTimer(fireTimeout, monitor.timeoutMs);
       }
     },
     progress(p) {
       if (stopped || timedOut) return;
       emit(p.kind, p.tool);
       armHeartbeat(); // real activity resets the silence clock
+      armInactivity(); // ...and the inactivity (kill) deadline
     },
     stop() {
       if (stopped) return;

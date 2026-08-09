@@ -270,9 +270,34 @@ replay_smoke() {
   git push -q origin "$_PARENT" 2>/dev/null || log "  (warn: could not push ${_PARENT} to origin; claim may fork from a stale tip)"
 
   log "claim the paired feature branch for ${FEATURE_ID} (REAL substrate)"
-  lk lakebase-scm-claim-feature-branch "${FEATURE_ID}" --project-dir "$PROJECT_DIR" --json \
+  local _CLAIM_JSON
+  _CLAIM_JSON="$(lk lakebase-scm-claim-feature-branch "${FEATURE_ID}" --project-dir "$PROJECT_DIR" --json)" \
     || { err "claim-feature-branch failed"; return 2; }
+  echo "$_CLAIM_JSON"
   "${ASSERT_DIR}/verify-workflow-state.sh" "$PROJECT_DIR" feature-claimed "$FEATURE_ID"
+
+  # CRITICAL , put HEAD on the CLAIMED FEATURE BRANCH before driving. Steps 2/2.5/3
+  # checked out the PARENT TIER (staging) to stage intake + push the fork point, and a
+  # FRESH claim's createPairedBranch does `git checkout -b <feature>` for us , but a
+  # RESUME (alreadyClaimed:true) SHORT-CIRCUITS that checkout, leaving HEAD on staging.
+  # cut-experiment then git-branches the experiment off the CURRENTLY-CHECKED-OUT branch
+  # (Lakebase forks from the explicit --parent, so the two DIVERGE): the git experiment
+  # is cut off staging (or none is created) and driver-green commits GREEN onto staging ,
+  # an unprotected parent tier by default , irreversibly polluting it. So ALWAYS check out
+  # the claimed feature branch here (idempotent when the fresh claim already did), then
+  # sync .env/Lakebase to it (checkout-paired = the post-checkout hook). Parse the branch
+  # from the claim JSON so it tracks the kit's naming, not a shell re-derivation.
+  local _FEATURE_BRANCH
+  _FEATURE_BRANCH="$(printf '%s' "$_CLAIM_JSON" | sed -n 's/.*"branch":"\([^"]*\)".*/\1/p' | head -1)"
+  [[ -n "$_FEATURE_BRANCH" ]] || { err "could not parse claimed feature branch from claim JSON"; return 2; }
+  git -C "$PROJECT_DIR" checkout "$_FEATURE_BRANCH" >/dev/null 2>&1 \
+    || { err "could not checkout claimed feature branch ${_FEATURE_BRANCH}"; return 2; }
+  lk lakebase-branch checkout-paired --project-dir "$PROJECT_DIR" >/dev/null 2>&1 \
+    || log "  (warn: checkout-paired .env sync for ${_FEATURE_BRANCH} reported an issue; continuing)"
+  local _HEAD_NOW; _HEAD_NOW="$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD)"
+  [[ "$_HEAD_NOW" == "$_FEATURE_BRANCH" ]] \
+    || { err "HEAD is '${_HEAD_NOW}', expected feature branch '${_FEATURE_BRANCH}' before drive (cut would mis-fork)"; return 2; }
+  log "on feature branch ${_FEATURE_BRANCH} (HEAD verified) , cut-experiment will fork from it"
 
   # ─── 4. drive, PAUSE just before the chosen handoff ─
   # By default LAKEBASE_SFTDD_REPLAY_DIR replays each DESIGN-lane role turn from the
