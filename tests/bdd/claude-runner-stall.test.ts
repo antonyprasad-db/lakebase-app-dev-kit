@@ -16,6 +16,7 @@ import { describe, it, expect, vi } from "vitest";
 import { spawn } from "node:child_process";
 import { createMonitorController } from "../../consort/orchestrator/turns/turn-monitor";
 import { defaultTurnMonitor } from "../../consort/orchestrator/drive/claude-runner";
+import { assistantTextFromLine, assistantEventSummary } from "../../consort/session/claude-usage";
 
 describe("claude-runner stall wiring", () => {
   it("defaultTurnMonitor builds a monitor with inactivity + heartbeat windows, and its sink is called for heartbeats", () => {
@@ -37,6 +38,32 @@ describe("claude-runner stall wiring", () => {
     const disabled = (heartbeatMs?: number, inactivityTimeoutMs?: number) =>
       heartbeatMs === undefined && inactivityTimeoutMs === undefined ? undefined : { heartbeatMs, inactivityTimeoutMs };
     expect(disabled(undefined, undefined)).toBeUndefined();
+  });
+
+  it("only CONTENT lines are liveness; keepalive/system/result lines are NOT (the wedge regression)", () => {
+    // The runner arms the inactivity clock ONLY when assistantTextFromLine / assistantEventSummary
+    // return content. A stalled stream that dribbles non-content stream-json (system/ping/result)
+    // must NOT re-arm the clock, or the timeout never fires (the bug that made the fix miss its
+    // first live test: raw keepalive lines kept the timer alive for 11+min of true silence).
+    const content = JSON.stringify({ type: "assistant", message: { content: [{ type: "text", text: "working on it" }] } });
+    const toolLine = JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", name: "Read", input: { file_path: "/x" } }] } });
+    const keepalives = [
+      JSON.stringify({ type: "system", subtype: "init" }),
+      JSON.stringify({ type: "result", subtype: "success" }),
+      JSON.stringify({ type: "assistant", message: { content: [] } }), // empty content = no liveness
+      "",
+      "{ not json",
+    ];
+    // Content lines yield liveness.
+    expect(assistantTextFromLine(content)).toBe("working on it");
+    expect(assistantEventSummary(toolLine).tools.length).toBe(1);
+    // Non-content lines yield NOTHING (neither text nor tools) => the handler skips progress().
+    for (const k of keepalives) {
+      expect(assistantTextFromLine(k)).toBe("");
+      const s = assistantEventSummary(k);
+      expect(s.text).toBe("");
+      expect(s.tools).toHaveLength(0);
+    }
   });
 
   it("the controller's onTimeout tree-kills a real silent child (the spawnClaudeStreaming mechanism)", async () => {

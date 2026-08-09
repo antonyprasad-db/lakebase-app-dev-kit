@@ -304,17 +304,18 @@ export function spawnClaudeStreaming(
     const rl = readline.createInterface({ input: child.stdout! });
     rl.on("line", (line) => {
       lines.push(line);
-      monitorCtl.progress({ kind: "text" }); // any line = liveness; re-arm the silence clock
       if (isPromptTooLongSignal(line)) sawTooLong = true;
       if (isTransientApiErrorSignal(line)) sawTransient = true;
       if (verboseAgent) {
         const text = assistantTextFromLine(line);
         if (text) process.stderr.write(text);
         if (text) liveWrite(text); // intermediate reasoning -> sidecar (liveness)
+        if (text) monitorCtl.progress({ kind: "text" }); // MEANINGFUL content only re-arms the silence clock
         // still collect tools for the transcript even in verbose mode
         for (const t of assistantEventSummary(line).tools) {
           allTools.push(t);
           liveWrite(`  · ${t}\n`);
+          monitorCtl.progress({ kind: "tool", tool: t });
         }
         return;
       }
@@ -323,6 +324,7 @@ export function spawnClaudeStreaming(
         process.stderr.write(`  · ${t}\n`);
         allTools.push(t);
         liveWrite(`  · ${t}\n`);
+        monitorCtl.progress({ kind: "tool", tool: t }); // a tool marker = real liveness; re-arm
       }
       // Intermediate reasoning goes to the sidecar as it streams (liveness), even though the compact
       // console log holds only the final text. This is the whole point: the sidecar shows the agent is
@@ -330,11 +332,20 @@ export function spawnClaudeStreaming(
       if (text) {
         lastText = text; // hold for the console; only the final one is printed at close
         liveWrite(text.endsWith("\n") ? text : `${text}\n`);
+        monitorCtl.progress({ kind: "text" }); // assistant text = real liveness; re-arm
       }
+      // CRITICAL: do NOT re-arm the silence clock on non-content lines. A stalled API stream
+      // still dribbles stream-json keepalive/ping/system events that fire this handler but
+      // carry no assistant text or tool call. Re-arming on those defeats the whole timeout (the
+      // wedge that made this fix miss on its first live test: raw lines kept the timer alive while
+      // the agent produced nothing for 11+min). Liveness == the SAME events that advance the
+      // sidecar (assistant text + tool markers), nothing else.
     });
     const erl = readline.createInterface({ input: child.stderr! });
     erl.on("line", (line) => {
-      monitorCtl.progress({ kind: "text" }); // stderr activity is liveness too; re-arm silence clock
+      // stderr carries claude's own error/status prose (not stream-json keepalive), so a stderr
+      // line IS meaningful activity , re-arm on it.
+      monitorCtl.progress({ kind: "text" });
       if (isPromptTooLongSignal(line)) sawTooLong = true;
       if (isTransientApiErrorSignal(line)) sawTransient = true;
       process.stderr.write(`${line}\n`); // tee: keep claude's own errors visible
