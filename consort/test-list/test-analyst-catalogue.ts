@@ -112,9 +112,16 @@ export const TEST_ANALYST_CATALOGUE: Record<string, TestAnalystCatalogueEntry> =
       "for the pair. (2) Walk architecture.json `persistence_invariants[]` and emit one " +
       "`kind:\"fitness\"` item per invariant with `invariant_id` set to that invariant's id, verified " +
       "DIRECTLY against the real branch database (never a mock, never a generic ORM round-trip). A " +
-      "migration that carries data needs TWO items: reversibility (single-step downgrade/upgrade, " +
-      "@pytest.mark.migration, NEVER downgrade base) AND data-preservation (seed rows, migrate, assert " +
-      "they survive with expected values); the created_at/audit immutability on an in-place upsert is " +
+      "migration reversibility is ALWAYS one item: reversibility (single-step downgrade/upgrade, " +
+      "@pytest.mark.migration, NEVER downgrade base) asserting the SCHEMA is recreated , the table + its " +
+      "columns/constraints are present again after downgrade-then-upgrade (NOT that data survives). " +
+      "Data-preservation (seed rows, migrate, assert they survive with expected values) is a SEPARATE " +
+      "item that applies ONLY to an ADDITIVE migration on a PRE-EXISTING table (a later story adding a " +
+      "column/constraint, where single-step downgrade removes only that addition and prior rows persist). " +
+      "NEVER author a data-preservation item for an INITIAL create-table migration: single-step downgrade " +
+      "drops the whole table, so 'rows survive' is UNSATISFIABLE and no code can make it pass (it dead-locks " +
+      "the assess/repair loop). If the story's migration is the table's FIRST (create-table), emit ONLY the " +
+      "schema-recreation reversibility item, not data-preservation. The created_at/audit immutability on an in-place upsert is " +
       "its OWN item. Whole-table aggregate assertions must scope to the test's own rows (a delta), " +
       "never an absolute total. Fitness items MUST NOT carry a `.feature` `scenario_file`. Seed " +
       "idempotently with a per-run-unique key. " + SLICE_CONTRACT +
