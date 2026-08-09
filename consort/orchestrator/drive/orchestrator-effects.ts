@@ -29,7 +29,7 @@ import { diskArtifactProbe, readDriveContext } from "../state/orchestrator-probe
 import { readPipeline } from "../../pipeline/story-pipeline.js";
 import {
   storyJson, designGuideJson, handbackFile, storyAcIds, architectureJson, readAcLayer,
-  featureProposalsMd, featureSpecJson, featureTestListJson, acsDir, planningEstimatesJson,
+  featureProposalsMd, featureSpecJson, featureTestListJson, acsDir, planningEstimatesJson, cycleDir,
 } from "../../config/consort-paths.js";
 import type { TurnKey } from "./turn-key.js";
 // turnKeyForAction now lives in the shared, dependency-light turn-key module (so the config
@@ -828,8 +828,16 @@ function roleTaskBody(
           `   Include --fix ONLY when the fix is clear + within the Driver's reach (e.g. a wrong default, a missing` +
           ` filter, an off-by-one); OMIT --fix when it needs a human / a design or spec change (the orchestration` +
           ` then escalates carrying your diagnosis).\n` +
+          `CRITICAL , recording the verdict is the ONLY output of this turn. The orchestration reads your verdict` +
+          ` from ${join(cycleDir(consortDir, featureId, s, action.ac ?? ""), "regression-assessment.json")} (the` +
+          ` assess-regression command writes it). Writing green-failure.json or just explaining the fix in prose is` +
+          ` NOT the verdict , without that file a DRIVER-FIXABLE regression wrongly escalates to a human and the` +
+          ` sprint halts. Run the ONE command above as a SINGLE line (do not split across lines, do not wrap in` +
+          ` bash -c). If for any reason the command will not run, FALL BACK to writing the file directly with the` +
+          ` Write tool: {"diagnosis":"<why>","fix":"<what to change>"} at that exact path , the orchestration` +
+          ` honors that too.\n` +
           `Flag ONLY tests the new AC truly supersedes; never flag a test just to make a red go away. For a` +
-          ` regression, always write a diagnosis , never nothing.`
+          ` regression, always record a diagnosis (+ fix when driver-fixable) , never nothing.`
         );
       }
       if (action.buildMode === "assess-deploy") {

@@ -23,6 +23,7 @@ import {
   MAX_REGRESSION_FIX_ATTEMPTS,
 } from "../../consort/smells/supersession.js";
 import { isBuildRefactorRoutableSmell, SMELL_CATALOG } from "../../consort/smells/smells.js";
+import { cycleDir } from "../../consort/config/consort-paths.js";
 
 let tdd: string;
 const F = "F5-review-submissions";
@@ -97,6 +98,46 @@ describe("regression assessment + driver-fix handoff", () => {
   it("ignores a diagnosis-less assessment (empty diagnosis => undefined)", () => {
     writeRegressionAssessment(tdd, F, S, AC, { diagnosis: "" });
     expect(readRegressionAssessment(tdd, F, S, AC)).toBeUndefined();
+  });
+
+  // TOLERANT READ regression guard. Three live captures halted because the
+  // navigator produced a correct driver-fixable verdict but did not persist it
+  // via the assess-regression CLI (flaky shell-escaping), so a fixable regression
+  // wrongly escalated to HIL. The reader now ALSO honors the agent's natural
+  // hand-written form so a reliable Write tool records the verdict.
+  it("honors the `fix` key alias in the canonical file (agent-natural key name)", () => {
+    const dir = cycleDir(tdd, F, S, AC);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, "regression-assessment.json"),
+      JSON.stringify({ diagnosis: "downgrade drops the table", fix: "rename_table instead of drop_table" }),
+    );
+    const r = readRegressionAssessment(tdd, F, S, AC);
+    expect(r?.diagnosis).toMatch(/downgrade/);
+    expect(r?.fixDirective).toMatch(/rename_table/); // `fix` mapped to fixDirective => routes a repair
+  });
+
+  it("honors the agent-natural filename `assess-regression.json` (mirrors the CLI verb)", () => {
+    const dir = cycleDir(tdd, F, S, AC);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, "assess-regression.json"),
+      JSON.stringify({ diagnosis: "wrong default", fix: "default it to approved" }),
+    );
+    const r = readRegressionAssessment(tdd, F, S, AC);
+    expect(r?.diagnosis).toMatch(/wrong default/);
+    expect(r?.fixDirective).toMatch(/approved/);
+  });
+
+  it("prefers the canonical file + fixDirective when both files/keys are present", () => {
+    const dir = cycleDir(tdd, F, S, AC);
+    fs.mkdirSync(dir, { recursive: true });
+    // canonical wins over the alternate filename
+    writeRegressionAssessment(tdd, F, S, AC, { diagnosis: "canonical", fixDirective: "canonical fix" });
+    fs.writeFileSync(path.join(dir, "assess-regression.json"), JSON.stringify({ diagnosis: "alt", fix: "alt fix" }));
+    const r = readRegressionAssessment(tdd, F, S, AC);
+    expect(r?.diagnosis).toBe("canonical");
+    expect(r?.fixDirective).toBe("canonical fix");
   });
 
   it("hasPendingRegressionFix is true only for an ASSESSED green-failure carrying a fixDirective, not yet repaired", () => {

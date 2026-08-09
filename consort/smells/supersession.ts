@@ -332,15 +332,42 @@ export function readRegressionAssessment(
   story: string,
   ac: string,
 ): RegressionAssessment | undefined {
-  const file = regressionAssessmentJson(tdd, feature, story, ac);
-  if (!fs.existsSync(file)) return undefined;
-  try {
-    const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as RegressionAssessment;
-    if (typeof parsed.diagnosis !== "string" || parsed.diagnosis.length === 0) return undefined;
-    return parsed;
-  } catch {
-    return undefined;
+  // TOLERANT READ. The `assess-regression` CLI is the intended writer (canonical
+  // file `regression-assessment.json`, field `fixDirective`). But a `claude -p`
+  // navigator reliably uses the Write tool yet is FLAKY at shell-escaping a
+  // multi-arg CLI call: across three live captures the navigator produced a
+  // CORRECT driver-fixable diagnosis but failed to persist it via the CLI , once
+  // by hand-writing `assess-regression.json` with a `fix` key (the verb-order
+  // filename + the natural key name), twice by abandoning the escaped call
+  // entirely. A driver-fixable regression then wrongly escalated to HIL. So we
+  // ALSO honor the agent's natural hand-written form: the alternate filename and
+  // the `fix` alias. The CLI path is unchanged and still primary; this is
+  // belt-and-suspenders so a reliable Write tool records the verdict when the
+  // brittle shell call does not. Canonical file wins if both exist.
+  const dir = cycleDir(tdd, feature, story, ac);
+  const candidates = [
+    regressionAssessmentJson(tdd, feature, story, ac), // canonical: regression-assessment.json
+    join(dir, "assess-regression.json"), // agent-natural filename (mirrors the CLI verb)
+  ];
+  for (const file of candidates) {
+    if (!fs.existsSync(file)) continue;
+    try {
+      const raw = JSON.parse(fs.readFileSync(file, "utf8")) as Record<string, unknown>;
+      const diagnosis = raw.diagnosis;
+      if (typeof diagnosis !== "string" || diagnosis.length === 0) continue;
+      // Accept `fixDirective` (canonical) OR `fix` (the agent-natural key alias).
+      const fixDirective =
+        typeof raw.fixDirective === "string" && raw.fixDirective.length > 0
+          ? raw.fixDirective
+          : typeof raw.fix === "string" && raw.fix.length > 0
+            ? raw.fix
+            : undefined;
+      return { diagnosis, ...(fixDirective ? { fixDirective } : {}) };
+    } catch {
+      /* try the next candidate */
+    }
   }
+  return undefined;
 }
 
 export function writeRegressionAssessment(
