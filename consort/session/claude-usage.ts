@@ -126,15 +126,19 @@ export function assistantEventSummary(line: string): { text: string; tools: stri
     if (block?.type === "text" && typeof block.text === "string") {
       textParts.push(block.text);
     } else if (block?.type === "tool_use" && typeof block.name === "string") {
+      // Full-fidelity tool marker: the tool name + its COMPLETE input, never compacted , no
+      // single-field pick and no length clip. The corpus + sidecar record exactly what the agent
+      // invoked (every arg, full paths, full command/pattern/content), so a reader can reconstruct
+      // the turn. (Previously this picked one of file_path/path/command/pattern and clipped to 80
+      // chars, which lost the rest of the input.)
       const inp = block.input ?? {};
-      const target =
-        (typeof inp.file_path === "string" && inp.file_path) ||
-        (typeof inp.path === "string" && inp.path) ||
-        (typeof inp.command === "string" && inp.command) ||
-        (typeof inp.pattern === "string" && inp.pattern) ||
-        "";
-      const clipped = typeof target === "string" && target.length > 80 ? `${target.slice(0, 80)}...` : target;
-      tools.push(clipped ? `${block.name} ${clipped}` : block.name);
+      let args = "";
+      try {
+        args = Object.keys(inp).length ? JSON.stringify(inp) : "";
+      } catch {
+        args = "";
+      }
+      tools.push(args ? `${block.name} ${args}` : block.name);
     }
   }
   return { text: textParts.join("").trim(), tools };

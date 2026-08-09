@@ -74,16 +74,31 @@ describe("assistantTextFromLine: tee readable text, skip the rest", () => {
 });
 
 describe("assistantEventSummary: compact tool actions + text, drop nothing structural", () => {
-  it("summarizes tool_use as name + target (file_path / command)", () => {
+  it("records tool_use as name + FULL input (no field-pick, no clip)", () => {
+    // Full fidelity: the marker carries the tool name + its COMPLETE input JSON, so the corpus
+    // + sidecar can reconstruct exactly what the agent invoked (every arg, full paths, full body).
     const write = assistantEventSummary(
       '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Write","input":{"file_path":"app/models/inventory.py"}}]}}',
     );
-    expect(write.tools).toEqual(["Write app/models/inventory.py"]);
+    expect(write.tools).toEqual(['Write {"file_path":"app/models/inventory.py"}']);
     expect(write.text).toBe("");
     const bash = assistantEventSummary(
       '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"uv run pytest"}}]}}',
     );
-    expect(bash.tools).toEqual(["Bash uv run pytest"]);
+    expect(bash.tools).toEqual(['Bash {"command":"uv run pytest"}']);
+    // A LONG input is NOT clipped , the whole thing is preserved.
+    const longPath = "app/" + "x".repeat(200) + ".py";
+    const long = assistantEventSummary(
+      `{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"${longPath}"}}]}}`,
+    );
+    expect(long.tools[0]).toContain(longPath);
+    expect(long.tools[0]).not.toContain("...");
+    // A multi-field input keeps EVERY field, not just one.
+    const multi = assistantEventSummary(
+      '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"a.py","offset":10,"limit":5}}]}}',
+    );
+    expect(multi.tools[0]).toContain('"offset":10');
+    expect(multi.tools[0]).toContain('"limit":5');
   });
 
   it("separates interstitial text from tool actions in the same event", () => {
@@ -91,7 +106,7 @@ describe("assistantEventSummary: compact tool actions + text, drop nothing struc
       '{"type":"assistant","message":{"content":[{"type":"text","text":"Now let me write it."},{"type":"tool_use","name":"Edit","input":{"file_path":"a.py"}}]}}',
     );
     expect(ev.text).toBe("Now let me write it."); // the caller buffers text; only the LAST survives
-    expect(ev.tools).toEqual(["Edit a.py"]);
+    expect(ev.tools).toEqual(['Edit {"file_path":"a.py"}']);
   });
 
   it("returns empties for non-assistant / malformed lines", () => {

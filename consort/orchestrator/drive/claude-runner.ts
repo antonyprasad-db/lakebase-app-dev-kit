@@ -202,6 +202,35 @@ export function spawnClaudeStreaming(args: string[], cwd: string): Promise<TurnU
     // the last text (the result line) survives , the deliberation never hits the
     // log. Set LAKEBASE_SFTDD_VERBOSE_AGENT=1 to tee every assistant text delta.
     const verboseAgent = !!consortEnv("VERBOSE_AGENT");
+    // Liveness sidecar: when recording, ALWAYS stream the agent's intermediate reasoning + each tool
+    // action to <RECORD_DIR>/agent-live.log as it arrives, timestamped. This is the "is it working or
+    // spinning?" channel , a monitor can `tail -f` it and see fresh prose the moment the agent thinks,
+    // WITHOUT polluting the compact capture log (which still shows only `· tool` markers + the final
+    // outcome). Independent of VERBOSE_AGENT (that tees to the console); this always writes to disk when
+    // RECORD_DIR is set. Append-only, one line per delta, best-effort (a sidecar write must never break
+    // a turn). The file is per-run (all turns append); the turn boundary is marked at open below.
+    const liveLogDir = consortEnv("RECORD_DIR")?.trim();
+    let liveLog: number | undefined;
+    if (liveLogDir) {
+      try {
+        fs.mkdirSync(liveLogDir, { recursive: true });
+        liveLog = fs.openSync(path.join(liveLogDir, "agent-live.log"), "a");
+        const pIdxL = args.indexOf("-p"), rIdxL = args.indexOf("--agent");
+        const role = rIdxL >= 0 ? args[rIdxL + 1] : "agent";
+        const task = pIdxL >= 0 ? (args[pIdxL + 1] ?? "") : "";
+        fs.writeSync(liveLog, `\n=== ${new Date().toISOString()} TURN START role=${role} :: ${task}\n`);
+      } catch {
+        liveLog = undefined; // sidecar is observability, never a gate
+      }
+    }
+    const liveWrite = (s: string): void => {
+      if (liveLog === undefined) return;
+      try {
+        fs.writeSync(liveLog, s);
+      } catch {
+        /* best-effort: a failed sidecar write must never break the turn */
+      }
+    };
     let lastText = "";
     const allTools: string[] = []; // accumulate for the recorded transcript
     const rl = readline.createInterface({ input: child.stdout! });
@@ -212,16 +241,27 @@ export function spawnClaudeStreaming(args: string[], cwd: string): Promise<TurnU
       if (verboseAgent) {
         const text = assistantTextFromLine(line);
         if (text) process.stderr.write(text);
+        if (text) liveWrite(text); // intermediate reasoning -> sidecar (liveness)
         // still collect tools for the transcript even in verbose mode
-        for (const t of assistantEventSummary(line).tools) allTools.push(t);
+        for (const t of assistantEventSummary(line).tools) {
+          allTools.push(t);
+          liveWrite(`  · ${t}\n`);
+        }
         return;
       }
       const { text, tools } = assistantEventSummary(line);
       for (const t of tools) {
         process.stderr.write(`  · ${t}\n`);
         allTools.push(t);
+        liveWrite(`  · ${t}\n`);
       }
-      if (text) lastText = text; // hold; only the final one is printed at close
+      // Intermediate reasoning goes to the sidecar as it streams (liveness), even though the compact
+      // console log holds only the final text. This is the whole point: the sidecar shows the agent is
+      // thinking, not spinning, mid-turn.
+      if (text) {
+        lastText = text; // hold for the console; only the final one is printed at close
+        liveWrite(text.endsWith("\n") ? text : `${text}\n`);
+      }
     });
     const erl = readline.createInterface({ input: child.stderr! });
     erl.on("line", (line) => {
@@ -229,13 +269,27 @@ export function spawnClaudeStreaming(args: string[], cwd: string): Promise<TurnU
       if (isTransientApiErrorSignal(line)) sawTransient = true;
       process.stderr.write(`${line}\n`); // tee: keep claude's own errors visible
     });
-    child.on("error", (err) => reject(err));
+    const closeLiveLog = (): void => {
+      if (liveLog === undefined) return;
+      try {
+        fs.closeSync(liveLog);
+      } catch {
+        /* best-effort */
+      }
+      liveLog = undefined;
+    };
+    child.on("error", (err) => {
+      closeLiveLog();
+      reject(err);
+    });
     child.on("close", (code) => {
       rl.close();
       erl.close();
       // The turn's final assistant text = the outcome (rule 5). Print it once,
       // after the tool trace, so the log shows actions + result, not the prose.
       if (!verboseAgent && lastText) process.stderr.write(`${lastText}\n`);
+      liveWrite(`--- ${new Date().toISOString()} TURN CLOSE code=${code}${lastText ? ` :: ${lastText}` : ""}\n`);
+      closeLiveLog();
       if (code !== 0) return reject(new ClaudeTurnError(`claude exited ${code}`, sawTooLong, sawTransient));
       // Stash this turn's outcome-level transcript for the recorder. `-p <task>`
       // and `--agent <role>` / `--model <m>` are positional in the args we built.
