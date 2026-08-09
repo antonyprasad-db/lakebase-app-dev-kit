@@ -80,6 +80,27 @@ for pair in "${SPRINTS[@]}"; do
   echo "════════════════════════════════════════════════════════════════════"
   echo "[launch] SPRINT $i/${#SPRINTS[@]}: $sprint  ships  $feature"
   echo "════════════════════════════════════════════════════════════════════"
+  # RESUME idempotence: on a re-launch of a partially-complete capture, a sprint whose
+  # feature already shipped (its pipeline.json has stories, all `done`) must be SKIPPED.
+  # run-capture re-claims the feature, but the SCM ladder can only hold one active claim;
+  # a completed feature's re-claim fails `already-claimed-other` and halts the whole
+  # capture even though there is nothing left to do for it. Detect "all stories done" from
+  # the committed pipeline and skip, so a resume continues at the first unfinished sprint.
+  _pipeline="$PROJECT_DIR/.consort/features/$feature/pipeline.json"
+  if [[ -f "$_pipeline" ]] && python3 - "$_pipeline" <<'PY'
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+except Exception:
+    sys.exit(1)  # unreadable -> not provably done -> drive it
+stories = d.get("stories", {})
+# Done iff there is at least one story and every story's status is "done".
+sys.exit(0 if stories and all(v.get("status") == "done" for v in stories.values()) else 1)
+PY
+  then
+    echo "[launch] SPRINT $i ($sprint): feature $feature already shipped (all stories done) , skipping (resume)"
+    continue
+  fi
   bash "$REPO_ROOT/examples/replay/run-capture.sh" \
     --tiers 2 \
     --corpus "$CORPUS" \
