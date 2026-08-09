@@ -22,7 +22,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readline from "node:readline";
 
-import { recordTurn, seedRecorderBaseline, recordCorrespondence, type CorrespondenceEntry } from "../../consort/logging/turn-recorder.js";
+import { recordTurn, seedRecorderBaseline, recordCorrespondence, lastRecordedOrdinal, type CorrespondenceEntry } from "../../consort/logging/turn-recorder.js";
 import { readAgentLog } from "../../consort/logging/agent-log.js";
 import { recordBuildTurn, nextBuildTurnNumber } from "../../consort/pipeline/record-build.js";
 import { runDriver, driverBoundOptions, ProtocolViolationError, UnexpectedCallbackError, type DriveEffects, type DriverBound, type RunDriverResult, type RunDriverOptions } from "../../consort/orchestrator/drive/orchestrator-run.js";
@@ -272,7 +272,8 @@ function projectCorrespondence(
   state: DriveState,
   fresh: import("../../consort/logging/agent-log.js").AgentLogEvent[],
   isGate: boolean,
-): CorrespondenceEntry {
+  recordDir: string,
+): [CorrespondenceEntry, CorrespondenceEntry] {
   const phase = (state as { phase?: string }).phase;
   const kind: CorrespondenceEntry["request"]["kind"] = isGate ? "gate" : "author-requests";
   const supplied = fresh.filter((e) => e.event === "intake.supplied");
@@ -287,25 +288,40 @@ function projectCorrespondence(
     return { artifact: md.artifact ?? "artifact", ...(md.from ? { from: md.from } : {}), ...(md.to ? { contentRef: md.to } : {}) };
   });
   const approved = isGate ? (gateEv?.event === "gate.approved") : undefined;
-  return {
+  // Explicit FK to the turn this exchange ran at: onCorrespondence fires after perform() recorded the
+  // turn (author-requests / gate ARE recorded turns), so the just-recorded turn is the last index
+  // entry. null only if nothing was recorded (should not happen for a HIL touchpoint).
+  const ordinal = lastRecordedOrdinal(recordDir);
+  const at = new Date().toISOString();
+  const askPrompt = isGate
+    ? `orchestrator presents ${describeAction(action)} for HIL approval`
+    : `orchestrator asks the PO to author the sprint's feature-requests (${describeAction(action)})`;
+  const askRendered = isGate
+    ? `**HIL approval requested** , ${describeAction(action)}`
+    : `**PO input requested** , author the sprint's feature-requests (${describeAction(action)})`;
+  // EVERY HIL exchange is a two-beat round-trip, recorded faithfully (mirrors the kickoff/intake beats):
+  //   ask    (orch-to-hil): the orchestrator poses the request (a gate approval, or the PO author ask).
+  //   answer (hil-to-orch): the HIL's decision/submission + outcome.
+  // Both beats carry the same turn FK (ordinal) + iteration so a reader can pair them.
+  const ask: CorrespondenceEntry = {
     seq,
+    direction: "orch-to-hil",
+    ordinal,
     iteration,
-    at: new Date().toISOString(),
+    at,
     ...(phase ? { phase } : {}),
-    request: {
-      kind,
-      prompt: isGate
-        ? `orchestrator presents ${describeAction(action)} for HIL approval`
-        : `orchestrator asks the PO to author the sprint's feature-requests (${describeAction(action)})`,
-      // Presentation: the ask rendered as markdown so a renderer reproduces its formatting. The
-      // proxy's stderr banner (reportGate) is ANSI-styled; capture it verbatim when present.
-      presentation: {
-        format: "markdown",
-        rendered: isGate
-          ? `**HIL approval requested** , ${describeAction(action)}`
-          : `**PO input requested** , author the sprint's feature-requests (${describeAction(action)})`,
-      },
-    },
+    request: { kind, prompt: askPrompt, presentation: { format: "markdown", rendered: askRendered } },
+    response: { by: "orchestrator" },
+    outcome: { validated: true },
+  };
+  const answer: CorrespondenceEntry = {
+    seq: seq + 1,
+    direction: "hil-to-orch",
+    ordinal,
+    iteration,
+    at,
+    ...(phase ? { phase } : {}),
+    request: { kind, prompt: askPrompt, presentation: { format: "markdown", rendered: askRendered } },
     response: {
       by: "human-proxy",
       ...(submitted.length ? { submitted } : {}),
@@ -323,6 +339,7 @@ function projectCorrespondence(
       ...(violations.length ? { violations } : {}),
     },
   };
+  return [ask, answer];
 }
 
 function withTurnRecording(inner: DriveEffects, cfg: DriveEffectsConfig): DriveEffects {
@@ -335,7 +352,9 @@ function withTurnRecording(inner: DriveEffects, cfg: DriveEffectsConfig): DriveE
   // Correspondence bookkeeping: snapshot the agent-log length BEFORE each perform so onCorrespondence
   // (fired AFTER perform, in the loop) can read exactly the entries the proxy appended THIS turn +
   // pair them with the orchestrator's request. seq is the monotonic correspondence counter.
-  let corrSeq = 0;
+  // The kickoff/intake round-trip (recorded before the drive loop) consumed seq 0,1,2; the perform-path
+  // HIL exchanges (gate/author-requests) continue from 3 so the correspondence stream stays dense.
+  let corrSeq = 3;
   let logLenBeforePerform = readAgentLog({ consortDir: cfg.consortDir }).length;
   return {
     readState: () => inner.readState(),
@@ -352,9 +371,10 @@ function withTurnRecording(inner: DriveEffects, cfg: DriveEffectsConfig): DriveE
       if (!isGate && !isInput) return;
       const after = readAgentLog({ consortDir: cfg.consortDir });
       const fresh = after.slice(logLenBeforePerform); // entries the proxy appended this turn
-      const entry = projectCorrespondence(corrSeq, iteration, action, state, fresh, isGate);
-      recordCorrespondence(recordDir, entry);
-      corrSeq += 1;
+      // Two beats per exchange: the orchestrator's ASK (orch-to-hil) + the HIL's ANSWER (hil-to-orch).
+      const beats = projectCorrespondence(corrSeq, iteration, action, state, fresh, isGate, recordDir);
+      for (const beat of beats) recordCorrespondence(recordDir, beat);
+      corrSeq += beats.length;
     },
     // Forward the executor-dispatch seam UNCHANGED: an executor-dispatched turn runs THROUGH the
     // executor (whose ReplayRecorderWrapper records it, from cfg.takeTranscript) and NEVER reaches
@@ -469,17 +489,89 @@ async function runSprintMode(args: ParsedArgs): Promise<number> {
   // Correspondence step 0 (the kickoff): record the /sprint command that STARTED this session, so a
   // recorded capture's transcript begins where the user begins , the real /sprint, not the first agent
   // turn. Only when recording (RECORD_DIR set); the command + its formatting are preserved.
+  //
+  // Intake IS the HIL's response to /sprint: when the human (proxy) runs /sprint, the artifacts they
+  // hand over , product-overview.md, nfrs.md, design-brief.md, and the brand asset(s) , are the
+  // SUBMISSION on this kickoff exchange. They were placed on disk by the pre-drive intake supply
+  // (human-proxy supply), so surface each that EXISTS as a kickoff `submitted[]` entry, keyed by
+  // reference (contentRef = its project path). The icon is a BINARY asset (recorded by reference only,
+  // never inlined). direction=hil-to-orch; ordinal=null (kickoff precedes turn 0, no turn to key to).
   const recordDirForKickoff = consortEnv("RECORD_DIR")?.trim();
   if (recordDirForKickoff) {
     const cmd = `/sprint ${sprint} --gates ${gates}`;
+    const by = interactive ? "human" : ("human-proxy" as const);
+    const nowIso = (): string => new Date().toISOString();
+    // The intake exchange is a THREE-BEAT round-trip, recorded faithfully so the corpus begins where
+    // the human begins (the /sprint), shows the ORCHESTRATOR asking its project questions, and then
+    // the HIL's submission , not a single conflated entry.
+    //   seq 0  kickoff       (hil-to-orch): the HIL types `/sprint` , the command that starts the run.
+    //   seq 1  intake        (orch-to-hil): the orchestrator ASKS for the project intake it needs to
+    //                          plan (the "project questions"): product overview, NFRs, design brief,
+    //                          brand asset(s). This is the beat that was missing.
+    //   seq 2  intake        (hil-to-orch): the HIL SUBMITS the intake artifacts in response , each
+    //                          that exists on disk becomes a `submitted[]` entry (contentRef = its
+    //                          project path; a binary asset by reference only, never inlined).
+    const intakeCandidates: Array<{ artifact: string; rel: string; binary?: boolean; ask: string }> = [
+      { artifact: "product-overview.md", rel: "product-overview.md", ask: "a product overview , the framing + goals the features are proposed from" },
+      { artifact: "nfrs.md", rel: "nfrs.md", ask: "the non-functional requirements (NFRs) the work must satisfy" },
+      { artifact: "design-brief.md", rel: path.join("design", "design-brief.md"), ask: "a design brief , the UX/visual direction for the SPA" },
+      { artifact: "warehouse.png", rel: path.join("design", "assets", "warehouse.png"), binary: true, ask: "any brand asset(s) (logo/icon) to carry into the design" },
+    ];
+    const resolved = intakeCandidates.map((c) => ({ ...c, abs: path.join(consortDir, c.rel) }));
+
+    // Beat 0 , the kickoff command (the HIL's `/sprint`).
     recordCorrespondence(recordDirForKickoff, {
       seq: 0,
+      direction: "hil-to-orch",
+      ordinal: null,
       iteration: -1,
-      at: new Date().toISOString(),
+      at: nowIso(),
       phase: "planning",
       request: { kind: "kickoff", prompt: cmd, presentation: { format: "markdown", rendered: `\`${cmd}\`` } },
-      response: { by: interactive ? "human" : "human-proxy" },
+      response: { by, presentation: { format: "markdown", rendered: `Starting sprint \`${sprint}\`.` } },
       outcome: { validated: true },
+    });
+
+    // Beat 1 , the ORCHESTRATOR asks the HIL for the project intake it needs to plan.
+    const questions = resolved.map((c, i) => `${i + 1}. ${c.ask} (\`${c.rel}\`)`).join("\n");
+    const askPrompt =
+      `To plan this sprint I need the project intake. Please provide:\n${questions}\n\n` +
+      `Place each under the project's \`.consort/\`; I will read them as the proposal + design inputs.`;
+    recordCorrespondence(recordDirForKickoff, {
+      seq: 1,
+      direction: "orch-to-hil",
+      ordinal: null,
+      iteration: -1,
+      at: nowIso(),
+      phase: "planning",
+      request: { kind: "intake", prompt: askPrompt, presentation: { format: "markdown", rendered: askPrompt } },
+      response: { by: "orchestrator" },
+      outcome: { validated: true },
+    });
+
+    // Beat 2 , the HIL SUBMITS the intake (each artifact that exists on disk).
+    const submitted = resolved
+      .filter((c) => fs.existsSync(c.abs))
+      .map((c) => ({ artifact: c.artifact, contentRef: c.abs, ...(c.binary ? { binary: true } : {}) }));
+    recordCorrespondence(recordDirForKickoff, {
+      seq: 2,
+      direction: "hil-to-orch",
+      ordinal: null,
+      iteration: -1,
+      at: nowIso(),
+      phase: "planning",
+      request: { kind: "intake", prompt: "Intake for the sprint.", presentation: { format: "markdown", rendered: "Submitting project intake." } },
+      response: {
+        by,
+        ...(submitted.length ? { submitted } : {}),
+        presentation: {
+          format: "markdown" as const,
+          rendered: submitted.length
+            ? submitted.map((s) => `- INTAKE supplied ${s.artifact}`).join("\n")
+            : "(no intake artifacts on disk)",
+        },
+      },
+      outcome: { validated: submitted.length > 0 },
     });
   }
 
