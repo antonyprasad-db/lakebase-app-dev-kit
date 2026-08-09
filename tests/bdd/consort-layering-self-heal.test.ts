@@ -12,7 +12,7 @@ import { join } from "node:path";
 
 import { isBuildRefactorRoutableSmell, writeSmellsLog, readSmellsLog } from "../../consort/smells/smells";
 import { diskArtifactProbe } from "../../consort/orchestrator/state/orchestrator-probe";
-import { reviewAc, refactorAc, firstRefactorPendingAc, type GreenVerifier } from "../../consort/pipeline/cycle-record";
+import { reviewAc, refactorAc, firstRefactorPendingAc, reviewStory, refactorStory, refactorPending, type GreenVerifier } from "../../consort/pipeline/cycle-record";
 import { writeCycleArtifact } from "../../consort/pipeline/run-cycle";
 
 const F = "F1";
@@ -97,6 +97,53 @@ describe("pendingEscalation: layering-violation self-heals while a refactor is p
     const e = probe.pendingEscalation();
     expect(e?.source).toBe("smell:layering-violation");
     expect(e?.routable).toBeUndefined(); // build smell, not spec-revise-routable
+  });
+});
+
+describe("pendingEscalation: STORY-loop refactor self-heals a routable build smell (the S3 ux-adherence bug)", () => {
+  // Regression: a story-loop run records its REVIEW at STORY scope
+  // (cycles/F/S/review.json), so refactor-pending lives in refactorPending()
+  // (story), NOT firstRefactorPendingAc() (per-AC review.json, empty here). The
+  // escalation-suppression checked ONLY the AC path, so a routable smell
+  // (ux-adherence on SkuDetailPage) escaped to HIL even though the story review
+  // requested exactly that refactor. Suppression must consult the story signal too.
+  function requestStoryRefactor(): void {
+    writeJson(join(tdd, "cycles", F, S, "review-verdict.json"), {
+      refactor: true,
+      notes: "SkuDetailPage uses bare HTML with no design-system classes; add className=\"page\"/\"table\"",
+    });
+    reviewStory(tdd, F, S);
+  }
+
+  it("suppresses the terminal ux-adherence escalation when the STORY has a refactor pending", () => {
+    writeSmellsLog(tdd, [{ smell: "ux-adherence", cycle_ids: [], detail: "bare (unstyled) pages: SkuDetailPage.tsx", story_id: S }]);
+    requestStoryRefactor();
+    // The per-AC signal is empty in a story loop — this was the trap.
+    expect(firstRefactorPendingAc(tdd, F, S)).toBeNull();
+    // The story signal is what routes the driver's refactor (refactorStoryPending).
+    expect(refactorPending(tdd, F, S)).toBe(true);
+    // ...so the escalation is suppressed (no HIL halt), exactly like the AC-loop case.
+    expect(diskArtifactProbe(tdd, F, S).pendingEscalation()).toBeNull();
+  });
+
+  it("still HALTS (terminal) when the story smell has no refactor pending", () => {
+    writeSmellsLog(tdd, [{ smell: "ux-adherence", cycle_ids: [], detail: "bare (unstyled) pages: SkuDetailPage.tsx", story_id: S }]);
+    // no story review recorded -> nothing pending at either granularity
+    expect(refactorPending(tdd, F, S)).toBe(false);
+    expect(firstRefactorPendingAc(tdd, F, S)).toBeNull();
+    const e = diskArtifactProbe(tdd, F, S).pendingEscalation();
+    expect(e?.source).toBe("smell:ux-adherence");
+    expect(e?.routable).toBeUndefined(); // build smell, not spec-revise-routable
+  });
+
+  it("refactorStory resolves the ux-adherence smell so it never re-escalates", async () => {
+    writeSmellsLog(tdd, [{ smell: "ux-adherence", cycle_ids: [], detail: "bare (unstyled) pages: SkuDetailPage.tsx", story_id: S }]);
+    requestStoryRefactor();
+    const r = await refactorStory(tdd, F, S, { verify: pass });
+    expect(r.refactored).toBe(true);
+    const entry = readSmellsLog(tdd).detected.find((d) => d.smell === "ux-adherence");
+    expect(entry?.resolution).toBeTruthy();
+    expect(diskArtifactProbe(tdd, F, S).pendingEscalation()).toBeNull();
   });
 });
 

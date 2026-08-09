@@ -430,13 +430,31 @@ export function diskArtifactProbe(
         const name = e.source.slice("smell:".length);
         const story = e.story_id ?? buildActive ?? undefined;
         // Build-level self-heal: a refactor-fixable build smell (layering-violation,
-        // ux-adherence, import-time-build-coupling) whose owning AC ALREADY has a
-        // refactor pending is NOT a terminal halt , the Driver's refactor turn is
+        // ux-adherence, import-time-build-coupling) whose owning story/AC ALREADY has
+        // a refactor pending is NOT a terminal halt , the Driver's refactor turn is
         // the remediation the Navigator's REVIEW just prescribed. Suppress the
         // escalation so the build dispatches that refactor instead of raising to
-        // HIL. refactorAc preserves behavior + resolves the smell; if the refactor
-        // never lands, the smell re-surfaces with no refactor pending and halts.
-        if (isBuildRefactorRoutableSmell(name) && story && firstRefactorPendingAc(consortDir, featureId, story)) {
+        // HIL. refactorStory/refactorAc preserves behavior + resolves the smell; if
+        // the refactor never lands, the smell re-surfaces with no refactor pending
+        // and halts.
+        //
+        // The refactor-pending signal is GRANULARITY-SPECIFIC and MUST mirror the
+        // router (orchestrator-drive nextBuildAction), which branches on loop:
+        //   - "story": refactorStoryPending = refactorPending() [story review.json]
+        //   - "ac" AND "hybrid-a": refactorAc = firstRefactorPendingAc() [AC review.json]
+        // Checking ONLY the AC path let a routable smell (ux-adherence on S3) escape
+        // to HIL in a story-loop run, because the per-AC review.json is empty there
+        // while the story review requested the refactor. Suppress when EITHER is
+        // pending: the two are mutually exclusive per loop mode (a story loop never
+        // writes per-AC review.json; ac/hybrid never write story review.json), so the
+        // OR reconstructs the router's branch exactly for all three granularities
+        // without over-suppressing.
+        if (
+          isBuildRefactorRoutableSmell(name) &&
+          story &&
+          (refactorPending(consortDir, featureId, story) ||
+            firstRefactorPendingAc(consortDir, featureId, story))
+        ) {
           return null;
         }
         const spec = specLevelSmell(name);
