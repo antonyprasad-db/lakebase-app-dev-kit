@@ -61,6 +61,9 @@ export class Step implements StepContract {
     return this.manifest.inputs.map((i) => ({
       id: i.id,
       description: i.description ?? `${i.id} (from ${i.source})`,
+      // Carry `optional` through so run()'s presence re-check honors it (an optional-absent input
+      // is skipped by resolveInputs and MUST NOT trip run's `spec.id in inputs` gate).
+      ...(i.optional ? { optional: true } : {}),
     }));
   }
 
@@ -151,7 +154,13 @@ export class Step implements StepContract {
     const { action, workspaceDir, inputs, instructions } = provided;
 
     for (const spec of this.inputs(action)) {
-      if (!(spec.id in inputs)) {
+      // An OPTIONAL input that resolveInputs skipped (absent source on the live lane, e.g. review's
+      // `code` project-tree input) is legitimately NOT in the map , skipping it is correct, not a
+      // failure. Only a REQUIRED input absent from the map is a fail-loud missing input. (Before this,
+      // an optional-absent input tripped this gate -> {produced:false, missingInput} -> phase-5
+      // violation -> blocked -> retry -> abort: the SYSTEMIC navigator-review PROTOCOL VIOLATION,
+      // because review declares required `acs` + optional `code` and `code` is always absent live.)
+      if (!(spec.id in inputs) && !spec.optional) {
         return { produced: false, missingInput: spec.id };
       }
     }

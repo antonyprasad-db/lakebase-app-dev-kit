@@ -236,16 +236,25 @@ export async function execute(step: RunnableStep, ctx: StepCtx, deps: StepExecut
   // legitimately absent is NOT a violation (a self-heal turn may write no marker + escalate), so a
   // run whose ONLY declared output is optional does not block just because run() reported no primary.
   const outputSpecs = step.outputs(action);
-  const primaryIsOptional = outputSpecs.length > 0 && outputSpecs[0].optional === true;
+  // A turn has NO REQUIRED PRIMARY when it declares zero outputs OR its primary output is optional.
+  // Zero-outputs is the review/refactor case: the turn's result is an EVENT (review-verdict, raised +
+  // handled by the postTurn cycle CLI + routing), NOT a workspace artifact the agent writes. A clean
+  // "looks good" review legitimately produces no file, so runResult.produced is false , and with no
+  // declared output there is nothing that was "supposed" to be produced. Treating that as the "primary
+  // output not produced" violation is a FALSE violation that blocks the turn, gates its own postTurn
+  // (the verdict-writing CLI) behind the block, and dead-locks into the retry-budget abort , the
+  // systemic navigator-review PROTOCOL VIOLATION. (The prior guard only spared an optional primary,
+  // which requires outputSpecs.length > 0, so a zero-output turn fell through to the violation.)
+  const noRequiredPrimary = outputSpecs.length === 0 || outputSpecs[0].optional === true;
   const violations: string[] = [];
   if (!runResult.produced) {
     if (runResult.missingInput) {
       // Defensive: run() also gates inputs; surface it as a violation rather than crash.
       violations.push(`missing input "${runResult.missingInput}"`);
-    } else if (!primaryIsOptional) {
+    } else if (!noRequiredPrimary) {
       violations.push("the step's primary output was not produced in the workspace");
     }
-    // primaryIsOptional + absent => the legitimate no-marker/escalate route: NOT a violation.
+    // noRequiredPrimary + absent => the legitimate no-marker/escalate/looks-good route: NOT a violation.
   }
   for (const spec of outputSpecs) {
     const rel = outputPaths?.[spec.id] ?? spec.filename;

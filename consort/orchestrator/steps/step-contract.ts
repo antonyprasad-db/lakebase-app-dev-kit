@@ -34,6 +34,11 @@ export interface StepInputSpec {
   id: string;
   /** Human description of what the step needs (for the orchestrator + diagnostics). */
   description: string;
+  /** OPTIONAL input: a missing source is SKIPPED, not a turn failure , mirrors the manifest's
+   *  `optional` and resolveInputs' skip. Must be carried here so ManifestStep.run's own
+   *  `spec.id in inputs` re-check does not fail loud on an optional-absent input (e.g. review's
+   *  `code` project-tree input, which resolveInputs legitimately omits on the live lane). */
+  optional?: boolean;
 }
 
 /**

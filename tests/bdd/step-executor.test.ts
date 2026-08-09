@@ -370,6 +370,63 @@ describe("optional outputs: absent-optional passes, present-nonconformant fails,
     expect(result.violations.length).toBeGreaterThan(0);
     expect(result.bounded.action).toEqual(action); // blocked => re-issue the same step
   });
+
+  // Regression guard for the SYSTEMIC navigator-review PROTOCOL VIOLATION (live occurrences #1/#2/#3):
+  // navigator-review declares ZERO outputs , its result is the `review-verdict` EVENT (raised + handled
+  // by the postTurn cycle CLI), NOT a workspace artifact. A clean "looks good" review writes no file, so
+  // run() reports produced:false. The old guard only spared an OPTIONAL primary (needs outputs.length>0),
+  // so a zero-output turn fell through to a FALSE "primary output not produced" violation -> blocked ->
+  // its verdict-writing postTurn is gated behind the block -> retry -> identical -> abort. This asserts a
+  // zero-output turn with produced:false is a CLEAN PASS that routes FORWARD, never blocked.
+  it("a ZERO-OUTPUT turn with produced:false is a clean PASS, NOT blocked (the review looks-good route)", async () => {
+    const reviewLikeStep = {
+      ...assessLikeStep(false),
+      outputs: () => [], // the review turn declares no workspace output; its result is the review-verdict EVENT
+      async run() {
+        // A "looks good" review writes no file , exactly the case that dead-locked the sprint.
+        return { produced: false as const, producedPaths: [] as string[] };
+      },
+    };
+    const result = await execute(reviewLikeStep, ctxFor(), deps());
+    expect(result.violations).toEqual([]); // no false "primary output not produced" violation
+    expect(result.bounded.action).not.toEqual(action); // routes FORWARD, not a blocked re-issue
+  });
+
+  // The TRUE root cause of the systemic navigator-review PROTOCOL VIOLATION (occurrences #1-#4): the
+  // review manifest declares a REQUIRED input (acs) + an OPTIONAL input (code, the project tree).
+  // resolveInputs correctly SKIPS the optional-absent `code` on the live lane, so it is NOT in the
+  // inputs map. ManifestStep.run's own presence re-check must ALSO honor `optional` , otherwise it
+  // returns {produced:false, missingInput:"code"} BEFORE the agent spawns (confirmed live: no TURN
+  // START), phase 5 flags `missing input "code"`, and the turn blocks->retries->aborts. This asserts
+  // that a ManifestStep whose optional input is absent from the resolved map runs the agent + passes.
+  it("ManifestStep.run does NOT fail on an OPTIONAL input absent from the resolved map (review's `code`)", async () => {
+    const { Step } = await import("../../consort/orchestrator/steps/step");
+    let spawned = false;
+    const agent = { invoke: async () => { spawned = true; } };
+    const manifest = {
+      id: "navigator-review-like",
+      role: "navigator",
+      match: { kind: "invoke-role" as const, role: "navigator", buildMode: "review" },
+      inputs: [
+        { id: "code", source: "story:code", optional: true, description: "project tree (optional)" },
+        { id: "acs", source: "story:acs", description: "required ACs" },
+      ],
+      outputs: [],
+      routing: { produced: { next: "state-derived" as const } },
+      agent: { kind: "claude" as const, config: { role: "navigator" } },
+    };
+    const step = new Step(manifest as never, agent as never, () => true);
+    // resolveInputs on the live lane skips optional-absent `code`, so ONLY `acs` is in the map.
+    const res = await step.run({
+      action: manifest.match as unknown as WorkflowAction,
+      workspaceDir: root,
+      inputs: { acs: "" }, // `code` deliberately ABSENT (the optional-skip case)
+      instructions: { prompt: "REVIEW" },
+    } as never);
+    expect(spawned, "the agent MUST spawn , the optional-absent `code` must not short-circuit run()").toBe(true);
+    expect((res as { produced: boolean }).produced, "zero-output review PRODUCES by completing").toBe(true);
+    expect((res as { missingInput?: string }).missingInput, "no missingInput on an optional-absent input").toBeUndefined();
+  });
 });
 
 describe("phases 2.7/6.5 PRE/POST-TURN EFFECTS: the Template Method's expanded deterministic-CLI phases", () => {
