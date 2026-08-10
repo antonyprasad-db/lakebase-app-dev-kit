@@ -322,6 +322,35 @@ type WorkflowAction = DriveAction | {
     kind: "done";
 };
 
+/** One liveness event. `tool`/`text` mirror the agent stream; heartbeat/start/end are ours. */
+interface TurnProgress {
+    kind: "tool" | "text" | "heartbeat" | "start" | "end";
+    tool?: string;
+    /** Clock time (ms) the event was emitted. */
+    atMs: number;
+}
+/**
+ * The monitor a caller supplies to observe + bound one agent turn. All fields optional:
+ *  - onProgress: called once per stream line (liveness) + on start/end/heartbeat.
+ *  - heartbeatMs: emit a "heartbeat" if no progress for this long (detects a stalled turn);
+ *    re-arms after each beat + resets on any real progress.
+ *  - inactivityTimeoutMs: SILENCE deadline; fires the caller's onTimeout after this long with
+ *    NO progress, and RE-ARMS on every real event (so a turn that keeps streaming never trips,
+ *    however long it runs , the wedge signature is silence, not duration). This is the primary
+ *    guard against a stalled API stream (child alive, socket open, but no bytes ever arriving,
+ *    so `close` never fires and the await hangs forever). Fires at most once.
+ *  - timeoutMs: HARD deadline from start; fires onTimeout when reached regardless of activity.
+ *    A backstop for a turn that streams forever without finishing. Fires at most once.
+ *    When both are set, whichever elapses first wins (both routed to the same onTimeout).
+ */
+interface TurnMonitor {
+    /** Called with a fully-stamped event (the controller always supplies atMs). */
+    onProgress?(p: TurnProgress): void;
+    heartbeatMs?: number;
+    inactivityTimeoutMs?: number;
+    timeoutMs?: number;
+}
+
 type DriveCommand = {
     kind: "claude";
     role: string;
@@ -542,10 +571,20 @@ declare class ClaudeTurnError extends Error {
     /** The turn's output matched a transient API/network failure (connection
      *  dropped, overloaded, rate-limited, 5xx), so re-running it may succeed. */
     readonly transient: boolean;
+    /** The turn was tree-killed by the inactivity monitor (stream went silent past
+     *  the deadline , a stalled API stream that would otherwise hang forever). A
+     *  stall IS a transient (retry on a fresh session), flagged distinctly so the
+     *  retry log names it as a stall, not a wire blip. */
+    readonly stalled: boolean;
     constructor(message: string, promptTooLong: boolean, 
     /** The turn's output matched a transient API/network failure (connection
      *  dropped, overloaded, rate-limited, 5xx), so re-running it may succeed. */
-    transient?: boolean);
+    transient?: boolean, 
+    /** The turn was tree-killed by the inactivity monitor (stream went silent past
+     *  the deadline , a stalled API stream that would otherwise hang forever). A
+     *  stall IS a transient (retry on a fresh session), flagged distinctly so the
+     *  retry log names it as a stall, not a wire blip. */
+    stalled?: boolean);
 }
 /** A replay lane (LAKEBASE_SFTDD_REPLAY_DIR / _REPLAY_BUILD_DIR) was told to
  *  reproduce a turn the corpus has no artifact for. A replay is a RECORDING: it
@@ -598,7 +637,15 @@ declare function takeLastAgentTranscript(): TurnTranscript | undefined;
  *  every executor-dispatched agent turn lost its transcript to the double-consume race). The record
  *  wrapper remains the sole take()-clearer, at end of turn. */
 declare function peekLastAgentTranscript(): TurnTranscript | undefined;
-declare function spawnClaudeStreaming(args: string[], cwd: string): Promise<TurnUsage | undefined>;
+/** Build the default per-turn monitor from the module timeout constants. A turn with
+ *  neither an inactivity nor a heartbeat window returns undefined (a byte-identical
+ *  no-op controller). Exposed as its own function so tests can assert the mapping and
+ *  callers can override. */
+declare function defaultTurnMonitor(sink: (p: TurnProgress) => void): TurnMonitor | undefined;
+declare function spawnClaudeStreaming(args: string[], cwd: string, 
+/** Override the per-turn liveness monitor (tests inject a fake-clock-driven one).
+ *  Omitted => the default built from TURN_INACTIVITY_TIMEOUT_MS / TURN_HEARTBEAT_MS. */
+monitorOverride?: TurnMonitor): Promise<TurnUsage | undefined>;
 /**
  * The spawn flags for a claude command's optional tool-scope levers (the
  * optimize harness's Family-2 "restrict what the agent can scan/do" knob). A
@@ -649,4 +696,4 @@ declare function execRunner(cfg: DriveEffectsConfig): CommandRunner;
 /** Build a DriveEffectsConfig for a feature (or planning, featureId ""). */
 declare function buildCfg(args: ParsedArgs, featureId: string): DriveEffectsConfig;
 
-export { ArtifactOutOfRootError, ClaudeTurnError, type ParsedArgs, ReplayCorpusMissError, type TurnTranscript, buildCfg, claudeBaseArgs, claudeToolArgs, execRunner, peekLastAgentTranscript, spawnClaudeStreaming, spawnCmd, takeLastAgentTranscript };
+export { ArtifactOutOfRootError, ClaudeTurnError, type ParsedArgs, ReplayCorpusMissError, type TurnTranscript, buildCfg, claudeBaseArgs, claudeToolArgs, defaultTurnMonitor, execRunner, peekLastAgentTranscript, spawnClaudeStreaming, spawnCmd, takeLastAgentTranscript };

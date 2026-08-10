@@ -6657,6 +6657,7 @@ __export(claude_runner_exports, {
   buildCfg: () => buildCfg,
   claudeBaseArgs: () => claudeBaseArgs,
   claudeToolArgs: () => claudeToolArgs,
+  defaultTurnMonitor: () => defaultTurnMonitor,
   execRunner: () => execRunner,
   peekLastAgentTranscript: () => peekLastAgentTranscript,
   spawnClaudeStreaming: () => spawnClaudeStreaming,
@@ -7630,7 +7631,7 @@ var navigator_red_default = {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "sonnet",
+    model: "opus",
     effort: "default",
     session: "resume",
     resumeKeyFrom: "story"
@@ -7878,7 +7879,7 @@ var driver_green_superseded_default = {
   agent: { kind: "claude", config: { role: "driver" } },
   match: { kind: "invoke-role", role: "driver", buildMode: "green-superseded" },
   inputs: [
-    { id: "test-list", source: "story:test-list.json", description: "The story's tests the Driver makes GREEN after a superseded-test refactor re-opened the cycle." }
+    { id: "test-list", source: "story:test-list-per-story.json", description: "The story's tests the Driver makes GREEN after a superseded-test refactor re-opened the cycle." }
   ],
   outputs: [],
   routing: {
@@ -8095,9 +8096,13 @@ function assistantEventSummary(line) {
       textParts.push(block.text);
     } else if (block?.type === "tool_use" && typeof block.name === "string") {
       const inp = block.input ?? {};
-      const target = typeof inp.file_path === "string" && inp.file_path || typeof inp.path === "string" && inp.path || typeof inp.command === "string" && inp.command || typeof inp.pattern === "string" && inp.pattern || "";
-      const clipped = typeof target === "string" && target.length > 80 ? `${target.slice(0, 80)}...` : target;
-      tools.push(clipped ? `${block.name} ${clipped}` : block.name);
+      let args = "";
+      try {
+        args = Object.keys(inp).length ? JSON.stringify(inp) : "";
+      } catch {
+        args = "";
+      }
+      tools.push(args ? `${block.name} ${args}` : block.name);
     }
   }
   return { text: textParts.join("").trim(), tools };
@@ -8354,10 +8359,86 @@ function relocateStrayDesignArtifacts(projectDir) {
   return moved.length > 0 ? { relocated: true, from: sibling, moved } : { relocated: false, moved: [] };
 }
 
+// consort/orchestrator/turns/turn-monitor.ts
+init_cjs_shims();
+var realClock = {
+  now: () => Date.now(),
+  setTimer: (fn, ms) => setTimeout(fn, ms),
+  clearTimer: (t) => clearTimeout(t)
+};
+function createMonitorController(monitor, onTimeout, clock = realClock) {
+  if (!monitor) {
+    return { start() {
+    }, progress() {
+    }, stop() {
+    } };
+  }
+  let heartbeatTimer;
+  let inactivityTimer;
+  let timeoutTimer;
+  let timedOut = false;
+  let stopped = false;
+  const emit = (kind, tool) => {
+    monitor.onProgress?.({ kind, tool, atMs: clock.now() });
+  };
+  const fireTimeout = () => {
+    if (stopped || timedOut) return;
+    timedOut = true;
+    clearAll();
+    onTimeout();
+  };
+  const armHeartbeat = () => {
+    if (monitor.heartbeatMs === void 0) return;
+    if (heartbeatTimer !== void 0) clock.clearTimer(heartbeatTimer);
+    heartbeatTimer = clock.setTimer(() => {
+      if (stopped || timedOut) return;
+      emit("heartbeat");
+      armHeartbeat();
+    }, monitor.heartbeatMs);
+  };
+  const armInactivity = () => {
+    if (monitor.inactivityTimeoutMs === void 0) return;
+    if (inactivityTimer !== void 0) clock.clearTimer(inactivityTimer);
+    inactivityTimer = clock.setTimer(fireTimeout, monitor.inactivityTimeoutMs);
+  };
+  const clearAll = () => {
+    if (heartbeatTimer !== void 0) clock.clearTimer(heartbeatTimer);
+    if (inactivityTimer !== void 0) clock.clearTimer(inactivityTimer);
+    if (timeoutTimer !== void 0) clock.clearTimer(timeoutTimer);
+    heartbeatTimer = void 0;
+    inactivityTimer = void 0;
+    timeoutTimer = void 0;
+  };
+  return {
+    start() {
+      emit("start");
+      armHeartbeat();
+      armInactivity();
+      if (monitor.timeoutMs !== void 0) {
+        timeoutTimer = clock.setTimer(fireTimeout, monitor.timeoutMs);
+      }
+    },
+    progress(p) {
+      if (stopped || timedOut) return;
+      emit(p.kind, p.tool);
+      armHeartbeat();
+      armInactivity();
+    },
+    stop() {
+      if (stopped) return;
+      stopped = true;
+      clearAll();
+      emit("end");
+    }
+  };
+}
+
 // consort/orchestrator/drive/claude-runner.ts
 var MAX_PROMPT_TOO_LONG_RETRIES = 2;
 var MAX_TRANSIENT_RETRIES = Number(consortEnv("MAX_TRANSIENT_RETRIES") ?? "5");
 var TRANSIENT_BACKOFF_MS = Number(consortEnv("TRANSIENT_BACKOFF_MS") ?? "5000");
+var TURN_INACTIVITY_TIMEOUT_MS = Number(consortEnv("TURN_INACTIVITY_TIMEOUT_MS") ?? String(10 * 60 * 1e3));
+var TURN_HEARTBEAT_MS = Number(consortEnv("TURN_HEARTBEAT_MS") ?? String(60 * 1e3));
 function spawnCmd(bin, args, cwd) {
   return new Promise((resolve3, reject) => {
     const child = (0, import_node_child_process2.spawn)(bin, args, { cwd, stdio: "inherit" });
@@ -8366,14 +8447,16 @@ function spawnCmd(bin, args, cwd) {
   });
 }
 var ClaudeTurnError = class extends Error {
-  constructor(message, promptTooLong, transient = false) {
+  constructor(message, promptTooLong, transient = false, stalled = false) {
     super(message);
     this.promptTooLong = promptTooLong;
     this.transient = transient;
+    this.stalled = stalled;
     this.name = "ClaudeTurnError";
   }
   promptTooLong;
   transient;
+  stalled;
 };
 var ReplayCorpusMissError = class extends Error {
   constructor(message) {
@@ -8409,7 +8492,13 @@ function takeLastAgentTranscript() {
 function peekLastAgentTranscript() {
   return lastAgentTranscript;
 }
-function spawnClaudeStreaming(args, cwd) {
+function defaultTurnMonitor(sink) {
+  const heartbeatMs = TURN_HEARTBEAT_MS > 0 ? TURN_HEARTBEAT_MS : void 0;
+  const inactivityTimeoutMs = TURN_INACTIVITY_TIMEOUT_MS > 0 ? TURN_INACTIVITY_TIMEOUT_MS : void 0;
+  if (heartbeatMs === void 0 && inactivityTimeoutMs === void 0) return void 0;
+  return { onProgress: sink, heartbeatMs, inactivityTimeoutMs };
+}
+function spawnClaudeStreaming(args, cwd, monitorOverride) {
   return new Promise((resolve3, reject) => {
     const child = (0, import_node_child_process2.spawn)("claude", args, { cwd, stdio: ["inherit", "pipe", "pipe"] });
     const lines = [];
@@ -8424,7 +8513,7 @@ function spawnClaudeStreaming(args, cwd) {
         liveLog = fs7.openSync(path5.join(liveLogDir, "agent-live.log"), "a");
         const pIdxL = args.indexOf("-p"), rIdxL = args.indexOf("--agent");
         const role = rIdxL >= 0 ? args[rIdxL + 1] : "agent";
-        const task = pIdxL >= 0 ? (args[pIdxL + 1] ?? "").slice(0, 120) : "";
+        const task = pIdxL >= 0 ? args[pIdxL + 1] ?? "" : "";
         fs7.writeSync(liveLog, `
 === ${(/* @__PURE__ */ new Date()).toISOString()} TURN START role=${role} :: ${task}
 `);
@@ -8441,6 +8530,25 @@ function spawnClaudeStreaming(args, cwd) {
     };
     let lastText = "";
     const allTools = [];
+    let stalled = false;
+    const monitor = monitorOverride ?? defaultTurnMonitor((p) => {
+      if (p.kind === "heartbeat") {
+        liveWrite(`  \u23F3 ${(/* @__PURE__ */ new Date()).toISOString()} no agent output for ~${Math.round((TURN_HEARTBEAT_MS || 0) / 1e3)}s (waiting; kills at ${Math.round((TURN_INACTIVITY_TIMEOUT_MS || 0) / 1e3)}s of silence)
+`);
+      }
+    });
+    const monitorCtl = createMonitorController(monitor, () => {
+      stalled = true;
+      liveWrite(`  \u2716 ${(/* @__PURE__ */ new Date()).toISOString()} INACTIVITY TIMEOUT (~${Math.round((TURN_INACTIVITY_TIMEOUT_MS || 0) / 1e3)}s silent) , tree-killing pid ${child.pid} for a fresh-session retry
+`);
+      process.stderr.write(`[drive] turn stalled: no agent output for ~${Math.round((TURN_INACTIVITY_TIMEOUT_MS || 0) / 1e3)}s; killing pid ${child.pid} and retrying on a fresh session
+`);
+      try {
+        child.kill("SIGKILL");
+      } catch {
+      }
+    });
+    monitorCtl.start();
     const rl = readline.createInterface({ input: child.stdout });
     rl.on("line", (line) => {
       lines.push(line);
@@ -8450,10 +8558,12 @@ function spawnClaudeStreaming(args, cwd) {
         const text2 = assistantTextFromLine(line);
         if (text2) process.stderr.write(text2);
         if (text2) liveWrite(text2);
+        if (text2) monitorCtl.progress({ kind: "text" });
         for (const t of assistantEventSummary(line).tools) {
           allTools.push(t);
           liveWrite(`  \xB7 ${t}
 `);
+          monitorCtl.progress({ kind: "tool", tool: t });
         }
         return;
       }
@@ -8464,15 +8574,18 @@ function spawnClaudeStreaming(args, cwd) {
         allTools.push(t);
         liveWrite(`  \xB7 ${t}
 `);
+        monitorCtl.progress({ kind: "tool", tool: t });
       }
       if (text) {
         lastText = text;
         liveWrite(text.endsWith("\n") ? text : `${text}
 `);
+        monitorCtl.progress({ kind: "text" });
       }
     });
     const erl = readline.createInterface({ input: child.stderr });
     erl.on("line", (line) => {
+      monitorCtl.progress({ kind: "text" });
       if (isPromptTooLongSignal(line)) sawTooLong = true;
       if (isTransientApiErrorSignal(line)) sawTransient = true;
       process.stderr.write(`${line}
@@ -8487,17 +8600,22 @@ function spawnClaudeStreaming(args, cwd) {
       liveLog = void 0;
     };
     child.on("error", (err) => {
+      monitorCtl.stop();
       closeLiveLog();
       reject(err);
     });
     child.on("close", (code) => {
+      monitorCtl.stop();
       rl.close();
       erl.close();
       if (!verboseAgent && lastText) process.stderr.write(`${lastText}
 `);
-      liveWrite(`--- ${(/* @__PURE__ */ new Date()).toISOString()} TURN CLOSE code=${code}${lastText ? ` :: ${lastText.slice(0, 200)}` : ""}
+      liveWrite(`--- ${(/* @__PURE__ */ new Date()).toISOString()} TURN CLOSE code=${code}${lastText ? ` :: ${lastText}` : ""}
 `);
       closeLiveLog();
+      if (stalled) {
+        return reject(new ClaudeTurnError(`claude turn stalled (inactivity timeout); killed for retry`, false, true, true));
+      }
       if (code !== 0) return reject(new ClaudeTurnError(`claude exited ${code}`, sawTooLong, sawTransient));
       const pIdx = args.indexOf("-p");
       const rIdx = args.indexOf("--agent");
@@ -8642,8 +8760,10 @@ function execRunner(cfg) {
         const turnStart = Date.now();
         let overflowRetries = 0;
         let transientRetries = 0;
+        let forceFreshAfterStall = false;
         for (; ; ) {
-          const args = [...baseArgs, ...sessionArgsFor(overflowRetries > 0)];
+          const args = [...baseArgs, ...sessionArgsFor(overflowRetries > 0 || forceFreshAfterStall)];
+          forceFreshAfterStall = false;
           try {
             usage = await spawnClaudeStreaming(args, cfg.projectDir);
             break;
@@ -8659,8 +8779,10 @@ function execRunner(cfg) {
             if (e instanceof ClaudeTurnError && e.transient && transientRetries < MAX_TRANSIENT_RETRIES) {
               transientRetries++;
               const backoff = TRANSIENT_BACKOFF_MS * transientRetries;
+              const kind = e.stalled ? "stalled turn (inactivity timeout)" : "transient API error";
+              if (e.stalled) forceFreshAfterStall = true;
               process.stderr.write(
-                `[drive] transient API error on ${cmd.role} (${cmd.model}); retry ${transientRetries}/${MAX_TRANSIENT_RETRIES} after ${(backoff / 1e3).toFixed(0)}s
+                `[drive] ${kind} on ${cmd.role} (${cmd.model}); retry ${transientRetries}/${MAX_TRANSIENT_RETRIES} after ${(backoff / 1e3).toFixed(0)}s${e.stalled ? " on a FRESH session" : ""}
 `
               );
               await new Promise((r) => setTimeout(r, backoff));
@@ -8855,6 +8977,7 @@ function composeOnAction(...hooks) {
   buildCfg,
   claudeBaseArgs,
   claudeToolArgs,
+  defaultTurnMonitor,
   execRunner,
   peekLastAgentTranscript,
   spawnClaudeStreaming,

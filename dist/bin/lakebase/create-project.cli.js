@@ -65,7 +65,16 @@ var LEGACY_TDD_CONFIG_REL = LEGACY_CONFIG_RELS[0];
 function defaultConsortConfig() {
   const roles = {};
   for (const role of ALL_AGENT_ROLES) {
-    roles[role] = role === "navigator" ? { model: RECOMMENDED_MODELS[role], effort: { review: "low" } } : role === "driver" ? (
+    roles[role] = role === "navigator" ? (
+      // Model tiering: the RED turn (whole-story failing-test authoring) is the
+      // Navigator's heaviest reasoning turn , it reads the architecture, NFRs, and
+      // the full test list and writes every failing test in one batch , so it runs
+      // on opus. REVIEW/ASSESS/REFLECT are lighter judgment turns and stay on the
+      // role base (sonnet) with review at low effort. A per-turn map (like driver's)
+      // overrides only `red`; the unnamed turns fall through to RECOMMENDED_MODELS.
+      // Overridable per project by editing consort-config.json.
+      { model: { red: "opus" }, effort: { review: "low" } }
+    ) : role === "driver" ? (
       // Model tiering: RED (test authoring) + GREEN (implementation) keep the
       // recommended model; only the mechanical REFACTOR turn drops to a fast
       // model. GREEN was on haiku, but the recorded worst GREEN turn thrashed

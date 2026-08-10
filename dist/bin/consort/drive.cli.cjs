@@ -7072,6 +7072,13 @@ function assertReplayBuildVerdictMatch(args) {
 }
 
 // consort/logging/turn-recorder.ts
+var PROJECT_ROOT_TOKEN = "<PROJECT_ROOT>";
+function relativizeProjectPaths(text, projectDir) {
+  if (!text || !projectDir) return text;
+  const root = projectDir.replace(/\/+$/, "");
+  if (!root) return text;
+  return text.split(root + "/").join(PROJECT_ROOT_TOKEN + "/").split(root).join(PROJECT_ROOT_TOKEN);
+}
 var NON_ARTIFACT_TDD = /* @__PURE__ */ new Set(["agent-log.jsonl"]);
 function recordCorrespondence(recordDir, entry) {
   (0, import_node_fs.mkdirSync)(recordDir, { recursive: true });
@@ -7095,7 +7102,7 @@ function recordReplaySet(args) {
   for (const [id, content] of Object.entries(inputs)) {
     (0, import_node_fs.writeFileSync)((0, import_node_path3.join)(inDir, id.replace(/[/\\]/g, "_")), content);
   }
-  (0, import_node_fs.writeFileSync)((0, import_node_path3.join)(setDir, "prompt.txt"), prompt);
+  (0, import_node_fs.writeFileSync)((0, import_node_path3.join)(setDir, "prompt.txt"), relativizeProjectPaths(prompt, projectDir));
   (0, import_node_fs.writeFileSync)((0, import_node_path3.join)(setDir, "guidelines.json"), JSON.stringify(guidelines ?? [], null, 2) + "\n");
   (0, import_node_fs.writeFileSync)((0, import_node_path3.join)(setDir, "levers.json"), JSON.stringify(levers ?? {}, null, 2) + "\n");
 }
@@ -7267,7 +7274,14 @@ function recordTurn(args) {
   }
   let transcriptSummary;
   if (transcript) {
-    (0, import_node_fs.writeFileSync)((0, import_node_path3.join)(turnDir, "transcript.md"), renderTranscriptMd(transcript, label));
+    const rel = (s) => relativizeProjectPaths(s, projectDir);
+    const portable = {
+      ...transcript,
+      prompt: rel(transcript.prompt),
+      finalText: rel(transcript.finalText),
+      tools: transcript.tools.map(rel)
+    };
+    (0, import_node_fs.writeFileSync)((0, import_node_path3.join)(turnDir, "transcript.md"), renderTranscriptMd(portable, label));
     transcriptSummary = {
       role: transcript.role,
       model: transcript.model,
@@ -8506,15 +8520,33 @@ function supersededTestsJson(tdd, feature, story, ac) {
   return (0, import_node_path7.join)(cycleDir(tdd, feature, story, ac), "superseded-tests.json");
 }
 function readSupersededTests(tdd, feature, story, ac) {
+  const parseSuperseded = (raw) => {
+    const p = JSON.parse(raw);
+    const arr = Array.isArray(p.tests) ? p.tests : Array.isArray(p.superseded_tests) ? p.superseded_tests : void 0;
+    return arr && arr.length > 0 && arr.every((t) => typeof t === "string") ? arr : void 0;
+  };
   const file = supersededTestsJson(tdd, feature, story, ac);
-  if (!fs4.existsSync(file)) return void 0;
-  try {
-    const parsed = JSON.parse(fs4.readFileSync(file, "utf8"));
-    if (!Array.isArray(parsed.tests) || parsed.tests.length === 0) return void 0;
-    return parsed;
-  } catch {
-    return void 0;
+  if (fs4.existsSync(file)) {
+    try {
+      const parsed = JSON.parse(fs4.readFileSync(file, "utf8"));
+      const tests = parseSuperseded(JSON.stringify(parsed));
+      if (tests) return { ...parsed, tests };
+    } catch {
+    }
   }
+  const regFile = regressionAssessmentJson(tdd, feature, story, ac);
+  if (fs4.existsSync(regFile)) {
+    try {
+      const parsed = JSON.parse(fs4.readFileSync(regFile, "utf8"));
+      if (parsed.superseded === true) {
+        const tests = parseSuperseded(JSON.stringify(parsed));
+        if (tests) return { tests, reason: typeof parsed.reason === "string" ? parsed.reason : "superseded (from regression-assessment.json)" };
+      }
+    } catch {
+      return void 0;
+    }
+  }
+  return void 0;
 }
 function hasPendingSupersession(tdd, feature, story, ac) {
   const s = readSupersededTests(tdd, feature, story, ac);
@@ -8539,6 +8571,9 @@ function needsGreenAssess(tdd, feature, story, ac) {
 function hasPendingRegressionFix(tdd, feature, story, ac) {
   const gf = readGreenFailure(tdd, feature, story, ac);
   return gf !== void 0 && gf.assessed === true && typeof gf.fixDirective === "string" && gf.fixDirective.length > 0 && gf.repairAttempted !== true;
+}
+function regressionAssessmentJson(tdd, feature, story, ac) {
+  return (0, import_node_path7.join)(cycleDir(tdd, feature, story, ac), "regression-assessment.json");
 }
 
 // consort/architecture/contract-clean.ts
@@ -9208,21 +9243,177 @@ function resetStaleTerminalPhase(consortDir) {
   return false;
 }
 
+// consort/config/consort-config-file.ts
+init_cjs_shims();
+var import_fs9 = require("fs");
+var import_path9 = require("path");
+
+// consort/config/agent-models.ts
+init_cjs_shims();
+var import_fs8 = require("fs");
+var import_path8 = require("path");
+var RECOMMENDED_MODELS = {
+  "spec-author": "opus",
+  "architect-reviewer": "opus",
+  dba: "opus",
+  "test-strategist": "sonnet",
+  "ux-designer": "sonnet",
+  navigator: "sonnet",
+  driver: "sonnet",
+  "product-owner": "opus"
+};
+var ALL_AGENT_ROLES = Object.keys(RECOMMENDED_MODELS);
+var AGENT_CONFIG_REL = (0, import_path8.join)(".lakebase", "agent-config.json");
+function readAgentConfig(projectDir) {
+  const p = (0, import_path8.join)(projectDir, AGENT_CONFIG_REL);
+  if (!(0, import_fs8.existsSync)(p)) return void 0;
+  return JSON.parse((0, import_fs8.readFileSync)(p, "utf8"));
+}
+function resolveModelForRole(role, projectDir) {
+  const spawnable = role;
+  const entry = readAgentConfig(projectDir)?.roles?.[spawnable];
+  return entry?.override ?? entry?.recommended ?? RECOMMENDED_MODELS[spawnable] ?? "inherit";
+}
+
+// consort/config/optimized-defaults.json
+var optimized_defaults_default = {
+  _comment: "Auto-applied optimization winners, deep-merged onto defaultSftddConfig()'s base. Written by optimize-apply (data, never a TS rewrite) so an unattended champion walk can bake each winner into the kit default; inlined into dist at build time. roles.<role>.{model,effort} may be a scalar or a per-turn/step map keyed by TurnKey (breakdown/acs/architect/dba/test-list/ux for design; red/green/review/refactor/assess/repair for build). Edit via the apply path, not by hand.",
+  roles: {
+    "spec-author": {
+      model: {
+        breakdown: "haiku"
+      },
+      effort: {
+        breakdown: "low"
+      }
+    },
+    "ux-designer": {
+      model: "opus",
+      effort: "low"
+    }
+  }
+};
+
+// consort/config/consort-config-file.ts
+var CONSORT_CONFIG_REL = (0, import_path9.join)(".lakebase", "consort-config.json");
+var LEGACY_CONFIG_RELS = [
+  (0, import_path9.join)(".lakebase", "sftdd-config.json"),
+  (0, import_path9.join)(".lakebase", "tdd-config.json")
+];
+var LEGACY_TDD_CONFIG_REL = LEGACY_CONFIG_RELS[0];
+function loadConsortConfig(projectDir) {
+  for (const rel of [CONSORT_CONFIG_REL, ...LEGACY_CONFIG_RELS]) {
+    const f = (0, import_path9.join)(projectDir, rel);
+    if (!(0, import_fs9.existsSync)(f)) continue;
+    try {
+      return JSON.parse((0, import_fs9.readFileSync)(f, "utf8"));
+    } catch {
+      return void 0;
+    }
+  }
+  return void 0;
+}
+function resolveProjectSettings(projectDir) {
+  const file = loadConsortConfig(projectDir);
+  const build = {
+    loopGranularity: file?.build?.loopGranularity ?? "story",
+    batchCap: file?.build?.batchCap,
+    sessionScope: file?.build?.sessionScope ?? "story"
+  };
+  const project = {
+    uiTrack: file?.project?.uiTrack ?? true,
+    // HITL-first: the declared project policy defaults to interactive (a human
+    // approves each gate). Headless (proxy) is a deliberate opt-in, set in the
+    // file or as a RUN-SCOPED --gates override (never persisted by a flag).
+    gates: file?.project?.gates ?? "interactive",
+    deployTarget: file?.project?.deployTarget ?? "local",
+    clientFramework: file?.project?.clientFramework ?? "none"
+  };
+  const plan = { sizing: file?.plan?.sizing ?? true };
+  return { build, plan, project };
+}
+function defaultConsortConfig() {
+  const roles = {};
+  for (const role of ALL_AGENT_ROLES) {
+    roles[role] = role === "navigator" ? (
+      // Model tiering: the RED turn (whole-story failing-test authoring) is the
+      // Navigator's heaviest reasoning turn , it reads the architecture, NFRs, and
+      // the full test list and writes every failing test in one batch , so it runs
+      // on opus. REVIEW/ASSESS/REFLECT are lighter judgment turns and stay on the
+      // role base (sonnet) with review at low effort. A per-turn map (like driver's)
+      // overrides only `red`; the unnamed turns fall through to RECOMMENDED_MODELS.
+      // Overridable per project by editing consort-config.json.
+      { model: { red: "opus" }, effort: { review: "low" } }
+    ) : role === "driver" ? (
+      // Model tiering: RED (test authoring) + GREEN (implementation) keep the
+      // recommended model; only the mechanical REFACTOR turn drops to a fast
+      // model. GREEN was on haiku, but the recorded worst GREEN turn thrashed
+      // 93 tool round-trips (haiku's trial-and-error), so wall-clock, not token
+      // cost, dominated. Sonnet finishes GREEN in far fewer round-trips, faster
+      // even at a higher per-token price. Overridable per project by editing
+      // consort-config.json (a project can flatten to a scalar `model`).
+      { model: { red: RECOMMENDED_MODELS[role], green: RECOMMENDED_MODELS[role], refactor: "haiku" } }
+    ) : (
+      // Every other role's base is just its recommended model. Optimization
+      // winners (e.g. spec-author breakdown -> haiku+low) are NOT hardcoded here;
+      // they live in optimized-defaults.json and are deep-merged below, so the
+      // champion walk's auto-apply is the single writer of applied winners.
+      { model: RECOMMENDED_MODELS[role] }
+    );
+  }
+  const base = {
+    version: 1,
+    roles,
+    build: { loopGranularity: "story", batchCap: 3, sessionScope: "story" },
+    plan: { sizing: true },
+    project: { uiTrack: true, gates: "interactive", deployTarget: "local", clientFramework: "none" }
+  };
+  return mergeOptimizedDefaults(base, optimized_defaults_default);
+}
+function mergeOptimizedDefaults(base, overlay) {
+  if (overlay === null || typeof overlay !== "object" || Array.isArray(overlay)) {
+    return overlay === void 0 ? base : overlay;
+  }
+  const out = Array.isArray(base) ? [...base] : { ...base };
+  for (const [k, v] of Object.entries(overlay)) {
+    if (k === "_comment") continue;
+    const b = out[k];
+    out[k] = b && typeof b === "object" && !Array.isArray(b) && v && typeof v === "object" && !Array.isArray(v) ? mergeOptimizedDefaults(b, v) : v;
+  }
+  return out;
+}
+function writeConsortConfig(projectDir, config, opts) {
+  const f = (0, import_path9.join)(projectDir, CONSORT_CONFIG_REL);
+  if ((0, import_fs9.existsSync)(f) && !opts?.force) return false;
+  (0, import_fs9.mkdirSync)((0, import_path9.dirname)(f), { recursive: true });
+  (0, import_fs9.writeFileSync)(f, JSON.stringify(config, null, 2) + "\n");
+  return true;
+}
+function applyProjectOverrides(projectDir, over) {
+  if (over.deployTarget === void 0 && over.sizing === void 0) return;
+  const cfg = loadConsortConfig(projectDir) ?? defaultConsortConfig();
+  cfg.project = cfg.project ?? {};
+  if (over.deployTarget !== void 0) cfg.project.deployTarget = over.deployTarget;
+  cfg.plan = cfg.plan ?? {};
+  if (over.sizing !== void 0) cfg.plan.sizing = over.sizing;
+  writeConsortConfig(projectDir, cfg, { force: true });
+}
+
 // consort/orchestrator/state/orchestrator-probe.ts
 var import_lakebase8 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/smells/reflection.ts
 init_cjs_shims();
-var import_fs8 = require("fs");
+var import_fs10 = require("fs");
 var SMELL_FOR_OWNER = {
   "spec-author": "reflect-spec-defect",
   "test-strategist": "reflect-testlist-defect"
 };
 function readReflectVerdict(consortDir, feature, story) {
   const p = reflectVerdictJson(consortDir, feature, story);
-  if (!(0, import_fs8.existsSync)(p)) return void 0;
+  if (!(0, import_fs10.existsSync)(p)) return void 0;
   try {
-    return JSON.parse((0, import_fs8.readFileSync)(p, "utf8"));
+    return JSON.parse((0, import_fs10.readFileSync)(p, "utf8"));
   } catch {
     return void 0;
   }
@@ -9237,15 +9428,15 @@ var REFLECT_SMELLS = Object.values(SMELL_FOR_OWNER);
 
 // consort/architecture/architecture-canon.ts
 init_cjs_shims();
-var import_fs9 = require("fs");
+var import_fs11 = require("fs");
 function uniq(xs) {
   return [...new Set(xs.filter((x) => typeof x === "string" && x.length > 0))];
 }
 function readCanon(consortDir) {
   const f = architectureCanonJson(consortDir);
-  if (!(0, import_fs9.existsSync)(f)) return void 0;
+  if (!(0, import_fs11.existsSync)(f)) return void 0;
   try {
-    return JSON.parse((0, import_fs9.readFileSync)(f, "utf8"));
+    return JSON.parse((0, import_fs11.readFileSync)(f, "utf8"));
   } catch {
     return void 0;
   }
@@ -9282,7 +9473,7 @@ function architectNovelty(canon, storyAcs, storyArchitectureJsonContent) {
 
 // consort/orchestrator/validators/conformance/artifact-conformance.ts
 init_cjs_shims();
-var import_path8 = require("path");
+var import_path10 = require("path");
 var ARTIFACT_FORMATS = {
   "feature-spec.json": { kind: "json-schema", schema: "feature.schema.json" },
   "story.json": { kind: "json-schema", schema: "story.schema.json" },
@@ -9500,8 +9691,8 @@ function checkDbDesign(dbDesignJson2, architectureJson2) {
   return violations.length > 0 ? { ok: false, violations } : { ok: true };
 }
 function canonicalArtifactName(path11) {
-  const base = (0, import_path8.basename)(path11);
-  if ((0, import_path8.basename)((0, import_path8.dirname)(path11)) === "acs" && base.endsWith(".json")) return "ac.json";
+  const base = (0, import_path10.basename)(path11);
+  if ((0, import_path10.basename)((0, import_path10.dirname)(path11)) === "acs" && base.endsWith(".json")) return "ac.json";
   return base;
 }
 
@@ -9570,9 +9761,11 @@ function readDriveContext(consortDir, featureId, projectDir) {
     prApproved: readGateApproved(featureId, consortDir, "promote"),
     merged: scmState === "merged"
   };
+  const loop = resolveProjectSettings(proj).build.loopGranularity;
   return {
     phase: driverPhaseForTdd(tddPhase),
     breakdownDone,
+    loop,
     planning: { proposed, estimated: hasEstimates(consortDir), requestsAuthored },
     deploy: { deployed, gateApproved, verifyAssessEligible, verifyRefactorPending },
     promote
@@ -9737,7 +9930,7 @@ function diskArtifactProbe(consortDir, featureId, buildActive) {
       if (e.source.startsWith("smell:")) {
         const name = e.source.slice("smell:".length);
         const story = e.story_id ?? buildActive ?? void 0;
-        if (isBuildRefactorRoutableSmell(name) && story && firstRefactorPendingAc(consortDir, featureId, story)) {
+        if (isBuildRefactorRoutableSmell(name) && story && (refactorPending(consortDir, featureId, story) || firstRefactorPendingAc(consortDir, featureId, story))) {
           return null;
         }
         const spec = specLevelSmell(name);
@@ -9775,7 +9968,7 @@ init_cjs_shims();
 
 // consort/pipeline/story-pipeline.ts
 init_cjs_shims();
-var import_fs11 = require("fs");
+var import_fs13 = require("fs");
 
 // consort/gates/gate-conformance-guard.ts
 init_cjs_shims();
@@ -9784,12 +9977,12 @@ var import_node_path10 = require("path");
 
 // consort/architecture/architecture-conventions.ts
 init_cjs_shims();
-var import_fs10 = require("fs");
+var import_fs12 = require("fs");
 function readConventions(consortDir) {
   const f = architectureConventionsJson(consortDir);
-  if (!(0, import_fs10.existsSync)(f)) return void 0;
+  if (!(0, import_fs12.existsSync)(f)) return void 0;
   try {
-    return JSON.parse((0, import_fs10.readFileSync)(f, "utf8"));
+    return JSON.parse((0, import_fs12.readFileSync)(f, "utf8"));
   } catch {
     return void 0;
   }
@@ -9804,8 +9997,8 @@ function pipelinePath(consortDir, featureId) {
 }
 function readPipeline(consortDir, featureId) {
   const p = pipelinePath(consortDir, featureId);
-  if (!(0, import_fs11.existsSync)(p)) return initPipeline(featureId);
-  return JSON.parse((0, import_fs11.readFileSync)(p, "utf8"));
+  if (!(0, import_fs13.existsSync)(p)) return initPipeline(featureId);
+  return JSON.parse((0, import_fs13.readFileSync)(p, "utf8"));
 }
 
 // consort/orchestrator/status/feature-status.ts
@@ -10137,7 +10330,7 @@ var navigator_red_default = {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "sonnet",
+    model: "opus",
     effort: "default",
     session: "resume",
     resumeKeyFrom: "story"
@@ -10385,7 +10578,7 @@ var driver_green_superseded_default = {
   agent: { kind: "claude", config: { role: "driver" } },
   match: { kind: "invoke-role", role: "driver", buildMode: "green-superseded" },
   inputs: [
-    { id: "test-list", source: "story:test-list.json", description: "The story's tests the Driver makes GREEN after a superseded-test refactor re-opened the cycle." }
+    { id: "test-list", source: "story:test-list-per-story.json", description: "The story's tests the Driver makes GREEN after a superseded-test refactor re-opened the cycle." }
   ],
   outputs: [],
   routing: {
@@ -11069,153 +11262,6 @@ var fs11 = __toESM(require("fs"), 1);
 var path6 = __toESM(require("path"), 1);
 var import_node_url2 = require("url");
 
-// consort/config/consort-config-file.ts
-init_cjs_shims();
-var import_fs13 = require("fs");
-var import_path10 = require("path");
-
-// consort/config/agent-models.ts
-init_cjs_shims();
-var import_fs12 = require("fs");
-var import_path9 = require("path");
-var RECOMMENDED_MODELS = {
-  "spec-author": "opus",
-  "architect-reviewer": "opus",
-  dba: "opus",
-  "test-strategist": "sonnet",
-  "ux-designer": "sonnet",
-  navigator: "sonnet",
-  driver: "sonnet",
-  "product-owner": "opus"
-};
-var ALL_AGENT_ROLES = Object.keys(RECOMMENDED_MODELS);
-var AGENT_CONFIG_REL = (0, import_path9.join)(".lakebase", "agent-config.json");
-function readAgentConfig(projectDir) {
-  const p = (0, import_path9.join)(projectDir, AGENT_CONFIG_REL);
-  if (!(0, import_fs12.existsSync)(p)) return void 0;
-  return JSON.parse((0, import_fs12.readFileSync)(p, "utf8"));
-}
-function resolveModelForRole(role, projectDir) {
-  const spawnable = role;
-  const entry = readAgentConfig(projectDir)?.roles?.[spawnable];
-  return entry?.override ?? entry?.recommended ?? RECOMMENDED_MODELS[spawnable] ?? "inherit";
-}
-
-// consort/config/optimized-defaults.json
-var optimized_defaults_default = {
-  _comment: "Auto-applied optimization winners, deep-merged onto defaultSftddConfig()'s base. Written by optimize-apply (data, never a TS rewrite) so an unattended champion walk can bake each winner into the kit default; inlined into dist at build time. roles.<role>.{model,effort} may be a scalar or a per-turn/step map keyed by TurnKey (breakdown/acs/architect/dba/test-list/ux for design; red/green/review/refactor/assess/repair for build). Edit via the apply path, not by hand.",
-  roles: {
-    "spec-author": {
-      model: {
-        breakdown: "haiku"
-      },
-      effort: {
-        breakdown: "low"
-      }
-    },
-    "ux-designer": {
-      model: "opus",
-      effort: "low"
-    }
-  }
-};
-
-// consort/config/consort-config-file.ts
-var CONSORT_CONFIG_REL = (0, import_path10.join)(".lakebase", "consort-config.json");
-var LEGACY_CONFIG_RELS = [
-  (0, import_path10.join)(".lakebase", "sftdd-config.json"),
-  (0, import_path10.join)(".lakebase", "tdd-config.json")
-];
-var LEGACY_TDD_CONFIG_REL = LEGACY_CONFIG_RELS[0];
-function loadConsortConfig(projectDir) {
-  for (const rel of [CONSORT_CONFIG_REL, ...LEGACY_CONFIG_RELS]) {
-    const f = (0, import_path10.join)(projectDir, rel);
-    if (!(0, import_fs13.existsSync)(f)) continue;
-    try {
-      return JSON.parse((0, import_fs13.readFileSync)(f, "utf8"));
-    } catch {
-      return void 0;
-    }
-  }
-  return void 0;
-}
-function resolveProjectSettings(projectDir) {
-  const file = loadConsortConfig(projectDir);
-  const build = {
-    loopGranularity: file?.build?.loopGranularity ?? "story",
-    batchCap: file?.build?.batchCap,
-    sessionScope: file?.build?.sessionScope ?? "story"
-  };
-  const project = {
-    uiTrack: file?.project?.uiTrack ?? true,
-    // HITL-first: the declared project policy defaults to interactive (a human
-    // approves each gate). Headless (proxy) is a deliberate opt-in, set in the
-    // file or as a RUN-SCOPED --gates override (never persisted by a flag).
-    gates: file?.project?.gates ?? "interactive",
-    deployTarget: file?.project?.deployTarget ?? "local",
-    clientFramework: file?.project?.clientFramework ?? "none"
-  };
-  const plan = { sizing: file?.plan?.sizing ?? true };
-  return { build, plan, project };
-}
-function defaultConsortConfig() {
-  const roles = {};
-  for (const role of ALL_AGENT_ROLES) {
-    roles[role] = role === "navigator" ? { model: RECOMMENDED_MODELS[role], effort: { review: "low" } } : role === "driver" ? (
-      // Model tiering: RED (test authoring) + GREEN (implementation) keep the
-      // recommended model; only the mechanical REFACTOR turn drops to a fast
-      // model. GREEN was on haiku, but the recorded worst GREEN turn thrashed
-      // 93 tool round-trips (haiku's trial-and-error), so wall-clock, not token
-      // cost, dominated. Sonnet finishes GREEN in far fewer round-trips, faster
-      // even at a higher per-token price. Overridable per project by editing
-      // consort-config.json (a project can flatten to a scalar `model`).
-      { model: { red: RECOMMENDED_MODELS[role], green: RECOMMENDED_MODELS[role], refactor: "haiku" } }
-    ) : (
-      // Every other role's base is just its recommended model. Optimization
-      // winners (e.g. spec-author breakdown -> haiku+low) are NOT hardcoded here;
-      // they live in optimized-defaults.json and are deep-merged below, so the
-      // champion walk's auto-apply is the single writer of applied winners.
-      { model: RECOMMENDED_MODELS[role] }
-    );
-  }
-  const base = {
-    version: 1,
-    roles,
-    build: { loopGranularity: "story", batchCap: 3, sessionScope: "story" },
-    plan: { sizing: true },
-    project: { uiTrack: true, gates: "interactive", deployTarget: "local", clientFramework: "none" }
-  };
-  return mergeOptimizedDefaults(base, optimized_defaults_default);
-}
-function mergeOptimizedDefaults(base, overlay) {
-  if (overlay === null || typeof overlay !== "object" || Array.isArray(overlay)) {
-    return overlay === void 0 ? base : overlay;
-  }
-  const out = Array.isArray(base) ? [...base] : { ...base };
-  for (const [k, v] of Object.entries(overlay)) {
-    if (k === "_comment") continue;
-    const b = out[k];
-    out[k] = b && typeof b === "object" && !Array.isArray(b) && v && typeof v === "object" && !Array.isArray(v) ? mergeOptimizedDefaults(b, v) : v;
-  }
-  return out;
-}
-function writeConsortConfig(projectDir, config, opts) {
-  const f = (0, import_path10.join)(projectDir, CONSORT_CONFIG_REL);
-  if ((0, import_fs13.existsSync)(f) && !opts?.force) return false;
-  (0, import_fs13.mkdirSync)((0, import_path10.dirname)(f), { recursive: true });
-  (0, import_fs13.writeFileSync)(f, JSON.stringify(config, null, 2) + "\n");
-  return true;
-}
-function applyProjectOverrides(projectDir, over) {
-  if (over.deployTarget === void 0 && over.sizing === void 0) return;
-  const cfg = loadConsortConfig(projectDir) ?? defaultConsortConfig();
-  cfg.project = cfg.project ?? {};
-  if (over.deployTarget !== void 0) cfg.project.deployTarget = over.deployTarget;
-  cfg.plan = cfg.plan ?? {};
-  if (over.sizing !== void 0) cfg.plan.sizing = over.sizing;
-  writeConsortConfig(projectDir, cfg, { force: true });
-}
-
 // consort/lakebase/adopt-consort.ts
 init_cjs_shims();
 var fs9 = __toESM(require("fs"), 1);
@@ -11576,9 +11622,13 @@ function assistantEventSummary(line) {
       textParts.push(block.text);
     } else if (block?.type === "tool_use" && typeof block.name === "string") {
       const inp = block.input ?? {};
-      const target = typeof inp.file_path === "string" && inp.file_path || typeof inp.path === "string" && inp.path || typeof inp.command === "string" && inp.command || typeof inp.pattern === "string" && inp.pattern || "";
-      const clipped = typeof target === "string" && target.length > 80 ? `${target.slice(0, 80)}...` : target;
-      tools.push(clipped ? `${block.name} ${clipped}` : block.name);
+      let args = "";
+      try {
+        args = Object.keys(inp).length ? JSON.stringify(inp) : "";
+      } catch {
+        args = "";
+      }
+      tools.push(args ? `${block.name} ${args}` : block.name);
     }
   }
   return { text: textParts.join("").trim(), tools };
@@ -11733,10 +11783,86 @@ function relocateStrayDesignArtifacts(projectDir) {
   return moved.length > 0 ? { relocated: true, from: sibling, moved } : { relocated: false, moved: [] };
 }
 
+// consort/orchestrator/turns/turn-monitor.ts
+init_cjs_shims();
+var realClock = {
+  now: () => Date.now(),
+  setTimer: (fn, ms) => setTimeout(fn, ms),
+  clearTimer: (t) => clearTimeout(t)
+};
+function createMonitorController(monitor, onTimeout, clock = realClock) {
+  if (!monitor) {
+    return { start() {
+    }, progress() {
+    }, stop() {
+    } };
+  }
+  let heartbeatTimer;
+  let inactivityTimer;
+  let timeoutTimer;
+  let timedOut = false;
+  let stopped = false;
+  const emit = (kind, tool) => {
+    monitor.onProgress?.({ kind, tool, atMs: clock.now() });
+  };
+  const fireTimeout = () => {
+    if (stopped || timedOut) return;
+    timedOut = true;
+    clearAll();
+    onTimeout();
+  };
+  const armHeartbeat = () => {
+    if (monitor.heartbeatMs === void 0) return;
+    if (heartbeatTimer !== void 0) clock.clearTimer(heartbeatTimer);
+    heartbeatTimer = clock.setTimer(() => {
+      if (stopped || timedOut) return;
+      emit("heartbeat");
+      armHeartbeat();
+    }, monitor.heartbeatMs);
+  };
+  const armInactivity = () => {
+    if (monitor.inactivityTimeoutMs === void 0) return;
+    if (inactivityTimer !== void 0) clock.clearTimer(inactivityTimer);
+    inactivityTimer = clock.setTimer(fireTimeout, monitor.inactivityTimeoutMs);
+  };
+  const clearAll = () => {
+    if (heartbeatTimer !== void 0) clock.clearTimer(heartbeatTimer);
+    if (inactivityTimer !== void 0) clock.clearTimer(inactivityTimer);
+    if (timeoutTimer !== void 0) clock.clearTimer(timeoutTimer);
+    heartbeatTimer = void 0;
+    inactivityTimer = void 0;
+    timeoutTimer = void 0;
+  };
+  return {
+    start() {
+      emit("start");
+      armHeartbeat();
+      armInactivity();
+      if (monitor.timeoutMs !== void 0) {
+        timeoutTimer = clock.setTimer(fireTimeout, monitor.timeoutMs);
+      }
+    },
+    progress(p) {
+      if (stopped || timedOut) return;
+      emit(p.kind, p.tool);
+      armHeartbeat();
+      armInactivity();
+    },
+    stop() {
+      if (stopped) return;
+      stopped = true;
+      clearAll();
+      emit("end");
+    }
+  };
+}
+
 // consort/orchestrator/drive/claude-runner.ts
 var MAX_PROMPT_TOO_LONG_RETRIES = 2;
 var MAX_TRANSIENT_RETRIES = Number(consortEnv("MAX_TRANSIENT_RETRIES") ?? "5");
 var TRANSIENT_BACKOFF_MS = Number(consortEnv("TRANSIENT_BACKOFF_MS") ?? "5000");
+var TURN_INACTIVITY_TIMEOUT_MS = Number(consortEnv("TURN_INACTIVITY_TIMEOUT_MS") ?? String(10 * 60 * 1e3));
+var TURN_HEARTBEAT_MS = Number(consortEnv("TURN_HEARTBEAT_MS") ?? String(60 * 1e3));
 function spawnCmd(bin, args, cwd) {
   return new Promise((resolve3, reject) => {
     const child = (0, import_node_child_process4.spawn)(bin, args, { cwd, stdio: "inherit" });
@@ -11745,14 +11871,16 @@ function spawnCmd(bin, args, cwd) {
   });
 }
 var ClaudeTurnError = class extends Error {
-  constructor(message, promptTooLong, transient = false) {
+  constructor(message, promptTooLong, transient = false, stalled = false) {
     super(message);
     this.promptTooLong = promptTooLong;
     this.transient = transient;
+    this.stalled = stalled;
     this.name = "ClaudeTurnError";
   }
   promptTooLong;
   transient;
+  stalled;
 };
 var ReplayCorpusMissError = class extends Error {
   constructor(message) {
@@ -11788,7 +11916,13 @@ function takeLastAgentTranscript() {
 function peekLastAgentTranscript() {
   return lastAgentTranscript;
 }
-function spawnClaudeStreaming(args, cwd) {
+function defaultTurnMonitor(sink) {
+  const heartbeatMs = TURN_HEARTBEAT_MS > 0 ? TURN_HEARTBEAT_MS : void 0;
+  const inactivityTimeoutMs = TURN_INACTIVITY_TIMEOUT_MS > 0 ? TURN_INACTIVITY_TIMEOUT_MS : void 0;
+  if (heartbeatMs === void 0 && inactivityTimeoutMs === void 0) return void 0;
+  return { onProgress: sink, heartbeatMs, inactivityTimeoutMs };
+}
+function spawnClaudeStreaming(args, cwd, monitorOverride) {
   return new Promise((resolve3, reject) => {
     const child = (0, import_node_child_process4.spawn)("claude", args, { cwd, stdio: ["inherit", "pipe", "pipe"] });
     const lines = [];
@@ -11803,7 +11937,7 @@ function spawnClaudeStreaming(args, cwd) {
         liveLog = fs13.openSync(path8.join(liveLogDir, "agent-live.log"), "a");
         const pIdxL = args.indexOf("-p"), rIdxL = args.indexOf("--agent");
         const role = rIdxL >= 0 ? args[rIdxL + 1] : "agent";
-        const task = pIdxL >= 0 ? (args[pIdxL + 1] ?? "").slice(0, 120) : "";
+        const task = pIdxL >= 0 ? args[pIdxL + 1] ?? "" : "";
         fs13.writeSync(liveLog, `
 === ${(/* @__PURE__ */ new Date()).toISOString()} TURN START role=${role} :: ${task}
 `);
@@ -11820,6 +11954,25 @@ function spawnClaudeStreaming(args, cwd) {
     };
     let lastText = "";
     const allTools = [];
+    let stalled = false;
+    const monitor = monitorOverride ?? defaultTurnMonitor((p) => {
+      if (p.kind === "heartbeat") {
+        liveWrite(`  \u23F3 ${(/* @__PURE__ */ new Date()).toISOString()} no agent output for ~${Math.round((TURN_HEARTBEAT_MS || 0) / 1e3)}s (waiting; kills at ${Math.round((TURN_INACTIVITY_TIMEOUT_MS || 0) / 1e3)}s of silence)
+`);
+      }
+    });
+    const monitorCtl = createMonitorController(monitor, () => {
+      stalled = true;
+      liveWrite(`  \u2716 ${(/* @__PURE__ */ new Date()).toISOString()} INACTIVITY TIMEOUT (~${Math.round((TURN_INACTIVITY_TIMEOUT_MS || 0) / 1e3)}s silent) , tree-killing pid ${child.pid} for a fresh-session retry
+`);
+      process.stderr.write(`[drive] turn stalled: no agent output for ~${Math.round((TURN_INACTIVITY_TIMEOUT_MS || 0) / 1e3)}s; killing pid ${child.pid} and retrying on a fresh session
+`);
+      try {
+        child.kill("SIGKILL");
+      } catch {
+      }
+    });
+    monitorCtl.start();
     const rl = readline.createInterface({ input: child.stdout });
     rl.on("line", (line) => {
       lines.push(line);
@@ -11829,10 +11982,12 @@ function spawnClaudeStreaming(args, cwd) {
         const text2 = assistantTextFromLine(line);
         if (text2) process.stderr.write(text2);
         if (text2) liveWrite(text2);
+        if (text2) monitorCtl.progress({ kind: "text" });
         for (const t of assistantEventSummary(line).tools) {
           allTools.push(t);
           liveWrite(`  \xB7 ${t}
 `);
+          monitorCtl.progress({ kind: "tool", tool: t });
         }
         return;
       }
@@ -11843,15 +11998,18 @@ function spawnClaudeStreaming(args, cwd) {
         allTools.push(t);
         liveWrite(`  \xB7 ${t}
 `);
+        monitorCtl.progress({ kind: "tool", tool: t });
       }
       if (text) {
         lastText = text;
         liveWrite(text.endsWith("\n") ? text : `${text}
 `);
+        monitorCtl.progress({ kind: "text" });
       }
     });
     const erl = readline.createInterface({ input: child.stderr });
     erl.on("line", (line) => {
+      monitorCtl.progress({ kind: "text" });
       if (isPromptTooLongSignal(line)) sawTooLong = true;
       if (isTransientApiErrorSignal(line)) sawTransient = true;
       process.stderr.write(`${line}
@@ -11866,17 +12024,22 @@ function spawnClaudeStreaming(args, cwd) {
       liveLog = void 0;
     };
     child.on("error", (err) => {
+      monitorCtl.stop();
       closeLiveLog();
       reject(err);
     });
     child.on("close", (code) => {
+      monitorCtl.stop();
       rl.close();
       erl.close();
       if (!verboseAgent && lastText) process.stderr.write(`${lastText}
 `);
-      liveWrite(`--- ${(/* @__PURE__ */ new Date()).toISOString()} TURN CLOSE code=${code}${lastText ? ` :: ${lastText.slice(0, 200)}` : ""}
+      liveWrite(`--- ${(/* @__PURE__ */ new Date()).toISOString()} TURN CLOSE code=${code}${lastText ? ` :: ${lastText}` : ""}
 `);
       closeLiveLog();
+      if (stalled) {
+        return reject(new ClaudeTurnError(`claude turn stalled (inactivity timeout); killed for retry`, false, true, true));
+      }
       if (code !== 0) return reject(new ClaudeTurnError(`claude exited ${code}`, sawTooLong, sawTransient));
       const pIdx = args.indexOf("-p");
       const rIdx = args.indexOf("--agent");
@@ -12021,8 +12184,10 @@ function execRunner(cfg) {
         const turnStart = Date.now();
         let overflowRetries = 0;
         let transientRetries = 0;
+        let forceFreshAfterStall = false;
         for (; ; ) {
-          const args = [...baseArgs, ...sessionArgsFor(overflowRetries > 0)];
+          const args = [...baseArgs, ...sessionArgsFor(overflowRetries > 0 || forceFreshAfterStall)];
+          forceFreshAfterStall = false;
           try {
             usage = await spawnClaudeStreaming(args, cfg.projectDir);
             break;
@@ -12038,8 +12203,10 @@ function execRunner(cfg) {
             if (e instanceof ClaudeTurnError && e.transient && transientRetries < MAX_TRANSIENT_RETRIES) {
               transientRetries++;
               const backoff = TRANSIENT_BACKOFF_MS * transientRetries;
+              const kind = e.stalled ? "stalled turn (inactivity timeout)" : "transient API error";
+              if (e.stalled) forceFreshAfterStall = true;
               process.stderr.write(
-                `[drive] transient API error on ${cmd.role} (${cmd.model}); retry ${transientRetries}/${MAX_TRANSIENT_RETRIES} after ${(backoff / 1e3).toFixed(0)}s
+                `[drive] ${kind} on ${cmd.role} (${cmd.model}); retry ${transientRetries}/${MAX_TRANSIENT_RETRIES} after ${(backoff / 1e3).toFixed(0)}s${e.stalled ? " on a FRESH session" : ""}
 `
               );
               await new Promise((r) => setTimeout(r, backoff));
@@ -13714,7 +13881,7 @@ Edit ONLY those test files. The orchestrator re-deploys + re-verifies the whole 
     case "deploy-complete":
       return [{ kind: "set-phase", phase: "promote" }];
     case "prepare-pr":
-      return [{ kind: "cli", bin: SCM_PREPARE_PR_BIN, args: ["--project-dir", cfg.projectDir] }];
+      return [{ kind: "cli", bin: SCM_PREPARE_PR_BIN, args: ["--project-dir", cfg.projectDir, "--force"] }];
     case "wait-ci":
       return [{ kind: "cli", bin: SCM_WAIT_CI_BIN, args: ["--project-dir", cfg.projectDir] }];
     case "approve-promote-gate": {
@@ -14523,26 +14690,29 @@ function projectCorrespondence(seq, iteration, action, state, fresh, isGate, rec
     return { artifact: md.artifact ?? "artifact", ...md.from ? { from: md.from } : {}, ...md.to ? { contentRef: md.to } : {} };
   });
   const approved = isGate ? gateEv?.event === "gate.approved" : void 0;
-  return {
+  const ordinal = lastRecordedOrdinal(recordDir);
+  const at = (/* @__PURE__ */ new Date()).toISOString();
+  const askPrompt = isGate ? `orchestrator presents ${describeAction(action)} for HIL approval` : `orchestrator asks the PO to author the sprint's feature-requests (${describeAction(action)})`;
+  const askRendered = isGate ? `**HIL approval requested** , ${describeAction(action)}` : `**PO input requested** , author the sprint's feature-requests (${describeAction(action)})`;
+  const ask = {
     seq,
-    direction: "hil-to-orch",
-    // Explicit FK to the turn this exchange ran at: onCorrespondence fires after perform() recorded the
-    // turn (author-requests / gate ARE recorded turns), so the just-recorded turn is the last index
-    // entry. null only if nothing was recorded (should not happen for a HIL touchpoint).
-    ordinal: lastRecordedOrdinal(recordDir),
+    direction: "orch-to-hil",
+    ordinal,
     iteration,
-    at: (/* @__PURE__ */ new Date()).toISOString(),
+    at,
     ...phase ? { phase } : {},
-    request: {
-      kind,
-      prompt: isGate ? `orchestrator presents ${describeAction(action)} for HIL approval` : `orchestrator asks the PO to author the sprint's feature-requests (${describeAction(action)})`,
-      // Presentation: the ask rendered as markdown so a renderer reproduces its formatting. The
-      // proxy's stderr banner (reportGate) is ANSI-styled; capture it verbatim when present.
-      presentation: {
-        format: "markdown",
-        rendered: isGate ? `**HIL approval requested** , ${describeAction(action)}` : `**PO input requested** , author the sprint's feature-requests (${describeAction(action)})`
-      }
-    },
+    request: { kind, prompt: askPrompt, presentation: { format: "markdown", rendered: askRendered } },
+    response: { by: "orchestrator" },
+    outcome: { validated: true }
+  };
+  const answer = {
+    seq: seq + 1,
+    direction: "hil-to-orch",
+    ordinal,
+    iteration,
+    at,
+    ...phase ? { phase } : {},
+    request: { kind, prompt: askPrompt, presentation: { format: "markdown", rendered: askRendered } },
     response: {
       by: "human-proxy",
       ...submitted.length ? { submitted } : {},
@@ -14560,12 +14730,13 @@ function projectCorrespondence(seq, iteration, action, state, fresh, isGate, rec
       ...violations.length ? { violations } : {}
     }
   };
+  return [ask, answer];
 }
 function withTurnRecording(inner, cfg) {
   const recordDir = consortEnv("RECORD_DIR")?.trim();
   if (!recordDir) return inner;
   seedRecorderBaseline({ recordDir, projectDir: cfg.projectDir, consortDir: cfg.consortDir });
-  let corrSeq = 0;
+  let corrSeq = 3;
   let logLenBeforePerform = readAgentLog({ consortDir: cfg.consortDir }).length;
   return {
     readState: () => inner.readState(),
@@ -14582,9 +14753,9 @@ function withTurnRecording(inner, cfg) {
       if (!isGate && !isInput) return;
       const after = readAgentLog({ consortDir: cfg.consortDir });
       const fresh = after.slice(logLenBeforePerform);
-      const entry = projectCorrespondence(corrSeq, iteration, action, state, fresh, isGate, recordDir);
-      recordCorrespondence(recordDir, entry);
-      corrSeq += 1;
+      const beats = projectCorrespondence(corrSeq, iteration, action, state, fresh, isGate, recordDir);
+      for (const beat of beats) recordCorrespondence(recordDir, beat);
+      corrSeq += beats.length;
     },
     // Forward the executor-dispatch seam UNCHANGED: an executor-dispatched turn runs THROUGH the
     // executor (whose ReplayRecorderWrapper records it, from cfg.takeTranscript) and NEVER reaches
@@ -14651,27 +14822,69 @@ async function runSprintMode(args) {
   const recordDirForKickoff = consortEnv("RECORD_DIR")?.trim();
   if (recordDirForKickoff) {
     const cmd = `/sprint ${sprint} --gates ${gates}`;
+    const by = interactive ? "human" : "human-proxy";
+    const nowIso = () => (/* @__PURE__ */ new Date()).toISOString();
     const intakeCandidates = [
-      { artifact: "product-overview.md", rel: "product-overview.md" },
-      { artifact: "nfrs.md", rel: "nfrs.md" },
-      { artifact: "design-brief.md", rel: path10.join("design", "design-brief.md") },
-      { artifact: "warehouse.png", rel: path10.join("design", "assets", "warehouse.png"), binary: true }
+      { artifact: "product-overview.md", rel: "product-overview.md", ask: "a product overview , the framing + goals the features are proposed from" },
+      { artifact: "nfrs.md", rel: "nfrs.md", ask: "the non-functional requirements (NFRs) the work must satisfy" },
+      { artifact: "design-brief.md", rel: path10.join("design", "design-brief.md"), ask: "a design brief , the UX/visual direction for the SPA" },
+      { artifact: "warehouse.png", rel: path10.join("design", "assets", "warehouse.png"), binary: true, ask: "any brand asset(s) (logo/icon) to carry into the design" }
     ];
-    const submitted = intakeCandidates.map((c) => ({ ...c, abs: path10.join(consortDir, c.rel) })).filter((c) => fs19.existsSync(c.abs)).map((c) => ({ artifact: c.artifact, contentRef: c.abs, ...c.binary ? { binary: true } : {} }));
+    const resolved = intakeCandidates.map((c) => ({ ...c, abs: path10.join(consortDir, c.rel) }));
     recordCorrespondence(recordDirForKickoff, {
       seq: 0,
       direction: "hil-to-orch",
       ordinal: null,
       iteration: -1,
-      at: (/* @__PURE__ */ new Date()).toISOString(),
+      at: nowIso(),
       phase: "planning",
       request: { kind: "kickoff", prompt: cmd, presentation: { format: "markdown", rendered: `\`${cmd}\`` } },
-      response: {
-        by: interactive ? "human" : "human-proxy",
-        ...submitted.length ? { submitted } : {},
-        ...submitted.length ? { presentation: { format: "markdown", rendered: submitted.map((s) => `- INTAKE supplied ${s.artifact}`).join("\n") } } : {}
-      },
+      response: { by, presentation: { format: "markdown", rendered: `Starting sprint \`${sprint}\`.` } },
       outcome: { validated: true }
+    });
+    const questions = resolved.map((c, i) => `${i + 1}. ${c.ask} (\`${c.rel}\`)`).join("\n");
+    const askPrompt = `To plan this sprint I need the project intake. Please provide:
+${questions}
+
+Place each under the project's \`.consort/\`; I will read them as the proposal + design inputs.`;
+    recordCorrespondence(recordDirForKickoff, {
+      seq: 1,
+      direction: "orch-to-hil",
+      ordinal: null,
+      iteration: -1,
+      at: nowIso(),
+      phase: "planning",
+      request: { kind: "intake", prompt: askPrompt, presentation: { format: "markdown", rendered: askPrompt } },
+      response: { by: "orchestrator" },
+      outcome: { validated: true }
+    });
+    const intakeCopyDir = path10.join(recordDirForKickoff, "intake");
+    const submitted = resolved.filter((c) => fs19.existsSync(c.abs)).map((c) => {
+      const dest = path10.join(intakeCopyDir, c.rel);
+      try {
+        fs19.mkdirSync(path10.dirname(dest), { recursive: true });
+        fs19.copyFileSync(c.abs, dest);
+      } catch {
+      }
+      return { artifact: c.artifact, contentRef: path10.join("intake", c.rel), ...c.binary ? { binary: true } : {} };
+    });
+    recordCorrespondence(recordDirForKickoff, {
+      seq: 2,
+      direction: "hil-to-orch",
+      ordinal: null,
+      iteration: -1,
+      at: nowIso(),
+      phase: "planning",
+      request: { kind: "intake", prompt: "Intake for the sprint.", presentation: { format: "markdown", rendered: "Submitting project intake." } },
+      response: {
+        by,
+        ...submitted.length ? { submitted } : {},
+        presentation: {
+          format: "markdown",
+          rendered: submitted.length ? submitted.map((s) => `- INTAKE supplied ${s.artifact}`).join("\n") : "(no intake artifacts on disk)"
+        }
+      },
+      outcome: { validated: submitted.length > 0 }
     });
   }
   const effects = {

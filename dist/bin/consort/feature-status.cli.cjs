@@ -6646,8 +6646,8 @@ init_cjs_shims();
 
 // consort/orchestrator/status/feature-status.ts
 init_cjs_shims();
-var import_fs8 = require("fs");
-var import_path5 = require("path");
+var import_fs9 = require("fs");
+var import_path7 = require("path");
 
 // consort/orchestrator/state/orchestrator-probe.ts
 init_cjs_shims();
@@ -7089,6 +7089,66 @@ init_cjs_shims();
 var fs6 = __toESM(require("fs"), 1);
 var PHASE_OWNER_KEY = "phase_feature_id";
 
+// consort/config/consort-config-file.ts
+init_cjs_shims();
+var import_fs6 = require("fs");
+var import_path6 = require("path");
+
+// consort/config/agent-models.ts
+init_cjs_shims();
+var import_path5 = require("path");
+var RECOMMENDED_MODELS = {
+  "spec-author": "opus",
+  "architect-reviewer": "opus",
+  dba: "opus",
+  "test-strategist": "sonnet",
+  "ux-designer": "sonnet",
+  navigator: "sonnet",
+  driver: "sonnet",
+  "product-owner": "opus"
+};
+var ALL_AGENT_ROLES = Object.keys(RECOMMENDED_MODELS);
+var AGENT_CONFIG_REL = (0, import_path5.join)(".lakebase", "agent-config.json");
+
+// consort/config/consort-config-file.ts
+var CONSORT_CONFIG_REL = (0, import_path6.join)(".lakebase", "consort-config.json");
+var LEGACY_CONFIG_RELS = [
+  (0, import_path6.join)(".lakebase", "sftdd-config.json"),
+  (0, import_path6.join)(".lakebase", "tdd-config.json")
+];
+var LEGACY_TDD_CONFIG_REL = LEGACY_CONFIG_RELS[0];
+function loadConsortConfig(projectDir) {
+  for (const rel of [CONSORT_CONFIG_REL, ...LEGACY_CONFIG_RELS]) {
+    const f = (0, import_path6.join)(projectDir, rel);
+    if (!(0, import_fs6.existsSync)(f)) continue;
+    try {
+      return JSON.parse((0, import_fs6.readFileSync)(f, "utf8"));
+    } catch {
+      return void 0;
+    }
+  }
+  return void 0;
+}
+function resolveProjectSettings(projectDir) {
+  const file = loadConsortConfig(projectDir);
+  const build = {
+    loopGranularity: file?.build?.loopGranularity ?? "story",
+    batchCap: file?.build?.batchCap,
+    sessionScope: file?.build?.sessionScope ?? "story"
+  };
+  const project = {
+    uiTrack: file?.project?.uiTrack ?? true,
+    // HITL-first: the declared project policy defaults to interactive (a human
+    // approves each gate). Headless (proxy) is a deliberate opt-in, set in the
+    // file or as a RUN-SCOPED --gates override (never persisted by a flag).
+    gates: file?.project?.gates ?? "interactive",
+    deployTarget: file?.project?.deployTarget ?? "local",
+    clientFramework: file?.project?.clientFramework ?? "none"
+  };
+  const plan = { sizing: file?.plan?.sizing ?? true };
+  return { build, plan, project };
+}
+
 // consort/orchestrator/state/orchestrator-probe.ts
 var import_lakebase8 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
@@ -7148,9 +7208,11 @@ function readDriveContext(consortDir, featureId, projectDir) {
     prApproved: readGateApproved(featureId, consortDir, "promote"),
     merged: scmState === "merged"
   };
+  const loop = resolveProjectSettings(proj).build.loopGranularity;
   return {
     phase: driverPhaseForTdd(tddPhase),
     breakdownDone,
+    loop,
     planning: { proposed, estimated: hasEstimates(consortDir), requestsAuthored },
     deploy: { deployed, gateApproved, verifyAssessEligible, verifyRefactorPending },
     promote
@@ -7166,7 +7228,7 @@ function readGateApproved(featureId, consortDir, gate) {
 
 // consort/gates/design-spec-gate.ts
 init_cjs_shims();
-var import_fs6 = require("fs");
+var import_fs7 = require("fs");
 
 // consort/experiment/spike-carryforward.ts
 init_cjs_shims();
@@ -7174,13 +7236,13 @@ init_cjs_shims();
 // consort/gates/design-spec-gate.ts
 function readPlan(consortDir, featureId, storyId) {
   const planPath = storyPlanJson(consortDir, featureId, storyId);
-  if (!(0, import_fs6.existsSync)(planPath)) return null;
-  return JSON.parse((0, import_fs6.readFileSync)(planPath, "utf8"));
+  if (!(0, import_fs7.existsSync)(planPath)) return null;
+  return JSON.parse((0, import_fs7.readFileSync)(planPath, "utf8"));
 }
 
 // consort/pipeline/story-pipeline.ts
 init_cjs_shims();
-var import_fs7 = require("fs");
+var import_fs8 = require("fs");
 
 // consort/gates/gate-conformance-guard.ts
 init_cjs_shims();
@@ -7199,24 +7261,24 @@ function pipelinePath(consortDir, featureId) {
 }
 function readPipeline(consortDir, featureId) {
   const p = pipelinePath(consortDir, featureId);
-  if (!(0, import_fs7.existsSync)(p)) return initPipeline(featureId);
-  return JSON.parse((0, import_fs7.readFileSync)(p, "utf8"));
+  if (!(0, import_fs8.existsSync)(p)) return initPipeline(featureId);
+  return JSON.parse((0, import_fs8.readFileSync)(p, "utf8"));
 }
 
 // consort/orchestrator/status/feature-status.ts
 var MAX_RECENT_LOG_ENTRIES = 5;
 function readJsonIfExists(path4) {
-  if (!(0, import_fs8.existsSync)(path4)) return null;
-  return JSON.parse((0, import_fs8.readFileSync)(path4, "utf8"));
+  if (!(0, import_fs9.existsSync)(path4)) return null;
+  return JSON.parse((0, import_fs9.readFileSync)(path4, "utf8"));
 }
 function listFeatureStories(consortDir, featureId) {
   const storiesDir2 = storiesDir(consortDir, featureId);
-  if (!(0, import_fs8.existsSync)(storiesDir2)) return [];
-  return (0, import_fs8.readdirSync)(storiesDir2).filter((d) => (0, import_fs8.statSync)((0, import_path5.join)(storiesDir2, d)).isDirectory()).sort();
+  if (!(0, import_fs9.existsSync)(storiesDir2)) return [];
+  return (0, import_fs9.readdirSync)(storiesDir2).filter((d) => (0, import_fs9.statSync)((0, import_path7.join)(storiesDir2, d)).isDirectory()).sort();
 }
 function timelineCycleCount(experimentDir2) {
   const timeline = readJsonIfExists(
-    (0, import_path5.join)(experimentDir2, "timeline.json")
+    (0, import_path7.join)(experimentDir2, "timeline.json")
   );
   return timeline?.entries?.length ?? 0;
 }
@@ -7243,9 +7305,9 @@ function summarizeTestList(consortDir, featureId) {
   }
 }
 function readSelectionLogRecent(consortDir, limit) {
-  const path4 = (0, import_path5.join)(consortDir, "selection-log.md");
-  if (!(0, import_fs8.existsSync)(path4)) return [];
-  const text = (0, import_fs8.readFileSync)(path4, "utf8");
+  const path4 = (0, import_path7.join)(consortDir, "selection-log.md");
+  if (!(0, import_fs9.existsSync)(path4)) return [];
+  const text = (0, import_fs9.readFileSync)(path4, "utf8");
   const entries = [];
   const headingRe = /^##\s+(\S+T\S+?)\s+–\s+(.+?)$/gm;
   let match;
@@ -7272,7 +7334,7 @@ function readGatesSummary(consortDir, featureId) {
   }
 }
 function readWorkflowState2(consortDir) {
-  const state = readJsonIfExists((0, import_path5.join)(consortDir, "workflow-state.json"));
+  const state = readJsonIfExists((0, import_path7.join)(consortDir, "workflow-state.json"));
   if (!state) return { phase: null, pointer: null };
   return {
     phase: state.phase ?? null,
@@ -7319,7 +7381,7 @@ function readProgression(consortDir, featureId, projectDir) {
     return null;
   }
 }
-function getFeatureStatus(consortDir, featureId, projectDir = (0, import_path5.dirname)(consortDir)) {
+function getFeatureStatus(consortDir, featureId, projectDir = (0, import_path7.dirname)(consortDir)) {
   const plans = [];
   for (const storyId of listFeatureStories(consortDir, featureId)) {
     const p = readPlan(consortDir, featureId, storyId);

@@ -7233,7 +7233,7 @@ var navigator_red_default = {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "sonnet",
+    model: "opus",
     effort: "default",
     session: "resume",
     resumeKeyFrom: "story"
@@ -7481,7 +7481,7 @@ var driver_green_superseded_default = {
   agent: { kind: "claude", config: { role: "driver" } },
   match: { kind: "invoke-role", role: "driver", buildMode: "green-superseded" },
   inputs: [
-    { id: "test-list", source: "story:test-list.json", description: "The story's tests the Driver makes GREEN after a superseded-test refactor re-opened the cycle." }
+    { id: "test-list", source: "story:test-list-per-story.json", description: "The story's tests the Driver makes GREEN after a superseded-test refactor re-opened the cycle." }
   ],
   outputs: [],
   routing: {
@@ -8350,9 +8350,14 @@ init_esm_shims();
 import { existsSync as existsSync14, mkdirSync as mkdirSync8, cpSync as cpSync2, rmSync, readdirSync as readdirSync7, statSync as statSync4 } from "fs";
 import { join as join14, dirname as dirname8, basename as basename2 } from "path";
 
+// consort/orchestrator/turns/turn-monitor.ts
+init_esm_shims();
+
 // consort/orchestrator/drive/claude-runner.ts
 var MAX_TRANSIENT_RETRIES = Number(consortEnv("MAX_TRANSIENT_RETRIES") ?? "5");
 var TRANSIENT_BACKOFF_MS = Number(consortEnv("TRANSIENT_BACKOFF_MS") ?? "5000");
+var TURN_INACTIVITY_TIMEOUT_MS = Number(consortEnv("TURN_INACTIVITY_TIMEOUT_MS") ?? String(10 * 60 * 1e3));
+var TURN_HEARTBEAT_MS = Number(consortEnv("TURN_HEARTBEAT_MS") ?? String(60 * 1e3));
 
 // consort/orchestrator/agents/mock-replay-agent.ts
 init_esm_shims();
@@ -8902,15 +8907,33 @@ function supersededTestsJson(tdd, feature, story, ac) {
   return join26(cycleDir(tdd, feature, story, ac), "superseded-tests.json");
 }
 function readSupersededTests(tdd, feature, story, ac) {
+  const parseSuperseded = (raw) => {
+    const p = JSON.parse(raw);
+    const arr = Array.isArray(p.tests) ? p.tests : Array.isArray(p.superseded_tests) ? p.superseded_tests : void 0;
+    return arr && arr.length > 0 && arr.every((t) => typeof t === "string") ? arr : void 0;
+  };
   const file = supersededTestsJson(tdd, feature, story, ac);
-  if (!fs11.existsSync(file)) return void 0;
-  try {
-    const parsed = JSON.parse(fs11.readFileSync(file, "utf8"));
-    if (!Array.isArray(parsed.tests) || parsed.tests.length === 0) return void 0;
-    return parsed;
-  } catch {
-    return void 0;
+  if (fs11.existsSync(file)) {
+    try {
+      const parsed = JSON.parse(fs11.readFileSync(file, "utf8"));
+      const tests = parseSuperseded(JSON.stringify(parsed));
+      if (tests) return { ...parsed, tests };
+    } catch {
+    }
   }
+  const regFile = regressionAssessmentJson(tdd, feature, story, ac);
+  if (fs11.existsSync(regFile)) {
+    try {
+      const parsed = JSON.parse(fs11.readFileSync(regFile, "utf8"));
+      if (parsed.superseded === true) {
+        const tests = parseSuperseded(JSON.stringify(parsed));
+        if (tests) return { tests, reason: typeof parsed.reason === "string" ? parsed.reason : "superseded (from regression-assessment.json)" };
+      }
+    } catch {
+      return void 0;
+    }
+  }
+  return void 0;
 }
 function hasPendingSupersession(tdd, feature, story, ac) {
   const s = readSupersededTests(tdd, feature, story, ac);
@@ -8935,6 +8958,9 @@ function needsGreenAssess(tdd, feature, story, ac) {
 function hasPendingRegressionFix(tdd, feature, story, ac) {
   const gf = readGreenFailure(tdd, feature, story, ac);
   return gf !== void 0 && gf.assessed === true && typeof gf.fixDirective === "string" && gf.fixDirective.length > 0 && gf.repairAttempted !== true;
+}
+function regressionAssessmentJson(tdd, feature, story, ac) {
+  return join26(cycleDir(tdd, feature, story, ac), "regression-assessment.json");
 }
 
 // consort/architecture/contract-clean.ts
@@ -9351,9 +9377,11 @@ function readDriveContext(consortDir, featureId, projectDir) {
     prApproved: readGateApproved(featureId, consortDir, "promote"),
     merged: scmState === "merged"
   };
+  const loop = resolveProjectSettings(proj).build.loopGranularity;
   return {
     phase: driverPhaseForTdd(tddPhase),
     breakdownDone,
+    loop,
     planning: { proposed, estimated: hasEstimates(consortDir), requestsAuthored },
     deploy: { deployed, gateApproved, verifyAssessEligible, verifyRefactorPending },
     promote
@@ -9518,7 +9546,7 @@ function diskArtifactProbe(consortDir, featureId, buildActive) {
       if (e.source.startsWith("smell:")) {
         const name = e.source.slice("smell:".length);
         const story = e.story_id ?? buildActive ?? void 0;
-        if (isBuildRefactorRoutableSmell(name) && story && firstRefactorPendingAc(consortDir, featureId, story)) {
+        if (isBuildRefactorRoutableSmell(name) && story && (refactorPending(consortDir, featureId, story) || firstRefactorPendingAc(consortDir, featureId, story))) {
           return null;
         }
         const spec = specLevelSmell(name);

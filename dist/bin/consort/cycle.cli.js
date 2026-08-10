@@ -7878,15 +7878,33 @@ function supersededTestsJson(tdd, feature, story, ac) {
   return join12(cycleDir(tdd, feature, story, ac), "superseded-tests.json");
 }
 function readSupersededTests(tdd, feature, story, ac) {
+  const parseSuperseded = (raw) => {
+    const p = JSON.parse(raw);
+    const arr = Array.isArray(p.tests) ? p.tests : Array.isArray(p.superseded_tests) ? p.superseded_tests : void 0;
+    return arr && arr.length > 0 && arr.every((t) => typeof t === "string") ? arr : void 0;
+  };
   const file = supersededTestsJson(tdd, feature, story, ac);
-  if (!fs4.existsSync(file)) return void 0;
-  try {
-    const parsed = JSON.parse(fs4.readFileSync(file, "utf8"));
-    if (!Array.isArray(parsed.tests) || parsed.tests.length === 0) return void 0;
-    return parsed;
-  } catch {
-    return void 0;
+  if (fs4.existsSync(file)) {
+    try {
+      const parsed = JSON.parse(fs4.readFileSync(file, "utf8"));
+      const tests = parseSuperseded(JSON.stringify(parsed));
+      if (tests) return { ...parsed, tests };
+    } catch {
+    }
   }
+  const regFile = regressionAssessmentJson(tdd, feature, story, ac);
+  if (fs4.existsSync(regFile)) {
+    try {
+      const parsed = JSON.parse(fs4.readFileSync(regFile, "utf8"));
+      if (parsed.superseded === true) {
+        const tests = parseSuperseded(JSON.stringify(parsed));
+        if (tests) return { tests, reason: typeof parsed.reason === "string" ? parsed.reason : "superseded (from regression-assessment.json)" };
+      }
+    } catch {
+      return void 0;
+    }
+  }
+  return void 0;
 }
 function writeSupersededTests(tdd, feature, story, ac, value) {
   const file = supersededTestsJson(tdd, feature, story, ac);

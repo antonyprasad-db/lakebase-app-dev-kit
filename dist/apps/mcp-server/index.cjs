@@ -6796,10 +6796,50 @@ var LEGACY_CONFIG_RELS = [
   (0, import_path2.join)(".lakebase", "tdd-config.json")
 ];
 var LEGACY_TDD_CONFIG_REL = LEGACY_CONFIG_RELS[0];
+function loadConsortConfig(projectDir) {
+  for (const rel of [CONSORT_CONFIG_REL, ...LEGACY_CONFIG_RELS]) {
+    const f = (0, import_path2.join)(projectDir, rel);
+    if (!(0, import_fs.existsSync)(f)) continue;
+    try {
+      return JSON.parse((0, import_fs.readFileSync)(f, "utf8"));
+    } catch {
+      return void 0;
+    }
+  }
+  return void 0;
+}
+function resolveProjectSettings(projectDir) {
+  const file = loadConsortConfig(projectDir);
+  const build = {
+    loopGranularity: file?.build?.loopGranularity ?? "story",
+    batchCap: file?.build?.batchCap,
+    sessionScope: file?.build?.sessionScope ?? "story"
+  };
+  const project = {
+    uiTrack: file?.project?.uiTrack ?? true,
+    // HITL-first: the declared project policy defaults to interactive (a human
+    // approves each gate). Headless (proxy) is a deliberate opt-in, set in the
+    // file or as a RUN-SCOPED --gates override (never persisted by a flag).
+    gates: file?.project?.gates ?? "interactive",
+    deployTarget: file?.project?.deployTarget ?? "local",
+    clientFramework: file?.project?.clientFramework ?? "none"
+  };
+  const plan = { sizing: file?.plan?.sizing ?? true };
+  return { build, plan, project };
+}
 function defaultConsortConfig() {
   const roles = {};
   for (const role of ALL_AGENT_ROLES) {
-    roles[role] = role === "navigator" ? { model: RECOMMENDED_MODELS[role], effort: { review: "low" } } : role === "driver" ? (
+    roles[role] = role === "navigator" ? (
+      // Model tiering: the RED turn (whole-story failing-test authoring) is the
+      // Navigator's heaviest reasoning turn , it reads the architecture, NFRs, and
+      // the full test list and writes every failing test in one batch , so it runs
+      // on opus. REVIEW/ASSESS/REFLECT are lighter judgment turns and stay on the
+      // role base (sonnet) with review at low effort. A per-turn map (like driver's)
+      // overrides only `red`; the unnamed turns fall through to RECOMMENDED_MODELS.
+      // Overridable per project by editing consort-config.json.
+      { model: { red: "opus" }, effort: { review: "low" } }
+    ) : role === "driver" ? (
       // Model tiering: RED (test authoring) + GREEN (implementation) keep the
       // recommended model; only the mechanical REFACTOR turn drops to a fast
       // model. GREEN was on haiku, but the recorded worst GREEN turn thrashed
@@ -7417,9 +7457,11 @@ function readDriveContext(consortDir, featureId, projectDir) {
     prApproved: readGateApproved(featureId, consortDir, "promote"),
     merged: scmState === "merged"
   };
+  const loop = resolveProjectSettings(proj).build.loopGranularity;
   return {
     phase: driverPhaseForTdd(tddPhase),
     breakdownDone,
+    loop,
     planning: { proposed, estimated: hasEstimates(consortDir), requestsAuthored },
     deploy: { deployed, gateApproved, verifyAssessEligible, verifyRefactorPending },
     promote
