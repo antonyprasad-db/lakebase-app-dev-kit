@@ -25,6 +25,7 @@ import { driverPhaseForTdd, type StoryArtifactProbe, type DriveContext } from ".
 import type { DriveEscalation } from "../workflow/workflow-vocabulary.js";
 import { readGates } from "../../gates/gates.js";
 import { PHASE_OWNER_KEY } from "../../gates/workflow-phase.js";
+import { resolveProjectSettings } from "../../config/consort-config-file.js";
 import { storyDeployVerified } from "../../deploy/deploy.js";
 import {
   deployVerifyNeedsAssess,
@@ -161,9 +162,23 @@ export function readDriveContext(consortDir: string, featureId: string, projectD
     merged: scmState === "merged",
   };
 
+  // Build-loop granularity (story | ac | hybrid-a) from the SAME single source
+  // the effects layer reads (resolveConsortSettings -> resolveProjectSettings ->
+  // .lakebase/consort-config.json). Without this, ctx.loop was undefined, so
+  // deriveDriveState always ran the "story" review/refactor branch while the
+  // effects/roleTaskBody layer read the file's real "hybrid-a" -> the review
+  // action was derived story-scoped (no `ac`, verdict looked for at the story
+  // root) but RENDERED per-AC (prompt "AC undefined", verdict written to
+  // .../undefined/review-verdict.json). The story-root verdict never appeared,
+  // so the identical review action re-derived every tick and the drive's
+  // "repeated without advancing state" guard hard-halted the capture. Reading
+  // loop from the one config file here makes derive and effects agree.
+  const loop = resolveProjectSettings(proj).build.loopGranularity;
+
   return {
     phase: driverPhaseForTdd(tddPhase),
     breakdownDone,
+    loop,
     planning: { proposed, estimated: hasEstimates(consortDir), requestsAuthored },
     deploy: { deployed, gateApproved, verifyAssessEligible, verifyRefactorPending },
     promote,

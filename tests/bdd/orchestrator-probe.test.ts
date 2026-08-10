@@ -166,6 +166,45 @@ describe("readDriveContext", () => {
     expect(ctx.deploy).toEqual({ deployed: false, gateApproved: false, verifyAssessEligible: false, verifyRefactorPending: false });
   });
 
+  // Regression (class-k live halt): ctx.loop MUST come from the same single
+  // source the effects layer reads (.lakebase/consort-config.json's
+  // build.loopGranularity). It was previously never set, so deriveDriveState
+  // fell to `ctx.loop ?? "story"` and always ran the story review/refactor
+  // branch, while the effects/roleTaskBody layer read the file's real
+  // "hybrid-a". The result: the review action was derived story-scoped (no
+  // `ac`, verdict looked for at the story root) but RENDERED per-AC ("AC
+  // undefined", verdict at .../undefined/review-verdict.json) -> the story-root
+  // verdict never appeared, the identical review re-derived every tick, and the
+  // drive's "repeated without advancing state" guard hard-halted a live capture
+  // right after S1 was fully green. deriveDriveState + effects must agree on the
+  // loop, so both read it from THIS one file.
+  it("reads build.loopGranularity from .lakebase/consort-config.json into ctx.loop (derive/effects agree)", () => {
+    const proj = mkdtempSync(join(tmpdir(), "drive-proj-"));
+    const cdir = join(proj, ".consort");
+    mkdirSync(join(proj, ".lakebase"), { recursive: true });
+    mkdirSync(join(cdir, "features", FEATURE), { recursive: true });
+    // hybrid-a in the file -> ctx.loop must be hybrid-a (NOT the "story" default).
+    writeFileSync(
+      join(proj, ".lakebase", "consort-config.json"),
+      JSON.stringify({ version: 1, build: { loopGranularity: "hybrid-a", batchCap: 3, sessionScope: "story" } }),
+    );
+    expect(readDriveContext(cdir, FEATURE, proj).loop).toBe("hybrid-a");
+
+    // "ac" round-trips too.
+    writeFileSync(
+      join(proj, ".lakebase", "consort-config.json"),
+      JSON.stringify({ version: 1, build: { loopGranularity: "ac" } }),
+    );
+    expect(readDriveContext(cdir, FEATURE, proj).loop).toBe("ac");
+
+    // No file -> the resolver's own default ("story"), never undefined.
+    const bare = mkdtempSync(join(tmpdir(), "drive-bare-"));
+    mkdirSync(join(bare, ".consort", "features", FEATURE), { recursive: true });
+    expect(readDriveContext(join(bare, ".consort"), FEATURE, bare).loop).toBe("story");
+    rmSync(proj, { recursive: true, force: true });
+    rmSync(bare, { recursive: true, force: true });
+  });
+
   // A full, schema-valid gates.json the strict readGates can parse, with the
   // deploy gate at the given status.
   function gatesJson(deployStatus: "open" | "approved"): string {
