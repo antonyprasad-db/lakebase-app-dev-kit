@@ -15,7 +15,7 @@
     "produced": { "next": "state-derived" }
   },
   "agentOptions": {
-    "model": "sonnet",
+    "model": "opus",
     "effort": "default",
     "session": "resume",
     "resumeKeyFrom": "story"

@@ -177,8 +177,11 @@ describe("resolveConsortSettings: per-turn model tiering (driver GREEN/REFACTOR 
     // recommended model finishes in fewer round-trips, faster in wall-clock.
     expect(s.modelFor("driver", "green")).toBe("sonnet");
     expect(s.modelFor("driver", "refactor")).toBe("haiku");
-    // navigator + design roles keep their scalar recommended model.
-    expect(s.modelFor("navigator", "red")).toBe("sonnet");
+    // navigator is model-tiered like driver: the heavy RED (whole-story test authoring)
+    // runs on opus; the lighter judgment turns (review/assess/reflect) fall through to
+    // the sonnet base. Design roles keep their scalar recommended model.
+    expect(s.modelFor("navigator", "red")).toBe("opus");
+    expect(s.modelFor("navigator", "review")).toBe("sonnet"); // base, not opus
     expect(s.modelFor("architect-reviewer")).toBe("opus");
   });
 
@@ -311,7 +314,9 @@ describe("defaultConsortConfig + write/load round-trip", () => {
     expect(wrote).toBe(true);
     const loaded = loadConsortConfig(proj);
     expect(loaded?.version).toBe(1);
-    expect(loaded?.roles?.navigator?.model).toBe("sonnet");
+    // navigator is model-tiered: RED on opus via a per-turn map, review/assess/reflect
+    // fall through to the sonnet base.
+    expect((loaded?.roles?.navigator?.model as { red?: string })?.red).toBe("opus");
     expect((loaded?.roles?.navigator?.effort as { review?: string })?.review).toBe("low");
     // Does not overwrite without force.
     expect(writeConsortConfig(proj, defaultConsortConfig())).toBe(false);
