@@ -4,7 +4,7 @@
   "agent": { "kind": "claude", "config": { "role": "driver" } },
   "match": { "kind": "invoke-role", "role": "driver", "buildMode": "green-superseded" },
   "inputs": [
-    { "id": "test-list", "source": "story:test-list.json", "description": "The story's tests the Driver makes GREEN after a superseded-test refactor re-opened the cycle." }
+    { "id": "test-list", "source": "story:test-list-per-story.json", "description": "The story's tests the Driver makes GREEN after a superseded-test refactor re-opened the cycle." }
   ],
   "outputs": [],
   "routing": {

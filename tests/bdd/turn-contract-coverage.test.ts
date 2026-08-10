@@ -47,6 +47,25 @@ describe("turn-contract coverage: manifests are the honest single source", () =>
     }
   });
 
+  // Anti-recurrence (class-m route-satisfiability halt): the per-story test list
+  // is written by the test-strategist to test-list-per-story.json (storyTestListJson).
+  // driver-green-superseded.json declared `story:test-list.json` — a file no writer
+  // produces — so on the rare assess->green-superseded route the pre-dispatch
+  // route-satisfiability check failed loud ("missing input test-list") and halted
+  // the sprint. Every manifest input that consumes the story test list MUST name the
+  // one canonical file, so a new/edited manifest cannot reintroduce a phantom source.
+  it("every `test-list` input names the canonical story:test-list-per-story.json", () => {
+    const wrong: string[] = [];
+    for (const m of SHIPPED_MANIFESTS) {
+      for (const inp of m.inputs ?? []) {
+        if (inp.id === "test-list" && inp.source.startsWith("story:") && inp.source !== "story:test-list-per-story.json") {
+          wrong.push(`${m.id}: test-list source is "${inp.source}", expected "story:test-list-per-story.json"`);
+        }
+      }
+    }
+    expect(wrong, wrong.join("; ")).toEqual([]);
+  });
+
   it("the known producer/consumer pairs are wired (green→assess→repair, review→refactor)", () => {
     const byId = Object.fromEntries(SHIPPED_MANIFESTS.map((m) => [m.id, m]));
     // green raises green-failure; assess requires it.
