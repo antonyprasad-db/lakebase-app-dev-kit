@@ -51,23 +51,54 @@ export function readSupersededTests(
   story: string,
   ac: string,
 ): SupersededTests | undefined {
+  // TOLERANT READ across BOTH the file AND the key. The canonical writer is the
+  // `flag-superseded` CLI (file superseded-tests.json, key `tests`). Two distinct
+  // agent hand-writes have escaped that on live captures, each wrongly escalating
+  // a fully-superseded verify to the HIL:
+  //   1. right file, alias key: superseded-tests.json with `superseded_tests`.
+  //   2. WRONG FILE: the navigator concluded supersession but wrote the verdict
+  //      into regression-assessment.json as {superseded:true, tests:[...], reason}
+  //      (conflating the two assess artifacts), leaving superseded-tests.json
+  //      absent -> hasPendingSupersession=false -> "genuine regression, no
+  //      superseded tests flagged" escalation, even though the verdict said
+  //      superseded:true. So we ALSO honor a supersession payload found in
+  //      regression-assessment.json: a truthy `superseded` with a tests array.
+  // The canonical file+key still wins; this is the reader being lenient so a
+  // correct supersession verdict is never lost to which file/key the agent chose.
+  const parseSuperseded = (raw: string): string[] | undefined => {
+    const p = JSON.parse(raw) as { tests?: unknown; superseded_tests?: unknown };
+    const arr = Array.isArray(p.tests) ? p.tests : Array.isArray(p.superseded_tests) ? p.superseded_tests : undefined;
+    return arr && arr.length > 0 && arr.every((t) => typeof t === "string") ? (arr as string[]) : undefined;
+  };
+  // 1. The canonical supersession file (any of its key aliases).
   const file = supersededTestsJson(tdd, feature, story, ac);
-  if (!fs.existsSync(file)) return undefined;
-  try {
-    const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as SupersededTests & { superseded_tests?: string[] };
-    // Canonical `tests`, or the agent-natural `superseded_tests` alias.
-    const tests = Array.isArray(parsed.tests)
-      ? parsed.tests
-      : Array.isArray(parsed.superseded_tests)
-        ? parsed.superseded_tests
-        : undefined;
-    if (!tests || tests.length === 0) return undefined;
-    // Normalize onto the canonical field so every downstream consumer (and any
-    // re-write that stamps `refactored`) sees the single `tests` shape.
-    return { ...parsed, tests };
-  } catch {
-    return undefined;
+  if (fs.existsSync(file)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as SupersededTests;
+      const tests = parseSuperseded(JSON.stringify(parsed));
+      if (tests) return { ...parsed, tests };
+    } catch {
+      /* fall through to the regression-file fallback */
+    }
   }
+  // 2. Fallback: a supersession verdict the navigator wrote into the WRONG file
+  //    (regression-assessment.json with superseded:true + a tests array). Only a
+  //    TRUTHY `superseded` flag counts — a regression verdict (no such flag) must
+  //    NOT be read as a supersession here. `refactored` cannot live in that file,
+  //    so it is always pending (a fresh flag), which is correct.
+  const regFile = regressionAssessmentJson(tdd, feature, story, ac);
+  if (fs.existsSync(regFile)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(regFile, "utf8")) as { superseded?: unknown; reason?: string };
+      if (parsed.superseded === true) {
+        const tests = parseSuperseded(JSON.stringify(parsed));
+        if (tests) return { tests, reason: typeof parsed.reason === "string" ? parsed.reason : "superseded (from regression-assessment.json)" };
+      }
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
 }
 
 /** Write/replace the superseded-tests allowlist for an AC (the Navigator's flag). */

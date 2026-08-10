@@ -85,6 +85,36 @@ describe("supersession allowlist store", () => {
     expect(hasPendingSupersession(tdd, F, S, AC)).toBe(true);
   });
 
+  // Regression (class-n: navigator wrote the supersession verdict into the WRONG
+  // FILE). On a hard down-migration the navigator concluded supersession but wrote
+  // {superseded:true, tests:[...], reason} into regression-assessment.json
+  // (conflating the two assess artifacts) and never wrote superseded-tests.json.
+  // readSupersededTests found nothing -> hasPendingSupersession=false -> the drive
+  // escalated "genuine regression, no superseded tests flagged" to HIL, though the
+  // verdict said superseded:true. The reader must honor a superseded:true payload
+  // wherever the agent put it.
+  it("honors a supersession verdict written into regression-assessment.json (superseded:true + tests)", () => {
+    const dir = cycleDir(tdd, F, S, AC);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, "regression-assessment.json"),
+      JSON.stringify({
+        superseded: true,
+        tests: ["tests/step_defs/test_S1_file_stock.py", "tests/features/S1-file-stock.feature"],
+        reason: "S2 AC1 drops batch_number/serial_number; the T16 round-trip encodes the abandoned shape",
+      }),
+    );
+    const got = readSupersededTests(tdd, F, S, AC);
+    expect(got?.tests).toEqual(["tests/step_defs/test_S1_file_stock.py", "tests/features/S1-file-stock.feature"]);
+    expect(hasPendingSupersession(tdd, F, S, AC)).toBe(true);
+    // A regression-assessment.json WITHOUT superseded:true must NOT be read as supersession.
+    fs.writeFileSync(
+      path.join(dir, "regression-assessment.json"),
+      JSON.stringify({ diagnosis: "a genuine bug", fixDirective: "fix the default" }),
+    );
+    expect(readSupersededTests(tdd, F, S, AC)).toBeUndefined();
+  });
+
   it("is pending until refactored (bounds the self-heal to one attempt)", () => {
     expect(hasPendingSupersession(tdd, F, S, AC)).toBe(false); // none yet
     writeSupersededTests(tdd, F, S, AC, { tests: ["t.py"], reason: "r" });
