@@ -58,6 +58,33 @@ describe("supersession allowlist store", () => {
     expect(readSupersededTests(tdd, F, S, AC)).toBeUndefined();
   });
 
+  // Regression (S2 down-migration HIL halt): an assess turn that HAND-WROTE
+  // superseded-tests.json (bypassing the flag-superseded CLI) named the array
+  // `superseded_tests` — the human-readable/regression-assessment key — instead
+  // of the canonical `tests`. The reader only accepted `tests`, so it read the
+  // file as undefined → hasPendingSupersession=false → a FULLY-superseded verify
+  // failure wrongly escalated to the HIL as a "genuine regression" (the verdict
+  // itself said "all superseded, no regression"). The reader must tolerate the
+  // alias, like readRegressionAssessment tolerates fix/fixDirective.
+  it("tolerates the `superseded_tests` alias a hand-written verdict uses (routes to refactor, not HIL)", () => {
+    fs.mkdirSync(cycleDir(tdd, F, S, AC), { recursive: true });
+    fs.writeFileSync(
+      supersededTestsJson(tdd, F, S, AC),
+      JSON.stringify({
+        feature: F,
+        story: S,
+        ac: AC,
+        reason: "S2 down-migration reverses the S1 shape; these tests encode the abandoned schema",
+        superseded_tests: ["tests/architecture/test_migration_F6.py::test_col_present", "tests/step_defs/test_S1_up.py"],
+      }),
+    );
+    const got = readSupersededTests(tdd, F, S, AC);
+    // Normalized onto the canonical `tests` field.
+    expect(got?.tests).toEqual(["tests/architecture/test_migration_F6.py::test_col_present", "tests/step_defs/test_S1_up.py"]);
+    // And it is PENDING -> the honest-GREEN backstop routes a permissive refactor, NOT a HIL escalation.
+    expect(hasPendingSupersession(tdd, F, S, AC)).toBe(true);
+  });
+
   it("is pending until refactored (bounds the self-heal to one attempt)", () => {
     expect(hasPendingSupersession(tdd, F, S, AC)).toBe(false); // none yet
     writeSupersededTests(tdd, F, S, AC, { tests: ["t.py"], reason: "r" });

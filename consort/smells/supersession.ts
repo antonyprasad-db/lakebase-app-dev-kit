@@ -32,7 +32,19 @@ export function supersededTestsJson(
   return join(cycleDir(tdd, feature, story, ac), "superseded-tests.json");
 }
 
-/** Read the superseded-tests allowlist for an AC, or undefined when none/malformed. */
+/** Read the superseded-tests allowlist for an AC, or undefined when none/malformed.
+ *
+ * The canonical key is `tests` (what the `flag-superseded` CLI writes). But an
+ * assess turn that HAND-WRITES the file (bypassing the CLI, e.g. after a first
+ * CLI-flagged round) naturally names the array `superseded_tests` — the same key
+ * the human-readable `reason`/`superseded_tests` shape and regression-assessment.json
+ * use. When the reader only accepted `tests`, that hand-written file was read as
+ * undefined → hasPendingSupersession=false → the honest-GREEN backstop wrongly
+ * escalated a fully-superseded failure to the HIL as a "genuine regression" (the
+ * navigator's own verdict said "all superseded, no regression"). Tolerate the
+ * `superseded_tests` alias, exactly as readRegressionAssessment tolerates
+ * `fix`/`fixDirective` — the reader is lenient about the agent-natural key so a
+ * correct verdict is never lost to a key-name mismatch. */
 export function readSupersededTests(
   tdd: string,
   feature: string,
@@ -42,9 +54,17 @@ export function readSupersededTests(
   const file = supersededTestsJson(tdd, feature, story, ac);
   if (!fs.existsSync(file)) return undefined;
   try {
-    const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as SupersededTests;
-    if (!Array.isArray(parsed.tests) || parsed.tests.length === 0) return undefined;
-    return parsed;
+    const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as SupersededTests & { superseded_tests?: string[] };
+    // Canonical `tests`, or the agent-natural `superseded_tests` alias.
+    const tests = Array.isArray(parsed.tests)
+      ? parsed.tests
+      : Array.isArray(parsed.superseded_tests)
+        ? parsed.superseded_tests
+        : undefined;
+    if (!tests || tests.length === 0) return undefined;
+    // Normalize onto the canonical field so every downstream consumer (and any
+    // re-write that stamps `refactored`) sees the single `tests` shape.
+    return { ...parsed, tests };
   } catch {
     return undefined;
   }
