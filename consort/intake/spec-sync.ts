@@ -104,21 +104,51 @@ export function readFeature(consortDir: string, featureId: string): Feature {
 const STORY_ALLOWED_KEYS = new Set(["id", "asA", "iWantTo", "soThat", "acs", "feature_id", "independence", "external_ref"]);
 
 /**
+ * Parse the "As a … / I want … / So that …" narrative out of a story.md. The
+ * spec-author writes this narrative verbatim into story.md (it is the story's
+ * whole point), so story.md is the single source of truth for the three
+ * schema-required story fields. Tolerant of the trailing-comma/period and
+ * trailing hard-wrap spaces the role tends to emit; case-insensitive on the
+ * lead-in. Returns only the parts it finds.
+ */
+export function parseStoryNarrative(md: string): { asA?: string; iWantTo?: string; soThat?: string } {
+  const grab = (label: RegExp): string | undefined => {
+    const m = md.match(label);
+    if (!m) return undefined;
+    // Strip the trailing connector punctuation the narrative lines carry
+    // ("As a warehouse engineer," / "So that ….") and surrounding whitespace.
+    const v = m[1].trim().replace(/[,.]$/, "").trim();
+    return v.length > 0 ? v : undefined;
+  };
+  return {
+    asA: grab(/^\s*As an?\s+(.+?)\s*$/im),
+    iWantTo: grab(/^\s*I want(?:\s+to)?\s+(.+?)\s*$/im),
+    soThat: grab(/^\s*So that\s+(.+?)\s*$/im),
+  };
+}
+
+/**
  * Bring each of a feature's story.json files into story.schema conformance, the
  * deterministic way the spec-author LLM tends to drift: map a stray `feature` to
- * the canonical `feature_id`, and STRIP any property the schema forbids (e.g.
- * `status`, which belongs to pipeline.json, not the spec). Idempotent; returns the
- * story ids it changed. Runs at the reconcile seam so the feature-complete
- * conformance gate sees a conformant artifact WITHOUT depending on the role model
- * emitting the exact shape (the same structural-not-model-dependent intent as
- * reconcileArtifactLog + the conventions/canon establishment).
+ * the canonical `feature_id`, STRIP any property the schema forbids (e.g.
+ * `status`, which belongs to pipeline.json, not the spec), and BACKFILL the
+ * schema-required narrative fields (asA/iWantTo/soThat) from the authoritative
+ * story.md when the breakdown emitted them there but not in the JSON stub (the
+ * observed drift: breakdown wrote `{id, scope, independence}` + the full As-a/
+ * I-want/So-that narrative in story.md, so the JSON tripped the feature-complete
+ * gate after ~160 build turns). Idempotent; returns the story ids it changed.
+ * Runs at the reconcile seam so the feature-complete conformance gate sees a
+ * conformant artifact WITHOUT depending on the role model emitting the exact
+ * shape (the same structural-not-model-dependent intent as reconcileArtifactLog
+ * + the conventions/canon establishment).
  */
 export function normalizeStoryJson(consortDir: string, featureId: string): string[] {
   const stories = storiesDir(consortDir, featureId);
   if (!existsSync(stories)) return [];
   const changed: string[] = [];
   for (const s of readdirSync(stories)) {
-    const file = join(stories, s, "story.json");
+    const dir = join(stories, s);
+    const file = join(dir, "story.json");
     if (!existsSync(file)) continue;
     let obj: Record<string, unknown>;
     try {
@@ -131,6 +161,21 @@ export function normalizeStoryJson(consortDir: string, featureId: string): strin
     if (typeof obj.feature === "string" && obj.feature_id === undefined) {
       obj.feature_id = obj.feature;
       mutated = true;
+    }
+    // Backfill missing narrative fields from story.md (the authoritative source).
+    const mdPath = join(dir, "story.md");
+    const needsNarrative = ["asA", "iWantTo", "soThat"].some(
+      (k) => typeof obj[k] !== "string" || (obj[k] as string).trim().length === 0,
+    );
+    if (needsNarrative && existsSync(mdPath)) {
+      const narrative = parseStoryNarrative(readFileSync(mdPath, "utf8"));
+      for (const k of ["asA", "iWantTo", "soThat"] as const) {
+        const cur = obj[k];
+        if ((typeof cur !== "string" || cur.trim().length === 0) && narrative[k]) {
+          obj[k] = narrative[k];
+          mutated = true;
+        }
+      }
     }
     for (const key of Object.keys(obj)) {
       if (!STORY_ALLOWED_KEYS.has(key)) {

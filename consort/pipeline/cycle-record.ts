@@ -29,6 +29,7 @@ import {
   storyReviewJson,
   storyReviewVerdictJson,
   ALL_ARTIFACT_ROOTS,
+  designGuideJson,
 } from "../../consort/config/consort-paths.js";
 import { markTestItemGreen } from "../test-list/test-list.js";
 import { listExperiments } from "../../consort/experiment/experiment.js";
@@ -610,7 +611,14 @@ export async function greenOpenCycle(
     // honest verify still gates every round, so this never green-washes; it only
     // gives the Driver a few focused passes to converge before the HIL.
     if (!regressionFixExhausted(gf)) {
-      rearmRegressionFix(consortDir, featureId, story, open.ac_id);
+      // Carry the CURRENT verify's summary + output into the re-armed record. A
+      // repair often changes the failure MODE (round 1 "app not reachable" ->
+      // round 2 "client Vitest failed"); without this, the next assess reads the
+      // frozen first-round summary and mis-routes to a phantom.
+      rearmRegressionFix(consortDir, featureId, story, open.ac_id, {
+        summary: result.summary,
+        failureOutput: result.failureOutput,
+      });
       return { recorded: false, cycleId: open.cycle_id, testId: open.test_id, needsAssess: true, summary: result.summary };
     }
     // Rounds exhausted: escalate to the HIL, carrying the Navigator's diagnosis
@@ -773,7 +781,29 @@ export function firstRefactorPendingAc(consortDir: string, featureId: string, st
  */
 function flagUxAdherenceIfDirty(consortDir: string, story: string): void {
   try {
-    const ux = checkUxClean({ projectDir: dirname(consortDir) });
+    // Read the design guide (when present) so the scan enforces its declared
+    // contract: the component-class vocabulary (token-consumption) AND the brand
+    // app_icon (app-icon adherence). Absent/malformed guide -> undefined, the checks
+    // fall back to their conservative defaults (any-className signal; no icon check).
+    let designClasses: string[] | undefined;
+    let appIcon: { source: string; install_to: string } | undefined;
+    try {
+      const gp = designGuideJson(consortDir);
+      if (existsSync(gp)) {
+        const guide = JSON.parse(readFileSync(gp, "utf8")) as {
+          components?: Record<string, { class?: string }>;
+          app_icon?: { source: string; install_to: string };
+        };
+        const classes = Object.values(guide.components ?? {})
+          .map((c) => (typeof c?.class === "string" ? c.class : undefined))
+          .filter((c): c is string => !!c);
+        if (classes.length) designClasses = classes;
+        if (guide.app_icon?.source && guide.app_icon?.install_to) appIcon = guide.app_icon;
+      }
+    } catch {
+      /* malformed guide -> conservative defaults; the guide gate reports its shape */
+    }
+    const ux = checkUxClean({ projectDir: dirname(consortDir), designClasses, appIcon });
     if (!ux.clean && !hasOpenSmell(consortDir, "ux-adherence", story)) {
       writeSmellsLog(consortDir, [{ smell: "ux-adherence", cycle_ids: [], detail: summarizeUxViolations(ux), story_id: story }]);
     }

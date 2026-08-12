@@ -385,7 +385,14 @@ function withTurnRecording(inner: DriveEffects, cfg: DriveEffectsConfig): DriveE
     async perform(action) {
       logLenBeforePerform = readAgentLog({ consortDir: cfg.consortDir }).length; // pre-perform cursor for correspondence
       await inner.perform(action);
-      if (action.kind === "done") return; // terminal no-op, produces nothing
+      // `done` IS a recorded turn: it is no longer a bare no-op , it performs the
+      // parent-tier landing (git checkout -f <parentBranch>) that ends the feature
+      // on its parent, not the just-merged (soon-deleted) feature branch. That is
+      // the terminal step a faithful capture must carry, so the recorded timeline
+      // ends at `done`, not `merge`. Its .consort output delta is typically empty
+      // (recordTurn already tolerates zero produced/deleted, as merge/gate turns do);
+      // the value is the terminal marker + the branch-switch it represents. There is
+      // no agent transcript for a non-invoke-role action (gates, deploy, merge, done).
       // An invoke-role action just ran an agent; grab its outcome-level
       // transcript (prompt + final reasoning + tool list) to record alongside
       // the artifact delta. Non-agent actions (gates, deploy) have none.

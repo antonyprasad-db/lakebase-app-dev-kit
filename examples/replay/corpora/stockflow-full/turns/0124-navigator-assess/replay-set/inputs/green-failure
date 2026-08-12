@@ -1,0 +1,5 @@
+{
+  "assessed": false,
+  "summary": "app not reachable at http://localhost:8000/ after 60s; cannot run GREEN verify",
+  "fixAttempts": 1
+}

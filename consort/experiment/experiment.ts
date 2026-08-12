@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "fs";
 import { join } from "path";
+import { execFileSync } from "node:child_process";
 import { createPairedBranch, deletePairedBranch } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import type { BranchLookupOpts, LakebaseBranchInfo } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 
@@ -7,6 +8,36 @@ function branchIdOf(info: LakebaseBranchInfo): string {
   const leaf = info.name.split("/").pop();
   if (!leaf) throw new Error(`could not derive branch_id from ${info.name}`);
   return leaf;
+}
+
+/** True iff `ancestor` is a git-ancestor of `descendant` (or they are equal) in
+ *  the repo at `cwd`. `git merge-base --is-ancestor` exits 0 for yes, 1 for no.
+ *  Any other failure (missing ref, not a repo) rethrows so a real problem is loud. */
+function gitIsAncestor(cwd: string, ancestor: string, descendant: string): boolean {
+  try {
+    execFileSync("git", ["merge-base", "--is-ancestor", ancestor, descendant], {
+      cwd,
+      stdio: ["ignore", "ignore", "pipe"],
+    });
+    return true;
+  } catch (err) {
+    const code = (err as { status?: number }).status;
+    if (code === 1) return false;
+    throw err;
+  }
+}
+
+/** Resolve a git ref to its commit sha in the repo at `cwd` (empty on failure). */
+function gitRevParse(cwd: string, ref: string): string {
+  try {
+    return execFileSync("git", ["rev-parse", "--verify", "--quiet", ref], {
+      cwd,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    }).trim();
+  } catch {
+    return "";
+  }
 }
 
 // Tag flavors mirror the AC layer values from the spec format. The Driver's
@@ -200,6 +231,36 @@ export async function cutExperiment(args: CutExperimentArgs, deps: CutExperiment
         (paired.warnings.length ? ` (${paired.warnings.join("; ")})` : "") +
         `. The build's honest-GREEN verify needs DATABASE_URL; aborting the cut so this is caught now, not at verify time.`,
     );
+  }
+  // GIT<->DB fork-parent agreement guard (the S3-cut-from-wrong-parent halt): the
+  // Lakebase branch is forked from parentBranch's tier (the accepted feature state);
+  // the git branch MUST fork from the SAME commit (the local parentBranch tip). The
+  // paired-cut's git side resolves its start-point preferring `origin/<parentBranch>`,
+  // so a stale remote (behind the LOCAL feature tip that carries the just-accepted
+  // merges) makes the git experiment fork from an OLDER commit than the Lakebase
+  // fork tier , a two-way split-brain: the committed alembic head + models are a
+  // prior story's, while the DB already has the later story's schema. Every
+  // DB-touching test then fails ("column does not exist" / unknown alembic head) and
+  // the driver CANNOT fix it in code, so it burns the whole regression-fix budget and
+  // halts to HIL ~3 self-heal rounds later with an opaque failure. Assert agreement
+  // HERE, at the cut, so a mis-fork is caught immediately + correctly attributed
+  // (same immediate-attribution intent as the envSynced guard above). Skipped when
+  // there is no parentBranch (forking from the default tier) or the local parent ref
+  // is absent (nothing to compare against).
+  if (parentBranch) {
+    const localParentTip = gitRevParse(projectDir, parentBranch);
+    if (localParentTip && !gitIsAncestor(projectDir, localParentTip, "HEAD")) {
+      const head = gitRevParse(projectDir, "HEAD");
+      throw new Error(
+        `Experiment cut for "${branch}" forked the git branch from a commit that does NOT descend from the ` +
+          `local "${parentBranch}" tip (${localParentTip.slice(0, 8)}); HEAD is ${head.slice(0, 8)}. The Lakebase ` +
+          `branch was forked from "${parentBranch}"'s tier, so git and the database now disagree on the parent ` +
+          `state (typically a stale origin/${parentBranch} used as the git fork start-point). Every DB-touching ` +
+          `test would fail against a schema the committed code does not match. Push "${parentBranch}" (or fetch) ` +
+          `so origin matches the local tip, then re-cut; aborting now so this is caught at the cut, not ~3 ` +
+          `self-heal rounds later at HIL.`,
+      );
+    }
   }
   const branchId = branchIdOf(paired.branch);
 

@@ -72,7 +72,7 @@ New `consort/logging/finalize-corpus.ts` → `sweepRecordedPaths(recordDir)`:
 
 ## Stage 4 — Wire the finalizer into the launcher (POST-RUN hook)
 
-`examples/replay/captures/launch-stockflow-instrumented.sh` (and the generic launcher): after a
+`examples/replay/launch-stockflow-instrumented.sh` (and the generic launcher): after a
 successful/terminal run, BEFORE reclaim, call `node dist/.../finalize-corpus.js <recordDir>` →
 `buildConsortMirror` then `sweepRecordedPaths`. Gate on run completion; skip on a mid-run abort (a
 partial `.consort` mirror would be misleading — only mirror a finished corpus). Must run before
@@ -113,5 +113,5 @@ transcript, resolve it against the record dir, and `open` it (or `ls -l`) to con
 
 Critical files: `consort/logging/turn-recorder.ts` (Stage 1, done), new
 `consort/logging/finalize-corpus.ts` (Stages 2-3), new `bin/consort/finalize-corpus.cli.ts` (Stage 5),
-`examples/replay/captures/launch-stockflow-instrumented.sh` (Stage 4), new
+`examples/replay/launch-stockflow-instrumented.sh` (Stage 4), new
 `tests/bdd/consort-finalize-corpus.test.ts`.

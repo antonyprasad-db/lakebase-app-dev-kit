@@ -19,7 +19,6 @@ const LAUNCHERS = [
   "examples/replay/_replay-smoke.sh",
   "examples/replay/run-smoke.sh",
   "examples/replay/capture-scenario.sh",
-  "examples/recipe-app-smoke/orchestrator/run-smoke.sh",
 ];
 
 // The live tests that spawn a real `claude -p` agent , they must resolve via the TS twin.

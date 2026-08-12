@@ -325,19 +325,35 @@ export function composeAssessedGreenFailure(
 /** Re-arm a still-failing failure for ANOTHER assess->repair round: clear the
  *  round-scoped assessment (assessed + fixDirective + repairAttempted) so the next
  *  readState routes a FRESH Navigator assess that re-runs the gate on the RESIDUAL,
- *  while preserving the cross-round attempt counter + the verify summary. */
+ *  while preserving the cross-round attempt counter.
+ *
+ *  CRITICAL (the failure-MODE-change bug): the re-armed record must carry the
+ *  summary + failureOutput of the CURRENT verify, not the frozen first-round one.
+ *  A repair often CHANGES what fails (e.g. round 1 "app not reachable" -> round 2
+ *  "client Vitest suite failed"): if the re-arm preserved the stale first summary,
+ *  the next assess reads a failure that no longer matches reality and mis-routes
+ *  (chases a phantom). The caller passes the live `result.summary`/`failureOutput`;
+ *  they OVERRIDE the prior values (fall back to prior only when a fresh value is
+ *  not supplied, e.g. a legacy caller). */
 export function rearmRegressionFix(
   tdd: string,
   feature: string,
   story: string,
   ac: string,
+  fresh?: { summary?: string; failureOutput?: string },
 ): void {
   const gf = readGreenFailure(tdd, feature, story, ac);
   if (!gf) return;
+  const summary = fresh?.summary ?? gf.summary;
+  // A fresh verify that captured NO failureOutput must not resurrect the prior
+  // round's output (it belongs to a different, now-fixed failure), so honor an
+  // explicitly-passed `fresh` object even when its failureOutput is undefined.
+  const failureOutput = fresh ? fresh.failureOutput : gf.failureOutput;
   writeGreenFailure(tdd, feature, story, ac, {
     assessed: false,
-    summary: gf.summary,
+    summary,
     fixAttempts: gf.fixAttempts ?? 0,
+    ...(failureOutput ? { failureOutput } : {}),
     ...(gf.contractRefs ? { contractRefs: gf.contractRefs } : {}),
     ...(gf.supersededTestRefs ? { supersededTestRefs: gf.supersededTestRefs } : {}),
   });

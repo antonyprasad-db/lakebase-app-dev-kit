@@ -1,0 +1,9 @@
+{
+  "sprint": "stockflow-rerecord-s1",
+  "features": [
+    {
+      "id": "F1-stock-visibility",
+      "size": "L"
+    }
+  ]
+}

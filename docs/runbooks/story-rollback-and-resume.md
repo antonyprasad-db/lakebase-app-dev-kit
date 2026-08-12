@@ -127,7 +127,7 @@ cd ~/.lakebase/runners/<PROJECT_NAME> && nohup ./run.sh > /tmp/runner-restart.lo
 Then relaunch pinned to the same run (recorder resumes at `turns/index.json` length =
 boundary ordinal, per `turn-recorder.ts`):
 ```
-STAMP=<run-stamp> nohup bash examples/replay/captures/launch-stockflow-instrumented.sh > <resume-log> 2>&1 &
+STAMP=<run-stamp> nohup bash examples/replay/launch-stockflow-instrumented.sh > <resume-log> 2>&1 &
 ```
 
 ## CRITICAL: HEAD must be on the FEATURE branch before design + cut-experiment

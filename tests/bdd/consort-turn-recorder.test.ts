@@ -51,6 +51,9 @@ describe("labelForAction", () => {
     expect(labelForAction(act({ kind: "approve-promote-gate" }))).toBe("gate-promote");
     expect(labelForAction(act({ kind: "cut-experiment", story: "S1" }))).toBe("cut-experiment");
     expect(labelForAction(act({ kind: "prepare-pr" }))).toBe("prepare-pr");
+    // `done` is the terminal turn (parent checkout + feature-branch delete): it must
+    // label to its kind so a faithful capture ends at a recorded `done`, not `merge`.
+    expect(labelForAction(act({ kind: "done" }))).toBe("done");
   });
 });
 
@@ -90,6 +93,22 @@ describe("recordTurn: per-turn timeline + cumulative .tdd mirror", () => {
     const index = readJson(join(record, "turns", "index.json")).turns;
     expect(index.map((t: { ordinal: number }) => t.ordinal)).toEqual([0, 1, 2]);
     expect(index.map((t: { label: string }) => t.label)).toEqual(["spec-author-breakdown", "driver-green", "architect-reviewer"]);
+  });
+
+  it("records a terminal `done` turn (zero-delta) so the capture ends at done, not merge", () => {
+    const { proj, tdd, record } = mkProject();
+    // A prior real turn, then the terminal `done` (parent checkout + branch delete)
+    // produces no .consort delta but MUST still be a recorded turn (the CLI recorder
+    // used to early-return on `done` as a "no-op", dropping the terminal step from
+    // every capture). recordTurn tolerates a zero produced/deleted turn, as merge/
+    // gate turns already do.
+    recordTurn({ recordDir: record, projectDir: proj, consortDir: tdd, step: 0, action: act({ kind: "invoke-role", role: "spec-author" }) });
+    const done = recordTurn({ recordDir: record, projectDir: proj, consortDir: tdd, step: 1, action: act({ kind: "done" }) });
+    expect(done.produced).toEqual([]);
+    expect(done.deleted).toEqual([]);
+    const index = readJson(join(record, "turns", "index.json")).turns;
+    expect(index[index.length - 1].label).toBe("done");
+    expect(index[index.length - 1].kind).toBe("done");
   });
 
   it("records deletions + removes them from the cumulative mirror", () => {

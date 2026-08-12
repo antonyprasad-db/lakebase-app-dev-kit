@@ -35,6 +35,9 @@ export interface DesignGuide {
   radius?: Record<string, string>;
   shadows?: Record<string, string>;
   breakpoints?: Record<string, string>;
+  /** The product's brand icon, when the design brief provides one (an intake asset).
+   *  Its presence turns the app icon into a checked contract (checkAppIcon). */
+  app_icon?: { source: string; install_to: string };
 }
 
 /**
@@ -386,6 +389,68 @@ export function checkTokenConsumption(input: TokenConsumptionInput): TokenConsum
     : { ok: false, bare, remediation: CONSUMPTION_REMEDIATION };
 }
 
+// ─── App-icon adherence (increment D) ────────────────────────────────────────
+// The checks above prove the design SYSTEM (tokens) and the feature SCREENS
+// (reachable, styled, seamed) match the guide. They cannot see the brand IDENTITY
+// the design brief provides as an intake asset: a warehouse/product icon the guide
+// declares as the app icon + favicon. The scaffold ships a GENERIC placeholder
+// (favicon.svg, the Databricks spark mark), and nothing forces the provided asset
+// to replace it, so the shipped app keeps the placeholder and the brand icon sits
+// unused in intake (observed run17). When the guide declares `app_icon`, this makes
+// it a checked contract: the asset must be INSTALLED at its install_to path and
+// actually REFERENCED by the app shell (index.html favicon link + the navbar/App
+// shell), not the placeholder. Pure + injectable (takes the installed-path check +
+// the two shell sources) so it unit-tests hermetically. A miss is `ux-adherence`.
+
+export interface AppIconInput {
+  /** The guide's declared app icon (source + install_to), or undefined when none. */
+  appIcon?: { source: string; install_to: string };
+  /** True iff the install_to asset exists on disk (the I/O boundary resolves this). */
+  installedExists: boolean;
+  /** Basename of install_to, e.g. "warehouse.png" (what a reference must mention). */
+  installedBasename: string;
+  /** Full source of client/index.html (the favicon `<link rel="icon">` lives here). */
+  indexHtml: string;
+  /** Full source of the app shell (client/src/App.tsx) that renders the navbar icon. */
+  appShell: string;
+}
+export interface AppIconResult { ok: boolean; violations: string[]; remediation?: string }
+
+const APP_ICON_REMEDIATION =
+  "The design guide declares a brand app_icon (an intake asset), but the app does not use it: " +
+  "the asset is missing at its install_to path and/or the app shell still references the generic " +
+  "scaffold placeholder (favicon.svg) instead. Copy the asset to install_to, point index.html's " +
+  "<link rel=\"icon\"> at it, and render it as the navbar/app-title mark. The provided brand icon " +
+  "must be the app's icon, not left unused in intake. See the `ux-adherence` smell.";
+
+/**
+ * When the guide declares an `app_icon`, verify it is APPLIED: (1) the asset exists
+ * at install_to, and (2) its basename is referenced by BOTH the favicon link
+ * (index.html) and the app shell (App.tsx) , i.e. the brand icon replaced the
+ * generic placeholder. No `appIcon` declared -> trivially ok (a project with no
+ * brand asset legitimately keeps the scaffold icon).
+ */
+export function checkAppIcon(input: AppIconInput): AppIconResult {
+  if (!input.appIcon) return { ok: true, violations: [] };
+  const violations: string[] = [];
+  const base = input.installedBasename;
+  if (!input.installedExists) {
+    violations.push(`brand app icon not installed at "${input.appIcon.install_to}" (declared in the design guide, copied from "${input.appIcon.source}")`);
+  }
+  // A reference is the installed basename appearing in the shell source (a src=,
+  // href=, or import of the asset). The placeholder favicon.svg does NOT satisfy it.
+  const referenced = (src: string) => src.includes(base);
+  if (!referenced(input.indexHtml)) {
+    violations.push(`index.html favicon does not reference the brand icon "${base}" (still the scaffold placeholder)`);
+  }
+  if (!referenced(input.appShell)) {
+    violations.push(`the app shell (App.tsx) does not reference the brand icon "${base}" (navbar/title still the placeholder)`);
+  }
+  return violations.length === 0
+    ? { ok: true, violations: [] }
+    : { ok: false, violations, remediation: APP_ICON_REMEDIATION };
+}
+
 export interface UxCleanArgs {
   /** Project root (the dir that contains client/). */
   projectDir: string;
@@ -393,24 +458,30 @@ export interface UxCleanArgs {
   clientSrcDir?: string;
   /** The design guide's component-class vocabulary, threaded to checkTokenConsumption. */
   designClasses?: string[];
+  /** The design guide's declared app icon, threaded to checkAppIcon. */
+  appIcon?: { source: string; install_to: string };
 }
 export interface UxCleanResult {
   clean: boolean;
   reachability: RouteReachabilityResult;
   tokens: TokenConsumptionResult;
+  /** App-icon adherence; trivially ok when the guide declares no app_icon. */
+  appIcon: AppIconResult;
   remediation?: string;
 }
 
 export const UX_CLEAN_REMEDIATION =
   "The client UI does not fully apply the design guide: a feature page is unreachable (not " +
-  "routed in App.tsx) and/or bare (consumes no design tokens/classes). Wire every feature page " +
-  "into <Routes> with a nav affordance and style it with the design vocabulary. See `ux-adherence`.";
+  "routed in App.tsx), bare (consumes no design tokens/classes), and/or the declared brand app " +
+  "icon is not applied. Wire every feature page into <Routes> with a nav affordance, style it with " +
+  "the design vocabulary, and install + reference the brand icon. See `ux-adherence`.";
 
 /** Summarize a non-clean result into one line for a smell detail / verify summary. */
 export function summarizeUxViolations(r: UxCleanResult): string {
   const parts: string[] = [];
   if (!r.reachability.ok) parts.push(`unreachable pages: ${r.reachability.unreachable.join(", ")}`);
   if (!r.tokens.ok) parts.push(`bare (unstyled) pages: ${r.tokens.bare.join(", ")}`);
+  if (!r.appIcon.ok) parts.push(`brand app icon not applied: ${r.appIcon.violations.join("; ")}`);
   return parts.join("; ");
 }
 
@@ -423,7 +494,8 @@ export function summarizeUxViolations(r: UxCleanResult): string {
  * filesystem shell around them.
  */
 export function checkUxClean(args: UxCleanArgs): UxCleanResult {
-  const clean0: UxCleanResult = { clean: true, reachability: { ok: true, unreachable: [] }, tokens: { ok: true, bare: [] } };
+  const okIcon: AppIconResult = { ok: true, violations: [] };
+  const clean0: UxCleanResult = { clean: true, reachability: { ok: true, unreachable: [] }, tokens: { ok: true, bare: [] }, appIcon: okIcon };
   const srcDir = args.clientSrcDir ?? join(args.projectDir, "client", "src");
   const appTsx = join(srcDir, "App.tsx");
   const pagesDir = join(srcDir, "pages");
@@ -443,6 +515,22 @@ export function checkUxClean(args: UxCleanArgs): UxCleanResult {
   }
   const reachability = checkRouteReachability({ appSource, pageComponents });
   const tokens = checkTokenConsumption({ pageSources, designClasses: args.designClasses });
-  const clean = reachability.ok && tokens.ok;
-  return clean ? { clean, reachability, tokens } : { clean, reachability, tokens, remediation: UX_CLEAN_REMEDIATION };
+  // App-icon adherence: only when the guide declares an app_icon. index.html lives at
+  // the client root (one dir up from src); the app shell is App.tsx (already read).
+  let appIcon: AppIconResult = okIcon;
+  if (args.appIcon) {
+    const clientDir = join(srcDir, "..");
+    const indexHtmlPath = join(clientDir, "index.html");
+    const installToPath = join(args.projectDir, args.appIcon.install_to);
+    const installedBasename = args.appIcon.install_to.split("/").pop() ?? args.appIcon.install_to;
+    appIcon = checkAppIcon({
+      appIcon: args.appIcon,
+      installedExists: existsSync(installToPath),
+      installedBasename,
+      indexHtml: existsSync(indexHtmlPath) ? readFileSync(indexHtmlPath, "utf8") : "",
+      appShell: appSource,
+    });
+  }
+  const clean = reachability.ok && tokens.ok && appIcon.ok;
+  return clean ? { clean, reachability, tokens, appIcon } : { clean, reachability, tokens, appIcon, remediation: UX_CLEAN_REMEDIATION };
 }

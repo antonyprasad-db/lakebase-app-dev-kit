@@ -87,7 +87,7 @@ policies. This is the "more than one way to resolve the kit" we are collapsing.
 - Shell dry-proof (no cloud): source the lib, call `resolve_kit_single_source "$PWD/examples/replay" ""`
   → assert `LAKEBASE_KIT_DIR` unset, `LAKEBASE_KIT_REF` set, cache symlink → repo root; published-ref mode
   exports REF, no local symlink.
-- DEFINITIVE live proof: run `examples/replay/captures/launch-stockflow-instrumented.sh`; confirm the
+- DEFINITIVE live proof: run `examples/replay/launch-stockflow-instrumented.sh`; confirm the
   scaffolded project carries `.lakebase/kit-ref` + `kit-local-dir` pointing at THIS tree, the pin/verify
   log lines print, and every `claude -p` agent's `lk` resolved the pinned ref (not `main`) — proving
   orchestrator AND agents on the same kit.
@@ -102,5 +102,5 @@ policies. This is the "more than one way to resolve the kit" we are collapsing.
 ## Critical files
 `examples/replay/lib/pin-local-kit.sh`, `examples/replay/_replay-smoke.sh`,
 `examples/replay/capture-scenario.sh`, `examples/replay/run-smoke.sh`,
-`examples/recipe-app-smoke/orchestrator/run-smoke.sh`, new `tests/integration/live/kit-resolution.ts`,
+new `tests/integration/live/kit-resolution.ts`,
 new `tests/bdd/kit-single-source-guard.test.ts`.

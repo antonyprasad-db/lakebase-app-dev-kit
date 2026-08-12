@@ -8,6 +8,6 @@
 
 **Size:** L. **Priority:** P1. **Suggested sprint:** sprint-2 (leads: the schema baseline the rest of the sprint forks from).
 
-**Example migration:** `.sftdd/release/migration-examples/split_inventory_code.sql`.
+**Example migration:** `.consort/release/migration-examples/split_inventory_code.sql`.
 
 **E2E story:** Yes.

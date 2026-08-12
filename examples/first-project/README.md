@@ -63,7 +63,7 @@ Consort drives one loop and pauses at every gate:
    /deploy <F>   ->  ship the increment and see it run                    [deploy + promote gates]
 ```
 
-You type the commands. The deterministic orchestrator (`lakebase-sftdd-drive`)
+You type the commands. The deterministic orchestrator (`consort-drive`)
 spawns the role agents and stops at each gate. **Nothing advances past a gate
 without you.** A whole sprint can also run in one shot with `/sprint <name>`,
 which walks the same path and pauses at the same gates.
@@ -97,7 +97,7 @@ claude plugin install consort@databricks-solutions
 /consort:start
 ```
 
-Because there is no `.sftdd/` directory here, `/consort:start` takes the
+Because there is no `.consort/` directory here, `/consort:start` takes the
 **create** path. It interviews you for a handful of choices (accept the defaults
 when unsure):
 
@@ -150,10 +150,10 @@ StockFlow's (copy ours to start from a real example instead of a blank page):
 
 ```bash
 SEED=<consort>/examples/first-project/stockflow-seed/intake
-cp "$SEED/product-overview.md" .sftdd/product-overview.md   # overwrites the placeholder
-cp "$SEED/nfrs.md"             .sftdd/nfrs.md
-mkdir -p .sftdd/design
-cp "$SEED/design-brief.md"     .sftdd/design/design-brief.md   # skip if no UI
+cp "$SEED/product-overview.md" .consort/product-overview.md   # overwrites the placeholder
+cp "$SEED/nfrs.md"             .consort/nfrs.md
+mkdir -p .consort/design
+cp "$SEED/design-brief.md"     .consort/design/design-brief.md   # skip if no UI
 ```
 
 When you build your own app, these three files are what you edit. Everything
@@ -162,7 +162,7 @@ from them.
 
 ## Step 4: plan the first sprint (proposals in, requests out)
 
-Back in the project, re-run `/consort:start` (it now finds `.sftdd/` and
+Back in the project, re-run `/consort:start` (it now finds `.consort/` and
 **resumes**, giving you a short situation report), then plan:
 
 ```bash
@@ -276,7 +276,7 @@ read-only: it reads your intent and never edits it.
 committing to the upcoming sprint. The flow is: the Spec Author proposes
 candidates (`feature-proposals/`); you review them; for each one you decide to
 build, you write a `feature-request.md` into
-`.sftdd/features/<feature-id>/feature-request.md`; then you approve the plan
+`.consort/features/<feature-id>/feature-request.md`; then you approve the plan
 gate. You do not write requests for the whole roadmap up front, only for the
 sprint in front of you. After the increment ships, `/plan` runs again and you
 author the next sprint's requests, folding in what the working software taught
@@ -336,9 +336,9 @@ first-project/
   README.md                       <- this walkthrough
   stockflow-seed/
     intake/                       <- the 3 project-level intake docs you seed
-      product-overview.md         <-   copy to .sftdd/product-overview.md
-      nfrs.md                     <-   copy to .sftdd/nfrs.md
-      design-brief.md             <-   copy to .sftdd/design/design-brief.md (UI only)
+      product-overview.md         <-   copy to .consort/product-overview.md
+      nfrs.md                     <-   copy to .consort/nfrs.md
+      design-brief.md             <-   copy to .consort/design/design-brief.md (UI only)
     feature-proposals/            <- what the Spec Author proposes (F1-F9)
       F1-stock-visibility.md          ... one per candidate feature ...
       F9-stock-search.md
@@ -348,7 +348,7 @@ first-project/
 ```
 
 The three intake docs are byte-identical to the kit's canonical scenario at
-[`examples/replay/corpora/stockflow/intake/`](../replay-scenarios/stockflow/intake),
+[`examples/replay/corpora/stockflow/intake/`](../replay/corpora/stockflow/intake),
 so copying them reproduces the same StockFlow product the reference corpus was
 recorded against, so that consort itself can be tested and guarded against
 regressions. The proposals and requests are the StockFlow reference

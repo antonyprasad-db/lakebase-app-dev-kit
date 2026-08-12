@@ -178,4 +178,61 @@ describe("normalizeStoryJson", () => {
     expect(normalizeStoryJson(tdd, "F1")).toEqual(["S1-test-story"]);
     expect(normalizeStoryJson(tdd, "F1")).toEqual([]);
   });
+
+  it("backfills missing asA/iWantTo/soThat from story.md (the run17 breakdown drift)", () => {
+    // The exact live drift: breakdown emitted `{id, scope, independence}` in the
+    // JSON stub but wrote the full As-a/I-want/So-that narrative to story.md, so
+    // the JSON tripped the feature-complete gate after all stories were built.
+    writeFileSync(
+      join(storyDir(), "story.json"),
+      JSON.stringify({ id: "S1", scope: "the split columns", independence: { distinct_from_prior: true, rationale: "adds x" } })
+    );
+    writeFileSync(
+      join(storyDir(), "story.md"),
+      [
+        "# S1-test-story",
+        "",
+        "As a warehouse data engineer,  ",
+        "I want the stock table to include batch_number and serial_number as separate columns,  ",
+        "So that batch and serial can be queried and validated independently.",
+        "",
+        "## Acceptance criteria",
+        "",
+        "See `acs/` folder.",
+      ].join("\n")
+    );
+    const changed = normalizeStoryJson(tdd, "F1");
+    expect(changed).toEqual(["S1-test-story"]);
+    const obj = JSON.parse(readFileSync(join(storyDir(), "story.json"), "utf8"));
+    expect(obj.asA).toBe("warehouse data engineer");
+    expect(obj.iWantTo).toBe("the stock table to include batch_number and serial_number as separate columns");
+    expect(obj.soThat).toBe("batch and serial can be queried and validated independently");
+    // `scope` (not schema-allowed) is stripped; independence (allowed) is kept.
+    expect(obj.scope).toBeUndefined();
+    expect(obj.independence).toEqual({ distinct_from_prior: true, rationale: "adds x" });
+    // The result now validates against the story schema.
+    const featureDir = join(tdd, "features", "F1-test-feature");
+    writeFileSync(join(featureDir, "feature-spec.json"), JSON.stringify(fixture()));
+    writeFileSync(join(featureDir, "feature-spec.md"), "# Test Feature\n\nNarrative body long enough to pass.\n");
+    expect(validateSpec(tdd).find((r) => r.file.endsWith("story.json"))).toBeUndefined();
+    // Idempotent: a second pass over the now-conformant story changes nothing.
+    expect(normalizeStoryJson(tdd, "F1")).toEqual([]);
+  });
+
+  it("does not overwrite narrative fields the stub already carries", () => {
+    writeFileSync(
+      join(storyDir(), "story.json"),
+      JSON.stringify({ id: "S1", asA: "the-json-role", iWantTo: "the-json-want", soThat: "the-json-outcome", feature_id: "F1" })
+    );
+    writeFileSync(
+      join(storyDir(), "story.md"),
+      "# Story\n\nAs a different role,\nI want a different thing,\nSo that a different outcome.\n"
+    );
+    // Already conformant + non-empty narrative -> no mutation, no md read-back.
+    expect(normalizeStoryJson(tdd, "F1")).toEqual([]);
+    const obj = JSON.parse(readFileSync(join(storyDir(), "story.json"), "utf8"));
+    expect(obj.asA).toBe("the-json-role");
+    expect(obj.iWantTo).toBe("the-json-want");
+    expect(obj.soThat).toBe("the-json-outcome");
+  });
 });

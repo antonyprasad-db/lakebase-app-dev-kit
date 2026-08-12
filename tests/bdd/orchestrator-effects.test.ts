@@ -1030,17 +1030,47 @@ describe("commandsForAction: promote phase (PR review + merge to parent)", () =>
     );
   });
 
-  it("done switches the working tree back to the parent tier as the last step (when the parent is known)", () => {
+  it("done switches to the parent tier AND deletes the merged feature branch as the last step", () => {
     // Feature wrap-up: end on the parent (staging), not the just-merged feature
-    // branch, so the next feature forks from a clean parent. Deterministic +
-    // idempotent guarantee on top of scm-merge's conditional switch.
-    const cmds = commandsForAction({ kind: "done" }, cfg({ parentBranch: "staging" }));
+    // branch, AND remove that branch so the process never leaves us on (or able to
+    // fall back to) a branch that should have been deleted. Deterministic +
+    // idempotent guarantee on top of scm-merge's conditional local cleanup (whose
+    // plain `git checkout` aborts on the dirty per-run metadata, skipping its own
+    // switch + branch delete).
+    const cmds = commandsForAction(
+      { kind: "done" },
+      cfg({ parentBranch: "staging", featureBranch: "feature-f6" }),
+    );
     // Force (-f): at `done` the feature is merged + its code committed; only the
     // per-run .tdd/.lakebase metadata is dirty, and a plain `git checkout` refuses
     // to overwrite those tracked-churny files. The switch must land on the parent
     // regardless (the fork-guard ignores the same metadata).
     expect(cmds[0]).toEqual({ kind: "cli", bin: "git", args: ["checkout", "-f", "staging"] });
+    // The local feature-branch delete: non-fatal (|| true) so an already-gone
+    // branch on a resume does not fail the terminal step; -D because a PR-merged
+    // branch is not a literal ancestor of the parent tip.
+    expect(cmds[1]).toEqual({
+      kind: "cli",
+      bin: "sh",
+      args: ["-c", `git branch -D 'feature-f6' 2>/dev/null || true`],
+    });
     expect(cmds[cmds.length - 1]).toMatchObject({ kind: "set-phase", phase: "shipped" });
+  });
+
+  it("done switches to the parent but does NOT emit a branch delete when the feature branch is unknown", () => {
+    const cmds = commandsForAction({ kind: "done" }, cfg({ parentBranch: "staging" }));
+    expect(cmds[0]).toEqual({ kind: "cli", bin: "git", args: ["checkout", "-f", "staging"] });
+    // No sh branch-delete command when featureBranch is unset.
+    expect(cmds.some((c) => c.kind === "cli" && c.bin === "sh")).toBe(false);
+    expect(cmds[cmds.length - 1]).toMatchObject({ kind: "set-phase", phase: "shipped" });
+  });
+
+  it("done does NOT delete the feature branch when it equals the parent (never delete the tier we are on)", () => {
+    const cmds = commandsForAction(
+      { kind: "done" },
+      cfg({ parentBranch: "staging", featureBranch: "staging" }),
+    );
+    expect(cmds.some((c) => c.kind === "cli" && c.bin === "sh")).toBe(false);
   });
 
   it("done emits ONLY the set-phase when the parent tier is unknown (no SCM state)", () => {

@@ -228,6 +228,14 @@ const UI_TRACK_BREAKDOWN = ` UI track is ON: decompose into stories that include
  *  Directives are generated fresh per run and are NOT recorded into the shipped
  *  corpus (replay copies artifacts, never the directive), so an absolute,
  *  machine-specific path here has no portability cost. */
+/** Single-quote a value for safe interpolation into an `sh -c` string (the only
+ *  place the drive builds a shell command rather than passing an argv). Wraps in
+ *  single quotes and escapes any embedded single quote the POSIX way ('\''), so a
+ *  branch name can never break out of the quotes. */
+function shellQuote(s: string): string {
+  return `'${s.replace(/'/g, `'\\''`)}'`;
+}
+
 function artifactRoot(consortDir: string): string {
   return consortDir;
 }
@@ -1783,13 +1791,16 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
       ];
 
     case "done":
-      // Feature wrap-up: switch the working tree back to the PARENT TIER as the
-      // last step, so the run does not end on the just-merged (soon-deleted)
-      // feature branch and the next feature forks from a clean parent. scm-merge
-      // already attempts this on a clean merge, but only conditionally + it can be
-      // skipped when the merge step warns/errors; this is the deterministic,
-      // idempotent guarantee (a checkout to the branch you are already on is a
-      // no-op). Only when the parent is known (SCM state present).
+      // Feature wrap-up: switch the working tree back to the PARENT TIER and
+      // DELETE the merged feature branch as the last step, so the run does not end
+      // on the just-merged (soon-deleted) feature branch and the next feature forks
+      // from a clean parent. scm-merge already attempts BOTH on a clean merge, but
+      // only conditionally: its local switch uses a plain `git checkout` that ABORTS
+      // on the dirty per-run .consort/.lakebase metadata every drive leaves, so the
+      // catch fires ("Local branch was NOT deleted"), HEAD stays on the feature
+      // branch, and its `git branch -D` is skipped. This is the deterministic,
+      // idempotent guarantee of the full end-state contract. Only when the parent is
+      // known (SCM state present).
       return [
         // Force the checkout: at `done` the feature has merged and its code is
         // committed, but the per-run .tdd/.lakebase metadata (workflow-state.json,
@@ -1800,7 +1811,31 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
         // metadata. (scm-merge attempts this switch too but non-fatally; this is
         // the deterministic guarantee.)
         ...(cfg.parentBranch
-          ? [{ kind: "cli" as const, bin: "git", args: ["checkout", "-f", cfg.parentBranch] }]
+          ? [
+              { kind: "cli" as const, bin: "git", args: ["checkout", "-f", cfg.parentBranch] },
+              // Delete the merged local feature branch so the process never leaves
+              // us on (or able to fall back to) a branch that should have been
+              // removed. Guarded to the feature branch, and only when it differs
+              // from the parent we just landed on (never delete the tier we are on).
+              // `-D` (force) because the branch merged via PR squash/merge-commit is
+              // not a literal ancestor of the local parent tip, so `-d` would refuse
+              // it as "not fully merged" even though it IS shipped. scm-merge already
+              // removed the REMOTE + Lakebase branches; this completes the local side.
+              // Best-effort via a shell guard: a missing/absent branch must not fail
+              // the terminal step (idempotent on a resume where it is already gone).
+              ...(cfg.featureBranch && cfg.featureBranch !== cfg.parentBranch
+                ? [
+                    {
+                      kind: "cli" as const,
+                      bin: "sh",
+                      args: [
+                        "-c",
+                        `git branch -D ${shellQuote(cfg.featureBranch)} 2>/dev/null || true`,
+                      ],
+                    },
+                  ]
+                : []),
+            ]
           : []),
         { kind: "set-phase", phase: "shipped" },
       ];

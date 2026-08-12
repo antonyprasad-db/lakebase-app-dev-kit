@@ -114,7 +114,15 @@ function assertBuildTurnsReplayable(corpusRoot: string, featureId: string): void
       ).toBe(true);
     }
 
-    // (b) the kept sequence is a valid trusted-green dispatch shape.
+    // (b) the kept sequence is a valid trusted-green dispatch shape. Two cadences
+    //     ship: WHOLE-STORY (one red->green for the story) and PER-AC (a red->green
+    //     cycle PER acceptance criterion, with a review/refactor at each AC
+    //     boundary). Both reduce, after dropping the self-heal detours above, to a
+    //     run of complete RED->GREEN cycles interspersed with review/refactor at
+    //     cycle boundaries. Validate with a small state machine rather than a fixed
+    //     whitelist, so the guard still catches the real defects , an adjacent
+    //     red,red / green,green (a retry-duplicated turn), a dangling red with no
+    //     green, a leading green, or an unknown role , while allowing N cycles.
     const roles = kept.map((n) => n.replace(/^\d+-/, ""));
     const shape = roles.map((r) => {
       if (/^navigator-review/.test(r)) return "review";
@@ -123,11 +131,30 @@ function assertBuildTurnsReplayable(corpusRoot: string, featureId: string): void
       if (/^driver/.test(r)) return "green";
       return `?(${r})`;
     });
-    const valid = ["red,green", "red,green,review", "red,green,review,refactor"];
+    // States: "start" (nothing yet) | "afterRed" (a red awaits its green) |
+    // "boundary" (a cycle just closed; a new cycle / review / refactor / end is ok).
+    let state: "start" | "afterRed" | "boundary" = "start";
+    let shapeOk = true;
+    for (const s of shape) {
+      if (s === "red") {
+        if (state === "afterRed") { shapeOk = false; break; } // red,red = retry dup / dangling red
+        state = "afterRed";
+      } else if (s === "green") {
+        if (state !== "afterRed") { shapeOk = false; break; } // green without a preceding red
+        state = "boundary";
+      } else if (s === "review" || s === "refactor") {
+        if (state !== "boundary") { shapeOk = false; break; } // review/refactor mid-cycle (between red and its green)
+        state = "boundary";
+      } else {
+        shapeOk = false; break; // unknown role token
+      }
+    }
+    // Must end at a closed boundary (or empty): a trailing unpaired red is invalid.
+    if (state === "afterRed") shapeOk = false;
     expect(
-      valid.includes(shape.join(",")),
-      `${featureId}/${story}: kept build turns must be a trusted-green sequence ` +
-        `[red,green(,review(,refactor))], got [${shape.join(",")}] from [${kept.join(", ")}]`,
+      shapeOk,
+      `${featureId}/${story}: kept build turns must be a run of complete red->green cycles ` +
+        `(whole-story or per-AC), review/refactor only at cycle boundaries; got [${shape.join(",")}] from [${kept.join(", ")}]`,
     ).toBe(true);
   }
 }
@@ -249,13 +276,28 @@ describe("assertScenarioCorpus: build-turn replay-consistency guard", () => {
     expect(() => assertScenarioCorpus(tmp, [{ id: "F1-x", buildReplay: true }])).not.toThrow();
   });
 
+  it("ACCEPTS the per-AC cadence: repeated red->green cycles with a review at each AC boundary", () => {
+    // The stockflow-full (run17) cadence: a story built AC-by-AC records a red->green
+    // per AC, each closed by a navigator-review at the AC boundary (self-heal detours
+    // filtered out). The kept shape is [red,green,review, red,green,review, red,green,
+    // review] , many cycles, all complete , which the state-machine shape check accepts
+    // while still rejecting an adjacent red,red / green,green.
+    mkStory("F1-x", "S-perac", [
+      "001-navigator-reflect",
+      "002-navigator", "003-driver", "004-navigator-review-AC1",
+      "005-navigator", "006-driver", "007-navigator-assess-AC2", "008-driver-repair-AC2", "009-navigator-review-AC2",
+      "010-navigator", "011-driver", "012-navigator-review-AC3",
+    ]);
+    expect(() => assertScenarioCorpus(tmp, [{ id: "F1-x", buildReplay: true }])).not.toThrow();
+  });
+
   it("REJECTS a resume-mislabeled stray low-numbered dir (001 after 010)", () => {
     // The F6/S2 bug: a resumed final refactor written as 001 sorts before 007..010.
     // Lexical sort puts the stray 001 first, so the story reads as [refactor,...]:
     // caught either by the shape check or the monotonic check (both are rejections).
     mkStory("F1-x", "S2", ["007-navigator", "008-driver", "010-navigator-review", "001-driver-refactor"]);
     expect(() => assertScenarioCorpus(tmp, [{ id: "F1-x", buildReplay: true }])).toThrow(
-      /strictly increasing|trusted-green sequence/,
+      /strictly increasing|red->green cycles/,
     );
   });
 
@@ -270,7 +312,7 @@ describe("assertScenarioCorpus: build-turn replay-consistency guard", () => {
   it("REJECTS a build sequence with a leftover un-filtered shape", () => {
     // e.g. two greens with no review, an impossible trusted-green dispatch.
     mkStory("F1-x", "S3", ["001-navigator", "002-driver", "003-driver"]);
-    expect(() => assertScenarioCorpus(tmp, [{ id: "F1-x", buildReplay: true }])).toThrow(/trusted-green sequence/);
+    expect(() => assertScenarioCorpus(tmp, [{ id: "F1-x", buildReplay: true }])).toThrow(/red->green cycles/);
   });
 });
 

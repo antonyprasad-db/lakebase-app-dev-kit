@@ -536,7 +536,7 @@ contract below is what a launcher must satisfy for a live capture to succeed.
 must be **exported** — the engine does NOT source the test config itself (unlike
 `replay-stockflow-rerecord.sh`). A launcher must source `.env.local.test.config`, resolve
 `DATABRICKS_HOST` from the profile, and export `GITHUB_OWNER` (from `LAKEBASE_TEST_GITHUB_OWNER`)
-before calling. This is why the checked-in launcher `examples/replay/captures/launch-stockflow-instrumented.sh`
+before calling. This is why the checked-in launcher `examples/replay/launch-stockflow-instrumented.sh`
 exists: it does that env-prep, sets the recording + resume env, and invokes `run-capture.sh` with
 the correct args.
 
@@ -847,7 +847,7 @@ the only remaining step is the launch (gated — live Lakebase, needs explicit g
      failure means re-login is needed (`databricks auth login --profile "<that profile>"`, interactive)
      BEFORE launching — a dead token half-provisions then orphans cloud resources.
    - Capture namespace has zero orphan `stockflow-instrumented` projects; the branch carries the fixes.
-3. **Launch** `examples/replay/captures/launch-stockflow-instrumented.sh` (detached; tracked by log +
+3. **Launch** `examples/replay/launch-stockflow-instrumented.sh` (detached; tracked by log +
    `postgres list-projects`).
 4. **Verify (live-only, can't be proven hermetically):** correspondence.jsonl has TWO kickoff entries
    (one per sprint) + both sprints' gate/intake exchanges; sprint-2's `staging` checkout is clean after

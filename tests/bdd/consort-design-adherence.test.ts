@@ -19,6 +19,7 @@ import {
   checkFeedbackPresent,
   checkRouteReachability,
   checkTokenConsumption,
+  checkAppIcon,
   checkUxClean,
 } from "../../consort/architecture/design-adherence";
 
@@ -357,5 +358,63 @@ describe("checkUxClean: project-level UX gate (UI-track only)", () => {
       },
     );
     expect(checkUxClean({ projectDir: dir }).clean).toBe(true);
+  });
+
+  it("flags the brand app icon as not applied when the guide declares it but the shell keeps the placeholder", () => {
+    // Routed + styled page (so reachability + tokens pass), a guide that declares an
+    // app_icon, but no installed asset and a shell/index that still point at favicon.svg.
+    mkClient(
+      `import {Routes,Route} from "react-router-dom";
+       export function App(){return(<><img src="/favicon.svg"/><Routes><Route path="/" element={<HomePage/>}/></Routes></>);}`,
+      { "HomePage.tsx": `export function HomePage(){return(<main className="page"/>);}` },
+    );
+    writeFileSync(join(dir, "client", "index.html"), `<link rel="icon" href="/favicon.svg" />`);
+    const r = checkUxClean({ projectDir: dir, appIcon: { source: "intake/assets/warehouse.png", install_to: "client/public/warehouse.png" } });
+    expect(r.clean).toBe(false);
+    expect(r.appIcon.ok).toBe(false);
+    // Names all three misses: not installed, index.html not referencing, shell not referencing.
+    expect(r.appIcon.violations.join(" ")).toMatch(/not installed/);
+    expect(r.appIcon.violations.join(" ")).toMatch(/index\.html/);
+  });
+
+  it("clean when the declared brand app icon is installed and referenced by index.html + the shell", () => {
+    mkClient(
+      `import {Routes,Route} from "react-router-dom";
+       export function App(){return(<><img src="/warehouse.png"/><Routes><Route path="/" element={<HomePage/>}/></Routes></>);}`,
+      { "HomePage.tsx": `export function HomePage(){return(<main className="page"/>);}` },
+    );
+    writeFileSync(join(dir, "client", "index.html"), `<link rel="icon" href="/warehouse.png" />`);
+    mkdirSync(join(dir, "client", "public"), { recursive: true });
+    writeFileSync(join(dir, "client", "public", "warehouse.png"), "PNGDATA");
+    const r = checkUxClean({ projectDir: dir, appIcon: { source: "intake/assets/warehouse.png", install_to: "client/public/warehouse.png" } });
+    expect(r.appIcon.ok).toBe(true);
+    expect(r.clean).toBe(true);
+  });
+});
+
+describe("checkAppIcon: the declared brand icon must be installed + referenced", () => {
+  const base = { installedBasename: "warehouse.png", indexHtml: `<link rel="icon" href="/warehouse.png"/>`, appShell: `<img src="/warehouse.png"/>` };
+  it("trivially ok when the guide declares no app icon", () => {
+    expect(checkAppIcon({ ...base, appIcon: undefined, installedExists: false }).ok).toBe(true);
+  });
+  it("ok when installed + referenced by both shell surfaces", () => {
+    const r = checkAppIcon({ ...base, appIcon: { source: "intake/assets/warehouse.png", install_to: "client/public/warehouse.png" }, installedExists: true });
+    expect(r.ok).toBe(true);
+  });
+  it("flags a missing installed asset", () => {
+    const r = checkAppIcon({ ...base, appIcon: { source: "intake/assets/warehouse.png", install_to: "client/public/warehouse.png" }, installedExists: false });
+    expect(r.ok).toBe(false);
+    expect(r.violations.join(" ")).toMatch(/not installed/);
+  });
+  it("flags the placeholder: shell + index still reference favicon.svg, not the brand icon", () => {
+    const r = checkAppIcon({
+      appIcon: { source: "intake/assets/warehouse.png", install_to: "client/public/warehouse.png" },
+      installedExists: true,
+      installedBasename: "warehouse.png",
+      indexHtml: `<link rel="icon" href="/favicon.svg"/>`,
+      appShell: `<img src="/favicon.svg"/>`,
+    });
+    expect(r.ok).toBe(false);
+    expect(r.violations.length).toBe(2); // index.html + shell
   });
 });

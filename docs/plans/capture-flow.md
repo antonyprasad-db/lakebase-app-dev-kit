@@ -92,7 +92,7 @@ and BOTH consumers already resolve the pair: the aggregate conformance iterates
 (`gate-conformance-guard.ts:230`). D4 is DONE. Stage 3 = add a regression test pinning the precedence.
 
 ### D5. Launcher — drive from /sprint, TWO sprints, proxy says yes to the whole lifecycle (step 6)
-- Rebuild the capture launcher (examples/replay/captures/launch-stockflow-instrumented.sh +
+- Rebuild the capture launcher (examples/replay/launch-stockflow-instrumented.sh +
   _replay-smoke.sh) to START at `/sprint` with `--gates proxy`, the proxy wired as HIL, and the intake
   interviews driving intake IN-RUN (no pre-seed cp). Pre-record the interview answers + intake artifacts
   as the proxy's material. Correspondence + kickoff recorded from seq 0.
@@ -161,5 +161,5 @@ records BOTH sides (question + answer/submission + outcome). Do NOT pre-seed int
 - consort/gates/artifact-conformance.ts (NFR Required-coverage hard-block)
 - consort/config/consort-paths.ts + resolver (per-feature nfrs.md override)
 - templates/project/common/.claude/commands/{design,build}.md (orchestrated intake interviews)
-- examples/replay/captures/launch-stockflow-instrumented.sh + _replay-smoke.sh (/sprint-driven)
+- examples/replay/launch-stockflow-instrumented.sh + _replay-smoke.sh (/sprint-driven)
 - docs/design/refactor/hil-intake-interview.md (status update)

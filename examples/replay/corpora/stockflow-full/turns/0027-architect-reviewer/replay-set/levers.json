@@ -1,0 +1,7 @@
+{
+  "model": "opus",
+  "effort": "default",
+  "session": "resume",
+  "resumeKeyFrom": "role",
+  "role": "architect-reviewer"
+}
