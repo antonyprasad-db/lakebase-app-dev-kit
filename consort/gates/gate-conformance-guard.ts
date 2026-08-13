@@ -21,6 +21,7 @@ import {
   checkFitnessCoverage,
   checkPersistenceCoverage,
   checkInvariantCoverageDistinct,
+  invariantRealizingStory,
   checkServiceBackedDeclaration,
   checkDbDesign,
 } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
@@ -313,7 +314,17 @@ function invariantCoverageDistinctReason(consortDir: string, featureId: string, 
         .map((it) => it.invariant_id as string);
       return { story, invariantIds };
     });
-  const r = checkInvariantCoverageDistinct(perStory);
+  // Ownership by REALIZATION (db-design), not story order: each invariant belongs to the story whose
+  // migration creates/alters its table. Lets the check flag a display-only story front-loaded with a
+  // write-story's invariant (and name the real owner), instead of the earliest-S-number fallback that
+  // dead-locked the reflect gate. Absent/unparseable inputs -> empty map -> the checker's fallback.
+  const archFile = architectureJson(consortDir, featureId);
+  const dbFile = dbDesignJson(consortDir, featureId);
+  const owner = invariantRealizingStory(
+    existsSync(archFile) ? readFileSync(archFile, "utf8") : undefined,
+    existsSync(dbFile) ? readFileSync(dbFile, "utf8") : undefined,
+  );
+  const r = checkInvariantCoverageDistinct(perStory, owner);
   return r.ok ? null : `invariant coverage not distinct across stories: ${r.violations.join("; ")}`;
 }
 

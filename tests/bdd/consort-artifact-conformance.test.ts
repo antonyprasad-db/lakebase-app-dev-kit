@@ -18,6 +18,7 @@ import {
   checkFitnessCoverage,
   checkPersistenceCoverage,
   checkInvariantCoverageDistinct,
+  invariantRealizingStory,
   checkStoryIndependence,
   checkAcIndependence,
   checkServiceBackedDeclaration,
@@ -893,5 +894,78 @@ describe("checkInvariantCoverageDistinct (Gate 3: each invariant belongs to exac
   it("does not flag a story re-listing the SAME invariant twice within itself (only cross-story)", () => {
     const r = checkInvariantCoverageDistinct([{ story: "S1-a", invariantIds: ["PI1", "PI1"] }]);
     expect(r.ok).toBe(true);
+  });
+});
+
+describe("checkInvariantCoverageDistinct: REALIZATION ownership (db-design), not story order , the front-loaded-invariant defect", () => {
+  // The stockflow-full F2 defect: a display-only read story (S1) ordered BEFORE the write story (S2)
+  // that creates the table gets front-loaded with the write story's invariant (PI6). Earliest-S-number
+  // ownership wrongly makes S1 the owner and dead-locks the reflect gate; realization ownership names
+  // S2 (the realizer) and points the fix at moving the item, not keeping it on S1.
+  const owner = new Map<string, string>([["PI6", "S2-adjust"]]); // PI6's table is created by S2's migration
+
+  it("flags a SINGLE display-only carrier (S1) holding a later write story's (S2) invariant, naming S2 as the realizer", () => {
+    const r = checkInvariantCoverageDistinct(
+      [
+        { story: "S1-display", invariantIds: ["PI6"] }, // mis-anchored , S1 does not migrate PI6's table
+        { story: "S2-adjust", invariantIds: [] },
+      ],
+      owner,
+    );
+    expect(r.ok).toBe(false);
+    expect((r.ok ? "" : r.violations.join(" "))).toContain("S1-display");
+    expect((r.ok ? "" : r.violations.join(" "))).toContain("S2-adjust"); // the realizer is named as the destination
+    expect((r.ok ? "" : r.violations.join(" "))).toContain("PI6");
+  });
+
+  it("PASSES when the invariant lives on its realizing story (S2 owns PI6, S1 owns none)", () => {
+    const r = checkInvariantCoverageDistinct(
+      [
+        { story: "S1-display", invariantIds: [] },
+        { story: "S2-adjust", invariantIds: ["PI6"] },
+      ],
+      owner,
+    );
+    expect(r.ok).toBe(true);
+  });
+
+  it("without an owner map, falls back to earliest-S-number ownership (unchanged legacy behavior)", () => {
+    const r = checkInvariantCoverageDistinct([
+      { story: "S1-a", invariantIds: ["PI1"] },
+      { story: "S2-b", invariantIds: ["PI1"] },
+    ]);
+    expect(r.ok).toBe(false);
+    expect((r.ok ? "" : r.violations.join(" "))).toContain("S2-b re-tests"); // later story flagged, earliest owns
+  });
+});
+
+describe("invariantRealizingStory: invariant -> the story whose migration realizes its table", () => {
+  const arch = JSON.stringify({
+    feature_id: "F2",
+    persistence_invariants: [
+      { id: "PI1", type: "unique", brief: "stock unique", table: "stock" },
+      { id: "PI6", type: "reversible", brief: "adjustment migration reversible", table: "stock_adjustment" },
+    ],
+  });
+  const db = JSON.stringify({
+    feature_id: "F2",
+    tables: [{ name: "stock", columns: [{ name: "id", type: "uuid" }] }],
+    schema_changes: [
+      { story_id: "S2-adjust", kind: "create_table", table: "stock_adjustment", detail: "new table" },
+      { story_id: "S1-display", kind: "add_index", table: "stock", detail: "read index" },
+    ],
+    realizes_invariants: ["PI1", "PI6"],
+  });
+
+  it("maps PI6 to S2 (its table's create_table story), not S1 which only reads stock", () => {
+    const m = invariantRealizingStory(arch, db);
+    expect(m.get("PI6")).toBe("S2-adjust");
+    expect(m.get("PI1")).toBe("S1-display"); // the only schema_change on `stock` is S1's add_index
+  });
+
+  it("returns an empty map when architecture or db-design is absent/unparseable (checker falls back)", () => {
+    expect(invariantRealizingStory(undefined, db).size).toBe(0);
+    expect(invariantRealizingStory(arch, undefined).size).toBe(0);
+    expect(invariantRealizingStory("{bad", db).size).toBe(0);
   });
 });

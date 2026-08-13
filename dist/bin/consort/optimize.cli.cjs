@@ -10334,7 +10334,7 @@ function checkAcIndependence(acs) {
   }
   return violations.length === 0 ? { ok: true } : { ok: false, violations };
 }
-function checkInvariantCoverageDistinct(perStory) {
+function checkInvariantCoverageDistinct(perStory, ownerByInvariant) {
   const carriers = /* @__PURE__ */ new Map();
   for (const s of perStory) {
     const m = /^S(\d+)/.exec(s.story);
@@ -10348,6 +10348,17 @@ function checkInvariantCoverageDistinct(perStory) {
   }
   const violations = [];
   for (const [inv, stories] of carriers) {
+    const realizer = ownerByInvariant?.get(inv);
+    if (realizer && stories.some((s) => s.story !== realizer)) {
+      const owns = stories.some((s) => s.story === realizer);
+      for (const c of stories) {
+        if (c.story === realizer) continue;
+        violations.push(
+          `${c.story} carries persistence invariant ${inv} but does NOT realize it , its table/migration is introduced by ${realizer} (db-design schema_changes). Move the ${inv} fitness item to ${realizer}${owns ? "" : " (which must add it)"}; a display/read-only story cannot test an invariant whose table it never creates. Anchor by the realizing story, not AC keyword proximity.`
+        );
+      }
+      continue;
+    }
     if (stories.length < 2) continue;
     const sorted = [...stories].sort((a, b) => a.num - b.num || a.story.localeCompare(b.story));
     const owner = sorted[0].story;
@@ -10358,6 +10369,38 @@ function checkInvariantCoverageDistinct(perStory) {
     }
   }
   return violations.length === 0 ? { ok: true } : { ok: false, violations };
+}
+function invariantRealizingStory(architectureJson2, dbDesignJson2) {
+  const out = /* @__PURE__ */ new Map();
+  if (!architectureJson2 || !dbDesignJson2) return out;
+  let arch;
+  let db;
+  try {
+    arch = JSON.parse(architectureJson2);
+    db = JSON.parse(dbDesignJson2);
+  } catch {
+    return out;
+  }
+  const changes = (db.schema_changes ?? []).filter(
+    (c) => !!c && typeof c.story_id === "string" && typeof c.kind === "string" && typeof c.table === "string"
+  );
+  const sNum = (s) => {
+    const m = /^S(\d+)/.exec(s);
+    return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER;
+  };
+  const tableRealizer = /* @__PURE__ */ new Map();
+  for (const table of new Set(changes.map((c) => c.table))) {
+    const forTable = changes.filter((c) => c.table === table);
+    const creator = forTable.find((c) => c.kind === "create_table");
+    const realizer = creator ? creator.story_id : [...forTable].sort((a, b) => sNum(a.story_id) - sNum(b.story_id))[0]?.story_id;
+    if (realizer) tableRealizer.set(table, realizer);
+  }
+  for (const inv of arch.persistence_invariants ?? []) {
+    if (!inv || typeof inv.id !== "string" || typeof inv.table !== "string") continue;
+    const realizer = tableRealizer.get(inv.table);
+    if (realizer) out.set(inv.id, realizer);
+  }
+  return out;
 }
 function canonicalArtifactName(path9) {
   const base = (0, import_path7.basename)(path9);
@@ -12175,7 +12218,7 @@ var SMELL_CATALOG = [
   {
     name: "reflect-testlist-defect",
     description: "The pre-build reflection critic (Navigator, reflect mode) found a defect in the story's TEST-LIST before the build lane: a test that contradicts its AC, an AC with no covering test (coverage gap), an NFR with no fitness test, or a test that asserts at a layer the architecture forbids. Caught on the cheap artifacts so it is fixed BEFORE the build lane.",
-    proposed_remediation: "Route back to the Test Strategist (Gate 3): align the test with its AC, add the missing coverage, or move the assertion to the correct layer. Bounded to one automatic revise per story; if the critic still finds the defect after the re-scope, it escalates to the human.",
+    proposed_remediation: "Route back to the Test Strategist (Gate 3): align the test with its AC, add the missing coverage, or move the assertion to the correct layer. Bounded to one automatic revise per story; if the critic still finds the defect after the re-scope, it escalates to the human. CROSS-STORY persistence-invariant case: if the uncovered invariant is one whose table is realized by THIS story but a DIFFERENT, already-gated story front-loaded its fitness item (the invariant-coverage-distinct block), the story-scoped auto-revise CANNOT clear it (it only re-runs this story). The fix is to re-anchor the invariant to its REALIZING story (per db-design schema_changes): remove the fitness item from the mis-anchored owner and add it here. That crosses a gated story boundary, so it escalates to the human with the owning story named (reopen it), rather than looping this story to a dead end.",
     // A test-list defect the critic surfaces is a test-strategist fix: route back to Gate 3.
     level: "spec",
     owning_role: "test-strategist",
@@ -13371,7 +13414,13 @@ function invariantCoverageDistinctReason(consortDir, featureId, testListJson) {
     const invariantIds = items.filter((it) => typeof it.invariant_id === "string" && it.invariant_id.length > 0 && typeof it.ac_id === "string" && acIds.has(it.ac_id)).map((it) => it.invariant_id);
     return { story, invariantIds };
   });
-  const r = checkInvariantCoverageDistinct(perStory);
+  const archFile = architectureJson(consortDir, featureId);
+  const dbFile = dbDesignJson(consortDir, featureId);
+  const owner = invariantRealizingStory(
+    (0, import_node_fs15.existsSync)(archFile) ? (0, import_node_fs15.readFileSync)(archFile, "utf8") : void 0,
+    (0, import_node_fs15.existsSync)(dbFile) ? (0, import_node_fs15.readFileSync)(dbFile, "utf8") : void 0
+  );
+  const r = checkInvariantCoverageDistinct(perStory, owner);
   return r.ok ? null : `invariant coverage not distinct across stories: ${r.violations.join("; ")}`;
 }
 function serviceBackedReason(consortDir, featureId) {
@@ -13846,7 +13895,7 @@ var TEST_ANALYST_CATALOGUE = {
     effort: "high",
     toolScope: ["Read"],
     inputs: ["architecture-invariants", "db-design"],
-    focusPrompt: "You are the FITNESS test analyst , the SOLE owner of `invariant_id`. Two duties: (1) Walk the architecture (layers, service_backed, ORM-only, config-in-env, each accepted NFR budget) and emit >=1 `kind:\"fitness\"` item per architectural constraint the story touches: the layering contract (boundary must not import the DB session; persistence only in the repository), the ORM-only contract (ONLY the repository touches the ORM/session , the service AND boundary contain no ORM imports; this is DISTINCT from the routes-vs-session check), config-from-env, and any service-layer guard an NFR demands (e.g. a write-time rejection of an overcommitting / negative-quantity write at the SERVICE layer , distinct from a DB CHECK constraint). A COMPOUND defense (an `and`/`+`/comma joining two checkable claims) needs ONE item PER conjunct, never one for the pair. (2) Walk architecture.json `persistence_invariants[]` and emit one `kind:\"fitness\"` item per invariant with `invariant_id` set to that invariant's id, verified DIRECTLY against the real branch database (never a mock, never a generic ORM round-trip). A migration reversibility is ALWAYS one item: reversibility (single-step downgrade/upgrade, @pytest.mark.migration, NEVER downgrade base) asserting the SCHEMA is recreated , the table + its columns/constraints are present again after downgrade-then-upgrade (NOT that data survives). Data-preservation (seed rows, migrate, assert they survive with expected values) is a SEPARATE item that applies ONLY to an ADDITIVE migration on a PRE-EXISTING table (a later story adding a column/constraint, where single-step downgrade removes only that addition and prior rows persist). NEVER author a data-preservation item for an INITIAL create-table migration: single-step downgrade drops the whole table, so 'rows survive' is UNSATISFIABLE and no code can make it pass (it dead-locks the assess/repair loop). If the story's migration is the table's FIRST (create-table), emit ONLY the schema-recreation reversibility item, not data-preservation. The created_at/audit immutability on an in-place upsert is its OWN item. Whole-table aggregate assertions must scope to the test's own rows (a delta), never an absolute total. Fitness items MUST NOT carry a `.feature` `scenario_file`. Seed idempotently with a per-run-unique key. " + SLICE_CONTRACT + " Set `invariant_id` on each item that covers a declared persistence invariant."
+    focusPrompt: "You are the FITNESS test analyst , the SOLE owner of `invariant_id`. Two duties: (1) Walk the architecture (layers, service_backed, ORM-only, config-in-env, each accepted NFR budget) and emit >=1 `kind:\"fitness\"` item per architectural constraint the story touches: the layering contract (boundary must not import the DB session; persistence only in the repository), the ORM-only contract (ONLY the repository touches the ORM/session , the service AND boundary contain no ORM imports; this is DISTINCT from the routes-vs-session check), config-from-env, and any service-layer guard an NFR demands (e.g. a write-time rejection of an overcommitting / negative-quantity write at the SERVICE layer , distinct from a DB CHECK constraint). A COMPOUND defense (an `and`/`+`/comma joining two checkable claims) needs ONE item PER conjunct, never one for the pair. (2) Walk architecture.json `persistence_invariants[]` and emit one `kind:\"fitness\"` item per invariant with `invariant_id` set to that invariant's id, verified DIRECTLY against the real branch database (never a mock, never a generic ORM round-trip). ANCHOR BY REALIZING STORY, NOT KEYWORD PROXIMITY: emit an invariant's item ONLY when THIS story realizes that invariant's table , i.e. db-design.json `schema_changes[]` has an entry for THIS story_id (create_table, else the earliest add_column/alter/constraint) on the invariant's `table` (architecture.json `persistence_invariants[].table`). If the invariant's table is created by a LATER story, DO NOT emit its fitness item on this story , it belongs to that write story, and its test is un-buildable here (the table does not exist yet). A display/read-only story whose migrations create NO table an invariant names emits NO invariant fitness items, even if its ACs mention a related record (e.g. an AC 'shows the record' does NOT own the record's not-null/FK/reversibility invariants , the story that MIGRATES the table does). A migration reversibility is ALWAYS one item: reversibility (single-step downgrade/upgrade, @pytest.mark.migration, NEVER downgrade base) asserting the SCHEMA is recreated , the table + its columns/constraints are present again after downgrade-then-upgrade (NOT that data survives). Data-preservation (seed rows, migrate, assert they survive with expected values) is a SEPARATE item that applies ONLY to an ADDITIVE migration on a PRE-EXISTING table (a later story adding a column/constraint, where single-step downgrade removes only that addition and prior rows persist). NEVER author a data-preservation item for an INITIAL create-table migration: single-step downgrade drops the whole table, so 'rows survive' is UNSATISFIABLE and no code can make it pass (it dead-locks the assess/repair loop). If the story's migration is the table's FIRST (create-table), emit ONLY the schema-recreation reversibility item, not data-preservation. The created_at/audit immutability on an in-place upsert is its OWN item. Whole-table aggregate assertions must scope to the test's own rows (a delta), never an absolute total. Fitness items MUST NOT carry a `.feature` `scenario_file`. Seed idempotently with a per-run-unique key. " + SLICE_CONTRACT + " Set `invariant_id` on each item that covers a declared persistence invariant."
   },
   client: {
     kind: "client",

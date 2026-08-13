@@ -111,7 +111,16 @@ export const TEST_ANALYST_CATALOGUE: Record<string, TestAnalystCatalogueEntry> =
       "defense (an `and`/`+`/comma joining two checkable claims) needs ONE item PER conjunct, never one " +
       "for the pair. (2) Walk architecture.json `persistence_invariants[]` and emit one " +
       "`kind:\"fitness\"` item per invariant with `invariant_id` set to that invariant's id, verified " +
-      "DIRECTLY against the real branch database (never a mock, never a generic ORM round-trip). A " +
+      "DIRECTLY against the real branch database (never a mock, never a generic ORM round-trip). " +
+      "ANCHOR BY REALIZING STORY, NOT KEYWORD PROXIMITY: emit an invariant's item ONLY when THIS story " +
+      "realizes that invariant's table , i.e. db-design.json `schema_changes[]` has an entry for THIS " +
+      "story_id (create_table, else the earliest add_column/alter/constraint) on the invariant's " +
+      "`table` (architecture.json `persistence_invariants[].table`). If the invariant's table is created " +
+      "by a LATER story, DO NOT emit its fitness item on this story , it belongs to that write story, and " +
+      "its test is un-buildable here (the table does not exist yet). A display/read-only story whose " +
+      "migrations create NO table an invariant names emits NO invariant fitness items, even if its ACs " +
+      "mention a related record (e.g. an AC 'shows the record' does NOT own the record's not-null/FK/" +
+      "reversibility invariants , the story that MIGRATES the table does). A " +
       "migration reversibility is ALWAYS one item: reversibility (single-step downgrade/upgrade, " +
       "@pytest.mark.migration, NEVER downgrade base) asserting the SCHEMA is recreated , the table + its " +
       "columns/constraints are present again after downgrade-then-upgrade (NOT that data survives). " +

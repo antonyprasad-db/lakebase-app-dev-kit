@@ -7236,7 +7236,7 @@ function checkAcIndependence(acs) {
   }
   return violations.length === 0 ? { ok: true } : { ok: false, violations };
 }
-function checkInvariantCoverageDistinct(perStory) {
+function checkInvariantCoverageDistinct(perStory, ownerByInvariant) {
   const carriers = /* @__PURE__ */ new Map();
   for (const s of perStory) {
     const m = /^S(\d+)/.exec(s.story);
@@ -7250,6 +7250,17 @@ function checkInvariantCoverageDistinct(perStory) {
   }
   const violations = [];
   for (const [inv, stories] of carriers) {
+    const realizer = ownerByInvariant?.get(inv);
+    if (realizer && stories.some((s) => s.story !== realizer)) {
+      const owns = stories.some((s) => s.story === realizer);
+      for (const c of stories) {
+        if (c.story === realizer) continue;
+        violations.push(
+          `${c.story} carries persistence invariant ${inv} but does NOT realize it , its table/migration is introduced by ${realizer} (db-design schema_changes). Move the ${inv} fitness item to ${realizer}${owns ? "" : " (which must add it)"}; a display/read-only story cannot test an invariant whose table it never creates. Anchor by the realizing story, not AC keyword proximity.`
+        );
+      }
+      continue;
+    }
     if (stories.length < 2) continue;
     const sorted = [...stories].sort((a, b) => a.num - b.num || a.story.localeCompare(b.story));
     const owner = sorted[0].story;
@@ -7260,6 +7271,38 @@ function checkInvariantCoverageDistinct(perStory) {
     }
   }
   return violations.length === 0 ? { ok: true } : { ok: false, violations };
+}
+function invariantRealizingStory(architectureJson2, dbDesignJson2) {
+  const out = /* @__PURE__ */ new Map();
+  if (!architectureJson2 || !dbDesignJson2) return out;
+  let arch;
+  let db;
+  try {
+    arch = JSON.parse(architectureJson2);
+    db = JSON.parse(dbDesignJson2);
+  } catch {
+    return out;
+  }
+  const changes = (db.schema_changes ?? []).filter(
+    (c) => !!c && typeof c.story_id === "string" && typeof c.kind === "string" && typeof c.table === "string"
+  );
+  const sNum = (s) => {
+    const m = /^S(\d+)/.exec(s);
+    return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER;
+  };
+  const tableRealizer = /* @__PURE__ */ new Map();
+  for (const table of new Set(changes.map((c) => c.table))) {
+    const forTable = changes.filter((c) => c.table === table);
+    const creator = forTable.find((c) => c.kind === "create_table");
+    const realizer = creator ? creator.story_id : [...forTable].sort((a, b) => sNum(a.story_id) - sNum(b.story_id))[0]?.story_id;
+    if (realizer) tableRealizer.set(table, realizer);
+  }
+  for (const inv of arch.persistence_invariants ?? []) {
+    if (!inv || typeof inv.id !== "string" || typeof inv.table !== "string") continue;
+    const realizer = tableRealizer.get(inv.table);
+    if (realizer) out.set(inv.id, realizer);
+  }
+  return out;
 }
 function canonicalArtifactName(path2) {
   const base = basename(path2);
@@ -8037,7 +8080,13 @@ function invariantCoverageDistinctReason(consortDir, featureId, testListJson) {
     const invariantIds = items.filter((it) => typeof it.invariant_id === "string" && it.invariant_id.length > 0 && typeof it.ac_id === "string" && acIds.has(it.ac_id)).map((it) => it.invariant_id);
     return { story, invariantIds };
   });
-  const r = checkInvariantCoverageDistinct(perStory);
+  const archFile = architectureJson(consortDir, featureId);
+  const dbFile = dbDesignJson(consortDir, featureId);
+  const owner = invariantRealizingStory(
+    existsSync11(archFile) ? readFileSync11(archFile, "utf8") : void 0,
+    existsSync11(dbFile) ? readFileSync11(dbFile, "utf8") : void 0
+  );
+  const r = checkInvariantCoverageDistinct(perStory, owner);
   return r.ok ? null : `invariant coverage not distinct across stories: ${r.violations.join("; ")}`;
 }
 function serviceBackedReason(consortDir, featureId) {

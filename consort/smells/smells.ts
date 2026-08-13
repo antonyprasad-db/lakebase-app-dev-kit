@@ -192,7 +192,14 @@ export const SMELL_CATALOG: SmellDefinition[] = [
     proposed_remediation:
       "Route back to the Test Strategist (Gate 3): align the test with its AC, add the missing " +
       "coverage, or move the assertion to the correct layer. Bounded to one automatic revise per " +
-      "story; if the critic still finds the defect after the re-scope, it escalates to the human.",
+      "story; if the critic still finds the defect after the re-scope, it escalates to the human. " +
+      "CROSS-STORY persistence-invariant case: if the uncovered invariant is one whose table is " +
+      "realized by THIS story but a DIFFERENT, already-gated story front-loaded its fitness item " +
+      "(the invariant-coverage-distinct block), the story-scoped auto-revise CANNOT clear it (it only " +
+      "re-runs this story). The fix is to re-anchor the invariant to its REALIZING story (per " +
+      "db-design schema_changes): remove the fitness item from the mis-anchored owner and add it here. " +
+      "That crosses a gated story boundary, so it escalates to the human with the owning story named " +
+      "(reopen it), rather than looping this story to a dead end.",
     // A test-list defect the critic surfaces is a test-strategist fix: route back to Gate 3.
     level: "spec",
     owning_role: "test-strategist",

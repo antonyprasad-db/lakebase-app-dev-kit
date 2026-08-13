@@ -771,6 +771,13 @@ export function checkAcIndependence(acs: Array<{ name: string; content: string }
  */
 export function checkInvariantCoverageDistinct(
   perStory: Array<{ story: string; invariantIds: string[] }>,
+  /** OPTIONAL invariant_id -> the story that REALIZES it (its table's create/alter migration),
+   *  derived from db-design (invariantRealizingStory). When present, ownership is REALIZATION, not
+   *  story order: a fitness item on a story that does NOT realize the invariant is the violation
+   *  (even when that story sorts FIRST , the display-only-S1-front-loads-S2's-invariant defect), and
+   *  the fix is to move it to the realizing story, not to keep it on the earliest. When absent, falls
+   *  back to the earliest-S-number heuristic (a story-order proxy for "who realizes it"). */
+  ownerByInvariant?: Map<string, string>,
 ): ConformanceResult {
   // invariant_id -> the stories (with S-number) whose fitness items reference it.
   const carriers = new Map<string, Array<{ story: string; num: number }>>();
@@ -786,7 +793,25 @@ export function checkInvariantCoverageDistinct(
   }
   const violations: string[] = [];
   for (const [inv, stories] of carriers) {
+    const realizer = ownerByInvariant?.get(inv);
+    if (realizer && stories.some((s) => s.story !== realizer)) {
+      // REALIZATION-based ownership: every carrier that is NOT the realizing story is mis-anchored ,
+      // its migration/table does not exist there. This fires even for a SINGLE carrier (a display-only
+      // story holding a write-story's invariant), which the earliest-wins path silently accepted.
+      const owns = stories.some((s) => s.story === realizer);
+      for (const c of stories) {
+        if (c.story === realizer) continue;
+        violations.push(
+          `${c.story} carries persistence invariant ${inv} but does NOT realize it , its table/migration ` +
+            `is introduced by ${realizer} (db-design schema_changes). Move the ${inv} fitness item to ${realizer}` +
+            `${owns ? "" : " (which must add it)"}; a display/read-only story cannot test an invariant whose ` +
+            `table it never creates. Anchor by the realizing story, not AC keyword proximity.`,
+        );
+      }
+      continue;
+    }
     if (stories.length < 2) continue;
+    // Fallback (no db-design owner map): earliest-S-number heuristic , the lowest story owns it.
     const sorted = [...stories].sort((a, b) => a.num - b.num || a.story.localeCompare(b.story));
     const owner = sorted[0].story;
     for (const later of sorted.slice(1)) {
@@ -799,6 +824,54 @@ export function checkInvariantCoverageDistinct(
     }
   }
   return violations.length === 0 ? { ok: true } : { ok: false, violations };
+}
+
+/**
+ * Resolve invariant_id -> the story that REALIZES it, from architecture (invariant -> table) joined to
+ * db-design schema_changes (story -> the table it creates/alters). An invariant belongs to the FIRST
+ * story whose migration touches its table (create_table, else the earliest add_column/alter/constraint
+ * on it). This is the single source of ownership truth the coverage check, the analyst, and the spec
+ * gate all key off , replacing "earliest story that happens to name it". Returns an empty map when the
+ * inputs are absent/unparseable or no invariant has a resolvable table (the checker then falls back).
+ */
+export function invariantRealizingStory(
+  architectureJson: string | undefined,
+  dbDesignJson: string | undefined,
+): Map<string, string> {
+  const out = new Map<string, string>();
+  if (!architectureJson || !dbDesignJson) return out;
+  let arch: { persistence_invariants?: Array<{ id?: string; table?: string }> };
+  let db: { schema_changes?: Array<{ story_id?: string; kind?: string; table?: string }> };
+  try {
+    arch = JSON.parse(architectureJson);
+    db = JSON.parse(dbDesignJson);
+  } catch {
+    return out;
+  }
+  const changes = (db.schema_changes ?? []).filter(
+    (c): c is { story_id: string; kind: string; table: string } =>
+      !!c && typeof c.story_id === "string" && typeof c.kind === "string" && typeof c.table === "string",
+  );
+  const sNum = (s: string): number => {
+    const m = /^S(\d+)/.exec(s);
+    return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER;
+  };
+  // Per table: the realizing story = the create_table story if any, else the earliest story that alters it.
+  const tableRealizer = new Map<string, string>();
+  for (const table of new Set(changes.map((c) => c.table))) {
+    const forTable = changes.filter((c) => c.table === table);
+    const creator = forTable.find((c) => c.kind === "create_table");
+    const realizer = creator
+      ? creator.story_id
+      : [...forTable].sort((a, b) => sNum(a.story_id) - sNum(b.story_id))[0]?.story_id;
+    if (realizer) tableRealizer.set(table, realizer);
+  }
+  for (const inv of arch.persistence_invariants ?? []) {
+    if (!inv || typeof inv.id !== "string" || typeof inv.table !== "string") continue;
+    const realizer = tableRealizer.get(inv.table);
+    if (realizer) out.set(inv.id, realizer);
+  }
+  return out;
 }
 
 /**
