@@ -6748,8 +6748,22 @@ function readAcLayer(tdd, f, acId) {
 
 // consort/logging/agent-log.ts
 init_esm_shims();
-import { appendFileSync, existsSync as existsSync3, readFileSync as readFileSync3 } from "fs";
-import { join as join3 } from "path";
+import { appendFileSync, existsSync as existsSync3, mkdirSync as mkdirSync2, readFileSync as readFileSync3 } from "fs";
+
+// consort/config/consort-env.ts
+init_esm_shims();
+var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
+var ENV_PREFIX = ENV_PREFIXES[0];
+function consortEnv(suffix, env = process.env) {
+  for (const prefix of ENV_PREFIXES) {
+    const v = env[`${prefix}${suffix}`];
+    if (v !== void 0) return v;
+  }
+  return void 0;
+}
+
+// consort/logging/agent-log.ts
+import { dirname, join as join3 } from "path";
 
 // consort/orchestrator/validators/schema-loader.ts
 init_esm_shims();
@@ -6870,6 +6884,16 @@ var LEVEL_ORDER = { debug: 0, info: 1, warn: 2, error: 3 };
 function logFilePath(consortDir) {
   return join3(consortDir, "agent-log.jsonl");
 }
+function mirrorToRecordDir(text) {
+  const recordDir = consortEnv("RECORD_DIR")?.trim();
+  if (!recordDir) return;
+  try {
+    const dst = join3(recordDir, "agent-log.jsonl");
+    mkdirSync2(dirname(dst), { recursive: true });
+    appendFileSync(dst, text, "utf8");
+  } catch {
+  }
+}
 function buildAgentLogEvent(input, now) {
   const slots = input.slots ?? {};
   const renderCtx = {
@@ -6908,8 +6932,10 @@ function emitAgentLogEvent(input, opts = {}) {
   const consortDir = opts.consortDir ?? resolveConsortDir();
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const event = buildAgentLogEvent(input, now);
-  appendFileSync(logFilePath(consortDir), `${JSON.stringify(event)}
-`, "utf8");
+  const line = `${JSON.stringify(event)}
+`;
+  appendFileSync(logFilePath(consortDir), line, "utf8");
+  mirrorToRecordDir(line);
   return event;
 }
 function emitAgentLogEvents(inputs, opts = {}) {
@@ -6917,8 +6943,10 @@ function emitAgentLogEvents(inputs, opts = {}) {
   const consortDir = opts.consortDir ?? resolveConsortDir();
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const events = inputs.map((i) => buildAgentLogEvent(i, now));
-  appendFileSync(logFilePath(consortDir), events.map((e) => `${JSON.stringify(e)}
-`).join(""), "utf8");
+  const text = events.map((e) => `${JSON.stringify(e)}
+`).join("");
+  appendFileSync(logFilePath(consortDir), text, "utf8");
+  mirrorToRecordDir(text);
   return events;
 }
 function readAgentLog(opts = {}) {
@@ -6946,12 +6974,12 @@ function readAgentLog(opts = {}) {
 // consort/logging/log-reconcile.ts
 init_esm_shims();
 import { existsSync as existsSync7, readdirSync as readdirSync4, statSync as statSync3 } from "fs";
-import { join as join5, relative, dirname as dirname3 } from "path";
+import { join as join5, relative, dirname as dirname4 } from "path";
 
 // consort/architecture/architecture-conventions.ts
 init_esm_shims();
-import { existsSync as existsSync4, readFileSync as readFileSync4, writeFileSync as writeFileSync2, mkdirSync as mkdirSync2 } from "fs";
-import { dirname } from "path";
+import { existsSync as existsSync4, readFileSync as readFileSync4, writeFileSync as writeFileSync2, mkdirSync as mkdirSync3 } from "fs";
+import { dirname as dirname2 } from "path";
 function normModule(m) {
   return m.replace(/\/+$/, "");
 }
@@ -7001,15 +7029,15 @@ function establishConventionsIfAbsent(consortDir, featureId, now = () => /* @__P
   const conventions = deriveConventions(content, featureId, now);
   if (!conventions) return { established: false };
   const out = architectureConventionsJson(consortDir);
-  mkdirSync2(dirname(out), { recursive: true });
+  mkdirSync3(dirname2(out), { recursive: true });
   writeFileSync2(out, JSON.stringify(conventions, null, 2) + "\n");
   return { established: true, conventions };
 }
 
 // consort/architecture/architecture-canon.ts
 init_esm_shims();
-import { existsSync as existsSync5, readFileSync as readFileSync5, writeFileSync as writeFileSync3, mkdirSync as mkdirSync3, readdirSync as readdirSync2 } from "fs";
-import { dirname as dirname2 } from "path";
+import { existsSync as existsSync5, readFileSync as readFileSync5, writeFileSync as writeFileSync3, mkdirSync as mkdirSync4, readdirSync as readdirSync2 } from "fs";
+import { dirname as dirname3 } from "path";
 function uniq(xs) {
   return [...new Set(xs.filter((x) => typeof x === "string" && x.length > 0))];
 }
@@ -7089,7 +7117,7 @@ function establishCanonFromDisk(consortDir, featureId, now = () => /* @__PURE__ 
 }
 function writeCanon(consortDir, canon) {
   const out = architectureCanonJson(consortDir);
-  mkdirSync3(dirname2(out), { recursive: true });
+  mkdirSync4(dirname3(out), { recursive: true });
   writeFileSync3(out, JSON.stringify(canon, null, 2) + "\n");
 }
 
@@ -7170,7 +7198,7 @@ function discoverArtifacts(consortDir, featureId) {
   add(join5(fdir, "architecture.json"), "architect-reviewer", "architecture.json");
   add(join5(fdir, "test-list.json"), "test-strategist", "test-list.json");
   add(architectureConventionsJson(consortDir), "architect-reviewer", "architecture conventions (project)");
-  const designDir = dirname3(designGuideJson(consortDir));
+  const designDir = dirname4(designGuideJson(consortDir));
   add(join5(designDir, "design-guide.json"), "ux-designer", "design-guide.json");
   add(join5(designDir, "design-guide.md"), "ux-designer", "design-guide.md");
   add(join5(designDir, "ia.md"), "ux-designer", "ia.md");
@@ -7346,11 +7374,6 @@ function hasOpenSmell(consortDir, smell, story_id) {
 // consort/pipeline/cycle-record.ts
 init_esm_shims();
 
-// consort/config/consort-env.ts
-init_esm_shims();
-var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
-var ENV_PREFIX = ENV_PREFIXES[0];
-
 // consort/test-list/test-list.ts
 init_esm_shims();
 
@@ -7358,8 +7381,8 @@ init_esm_shims();
 init_esm_shims();
 import { execSync, spawn } from "child_process";
 import { randomBytes } from "crypto";
-import { existsSync as existsSync11, mkdirSync as mkdirSync5, readFileSync as readFileSync11, rmSync as rmSync2, writeFileSync as writeFileSync8 } from "fs";
-import { dirname as dirname5, join as join10 } from "path";
+import { existsSync as existsSync11, mkdirSync as mkdirSync6, readFileSync as readFileSync11, rmSync as rmSync2, writeFileSync as writeFileSync8 } from "fs";
+import { dirname as dirname6, join as join10 } from "path";
 import { readTargets } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { pollUntil } from "@databricks-solutions/lakebase-scm-utils/util";
 

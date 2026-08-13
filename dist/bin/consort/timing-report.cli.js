@@ -6674,8 +6674,15 @@ init_esm_shims();
 
 // consort/logging/agent-log.ts
 init_esm_shims();
-import { appendFileSync, existsSync as existsSync3, readFileSync as readFileSync3 } from "fs";
-import { join as join3 } from "path";
+import { appendFileSync, existsSync as existsSync3, mkdirSync as mkdirSync2, readFileSync as readFileSync3 } from "fs";
+
+// consort/config/consort-env.ts
+init_esm_shims();
+var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
+var ENV_PREFIX = ENV_PREFIXES[0];
+
+// consort/logging/agent-log.ts
+import { dirname, join as join3 } from "path";
 
 // consort/orchestrator/validators/schema-loader.ts
 init_esm_shims();
@@ -7013,19 +7020,12 @@ function formatTimingReport(report) {
 
 // consort/session/run-config.ts
 init_esm_shims();
-import { existsSync as existsSync5, mkdirSync as mkdirSync3, readFileSync as readFileSync5, writeFileSync as writeFileSync3 } from "fs";
-
-// consort/config/consort-env.ts
-init_esm_shims();
-var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
-var ENV_PREFIX = ENV_PREFIXES[0];
-
-// consort/session/run-config.ts
+import { existsSync as existsSync5, mkdirSync as mkdirSync4, readFileSync as readFileSync5, writeFileSync as writeFileSync3 } from "fs";
 import { join as join6 } from "path";
 
 // consort/config/agent-models.ts
 init_esm_shims();
-import { dirname, join as join4 } from "path";
+import { dirname as dirname2, join as join4 } from "path";
 var RECOMMENDED_MODELS = {
   "spec-author": "opus",
   "architect-reviewer": "opus",
@@ -7041,8 +7041,8 @@ var AGENT_CONFIG_REL = join4(".lakebase", "agent-config.json");
 
 // consort/config/kit-ref.ts
 init_esm_shims();
-import { existsSync as existsSync4, readFileSync as readFileSync4, writeFileSync as writeFileSync2, mkdirSync as mkdirSync2 } from "fs";
-import { dirname as dirname2, join as join5 } from "path";
+import { existsSync as existsSync4, readFileSync as readFileSync4, writeFileSync as writeFileSync2, mkdirSync as mkdirSync3 } from "fs";
+import { dirname as dirname3, join as join5 } from "path";
 
 // consort/session/run-config.ts
 var RUN_CONFIG_REL = join6(ARTIFACT_ROOT, "run-config.json");

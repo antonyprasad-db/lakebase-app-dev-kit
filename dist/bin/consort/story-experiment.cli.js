@@ -7005,22 +7005,29 @@ import { mergePaired } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 
 // consort/pipeline/cycle-record.ts
 init_esm_shims();
-import { existsSync as existsSync15, readFileSync as readFileSync16, readdirSync as readdirSync11, statSync as statSync8, writeFileSync as writeFileSync9, mkdirSync as mkdirSync9, rmSync as rmSync6 } from "fs";
+import { existsSync as existsSync15, readFileSync as readFileSync16, readdirSync as readdirSync11, statSync as statSync8, writeFileSync as writeFileSync9, mkdirSync as mkdirSync10, rmSync as rmSync6 } from "fs";
 
 // consort/config/consort-env.ts
 init_esm_shims();
 var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
 var ENV_PREFIX = ENV_PREFIXES[0];
+function consortEnv(suffix, env = process.env) {
+  for (const prefix of ENV_PREFIXES) {
+    const v = env[`${prefix}${suffix}`];
+    if (v !== void 0) return v;
+  }
+  return void 0;
+}
 
 // consort/pipeline/cycle-record.ts
-import { join as join15, dirname as dirname5 } from "path";
+import { join as join15, dirname as dirname6 } from "path";
 
 // consort/deploy/deploy.ts
 init_esm_shims();
 import { execSync, spawn } from "child_process";
 import { randomBytes } from "crypto";
-import { existsSync as existsSync9, mkdirSync as mkdirSync6, readFileSync as readFileSync10, rmSync as rmSync3, writeFileSync as writeFileSync6 } from "fs";
-import { dirname as dirname3, join as join9 } from "path";
+import { existsSync as existsSync9, mkdirSync as mkdirSync7, readFileSync as readFileSync10, rmSync as rmSync3, writeFileSync as writeFileSync6 } from "fs";
+import { dirname as dirname4, join as join9 } from "path";
 import { readTargets } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { pollUntil } from "@databricks-solutions/lakebase-scm-utils/util";
 
@@ -7037,8 +7044,8 @@ import { getConnection } from "@databricks-solutions/lakebase-scm-utils/lakebase
 
 // consort/logging/agent-log.ts
 init_esm_shims();
-import { appendFileSync, existsSync as existsSync6, readFileSync as readFileSync6 } from "fs";
-import { join as join6 } from "path";
+import { appendFileSync, existsSync as existsSync6, mkdirSync as mkdirSync4, readFileSync as readFileSync6 } from "fs";
+import { dirname as dirname2, join as join6 } from "path";
 
 // consort/logging/agent-log-events.ts
 init_esm_shims();
@@ -7117,6 +7124,16 @@ function renderEventMessage(event, slots = {}) {
 function logFilePath(consortDir) {
   return join6(consortDir, "agent-log.jsonl");
 }
+function mirrorToRecordDir(text) {
+  const recordDir = consortEnv("RECORD_DIR")?.trim();
+  if (!recordDir) return;
+  try {
+    const dst = join6(recordDir, "agent-log.jsonl");
+    mkdirSync4(dirname2(dst), { recursive: true });
+    appendFileSync(dst, text, "utf8");
+  } catch {
+  }
+}
 function buildAgentLogEvent(input, now) {
   const slots = input.slots ?? {};
   const renderCtx = {
@@ -7155,8 +7172,10 @@ function emitAgentLogEvent(input, opts = {}) {
   const consortDir = opts.consortDir ?? resolveConsortDir();
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const event = buildAgentLogEvent(input, now);
-  appendFileSync(logFilePath(consortDir), `${JSON.stringify(event)}
-`, "utf8");
+  const line = `${JSON.stringify(event)}
+`;
+  appendFileSync(logFilePath(consortDir), line, "utf8");
+  mirrorToRecordDir(line);
   return event;
 }
 

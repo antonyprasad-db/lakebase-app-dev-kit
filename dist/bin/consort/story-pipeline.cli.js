@@ -7345,13 +7345,27 @@ function reviseStory(pipeline, storyId, opts) {
 
 // consort/orchestrator/status/revise.ts
 init_esm_shims();
-import { existsSync as existsSync17, readFileSync as readFileSync18, writeFileSync as writeFileSync11, mkdirSync as mkdirSync10, readdirSync as readdirSync11, rmSync as rmSync8 } from "fs";
-import { join as join17, dirname as dirname7 } from "path";
+import { existsSync as existsSync17, readFileSync as readFileSync18, writeFileSync as writeFileSync11, mkdirSync as mkdirSync11, readdirSync as readdirSync11, rmSync as rmSync8 } from "fs";
+import { join as join17, dirname as dirname8 } from "path";
 
 // consort/logging/agent-log.ts
 init_esm_shims();
-import { appendFileSync, existsSync as existsSync5, readFileSync as readFileSync5 } from "fs";
-import { join as join6 } from "path";
+import { appendFileSync, existsSync as existsSync5, mkdirSync as mkdirSync3, readFileSync as readFileSync5 } from "fs";
+
+// consort/config/consort-env.ts
+init_esm_shims();
+var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
+var ENV_PREFIX = ENV_PREFIXES[0];
+function consortEnv(suffix, env = process.env) {
+  for (const prefix of ENV_PREFIXES) {
+    const v = env[`${prefix}${suffix}`];
+    if (v !== void 0) return v;
+  }
+  return void 0;
+}
+
+// consort/logging/agent-log.ts
+import { dirname as dirname3, join as join6 } from "path";
 
 // consort/logging/agent-log-events.ts
 init_esm_shims();
@@ -7430,6 +7444,16 @@ function renderEventMessage(event, slots = {}) {
 function logFilePath(consortDir) {
   return join6(consortDir, "agent-log.jsonl");
 }
+function mirrorToRecordDir(text) {
+  const recordDir = consortEnv("RECORD_DIR")?.trim();
+  if (!recordDir) return;
+  try {
+    const dst = join6(recordDir, "agent-log.jsonl");
+    mkdirSync3(dirname3(dst), { recursive: true });
+    appendFileSync(dst, text, "utf8");
+  } catch {
+  }
+}
 function buildAgentLogEvent(input, now) {
   const slots = input.slots ?? {};
   const renderCtx = {
@@ -7468,8 +7492,10 @@ function emitAgentLogEvent(input, opts = {}) {
   const consortDir = opts.consortDir ?? resolveConsortDir();
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const event = buildAgentLogEvent(input, now);
-  appendFileSync(logFilePath(consortDir), `${JSON.stringify(event)}
-`, "utf8");
+  const line = `${JSON.stringify(event)}
+`;
+  appendFileSync(logFilePath(consortDir), line, "utf8");
+  mirrorToRecordDir(line);
   return event;
 }
 
@@ -7728,7 +7754,7 @@ function resolveOpenReflectSmellsForStory(consortDir, story_id, note, artifactSh
 
 // consort/smells/reflection.ts
 init_esm_shims();
-import { existsSync as existsSync7, readFileSync as readFileSync7, writeFileSync as writeFileSync4, mkdirSync as mkdirSync3, rmSync as rmSync2 } from "fs";
+import { existsSync as existsSync7, readFileSync as readFileSync7, writeFileSync as writeFileSync4, mkdirSync as mkdirSync4, rmSync as rmSync2 } from "fs";
 var SMELL_FOR_OWNER = {
   "spec-author": "reflect-spec-defect",
   "test-strategist": "reflect-testlist-defect"
@@ -7741,22 +7767,15 @@ var REFLECT_SMELLS = Object.values(SMELL_FOR_OWNER);
 
 // consort/pipeline/cycle-record.ts
 init_esm_shims();
-import { existsSync as existsSync16, readFileSync as readFileSync17, readdirSync as readdirSync10, statSync as statSync7, writeFileSync as writeFileSync10, mkdirSync as mkdirSync9, rmSync as rmSync7 } from "fs";
-
-// consort/config/consort-env.ts
-init_esm_shims();
-var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
-var ENV_PREFIX = ENV_PREFIXES[0];
-
-// consort/pipeline/cycle-record.ts
-import { join as join16, dirname as dirname6 } from "path";
+import { existsSync as existsSync16, readFileSync as readFileSync17, readdirSync as readdirSync10, statSync as statSync7, writeFileSync as writeFileSync10, mkdirSync as mkdirSync10, rmSync as rmSync7 } from "fs";
+import { join as join16, dirname as dirname7 } from "path";
 
 // consort/deploy/deploy.ts
 init_esm_shims();
 import { execSync, spawn } from "child_process";
 import { randomBytes } from "crypto";
-import { existsSync as existsSync10, mkdirSync as mkdirSync6, readFileSync as readFileSync11, rmSync as rmSync4, writeFileSync as writeFileSync7 } from "fs";
-import { dirname as dirname4, join as join10 } from "path";
+import { existsSync as existsSync10, mkdirSync as mkdirSync7, readFileSync as readFileSync11, rmSync as rmSync4, writeFileSync as writeFileSync7 } from "fs";
+import { dirname as dirname5, join as join10 } from "path";
 import { readTargets } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { pollUntil } from "@databricks-solutions/lakebase-scm-utils/util";
 
@@ -7950,7 +7969,7 @@ function applyReviseSelfHeal(args) {
   staleStoryArtifactsForRevise(consortDir, args.featureId, args.story, args.gate);
   try {
     const hb = handbackFile(consortDir, args.featureId, args.routedTo, args.story);
-    mkdirSync10(dirname7(hb), { recursive: true });
+    mkdirSync11(dirname8(hb), { recursive: true });
     writeFileSync11(hb, composeReviseBrief({ smell: args.smell, gate: args.gate, reason: args.reason }));
   } catch {
   }
@@ -7961,7 +7980,7 @@ function applyReviseSelfHeal(args) {
       if (role === args.routedTo) continue;
       try {
         const hb = handbackFile(consortDir, args.featureId, role, args.story);
-        mkdirSync10(dirname7(hb), { recursive: true });
+        mkdirSync11(dirname8(hb), { recursive: true });
         const gate = role === "architect-reviewer" ? "architecture" : "test_list";
         writeFileSync11(hb, composeReviseBrief({ smell: args.smell, gate, reason: args.reason }));
       } catch {

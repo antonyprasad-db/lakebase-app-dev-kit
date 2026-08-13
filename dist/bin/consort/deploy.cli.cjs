@@ -6715,6 +6715,20 @@ var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase
 // consort/logging/agent-log.ts
 init_cjs_shims();
 var import_fs2 = require("fs");
+
+// consort/config/consort-env.ts
+init_cjs_shims();
+var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
+var ENV_PREFIX = ENV_PREFIXES[0];
+function consortEnv(suffix, env = process.env) {
+  for (const prefix of ENV_PREFIXES) {
+    const v = env[`${prefix}${suffix}`];
+    if (v !== void 0) return v;
+  }
+  return void 0;
+}
+
+// consort/logging/agent-log.ts
 var import_path2 = require("path");
 
 // consort/orchestrator/validators/schema-loader.ts
@@ -6835,6 +6849,16 @@ function renderEventMessage(event, slots = {}) {
 function logFilePath(consortDir) {
   return (0, import_path2.join)(consortDir, "agent-log.jsonl");
 }
+function mirrorToRecordDir(text) {
+  const recordDir = consortEnv("RECORD_DIR")?.trim();
+  if (!recordDir) return;
+  try {
+    const dst = (0, import_path2.join)(recordDir, "agent-log.jsonl");
+    (0, import_fs2.mkdirSync)((0, import_path2.dirname)(dst), { recursive: true });
+    (0, import_fs2.appendFileSync)(dst, text, "utf8");
+  } catch {
+  }
+}
 function buildAgentLogEvent(input, now) {
   const slots = input.slots ?? {};
   const renderCtx = {
@@ -6873,25 +6897,15 @@ function emitAgentLogEvent(input, opts = {}) {
   const consortDir = opts.consortDir ?? resolveConsortDir();
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const event = buildAgentLogEvent(input, now);
-  (0, import_fs2.appendFileSync)(logFilePath(consortDir), `${JSON.stringify(event)}
-`, "utf8");
+  const line = `${JSON.stringify(event)}
+`;
+  (0, import_fs2.appendFileSync)(logFilePath(consortDir), line, "utf8");
+  mirrorToRecordDir(line);
   return event;
 }
 
 // consort/pipeline/cycle-record.ts
 init_cjs_shims();
-
-// consort/config/consort-env.ts
-init_cjs_shims();
-var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
-var ENV_PREFIX = ENV_PREFIXES[0];
-function consortEnv(suffix, env = process.env) {
-  for (const prefix of ENV_PREFIXES) {
-    const v = env[`${prefix}${suffix}`];
-    if (v !== void 0) return v;
-  }
-  return void 0;
-}
 
 // consort/test-list/test-list.ts
 init_cjs_shims();

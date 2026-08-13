@@ -6850,6 +6850,11 @@ var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase
 // consort/logging/agent-log.ts
 init_cjs_shims();
 
+// consort/config/consort-env.ts
+init_cjs_shims();
+var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
+var ENV_PREFIX = ENV_PREFIXES[0];
+
 // consort/orchestrator/validators/schema-loader.ts
 init_cjs_shims();
 var import_fs2 = require("fs");

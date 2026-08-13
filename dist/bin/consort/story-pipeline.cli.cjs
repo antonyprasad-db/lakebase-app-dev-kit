@@ -7346,6 +7346,20 @@ var import_node_path9 = require("path");
 // consort/logging/agent-log.ts
 init_cjs_shims();
 var import_fs3 = require("fs");
+
+// consort/config/consort-env.ts
+init_cjs_shims();
+var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
+var ENV_PREFIX = ENV_PREFIXES[0];
+function consortEnv(suffix, env = process.env) {
+  for (const prefix of ENV_PREFIXES) {
+    const v = env[`${prefix}${suffix}`];
+    if (v !== void 0) return v;
+  }
+  return void 0;
+}
+
+// consort/logging/agent-log.ts
 var import_path4 = require("path");
 
 // consort/logging/agent-log-events.ts
@@ -7425,6 +7439,16 @@ function renderEventMessage(event, slots = {}) {
 function logFilePath(consortDir) {
   return (0, import_path4.join)(consortDir, "agent-log.jsonl");
 }
+function mirrorToRecordDir(text) {
+  const recordDir = consortEnv("RECORD_DIR")?.trim();
+  if (!recordDir) return;
+  try {
+    const dst = (0, import_path4.join)(recordDir, "agent-log.jsonl");
+    (0, import_fs3.mkdirSync)((0, import_path4.dirname)(dst), { recursive: true });
+    (0, import_fs3.appendFileSync)(dst, text, "utf8");
+  } catch {
+  }
+}
 function buildAgentLogEvent(input, now) {
   const slots = input.slots ?? {};
   const renderCtx = {
@@ -7463,8 +7487,10 @@ function emitAgentLogEvent(input, opts = {}) {
   const consortDir = opts.consortDir ?? resolveConsortDir();
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const event = buildAgentLogEvent(input, now);
-  (0, import_fs3.appendFileSync)(logFilePath(consortDir), `${JSON.stringify(event)}
-`, "utf8");
+  const line = `${JSON.stringify(event)}
+`;
+  (0, import_fs3.appendFileSync)(logFilePath(consortDir), line, "utf8");
+  mirrorToRecordDir(line);
   return event;
 }
 
@@ -7737,13 +7763,6 @@ var REFLECT_SMELLS = Object.values(SMELL_FOR_OWNER);
 // consort/pipeline/cycle-record.ts
 init_cjs_shims();
 var import_fs6 = require("fs");
-
-// consort/config/consort-env.ts
-init_cjs_shims();
-var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
-var ENV_PREFIX = ENV_PREFIXES[0];
-
-// consort/pipeline/cycle-record.ts
 var import_path6 = require("path");
 
 // consort/deploy/deploy.ts

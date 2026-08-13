@@ -130,3 +130,49 @@ describe("emitAgentLogEvents (batch: one process, one append)", () => {
     expect(readAgentLog({ consortDir: tdd })).toEqual([]);
   });
 });
+
+describe("emit mirrors into the corpus (LAKEBASE_CONSORT_RECORD_DIR) , live-write, like correspondence.jsonl", () => {
+  let recordDir: string;
+  let priorEnv: string | undefined;
+  beforeEach(() => {
+    recordDir = mkdtempSync(join(tmpdir(), "agent-log-rec-"));
+    priorEnv = process.env.LAKEBASE_CONSORT_RECORD_DIR;
+  });
+  afterEach(() => {
+    rmSync(recordDir, { recursive: true, force: true });
+    if (priorEnv === undefined) delete process.env.LAKEBASE_CONSORT_RECORD_DIR;
+    else process.env.LAKEBASE_CONSORT_RECORD_DIR = priorEnv;
+  });
+
+  it("appends the SAME line to <recordDir>/agent-log.jsonl when recording, byte-identical to the project log", () => {
+    process.env.LAKEBASE_CONSORT_RECORD_DIR = recordDir;
+    emitAgentLogEvent(
+      { role: "spec-author", level: "info", event: "phase.end", slots: { phase: "design", outcome: "complete" } },
+      { consortDir: tdd, now: clock },
+    );
+    const projectLog = readFileSync(join(tdd, "agent-log.jsonl"), "utf8");
+    const corpusLog = join(recordDir, "agent-log.jsonl");
+    expect(existsSync(corpusLog)).toBe(true);
+    expect(readFileSync(corpusLog, "utf8")).toBe(projectLog); // corpus copy == project log
+  });
+
+  it("does NOT write a corpus copy when RECORD_DIR is unset (a plain, non-recording run)", () => {
+    delete process.env.LAKEBASE_CONSORT_RECORD_DIR;
+    emitAgentLogEvent({ role: "spec-author", level: "info", event: "reasoning", slots: { note: "x" } }, { consortDir: tdd, now: clock });
+    expect(existsSync(join(recordDir, "agent-log.jsonl"))).toBe(false);
+  });
+
+  it("mirrors a BATCH emit too (one joined append), matching the project log", () => {
+    process.env.LAKEBASE_CONSORT_RECORD_DIR = recordDir;
+    emitAgentLogEvents(
+      [
+        { role: "navigator", level: "debug", event: "reasoning", slots: { note: "a" } },
+        { role: "navigator", level: "debug", event: "reasoning", slots: { note: "b" } },
+      ],
+      { consortDir: tdd, now: clock },
+    );
+    const projectLog = readFileSync(join(tdd, "agent-log.jsonl"), "utf8");
+    expect(readFileSync(join(recordDir, "agent-log.jsonl"), "utf8")).toBe(projectLog);
+    expect(projectLog.trim().split("\n")).toHaveLength(2);
+  });
+})

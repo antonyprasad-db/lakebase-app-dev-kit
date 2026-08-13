@@ -7611,8 +7611,8 @@ function assertReplayBuildVerdictMatch(args) {
 
 // consort/logging/agent-log.ts
 init_esm_shims();
-import { appendFileSync, existsSync as existsSync10, readFileSync as readFileSync9 } from "fs";
-import { join as join10 } from "path";
+import { appendFileSync, existsSync as existsSync10, mkdirSync as mkdirSync8, readFileSync as readFileSync9 } from "fs";
+import { dirname as dirname7, join as join10 } from "path";
 
 // consort/orchestrator/validators/schema-loader.ts
 init_esm_shims();
@@ -7733,6 +7733,16 @@ var LEVEL_ORDER = { debug: 0, info: 1, warn: 2, error: 3 };
 function logFilePath(consortDir) {
   return join10(consortDir, "agent-log.jsonl");
 }
+function mirrorToRecordDir(text) {
+  const recordDir = consortEnv("RECORD_DIR")?.trim();
+  if (!recordDir) return;
+  try {
+    const dst = join10(recordDir, "agent-log.jsonl");
+    mkdirSync8(dirname7(dst), { recursive: true });
+    appendFileSync(dst, text, "utf8");
+  } catch {
+  }
+}
 function buildAgentLogEvent(input, now) {
   const slots = input.slots ?? {};
   const renderCtx = {
@@ -7771,8 +7781,10 @@ function emitAgentLogEvent(input, opts = {}) {
   const consortDir = opts.consortDir ?? resolveConsortDir();
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const event = buildAgentLogEvent(input, now);
-  appendFileSync(logFilePath(consortDir), `${JSON.stringify(event)}
-`, "utf8");
+  const line = `${JSON.stringify(event)}
+`;
+  appendFileSync(logFilePath(consortDir), line, "utf8");
+  mirrorToRecordDir(line);
   return event;
 }
 function readAgentLog(opts = {}) {
@@ -8849,11 +8861,11 @@ import { readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lake
 
 // consort/setup/stray-artifact-recovery.ts
 init_esm_shims();
-import { existsSync as existsSync14, mkdirSync as mkdirSync9, cpSync as cpSync3, rmSync as rmSync2, readdirSync as readdirSync8, statSync as statSync5 } from "fs";
-import { join as join13, dirname as dirname8, basename } from "path";
+import { existsSync as existsSync14, mkdirSync as mkdirSync10, cpSync as cpSync3, rmSync as rmSync2, readdirSync as readdirSync8, statSync as statSync5 } from "fs";
+import { join as join13, dirname as dirname9, basename } from "path";
 function malformedSiblingRoot(projectDir) {
   const p = projectDir.replace(/\/+$/, "");
-  return `${dirname8(p)}-${basename(p)}`;
+  return `${dirname9(p)}-${basename(p)}`;
 }
 function listFilesRel(dir) {
   const out = [];
@@ -8877,7 +8889,7 @@ function relocateStrayDesignArtifacts(projectDir) {
     if (!existsSync14(strayRoot)) continue;
     for (const rel of listFilesRel(strayRoot)) moved.push(join13(artRoot, rel));
     const realRoot = join13(projectDir, artRoot);
-    mkdirSync9(realRoot, { recursive: true });
+    mkdirSync10(realRoot, { recursive: true });
     cpSync3(strayRoot, realRoot, { recursive: true, force: true });
     rmSync2(strayRoot, { recursive: true, force: true });
   }
@@ -9502,7 +9514,7 @@ function composeOnAction(...hooks) {
 // consort/orchestrator/drive/orchestrator-effects.ts
 init_esm_shims();
 import * as fs15 from "fs";
-import { dirname as dirname18, join as join40 } from "path";
+import { dirname as dirname19, join as join40 } from "path";
 
 // consort/orchestrator/drive/orchestrator-drive.ts
 init_esm_shims();
@@ -9846,7 +9858,7 @@ import { join as join17 } from "path";
 // consort/orchestrator/validators/conformance/artifact-conformance.ts
 init_esm_shims();
 import { existsSync as existsSync16, readFileSync as readFileSync13, readdirSync as readdirSync10, statSync as statSync7 } from "fs";
-import { join as join16, basename as basename3, dirname as dirname9 } from "path";
+import { join as join16, basename as basename3, dirname as dirname10 } from "path";
 var ARTIFACT_FORMATS = {
   "feature-spec.json": { kind: "json-schema", schema: "feature.schema.json" },
   "story.json": { kind: "json-schema", schema: "story.schema.json" },
@@ -10340,7 +10352,7 @@ function checkInvariantCoverageDistinct(perStory) {
 }
 function canonicalArtifactName(path10) {
   const base = basename3(path10);
-  if (basename3(dirname9(path10)) === "acs" && base.endsWith(".json")) return "ac.json";
+  if (basename3(dirname10(path10)) === "acs" && base.endsWith(".json")) return "ac.json";
   return base;
 }
 
@@ -10900,8 +10912,8 @@ ${instructions.guidelines.map((g) => `- ${g}`).join("\n")}` : "";
 
 // consort/orchestrator/agents/mock-replay-agent.ts
 init_esm_shims();
-import { readFileSync as readFileSync15, writeFileSync as writeFileSync7, existsSync as existsSync19, mkdirSync as mkdirSync11, cpSync as cpSync4, readdirSync as readdirSync12, statSync as statSync9 } from "fs";
-import { join as join19, dirname as dirname10, relative as relative2, sep } from "path";
+import { readFileSync as readFileSync15, writeFileSync as writeFileSync7, existsSync as existsSync19, mkdirSync as mkdirSync12, cpSync as cpSync4, readdirSync as readdirSync12, statSync as statSync9 } from "fs";
+import { join as join19, dirname as dirname11, relative as relative2, sep } from "path";
 function makeMockReplayAgent(opts) {
   const role = opts.role ?? "product-owner";
   return {
@@ -10916,10 +10928,10 @@ function makeMockReplayAgent(opts) {
         }
         const dst = join19(invocation.workspaceDir, seed.to);
         if (seed.kind === "tree") {
-          mkdirSync11(dst, { recursive: true });
+          mkdirSync12(dst, { recursive: true });
           cpSync4(src, dst, { recursive: true, force: true, filter: codeTreeFilter(src) });
         } else {
-          mkdirSync11(dirname10(dst), { recursive: true });
+          mkdirSync12(dirname11(dst), { recursive: true });
           writeFileSync7(dst, readFileSync15(src, "utf8"));
         }
         materialized.push(seed.to);
@@ -10945,7 +10957,7 @@ function actionSignature(a) {
 function resolveTurnsDir(corpusRoot) {
   const here = join19(corpusRoot, "turns");
   if (existsSync19(here)) return here;
-  const parent = join19(dirname10(corpusRoot), "turns");
+  const parent = join19(dirname11(corpusRoot), "turns");
   if (existsSync19(parent)) return parent;
   return void 0;
 }
@@ -10998,7 +11010,7 @@ function materializeFiles(filesDir, workspaceDir) {
       }
       const rel = remapArtifactRoot(relative2(filesDir, src));
       const dst = join19(workspaceDir, rel);
-      mkdirSync11(dirname10(dst), { recursive: true });
+      mkdirSync12(dirname11(dst), { recursive: true });
       writeFileSync7(dst, readFileSync15(src));
       out.push(rel);
     }
@@ -11132,14 +11144,14 @@ import {
   appendFileSync as appendFileSync2,
   cpSync as cpSync5,
   existsSync as existsSync21,
-  mkdirSync as mkdirSync12,
+  mkdirSync as mkdirSync13,
   readFileSync as readFileSync17,
   readdirSync as readdirSync13,
   rmSync as rmSync3,
   statSync as statSync10,
   writeFileSync as writeFileSync9
 } from "fs";
-import { dirname as dirname11, join as join21, relative as relative3 } from "path";
+import { dirname as dirname12, join as join21, relative as relative3 } from "path";
 var PROJECT_ROOT_TOKEN = "<PROJECT_ROOT>";
 function relativizeProjectPaths(text, projectDir) {
   if (!text || !projectDir) return text;
@@ -11149,24 +11161,24 @@ function relativizeProjectPaths(text, projectDir) {
 }
 var NON_ARTIFACT_TDD = /* @__PURE__ */ new Set(["agent-log.jsonl"]);
 function recordCorrespondence(recordDir, entry) {
-  mkdirSync12(recordDir, { recursive: true });
+  mkdirSync13(recordDir, { recursive: true });
   appendFileSync2(join21(recordDir, "correspondence.jsonl"), JSON.stringify(entry) + "\n");
 }
 function recordReplaySet(args) {
   const { turnDir, projectDir, consortDir, inputs, prompt, guidelines, levers } = args;
   const setDir = join21(turnDir, "replay-set");
-  mkdirSync12(setDir, { recursive: true });
+  mkdirSync13(setDir, { recursive: true });
   const keep = codeTreeFilter(projectDir);
   const preDir = join21(setDir, "pre-project");
   for (const abs of walk(projectDir, keep)) {
     const rel = relative3(projectDir, abs);
     const dst = join21(preDir, rel);
-    mkdirSync12(dirname11(dst), { recursive: true });
+    mkdirSync13(dirname12(dst), { recursive: true });
     cpSync5(abs, dst);
   }
   void consortDir;
   const inDir = join21(setDir, "inputs");
-  mkdirSync12(inDir, { recursive: true });
+  mkdirSync13(inDir, { recursive: true });
   for (const [id, content] of Object.entries(inputs)) {
     writeFileSync9(join21(inDir, id.replace(/[/\\]/g, "_")), content);
   }
@@ -11264,7 +11276,7 @@ function scan(projectDir, consortDir) {
 function writeRecorderState(recordDir, cur) {
   const files = {};
   for (const [rel, f] of cur) files[rel] = f.sha;
-  mkdirSync12(recordDir, { recursive: true });
+  mkdirSync13(recordDir, { recursive: true });
   writeFileSync9(join21(recordDir, ".recorder-state.json"), JSON.stringify({ files }, null, 2) + "\n");
 }
 function seedRecorderBaseline(args) {
@@ -11316,16 +11328,16 @@ function recordTurn(args) {
   const label = labelForAction(action);
   const dirName = `${pad(ordinal)}-${label}`;
   const turnDir = join21(recordDir, "turns", dirName);
-  mkdirSync12(join21(turnDir, "files"), { recursive: true });
+  mkdirSync13(join21(turnDir, "files"), { recursive: true });
   const artifactsDir = join21(recordDir, "recorded-artifacts");
   for (const rel of produced) {
     const f = cur.get(rel);
     const dst = join21(turnDir, "files", rel);
-    mkdirSync12(dirname11(dst), { recursive: true });
+    mkdirSync13(dirname12(dst), { recursive: true });
     cpSync5(f.abs, dst);
     if (f.underTdd) {
       const mirror = join21(artifactsDir, relative3(consortDir, f.abs));
-      mkdirSync12(dirname11(mirror), { recursive: true });
+      mkdirSync13(dirname12(mirror), { recursive: true });
       cpSync5(f.abs, mirror);
     }
   }
@@ -11384,7 +11396,7 @@ function recordTurn(args) {
     ...transcript ? { hasTranscript: true } : {}
   };
   index.push(entry);
-  mkdirSync12(join21(recordDir, "turns"), { recursive: true });
+  mkdirSync13(join21(recordDir, "turns"), { recursive: true });
   writeFileSync9(join21(recordDir, "turns", "index.json"), JSON.stringify({ turns: index }, null, 2) + "\n");
   writeRecorderState(recordDir, cur);
   try {
@@ -11422,7 +11434,7 @@ function progressNarration(m, producedCount, deletedCount) {
 
 // consort/pipeline/record-build.ts
 init_esm_shims();
-import { existsSync as existsSync22, cpSync as cpSync6, mkdirSync as mkdirSync13, readdirSync as readdirSync14 } from "fs";
+import { existsSync as existsSync22, cpSync as cpSync6, mkdirSync as mkdirSync14, readdirSync as readdirSync14 } from "fs";
 import { join as join22 } from "path";
 function nextBuildTurnNumber(recordBuildDir, featureId, story) {
   const dir = storyTurnsDir(recordBuildDir, featureId, story);
@@ -11449,7 +11461,7 @@ function recordBuildTurn(args) {
     "turns",
     turnSlug(turn, role, ac, mode)
   );
-  mkdirSync13(turnDir, { recursive: true });
+  mkdirSync14(turnDir, { recursive: true });
   cpSync6(projectDir, join22(turnDir, "code"), {
     recursive: true,
     force: true,
@@ -11917,7 +11929,7 @@ import { getConnection } from "@databricks-solutions/lakebase-scm-utils/lakebase
 
 // consort/experiment/experiment.ts
 init_esm_shims();
-import { existsSync as existsSync25, mkdirSync as mkdirSync14, readdirSync as readdirSync15, readFileSync as readFileSync19, statSync as statSync12, writeFileSync as writeFileSync10 } from "fs";
+import { existsSync as existsSync25, mkdirSync as mkdirSync15, readdirSync as readdirSync15, readFileSync as readFileSync19, statSync as statSync12, writeFileSync as writeFileSync10 } from "fs";
 import { join as join25 } from "path";
 import { execFileSync } from "child_process";
 import { createPairedBranch, deletePairedBranch } from "@databricks-solutions/lakebase-scm-utils/lakebase";
@@ -11991,7 +12003,7 @@ async function cutExperiment(args, deps = {}) {
   }
   const branchId = branchIdOf(paired.branch);
   const dir = experimentDir(consortDir, featureId, storyId, experimentSlug);
-  mkdirSync14(dir, { recursive: true });
+  mkdirSync15(dir, { recursive: true });
   writeFileSync10(join25(dir, "branch.txt"), branchId);
   writeFileSync10(
     join25(dir, "notes.md"),
@@ -12031,13 +12043,13 @@ function coveredTestIds(c) {
 
 // consort/pipeline/cycle-record.ts
 init_esm_shims();
-import { existsSync as existsSync36, readFileSync as readFileSync31, readdirSync as readdirSync23, statSync as statSync17, writeFileSync as writeFileSync18, mkdirSync as mkdirSync21, rmSync as rmSync8 } from "fs";
-import { join as join36, dirname as dirname16 } from "path";
+import { existsSync as existsSync36, readFileSync as readFileSync31, readdirSync as readdirSync23, statSync as statSync17, writeFileSync as writeFileSync18, mkdirSync as mkdirSync22, rmSync as rmSync8 } from "fs";
+import { join as join36, dirname as dirname17 } from "path";
 
 // consort/test-list/test-list.ts
 init_esm_shims();
-import { readFileSync as readFileSync20, writeFileSync as writeFileSync11, existsSync as existsSync26, mkdirSync as mkdirSync15, readdirSync as readdirSync16, statSync as statSync13 } from "fs";
-import { join as join26, dirname as dirname12 } from "path";
+import { readFileSync as readFileSync20, writeFileSync as writeFileSync11, existsSync as existsSync26, mkdirSync as mkdirSync16, readdirSync as readdirSync16, statSync as statSync13 } from "fs";
+import { join as join26, dirname as dirname13 } from "path";
 function acIdsInStoryDir(storyDir2) {
   const dir = join26(storyDir2, "acs");
   if (!existsSync26(dir)) return [];
@@ -12062,8 +12074,8 @@ function acsForStory(tddDir, featureId, storyId) {
 init_esm_shims();
 import { execSync, spawn as spawn2 } from "child_process";
 import { randomBytes } from "crypto";
-import { existsSync as existsSync30, mkdirSync as mkdirSync18, readFileSync as readFileSync25, rmSync as rmSync5, writeFileSync as writeFileSync15 } from "fs";
-import { dirname as dirname14, join as join30 } from "path";
+import { existsSync as existsSync30, mkdirSync as mkdirSync19, readFileSync as readFileSync25, rmSync as rmSync5, writeFileSync as writeFileSync15 } from "fs";
+import { dirname as dirname15, join as join30 } from "path";
 import { readTargets } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { pollUntil } from "@databricks-solutions/lakebase-scm-utils/util";
 
@@ -12817,7 +12829,7 @@ import { readWorkflowState as readWorkflowState2, SCM_STATES } from "@databricks
 
 // consort/smells/reflection.ts
 init_esm_shims();
-import { existsSync as existsSync38, readFileSync as readFileSync33, writeFileSync as writeFileSync20, mkdirSync as mkdirSync22, rmSync as rmSync9 } from "fs";
+import { existsSync as existsSync38, readFileSync as readFileSync33, writeFileSync as writeFileSync20, mkdirSync as mkdirSync23, rmSync as rmSync9 } from "fs";
 var SMELL_FOR_OWNER = {
   "spec-author": "reflect-spec-defect",
   "test-strategist": "reflect-testlist-defect"
@@ -12841,7 +12853,7 @@ var REFLECT_SMELLS = Object.values(SMELL_FOR_OWNER);
 
 // consort/architecture/architecture-canon.ts
 init_esm_shims();
-import { existsSync as existsSync39, readFileSync as readFileSync34, writeFileSync as writeFileSync21, mkdirSync as mkdirSync23, readdirSync as readdirSync25 } from "fs";
+import { existsSync as existsSync39, readFileSync as readFileSync34, writeFileSync as writeFileSync21, mkdirSync as mkdirSync24, readdirSync as readdirSync25 } from "fs";
 function uniq(xs) {
   return [...new Set(xs.filter((x) => typeof x === "string" && x.length > 0))];
 }
@@ -13150,7 +13162,7 @@ function diskArtifactProbe(consortDir, featureId, buildActive) {
 
 // consort/pipeline/story-pipeline.ts
 init_esm_shims();
-import { existsSync as existsSync43, readFileSync as readFileSync38, writeFileSync as writeFileSync23, mkdirSync as mkdirSync25, readdirSync as readdirSync28, statSync as statSync20, rmSync as rmSync10 } from "fs";
+import { existsSync as existsSync43, readFileSync as readFileSync38, writeFileSync as writeFileSync23, mkdirSync as mkdirSync26, readdirSync as readdirSync28, statSync as statSync20, rmSync as rmSync10 } from "fs";
 
 // consort/gates/gate-conformance-guard.ts
 init_esm_shims();
@@ -13159,7 +13171,7 @@ import { join as join39 } from "path";
 
 // consort/architecture/architecture-conventions.ts
 init_esm_shims();
-import { existsSync as existsSync41, readFileSync as readFileSync36, writeFileSync as writeFileSync22, mkdirSync as mkdirSync24 } from "fs";
+import { existsSync as existsSync41, readFileSync as readFileSync36, writeFileSync as writeFileSync22, mkdirSync as mkdirSync25 } from "fs";
 function normModule(m) {
   return m.replace(/\/+$/, "");
 }
@@ -14724,7 +14736,7 @@ function buildDriveEffects(cfg) {
     onHandback(handoff, detail) {
       const file = handbackFile(cfg.consortDir, cfg.featureId, handoff.responder, handoff.story);
       try {
-        fs15.mkdirSync(dirname18(file), { recursive: true });
+        fs15.mkdirSync(dirname19(file), { recursive: true });
         fs15.writeFileSync(file, `${detail}
 `, "utf8");
       } catch {
@@ -14919,20 +14931,20 @@ function makeOpusJudge(opts) {
 
 // consort/optimize/optimize-live.ts
 init_esm_shims();
-import { existsSync as existsSync48, mkdirSync as mkdirSync28, readFileSync as readFileSync44, rmSync as rmSync14, writeFileSync as writeFileSync26 } from "fs";
+import { existsSync as existsSync48, mkdirSync as mkdirSync29, readFileSync as readFileSync44, rmSync as rmSync14, writeFileSync as writeFileSync26 } from "fs";
 import { execFileSync as execFileSync2 } from "child_process";
 import { join as join44 } from "path";
 
 // consort/optimize/optimize-agent-overlay.ts
 init_esm_shims();
-import { existsSync as existsSync47, mkdirSync as mkdirSync27, readFileSync as readFileSync43, rmSync as rmSync12, writeFileSync as writeFileSync25 } from "fs";
-import { dirname as dirname19, join as join42 } from "path";
+import { existsSync as existsSync47, mkdirSync as mkdirSync28, readFileSync as readFileSync43, rmSync as rmSync12, writeFileSync as writeFileSync25 } from "fs";
+import { dirname as dirname20, join as join42 } from "path";
 function overlayAgent(args) {
   const { projectDir, role, markdown } = args;
   const agentPath = join42(projectDir, ".claude", "agents", `${role}.md`);
   const hadBaseline = existsSync47(agentPath);
   const baseline = hadBaseline ? readFileSync43(agentPath, "utf8") : void 0;
-  mkdirSync27(dirname19(agentPath), { recursive: true });
+  mkdirSync28(dirname20(agentPath), { recursive: true });
   writeFileSync25(agentPath, markdown);
   return {
     restore() {
@@ -14989,7 +15001,7 @@ function evaluateDesignGate(args) {
 init_esm_shims();
 import { cpSync as cpSync7, mkdtempSync, rmSync as rmSync13 } from "fs";
 import { tmpdir } from "os";
-import { basename as basename4, dirname as dirname20, join as join43 } from "path";
+import { basename as basename4, dirname as dirname21, join as join43 } from "path";
 function captureDesignArtifacts(args) {
   const { consortDir, destDir } = args;
   rmSync13(destDir, { recursive: true, force: true });
@@ -15077,7 +15089,7 @@ function applyCandidate(ctx, candidate) {
 }
 function writeTrialRecord(ctx, handoff, candidate, trial, result) {
   const dir = join44(ctx.experimentsDir, handoff.id, candidate.id, `trial-${trial}`);
-  mkdirSync28(dir, { recursive: true });
+  mkdirSync29(dir, { recursive: true });
   writeFileSync26(join44(dir, "candidate.json"), JSON.stringify(candidate, null, 2) + "\n");
   writeFileSync26(join44(dir, "result.json"), JSON.stringify(result, null, 2) + "\n");
 }
@@ -15157,7 +15169,7 @@ function makeChampionWalkDeps(ctx) {
       const champ = join44(ctx.experimentsDir, "champion-walk.json");
       const prior = existsSync48(champ) ? JSON.parse(readFileSync44(champ, "utf8")) : { winners: [] };
       prior.winners.push({ handoffId: handoff.id, candidateId: candidate.id });
-      mkdirSync28(ctx.experimentsDir, { recursive: true });
+      mkdirSync29(ctx.experimentsDir, { recursive: true });
       writeFileSync26(champ, JSON.stringify(prior, null, 2) + "\n");
     }
   };

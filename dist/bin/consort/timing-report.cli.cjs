@@ -6683,6 +6683,13 @@ init_cjs_shims();
 // consort/logging/agent-log.ts
 init_cjs_shims();
 var import_fs2 = require("fs");
+
+// consort/config/consort-env.ts
+init_cjs_shims();
+var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
+var ENV_PREFIX = ENV_PREFIXES[0];
+
+// consort/logging/agent-log.ts
 var import_path2 = require("path");
 
 // consort/orchestrator/validators/schema-loader.ts
@@ -7022,13 +7029,6 @@ function formatTimingReport(report) {
 // consort/session/run-config.ts
 init_cjs_shims();
 var import_fs3 = require("fs");
-
-// consort/config/consort-env.ts
-init_cjs_shims();
-var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
-var ENV_PREFIX = ENV_PREFIXES[0];
-
-// consort/session/run-config.ts
 var import_path4 = require("path");
 
 // consort/config/agent-models.ts

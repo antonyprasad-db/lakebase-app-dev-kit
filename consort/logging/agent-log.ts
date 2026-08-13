@@ -10,9 +10,10 @@
 // a write smaller than PIPE_BUF is atomic, so concurrent role agents interleave
 // at line boundaries without corrupting each other (log lines are small).
 
-import { appendFileSync, existsSync, readFileSync } from "fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from "fs";
 import { resolveConsortDir } from "../../consort/config/consort-paths.js";
-import { join } from "path";
+import { consortEnv } from "../../consort/config/consort-env.js";
+import { dirname, join } from "path";
 import { getValidator, formatSchemaErrors } from "../../consort/orchestrator/validators/schema-loader.js";
 import { renderEventMessage, type AgentLogEventName } from "./agent-log-events.js";
 
@@ -102,6 +103,27 @@ function logFilePath(consortDir: string): string {
 }
 
 /**
+ * Mirror an agent-log append into the corpus (LAKEBASE_CONSORT_RECORD_DIR/agent-log.jsonl) when a
+ * recording is in flight, the SAME live-write convention correspondence.jsonl uses (turn-recorder
+ * appends straight to the record dir). Without this the event log lives only in the running project's
+ * .consort/ and never lands in the durable corpus alongside the other logs. No-op off a recording run
+ * (env unset). `text` is the already-serialized "line\n" (single) or joined lines (batch), written
+ * verbatim so the corpus copy is byte-identical to the project log. Best-effort: a mirror-write hiccup
+ * must never break the primary emit.
+ */
+function mirrorToRecordDir(text: string): void {
+  const recordDir = consortEnv("RECORD_DIR")?.trim();
+  if (!recordDir) return;
+  try {
+    const dst = join(recordDir, "agent-log.jsonl");
+    mkdirSync(dirname(dst), { recursive: true });
+    appendFileSync(dst, text, "utf8");
+  } catch {
+    /* the corpus mirror is best-effort; the project log (the primary write) already succeeded */
+  }
+}
+
+/**
  * Validate, timestamp, and append one structured event to the centralized
  * agent log. Throws when the event fails schema validation (so a malformed
  * emit is caught at the source, not discovered later in the log). Returns the
@@ -155,7 +177,9 @@ export function emitAgentLogEvent(input: AgentLogEventInput, opts: AgentLogIoOpt
   const consortDir = opts.consortDir ?? resolveConsortDir();
   const now = opts.now ?? (() => new Date());
   const event = buildAgentLogEvent(input, now);
-  appendFileSync(logFilePath(consortDir), `${JSON.stringify(event)}\n`, "utf8");
+  const line = `${JSON.stringify(event)}\n`;
+  appendFileSync(logFilePath(consortDir), line, "utf8");
+  mirrorToRecordDir(line); // also land in the corpus when a recording is in flight
   return event;
 }
 
@@ -172,7 +196,9 @@ export function emitAgentLogEvents(inputs: AgentLogEventInput[], opts: AgentLogI
   const consortDir = opts.consortDir ?? resolveConsortDir();
   const now = opts.now ?? (() => new Date());
   const events = inputs.map((i) => buildAgentLogEvent(i, now)); // validates all before any write
-  appendFileSync(logFilePath(consortDir), events.map((e) => `${JSON.stringify(e)}\n`).join(""), "utf8");
+  const text = events.map((e) => `${JSON.stringify(e)}\n`).join("");
+  appendFileSync(logFilePath(consortDir), text, "utf8");
+  mirrorToRecordDir(text); // also land in the corpus when a recording is in flight
   return events;
 }
 

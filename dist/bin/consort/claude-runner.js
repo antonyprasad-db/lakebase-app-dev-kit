@@ -7124,8 +7124,8 @@ function replayBuildTurn(args) {
 
 // consort/logging/agent-log.ts
 init_esm_shims();
-import { appendFileSync, existsSync as existsSync10, readFileSync as readFileSync9 } from "fs";
-import { join as join10 } from "path";
+import { appendFileSync, existsSync as existsSync10, mkdirSync as mkdirSync8, readFileSync as readFileSync9 } from "fs";
+import { dirname as dirname7, join as join10 } from "path";
 
 // consort/orchestrator/validators/schema-loader.ts
 init_esm_shims();
@@ -7245,6 +7245,16 @@ function renderEventMessage(event, slots = {}) {
 function logFilePath(consortDir) {
   return join10(consortDir, "agent-log.jsonl");
 }
+function mirrorToRecordDir(text) {
+  const recordDir = consortEnv("RECORD_DIR")?.trim();
+  if (!recordDir) return;
+  try {
+    const dst = join10(recordDir, "agent-log.jsonl");
+    mkdirSync8(dirname7(dst), { recursive: true });
+    appendFileSync(dst, text, "utf8");
+  } catch {
+  }
+}
 function buildAgentLogEvent(input, now) {
   const slots = input.slots ?? {};
   const renderCtx = {
@@ -7283,8 +7293,10 @@ function emitAgentLogEvent(input, opts = {}) {
   const consortDir = opts.consortDir ?? resolveConsortDir();
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const event = buildAgentLogEvent(input, now);
-  appendFileSync(logFilePath(consortDir), `${JSON.stringify(event)}
-`, "utf8");
+  const line = `${JSON.stringify(event)}
+`;
+  appendFileSync(logFilePath(consortDir), line, "utf8");
+  mirrorToRecordDir(line);
   return event;
 }
 
@@ -8301,11 +8313,11 @@ import { readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lake
 
 // consort/setup/stray-artifact-recovery.ts
 init_esm_shims();
-import { existsSync as existsSync14, mkdirSync as mkdirSync9, cpSync as cpSync3, rmSync as rmSync2, readdirSync as readdirSync8, statSync as statSync5 } from "fs";
-import { join as join13, dirname as dirname8, basename } from "path";
+import { existsSync as existsSync14, mkdirSync as mkdirSync10, cpSync as cpSync3, rmSync as rmSync2, readdirSync as readdirSync8, statSync as statSync5 } from "fs";
+import { join as join13, dirname as dirname9, basename } from "path";
 function malformedSiblingRoot(projectDir) {
   const p = projectDir.replace(/\/+$/, "");
-  return `${dirname8(p)}-${basename(p)}`;
+  return `${dirname9(p)}-${basename(p)}`;
 }
 function listFilesRel(dir) {
   const out = [];
@@ -8329,7 +8341,7 @@ function relocateStrayDesignArtifacts(projectDir) {
     if (!existsSync14(strayRoot)) continue;
     for (const rel of listFilesRel(strayRoot)) moved.push(join13(artRoot, rel));
     const realRoot = join13(projectDir, artRoot);
-    mkdirSync9(realRoot, { recursive: true });
+    mkdirSync10(realRoot, { recursive: true });
     cpSync3(strayRoot, realRoot, { recursive: true, force: true });
     rmSync2(strayRoot, { recursive: true, force: true });
   }

@@ -6759,7 +6759,7 @@ function readAcLayer(tdd, f, acId) {
 
 // consort/pipeline/cycle-record.ts
 init_esm_shims();
-import { existsSync as existsSync16, readFileSync as readFileSync17, readdirSync as readdirSync11, statSync as statSync8, writeFileSync as writeFileSync11, mkdirSync as mkdirSync10, rmSync as rmSync5 } from "fs";
+import { existsSync as existsSync16, readFileSync as readFileSync17, readdirSync as readdirSync11, statSync as statSync8, writeFileSync as writeFileSync11, mkdirSync as mkdirSync11, rmSync as rmSync5 } from "fs";
 
 // consort/config/consort-env.ts
 init_esm_shims();
@@ -6774,7 +6774,7 @@ function consortEnv(suffix, env = process.env) {
 }
 
 // consort/pipeline/cycle-record.ts
-import { join as join16, dirname as dirname5 } from "path";
+import { join as join16, dirname as dirname6 } from "path";
 
 // consort/test-list/test-list.ts
 init_esm_shims();
@@ -7017,8 +7017,8 @@ function writeOutcomes(consortDir, featureId, storyId, slug, outcomes) {
 init_esm_shims();
 import { execSync, spawn } from "child_process";
 import { randomBytes } from "crypto";
-import { existsSync as existsSync10, mkdirSync as mkdirSync7, readFileSync as readFileSync11, rmSync as rmSync2, writeFileSync as writeFileSync8 } from "fs";
-import { dirname as dirname3, join as join10 } from "path";
+import { existsSync as existsSync10, mkdirSync as mkdirSync8, readFileSync as readFileSync11, rmSync as rmSync2, writeFileSync as writeFileSync8 } from "fs";
+import { dirname as dirname4, join as join10 } from "path";
 import { readTargets } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { pollUntil } from "@databricks-solutions/lakebase-scm-utils/util";
 
@@ -7033,14 +7033,14 @@ import { join as join7 } from "path";
 
 // consort/pipeline/run-cycle.ts
 init_esm_shims();
-import { existsSync as existsSync6, mkdirSync as mkdirSync4, readdirSync as readdirSync4, readFileSync as readFileSync6, writeFileSync as writeFileSync4 } from "fs";
+import { existsSync as existsSync6, mkdirSync as mkdirSync5, readdirSync as readdirSync4, readFileSync as readFileSync6, writeFileSync as writeFileSync4 } from "fs";
 import { join as join6 } from "path";
 import { getConnection } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 
 // consort/logging/agent-log.ts
 init_esm_shims();
-import { appendFileSync, existsSync as existsSync5, readFileSync as readFileSync5 } from "fs";
-import { join as join5 } from "path";
+import { appendFileSync, existsSync as existsSync5, mkdirSync as mkdirSync4, readFileSync as readFileSync5 } from "fs";
+import { dirname as dirname2, join as join5 } from "path";
 
 // consort/orchestrator/validators/schema-loader.ts
 init_esm_shims();
@@ -7160,6 +7160,16 @@ function renderEventMessage(event, slots = {}) {
 function logFilePath(consortDir) {
   return join5(consortDir, "agent-log.jsonl");
 }
+function mirrorToRecordDir(text) {
+  const recordDir = consortEnv("RECORD_DIR")?.trim();
+  if (!recordDir) return;
+  try {
+    const dst = join5(recordDir, "agent-log.jsonl");
+    mkdirSync4(dirname2(dst), { recursive: true });
+    appendFileSync(dst, text, "utf8");
+  } catch {
+  }
+}
 function buildAgentLogEvent(input, now) {
   const slots = input.slots ?? {};
   const renderCtx = {
@@ -7198,8 +7208,10 @@ function emitAgentLogEvent(input, opts = {}) {
   const consortDir = opts.consortDir ?? resolveConsortDir();
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const event = buildAgentLogEvent(input, now);
-  appendFileSync(logFilePath(consortDir), `${JSON.stringify(event)}
-`, "utf8");
+  const line = `${JSON.stringify(event)}
+`;
+  appendFileSync(logFilePath(consortDir), line, "utf8");
+  mirrorToRecordDir(line);
   return event;
 }
 
@@ -7229,7 +7241,7 @@ function nextCycleId(scope) {
 }
 function writeCycleArtifact(scope, artifact) {
   const dir = cyclesDir(scope);
-  mkdirSync4(dir, { recursive: true });
+  mkdirSync5(dir, { recursive: true });
   const file = join6(dir, `${artifact.cycle_id}.json`);
   writeFileSync4(file, JSON.stringify(artifact, null, 2) + "\n");
   return file;
@@ -7706,7 +7718,7 @@ async function ensureDeployedAndVerify(args) {
   stop(args.projectDir, targetName);
   const pid = start(cfg.run, args.projectDir, env);
   const pf = pidFile(args.projectDir, targetName);
-  mkdirSync7(dirname3(pf), { recursive: true });
+  mkdirSync8(dirname4(pf), { recursive: true });
   writeFileSync8(pf, String(pid));
   const poll = await pollUntil({
     probe: async () => await reachable(url) ? { done: true, value: true } : { done: false },
@@ -8327,7 +8339,7 @@ async function commitExperimentCode(projectDir, message) {
 }
 async function commitCycleWork(consortDir, message) {
   try {
-    await commitExperimentCode(dirname5(consortDir), message);
+    await commitExperimentCode(dirname6(consortDir), message);
   } catch (e) {
     if (e instanceof ProtectedBranchCommitError) throw e;
   }
@@ -8471,10 +8483,10 @@ async function greenOpenCycle(args) {
     branch_id: open.branch_id
   };
   const verify = args.verify ?? defaultGreenVerifier;
-  let result = await verify({ projectDir: dirname5(consortDir), consortDir, featureId, story, branchId: open.branch_id });
+  let result = await verify({ projectDir: dirname6(consortDir), consortDir, featureId, story, branchId: open.branch_id });
   if (result.passed && !consortEnv("REPLAY_BUILD_DIR")) {
     try {
-      const mig = checkMigrationAppClean({ projectDir: dirname5(consortDir) });
+      const mig = checkMigrationAppClean({ projectDir: dirname6(consortDir) });
       if (!mig.clean && mig.remediation) result = { passed: false, summary: mig.remediation };
     } catch {
     }
@@ -8498,9 +8510,9 @@ async function greenOpenCycle(args) {
       let contractRefs;
       let supersededTestRefs;
       try {
-        const contract = checkContractClean({ projectDir: dirname5(consortDir) });
+        const contract = checkContractClean({ projectDir: dirname6(consortDir) });
         if (!contract.clean && contract.remediation) contractRefs = contract.remediation;
-        const superseded = supersededTestCandidates({ projectDir: dirname5(consortDir) });
+        const superseded = supersededTestCandidates({ projectDir: dirname6(consortDir) });
         if (superseded.advisory) supersededTestRefs = superseded.advisory;
       } catch {
       }
@@ -8614,7 +8626,7 @@ function flagUxAdherenceIfDirty(consortDir, story) {
       }
     } catch {
     }
-    const ux = checkUxClean({ projectDir: dirname5(consortDir), designClasses, appIcon });
+    const ux = checkUxClean({ projectDir: dirname6(consortDir), designClasses, appIcon });
     if (!ux.clean && !hasOpenSmell(consortDir, "ux-adherence", story)) {
       writeSmellsLog(consortDir, [{ smell: "ux-adherence", cycle_ids: [], detail: summarizeUxViolations(ux), story_id: story }]);
     }
@@ -8634,7 +8646,7 @@ function reviewAc(consortDir, featureId, story, acId) {
   const refactorRequested = verdict.refactor === true;
   const file = acReviewJson(consortDir, featureId, story, acId);
   const prior = readReview(consortDir, featureId, story, acId);
-  mkdirSync10(dirname5(file), { recursive: true });
+  mkdirSync11(dirname6(file), { recursive: true });
   writeFileSync11(
     file,
     JSON.stringify(
@@ -8661,7 +8673,7 @@ function reviewAc(consortDir, featureId, story, acId) {
 async function refactorAc(consortDir, featureId, story, acId, opts) {
   const exp = storyExperiment(consortDir, featureId, story);
   const verify = opts?.verify ?? defaultGreenVerifier;
-  const result = await verify({ projectDir: dirname5(consortDir), consortDir, featureId, story, branchId: exp.branch });
+  const result = await verify({ projectDir: dirname6(consortDir), consortDir, featureId, story, branchId: exp.branch });
   if (!result.passed) {
     const escalation = writeEscalation(consortDir, {
       source: "driver-refactor",
@@ -8674,7 +8686,7 @@ async function refactorAc(consortDir, featureId, story, acId, opts) {
   }
   const file = acReviewJson(consortDir, featureId, story, acId);
   const prior = readReview(consortDir, featureId, story, acId);
-  mkdirSync10(dirname5(file), { recursive: true });
+  mkdirSync11(dirname6(file), { recursive: true });
   writeFileSync11(file, JSON.stringify({ ...prior, refactored_at: (/* @__PURE__ */ new Date()).toISOString() }, null, 2) + "\n");
   for (const d of readSmellsLog(consortDir).detected) {
     if (!d.resolution && isBuildRefactorRoutableSmell(d.smell) && (d.story_id === void 0 || d.story_id === story)) {
@@ -8714,7 +8726,7 @@ function reviewStory(consortDir, featureId, story) {
   const refactorRequested = verdict.refactor === true;
   const file = storyReviewJson(consortDir, featureId, story);
   const prior = readStoryReview(consortDir, featureId, story);
-  mkdirSync10(dirname5(file), { recursive: true });
+  mkdirSync11(dirname6(file), { recursive: true });
   writeFileSync11(
     file,
     JSON.stringify(
@@ -8741,13 +8753,13 @@ function reviewStory(consortDir, featureId, story) {
 async function refactorStory(consortDir, featureId, story, opts) {
   const exp = storyExperiment(consortDir, featureId, story);
   const verify = opts?.verify ?? defaultGreenVerifier;
-  const result = await verify({ projectDir: dirname5(consortDir), consortDir, featureId, story, branchId: exp.branch });
+  const result = await verify({ projectDir: dirname6(consortDir), consortDir, featureId, story, branchId: exp.branch });
   if (!result.passed) {
     const rf = readRefactorVerifyAssessMarker(consortDir, featureId, story);
     if (!rf?.assessed) {
       let supersededAdvisory;
       try {
-        const superseded = supersededTestCandidates({ projectDir: dirname5(consortDir) });
+        const superseded = supersededTestCandidates({ projectDir: dirname6(consortDir) });
         if (superseded.advisory) supersededAdvisory = superseded.advisory;
       } catch {
       }
@@ -8768,7 +8780,7 @@ async function refactorStory(consortDir, featureId, story, opts) {
   clearRefactorVerifyAssessMarker(consortDir, featureId, story);
   const file = storyReviewJson(consortDir, featureId, story);
   const prior = readStoryReview(consortDir, featureId, story);
-  mkdirSync10(dirname5(file), { recursive: true });
+  mkdirSync11(dirname6(file), { recursive: true });
   writeFileSync11(file, JSON.stringify({ ...prior, refactored_at: (/* @__PURE__ */ new Date()).toISOString() }, null, 2) + "\n");
   for (const d of readSmellsLog(consortDir).detected) {
     if (!d.resolution && isBuildRefactorRoutableSmell(d.smell) && (d.story_id === void 0 || d.story_id === story)) {
@@ -8789,7 +8801,7 @@ async function refactorStory(consortDir, featureId, story, opts) {
 
 // consort/smells/reflection.ts
 init_esm_shims();
-import { existsSync as existsSync17, readFileSync as readFileSync18, writeFileSync as writeFileSync12, mkdirSync as mkdirSync11, rmSync as rmSync6 } from "fs";
+import { existsSync as existsSync17, readFileSync as readFileSync18, writeFileSync as writeFileSync12, mkdirSync as mkdirSync12, rmSync as rmSync6 } from "fs";
 var SMELL_FOR_OWNER = {
   "spec-author": "reflect-spec-defect",
   "test-strategist": "reflect-testlist-defect"

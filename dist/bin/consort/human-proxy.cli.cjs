@@ -7723,6 +7723,16 @@ function renderEventMessage(event, slots = {}) {
 function logFilePath(consortDir) {
   return (0, import_path6.join)(consortDir, "agent-log.jsonl");
 }
+function mirrorToRecordDir(text) {
+  const recordDir = consortEnv("RECORD_DIR")?.trim();
+  if (!recordDir) return;
+  try {
+    const dst = (0, import_path6.join)(recordDir, "agent-log.jsonl");
+    (0, import_fs6.mkdirSync)((0, import_path6.dirname)(dst), { recursive: true });
+    (0, import_fs6.appendFileSync)(dst, text, "utf8");
+  } catch {
+  }
+}
 function buildAgentLogEvent(input, now) {
   const slots = input.slots ?? {};
   const renderCtx = {
@@ -7761,8 +7771,10 @@ function emitAgentLogEvent(input, opts = {}) {
   const consortDir = opts.consortDir ?? resolveConsortDir();
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const event = buildAgentLogEvent(input, now);
-  (0, import_fs6.appendFileSync)(logFilePath(consortDir), `${JSON.stringify(event)}
-`, "utf8");
+  const line = `${JSON.stringify(event)}
+`;
+  (0, import_fs6.appendFileSync)(logFilePath(consortDir), line, "utf8");
+  mirrorToRecordDir(line);
   return event;
 }
 

@@ -7089,6 +7089,11 @@ function readOutcomes(consortDir, featureId, storyId, slug) {
 // consort/logging/agent-log.ts
 init_esm_shims();
 
+// consort/config/consort-env.ts
+init_esm_shims();
+var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
+var ENV_PREFIX = ENV_PREFIXES[0];
+
 // consort/orchestrator/validators/schema-loader.ts
 init_esm_shims();
 var import_ajv = __toESM(require_ajv(), 1);
@@ -7166,11 +7171,6 @@ var AGENT_LOG_EVENT_NAMES = Object.keys(EVENT_TEMPLATES);
 
 // consort/pipeline/cycle-record.ts
 init_esm_shims();
-
-// consort/config/consort-env.ts
-init_esm_shims();
-var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
-var ENV_PREFIX = ENV_PREFIXES[0];
 
 // consort/test-list/test-list.ts
 init_esm_shims();

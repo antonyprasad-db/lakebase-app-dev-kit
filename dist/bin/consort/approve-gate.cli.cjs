@@ -7365,6 +7365,13 @@ var import_node_fs3 = require("fs");
 init_cjs_shims();
 var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
 var ENV_PREFIX = ENV_PREFIXES[0];
+function consortEnv(suffix, env = process.env) {
+  for (const prefix of ENV_PREFIXES) {
+    const v = env[`${prefix}${suffix}`];
+    if (v !== void 0) return v;
+  }
+  return void 0;
+}
 
 // consort/gates/human-proxy.ts
 var import_node_path3 = require("path");
@@ -7740,6 +7747,16 @@ function renderEventMessage(event, slots = {}) {
 function logFilePath(consortDir) {
   return (0, import_path6.join)(consortDir, "agent-log.jsonl");
 }
+function mirrorToRecordDir(text) {
+  const recordDir = consortEnv("RECORD_DIR")?.trim();
+  if (!recordDir) return;
+  try {
+    const dst = (0, import_path6.join)(recordDir, "agent-log.jsonl");
+    (0, import_fs6.mkdirSync)((0, import_path6.dirname)(dst), { recursive: true });
+    (0, import_fs6.appendFileSync)(dst, text, "utf8");
+  } catch {
+  }
+}
 function buildAgentLogEvent(input, now) {
   const slots = input.slots ?? {};
   const renderCtx = {
@@ -7778,8 +7795,10 @@ function emitAgentLogEvent(input, opts = {}) {
   const consortDir = opts.consortDir ?? resolveConsortDir();
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const event = buildAgentLogEvent(input, now);
-  (0, import_fs6.appendFileSync)(logFilePath(consortDir), `${JSON.stringify(event)}
-`, "utf8");
+  const line = `${JSON.stringify(event)}
+`;
+  (0, import_fs6.appendFileSync)(logFilePath(consortDir), line, "utf8");
+  mirrorToRecordDir(line);
   return event;
 }
 

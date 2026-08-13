@@ -6778,6 +6778,11 @@ function readEstimates(tdd) {
 }
 var hasEstimates = (tdd) => readEstimates(tdd).length > 0;
 
+// consort/config/consort-env.ts
+init_cjs_shims();
+var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
+var ENV_PREFIX = ENV_PREFIXES[0];
+
 // consort/orchestrator/validators/schema-loader.ts
 init_cjs_shims();
 var import_fs2 = require("fs");
@@ -6855,11 +6860,6 @@ var AGENT_LOG_EVENT_NAMES = Object.keys(EVENT_TEMPLATES);
 
 // consort/pipeline/cycle-record.ts
 init_cjs_shims();
-
-// consort/config/consort-env.ts
-init_cjs_shims();
-var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
-var ENV_PREFIX = ENV_PREFIXES[0];
 
 // consort/test-list/test-list.ts
 init_cjs_shims();

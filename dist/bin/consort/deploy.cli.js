@@ -6654,8 +6654,8 @@ import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 init_esm_shims();
 import { execSync, spawn } from "child_process";
 import { randomBytes } from "crypto";
-import { existsSync as existsSync11, mkdirSync as mkdirSync6, readFileSync as readFileSync12, rmSync as rmSync4, writeFileSync as writeFileSync6 } from "fs";
-import { dirname as dirname3, join as join11 } from "path";
+import { existsSync as existsSync11, mkdirSync as mkdirSync7, readFileSync as readFileSync12, rmSync as rmSync4, writeFileSync as writeFileSync6 } from "fs";
+import { dirname as dirname4, join as join11 } from "path";
 import { readTargets } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { pollUntil } from "@databricks-solutions/lakebase-scm-utils/util";
 
@@ -6706,8 +6706,22 @@ import { createPairedBranch, deletePairedBranch } from "@databricks-solutions/la
 
 // consort/logging/agent-log.ts
 init_esm_shims();
-import { appendFileSync, existsSync as existsSync3, readFileSync as readFileSync3 } from "fs";
-import { join as join3 } from "path";
+import { appendFileSync, existsSync as existsSync3, mkdirSync as mkdirSync2, readFileSync as readFileSync3 } from "fs";
+
+// consort/config/consort-env.ts
+init_esm_shims();
+var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
+var ENV_PREFIX = ENV_PREFIXES[0];
+function consortEnv(suffix, env = process.env) {
+  for (const prefix of ENV_PREFIXES) {
+    const v = env[`${prefix}${suffix}`];
+    if (v !== void 0) return v;
+  }
+  return void 0;
+}
+
+// consort/logging/agent-log.ts
+import { dirname, join as join3 } from "path";
 
 // consort/orchestrator/validators/schema-loader.ts
 init_esm_shims();
@@ -6827,6 +6841,16 @@ function renderEventMessage(event, slots = {}) {
 function logFilePath(consortDir) {
   return join3(consortDir, "agent-log.jsonl");
 }
+function mirrorToRecordDir(text) {
+  const recordDir = consortEnv("RECORD_DIR")?.trim();
+  if (!recordDir) return;
+  try {
+    const dst = join3(recordDir, "agent-log.jsonl");
+    mkdirSync2(dirname(dst), { recursive: true });
+    appendFileSync(dst, text, "utf8");
+  } catch {
+  }
+}
 function buildAgentLogEvent(input, now) {
   const slots = input.slots ?? {};
   const renderCtx = {
@@ -6865,25 +6889,15 @@ function emitAgentLogEvent(input, opts = {}) {
   const consortDir = opts.consortDir ?? resolveConsortDir();
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const event = buildAgentLogEvent(input, now);
-  appendFileSync(logFilePath(consortDir), `${JSON.stringify(event)}
-`, "utf8");
+  const line = `${JSON.stringify(event)}
+`;
+  appendFileSync(logFilePath(consortDir), line, "utf8");
+  mirrorToRecordDir(line);
   return event;
 }
 
 // consort/pipeline/cycle-record.ts
 init_esm_shims();
-
-// consort/config/consort-env.ts
-init_esm_shims();
-var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
-var ENV_PREFIX = ENV_PREFIXES[0];
-function consortEnv(suffix, env = process.env) {
-  for (const prefix of ENV_PREFIXES) {
-    const v = env[`${prefix}${suffix}`];
-    if (v !== void 0) return v;
-  }
-  return void 0;
-}
 
 // consort/test-list/test-list.ts
 init_esm_shims();
@@ -7221,7 +7235,7 @@ function writeDeployEvidence(consortDir, evidence) {
   const fdir = findFeatureDir(consortDir, evidence.feature_id);
   if (!fdir) return void 0;
   const dir = evidence.story_id ? join11(fdir, "stories", evidence.story_id) : fdir;
-  mkdirSync6(dir, { recursive: true });
+  mkdirSync7(dir, { recursive: true });
   const file = join11(dir, "deploy-evidence.json");
   writeFileSync6(file, JSON.stringify(evidence, null, 2) + "\n", "utf8");
   return file;
@@ -7290,7 +7304,7 @@ async function deployToTarget(args) {
   const env = args.lakebaseBranch ? { ...process.env, LAKEBASE_BRANCH_ID: args.lakebaseBranch } : void 0;
   const pid = start(cfg.run, args.projectDir, env);
   const pf = pidFile(args.projectDir, args.targetName);
-  mkdirSync6(dirname3(pf), { recursive: true });
+  mkdirSync7(dirname4(pf), { recursive: true });
   writeFileSync6(pf, String(pid));
   const poll = await pollUntil({
     probe: async () => await reachable(url) ? { done: true, value: true } : { done: false },

@@ -7354,15 +7354,22 @@ function approveSprintPlanGate(args) {
 
 // consort/gates/human-proxy.ts
 init_esm_shims();
-import { existsSync as existsSync12, readFileSync as readFileSync12, writeFileSync as writeFileSync8, mkdirSync as mkdirSync6 } from "fs";
+import { existsSync as existsSync12, readFileSync as readFileSync12, writeFileSync as writeFileSync8, mkdirSync as mkdirSync7 } from "fs";
 
 // consort/config/consort-env.ts
 init_esm_shims();
 var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
 var ENV_PREFIX = ENV_PREFIXES[0];
+function consortEnv(suffix, env = process.env) {
+  for (const prefix of ENV_PREFIXES) {
+    const v = env[`${prefix}${suffix}`];
+    if (v !== void 0) return v;
+  }
+  return void 0;
+}
 
 // consort/gates/human-proxy.ts
-import { dirname as dirname3, basename as basename2 } from "path";
+import { dirname as dirname4, basename as basename2 } from "path";
 
 // consort/gates/approve-gate.ts
 init_esm_shims();
@@ -7655,8 +7662,8 @@ function appendSelectionLog(consortDir, entry) {
 
 // consort/logging/agent-log.ts
 init_esm_shims();
-import { appendFileSync, existsSync as existsSync8, readFileSync as readFileSync8 } from "fs";
-import { join as join7 } from "path";
+import { appendFileSync, existsSync as existsSync8, mkdirSync as mkdirSync4, readFileSync as readFileSync8 } from "fs";
+import { dirname as dirname2, join as join7 } from "path";
 
 // consort/logging/agent-log-events.ts
 init_esm_shims();
@@ -7735,6 +7742,16 @@ function renderEventMessage(event, slots = {}) {
 function logFilePath(consortDir) {
   return join7(consortDir, "agent-log.jsonl");
 }
+function mirrorToRecordDir(text) {
+  const recordDir = consortEnv("RECORD_DIR")?.trim();
+  if (!recordDir) return;
+  try {
+    const dst = join7(recordDir, "agent-log.jsonl");
+    mkdirSync4(dirname2(dst), { recursive: true });
+    appendFileSync(dst, text, "utf8");
+  } catch {
+  }
+}
 function buildAgentLogEvent(input, now) {
   const slots = input.slots ?? {};
   const renderCtx = {
@@ -7773,8 +7790,10 @@ function emitAgentLogEvent(input, opts = {}) {
   const consortDir = opts.consortDir ?? resolveConsortDir();
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const event = buildAgentLogEvent(input, now);
-  appendFileSync(logFilePath(consortDir), `${JSON.stringify(event)}
-`, "utf8");
+  const line = `${JSON.stringify(event)}
+`;
+  appendFileSync(logFilePath(consortDir), line, "utf8");
+  mirrorToRecordDir(line);
   return event;
 }
 
@@ -7785,8 +7804,8 @@ import { join as join9 } from "path";
 
 // consort/test-list/test-list.ts
 init_esm_shims();
-import { readFileSync as readFileSync9, writeFileSync as writeFileSync6, existsSync as existsSync9, mkdirSync as mkdirSync4, readdirSync as readdirSync5, statSync as statSync3 } from "fs";
-import { join as join8, dirname as dirname2 } from "path";
+import { readFileSync as readFileSync9, writeFileSync as writeFileSync6, existsSync as existsSync9, mkdirSync as mkdirSync5, readdirSync as readdirSync5, statSync as statSync3 } from "fs";
+import { join as join8, dirname as dirname3 } from "path";
 function acIdsInStoryDir(storyDir2) {
   const dir = join8(storyDir2, "acs");
   if (!existsSync9(dir)) return [];
@@ -7809,7 +7828,7 @@ function acsForStory(tddDir, featureId, storyId) {
 
 // consort/architecture/architecture-conventions.ts
 init_esm_shims();
-import { existsSync as existsSync10, readFileSync as readFileSync10, writeFileSync as writeFileSync7, mkdirSync as mkdirSync5 } from "fs";
+import { existsSync as existsSync10, readFileSync as readFileSync10, writeFileSync as writeFileSync7, mkdirSync as mkdirSync6 } from "fs";
 function normModule(m) {
   return m.replace(/\/+$/, "");
 }
@@ -8225,8 +8244,8 @@ function drainGatesAsHumanProxy(args) {
 
 // consort/pipeline/story-pipeline.ts
 init_esm_shims();
-import { existsSync as existsSync13, readFileSync as readFileSync13, writeFileSync as writeFileSync9, mkdirSync as mkdirSync7, readdirSync as readdirSync8, statSync as statSync5, rmSync } from "fs";
-import { dirname as dirname4, join as join11 } from "path";
+import { existsSync as existsSync13, readFileSync as readFileSync13, writeFileSync as writeFileSync9, mkdirSync as mkdirSync8, readdirSync as readdirSync8, statSync as statSync5, rmSync } from "fs";
+import { dirname as dirname5, join as join11 } from "path";
 function initPipeline(featureId) {
   return { version: 1, feature_id: featureId, stories: {}, build_queue: [], build_active: null };
 }
@@ -8240,7 +8259,7 @@ function readPipeline(consortDir, featureId) {
 }
 function writePipeline(consortDir, pipeline) {
   const p = pipelinePath(consortDir, pipeline.feature_id);
-  mkdirSync7(dirname4(p), { recursive: true });
+  mkdirSync8(dirname5(p), { recursive: true });
   writeFileSync9(p, JSON.stringify(pipeline, null, 2) + "\n");
 }
 function setStoryStatus(pipeline, storyId, status) {
