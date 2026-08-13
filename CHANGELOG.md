@@ -6,6 +6,80 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.7] - 2026-08-12
+
+A large consolidation release: the orchestrator's internals were reorganized into
+cohesive domain families, every agent turn now dispatches through one executor
+seam, a per-role/per-turn optimization harness landed, the capture/replay corpus
+tooling was rebuilt, and the whole kit was renamed from the internal `sftdd`
+lexicon to **Consort** (legacy names/paths still read for back-compat).
+
+### Added
+
+- **One executor dispatch path for every agent turn.** Design, planning, and
+  build turns (spec-author breakdown, navigator RED/assess/review/reflect, driver
+  green/refactor/repair, and the deploy/superseded variants) all dispatch through
+  a single parameterized `ClaudeStepAgent` via a manifest-declared
+  `agent:{kind,config}` + step-contract seam, replacing the per-turn
+  command-builder arms. Each shipped step declares its agent and its
+  inputs/outputs/route contract, with a pre-dispatch route-satisfiable check and a
+  three-channel output model (product code / `.consort` artifact / meta).
+- **Per-role and per-turn optimization harness.** A committed sweep engine
+  experiments on each design and navigator build turn across model tiers and
+  effort/tool-scope levers, judged against the recorded reference output, with
+  visible results, `summary.json`, baseline compare, and programmatic auto-apply
+  of a winner into an `optimized-defaults.json` overlay. The test-strategist was
+  rewritten as a supervisor over per-kind test analysts with their own levers.
+- **Capture/replay corpus tooling.** Faithful per-turn snapshot replay with an
+  honest live verify and a divergence guard; a browsable `.consort` mirror with a
+  retroactive path sweep; per-turn replay sets; a two-sprint `/sprint`-driven
+  capture launcher that records the full orchestrator↔HIL correspondence; and a
+  planning-only (`--plan-only`) capture/replay path. The `stockflow-full` and
+  `stockflow-plan` reference corpora were added.
+- **Deterministic UI reachability + token-consumption gate** with design-guide
+  components, and an **app-icon design-adherence check** wired into the UX-clean gate.
+
+### Changed
+
+- **Renamed the kit from `sftdd` to Consort.** Canonical symbols are now
+  `resolveConsortSettings`, `consortEnv`, `LAKEBASE_CONSORT_*`, the `.consort/`
+  artifact root, `.lakebase/consort-config.json`, and `consort-*` bin names. The
+  tri-read env prefixes, legacy config/artifact-root fallbacks, and `lakebase-*`
+  bin aliases still resolve, so projects scaffolded before the rename keep working.
+  The scaffolded launcher is now `scripts/consort.sh`.
+- **Reorganized the source tree into domain families** under `consort/`
+  (config, logging, gates, experiment, pipeline, smells, architecture, intake,
+  deploy, orchestrator/{steps,runners,turns,state,workflow,drive,settings,build},
+  provisioning) with acyclic-import and single-home anti-recurrence guards; the
+  executable CLIs moved to `bin/consort/` + `bin/lakebase/`.
+- **Fact-checked and de-jargoned all documentation** to the real symbols, and
+  swept stale `sftdd` naming out of source comments, shell scripts, and test
+  descriptions (functional legacy literals preserved).
+- **navigator RED defaults to opus** (model tiering, matching driver);
+  per-invocation-step effort/model config is the single per-step home.
+
+### Fixed
+
+- **Live-drive resilience:** a stalled agent turn now self-heals (inactivity
+  timeout kills + retries instead of hanging), with the inactivity clock gated on
+  content lines; headless spawns use `acceptEdits` (managed-settings downgrade the
+  bypass mode); the build fails fast on expired Databricks auth.
+- **Supersession / self-heal routing** (classes k–n): `ctx.loop` sourced from the
+  config file so derive + effects agree; the `superseded_tests` key alias is
+  tolerated; the green-superseded route reads the correct per-story test list; and
+  a `superseded:true` regression verdict is honored.
+- **Story-loop `ux-adherence`** self-heals on the story loop, not only per-AC;
+  `architect-reviewer` augments `ac.json` in place (never drops `independence`);
+  the reflection-gate revise brief is additive; migration-reversibility asserts
+  schema-recreation, not data-survival.
+- **Terminal `done` turn is now recorded**; after merge the working tree lands on
+  the parent tier and the merged feature branch is removed; `prepare-pr --force`
+  gets past the produced `.consort` corpus dirty tree.
+- **Hardcoded `.sftdd/` path literals removed** from source (derived from
+  `ARTIFACT_ROOT`/`cycleDir()` instead), a broken `dist/bin/sftdd/…` reference in
+  `capture-scenario.sh` corrected, `watch-artifacts.sh` resolves `.consort` with a
+  legacy fallback, and `.gitignore.base` ignores `.consort/` per-run files.
+
 ## [0.3.6] - 2026-08-02
 
 ### Fixed
