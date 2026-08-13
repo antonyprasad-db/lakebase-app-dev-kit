@@ -180,18 +180,26 @@ replay_smoke() {
       || { err "human-proxy refused product-overview.md"; return 2; }
     proxy_supply "${INTAKE_DIR}/nfrs.md" "${SFTDD_DIR}/nfrs.md" "nfrs.md" \
       || { err "human-proxy refused nfrs.md"; return 2; }
-    proxy_supply "${INTAKE_DIR}/design-brief.md" "${SFTDD_DIR}/design/design-brief.md" "design-brief.md" \
+    # The design brief + brand assets live under the corpus intake/ mirror. finalize-corpus mirrors
+    # the LIVE .consort/ layout (design-brief at .consort/design/design-brief.md, assets under
+    # design/assets/), so a newer corpus stores them NESTED at intake/design/{design-brief.md,assets/}.
+    # Older hand-built corpora stored them FLAT at intake/{design-brief.md,assets/}. Prefer the nested
+    # mirror, fall back to flat, so every corpus (old + new) replays.
+    local _brief="${INTAKE_DIR}/design/design-brief.md"
+    [[ -f "$_brief" ]] || _brief="${INTAKE_DIR}/design-brief.md"
+    proxy_supply "$_brief" "${SFTDD_DIR}/design/design-brief.md" "design-brief.md" \
       || { err "human-proxy refused design-brief.md"; return 2; }
-    # Brand assets (icon, etc.): the design-brief references intake/assets/warehouse.png and says the
-    # build copies it to client/src/assets + wires the navbar/favicon. proxy_supply reads UTF-8 (would
-    # corrupt a PNG), so stage the assets dir with a BINARY-SAFE cp into the project's design/assets/
-    # (the HIL "hands over" the brand asset at /sprint, same as the brief). Best-effort: absent assets
-    # dir is fine (a text-only intake). This is why the icon reaches the build instead of the scaffold
-    # placeholder.
-    if [[ -d "${INTAKE_DIR}/assets" ]]; then
+    # Brand assets (icon, etc.): the design-brief references the brand asset (e.g. warehouse.png) and
+    # the build copies it to client/src/assets + wires the navbar/favicon. proxy_supply reads UTF-8
+    # (would corrupt a PNG), so stage the assets dir with a BINARY-SAFE cp into the project's
+    # design/assets/ (the HIL "hands over" the brand asset at /sprint, same as the brief). Best-effort:
+    # absent assets dir is fine (a text-only intake). Nested (design/assets) preferred, flat fallback.
+    local _assets="${INTAKE_DIR}/design/assets"
+    [[ -d "$_assets" ]] || _assets="${INTAKE_DIR}/assets"
+    if [[ -d "$_assets" ]]; then
       mkdir -p "${SFTDD_DIR}/design/assets"
-      cp -R "${INTAKE_DIR}/assets/." "${SFTDD_DIR}/design/assets/" 2>/dev/null || true
-      log "human-proxy: supplied brand assets -> ${SFTDD_DIR}/design/assets/ ($(ls "${INTAKE_DIR}/assets" 2>/dev/null | tr '\n' ' '))"
+      cp -R "${_assets}/." "${SFTDD_DIR}/design/assets/" 2>/dev/null || true
+      log "human-proxy: supplied brand assets -> ${SFTDD_DIR}/design/assets/ ($(ls "$_assets" 2>/dev/null | tr '\n' ' '))"
       git add "${SFTDD_REL}/design/assets" 2>/dev/null || true
     fi
     git add "${SFTDD_REL}/product-overview.md" "${SFTDD_REL}/nfrs.md" "${SFTDD_REL}/design/design-brief.md" 2>/dev/null || true
