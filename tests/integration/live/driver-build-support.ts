@@ -24,10 +24,10 @@
 //   - design/ : architecture/db-design/test-list/AC + conventions the driver's context pack reads.
 //   (deploy-targets.yaml / run-tests.sh / alembic env come from the SCAFFOLD, not the bundle.)
 
-import { expect } from "vitest";
-import { readFileSync, writeFileSync, existsSync, statSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, statSync, readdirSync, mkdtempSync, rmSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { join, relative } from "node:path";
 import { classifyBuildTrial, type BuildTrialSignals } from "../../../consort/optimize/optimize-build-trial.js";
 import { loadRunConfig } from "../../../consort/orchestrator/runners/run-config-loader.js";
 import { resolveTestEnv } from "../../../consort/orchestrator/provisioning/test-env.js";
@@ -36,7 +36,10 @@ import { resolveKitSingleSource, assertKitSingleSource, clearKitSingleSource } f
 import { catalogueLifecycleDeps } from "../../../consort/orchestrator/provisioning/lifecycle-catalogue.js";
 import type { LifecycleRunContext } from "../../../consort/orchestrator/provisioning/lifecycle-types.js";
 import type { ScaffoldHandle } from "../../../consort/orchestrator/provisioning/lifecycle-catalogue.js";
-import { cutExperiment } from "../../../consort/experiment/experiment.js";
+import { cutExperiment, deleteExperiment } from "../../../consort/experiment/experiment.js";
+import { cutWorktree, forceRemoveWorktree } from "./shared-scaffold-support.js";
+import { snapshotTree } from "../../../consort/orchestrator/scenarios/integration-chain.js";
+import { sweepOrphanProjects, DEFAULT_TEST_PROJECT_PREFIXES } from "../../../consort/setup/orphan-project-sweep.js";
 import { runDriver } from "../../../consort/orchestrator/drive/orchestrator-run.js";
 import { buildDriveEffects } from "../../../consort/orchestrator/drive/orchestrator-effects.js";
 import { execRunner } from "../../../consort/orchestrator/drive/claude-runner.js";
@@ -45,8 +48,24 @@ import type { WorkflowAction } from "../../../consort/orchestrator/drive/orchest
 import { resolveConsortSettings } from "../../../consort/orchestrator/settings/project-settings.js";
 import { writePipeline, readPipeline } from "../../../consort/pipeline/story-pipeline.js";
 import { beginNextPendingBatch, storyTestProgress } from "../../../consort/pipeline/cycle-record.js";
+import { cycleDir } from "../../../consort/config/consort-paths.js";
 
 export const KIT = process.cwd();
+
+/** Runner-independent assertion. This module is imported BOTH by the vitest live test AND by the
+ *  standalone optimize-role CLI (the driver-green sweep), so it must NOT import `expect` from vitest
+ *  , that pulls in the test-runner's worker state and throws at import time outside a vitest run. A
+ *  local throw-on-false gives the same fail-loud behavior in both contexts. */
+class DriverGreenAssertionError extends Error {}
+function assert(cond: unknown, message: string): asserts cond {
+  if (!cond) throw new DriverGreenAssertionError(message);
+}
+function assertGt(actual: number, floor: number, message: string): void {
+  assert(actual > floor, `${message} (expected > ${floor}, got ${actual})`);
+}
+function assertEq<T>(actual: T, expected: T, message: string): void {
+  assert(actual === expected, `${message} (expected ${String(expected)}, got ${String(actual)})`);
+}
 /** The SELF-CONTAINED setup bundle for this check , NO reach into the moving evaluation corpus. All
  *  pre-step assets live under here (see driver-green-setup/README.md), including its run-config.json. */
 const SETUP_DIR = join(KIT, "tests/integration/live/driver-green-setup");
@@ -64,6 +83,19 @@ export const DRIVER_GREEN_BUNDLE = {
   conventionsJson: join(SETUP_DIR, "design", "architecture", "conventions.json"),
 } as const;
 
+/** Per-driver-turn SEED SOURCES (contained under SETUP_DIR; corpus assumed deleted). Each is the
+ *  recorded PRE-TURN snapshot the corpus held right before that driver turn , the drive reads the SAME
+ *  cycle-record files, so overlaying the snapshot reproduces the routing state (no probe archaeology):
+ *   - green    : the post-RED bundle above (no extra cycles) => nextTransition routes to driver GREEN.
+ *   - repair   : recorded 006-navigator-assess snapshot , code/ + cycles/ (green-failure assessed +
+ *                regression-assessment with fixDirective => repairRegressionAc routes to driver REPAIR).
+ *   - refactor : recorded 010-navigator-review snapshot , code/ + cycles/ (S3 story review-verdict
+ *                refactor:true => refactorStoryPending routes to driver REFACTOR). */
+const DRIVER_TURN_SEEDS: Record<"repair" | "refactor", { codeDir: string; cyclesDir: string }> = {
+  repair: { codeDir: join(SETUP_DIR, "repair-seed", "code-assets"), cyclesDir: join(SETUP_DIR, "repair-seed", "cycles") },
+  refactor: { codeDir: join(SETUP_DIR, "refactor-seed", "code-assets"), cyclesDir: join(SETUP_DIR, "refactor-seed", "cycles") },
+};
+
 /** True when a dir tree holds >=1 source file (.py/.ts/.tsx). */
 function hasSourceFile(dir: string): boolean {
   if (!existsSync(dir)) return false;
@@ -80,21 +112,29 @@ function hasSourceFile(dir: string): boolean {
 
 /** Overlay the SETUP BUNDLE onto a freshly-scaffolded project: the POST-RED app code + tests + the
  *  design artifacts + per-story test-list + acs. The scaffold already provides deploy-targets.yaml /
- *  run-tests.sh / alembic env / Makefile (the package preconditions honest-GREEN needs). */
-function layBundle(projectDir: string): void {
+ *  run-tests.sh / alembic env / Makefile (the package preconditions honest-GREEN needs).
+ *  The artifact-root segment is DERIVED from the caller's resolved `consortDir` (relative to
+ *  projectDir), so the bundle lands in the EXACT dir the reads (storyTestProgress, beginNextPendingBatch)
+ *  use , no re-derivation, no path string to drift from what the caller already resolved. */
+function layBundle(projectDir: string, consortDir: string, driverTurn: "green" | "repair" | "refactor" = "green"): void {
   const b = DRIVER_GREEN_BUNDLE;
-  const featureRel = join(".sftdd", "features", b.feature);
+  const artifactRel = relative(projectDir, consortDir); // the one true artifact root, as the caller resolved it
+  const featureRel = join(artifactRel, "features", b.feature);
   const storyRel = join(featureRel, "stories", b.story);
+
+  // The CODE tree: green seeds the post-RED bundle; repair/refactor seed their recorded PRE-TURN snapshot
+  // (a later, further-along tree the drive resumes from). All are contained under SETUP_DIR.
+  const codeDir = driverTurn === "green" ? b.preRedCodeDir : DRIVER_TURN_SEEDS[driverTurn].codeDir;
 
   // Overlay the recorded trees + files via the shared provisioning primitive (it creates parent
   // dirs for each file, so no explicit mkdirSync is needed).
   overlayBundle(projectDir, {
-    trees: [{ from: b.preRedCodeDir, to: "." }],
+    trees: [{ from: codeDir, to: "." }],
     files: [
       { from: join(b.recordedArtifactsFeatureDir, "architecture.json"), to: join(featureRel, "architecture.json") },
       { from: join(b.recordedArtifactsFeatureDir, "db-design.json"), to: join(featureRel, "db-design.json") },
       { from: join(b.recordedArtifactsFeatureDir, "stories", b.story, "acs", `${b.ac}.json`), to: join(storyRel, "acs", `${b.ac}.json`) },
-      { from: b.conventionsJson, to: join(".sftdd", "architecture", "conventions.json") },
+      { from: b.conventionsJson, to: join(artifactRel, "architecture", "conventions.json") },
     ],
   });
 
@@ -102,8 +142,16 @@ function layBundle(projectDir: string): void {
     items: Array<Record<string, unknown>>;
   };
   const items = master.items.filter((i) => i.ac_id === b.ac);
-  expect(items.length, "bundle: S3 has test-list items").toBeGreaterThan(0);
+  assertGt(items.length, 0, "bundle: S3 has test-list items");
   writeFileSync(join(projectDir, storyRel, "test-list-per-story.json"), JSON.stringify({ feature_id: b.feature, story_id: b.story, items }, null, 2) + "\n");
+
+  // repair/refactor: overlay the recorded PRE-TURN cycle markers into <consortDir>/cycles/ so the drive's
+  // probes (repairRegressionAc / refactorStoryPending) read the SAME on-disk state the corpus recorded and
+  // route to the intended driver turn. green writes no cycles here (its open-RED cycle is seeded by the
+  // pipeline block via beginNextPendingBatch).
+  if (driverTurn !== "green") {
+    overlayBundle(consortDir, { trees: [{ from: DRIVER_TURN_SEEDS[driverTurn].cyclesDir, to: "cycles" }] });
+  }
 }
 
 /** Resolve the scaffold config from the check's run-config. The workspace HOST comes from the ONE
@@ -150,6 +198,11 @@ export interface RunDriverGreenOptions {
     allowedTools?: string[];
     disallowedTools?: string[];
   };
+  /** Which driver turn to exercise (each seeded to its own flagged pre-turn state, then evaluated by the
+   *  navigator turn that follows it): "green" (default , post-RED seed -> driver GREEN -> navigator
+   *  assess), "repair" (post-assess regression seed -> driver REPAIR -> navigator assess), "refactor"
+   *  (post-review refactor:true seed -> driver REFACTOR -> navigator review-for-resolution). */
+  driverTurn?: "green" | "repair" | "refactor";
 }
 
 /** Result of a live driver-GREEN run: the outcome (honestGreen), wall-clock duration, produced app
@@ -165,6 +218,15 @@ export interface RunDriverGreenResult {
   escalated?: boolean;
   /** The build trial classification (self-healed / not-viable / systemic). */
   classify: { outcome: "self-healed" | "not-viable" | "systemic"; reason?: string };
+  /** The produced code as {relpath -> contents} (app/ + tests/), captured BEFORE teardown so the ONE
+   *  sweep engine can PRESERVE it per candidate + hand it to the mandatory judge. This is the driver's
+   *  equivalent of a chain's producedArtifacts (you cannot judge what was torn down). */
+  producedArtifacts: Record<string, string>;
+  /** The NEXT-STEP navigator determination for this driver turn ({relpath -> contents} of the AC cycle
+   *  dir the navigator eval turn wrote: superseded-tests.json / regression-assessment.json /
+   *  review-verdict.json, or EMPTY when the navigator judged the code clean). The driver-turn
+   *  discriminator (evaluateNextStepDetermination) compares this to the recorded determination. */
+  nextStepMarker: Record<string, string>;
 }
 
 /**
@@ -179,32 +241,184 @@ export interface RunDriverGreenResult {
  * roles run with their defaults. Returns a RunDriverGreenResult; when options are absent, returns
  * void for backwards compatibility (the default single-call path).
  */
-export async function runDriverGreenLive(opts: RunDriverGreenOptions = {}): Promise<RunDriverGreenResult | void> {
-  const b = DRIVER_GREEN_BUNDLE;
-  const { scaffoldConfig } = resolveDriverGreenRunConfig();
-  const experimentSlug = opts.experimentSlug ?? "s3-driver-green";
-  const branchName = opts.branch ?? `experiment/${b.story}`;
+/** A driver-green scaffold shared across candidates: scaffolded ONCE (one Databricks + Lakebase project +
+ *  deploy infra), then each candidate cuts its OWN worktree off HEAD + its OWN Lakebase branch off
+ *  `parentBranch`. Held for the lifetime of a sweep. The #589 model, mirroring DesignEquivProject. */
+export interface ScaffoldedDriverProject {
+  /** The scaffold's project root (.git HEAD is the pristine committed tree each worktree checks out). */
+  projectDir: string;
+  /** The shared Lakebase project id , every candidate's branch is cut off it. */
+  lakebaseProjectId: string;
+  /** The Databricks workspace host. */
+  host: string;
+  /** The Lakebase default/trunk branch each candidate's experiment branch forks from. */
+  parentBranch: string;
+  /** Temp dir the per-candidate worktrees are cut under. */
+  worktreesRoot: string;
+  /** The catalogue teardown context (remove-project). */
+  teardownCtx: LifecycleRunContext;
+}
 
-  // ── SETUP (catalogue scaffold-project): a REAL project on the config-resolved host. The op reads
-  //    databricksHost from the run-config, ships deploy infra + alembic env, returns the handle. ──
+/** Pre/post-clean leaked dg-live-* scaffold dirs under KIT (a run KILLED before teardown orphans its
+ *  Lakebase project). Best-effort + no-op when nothing is orphaned or the cloud env is unset. */
+export async function sweepDriverGreenOrphans(): Promise<void> {
+  try {
+    const scm = await import("@databricks-solutions/lakebase-scm-utils/lakebase");
+    const report = await sweepOrphanProjects({
+      parentDir: KIT,
+      deleteLakebaseProject: (a) => scm.deleteLakebaseProject({ projectId: a.projectId, host: a.host } as never),
+      prefixes: [...DEFAULT_TEST_PROJECT_PREFIXES, "dg-live-"],
+    });
+    if (report.length) {
+      // eslint-disable-next-line no-console
+      console.log(`[driver-green] orphan sweep: ${report.map((r) => `${r.projectId}=${r.deleted ? "deleted" : `LEFT (${r.error ?? "?"})`}`).join(", ")}`);
+    }
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.log(`[driver-green] orphan sweep skipped: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
+/** SCAFFOLD ONCE: a real project (Databricks + Lakebase + deploy infra) via the catalogued
+ *  scaffold-project op, reading databricksHost from the run-config. The scaffold commits a pristine
+ *  tree into its initial commit, so every per-candidate worktree checks out a clean, production-shaped
+ *  tree. Pre-sweeps orphans first. Sets the suite-scoped manifest-step + kit-dir env ONCE (constant for
+ *  every candidate) so PARALLEL candidates never race a per-candidate set/delete. */
+export async function scaffoldDriverGreenProject(): Promise<ScaffoldedDriverProject> {
+  await sweepDriverGreenOrphans();
+  const { scaffoldConfig } = resolveDriverGreenRunConfig();
   const setupCtx: LifecycleRunContext = { workspaceDir: KIT };
   const setup = await catalogueLifecycleDeps.run({ kind: "scaffold-project", config: scaffoldConfig }, setupCtx);
   if (!setup.ok || !setup.handle) throw new Error(`scaffold-project failed: ${setup.error ?? "no handle"}`);
   const handle = setup.handle as ScaffoldHandle;
   const projectDir = handle.projectDir!;
-  const lakebaseProjectId = handle.lakebaseProjectId!;
-  const host = handle.databricksHost!;
-  const parentBranch = handle.lakebaseDefaultBranch ?? "production";
-  const consortDir = join(projectDir, ".sftdd");
-  const teardownCtx: LifecycleRunContext = { workspaceDir: KIT, setupHandle: setup.handle };
+  layDownKitAgents(projectDir, KIT);
+  const worktreesRoot = mkdtempSync(join(tmpdir(), "dg-worktrees-"));
+  process.env.LAKEBASE_SFTDD_USE_MANIFEST_STEPS = "1";
+  // ONE kit resolution (split-brain-safe): pin the local ref's cache slot to THIS checkout + write
+  // the ref hint into the project so the env-less claude -p driver resolves the SAME bits (never
+  // set LAKEBASE_KIT_DIR, which the agent process does not inherit). Done ONCE for the shared scaffold.
+  resolveKitSingleSource(KIT);
+  assertKitSingleSource(projectDir, KIT);
+  return {
+    projectDir,
+    lakebaseProjectId: handle.lakebaseProjectId!,
+    host: handle.databricksHost!,
+    parentBranch: handle.lakebaseDefaultBranch ?? "production",
+    worktreesRoot,
+    teardownCtx: { workspaceDir: KIT, setupHandle: setup.handle },
+  };
+}
+
+/** TEARDOWN: remove everything scaffold-project created (never-leaking catalogue remove-project) + drop
+ *  the worktrees-root temp dir + clear the suite env, then post-sweep any orphan a killed sibling left. */
+export async function teardownDriverGreenProject(project: ScaffoldedDriverProject): Promise<void> {
+  try {
+    // remove-project is best-effort (it collects step failures, never throws), so a FAILED Lakebase
+    // delete would otherwise be SILENT , exactly what leaked an orphan project on the Stage-5 run with
+    // no teardown line in the log. SURFACE ok:false loudly so the next failure is visible (+ the orphan
+    // sweep below is the safety net that actually reclaims it). Do NOT throw , teardown must not mask a
+    // sweep result, and the orphan sweep still runs in the finally.
+    const res = await catalogueLifecycleDeps.run({ kind: "remove-project", config: {} }, project.teardownCtx);
+    if (!res.ok) {
+      // eslint-disable-next-line no-console
+      console.log(`[driver-green] ⚠️ remove-project reported failures for ${project.lakebaseProjectId}: ${res.error ?? "unknown"} , confirming below.`);
+    }
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.log(`[driver-green] ⚠️ remove-project THREW for ${project.lakebaseProjectId}: ${e instanceof Error ? e.message : String(e)} , confirming below.`);
+  } finally {
+    // CONFIRM the Lakebase project is ACTUALLY gone , not just that delete-project returned exit 0.
+    // `databricks postgres delete-project` is ASYNC/eventually-consistent: it accepts the request
+    // (exit 0 => remove-project reports ok, deletes the local dir), but the project can LINGER
+    // (a candidate branch still being torn down, or plain propagation delay). Both Stage-5 runs left a
+    // live dg-live project despite an ok teardown + no error , and the orphan sweep couldn't reclaim it
+    // because remove-project had already removed the local dir it keys off. So VERIFY via getProjectInfo
+    // and RE-DELETE (using the id+host we hold, no local-dir dependency) until it's confirmed gone.
+    await confirmLakebaseProjectDeleted(project.lakebaseProjectId, project.host);
+    delete process.env.LAKEBASE_SFTDD_USE_MANIFEST_STEPS;
+    clearKitSingleSource();
+    rmSync(project.worktreesRoot, { recursive: true, force: true });
+    await sweepDriverGreenOrphans();
+  }
+}
+
+/** Poll getProjectInfo (undefined == 404 == gone) and re-issue deleteLakebaseProject until the project
+ *  is confirmed deleted or attempts run out. Guards against delete-project's async exit-0-but-lingering
+ *  behavior (the Stage-5 leak). Best-effort + never throws (teardown must not mask a sweep result); the
+ *  orphan sweep is the final backstop. Uses the id+host held on the scaffold, so it does not need the
+ *  local project dir (which remove-project may already have removed). */
+async function confirmLakebaseProjectDeleted(projectId: string, host: string, attempts = 5): Promise<void> {
+  if (!projectId || !host) return;
+  try {
+    const scm = await import("@databricks-solutions/lakebase-scm-utils/lakebase");
+    for (let i = 1; i <= attempts; i++) {
+      let stillThere: boolean;
+      try {
+        stillThere = (await scm.getProjectInfo({ projectId, host } as never)) !== undefined;
+      } catch {
+        stillThere = false; // treat a probe error as "cannot confirm alive" , don't spin
+      }
+      if (!stillThere) {
+        if (i > 1) {
+          // eslint-disable-next-line no-console
+          console.log(`[driver-green] confirmed ${projectId} deleted after ${i} check(s).`);
+        }
+        return;
+      }
+      // eslint-disable-next-line no-console
+      console.log(`[driver-green] ⚠️ ${projectId} still present after delete (attempt ${i}/${attempts}); re-deleting.`);
+      try { await scm.deleteLakebaseProject({ projectId, host } as never); } catch { /* re-delete hiccup; next probe decides */ }
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+    // eslint-disable-next-line no-console
+    console.log(`[driver-green] ⚠️ ${projectId} STILL present after ${attempts} delete attempts , run the orphan sweep / delete by hand.`);
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.log(`[driver-green] confirm-deleted skipped for ${projectId}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
+/** Run ONE driver-GREEN candidate on a SHARED scaffold: cut a fresh worktree off the scaffold HEAD + a
+ *  paired Lakebase branch off parentBranch (both keyed by the candidate's slug, so PARALLEL candidates
+ *  are fully isolated), seed the POST-RED bundle into the worktree, drive one live driver GREEN, verify
+ *  honest-GREEN, classify. ALWAYS tears down THIS candidate's branch + worktree in finally (the shared
+ *  scaffold is torn down once by teardownDriverGreenProject). No shared mutable state => safe in parallel. */
+export async function runDriverGreenOnScaffold(
+  project: ScaffoldedDriverProject,
+  opts: RunDriverGreenOptions = {},
+): Promise<RunDriverGreenResult | void> {
+  const b = DRIVER_GREEN_BUNDLE;
+  // Which driver turn to exercise. green = post-RED seed -> driver GREEN -> navigator ASSESS; repair =
+  // recorded post-assess regression seed -> driver REPAIR -> navigator ASSESS; refactor = recorded
+  // post-review refactor:true seed -> driver REFACTOR -> navigator REVIEW. Each seed is the recorded
+  // PRE-TURN snapshot (contained under SETUP_DIR); its correctness (that the drive routes to the intended
+  // turn) is confirmed at the gated live run , this is a live-only path.
+  const driverTurn = opts.driverTurn ?? "green";
+  const experimentSlug = opts.experimentSlug ?? `s3-driver-${driverTurn}`;
+  const branchName = opts.branch ?? `experiment/${b.story}`;
+  const { lakebaseProjectId, host, parentBranch } = project;
+
+  // Each candidate gets its OWN worktree off the scaffold's committed HEAD (clean, production-shaped tree).
+  const { wtDir, consortDir } = await cutWorktree({
+    projectDir: project.projectDir,
+    worktreesRoot: project.worktreesRoot,
+    label: experimentSlug,
+    branchPrefix: "dg",
+    kitDir: KIT,
+  });
+  const projectDir = wtDir;
 
   try {
-    // ── SEED (bundle overlay): the POST-RED app + tests + design + per-story test-list. ──
-    layBundle(projectDir);
+    // ── SEED (bundle overlay): the pre-turn app + tests + design + per-story test-list (+ the recorded
+    //    pre-turn cycle markers for repair/refactor, which route the drive to that turn). ──
+    layBundle(projectDir, consortDir, driverTurn);
     execFileSync("git", ["add", "-A"], { cwd: projectDir, stdio: "pipe" });
-    execFileSync("git", ["commit", "-m", "seed: pre-RED F6/S3 app + tests + design (driver-green live)", "--no-verify"], { cwd: projectDir, stdio: "pipe" });
+    execFileSync("git", ["commit", "-m", `seed: pre-turn F6/S3 snapshot for driver ${driverTurn} (live)`, "--no-verify"], { cwd: projectDir, stdio: "pipe" });
 
-    // ── SEED (cut the paired experiment branch): writes .env DATABASE_URL; throws if unsynced. ──
+    // ── SEED (cut the paired experiment branch off the SHARED project's parent): writes .env
+    //    DATABASE_URL. resetStaleBranch drops any same-named branch a prior candidate left, so a
+    //    re-cut forks clean off parentBranch. ──
     await cutExperiment({
       instance: lakebaseProjectId,
       consortDir,
@@ -214,6 +428,7 @@ export async function runDriverGreenLive(opts: RunDriverGreenOptions = {}): Prom
       experimentSlug,
       branch: branchName,
       parentBranch,
+      resetStaleBranch: true,
     });
 
     // ── SEED (pipeline + open RED cycle): route nextTransition to driver GREEN for S3. ──
@@ -231,19 +446,21 @@ export async function runDriverGreenLive(opts: RunDriverGreenOptions = {}): Prom
       build_active: b.story,
     } as never);
     writeFileSync(join(consortDir, "workflow-state.json"), JSON.stringify({ phase: "implementation", phase_feature_id: b.feature }));
-    beginNextPendingBatch({ consortDir, featureId: b.feature, story: b.story }, { cap: Number.MAX_SAFE_INTEGER });
-    expect(storyTestProgress(consortDir, b.feature, b.story).openRed.length, "setup: an open RED cycle exists").toBeGreaterThan(0);
+    // green: begin the open-RED batch so nextTransition routes to driver GREEN + assert it opened.
+    // repair/refactor: the recorded pre-turn cycle markers (overlaid by layBundle) ALREADY carry the
+    // routing state (assessed green-failure + regression / refactor:true review-verdict) , beginning a
+    // fresh batch would clobber it, so we do NOT re-batch; the drive resumes from the seeded cycles.
+    if (driverTurn === "green") {
+      beginNextPendingBatch({ consortDir, featureId: b.feature, story: b.story }, { cap: Number.MAX_SAFE_INTEGER });
+      assertGt(storyTestProgress(consortDir, b.feature, b.story).openRed.length, 0, "setup: an open RED cycle exists");
+    }
 
-    // Agent defs so the live `--agent driver` resolves , the shared provisioning primitive (KIT is
-    // process.cwd(), layDownKitAgents's default kitDir), no inline copy.
+    // Agent defs so the live `--agent driver` resolves (worktree carries a copy from HEAD; re-lay freshest).
     layDownKitAgents(projectDir, KIT);
 
     process.env.LAKEBASE_SFTDD_USE_MANIFEST_STEPS = "1";
-    // ONE kit resolution (split-brain-safe): pin the local ref's cache slot to THIS checkout + write
-    // the ref hint into the project so the env-less claude -p driver resolves the SAME bits (never
-    // LAKEBASE_KIT_DIR, which the agent process does not inherit).
-    resolveKitSingleSource(KIT);
-    assertKitSingleSource(projectDir, KIT);
+    // Kit resolution is pinned ONCE by scaffoldDriverGreenProject (shared scaffold); no per-candidate
+    // re-pin here (the whole sweep shares the one scaffold + its single-source cache slot).
 
     // ── DRIVE one real driver GREEN on the uncontained live executor (performViaExecutor). Driver
     //    tool-scope is WIDER than navigator RED , it needs Bash to run the project's tests.
@@ -294,19 +511,31 @@ export async function runDriverGreenLive(opts: RunDriverGreenOptions = {}): Prom
     cfg.runner = execRunner(cfg);
 
     const startTime = Date.now();
-    const isGreen = (a: WorkflowAction): boolean =>
-      a.kind === "invoke-role" && a.role === "driver" && !("mode" in a) && !("buildMode" in a) && "story" in a && a.story === b.story;
-    const result = await runDriver(buildDriveEffects(cfg), { stopWhen: (a: WorkflowAction) => !isGreen(a), maxSteps: 4 });
+    // The TARGET driver turn to exercise, by buildMode: green = a plain driver turn (no buildMode);
+    // repair = buildMode "repair"; refactor = buildMode "refactor". Run until the drive LEAVES that turn
+    // (so the driver turn executes; the navigator EVAL turn that follows it is driven separately below).
+    const isTargetDriverTurn = (a: WorkflowAction): boolean => {
+      if (a.kind !== "invoke-role" || a.role !== "driver" || !("story" in a) || a.story !== b.story) return false;
+      const bm = (a as { buildMode?: unknown }).buildMode;
+      if (driverTurn === "green") return !("mode" in a) && bm === undefined;
+      return bm === driverTurn;
+    };
+    const result = await runDriver(buildDriveEffects(cfg), { stopWhen: (a: WorkflowAction) => !isTargetDriverTurn(a), maxSteps: 4 });
     const durationMs = Date.now() - startTime;
 
     // ── ASSERT: the honest-GREEN product-channel proof ──
     const productCodeExists = hasSourceFile(join(projectDir, "app"));
     const storyProgress = storyTestProgress(consortDir, b.feature, b.story);
     const allGreen = storyProgress.allGreen;
-    expect(productCodeExists, "driver wrote product code under app/").toBe(true);
-    expect(allGreen, "the AC's honest-GREEN cycle stamped green against the live branch").toBe(true);
-    expect(result.stoppedAtBound || result.stoppedAtMax || result.iterations >= 1).toBe(true);
-    expect(readPipeline(consortDir, b.feature).build_active).toBe(b.story);
+    assert(productCodeExists, "driver wrote product code under app/");
+    // green/repair drive TOWARD honest-GREEN => assert it stamped green. refactor operates on
+    // already-green code (a cleanup) and its honest-GREEN is re-verified by its own cycle, so a
+    // hard all-green assert here is green/repair-appropriate; for refactor we require the turn ran.
+    if (driverTurn !== "refactor") {
+      assert(allGreen, "the AC's honest-GREEN cycle stamped green against the live branch");
+    }
+    assert(result.stoppedAtBound || result.stoppedAtMax || result.iterations >= 1, "driver ran at least one bounded iteration");
+    assertEq(readPipeline(consortDir, b.feature).build_active, b.story, "the pipeline's build_active is the swept story");
     void host;
 
     // Classify the build trial for sweep reporting (self-healed / not-viable / systemic).
@@ -319,9 +548,46 @@ export async function runDriverGreenLive(opts: RunDriverGreenOptions = {}): Prom
       honestGreen: { passed: allGreen },
     } as BuildTrialSignals);
 
-    // The CODE-equivalence proof (when the caller supplied one) judges the driver's app/ tree against
-    // the pin BEFORE teardown. S3 is the 2nd recorded F6 story => storyIndex 1 (resolveBuildReference
-    // matches positionally, since slugs differ across corpora).
+    // ── CAPTURE the produced code (app/ + tests/) as text BEFORE teardown, so the ONE sweep engine can
+    //    PRESERVE it per candidate AND hand it to the mandatory judge (you cannot judge what was torn
+    //    down). This is the driver's producedArtifacts, the same currency every chain returns. ──
+    const producedArtifacts: Record<string, string> = {
+      ...snapshotTree(join(projectDir, "app"), projectDir),
+      ...snapshotTree(join(projectDir, "tests"), projectDir),
+    };
+
+    // ── THE NEXT-STEP NAVIGATOR EVALUATION (opus-high): after the driver turn greened, run ONE more
+    //    live turn , the navigator EVALUATION turn nextTransition routes to (assess for a green that
+    //    tripped the full-suite verify; review/accept for a clean one). The NAVIGATOR is pinned
+    //    opus-high (a fixed, strong evaluator) regardless of the driver lever being swept, so the
+    //    determination is a stable judge of the driver's output. Its marker lands in the AC cycle dir
+    //    UNDER THE RESOLVED consortDir (never a hardcoded artifact root). We capture that marker dir as
+    //    text so the mandatory judge compares the candidate's next-step determination to the recorded
+    //    one (evaluateNextStepDetermination). Best-effort + bounded: a clean green routes to
+    //    review/accept and writes no assess marker => empty capture => the judge's "candidate clean"
+    //    (pass-with-honors) input. ──
+    const isDriverTurn = (a: WorkflowAction): boolean => a.kind === "invoke-role" && a.role === "driver";
+    const isNavigatorEval = (a: WorkflowAction): boolean =>
+      a.kind === "invoke-role" && a.role === "navigator" &&
+      typeof (a as { buildMode?: unknown }).buildMode === "string" &&
+      ["assess", "review", "assess-refactor", "reflect"].includes(String((a as { buildMode?: unknown }).buildMode));
+    // Pin the navigator opus-high for the eval turn; keep the driver lever untouched (it already greened).
+    const evalCfg: DriveEffectsConfig = {
+      ...cfg,
+      modelForRole: (role) => (role === "navigator" ? "opus" : cfg.modelForRole!(role)),
+      modelForTurn: (role, turn) => (role === "navigator" ? "opus" : cfg.modelForTurn!(role, turn)),
+      effortForTurn: (role, turn) => (role === "navigator" ? "high" : cfg.effortForTurn!(role, turn)),
+    } as DriveEffectsConfig;
+    evalCfg.runner = execRunner(evalCfg);
+    // Run until we LEAVE the navigator-eval turn (i.e. stop once the drive would hand back to the driver
+    // or advance): the single eval turn is what we want. If the drive routes straight past eval (clean),
+    // this stops immediately and the marker capture below is empty (= candidate clean).
+    await runDriver(buildDriveEffects(evalCfg), { stopWhen: (a: WorkflowAction) => isDriverTurn(a), maxSteps: 3 });
+    const markerDirAbs = cycleDir(consortDir, b.feature, b.story, b.ac);
+    const nextStepMarker = snapshotTree(markerDirAbs, markerDirAbs);
+
+    // `afterGreen` remains for the standalone equivalence test (which judges + asserts in-hook before
+    // teardown). The SWEEP does NOT use it , it judges via the shared engine's mandatory judgeCandidate.
     if (opts.afterGreen) await opts.afterGreen({ projectDir, featureId: b.feature, storyIndex: 1 });
 
     // Return the result when called with options (sweep scenario); void when called with defaults (test scenario).
@@ -332,12 +598,46 @@ export async function runDriverGreenLive(opts: RunDriverGreenOptions = {}): Prom
         producedCodeDir: projectDir,
         escalated: result.escalated,
         classify,
+        producedArtifacts,
+        nextStepMarker,
       };
     }
   } finally {
-    // ── TEARDOWN (catalogue remove-project): runner + repo + Lakebase project + dir, never-leaking. ──
-    delete process.env.LAKEBASE_SFTDD_USE_MANIFEST_STEPS;
-    clearKitSingleSource();
-    await catalogueLifecycleDeps.run({ kind: "remove-project", config: {} }, teardownCtx);
+    // ── PER-CANDIDATE TEARDOWN: drop THIS candidate's Lakebase branch (paired delete) + remove its
+    //    worktree. The SHARED scaffold (Lakebase project + repo) is torn down once by
+    //    teardownDriverGreenProject. Best-effort , both are also swept at scaffold teardown. ──
+    try {
+      await deleteExperiment({
+        instance: lakebaseProjectId,
+        consortDir,
+        projectDir,
+        featureId: b.feature,
+        storyId: b.story,
+        experimentSlug,
+        deleteBranchToo: true,
+      });
+    } catch {
+      /* branch teardown hiccup must not mask the trial result; scaffold teardown + orphan sweep backstop */
+    }
+    forceRemoveWorktree(project.projectDir, wtDir);
+    void host;
+  }
+}
+
+/**
+ * The ONE-CALL driver-GREEN live run (backwards-compatible): scaffold a project, run ONE candidate on it,
+ * tear the scaffold down. Preserves the single-call full-lifecycle contract the standalone live tests rely
+ * on (driver-code-equivalence-live.test.ts, driver-green-executor-dispatch-live.test.ts). GATED , the
+ * caller only invokes this behind RUN_LIVE_STEP + LAKEBASE_TEST_E2E. Returns a RunDriverGreenResult when
+ * called with options (sweep-shaped), void with defaults. The SWEEP does NOT call this , it scaffolds ONCE
+ * and calls runDriverGreenOnScaffold per candidate (share one scaffold across the whole sweep).
+ */
+export async function runDriverGreenLive(opts: RunDriverGreenOptions = {}): Promise<RunDriverGreenResult | void> {
+  const project = await scaffoldDriverGreenProject();
+  try {
+    return await runDriverGreenOnScaffold(project, opts);
+  } finally {
+    // teardownDriverGreenProject clears the env + the single-source pin (shared-scaffold owner).
+    await teardownDriverGreenProject(project);
   }
 }

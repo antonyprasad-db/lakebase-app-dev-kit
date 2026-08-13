@@ -7092,6 +7092,46 @@ function relativizeProjectPaths(text, projectDir) {
   return text.split(root + "/").join(PROJECT_ROOT_TOKEN + "/").split(root).join(PROJECT_ROOT_TOKEN);
 }
 var NON_ARTIFACT_TDD = /* @__PURE__ */ new Set(["agent-log.jsonl"]);
+function projectRoutingStateBag(state) {
+  const s = state ?? {};
+  const bag = {};
+  if (typeof s.phase === "string") bag.phase = s.phase;
+  const active = s.buildActive;
+  if (active !== void 0) bag.buildActive = active;
+  const stories = s.stories ?? {};
+  const b = active ? stories[active]?.build : void 0;
+  if (b) {
+    for (const k of [
+      "experimentCut",
+      "testsWritten",
+      "codeWritten",
+      "reviewStoryPending",
+      "refactorStoryPending",
+      "reviewAc",
+      "refactorAc",
+      "assessGreenAc",
+      "repairRegressionAc",
+      "greenSupersededAc",
+      "awaitingAcceptance",
+      "deployVerified",
+      "accepted"
+    ]) {
+      if (b[k] !== void 0) bag[k] = b[k];
+    }
+  }
+  return bag;
+}
+function recordRoutingDecision(recordDir, action, state, iteration, source) {
+  const rec = {
+    iteration,
+    source,
+    action,
+    stateBag: projectRoutingStateBag(state),
+    at: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  mkdirSync2(recordDir, { recursive: true });
+  appendFileSync(join4(recordDir, "routing-decisions.jsonl"), JSON.stringify(rec) + "\n");
+}
 function recordCorrespondence(recordDir, entry) {
   mkdirSync2(recordDir, { recursive: true });
   appendFileSync(join4(recordDir, "correspondence.jsonl"), JSON.stringify(entry) + "\n");
@@ -11495,8 +11535,8 @@ function turnKeyForAction(action) {
   if ("buildMode" in action) {
     switch (action.buildMode) {
       case "reflect":
-        return void 0;
-      // design-lane critic, runs on the base model
+        return "reflect";
+      // design-lane critic, tuned as its own turn (sweep: haiku+low)
       case "review":
         return "review";
       case "refactor":
@@ -14685,6 +14725,9 @@ function withBuildRecording(inner, cfg) {
   return {
     readState: () => inner.readState(),
     onAction: inner.onAction ? (a, i) => inner.onAction(a, i) : void 0,
+    // Forward the routing-decision seam UNCHANGED (withTurnRecording records it; this build-only
+    // wrapper just preserves it so composition never drops it).
+    onRoutingDecision: inner.onRoutingDecision ? (a, s, i, src) => inner.onRoutingDecision(a, s, i, src) : void 0,
     onHandback: inner.onHandback ? (h, d) => inner.onHandback(h, d) : void 0,
     // Forward the executor-dispatch seam UNCHANGED (see withTurnRecording): an executor-dispatched
     // build turn records via the executor's wrapper, not here, so this only fires for a non-dispatched
@@ -14779,6 +14822,14 @@ function withTurnRecording(inner, cfg) {
   return {
     readState: () => inner.readState(),
     onAction: inner.onAction ? (a, i) => inner.onAction(a, i) : void 0,
+    // Routing-decision observability (diagnostic stream the turn recorder lacks): append the
+    // action + the state bag that CHOSE it to routing-decisions.jsonl. Fires for EVERY iteration
+    // (agent + non-agent + terminal), so "why did this turn route here" is answerable from the
+    // corpus. Chains any inner hook first, then records. Gated on the same recordDir as recordTurn.
+    onRoutingDecision: (a, s, i, source) => {
+      inner.onRoutingDecision?.(a, s, i, source);
+      recordRoutingDecision(recordDir, a, s, i, source);
+    },
     onHandback: inner.onHandback ? (h, d) => inner.onHandback(h, d) : void 0,
     // Correspondence: a HIL touchpoint (author-requests / a gate) just ran on the perform path; the
     // proxy has appended its response to agent-log. Pair the orchestrator's REQUEST with the proxy's

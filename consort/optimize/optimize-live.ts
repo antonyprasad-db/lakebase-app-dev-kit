@@ -1,3 +1,15 @@
+// ⚠️ DEPRECATED (superseded 2026-08-07) , do NOT extend or build new work on this module.
+// This is the CHAMPION-WALK optimize engine (per-handoff snapshot/runTrial/recordWinner over the
+// live drive, ranked by the FASTEST gate-passing turn). It is superseded by the ONE judged sweep
+// engine , `runRoleSweep`/`runOneCandidate` (tests/optimization/role-sweep.ts), driven by the ONE
+// launcher `scripts/optimize-role.sh`. The champion walk ranks on conformance + wall-clock and its
+// judge is only OPTIONAL (design turns w/ a reference) with build handoffs bypassing a judge
+// entirely , which VIOLATES the standing invariant that EVERY evaluation runs an LLM judge vs the
+// recorded reference on every candidate and preserves the output for independent re-judging (see
+// memory feedback_every_evaluation_judge_and_preserve). Kept only because a published bin
+// (consort-optimize) + optimize-apply + ~20 tests still reference it; slated for removal once
+// optimize-apply's winner-persist path is re-homed onto the judged engine. New sweeps: role-sweep.
+//
 // optimize-live: assemble the REAL champion-walk deps (snapshot + runTrial +
 // recordWinner) over the drive, with only the cloud/model LEAVES injected. Every
 // other step , candidate config write, agent overlay, gate evaluation, state

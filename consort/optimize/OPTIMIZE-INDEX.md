@@ -1,5 +1,18 @@
 # Optimize harness — index (where things are + what they do)
 
+> ## ⚠️ DEPRECATED (2026-08-07) — this whole champion-walk harness is superseded
+> The per-handoff **champion walk** documented here (`consort-optimize` / `optimize-scenario.sh` →
+> `optimize-harness` + `optimize-live` + `optimize-autocontinue`) ranks candidates on the **fastest
+> gate-passing turn** and runs an LLM judge only OPTIONALLY (design turns with a reference; build
+> handoffs bypass a judge entirely). That violates the standing evaluation invariant: **every
+> candidate of every evaluation MUST be judged vs the recorded reference, and its output preserved
+> for independent re-judging.** Use the **ONE judged sweep engine** instead:
+> `runRoleSweep` (`tests/optimization/role-sweep.ts`) driven by the ONE launcher
+> **`scripts/optimize-role.sh`**. The champion-walk code + this doc are kept for provenance and the
+> still-published `consort-optimize`/`consort-optimize-apply` bins; they are slated for removal once
+> `optimize-apply`'s winner-persist path is re-homed onto the judged engine. Do not build new work on
+> anything below this line.
+
 ## ★ ROOT CAUSE (FIXED c1c4a7f1): design lane stalled at feature-complete with an EMPTY pipeline ★
 Symptom (was): after breakdown (+ ux-designer), the drive reported `feature-complete` with 0 per-story handoffs (architect/dba/test-strategist never reached); pipeline.json had no stories. NOT a scenario/kit bug.
 CAUSE: `makeLiveSpawnTurn` (optimize-live.ts) used to run ONLY the `claude` command and DROP the turn's appendix. spec-author BREAKDOWN's appendix includes `sync-breakdown` (orchestrator-effects.ts:1356), which is LOAD-BEARING: it projects pipeline.json from the stories/ stubs. Dropping it => empty pipeline => nextDesignAction's per-story loop empty => design-complete => feature-complete. (recordWinner restored the artifact but not the pipeline.) Proven: manual `sync-breakdown` after a swept breakdown -> `+3; 3 tracked` and the drive immediately advanced to the per-story spec-author turn.

@@ -22,7 +22,9 @@ const ALLOWED = [
   ".env.template.test.config",
   "examples/",
   "consort/evaluation/reference-assets/stockflow/",
-  "tests/integration/live/driver-green-setup/code-assets/",
+  // The recorded app .env bundles for the driver-green live harness + its repair-seed / refactor-seed
+  // variants (all recorded app data, not kit config; same category as the base code-assets bundle).
+  "tests/integration/live/driver-green-setup/",
   "docs/",
   "tests/bdd/test-env-single-home.test.ts",
   // Asserts the stockflow DEMO run.json's self-contained public default (a runnable example, not

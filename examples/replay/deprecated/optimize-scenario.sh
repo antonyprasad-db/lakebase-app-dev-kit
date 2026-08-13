@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# ⚠️ DEPRECATED (moved to deprecated/ on 2026-08-07) , do NOT use for new sweeps.
+# This is the shell wrapper for the CHAMPION-WALK bin (consort-optimize), which ranks candidates on
+# the fastest gate-passing turn and does NOT run a mandatory LLM judge on every candidate. That
+# violates the standing evaluation invariant (every candidate judged vs the recorded reference +
+# output preserved). The sanctioned launcher is `scripts/optimize-role.sh` (the ONE judged sweep
+# engine). Kept here for provenance until the champion-walk stack is removed.
+#
 # Run a per-handoff optimization sweep (the champion walk) against a scenario's
 # feature: at the handoff the drive is currently positioned on, try config +
 # content/scope candidates, keep the FASTEST gate-passing turn, and emit a
@@ -48,7 +55,10 @@
 # winner corpus can be finalized.
 set -euo pipefail
 
-SCEN_DIR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# NOTE: this script now lives in deprecated/ (one level below examples/replay/), but its scenario
+# dirs, lib/pin-local-kit.sh, and KIT_ROOT (../.. from here) all still live under examples/replay/.
+# Resolve SCEN_DIR_ROOT to the PARENT examples/replay/ dir so every downstream path is unchanged.
+SCEN_DIR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCENARIO=""
 PROJECT_DIR=""
 FEATURE=""

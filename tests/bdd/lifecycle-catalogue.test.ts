@@ -146,6 +146,30 @@ describe("lifecycle-catalogue", () => {
     expect(existsSync(projectDir)).toBe(false);
   });
 
+  // The Stage-5 driver-green leak: a transient Lakebase delete FAILURE, yet the local dir was still
+  // removed , which strands the project because the orphan sweep keys off that dir's .env marker to
+  // reclaim it. Fix: on a FAILED Lakebase delete, KEEP the dir so the next orphan sweep retries.
+  it("remove-project KEEPS the local dir when the Lakebase delete fails (so the orphan sweep can reclaim it)", async () => {
+    const projectDir = join(root, "proj4");
+    mkdirSync(projectDir, { recursive: true });
+    const effects: RemoveProjectEffects = {
+      stopRunner: () => {},
+      removeRunner: async () => {},
+      deleteGithubRepo: () => {},
+      deleteLakebaseProject: async () => { throw new Error("lakebase 503"); },
+    };
+    const r = await removeProject(
+      {},
+      { workspaceDir: root, setupHandle: { projectDir, projectName: "z", githubRepoFullName: "o/z", lakebaseProjectId: "z", databricksHost: "h", runnerRegistered: true } },
+      effects,
+    );
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/lakebase 503/);
+    // the dir is KEPT (not removed) so the orphan sweep still finds the .env marker to retry the delete.
+    expect(existsSync(projectDir)).toBe(true);
+    expect(r.error).toMatch(/dir KEPT/);
+  });
+
   it("inject-escalation writes a conformant escalation into the workspace .consort (drives revise/escalate)", async () => {
     mkdirSync(join(root, ".consort"), { recursive: true });
     const r = await catalogueLifecycleDeps.run(

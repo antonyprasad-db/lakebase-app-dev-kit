@@ -7956,8 +7956,8 @@ function turnKeyForAction(action) {
   if ("buildMode" in action) {
     switch (action.buildMode) {
       case "reflect":
-        return void 0;
-      // design-lane critic, runs on the base model
+        return "reflect";
+      // design-lane critic, tuned as its own turn (sweep: haiku+low)
       case "review":
         return "review";
       case "refactor":

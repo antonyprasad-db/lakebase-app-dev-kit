@@ -1,4 +1,14 @@
 #!/usr/bin/env node
+// ⚠️ DEPRECATED (superseded 2026-08-07) , use `scripts/optimize-role.sh` instead.
+// This bin drives the CHAMPION-WALK engine (optimize-harness + optimize-live), which ranks
+// candidates on the fastest gate-passing turn and does NOT run a mandatory LLM judge on every
+// candidate (build handoffs bypass any judge). That violates the standing evaluation invariant
+// (every candidate judged vs the recorded reference + output preserved; see memory
+// feedback_every_evaluation_judge_and_preserve). The sanctioned engine is `runRoleSweep`
+// (tests/optimization/role-sweep.ts), invoked ONLY through the ONE launcher
+// `scripts/optimize-role.sh`. This bin remains published for back-compat + is slated for removal
+// once optimize-apply's winner-persist path is re-homed onto the judged engine.
+//
 // consort-optimize: the per-handoff optimization re-record CLI. It drives
 // the champion walk (optimize-harness) over a scenario's handoffs, trying config +
 // content/scope candidates per handoff and keeping the fastest gate-passing turn.
@@ -213,6 +223,11 @@ function buildCtxForHandoff(
 }
 
 async function main(): Promise<number> {
+  process.stderr.write(
+    "[optimize] ⚠️ DEPRECATED: consort-optimize (champion walk) is superseded by the judged sweep " +
+      "engine. Its ranking is conformance + wall-clock and it does NOT run a mandatory LLM judge on " +
+      "every candidate. Use `scripts/optimize-role.sh` instead (one judged engine, output preserved).\n",
+  );
   const args = parseOptimizeArgs(process.argv.slice(2));
   if (!args.scenario || !args.feature) {
     process.stderr.write("usage: consort-optimize --scenario <dir> --feature <id> [--handoff <id>] [--only design|build] --candidates <spec> --trials N [--dry-run]\n");

@@ -1,0 +1,11 @@
+{
+  "handle": "navigator-red",
+  "candidateId": "m-haiku",
+  "rejudgeable": true,
+  "fresh": {
+    "passed": true,
+    "score": 0.78
+  },
+  "stored": null,
+  "reproduce": "first-verdict (never judged before)"
+}

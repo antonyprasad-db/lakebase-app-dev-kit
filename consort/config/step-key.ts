@@ -15,9 +15,10 @@
  *  same KIND of work, differing only in what triggered them:
  *   refactor-deploy / refactor-superseded -> refactor;  assess-deploy / assess-refactor
  *   -> assess;  green-superseded -> green.
- *  (reflect is the design-lane critic, keyed as its own DesignStep-adjacent case in
- *  turnKeyForAction, never a build turn here.) */
-export type BuildTurn = "red" | "green" | "review" | "refactor" | "assess" | "repair";
+ *   reflect (the design-lane critic that grades completed code) is its own tunable turn:
+ *     the optimize sweep measured it distinctly (haiku+low won), so it keys separately
+ *     rather than riding the navigator scalar. */
+export type BuildTurn = "red" | "green" | "review" | "refactor" | "assess" | "repair" | "reflect";
 
 /** The DESIGN/planning steps a role can be invoked for. A role runs different
  *  TASKS across these steps (spec-author BREAKDOWN vs per-story AC authoring;

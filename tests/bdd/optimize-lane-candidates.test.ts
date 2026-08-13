@@ -137,8 +137,9 @@ describe("defaultLaneCandidates: build roles (per-turn map)", () => {
     expect(buildTurnForHandoff(h("navigator", "S1", "assess-deploy"))).toBe("assess");
     expect(buildTurnForHandoff(h("navigator", "S1", "assess-refactor"))).toBe("assess");
     expect(buildTurnForHandoff(h("driver", "S1", "green-superseded"))).toBe("green");
-    // reflect is the design-lane critic , no build turn (baseline-only).
-    expect(buildTurnForHandoff(h("navigator", "S1", "reflect"))).toBeUndefined();
+    // reflect is the design-lane critic, but a tunable turn in its own right (the sweep
+    // measured haiku+low as its winner), so it keys to "reflect", not undefined.
+    expect(buildTurnForHandoff(h("navigator", "S1", "reflect"))).toBe("reflect");
     // a design role has no build turn.
     expect(buildTurnForHandoff(h("spec-author", "S1"))).toBeUndefined();
   });

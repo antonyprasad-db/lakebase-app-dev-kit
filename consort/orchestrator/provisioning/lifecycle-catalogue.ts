@@ -169,14 +169,26 @@ export async function removeProject(
     catch (e) { errors.push(`gh repo delete: ${e instanceof Error ? e.message : String(e)}`); }
   }
   // 3. Delete the Lakebase project.
+  let lakebaseDeleted = true; // vacuously true when there was no Lakebase project to delete
   if (fx && handle.lakebaseProjectId && handle.databricksHost) {
-    try { await fx.deleteLakebaseProject({ projectId: handle.lakebaseProjectId, host: handle.databricksHost }); }
+    lakebaseDeleted = false;
+    try { await fx.deleteLakebaseProject({ projectId: handle.lakebaseProjectId, host: handle.databricksHost }); lakebaseDeleted = true; }
     catch (e) { errors.push(`Lakebase delete: ${e instanceof Error ? e.message : String(e)}`); }
   }
-  // 4. Remove the local project dir (always, even if a cloud step failed).
+  // 4. Remove the local project dir , but ONLY once the Lakebase project is actually gone. The local
+  //    dir carries the scaffold markers (.env LAKEBASE_PROJECT_ID + .lakebase/) that the ORPHAN SWEEP
+  //    keys off to reclaim a stranded project. Removing the dir after a FAILED Lakebase delete would
+  //    strand the project with no local marker to recover it from , exactly the leak seen on the
+  //    Stage-5 driver-green run (a transient delete failure + the dir gone => the sweep found nothing).
+  //    So on a failed delete we KEEP the dir; the next orphan sweep (pre/post any live scaffold suite)
+  //    re-reads its .env and retries the delete. This mirrors sweepOrphanProjects' own ordering.
   if (handle.projectDir) {
-    try { rmSync(handle.projectDir, { recursive: true, force: true }); }
-    catch (e) { errors.push(`dir remove: ${e instanceof Error ? e.message : String(e)}`); }
+    if (lakebaseDeleted) {
+      try { rmSync(handle.projectDir, { recursive: true, force: true }); }
+      catch (e) { errors.push(`dir remove: ${e instanceof Error ? e.message : String(e)}`); }
+    } else {
+      errors.push(`dir KEPT (${handle.projectDir}) , Lakebase delete failed; left for the orphan sweep to retry`);
+    }
   }
 
   return errors.length ? { ok: false, error: errors.join("; ") } : { ok: true };

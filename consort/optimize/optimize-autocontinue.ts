@@ -1,3 +1,13 @@
+// ⚠️ DEPRECATED (superseded 2026-08-07) , do NOT extend or build new work on this module.
+// This is the UNATTENDED champion-walk driver (sweep -> apply -> rebuild -> advance over the live
+// drive), layered on the deprecated optimize-live engine. It is superseded by the ONE judged sweep
+// engine `runRoleSweep` (tests/optimization/role-sweep.ts) via `scripts/optimize-role.sh`. The
+// champion walk it drives ranks on conformance + wall-clock and does NOT run a mandatory LLM judge
+// on every candidate (build handoffs bypass any judge), which VIOLATES the standing evaluation
+// invariant (every candidate judged vs the recorded reference + output preserved; see memory
+// feedback_every_evaluation_judge_and_preserve). Kept only for the existing bin + tests; slated for
+// removal alongside optimize-live. New unattended sweeps ride the judged engine's launcher.
+//
 // optimize-autocontinue: the UNATTENDED driver that walks the orchestrator's lane
 // end to end , per role handoff: sweep candidates, pick the winner, auto-apply it to
 // the kit + rebuild (so the NEXT role runs on the optimized kit), let the winner's

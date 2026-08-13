@@ -1,0 +1,6 @@
+{
+  "handle": "navigator-reflect",
+  "candidateId": "e-medium",
+  "rejudgeable": false,
+  "reason": "judge target not preserved: no reflect-verdict produced to judge"
+}

@@ -143,7 +143,7 @@ export async function runIntegrationChain(config: IntegrationChainConfig): Promi
 
 /** Snapshot every file under `root` into a { path-relative-to-`relTo` : contents } map. Used to
  *  preserve a run's produced artifacts before the workspace is torn down. Absent root -> {}. */
-function snapshotTree(root: string, relTo: string): Record<string, string> {
+export function snapshotTree(root: string, relTo: string): Record<string, string> {
   const out: Record<string, string> = {};
   if (!existsSync(root)) return out;
   const walk = (dir: string): void => {

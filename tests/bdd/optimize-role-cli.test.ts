@@ -4,9 +4,14 @@
 // agents, so it is exercised by the gated live sweep, not here; this pins only the parser + expander.
 
 import { describe, it, expect } from "vitest";
-import { parseArgs, expandChains } from "../optimization/optimize-role.cli";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { parseArgs, expandChains, selectDriverCandidates, readCampAppDir, DRIVER_GREEN_CODE_PIN_REL, DRIVER_TURN_SPECS, concatTreeFiles, loadPreservedArtifacts, classifyReproduce, isMissingJudgeTarget } from "../optimization/optimize-role.cli";
+import { mkdtempSync, mkdirSync as mkdirSyncFs, writeFileSync as writeFileSyncFs, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { ROLE_CHAINS } from "../../consort/optimize/role-chains";
-import { BUILD_ROLE_CHAINS } from "../../consort/optimize/build-role-chains";
+import { BUILD_ROLE_CHAINS, BUILD_CORPUS_REL } from "../../consort/optimize/build-role-chains";
+import { parseNavigatorAssessMarker, parseVerdictFile } from "../../consort/evaluation/semantic-gate";
 
 describe("optimize-role expandChains", () => {
   it("expands the 'design' set to EVERY design role chain", () => {
@@ -24,6 +29,12 @@ describe("optimize-role expandChains", () => {
     expect(handles).toContain("navigator-assess");
     expect(handles).toContain("navigator-review");
     expect(handles).toContain("navigator-reflect");
+  });
+
+  it("expands the 'driver' set to the three driver-turn handles", () => {
+    const handles = expandChains("driver");
+    expect(handles).toEqual(Object.keys(DRIVER_TURN_SPECS));
+    expect(handles).toEqual(["driver-green", "driver-repair", "driver-refactor"]);
   });
 
   it("expands a comma list of handles, de-duping while preserving order", () => {
@@ -56,11 +67,17 @@ describe("optimize-role parseArgs", () => {
     expect(parseArgs(["--role", "dba"]).chains).toEqual(["dba"]);
   });
 
-  it("defaults base-model + telemetry-dir + concurrency to absent (the runner fills them)", () => {
+  it("defaults base-model + telemetry-dir + concurrency + candidates to absent (the runner fills them)", () => {
     const a = parseArgs(["--chains", "dba"]);
     expect(a.baseModel).toBeUndefined();
     expect(a.telemetryDir).toBeUndefined();
     expect(a.concurrency).toBeUndefined();
+    expect(a.candidates).toBeUndefined();
+  });
+
+  it("parses --candidates as a trimmed comma list (the driver-green resume subset)", () => {
+    const a = parseArgs(["--chains", "driver-green", "--candidates", "m-haiku-e-low, m-opus-e-low ,scan-tight"]);
+    expect(a.candidates).toEqual(["m-haiku-e-low", "m-opus-e-low", "scan-tight"]);
   });
 
   it("clamps --concurrency to >= 1", () => {
@@ -74,5 +91,177 @@ describe("optimize-role parseArgs", () => {
 
   it("throws loud on an unknown chain, listing the known ones", () => {
     expect(() => parseArgs(["--chains", "no-such-role"])).toThrow(/unknown chain.*test-strategist/i);
+  });
+});
+
+describe("selectDriverCandidates (driver-green resume subset)", () => {
+  const all = [{ id: "baseline" }, { id: "m-haiku" }, { id: "e-low" }, { id: "scan-tight" }];
+
+  it("returns ALL candidates when no subset is given", () => {
+    expect(selectDriverCandidates(all)).toEqual(all);
+    expect(selectDriverCandidates(all, [])).toEqual(all);
+  });
+
+  it("filters to the named subset, preserving canonical order", () => {
+    expect(selectDriverCandidates(all, ["scan-tight", "m-haiku"]).map((c) => c.id)).toEqual(["m-haiku", "scan-tight"]);
+  });
+
+  it("throws loud on an unknown candidate id BEFORE any scaffold (a resume typo must fail fast)", () => {
+    expect(() => selectDriverCandidates(all, ["m-haiku", "m-nope"])).toThrow(/unknown driver-green candidate\(s\): m-nope.*Known:.*baseline/i);
+  });
+});
+
+describe("driver-green code reference resolves (regression: dir-vs-file EISDIR)", () => {
+  // The 003-driver code pin is a DIRECTORY (a tree of .py files), not a single file. The live sweep
+  // once did readFileSync on it -> EISDIR at setup, dying before any scaffold. readCampAppDir must read
+  // the whole dir + concatenate its .py contents (the SAME shape the judge builds from the candidate's
+  // produced app/). This hermetic guard asserts the real camp reference resolves to non-empty text, so
+  // the mistake can never reach a live launch again.
+  it("reads the driver-green code pin (a directory) into non-empty concatenated .py text", () => {
+    const text = readCampAppDir(DRIVER_GREEN_CODE_PIN_REL, "driver-green code pin");
+    expect(text.trim().length).toBeGreaterThan(0);
+    // it is the recorded app/ , models.py's split columns are the load-bearing content the judge scores.
+    expect(text).toMatch(/models\.py|class |def /);
+  });
+
+  it("throws loud when the reference directory is absent (missing ref = invalid evaluation, never a silent skip)", () => {
+    expect(() => readCampAppDir("recorded-build/does/not/exist/app", "nope")).toThrow(/MISSING recorded reference.*mandatory/i);
+  });
+});
+
+describe("driver-turn next-step references resolve (the CONTAINED navigator determinations)", () => {
+  // Every driver handle (green/repair/refactor) is judged by its next-step navigator determination vs a
+  // CONTAINED recorded reference (copied into next-step/<handle>/, corpus assumed deleted). This guard
+  // asserts each reference dir exists + PARSES to the expected determination shape, so a missing/broken
+  // reference can never reach the gated live sweep (the mandatory-judge invariant: no ref => invalid).
+  it("each driver handle's contained reference exists + parses to a real determination", () => {
+    for (const [handle, spec] of Object.entries(DRIVER_TURN_SPECS)) {
+      const refDir = join(process.cwd(), BUILD_CORPUS_REL, spec.refRel);
+      expect(existsSync(refDir), `${handle}: contained ref dir ${refDir} must exist`).toBe(true);
+      if (spec.evaluatorKind === "assess") {
+        // assess ref parses to a non-equivalent determination (superseded-shift or regression), i.e. the
+        // recorded navigator actually found issues , the thing the candidate is compared directionally to.
+        const v = parseNavigatorAssessMarker(refDir);
+        expect(["superseded-shift", "regression"], `${handle}: recorded assess should carry issues`).toContain(v.classification);
+      } else {
+        // review ref (driver-refactor): the recorded review directive with refactor:true (the issue to resolve).
+        const verdict = parseVerdictFile(readFileSync(join(refDir, "review-verdict.json"), "utf8"));
+        expect(verdict.refactor, `${handle}: recorded review directive should be refactor:true`).toBe(true);
+      }
+    }
+  });
+
+  // The repair/refactor SEED bundles (contained under driver-green-setup/) must exist + carry the recorded
+  // pre-turn CYCLE MARKERS that route the drive to that turn , guards the corpus-assumed-deleted invariant
+  // + that the seed reproduces the routing state (green needs no seed , its open-RED cycle is pipeline-set).
+  const SETUP = "tests/integration/live/driver-green-setup";
+  it("driver-repair seed carries the recorded post-assess regression markers (routes to REPAIR)", () => {
+    const cyc = join(process.cwd(), SETUP, "repair-seed/cycles/F6-split-tracking-code/S3-stock-shows-split-fields/AC1-split-fields-shown");
+    expect(existsSync(join(process.cwd(), SETUP, "repair-seed/code-assets/app"))).toBe(true);
+    const gf = JSON.parse(readFileSync(join(cyc, "green-failure.json"), "utf8")) as { assessed?: boolean };
+    expect(gf.assessed, "repair seed: green-failure must be assessed (routes past plain green)").toBe(true);
+    const reg = parseVerdictFile(readFileSync(join(cyc, "regression-assessment.json"), "utf8")) as { fixDirective?: string };
+    // a real regression WITH a fixDirective => repairRegressionAc routes to the Driver REPAIR turn.
+    expect(typeof reg.fixDirective === "string" && reg.fixDirective.length > 0, "repair seed: regression must carry a fixDirective").toBe(true);
+  });
+  it("driver-refactor seed carries the recorded review-verdict refactor:true (routes to REFACTOR)", () => {
+    const rv = join(process.cwd(), SETUP, "refactor-seed/cycles/F6-split-tracking-code/S3-stock-shows-split-fields/review-verdict.json");
+    expect(existsSync(join(process.cwd(), SETUP, "refactor-seed/code-assets/app"))).toBe(true);
+    const verdict = parseVerdictFile(readFileSync(rv, "utf8"));
+    expect(verdict.refactor, "refactor seed: story review-verdict must be refactor:true").toBe(true);
+  });
+});
+
+describe("concatTreeFiles: reconstruct a DIR-shaped output's judged text (regression: navigator-red primary=undefined)", () => {
+  // navigator-red's outputFile is the "tests" DIRECTORY, so producedArtifacts["tests"] is ALWAYS
+  // undefined (snapshotTree keys individual files). The red judge must reconstruct its text by
+  // concatenating tests/**.{py,ts,tsx}; a bare-key lookup made it always short-circuit to "no tests
+  // produced" => passed:false (it never scored). This guards the reconstruction the fix relies on.
+  const produced = {
+    "tests/conftest.py": "import pytest\n",
+    "tests/test_a.py": "def test_a(): assert True\n",
+    "tests/step_defs/test_b.py": "def test_b(): assert 1\n",
+    "tests/features/x.feature": "Feature: x\n", // non-code, excluded
+    ".consort/architecture/conventions.json": "{}\n", // outside tests/, excluded
+  };
+  it("concatenates only tests/**.{py,ts,tsx}, sorted + deterministic, into non-empty text", () => {
+    const text = concatTreeFiles(produced, "tests/", [".py", ".ts", ".tsx"]);
+    expect(text.trim().length).toBeGreaterThan(0);
+    expect(text).toContain("def test_a()");
+    expect(text).toContain("def test_b()");
+    expect(text).not.toContain("Feature: x"); // .feature excluded
+    expect(text).not.toContain("conventions"); // outside tests/ excluded
+    // deterministic order: conftest (tests/conftest.py) sorts before step_defs/ before test_a.
+    expect(text.indexOf("import pytest")).toBeLessThan(text.indexOf("def test_b()"));
+  });
+  it("returns empty (=> judge reports 'no tests produced') only when NOTHING under tests/ matches", () => {
+    expect(concatTreeFiles({ "app/models.py": "x" }, "tests/", [".py"]).trim()).toBe("");
+  });
+});
+
+describe("loadPreservedArtifacts: read a preserved candidate's artifacts/ back to the producedArtifacts map", () => {
+  // The re-judge harness reconstructs producedArtifacts from disk so the SAME discriminator can re-score
+  // a preserved output. This guards the round-trip: persistTrial writes artifacts/<relpath>; this reads
+  // them back keyed by the SAME relpath (so primary=producedArtifacts[outputFile] resolves identically).
+  it("round-trips a nested artifacts/ tree, keyed by relpath (no 'artifacts/' prefix)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "rejudge-cand-"));
+    try {
+      mkdirSyncFs(join(dir, "artifacts", "app", "routes"), { recursive: true });
+      mkdirSyncFs(join(dir, "artifacts", "navigator-eval"), { recursive: true });
+      writeFileSyncFs(join(dir, "artifacts", "app", "models.py"), "class Stock: pass\n");
+      writeFileSyncFs(join(dir, "artifacts", "app", "routes", "stock.py"), "router = 1\n");
+      writeFileSyncFs(join(dir, "artifacts", "navigator-eval", "superseded-tests.json"), '{"tests":["t"]}');
+      writeFileSyncFs(join(dir, "telemetry.json"), "{}"); // sibling, NOT under artifacts/ , must be excluded
+      const map = loadPreservedArtifacts(dir);
+      expect(Object.keys(map).sort()).toEqual(["app/models.py", "app/routes/stock.py", "navigator-eval/superseded-tests.json"]);
+      expect(map["app/models.py"]).toContain("class Stock");
+      expect(map["telemetry.json"]).toBeUndefined(); // sibling of artifacts/, not inside it
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+  it("returns {} when the candidate preserved NO artifacts/ (un-rejudgeable , e.g. navigator-assess)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "rejudge-empty-"));
+    try {
+      expect(loadPreservedArtifacts(dir)).toEqual({});
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("classifyReproduce: first-verdict vs REPRODUCED vs DIVERGED (regression: never-judged mislabeled REPRODUCED)", () => {
+  // The bug: a telemetry.json can EXIST with NO verdict (navigator-red predated the working judge), so
+  // stored={} , comparing storedClass===freshClass gave undefined===undefined => a false "REPRODUCED".
+  // classifyReproduce keys on whether a stored verdict VALUE exists, and compares the right kind.
+  it("no stored verdict (never judged) => first-verdict, NEVER a false REPRODUCED", () => {
+    expect(classifyReproduce({}, { score: 0.82 })).toMatch(/first-verdict/);
+    expect(classifyReproduce({}, { classification: "equivalent" })).toMatch(/first-verdict/);
+  });
+  it("classification-based: exact match => REPRODUCED, mismatch => DIVERGED", () => {
+    expect(classifyReproduce({ storedClass: "equivalent" }, { classification: "equivalent" })).toBe("REPRODUCED");
+    expect(classifyReproduce({ storedClass: "equivalent" }, { classification: "regression" })).toMatch(/^DIVERGED/);
+  });
+  it("score-based: within tolerance => REPRODUCED, beyond => DIVERGED", () => {
+    expect(classifyReproduce({ storedScore: 0.93 }, { score: 0.90 })).toMatch(/^REPRODUCED/);
+    expect(classifyReproduce({ storedScore: 0.93 }, { score: 0.60 })).toMatch(/^DIVERGED/);
+  });
+});
+
+describe("isMissingJudgeTarget: a judge short-circuit for an absent target is NOT a real FAIL (not-rejudgeable)", () => {
+  // The bug: navigator-reflect preserved its code tree but NOT reflect-verdict.json, so the reflect judge
+  // returned passed:false 'no reflect-verdict produced to judge'. The harness recorded that as a fresh
+  // FAIL (mislabeled REPRODUCED). It must instead be not-rejudgeable (judge target not preserved).
+  it("matches every judge's 'no ... to judge' missing-target reason family", () => {
+    expect(isMissingJudgeTarget("no primary artifact to judge")).toBe(true);
+    expect(isMissingJudgeTarget("no tests produced to judge")).toBe(true);
+    expect(isMissingJudgeTarget("no reflect-verdict produced to judge")).toBe(true);
+    expect(isMissingJudgeTarget("no review-verdict produced to judge")).toBe(true);
+    expect(isMissingJudgeTarget("no app/ code produced to judge")).toBe(true);
+  });
+  it("does NOT match a genuine content FAIL reason (a real judged verdict)", () => {
+    expect(isMissingJudgeTarget("material difference vs the recorded ground truth: navigator missed tests/core.py")).toBe(false);
+    expect(isMissingJudgeTarget("candidate's post-refactor review STILL requests refactor for the same issue")).toBe(false);
+    expect(isMissingJudgeTarget(undefined)).toBe(false);
   });
 });

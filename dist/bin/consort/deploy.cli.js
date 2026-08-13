@@ -7196,16 +7196,22 @@ function pidFile(projectDir, target) {
 function normalizeVerifyRun(raw) {
   return typeof raw === "boolean" ? { passed: raw, output: "" } : { passed: raw.passed, output: raw.output ?? "" };
 }
+function verifyTimeoutMs() {
+  return Math.max(1, Number(process.env.LAKEBASE_VERIFY_TIMEOUT_MS) || 9e5);
+}
 function defaultRunVerify(cmd, cwd, env) {
+  const timeout = verifyTimeoutMs();
   try {
-    const out = execSync(cmd, { cwd, stdio: "pipe", env: env ?? process.env });
+    const out = execSync(cmd, { cwd, stdio: "pipe", env: env ?? process.env, timeout, killSignal: "SIGTERM" });
     return { passed: true, output: out?.toString() ?? "" };
   } catch (err) {
     const e = err;
-    const output = `${e.stdout?.toString() ?? ""}${e.stderr?.toString() ?? ""}`.trimEnd();
+    const timedOut = e.killed === true || e.signal === "SIGTERM" || e.code === "ETIMEDOUT";
+    const output = `${e.stdout?.toString() ?? ""}${e.stderr?.toString() ?? ""}`.trimEnd() + (timedOut ? `
+[deploy] VERIFY TIMED OUT after ${timeout}ms (SIGTERM) , failing this pass rather than hanging.` : "");
     const tail = output.split("\n").slice(-30).join("\n");
     process.stderr.write(`
-[deploy] feature-verify failed; last output:
+[deploy] feature-verify ${timedOut ? "TIMED OUT" : "failed"}; last output:
 ${tail}
 `);
     return { passed: false, output };

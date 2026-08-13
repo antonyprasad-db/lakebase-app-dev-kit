@@ -153,17 +153,22 @@ describe("runRoleSweep parallel: candidates fan out under a concurrency cap, ord
   });
 });
 
-describe("runRoleSweep with a QUALITY gate: score the captured artifact vs a baseline", () => {
+describe("runRoleSweep with the MANDATORY judge: every conformant candidate is judged; no verdict => disqualified", () => {
   it("a thorough artifact passes quality; a THIN one fails it (but conformance still passed)", async () => {
-    // baseline is thorough; the one candidate produces a THIN artifact.
+    // baseline is thorough; the one candidate produces a THIN artifact. The judgeCandidate closure
+    // scores the primary via the (stub) semantic judge, threshold 0.75.
     const runner: ChainRunner = async (_c, _a, candidateId) =>
       fakeRun(CHAIN, { ms: 200, artifact: candidateId === "m-haiku" ? '{"items":[1] THIN}' : '{"items":[1,2,3]}' });
     const trials = await runRoleSweep(CHAIN, [{ id: "baseline", levers: {} }, { id: "m-haiku", levers: { model: "haiku" } }], runner, {
-      quality: { referenceText: '{"items":[1,2,3,4]}', judge: stubJudge, kind: "tests", threshold: 0.75 },
+      quality: {
+        judgeCandidate: async ({ primary }) => {
+          const v = await stubJudge({ step: "test-list" as never, reference: '{"items":[1,2,3,4]}', candidate: primary ?? "" });
+          return { passed: v.score >= 0.75, score: v.score };
+        },
+      },
     });
     const baseline = trials.find((t) => t.candidateId === "baseline")!;
     const haiku = trials.find((t) => t.candidateId === "m-haiku")!;
-    // Conformance passed for both; quality separates them.
     expect(baseline.gatePassed).toBe(true);
     expect(baseline.qualityPassed).toBe(true);
     expect(baseline.telemetry?.semanticScore).toBeCloseTo(0.95, 2);
@@ -172,31 +177,61 @@ describe("runRoleSweep with a QUALITY gate: score the captured artifact vs a bas
     expect(haiku.telemetry?.semanticScore).toBeCloseTo(0.5, 2);
   });
 
-  it("with no quality gate configured, qualityPassed is undefined (conformance-only, prior behavior)", async () => {
+  it("NO judge configured => a conformant candidate is DISQUALIFIED (an LLM judge is required for every evaluation)", async () => {
     const runner: ChainRunner = async () => fakeRun(CHAIN, { ms: 200 });
     const trials = await runRoleSweep(CHAIN, [{ id: "baseline", levers: {} }], runner);
-    expect(trials[0].qualityPassed).toBeUndefined();
+    expect(trials[0].gatePassed).toBe(true); // conformance still passed
+    expect(trials[0].disqualified).toBe(true); // but no judge => not a valid evaluation
+    expect(trials[0].reason).toMatch(/judge is required/i);
   });
 
-  it("DISCRIMINATOR gate: a clean 'equivalent' candidate is quality-PASS + records the classification (clean=best, not a miss)", async () => {
-    // The judge returns a classification (build discriminator), driving pass by classification,
-    // NOT score>=threshold. A clean 'equivalent' verdict is the best outcome.
-    const discJudge: SemanticJudge = async ({ candidate }) =>
-      candidate.includes("BROKEN")
-        ? ({ score: 0.2, classification: "insufficient", nextStep: "escalate" } as never)
-        : ({ score: 0.6, classification: "equivalent", nextStep: "accept" } as never);
-    const runner: ChainRunner = async (_c, _a, candidateId) =>
-      fakeRun(CHAIN, { ms: 200, artifact: candidateId === "m-haiku" ? '{"x":"BROKEN"}' : '{"x":"clean"}' });
+  it("a judge that THROWS disqualifies the candidate (never silently unscored)", async () => {
+    const runner: ChainRunner = async () => fakeRun(CHAIN, { ms: 200 });
+    const trials = await runRoleSweep(CHAIN, [{ id: "baseline", levers: {} }], runner, {
+      quality: { judgeCandidate: async () => { throw new Error("judge unavailable"); } },
+    });
+    expect(trials[0].disqualified).toBe(true);
+    expect(trials[0].reason).toMatch(/judge threw/i);
+  });
+
+  // The driver-green shape: a runner returns turns:[] (its work is a full GREEN cycle, not a single
+  // ManifestTurn), plus a runner-supplied gate (honest-GREEN) AND a measured durationMs. Without the
+  // durationMs override, trialTelemetry reads 0 off the empty turns => all candidates 0ms => the winner
+  // can't be ranked (the live Stage-5 bug: 8 equivalent candidates, "no winner"). This asserts the
+  // runner-supplied duration lands on the telemetry so the report can rank on speed.
+  it("a runner-supplied durationMs (turns:[] driver-green shape) overrides the turn-derived 0ms so candidates rank", async () => {
+    const driverRun = (ms: number): ChainRunResult => ({ turns: [], producedArtifacts: { [CHAIN.outputFile]: '{"ok":1}' }, gate: { passed: true }, durationMs: ms });
+    const runner: ChainRunner = async (_c, _a, candidateId) => driverRun(candidateId === "m-haiku" ? 120000 : 300000);
     const trials = await runRoleSweep(CHAIN, [{ id: "baseline", levers: {} }, { id: "m-haiku", levers: { model: "haiku" } }], runner, {
-      quality: { referenceText: "ref", judge: discJudge, kind: "code" },
+      quality: { judgeCandidate: async () => ({ passed: true, classification: "equivalent" }) },
     });
     const baseline = trials.find((t) => t.candidateId === "baseline")!;
     const haiku = trials.find((t) => t.candidateId === "m-haiku")!;
-    // clean 'equivalent' => quality PASS even though score (0.6) is below the usual 0.75 bar.
+    expect(baseline.gatePassed).toBe(true);
+    expect(baseline.qualityPassed).toBe(true);
+    // the runner-supplied wall-clock is what lands on telemetry (NOT 0 from the empty turns array).
+    expect(baseline.telemetry?.outerDurationMs).toBe(300000);
+    expect(haiku.telemetry?.outerDurationMs).toBe(120000);
+  });
+
+  it("DISCRIMINATOR verdict: a clean 'equivalent' candidate is quality-PASS + records the classification (clean=best, not a miss)", async () => {
+    // The judge closure returns a classification-driven verdict (build discriminator): a clean
+    // 'equivalent' passes; 'insufficient' fails. Not score>=threshold.
+    const trials = await runRoleSweep(CHAIN, [{ id: "baseline", levers: {} }, { id: "m-haiku", levers: { model: "haiku" } }],
+      async (_c, _a, candidateId) => fakeRun(CHAIN, { ms: 200, artifact: candidateId === "m-haiku" ? '{"x":"BROKEN"}' : '{"x":"clean"}' }),
+      {
+        quality: {
+          judgeCandidate: async ({ primary }) =>
+            (primary ?? "").includes("BROKEN")
+              ? { passed: false, score: 0.2, classification: "insufficient", nextStep: "escalate" }
+              : { passed: true, score: 0.6, classification: "equivalent", nextStep: "accept" },
+        },
+      });
+    const baseline = trials.find((t) => t.candidateId === "baseline")!;
+    const haiku = trials.find((t) => t.candidateId === "m-haiku")!;
     expect(baseline.qualityPassed).toBe(true);
     expect(baseline.telemetry?.classification).toBe("equivalent");
     expect(baseline.telemetry?.nextStep).toBe("accept");
-    // 'insufficient' => the only real fail.
     expect(haiku.qualityPassed).toBe(false);
     expect(haiku.telemetry?.classification).toBe("insufficient");
   });

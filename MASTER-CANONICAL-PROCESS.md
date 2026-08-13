@@ -931,3 +931,19 @@ forward-delta collapse. Build it as a `bin/consort/backfill-correspondence-key.c
 migration (re-runnable; a second pass is a no-op once keys are present) + a hermetic test that a
 backfilled corpus round-trips to the same join a go-forward capture would produce. Until it runs, the
 positional `iteration↔ordinal` join above is the documented workaround.
+
+### 9.7 Recent updates (as of 2026-08-08+)
+
+- **2026-08-08** — Added `postTurn` and `agentOptions` as first-class `StepContract` faces.
+  Discovered while documenting the spec-author chain: every manifest declares `agentOptions`, and
+  breakdown declares `postTurn` hooks (`reset-breakdown` / `sync-breakdown`) — real things a step
+  does that the interface did not name. Added the types, the two interface methods, the
+  `STEP_CONTRACT_MEMBERS` compile-pinned allowlist, and `assertExactStepContract`.
+- **2026-08-08 (later)** — Turned §8.6 into a repeatable pre-flight checklist (rebuild dist, auth,
+  target namespace clean, branch) plus the orphan-hygiene procedure + the standing demos that must
+  never be deleted. (Replaced a one-off "today's run" writeup — the doc holds procedure, not
+  transient run state.)
+- **2026-08-08** — Transcript double-consume race fixed (peek-not-take); per-turn hard-fail record
+  audit added (`assertTurnComplete`); per-agent-turn replay set added (`recordReplaySet`, §6.5);
+  routing-decision stream added (`recordRoutingDecision`). Dispatch split + legacy deprecation plan
+  documented (§0.5). Capture harness + two manifest input-path bugs fixed (§8.2).

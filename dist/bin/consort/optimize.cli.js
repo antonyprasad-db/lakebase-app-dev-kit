@@ -6746,7 +6746,7 @@ function buildTurnForHandoff(handoff) {
   if (role !== "navigator" && role !== "driver") return void 0;
   switch (buildMode) {
     case "reflect":
-      return void 0;
+      return "reflect";
     case "review":
       return "review";
     case "refactor":
@@ -8482,8 +8482,8 @@ function turnKeyForAction(action) {
   if ("buildMode" in action) {
     switch (action.buildMode) {
       case "reflect":
-        return void 0;
-      // design-lane critic, runs on the base model
+        return "reflect";
+      // design-lane critic, tuned as its own turn (sweep: haiku+low)
       case "review":
         return "review";
       case "refactor":
@@ -15528,6 +15528,9 @@ function buildCtxForHandoff(handoff, loc) {
   return { ctx };
 }
 async function main() {
+  process.stderr.write(
+    "[optimize] \u26A0\uFE0F DEPRECATED: consort-optimize (champion walk) is superseded by the judged sweep engine. Its ranking is conformance + wall-clock and it does NOT run a mandatory LLM judge on every candidate. Use `scripts/optimize-role.sh` instead (one judged engine, output preserved).\n"
+  );
   const args = parseOptimizeArgs(process.argv.slice(2));
   if (!args.scenario || !args.feature) {
     process.stderr.write("usage: consort-optimize --scenario <dir> --feature <id> [--handoff <id>] [--only design|build] --candidates <spec> --trials N [--dry-run]\n");

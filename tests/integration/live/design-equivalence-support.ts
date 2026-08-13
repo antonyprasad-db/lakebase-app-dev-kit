@@ -41,8 +41,7 @@ import { expect } from "vitest";
 import { mkdirSync, mkdtempSync, cpSync, rmSync, writeFileSync, existsSync, statSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { execFileSync } from "node:child_process";
-import { createWorktree } from "@databricks-solutions/lakebase-scm-utils/git";
+import { cutWorktree, forceRemoveWorktree } from "./shared-scaffold-support.js";
 import { loadRunConfig } from "../../../consort/orchestrator/runners/run-config-loader.js";
 import { resolveTestEnv } from "../../../consort/orchestrator/provisioning/test-env.js";
 import { layDownKitAgents } from "../../../consort/orchestrator/provisioning/bundle.js";
@@ -53,7 +52,6 @@ import { buildDriveEffects, type DriveEffectsConfig } from "../../../consort/orc
 import { execRunner } from "../../../consort/orchestrator/drive/claude-runner.js";
 import { resolveConsortSettings } from "../../../consort/orchestrator/settings/project-settings.js";
 import { loadConsortConfig, defaultConsortConfig, writeConsortConfig } from "../../../consort/config/consort-config-file.js";
-import { ARTIFACT_ROOT } from "../../../consort/config/consort-paths.js";
 import { sweepOrphanProjects } from "../../../consort/setup/orphan-project-sweep.js";
 import type { WorkflowAction, DriveState } from "../../../consort/orchestrator/drive/orchestrator-drive.js";
 import type { ValidateBoundDeps } from "../../../consort/orchestrator/steps/step-contract.js";
@@ -167,50 +165,17 @@ export async function teardownDesignEquivProject(project: DesignEquivProject): P
   }
 }
 
-/** Force-remove a per-step worktree. scm-utils removeWorktree has no --force, but a design step leaves
- *  a dirty tree (it wrote artifacts into .consort), so a plain `git worktree remove` would refuse.
- *  Force-remove; if git balks (locked), rm the dir + prune the metadata so the scaffold's .git is clean
- *  for the next cut. Best-effort , the whole scaffold is deleted in teardown anyway. */
-function forceRemoveWorktree(projectDir: string, wtDir: string): void {
-  try {
-    execFileSync("git", ["worktree", "remove", "--force", wtDir], { cwd: projectDir, stdio: "ignore", timeout: 30_000 });
-    return;
-  } catch {
-    /* fall through to rm + prune */
-  }
-  try { rmSync(wtDir, { recursive: true, force: true }); } catch { /* ignore */ }
-  try { execFileSync("git", ["worktree", "prune"], { cwd: projectDir, stdio: "ignore", timeout: 30_000 }); } catch { /* ignore */ }
-}
-
-let worktreeSeq = 0;
-
-/** Cut a fresh git worktree off the scaffold's committed HEAD for one step: a clean, production-shaped
- *  tree (pristine .consort bootstrap + .claude/agents + scripts/lk + .lakebase from HEAD). Copies the
- *  gitignored `.env` (Databricks host/profile , not in HEAD) so the tree mirrors the scaffold exactly,
- *  and re-lays the freshest kit agents. Returns the worktree dir + its .consort. Retries a transient
- *  `git worktree add` collision (parallel steps share the scaffold's .git metadata). */
+/** Cut a fresh git worktree off the scaffold's committed HEAD for one design step. Delegates the generic
+ *  worktree mechanics (add + retry + .env mirror + agent re-lay) to the shared `cutWorktree`, then applies
+ *  the design-only extra: writing uiTrack through to the worktree's on-disk config when the knob is set. */
 async function cutStepWorktree(project: DesignEquivProject, step: TurnKey): Promise<{ wtDir: string; consortDir: string }> {
-  const unique = `${step}-${Date.now().toString(36)}-${worktreeSeq++}`;
-  const wtDir = join(project.worktreesRoot, unique); // MUST NOT exist , git creates it
-  const branch = `de-eq/${unique}`;
-  let lastErr: unknown;
-  for (let attempt = 0; attempt < 4; attempt++) {
-    try {
-      await createWorktree({ cwd: project.projectDir, path: wtDir, branch });
-      lastErr = undefined;
-      break;
-    } catch (e) {
-      lastErr = e;
-      await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
-    }
-  }
-  if (lastErr) throw new Error(`git worktree add for ${step} failed: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`);
-
-  // Mirror the scaffold's gitignored .env into the worktree (host/profile for fidelity), best-effort.
-  const baseEnv = join(project.projectDir, ".env");
-  if (existsSync(baseEnv)) cpSync(baseEnv, join(wtDir, ".env"));
-  // Freshest kit agents (overwrite; HEAD already carries a copy).
-  layDownKitAgents(wtDir, KIT);
+  const { wtDir, consortDir } = await cutWorktree({
+    projectDir: project.projectDir,
+    worktreesRoot: project.worktreesRoot,
+    label: String(step),
+    branchPrefix: "de-eq",
+    kitDir: KIT,
+  });
 
   // DESIGN_EQUIV_UITRACK=1 must reach DISK, not just cfg. The test-analyst-roster preparer resolves
   // project.uiTrack from the worktree's `.lakebase/consort-config.json` (resolveProjectSettings), so
@@ -223,7 +188,7 @@ async function cutStepWorktree(project: DesignEquivProject, step: TurnKey): Prom
     writeConsortConfig(wtDir, config, { force: true });
   }
 
-  return { wtDir, consortDir: join(wtDir, ARTIFACT_ROOT) };
+  return { wtDir, consortDir };
 }
 
 /** The DriveEffectsConfig for a design-equivalence turn: UNCONSTRAINED (Bash allowed) so the role's

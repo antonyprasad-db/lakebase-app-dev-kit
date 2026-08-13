@@ -14,6 +14,7 @@ import {
   storyDeployVerified,
   logReleaseEngineerDeployStart,
   logReleaseEngineerDeployOutcome,
+  defaultRunVerify,
   type DeployResult,
 } from "../../consort/deploy/deploy";
 import { readEscalations } from "../../consort/gates/escalation";
@@ -466,6 +467,30 @@ describe("stopLocal", () => {
 
   it("reports nothing to stop when no pid file exists", () => {
     expect(stopLocal(dir, "local").stopped).toBe(false);
+  });
+});
+
+describe("defaultRunVerify: bounded timeout (a wedged verify FAILS the pass, never hangs)", () => {
+  // The 4.5h driver-sweep stall: a green-cycle verify subprocess (pytest + client build / app server)
+  // hung and execSync waited forever. defaultRunVerify now passes a `timeout` so a wedged pass is killed
+  // (SIGTERM) + returned as passed:false with a clear reason , the caller's finally then stops the app.
+  const prev = process.env.LAKEBASE_VERIFY_TIMEOUT_MS;
+  afterEach(() => { if (prev === undefined) delete process.env.LAKEBASE_VERIFY_TIMEOUT_MS; else process.env.LAKEBASE_VERIFY_TIMEOUT_MS = prev; });
+
+  it("a command exceeding the timeout returns passed:false + names the timeout (not a hang)", () => {
+    process.env.LAKEBASE_VERIFY_TIMEOUT_MS = "400"; // 0.4s bound
+    const t0 = Date.now();
+    const r = defaultRunVerify("sleep 30", dir); // would hang 30s without the bound
+    const elapsed = Date.now() - t0;
+    expect(r.passed).toBe(false);
+    expect(r.output).toMatch(/TIMED OUT/i);
+    expect(elapsed).toBeLessThan(5000); // killed at ~0.4s, nowhere near 30s , proves it did not hang
+  });
+
+  it("a fast passing command still returns passed:true (timeout does not false-fail a quick verify)", () => {
+    process.env.LAKEBASE_VERIFY_TIMEOUT_MS = "10000";
+    const r = defaultRunVerify("true", dir);
+    expect(r.passed).toBe(true);
   });
 });
 

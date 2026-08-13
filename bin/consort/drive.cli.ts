@@ -22,7 +22,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readline from "node:readline";
 
-import { recordTurn, seedRecorderBaseline, recordCorrespondence, lastRecordedOrdinal, type CorrespondenceEntry } from "../../consort/logging/turn-recorder.js";
+import { recordTurn, seedRecorderBaseline, recordCorrespondence, recordRoutingDecision, lastRecordedOrdinal, type CorrespondenceEntry } from "../../consort/logging/turn-recorder.js";
 import { readAgentLog } from "../../consort/logging/agent-log.js";
 import { recordBuildTurn, nextBuildTurnNumber } from "../../consort/pipeline/record-build.js";
 import { runDriver, driverBoundOptions, ProtocolViolationError, UnexpectedCallbackError, type DriveEffects, type DriverBound, type RunDriverResult, type RunDriverOptions } from "../../consort/orchestrator/drive/orchestrator-run.js";
@@ -217,6 +217,9 @@ function withBuildRecording(inner: DriveEffects, cfg: DriveEffectsConfig): Drive
   return {
     readState: () => inner.readState(),
     onAction: inner.onAction ? (a, i) => inner.onAction!(a, i) : undefined,
+    // Forward the routing-decision seam UNCHANGED (withTurnRecording records it; this build-only
+    // wrapper just preserves it so composition never drops it).
+    onRoutingDecision: inner.onRoutingDecision ? (a, s, i, src) => inner.onRoutingDecision!(a, s, i, src) : undefined,
     onHandback: inner.onHandback ? (h, d) => inner.onHandback!(h, d) : undefined,
     // Forward the executor-dispatch seam UNCHANGED (see withTurnRecording): an executor-dispatched
     // build turn records via the executor's wrapper, not here, so this only fires for a non-dispatched
@@ -359,6 +362,14 @@ function withTurnRecording(inner: DriveEffects, cfg: DriveEffectsConfig): DriveE
   return {
     readState: () => inner.readState(),
     onAction: inner.onAction ? (a, i) => inner.onAction!(a, i) : undefined,
+    // Routing-decision observability (diagnostic stream the turn recorder lacks): append the
+    // action + the state bag that CHOSE it to routing-decisions.jsonl. Fires for EVERY iteration
+    // (agent + non-agent + terminal), so "why did this turn route here" is answerable from the
+    // corpus. Chains any inner hook first, then records. Gated on the same recordDir as recordTurn.
+    onRoutingDecision: (a, s, i, source) => {
+      inner.onRoutingDecision?.(a, s, i, source);
+      recordRoutingDecision(recordDir, a, s, i, source);
+    },
     onHandback: inner.onHandback ? (h, d) => inner.onHandback!(h, d) : undefined,
     // Correspondence: a HIL touchpoint (author-requests / a gate) just ran on the perform path; the
     // proxy has appended its response to agent-log. Pair the orchestrator's REQUEST with the proxy's
