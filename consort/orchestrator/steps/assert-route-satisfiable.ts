@@ -19,7 +19,7 @@
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { cycleDir, storyResolved, featuresDir } from "../../config/consort-paths.js";
+import { cycleDir, cyclesRootDir, featuresDir } from "../../config/consort-paths.js";
 import type { WorkflowAction } from "../workflow/workflow-vocabulary.js";
 import { TURN_EVENTS, type EventScope, type TurnEventKind, type TurnEventSpec } from "./turn-events.js";
 
@@ -58,7 +58,9 @@ export interface RequiresEventsFace {
 
 /** Resolve the on-disk path of an event artifact for a given action, keyed by the event's own scope
  *  (TURN_EVENTS.scopeFor) , the ONE scope-truth. `feature` roots at the feature dir, `story` at the
- *  story's resolved dir, `ac`/`cycle` at the per-cycle dir. */
+ *  CYCLES story-root (sibling of the per-AC cycle dirs , where the story-loop review-verdict lands,
+ *  matching storyReviewVerdictJson; NOT the features/<f>/stories/<s> design dir), `ac`/`cycle` at the
+ *  per-cycle dir. */
 function eventArtifactPath(
   event: TurnEventKind,
   action: WorkflowAction,
@@ -74,7 +76,10 @@ function eventArtifactPath(
       return join(featuresDir(ctx.consortDir), f, spec.filename);
     case "story":
       if (!story) return join(ctx.consortDir, spec.filename); // no story , resolve at root (will miss + name it)
-      return join(storyResolved(ctx.consortDir, f, story), spec.filename);
+      // Story-scoped events (review-verdict for the whole-story loop) land at the CYCLES story-root
+      // (cycles/<f>/<s>/), sibling of the per-AC cycle dirs , the same place storyReviewVerdictJson
+      // writes , NOT the features/<f>/stories/<s> design dir.
+      return join(cyclesRootDir(ctx.consortDir), f, story, spec.filename);
     case "ac":
     case "cycle":
       if (!story || !ac) return join(ctx.consortDir, spec.filename); // no story/ac , root (will miss + name it)

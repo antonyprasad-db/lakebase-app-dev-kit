@@ -56,6 +56,45 @@ describe("assertRouteSatisfiable: route→event→consumer, loud + route-named",
     expect(() => assertRouteSatisfiable(plainGreen, requires(), ctx, () => false)).not.toThrow();
   });
 
+  it("resolves a STORY-scoped review-verdict at the cycles story-root, NOT features/<f>/stories/<s>", () => {
+    // The whole-story review loop (no `ac` on the action) writes its verdict to
+    // cycles/<f>/<s>/review-verdict.json (storyReviewVerdictJson), sibling of the per-AC cycle dirs
+    // , NOT the features/<f>/stories/<s> design dir. A regression here halts a valid review→refactor
+    // even though the verdict exists (surfaced live on stockflow-full).
+    const refactor = {
+      kind: "invoke-role",
+      role: "driver",
+      story: "S1-file-stock",
+      buildMode: "refactor",
+    } as WorkflowAction; // no `ac` ⇒ review-verdict resolves at STORY scope
+    let err: unknown;
+    try {
+      assertRouteSatisfiable(refactor, requires("review-verdict"), ctx, () => false);
+    } catch (e) {
+      err = e;
+    }
+    const rce = err as RouteContractError;
+    expect(rce.event).toBe("review-verdict");
+    // Rooted at the cycles story-dir, carrying the story (but NO ac dir), ending in the verdict file.
+    expect(rce.expectedPath).toContain("/cycles/");
+    expect(rce.expectedPath).toContain("S1-file-stock");
+    expect(rce.expectedPath).toContain("review-verdict.json");
+    // The bug rooted it under features/<f>/stories/<s>/ , assert we are NOT there.
+    expect(rce.expectedPath).not.toContain("/stories/");
+  });
+
+  it("PASSES when the story-scoped review-verdict exists at the cycles story-root", () => {
+    const refactor = {
+      kind: "invoke-role",
+      role: "driver",
+      story: "S1-file-stock",
+      buildMode: "refactor",
+    } as WorkflowAction;
+    // Present ONLY at cycles/<f>/<s>/review-verdict.json (the real producer location).
+    const exists = (p: string) => p.includes("/cycles/") && p.includes("review-verdict.json");
+    expect(() => assertRouteSatisfiable(refactor, requires("review-verdict"), ctx, exists)).not.toThrow();
+  });
+
   it("checks EVERY required event and throws on the FIRST missing one", () => {
     // Only the second exists → the first (green-failure) is the reported miss.
     const exists = (p: string) => p.includes("regression-assessment.json");
