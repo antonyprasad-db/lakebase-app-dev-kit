@@ -11,7 +11,7 @@
 # >1 fans the chain's candidates out in parallel , each in its OWN mkdtemp workspace with levers
 # in-memory, so no shared-state race). Each candidate (baseline + model tiers x effort rungs x
 # scan-tight) runs the chain ONCE LIVE (recorded inputs replayed in, only that role's turn is a real
-# `claude -p` spawn, tool-scoped out of Bash, in a throwaway .sftdd workspace), gated on the role's
+# `claude -p` spawn, tool-scoped out of Bash, in a throwaway .consort workspace), gated on the role's
 # conformance validator + a reference-example quality judge; the report ranks the fastest quality-
 # holding candidate vs the baseline. Every trial's evidence survives to the telemetry dir. LEAN ,
 # nothing to tear down.

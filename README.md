@@ -73,7 +73,7 @@ Then, in any session, run:
 /consort:start
 ```
 
-**Your first run.** In a fresh folder, `/consort:start` walks you through creating a Lakebase-paired project: a repo, a paired database, and the role agents and commands scaffolded into it. In a project that already has a `.sftdd/` directory (Consort's spec-first, test-driven state), it resumes wherever you left off. (The command, skills, and MCP server ship in the plugin; the role agents live in your project's `.claude/agents/`, spawned by the orchestrator `consort-drive` as `claude --agent <role>`.)
+**Your first run.** In a fresh folder, `/consort:start` walks you through creating a Lakebase-paired project: a repo, a paired database, and the role agents and commands scaffolded into it. In a project that already has a `.consort/` directory (Consort's spec-first, test-driven state), it resumes wherever you left off. (The command, skills, and MCP server ship in the plugin; the role agents live in your project's `.claude/agents/`, spawned by the orchestrator `consort-drive` as `claude --agent <role>`.)
 
 **What to expect.** Consort drives the loop `/plan -> /design -> /build -> /deploy` and stops at every gate for you:
 
@@ -146,14 +146,14 @@ When a new kit version ships, refresh what a scaffolded project runs against:
 
 ## What's in this repo
 
-- **`scripts/sftdd/`** the deterministic orchestrator and the per-role logic: the drive loop, design/build routing, the gates, experiments and spikes, bad-smell detection, and agent logging.
+- **`consort/`** the deterministic orchestrator and the per-role logic: the drive loop, design/build routing, the gates, experiments and spikes, bad-smell detection, and agent logging.
 - **`skills/consort/`** the agent-facing contract (`SKILL.md`), the eight role-agent prompts under `agents/`, and its references. Plus the engineering-canon skills (`software-design-principles`, `architectural-design-principles`, `ui-ux-design-principles`) the roles import, and the vendored Databricks skills (`databricks-core`, `databricks-lakebase`).
-- **`templates/`** the `.sftdd/` bootstrap and the project-level `.claude/commands` a scaffolded project carries.
+- **`templates/`** the `.consort/` bootstrap and the project-level `.claude/commands` a scaffolded project carries.
 - **`apps/mcp-server/`** a single MCP server exposing the tool surface to MCP-capable agents (Claude Desktop, OpenAI Codex, Cursor-via-MCP, Genie Code).
 - **`tools/openai-foundry/`** a pre-rendered OpenAI Foundry / Codex tool spec, generated from the same `apps/mcp-server/tools.ts` registry.
 - **`tests/`** Vitest BDD tests. Live Lakebase paths skip cleanly when the `LAKEBASE_TEST_*` env vars are not set.
 
-A scaffolded project keeps its live state under `.sftdd/` (`features/`, `experiments/`, `spikes/`, `cycles/`, `workflow-state.json`, `smells.json`), where the orchestrator reads and writes as the loop runs.
+A scaffolded project keeps its live state under `.consort/` (`features/`, `experiments/`, `spikes/`, `cycles/`, `workflow-state.json`, `smells.json`), where the orchestrator reads and writes as the loop runs.
 
 ## Skills
 
@@ -171,7 +171,7 @@ The bins are Consort's command surface plus a few project-lifecycle helpers. Run
 
 - **`consort-drive`** the deterministic orchestrator: routes the design/build/deploy/promote phases, spawns the role agents, and holds the gates. The `consort-*` family (`-intake`, `-cycle`, `-experiment`, `-spike`, `-deploy`, `-approve-gate`, `-gate-conformance`, `-next`, `-test-list`, `-human-proxy`, ...) are its building blocks.
 - **`lakebase-create-project`** end-to-end Lakebase-paired project bootstrap that also scaffolds the Consort commands.
-- **`lakebase-adopt-sftdd`** add Consort to an existing Lakebase-paired project.
+- **`lakebase-adopt-consort`** add Consort to an existing Lakebase-paired project.
 - **`lakebase-feature-status`** report where each feature sits in the loop.
 - **`lakebase-update-commands`** refresh a scaffolded project's `.claude/commands` to the current version.
 - **`lakebase-update-agents`** refresh a scaffolded project's `.claude/agents` role definitions to the current kit (so a role-prompt bugfix reaches an existing project; the drive also auto-refreshes on a kit-version change).

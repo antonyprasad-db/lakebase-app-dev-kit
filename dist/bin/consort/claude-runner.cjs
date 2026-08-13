@@ -8894,7 +8894,7 @@ function buildCfg(args, featureId) {
     livePropose: !!consortEnv("LIVE_PROPOSE")?.trim(),
     // Agent turns dispatch THROUGH the StepExecutor (the unified path) , now the DEFAULT (J1). Every
     // executor-allowlisted action has a shipped manifest (guarded by executor-dispatch-coverage.test),
-    // so the executor is the sole agent path. LAKEBASE_SFTDD_USE_MANIFEST_STEPS is a one-cycle escape
+    // so the executor is the sole agent path. LAKEBASE_CONSORT_USE_MANIFEST_STEPS is a one-cycle escape
     // hatch: set it to 0/false/off/no to force the legacy commandsForAction dispatch (retired in J5).
     useManifestSteps: !/^(0|false|off|no)$/i.test(consortEnv("USE_MANIFEST_STEPS")?.trim() ?? ""),
     // RECORD lane (Stage G): hand the executor's ReplayRecorderWrapper the just-completed live
@@ -8941,7 +8941,7 @@ function buildCfg(args, featureId) {
       // Narrate each routing decision in plain language (DRY: the same message
       // the structured log uses). The machine-readable form is already written to
       // the structured agent-log by makeOnAction below, so the raw action JSON is
-      // console noise on every line , append it only under LAKEBASE_SFTDD_TRACE.
+      // console noise on every line , append it only under LAKEBASE_CONSORT_TRACE.
       (action, i) => {
         const trace = consortEnv("TRACE") ? `  ${JSON.stringify(action)}` : "";
         process.stderr.write(`[drive] ${String(i).padStart(3, "0")} ${describeAction(action, { featureId })}${trace}

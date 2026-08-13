@@ -1,10 +1,10 @@
-// SFTDD setup hooks for project creation/adoption.
+// Consort setup hooks for project creation/adoption.
 //
 // The base project scaffolders (createProject / adoptLakebaseProject) live in
-// @databricks-solutions/lakebase-scm-utils and are SFTDD-agnostic: they lay down
-// the .sftdd/ scaffold + seed sftdd-config.json only when a caller injects these
-// hooks. This module is that injection for the SFTDD kit: it owns the
-// sftdd-bootstrap templates + the sftdd-config seeding that stay here.
+// @databricks-solutions/lakebase-scm-utils and are Consort-agnostic: they lay down
+// the .consort/ scaffold + seed consort-config.json only when a caller injects these
+// hooks. This module is that injection for the Consort kit: it owns the
+// consort-bootstrap templates + the consort-config seeding that stay here.
 
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -21,11 +21,11 @@ import { updateAgents } from "../lakebase/update-agents.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
- * Copy templates/sftdd-bootstrap/.sftdd/ into <targetDir>/.sftdd/.
+ * Copy templates/consort-bootstrap/.consort/ into <targetDir>/.consort/.
  *
  * Resolves the bootstrap source relative to this module so it works both when
  * consumed via git URL (dist + src co-located) and from a dev clone. Safe to
- * call when <targetDir>/.sftdd/ already exists (existing files are preserved).
+ * call when <targetDir>/.consort/ already exists (existing files are preserved).
  */
 /** The kit's own package name, read from the kit's package.json (works in the
  *  src, committed-dist, and git-installed layouts). The kit owns its identity; the
@@ -61,17 +61,17 @@ export function layDownTddScaffold(targetDir: string): void {
   // skill; the kit lays down its own .claude assets (role agents, skills, and
   // workflow commands) here. Without this a scaffolded project has no
   // .claude/agents/, and the driver's `claude --agent <role>` spawns resolve
-  // nothing. Runs before the .sftdd early-return so a re-scaffold still refreshes
+  // nothing. Runs before the .consort early-return so a re-scaffold still refreshes
   // any missing kit assets.
   layDownKitClaudeAssets(targetDir);
 
   const candidates = [
-    path.resolve(__dirname, `../../templates/sftdd-bootstrap/${ARTIFACT_ROOT}`),
-    path.resolve(__dirname, `../../../templates/sftdd-bootstrap/${ARTIFACT_ROOT}`),
+    path.resolve(__dirname, `../../templates/consort-bootstrap/${ARTIFACT_ROOT}`),
+    path.resolve(__dirname, `../../../templates/consort-bootstrap/${ARTIFACT_ROOT}`),
   ];
   const source = candidates.find((c) => fs.existsSync(c));
   if (!source) {
-    throw new Error(`sftdd-bootstrap template not found; looked in: ${candidates.join(", ")}`);
+    throw new Error(`consort-bootstrap template not found; looked in: ${candidates.join(", ")}`);
   }
   const dest = path.join(targetDir, ARTIFACT_ROOT);
   if (fs.existsSync(dest)) {
@@ -220,7 +220,7 @@ export function resyncAgentsOnKitDrift(projectDir: string): {
   }
 }
 
-/** Seed .lakebase/sftdd-config.json from per-role model overrides + UI knobs. */
+/** Seed .lakebase/consort-config.json from per-role model overrides + UI knobs. */
 export function seedConsortConfig(
   projectDir: string,
   opts: { agentModels?: Record<string, string>; uiTrack?: boolean; clientFramework?: string },
@@ -245,7 +245,7 @@ export const kitConsortHooks: ConsortSetupHooks = {
   seedConfig: seedConsortConfig,
 };
 
-/** The SFTDD adoption hook the kit injects into the base adoptLakebaseProject. */
+/** The Consort adoption hook the kit injects into the base adoptLakebaseProject. */
 export function adoptConsortHook(projectDir: string): { added: string[] } {
   const result = adoptTdd({ projectDir });
   return { added: result.added.map((rel) => path.join(ARTIFACT_ROOT, rel)) };

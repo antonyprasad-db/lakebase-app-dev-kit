@@ -1,4 +1,4 @@
-// Gate conformance guard: the deterministic gate CONDITION for the SFTDD state
+// Gate conformance guard: the deterministic gate CONDITION for the Consort state
 // machine. Whether a gate's artifacts are complete + conformant (schema, per-AC
 // shape, story/AC independence, architecture conventions, service_backed, layers,
 // NFR/fitness/persistence coverage) is a property of the WORKFLOW STATE, not of

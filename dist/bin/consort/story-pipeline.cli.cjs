@@ -7480,6 +7480,7 @@ var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebas
 
 // consort/experiment/experiment.ts
 init_cjs_shims();
+var import_node_child_process = require("child_process");
 var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/smells/smells.ts
@@ -7747,7 +7748,7 @@ var import_path6 = require("path");
 
 // consort/deploy/deploy.ts
 init_cjs_shims();
-var import_node_child_process = require("child_process");
+var import_node_child_process2 = require("child_process");
 var import_node_crypto = require("crypto");
 var import_node_fs3 = require("fs");
 var import_node_path4 = require("path");
@@ -8117,7 +8118,7 @@ function resolveAcceptMergeArgs(consortDir, projectDir, featureId, storyId, opts
 
 // consort/config/kit-bin.ts
 init_cjs_shims();
-var import_node_child_process2 = require("child_process");
+var import_node_child_process3 = require("child_process");
 var fs6 = __toESM(require("fs"), 1);
 var path3 = __toESM(require("path"), 1);
 var kitRootCache;
@@ -8175,7 +8176,7 @@ function resolveKitBinJs(bin) {
 }
 function runKitBinSync(bin, args, cwd) {
   const js = resolveKitBinJs(bin);
-  const res = js ? (0, import_node_child_process2.spawnSync)("node", [js, ...args], { cwd, stdio: "inherit" }) : (0, import_node_child_process2.spawnSync)(bin, args, { cwd, stdio: "inherit" });
+  const res = js ? (0, import_node_child_process3.spawnSync)("node", [js, ...args], { cwd, stdio: "inherit" }) : (0, import_node_child_process3.spawnSync)(bin, args, { cwd, stdio: "inherit" });
   if (res.error) throw res.error;
   return res.status ?? 1;
 }

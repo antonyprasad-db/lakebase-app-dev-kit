@@ -143,8 +143,8 @@ Flags:
  * The PAUSE gate's human wait: block the state machine at the handoff and ask
  * [Y/n], then RESUME on Y (n re-asks; the run never bails). Three input sources,
  * in order:
- *   1. LAKEBASE_SFTDD_AUTO_CONTINUE=1   , auto-confirm (CI / fully non-interactive).
- *   2. LAKEBASE_SFTDD_GATE_ANSWER_FILE  , poll that file for y/n (a parent process
+ *   1. LAKEBASE_CONSORT_AUTO_CONTINUE=1   , auto-confirm (CI / fully non-interactive).
+ *   2. LAKEBASE_CONSORT_GATE_ANSWER_FILE  , poll that file for y/n (a parent process
  *      drives the gate, e.g. a controller answering on the human's behalf).
  *   3. an interactive stdin TTY       , prompt + read the human's line.
  * With none of those (piped, no control file), it auto-continues with a warning
@@ -192,7 +192,7 @@ function makeConfirmContinue(): (action: WorkflowAction) => Promise<void> {
       // No auto-confirm, no control channel, no TTY: there is NO human in the
       // loop, so STOP rather than silently proceed past the handoff (an
       // agent-driven non-TTY run must not self-approve). A deliberate headless
-      // run sets LAKEBASE_SFTDD_AUTO_CONTINUE=1; a controller writes a gate-answer
+      // run sets LAKEBASE_CONSORT_AUTO_CONTINUE=1; a controller writes a gate-answer
       // file; a human uses a terminal. None present = refuse.
       reject(
         new Error(
@@ -444,7 +444,7 @@ function stepResultOf(r: RunDriverResult): DriveStepResult {
 
 function reportGate(gate: WorkflowAction, ctx: { featureId?: string; sprint?: string; featureBranch?: string } = {}): void {
   // Reuse the shared action narration (DRY) instead of dumping raw JSON; the
-  // full action is available under LAKEBASE_SFTDD_TRACE for debugging.
+  // full action is available under LAKEBASE_CONSORT_TRACE for debugging.
   const trace = consortEnv("TRACE") ? `  ${JSON.stringify(gate)}` : "";
   process.stderr.write(
     `[drive] GATE awaiting human approval: ${describeAction(gate)}.${trace}\n` +
@@ -485,7 +485,7 @@ async function runSprintMode(args: ParsedArgs): Promise<number> {
   // hardcoded kit-relative path no longer resolves. The lk shim routes the bin
   // through node_modules + the run's pinned kit ref.
   const lkShim = path.join(projectDir, "scripts", "lk");
-  // sizing comes from sftdd-config.json; the gate mode is RUN-SCOPED (--gates
+  // sizing comes from consort-config.json; the gate mode is RUN-SCOPED (--gates
   // override else the project's declared policy), never read back from a
   // flag-mutated file.
   const settings = resolveConsortSettings({ projectDir });
@@ -757,7 +757,7 @@ async function runSprintMode(args: ParsedArgs): Promise<number> {
 }
 
 /** The RUN-SCOPED gate mode: a `--gates` flag overrides for THIS run only; absent,
- *  the project's declared policy in sftdd-config.json wins. The flag never rewrites
+ *  the project's declared policy in consort-config.json wins. The flag never rewrites
  *  the file (that let one headless run flip an interactive project to proxy), so the
  *  effective mode is resolved fresh here, not read back from a mutated file. */
 function effectiveGates(args: ParsedArgs, projectDir: string): "interactive" | "proxy" {
@@ -783,7 +783,7 @@ function snapshotRunConfig(cfg: DriveEffectsConfig, bound: string, gates: "inter
     bound,
     // Run-scoped effective gate mode (--gates override else project policy),
     // recorded here so the snapshot is where the run-scoped choice lives , the
-    // flag never persists into sftdd-config.json.
+    // flag never persists into consort-config.json.
     gates,
     uiTrack: cfg.uiTrack,
     buildSessionScope: cfg.buildSessionScope,
@@ -815,7 +815,7 @@ async function main(): Promise<number> {
       );
     }
   }
-  // Write-through the drive's ad-hoc override flags into sftdd-config.json BEFORE
+  // Write-through the drive's ad-hoc override flags into consort-config.json BEFORE
   // any settings resolution, so the file stays the single source of truth (the
   // flag is a WRITER, not a parallel reader; absent flags never mutate the file).
   // NB: --gates is NOT here , it is run-scoped policy, resolved per run and never
@@ -855,7 +855,7 @@ async function main(): Promise<number> {
   // non-interactive signal. Refuse `proxy` in an interactive/dev context so a
   // stray LAKEBASE_SFTDD_HUMAN_PROXY (which the /plan|/sprint|... commands turn
   // into `--gates proxy`) can't silently bypass the human. CI + the smokes set
-  // LAKEBASE_SFTDD_AUTO_CONTINUE=1 (or CI), so they pass.
+  // LAKEBASE_CONSORT_AUTO_CONTINUE=1 (or CI), so they pass.
   if (effectiveGates(args, args.projectDir ?? process.cwd()) === "proxy" && !hasNonInteractiveSignal()) {
     process.stderr.write(
       `consort-drive: gate mode 'proxy' (Human Proxy approves headlessly) requires an explicit\n` +

@@ -74,8 +74,8 @@ describe("/consort:start launcher command (commands/start.md)", () => {
     expect(tdd).toMatch(/^---\n[\s\S]*?\bdescription:/);
   });
 
-  it("branches on .sftdd/: resume an existing project, or guide creation", () => {
-    expect(tdd).toMatch(/\.sftdd\//);
+  it("branches on .consort/: resume an existing project, or guide creation", () => {
+    expect(tdd).toMatch(/\.consort\//);
     expect(tdd).toMatch(/lakebase-create-project/); // create path
     expect(tdd).toMatch(/\/plan\b/); // resume path drives the loop
     expect(tdd).toMatch(/\/deploy\b/);

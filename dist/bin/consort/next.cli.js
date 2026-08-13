@@ -8490,6 +8490,7 @@ import { getConnection } from "@databricks-solutions/lakebase-scm-utils/lakebase
 
 // consort/experiment/experiment.ts
 init_esm_shims();
+import { execFileSync } from "child_process";
 import { createPairedBranch, deletePairedBranch } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 
 // consort/pipeline/run-cycle.ts
@@ -9966,7 +9967,7 @@ function blockersOf(state) {
       reason: e.reason,
       ...e.story_id ? { story: e.story_id } : {},
       resolver: null,
-      resolver_hint: "Resolve the underlying problem (clear the escalation file under .sftdd/escalations/ and any blocking smell in .sftdd/smells.json), then resume the drive."
+      resolver_hint: "Resolve the underlying problem (clear the escalation file under .consort/escalations/ and any blocking smell in .consort/smells.json), then resume the drive."
     }
   ];
 }

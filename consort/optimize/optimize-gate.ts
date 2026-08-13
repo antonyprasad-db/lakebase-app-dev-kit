@@ -3,7 +3,7 @@
 // (response-formatter formatRoleResponse) , the SAME precheck the drive's
 // verify-artifact step enforces after every design turn. A candidate can never
 // pass a weaker check than baseline: its artifact must clear the identical
-// self-check. Pure (reads the .sftdd), hermetic.
+// self-check. Pure (reads the .consort), hermetic.
 //
 // The feature-scope design GATE (gate-conformance-guard resolveArtifactInputs) is
 // a MILESTONE approval over the whole feature-spec, not a per-turn bar, so it is

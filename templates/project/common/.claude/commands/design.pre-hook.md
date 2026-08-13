@@ -21,7 +21,7 @@ positional argument to `/design` (e.g. `F1-initial-domain`).
 
    If the bin exits non-zero with "no state file", hard-fail with
    `SCM workflow state missing; run lakebase-create-project first.`
-   Do NOT fall back to lower-level substrate primitives.
+   Do NOT fall back to lower-level kit primitives.
 
 2. Invoke the claim CLI:
 
@@ -38,7 +38,7 @@ positional argument to `/design` (e.g. `F1-initial-domain`).
    - Reads `.lakebase/workflow-state.json` and refuses unless the
      workflow is at `scaffold-complete` or `merged`.
    - Derives the git branch name (`feature/<slug>`) from the feature
-     id using the substrate's sanitizer.
+     id using the kit's sanitizer.
    - Picks the parent branch from `tier_topology` (tier 1 -> Lakebase
      default branch; tier 2 -> `staging`; tier 3 -> `dev`).
    - Calls `createFeaturePairedBranch` underneath: 30-day TTL on the
@@ -50,7 +50,7 @@ positional argument to `/design` (e.g. `F1-initial-domain`).
    - `1` no state file (run `lakebase-create-project`)
    - `2` precondition refused (wrong state, invalid feature-id, or
      already-claimed for a different feature)
-   - `3` substrate failure (Lakebase create / git checkout / .env sync)
+   - `3` kit failure (Lakebase create / git checkout / .env sync)
 
 4. Idempotency: re-running with the same feature-id on a
    `feature-claimed` row exits 0 with `alreadyClaimed: true`. Safe to
@@ -62,7 +62,7 @@ The kit ships this as a default `design.pre-hook.md` so every
 scaffolded project enforces the "no git branch without Lakebase
 branch" invariant out of the box. Without the SCM workflow's claim
 bin, agents or humans could shell out to `git checkout -b` directly
-and create an orphan git branch. The substrate is the single source
+and create an orphan git branch. The kit is the single source
 of truth for branch creation; the SCM workflow is the enforcement
 surface around it.
 

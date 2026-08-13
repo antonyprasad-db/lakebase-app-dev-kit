@@ -9,7 +9,7 @@
 //      `tools:` frontmatter), or a whole agent-overlay (replace the file). These are
 //      APPLIED DIRECTLY by applyAgentMdLevers (safe, deterministic file writes).
 //   2. Config levers , model / effort / session-scope / loop live in TYPED SOURCE
-//      (sftdd-config.ts defaultConsortConfig + agent-models.ts RECOMMENDED_MODELS +
+//      (consort-config-file.ts defaultConsortConfig + agent-models.ts RECOMMENDED_MODELS +
 //      the role .md frontmatter `model:`). We NEVER regex-rewrite TS source; instead
 //      buildApplyPlan emits a precise SourceEditProposal (file + exact target + a
 //      regression-test note) for a normal reviewed edit. contextPackSuffix is

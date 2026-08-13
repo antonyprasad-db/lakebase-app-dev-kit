@@ -130,7 +130,7 @@ export function formatAgentReport(args: FormatAgentReportArgs): FormatAgentRepor
   }
 
   // Append (never clobber a prior log , e.g. an orchestrator phase.start line). Ensure the log's
-  // parent dir exists first , the declared path may be nested (e.g. .sftdd/agent-log.jsonl) and
+  // parent dir exists first , the declared path may be nested (e.g. .consort/agent-log.jsonl) and
   // writeFileSync will not create intermediate dirs.
   const payload = formatted.join("\n") + "\n";
   if (existsSync(logPath)) {

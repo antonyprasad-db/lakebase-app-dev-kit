@@ -263,7 +263,7 @@ case "$MODE" in
     ;;
   orchestration)
     # The LEAN live orchestration suites (tests/integration/), each driven entirely from step
-    # manifests with a SINGLE live claude agent per chain and NO cloud project (throwaway .sftdd
+    # manifests with a SINGLE live claude agent per chain and NO cloud project (throwaway .consort
     # workspace; the live agent is tool-scoped + reports via the agent-report channel):
     #   - spec-author-breakdown-live : mock PO -> LIVE spec-author authors feature-spec.
     #   - ux-designer-chain-live    : mock PO -> mock spec-author -> LIVE ux-designer authors

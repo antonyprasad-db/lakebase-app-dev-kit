@@ -4,7 +4,7 @@ Drives a designed feature through TDD cycles to ready-for-review by delegating t
 
 ## Operating contract (drive, do not narrate)
 
-Follow `@consort/references/orchestrator-contract.md`: drive to completion via `consort-next` (enact its `primary_action`, then continue), and stop for the human ONLY at a HITL gate (per-story acceptance) or a blocker. Present the decision (the `next` option titles + their `hil_prompt`s), not the CLIs you ran; report outcomes ("S2 accepted"), not per-command play-by-play; show working software at the acceptance gate. Verbose step narration is opt-in (`LAKEBASE_SFTDD_VERBOSE=1`), off by default.
+Follow `@consort/references/orchestrator-contract.md`: drive to completion via `consort-next` (enact its `primary_action`, then continue), and stop for the human ONLY at a HITL gate (per-story acceptance) or a blocker. Present the decision (the `next` option titles + their `hil_prompt`s), not the CLIs you ran; report outcomes ("S2 accepted"), not per-command play-by-play; show working software at the acceptance gate. Verbose step narration is opt-in (`LAKEBASE_CONSORT_VERBOSE_AGENT=1`), off by default.
 
 ## Usage
 
@@ -12,7 +12,7 @@ Follow `@consort/references/orchestrator-contract.md`: drive to completion via `
 /build <feature-id> [--parallel-experiments N]
 ```
 
-Requires `.sftdd/features/<feature-id>/test-list.json` to exist (the artifact `/design` produces). If the test list is missing, this command stops with a pointer back to `/design <feature-id>`.
+Requires `.consort/features/<feature-id>/test-list.json` to exist (the artifact `/design` produces). If the test list is missing, this command stops with a pointer back to `/design <feature-id>`.
 
 ## How it runs: the deterministic driver
 
@@ -55,7 +55,7 @@ If `.claude/commands/build.post-hook.md` exists in this project, it runs after p
 
 Hooks are owned by the project; this command file only consults them when present. One pre-hook plus one post-hook per command (no chains in v1).
 
-## Substrate version
+## Kit version
 
 Pinned to: `${KIT_VERSION_AT_SCAFFOLD}`
 

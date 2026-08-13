@@ -50,7 +50,7 @@ export interface ManifestRunnerDeps {
   instructionsFor?(manifest: StepManifest, action: WorkflowAction, workspaceDir: string): StepInstructions;
   /** Optional: provision the workspace per turn (default: the shared workspaceDir, no
    *  output-path remap). A real agent that writes to a baked cwd-relative path (e.g. the
-   *  spec-author's `.sftdd/features/<F>/`) overrides this to declare those outputPaths + set
+   *  spec-author's `.consort/features/<F>/`) overrides this to declare those outputPaths + set
    *  up the kit env. Returns the workspace + where each output id lands within it. */
   provisionWorkspace?(manifest: StepManifest, action: WorkflowAction): { workspaceDir: string; outputPaths?: Record<string, string> };
   /** Optional: format the agent-authored .agent-report.json into a conformant
@@ -62,7 +62,7 @@ export interface ManifestRunnerDeps {
   /** Optional: the drive state passed to route() (diagnostic scope only; default a stub). An
    *  explicit `state` here WINS over probeEscalation (tests inject an exact state). */
   state?: DriveState;
-  /** Optional: derive route()'s DriveState.escalation from the workspace `.sftdd` on disk (via
+  /** Optional: derive route()'s DriveState.escalation from the workspace `.consort` on disk (via
    *  the legacy disk probe) instead of the { phase: "feature" } stub. Default OFF ,
    *  byte-identical to today. Turn ON so a real reflect-gate escalation planted in the
    *  workspace drives a revise-route / raise-to-hil through the manifest path (the full route
@@ -193,7 +193,7 @@ function executorWiring(
   };
 
   // ctx.state authority: an explicit deps.state wins (tests inject an exact one); else, when
-  // probeEscalation is on, DERIVE it from the workspace .sftdd (real disk escalation -> the
+  // probeEscalation is on, DERIVE it from the workspace .consort (real disk escalation -> the
   // revise/escalate route space); else the minimal { phase: "feature" } stub (byte-identical
   // to before this seam).
   const state: DriveState =
@@ -214,7 +214,7 @@ function executorWiring(
     provisionWorkspace: () => (deps.provisionWorkspace ? deps.provisionWorkspace(manifest, action) : { workspaceDir: deps.workspaceDir }),
     instructionsFor: () => (deps.instructionsFor ? deps.instructionsFor(manifest, action, deps.workspaceDir) : defaultInstructions(manifest)),
     // Phase 2.5: PREPARE-PRECONDITIONS. A step that DECLARES preconditions (manifest.preconditions)
-    // has each projected here by the registry preparer , from the SHARED workspace's `.sftdd` +
+    // has each projected here by the registry preparer , from the SHARED workspace's `.consort` +
     // the action's story/ac , and appended to the prompt by the executor. This is the SAME
     // projection the real drive's roleTaskBody uses (one source of truth), so a manifest-driven
     // build turn is pre-conditioned identically to a dispatched one. A step declaring none never
@@ -243,8 +243,8 @@ function executorWiring(
     // to misplace , with the .agent-report.json file as a fallback for agents that write one.
     // CRUCIAL: write the log at the SAME relative path validate-outputs will check , the
     // manifest's agent-log output filename, remapped by any provisionWorkspace outputPaths (a
-    // real turn nests it under .sftdd/). Otherwise the formatter writes agent-log.jsonl at the
-    // workspace root while validation looks under .sftdd/ and the turn wrongly blocks.
+    // real turn nests it under .consort/). Otherwise the formatter writes agent-log.jsonl at the
+    // workspace root while validation looks under .consort/ and the turn wrongly blocks.
     ...(deps.formatAgentReports
       ? {
           materializeOutputs: (workspaceDir: string) => {

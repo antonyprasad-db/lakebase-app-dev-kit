@@ -34,7 +34,7 @@ a spike is outside the workflow state machine):
 ```
 
 After cutting, explore freely on the spike branch. Capture what you learned in
-`.sftdd/spikes/<slug>/notes.md` BEFORE deleting the branch, the notes survive the
+`.consort/spikes/<slug>/notes.md` BEFORE deleting the branch, the notes survive the
 teardown and (with `--for`) feed the next design's spec gate. Then delete the
 spike to drop its throwaway branch.
 
@@ -43,6 +43,6 @@ spike to drop its throwaway branch.
 Fold the learning into a real feature: **`/design <feature-id>`** (or `/plan` if
 the spike reshaped the backlog). Do not merge spike code into a feature branch.
 
-## Substrate version
+## Kit version
 
 Pinned to: `${KIT_VERSION_AT_SCAFFOLD}`

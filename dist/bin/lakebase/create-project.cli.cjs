@@ -179,12 +179,12 @@ function layDownTddScaffold(targetDir) {
   }
   layDownKitClaudeAssets(targetDir);
   const candidates = [
-    path3.resolve(__dirname, `../../templates/sftdd-bootstrap/${ARTIFACT_ROOT}`),
-    path3.resolve(__dirname, `../../../templates/sftdd-bootstrap/${ARTIFACT_ROOT}`)
+    path3.resolve(__dirname, `../../templates/consort-bootstrap/${ARTIFACT_ROOT}`),
+    path3.resolve(__dirname, `../../../templates/consort-bootstrap/${ARTIFACT_ROOT}`)
   ];
   const source = candidates.find((c) => fs4.existsSync(c));
   if (!source) {
-    throw new Error(`sftdd-bootstrap template not found; looked in: ${candidates.join(", ")}`);
+    throw new Error(`consort-bootstrap template not found; looked in: ${candidates.join(", ")}`);
   }
   const dest = path3.join(targetDir, ARTIFACT_ROOT);
   if (fs4.existsSync(dest)) {

@@ -6,7 +6,7 @@
 // test list cannot be silently rewritten.
 //
 // Background:
-//   writeMasterTestList (scripts/sftdd/test-list.ts) is the original write
+//   writeMasterTestList (consort/test-list/test-list.ts) is the original write
 //   surface. It is fine for INITIAL authoring (the Test Strategist agent
 //   writes the first version before the test_list gate is approved). It
 //   is NOT fine for post-approval edits: nothing stops a stray callsite

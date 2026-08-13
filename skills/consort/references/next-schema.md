@@ -3,9 +3,9 @@
 The authoritative, strictly read-only "what do I do next?" surface. It is produced two ways, from the SAME engine the deterministic drive runs on (so it can never disagree with what the drive would actually do):
 
 - **On demand**: `consort-next --feature <F>` (or `--sprint <S>`), `--json` for the machine contract.
-- **Auto-emitted**: the drive writes this snapshot to `.sftdd/next.json` on every stop (a HITL gate, a raised escalation, feature-complete, an error, a killed run), feature scope.
+- **Auto-emitted**: the drive writes this snapshot to `.consort/next.json` on every stop (a HITL gate, a raised escalation, feature-complete, an error, a killed run), feature scope.
 
-The contract for an orchestrating agent is therefore: **on any drive stop, read `.sftdd/next.json`, present its `options` to the human, and enact the chosen one.** Never reverse-engineer the next move from source, and never hand-edit workflow state. `consort-next` is read-only: no model spawn, no writes to workflow artifacts, no actions performed. Enacting a chosen option is the caller's job (each option carries its exact command).
+The contract for an orchestrating agent is therefore: **on any drive stop, read `.consort/next.json`, present its `options` to the human, and enact the chosen one.** Never reverse-engineer the next move from source, and never hand-edit workflow state. `consort-next` is read-only: no model spawn, no writes to workflow artifacts, no actions performed. Enacting a chosen option is the caller's job (each option carries its exact command).
 
 ## Top-level shape
 

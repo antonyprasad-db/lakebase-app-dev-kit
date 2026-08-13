@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Capture a new SFTDD replay scenario: drive a real feature live with the per-turn
+# Capture a new Consort replay scenario: drive a real feature live with the per-turn
 # recorder on, recording straight into examples/replay/<name>/ so the
 # result is immediately a committable, replayable integration-test corpus. This
 # is the "record once" half of the loop whose "replay forever" half is
@@ -9,7 +9,7 @@
 # recorder env pointed at the scenario dir:
 #   LAKEBASE_CONSORT_RECORD_DIR        = <scenario>/            (turns/ + recorded-artifacts/)
 #   LAKEBASE_CONSORT_RECORD_BUILD_DIR  = <scenario>/recorded-build
-# The recorder (scripts/sftdd/turn-recorder.ts) writes every state-machine turn;
+# The recorder (consort/logging/turn-recorder.ts) writes every state-machine turn;
 # at the end the agent-log is reconstituted (consort-log --reconstitute).
 #
 # Usage:
@@ -188,7 +188,7 @@ if [[ -n "$CREATE" ]]; then
   mkdir -p "$PARENT"
   # The scenario MANIFEST is the single source for this project's conditions. Read
   # them via the tested reader and funnel them into create-project as flags , the
-  # ONE way in. uiTrack (persisted to sftdd-config.json) drives BOTH the drive's UX
+  # ONE way in. uiTrack (persisted to consort-config.json) drives BOTH the drive's UX
   # lane AND the e2e harness (create-project derives e2e from it); language/runner
   # come from the manifest, not a harness hardcode. Degrades to the --ui flag when
   # the reader bin is absent (stale dist).
@@ -202,14 +202,14 @@ if [[ -n "$CREATE" ]]; then
   # stockflow-optimize first live run provisioned Spring Boot/Java, not python+UI).
   SCENARIO_MANIFEST="${INPUTS}/scenario.json"
   [[ -f "$SCENARIO_MANIFEST" ]] || SCENARIO_MANIFEST="${INPUTS}/scenario.json.pending"
-  sc() { node "${KIT_ROOT}/dist/bin/sftdd/scenario-conditions.cli.js" --manifest "$SCENARIO_MANIFEST" --field "$1" 2>/dev/null || true; }
+  sc() { node "${KIT_ROOT}/dist/bin/consort/scenario-conditions.cli.js" --manifest "$SCENARIO_MANIFEST" --field "$1" 2>/dev/null || true; }
   SC_UI="$(sc uiTrack)"; SC_LANG="$(sc language)"; SC_RUNNER="$(sc runner)"; SC_TIERS="$(sc tiers)"
   create_flags=(--tiers "${SC_TIERS:-$TIERS}")
   [[ "$SC_UI" == "true" || -n "$UI" ]] && create_flags+=(--ui-track)
   [[ -n "$SC_LANG" ]] && create_flags+=(--language "$SC_LANG")
   [[ -n "$SC_RUNNER" ]] && create_flags+=(--runner "$SC_RUNNER")
   # AGENT_MODELS (optional): space-separated <role>=<model> pairs, threaded into
-  # create-project as repeated --agent-model flags (persisted to sftdd-config.json,
+  # create-project as repeated --agent-model flags (persisted to consort-config.json,
   # which the drive reads per turn). Lets a capture pin a weak-point role to a
   # stronger model, e.g. AGENT_MODELS='test-strategist=opus'.
   for _pair in ${AGENT_MODELS:-}; do create_flags+=(--agent-model "$_pair"); done

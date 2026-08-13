@@ -7,7 +7,7 @@
 //
 // NAVIGATOR turns run LEAN (no cloud): RED authors tests, ASSESS discriminates a failed GREEN and
 // writes a marker , neither needs a running app or DB. That is why navigator turns get the same
-// throwaway-.sftdd substrate as the design roles. DRIVER turns (green/refactor/repair) write code
+// throwaway-.consort substrate as the design roles. DRIVER turns (green/refactor/repair) write code
 // that must pass honest-GREEN against a live Lakebase branch , they DO NOT run lean; see the
 // driver-phase SEAM at the bottom of this file.
 //
@@ -17,6 +17,7 @@
 // reference resolves positionally by that index.
 
 import { join } from "node:path";
+import { ARTIFACT_ROOT, cycleDir, acReviewVerdictJson } from "../config/consort-paths.js";
 import { runIntegrationChain } from "../orchestrator/scenarios/integration-chain.js";
 import type { StepManifest } from "../orchestrator/steps/manifest.js";
 import type { StepAgent } from "../orchestrator/agents/agent-types.js";
@@ -79,23 +80,25 @@ export interface BuildRoleChain {
    *  ASSESS = the AC cycle dir; for REVIEW/REFLECT = the verdict file path. Matches the manifest's
    *  first output filename. */
   outputFile: string;
-  /** Workspace-root dirs to also snapshot (the code the navigator writes lives outside .sftdd). */
+  /** Workspace-root dirs to also snapshot (the code the navigator writes lives outside .consort). */
   extraSnapshotRoots: string[];
   prompt: string;
   /** Optional: for REVIEW/REFLECT chains, the workspace-relative path where the verdict lands
    *  (the producedArtifacts key that holds the recorded reference verdict). REVIEW =>
-   *  `.sftdd/cycles/<F>/<S>/review-verdict.json`; REFLECT =>
+   *  `.consort/cycles/<F>/<S>/review-verdict.json`; REFLECT =>
    *  `features/<F>/stories/<S>/reflect-verdict.json`. Omitted for RED/ASSESS (no verdict). */
   verdictFile?: string;
 }
 
-/** The AC cycle dir (workspace-relative) the assess marker lands in, mirroring cycleDir().
+/** The AC cycle dir (workspace-relative) the assess marker lands in. Derived from the
+ *  canonical cycleDir() helper rooted at ARTIFACT_ROOT, never a hardcoded `.consort/` path.
  *  Assess runs on S1, so the cycle dir is S1's. */
-const AC_CYCLE_DIR = `.sftdd/cycles/${BUILD_FEATURE}/${ASSESS_STORY}/${ASSESS_AC}`;
+const AC_CYCLE_DIR = cycleDir(ARTIFACT_ROOT, BUILD_FEATURE, ASSESS_STORY, ASSESS_AC);
 
 /** The review verdict path (workspace-relative) the navigator-review role reads and judges.
- *  Review runs on S1 after a driver completes, so it reads the recorded review-verdict there. */
-const REVIEW_VERDICT_PATH = `.sftdd/cycles/${BUILD_FEATURE}/${ASSESS_STORY}/${ASSESS_AC}/review-verdict.json`;
+ *  Derived from acReviewVerdictJson() rooted at ARTIFACT_ROOT (single source of truth for the
+ *  cycle layout). Review runs on S1 after a driver completes, so it reads the recorded verdict there. */
+const REVIEW_VERDICT_PATH = acReviewVerdictJson(ARTIFACT_ROOT, BUILD_FEATURE, ASSESS_STORY, ASSESS_AC);
 
 /** The reflect verdict path (workspace-relative) the navigator-reflect role reads and judges.
  *  Reflect runs at DESIGN-time, so it writes to the feature/story path. */
@@ -234,7 +237,7 @@ export async function runBuildRoleChainLive(chain: BuildRoleChain, opts: RunBuil
             // Just the base directive , the pre-conditioning (RED's context-pack; ASSESS's
             // green-failure advisory) is now DECLARED on the manifest's `preconditions` and
             // PREPARED + appended by the executor's PREPARE-PRECONDITIONS phase, against the
-            // SEEDED workspace .sftdd. So the isolated turn is pre-conditioned by the SAME
+            // SEEDED workspace .consort. So the isolated turn is pre-conditioned by the SAME
             // mechanism as a dispatched one, with no per-chain prompt assembly (and the assess
             // chain now gets the green-failure advisory the real assess uses, not a context-pack).
             prompt: chain.prompt,
@@ -253,10 +256,10 @@ export async function runBuildRoleChainLive(chain: BuildRoleChain, opts: RunBuil
 // They are additive DATA + manifests. But a driver turn writes CODE that must pass honest-GREEN:
 // cycle-record.ts:defaultGreenVerifier -> ensureDeployedAndVerify runs `alembic upgrade head` +
 // pytest against a LIVE Lakebase branch, and experiment.ts:cutExperiment THROWS if the branch's
-// .env DATABASE_URL is unset. So a driver chain CANNOT run in the lean throwaway .sftdd temp dir.
+// .env DATABASE_URL is unset. So a driver chain CANNOT run in the lean throwaway .consort temp dir.
 //
 // The driver phase (out of scope here) uses ONE shared scaffolded Lakebase environment for all
-// experiments + a reset script between them (see scripts/sftdd/reset-experiment-db , design-only):
+// experiments + a reset script between them (see scripts/consort/reset-experiment-db , design-only):
 // a future runBuildDriverChainLive swaps runIntegrationChain's temp-dir workspace for the
 // scaffolded project + a cutExperiment before the live driver turn, and resets the shared branch
 // DB to its baseline (one alembic_version row) between candidates so `alembic upgrade head`

@@ -17,7 +17,7 @@
 // a unit test that would spawn a model.
 //
 // SAFETY: the harness NEVER pushes/merges/releases; it only forks/drops throwaway
-// child branches. It must NEVER set LAKEBASE_SFTDD_REPLAY_BUILD_DIR during a trial
+// child branches. It must NEVER set LAKEBASE_CONSORT_REPLAY_BUILD_DIR during a trial
 // (that swaps in the trust-verifier and would FAKE a GREEN); every trial runs the
 // REAL honest-GREEN verifier.
 

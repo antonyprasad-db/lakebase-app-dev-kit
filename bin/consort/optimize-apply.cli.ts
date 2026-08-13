@@ -72,7 +72,7 @@ export function roleFromHandoffId(handoffId: string): string {
 }
 
 function defaultKitDir(): string {
-  // bin/consort/optimize-apply.cli.ts -> kit root is two dirs up from bin/sftdd.
+  // bin/consort/optimize-apply.cli.ts -> kit root is two dirs up from bin/consort.
   return resolve(new URL("../..", import.meta.url).pathname);
 }
 

@@ -5,14 +5,20 @@ application-local.properties
 *.log
 .DS_Store
 
-# TDD per-run observability (NOT planning corpus): the agent event log + the
+# Consort per-run observability (NOT planning corpus): the agent event log + the
 # resolved run-config snapshot are local to a single run/feature drive and are
 # re-initialized each run, so they must never enter git history (a stray
 # `git add -A` from a build commit would otherwise carry one feature's log onto
-# the next branch). The committed .sftdd corpus (features/, planning/, sprints/,
+# the next branch). The committed .consort corpus (features/, planning/, sprints/,
 # workflow-state.json, product-overview.md, nfrs.md, design/) is unaffected.
+# Legacy artifact-root names (.sftdd/.tdd) are covered too so an older-layout
+# project scaffolded before the rename still ignores its per-run files.
+.consort/agent-log.jsonl
+.consort/run-config.json
 .sftdd/agent-log.jsonl
 .sftdd/run-config.json
+.tdd/agent-log.jsonl
+.tdd/run-config.json
 
 # The kit-ref RUN PIN: a WORKSPACE-local, checkout-proof override of the committed
 # `.lakebase/kit-ref`. The drive writes it at launch to pin the run's kit version

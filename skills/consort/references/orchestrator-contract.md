@@ -13,7 +13,7 @@ at the decisions that are genuinely theirs. Drive, do not describe.
 ## Rules
 
 1. **Drive to completion.** On every stop, read `consort-next` (or the
-   auto-emitted `.sftdd/next.json`), enact its `primary_action`, and continue. Do
+   auto-emitted `.consort/next.json`), enact its `primary_action`, and continue. Do
    NOT stop or ask unless `next` surfaces a HITL decision (a gate) or a blocker.
    Re-running the drive after a gate is part of driving, not a question to pose.
 
@@ -44,4 +44,4 @@ The default is outcomes-only per the rules above. Detailed step-by-step narratio
 (the finding-hunting mode: every CLI, every state read, tooling commentary) is
 EXPLICIT opt-in, for debugging the kit itself, not the normal consumer path.
 Enable it only when the human asks for a play-by-play or sets
-`LAKEBASE_SFTDD_VERBOSE=1`. Absent that signal, follow the rules above.
+`LAKEBASE_CONSORT_VERBOSE_AGENT=1`. Absent that signal, follow the rules above.

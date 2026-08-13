@@ -98,7 +98,7 @@ function adoptTdd(args) {
 }
 function walkTemplateTree(root) {
   if (!fs2.existsSync(root)) {
-    throw new Error(`sftdd-bootstrap template tree missing: ${root}`);
+    throw new Error(`consort-bootstrap template tree missing: ${root}`);
   }
   const out = [];
   const stack = [""];
@@ -124,7 +124,7 @@ function findBootstrapDir() {
   const here = path.dirname((0, import_node_url.fileURLToPath)(importMetaUrl));
   let dir = here;
   for (let i = 0; i < 6; i++) {
-    const candidate = path.join(dir, "templates", "sftdd-bootstrap", ARTIFACT_ROOT);
+    const candidate = path.join(dir, "templates", "consort-bootstrap", ARTIFACT_ROOT);
     if (fs2.existsSync(candidate)) {
       cachedBootstrapDir = candidate;
       return cachedBootstrapDir;
@@ -134,7 +134,7 @@ function findBootstrapDir() {
     dir = parent;
   }
   throw new Error(
-    `Could not locate templates/sftdd-bootstrap/.sftdd relative to ${here}. Pass explicit { bootstrapDir } to override.`
+    `Could not locate templates/consort-bootstrap/.consort relative to ${here}. Pass explicit { bootstrapDir } to override.`
   );
 }
 

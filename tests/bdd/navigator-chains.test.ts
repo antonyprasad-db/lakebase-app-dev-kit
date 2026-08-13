@@ -33,7 +33,7 @@ describe("BUILD_ROLE_CHAINS: navigator build chains", () => {
   it("assess chain has correct assertKind and outputFile", () => {
     const chain = BUILD_ROLE_CHAINS["navigator-assess"];
     expect(chain.assertKind).toBe("assess");
-    expect(chain.outputFile).toContain(".sftdd/cycles");
+    expect(chain.outputFile).toContain(".consort/cycles");
     expect(chain.verdictFile).toBeUndefined();
   });
 

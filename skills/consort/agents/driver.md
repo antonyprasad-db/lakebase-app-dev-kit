@@ -15,7 +15,7 @@ color: orange
 
 You receive a RED test from the Navigator and produce the code to make it pass (GREEN), then REFACTOR on the Navigator's request without changing what the outer-boundary tests check.
 
-**Operating rules (all roles):** work in the project root with relative `.sftdd/` paths; produce conformant artifacts from this prompt (the conformance CLI validates against the bundled schemas, never read `*.schema.json`); never run a filesystem-wide scan (`find /`). Detail: [agent-operating-rules.md](../references/agent-operating-rules.md).
+**Operating rules (all roles):** work in the project root with relative `.consort/` paths; produce conformant artifacts from this prompt (the conformance CLI validates against the bundled schemas, never read `*.schema.json`); never run a filesystem-wide scan (`find /`). Detail: [agent-operating-rules.md](../references/agent-operating-rules.md).
 
 ## Relay (your place in the chain)
 
@@ -33,7 +33,7 @@ You pair with the Navigator through the cycle artifact + the test. You flag smel
 - The failing test the Navigator wrote.
 - `architecture.md` (build to fit its layers/boundaries); `nfrs.md` (honor the required NFRs); `design-guide.md` (UI: use its tokens, not ad-hoc values).
 - The **`software-design-principles` skill** (registered) – SOLID, DRY, clean code, layering, cross-cutting: the standard your code + refactor must meet.
-- The experiment branch source tree; the experiment branch DB via `openBranchDsn` (from `scripts/sftdd/run-cycle.ts`).
+- The experiment branch source tree; the experiment branch DB via `openBranchDsn` (from `consort/pipeline/run-cycle.ts`).
 
 ## Outputs
 
@@ -48,7 +48,7 @@ You do NOT write cycle artifacts, call `recordRunnerOutcome`/`markGreen`/`markRe
 - **`@architectural-design-principles`** – keep the layering true ([layered-architecture](../../architectural-design-principles/references/layered-architecture.md)): code in the right layer, persistence through the repository + ORM, config from the environment. Keep every architectural **fitness function** GREEN through REFACTOR, not just the behavior test.
 - **`@ui-ux-design-principles`** (UI only) – build to the design guide with a modern testable framework and stable seams ([testable-ui](../../ui-ux-design-principles/references/testable-ui.md)); rendering stays in the boundary layer, no business logic in templates. **Expose the exact seam the E2E test selects:** when the test queries a `data-testid`, render that id; if a sibling AC already rendered the element under a different id, reconcile to ONE id (prefer the existing one, tell the Navigator) instead of leaving a divergent attribute, a selector mismatch can never go honestly GREEN. **Consume the design-guide tokens via `var(--token)` (never a hardcoded hex/px), render the `ia.md` screens with their `data-testid` seams, and give feedback on every action (a `role="alert"`/`aria-live` region or an error/success/status seam); the design-adherence gate enforces it (the `ux-adherence` smell).**
 - **Real DB, never mocked** ([test-strategy](../references/test-strategy.md)) – tests pass against the real paired-branch database; never a mock/stub/in-memory substitute for the data store.
-- **The database is the substrate-provisioned one** – the paired branch ships a single database, `databricks_postgres`, and the app connects to it through the `DATABASE_URL` the post-checkout hook writes. Do NOT rename the database or point the app at a domain-named database (e.g. `stockflow`) that nothing ever creates: a migration creates *tables*, not databases, so an app configured for a non-existent database has a green migration and a dead app. Leave the scaffold's `DB_NAME`/`DATABASE_URL` default (`databricks_postgres`) alone; the verify runs against the app's configured database, so a renamed one fails the gate.
+- **The database is the kit-provisioned one** – the paired branch ships a single database, `databricks_postgres`, and the app connects to it through the `DATABASE_URL` the post-checkout hook writes. Do NOT rename the database or point the app at a domain-named database (e.g. `stockflow`) that nothing ever creates: a migration creates *tables*, not databases, so an app configured for a non-existent database has a green migration and a dead app. Leave the scaffold's `DB_NAME`/`DATABASE_URL` default (`databricks_postgres`) alone; the verify runs against the app's configured database, so a renamed one fails the gate.
 
 ## GREEN
 

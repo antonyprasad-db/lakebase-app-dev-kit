@@ -1,7 +1,7 @@
 // observability: a centralized structured logger for the TDD-workflow
 // role agents. The workflow is a relay of isolated-memory agents; each emits
 // what it is doing (and why, at debug level) so the whole run is
-// reconstructable from one file: .sftdd/agent-log.jsonl (JSON Lines).
+// reconstructable from one file: .consort/agent-log.jsonl (JSON Lines).
 //
 // emitAgentLogEvent validates against agent-log-event.schema.json, stamps the
 // timestamp, and atomically appends a single line. readAgentLog parses + filters.
@@ -91,7 +91,7 @@ export interface AgentLogEventInput {
 }
 
 export interface AgentLogIoOpts {
-  /** Path to the .sftdd/ root. Default: "./.sftdd". */
+  /** Path to the .consort/ root. Default: "./.consort". */
   consortDir?: string;
   /** Test seam for a deterministic clock. */
   now?: () => Date;

@@ -8,7 +8,7 @@
 // spawnTurn (a `claude -p` role subprocess via execRunner) + forkBranch
 // (cutExperiment re-fork).
 //
-// SAFETY: a trial NEVER sets LAKEBASE_SFTDD_REPLAY_BUILD_DIR (that fakes GREEN);
+// SAFETY: a trial NEVER sets LAKEBASE_CONSORT_REPLAY_BUILD_DIR (that fakes GREEN);
 // every build trial runs the real honest-GREEN verifier via the drive's own cycle
 // commands. The harness only forks/drops throwaway branches , never pushes/merges.
 
@@ -139,7 +139,7 @@ export function makeChampionWalkDeps(ctx: OptimizeLiveCtx): ChampionWalkDeps {
           dispose: () => {},
         };
       }
-      // Design handoff: pure .sftdd copy/replace.
+      // Design handoff: pure .consort copy/replace.
       const snap = snapshotDesign({ consortDir: ctx.consortDir });
       return { restore: async () => snap.restore(), dispose: () => snap.dispose() };
     },
@@ -166,7 +166,7 @@ export function makeChampionWalkDeps(ctx: OptimizeLiveCtx): ChampionWalkDeps {
         // Prompt-weight signal (the pass-2 trim-target input): read the turn's
         // input/cache-read tokens from the just-emitted turn.usage. Best-effort.
         const tokens = ctx.readTurnTokens?.({ handoff });
-        // Capture THIS trial's produced .sftdd artifacts NOW, before the caller's
+        // Capture THIS trial's produced .consort artifacts NOW, before the caller's
         // between-trial restore wipes them , but only for a PASSING design trial
         // (the winner is chosen among passing; a failed trial's output is not
         // restorable-as-winner). The capture is DURABLE, under this trial's own
@@ -174,7 +174,7 @@ export function makeChampionWalkDeps(ctx: OptimizeLiveCtx): ChampionWalkDeps {
         // exact measured output with no re-run; (b) a rejected winner can fall back
         // to a structurally-complete runner-up by restoring ITS retained capture;
         // (c) every candidate's output persists for side-by-side audit + a reusable
-        // corpus. Build handoffs advance via git/branch state, not a .sftdd copy, so
+        // corpus. Build handoffs advance via git/branch state, not a .consort copy, so
         // they carry no artifactsRef (recordWinner re-runs them).
         const artifactsRef: DesignArtifactRef | undefined =
           gate.passed && !isBuildHandoff(handoff)
@@ -207,12 +207,12 @@ export function makeChampionWalkDeps(ctx: OptimizeLiveCtx): ChampionWalkDeps {
       // exact output that was measured + gated , so the next role runs against what
       // truly won, NOT a fresh re-run that would produce different artifacts. The ref
       // is that trial's DesignSnapshot (captured in runTrial before the between-trial
-      // restore wiped it); restoring it makes the live .sftdd the winner's output.
+      // restore wiped it); restoring it makes the live .consort the winner's output.
       const ref = artifactsRef as DesignArtifactRef | undefined;
       if (ref?.path) {
         restoreDesignArtifacts({ consortDir: ctx.consortDir, ref });
         // Record the (now-restored) winner state into the corpus without a re-spawn:
-        // recordTurn diffs the current .sftdd against the recorder baseline. Only when
+        // recordTurn diffs the current .consort against the recorder baseline. Only when
         // a corpus record dir is set (a winner capture); best-effort so a recorder
         // hiccup never loses the advance. No transcript , this is a restored artifact,
         // not a fresh agent turn.
@@ -230,7 +230,7 @@ export function makeChampionWalkDeps(ctx: OptimizeLiveCtx): ChampionWalkDeps {
         // the whole scratch tree at end of run).
       } else {
         // No captured artifacts (a BUILD handoff advances via git/branch state, not a
-        // .sftdd copy; or a degenerate no-passing-trial case): fall back to re-running
+        // .consort copy; or a degenerate no-passing-trial case): fall back to re-running
         // the winner with recording on, applying its levers, and NOT restoring after.
         const restoreCandidate = applyCandidate(ctx, candidate);
         try {
@@ -336,7 +336,7 @@ export const SWEEP_ROUTER_DEPS: ValidateBoundDeps = {
  *  when record is true, and restores the prior env afterward so a winner capture never
  *  leaks recording into the next handoff's trials. A trial (record:false) runs with the
  *  env cleared, so no losing candidate touches the corpus even if the ambient shell
- *  exported RECORD_DIR. NEVER sets LAKEBASE_SFTDD_REPLAY_BUILD_DIR (that would fake
+ *  exported RECORD_DIR. NEVER sets LAKEBASE_CONSORT_REPLAY_BUILD_DIR (that would fake
  *  GREEN). */
 export function makeLiveSpawnTurn(featureId: string, seams: LiveDriveSeams): SpawnTurn {
   return async ({ handoff, candidate, record }) => {
@@ -569,7 +569,7 @@ export function readLastTurnTokens(consortDir: string, role: string): { inputTok
  *  stamped GREEN, or wrote a green-failure + raised an escalation), the turn passed
  *  iff NO unresolved escalation for this story exists. This is the honest signal ,
  *  an honest-GREEN failure / build halt leaves a story-scoped escalation on disk;
- *  the self-heal, if it succeeded, resolved it. Pure read of the .sftdd. */
+ *  the self-heal, if it succeeded, resolved it. Pure read of the .consort. */
 export function makeBuildGate(consortDir: string, featureId: string): (args: { handoff: HandoffPlan }) => GateOutcome {
   return ({ handoff }) => {
     const story = handoff.story;

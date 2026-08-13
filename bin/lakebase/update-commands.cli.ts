@@ -17,7 +17,7 @@ import {
 } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { updateCommands } from "../../consort/lakebase/update-commands.js";
 
-// The `.claude/commands` templates live in THIS kit (SFTDD), while the
+// The `.claude/commands` templates live in THIS kit (Consort), while the
 // drift detector now lives in @databricks-solutions/lakebase-scm-utils. Its
 // default kit-dir resolution walks up from its own (dependency) location and
 // cannot find our templates, so resolve our kit root explicitly by walking up

@@ -32,7 +32,7 @@ describe("orchestrator operating contract (FEIP-8021)", () => {
     // Report outcomes, not process.
     expect(body).toMatch(/outcomes/i);
     // Verbose/eval mode is opt-in, off by default.
-    expect(body).toMatch(/LAKEBASE_SFTDD_VERBOSE/);
+    expect(body).toMatch(/LAKEBASE_CONSORT_VERBOSE_AGENT/);
     expect(body).toMatch(/opt-in|off by default/i);
   });
 

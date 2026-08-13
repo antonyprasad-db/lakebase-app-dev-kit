@@ -1,7 +1,7 @@
 // optimize-candidates: the PURE candidate model for the per-handoff optimize
 // harness. A Candidate is one point in the sweep space , a set of CONFIG
 // overrides (Family 1: model / effort / session-scope / loop granularity, merged
-// into a sftdd-config.json + a few env knobs) plus optional CONTENT/SCOPE
+// into a consort-config.json + a few env knobs) plus optional CONTENT/SCOPE
 // variants (Family 2: an agent-.md overlay, a task/context suffix, a tool scope).
 //
 // This module has NO I/O. It only (1) enumerates the candidate list from a sweep
@@ -41,7 +41,7 @@ export interface CandidateContent {
 export interface Candidate {
   /** Stable, unique, filesystem-safe id (also the experiments/ subdir name). */
   id: string;
-  /** Config-file overrides deep-merged onto the base sftdd-config.json (Family 1). */
+  /** Config-file overrides deep-merged onto the base consort-config.json (Family 1). */
   configOverrides: DeepPartial<ConsortConfigFile>;
   /** Extra env for the forked turn (e.g. CONTEXT_FREE_FRACTION), Family 1 knobs
    *  that ride on env rather than the config file. */

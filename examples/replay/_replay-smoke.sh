@@ -41,7 +41,7 @@ replay_smoke() {
   # ASSERT_DIR + the DEFAULT corpus/intake are the bug-tracker smoke's, which lives
   # under this machinery dir at corpora/bug-tracker/. A generic caller
   # (replay-scenario.sh) OVERRIDES them (REPLAY_ASSERT_DIR / REPLAY_INTAKE_DIR /
-  # --corpus / LAKEBASE_SFTDD_REPLAY_BUILD_DIR) to point at its own corpora/<name>/.
+  # --corpus / LAKEBASE_CONSORT_REPLAY_BUILD_DIR) to point at its own corpora/<name>/.
   ASSERT_DIR="${REPLAY_ASSERT_DIR:-${REPLAY_DIR}/assertions}"
   INTAKE_DIR="${REPLAY_INTAKE_DIR:-${REPLAY_DIR}/corpora/bug-tracker}"
   CORPUS_DIR="${REPLAY_DIR}/corpora/bug-tracker/recorded-artifacts"
@@ -300,7 +300,7 @@ replay_smoke() {
   log "on feature branch ${_FEATURE_BRANCH} (HEAD verified) , cut-experiment will fork from it"
 
   # ─── 4. drive, PAUSE just before the chosen handoff ─
-  # By default LAKEBASE_SFTDD_REPLAY_DIR replays each DESIGN-lane role turn from the
+  # By default LAKEBASE_CONSORT_REPLAY_DIR replays each DESIGN-lane role turn from the
   # corpus. With REPLAY_DESIGN=0 the design lane runs LIVE (real role agents) , the
   # CAPTURE path , and (when LAKEBASE_CONSORT_RECORD_DIR is set) every turn is recorded.
   # Live design needs an approver for its per-story spec/test_list gates: the Human

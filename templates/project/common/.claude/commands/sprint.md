@@ -13,7 +13,7 @@ and stop for the human ONLY at a HITL gate or a blocker. At a stop, present the
 decision (the `next` option titles + their `hil_prompt`s), not the CLIs you ran;
 report outcomes ("S2 accepted", "F1 shipped to staging"), not per-command
 play-by-play; show working software at the acceptance + deploy gates. Verbose
-step narration is opt-in (`LAKEBASE_SFTDD_VERBOSE=1`), off by default.
+step narration is opt-in (`LAKEBASE_CONSORT_VERBOSE_AGENT=1`), off by default.
 
 This is the autonomous path. The Tier-2 commands (`/plan`, `/design`, `/build`,
 `/deploy`) are for running ONE phase at a time when you want hands-on control;
@@ -25,9 +25,9 @@ This is the autonomous path. The Tier-2 commands (`/plan`, `/design`, `/build`,
 /sprint [<sprint-name>]
 ```
 
-Requires `.sftdd/` + project intake (the same precondition `/plan` enforces). The
+Requires `.consort/` + project intake (the same precondition `/plan` enforces). The
 sprint backlog (which features are in the sprint) is the PO's call, recorded at
-`.sftdd/sprints/<name>/backlog.json`, produced by `/plan`'s authoring (headless,
+`.consort/sprints/<name>/backlog.json`, produced by `/plan`'s authoring (headless,
 from the recorded backlog).
 
 ## How it runs: the deterministic driver
@@ -46,7 +46,7 @@ not own) -> design (per-story **spec gates**) -> build (per-story **acceptance**
 -> deploy (**deploy gate**) -> next feature. Routing is code (not an LLM
 orchestrator); each role is spawned as a subagent at its resolved per-role model;
 the per-story pipeline streams within each feature. The phase/handoff log is
-emitted as code to `.sftdd/agent-log.jsonl`.
+emitted as code to `.consort/agent-log.jsonl`.
 
 **Gates + resume (interactive).** The run never skips a gate. It stops at the
 next HITL gate, prints a `GATE` marker, and exits so YOU surface it to the human.
@@ -64,7 +64,7 @@ TDD-workflow smoke exercises).
 next features. A sprint is never deployed as a unit; each feature ships through
 its own deploy gate.
 
-## Substrate version
+## Kit version
 
 Pinned to: `${KIT_VERSION_AT_SCAFFOLD}`
 

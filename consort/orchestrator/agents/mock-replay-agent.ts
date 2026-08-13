@@ -66,7 +66,7 @@ export function makeMockReplayAgent(opts: MockReplayAgentOptions): StepAgent {
         const dst = join(invocation.workspaceDir, seed.to);
         if (seed.kind === "tree") {
           // Overlay a recorded CODE TREE into the workspace, filtered by codeTreeFilter (the same
-          // filter replayBuildTurn uses: excludes scaffold-owned dirs like .git/.sftdd/scripts +
+          // filter replayBuildTurn uses: excludes scaffold-owned dirs like .git/.consort/scripts +
           // junk like __pycache__). The dst is the overlay root (usually the workspace itself).
           mkdirSync(dst, { recursive: true });
           cpSync(src, dst, { recursive: true, force: true, filter: codeTreeFilter(src) });
@@ -146,7 +146,7 @@ function actionSignature(a: WorkflowAction): string {
 /** Resolve the recorded `turns/` timeline from a corpus root. The scenario layout is
  *  `<scenario>/turns/` alongside `<scenario>/recorded-artifacts/` + `<scenario>/recorded-build/`.
  *  Callers point us at different roots: a test at the scenario root, but the live replay engine at
- *  `<scenario>/recorded-artifacts` (its LAKEBASE_SFTDD_REPLAY_DIR = the DESIGN corpus subdir). So
+ *  `<scenario>/recorded-artifacts` (its LAKEBASE_CONSORT_REPLAY_DIR = the DESIGN corpus subdir). So
  *  look for `turns/` under the given root FIRST, then its PARENT (the scenario root when the root is
  *  the recorded-artifacts subdir). Returns the resolved turns dir, or undefined if neither has one. */
 function resolveTurnsDir(corpusRoot: string): string | undefined {

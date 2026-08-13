@@ -4,7 +4,7 @@ The TDD workflow is a relay of role agents with isolated memory. To make a run o
 
 ## 1. Format
 
-One JSON object per line (JSON Lines) in `.sftdd/agent-log.jsonl`, validated against `scripts/sftdd/schemas/agent-log-event.schema.json`. Fields, in order:
+One JSON object per line (JSON Lines) in `.consort/agent-log.jsonl`, validated against `consort/config/schemas/agent-log-event.schema.json`. Fields, in order:
 
 | Field | Meaning |
 |---|---|
@@ -22,7 +22,7 @@ One JSON object per line (JSON Lines) in `.sftdd/agent-log.jsonl`, validated aga
 - **`debug`:** reasoning, alternatives weighed, open questions. The thinking, not just the result.
 - **`info`:** outputs + decisions (phase start/end, artifact written with path + conformance, gate surfaced/approved, handoff).
 - **`warn`:** things the HIL should see (a bad smell, ambiguity surfaced, gate-integrity drift).
-- **`error`:** hard stops (a gate refused, conformance failed, a substrate call errored).
+- **`error`:** hard stops (a gate refused, conformance failed, a kit call errored).
 
 ## 2.5 Progress cadence
 
@@ -43,7 +43,7 @@ Shell out through the project's `./scripts/lk` resolver (fast; no npx), always p
   --feature F1-initial-domain --data '{"path":"feature-spec.json","conformant":true}'
 ```
 
-Read/tail: `./scripts/lk consort-log --read --feature F1-initial-domain --min-level info`. In-process callers use `emitAgentLogEvent` / `readAgentLog` from `scripts/sftdd/agent-log.ts`.
+Read/tail: `./scripts/lk consort-log --read --feature F1-initial-domain --min-level info`. In-process callers use `emitAgentLogEvent` / `readAgentLog` from `consort/logging/agent-log.ts`.
 
 **Batch your turn's events into ONE call.** Each `consort-log` invocation is a subprocess spawn, so a role with several events for a turn (a `reasoning` + a `progress` + a `smell.flagged`) should emit them together with `--events '<json array>'` (one process, one append) rather than N separate calls, that per-turn spawn count is real latency:
 
@@ -56,14 +56,14 @@ Read/tail: `./scripts/lk consort-log --read --feature F1-initial-domain --min-le
 
 Each item takes `role`/`level`/`event` (+ optional `feature`/`phase`/`cycle`/`slots`/`data`); every event is validated first, and if any is off-vocabulary or missing a required slot the whole batch is rejected (exit 3) and nothing is written. Emit as you go if events are far apart in time (progress cadence still matters); batch the ones that land together at the end of a step.
 
-`event` is a CLOSED vocabulary (`scripts/sftdd/agent-log-events.ts`); each event has a fixed message TEMPLATE with `{{ slot }}` placeholders. You pass `--event <name>` + its slots as `--slot key=value` (repeatable); the logger renders the message and REJECTS (exit 3) an off-vocabulary event or a missing required slot. There is no free-text `--message` flag.
+`event` is a CLOSED vocabulary (`consort/logging/agent-log-events.ts`); each event has a fixed message TEMPLATE with `{{ slot }}` placeholders. You pass `--event <name>` + its slots as `--slot key=value` (repeatable); the logger renders the message and REJECTS (exit 3) an off-vocabulary event or a missing required slot. There is no free-text `--message` flag.
 
 **NEVER hand-write the log file.** Do not `echo`/`Write`/`>>` a JSON line into `agent-log.jsonl` or invent fields: a model that hand-writes mangles the schema (e.g. a local wall-clock `timestamp` instead of the required UTC stamp). There is exactly ONE writer, `emitAgentLogEvent` (the CLI is its shell face); `role` is a parameter, not a function per agent. If a field isn't accepted by the CLI, it isn't in the schema.
 
 ## 4. Who emits what
 
 - **The orchestrator owns the lifecycle as CODE.** The deterministic driver (`consort-drive`) emits `handoff`, the role's `phase.start`/`phase.end`, the gate events (`gate.surfaced`/`gate.approved`), `experiment.cut`/`experiment.accepted`, and the entire **`cycle.*` family** (`cycle.red`/`green`/`review`/`refactored`). Its post-role reconcile code-emits `artifact.written` for everything left on disk. These are guaranteed every run, regardless of model. Emitting them yourself double-logs.
-- **Each role adds only its in-flight JUDGMENT events** through the CLI: `progress`, `reasoning` (debug), `smell.flagged` (warn), and the recorded gate decision. The shared `.sftdd/agent-log.jsonl` is the bus; a subagent only returns its completion, not events.
+- **Each role adds only its in-flight JUDGMENT events** through the CLI: `progress`, `reasoning` (debug), `smell.flagged` (warn), and the recorded gate decision. The shared `.consort/agent-log.jsonl` is the bus; a subagent only returns its completion, not events.
 
 Per-role JUDGMENT events on top of the code-emitted skeleton:
 
@@ -91,4 +91,4 @@ In practice these gate events are emitted by the Human Proxy / deterministic dri
 
 ## 5. Where it does NOT go
 
-This log is execution narrative, not workflow state. Gate state lives in `gates.json`; SCM state in `.lakebase/workflow-state.json`; spec artifacts in the `.sftdd/` tree. The agent log records what the agents DID, in order, for debugging + audit.
+This log is execution narrative, not workflow state. Gate state lives in `gates.json`; SCM state in `.lakebase/workflow-state.json`; spec artifacts in the `.consort/` tree. The agent log records what the agents DID, in order, for debugging + audit.

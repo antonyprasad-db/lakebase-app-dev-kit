@@ -1,9 +1,9 @@
-// Kit createProject: the SFTDD-flavored project scaffolder.
+// Kit createProject: the Consort-flavored project scaffolder.
 //
 // The base 11-step orchestrator lives in @databricks-solutions/lakebase-scm-utils
-// and is SFTDD-agnostic. This kit wrapper injects the SFTDD lay-down + config
-// seeding (the `.sftdd/` bootstrap + sftdd-config.json) by default, so the kit's
-// lakebase-create-project CLI keeps producing SFTDD-ready projects. Callers that
+// and is Consort-agnostic. This kit wrapper injects the Consort lay-down + config
+// seeding (the `.consort/` bootstrap + consort-config.json) by default, so the kit's
+// lakebase-create-project CLI keeps producing Consort-ready projects. Callers that
 // want a plain SCM project pass `consortHooks: undefined` explicitly, or consume
 // the base createProject from the substrate package directly.
 

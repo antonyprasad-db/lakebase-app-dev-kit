@@ -7,7 +7,7 @@
 // A/B-compared (the promote3 baseline differed from the original in BOTH the
 // build model and P2/P5/P6, recoverable only by reading git branches).
 //
-// The driver writes .sftdd/run-config.json ONCE at startup (the common path for
+// The driver writes .consort/run-config.json ONCE at startup (the common path for
 // both the interactive `/` commands and the smoke runners), capturing the
 // RESOLVED matrix (not just the override list). The timing report prints it as a
 // `config:` header and nests it in --json, so a comparison is a self-describing
@@ -25,7 +25,7 @@ import { resolveLaunchKitRef } from "../../consort/config/kit-ref.js";
  *  value so an old report reading a new file (or vice versa) stays robust. */
 export interface RunConfig {
   version: 1;
-  /** Optional human label for the run (LAKEBASE_SFTDD_RUN_LABEL). */
+  /** Optional human label for the run (LAKEBASE_CONSORT_RUN_LABEL). */
   run_label?: string;
   /** ISO start timestamp of the run. */
   started_at: string;
@@ -40,7 +40,7 @@ export interface RunConfig {
   /** P6: the REVIEW turn's --effort ("" = model default). */
   review_effort: string;
   /** The build loop granularity (story | ac | hybrid-a); "story" is the default
-   *  (Navigator/Driver take story-scoped turns). Override via LAKEBASE_SFTDD_LOOP. */
+   *  (Navigator/Driver take story-scoped turns). Override via LAKEBASE_CONSORT_LOOP. */
   loop_granularity: string;
   /** P8b: layer-batch cap, when batching. */
   batch_cap?: number;
@@ -112,7 +112,7 @@ export function buildRunConfig(inputs: RunConfigInputs): RunConfig {
 }
 
 /**
- * Write the run-config snapshot to `.sftdd/run-config.json`, and , when recording
+ * Write the run-config snapshot to `.consort/run-config.json`, and , when recording
  * (LAKEBASE_CONSORT_RECORD_DIR set) , mirror a copy to the corpus root so a replay
  * carries its own provenance. Best-effort: a write failure never breaks a run
  * (the snapshot is observability, like the agent log).
@@ -134,7 +134,7 @@ export function writeRunConfig(inputs: RunConfigInputs): RunConfig {
   return cfg;
 }
 
-/** Read `.sftdd/run-config.json` for a project (or undefined when absent). */
+/** Read `.consort/run-config.json` for a project (or undefined when absent). */
 export function readRunConfig(consortDir: string): RunConfig | undefined {
   const f = join(consortDir, "run-config.json");
   if (!existsSync(f)) return undefined;

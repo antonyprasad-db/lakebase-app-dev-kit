@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Convenient launcher for the TDD workflow.
+# Convenient launcher for the Consort workflow.
 #
 # Opens a Claude Code session in the project. The orchestrator is the
 # deterministic driver (consort-drive), invoked by the slash commands, not
@@ -8,24 +8,24 @@
 # you land straight in it.
 #
 # Run from the project root:
-#   ./scripts/sftdd.sh                  open a session (then type /sprint, /plan, etc.)
-#   ./scripts/sftdd.sh sprint [name]    run the whole sprint (plan -> per feature design/build/deploy)
-#   ./scripts/sftdd.sh plan             sprint planning only (to the plan gate)
-#   ./scripts/sftdd.sh design <id>      design a feature
-#   ./scripts/sftdd.sh build  <id>      build it through the TDD cycles
-#   ./scripts/sftdd.sh deploy <id>      deploy + the working-software gate
-#   ./scripts/sftdd.sh spike  <slug>    throwaway exploration (outside the loop)
+#   ./scripts/consort.sh                  open a session (then type /sprint, /plan, etc.)
+#   ./scripts/consort.sh sprint [name]    run the whole sprint (plan -> per feature design/build/deploy)
+#   ./scripts/consort.sh plan             sprint planning only (to the plan gate)
+#   ./scripts/consort.sh design <id>      design a feature
+#   ./scripts/consort.sh build  <id>      build it through the TDD cycles
+#   ./scripts/consort.sh deploy <id>      deploy + the working-software gate
+#   ./scripts/consort.sh spike  <slug>    throwaway exploration (outside the loop)
 #
 # The role agents must be discoverable under .claude/agents/ (lakebase-create-project
 # scaffolds them; the driver spawns them). Requires the `claude` CLI on PATH.
 set -euo pipefail
 
 if ! command -v claude >/dev/null 2>&1; then
-  echo "tdd: the 'claude' CLI is not on PATH. Install Claude Code, then re-run." >&2
+  echo "consort: the 'claude' CLI is not on PATH. Install Claude Code, then re-run." >&2
   exit 1
 fi
 if [[ ! -d ".claude/agents" ]]; then
-  echo "tdd: no .claude/agents/ in $(pwd). Run this from a lakebase-create-project root." >&2
+  echo "consort: no .claude/agents/ in $(pwd). Run this from a lakebase-create-project root." >&2
   exit 1
 fi
 

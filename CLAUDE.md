@@ -7,9 +7,9 @@ This repo is the Lakebase-backed application development kit. See [`README.md`](
 Every project created with `lakebase-create-project` gets two top-level scaffolds:
 
 - **`scripts/`** – kit-provided substrate (consumed via git URL pin in the project's package.json).
-- **`.sftdd/`** – TDD workflow state read and written by `consort`. Layout: `features/<F>/`, `experiments/<F>/<exp>/`, `spikes/<slug>/`, `synthesis/<F>/`, `cycles/<F>/<S>/<AC>/`, `selection-log.md`, `smells.json`, `workflow-state.json`. See [`templates/sftdd-bootstrap/.sftdd/README.md`](templates/sftdd-bootstrap/.sftdd/README.md) for the canonical reference.
+- **`.consort/`** – TDD workflow state read and written by `consort`. Layout: `features/<F>/`, `experiments/<F>/<exp>/`, `spikes/<slug>/`, `synthesis/<F>/`, `cycles/<F>/<S>/<AC>/`, `selection-log.md`, `smells.json`, `workflow-state.json`. See [`templates/consort-bootstrap/.consort/README.md`](templates/consort-bootstrap/.consort/README.md) for the canonical reference.
 
-The `.sftdd/` directory is created at scaffold time by `layDownTddScaffold()` in `scripts/lakebase/create-project.ts`. Pass `enableTdd: false` to opt out.
+The `.consort/` directory is created at scaffold time by `layDownTddScaffold()` in `consort/setup/project-consort-setup.ts` (injected into the base scaffolder as a Consort setup hook). Pass `consortHooks: undefined` to `createProject` to opt out.
 
 ## When working in this repo
 

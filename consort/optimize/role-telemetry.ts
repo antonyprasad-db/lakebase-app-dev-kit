@@ -111,7 +111,7 @@ export function formatRoleTelemetry(t: RoleTelemetry): string {
  * Persist one role's telemetry record to `<dir>/<chain>.telemetry.json` (one file per chain, so
  * a whole per-role suite lands as a directory of records the sweep/report can join). Returns the
  * path written. The dir is the CALLER's durable location , NOT the throwaway workspace, so the
- * record outlives the rm'd `.sftdd`.
+ * record outlives the rm'd `.consort`.
  */
 export function writeRoleTelemetry(dir: string, record: RoleTelemetry): string {
   const path = join(dir, `${record.chain}.telemetry.json`);

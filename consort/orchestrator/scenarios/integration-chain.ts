@@ -2,7 +2,7 @@
 // action, and it loads EVERY manifest in that folder and drives runManifestChain from the start,
 // following each turn's routing to the next matching manifest until the chain leaves the set.
 // "Anything in the manifest folder participates" , dropping a new manifest whose `match` is
-// reached by the chain's routing pulls it in automatically. LEAN: runs in a throwaway `.sftdd`
+// reached by the chain's routing pulls it in automatically. LEAN: runs in a throwaway `.consort`
 // workspace, no cloud project (a chain with one live agent still only needs a temp dir + the
 // agent-report channel).
 
@@ -32,10 +32,10 @@ export interface IntegrationChainConfig {
   /** The action the chain starts from. */
   start: WorkflowAction;
   /** Per-role output-path remap (a live agent writes to a baked cwd-relative path, e.g.
-   *  ux-designer -> .sftdd/design/design-guide.json). Keyed by role. */
+   *  ux-designer -> .consort/design/design-guide.json). Keyed by role. */
   outputPathsByRole?: Record<string, Record<string, string>>;
   /** Per-role instruction bundle (the live agent's prompt). Receives the run's workspace dir so
-   *  a build chain can compute the real buildContextPack against the SEEDED workspace .sftdd. */
+   *  a build chain can compute the real buildContextPack against the SEEDED workspace .consort. */
   instructionsFor?(manifest: StepManifest, workspaceDir: string): StepInstructions;
   /** OPTIONAL agent override , build the StepAgent for a manifest imperatively instead of
    *  resolving manifest.agent via the catalogue. This is the LEVER-INJECTION seam the per-role
@@ -44,10 +44,10 @@ export interface IntegrationChainConfig {
    *  the catalogue = the replay seed). When absent, every manifest resolves via the catalogue
    *  (the default live run). */
   agentFor?(manifest: StepManifest): import("../agents/agent-types.js").StepAgent | undefined;
-  /** OPTIONAL extra workspace-relative roots (besides `.sftdd`) to include in the preserved
+  /** OPTIONAL extra workspace-relative roots (besides `.consort`) to include in the preserved
    *  producedArtifacts snapshot. A BUILD-turn chain's navigator/driver writes CODE at the
-   *  workspace root (tests/, app/), which the default `.sftdd`-only snapshot would drop , naming
-   *  those roots here preserves them. Default empty ⇒ design chains snapshot only `.sftdd`
+   *  workspace root (tests/, app/), which the default `.consort`-only snapshot would drop , naming
+   *  those roots here preserves them. Default empty ⇒ design chains snapshot only `.consort`
    *  (byte-identical to before). */
   extraSnapshotRoots?: string[];
   /** OPTIONAL per-precondition-kind options merged into that preparer's projection (parallel-safe,
@@ -61,7 +61,7 @@ export interface IntegrationChainResult {
   turns: ManifestTurn[];
   /** The workspace the chain ran in (already removed by the time this returns). */
   workspaceDir: string;
-  /** ALWAYS-ON artifact preservation: a snapshot of the produced `.sftdd` tree ({workspace-
+  /** ALWAYS-ON artifact preservation: a snapshot of the produced `.consort` tree ({workspace-
    *  relative path -> file contents}), read BEFORE the workspace is torn down. Every run keeps
    *  its produced outputs , telemetry alone cannot reproduce or re-judge a result, so this is
    *  not optional (see the preserve-experiment-artifacts rule). A caller (the sweep) persists
@@ -70,7 +70,7 @@ export interface IntegrationChainResult {
 }
 
 /**
- * Run an integration chain end to end in a throwaway `.sftdd` workspace, following the loaded
+ * Run an integration chain end to end in a throwaway `.consort` workspace, following the loaded
  * manifests' routing from `start`. The live agent (if any) authors an agent-report the
  * orchestrator formats into a conformant agent-log (formatAgentReports on). Removes the
  * workspace in a finally. No cloud , the whole chain is a temp dir.
@@ -123,14 +123,14 @@ export async function runIntegrationChain(config: IntegrationChainConfig): Promi
 
   try {
     const turns = await runManifestChain(config.start, manifests, runnerDeps);
-    // ALWAYS preserve the produced outputs BEFORE teardown: snapshot the whole `.sftdd` tree
+    // ALWAYS preserve the produced outputs BEFORE teardown: snapshot the whole `.consort` tree
     // (every file the run wrote) into a {relpath -> contents} map. A run's produced artifacts
     // must survive the throwaway workspace , telemetry alone cannot reproduce or re-judge a
     // result (see the preserve-experiment-artifacts rule). A caller persists this to a durable
     // per-experiment dir. Never optional.
     const producedArtifacts = snapshotTree(join(workspaceDir, ARTIFACT_ROOT), workspaceDir);
     // A BUILD chain's navigator/driver writes CODE at the workspace root (tests/, app/); the
-    // default `.sftdd`-only snapshot drops it. Merge in any declared extra roots so the produced
+    // default `.consort`-only snapshot drops it. Merge in any declared extra roots so the produced
     // code survives teardown too. Design chains pass none => this is a no-op (byte-identical).
     for (const root of config.extraSnapshotRoots ?? []) {
       Object.assign(producedArtifacts, snapshotTree(join(workspaceDir, root), workspaceDir));

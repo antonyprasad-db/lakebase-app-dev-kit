@@ -171,7 +171,7 @@ export interface StoryTestList {
  *  a conformant AC self-names (acs/<id>.json holds { id: "<id>" }), so non-AC
  *  files an agent may drop in (e.g. <ac>-tests.json / <ac>-test-list.json, whose
  *  `id` is the AC they test, not the suffixed basename) are excluded , the same
- *  pollution that stalls the design lane via storyAcIds (see sftdd-paths.ts). */
+ *  pollution that stalls the design lane via storyAcIds (see consort-paths.ts). */
 function acIdsInStoryDir(storyDir: string): string[] {
   const dir = join(storyDir, "acs");
   if (!existsSync(dir)) return [];

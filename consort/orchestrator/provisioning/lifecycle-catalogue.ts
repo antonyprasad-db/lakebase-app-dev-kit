@@ -9,7 +9,7 @@
 //                      lakebaseProjectId, repo url) teardown consumes.
 //   remove-project   : delete what scaffold-project created (Lakebase project + local dir; the
 //                      GitHub repo is left unless config.deleteRepo). Reads the setup handle.
-//   inject-escalation: plant a REAL escalation into the workspace `.sftdd/escalations/` (via the
+//   inject-escalation: plant a REAL escalation into the workspace `.consort/escalations/` (via the
 //                      shared writeEscalation), so a scenario can deterministically drive the
 //                      revise/escalate route space , no flaky live navigator turn needed. The
 //                      manifest runner's probeEscalation seam then derives it back off disk.
@@ -182,7 +182,7 @@ export async function removeProject(
   return errors.length ? { ok: false, error: errors.join("; ") } : { ok: true };
 }
 
-/** inject-escalation: write a REAL escalation into the workspace `.sftdd/escalations/` so a
+/** inject-escalation: write a REAL escalation into the workspace `.consort/escalations/` so a
  *  scenario can deterministically exercise the revise/escalate route space. Reuses the shared
  *  writeEscalation (the same fn the live orchestrator uses), so the planted file is byte-shaped
  *  exactly like a real one and the disk probe classifies it identically. A `smell:<name>` source
@@ -218,7 +218,7 @@ export const LIFECYCLE_CATALOGUE: Record<string, LifecycleCatalogueEntry> = {
     run: removeProject,
   },
   "inject-escalation": {
-    description: "Plant a REAL escalation into the workspace .sftdd/escalations/ (via writeEscalation) so a scenario deterministically drives the revise/escalate route space. Pure filesystem.",
+    description: "Plant a REAL escalation into the workspace .consort/escalations/ (via writeEscalation) so a scenario deterministically drives the revise/escalate route space. Pure filesystem.",
     configSummary: "{ source (required, e.g. \"smell:reflect-spec-defect\"), reason (required), story_id?, feature_id? }",
     run: injectEscalation,
   },

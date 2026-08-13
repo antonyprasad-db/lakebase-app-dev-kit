@@ -130,7 +130,7 @@ export class ClaudeTurnError extends Error {
   }
 }
 
-/** A replay lane (LAKEBASE_SFTDD_REPLAY_DIR / _REPLAY_BUILD_DIR) was told to
+/** A replay lane (LAKEBASE_CONSORT_REPLAY_DIR / _REPLAY_BUILD_DIR) was told to
  *  reproduce a turn the corpus has no artifact for. A replay is a RECORDING: it
  *  must never fall through to a live agent (that would let an agent "take over"
  *  a run meant to be deterministic, and silently mask a broken/incomplete
@@ -145,7 +145,7 @@ export class ReplayCorpusMissError extends Error {
 }
 
 /** FEIP-8006: a role turn completed but its expected artifact never landed under
- *  the project's `.sftdd/`. The subagent almost always resolved the project root
+ *  the project's `.consort/`. The subagent almost always resolved the project root
  *  wrong and wrote outside it (e.g. `$HOME/<somewhere>`), so a downstream
  *  consuming effect would otherwise crash reading the absent file, with a cryptic,
  *  MISATTRIBUTED error that blames the wrong step. We fail loud + attributed at the
@@ -238,7 +238,7 @@ export function spawnClaudeStreaming(
     // turn's FINAL assistant text (the outcome) at close. The interstitial
     // "now I'll... / let me check..." prose is buffered and overwritten, so only
     // the last text (the result line) survives , the deliberation never hits the
-    // log. Set LAKEBASE_SFTDD_VERBOSE_AGENT=1 to tee every assistant text delta.
+    // log. Set LAKEBASE_CONSORT_VERBOSE_AGENT=1 to tee every assistant text delta.
     const verboseAgent = !!consortEnv("VERBOSE_AGENT");
     // Liveness sidecar: when recording, ALWAYS stream the agent's intermediate reasoning + each tool
     // action to <RECORD_DIR>/agent-live.log as it arrives, timestamped. This is the "is it working or
@@ -494,7 +494,7 @@ export function execRunner(cfg: DriveEffectsConfig): CommandRunner {
         return;
       }
       if (cmd.kind === "claude") {
-        // Per-turn BUILD replay: when LAKEBASE_SFTDD_REPLAY_BUILD_DIR is set, a
+        // Per-turn BUILD replay: when LAKEBASE_CONSORT_REPLAY_BUILD_DIR is set, a
         // Navigator/Driver turn overlays its recorded artifact (code + cycle/
         // experiment records) from the corpus instead of spawning the model. The
         // orchestrator still VISITS the turn (logs + transitions + runs the live
@@ -509,7 +509,7 @@ export function execRunner(cfg: DriveEffectsConfig): CommandRunner {
         const story = cmd.replay?.story;
         if (replayBuildDir && story && (cmd.role === "navigator" || cmd.role === "driver")) {
           // The reflect turn is a DESIGN GATE that runs in the build lane: its only
-          // output is reflect-verdict.json (a .sftdd artifact), never code. Restore
+          // output is reflect-verdict.json (a .consort artifact), never code. Restore
           // JUST the verdict , do NOT restore its recorded code snapshot (that would
           // overwrite the freshly-scaffolded tree with the recording's project-name-
           // baked files and leave it dirty, so the pre-build cut-experiment fork
@@ -557,7 +557,7 @@ export function execRunner(cfg: DriveEffectsConfig): CommandRunner {
               `re-record or fix the corpus so it covers every dispatched turn.`,
           );
         }
-        // Fast-forward replay: when LAKEBASE_SFTDD_REPLAY_DIR is set, a design-lane
+        // Fast-forward replay: when LAKEBASE_CONSORT_REPLAY_DIR is set, a design-lane
         // role's turn copies its recorded output from the corpus instead of
         // spawning the model. The orchestrator still VISITS the turn (logs +
         // transitions + runs its deterministic effects); only the LLM generation
@@ -590,7 +590,7 @@ export function execRunner(cfg: DriveEffectsConfig): CommandRunner {
         // stream-json (requires --verbose with --print) lets us capture the turn's
         // token usage from the result event while teeing readable text to the console.
         const baseArgs = claudeBaseArgs(cmd);
-        // Per-role/turn model-side knobs (sftdd-config.json): effort (set on judgment
+        // Per-role/turn model-side knobs (consort-config.json): effort (set on judgment
         // turns to run fast), fallback model (auto-failover when the primary is
         // overloaded), and a per-invocation dollar cap.
         if (cmd.effort) baseArgs.push("--effort", cmd.effort);
@@ -608,7 +608,7 @@ export function execRunner(cfg: DriveEffectsConfig): CommandRunner {
           // accumulated context. This is the deterministic companion to the reactive
           // budget guard below (which only resets AFTER a session already grew too
           // big). Artifact-as-API makes a cold turn always correct: the turn reloads
-          // exactly what it needs from disk. Overridable via LAKEBASE_SFTDD_HEAVY_ROLES.
+          // exactly what it needs from disk. Overridable via LAKEBASE_CONSORT_HEAVY_ROLES.
           if (startsFreshEachTurn(cmd.role)) {
             const id = randomUUID();
             sessions.set(cmd.resumeKey, id);
@@ -639,7 +639,7 @@ export function execRunner(cfg: DriveEffectsConfig): CommandRunner {
         // guard above cannot pre-empt a turn that balloons WITHIN itself (one shot,
         // many tool calls , the failure that killed F6/S3-split-drop-old). When that
         // turn fails with "Prompt is too long", restart it on a FRESH session: the
-        // artifacts the failed attempt already wrote (.sftdd + code + tests) persist,
+        // artifacts the failed attempt already wrote (.consort + code + tests) persist,
         // so each retry has strictly less to do and converges, instead of aborting
         // the whole drive. A non-overflow failure (or exhausted retries) still throws.
         let usage: TurnUsage | undefined;
@@ -817,7 +817,7 @@ export function buildCfg(args: ParsedArgs, featureId: string): DriveEffectsConfi
   // overrides the recorded project_id when given.
   const scm = readWorkflowState(projectDir);
   // Unified config: one resolution of the per-role/turn model+effort matrix + the
-  // build/plan/project knobs (sftdd-config.json -> LAKEBASE_SFTDD_* env -> default).
+  // build/plan/project knobs (consort-config.json -> LAKEBASE_CONSORT_* env -> default).
   const settings = resolveConsortSettings({ projectDir });
   return {
     projectDir,
@@ -834,7 +834,7 @@ export function buildCfg(args: ParsedArgs, featureId: string): DriveEffectsConfi
     livePropose: !!consortEnv("LIVE_PROPOSE")?.trim(),
     // Agent turns dispatch THROUGH the StepExecutor (the unified path) , now the DEFAULT (J1). Every
     // executor-allowlisted action has a shipped manifest (guarded by executor-dispatch-coverage.test),
-    // so the executor is the sole agent path. LAKEBASE_SFTDD_USE_MANIFEST_STEPS is a one-cycle escape
+    // so the executor is the sole agent path. LAKEBASE_CONSORT_USE_MANIFEST_STEPS is a one-cycle escape
     // hatch: set it to 0/false/off/no to force the legacy commandsForAction dispatch (retired in J5).
     useManifestSteps: !/^(0|false|off|no)$/i.test(consortEnv("USE_MANIFEST_STEPS")?.trim() ?? ""),
     // RECORD lane (Stage G): hand the executor's ReplayRecorderWrapper the just-completed live
@@ -880,7 +880,7 @@ export function buildCfg(args: ParsedArgs, featureId: string): DriveEffectsConfi
       // Narrate each routing decision in plain language (DRY: the same message
       // the structured log uses). The machine-readable form is already written to
       // the structured agent-log by makeOnAction below, so the raw action JSON is
-      // console noise on every line , append it only under LAKEBASE_SFTDD_TRACE.
+      // console noise on every line , append it only under LAKEBASE_CONSORT_TRACE.
       (action, i) => {
         const trace = consortEnv("TRACE") ? `  ${JSON.stringify(action)}` : "";
         process.stderr.write(`[drive] ${String(i).padStart(3, "0")} ${describeAction(action, { featureId })}${trace}\n`);

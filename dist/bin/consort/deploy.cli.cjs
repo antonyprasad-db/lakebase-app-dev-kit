@@ -6660,7 +6660,7 @@ var import_util3 = require("@databricks-solutions/lakebase-scm-utils/util");
 
 // consort/deploy/deploy.ts
 init_cjs_shims();
-var import_node_child_process = require("child_process");
+var import_node_child_process2 = require("child_process");
 var import_node_crypto = require("crypto");
 var import_node_fs5 = require("fs");
 var import_node_path7 = require("path");
@@ -6709,6 +6709,7 @@ var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebas
 
 // consort/experiment/experiment.ts
 init_cjs_shims();
+var import_node_child_process = require("child_process");
 var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/logging/agent-log.ts
@@ -7205,7 +7206,7 @@ function normalizeVerifyRun(raw) {
 }
 function defaultRunVerify(cmd, cwd, env) {
   try {
-    const out = (0, import_node_child_process.execSync)(cmd, { cwd, stdio: "pipe", env: env ?? process.env });
+    const out = (0, import_node_child_process2.execSync)(cmd, { cwd, stdio: "pipe", env: env ?? process.env });
     return { passed: true, output: out?.toString() ?? "" };
   } catch (err) {
     const e = err;
@@ -7228,7 +7229,7 @@ function writeDeployEvidence(consortDir, evidence) {
   return file;
 }
 function defaultStart(cmd, cwd, env) {
-  const child = (0, import_node_child_process.spawn)("sh", ["-c", cmd], { cwd, detached: true, stdio: "ignore", env: env ?? process.env });
+  const child = (0, import_node_child_process2.spawn)("sh", ["-c", cmd], { cwd, detached: true, stdio: "ignore", env: env ?? process.env });
   child.unref();
   return child.pid ?? -1;
 }

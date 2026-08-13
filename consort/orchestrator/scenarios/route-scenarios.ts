@@ -1,5 +1,5 @@
 // route-scenarios: the CATALOGUE of route pathways out of a spec-author breakdown, each an
-// isolated scenario the suite runs in its own throwaway `.sftdd` workspace (LEAN , no cloud
+// isolated scenario the suite runs in its own throwaway `.consort` workspace (LEAN , no cloud
 // project). One entry per outcome of the StepOutcome space:
 //   produced  -> the honest next hop (ux-designer) , the happy path.
 //   revise    -> a routable spec smell routes back to the spec-author at Gate 1.
@@ -7,7 +7,7 @@
 //
 // Every scenario shares the demo's PO-seed + spec-author-breakdown manifests + intake; they
 // differ only in whether an escalation is injected before the step under test and what route is
-// expected. No env/cloud needed , the route depends on `.sftdd` state, which the driver builds
+// expected. No env/cloud needed , the route depends on `.consort` state, which the driver builds
 // on a temp dir.
 
 import { join } from "node:path";

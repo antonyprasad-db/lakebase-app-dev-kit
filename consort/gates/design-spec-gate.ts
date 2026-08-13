@@ -57,7 +57,7 @@ export interface ExperimentPlan {
   rationale: string;
   /**
    * Spike notes that reference this feature, surfaced from
-   * `.sftdd/spikes/<slug>/notes.md` by `collectSpikeInputs`. The gate
+   * `.consort/spikes/<slug>/notes.md` by `collectSpikeInputs`. The gate
    * analyzer populates this automatically when matching spikes exist;
    * the orchestrator presents them to the PO at Gate 4 and the PO
    * decides which to keep via `attachSpikeInputs`.
@@ -106,7 +106,7 @@ export interface AnalyzeForGateOptions {
   /**
    * Project root that holds `playwright.config.ts` etc. Defaults to the
    * directory above consortDir, which matches the canonical convention
-   * (`<projectRoot>/.sftdd/`). Pass explicitly when consortDir lives outside
+   * (`<projectRoot>/.consort/`). Pass explicitly when consortDir lives outside
    * the project root (BDD harness, non-standard layouts).
    */
   projectDir?: string;

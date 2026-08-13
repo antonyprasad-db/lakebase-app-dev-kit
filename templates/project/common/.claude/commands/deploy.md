@@ -4,7 +4,7 @@ Drives a built feature to a deployment target and verifies it is running and rea
 
 ## Operating contract (drive, do not narrate)
 
-Follow `@consort/references/orchestrator-contract.md`: drive to completion via `consort-next` (enact its `primary_action`, then continue), and stop for the human ONLY at a HITL gate (the deploy gate, then promote) or a blocker. Present the decision (the `next` option titles + their `hil_prompt`s), not the CLIs you ran; report outcomes ("F1 shipped to staging"), not per-command play-by-play; show the working software (the reachable endpoint) at the deploy gate, not an internal state dump. Verbose step narration is opt-in (`LAKEBASE_SFTDD_VERBOSE=1`), off by default.
+Follow `@consort/references/orchestrator-contract.md`: drive to completion via `consort-next` (enact its `primary_action`, then continue), and stop for the human ONLY at a HITL gate (the deploy gate, then promote) or a blocker. Present the decision (the `next` option titles + their `hil_prompt`s), not the CLIs you ran; report outcomes ("F1 shipped to staging"), not per-command play-by-play; show the working software (the reachable endpoint) at the deploy gate, not an internal state dump. Verbose step narration is opt-in (`LAKEBASE_CONSORT_VERBOSE_AGENT=1`), off by default.
 
 ## Usage
 
@@ -19,7 +19,7 @@ also deploy automatically during `/build` for the PO's per-story acceptance, so
 `--story` is for re-reviewing one on demand. A sprint is never deployed as a
 unit, `/sprint` runs each feature's `/deploy`.
 
-Requires the feature to be built: `.sftdd/features/<feature-id>/test-list.json` with its TDD cycles green (what `/build` produces). If the build is absent, stop with a pointer back to `/build <feature-id>`.
+Requires the feature to be built: `.consort/features/<feature-id>/test-list.json` with its TDD cycles green (what `/build` produces). If the build is absent, stop with a pointer back to `/build <feature-id>`.
 
 ## Targets
 
@@ -64,7 +64,7 @@ emits the phase/gate log as code; tail with `consort-log --read --feature <id>`.
 
 If `.claude/commands/deploy.pre-hook.md` / `deploy.post-hook.md` exist, they run before / after the deploy phase (e.g. refresh credentials beforehand; notify a channel that the increment is live afterward). One pre-hook plus one post-hook per command.
 
-## Substrate version
+## Kit version
 
 Pinned to: `${KIT_VERSION_AT_SCAFFOLD}`
 

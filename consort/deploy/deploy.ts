@@ -91,7 +91,7 @@ export function readAppDatabaseName(projectDir: string): string | undefined {
  * at it (VERIFY_DATABASE_URL), and delete it after , so the suite's migration
  * up/down fixtures mutate a throwaway DB instead of leaving the shared branch
  * half-migrated for the next story's verify (the thrash fix; Lakebase branching
- * makes the fork + teardown ~instant). Set `LAKEBASE_SFTDD_EPHEMERAL_VERIFY=0` to opt
+ * makes the fork + teardown ~instant). Set `LAKEBASE_CONSORT_EPHEMERAL_VERIFY=0` to opt
  * OUT (plain in-place verify); also falls back in-place when there is no
  * experiment branch / instance to fork from. Always returns the pass/fail boolean.
  */

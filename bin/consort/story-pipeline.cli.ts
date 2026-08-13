@@ -368,7 +368,7 @@ async function main(): Promise<number> {
       // clears the build cycles + test-list, the story's HIL escalations AND
       // blocking smells, resets the experiment for a clean re-fork, and puts the
       // story back on the build lane , so recovering a story after a caught
-      // false-GREEN never needs `rm -rf .sftdd/cycles/...` + hand-edits.
+      // false-GREEN never needs `rm -rf .consort/cycles/...` + hand-edits.
       if (!args.story) return usage("rebuild-story needs --story");
       let r;
       try {
@@ -392,7 +392,7 @@ async function main(): Promise<number> {
     }
     case "resolve-smell": {
       // Explicit escape hatch: resolve a blocking smell without a revise/discard,
-      // so an operator never hand-edits .sftdd/smells.json (Finding 23). Marks the
+      // so an operator never hand-edits .consort/smells.json (Finding 23). Marks the
       // entry `cleared` (does not spend the revise budget).
       if (!args.smell) return usage("resolve-smell needs --smell");
       if (!args.approver) return usage("resolve-smell needs --approver");

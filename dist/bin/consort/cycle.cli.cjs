@@ -6669,6 +6669,7 @@ var acReviewJson = (tdd, f, s, ac) => (0, import_node_path.join)(cyclesRootDir(t
 var acReviewVerdictJson = (tdd, f, s, ac) => (0, import_node_path.join)(cyclesRootDir(tdd), f, s, ac, "review-verdict.json");
 var storyReviewJson = (tdd, f, s) => (0, import_node_path.join)(cyclesRootDir(tdd), f, s, "review.json");
 var storyReviewVerdictJson = (tdd, f, s) => (0, import_node_path.join)(cyclesRootDir(tdd), f, s, "review-verdict.json");
+var designGuideJson = (tdd) => (0, import_node_path.join)(tdd, "design", "design-guide.json");
 var featureDir = (tdd, featureId) => (0, import_node_path.join)(featuresDir(tdd), featureId);
 var featureResolved = (tdd, f) => findFeatureDir(tdd, f) ?? featureDir(tdd, f);
 var featureTestListJson = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "test-list.json");
@@ -6943,6 +6944,7 @@ function readStoryTestList(tddDir, featureId, storyId) {
 init_cjs_shims();
 var import_fs2 = require("fs");
 var import_path2 = require("path");
+var import_node_child_process = require("child_process");
 var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 function acLayerToTag(layer) {
   switch (layer) {
@@ -7008,7 +7010,7 @@ function writeOutcomes(consortDir, featureId, storyId, slug, outcomes) {
 
 // consort/deploy/deploy.ts
 init_cjs_shims();
-var import_node_child_process = require("child_process");
+var import_node_child_process2 = require("child_process");
 var import_node_crypto = require("crypto");
 var import_node_fs2 = require("fs");
 var import_node_path3 = require("path");
@@ -7651,7 +7653,7 @@ function hasClientWorkspace(projectDir) {
 }
 function defaultRunVerify(cmd, cwd, env) {
   try {
-    const out = (0, import_node_child_process.execSync)(cmd, { cwd, stdio: "pipe", env: env ?? process.env });
+    const out = (0, import_node_child_process2.execSync)(cmd, { cwd, stdio: "pipe", env: env ?? process.env });
     return { passed: true, output: out?.toString() ?? "" };
   } catch (err) {
     const e = err;
@@ -7665,7 +7667,7 @@ ${tail}
   }
 }
 function defaultStart(cmd, cwd, env) {
-  const child = (0, import_node_child_process.spawn)("sh", ["-c", cmd], { cwd, detached: true, stdio: "ignore", env: env ?? process.env });
+  const child = (0, import_node_child_process2.spawn)("sh", ["-c", cmd], { cwd, detached: true, stdio: "ignore", env: env ?? process.env });
   child.unref();
   return child.pid ?? -1;
 }
@@ -7833,15 +7835,34 @@ function checkTokenConsumption(input) {
   }
   return bare.length === 0 ? { ok: true, bare: [] } : { ok: false, bare, remediation: CONSUMPTION_REMEDIATION };
 }
-var UX_CLEAN_REMEDIATION = "The client UI does not fully apply the design guide: a feature page is unreachable (not routed in App.tsx) and/or bare (consumes no design tokens/classes). Wire every feature page into <Routes> with a nav affordance and style it with the design vocabulary. See `ux-adherence`.";
+var APP_ICON_REMEDIATION = "The design guide declares a brand app_icon (an intake asset), but the app does not use it: the asset is missing at its install_to path and/or the app shell still references the generic scaffold placeholder (favicon.svg) instead. Copy the asset to install_to, point index.html's <link rel=\"icon\"> at it, and render it as the navbar/app-title mark. The provided brand icon must be the app's icon, not left unused in intake. See the `ux-adherence` smell.";
+function checkAppIcon(input) {
+  if (!input.appIcon) return { ok: true, violations: [] };
+  const violations = [];
+  const base = input.installedBasename;
+  if (!input.installedExists) {
+    violations.push(`brand app icon not installed at "${input.appIcon.install_to}" (declared in the design guide, copied from "${input.appIcon.source}")`);
+  }
+  const referenced = (src) => src.includes(base);
+  if (!referenced(input.indexHtml)) {
+    violations.push(`index.html favicon does not reference the brand icon "${base}" (still the scaffold placeholder)`);
+  }
+  if (!referenced(input.appShell)) {
+    violations.push(`the app shell (App.tsx) does not reference the brand icon "${base}" (navbar/title still the placeholder)`);
+  }
+  return violations.length === 0 ? { ok: true, violations: [] } : { ok: false, violations, remediation: APP_ICON_REMEDIATION };
+}
+var UX_CLEAN_REMEDIATION = "The client UI does not fully apply the design guide: a feature page is unreachable (not routed in App.tsx), bare (consumes no design tokens/classes), and/or the declared brand app icon is not applied. Wire every feature page into <Routes> with a nav affordance, style it with the design vocabulary, and install + reference the brand icon. See `ux-adherence`.";
 function summarizeUxViolations(r) {
   const parts = [];
   if (!r.reachability.ok) parts.push(`unreachable pages: ${r.reachability.unreachable.join(", ")}`);
   if (!r.tokens.ok) parts.push(`bare (unstyled) pages: ${r.tokens.bare.join(", ")}`);
+  if (!r.appIcon.ok) parts.push(`brand app icon not applied: ${r.appIcon.violations.join("; ")}`);
   return parts.join("; ");
 }
 function checkUxClean(args) {
-  const clean0 = { clean: true, reachability: { ok: true, unreachable: [] }, tokens: { ok: true, bare: [] } };
+  const okIcon = { ok: true, violations: [] };
+  const clean0 = { clean: true, reachability: { ok: true, unreachable: [] }, tokens: { ok: true, bare: [] }, appIcon: okIcon };
   const srcDir = args.clientSrcDir ?? (0, import_node_path4.join)(args.projectDir, "client", "src");
   const appTsx = (0, import_node_path4.join)(srcDir, "App.tsx");
   const pagesDir = (0, import_node_path4.join)(srcDir, "pages");
@@ -7861,8 +7882,22 @@ function checkUxClean(args) {
   }
   const reachability = checkRouteReachability({ appSource, pageComponents });
   const tokens = checkTokenConsumption({ pageSources, designClasses: args.designClasses });
-  const clean = reachability.ok && tokens.ok;
-  return clean ? { clean, reachability, tokens } : { clean, reachability, tokens, remediation: UX_CLEAN_REMEDIATION };
+  let appIcon = okIcon;
+  if (args.appIcon) {
+    const clientDir = (0, import_node_path4.join)(srcDir, "..");
+    const indexHtmlPath = (0, import_node_path4.join)(clientDir, "index.html");
+    const installToPath = (0, import_node_path4.join)(args.projectDir, args.appIcon.install_to);
+    const installedBasename = args.appIcon.install_to.split("/").pop() ?? args.appIcon.install_to;
+    appIcon = checkAppIcon({
+      appIcon: args.appIcon,
+      installedExists: (0, import_node_fs3.existsSync)(installToPath),
+      installedBasename,
+      indexHtml: (0, import_node_fs3.existsSync)(indexHtmlPath) ? (0, import_node_fs3.readFileSync)(indexHtmlPath, "utf8") : "",
+      appShell: appSource
+    });
+  }
+  const clean = reachability.ok && tokens.ok && appIcon.ok;
+  return clean ? { clean, reachability, tokens, appIcon } : { clean, reachability, tokens, appIcon, remediation: UX_CLEAN_REMEDIATION };
 }
 
 // consort/smells/supersession.ts
@@ -7952,13 +7987,16 @@ function composeAssessedGreenFailure(prior, regression) {
     ...regression?.fixDirective ? { fixDirective: regression.fixDirective } : {}
   };
 }
-function rearmRegressionFix(tdd, feature, story, ac) {
+function rearmRegressionFix(tdd, feature, story, ac, fresh) {
   const gf = readGreenFailure(tdd, feature, story, ac);
   if (!gf) return;
+  const summary = fresh?.summary ?? gf.summary;
+  const failureOutput = fresh ? fresh.failureOutput : gf.failureOutput;
   writeGreenFailure(tdd, feature, story, ac, {
     assessed: false,
-    summary: gf.summary,
+    summary,
     fixAttempts: gf.fixAttempts ?? 0,
+    ...failureOutput ? { failureOutput } : {},
     ...gf.contractRefs ? { contractRefs: gf.contractRefs } : {},
     ...gf.supersededTestRefs ? { supersededTestRefs: gf.supersededTestRefs } : {}
   });
@@ -8468,7 +8506,10 @@ async function greenOpenCycle(args) {
       return { recorded: false, cycleId: open.cycle_id, testId: open.test_id, needsAssess: true, summary: result.summary };
     }
     if (!regressionFixExhausted(gf)) {
-      rearmRegressionFix(consortDir, featureId, story, open.ac_id);
+      rearmRegressionFix(consortDir, featureId, story, open.ac_id, {
+        summary: result.summary,
+        failureOutput: result.failureOutput
+      });
       return { recorded: false, cycleId: open.cycle_id, testId: open.test_id, needsAssess: true, summary: result.summary };
     }
     const escalation = writeEscalation(consortDir, {
@@ -8550,7 +8591,19 @@ function firstRefactorPendingAc(consortDir, featureId, story) {
 }
 function flagUxAdherenceIfDirty(consortDir, story) {
   try {
-    const ux = checkUxClean({ projectDir: (0, import_path7.dirname)(consortDir) });
+    let designClasses;
+    let appIcon;
+    try {
+      const gp = designGuideJson(consortDir);
+      if ((0, import_fs7.existsSync)(gp)) {
+        const guide = JSON.parse((0, import_fs7.readFileSync)(gp, "utf8"));
+        const classes = Object.values(guide.components ?? {}).map((c) => typeof c?.class === "string" ? c.class : void 0).filter((c) => !!c);
+        if (classes.length) designClasses = classes;
+        if (guide.app_icon?.source && guide.app_icon?.install_to) appIcon = guide.app_icon;
+      }
+    } catch {
+    }
+    const ux = checkUxClean({ projectDir: (0, import_path7.dirname)(consortDir), designClasses, appIcon });
     if (!ux.clean && !hasOpenSmell(consortDir, "ux-adherence", story)) {
       writeSmellsLog(consortDir, [{ smell: "ux-adherence", cycle_ids: [], detail: summarizeUxViolations(ux), story_id: story }]);
     }

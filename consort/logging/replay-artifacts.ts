@@ -37,7 +37,7 @@ export interface ReplayTurn {
 
 export interface ReplayArgs {
   turn: ReplayTurn;
-  /** The recorded-artifacts corpus root (LAKEBASE_SFTDD_REPLAY_DIR). */
+  /** The recorded-artifacts corpus root (LAKEBASE_CONSORT_REPLAY_DIR). */
   replayDir: string;
   /** The target project .tdd dir. */
   consortDir: string;
@@ -169,8 +169,8 @@ export function replayDesignTurn(args: ReplayArgs): boolean {
  * Restore a recorded reflect turn's verdict (reflect-verdict.json) from the design
  * corpus. The reflect turn is a NAVIGATOR turn, so the build-replay path restores
  * its code snapshot and keeps the per-story turn-index aligned, but its real output
- * is a DESIGN artifact under .sftdd/features/<F>/stories/<S>/reflect-verdict.json
- * that the code-only build restore filters out (it skips .sftdd). Bring it back so
+ * is a DESIGN artifact under .consort/features/<F>/stories/<S>/reflect-verdict.json
+ * that the code-only build restore filters out (it skips .consort). Bring it back so
  * the drive's reflect-verdict expectation is satisfied on replay (else the handoff
  * guard aborts on the "missing" verdict). Returns true iff the corpus had it.
  */

@@ -6908,12 +6908,12 @@ function layDownTddScaffold(targetDir) {
   }
   layDownKitClaudeAssets(targetDir);
   const candidates = [
-    path3.resolve(__dirname2, `../../templates/sftdd-bootstrap/${ARTIFACT_ROOT}`),
-    path3.resolve(__dirname2, `../../../templates/sftdd-bootstrap/${ARTIFACT_ROOT}`)
+    path3.resolve(__dirname2, `../../templates/consort-bootstrap/${ARTIFACT_ROOT}`),
+    path3.resolve(__dirname2, `../../../templates/consort-bootstrap/${ARTIFACT_ROOT}`)
   ];
   const source = candidates.find((c) => fs4.existsSync(c));
   if (!source) {
-    throw new Error(`sftdd-bootstrap template not found; looked in: ${candidates.join(", ")}`);
+    throw new Error(`consort-bootstrap template not found; looked in: ${candidates.join(", ")}`);
   }
   const dest = path3.join(targetDir, ARTIFACT_ROOT);
   if (fs4.existsSync(dest)) {
@@ -7032,6 +7032,7 @@ var import_lakebase3 = require("@databricks-solutions/lakebase-scm-utils/lakebas
 init_cjs_shims();
 var import_fs2 = require("fs");
 var import_path3 = require("path");
+var import_node_child_process = require("child_process");
 var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 function experimentsRoot(consortDir, featureId, storyId) {
   return (0, import_path3.join)(consortDir, "experiments", featureId, storyId);
@@ -7171,7 +7172,7 @@ function readMasterTestList(tddDir, featureId) {
 
 // consort/deploy/deploy.ts
 init_cjs_shims();
-var import_node_child_process = require("child_process");
+var import_node_child_process2 = require("child_process");
 var import_node_crypto = require("crypto");
 var import_node_fs2 = require("fs");
 var import_node_path3 = require("path");

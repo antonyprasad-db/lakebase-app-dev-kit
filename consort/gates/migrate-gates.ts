@@ -160,7 +160,7 @@ export function migrateGatesFromSelectionLog(
 }
 
 function gatesFileExists(consortDir: string, featureId: string): boolean {
-  // One feature-dir resolution rule (sftdd-paths), not a local copy.
+  // One feature-dir resolution rule (consort-paths), not a local copy.
   const dir = findFeatureDir(consortDir, featureId);
   return dir ? existsSync(join(dir, "gates.json")) : false;
 }

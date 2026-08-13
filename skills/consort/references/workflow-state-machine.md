@@ -1,4 +1,4 @@
-# Workflow state machine (SFTDD)
+# Workflow state machine
 
 The end-to-end state machine for `consort` (**Spec-First Test-Driven Development**). It composes two disciplines back to back: the **SDD** design lane (`/design`) and the **TDD** build lane (`/build`), wrapped by sprint planning (`/plan`), deploy (`/deploy`), promote (the PR + merge to the parent tier), and the top-level `/sprint` loop. The deterministic driver `consort-drive` routes every transition; gates (keyed `plan` / `spec` / `test_list` / `promote` / `deploy`) are the HITL decision points.
 
@@ -15,7 +15,7 @@ Three entry commands (all shown in the diagrams):
 - **`/plan`** (Tier 2) starts the same planning phase but stops after the PLAN gate (single phase); `/design`, `/build`, `/deploy` likewise run one phase and stop.
 - **`/spike`** is a side entry: throwaway exploration on its own paired branch, OUTSIDE the gated loop. Its notes carry forward into a feature's design-spec gate; its code is never promoted.
 
-Both `/sprint` and `/plan` require project intake (`product-overview.md` + `nfrs.md`, plus `design-brief.md` when the project is UI, i.e. `project.uiTrack: true` in `sftdd-config.json`).
+Both `/sprint` and `/plan` require project intake (`product-overview.md` + `nfrs.md`, plus `design-brief.md` when the project is UI, i.e. `project.uiTrack: true` in `consort-config.json`).
 
 ## Command tiers
 
@@ -132,7 +132,7 @@ flowchart LR
 
 ### `/design` (SDD lane, Spec Driven Development)
 
-For UI projects (`project.uiTrack: true` in `sftdd-config.json`, set at create via
+For UI projects (`project.uiTrack: true` in `consort-config.json`, set at create via
 `--ui-track`) a conditional **UX Designer** step runs after discovery: it writes the
 project-level design guide + information architecture that downstream UI must adhere to.
 Such projects also require `design-brief.md` at intake. The guide must exist before the build
@@ -411,18 +411,18 @@ flowchart TB
 
 ## Gates (HITL decision points)
 
-Gate statuses: `open` / `approved` / `superseded` / `withdrawn` (`gates.json`, ADR-0004).
+Gate statuses: `open` / `approved` / `superseded` / `withdrawn` (`gates.json`).
 
-**Produced after every gate, regardless of which one.** On approval the substrate writes
+**Produced after every gate, regardless of which one.** On approval the kit writes
 the same three records every time:
 
 1. **`gates.json` entry** (the authoritative machine state): `status: approved`, decider,
    timestamp, and a content hash of each certified artifact, so `verifyGateIntegrity`
    can later flag drift if a frozen file changes. Agents read this.
 2. **`selection-log.md` append** (the human-readable narrative-of-record): one
-   append-only decision line. Humans read this; the substrate dual-writes it at every
+   append-only decision line. Humans read this; the kit dual-writes it at every
    state change.
-3. **`gate.approved` event** in `.sftdd/agent-log.jsonl`.
+3. **`gate.approved` event** in `.consort/agent-log.jsonl`.
 
 **The specific artifact each gate certifies (freezes):**
 

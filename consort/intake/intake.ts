@@ -19,7 +19,7 @@ export interface IntakeCheckArgs {
   consortDir?: string;
   /** When set, also require this feature's feature-request.md. */
   featureId?: string;
-  /** Project root that holds `.lakebase/sftdd-config.json`. Defaults to the
+  /** Project root that holds `.lakebase/consort-config.json`. Defaults to the
    *  parent of `consortDir`. Locates the config that supplies `uiTrack`. */
   projectDir?: string;
 }
@@ -45,7 +45,7 @@ export interface IntakeCheckResult {
  * Verify the intake artifacts /design requires before phase 1. product-overview.md
  * + nfrs.md are always required; feature-request.md when a featureId is given;
  * design-brief.md when the project is a UI project (read from `project.uiTrack` in
- * sftdd-config.json). Returns the per-artifact status plus the missing /
+ * consort-config.json). Returns the per-artifact status plus the missing /
  * non-conformant lists.
  */
 export function checkIntakePreconditions(args: IntakeCheckArgs = {}): IntakeCheckResult {

@@ -6,7 +6,7 @@ user-invocable: true
 
 # Consort – agent contract
 
-Agent-facing contract: hard rules, phase flow, agent prompt index, and concrete code patterns for the substrate primitives.
+Agent-facing contract: hard rules, phase flow, agent prompt index, and concrete code patterns for the kit's orchestration primitives.
 
 For the human-facing overview (lexicon, roles narrative, how-to-use prompts, project entry points) see [`README.md`](README.md).
 
@@ -28,7 +28,7 @@ See [`agents/navigator.md`](agents/navigator.md) and [`agents/driver.md`](agents
 
 ## Phases and gates
 
-The kit is **Spec-First Test-Driven Development (SFTDD)**: it composes two disciplines back to back. The **design lane is Spec Driven Development (SDD)** – spec drafting, architectural review, test-list construction, all driven by `/design` – and the **build lane is Test Driven Development (TDD)** – the RED → GREEN → REVIEW → REFACTOR cycles driven by `/build`. Spec-first means SDD freezes the spec at the `spec` + `test_list` gates; TDD only starts once they are approved, so the build always runs against a reviewed spec.
+Consort is **spec-first and test-driven**: it composes two disciplines back to back. The **design lane is spec-driven** – spec drafting, architectural review, test-list construction, all driven by `/design` – and the **build lane is test-driven** – the RED → GREEN → REVIEW → REFACTOR cycles driven by `/build`. Spec-first means the design lane freezes the spec at the `spec` + `test_list` gates; the build lane only starts once they are approved, so the build always runs against a reviewed spec.
 
 **Iterative and evolutionary.** The freeze is per increment, not forever. Across increments, all three dimensions evolve and are never treated as static: the **spec and features** are living , each sprint the PO re-plans, folding in what the last working software revealed; the **architecture** evolves under fitness functions (`@architectural-design-principles/evolutionary-architecture.md`); and the **database** evolves by migration on the paired branch, diffed against its parent (`@architectural-design-principles/evolutionary-database-design.md`). The rule is: spec-first within an increment, evolutionary across increments.
 
@@ -65,7 +65,7 @@ Tier 2:  /plan  /design  /build  /deploy   (run ONE phase, then stop + suggest n
 ```
 
 - **`/sprint [name]`** (Tier 1, the top-level orchestrator): runs the whole sprint as one continuous flow, plan to the plan gate, then claim + drive each backlog feature `design` -> `build` -> `deploy`. Re-invoked per cycle; resumable (halts at the next HITL gate for the human, continues on re-run). `consort-drive --sprint <name>`.
-- **`/plan [name]`** (Tier 2, sprint planning, ABOVE the per-feature loop): the **Spec Author** proposes the candidate breakdown (`.sftdd/planning/feature-proposals.md`); the **Architect** t-shirt-sizes the candidates (`.sftdd/planning/estimates.json`, XS/S/M/L/XL); the **Product Owner** commits the backlog by authoring a `feature-request.md` per feature that fits sprint capacity; the deterministic `sync-backlog` step projects `.sftdd/sprints/<name>/backlog.json` (committed ids + sizes); the **sprint plan gate** is the HITL checkpoint. Stops there (does not flow into design). Requires project intake (`product-overview.md` + `nfrs.md`, +`design-brief.md` for UI) as a precondition. `--sprint <name> --plan-only`.
+- **`/plan [name]`** (Tier 2, sprint planning, ABOVE the per-feature loop): the **Spec Author** proposes the candidate breakdown (`.consort/planning/feature-proposals.md`); the **Architect** t-shirt-sizes the candidates (`.consort/planning/estimates.json`, XS/S/M/L/XL); the **Product Owner** commits the backlog by authoring a `feature-request.md` per feature that fits sprint capacity; the deterministic `sync-backlog` step projects `.consort/sprints/<name>/backlog.json` (committed ids + sizes); the **sprint plan gate** is the HITL checkpoint. Stops there (does not flow into design). Requires project intake (`product-overview.md` + `nfrs.md`, +`design-brief.md` for UI) as a precondition. `--sprint <name> --plan-only`.
 - **`/design <feature-id>`**: the **SDD (Spec Driven Development)** lane. Claims the paired branch (Step 0), enforces the feature's `feature-request.md` + project intake (Step 0.5, a precondition, NOT a gate), then drives the per-story design lane (Spec Author -> Architect Reviewer -> DBA -> Test Strategist) to the spec + test_list gates, producing the executable spec. The DBA turns the architect's logical persistence contract into a physical schema (`db-design.json`). `--only design`.
 - **`/build <feature-id>`**: the **TDD (Test Driven Development)** lane. RED -> GREEN -> REVIEW -> REFACTOR cycles + per-story acceptance against the frozen spec, to ready-for-review (requires the SDD lane done). `--only build`.
 - **`/deploy <feature-id> [--target local] [--story <s>]`**: deploys the merged feature (or one story's branch) + verifies reachable + feature-verify; the **deploy gate** is the working-software review the PO signs off (the local target is the only one implemented; remote release is the scaffolded `merge.yml`). `--only deploy`. For a hands-on review the human can run `./scripts/run-dev.sh` to serve the app locally (migrates + hot-reload) and open it in a browser.
@@ -92,9 +92,9 @@ Check the mode with `[ "$LAKEBASE_SFTDD_HUMAN_PROXY" = "1" ]`. Absent/unset = no
 
 Every knob has exactly ONE home; see [`CONFIG.md`](CONFIG.md) for the full table + writers. In brief:
 
-- **Project settings** (what the project IS: `uiTrack`, `gates`, `deployTarget`, the per-role model matrix, build cadence) live only in `.lakebase/sftdd-config.json`, resolved **file -> code default** by `resolveSftddSettings`. There is no env or flag override at read time. The writers are create-project (create-time, e.g. `--ui-track`) and the drive's write-through flags (`--gates` / `--deploy-target` / `--no-sizing`), which persist INTO the file before it is read.
+- **Project settings** (what the project IS: `uiTrack`, `gates`, `deployTarget`, the per-role model matrix, build cadence) live only in `.lakebase/consort-config.json`, resolved **file -> code default** by `resolveConsortSettings`. There is no env or flag override at read time. The writers are create-project (create-time, e.g. `--ui-track`) and the drive's write-through flags (`--gates` / `--deploy-target` / `--no-sizing`), which persist INTO the file before it is read.
 - **`uiTrack` is the single door for the UX lane.** It drives BOTH the UX Designer (design-guide / `ia.md` / adherence gate) AND the e2e harness (create-project derives e2e from it, and refuses a UI project without it). A UI project can never run with the UX lane off.
-- **Run-mode knobs** (record/replay, headless, debug, e.g. `LAKEBASE_SFTDD_HUMAN_PROXY`, `_AUTO_CONTINUE`, `_RECORD_DIR`) are per-invocation `LAKEBASE_SFTDD_*` env vars, read via `sftddEnv` (one door each). They are NOT project settings and never belong in `sftdd-config.json`.
+- **Run-mode knobs** (record/replay, headless, debug, e.g. `LAKEBASE_CONSORT_AUTO_CONTINUE`, `_TRACE`, `_RECORD_DIR`) are per-invocation `LAKEBASE_CONSORT_*` env vars, read via `consortEnv` (canonical prefix; the legacy `LAKEBASE_SFTDD_*` / `LAKEBASE_TDD_*` prefixes are still honored). They are NOT project settings and never belong in `consort-config.json`. (`LAKEBASE_SFTDD_HUMAN_PROXY`, the headless-approver switch, is a raw-shell-checked var the command templates read directly, not a `consortEnv` knob.)
 - **Capture-time conditions** live in a scenario's `scenario.json` and are funneled into create-project flags by `capture-scenario.sh`; they never reach the drive directly.
 
 ## Agent roles (the per-role agent runtime)
@@ -111,20 +111,20 @@ Each role is a separate agent definition under [`agents/`](agents/) with frontma
 - **Deploy + promote are deterministic (no agent).** The orchestrator itself runs `consort-deploy` (deploy the increment, poll reachable, run the feature verify) and `lakebase-scm-merge` (promote via PR + CI + merge), surfacing the deploy and promote gates to the PO. These phases log under the `release-engineer` label but spawn no LLM agent.
 The **orchestrator** is the deterministic driver (`consort-drive`), **not an LLM agent**: it routes over `workflow-state.json`, hands each phase to the right role agent above, carries artifacts forward, and surfaces every gate to the PO. It writes no spec/code/test/deploy.
 
-**How the orchestrator runs them.** The role defs are scaffolded into the project's `.claude/agents/` (so Claude Code can discover + spawn them; the skill copy is the source). The driver computes the next action as a pure function of the recorded state, then spawns the role for that phase via `claude -p --agent <role>`. Routing is code, not a model: there is no LLM orchestrator session. Before spawning a role, the driver resolves the model from the project's `.lakebase/sftdd-config.json` via `resolveSftddSettings` (`roles.<role>.model`, the single source of truth for project settings). Resolution is `sftdd-config.json role model ?? legacy .lakebase/agent-config.json (override ?? recommended) ?? built-in recommended ?? inherit`: `agent-config.json` is honored only as a fallback for projects scaffolded before `sftdd-config.json`. The HIL sets per-project models at `lakebase-create-project`; each role's recommended model lives in its definition's `model:` (mirrored in `RECOMMENDED_MODELS`).
+**How the orchestrator runs them.** The role defs are scaffolded into the project's `.claude/agents/` (so Claude Code can discover + spawn them; the skill copy is the source). The driver computes the next action as a pure function of the recorded state, then spawns the role for that phase via `claude -p --agent <role>`. Routing is code, not a model: there is no LLM orchestrator session. Before spawning a role, the driver resolves the model from the project's `.lakebase/consort-config.json` via `resolveConsortSettings` (`roles.<role>.model`, the single source of truth for project settings). Resolution is `consort-config.json role model ?? legacy .lakebase/agent-config.json (override ?? recommended) ?? built-in recommended ?? inherit`: `agent-config.json` is honored only as a fallback for projects scaffolded before `consort-config.json`. The HIL sets per-project models at `lakebase-create-project`; each role's recommended model lives in its definition's `model:` (mirrored in `RECOMMENDED_MODELS`).
 
 ## References
 
-- [`references/spec-format.md`](references/spec-format.md) – full `.sftdd/` directory layout + markdown ↔ JSON contract.
+- [`references/spec-format.md`](references/spec-format.md) – full `.consort/` directory layout + markdown ↔ JSON contract.
 - [`references/orchestrator-contract.md`](references/orchestrator-contract.md) – how the agent DRIVING `/sprint` `/design` `/build` `/deploy` must behave: drive to completion via `consort-next`, surface only HITL gates + blockers, report outcomes (not process), verbose/eval narration opt-in. The orchestrator's counterpart to `agent-operating-rules.md`; the command templates load it.
-- [`references/next-schema.md`](references/next-schema.md) – the `consort-next` / `.sftdd/next.json` "what next" surface the orchestrator contract drives on.
-- [`references/agent-logging.md`](references/agent-logging.md) – structured agent log format + per-role emit points. Every role emits what it is doing via `consort-log` (debug = reasoning, info = outputs) to the centralized `.sftdd/agent-log.jsonl`.
-- `scripts/sftdd/schemas/` – JSON Schemas validated by `spec-sync.ts`.
+- [`references/next-schema.md`](references/next-schema.md) – the `consort-next` / `.consort/next.json` "what next" surface the orchestrator contract drives on.
+- [`references/agent-logging.md`](references/agent-logging.md) – structured agent log format + per-role emit points. Every role emits what it is doing via `consort-log` (debug = reasoning, info = outputs) to the centralized `.consort/agent-log.jsonl`.
+- `consort/config/schemas/` – JSON Schemas validated by `spec-sync.ts`.
 - [`../software-design-principles/SKILL.md`](../software-design-principles/SKILL.md) – engineering canon (SOLID, DRY, clean code, layered architecture, cross-cutting concerns, NFRs). Required reading for Architect Reviewer and Navigator.
 
 ## tag → runner map
 
-Every AC declares a `layer` ("API" / "E2E" / "Infra" in `ac.schema.json`). The Driver dispatches to the runner that matches the current cycle's layer, not a single uniform `npm test`. The substrate enforces this: `markGreen` refuses to advance a layer-tagged cycle until `recordRunnerOutcome` has logged at least one run for the matching tag.
+Every AC declares a `layer` ("API" / "E2E" / "Infra" in `ac.schema.json`). The Driver dispatches to the runner that matches the current cycle's layer, not a single uniform `npm test`. The kit enforces this: `markGreen` refuses to advance a layer-tagged cycle until `recordRunnerOutcome` has logged at least one run for the matching tag.
 
 A test-list item's `kind` refines this: a **`kind:"client"`** item (a UI-presentation AC the architecture routes to the SPA's own harness) runs through the CLIENT toolchain regardless of layer , `npm --prefix client test` (Vitest component test) or `npm --prefix client run test:e2e` (Playwright spec), authored under `client/tests/`. `behavior`/`fitness` items run through the layer runner below.
 
@@ -132,12 +132,12 @@ A test-list item's `kind` refines this: a **`kind:"client"`** item (a UI-present
 |---|---|---|---|
 | `API` | `api` | `npm test` (Node), `./mvnw test` (Java/Kotlin), `uv run pytest` (Python) | The project's primary test runner. Driver runs it as-is. |
 | `E2E` | `e2e` | `npm run test:e2e` (Node, alias for `playwright test`) or `uv run --extra dev pytest tests/e2e` (Python, pytest-playwright) | Wired by `lakebase-create-project --enable-e2e` (ships the Node `playwright.config.ts` + smoke for Node, the `tests/e2e/conftest.py` `live_server` fixture for Python). Driver exports `BASE_URL` at the paired-branch app endpoint before invoking; `scripts/run-tests.sh` runs whichever matches the project. A missing `tests/e2e/conftest.py` is a `scaffold-defect` to surface, never author it in the build. |
-| `Infra` | `infra` | `npm run test:infra` (alias for `lakebase-infra-runner`) | Wired by `lakebase-create-project --enable-infra`. Ships three substrate-side checks: migrations-clean, schema-diff-computable, connection-reachable. JUnit XML output via `--junit-output` matches vitest's reporter shape. When no runner is wired, the Driver flags the cycle and surfaces to PO; do not silent-skip. |
+| `Infra` | `infra` | `npm run test:infra` (alias for `lakebase-infra-runner`) | Wired by `lakebase-create-project --enable-infra`. Ships three kit-side checks: migrations-clean, schema-diff-computable, connection-reachable. JUnit XML output via `--junit-output` matches vitest's reporter shape. When no runner is wired, the Driver flags the cycle and surfaces to PO; do not silent-skip. |
 
-Each cycle records its runner outcome via `recordRunnerOutcome({ scope, cycleId, experimentSlug, layer, passed })`. The substrate uses these counts for `outcomes.by_tag`, the `e2e-row-perma-red` smell detector, and the design-spec gate guard.
+Each cycle records its runner outcome via `recordRunnerOutcome({ scope, cycleId, experimentSlug, layer, passed })`. The kit uses these counts for `outcomes.by_tag`, the `e2e-row-perma-red` smell detector, and the design-spec gate guard.
 
 ```ts
-import { recordRunnerOutcome, markGreen } from "@databricks-solutions/consort/sftdd/run-cycle";
+import { recordRunnerOutcome, markGreen } from "consort/pipeline/run-cycle";
 
 // Run the runner mapped to the current cycle's layer, then:
 recordRunnerOutcome({ scope, cycleId: c1.cycle_id, experimentSlug: "checkout", passed: true });
@@ -148,33 +148,33 @@ markGreen(scope, c1.cycle_id, "added POST handler + repository write");
 
 ## Operations
 
-Concrete invocations of the substrate primitives.
+Concrete invocations of the kit's orchestration primitives.
 
 ### Design-spec gate (phase 3)
 
 ```ts
-import { analyzeForGate, recordPlan, writePlan } from "@databricks-solutions/consort/sftdd/design-spec-gate";
-import { canCutAnotherExperiment } from "@databricks-solutions/consort/sftdd/budget";
-import { attachSpikeInputs } from "@databricks-solutions/consort/sftdd/spike-carryforward";
+import { analyzeForGate, recordPlan, writePlan } from "consort/gates/design-spec-gate";
+import { canCutAnotherExperiment } from "consort/session/budget";
+import { attachSpikeInputs } from "consort/experiment/spike-carryforward";
 
-const analysis = analyzeForGate(".sftdd", "F1", "S1");
+const analysis = analyzeForGate(".consort", "F1", "S1");
 // analysis.opinion_gaps[]            – items the analyzer flagged as opinion gaps
 // analysis.proposed_plan              – { mode: "N=1" | "N>=2", N, strategies[], budget, rationale }
 // analysis.proposed_plan.budget.per_experiment
 //                                     – default cap { max_cycles: 30, max_wall_clock_minutes: 60 }
 //                                       the orchestrator can override before writePlan
-// analysis.proposed_plan.spike_inputs – auto-populated from `.sftdd/spikes/<slug>/notes.md`
+// analysis.proposed_plan.spike_inputs – auto-populated from `.consort/spikes/<slug>/notes.md`
 //                                       entries tagged with `for_feature: F1` (frontmatter
 //                                       or body line). Surface to PO at Gate 4; pass the
 //                                       kept slugs to attachSpikeInputs.
 
 // Surface to PO. On Gate 4 approval, persist:
-recordPlan(".sftdd", analysis.proposed_plan, "kevin@example.com");
-writePlan(".sftdd", analysis.proposed_plan);
-attachSpikeInputs({ tddDir: ".sftdd", featureId: "F1", slugs: ["explore-cart-storage"] });
+recordPlan(".consort", analysis.proposed_plan, "kevin@example.com");
+writePlan(".consort", analysis.proposed_plan);
+attachSpikeInputs({ consortDir: ".consort", featureId: "F1", slugs: ["explore-cart-storage"] });
 
 // Before cutting any experiment, check the budget:
-const ok = canCutAnotherExperiment(".sftdd", "F1");
+const ok = canCutAnotherExperiment(".consort", "F1");
 if (!ok.ok) throw new Error(`budget: ${ok.reason}`);
 ```
 
@@ -182,28 +182,28 @@ if (!ok.ok) throw new Error(`budget: ${ok.reason}`);
 
 ```ts
 import { cutExperiment, listExperiments, readOutcomes, writeOutcomes, deleteExperiment }
-  from "@databricks-solutions/consort/sftdd/experiment";
+  from "consort/experiment/experiment";
 
 // N=1 – one experiment for story S1, forked from the feature branch.
 const exp = await cutExperiment({
   instance: "proj-checkout",
-  tddDir: ".sftdd",
+  consortDir: ".consort",
   featureId: "F1",
   storyId: "S1-submit",
   experimentSlug: "s1-submit",
   branch: "exp/F1/S1-submit",
   parentBranch: "feature/F1",       // forks from feature HEAD, not staging
 });
-// exp.dir === ".sftdd/experiments/F1/S1-submit/s1-submit"
+// exp.dir === ".consort/experiments/F1/S1-submit/s1-submit"
 // Writes branch.txt, notes.md, outcomes.json (status: "running"), timeline.json.
 
-writeOutcomes(".sftdd", "F1", "S1-submit", "s1-submit", { status: "succeeded", tests_passed: 2 });
+writeOutcomes(".consort", "F1", "S1-submit", "s1-submit", { status: "succeeded", tests_passed: 2 });
 
 // Teardown is HITL-gated. deleteBranchToo defaults to false – record survives.
 // (The consort-experiment CLI's merge/discard drive this for the PO.)
 await deleteExperiment({
   instance: "proj-checkout",
-  tddDir: ".sftdd",
+  consortDir: ".consort",
   featureId: "F1",
   storyId: "S1-submit",
   experimentSlug: "s1-submit",
@@ -215,13 +215,13 @@ await deleteExperiment({
 
 ```ts
 import { cutSpike, listSpikes, deleteSpike }
-  from "@databricks-solutions/consort/sftdd/spike";
+  from "consort/experiment/spike";
 import { collectSpikeInputs, attachSpikeInputs }
-  from "@databricks-solutions/consort/sftdd/spike-carryforward";
+  from "consort/experiment/spike-carryforward";
 
 await cutSpike({
   instance: "proj-checkout",
-  tddDir: ".sftdd",
+  consortDir: ".consort",
   spikeSlug: "explore-cart-storage",
   branch: "spike-explore-cart-storage",
   parentBranch: "staging",
@@ -232,14 +232,14 @@ await cutSpike({
 // Notes captured, branch deleted by default (throwaway).
 await deleteSpike({
   instance: "proj-checkout",
-  tddDir: ".sftdd",
+  consortDir: ".consort",
   spikeSlug: "explore-cart-storage",
 });
-// Notes preserved at .sftdd/spikes/explore-cart-storage/notes.md.
+// Notes preserved at .consort/spikes/explore-cart-storage/notes.md.
 
 // When the related feature shows up at the design-spec gate, surface
 // the spike's learning to the PO:
-const inputs = collectSpikeInputs({ tddDir: ".sftdd", featureId: "F1-checkout" });
+const inputs = collectSpikeInputs({ consortDir: ".consort", featureId: "F1-checkout" });
 // inputs[].slug, .notes_path, .preview (capped at ~200 chars), .matched_marker
 // Accepts YAML frontmatter (for_feature / feature_id / feature) and body lines
 // (`For feature:`, `feature:`, `feature_id:`, `for_feature:`, tolerant of
@@ -247,17 +247,17 @@ const inputs = collectSpikeInputs({ tddDir: ".sftdd", featureId: "F1-checkout" }
 // prefix match.
 
 // On PO approval, persist the kept slugs onto plan.json:
-attachSpikeInputs({ tddDir: ".sftdd", featureId: "F1-checkout", slugs: ["explore-cart-storage"] });
+attachSpikeInputs({ consortDir: ".consort", featureId: "F1-checkout", slugs: ["explore-cart-storage"] });
 ```
 
 ### Cycle (RED → GREEN → REFACTOR)
 
 ```ts
 import { beginCycle, markGreen, markRefactored, flagSmells, listCycles, openBranchDsn }
-  from "@databricks-solutions/consort/sftdd/run-cycle";
+  from "consort/pipeline/run-cycle";
 
 const scope = {
-  tddDir: ".sftdd",
+  consortDir: ".consort",
   feature_id: "F1",
   story_id: "S1",
   ac_id: "AC1",
@@ -290,11 +290,11 @@ flagSmells(scope, c1.cycle_id, ["test-deletion-attempt"]);
 
 ```ts
 import { runDetectorsForScope, writeSmellsLog, readSmellsLog, SMELL_CATALOG }
-  from "@databricks-solutions/consort/sftdd/smells";
+  from "consort/smells/smells";
 
-const hits = runDetectorsForScope(".sftdd", scope);
+const hits = runDetectorsForScope(".consort", scope);
 if (hits.length) {
-  writeSmellsLog(".sftdd", hits);
+  writeSmellsLog(".consort", hits);
   // Surface each hit + the SMELL_CATALOG remediation to the PO.
   // Never auto-apply remediations.
 }
@@ -304,14 +304,14 @@ if (hits.length) {
 
 ```ts
 import { checkPerExperimentCap, recordExperimentCap, clearExperimentCap }
-  from "@databricks-solutions/consort/sftdd/experiment-cap";
-import { readPlan } from "@databricks-solutions/consort/sftdd/design-spec-gate";
+  from "consort/experiment/experiment-cap";
+import { readPlan } from "consort/gates/design-spec-gate";
 
 // Each cycle, after recording the runner outcome and before queuing
-// the next one, ask the substrate if this experiment is over its cap.
-const plan = readPlan(".sftdd", "F1", "S1");
+// the next one, ask the kit if this experiment is over its cap.
+const plan = readPlan(".consort", "F1", "S1");
 const check = checkPerExperimentCap({
-  tddDir: ".sftdd",
+  consortDir: ".consort",
   featureId: "F1",
   experimentSlug: "exp-postgres-arrays",
   cap: plan?.budget.per_experiment,
@@ -320,7 +320,7 @@ const check = checkPerExperimentCap({
 });
 if (check.capped) {
   recordExperimentCap({
-    tddDir: ".sftdd",
+    consortDir: ".consort",
     featureId: "F1",
     experimentSlug: "exp-postgres-arrays",
     hit: check.hit!,
@@ -334,7 +334,7 @@ if (check.capped) {
 
 // On the PO's "extend" reply, raise the cap and clear the capped record:
 clearExperimentCap({
-  tddDir: ".sftdd",
+  consortDir: ".consort",
   featureId: "F1",
   experimentSlug: "exp-postgres-arrays",
 });
@@ -346,11 +346,11 @@ The default cap (30 cycles, 60 minutes wall-clock) is seeded by `analyzeForGate`
 
 ```ts
 import { compareExperiments }
-  from "@databricks-solutions/consort/sftdd/compare-experiments";
+  from "consort/reports/compare-experiments";
 import { renderComparisonReport, writeComparisonReport }
-  from "@databricks-solutions/consort/sftdd/comparison-report";
+  from "consort/reports/comparison-report";
 
-const report = compareExperiments(".sftdd", "F1", "S1");
+const report = compareExperiments(".consort", "F1", "S1");
 // report.rows[].signal       – "winning" | "stalled" | "abandoned" | "running"
 //                              | "capped" | "unknown"
 // report.rows[].capped       – populated when a per-experiment cap fired:
@@ -363,18 +363,18 @@ const report = compareExperiments(".sftdd", "F1", "S1");
 // file end-to-end (the HITL decision block lists any capped experiments
 // with the extend / abandon / continue-suite reply options inline).
 const md = renderComparisonReport(report);
-writeComparisonReport({ tddDir: ".sftdd", featureId: "F1", report });
+writeComparisonReport({ consortDir: ".consort", featureId: "F1", report });
 ```
 
 ### Promote (N≥2, single winner)
 
 ```ts
 import { promoteExperiment }
-  from "@databricks-solutions/consort/sftdd/promote-experiment";
+  from "consort/experiment/promote-experiment";
 
 // Refuses to run without hitlApproved: true (PO gate enforced at the function boundary).
 const result = promoteExperiment({
-  tddDir: ".sftdd",
+  consortDir: ".consort",
   featureId: "F1",
   storyId: "S1",
   winnerSlug: "exp-postgres-arrays",
@@ -389,12 +389,12 @@ const result = promoteExperiment({
 
 ```ts
 import { synthesizeExperiments }
-  from "@databricks-solutions/consort/sftdd/synthesis";
+  from "consort/orchestrator/status/synthesis";
 
 // Refuses to run without hitlApproved: true.
 const result = await synthesizeExperiments({
   instance: "proj-checkout",
-  tddDir: ".sftdd",
+  consortDir: ".consort",
   featureId: "F1",
   storyId: "S1",
   picks: [
@@ -415,9 +415,9 @@ const result = await synthesizeExperiments({
 
 ```ts
 import { validateSpec, readFeature, writeFeature, readWorkflowState, writeWorkflowState }
-  from "@databricks-solutions/consort/sftdd/spec-sync";
+  from "consort/intake/spec-sync";
 
-const drift = validateSpec(".sftdd");
+const drift = validateSpec(".consort");
 // drift[].kind – "schema" | "pair-missing" | "narrative-empty" | "id-mismatch"
 // Warn-only; do not auto-correct narrative drift.
 ```
@@ -426,18 +426,16 @@ const drift = validateSpec(".sftdd");
 
 ```ts
 import { readMasterTestList, writeMasterTestList, viewByAc, viewsForAllAcs, writePerAcViews }
-  from "@databricks-solutions/consort/sftdd/test-list";
+  from "consort/test-list/test-list";
 
-const list = readMasterTestList(".sftdd", "F1");
-writePerAcViews(".sftdd", "F1", list);
-// Emits .sftdd/features/<F>/stories/<S>/test-list-per-ac.json under each story dir.
+const list = readMasterTestList(".consort", "F1");
+writePerAcViews(".consort", "F1", list);
+// Emits .consort/features/<F>/stories/<S>/test-list-per-ac.json under each story dir.
 ```
 
 ### Gates state machine (structured HITL approvals)
 
-Design: [ADR-0004](../../../docs/adr/ADR-0004-tdd-gates-state-machine.md).
-
-`.sftdd/features/<F>/gates.json` is the substrate's authoritative gate state. `selection-log.md` stays as the human-readable narrative-of-record; the substrate dual-writes it at every state change. **Agents read `gates.json`; humans read the log.** Never regex-scan the log for state.
+`.consort/features/<F>/gates.json` is the kit's authoritative gate state. `selection-log.md` stays as the human-readable narrative-of-record; the kit dual-writes it at every state change. **Agents read `gates.json`; humans read the log.** Never regex-scan the log for state.
 
 Named gates: `spec` / `plan` / `test_list` / `promote` / `deploy`. Statuses: `open` / `approved` / `superseded` / `withdrawn`. Each gate's record carries the approver, timestamp, captured artifact hashes (sha256 of normalized content), and a `history[]` log of every action.
 
@@ -446,13 +444,13 @@ import {
   readGates,
   writeGates,
   defaultGatesState,
-} from "@databricks-solutions/consort/sftdd/gates";
-import { approveGate } from "@databricks-solutions/consort/sftdd/approve-gate";
-import { verifyGateIntegrity } from "@databricks-solutions/consort/sftdd/verify-gate-integrity";
-import { withdrawGate } from "@databricks-solutions/consort/sftdd/withdraw-gate";
+} from "consort/gates/gates";
+import { approveGate } from "consort/gates/approve-gate";
+import { verifyGateIntegrity } from "consort/gates/verify-gate-integrity";
+import { withdrawGate } from "consort/gates/withdraw-gate";
 
 // Read current state (returns default-open shape when gates.json absent).
-const state = readGates("F1", { tddDir: ".sftdd" });
+const state = readGates("F1", { consortDir: ".consort" });
 
 // Approve a gate (HITL-gated at the function boundary).
 approveGate({
@@ -461,7 +459,7 @@ approveGate({
   approver: "po@example.com",
   hitlApproved: true,
   artifactInputs: { "feature-spec.md": specContent, "feature-spec.json": featureJsonContent },
-  tddDir: ".sftdd",
+  consortDir: ".consort",
 });
 
 // Verify integrity: did the artifact change since approval?
@@ -469,7 +467,7 @@ const v = verifyGateIntegrity({
   featureId: "F1",
   gate: "spec",
   currentInputs: { "feature-spec.md": currentSpec, "feature-spec.json": currentFeatureJson },
-  tddDir: ".sftdd",
+  consortDir: ".consort",
 });
 // v.status: "ok" | "drift" | "gate-not-approved"
 // Hash normalization survives CRLF/LF + trailing-whitespace + blank-line edits;
@@ -481,11 +479,11 @@ withdrawGate({
   gate: "spec",
   approver: "po@example.com",
   reason: "scope rewrite",
-  tddDir: ".sftdd",
+  consortDir: ".consort",
 });
 ```
 
-**Per-gate artifact scope (convention enforced at the orchestrator call site, not in the substrate):**
+**Per-gate artifact scope (convention enforced at the orchestrator call site, not in the kit primitives):**
 
 | Gate | artifactInputs keys |
 |---|---|
@@ -502,11 +500,11 @@ withdrawGate({
 For features that pre-date the gates state machine (approvals only in `selection-log.md`):
 
 ```ts
-import { migrateGatesFromSelectionLog } from "@databricks-solutions/consort/sftdd/migrate-gates";
+import { migrateGatesFromSelectionLog } from "consort/gates/migrate-gates";
 
 migrateGatesFromSelectionLog({
   featureId: "F1",
-  tddDir: ".sftdd",
+  consortDir: ".consort",
   // Optional: pass current artifact content so the synthesized state has
   // hashes that future verifyGateIntegrity() calls can match against.
   currentInputsByGate: {
@@ -533,9 +531,9 @@ End-to-end orchestrator patterns the deterministic driver runs in response to `/
 ```ts
 import { writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
-import { validateSpec } from "@databricks-solutions/consort/sftdd/spec-sync";
+import { validateSpec } from "consort/intake/spec-sync";
 
-const tdd = ".sftdd";
+const tdd = ".consort";
 const fdir = join(tdd, "features", "F1-checkout");
 const sdir = join(fdir, "stories", "S1-place-order");
 mkdirSync(join(sdir, "acs"), { recursive: true });
@@ -564,13 +562,13 @@ if (drift.length) console.warn(drift);
 ### N=1 cycle end-to-end (response to `/build`, simple case)
 
 ```ts
-import { writeMasterTestList } from "@databricks-solutions/consort/sftdd/test-list";
-import { analyzeForGate, writePlan, recordPlan } from "@databricks-solutions/consort/sftdd/design-spec-gate";
-import { cutExperiment, writeOutcomes } from "@databricks-solutions/consort/sftdd/experiment";
-import { beginCycle, markGreen } from "@databricks-solutions/consort/sftdd/run-cycle";
-import { runDetectorsForScope, writeSmellsLog } from "@databricks-solutions/consort/sftdd/smells";
+import { writeMasterTestList } from "consort/test-list/test-list";
+import { analyzeForGate, writePlan, recordPlan } from "consort/gates/design-spec-gate";
+import { cutExperiment, writeOutcomes } from "consort/experiment/experiment";
+import { beginCycle, markGreen } from "consort/pipeline/run-cycle";
+import { runDetectorsForScope, writeSmellsLog } from "consort/smells/smells";
 
-const tdd = ".sftdd"; const featureId = "F1"; const storyId = "S1-submit";
+const tdd = ".consort"; const featureId = "F1"; const storyId = "S1-submit";
 
 writeMasterTestList(tdd, { feature_id: featureId, ordered_for: "design-momentum", items: [
   { id: "T1", description: "POST /orders returns 201 on valid cart", ac_id: "AC1", status: "pending" },
@@ -582,11 +580,11 @@ recordPlan(tdd, analysis.proposed_plan, "kevin@example.com");
 writePlan(tdd, analysis.proposed_plan);
 
 const exp = await cutExperiment({
-  instance: "proj-checkout", tddDir: tdd,
+  instance: "proj-checkout", consortDir: tdd,
   featureId, storyId, experimentSlug: "s1-submit", branch: "exp/F1/S1-submit", parentBranch: "feature/F1",
 });
 
-const scope = { tddDir: tdd, feature_id: featureId, story_id: storyId, ac_id: "AC1",
+const scope = { consortDir: tdd, feature_id: featureId, story_id: storyId, ac_id: "AC1",
                 experiment_slug: exp.experiment_slug, branch_id: exp.branch_id };
 
 const c1 = beginCycle({ ...scope, test_id: "T1",
@@ -603,16 +601,16 @@ writeOutcomes(tdd, featureId, storyId, exp.experiment_slug, { status: "succeeded
 ### N≥2 race + promote/synthesize
 
 ```ts
-import { cutExperiment, writeOutcomes } from "@databricks-solutions/consort/sftdd/experiment";
-import { compareExperiments } from "@databricks-solutions/consort/sftdd/compare-experiments";
-import { promoteExperiment } from "@databricks-solutions/consort/sftdd/promote-experiment";
-import { synthesizeExperiments } from "@databricks-solutions/consort/sftdd/synthesis";
+import { cutExperiment, writeOutcomes } from "consort/experiment/experiment";
+import { compareExperiments } from "consort/reports/compare-experiments";
+import { promoteExperiment } from "consort/experiment/promote-experiment";
+import { synthesizeExperiments } from "consort/orchestrator/status/synthesis";
 
-const tdd = ".sftdd"; const featureId = "F1"; const storyId = "S1";
+const tdd = ".consort"; const featureId = "F1"; const storyId = "S1";
 
-await cutExperiment({ instance: "proj-checkout", tddDir: tdd, featureId, storyId,
+await cutExperiment({ instance: "proj-checkout", consortDir: tdd, featureId, storyId,
   experimentSlug: "exp-postgres-arrays", branch: "checkout-pg-arrays", parentBranch: "staging" });
-await cutExperiment({ instance: "proj-checkout", tddDir: tdd, featureId, storyId,
+await cutExperiment({ instance: "proj-checkout", consortDir: tdd, featureId, storyId,
   experimentSlug: "exp-json-blob", branch: "checkout-json-blob", parentBranch: "staging" });
 
 // ... cycles run on each branch via beginCycle/markGreen ...
@@ -624,11 +622,11 @@ const report = compareExperiments(tdd, featureId, storyId);
 
 if (report.recommendation === "promote") {
   const winner = report.rows.find((r) => r.signal === "winning")!;
-  promoteExperiment({ tddDir: tdd, featureId, storyId, winnerSlug: winner.experiment_slug,
+  promoteExperiment({ consortDir: tdd, featureId, storyId, winnerSlug: winner.experiment_slug,
                       hitlApproved: true, approverEmail: "kevin@example.com" });
 } else if (report.recommendation === "synthesize") {
   await synthesizeExperiments({
-    instance: "proj-checkout", tddDir: tdd, featureId, storyId,
+    instance: "proj-checkout", consortDir: tdd, featureId, storyId,
     picks: [
       { source_slug: "exp-postgres-arrays", capability: "storage schema" },
       { source_slug: "exp-json-blob",       capability: "API surface" },
@@ -641,7 +639,7 @@ if (report.recommendation === "promote") {
 
 ## Adapters
 
-Bundled: `markdown.ts` (no-op default – the spec IS the tracking), `jira.ts` (stub). Project skills wire in the adapter they want via `.sftdd/adapters/<name>.json` config.
+Bundled: `markdown.ts` (no-op default – the spec IS the tracking), `jira.ts` (stub). Project skills wire in the adapter they want via `.consort/adapters/<name>.json` config.
 
 The `SpecAdapter` interface extends `SyncEventHooks` – implementations may opt into `onPhaseTransition`, `onCycleComplete`, `onSmellDetected` hooks for status-mirroring to external trackers. Adapter failures must degrade gracefully – the on-disk spec is the source of truth.
 
@@ -652,6 +650,6 @@ For non-agent invocation (debugging, CI introspection):
 | Command | Purpose |
 |---|---|
 | `lakebase-feature-status <featureId> [--tdd <dir>] [--json]` | One-screen snapshot of a feature's TDD workflow state. Use `--json` for machine-readable payload. |
-| `consort-next (--feature <F> \| --sprint <S>) [--json]` | The authoritative, strictly read-only "what do I do next?" surface, computed from the same engine the drive runs on: the reconciled state, the decision menu (the real HIL choices, each with its correct enact command + a prompt to pose), and any blockers. The drive also auto-emits it to `.sftdd/next.json` on every stop, so an orchestrating agent's contract is "on any stop, read next.json and present its options" instead of improvising. See [`references/next-schema.md`](references/next-schema.md). |
-| `node dist/bin/sftdd/spec-sync.cli.js <tddDir>` | Walk the `.sftdd/` tree and print drift reports. Exits 0 even when reports exist (warn-only). |
-| `node dist/bin/sftdd/test-list.cli.js <tddDir> <featureId> [storyId]` | Regenerate per-AC views from the feature-level master test list. With a `storyId`, instead write that story's scoped per-story test list (`stories/<story>/test-list-per-story.json`), the streaming build lane's per-story input. |
+| `consort-next (--feature <F> \| --sprint <S>) [--json]` | The authoritative, strictly read-only "what do I do next?" surface, computed from the same engine the drive runs on: the reconciled state, the decision menu (the real HIL choices, each with its correct enact command + a prompt to pose), and any blockers. The drive also auto-emits it to `.consort/next.json` on every stop, so an orchestrating agent's contract is "on any stop, read next.json and present its options" instead of improvising. See [`references/next-schema.md`](references/next-schema.md). |
+| `node dist/bin/consort/spec-sync.cli.js <consortDir>` | Walk the `.consort/` tree and print drift reports. Exits 0 even when reports exist (warn-only). |
+| `node dist/bin/consort/test-list.cli.js <consortDir> <featureId> [storyId]` | Regenerate per-AC views from the feature-level master test list. With a `storyId`, instead write that story's scoped per-story test list (`stories/<story>/test-list-per-story.json`), the streaming build lane's per-story input. |

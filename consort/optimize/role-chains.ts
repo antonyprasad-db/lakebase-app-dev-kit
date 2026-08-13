@@ -26,7 +26,7 @@ export const FEATURE = "F1-stock-visibility";
 export const STORY = "S1-file-stock";
 
 /** Workspace-relative roots a DESIGN role writes its output under (features/... or planning/...),
- *  OUTSIDE .sftdd/. runRoleChainLive snapshots these in addition to .sftdd so the produced
+ *  OUTSIDE .consort/. runRoleChainLive snapshots these in addition to .consort so the produced
  *  artifact is captured in producedArtifacts (keyed by its workspace-relative path == outputFile)
  *  , which is what the QUALITY GATE + evidence preservation both key on. Without this the gate
  *  silently skips (the scoreless-sweep defect). Every ROLE_CHAINS.outputFile lives under one of
@@ -221,7 +221,7 @@ export async function runRoleChainLive(chain: RoleChain, opts: RunRoleChainOptio
     feature: FEATURE,
     start: PO_SEED,
     // A design role writes its output at the WORKSPACE ROOT (features/... or planning/...), NOT
-    // under .sftdd/. The default snapshot is .sftdd-only, so without this the produced artifact is
+    // under .consort/. The default snapshot is .consort-only, so without this the produced artifact is
     // never captured in producedArtifacts , which means the QUALITY GATE (which keys on
     // producedArtifacts[chain.outputFile]) SILENTLY SKIPS and the artifact is not preserved (the
     // exact scoreless-sweep defect #556 exists to prevent). Snapshot the design output roots so the

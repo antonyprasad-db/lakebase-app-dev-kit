@@ -1,6 +1,6 @@
 // Structured HITL gate state for the TDD workflow.
 //
-// On-disk: .sftdd/features/<F>/gates.json
+// On-disk: .consort/features/<F>/gates.json
 //
 // gates.json is the substrate's authoritative gate state. selection-log.md
 // stays as narrative-of-record (humans grep it when debugging). The
@@ -57,7 +57,7 @@ export interface GatesState {
 }
 
 export interface GatesIoOpts {
-  /** Path to the .sftdd/ root. Default: "./.sftdd". */
+  /** Path to the .consort/ root. Default: "./.consort". */
   consortDir?: string;
 }
 

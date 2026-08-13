@@ -6667,6 +6667,7 @@ import { getConnection } from "@databricks-solutions/lakebase-scm-utils/lakebase
 init_esm_shims();
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "fs";
 import { join } from "path";
+import { execFileSync } from "child_process";
 import { createPairedBranch, deletePairedBranch } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 function experimentsRoot(consortDir, featureId, storyId) {
   return join(consortDir, "experiments", featureId, storyId);

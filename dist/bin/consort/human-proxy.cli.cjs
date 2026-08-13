@@ -8388,6 +8388,7 @@ var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebas
 
 // consort/experiment/experiment.ts
 init_cjs_shims();
+var import_node_child_process = require("child_process");
 var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/smells/smells.ts
@@ -8472,7 +8473,7 @@ var import_path10 = require("path");
 
 // consort/deploy/deploy.ts
 init_cjs_shims();
-var import_node_child_process = require("child_process");
+var import_node_child_process2 = require("child_process");
 var import_node_crypto = require("crypto");
 var import_node_fs4 = require("fs");
 var import_node_path5 = require("path");

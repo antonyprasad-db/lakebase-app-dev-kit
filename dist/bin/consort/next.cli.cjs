@@ -8478,6 +8478,7 @@ var import_lakebase3 = require("@databricks-solutions/lakebase-scm-utils/lakebas
 
 // consort/experiment/experiment.ts
 init_cjs_shims();
+var import_node_child_process3 = require("child_process");
 var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/pipeline/run-cycle.ts
@@ -8499,7 +8500,7 @@ init_cjs_shims();
 
 // consort/deploy/deploy.ts
 init_cjs_shims();
-var import_node_child_process3 = require("child_process");
+var import_node_child_process4 = require("child_process");
 var import_node_crypto4 = require("crypto");
 var import_node_fs11 = require("fs");
 var import_node_path13 = require("path");
@@ -9954,7 +9955,7 @@ function blockersOf(state) {
       reason: e.reason,
       ...e.story_id ? { story: e.story_id } : {},
       resolver: null,
-      resolver_hint: "Resolve the underlying problem (clear the escalation file under .sftdd/escalations/ and any blocking smell in .sftdd/smells.json), then resume the drive."
+      resolver_hint: "Resolve the underlying problem (clear the escalation file under .consort/escalations/ and any blocking smell in .consort/smells.json), then resume the drive."
     }
   ];
 }

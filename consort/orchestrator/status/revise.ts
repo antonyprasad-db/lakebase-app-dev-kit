@@ -360,7 +360,7 @@ export interface RebuildStoryResult {
  * `pipeline rebuild-story`: the explicit, sanctioned "re-drive this story from a
  * clean slate" operator op (Finding 27), so recovering a story after a caught
  * false-GREEN (or any build-lane defect) never requires hand-deleting kit-internal
- * state (`rm -rf .sftdd/cycles/...`). It clears EVERY on-disk source that would
+ * state (`rm -rf .consort/cycles/...`). It clears EVERY on-disk source that would
  * otherwise make the re-drive skip the build or immediately re-halt:
  *   1. the build cycle records + test-list statuses (resetStoryBuildState), so the
  *      story reads pending again and the lane re-runs RED/GREEN;

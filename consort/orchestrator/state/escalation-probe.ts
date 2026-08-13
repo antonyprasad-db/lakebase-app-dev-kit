@@ -10,13 +10,13 @@ import { diskArtifactProbe } from "./orchestrator-probe.js";
 import type { DriveEscalation, DriveState } from "../workflow/workflow-vocabulary.js";
 
 /**
- * Read the unresolved blocking escalation for a feature from `.sftdd` (escalation files +
+ * Read the unresolved blocking escalation for a feature from `.consort` (escalation files +
  * blocking smells + the revise-budget classification), or null when there is none. Delegates
  * entirely to the legacy disk probe , the classification of routable (spec smell, budget left
  * -> revise-route) vs terminal (build smell / explicit file / budget spent -> raise-to-hil)
  * lives there, so the manifest path and nextTransition agree by construction.
  *
- * @param consortDir     the workspace's resolved .sftdd dir.
+ * @param consortDir     the workspace's resolved .consort dir.
  * @param featureId    the feature under design.
  * @param buildActive  the story the build lane is on (scopes a story-less smell), if any.
  */

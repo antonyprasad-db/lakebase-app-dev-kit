@@ -68,6 +68,24 @@
     "components": {
       "type": "object",
       "description": "Per-component standards (freeform per component). REQUIRED for a UI project (the ux-designer self-check enforces a non-empty object; the schema keeps it optional so older recorded corpora still validate). Each entry SHOULD name the CSS `class` the feature pages apply (page, card, button, form_input, table, status_badge, empty_state, toast, ...), which is the vocabulary the token-consumption gate looks for."
+    },
+    "app_icon": {
+      "type": "object",
+      "description": "The product's brand icon/favicon, when the design brief provides one (an intake asset). Makes the icon a machine-checkable contract: the ux-adherence gate verifies the asset is installed at `install_to` and actually referenced by the app shell (index.html favicon + navbar), not left as the scaffold placeholder. Omit for projects with no brand asset (the generic scaffold icon then stands).",
+      "required": ["source", "install_to"],
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Where the asset ships in intake, e.g. `intake/assets/warehouse.png`."
+        },
+        "install_to": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Project-relative path the build copies the asset to, e.g. `client/public/warehouse.png`. The gate checks this file exists and is referenced by the app shell."
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

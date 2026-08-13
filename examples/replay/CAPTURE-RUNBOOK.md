@@ -46,7 +46,7 @@ Two facts that cause split-brain runs:
   `lk --rewarm` (forces a fresh install of the resolved SHA) refresh it. A plain
   bin run never re-resolves.
 - **`claude -p` agents do not inherit env.** The shim says so explicitly. The
-  orchestrator (`capture-scenario.sh` -> `lakebase-sftdd-drive`) can be pointed
+  orchestrator (`capture-scenario.sh` -> `consort-drive`) can be pointed
   at your working tree with `LAKEBASE_KIT_DIR`, but the spawned role agents
   (spec-author, driver, ...) resolve via `.lakebase/kit-ref` -> the GitHub
   cache. So the orchestrator and the agents can run DIFFERENT kits in the same
@@ -151,7 +151,7 @@ lane never runs).
 
 ## Observe + troubleshoot (through the shim, never around it)
 
-- Read the run log, the recorded turns, and `.sftdd/escalations/*.json`.
+- Read the run log, the recorded turns, and `.consort/escalations/*.json`.
 - To reproduce a gate step, invoke it THROUGH the project's `./scripts/lk` with
   the SAME env the run had (same mode A/B). Read the identifiers from the
   recorded artifacts (e.g. the cycle's branch **name** from
@@ -168,9 +168,9 @@ lane never runs).
 The drive exits 0 and pauses when it raises to HIL. To resume you must clear BOTH
 escalation sources, then resume through the same env:
 
-1. Remove/resolve the explicit `.sftdd/escalations/*.json`.
-2. Clear any blocking smell in `.sftdd/smells.json` (a derived escalation source).
-3. Resume with a direct `lakebase-sftdd-drive` call (NOT `run-smoke.sh`, which
+1. Remove/resolve the explicit `.consort/escalations/*.json`.
+2. Clear any blocking smell in `.consort/smells.json` (a derived escalation source).
+3. Resume with a direct `consort-drive` call (NOT `run-smoke.sh`, which
    checks out `main`), same resolution mode as the run.
 
 Only resolve an escalation once you have reproduced the gate through the shim and

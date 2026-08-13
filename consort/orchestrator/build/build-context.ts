@@ -6,7 +6,7 @@
 // projection of the design artifacts + conventions.json, never authored, so it cannot drift.
 //
 // This lives in the orchestrator family as the ONE source of truth: the real drive
-// (scripts/sftdd/orchestrator-effects.ts, roleTaskBody) imports it, AND the lean per-role build
+// (consort/orchestrator/drive/orchestrator-effects.ts, roleTaskBody) imports it, AND the lean per-role build
 // chains (optimize/build-role-chains.ts) inject the SAME pack, so an isolated build turn is
 // pre-conditioned exactly as the dispatched turn is (no hand-written approximation).
 
@@ -14,7 +14,7 @@ import * as fs from "node:fs";
 import { readConventions } from "../../architecture/architecture-conventions.js";
 import { storyAcIds, readAcLayer, architectureJson, designGuideJson } from "../../config/consort-paths.js";
 
-/** The .tdd artifact root for a project (identity: the sftdd dir IS the root). */
+/** The .consort artifact root for a project (identity: the artifact dir IS the root). */
 function artifactRoot(consortDir: string): string {
   return consortDir;
 }

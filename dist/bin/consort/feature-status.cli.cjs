@@ -6662,6 +6662,7 @@ var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebas
 init_cjs_shims();
 var import_fs = require("fs");
 var import_path = require("path");
+var import_node_child_process = require("child_process");
 var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 function experimentsRoot(consortDir, featureId, storyId) {
   return (0, import_path.join)(consortDir, "experiments", featureId, storyId);
@@ -6875,7 +6876,7 @@ function readMasterTestList(tddDir, featureId) {
 
 // consort/deploy/deploy.ts
 init_cjs_shims();
-var import_node_child_process = require("child_process");
+var import_node_child_process2 = require("child_process");
 var import_node_crypto = require("crypto");
 var import_node_fs2 = require("fs");
 var import_node_path3 = require("path");

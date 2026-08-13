@@ -4,19 +4,19 @@ description: Launch the Consort workflow (spec-first design, test-driven build o
 
 # /consort:start : launch the Consort workflow
 
-This command launches the SFTDD (Spec-First Test-Driven Development) loop. First detect where you are, then branch.
+This command launches the Consort (spec-first, test-driven) loop. First detect where you are, then branch.
 
-**Check the current project root for a `.sftdd/` directory.**
-- If `.sftdd/` exists, go to **A. Resume**.
+**Check the current project root for a `.consort/` directory.**
+- If `.consort/` exists, go to **A. Resume**.
 - If it does not, go to **B. Create**.
 
 ---
 
-## A. Resume an existing SFTDD project
+## A. Resume an existing Consort project
 
 Drive the workflow through the **deterministic orchestrator** (`consort-drive`), invoked by the slash commands below. You coordinate only: run the right command for the project's state, and surface every gate to the human. The driver spawns the role agents (`product-owner`, `spec-author`, `ux-designer`, `architect-reviewer`, `test-strategist`, `navigator`, `driver`, or `release-engineer`), which are scaffolded into the project's `.claude/agents/` and invoked as `claude --agent <role>`, and obeys the state machine; the orchestrator is not an LLM agent. You write no spec, code, test, or deploy yourself.
 
-1. **Take stock** (read, then summarize back): `.sftdd/product-overview.md` (what the product is), `.sftdd/nfrs.md`, `.sftdd/design/design-brief.md` (if UI), `.sftdd/workflow-state.json` (current `phase` + locus, your source of truth), `.sftdd/planning/feature-proposals.md`, and each `.sftdd/features/*/` (feature-request, feature-spec, architecture, test-list, gates.json). Confirm SCM state via `lakebase-scm-state`. Give the human a short situation report: what the project is about, the current phase, and each feature's status.
+1. **Take stock** (read, then summarize back): `.consort/product-overview.md` (what the product is), `.consort/nfrs.md`, `.consort/design/design-brief.md` (if UI), `.consort/workflow-state.json` (current `phase` + locus, your source of truth), `.consort/planning/feature-proposals.md`, and each `.consort/features/*/` (feature-request, feature-spec, architecture, test-list, gates.json). Confirm SCM state via `lakebase-scm-state`. Give the human a short situation report: what the project is about, the current phase, and each feature's status.
    - **Returning after a while?** Pull the latest kit before you continue: `./scripts/lk --warm` (reinstalls if the ref's tip moved), so `/design` `/build` run the current orchestrator. The drive auto-refreshes the project's `.claude/agents/` when it detects the kit moved; to refresh out of band run `./scripts/lk lakebase-update-agents`.
 2. **Continue the loop.** Offer the human the autonomous path or a single step:
    - **Whole sprint (autonomous):** **`/sprint [name]`** flows plan -> per feature `design` -> `build` -> `deploy`, pausing only at gates. Resumable; re-invoke to continue past an approved gate.
@@ -34,7 +34,7 @@ The commands (`/sprint`, `/plan`, `/design`, `/build`, `/deploy`, `/spike`) are 
 
 ## B. Create a new project, then resume
 
-There is no `.sftdd/` here, so bootstrap one. Walk the user through it (ask, do not assume; offer the noted defaults):
+There is no `.consort/` here, so bootstrap one. Walk the user through it (ask, do not assume; offer the noted defaults):
 
 - **Project name** (kebab-case, the Lakebase id + dir name; on the `--no-github` path the creator makes the target directory, or reuses an existing EMPTY one, but refuses a non-empty directory); **parent directory** (default: parent of cwd or `~/code`); **Databricks host** (offer `DATABRICKS_HOST` / `~/.databrickscfg` if present); **GitHub owner** (or `--no-github`); **tiers** (`1` prod / `2` prod+staging / `3` prod+staging+dev, surface this, do not pick silently; **tiers `2`/`3` require a GitHub repo**, cutting a long-running tier pushes its git side to origin, so `--no-github` with `--tiers 2`/`3` is refused up front, pair `--no-github` with `--tiers 1`); **language** (`python`/`nodejs`/`java`/`kotlin`); **E2E/Infra** (default on for nodejs); **model profile** (see "Per-role model profile" just below).
 
@@ -74,10 +74,10 @@ On success, tell the user to enter the new project and resume:
 cd <parent-dir>/<name>
 ```
 
-then re-run **`/consort:start`** there (it will find `.sftdd/` and resume at `/plan`), or `./scripts/sftdd.sh plan` to open the orchestrator session directly. Do not start the workflow from the current directory, the project is elsewhere.
+then re-run **`/consort:start`** there (it will find `.consort/` and resume at `/plan`), or `./scripts/consort.sh plan` to open the orchestrator session directly. Do not start the workflow from the current directory, the project is elsewhere.
 
 ---
 
 ## Note on the orchestrator
 
-The orchestrator is the deterministic driver (`consort-drive`), not an LLM agent: the slash commands invoke it, and IT spawns the role agents + pauses at gates. `/consort:start` (this command) helps you pick + run the right command from your session; the project's `./scripts/sftdd.sh` is the equivalent local launcher.
+The orchestrator is the deterministic driver (`consort-drive`), not an LLM agent: the slash commands invoke it, and IT spawns the role agents + pauses at gates. `/consort:start` (this command) helps you pick + run the right command from your session; the project's `./scripts/consort.sh` is the equivalent local launcher.

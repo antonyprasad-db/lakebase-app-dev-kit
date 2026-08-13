@@ -39,9 +39,14 @@ while [[ $# -gt 0 ]]; do
 done
 [[ -n "$PROJECT_DIR" ]] || { echo "watch-artifacts: --project-dir required" >&2; exit 2; }
 
-SFTDD_DIR="$PROJECT_DIR/.sftdd"
+# Resolve the artifact root: canonical .consort, honoring the legacy .sftdd/.tdd
+# names (newest-first) so this watcher works against an older project layout too.
+ARTIFACT_DIR="$PROJECT_DIR/.consort"
+for _root in .consort .sftdd .tdd; do
+  if [[ -d "$PROJECT_DIR/$_root" ]]; then ARTIFACT_DIR="$PROJECT_DIR/$_root"; break; fi
+done
 EXPERIMENTS_DIR="$PROJECT_DIR/experiments"
-FEATDIR="$SFTDD_DIR/features/$FEATURE"
+FEATDIR="$ARTIFACT_DIR/features/$FEATURE"
 CHAMP="$EXPERIMENTS_DIR/champion-walk.json"
 
 STATE="$(mktemp)"          # lines: "<key>\t<bytes>" of what we've already announced
@@ -76,7 +81,7 @@ scan_files() {
     prev="$(seen "file:$r")"
     if [[ -z "$prev" ]]; then emit "ART  $r  ${bytes}b"; remember "file:$r" "$bytes"
     elif [[ "$prev" != "$bytes" ]]; then emit "GROW $r  ${bytes}b"; remember "file:$r" "$bytes"; fi
-  done < <(find "$FEATDIR" "$EXPERIMENTS_DIR" "$SFTDD_DIR/recorded-artifacts" "$PROJECT_DIR/recorded-build" \
+  done < <(find "$FEATDIR" "$EXPERIMENTS_DIR" "$ARTIFACT_DIR/recorded-artifacts" "$PROJECT_DIR/recorded-build" \
               -type f \( -name '*.json' -o -name '*.md' -o -name '*.txt' \) 2>/dev/null)
 }
 

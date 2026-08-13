@@ -2,7 +2,7 @@
 // so every candidate for that handoff runs from an IDENTICAL starting point (the
 // champion walk's core invariant). Two turn kinds:
 //
-//   DESIGN turns write only .sftdd artifacts (pure): snapshot copies the .sftdd
+//   DESIGN turns write only .consort artifacts (pure): snapshot copies the .consort
 //   tree aside; restore replaces the live tree with the copy wholesale (so a
 //   candidate that ADDED files is fully undone). No git, no cloud.
 //
@@ -21,28 +21,28 @@ import { cpSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 
-/** A restorable snapshot of a DESIGN turn's pre-turn .sftdd tree. */
+/** A restorable snapshot of a DESIGN turn's pre-turn .consort tree. */
 export interface DesignSnapshot {
-  /** Replace the live .sftdd with the captured copy (idempotent). */
+  /** Replace the live .consort with the captured copy (idempotent). */
   restore(): void;
   /** Remove the backing copy (call once the handoff's winner is chosen). */
   dispose(): void;
 }
 
-/** A DURABLE, JSON-serializable reference to one trial's captured .sftdd output.
+/** A DURABLE, JSON-serializable reference to one trial's captured .consort output.
  *  Unlike DesignSnapshot (a live temp handle), this is just a path under the
  *  experiments/ tree, so it survives into result.json and can be inspected,
  *  diffed against the reference, or restored as a winner/fallback long after the
  *  run — no live handle, no /tmp, no dispose. */
 export interface DesignArtifactRef {
-  /** Absolute path to the captured .sftdd copy for this trial. */
+  /** Absolute path to the captured .consort copy for this trial. */
   path: string;
 }
 
-/** Capture the live .sftdd tree into an EXPLICIT durable dest dir (a trial's
+/** Capture the live .consort tree into an EXPLICIT durable dest dir (a trial's
  *  `experiments/<handoff>/<candidate>/trial-<n>/artifacts/`), NOT a temp dir.
  *  Called on a passing design trial BEFORE the between-trial restore wipes
- *  .sftdd, so every candidate's real output persists for audit + fallback +
+ *  .consort, so every candidate's real output persists for audit + fallback +
  *  a reusable corpus. Returns a plain path ref (serializable into result.json). */
 export function captureDesignArtifacts(args: { consortDir: string; destDir: string }): DesignArtifactRef {
   const { consortDir, destDir } = args;
@@ -51,7 +51,7 @@ export function captureDesignArtifacts(args: { consortDir: string; destDir: stri
   return { path: destDir };
 }
 
-/** Restore the live .sftdd from a durable capture (wholesale replace, so a file
+/** Restore the live .consort from a durable capture (wholesale replace, so a file
  *  the current tree has but the capture does not is removed). Used to promote a
  *  winner — or a structurally-complete runner-up fallback — as the live artifact
  *  the next role consumes, with NO re-run. Does NOT delete the capture (it stays
@@ -62,7 +62,7 @@ export function restoreDesignArtifacts(args: { consortDir: string; ref: DesignAr
   cpSync(ref.path, consortDir, { recursive: true });
 }
 
-/** Snapshot the .sftdd tree so a design candidate can be undone. Copies to a
+/** Snapshot the .consort tree so a design candidate can be undone. Copies to a
  *  sibling temp dir; restore removes the live tree and copies the backup back. */
 export function snapshotDesign(args: { consortDir: string }): DesignSnapshot {
   const { consortDir } = args;
@@ -131,7 +131,7 @@ export function turnMutatesDb(buildMode: string | undefined, role: string): bool
   return buildMode === undefined && role === "driver";
 }
 
-/** Resolve the project root from a consortDir (the .sftdd's parent), the convention
+/** Resolve the project root from a consortDir (the .consort's parent), the convention
  *  the drive uses. Exposed so the harness + snapshot agree on the root. */
 export function projectDirOf(consortDir: string): string {
   return dirname(consortDir);

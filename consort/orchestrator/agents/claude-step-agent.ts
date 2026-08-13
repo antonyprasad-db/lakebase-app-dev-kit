@@ -111,10 +111,10 @@ export class ClaudeStepAgent implements StepAgent {
   /**
    * The `claude` DriveCommand this agent will spawn for an invocation. Pure + exported
    * for guarding: the task is the orchestrator's passed-through prompt + guidelines + the
-   * PROVIDED input contents (embedded so the agent needs no .sftdd access), and every
+   * PROVIDED input contents (embedded so the agent needs no .consort access), and every
    * model-side lever is threaded onto the command (which claudeBaseArgs/claudeToolArgs
    * then translate to flags). CONTAINED: the task references only provided inputs + the
-   * workspace it will be spawned in; it never points the agent at .sftdd.
+   * workspace it will be spawned in; it never points the agent at .consort.
    */
   buildCommand(invocation: AgentInvocation): Extract<DriveCommand, { kind: "claude" }> {
     const { instructions, action, inputs } = invocation;

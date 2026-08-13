@@ -109,7 +109,7 @@ export interface DriveContext {
   breakdownDone: boolean;
   /** Optional explicit story order; defaults to pipeline insertion order. */
   storyOrder?: string[];
-  /** Build-loop granularity (sftdd-config.json, file -> env -> default). "story"
+  /** Build-loop granularity (consort-config.json, file -> env -> default). "story"
    *  (the default) gives the Navigator/Driver story-scoped turns: one RED turn
    *  writes the whole story's tests, one GREEN greens them, one REVIEW + one
    *  REFACTOR per story. "ac" (strict per-test TDD) and "hybrid-a" (per-layer

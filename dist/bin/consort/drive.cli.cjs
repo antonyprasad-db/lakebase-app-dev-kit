@@ -8185,6 +8185,7 @@ var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebas
 
 // consort/experiment/experiment.ts
 init_cjs_shims();
+var import_node_child_process2 = require("child_process");
 var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/pipeline/run-cycle.ts
@@ -8429,7 +8430,7 @@ init_cjs_shims();
 
 // consort/deploy/deploy.ts
 init_cjs_shims();
-var import_node_child_process2 = require("child_process");
+var import_node_child_process3 = require("child_process");
 var import_node_crypto2 = require("crypto");
 var import_node_fs3 = require("fs");
 var import_node_path5 = require("path");
@@ -11254,7 +11255,7 @@ var import_node_crypto4 = require("crypto");
 
 // consort/orchestrator/drive/claude-runner.ts
 init_cjs_shims();
-var import_node_child_process4 = require("child_process");
+var import_node_child_process5 = require("child_process");
 
 // consort/setup/project-consort-setup.ts
 init_cjs_shims();
@@ -11674,7 +11675,7 @@ function isTransientApiErrorSignal(line) {
 
 // consort/config/kit-bin.ts
 init_cjs_shims();
-var import_node_child_process3 = require("child_process");
+var import_node_child_process4 = require("child_process");
 var fs12 = __toESM(require("fs"), 1);
 var path7 = __toESM(require("path"), 1);
 var kitRootCache;
@@ -11865,7 +11866,7 @@ var TURN_INACTIVITY_TIMEOUT_MS = Number(consortEnv("TURN_INACTIVITY_TIMEOUT_MS")
 var TURN_HEARTBEAT_MS = Number(consortEnv("TURN_HEARTBEAT_MS") ?? String(60 * 1e3));
 function spawnCmd(bin, args, cwd) {
   return new Promise((resolve3, reject) => {
-    const child = (0, import_node_child_process4.spawn)(bin, args, { cwd, stdio: "inherit" });
+    const child = (0, import_node_child_process5.spawn)(bin, args, { cwd, stdio: "inherit" });
     child.on("error", (err) => reject(err));
     child.on("close", (code) => code === 0 ? resolve3() : reject(new Error(`${bin} exited ${code}`)));
   });
@@ -11924,7 +11925,7 @@ function defaultTurnMonitor(sink) {
 }
 function spawnClaudeStreaming(args, cwd, monitorOverride) {
   return new Promise((resolve3, reject) => {
-    const child = (0, import_node_child_process4.spawn)("claude", args, { cwd, stdio: ["inherit", "pipe", "pipe"] });
+    const child = (0, import_node_child_process5.spawn)("claude", args, { cwd, stdio: ["inherit", "pipe", "pipe"] });
     const lines = [];
     let sawTooLong = false;
     let sawTransient = false;
@@ -12318,7 +12319,7 @@ function buildCfg(args, featureId) {
     livePropose: !!consortEnv("LIVE_PROPOSE")?.trim(),
     // Agent turns dispatch THROUGH the StepExecutor (the unified path) , now the DEFAULT (J1). Every
     // executor-allowlisted action has a shipped manifest (guarded by executor-dispatch-coverage.test),
-    // so the executor is the sole agent path. LAKEBASE_SFTDD_USE_MANIFEST_STEPS is a one-cycle escape
+    // so the executor is the sole agent path. LAKEBASE_CONSORT_USE_MANIFEST_STEPS is a one-cycle escape
     // hatch: set it to 0/false/off/no to force the legacy commandsForAction dispatch (retired in J5).
     useManifestSteps: !/^(0|false|off|no)$/i.test(consortEnv("USE_MANIFEST_STEPS")?.trim() ?? ""),
     // RECORD lane (Stage G): hand the executor's ReplayRecorderWrapper the just-completed live
@@ -12365,7 +12366,7 @@ function buildCfg(args, featureId) {
       // Narrate each routing decision in plain language (DRY: the same message
       // the structured log uses). The machine-readable form is already written to
       // the structured agent-log by makeOnAction below, so the raw action JSON is
-      // console noise on every line , append it only under LAKEBASE_SFTDD_TRACE.
+      // console noise on every line , append it only under LAKEBASE_CONSORT_TRACE.
       (action, i) => {
         const trace = consortEnv("TRACE") ? `  ${JSON.stringify(action)}` : "";
         process.stderr.write(`[drive] ${String(i).padStart(3, "0")} ${describeAction(action, { featureId })}${trace}
@@ -12410,10 +12411,10 @@ var ClaudeStepAgent = class {
   /**
    * The `claude` DriveCommand this agent will spawn for an invocation. Pure + exported
    * for guarding: the task is the orchestrator's passed-through prompt + guidelines + the
-   * PROVIDED input contents (embedded so the agent needs no .sftdd access), and every
+   * PROVIDED input contents (embedded so the agent needs no .consort access), and every
    * model-side lever is threaded onto the command (which claudeBaseArgs/claudeToolArgs
    * then translate to flags). CONTAINED: the task references only provided inputs + the
-   * workspace it will be spawned in; it never points the agent at .sftdd.
+   * workspace it will be spawned in; it never points the agent at .consort.
    */
   buildCommand(invocation) {
     const { instructions, action, inputs } = invocation;
@@ -13254,6 +13255,9 @@ function resolvePreparer(kind) {
 var import_util3 = require("@databricks-solutions/lakebase-scm-utils/util");
 var UI_TRACK_PROPOSE = ` UI track is ON: this product has a user-facing UI (a design-brief.md is part of intake), so every user-facing capability must be deliverable end to end as an E2E story, a real browser/screen interaction a user performs, not merely an API. Frame each candidate as a user-facing increment and note which need an E2E (UI) story.`;
 var UI_TRACK_BREAKDOWN = ` UI track is ON: decompose into stories that include the E2E (UI) story for each user-facing capability (a screen the user interacts with), not API-only stories.`;
+function shellQuote(s) {
+  return `'${s.replace(/'/g, `'\\''`)}'`;
+}
 function artifactRoot2(consortDir) {
   return consortDir;
 }
@@ -13597,7 +13601,7 @@ function buildClaudeCommandWithBody(action, cfg, body) {
       mode: "mode" in action ? action.mode : void 0,
       // The build turn's mode (reflect / review / refactor / assess / repair),
       // distinct from the design-lane `mode` above. The replay path needs it to
-      // recognise the reflect turn (whose recorded output is a .sftdd design
+      // recognise the reflect turn (whose recorded output is a .consort design
       // artifact the code-only build restore filters out).
       buildMode: "buildMode" in action ? action.buildMode : void 0,
       story: "story" in action ? action.story : void 0
@@ -13919,7 +13923,29 @@ Edit ONLY those test files. The orchestrator re-deploys + re-verifies the whole 
         // so -f discards it and switches. Mirrors the fork-guard ignoring the same
         // metadata. (scm-merge attempts this switch too but non-fatally; this is
         // the deterministic guarantee.)
-        ...cfg.parentBranch ? [{ kind: "cli", bin: "git", args: ["checkout", "-f", cfg.parentBranch] }] : [],
+        ...cfg.parentBranch ? [
+          { kind: "cli", bin: "git", args: ["checkout", "-f", cfg.parentBranch] },
+          // Delete the merged local feature branch so the process never leaves
+          // us on (or able to fall back to) a branch that should have been
+          // removed. Guarded to the feature branch, and only when it differs
+          // from the parent we just landed on (never delete the tier we are on).
+          // `-D` (force) because the branch merged via PR squash/merge-commit is
+          // not a literal ancestor of the local parent tip, so `-d` would refuse
+          // it as "not fully merged" even though it IS shipped. scm-merge already
+          // removed the REMOTE + Lakebase branches; this completes the local side.
+          // Best-effort via a shell guard: a missing/absent branch must not fail
+          // the terminal step (idempotent on a resume where it is already gone).
+          ...cfg.featureBranch && cfg.featureBranch !== cfg.parentBranch ? [
+            {
+              kind: "cli",
+              bin: "sh",
+              args: [
+                "-c",
+                `git branch -D ${shellQuote(cfg.featureBranch)} 2>/dev/null || true`
+              ]
+            }
+          ] : []
+        ] : [],
         { kind: "set-phase", phase: "shipped" }
       ];
     case "revise-route": {
@@ -14217,7 +14243,7 @@ function blockersOf(state) {
       reason: e.reason,
       ...e.story_id ? { story: e.story_id } : {},
       resolver: null,
-      resolver_hint: "Resolve the underlying problem (clear the escalation file under .sftdd/escalations/ and any blocking smell in .sftdd/smells.json), then resume the drive."
+      resolver_hint: "Resolve the underlying problem (clear the escalation file under .consort/escalations/ and any blocking smell in .consort/smells.json), then resume the drive."
     }
   ];
 }
@@ -14380,7 +14406,7 @@ var import_util4 = require("@databricks-solutions/lakebase-scm-utils/util");
 
 // consort/orchestrator/provisioning/credentials.ts
 init_cjs_shims();
-var import_node_child_process5 = require("child_process");
+var import_node_child_process6 = require("child_process");
 var import_lakebase10 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 async function driveAuthPreflight(host, check = import_lakebase10.checkDatabricksAuth) {
   const res = await check(host);
@@ -14766,7 +14792,6 @@ function withTurnRecording(inner, cfg) {
     async perform(action) {
       logLenBeforePerform = readAgentLog({ consortDir: cfg.consortDir }).length;
       await inner.perform(action);
-      if (action.kind === "done") return;
       const transcript = takeLastAgentTranscript();
       const rec = recordTurn({ recordDir, projectDir: cfg.projectDir, consortDir: cfg.consortDir, action, step: 0, transcript });
       process.stderr.write(
@@ -15012,7 +15037,7 @@ function snapshotRunConfig(cfg, bound, gates) {
     bound,
     // Run-scoped effective gate mode (--gates override else project policy),
     // recorded here so the snapshot is where the run-scoped choice lives , the
-    // flag never persists into sftdd-config.json.
+    // flag never persists into consort-config.json.
     gates,
     uiTrack: cfg.uiTrack,
     buildSessionScope: cfg.buildSessionScope,

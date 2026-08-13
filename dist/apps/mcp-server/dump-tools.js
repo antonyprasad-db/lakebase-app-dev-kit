@@ -6912,12 +6912,12 @@ function layDownTddScaffold(targetDir) {
   }
   layDownKitClaudeAssets(targetDir);
   const candidates = [
-    path4.resolve(__dirname2, `../../templates/sftdd-bootstrap/${ARTIFACT_ROOT}`),
-    path4.resolve(__dirname2, `../../../templates/sftdd-bootstrap/${ARTIFACT_ROOT}`)
+    path4.resolve(__dirname2, `../../templates/consort-bootstrap/${ARTIFACT_ROOT}`),
+    path4.resolve(__dirname2, `../../../templates/consort-bootstrap/${ARTIFACT_ROOT}`)
   ];
   const source = candidates.find((c) => fs4.existsSync(c));
   if (!source) {
-    throw new Error(`sftdd-bootstrap template not found; looked in: ${candidates.join(", ")}`);
+    throw new Error(`consort-bootstrap template not found; looked in: ${candidates.join(", ")}`);
   }
   const dest = path4.join(targetDir, ARTIFACT_ROOT);
   if (fs4.existsSync(dest)) {
@@ -7041,6 +7041,7 @@ import { getConnection } from "@databricks-solutions/lakebase-scm-utils/lakebase
 init_esm_shims();
 import { existsSync as existsSync6, mkdirSync as mkdirSync6, readdirSync as readdirSync5, readFileSync as readFileSync6, statSync as statSync3, writeFileSync as writeFileSync5 } from "fs";
 import { join as join7 } from "path";
+import { execFileSync } from "child_process";
 import { createPairedBranch, deletePairedBranch } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 function experimentsRoot(consortDir, featureId, storyId) {
   return join7(consortDir, "experiments", featureId, storyId);

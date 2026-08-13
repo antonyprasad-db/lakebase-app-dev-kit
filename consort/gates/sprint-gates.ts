@@ -18,7 +18,7 @@ import { hashArtifact } from "./gate-hash.js";
 import { checkArtifactConformance } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
 import { resolveConsortDir, sprintDir, sprintGatesJson, featureProposalsMd } from "../../consort/config/consort-paths.js";
 
-// sprintDir lives in sftdd-paths now (single source of truth); re-exported for
+// sprintDir lives in consort-paths now (single source of truth); re-exported for
 // the existing public API.
 export { sprintDir } from "../../consort/config/consort-paths.js";
 

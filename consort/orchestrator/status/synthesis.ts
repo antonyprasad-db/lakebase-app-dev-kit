@@ -133,6 +133,6 @@ export async function synthesizeExperiments(args: SynthesizeArgs): Promise<Synth
 }
 
 function locateFeatureDir(consortDir: string, featureId: string): string | null {
-  // One feature-dir resolution rule (sftdd-paths), not a local copy.
+  // One feature-dir resolution rule (consort-paths), not a local copy.
   return findFeatureDir(consortDir, featureId) ?? null;
 }

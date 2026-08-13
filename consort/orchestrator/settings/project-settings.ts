@@ -7,7 +7,7 @@
 // they stay explicit env inputs, read via consortEnv.
 //
 // The FILE half (shape, load/write, the build/plan/project resolution) lives DOWN in the config
-// primitive so a domain module that only reads the file (intake, project-sftdd-setup) depends
+// primitive so a domain module that only reads the file (intake, project-consort-setup) depends
 // downward without reaching UP into this resolver. This module owns ONLY the model/effort layer,
 // which is genuinely high (it consumes steps/manifest + drive/turn-key). The file symbols + turn-key
 // types are RE-EXPORTED here so the many callers that have long imported them from this module keep

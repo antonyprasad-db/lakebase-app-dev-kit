@@ -1,4 +1,4 @@
-// Brownfield TDD adoption: drop the `.tdd/` scaffold into an existing
+// Brownfield Consort adoption: drop the `.consort/` scaffold into an existing
 // repo so the consort skill has a place to write.
 //
 // Greenfield path: `lakebase-create-project` calls `layDownTddScaffold`
@@ -8,7 +8,7 @@
 // Lakebase / language-scaffold side effects.
 //
 // This module owns the orchestrator + helpers; the CLI wrapper lives at
-// `adopt-sftdd.cli.ts`. The pre/post-flight knobs (--update / --force /
+// `adopt-consort.cli.ts`. The pre/post-flight knobs (--update / --force /
 // --dry-run) all funnel through this function so the BDD harness can
 // drive every behavior without spawning a process.
 
@@ -18,10 +18,10 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export interface AdoptTddArgs {
-  /** Project root that will receive `.tdd/`. Must be a git repo. */
+  /** Project root that will receive `.consort/`. Must be a git repo. */
   projectDir: string;
   /**
-   * Re-run on a project that already has `.tdd/`. Without it the call
+   * Re-run on a project that already has `.consort/`. Without it the call
    * refuses (the default-fail surfaces a clear hint instead of silently
    * doing nothing). With it, missing template files are added and the
    * report distinguishes in-sync vs drifted entries; existing files are
@@ -40,7 +40,7 @@ export interface AdoptTddArgs {
    */
   dryRun?: boolean;
   /**
-   * Override the kit's `templates/sftdd-bootstrap/.tdd` source. The BDD
+   * Override the kit's `templates/consort-bootstrap/.consort` source. The BDD
    * harness uses this to drive against a fixture; production callers
    * always let the substrate auto-locate.
    */
@@ -61,9 +61,9 @@ export interface AdoptTddResult {
 }
 
 /**
- * Drop the `templates/sftdd-bootstrap/.tdd` tree into `projectDir/.tdd`.
+ * Drop the `templates/consort-bootstrap/.consort` tree into `projectDir/.consort`.
  *
- * Default mode: refuses if `.tdd/` already exists. The caller is told
+ * Default mode: refuses if `.consort/` already exists. The caller is told
  * to re-run with `update: true` if they want a brownfield refresh.
  *
  * `update` mode walks the template tree and writes any missing file;
@@ -142,7 +142,7 @@ export function adoptTdd(args: AdoptTddArgs): AdoptTddResult {
  */
 function walkTemplateTree(root: string): string[] {
   if (!fs.existsSync(root)) {
-    throw new Error(`sftdd-bootstrap template tree missing: ${root}`);
+    throw new Error(`consort-bootstrap template tree missing: ${root}`);
   }
   const out: string[] = [];
   const stack: string[] = [""];
@@ -169,7 +169,7 @@ function findBootstrapDir(): string {
   const here = path.dirname(fileURLToPath(import.meta.url));
   let dir = here;
   for (let i = 0; i < 6; i++) {
-    const candidate = path.join(dir, "templates", "sftdd-bootstrap", ARTIFACT_ROOT);
+    const candidate = path.join(dir, "templates", "consort-bootstrap", ARTIFACT_ROOT);
     if (fs.existsSync(candidate)) {
       cachedBootstrapDir = candidate;
       return cachedBootstrapDir;
@@ -179,7 +179,7 @@ function findBootstrapDir(): string {
     dir = parent;
   }
   throw new Error(
-    `Could not locate templates/sftdd-bootstrap/.sftdd relative to ${here}. ` +
+    `Could not locate templates/consort-bootstrap/.consort relative to ${here}. ` +
       `Pass explicit { bootstrapDir } to override.`
   );
 }

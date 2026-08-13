@@ -70,7 +70,7 @@ export type DriveCommand =
   // Deterministic sprint-backlog projection (the ONE writer): after the PO
   // commits its requests, project backlog.json from the on-disk feature-request
   // set + the Architect's estimates. Handled in-process by the runner (no CLI),
-  // mirroring set-phase. See syncBacklog in sftdd-paths.
+  // mirroring set-phase. See syncBacklog in consort-paths.
   | { kind: "sync-backlog"; sprint: string }
   // Post-turn artifact guard (FEIP-8006): after a design/planning role's claude
   // turn, assert the role actually wrote its expected artifact UNDER the project's
@@ -110,7 +110,7 @@ export interface DriveEffectsConfig {
    *  readState (single source). Absent => the feature reader, byte-identical to before. */
   readFreshDriveState?(): import("./orchestrator-drive.js").DriveState;
   /** Recorded feature-requests are available (capture/replay via
-   *  $LAKEBASE_SFTDD_SPRINT_REQUESTS). When true, the planning PROPOSE step is
+   *  $LAKEBASE_CONSORT_SPRINT_REQUESTS). When true, the planning PROPOSE step is
    *  DETERMINISTIC (project feature-proposals.md from those requests via the
    *  Human Proxy) instead of spawning the Spec Author LLM, which as an LLM could
    *  write nothing then claim the file exists (the propose protocol-violation
@@ -122,7 +122,7 @@ export interface DriveEffectsConfig {
    *  the product's own framing), while the proxy-as-PO STILL commits the recorded
    *  feature-request at author-requests. Safe now that an empty live propose is
    *  caught + retried (improved handoff guard), which is the failure the
-   *  deterministic path originally avoided. Set via $LAKEBASE_SFTDD_LIVE_PROPOSE. */
+   *  deterministic path originally avoided. Set via $LAKEBASE_CONSORT_LIVE_PROPOSE. */
   livePropose?: boolean;
   /** Deploy target for the deploy action (e.g. "local"). */
   deployTarget?: string;
@@ -138,7 +138,7 @@ export interface DriveEffectsConfig {
    *  forks from a clean parent (and a human/the smoke is not left on the merged,
    *  soon-deleted feature branch). */
   parentBranch?: string;
-  /** UI track on (project.uiTrack in sftdd-config.json, the single source): the
+  /** UI track on (project.uiTrack in consort-config.json, the single source): the
    *  Spec Author must treat user-facing capabilities as E2E (browser/screen)
    *  stories, not API-only, when proposing + breaking down. */
   uiTrack?: boolean;
@@ -155,7 +155,7 @@ export interface DriveEffectsConfig {
   reviewEffort?: string;
   /** Unified config: resolve `--effort` for ANY role+turn ("" / "default" => omit
    *  the flag). When set it governs every turn; absent, the review-only
-   *  reviewEffort fallback applies. (sftdd-config.json, file -> env -> default.) */
+   *  reviewEffort fallback applies. (consort-config.json, file -> env -> default.) */
   effortForTurn?(role: string, turn?: TurnKey): string;
   /** Unified config: a role's `--fallback-model` (auto-failover), or undefined. */
   fallbackModelForRole?(role: string): string | undefined;
@@ -219,7 +219,7 @@ export interface DriveEffectsConfig {
 const UI_TRACK_PROPOSE = ` UI track is ON: this product has a user-facing UI (a design-brief.md is part of intake), so every user-facing capability must be deliverable end to end as an E2E story, a real browser/screen interaction a user performs, not merely an API. Frame each candidate as a user-facing increment and note which need an E2E (UI) story.`;
 const UI_TRACK_BREAKDOWN = ` UI track is ON: decompose into stories that include the E2E (UI) story for each user-facing capability (a screen the user interacts with), not API-only stories.`;
 /** The artifact root a directive hands a role agent: the ABSOLUTE resolved
- *  consortDir (FEIP-8006). It was previously the bare basename (`.sftdd`), a
+ *  consortDir (FEIP-8006). It was previously the bare basename (`.consort`), a
  *  RELATIVE reference , but Claude Code's Write tool requires an ABSOLUTE path, so
  *  a relative directive forced each subagent to resolve the project root itself,
  *  and they resolved it inconsistently (cwd, $HOME, even a hallucinated
@@ -1155,7 +1155,7 @@ export function buildClaudeCommandWithBody(
   // architect estimate|architect, dba, test-list, ux-designer ux). This is the
   // "apply to the step, not the role" axis: effort/model are keyed on WHICH task
   // the role is doing this invocation. When `effortForTurn` is provided
-  // (sftdd-config.json) it governs every step; absent, fall back to the
+  // (consort-config.json) it governs every step; absent, fall back to the
   // review-only `reviewEffort` (P6 default low on the navigator REVIEW).
   const turnKey = turnKeyForAction(action);
   const buildTurn = turnKey; // legacy name used below for contextPackSuffix
@@ -1203,7 +1203,7 @@ export function buildClaudeCommandWithBody(
       mode: "mode" in action ? action.mode : undefined,
       // The build turn's mode (reflect / review / refactor / assess / repair),
       // distinct from the design-lane `mode` above. The replay path needs it to
-      // recognise the reflect turn (whose recorded output is a .sftdd design
+      // recognise the reflect turn (whose recorded output is a .consort design
       // artifact the code-only build restore filters out).
       buildMode: "buildMode" in action ? action.buildMode : undefined,
       story: "story" in action ? action.story : undefined,

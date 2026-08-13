@@ -11,7 +11,7 @@ Both are authored in the story's test-list, both go RED before the code exists, 
 
 ## The mock policy
 
-- **Never mock anything you can hit for real.** The database is the canonical case: the paired Lakebase branch IS a real isolated DB, so persistence is exercised for real. Same for any backing service the substrate provides cheaply.
+- **Never mock anything you can hit for real.** The database is the canonical case: the paired Lakebase branch IS a real isolated DB, so persistence is exercised for real. Same for any backing service the kit provides cheaply.
 - **Mocks are acceptable only where no real resource exists or it's genuinely unsafe/nondeterministic in the cycle:** a third-party payment API, an email send, wall-clock time, a paid service. Substitute a fake at the port (the layered-architecture seam), not deep inside the code.
 - A mock standing in for the database is a smell a fitness function catches (the no-mock-for-DB check). Point the repository at the paired branch instead.
 

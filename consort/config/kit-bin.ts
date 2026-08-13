@@ -9,7 +9,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 // This module is BUNDLED into each importing bin (a non-entry lib), so at runtime
-// __dirname is the importer's dir: <kitRoot>/dist/scripts/sftdd. The kit root
+// __dirname is the importer's dir: <kitRoot>/dist/bin/consort. The kit root
 // (which holds package.json + its bin map) is three directories up , the layout the
 // SHIPPED dist has. LAKEBASE_KIT_DIR overrides it as the authoritative kit locator
 // (the documented env other kit resolution honors): needed when the module runs from

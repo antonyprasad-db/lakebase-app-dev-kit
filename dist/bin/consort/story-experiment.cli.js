@@ -6653,11 +6653,36 @@ init_esm_shims();
 init_esm_shims();
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "fs";
 import { join } from "path";
+import { execFileSync } from "child_process";
 import { createPairedBranch, deletePairedBranch } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 function branchIdOf(info) {
   const leaf = info.name.split("/").pop();
   if (!leaf) throw new Error(`could not derive branch_id from ${info.name}`);
   return leaf;
+}
+function gitIsAncestor(cwd, ancestor, descendant) {
+  try {
+    execFileSync("git", ["merge-base", "--is-ancestor", ancestor, descendant], {
+      cwd,
+      stdio: ["ignore", "ignore", "pipe"]
+    });
+    return true;
+  } catch (err) {
+    const code = err.status;
+    if (code === 1) return false;
+    throw err;
+  }
+}
+function gitRevParse(cwd, ref) {
+  try {
+    return execFileSync("git", ["rev-parse", "--verify", "--quiet", ref], {
+      cwd,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"]
+    }).trim();
+  } catch {
+    return "";
+  }
 }
 function experimentsRoot(consortDir, featureId, storyId) {
   return join(consortDir, "experiments", featureId, storyId);
@@ -6688,6 +6713,15 @@ async function cutExperiment(args, deps = {}) {
     throw new Error(
       `Experiment cut for "${branch}" did not populate .env with the branch's database connection` + (paired.warnings.length ? ` (${paired.warnings.join("; ")})` : "") + `. The build's honest-GREEN verify needs DATABASE_URL; aborting the cut so this is caught now, not at verify time.`
     );
+  }
+  if (parentBranch) {
+    const localParentTip = gitRevParse(projectDir, parentBranch);
+    if (localParentTip && !gitIsAncestor(projectDir, localParentTip, "HEAD")) {
+      const head = gitRevParse(projectDir, "HEAD");
+      throw new Error(
+        `Experiment cut for "${branch}" forked the git branch from a commit that does NOT descend from the local "${parentBranch}" tip (${localParentTip.slice(0, 8)}); HEAD is ${head.slice(0, 8)}. The Lakebase branch was forked from "${parentBranch}"'s tier, so git and the database now disagree on the parent state (typically a stale origin/${parentBranch} used as the git fork start-point). Every DB-touching test would fail against a schema the committed code does not match. Push "${parentBranch}" (or fetch) so origin matches the local tip, then re-cut; aborting now so this is caught at the cut, not ~3 self-heal rounds later at HIL.`
+      );
+    }
   }
   const branchId = branchIdOf(paired.branch);
   const dir = experimentDir(consortDir, featureId, storyId, experimentSlug);

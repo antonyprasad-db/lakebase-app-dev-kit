@@ -3,7 +3,7 @@
 // default. It imports only config-layer modules (step-key types, agent-models, agent-log's AgentRole
 // type) so ANY layer may depend on it downward: the settings RESOLVER (which layers model/effort on
 // top, needing manifests + the turn-key map) AND the domain modules that only touch the file
-// (intake reads project.uiTrack; project-sftdd-setup writes the default). Splitting the file half
+// (intake reads project.uiTrack; project-consort-setup writes the default). Splitting the file half
 // DOWN here is what makes the graph acyclic , a domain no longer reaches UP into the resolver.
 //
 // Model knobs mirror what `claude -p` exposes: model, effort (low|medium|high|xhigh|max|default),

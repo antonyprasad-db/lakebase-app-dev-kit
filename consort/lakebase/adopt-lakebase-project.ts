@@ -1,8 +1,8 @@
-// Kit adoptLakebaseProject: brownfield adoption with SFTDD lay-down injected.
+// Kit adoptLakebaseProject: brownfield adoption with Consort lay-down injected.
 //
 // The base adoption lives in @databricks-solutions/lakebase-scm-utils and is
-// SFTDD-agnostic. This kit wrapper injects the optional `.sftdd/` adoption hook
-// so `enableConsort` adoptions drop the SFTDD scaffold. assertAdoptionPreflight
+// Consort-agnostic. This kit wrapper injects the optional `.consort/` adoption hook
+// so `enableConsort` adoptions drop the Consort scaffold. assertAdoptionPreflight
 // and the test fixture are pure substrate; they are re-exported unchanged.
 
 import {

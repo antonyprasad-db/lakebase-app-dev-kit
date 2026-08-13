@@ -23,7 +23,7 @@ import {
 } from "../../consort/config/consort-paths.js";
 import * as fs from "node:fs";
 
-// Sprint-backlog read/write + SprintBacklog live in sftdd-paths (single source of
+// Sprint-backlog read/write + SprintBacklog live in consort-paths (single source of
 // truth). Re-exported here for the existing public API (drive.cli, runSprint).
 export {
   readBacklog as readSprintBacklog,
@@ -45,7 +45,7 @@ export {
  * projection of the PO's committed requests); gateApproved <- the sprint plan
  * gate is approved. Phase is always "planning" (the plan bound stops at
  * planning-complete, so this static read never needs to reflect a later phase).
- * All paths/accessors come from sftdd-paths so a producer cannot write where this
+ * All paths/accessors come from consort-paths so a producer cannot write where this
  * consumer does not look.
  *
  * `opts.skipSizing` is a POLICY threaded from the CLI, not a disk fact: it tells

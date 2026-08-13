@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Replay a recorded SFTDD scenario end to end (the live, workspace-backed
+# Replay a recorded Consort scenario end to end (the live, workspace-backed
 # integration test). A scenario lives at examples/replay/<name>/ as a
 # self-contained corpus (recorded-artifacts/ + recorded-build/ + turns/) plus a
 # scenario.json manifest; see SCENARIOS.md.

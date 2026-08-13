@@ -1,7 +1,7 @@
 // optimize-harness: runChampionWalk, the sequential per-handoff champion walk
 // that is the heart of the optimization re-record. For each handoff K:
 //
-//   1. Snapshot the pre-turn state ONCE (design .sftdd copy, or build SHA + fork).
+//   1. Snapshot the pre-turn state ONCE (design .consort copy, or build SHA + fork).
 //   2. For each candidate, run N trials from that IDENTICAL state, restoring
 //      after every trial so the next candidate starts from the same point.
 //   3. Gate + time each trial. A candidate that fails the gate on ANY trial is
@@ -16,7 +16,7 @@
 // decision logic is unit-tested with no cloud/model/git. The CLI (optimize.cli.ts)
 // wires the real steps: snapshot via optimize-snapshot, runTrial via
 // applyCandidateConfig + overlayAgent + planNextAction + execRunner + the gate
-// checkers, and recordWinner via the same run with LAKEBASE_SFTDD_RECORD_* set.
+// checkers, and recordWinner via the same run with LAKEBASE_CONSORT_RECORD_* set.
 
 import type { Candidate } from "./optimize-candidates.js";
 import { BASELINE_CANDIDATE_ID } from "./optimize-candidates.js";
@@ -55,7 +55,7 @@ export interface TrialResult {
   cacheReadTokens?: number;
   /** Why the gate failed (present only when gatePassed is false). */
   gateReason?: string;
-  /** An opaque handle to THIS trial's produced artifacts (the .sftdd it wrote),
+  /** An opaque handle to THIS trial's produced artifacts (the .consort it wrote),
    *  captured before the between-trial restore wipes them. When this trial's candidate
    *  wins, the walk RESTORES these exact artifacts to advance the drive , so the next
    *  role runs against the winner's ACTUAL, measured, gated output, not a fresh re-run.

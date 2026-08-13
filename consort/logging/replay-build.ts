@@ -117,7 +117,7 @@ export function listBuildTurns(replayBuildDir: string, featureId: string, story:
 }
 
 export interface ReplayBuildTurnArgs {
-  /** The recorded-build corpus root (LAKEBASE_SFTDD_REPLAY_BUILD_DIR). */
+  /** The recorded-build corpus root (LAKEBASE_CONSORT_REPLAY_BUILD_DIR). */
   replayBuildDir: string;
   /** The target project working tree (the experiment branch is checked out). */
   projectDir: string;

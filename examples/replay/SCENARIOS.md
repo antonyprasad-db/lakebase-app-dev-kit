@@ -1,6 +1,6 @@
-# Recorded SFTDD scenarios
+# Recorded Consort scenarios
 
-A **scenario** is a recorded run of the SFTDD workflow (design lane + build lane)
+A **scenario** is a recorded run of the Consort workflow (design lane + build lane)
 that the kit can **replay** as an integration test, deterministically and without
 re-spending model tokens. Each scenario is captured once from a real live run and
 then replayed forever: the captured artifacts are the fixture, the deterministic
@@ -11,7 +11,7 @@ time. Each lives in its own folder:
 
 ```
 examples/replay/corpora/<name>/
-  scenario.json        # manifest (schema: scripts/sftdd/schemas/scenario.schema.json)
+  scenario.json        # manifest (schema: consort/config/schemas/scenario.schema.json)
   recorded-artifacts/  # the DESIGN-lane corpus (per-feature design + agent-log.design.jsonl)
   recorded-build/      # the BUILD corpus (code tree + green/reviewed cycles + experiments)
   turns/               # the per-turn recorder timeline (index.json + <NNNN>-<label>/)
@@ -45,7 +45,7 @@ examples/replay/capture-scenario.sh \
 ```
 
 It sets `LAKEBASE_CONSORT_RECORD_DIR` + `LAKEBASE_CONSORT_RECORD_BUILD_DIR` into the
-scenario dir (the kit recorder, `scripts/sftdd/turn-recorder.ts`, writes every
+scenario dir (the kit recorder, `consort/logging/turn-recorder.ts`, writes every
 state-machine turn), then reconstitutes the agent-log onto the recorded timeline.
 Author `scenario.json`, then commit the corpus.
 

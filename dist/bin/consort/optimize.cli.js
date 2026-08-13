@@ -9423,7 +9423,7 @@ function buildCfg(args, featureId) {
     livePropose: !!consortEnv("LIVE_PROPOSE")?.trim(),
     // Agent turns dispatch THROUGH the StepExecutor (the unified path) , now the DEFAULT (J1). Every
     // executor-allowlisted action has a shipped manifest (guarded by executor-dispatch-coverage.test),
-    // so the executor is the sole agent path. LAKEBASE_SFTDD_USE_MANIFEST_STEPS is a one-cycle escape
+    // so the executor is the sole agent path. LAKEBASE_CONSORT_USE_MANIFEST_STEPS is a one-cycle escape
     // hatch: set it to 0/false/off/no to force the legacy commandsForAction dispatch (retired in J5).
     useManifestSteps: !/^(0|false|off|no)$/i.test(consortEnv("USE_MANIFEST_STEPS")?.trim() ?? ""),
     // RECORD lane (Stage G): hand the executor's ReplayRecorderWrapper the just-completed live
@@ -9470,7 +9470,7 @@ function buildCfg(args, featureId) {
       // Narrate each routing decision in plain language (DRY: the same message
       // the structured log uses). The machine-readable form is already written to
       // the structured agent-log by makeOnAction below, so the raw action JSON is
-      // console noise on every line , append it only under LAKEBASE_SFTDD_TRACE.
+      // console noise on every line , append it only under LAKEBASE_CONSORT_TRACE.
       (action, i) => {
         const trace = consortEnv("TRACE") ? `  ${JSON.stringify(action)}` : "";
         process.stderr.write(`[drive] ${String(i).padStart(3, "0")} ${describeAction(action, { featureId })}${trace}
@@ -10832,10 +10832,10 @@ var ClaudeStepAgent = class {
   /**
    * The `claude` DriveCommand this agent will spawn for an invocation. Pure + exported
    * for guarding: the task is the orchestrator's passed-through prompt + guidelines + the
-   * PROVIDED input contents (embedded so the agent needs no .sftdd access), and every
+   * PROVIDED input contents (embedded so the agent needs no .consort access), and every
    * model-side lever is threaded onto the command (which claudeBaseArgs/claudeToolArgs
    * then translate to flags). CONTAINED: the task references only provided inputs + the
-   * workspace it will be spawned in; it never points the agent at .sftdd.
+   * workspace it will be spawned in; it never points the agent at .consort.
    */
   buildCommand(invocation) {
     const { instructions, action, inputs } = invocation;
@@ -11919,11 +11919,36 @@ import { getConnection } from "@databricks-solutions/lakebase-scm-utils/lakebase
 init_esm_shims();
 import { existsSync as existsSync25, mkdirSync as mkdirSync14, readdirSync as readdirSync15, readFileSync as readFileSync19, statSync as statSync12, writeFileSync as writeFileSync10 } from "fs";
 import { join as join25 } from "path";
+import { execFileSync } from "child_process";
 import { createPairedBranch, deletePairedBranch } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 function branchIdOf(info) {
   const leaf = info.name.split("/").pop();
   if (!leaf) throw new Error(`could not derive branch_id from ${info.name}`);
   return leaf;
+}
+function gitIsAncestor(cwd, ancestor, descendant) {
+  try {
+    execFileSync("git", ["merge-base", "--is-ancestor", ancestor, descendant], {
+      cwd,
+      stdio: ["ignore", "ignore", "pipe"]
+    });
+    return true;
+  } catch (err) {
+    const code = err.status;
+    if (code === 1) return false;
+    throw err;
+  }
+}
+function gitRevParse(cwd, ref) {
+  try {
+    return execFileSync("git", ["rev-parse", "--verify", "--quiet", ref], {
+      cwd,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"]
+    }).trim();
+  } catch {
+    return "";
+  }
 }
 function experimentsRoot(consortDir, featureId, storyId) {
   return join25(consortDir, "experiments", featureId, storyId);
@@ -11954,6 +11979,15 @@ async function cutExperiment(args, deps = {}) {
     throw new Error(
       `Experiment cut for "${branch}" did not populate .env with the branch's database connection` + (paired.warnings.length ? ` (${paired.warnings.join("; ")})` : "") + `. The build's honest-GREEN verify needs DATABASE_URL; aborting the cut so this is caught now, not at verify time.`
     );
+  }
+  if (parentBranch) {
+    const localParentTip = gitRevParse(projectDir, parentBranch);
+    if (localParentTip && !gitIsAncestor(projectDir, localParentTip, "HEAD")) {
+      const head = gitRevParse(projectDir, "HEAD");
+      throw new Error(
+        `Experiment cut for "${branch}" forked the git branch from a commit that does NOT descend from the local "${parentBranch}" tip (${localParentTip.slice(0, 8)}); HEAD is ${head.slice(0, 8)}. The Lakebase branch was forked from "${parentBranch}"'s tier, so git and the database now disagree on the parent state (typically a stale origin/${parentBranch} used as the git fork start-point). Every DB-touching test would fail against a schema the committed code does not match. Push "${parentBranch}" (or fetch) so origin matches the local tip, then re-cut; aborting now so this is caught at the cut, not ~3 self-heal rounds later at HIL.`
+      );
+    }
   }
   const branchId = branchIdOf(paired.branch);
   const dir = experimentDir(consortDir, featureId, storyId, experimentSlug);
@@ -13895,6 +13929,9 @@ function resolvePreparer(kind) {
 import { sanitizeBranchName } from "@databricks-solutions/lakebase-scm-utils/util";
 var UI_TRACK_PROPOSE = ` UI track is ON: this product has a user-facing UI (a design-brief.md is part of intake), so every user-facing capability must be deliverable end to end as an E2E story, a real browser/screen interaction a user performs, not merely an API. Frame each candidate as a user-facing increment and note which need an E2E (UI) story.`;
 var UI_TRACK_BREAKDOWN = ` UI track is ON: decompose into stories that include the E2E (UI) story for each user-facing capability (a screen the user interacts with), not API-only stories.`;
+function shellQuote(s) {
+  return `'${s.replace(/'/g, `'\\''`)}'`;
+}
 function artifactRoot2(consortDir) {
   return consortDir;
 }
@@ -14238,7 +14275,7 @@ function buildClaudeCommandWithBody(action, cfg, body) {
       mode: "mode" in action ? action.mode : void 0,
       // The build turn's mode (reflect / review / refactor / assess / repair),
       // distinct from the design-lane `mode` above. The replay path needs it to
-      // recognise the reflect turn (whose recorded output is a .sftdd design
+      // recognise the reflect turn (whose recorded output is a .consort design
       // artifact the code-only build restore filters out).
       buildMode: "buildMode" in action ? action.buildMode : void 0,
       story: "story" in action ? action.story : void 0
@@ -14560,7 +14597,29 @@ Edit ONLY those test files. The orchestrator re-deploys + re-verifies the whole 
         // so -f discards it and switches. Mirrors the fork-guard ignoring the same
         // metadata. (scm-merge attempts this switch too but non-fatally; this is
         // the deterministic guarantee.)
-        ...cfg.parentBranch ? [{ kind: "cli", bin: "git", args: ["checkout", "-f", cfg.parentBranch] }] : [],
+        ...cfg.parentBranch ? [
+          { kind: "cli", bin: "git", args: ["checkout", "-f", cfg.parentBranch] },
+          // Delete the merged local feature branch so the process never leaves
+          // us on (or able to fall back to) a branch that should have been
+          // removed. Guarded to the feature branch, and only when it differs
+          // from the parent we just landed on (never delete the tier we are on).
+          // `-D` (force) because the branch merged via PR squash/merge-commit is
+          // not a literal ancestor of the local parent tip, so `-d` would refuse
+          // it as "not fully merged" even though it IS shipped. scm-merge already
+          // removed the REMOTE + Lakebase branches; this completes the local side.
+          // Best-effort via a shell guard: a missing/absent branch must not fail
+          // the terminal step (idempotent on a resume where it is already gone).
+          ...cfg.featureBranch && cfg.featureBranch !== cfg.parentBranch ? [
+            {
+              kind: "cli",
+              bin: "sh",
+              args: [
+                "-c",
+                `git branch -D ${shellQuote(cfg.featureBranch)} 2>/dev/null || true`
+              ]
+            }
+          ] : []
+        ] : [],
         { kind: "set-phase", phase: "shipped" }
       ];
     case "revise-route": {
@@ -14861,7 +14920,7 @@ function makeOpusJudge(opts) {
 // consort/optimize/optimize-live.ts
 init_esm_shims();
 import { existsSync as existsSync48, mkdirSync as mkdirSync28, readFileSync as readFileSync44, rmSync as rmSync14, writeFileSync as writeFileSync26 } from "fs";
-import { execFileSync } from "child_process";
+import { execFileSync as execFileSync2 } from "child_process";
 import { join as join44 } from "path";
 
 // consort/optimize/optimize-agent-overlay.ts
@@ -15141,10 +15200,10 @@ function makeLiveSpawnTurn(featureId, seams) {
 function realBuildGitOps(projectDir) {
   return {
     async sha() {
-      return execFileSync("git", ["rev-parse", "HEAD"], { cwd: projectDir, encoding: "utf8" }).trim();
+      return execFileSync2("git", ["rev-parse", "HEAD"], { cwd: projectDir, encoding: "utf8" }).trim();
     },
     async resetHard(sha) {
-      execFileSync("git", ["reset", "--hard", sha], { cwd: projectDir, stdio: "ignore" });
+      execFileSync2("git", ["reset", "--hard", sha], { cwd: projectDir, stdio: "ignore" });
     }
   };
 }

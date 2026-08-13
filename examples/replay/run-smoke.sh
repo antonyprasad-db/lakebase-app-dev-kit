@@ -212,7 +212,7 @@ export LAKEBASE_SFTDD_RECORDED_INTAKE_DIR="${ORCHESTRATOR_DIR}"
 
 # This smoke is a UI project (every feature is a browser-facing capability:
 # filing a bug, transitioning its status). It is scaffolded with `--ui-track`
-# above, which persists project.uiTrack into sftdd-config.json (the SINGLE source
+# above, which persists project.uiTrack into consort-config.json (the SINGLE source
 # the drive reads to run the UX Designer + require design-brief.md at intake +
 # exercise the design-guide/IA/token-adherence track). no UI env door:
 # that was a second door for the same setting.
@@ -364,7 +364,7 @@ scaffold_project() {
       --ui-track
   ) || { err "scaffold failed"; exit 1; }
 
-  # create-project seeds .lakebase/sftdd-config.json with models but no effort
+  # create-project seeds .lakebase/consort-config.json with models but no effort
   # (it takes only --agent-model). The smoke wants effort=low for speed/cost on
   # MOST roles, but the two DESIGN-GATE gatekeepers for AC independence, the
   # spec-author (runs the per-pair independence test + outcome-vs-mechanism

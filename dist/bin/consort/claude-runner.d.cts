@@ -411,7 +411,7 @@ interface DriveEffectsConfig {
      *  readState (single source). Absent => the feature reader, byte-identical to before. */
     readFreshDriveState?(): DriveState;
     /** Recorded feature-requests are available (capture/replay via
-     *  $LAKEBASE_SFTDD_SPRINT_REQUESTS). When true, the planning PROPOSE step is
+     *  $LAKEBASE_CONSORT_SPRINT_REQUESTS). When true, the planning PROPOSE step is
      *  DETERMINISTIC (project feature-proposals.md from those requests via the
      *  Human Proxy) instead of spawning the Spec Author LLM, which as an LLM could
      *  write nothing then claim the file exists (the propose protocol-violation
@@ -423,7 +423,7 @@ interface DriveEffectsConfig {
      *  the product's own framing), while the proxy-as-PO STILL commits the recorded
      *  feature-request at author-requests. Safe now that an empty live propose is
      *  caught + retried (improved handoff guard), which is the failure the
-     *  deterministic path originally avoided. Set via $LAKEBASE_SFTDD_LIVE_PROPOSE. */
+     *  deterministic path originally avoided. Set via $LAKEBASE_CONSORT_LIVE_PROPOSE. */
     livePropose?: boolean;
     /** Deploy target for the deploy action (e.g. "local"). */
     deployTarget?: string;
@@ -439,7 +439,7 @@ interface DriveEffectsConfig {
      *  forks from a clean parent (and a human/the smoke is not left on the merged,
      *  soon-deleted feature branch). */
     parentBranch?: string;
-    /** UI track on (project.uiTrack in sftdd-config.json, the single source): the
+    /** UI track on (project.uiTrack in consort-config.json, the single source): the
      *  Spec Author must treat user-facing capabilities as E2E (browser/screen)
      *  stories, not API-only, when proposing + breaking down. */
     uiTrack?: boolean;
@@ -456,7 +456,7 @@ interface DriveEffectsConfig {
     reviewEffort?: string;
     /** Unified config: resolve `--effort` for ANY role+turn ("" / "default" => omit
      *  the flag). When set it governs every turn; absent, the review-only
-     *  reviewEffort fallback applies. (sftdd-config.json, file -> env -> default.) */
+     *  reviewEffort fallback applies. (consort-config.json, file -> env -> default.) */
     effortForTurn?(role: string, turn?: TurnKey): string;
     /** Unified config: a role's `--fallback-model` (auto-failover), or undefined. */
     fallbackModelForRole?(role: string): string | undefined;
@@ -586,7 +586,7 @@ declare class ClaudeTurnError extends Error {
      *  retry log names it as a stall, not a wire blip. */
     stalled?: boolean);
 }
-/** A replay lane (LAKEBASE_SFTDD_REPLAY_DIR / _REPLAY_BUILD_DIR) was told to
+/** A replay lane (LAKEBASE_CONSORT_REPLAY_DIR / _REPLAY_BUILD_DIR) was told to
  *  reproduce a turn the corpus has no artifact for. A replay is a RECORDING: it
  *  must never fall through to a live agent (that would let an agent "take over"
  *  a run meant to be deterministic, and silently mask a broken/incomplete
@@ -597,7 +597,7 @@ declare class ReplayCorpusMissError extends Error {
     constructor(message: string);
 }
 /** FEIP-8006: a role turn completed but its expected artifact never landed under
- *  the project's `.sftdd/`. The subagent almost always resolved the project root
+ *  the project's `.consort/`. The subagent almost always resolved the project root
  *  wrong and wrote outside it (e.g. `$HOME/<somewhere>`), so a downstream
  *  consuming effect would otherwise crash reading the absent file, with a cryptic,
  *  MISATTRIBUTED error that blames the wrong step. We fail loud + attributed at the

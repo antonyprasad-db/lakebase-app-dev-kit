@@ -80,7 +80,7 @@ export interface CycleArtifact {
  * layer enum).
  */
 export function readAcLayer(consortDir: string, featureId: string, acId: string): AcLayer | undefined {
-  // Single source of truth: delegate to sftdd-paths so the AC-layer read lives in
+  // Single source of truth: delegate to consort-paths so the AC-layer read lives in
   // exactly one place. Re-exported under this name for the existing importers.
   return readAcLayerFromPaths(consortDir, featureId, acId);
 }

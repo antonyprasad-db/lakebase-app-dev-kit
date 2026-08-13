@@ -11,7 +11,7 @@ import { adoptTdd } from "../../consort/lakebase/adopt-consort";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(here, "..", "..");
-const REAL_BOOTSTRAP = path.join(REPO_ROOT, "templates", "sftdd-bootstrap", ".consort");
+const REAL_BOOTSTRAP = path.join(REPO_ROOT, "templates", "consort-bootstrap", ".consort");
 
 function mkRepo(prefix: string): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `adopt-sftdd-${prefix}-`));
@@ -197,7 +197,7 @@ describe("adoptTdd: bootstrap-dir override", () => {
 describe("adoptTdd: canonical bootstrap inspection", () => {
   it("the kit ships every file the docs reference", () => {
     // Spot-check the bootstrap-dir auto-located via the real kit. If
-    // a future change reorganizes templates/sftdd-bootstrap/.consort the
+    // a future change reorganizes templates/consort-bootstrap/.consort the
     // contract here breaks loudly instead of silently shrinking.
     expect(fs.existsSync(path.join(REAL_BOOTSTRAP, "product-overview.md"))).toBe(true);
     expect(fs.existsSync(path.join(REAL_BOOTSTRAP, "workflow-state.json"))).toBe(true);

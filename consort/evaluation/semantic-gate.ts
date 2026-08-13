@@ -27,7 +27,7 @@ import { join } from "node:path";
 import type { TurnKey } from "../../consort/orchestrator/settings/project-settings.js";
 import { designGuideJson, featureSpecJson, architectureJson, featureTestListJson, dbDesignJson, featureProposalsMd, planningEstimatesJson, acsDir, storiesDir, featureDir } from "../../consort/config/consort-paths.js";
 
-/** The .tdd-layout artifact path for a step, built via sftdd-paths (the single source
+/** The .tdd-layout artifact path for a step, built via consort-paths (the single source
  *  of truth for the layout). `base` is a .tdd-shaped root: the live project's .sftdd
  *  for the candidate, or a corpus's recorded-artifacts/ for the reference , both carry
  *  the identical features/<F>/... + design/... shape, so one builder set serves both.
@@ -138,7 +138,7 @@ export function resolveStepReference(args: {
 }): StepReference | null {
   const { kitRoot, step, featureId, storyId } = args;
   if (!hasDesignReference(step)) return null;
-  // recorded-artifacts/ is .tdd-shaped (features/<F>/..., design/...), so the sftdd-paths builders
+  // recorded-artifacts/ is .tdd-shaped (features/<F>/..., design/...), so the consort-paths builders
   // resolve reference paths the same as live .consort paths. `corpus` is the provenance label.
   const corpus = CANONICAL;
   const root = join(referenceCorpusRoot(kitRoot), "recorded-artifacts");
@@ -169,7 +169,7 @@ export function resolveStepReference(args: {
 }
 
 /** Read + concatenate the candidate's produced artifact(s) for a step from the live
- *  .sftdd, mirroring resolveStepReference's path selection so judge sees like-for-like. */
+ *  .consort, mirroring resolveStepReference's path selection so judge sees like-for-like. */
 export function readCandidateArtifact(args: {
   consortDir: string;
   step: TurnKey;
@@ -346,7 +346,7 @@ export function resolveBuildReference(args: {
 }): { paths: string[]; label: string; text: string } | null {
   const { kitRoot, featureId, storyIndex, kind } = args;
   // The recorded-build tree is .tdd-shaped (features/<F>/stories/...), so route its
-  // paths through the sftdd-paths builders too (single-source layout rule). The
+  // paths through the consort-paths builders too (single-source layout rule). The
   // recorded-build root plays the `tdd` role; featureDir/storiesDir take it from there.
   const rbRoot = join(referenceCorpusRoot(kitRoot), "recorded-build");
   const rbFeature = join(featureDir(rbRoot, featureId), "stories");

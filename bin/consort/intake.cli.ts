@@ -6,7 +6,7 @@
 //   consort-intake --json --pretty
 //
 // design-brief.md is additionally required for UI projects. Whether the project
-// is UI is read from the SINGLE source (project.uiTrack in sftdd-config.json, set
+// is UI is read from the SINGLE source (project.uiTrack in consort-config.json, set
 // at create via --ui-track), NOT a flag or env, so a UI project can never skip the
 // UX intake.
 //

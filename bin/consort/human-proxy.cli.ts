@@ -65,7 +65,7 @@ function runSupplyCli(argv: string[]): number {
  * `supply-requests` subcommand: at the planning author-requests step, the Human
  * Proxy supplies the PO's recorded feature-request.md files (the headless stand-
  * in for the human providing them when the state machine asks). The (feature_id,
- * recorded source) pairs come from $LAKEBASE_SFTDD_SPRINT_REQUESTS. Always exits 0:
+ * recorded source) pairs come from $LAKEBASE_CONSORT_SPRINT_REQUESTS. Always exits 0:
  * an unset env is a no-op (a live human provides them out-of-band); a missing or
  * non-conformant recording is logged + skipped, and the driver surfaces the
  * unmet need as a stall rather than advancing on absent artifacts.
@@ -100,7 +100,7 @@ function runSupplyRequestsCli(argv: string[]): number {
 /**
  * `supply-proposals` subcommand: DETERMINISTIC propose. At the planning propose
  * step (capture/headless), project feature-proposals.md from the sprint's recorded
- * feature-requests ($LAKEBASE_SFTDD_SPRINT_REQUESTS) instead of spawning the Spec
+ * feature-requests ($LAKEBASE_CONSORT_SPRINT_REQUESTS) instead of spawning the Spec
  * Author LLM (which could write nothing then claim the file exists, tripping the
  * propose protocol-violation abort). Always exits 0: an unset env is a no-op (the
  * live LLM propose runs for interactive users).

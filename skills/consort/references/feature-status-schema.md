@@ -1,6 +1,6 @@
 # feature-status JSON schema
 
-The stable JSON payload emitted by `lakebase-feature-status <featureId> --json` and the equivalent `getFeatureStatus()` module export. This shape is part of the substrate's public contract: agents and MCP consumers depend on it.
+The stable JSON payload emitted by `lakebase-feature-status <featureId> --json` and the equivalent `getFeatureStatus()` module export. This shape is part of the kit's public contract: agents and MCP consumers depend on it.
 
 **Backwards-compatibility contract.** Top-level keys are append-only. Nested object keys are append-only. Field types do not change. Removing or renaming a key requires a major version bump.
 
@@ -26,16 +26,16 @@ interface FeatureStatusSnapshot {
 | Field | Type | Meaning |
 |---|---|---|
 | `feature_id` | string | Echo of the queried feature id. |
-| `current_workflow_phase` | string \| null | The COARSE phase recorded in `.sftdd/workflow-state.json`. For a per-story-driven feature this is not advanced per story, so it can lag (stay `discovery`) while the feature is actually built; prefer `derived_phase`. `null` when `workflow-state.json` is missing. |
+| `current_workflow_phase` | string \| null | The COARSE phase recorded in `.consort/workflow-state.json`. For a per-story-driven feature this is not advanced per story, so it can lag (stay `discovery`) while the feature is actually built; prefer `derived_phase`. `null` when `workflow-state.json` is missing. |
 | `derived_phase` | string \| null | The feature phase DERIVED from the per-story `pipeline.json` (the source of truth): `complete` (every story done + accepted), `build` (a story is past its spec gate), or `design` (stories tracked, none gated yet). `null` when no stories are tracked (consumers fall back to `current_workflow_phase`). |
 | `current_workflow_pointer` | object \| null | Active workflow locus (feature/story/ac/cycle/experiment ids). `null` when `workflow-state.json` is missing. The pointer's `feature_id` may differ from the queried `feature_id` (the workflow may be focused elsewhere). |
-| `stories` | array | Per-story rows from `.sftdd/features/<F>/pipeline.json`, each `{story_id, status, gate_status, accepted}`. Empty when no stories are tracked yet. The per-story truth behind `derived_phase`. |
-| `plans` | array | Per-story experiment plans, one entry `{story_id, plan}` per `.sftdd/features/<F>/stories/<story>/plan.json`. Empty until a story's design-spec gate is approved. |
-| `test_list` | object \| null | Aggregated counts from `.sftdd/features/<F>/test-list.json`. `null` when the test list has not been authored yet. |
-| `experiments` | array | One entry per directory under `.sftdd/experiments/<F>/`. Empty when no experiments have been cut. |
-| `selection_log_recent` | array | Up to the last 5 entries from `.sftdd/selection-log.md`, oldest-first. |
-| `open_smells` | array | Unresolved entries from `.sftdd/smells.json` (entries with no `resolution` field). Global to the `.sftdd/` tree; not filtered per feature in this version. |
-| `gates` | object \| null | Compact view of `.sftdd/features/<F>/gates.json` (ADR-0004 structured HITL state). `null` when the feature directory does not exist. Default-open shape (all five gates `status: "open"`) returned when the directory exists but no `gates.json` file has been written yet. Use `scripts/sftdd/gates.readGates()` for the full state including history + artifact_hashes. |
+| `stories` | array | Per-story rows from `.consort/features/<F>/pipeline.json`, each `{story_id, status, gate_status, accepted}`. Empty when no stories are tracked yet. The per-story truth behind `derived_phase`. |
+| `plans` | array | Per-story experiment plans, one entry `{story_id, plan}` per `.consort/features/<F>/stories/<story>/plan.json`. Empty until a story's design-spec gate is approved. |
+| `test_list` | object \| null | Aggregated counts from `.consort/features/<F>/test-list.json`. `null` when the test list has not been authored yet. |
+| `experiments` | array | One entry per directory under `.consort/experiments/<F>/`. Empty when no experiments have been cut. |
+| `selection_log_recent` | array | Up to the last 5 entries from `.consort/selection-log.md`, oldest-first. |
+| `open_smells` | array | Unresolved entries from `.consort/smells.json` (entries with no `resolution` field). Global to the `.consort/` tree; not filtered per feature in this version. |
+| `gates` | object \| null | Compact view of `.consort/features/<F>/gates.json` (structured HITL gate state). `null` when the feature directory does not exist. Default-open shape (all five gates `status: "open"`) returned when the directory exists but no `gates.json` file has been written yet. Use `consort/gates/gates.ts readGates()` for the full state including history + artifact_hashes. |
 | `progression` | object \| null | Deploy/promote completion RECONCILED from the drive engine (`readDriveContext`, the same reconciliation `consort-next` uses): `{coarse_phase, deploy_done, promote_done}`. `deploy_done` is true once `deploy-evidence.json` exists (or the feature has merged); `promote_done` is true once the SCM `.lakebase/workflow-state.json` reaches `merged`. The renderer overlays this onto the `deploy`/`promote` gate lines so a shipped feature reads `done`, not the stale raw `gates.json` `open` bit. `null` when the drive context cannot be read. |
 
 ## Nested types
@@ -54,7 +54,7 @@ interface WorkflowPointer {
 
 ### ExperimentPlan
 
-See `scripts/sftdd/design-spec-gate.ts`. Persisted at `.sftdd/features/<F>/plan.json`.
+See `consort/gates/design-spec-gate.ts`. Persisted at `.consort/features/<F>/plan.json`.
 
 ```ts
 interface ExperimentPlan {
@@ -128,11 +128,11 @@ interface GateSummary {
 type GatesSummary = Record<GateName, GateSummary>;
 ```
 
-The summary is a compact projection of `gates.json`. For full history, withdrawal reasons, or artifact_hashes, call `readGates()` from `scripts/sftdd/gates.ts` directly.
+The summary is a compact projection of `gates.json`. For full history, withdrawal reasons, or artifact_hashes, call `readGates()` from `consort/gates/gates.ts` directly.
 
 ### SmellHit
 
-See `scripts/sftdd/smells.ts`. Each open smell entry also carries `detected_at: string` from the on-disk log.
+See `consort/smells/smells.ts`. Each open smell entry also carries `detected_at: string` from the on-disk log.
 
 ```ts
 interface SmellHit {

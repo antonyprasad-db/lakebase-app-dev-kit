@@ -7098,12 +7098,26 @@ init_esm_shims();
 import { readFileSync as readFileSync6, existsSync as existsSync6, readdirSync as readdirSync3, writeFileSync as writeFileSync4, statSync as statSync2 } from "fs";
 import { join as join4, basename } from "path";
 var STORY_ALLOWED_KEYS = /* @__PURE__ */ new Set(["id", "asA", "iWantTo", "soThat", "acs", "feature_id", "independence", "external_ref"]);
+function parseStoryNarrative(md) {
+  const grab = (label) => {
+    const m = md.match(label);
+    if (!m) return void 0;
+    const v = m[1].trim().replace(/[,.]$/, "").trim();
+    return v.length > 0 ? v : void 0;
+  };
+  return {
+    asA: grab(/^\s*As an?\s+(.+?)\s*$/im),
+    iWantTo: grab(/^\s*I want(?:\s+to)?\s+(.+?)\s*$/im),
+    soThat: grab(/^\s*So that\s+(.+?)\s*$/im)
+  };
+}
 function normalizeStoryJson(consortDir, featureId) {
   const stories = storiesDir(consortDir, featureId);
   if (!existsSync6(stories)) return [];
   const changed = [];
   for (const s of readdirSync3(stories)) {
-    const file = join4(stories, s, "story.json");
+    const dir = join4(stories, s);
+    const file = join4(dir, "story.json");
     if (!existsSync6(file)) continue;
     let obj;
     try {
@@ -7115,6 +7129,20 @@ function normalizeStoryJson(consortDir, featureId) {
     if (typeof obj.feature === "string" && obj.feature_id === void 0) {
       obj.feature_id = obj.feature;
       mutated = true;
+    }
+    const mdPath = join4(dir, "story.md");
+    const needsNarrative = ["asA", "iWantTo", "soThat"].some(
+      (k) => typeof obj[k] !== "string" || obj[k].trim().length === 0
+    );
+    if (needsNarrative && existsSync6(mdPath)) {
+      const narrative = parseStoryNarrative(readFileSync6(mdPath, "utf8"));
+      for (const k of ["asA", "iWantTo", "soThat"]) {
+        const cur = obj[k];
+        if ((typeof cur !== "string" || cur.trim().length === 0) && narrative[k]) {
+          obj[k] = narrative[k];
+          mutated = true;
+        }
+      }
     }
     for (const key of Object.keys(obj)) {
       if (!STORY_ALLOWED_KEYS.has(key)) {
@@ -7288,6 +7316,7 @@ import { getConnection } from "@databricks-solutions/lakebase-scm-utils/lakebase
 
 // consort/experiment/experiment.ts
 init_esm_shims();
+import { execFileSync } from "child_process";
 import { createPairedBranch, deletePairedBranch } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 
 // consort/smells/smells.ts

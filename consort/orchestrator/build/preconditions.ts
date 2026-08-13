@@ -1,12 +1,12 @@
 // Pre-condition PREPARERS: the ONE source of truth for the deterministic CONTEXT a BUILD
 // turn is pre-conditioned with before dispatch. A preparer is a PURE PROJECTION of on-disk
-// `.sftdd` (never authored, so it cannot drift): given the workspace sftdd + the action's
+// `.consort` (never authored, so it cannot drift): given the workspace .consort + the action's
 // feature/story/ac (+ optional knobs), it returns a text BLOCK the build-instructions phase
 // appends to the prompt.
 //
 // Two tracks consume THESE preparers, so a turn is pre-conditioned identically no matter
 // which dispatched it:
-//   - the real drive's `roleTaskBody` (scripts/sftdd/orchestrator-effects.ts) , positioned
+//   - the real drive's `roleTaskBody` (consort/orchestrator/drive/orchestrator-effects.ts) , positioned
 //     (the context-pack rides AFTER the directive; the green-failure advisory rides BEFORE
 //     "ASSESS ..."), and
 //   - the executor's PREPARE-PRECONDITIONS phase (turn/step-executor.ts) , declared on
@@ -21,7 +21,7 @@ import { readGreenFailure } from "../../smells/supersession.js";
 import { renderTestAnalystRoster } from "../../test-list/test-analyst-roster.js";
 import { resolveProjectSettings } from "../../config/consort-config-file.js";
 
-/** The scope a preparer projects against (a pure read of on-disk `.sftdd`). */
+/** The scope a preparer projects against (a pure read of on-disk `.consort`). */
 export interface PreparerContext {
   consortDir: string;
   featureId: string;

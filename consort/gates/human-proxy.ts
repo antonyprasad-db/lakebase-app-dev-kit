@@ -263,7 +263,7 @@ export function supplyArtifact(args: SupplyArgs): SupplyResult {
 // logs each, then sync-backlog projects the backlog from what was supplied.
 //
 // The committed set + each request's recorded source are the orchestrator's
-// call, passed in via LAKEBASE_SFTDD_SPRINT_REQUESTS as one `<feature_id>\t<source
+// call, passed in via LAKEBASE_CONSORT_SPRINT_REQUESTS as one `<feature_id>\t<source
 // path>` per line (the recorded file is named independently of the feature id,
 // e.g. v1-initial-domain.md -> F1-initial-domain). Unset => no-op (the live
 // human provides them out-of-band); the driver still advances once they exist.
@@ -271,7 +271,7 @@ export function supplyArtifact(args: SupplyArgs): SupplyResult {
 export interface SupplyRequestsArgs {
   consortDir?: string;
   approver?: string;
-  /** Override the recorded pairs; defaults to $LAKEBASE_SFTDD_SPRINT_REQUESTS. */
+  /** Override the recorded pairs; defaults to $LAKEBASE_CONSORT_SPRINT_REQUESTS. */
   pairs?: Array<{ featureId: string; from: string }>;
   /** The sprint these requests belong to. When set, the supplied feature ids are
    *  recorded to sprints/<sprint>/requested.json so syncBacklog scopes THIS
@@ -285,7 +285,7 @@ export interface SupplyRequestsResult {
   skipped: Array<{ featureId: string; reason: string }>;
 }
 
-/** Parse the `<feature_id>\t<source>` lines from $LAKEBASE_SFTDD_SPRINT_REQUESTS. */
+/** Parse the `<feature_id>\t<source>` lines from $LAKEBASE_CONSORT_SPRINT_REQUESTS. */
 function recordedRequestPairs(): Array<{ featureId: string; from: string }> {
   const raw = consortEnv("SPRINT_REQUESTS") ?? "";
   return raw
@@ -357,7 +357,7 @@ function summarizeRequest(from: string): { ask: string; rationale: string } {
 /**
  * DETERMINISTIC propose (the capture/headless stand-in for the Spec Author's
  * live proposal turn): project feature-proposals.md from the sprint's recorded
- * feature-requests ($LAKEBASE_SFTDD_SPRINT_REQUESTS) instead of spawning an LLM
+ * feature-requests ($LAKEBASE_CONSORT_SPRINT_REQUESTS) instead of spawning an LLM
  * that may write nothing then claim the file exists (the propose protocol-violation
  * abort). One candidate section per recorded feature, with its one-line ask +
  * rationale lifted from the request. Unset env / no pairs => not written (the live

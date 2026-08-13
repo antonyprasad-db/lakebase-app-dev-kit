@@ -233,7 +233,7 @@ function actionFromManifestMatch(match: Record<string, unknown>, role: string): 
 /**
  * The per-step agent levers (model/effort) DECLARED for a (role, turnKey) across the shipped
  * manifests , the config-directory face resolveConsortSettings reads as its per-step BASE layer
- * (below the project sftdd-config.json + the applied-winners overlay, above RECOMMENDED_MODELS).
+ * (below the project consort-config.json + the applied-winners overlay, above RECOMMENDED_MODELS).
  * The (role, turnKey) index is derived from each manifest's `match` via the SAME turnKeyForAction
  * the drive uses (reconstructing a representative action from the match), so the manifest's
  * declared key is exactly the key the drive looks it up under.

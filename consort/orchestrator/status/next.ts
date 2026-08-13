@@ -18,7 +18,7 @@
 //
 // It is PURE over an injected DriveState + context: no I/O, no model spawn, no
 // writes to workflow artifacts. The CLI (next.cli.ts) reads the state from disk
-// and the drive (drive.cli.ts) auto-emits this snapshot to .sftdd/next.json on
+// and the drive (drive.cli.ts) auto-emits this snapshot to .consort/next.json on
 // every stop, so the agent's contract is simply: on any stop, read next.json,
 // present its options to the human, enact the chosen one.
 
@@ -333,7 +333,7 @@ function blockersOf(state: DriveState): NextBlocker[] {
       ...(e.story_id ? { story: e.story_id } : {}),
       resolver: null,
       resolver_hint:
-        "Resolve the underlying problem (clear the escalation file under .sftdd/escalations/ and any blocking smell in .sftdd/smells.json), then resume the drive.",
+        "Resolve the underlying problem (clear the escalation file under .consort/escalations/ and any blocking smell in .consort/smells.json), then resume the drive.",
     },
   ];
 }

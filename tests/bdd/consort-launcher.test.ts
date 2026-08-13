@@ -1,4 +1,4 @@
-// scripts/sftdd.sh is the convenient launcher that opens a Claude Code
+// scripts/consort.sh is the convenient launcher that opens a Claude Code
 // session; the slash commands invoke the deterministic driver (no scrum-master
 // agent). Hermetic: real templates + tmpdir.
 
@@ -26,18 +26,18 @@ function mkDir(): string {
   return d;
 }
 
-describe("scripts/sftdd.sh launcher", () => {
+describe("scripts/consort.sh launcher", () => {
   it("is scaffolded into scripts/ as an executable file", async () => {
     const dir = mkDir();
     const scripts = await deployScripts(dir, { templatesDir: REPO_TEMPLATES });
-    expect(scripts).toContain("sftdd.sh");
-    const stat = fs.statSync(path.join(dir, "scripts", "sftdd.sh"));
-    expect(stat.mode & 0o111, "tdd.sh must be executable").not.toBe(0);
+    expect(scripts).toContain("consort.sh");
+    const stat = fs.statSync(path.join(dir, "scripts", "consort.sh"));
+    expect(stat.mode & 0o111, "consort.sh must be executable").not.toBe(0);
   });
 
   it("opens a plain claude session (no scrum-master agent) and seeds an optional command", () => {
     const sh = fs.readFileSync(
-      path.join(REPO_TEMPLATES, "common", "scripts", "sftdd.sh"),
+      path.join(REPO_TEMPLATES, "common", "scripts", "consort.sh"),
       "utf8"
     );
     // Bare: open an interactive session; the slash commands drive the workflow.

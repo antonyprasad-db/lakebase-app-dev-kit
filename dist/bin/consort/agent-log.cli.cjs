@@ -7106,12 +7106,26 @@ init_cjs_shims();
 var import_fs5 = require("fs");
 var import_path5 = require("path");
 var STORY_ALLOWED_KEYS = /* @__PURE__ */ new Set(["id", "asA", "iWantTo", "soThat", "acs", "feature_id", "independence", "external_ref"]);
+function parseStoryNarrative(md) {
+  const grab = (label) => {
+    const m = md.match(label);
+    if (!m) return void 0;
+    const v = m[1].trim().replace(/[,.]$/, "").trim();
+    return v.length > 0 ? v : void 0;
+  };
+  return {
+    asA: grab(/^\s*As an?\s+(.+?)\s*$/im),
+    iWantTo: grab(/^\s*I want(?:\s+to)?\s+(.+?)\s*$/im),
+    soThat: grab(/^\s*So that\s+(.+?)\s*$/im)
+  };
+}
 function normalizeStoryJson(consortDir, featureId) {
   const stories = storiesDir(consortDir, featureId);
   if (!(0, import_fs5.existsSync)(stories)) return [];
   const changed = [];
   for (const s of (0, import_fs5.readdirSync)(stories)) {
-    const file = (0, import_path5.join)(stories, s, "story.json");
+    const dir = (0, import_path5.join)(stories, s);
+    const file = (0, import_path5.join)(dir, "story.json");
     if (!(0, import_fs5.existsSync)(file)) continue;
     let obj;
     try {
@@ -7123,6 +7137,20 @@ function normalizeStoryJson(consortDir, featureId) {
     if (typeof obj.feature === "string" && obj.feature_id === void 0) {
       obj.feature_id = obj.feature;
       mutated = true;
+    }
+    const mdPath = (0, import_path5.join)(dir, "story.md");
+    const needsNarrative = ["asA", "iWantTo", "soThat"].some(
+      (k) => typeof obj[k] !== "string" || obj[k].trim().length === 0
+    );
+    if (needsNarrative && (0, import_fs5.existsSync)(mdPath)) {
+      const narrative = parseStoryNarrative((0, import_fs5.readFileSync)(mdPath, "utf8"));
+      for (const k of ["asA", "iWantTo", "soThat"]) {
+        const cur = obj[k];
+        if ((typeof cur !== "string" || cur.trim().length === 0) && narrative[k]) {
+          obj[k] = narrative[k];
+          mutated = true;
+        }
+      }
     }
     for (const key of Object.keys(obj)) {
       if (!STORY_ALLOWED_KEYS.has(key)) {
@@ -7296,6 +7324,7 @@ var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebas
 
 // consort/experiment/experiment.ts
 init_cjs_shims();
+var import_node_child_process = require("child_process");
 var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/smells/smells.ts
@@ -7335,7 +7364,7 @@ init_cjs_shims();
 
 // consort/deploy/deploy.ts
 init_cjs_shims();
-var import_node_child_process = require("child_process");
+var import_node_child_process2 = require("child_process");
 var import_node_crypto = require("crypto");
 var import_node_fs2 = require("fs");
 var import_node_path3 = require("path");
