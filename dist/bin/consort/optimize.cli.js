@@ -11804,7 +11804,7 @@ function eventArtifactPath(event, action, ctx) {
       return join24(featuresDir(ctx.consortDir), f, spec.filename);
     case "story":
       if (!story) return join24(ctx.consortDir, spec.filename);
-      return join24(storyResolved(ctx.consortDir, f, story), spec.filename);
+      return join24(cyclesRootDir(ctx.consortDir), f, story, spec.filename);
     case "ac":
     case "cycle":
       if (!story || !ac) return join24(ctx.consortDir, spec.filename);

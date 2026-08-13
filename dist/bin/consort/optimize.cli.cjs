@@ -11803,7 +11803,7 @@ function eventArtifactPath(event, action, ctx) {
       return (0, import_node_path11.join)(featuresDir(ctx.consortDir), f, spec.filename);
     case "story":
       if (!story) return (0, import_node_path11.join)(ctx.consortDir, spec.filename);
-      return (0, import_node_path11.join)(storyResolved(ctx.consortDir, f, story), spec.filename);
+      return (0, import_node_path11.join)(cyclesRootDir(ctx.consortDir), f, story, spec.filename);
     case "ac":
     case "cycle":
       if (!story || !ac) return (0, import_node_path11.join)(ctx.consortDir, spec.filename);
