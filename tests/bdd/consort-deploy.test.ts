@@ -15,6 +15,7 @@ import {
   logReleaseEngineerDeployStart,
   logReleaseEngineerDeployOutcome,
   defaultRunVerify,
+  probeServingOk,
   type DeployResult,
 } from "../../consort/deploy/deploy";
 import { readEscalations } from "../../consort/gates/escalation";
@@ -39,6 +40,14 @@ const TARGETS = [
   "    health_path: /",
   "    ready_timeout_seconds: 5",
   "    verify: run-feature-verify",
+  "  localvm:",
+  "    type: local",
+  "    run: echo started",
+  "    base_url: http://localhost:8000",
+  "    health_path: /",
+  "    ready_timeout_seconds: 5",
+  "    verify: run-feature-verify",
+  "    migrate: run-migrate",
   "  prod:",
   "    type: databricks-app",
   "    workspace_profile: x",
@@ -169,6 +178,146 @@ describe("deployToTarget: foreign-port guard (gate deploys)", () => {
       now: () => new Date(),
     });
     expect(result.ok).toBe(true);
+  });
+});
+
+describe("deployToTarget: pre-serve migrate the deployed branch (gate deploys)", () => {
+  it("migrates the bound experiment branch BEFORE starting the app", async () => {
+    // The honest-GREEN verify migrates a DISPOSABLE child branch, never the
+    // experiment branch itself; without a pre-serve migrate the PO-review app is
+    // served against an unmigrated schema and 500s. Assert migrate runs first,
+    // bound to the experiment branch, and BEFORE the app starts.
+    const order: string[] = [];
+    let migrateEnv: NodeJS.ProcessEnv | undefined;
+    const result = await deployToTarget({
+      projectDir: dir,
+      targetName: "localvm",
+      featureId: "F1",
+      storyId: "S1",
+      lakebaseBranch: "experiment-s1",
+      consortDir: join(dir, ".tdd"),
+      rejectForeignPort: true,
+      reachable: async () => false, // port free before deploy; app up after start
+      runVerify: (cmd, _cwd, env) => {
+        order.push(cmd);
+        if (cmd === "run-migrate") migrateEnv = env;
+        return true;
+      },
+      startProcess: () => {
+        order.push("start");
+        return 7;
+      },
+      servingOk: async () => true, // app serves non-5xx once started
+      sleep: async () => {},
+      now: () => new Date(),
+    });
+    expect(result.ok).toBe(true);
+    // migrate ran first, then the app started (before verify)
+    expect(order[0]).toBe("run-migrate");
+    expect(order.indexOf("run-migrate")).toBeLessThan(order.indexOf("start"));
+    // migrate was bound to the experiment branch the app serves
+    expect(migrateEnv?.LAKEBASE_BRANCH_ID).toBe("experiment-s1");
+  });
+
+  it("refuses + escalates when the pre-serve migrate FAILS (no app started, honest evidence)", async () => {
+    const consortDir = join(dir, ".tdd");
+    mkdirSync(join(consortDir, "features", "F1", "stories", "S1"), { recursive: true });
+    let started = false;
+    const result = await deployToTarget({
+      projectDir: dir,
+      targetName: "localvm",
+      featureId: "F1",
+      storyId: "S1",
+      lakebaseBranch: "experiment-s1",
+      consortDir,
+      rejectForeignPort: true,
+      reachable: async () => false,
+      runVerify: (cmd) => (cmd === "run-migrate" ? { passed: false, output: "alembic: target database is not up to date" } : true),
+      startProcess: () => {
+        started = true;
+        return 7;
+      },
+      servingOk: async () => true,
+      sleep: async () => {},
+      now: () => new Date(),
+    });
+    expect(result.ok).toBe(false);
+    expect(started).toBe(false); // never served an unmigrated app
+    expect(result.reason).toMatch(/migrate FAILED|refusing to serve/i);
+    const ev = JSON.parse(
+      readFileSync(join(consortDir, "features", "F1", "stories", "S1", "deploy-evidence.json"), "utf8"),
+    );
+    expect(ev.reachable).toBe(false);
+    expect(ev.verify.passed).toBe(false);
+    const escs = readEscalations(consortDir).filter((e) => !e.resolved_at);
+    expect(escs.some((e) => e.source === "deploy-verify" && e.story_id === "S1")).toBe(true);
+  });
+
+  it("does NOT migrate a feature deploy (no experiment branch bound)", async () => {
+    const ran: string[] = [];
+    await deployToTarget({
+      projectDir: dir,
+      targetName: "localvm",
+      featureId: "F1",
+      rejectForeignPort: true,
+      reachable: async () => false,
+      runVerify: (cmd) => {
+        ran.push(cmd);
+        return true;
+      },
+      startProcess: () => 7,
+      servingOk: async () => true,
+      sleep: async () => {},
+      now: () => new Date(),
+    });
+    expect(ran).not.toContain("run-migrate"); // no lakebaseBranch -> no pre-serve migrate
+  });
+});
+
+describe("deployToTarget: strict serving probe rejects a booted-but-5xx app (gate deploys)", () => {
+  it("records reachable=false when the gate app answers 5xx (e.g. unmigrated-branch 500)", async () => {
+    const consortDir = join(dir, ".tdd");
+    mkdirSync(join(consortDir, "features", "F1", "stories", "S1"), { recursive: true });
+    let t = 0;
+    const result = await deployToTarget({
+      projectDir: dir,
+      targetName: "localv",
+      featureId: "F1",
+      storyId: "S1",
+      lakebaseBranch: "experiment-s1",
+      consortDir,
+      rejectForeignPort: true,
+      reachable: async () => false, // port free before deploy (foreign-port guard passes)
+      servingOk: async () => false, // app boots but 500s on the health path -> NOT serving-ok
+      startProcess: () => 7,
+      runVerify: () => true,
+      sleep: async () => {},
+      now: () => new Date((t += 6000)), // fast-forward past the readiness timeout
+    });
+    expect(result.ok).toBe(false);
+    expect(result.reason).toMatch(/not reachable/);
+    const ev = JSON.parse(
+      readFileSync(join(consortDir, "features", "F1", "stories", "S1", "deploy-evidence.json"), "utf8"),
+    );
+    expect(ev.reachable).toBe(false);
+  });
+
+  it("probeServingOk: true on <500, false on 5xx", async () => {
+    const origFetch = globalThis.fetch;
+    try {
+      globalThis.fetch = (async () => ({ status: 200 })) as unknown as typeof fetch;
+      expect(await probeServingOk("http://x/")).toBe(true);
+      globalThis.fetch = (async () => ({ status: 404 })) as unknown as typeof fetch;
+      expect(await probeServingOk("http://x/")).toBe(true); // up, just not that route
+      globalThis.fetch = (async () => ({ status: 500 })) as unknown as typeof fetch;
+      expect(await probeServingOk("http://x/")).toBe(false); // booted but broken
+      globalThis.fetch = (async () => {
+        throw new Error("ECONNREFUSED");
+      }) as unknown as typeof fetch;
+      expect(await probeServingOk("http://x/")).toBe(false); // not up yet
+    } finally {
+      globalThis.fetch = origFetch;
+    }
   });
 });
 

@@ -184,6 +184,19 @@ export interface LocalTargetConfig {
    * refuses, so a shippable target must declare one.
    */
   verify?: string;
+  /**
+   * Forward-only migrate command run against the DEPLOYED branch BEFORE the app
+   * starts (a per-story gate deploy binds it to the story's experiment branch).
+   * The honest-GREEN verify migrates a DISPOSABLE child branch (to isolate a
+   * reversibility test's up/down fixtures), never the experiment branch itself,
+   * so without this the app the PO reviews is served against an UNMIGRATED
+   * branch and its write path 500s ("relation does not exist"). This applies
+   * `alembic upgrade head` (or the language's equivalent) to the served branch,
+   * forward-only + idempotent, so no down-migration can leave it half-migrated.
+   * Optional: absent = no pre-serve migrate (older scaffolds; the verify still
+   * gates GREEN on the ephemeral child).
+   */
+  migrate?: string;
 }
 
 export type ResolveResult =
@@ -208,6 +221,7 @@ export function resolveDeployTarget(projectDir: string, name: string): ResolveRe
       healthPath: raw.health_path ?? "/",
       readyTimeoutSeconds: Number(raw.ready_timeout_seconds ?? "60") || 60,
       verify: raw.verify || undefined,
+      migrate: raw.migrate || undefined,
     },
   };
 }
@@ -217,6 +231,24 @@ export async function probeReachable(url: string): Promise<boolean> {
   try {
     await fetch(url, { method: "GET" });
     return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Gate-deploy smoke check: the app is REACHABLE only if the health path answers
+ * with a NON-5xx status. A bare `probeReachable` treats any response as "up", so
+ * an app that boots but 500s on every request (e.g. bound to an unmigrated
+ * branch , `relation does not exist`) would be certified "reachable" at the
+ * acceptance gate , hollow working-software. A 5xx here means the process is up
+ * but broken; return false so the gate records reachable=false + escalates
+ * instead of green-lighting a stale server. Connection error = not up yet.
+ */
+export async function probeServingOk(url: string): Promise<boolean> {
+  try {
+    const r = await fetch(url, { method: "GET" });
+    return r.status < 500;
   } catch {
     return false;
   }
@@ -437,8 +469,10 @@ export interface DeployArgs {
   consortDir?: string;
   /** Inject for tests: start the run command, return a pid. */
   startProcess?: (cmd: string, cwd: string, env?: NodeJS.ProcessEnv) => number;
-  /** Inject for tests: reachability probe. */
+  /** Inject for tests: reachability probe (any response = up; used for the foreign-port guard). */
   reachable?: (url: string) => Promise<boolean>;
+  /** Inject for tests: strict serving probe (non-5xx = ok; the gate-deploy readiness teeth). */
+  servingOk?: (url: string) => Promise<boolean>;
   /** Inject for tests: run the feature-verify command; true = passed (exit 0). */
   runVerify?: (cmd: string, cwd: string, env?: NodeJS.ProcessEnv) => boolean | { passed: boolean; output?: string };
   /** Stop the running local app (default stopLocal). Injectable for hermetic tests. */
@@ -555,13 +589,65 @@ export async function deployToTarget(args: DeployArgs): Promise<DeployResult> {
     ? { ...process.env, LAKEBASE_BRANCH_ID: args.lakebaseBranch }
     : undefined;
 
+  // Migrate the DEPLOYED branch to head BEFORE serving it. Honest-GREEN verify
+  // migrates only a DISPOSABLE child branch (to isolate reversibility up/down
+  // fixtures), so the experiment branch this app is bound to is otherwise never
+  // upgraded , the PO-review server then queries an unmigrated schema and the
+  // write path 500s ("relation does not exist") even though every test passed.
+  // Forward-only + idempotent (upgrade head), so no down-migration can leave the
+  // branch half-migrated (the thrash the child-branch indirection guards against
+  // does not arise here). A failing migrate fails the deploy honestly, no false
+  // "reachable". Only for a gate deploy bound to a branch with a migrate command.
+  if (args.rejectForeignPort && args.lakebaseBranch && cfg.migrate) {
+    const runVerify = args.runVerify ?? defaultRunVerify;
+    const mig = normalizeVerifyRun(runVerify(cfg.migrate, args.projectDir, env));
+    if (!mig.passed) {
+      const reason = `pre-serve migrate FAILED against branch ${args.lakebaseBranch} (\`${cfg.migrate}\`); refusing to serve an unmigrated app. ${mig.output.split("\n").slice(-8).join(" ").slice(-600)}`;
+      const verify: VerifyResult = { passed: false, summary: reason };
+      let evidencePath: string | undefined;
+      if (args.featureId) {
+        const consortDir = args.consortDir ?? resolveConsortDir(args.projectDir);
+        const at = (args.now ?? (() => new Date()))().toISOString();
+        evidencePath = writeDeployEvidence(consortDir, {
+          schema_version: DEPLOY_EVIDENCE_SCHEMA_VERSION,
+          feature_id: args.featureId,
+          ...(args.storyId ? { story_id: args.storyId } : {}),
+          target: args.targetName,
+          url,
+          reachable: false,
+          verify,
+          ...(args.lakebaseBranch ? { lakebase_branch: args.lakebaseBranch } : {}),
+          deployed_at: at,
+        });
+        writeEscalation(consortDir, {
+          source: "deploy-verify",
+          reason: `deploy of ${args.featureId}${args.storyId ? `/${args.storyId}` : ""} blocked: ${reason}`,
+          feature_id: args.featureId,
+          ...(args.storyId ? { story_id: args.storyId } : {}),
+        });
+      }
+      return { ok: false, reason, verify, evidencePath };
+    }
+  }
+
   const pid = start(cfg.run, args.projectDir, env);
   const pf = pidFile(args.projectDir, args.targetName);
   mkdirSync(dirname(pf), { recursive: true });
   writeFileSync(pf, String(pid));
 
+  // Gate-deploy readiness is STRICT: the app is reachable only if it answers
+  // NON-5xx. The lenient `reachable` (any response = up) is right for the
+  // foreign-port guard (it must detect even a broken squatter), but at the
+  // acceptance gate a booted-but-500ing app (e.g. bound to a branch a stale
+  // migrate left unmigrated) must NOT certify as working software. A non-gate
+  // deploy keeps the lenient probe.
+  // Seam: an explicit servingOk wins; else fall back to the injected reachable
+  // (so a test driving readiness via `reachable` keeps its behavior); else the
+  // real strict probe in production.
+  const servingOk = args.servingOk ?? args.reachable ?? probeServingOk;
+  const readyProbe = args.rejectForeignPort ? servingOk : reachable;
   const poll = await pollUntil<boolean>({
-    probe: async () => ((await reachable(url)) ? { done: true, value: true } : { done: false }),
+    probe: async () => ((await readyProbe(url)) ? { done: true, value: true } : { done: false }),
     timeoutMs: cfg.readyTimeoutSeconds * 1000,
     intervalMs: 1000,
     sleep: args.sleep,

@@ -1597,9 +1597,12 @@ export function commandsForAction(action: WorkflowAction, cfg: DriveEffectsConfi
 
     case "await-acceptance": {
       // The deploy gate runs DETERMINISTICALLY here: `consort-deploy --gate`
-      // starts the app on the story's experiment branch, polls reachable, runs the
-      // project verify (by default on a disposable child branch , isolated), and
-      // writes the STORY-scoped deploy-evidence the acceptance gate reads. The CLI
+      // migrates the story's experiment branch to head (forward-only, so the
+      // PO-review app is not served against an unmigrated schema , GREEN verify
+      // only ever migrates a disposable child branch), starts the app on that
+      // branch, polls that it serves NON-5xx, runs the project verify (by default
+      // on a disposable child branch , isolated), and writes the STORY-scoped
+      // deploy-evidence the acceptance gate reads. The CLI
       // is SYNCHRONOUS (execSync through the verify + evidence write) and soft-fails
       // (exit 0) on a real failure, recording honest evidence + an escalation that
       // the next readState routes to a raise-to-hil halt. We run it as a CLI effect
