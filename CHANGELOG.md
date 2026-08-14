@@ -6,6 +6,52 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.8] - 2026-08-14
+
+A defect-fix release hardening the design lane and the per-story acceptance gate,
+plus two capture/replay fidelity fixes. All fixes fold onto 0.3.7; no behavior is
+removed. Legacy `sftdd` names/paths still read for back-compat.
+
+### Fixed
+
+- **Persistence-invariant fitness tests now anchor to the story that REALIZES the
+  invariant, not the first story that merely names its table.** The Test
+  Strategist previously front-loaded every persistence invariant (including those
+  for a not-yet-created table) onto an early display/read-only story's fitness
+  tests; the write story that actually migrates the table could then never obtain
+  a distinct coverage tag, and the story-scoped reflection revise could not clear
+  it (the fix required editing a different, already-gated story) — a dead-loop to
+  HIL. A new `invariantRealizingStory` primitive joins
+  `architecture.persistence_invariants[].table` to `db-design.schema_changes[]`
+  to resolve the realizing story; the fitness analyst prompt, the spec-gate
+  distinct-coverage check, and the reflect remediation all key off it, so
+  mis-anchoring is prevented at authoring time and, if it still occurs, is caught
+  and correctly attributed at the story's own gate.
+- **The per-story acceptance gate no longer serves an UNMIGRATED experiment
+  branch.** Honest-GREEN verify runs the migration only on a disposable child
+  branch (to isolate a reversibility test's up/down fixtures), so the experiment
+  branch the deploy bound the review app to was never upgraded — the write path
+  500'd with `relation ... does not exist` even though every test passed. The
+  `--gate` deploy now applies a forward-only, idempotent migrate
+  (`migrate:` target, the language-agnostic entrypoint) to the bound branch
+  BEFORE starting the app, and a failing migrate fails the deploy honestly
+  (`reachable:false` + escalation) instead of certifying a broken app.
+- **Gate-deploy reachability is now a strict non-5xx serving probe.** A
+  booted-but-erroring app (e.g. one bound to an unmigrated branch) previously
+  certified as "reachable" because any HTTP response counted as up; the acceptance
+  gate now requires a non-5xx response. Non-gate deploys and the foreign-port
+  guard keep the lenient probe.
+- **Story-scoped `review-verdict` resolves at the cycles story-root** (route/
+  contract seam fix), so a story-loop review no longer mis-resolves its path.
+- **Replay reads the intake design-brief + assets from the finalize-corpus mirror
+  layout** (nested `design/`), fixing the live replay launcher after the corpus
+  mirror moved where those assets land.
+
+### Added
+
+- **agent-log.jsonl is mirrored into the corpus during a recording**, so the
+  central agent-log stream is preserved alongside correspondence for replay.
+
 ## [0.3.7] - 2026-08-12
 
 A large consolidation release: the orchestrator's internals were reorganized into

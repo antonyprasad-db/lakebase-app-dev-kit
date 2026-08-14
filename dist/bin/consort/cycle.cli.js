@@ -7647,7 +7647,8 @@ function resolveDeployTarget(projectDir, name) {
       baseUrl: (raw.base_url ?? "http://localhost:8000").replace(/\/+$/, ""),
       healthPath: raw.health_path ?? "/",
       readyTimeoutSeconds: Number(raw.ready_timeout_seconds ?? "60") || 60,
-      verify: raw.verify || void 0
+      verify: raw.verify || void 0,
+      migrate: raw.migrate || void 0
     }
   };
 }

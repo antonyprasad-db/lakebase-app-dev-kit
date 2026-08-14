@@ -7126,7 +7126,8 @@ function resolveDeployTarget(projectDir, name) {
       baseUrl: (raw.base_url ?? "http://localhost:8000").replace(/\/+$/, ""),
       healthPath: raw.health_path ?? "/",
       readyTimeoutSeconds: Number(raw.ready_timeout_seconds ?? "60") || 60,
-      verify: raw.verify || void 0
+      verify: raw.verify || void 0,
+      migrate: raw.migrate || void 0
     }
   };
 }
@@ -7134,6 +7135,14 @@ async function probeReachable(url) {
   try {
     await fetch(url, { method: "GET" });
     return true;
+  } catch {
+    return false;
+  }
+}
+async function probeServingOk(url) {
+  try {
+    const r = await fetch(url, { method: "GET" });
+    return r.status < 500;
   } catch {
     return false;
   }
@@ -7302,12 +7311,45 @@ async function deployToTarget(args) {
     }
   }
   const env = args.lakebaseBranch ? { ...process.env, LAKEBASE_BRANCH_ID: args.lakebaseBranch } : void 0;
+  if (args.rejectForeignPort && args.lakebaseBranch && cfg.migrate) {
+    const runVerify = args.runVerify ?? defaultRunVerify;
+    const mig = normalizeVerifyRun(runVerify(cfg.migrate, args.projectDir, env));
+    if (!mig.passed) {
+      const reason = `pre-serve migrate FAILED against branch ${args.lakebaseBranch} (\`${cfg.migrate}\`); refusing to serve an unmigrated app. ${mig.output.split("\n").slice(-8).join(" ").slice(-600)}`;
+      const verify2 = { passed: false, summary: reason };
+      let evidencePath2;
+      if (args.featureId) {
+        const consortDir = args.consortDir ?? resolveConsortDir(args.projectDir);
+        const at = (args.now ?? (() => /* @__PURE__ */ new Date()))().toISOString();
+        evidencePath2 = writeDeployEvidence(consortDir, {
+          schema_version: DEPLOY_EVIDENCE_SCHEMA_VERSION,
+          feature_id: args.featureId,
+          ...args.storyId ? { story_id: args.storyId } : {},
+          target: args.targetName,
+          url,
+          reachable: false,
+          verify: verify2,
+          ...args.lakebaseBranch ? { lakebase_branch: args.lakebaseBranch } : {},
+          deployed_at: at
+        });
+        writeEscalation(consortDir, {
+          source: "deploy-verify",
+          reason: `deploy of ${args.featureId}${args.storyId ? `/${args.storyId}` : ""} blocked: ${reason}`,
+          feature_id: args.featureId,
+          ...args.storyId ? { story_id: args.storyId } : {}
+        });
+      }
+      return { ok: false, reason, verify: verify2, evidencePath: evidencePath2 };
+    }
+  }
   const pid = start(cfg.run, args.projectDir, env);
   const pf = pidFile(args.projectDir, args.targetName);
   mkdirSync7(dirname4(pf), { recursive: true });
   writeFileSync6(pf, String(pid));
+  const servingOk = args.servingOk ?? args.reachable ?? probeServingOk;
+  const readyProbe = args.rejectForeignPort ? servingOk : reachable;
   const poll = await pollUntil({
-    probe: async () => await reachable(url) ? { done: true, value: true } : { done: false },
+    probe: async () => await readyProbe(url) ? { done: true, value: true } : { done: false },
     timeoutMs: cfg.readyTimeoutSeconds * 1e3,
     intervalMs: 1e3,
     sleep: args.sleep,
