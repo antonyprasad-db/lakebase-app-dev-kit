@@ -50,7 +50,7 @@ export interface RoleLeverPatch {
   /** DRIVER-GREEN context (C1/C2): the pre-computed context sections to enable in `buildContextPack`
    *  (`"db-state"` = inject `alembic current`/`heads` once; `"failing-test"` = inject the failing RED
    *  test body). Applied by setting the `LAKEBASE_CONSORT_CTX_*` env the drive inherits. */
-  ctxPack?: ("db-state" | "failing-test")[];
+  ctxPack?: ("db-state" | "failing-test" | "scope-note")[];
 }
 
 /** One point in the sweep space: a stable id + the lever patch it applies. */
@@ -193,28 +193,27 @@ export function testStrategistCandidates(enabledKinds: string[]): RoleCandidate[
  * spends it on orientation (`ls`) + redundant self-verification (16 full-suite runs/turn) + DB
  * re-probing, NOT on writing code. Model is already sonnet (opus is slower here), so these are
  * BEHAVIORAL levers, not model tiers:
- *   - single-test-guard : deny the no-arg full suite (a PreToolUse hook), forcing targeted `pytest <path>`
- *   - guard-scan        : deny ls/find/grep via the SAME hook (segment-aware , catches `cd && ls`,
- *                         the case the first sweep's deny-globs missed, leaving deny-scan inert)
- *   - ctx-db            : inject `alembic current`/`heads` once (kill the alembic re-probes)
- *   - ctx-test          : inject the failing RED test body , SCOPES the driver to the test it must
- *                         make green (the first sweep's causal speed-up: it stops the driver rabbit-
- *                         holing into the client/SPA surface a later refactor owns)
- *   - scope-guard       : ctx-test + both guards , the hypothesis that scoping is the causal lever and
- *                         the guards remove the residual full-suite/scan waste
- *   - enforce-all       : every lever at once (the ceiling)
- * Each candidate still holds the DETERMINISTIC post-turn honest-GREEN verify (`@build-cycle`), so
- * denying the driver's own full-suite run removes only redundant work. Run at n>=3 (the first sweep's
- * single-trial spread was variance-dominated , the guard never even fired on the S3 pinned turn).
+ * FINDINGS (n=3 S3 sweep + turn-by-turn study , see DRIVER-GREEN-LEVERS.md): the driver's time is
+ * PATH variance , the -46% "best case" is the run that scopes to the single failing test and does NOT
+ * rabbit-hole the client/SPA surface (fast: ~4 client touches; slow: ~13). ENFORCEMENT backfires:
+ * guard-scan (blocking ls/find/grep) made it ~3x SLOWER (the driver relies on exploring); single-test-
+ * guard was variance (never fired on a non-thrashing turn). Only CONTEXT/SCOPING is causal. So the set
+ * is the scoping axis , make the fast good-path deterministic , plus cheap model levers:
+ *   - ctx-test          : inject the failing RED test body (the proven winner, -25/-38%, direction-stable)
+ *   - scope-note        : an explicit "make ONLY the failing test green at its layer; do not chase other
+ *                         layers (client/SPA)" directive , targets the residual client rabbit-hole
+ *   - ctx-test-scope    : hand the test AND scope , the deterministic encoding of the -46% good path
+ *   - e-low             : driver at effort=low (the fast run simply DID LESS; less thinking may sprawl less)
+ *   - single-test-guard : KEPT as a directive/control option (proven variance, not expected to win)
+ * Dropped (proven noise/harm): guard-scan, ctx-db, scope-guard, enforce-all. Run at n>=3.
  */
 export function driverGreenCandidates(): RoleCandidate[] {
   return [
     { id: BASELINE_ID, levers: {} },
-    { id: "single-test-guard", levers: { guardSuite: true } },
-    { id: "guard-scan", levers: { guardScan: true } },
-    { id: "ctx-db", levers: { ctxPack: ["db-state"] } },
     { id: "ctx-test", levers: { ctxPack: ["failing-test"] } },
-    { id: "scope-guard", levers: { guardSuite: true, guardScan: true, ctxPack: ["failing-test"] } },
-    { id: "enforce-all", levers: { guardSuite: true, guardScan: true, ctxPack: ["db-state", "failing-test"] } },
+    { id: "scope-note", levers: { ctxPack: ["scope-note"] } },
+    { id: "ctx-test-scope", levers: { ctxPack: ["failing-test", "scope-note"] } },
+    { id: "e-low", levers: { effort: "low" } },
+    { id: "single-test-guard", levers: { guardSuite: true } },
   ];
 }

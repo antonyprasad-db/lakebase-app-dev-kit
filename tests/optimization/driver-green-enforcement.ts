@@ -130,6 +130,7 @@ export function ctxPackEnv(ctxPack: RoleLeverPatch["ctxPack"]): Record<string, s
   for (const s of ctxPack ?? []) {
     if (s === "db-state") env.LAKEBASE_CONSORT_CTX_DBSTATE = "1";
     if (s === "failing-test") env.LAKEBASE_CONSORT_CTX_FAILINGTEST = "1";
+    if (s === "scope-note") env.LAKEBASE_CONSORT_CTX_SCOPENOTE = "1";
   }
   return env;
 }
@@ -165,7 +166,11 @@ export function applyDriverLevers(workspaceDir: string, levers: RoleLeverPatch, 
     writeFileSync(
       markerPath,
       JSON.stringify(
-        { dbState: levers.ctxPack!.includes("db-state"), failingTest: levers.ctxPack!.includes("failing-test") },
+        {
+          dbState: levers.ctxPack!.includes("db-state"),
+          failingTest: levers.ctxPack!.includes("failing-test"),
+          scopeNote: levers.ctxPack!.includes("scope-note"),
+        },
         null,
         2,
       ) + "\n",

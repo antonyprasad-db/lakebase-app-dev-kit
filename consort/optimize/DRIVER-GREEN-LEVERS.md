@@ -4,6 +4,27 @@
 > driver-green–specific levers the run-17 analysis surfaced. Nothing here changes the default drive
 > until a lever is SWEPT + judged + applied; the shipped code paths default the levers OFF.
 
+## ⭐ FINDINGS (first live sweep + n=3 replication, S3 pin) — read this first
+
+The first single-trial sweep declared `single-test-guard` the winner at **−46%**. Two follow-ups
+overturned that:
+- **Turn-by-turn study of the fast (167s) vs slow (309s) runs:** identical task; the difference was
+  PATH. The fast run scoped to the SINGLE failing test with a fail-fast run (`pytest <one> -x -q`) and
+  touched the client/SPA surface ~4×; the slow run ran a broader test set AND rabbit-holed the client
+  (`npx vitest`, `StockViewPage`, `vite.config`) ~13×. The 46% is that **client rabbit-hole being a
+  per-run coin flip**, not the guard (which **never fired** — the S3 turn never ran a full suite).
+- **n=3 replication:** `single-test-guard` went 167/260/208s and **baseline** went 309/262/180s — both
+  swing ~40% run-to-run; the guard is NOT consistently faster. `guard-scan` (now that the hook actually
+  fires) was **consistently ~2–3× SLOWER** (blocking `ls/find/grep` makes the driver flail — it relies
+  on exploring). `ctx-db` flipped sign. **Only `ctx-test` was direction-stable** (−38%/−25%), because
+  handing the driver the failing test removes the discover-then-sprawl opening.
+
+**Conclusion:** the causal axis is **CONTEXT/SCOPING** (inform the driver so it doesn't rabbit-hole),
+NOT **ENFORCEMENT** (blocking exploration backfires). Revised candidate set (`driverGreenCandidates`):
+`ctx-test`, `scope-note` (explicit "make only the failing test green at its layer; don't chase other
+layers"), `ctx-test-scope` (both — the deterministic encoding of the −46% good path), `e-low`, plus
+`single-test-guard` kept as a control. Dropped: `guard-scan`, `ctx-db`, `scope-guard`, `enforce-all`.
+
 ## Why (the evidence, run-17 `stockflow-full`)
 
 `driver/green` is **46% of the whole run's wall-clock** (23 turns, 329 min, avg 859s, 1.06M output

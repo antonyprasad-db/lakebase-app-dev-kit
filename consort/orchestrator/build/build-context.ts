@@ -156,6 +156,12 @@ interface ContextPackOpts {
   dbState?: boolean;
   /** Enable the ctx-test section (C2). Same precedence as dbState (failingTest marker / env). */
   failingTest?: boolean;
+  /** Enable the scope-note section: an explicit layer-scoping directive that tells the driver to make
+   *  ONLY the failing test green at its own layer and NOT investigate/build other layers' surfaces
+   *  (e.g. the client/SPA a later refactor owns). Data-justified: the fast (-46%) runs touched the
+   *  client surface ~4x while the slow ones rabbit-holed it ~13x , this makes that scoping deterministic.
+   *  Same precedence as dbState (scopeNote marker / env LAKEBASE_CONSORT_CTX_SCOPENOTE). */
+  scopeNote?: boolean;
   /** Injected for tests; defaults shell/read from disk. */
   dbStateReader?: DbStateReader;
   failingTestReader?: FailingTestReader;
@@ -164,7 +170,7 @@ interface ContextPackOpts {
 /** Read the per-project ctx-lever marker (`<consortDir>/ctx-levers.json`) the driver-GREEN sweep
  *  writes per candidate. A per-WORKSPACE file (not env) so parallel sweep candidates never race on a
  *  shared process env. Absent/malformed => no toggles. */
-function readCtxLeverMarker(consortDir: string): { dbState?: boolean; failingTest?: boolean } {
+function readCtxLeverMarker(consortDir: string): { dbState?: boolean; failingTest?: boolean; scopeNote?: boolean } {
   try {
     return JSON.parse(fs.readFileSync(join(consortDir, "ctx-levers.json"), "utf8"));
   } catch {
@@ -228,6 +234,21 @@ function buildContextPack(
     if (body) {
       parts.push(` FAILING TEST (make THIS pass; do NOT search for it) ::\n\`\`\`python\n${body}\n\`\`\``);
     }
+  }
+
+  // scope-note: an explicit layer-scoping directive. The fast (-46%) driver runs scoped to the SINGLE
+  // failing test with a fail-fast run and did NOT chase other layers; the slow ones rabbit-holed the
+  // client/SPA surface (~13 touches vs ~4). This makes that scoping deterministic instead of a per-run
+  // coin flip. Layer-agnostic: it scopes to the failing test's OWN layer (whatever that is).
+  const scopeOn = opts.scopeNote ?? marker.scopeNote ?? consortEnv("CTX_SCOPENOTE") === "1";
+  if (scopeOn) {
+    parts.push(
+      ` SCOPE :: Make ONLY the single failing test green with the SIMPLEST honest code at ITS OWN layer.` +
+        ` Iterate on that one test (\`uv run --env-file .env pytest <its path> -x -q\`). Do NOT investigate,` +
+        ` build, or run OTHER layers' surfaces this turn (e.g. if the failing test is backend, do not touch,` +
+        ` grep, or run the client/SPA , StockView*, vite, npx vitest; a later refactor turn owns that). The` +
+        ` post-turn honest-GREEN verify is authoritative; stop once the single test passes.`,
+    );
   }
 
   return parts.join("");

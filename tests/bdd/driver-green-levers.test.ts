@@ -52,14 +52,17 @@ describe("driverGreenCandidates: the candidate set is well-formed", () => {
     for (const id of ids) expect(id).toMatch(/^[a-z0-9-]+$/); // filesystem-safe
 
     const by = Object.fromEntries(cs.map((c) => [c.id, c.levers]));
-    expect(by["single-test-guard"]).toEqual({ guardSuite: true }); // kept as a first-class directive option
-    expect(by["guard-scan"]).toEqual({ guardScan: true }); // hook-based (replaces the broken deny-scan globs)
-    expect(by["ctx-db"].ctxPack).toEqual(["db-state"]);
+    // The scoping axis (context-only; enforcement dropped after the n=3 sweep showed it noise/harm).
     expect(by["ctx-test"].ctxPack).toEqual(["failing-test"]);
-    expect(by["scope-guard"]).toMatchObject({ guardSuite: true, guardScan: true, ctxPack: ["failing-test"] });
-    expect(by["enforce-all"]).toMatchObject({ guardSuite: true, guardScan: true, ctxPack: ["db-state", "failing-test"] });
-    // No candidate relies on the deprecated prefix-only denyBash globs anymore.
-    for (const c of cs) expect(c.levers.denyBash).toBeUndefined();
+    expect(by["scope-note"].ctxPack).toEqual(["scope-note"]);
+    expect(by["ctx-test-scope"].ctxPack).toEqual(["failing-test", "scope-note"]);
+    expect(by["e-low"]).toEqual({ effort: "low" });
+    expect(by["single-test-guard"]).toEqual({ guardSuite: true }); // KEPT as a directive/control option
+    // The proven-harmful guardScan is no longer a candidate; no candidate uses the deprecated denyBash.
+    for (const c of cs) {
+      expect(c.levers.guardScan).toBeUndefined();
+      expect(c.levers.denyBash).toBeUndefined();
+    }
   });
 });
 
@@ -95,10 +98,20 @@ describe("buildContextPack: ctx-db (C1) + ctx-test (C2) sections are OPT- and MA
 
   it("is driven by the per-workspace ctx-levers marker (the concurrency-safe sweep toggle)", () => {
     const cd = consortDir();
-    writeFileSync(join(cd, "ctx-levers.json"), JSON.stringify({ dbState: true, failingTest: true }));
+    writeFileSync(join(cd, "ctx-levers.json"), JSON.stringify({ dbState: true, failingTest: true, scopeNote: true }));
     const pack = buildContextPack(cd, F, S, "", { dbStateReader: dbReader, failingTestReader: testReader });
     expect(pack).toMatch(/DB STATE/);
     expect(pack).toMatch(/FAILING TEST/);
+    expect(pack).toMatch(/SCOPE ::/);
+  });
+
+  it("scope-note: emits the layer-scoping directive ONLY when enabled (no reader needed , it is static)", () => {
+    const cd = consortDir();
+    expect(buildContextPack(cd, F, S, "")).not.toMatch(/SCOPE ::/); // off by default
+    const on = buildContextPack(cd, F, S, "", { scopeNote: true });
+    expect(on).toMatch(/SCOPE ::/);
+    expect(on).toMatch(/do NOT investigate, build, or run OTHER layers/i);
+    expect(on).toMatch(/client\/SPA/); // names the exact rabbit-hole the -46% analysis found
   });
 });
 
@@ -133,13 +146,14 @@ describe("applyDriverLevers: writes the enforcement + context artifacts into the
 
   it("ctxPack writes the marker (given a consortDir) AND returns the env patch", () => {
     const cd = join(root, ".consort");
-    const applied = applyDriverLevers(root, { ctxPack: ["db-state", "failing-test"] }, cd);
-    expect(applied.env).toEqual({ LAKEBASE_CONSORT_CTX_DBSTATE: "1", LAKEBASE_CONSORT_CTX_FAILINGTEST: "1" });
-    expect(JSON.parse(readFileSync(applied.markerPath!, "utf8"))).toEqual({ dbState: true, failingTest: true });
+    const applied = applyDriverLevers(root, { ctxPack: ["failing-test", "scope-note"] }, cd);
+    expect(applied.env).toEqual({ LAKEBASE_CONSORT_CTX_FAILINGTEST: "1", LAKEBASE_CONSORT_CTX_SCOPENOTE: "1" });
+    expect(JSON.parse(readFileSync(applied.markerPath!, "utf8"))).toEqual({ dbState: false, failingTest: true, scopeNote: true });
   });
 
   it("ctxPackEnv is a pure enumeration", () => {
     expect(ctxPackEnv(["db-state"])).toEqual({ LAKEBASE_CONSORT_CTX_DBSTATE: "1" });
+    expect(ctxPackEnv(["scope-note"])).toEqual({ LAKEBASE_CONSORT_CTX_SCOPENOTE: "1" });
     expect(ctxPackEnv(undefined)).toEqual({});
   });
 });
