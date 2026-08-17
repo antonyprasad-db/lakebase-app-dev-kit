@@ -110,6 +110,19 @@ runtime token-minting from `.env` metadata (`LAKEBASE_BRANCH_ID`), so `uv run --
 The mock `StepAgent` is the same seam `ClaudeStepAgent` implements (`agent-types.ts` `StepAgent.invoke`),
 so what the mock captures is exactly what the real headless turn would receive.
 
+## Concurrency (`--concurrency 2` / `4`)
+
+The parallel pool + per-candidate isolation (own worktree, own Lakebase experiment branch, own
+`.claude/` + ctx marker) are concurrency-safe. The one shared resource was the honest-GREEN verify's
+**fixed `:8000`** (`make run` = uvicorn, and the free-port helper is only wired into `run-dev.sh`/CI,
+not the deploy path) , concurrent candidates would collide and the loser false-negatives
+("app not reachable"). Fixed by a **deterministic per-candidate deploy port**: `deployPortForIndex(i)`
+= `BASE_DEPLOY_PORT + i` (no OS-allocation race/TOCTOU), and `assignWorktreePort(projectDir, port)`
+rewrites that worktree's `deploy-targets.yaml` `local` target so `base_url` AND the uvicorn `run` bind
+the SAME port. Per-worktree file → no shared state, no shipped-deploy change. The CLI's driver runChain
+computes the index from the candidate's position and threads `port` into `runDriverGreenOnScaffold`.
+So `--concurrency 2` and `4` are now safe (bounded also by Lakebase branch quota + host resources).
+
 ## Run (after landing; live/cloud, user-kicked)
 
 ```

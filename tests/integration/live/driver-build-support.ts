@@ -49,7 +49,7 @@ import { resolveConsortSettings } from "../../../consort/orchestrator/settings/p
 import { writePipeline, readPipeline } from "../../../consort/pipeline/story-pipeline.js";
 import { beginNextPendingBatch, storyTestProgress } from "../../../consort/pipeline/cycle-record.js";
 import { cycleDir } from "../../../consort/config/consort-paths.js";
-import { applyDriverLevers } from "../../optimization/driver-green-enforcement.js";
+import { applyDriverLevers, assignWorktreePort } from "../../optimization/driver-green-enforcement.js";
 
 export const KIT = process.cwd();
 
@@ -190,6 +190,10 @@ export interface RunDriverGreenOptions {
   /** Per-candidate override for the experiment branch name (default: "experiment/S3-stock-shows-split-fields").
    *  Must be unique per concurrent candidate. */
   branch?: string;
+  /** Per-candidate deploy port. When set, the worktree's deploy-targets.yaml is rewritten so the
+   *  honest-GREEN verify binds + polls THIS port instead of the shared :8000 , the concurrency-safety
+   *  fix for --concurrency > 1 (each candidate owns a distinct port, deterministic by index). */
+  port?: number;
   /** Per-candidate lever overrides: model, effort, allowedTools, disallowedTools. Merged into the
    *  driver turn's config ONLY (does not affect navigator or other roles). When absent, uses the
    *  settings defaults. */
@@ -471,6 +475,10 @@ export async function runDriverGreenOnScaffold(
     // per-workspace, so concurrent candidates never race; the guard/deny gate only the driver agent's tool
     // calls (headless --setting-sources project), the orchestrator's honest-GREEN verify is untouched.
     if (opts.leverOverride) applyDriverLevers(projectDir, opts.leverOverride, consortDir);
+
+    // Concurrency safety: give this worktree its OWN deploy port so the honest-GREEN verify does not
+    // collide with a sibling candidate on the shared :8000 (rewrites base_url + the uvicorn run command).
+    if (opts.port) assignWorktreePort(projectDir, opts.port);
 
     process.env.LAKEBASE_SFTDD_USE_MANIFEST_STEPS = "1";
     // Kit resolution is pinned ONCE by scaffoldDriverGreenProject (shared scaffold); no per-candidate

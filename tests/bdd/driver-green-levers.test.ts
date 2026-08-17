@@ -19,7 +19,8 @@ import { execFileSync } from "child_process";
 import { tmpdir } from "os";
 import { join } from "path";
 import { driverGreenCandidates } from "../../tests/optimization/role-levers";
-import { applyDriverLevers, ctxPackEnv, SINGLE_TEST_GUARD_HOOK } from "../../tests/optimization/driver-green-enforcement";
+import { applyDriverLevers, ctxPackEnv, SINGLE_TEST_GUARD_HOOK, assignWorktreePort, deployPortForIndex, BASE_DEPLOY_PORT } from "../../tests/optimization/driver-green-enforcement";
+import { load } from "js-yaml";
 import { buildContextPack } from "../../consort/orchestrator/build/build-context";
 import { execute } from "../../consort/orchestrator/turns/step-executor";
 import type { StepExecutorDeps, StepCtx } from "../../consort/orchestrator/turns/step-executor";
@@ -124,6 +125,45 @@ describe("applyDriverLevers: writes the enforcement + context artifacts into the
   it("ctxPackEnv is a pure enumeration", () => {
     expect(ctxPackEnv(["db-state"])).toEqual({ LAKEBASE_CONSORT_CTX_DBSTATE: "1" });
     expect(ctxPackEnv(undefined)).toEqual({});
+  });
+});
+
+describe("per-candidate deploy port (concurrency safety): distinct ports + a consistent worktree rewrite", () => {
+  const TARGETS =
+    ["targets:", "  local:", "    type: local", "    run: make run", "    base_url: http://localhost:8000",
+     "    health_path: /", "    verify: ./scripts/run-tests.sh",
+     "  prod:", "    type: databricks-app", "    workspace_profile: x", ""].join("\n");
+
+  it("deployPortForIndex assigns a distinct, deterministic port per candidate index", () => {
+    expect(deployPortForIndex(0)).toBe(BASE_DEPLOY_PORT);
+    const ports = [0, 1, 2, 3, 4, 5, 6].map(deployPortForIndex);
+    expect(new Set(ports).size).toBe(ports.length); // all distinct , no two candidates share a port
+    expect(deployPortForIndex(3)).toBe(BASE_DEPLOY_PORT + 3);
+  });
+
+  it("assignWorktreePort rewrites base_url AND the uvicorn run to the SAME port (they must agree)", () => {
+    writeFileSync(join(root, "deploy-targets.yaml"), TARGETS);
+    const url = assignWorktreePort(root, 8103);
+    expect(url).toBe("http://localhost:8103");
+    const doc = load(readFileSync(join(root, "deploy-targets.yaml"), "utf8")) as { targets: Record<string, { base_url?: string; run?: string; type?: string }> };
+    expect(doc.targets.local.base_url).toBe("http://localhost:8103");
+    expect(doc.targets.local.run).toMatch(/uvicorn app\.main:app .*--port 8103/);
+    expect(doc.targets.local.run).toMatch(/uv run --env-file \.env/); // preserved the scaffold prefix
+    // The prod target is untouched (only `local` is re-ported).
+    expect(doc.targets.prod.type).toBe("databricks-app");
+    expect(doc.targets.prod.base_url).toBeUndefined();
+  });
+
+  it("two candidates rewrite to DIFFERENT ports (the collision the fix removes)", () => {
+    const a = join(root, "a");
+    const b = join(root, "b");
+    mkdirSync(a, { recursive: true });
+    mkdirSync(b, { recursive: true });
+    writeFileSync(join(a, "deploy-targets.yaml"), TARGETS);
+    writeFileSync(join(b, "deploy-targets.yaml"), TARGETS);
+    const urlA = assignWorktreePort(a, deployPortForIndex(0));
+    const urlB = assignWorktreePort(b, deployPortForIndex(1));
+    expect(urlA).not.toBe(urlB);
   });
 });
 

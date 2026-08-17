@@ -7,7 +7,38 @@
 
 import { mkdirSync, readFileSync, writeFileSync, existsSync, chmodSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { load, dump } from "js-yaml";
 import type { RoleLeverPatch } from "./role-levers.js";
+
+/** Deterministic per-candidate deploy port: base + the candidate's index in the sweep. Deterministic
+ *  (not OS-allocated) so there is NO allocation race / TOCTOU across the parallel pool , candidate i
+ *  always owns port BASE_DEPLOY_PORT+i, unique across the whole candidate set regardless of the
+ *  concurrency cap. Base 8100 (above the common :8000) to dodge a stray dev server. */
+export const BASE_DEPLOY_PORT = 8100;
+export function deployPortForIndex(index: number): number {
+  return BASE_DEPLOY_PORT + Math.max(0, index);
+}
+
+/**
+ * Give a candidate's worktree its OWN deploy port so parallel candidates never collide on the shared
+ * :8000 the honest-GREEN verify would otherwise bind. Rewrites the worktree's deploy-targets.yaml
+ * `local` target: `base_url` -> http://localhost:<port> AND `run` -> a uvicorn bound to <port> (the
+ * scaffold's `make run` is fixed at :8000 and ignores base_url's port, so both must move together, or
+ * the reachability poll targets a port nothing is serving). Per-WORKTREE file, so it is concurrency-
+ * safe (no shared state) and needs NO change to the shipped deploy substrate. Returns the new base_url.
+ */
+export function assignWorktreePort(projectDir: string, port: number): string {
+  const file = join(projectDir, "deploy-targets.yaml");
+  const doc = (load(readFileSync(file, "utf8")) ?? {}) as { targets?: Record<string, Record<string, unknown>> };
+  const local = doc.targets?.local;
+  if (!local) throw new Error(`assignWorktreePort: no 'local' target in ${file}`);
+  const baseUrl = `http://localhost:${port}`;
+  local.base_url = baseUrl;
+  // Bind uvicorn to the same port (preserve the scaffold's `uv run --env-file .env` prefix + app module).
+  local.run = `uv run --env-file .env uvicorn app.main:app --host 127.0.0.1 --port ${port}`;
+  writeFileSync(file, dump(doc), "utf8");
+  return baseUrl;
+}
 
 /** The single-test-guard PreToolUse hook (E1): DENY a no-arg full-suite invocation, ALLOW a targeted
  *  `pytest <path>` / `run-tests.sh <path>`. python3 (present in the scaffold via uv) parses the tool

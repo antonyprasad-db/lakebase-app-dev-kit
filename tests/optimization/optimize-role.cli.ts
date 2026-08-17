@@ -29,6 +29,7 @@ import { join, dirname, relative } from "node:path";
 import { ROLE_CHAINS, runRoleChainLive, INTAKE_REL, type RoleChain } from "../../consort/optimize/role-chains.js";
 import { BUILD_ROLE_CHAINS, runBuildRoleChainLive, BUILD_CORPUS_REL, type BuildRoleChain } from "../../consort/optimize/build-role-chains.js";
 import { roleCandidates, testStrategistCandidates, driverGreenCandidates } from "./role-levers.js";
+import { deployPortForIndex } from "./driver-green-enforcement.js";
 import { runRoleSweep, type SweepTrial, type ChainRunner, type QualityGate, type QualityVerdict, type SweepableChain } from "./role-sweep.js";
 import { reportRoleSweep, formatRoleSweepReport, type SweepReport } from "./role-sweep-report.js";
 import { scaffoldDriverGreenProject, teardownDriverGreenProject, runDriverGreenOnScaffold, sweepDriverGreenOrphans, type RunDriverGreenResult } from "../integration/live/driver-build-support.js";
@@ -202,10 +203,15 @@ export async function sweepDriverGreen(
   const project = await scaffoldDriverGreenProject();
   const driverChain: SweepableChain = { dir: handle, outputFile: "app", prompt: `driver ${spec.driverTurn} (live, shared scaffold)` };
   const runChain: ChainRunner = async (_c, _agentFor, candidateId, levers) => {
+    // Deterministic per-candidate deploy port (base + index) so parallel candidates never collide on
+    // the shared :8000 the honest-GREEN verify binds , the concurrency-safety fix. Index from position
+    // in the candidate set (ChainRunner carries no index); unique across the whole set regardless of cap.
+    const idx = Math.max(0, candidates.findIndex((c) => c.id === candidateId));
     const result = await runDriverGreenOnScaffold(project, {
       experimentSlug: `s3-${spec.driverTurn}-${candidateId}`,
       branch: `experiment/S3-${spec.driverTurn}-${candidateId}`,
       driverTurn: spec.driverTurn,
+      port: deployPortForIndex(idx),
       ...(Object.keys(levers).length ? { leverOverride: levers } : {}),
     }) as RunDriverGreenResult | undefined;
     if (!result) throw new Error(`runDriverGreenOnScaffold returned void (expected RunDriverGreenResult)`);
