@@ -45,12 +45,10 @@ export default defineConfig({
     "bin/consort/optimize-apply.cli": "bin/consort/optimize-apply.cli.ts",
     // Internal per-role sweep harness (NOT a published bin , see package.json: no bin entry).
     // Built to dist only so the scripts/optimize-role.sh runbook can run the CJS build (the
-    // shared schema-loader uses __dirname, which tsx's ESM loader leaves undefined).
-    // TEMPORARILY DROPPED as a build entry: it imports ./driver-sweep.js, which is not yet
-    // committed (incomplete optimize-sweep WIP), so including it fails the WHOLE build (CJS+ESM+DTS)
-    // and leaves dist empty , blocking every consumer. Only scripts/optimize-role.sh uses this dist
-    // output; the capture/kit/published bins do not. RESTORE this entry once driver-sweep.ts lands.
-    // "tests/optimization/optimize-role.cli": "tests/optimization/optimize-role.cli.ts",
+    // shared schema-loader uses __dirname, which tsx's ESM loader leaves undefined). driver-sweep.ts
+    // (its transitive import) is committed, so this entry builds cleanly; only scripts/optimize-role.sh
+    // consumes the dist output (the capture/kit/published bins do not).
+    "tests/optimization/optimize-role.cli": "tests/optimization/optimize-role.cli.ts",
     "bin/consort/agent-models.cli": "bin/consort/agent-models.cli.ts",
     "bin/consort/story-pipeline.cli": "bin/consort/story-pipeline.cli.ts",
     "bin/consort/cycle.cli": "bin/consort/cycle.cli.ts",

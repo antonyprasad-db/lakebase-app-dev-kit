@@ -47,5 +47,17 @@ cd "$(dirname "$0")/.."
 # can never run stale". This is THE one door , always invoke the sweep through here, never `node` by hand.
 BIN="dist/tests/optimization/optimize-role.cli.js"
 echo "[optimize-role] rebuilding dist (guarantee fresh) ..." >&2
-npm run build >/dev/null
+# Fail loud on a build error (do not swallow it): keep stdout quiet, let stderr through.
+if ! npm run build >/dev/null; then
+  echo "[optimize-role] ERROR: 'npm run build' failed , cannot run the sweep. See the build errors above." >&2
+  exit 1
+fi
+# Guard: $BIN is emitted ONLY when tsup.config.ts declares the tests/optimization/optimize-role.cli
+# entry. If a refactor drops it, the build still exits 0 but $BIN never appears , catch that here with
+# an actionable message instead of a cryptic node MODULE_NOT_FOUND at exec.
+if [ ! -f "$BIN" ]; then
+  echo "[optimize-role] ERROR: build succeeded but $BIN is missing." >&2
+  echo "[optimize-role] Restore the 'tests/optimization/optimize-role.cli' entry in tsup.config.ts (the ONLY thing that emits this file), then re-run." >&2
+  exit 1
+fi
 exec node "$BIN" "$@"
