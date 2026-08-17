@@ -28,7 +28,7 @@ import { tmpdir } from "node:os";
 import { join, dirname, relative } from "node:path";
 import { ROLE_CHAINS, runRoleChainLive, INTAKE_REL, type RoleChain } from "../../consort/optimize/role-chains.js";
 import { BUILD_ROLE_CHAINS, runBuildRoleChainLive, BUILD_CORPUS_REL, type BuildRoleChain } from "../../consort/optimize/build-role-chains.js";
-import { roleCandidates, testStrategistCandidates } from "./role-levers.js";
+import { roleCandidates, testStrategistCandidates, driverGreenCandidates } from "./role-levers.js";
 import { runRoleSweep, type SweepTrial, type ChainRunner, type QualityGate, type QualityVerdict, type SweepableChain } from "./role-sweep.js";
 import { reportRoleSweep, formatRoleSweepReport, type SweepReport } from "./role-sweep-report.js";
 import { scaffoldDriverGreenProject, teardownDriverGreenProject, runDriverGreenOnScaffold, sweepDriverGreenOrphans, type RunDriverGreenResult } from "../integration/live/driver-build-support.js";
@@ -180,7 +180,10 @@ export async function sweepDriverGreen(
 
   // Candidate subset (resume a partial sweep): run only the named ids; their trials MERGE with any
   // per-candidate dirs already persisted from a prior (crashed) run in the SAME run dir. Absent => all.
-  const all = roleCandidates("sonnet");
+  // Driver turns use the ENFORCEMENT + CONTEXT lever set (DRIVER-GREEN-LEVERS.md) , the run-17 analysis
+  // showed the driver's wall-clock is tool-churn (orientation + redundant self-verification), not model
+  // tier (already sonnet), so the interesting levers are behavioral, not the generic model/effort grid.
+  const all = driverGreenCandidates();
   const candidates = selectDriverCandidates(all, opts.candidates);
 
   // eslint-disable-next-line no-console

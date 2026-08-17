@@ -49,6 +49,7 @@ import { resolveConsortSettings } from "../../../consort/orchestrator/settings/p
 import { writePipeline, readPipeline } from "../../../consort/pipeline/story-pipeline.js";
 import { beginNextPendingBatch, storyTestProgress } from "../../../consort/pipeline/cycle-record.js";
 import { cycleDir } from "../../../consort/config/consort-paths.js";
+import { applyDriverLevers } from "../../optimization/driver-green-enforcement.js";
 
 export const KIT = process.cwd();
 
@@ -197,6 +198,13 @@ export interface RunDriverGreenOptions {
     effort?: string;
     allowedTools?: string[];
     disallowedTools?: string[];
+    /** DRIVER-GREEN enforcement + context levers (DRIVER-GREEN-LEVERS.md). Applied to the worktree
+     *  before the driver turn via applyDriverLevers: guardSuite installs the single-test-guard
+     *  PreToolUse hook, denyBash writes permissions.deny globs, ctxPack writes the ctx-levers marker
+     *  buildContextPack reads. */
+    guardSuite?: boolean;
+    denyBash?: string[];
+    ctxPack?: ("db-state" | "failing-test")[];
   };
   /** Which driver turn to exercise (each seeded to its own flagged pre-turn state, then evaluated by the
    *  navigator turn that follows it): "green" (default , post-RED seed -> driver GREEN -> navigator
@@ -457,6 +465,12 @@ export async function runDriverGreenOnScaffold(
 
     // Agent defs so the live `--agent driver` resolves (worktree carries a copy from HEAD; re-lay freshest).
     layDownKitAgents(projectDir, KIT);
+
+    // DRIVER-GREEN enforcement + context levers (per-candidate, per-worktree): write .claude/settings.json
+    // (single-test-guard hook + deny globs) + the ctx-levers marker into THIS candidate's worktree. All
+    // per-workspace, so concurrent candidates never race; the guard/deny gate only the driver agent's tool
+    // calls (headless --setting-sources project), the orchestrator's honest-GREEN verify is untouched.
+    if (opts.leverOverride) applyDriverLevers(projectDir, opts.leverOverride, consortDir);
 
     process.env.LAKEBASE_SFTDD_USE_MANIFEST_STEPS = "1";
     // Kit resolution is pinned ONCE by scaffoldDriverGreenProject (shared scaffold); no per-candidate

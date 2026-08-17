@@ -33,6 +33,19 @@ export interface RoleLeverPatch {
    *  renderTestAnalystRoster overrides), so the supervisor spawns each analyst Task with the swept
    *  model/effort/tool_scope. Absent on every non-test-strategist candidate. */
   analystOverrides?: Record<string, { model?: string; effort?: "low" | "default" | "high"; toolScope?: string[] }>;
+  /** DRIVER-GREEN enforcement (E1): install a per-candidate PreToolUse hook that DENIES a no-arg
+   *  full-suite invocation (`run-tests.sh` / `make test` / `npm test`) while allowing a targeted
+   *  `pytest <path>` / `run-tests.sh <path>`. A hook (not a deny-glob) because the no-arg-vs-path
+   *  distinction is argument-level, which deny-globs match unreliably. See DRIVER-GREEN-LEVERS.md. */
+  guardSuite?: boolean;
+  /** DRIVER-GREEN enforcement (E2): `permissions.deny` globs written into the candidate workspace's
+   *  `.claude/settings.json` (deny overrides `--permission-mode acceptEdits`). Reliable for coarse,
+   *  argument-free commands like `Bash(ls:*)` / `Bash(find:*)` / `Bash(grep:*)`. */
+  denyBash?: string[];
+  /** DRIVER-GREEN context (C1/C2): the pre-computed context sections to enable in `buildContextPack`
+   *  (`"db-state"` = inject `alembic current`/`heads` once; `"failing-test"` = inject the failing RED
+   *  test body). Applied by setting the `LAKEBASE_CONSORT_CTX_*` env the drive inherits. */
+  ctxPack?: ("db-state" | "failing-test")[];
 }
 
 /** One point in the sweep space: a stable id + the lever patch it applies. */
@@ -167,4 +180,38 @@ export function testStrategistCandidates(enabledKinds: string[]): RoleCandidate[
   out.push({ id: "s-haiku+a-all-low", levers: { model: "haiku", effort: "low", analystOverrides: analystsLow } }); // cheapest end to end
 
   return out;
+}
+
+/**
+ * DRIVER-GREEN candidate set , the enforcement + pre-computed-context levers the run-17 analysis
+ * surfaced (see DRIVER-GREEN-LEVERS.md). The driver/green turn is 46% of the run's wall-clock and
+ * spends it on orientation (`ls`) + redundant self-verification (16 full-suite runs/turn) + DB
+ * re-probing, NOT on writing code. Model is already sonnet (opus is slower here), so these are
+ * BEHAVIORAL levers, not model tiers:
+ *   - single-test-guard : deny the no-arg full suite (a PreToolUse hook), forcing targeted `pytest <path>`
+ *   - deny-scan         : deny `ls`/`find`/`grep` Bash (force reliance on the injected LAYOUT)
+ *   - ctx-db            : inject `alembic current`/`heads` once (kill the 7 alembic probes/turn)
+ *   - ctx-test          : inject the failing RED test body (kill the Read/cat re-discovery)
+ *   - migrate-once      : ctx-db + ctx-test, and rely on the pre-migrated branch (targeted pytest, no re-migrate)
+ *   - enforce-all       : every lever at once (the ceiling, to size the combined win)
+ * Each candidate still holds the DETERMINISTIC post-turn honest-GREEN verify (`@build-cycle`), so
+ * denying the driver's own full-suite run removes only redundant work.
+ */
+export function driverGreenCandidates(): RoleCandidate[] {
+  return [
+    { id: BASELINE_ID, levers: {} },
+    { id: "single-test-guard", levers: { guardSuite: true } },
+    { id: "deny-scan", levers: { denyBash: ["Bash(ls:*)", "Bash(find:*)", "Bash(grep:*)", "Bash(rg:*)"] } },
+    { id: "ctx-db", levers: { ctxPack: ["db-state"] } },
+    { id: "ctx-test", levers: { ctxPack: ["failing-test"] } },
+    { id: "migrate-once", levers: { guardSuite: true, ctxPack: ["db-state", "failing-test"] } },
+    {
+      id: "enforce-all",
+      levers: {
+        guardSuite: true,
+        denyBash: ["Bash(ls:*)", "Bash(find:*)", "Bash(grep:*)", "Bash(rg:*)"],
+        ctxPack: ["db-state", "failing-test"],
+      },
+    },
+  ];
 }

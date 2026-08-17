@@ -10,8 +10,11 @@
 // chains (optimize/build-role-chains.ts) inject the SAME pack, so an isolated build turn is
 // pre-conditioned exactly as the dispatched turn is (no hand-written approximation).
 
+import { execSync } from "node:child_process";
 import * as fs from "node:fs";
+import { dirname, join } from "node:path";
 import { readConventions } from "../../architecture/architecture-conventions.js";
+import { consortEnv } from "../../config/consort-env.js";
 import { storyAcIds, readAcLayer, architectureJson, designGuideJson } from "../../config/consort-paths.js";
 
 /** The .consort artifact root for a project (identity: the artifact dir IS the root). */
@@ -109,12 +112,72 @@ function rubricSourcesNote(rubric: string, featureId: string, root: string): str
  * simply omitted. `skipTestLoop` drops the test-location + iterate line for turns
  * that do not run the build test loop (RED has no code yet; REVIEW only judges).
  */
+/** DRIVER-GREEN context lever C1 (`ctx-db`): the DB's current + head revisions, probed ONCE at
+ *  context-build time so the Driver does not re-run `alembic current` every cycle (run-17: ~7
+ *  alembic probes/turn, incl. 5 identical in a row). The reader is INJECTABLE so tests are hermetic;
+ *  the default shells `alembic current`/`heads` in the project dir (best-effort, gated OFF by
+ *  default). Returns "" when the probe yields nothing. */
+export type DbStateReader = (projectDir: string) => { current?: string; heads?: string } | undefined;
+const defaultDbStateReader: DbStateReader = (projectDir) => {
+  const one = (args: string): string | undefined => {
+    try {
+      return execSync(`uv run --env-file .env alembic ${args}`, { cwd: projectDir, stdio: ["ignore", "pipe", "ignore"], timeout: 60_000 })
+        .toString()
+        .trim() || undefined;
+    } catch {
+      return undefined;
+    }
+  };
+  const current = one("current");
+  const heads = one("heads");
+  return current || heads ? { current, heads } : undefined;
+};
+
+/** DRIVER-GREEN context lever C2 (`ctx-test`): the body of the story's failing RED test, injected so
+ *  the Driver reads the failing behavior from context instead of Read/cat-discovering it (run-17: ~40
+ *  Read + cat/head re-reads/turn). Reader is INJECTABLE; the default derives the pytest-bdd step-def
+ *  path from the story slug and reads it (tail-bounded). Returns "" when no test file resolves. */
+export type FailingTestReader = (projectDir: string, story: string) => string | undefined;
+const defaultFailingTestReader: FailingTestReader = (projectDir, story) => {
+  // Story slug "S2-drop-combined-code" -> tests/step_defs/test_S2_drop_combined_code.py.
+  const file = join(projectDir, "tests", "step_defs", `test_${story.replace(/-/g, "_")}.py`);
+  try {
+    const body = fs.readFileSync(file, "utf8");
+    return body.length > 4000 ? body.slice(0, 4000) + "\n… (truncated; read the full file if needed)" : body;
+  } catch {
+    return undefined;
+  }
+};
+
+interface ContextPackOpts {
+  skipTestLoop?: boolean;
+  /** Enable the ctx-db section (C1). Precedence: this opt > `<consortDir>/ctx-levers.json` marker >
+   *  env `LAKEBASE_CONSORT_CTX_DBSTATE === "1"`. */
+  dbState?: boolean;
+  /** Enable the ctx-test section (C2). Same precedence as dbState (failingTest marker / env). */
+  failingTest?: boolean;
+  /** Injected for tests; defaults shell/read from disk. */
+  dbStateReader?: DbStateReader;
+  failingTestReader?: FailingTestReader;
+}
+
+/** Read the per-project ctx-lever marker (`<consortDir>/ctx-levers.json`) the driver-GREEN sweep
+ *  writes per candidate. A per-WORKSPACE file (not env) so parallel sweep candidates never race on a
+ *  shared process env. Absent/malformed => no toggles. */
+function readCtxLeverMarker(consortDir: string): { dbState?: boolean; failingTest?: boolean } {
+  try {
+    return JSON.parse(fs.readFileSync(join(consortDir, "ctx-levers.json"), "utf8"));
+  } catch {
+    return {};
+  }
+}
+
 function buildContextPack(
   consortDir: string,
   featureId: string,
   story: string,
   ac: string,
-  opts: { skipTestLoop?: boolean } = {},
+  opts: ContextPackOpts = {},
 ): string {
   const root = artifactRoot(consortDir);
   const rubric = contextRubric(consortDir, featureId, story, ac);
@@ -141,6 +204,30 @@ function buildContextPack(
         ` named paths directly; do NOT find/grep/ls to locate them. Iterate against the single failing test while` +
         ` fixing; the honest-GREEN verify is the authoritative full run.`,
     );
+  }
+
+  const marker = readCtxLeverMarker(consortDir);
+  // C1 (ctx-db): the DB revision state, probed once, so the Driver does not re-run `alembic current`.
+  const dbOn = opts.dbState ?? marker.dbState ?? consortEnv("CTX_DBSTATE") === "1";
+  if (dbOn) {
+    const st = (opts.dbStateReader ?? defaultDbStateReader)(dirname(consortDir));
+    if (st && (st.current || st.heads)) {
+      parts.push(
+        ` DB STATE (already probed, do NOT re-run alembic current/heads) ::` +
+          `${st.current ? ` current=${st.current.replace(/\s+/g, " ")}` : ""}` +
+          `${st.heads ? ` head=${st.heads.replace(/\s+/g, " ")}` : ""}.` +
+          ` The branch is migrated to head; iterate with \`uv run --env-file .env pytest <path>\` (no re-migrate).`,
+      );
+    }
+  }
+
+  // C2 (ctx-test): the failing RED test body, so the Driver does not Read/cat-discover it.
+  const testOn = opts.failingTest ?? marker.failingTest ?? consortEnv("CTX_FAILINGTEST") === "1";
+  if (testOn) {
+    const body = (opts.failingTestReader ?? defaultFailingTestReader)(dirname(consortDir), story);
+    if (body) {
+      parts.push(` FAILING TEST (make THIS pass; do NOT search for it) ::\n\`\`\`python\n${body}\n\`\`\``);
+    }
   }
 
   return parts.join("");

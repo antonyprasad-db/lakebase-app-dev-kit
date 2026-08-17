@@ -13,6 +13,117 @@
 > `optimize-apply`'s winner-persist path is re-homed onto the judged engine. Do not build new work on
 > anything below this line.
 
+---
+
+# CURRENT — the judged sweep engine (authoritative; everything below the next `---` is deprecated provenance)
+
+## Source of truth (exact paths, verified 2026-08-17)
+
+- **Launcher (THE one door):** `scripts/optimize-role.sh`. Always rebuilds dist first, then runs
+  `dist/tests/optimization/optimize-role.cli.js`. Flags: `--chains <set|comma-list>` (sets:
+  `design`, `navigator`, `driver`), `--role <chain>` (back-compat single chain), `--concurrency N`
+  (fan candidates out in parallel, each in its OWN `mkdtemp` `.consort` workspace , levers in-memory,
+  no shared-state race; default 1), `--base-model`, `--telemetry-dir DIR`, `--candidates a,b,c`
+  (resume a subset; each candidate persists to `<run>/<chain>/<candidate>/trial.json` as it finishes,
+  summary rebuilt from all persisted dirs , crash-safe).
+- **Engine:** `tests/optimization/role-sweep.ts` (`runRoleSweep`) + `tests/optimization/driver-sweep.ts`
+  (`sweepDriverGreen`, the cloud build-trial path). CLI: `tests/optimization/optimize-role.cli.ts`.
+- **Chain definitions:** `consort/optimize/role-chains.ts` (design: `spec-author-propose`,
+  `spec-author-story`, `architect-estimator`, `architect-reviewer`, `dba`, `test-strategist`,
+  `test-analyst-roster`, `ux-designer`) and `consort/optimize/build-role-chains.ts`
+  (`BUILD_ROLE_CHAINS` = `navigator-red`, `navigator-assess`, `navigator-review`, `navigator-reflect`).
+  `driver-green` / `driver-repair` / `driver-refactor` are **synthetic** handles (`DRIVER_TURN_SPECS`
+  in the CLI) that route to `sweepDriverGreen` against the recorded reference at
+  `consort/evaluation/reference-assets/stockflow/next-step/driver-{green,repair}`. (So driver sweeps
+  are wired now , the old "driver cloud WIP" note is stale.)
+- **Levers per candidate:** `model` (tier) × `effort` (low/default/high) × `toolScope` × `scan-tight`
+  (prompt-diet content lever); test-strategist additionally takes per-analyst `analystOverrides`
+  ({model,effort,toolScope} per behavior/fitness/client analyst). Injected as a lever-patched
+  `ClaudeStepAgent` on the live-role manifest; every other turn in the chain replays from the recorded
+  corpus, so only the swept role is a real `claude -p` spawn.
+- **Invariant (never violate):** every candidate is gated on the role's conformance validator AND an
+  independent reference-quality judge, and its produced-artifact tree is preserved to the telemetry
+  dir. A conformant candidate whose judge is absent/errors/below-threshold is DISQUALIFIED (no
+  judgeless winners). See memory `feedback_every_evaluation_judge_and_preserve`.
+- **Applied winners so far** (`consort/config/optimized-defaults.json` + agent md): `spec-author`
+  `breakdown` = haiku + effort-low; `ux-designer` = opus + effort-low. Exclude these from new studies.
+
+## StockFlow-full (run 17) candidate study — where the wall-clock actually is
+
+Data: joined the 119 `turn.usage` events in `examples/replay/corpora/stockflow-full/agent-log.jsonl`
+(each carries `duration_ms`, tokens, cost, model) to their `handoff` phase. **119 agent turns,
+709.7 min compute, $139.18, 2.45M output tokens** across F1 (3 stories) + F6 (3 stories), full
+lifecycle. **Output volume is the wall** (avg driver/green turn = 45k output over 14 min).
+
+Wall-clock by role/phase (none of these are optimized yet):
+
+| role / phase | turns | min | % wall | avg/turn | out-tok |
+|---|--:|--:|--:|--:|--:|
+| driver / green | 23 | 329.2 | **46.4%** | 859s | 1.06M |
+| navigator / red | 23 | 151.3 | **21.3%** | 395s | 604k |
+| navigator / assess | 10 | 92.6 | **13.1%** | 556s | 315k |
+| driver / repair | 9 | 54.2 | 7.6% | 362s | 184k |
+| test-strategist / design | 7 | 21.3 | 3.0% | 183s | 62k |
+| navigator / reflect | 7 | 16.4 | 2.3% | 140s | 53k |
+| architect-reviewer / design | 7 | 13.4 | 1.9% | 115s | 58k |
+| navigator / review | 12 | 7.3 | 1.0% | 36s | 18k |
+| spec-author / acs+design | 6 | 6.5 | 0.9% | 65s | 28k |
+| dba / design | 2 | 2.4 | 0.3% | 72s | 10k |
+| spec-author / breakdown | 3 | 2.6 | 0.4% | 52s | — (haiku+low, applied) |
+| ux-designer / design | 1 | 1.1 | 0.2% | 65s | — (opus+low, applied) |
+
+- **Build lane = ~90% of wall; design lane = ~7%.** Top 4 (driver green/repair + navigator
+  red/assess) = 88% and are all UN-optimized.
+- **Two stories dominate:** F6 `S2-drop-combined-code` = **323.6 min (46% of the whole run)** with
+  **11** driver/green turns, and F6 `S1-add-and-backfill` = **189.3 min (27%)** with 8 greens. These
+  two expand/contract migration stories = 73% of the run; their cost is inflated by repeated
+  green→assess→repair churn (not the one-green-per-story the story cadence implies).
+
+Candidate turns, by optimization axis:
+
+- **Axis A , per-turn speed (same work, fewer seconds).** Sweep each vs its recorded reference:
+  1. `driver-green` (46%) , levers: **prompt-diet is the primary target** (cut emitted volume at
+     equal green-verify pass rate), then toolScope, effort. Model already sonnet. Worst offenders:
+     S2 2013s/112k + 1743s/96k, S1 1492s/75k.
+  2. `navigator-red` (21%) , effort (does `low` hold coverage vs the recorded test list?) + diet.
+  3. `navigator-assess` (13%) , avg 556s is too high for a classify-not-re-derive turn; effort +
+     lean-prompt. Strong, low-risk candidate.
+  4. `driver-repair` (7.6%) , same diet/toolScope levers as green.
+- **Axis B , fewer turns (convergence; the biggest single win).** The green↔assess↔repair loop on
+  F6 S1/S2 (11 greens on S2). Study: does a higher-quality `navigator-red` or higher-effort
+  `navigator-assess` cut the loop count? Measure loop-count, not per-turn seconds , a 2-iteration
+  cut on S2 alone ≈ 60 min. Also the design-lane `navigator-reflect`→revise loop (a full re-run of
+  test-strategist+architect+reflect per story when the gate fires).
+- **Axis C , parallelization (wall-clock, not compute).** F1's three stories are additive +
+  independent (record-stock form / home table / SKU-detail view) yet ran serially (150 min wall) ,
+  fan independent stories onto separate experiment branches for ~3× F1 wall reduction, zero quality
+  risk IF independent (verify no shared migration first). F1-vs-F6 are independent features (concurrent
+  at feature level, bounded by the live-sweep parallelism cap of 4 + Lakebase branch quota).
+  **F6 S1→S2→S3 is a dependent expand/contract chain , NOT parallelizable; rule it out.**
+  `test-strategist` already fans analysts out in parallel; the lever there is per-analyst model/effort
+  (fitness=high, behavior/client=low) via `analystOverrides`.
+
+Study order (payoff-ranked): (1) `driver-green` prompt-diet+toolScope, (2) red/assess quality →
+repair-loop-count on F6 S1/S2, (3) `navigator-assess` effort+lean-prompt, (4) F1 independent-story
+parallelization, (5) `navigator-red` effort, (6) design-lane architect/dba/test-strategist levers.
+
+**The driver-green levers are DESIGNED + BUILT** (enforcement + pre-computed context, since the driver
+ignores the prompt guidance it already ships): see **`DRIVER-GREEN-LEVERS.md`** (design + test plan).
+`driverGreenCandidates()` (role-levers.ts) is the driver chain's candidate set; the CLI's `driver-*`
+handles now use it instead of the generic model/effort grid. Applied per-candidate by
+`applyDriverLevers` (driver-green-enforcement.ts) + gated context sections in `build-context.ts`.
+Hermetic coverage incl. a mock-step-executor "live" dispatch: `tests/bdd/driver-green-levers.test.ts`.
+
+## Note on the deprecated provenance below
+
+Everything past the next `---` documents the retired **champion-walk** harness. Its file paths are
+stale: the modules moved from `scripts/sftdd/` to `consort/optimize/*.ts`, `optimize.cli.ts` is gone,
+and the run wrapper `examples/replay/optimize-scenario.sh` no longer exists (use
+`scripts/optimize-role.sh`). `LAKEBASE_SFTDD_REPLAY_DIR` is still a live (legacy-read) env var. The
+sections are kept for provenance only , do not build on them.
+
+---
+
 ## ★ ROOT CAUSE (FIXED c1c4a7f1): design lane stalled at feature-complete with an EMPTY pipeline ★
 Symptom (was): after breakdown (+ ux-designer), the drive reported `feature-complete` with 0 per-story handoffs (architect/dba/test-strategist never reached); pipeline.json had no stories. NOT a scenario/kit bug.
 CAUSE: `makeLiveSpawnTurn` (optimize-live.ts) used to run ONLY the `claude` command and DROP the turn's appendix. spec-author BREAKDOWN's appendix includes `sync-breakdown` (orchestrator-effects.ts:1356), which is LOAD-BEARING: it projects pipeline.json from the stories/ stubs. Dropping it => empty pipeline => nextDesignAction's per-story loop empty => design-complete => feature-complete. (recordWinner restored the artifact but not the pipeline.) Proven: manual `sync-breakdown` after a swept breakdown -> `+3; 3 tracked` and the drive immediately advanced to the per-story spec-author turn.
