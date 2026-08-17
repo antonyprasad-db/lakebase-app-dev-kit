@@ -19,7 +19,7 @@ import { execFileSync } from "child_process";
 import { tmpdir } from "os";
 import { join } from "path";
 import { driverGreenCandidates } from "../../tests/optimization/role-levers";
-import { applyDriverLevers, ctxPackEnv, SINGLE_TEST_GUARD_HOOK, assignWorktreePort, deployPortForIndex, BASE_DEPLOY_PORT } from "../../tests/optimization/driver-green-enforcement";
+import { applyDriverLevers, ctxPackEnv, guardHookScript, assignWorktreePort, deployPortForIndex, BASE_DEPLOY_PORT } from "../../tests/optimization/driver-green-enforcement";
 import { load } from "js-yaml";
 import { buildContextPack } from "../../consort/orchestrator/build/build-context";
 import { execute } from "../../consort/orchestrator/turns/step-executor";
@@ -52,12 +52,14 @@ describe("driverGreenCandidates: the candidate set is well-formed", () => {
     for (const id of ids) expect(id).toMatch(/^[a-z0-9-]+$/); // filesystem-safe
 
     const by = Object.fromEntries(cs.map((c) => [c.id, c.levers]));
-    expect(by["single-test-guard"]).toEqual({ guardSuite: true });
-    expect(by["deny-scan"].denyBash).toContain("Bash(ls:*)");
+    expect(by["single-test-guard"]).toEqual({ guardSuite: true }); // kept as a first-class directive option
+    expect(by["guard-scan"]).toEqual({ guardScan: true }); // hook-based (replaces the broken deny-scan globs)
     expect(by["ctx-db"].ctxPack).toEqual(["db-state"]);
     expect(by["ctx-test"].ctxPack).toEqual(["failing-test"]);
-    expect(by["enforce-all"]).toMatchObject({ guardSuite: true, ctxPack: ["db-state", "failing-test"] });
-    expect(by["enforce-all"].denyBash?.length).toBeGreaterThan(0);
+    expect(by["scope-guard"]).toMatchObject({ guardSuite: true, guardScan: true, ctxPack: ["failing-test"] });
+    expect(by["enforce-all"]).toMatchObject({ guardSuite: true, guardScan: true, ctxPack: ["db-state", "failing-test"] });
+    // No candidate relies on the deprecated prefix-only denyBash globs anymore.
+    for (const c of cs) expect(c.levers.denyBash).toBeUndefined();
   });
 });
 
@@ -101,18 +103,32 @@ describe("buildContextPack: ctx-db (C1) + ctx-test (C2) sections are OPT- and MA
 });
 
 describe("applyDriverLevers: writes the enforcement + context artifacts into the workspace", () => {
-  it("deny-scan writes permissions.deny globs into .claude/settings.json", () => {
-    const applied = applyDriverLevers(root, { denyBash: ["Bash(ls:*)", "Bash(find:*)"] });
+  it("guard-scan installs the composed hook (scan enabled, suite off)", () => {
+    const applied = applyDriverLevers(root, { guardScan: true });
+    expect(existsSync(applied.hookPath!)).toBe(true);
+    const hook = readFileSync(applied.hookPath!, "utf8");
+    expect(hook).toMatch(/SCAN = True/);
+    expect(hook).toMatch(/SUITE = False/);
     const s = JSON.parse(readFileSync(applied.settingsPath!, "utf8"));
-    expect(s.permissions.deny).toEqual(expect.arrayContaining(["Bash(ls:*)", "Bash(find:*)"]));
+    expect(s.hooks.PreToolUse.some((m: { matcher?: string; hooks: { command: string }[] }) => m.matcher === "Bash")).toBe(true);
   });
 
-  it("single-test-guard writes the hook script + registers a PreToolUse Bash matcher", () => {
+  it("single-test-guard writes the composed hook (suite enabled, scan off) + registers a PreToolUse Bash matcher", () => {
     const applied = applyDriverLevers(root, { guardSuite: true });
     expect(existsSync(applied.hookPath!)).toBe(true);
+    const hook = readFileSync(applied.hookPath!, "utf8");
+    expect(hook).toMatch(/SUITE = True/);
+    expect(hook).toMatch(/SCAN = False/);
     const s = JSON.parse(readFileSync(applied.settingsPath!, "utf8"));
     const pre = s.hooks.PreToolUse;
     expect(pre.some((m: { matcher?: string; hooks: { command: string }[] }) => m.matcher === "Bash" && m.hooks.some((h) => h.command === applied.hookPath))).toBe(true);
+  });
+
+  it("both guards compose into ONE hook (suite AND scan enabled)", () => {
+    const applied = applyDriverLevers(root, { guardSuite: true, guardScan: true });
+    const hook = readFileSync(applied.hookPath!, "utf8");
+    expect(hook).toMatch(/SUITE = True/);
+    expect(hook).toMatch(/SCAN = True/);
   });
 
   it("ctxPack writes the marker (given a consortDir) AND returns the env patch", () => {
@@ -167,33 +183,44 @@ describe("per-candidate deploy port (concurrency safety): distinct ports + a con
   });
 });
 
-describe("single-test-guard hook (E1): executed as a real subprocess, denies the full suite / allows targeted", () => {
-  let hookPath: string;
-  beforeEach(() => {
-    hookPath = join(root, "guard.py");
-    writeFileSync(hookPath, SINGLE_TEST_GUARD_HOOK);
-  });
-  // Run the hook with a Bash tool call on stdin; returns {denied, reason}.
-  function runGuard(command: string): { denied: boolean; out: string } {
-    const stdin = JSON.stringify({ tool_name: "Bash", tool_input: { command } });
-    const out = execFileSync("python3", [hookPath], { input: stdin }).toString();
-    return { denied: /"permissionDecision"\s*:\s*"deny"/.test(out), out };
+describe("guard hook: executed as a real subprocess, segment-aware suite + scan denial", () => {
+  // Write a hook with the given checks and run it with a Bash tool call on stdin.
+  function runGuard(opts: { suite: boolean; scan: boolean }, command: string): boolean {
+    const hookPath = join(root, `guard-${opts.suite}-${opts.scan}.py`);
+    writeFileSync(hookPath, guardHookScript(opts));
+    const out = execFileSync("python3", [hookPath], { input: JSON.stringify({ tool_name: "Bash", tool_input: { command } }) }).toString();
+    return /"permissionDecision"\s*:\s*"deny"/.test(out);
   }
+  const SUITE = { suite: true, scan: false };
+  const SCAN = { suite: false, scan: true };
 
-  it("DENIES a no-arg full-suite invocation", () => {
-    expect(runGuard("./scripts/run-tests.sh").denied).toBe(true);
-    expect(runGuard("make test").denied).toBe(true);
-    expect(runGuard("npm test").denied).toBe(true);
-    expect(runGuard("npm --prefix client run test").denied).toBe(true);
+  it("suite: DENIES a no-arg full suite (incl. bare pytest), ALLOWS a targeted test", () => {
+    expect(runGuard(SUITE, "./scripts/run-tests.sh")).toBe(true);
+    expect(runGuard(SUITE, "make test")).toBe(true);
+    expect(runGuard(SUITE, "npm test")).toBe(true);
+    expect(runGuard(SUITE, "uv run --extra dev pytest")).toBe(true); // bare pytest = whole suite
+    expect(runGuard(SUITE, "cd /w && ./scripts/run-tests.sh")).toBe(true); // compound: caught (glob missed this)
+    // allowed:
+    expect(runGuard(SUITE, "./scripts/run-tests.sh tests/step_defs/test_S2.py")).toBe(false);
+    expect(runGuard(SUITE, "uv run --env-file .env pytest tests/step_defs/test_S2.py::scenario")).toBe(false);
+    expect(runGuard(SUITE, "make migrate")).toBe(false);
+    expect(runGuard(SUITE, "ls tests/")).toBe(false); // suite-only hook does NOT block scanning
   });
 
-  it("ALLOWS a targeted single test (the driver's legitimate inner loop)", () => {
-    expect(runGuard("./scripts/run-tests.sh tests/step_defs/test_S2.py").denied).toBe(false);
-    expect(runGuard("uv run --env-file .env pytest tests/step_defs/test_S2.py::scenario").denied).toBe(false);
-    expect(runGuard("make migrate").denied).toBe(false); // migrations are not the suite
+  it("scan: DENIES ls/find/grep even inside `cd && …` and pipes (the deny-glob blind spot)", () => {
+    expect(runGuard(SCAN, "ls app/")).toBe(true);
+    expect(runGuard(SCAN, "cd /w && ls tests/step_defs/")).toBe(true); // compound , the case globs miss
+    expect(runGuard(SCAN, "find . -name '*.py'")).toBe(true);
+    expect(runGuard(SCAN, "uv run pytest x.py 2>&1 | grep PASSED")).toBe(true); // piped grep , caught
+    // allowed: a normal command is not scanning
+    expect(runGuard(SCAN, "uv run --env-file .env pytest tests/step_defs/test_S2.py")).toBe(false);
+    expect(runGuard(SCAN, "cat app/models.py")).toBe(false);
+    expect(runGuard(SCAN, "./scripts/run-tests.sh")).toBe(false); // scan-only hook does NOT block the suite
   });
 
   it("does not block an unparseable command (never fail-closed on our own parse error)", () => {
+    const hookPath = join(root, "guard-parse.py");
+    writeFileSync(hookPath, guardHookScript({ suite: true, scan: true }));
     const out = execFileSync("python3", [hookPath], { input: "not json" }).toString();
     expect(/"deny"/.test(out)).toBe(false);
   });
@@ -206,15 +233,17 @@ describe("LIVE dispatch (mock step executor): levers reach the driver turn", () 
     const featureId = "F6-x";
     const story = "S2-drop-combined-code";
 
-    // Apply the enforce-all levers: writes .claude/settings.json (deny + guard hook) + the ctx marker.
+    // Apply the enforce-all levers: writes .claude/settings.json (composed guard hook) + the ctx marker.
     const applied = applyDriverLevers(
       root,
-      { guardSuite: true, denyBash: ["Bash(ls:*)"], ctxPack: ["db-state", "failing-test"] },
+      { guardSuite: true, guardScan: true, ctxPack: ["db-state", "failing-test"] },
       consortDir,
     );
     // Enforcement artifacts are present in the workspace the agent will run in.
     expect(existsSync(applied.hookPath!)).toBe(true);
-    expect(JSON.parse(readFileSync(applied.settingsPath!, "utf8")).permissions.deny).toContain("Bash(ls:*)");
+    const hook = readFileSync(applied.hookPath!, "utf8");
+    expect(hook).toMatch(/SUITE = True/);
+    expect(hook).toMatch(/SCAN = True/);
 
     // The prompt the orchestrator sources for the driver turn , the context pack, with the marker
     // (written by applyDriverLevers) turning the ctx sections on, readers injected for hermeticity.

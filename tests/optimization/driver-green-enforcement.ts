@@ -40,38 +40,73 @@ export function assignWorktreePort(projectDir: string, port: number): string {
   return baseUrl;
 }
 
-/** The single-test-guard PreToolUse hook (E1): DENY a no-arg full-suite invocation, ALLOW a targeted
- *  `pytest <path>` / `run-tests.sh <path>`. python3 (present in the scaffold via uv) parses the tool
- *  call on stdin , no jq dependency. A command it cannot parse is ALLOWED (never block on our own
- *  parse failure). Deny is expressed as exit-0 + the documented permissionDecision JSON. */
-export const SINGLE_TEST_GUARD_HOOK = `#!/usr/bin/env python3
-import sys, json, re
+/**
+ * Build the PreToolUse guard hook (python3, present in the scaffold via uv , no jq dep). It reads the
+ * Bash tool call on stdin and DENIES per the enabled checks, ALLOWING everything else. Deny = exit-0 +
+ * the documented permissionDecision JSON; an unparseable command is ALLOWED (never block on our own
+ * parse error). SEGMENT-AWARE: the command is split on &&/||/;/| and each segment's leading verb is
+ * checked, so a scan/suite verb ANYWHERE in a compound or pipeline (`cd X && ls`, `pytest … | grep`)
+ * is caught , the fix for the glob approach's prefix-only blind spot.
+ *   - suite: deny a WHOLE-suite run (run-tests.sh / make test / npm test / bare `pytest` , no test path)
+ *     while allowing a targeted `pytest <path>` / `run-tests.sh <path>`.
+ *   - scan:  deny ls/find/grep/rg/tree (force reliance on the injected LAYOUT + named paths).
+ */
+export function guardHookScript(opts: { suite: boolean; scan: boolean }): string {
+  return `#!/usr/bin/env python3
+import sys, json
 try:
     data = json.load(sys.stdin)
 except Exception:
     sys.exit(0)  # unparseable -> do not block
 cmd = ((data.get("tool_input") or {}).get("command") or "")
-c = " ".join(cmd.strip().split())  # normalize whitespace
-DENY = [
-    r"^(\\./)?scripts/run-tests\\.sh$",
-    r"^bash (\\./)?scripts/run-tests\\.sh$",
-    r"^make test$",
-    r"^npm test$",
-    r"^npm (--prefix client )?run test$",
-    r"^npm --prefix client test$",
-]
-if any(re.match(p, c) for p in DENY):
-    print(json.dumps({"hookSpecificOutput": {
-        "hookEventName": "PreToolUse",
-        "permissionDecision": "deny",
-        "permissionDecisionReason": "Full test suite blocked (single-test-guard). Run only the failing test: 'uv run --env-file .env pytest <path>'. The orchestrator runs the authoritative full suite post-turn (@build-cycle)."
-    }}))
+SUITE = ${opts.suite ? "True" : "False"}
+SCAN = ${opts.scan ? "True" : "False"}
+def deny(reason):
+    print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": reason}}))
     sys.exit(0)
+# Split into &&/||/;/| segments so a verb anywhere in a compound/pipeline is seen.
+segs, buf, i = [], "", 0
+while i < len(cmd):
+    if cmd[i:i+2] in ("&&", "||"):
+        segs.append(buf); buf = ""; i += 2; continue
+    if cmd[i] in ";|":
+        segs.append(buf); buf = ""; i += 1; continue
+    buf += cmd[i]; i += 1
+segs.append(buf)
+SCAN_VERBS = {"ls", "find", "grep", "rg", "egrep", "fgrep", "tree"}
+def is_path(a):
+    return a.endswith(".py") or a.endswith(".tsx") or a.endswith(".ts") or "::" in a or a.startswith("tests") or a.startswith("client/")
+for seg in segs:
+    toks = seg.split()
+    while toks and ("=" in toks[0]) and toks[0].split("=")[0].isidentifier():
+        toks = toks[1:]  # drop leading VAR=val env assignments
+    if not toks:
+        continue
+    verb = toks[0].split("/")[-1]
+    args = toks[1:]
+    if SCAN and verb in SCAN_VERBS:
+        deny("Directory scanning blocked (guard-scan): use the injected LAYOUT + named paths; do NOT ls/find/grep/tree to locate files.")
+    if SUITE:
+        rt = [t for t in toks if t.split("/")[-1] == "run-tests.sh"]
+        if rt and not any(is_path(a) for a in toks[toks.index(rt[0])+1:]):
+            deny("Full test suite blocked (single-test-guard): run only the failing test, e.g. 'uv run --env-file .env pytest <path>'. The orchestrator runs the authoritative full suite post-turn.")
+        if verb == "make" and args[:1] == ["test"]:
+            deny("Full test suite blocked (single-test-guard): 'make test' runs everything; run 'uv run --env-file .env pytest <path>' for the single failing test.")
+        if verb == "npm" and "test" in toks:
+            deny("Full client suite blocked (single-test-guard): run one vitest file, e.g. 'npx vitest run <path>'.")
+        if "pytest" in toks:
+            rest = toks[toks.index("pytest")+1:]
+            if not any(is_path(a) for a in rest) and not any(a in ("-k", "-m") for a in rest):
+                deny("Full test suite blocked (single-test-guard): 'pytest' with no path runs everything; pass the single failing test path.")
 sys.exit(0)
 `;
+}
+
+/** Back-compat: the suite-only guard (single-test-guard lever). */
+export const SINGLE_TEST_GUARD_HOOK = guardHookScript({ suite: true, scan: false });
 
 /** Relative path (under the workspace) the guard hook is written to. */
-export const GUARD_HOOK_REL = ".claude/hooks/single-test-guard.py";
+export const GUARD_HOOK_REL = ".claude/hooks/driver-guard.py";
 
 /** Shape of the subset of `.claude/settings.json` we write/merge. */
 interface ClaudeSettings {
@@ -139,13 +174,14 @@ export function applyDriverLevers(workspaceDir: string, levers: RoleLeverPatch, 
     result.markerPath = markerPath;
   }
 
-  const needsSettings = levers.guardSuite === true || (levers.denyBash?.length ?? 0) > 0;
+  const needsHook = levers.guardSuite === true || levers.guardScan === true;
+  const needsSettings = needsHook || (levers.denyBash?.length ?? 0) > 0;
   if (!needsSettings) return result;
 
   const settingsPath = join(workspaceDir, ".claude", "settings.json");
   const settings = readSettings(settingsPath);
 
-  // E2: merge deny globs (dedup, preserve existing).
+  // Legacy raw deny globs (prefix-only; kept for callers that pass denyBash directly).
   if (levers.denyBash?.length) {
     const perms = (settings.permissions ??= {});
     const deny = new Set(perms.deny ?? []);
@@ -153,11 +189,11 @@ export function applyDriverLevers(workspaceDir: string, levers: RoleLeverPatch, 
     perms.deny = [...deny];
   }
 
-  // E1: write the guard hook script + register the PreToolUse matcher (dedup by command path).
-  if (levers.guardSuite) {
+  // E1/E2: write the composed guard hook (suite and/or scan) + register the PreToolUse matcher.
+  if (needsHook) {
     const hookPath = join(workspaceDir, GUARD_HOOK_REL);
     mkdirSync(dirname(hookPath), { recursive: true });
-    writeFileSync(hookPath, SINGLE_TEST_GUARD_HOOK, "utf8");
+    writeFileSync(hookPath, guardHookScript({ suite: levers.guardSuite === true, scan: levers.guardScan === true }), "utf8");
     chmodSync(hookPath, 0o755);
     const hooks = (settings.hooks ??= {});
     const pre = (hooks.PreToolUse ??= []);

@@ -207,6 +207,7 @@ export interface RunDriverGreenOptions {
      *  PreToolUse hook, denyBash writes permissions.deny globs, ctxPack writes the ctx-levers marker
      *  buildContextPack reads. */
     guardSuite?: boolean;
+    guardScan?: boolean;
     denyBash?: string[];
     ctxPack?: ("db-state" | "failing-test")[];
   };

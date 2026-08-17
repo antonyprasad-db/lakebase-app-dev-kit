@@ -38,9 +38,14 @@ export interface RoleLeverPatch {
    *  `pytest <path>` / `run-tests.sh <path>`. A hook (not a deny-glob) because the no-arg-vs-path
    *  distinction is argument-level, which deny-globs match unreliably. See DRIVER-GREEN-LEVERS.md. */
   guardSuite?: boolean;
-  /** DRIVER-GREEN enforcement (E2): `permissions.deny` globs written into the candidate workspace's
-   *  `.claude/settings.json` (deny overrides `--permission-mode acceptEdits`). Reliable for coarse,
-   *  argument-free commands like `Bash(ls:*)` / `Bash(find:*)` / `Bash(grep:*)`. */
+  /** DRIVER-GREEN enforcement (E2): deny directory-SCANNING commands (ls/find/grep/rg) via the SAME
+   *  PreToolUse hook as guardSuite. A hook (not `permissions.deny` globs) because globs match only the
+   *  command PREFIX , they miss `cd <dir> && ls` and piped `… | grep`, which the driver actually uses
+   *  (proven in the first sweep: deny-scan was inert). The hook splits the command on &&/||/;/| and
+   *  checks each segment's verb, so a scan anywhere in a compound/pipeline is caught. */
+  guardScan?: boolean;
+  /** DEPRECATED raw `permissions.deny` globs (prefix-only; miss `cd && ls`). Kept for callers that
+   *  want literal deny rules, but driverGreenCandidates uses guardScan (hook-based) instead. */
   denyBash?: string[];
   /** DRIVER-GREEN context (C1/C2): the pre-computed context sections to enable in `buildContextPack`
    *  (`"db-state"` = inject `alembic current`/`heads` once; `"failing-test"` = inject the failing RED
@@ -189,29 +194,27 @@ export function testStrategistCandidates(enabledKinds: string[]): RoleCandidate[
  * re-probing, NOT on writing code. Model is already sonnet (opus is slower here), so these are
  * BEHAVIORAL levers, not model tiers:
  *   - single-test-guard : deny the no-arg full suite (a PreToolUse hook), forcing targeted `pytest <path>`
- *   - deny-scan         : deny `ls`/`find`/`grep` Bash (force reliance on the injected LAYOUT)
- *   - ctx-db            : inject `alembic current`/`heads` once (kill the 7 alembic probes/turn)
- *   - ctx-test          : inject the failing RED test body (kill the Read/cat re-discovery)
- *   - migrate-once      : ctx-db + ctx-test, and rely on the pre-migrated branch (targeted pytest, no re-migrate)
- *   - enforce-all       : every lever at once (the ceiling, to size the combined win)
+ *   - guard-scan        : deny ls/find/grep via the SAME hook (segment-aware , catches `cd && ls`,
+ *                         the case the first sweep's deny-globs missed, leaving deny-scan inert)
+ *   - ctx-db            : inject `alembic current`/`heads` once (kill the alembic re-probes)
+ *   - ctx-test          : inject the failing RED test body , SCOPES the driver to the test it must
+ *                         make green (the first sweep's causal speed-up: it stops the driver rabbit-
+ *                         holing into the client/SPA surface a later refactor owns)
+ *   - scope-guard       : ctx-test + both guards , the hypothesis that scoping is the causal lever and
+ *                         the guards remove the residual full-suite/scan waste
+ *   - enforce-all       : every lever at once (the ceiling)
  * Each candidate still holds the DETERMINISTIC post-turn honest-GREEN verify (`@build-cycle`), so
- * denying the driver's own full-suite run removes only redundant work.
+ * denying the driver's own full-suite run removes only redundant work. Run at n>=3 (the first sweep's
+ * single-trial spread was variance-dominated , the guard never even fired on the S3 pinned turn).
  */
 export function driverGreenCandidates(): RoleCandidate[] {
   return [
     { id: BASELINE_ID, levers: {} },
     { id: "single-test-guard", levers: { guardSuite: true } },
-    { id: "deny-scan", levers: { denyBash: ["Bash(ls:*)", "Bash(find:*)", "Bash(grep:*)", "Bash(rg:*)"] } },
+    { id: "guard-scan", levers: { guardScan: true } },
     { id: "ctx-db", levers: { ctxPack: ["db-state"] } },
     { id: "ctx-test", levers: { ctxPack: ["failing-test"] } },
-    { id: "migrate-once", levers: { guardSuite: true, ctxPack: ["db-state", "failing-test"] } },
-    {
-      id: "enforce-all",
-      levers: {
-        guardSuite: true,
-        denyBash: ["Bash(ls:*)", "Bash(find:*)", "Bash(grep:*)", "Bash(rg:*)"],
-        ctxPack: ["db-state", "failing-test"],
-      },
-    },
+    { id: "scope-guard", levers: { guardSuite: true, guardScan: true, ctxPack: ["failing-test"] } },
+    { id: "enforce-all", levers: { guardSuite: true, guardScan: true, ctxPack: ["db-state", "failing-test"] } },
   ];
 }
