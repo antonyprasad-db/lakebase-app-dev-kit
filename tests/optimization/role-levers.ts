@@ -238,10 +238,14 @@ export function driverGreenCandidates(): RoleCandidate[] {
     { id: "opus-scope-note", levers: { model: "opus", ctxPack: ["scope-note"] } },
     { id: "opus-ctx-test-scope", levers: { model: "opus", ctxPack: ["failing-test", "scope-note"] } },
     { id: "opus-single-test-guard", levers: { model: "opus", guardSuite: true } },
-    // BARE OPUS x EFFORT , does the milestone (clean code + superseded-shift) hold as effort drops?
-    // The goal is FASTER-while-holding, so the winner is the LOWEST effort that still hits the milestone.
+    // BARE OPUS x EFFORT , the FULL ladder, to LOCATE where the manifest "default" effort (what bare
+    // `opus` runs) actually sits, then take the LOWEST rungs BELOW default that still hit the milestone
+    // (clean code + superseded-shift) for the n=3 faster-while-holding confirmation. Ladder:
+    // low < medium < high < xhigh < max (default = the model's own default, measured via bare `opus`).
     { id: "opus-e-low", levers: { model: "opus", effort: "low" } },
     { id: "opus-e-medium", levers: { model: "opus", effort: "medium" } },
     { id: "opus-e-high", levers: { model: "opus", effort: "high" } },
+    { id: "opus-e-xhigh", levers: { model: "opus", effort: "xhigh" } },
+    { id: "opus-e-max", levers: { model: "opus", effort: "max" } },
   ];
 }
