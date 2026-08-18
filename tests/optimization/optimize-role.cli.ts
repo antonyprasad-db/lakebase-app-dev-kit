@@ -49,12 +49,18 @@ export interface DriverTurnSpec {
   evaluatorKind: "assess" | "review";
   /** Camp-relative dir (under BUILD_CORPUS_REL) with the recorded next-step determination. */
   refRel: string;
+  /** The RECORDED original turn's wall-clock (ms), from the corpus agent-log , the fixed baseline the
+   *  sweep scores each candidate's time against (same/better/worse), so we compare to the recording
+   *  (not a noisy fresh baseline run). Absent => fall back to the live baseline candidate's median. */
+  recordedBaselineMs?: number;
 }
 export const DRIVER_TURN_SPECS: Record<string, DriverTurnSpec> = {
   "driver-green": { driverTurn: "green", evaluatorKind: "assess", refRel: "next-step/driver-green" },
   // The S2-drop-combined MIGRATION thrasher pin (the turn where the full-suite waste is large enough to
   // exceed the S3 variance; see DRIVER-GREEN-LEVERS.md). Same green turn, its OWN bundle + judge reference.
-  "driver-green-s2": { driverTurn: "green", evaluatorKind: "assess", refRel: "next-step/driver-green-s2" },
+  // recordedBaselineMs = the recorded original 002-driver green wall-clock (stockflow-full agent-log,
+  // S2-drop-combined-code, first `green` phase = 667.2s) , the fixed time baseline for same/better/worse.
+  "driver-green-s2": { driverTurn: "green", evaluatorKind: "assess", refRel: "next-step/driver-green-s2", recordedBaselineMs: 667200 },
   "driver-repair": { driverTurn: "repair", evaluatorKind: "assess", refRel: "next-step/driver-repair" },
   "driver-refactor": { driverTurn: "refactor", evaluatorKind: "review", refRel: "next-step/driver-refactor" },
 };
@@ -264,7 +270,10 @@ export async function sweepDriverGreen(
 
   // Winner via the SHARED report: the fastest candidate that passed BOTH conformance (honest-GREEN)
   // AND the mandatory judge , NOT wall-clock among honest-GREEN (the prior, judge-less bug).
-  const report = reportRoleSweep(trials);
+  // Score time SAME/BETTER/WORSE against the RECORDED original turn (spec.recordedBaselineMs), not a
+  // fresh baseline run , the recording is the fixed reference (its pre/post-state + duration are in the
+  // corpus). Falls back to the live baseline candidate when the spec has no recorded time.
+  const report = reportRoleSweep(trials, spec.recordedBaselineMs);
   writeFileSync(join(runDir, "report.txt"), formatRoleSweepReport(report) + "\n");
   const summary = buildChainSummary(handle, "sonnet", trials, report);
   writeFileSync(join(runDir, "summary.json"), JSON.stringify(summary, null, 2) + "\n");

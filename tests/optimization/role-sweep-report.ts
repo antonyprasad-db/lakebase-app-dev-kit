@@ -70,9 +70,12 @@ function rowFrom(t: RoleTelemetry, baselineMs: number, baselineCost?: number): S
  * winner is the fastest gate-passer strictly faster than the baseline (never the baseline itself,
  * never a gate-failer). Everything else lands in `rejected` with a reason.
  */
-export function reportRoleSweep(trials: SweepTrial[]): SweepReport {
+export function reportRoleSweep(trials: SweepTrial[], baselineMsOverride?: number): SweepReport {
   const baseline = trials.find((t) => t.candidateId === "baseline");
-  const baselineMs = baseline?.telemetry?.outerDurationMs ?? 0;
+  // Prefer an explicit baseline (e.g. the RECORDED original turn's wall-clock from the corpus) so
+  // candidates are scored same/better/worse vs the RECORDING, not a noisy fresh baseline run. Falls
+  // back to the "baseline" candidate's measured time when no override is given.
+  const baselineMs = baselineMsOverride ?? baseline?.telemetry?.outerDurationMs ?? 0;
   const baselineCost = baseline?.telemetry?.agent?.costUsd;
   const role = baseline?.telemetry?.role ?? trials.find((t) => t.telemetry)?.telemetry?.role ?? "unknown";
 
