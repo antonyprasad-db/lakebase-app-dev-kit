@@ -270,8 +270,11 @@ describe("S2 migration re-pin bundle: well-formed (the thrashing-turn pin)", () 
     expect(has(`${REF}/superseded-tests.json`)).toBe(false); // ONLY the regression file, else it'd parse as superseded-shift
     const reg = JSON.parse(readFileSync(join(repo, REF, "regression-assessment.json"), "utf8"));
     expect(typeof reg.diagnosis).toBe("string");
-    expect(typeof reg.fixDirective).toBe("string"); // the field parseNavigatorAssessMarker reads to classify a regression
-    expect(reg.fixDirective.length).toBeGreaterThan(0);
+    // The repair directive that classifies this as a regression. The reference is byte-faithful to the
+    // kit-recorded 003 (key `fix`); parseNavigatorAssessMarker accepts `fix` as an alias for `fixDirective`.
+    const directive = reg.fixDirective ?? reg.fix;
+    expect(typeof directive).toBe("string");
+    expect(directive.length).toBeGreaterThan(0);
   });
 
   it("run-config pins the S2 story", () => {

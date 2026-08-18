@@ -281,7 +281,9 @@ describe("buildDriverNextStepJudge is the discriminator , NO driver-output short
     const v = await judge.judgeCandidate({
       candidateId: "faithful",
       primary: undefined,
-      producedArtifacts: { "navigator-eval/regression-assessment.json": JSON.stringify({ diagnosis: "code still references the dropped inventory_code column", fixDirective: "remove every inventory_code reference" }) },
+      // `fix` (NOT `fixDirective`) is the kit's real field , this also locks the parser alias: a
+      // kit-produced regression must parse as a regression, else it'd read "insufficient" and mis-score.
+      producedArtifacts: { "navigator-eval/regression-assessment.json": JSON.stringify({ diagnosis: "code still references the dropped inventory_code column", fix: "remove every inventory_code reference" }) },
     });
     expect(v.passed).toBe(true);
     expect(v.classification).not.toBe("pass-with-honors"); // same, not better

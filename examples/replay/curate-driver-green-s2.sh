@@ -48,19 +48,9 @@ cp "$RA/stories/S2-drop-combined-code/acs/AC1-column-dropped.json" "$DEST/design
 #    determination (regression-assessment.json => classification "regression"). ONLY this file goes in REF
 #    (no superseded-tests.json), so parseNavigatorAssessMarker classifies the reference as regression:
 #    a candidate that reproduces the regression scores SAME, a clean resolution BETTER, a divergence WORSE.
-#    SCHEMA TRANSLATION: corpus 003 predates the fixDirective rename (it used "fix"); the parser reads
-#    `fixDirective` to classify a regression (else "insufficient"). Rename the key so the recorded
-#    determination parses as the regression it IS , meaning preserved, only the field name modernized.
-python3 - "$SUP/regression-assessment.json" "$REF/regression-assessment.json" <<'PY'
-import json, sys
-src, dst = sys.argv[1], sys.argv[2]
-d = json.load(open(src))
-if "fix" in d and "fixDirective" not in d:
-    d["fixDirective"] = d.pop("fix")
-with open(dst, "w") as f:
-    json.dump(d, f, indent=2)
-    f.write("\n")
-PY
+#    Copied FAITHFULLY (its `fix` key is the kit's real field; parseNavigatorAssessMarker accepts `fix` as
+#    an alias for `fixDirective`, so no schema mutation is needed , the reference stays byte-faithful to 003).
+cp "$SUP/regression-assessment.json" "$REF/"
 
 # 4. run-config: same shape as the S3 bundle, story = S2-drop-combined-code.
 sed 's/S3-stock-shows-split-fields/S2-drop-combined-code/g' "$S3/driver-green.run.json" > "$DEST/driver-green.run.json"

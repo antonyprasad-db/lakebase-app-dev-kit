@@ -483,9 +483,15 @@ export function parseNavigatorAssessMarker(markerDir: string): DiscriminatorVerd
   }
   if (existsSync(reg)) {
     try {
-      const j = JSON.parse(readFileSync(reg, "utf8")) as { diagnosis?: unknown; fixDirective?: unknown };
+      const j = JSON.parse(readFileSync(reg, "utf8")) as { diagnosis?: unknown; fixDirective?: unknown; fix?: unknown };
       const diagnosis = typeof j.diagnosis === "string" ? j.diagnosis : undefined;
-      const fixDirective = typeof j.fixDirective === "string" && j.fixDirective ? j.fixDirective : undefined;
+      // The regression's repair directive. Accept `fix` as a legacy/alias alongside `fixDirective`: the
+      // kit's navigator (and the recorded corpus) emit `fix`, while consort's canonical key is
+      // `fixDirective` , WITHOUT this alias a real regression parses as "insufficient" (no directive) and
+      // the driver-turn discriminator mis-scores every kit-produced regression. fixDirective wins if both.
+      const fixDirective =
+        (typeof j.fixDirective === "string" && j.fixDirective ? j.fixDirective : undefined) ??
+        (typeof j.fix === "string" && j.fix ? j.fix : undefined);
       return fixDirective
         ? { score: 1, classification: "regression", nextStep: "driver-repair-with-directive", ...(diagnosis ? { diagnosis } : {}), fixDirective }
         : { score: 1, classification: "insufficient", nextStep: "escalate", ...(diagnosis ? { diagnosis } : {}) };
