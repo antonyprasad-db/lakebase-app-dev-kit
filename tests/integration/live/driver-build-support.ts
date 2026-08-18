@@ -240,7 +240,7 @@ export interface RunDriverGreenOptions {
     guardSuite?: boolean;
     guardScan?: boolean;
     denyBash?: string[];
-    ctxPack?: ("db-state" | "failing-test" | "scope-note")[];
+    ctxPack?: ("db-state" | "failing-test" | "scope-note" | "migration")[];
   };
   /** Which driver turn to exercise (each seeded to its own flagged pre-turn state, then evaluated by the
    *  navigator turn that follows it): "green" (default , post-RED seed -> driver GREEN -> navigator

@@ -162,6 +162,11 @@ interface ContextPackOpts {
    *  client surface ~4x while the slow ones rabbit-holed it ~13x , this makes that scoping deterministic.
    *  Same precedence as dbState (scopeNote marker / env LAKEBASE_CONSORT_CTX_SCOPENOTE). */
   scopeNote?: boolean;
+  /** Enable the migration-convention section: where alembic migrations live + the command to create one
+   *  + where models are. Eliminates the opening DISCOVERY a drop/schema turn otherwise does (the driver
+   *  guesses the migrations path and greps scripts/lk to find `lakebase-new-migration` before it can even
+   *  start , measured on opus-ctx-test-emedium). Same precedence (migration marker / env CTX_MIGRATION). */
+  migration?: boolean;
   /** Injected for tests; defaults shell/read from disk. */
   dbStateReader?: DbStateReader;
   failingTestReader?: FailingTestReader;
@@ -170,7 +175,7 @@ interface ContextPackOpts {
 /** Read the per-project ctx-lever marker (`<consortDir>/ctx-levers.json`) the driver-GREEN sweep
  *  writes per candidate. A per-WORKSPACE file (not env) so parallel sweep candidates never race on a
  *  shared process env. Absent/malformed => no toggles. */
-function readCtxLeverMarker(consortDir: string): { dbState?: boolean; failingTest?: boolean; scopeNote?: boolean } {
+function readCtxLeverMarker(consortDir: string): { dbState?: boolean; failingTest?: boolean; scopeNote?: boolean; migration?: boolean } {
   try {
     return JSON.parse(fs.readFileSync(join(consortDir, "ctx-levers.json"), "utf8"));
   } catch {
@@ -248,6 +253,19 @@ function buildContextPack(
         ` build, or run OTHER layers' surfaces this turn (e.g. if the failing test is backend, do not touch,` +
         ` grep, or run the client/SPA , StockView*, vite, npx vitest; a later refactor turn owns that). The` +
         ` post-turn honest-GREEN verify is authoritative; stop once the single test passes.`,
+    );
+  }
+
+  // ctx-migration: the migration mechanism, so a schema/drop turn does not DISCOVER it. Measured on
+  // opus-ctx-test-emedium: the driver guessed the migrations path (app/migrations vs alembic/versions)
+  // and grepped scripts/lk to find `lakebase-new-migration` before it could start , pure opening waste.
+  const migrationOn = opts.migration ?? marker.migration ?? consortEnv("CTX_MIGRATION") === "1";
+  if (migrationOn) {
+    parts.push(
+      ` MIGRATION :: alembic migrations live in alembic/versions/. Create one with` +
+        ` \`./scripts/lk lakebase-new-migration --name "<short desc>"\` (do NOT hand-author the revision file` +
+        ` or grep scripts/lk to find the command). ORM models are in app/models.py; apply with` +
+        ` \`uv run --env-file .env alembic upgrade head\`.`,
     );
   }
 

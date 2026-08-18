@@ -50,7 +50,7 @@ export interface RoleLeverPatch {
   /** DRIVER-GREEN context (C1/C2): the pre-computed context sections to enable in `buildContextPack`
    *  (`"db-state"` = inject `alembic current`/`heads` once; `"failing-test"` = inject the failing RED
    *  test body). Applied by setting the `LAKEBASE_CONSORT_CTX_*` env the drive inherits. */
-  ctxPack?: ("db-state" | "failing-test" | "scope-note")[];
+  ctxPack?: ("db-state" | "failing-test" | "scope-note" | "migration")[];
 }
 
 /** One point in the sweep space: a stable id + the lever patch it applies. */
@@ -235,6 +235,9 @@ export function driverGreenCandidates(): RoleCandidate[] {
     // ctx-test x MEDIUM effort on opus , the untested KNEE of the ctx-test effort ladder (low=fast but
     // 1/3 milestone; default/high=377s 3/3). Does medium keep opus fast AND reliably at the milestone?
     { id: "opus-ctx-test-emedium", levers: { model: "opus", ctxPack: ["failing-test"], effort: "medium" } },
+    // The 237s winner + ctx-migration: hand the driver the migration mechanism (path + create command +
+    // models loc) so it skips the opening discovery (it grepped scripts/lk to find lakebase-new-migration).
+    { id: "opus-ctx-test-emedium-migration", levers: { model: "opus", ctxPack: ["failing-test", "migration"], effort: "medium" } },
     // OPUS-NORMAL x the OTHER levers , explore which scoping/enforcement lever best reaches the clean-code
     // + superseded-shift MILESTONE on opus at default effort (opus-ctx-test already hits it 3/3).
     { id: "opus", levers: { model: "opus" } }, // bare control: does opus reach the milestone WITHOUT scoping context?

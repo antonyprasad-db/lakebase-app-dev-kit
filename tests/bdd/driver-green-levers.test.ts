@@ -61,6 +61,7 @@ describe("driverGreenCandidates: the candidate set is well-formed", () => {
     expect(by["opus-ctx-test-elow"]).toEqual({ model: "opus", ctxPack: ["failing-test"], effort: "low" }); // COMBINED + opus tier
     expect(by["opus-ctx-test"]).toEqual({ model: "opus", ctxPack: ["failing-test"] }); // opus tier, normal effort
     expect(by["opus-ctx-test-emedium"]).toEqual({ model: "opus", ctxPack: ["failing-test"], effort: "medium" }); // ctx-test knee
+    expect(by["opus-ctx-test-emedium-migration"]).toEqual({ model: "opus", ctxPack: ["failing-test", "migration"], effort: "medium" }); // winner + ctx-migration
     // opus-normal x the other levers (exploration): bare control + scope-note + ctx-test-scope + guard.
     expect(by["opus"]).toEqual({ model: "opus" });
     expect(by["opus-scope-note"]).toEqual({ model: "opus", ctxPack: ["scope-note"] });
@@ -79,8 +80,9 @@ describe("driverGreenCandidates: the candidate set is well-formed", () => {
       expect(c.levers.denyBash).toBeUndefined();
     }
     expect(cs.filter((c) => c.levers.model).map((c) => c.id)).toEqual([
-      "opus-ctx-test-elow", "opus-ctx-test", "opus-ctx-test-emedium", "opus", "opus-scope-note", "opus-ctx-test-scope",
-      "opus-single-test-guard", "opus-e-low", "opus-e-medium", "opus-e-high", "opus-e-xhigh", "opus-e-max",
+      "opus-ctx-test-elow", "opus-ctx-test", "opus-ctx-test-emedium", "opus-ctx-test-emedium-migration",
+      "opus", "opus-scope-note", "opus-ctx-test-scope", "opus-single-test-guard",
+      "opus-e-low", "opus-e-medium", "opus-e-high", "opus-e-xhigh", "opus-e-max",
     ]);
   });
 });
@@ -132,6 +134,15 @@ describe("buildContextPack: ctx-db (C1) + ctx-test (C2) sections are OPT- and MA
     expect(on).toMatch(/do NOT investigate, build, or run OTHER layers/i);
     expect(on).toMatch(/client\/SPA/); // names the exact rabbit-hole the -46% analysis found
   });
+
+  it("migration: emits the migration mechanism ONLY when enabled (kills the opening discovery)", () => {
+    const cd = consortDir();
+    expect(buildContextPack(cd, F, S, "")).not.toMatch(/MIGRATION ::/); // off by default
+    const on = buildContextPack(cd, F, S, "", { migration: true });
+    expect(on).toMatch(/MIGRATION ::/);
+    expect(on).toMatch(/alembic\/versions/); // the path the driver otherwise guesses
+    expect(on).toMatch(/lakebase-new-migration/); // the command it otherwise greps scripts/lk to find
+  });
 });
 
 describe("applyDriverLevers: writes the enforcement + context artifacts into the workspace", () => {
@@ -167,12 +178,14 @@ describe("applyDriverLevers: writes the enforcement + context artifacts into the
     const cd = join(root, ".consort");
     const applied = applyDriverLevers(root, { ctxPack: ["failing-test", "scope-note"] }, cd);
     expect(applied.env).toEqual({ LAKEBASE_CONSORT_CTX_FAILINGTEST: "1", LAKEBASE_CONSORT_CTX_SCOPENOTE: "1" });
-    expect(JSON.parse(readFileSync(applied.markerPath!, "utf8"))).toEqual({ dbState: false, failingTest: true, scopeNote: true });
+    expect(JSON.parse(readFileSync(applied.markerPath!, "utf8"))).toEqual({ dbState: false, failingTest: true, scopeNote: true, migration: false });
   });
 
   it("ctxPackEnv is a pure enumeration", () => {
     expect(ctxPackEnv(["db-state"])).toEqual({ LAKEBASE_CONSORT_CTX_DBSTATE: "1" });
     expect(ctxPackEnv(["scope-note"])).toEqual({ LAKEBASE_CONSORT_CTX_SCOPENOTE: "1" });
+    expect(ctxPackEnv(["migration"])).toEqual({ LAKEBASE_CONSORT_CTX_MIGRATION: "1" });
+    expect(ctxPackEnv(["failing-test", "migration"])).toEqual({ LAKEBASE_CONSORT_CTX_FAILINGTEST: "1", LAKEBASE_CONSORT_CTX_MIGRATION: "1" });
     expect(ctxPackEnv(undefined)).toEqual({});
   });
 });

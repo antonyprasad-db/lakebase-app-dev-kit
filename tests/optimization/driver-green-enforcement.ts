@@ -131,6 +131,7 @@ export function ctxPackEnv(ctxPack: RoleLeverPatch["ctxPack"]): Record<string, s
     if (s === "db-state") env.LAKEBASE_CONSORT_CTX_DBSTATE = "1";
     if (s === "failing-test") env.LAKEBASE_CONSORT_CTX_FAILINGTEST = "1";
     if (s === "scope-note") env.LAKEBASE_CONSORT_CTX_SCOPENOTE = "1";
+    if (s === "migration") env.LAKEBASE_CONSORT_CTX_MIGRATION = "1";
   }
   return env;
 }
@@ -170,6 +171,7 @@ export function applyDriverLevers(workspaceDir: string, levers: RoleLeverPatch, 
           dbState: levers.ctxPack!.includes("db-state"),
           failingTest: levers.ctxPack!.includes("failing-test"),
           scopeNote: levers.ctxPack!.includes("scope-note"),
+          migration: levers.ctxPack!.includes("migration"),
         },
         null,
         2,
