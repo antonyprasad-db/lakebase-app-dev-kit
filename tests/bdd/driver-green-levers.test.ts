@@ -60,6 +60,7 @@ describe("driverGreenCandidates: the candidate set is well-formed", () => {
     expect(by["ctx-test-elow"]).toEqual({ ctxPack: ["failing-test"], effort: "low" }); // COMBINED scoping + think-less
     expect(by["opus-ctx-test-elow"]).toEqual({ model: "opus", ctxPack: ["failing-test"], effort: "low" }); // COMBINED + opus tier
     expect(by["opus-ctx-test"]).toEqual({ model: "opus", ctxPack: ["failing-test"] }); // opus tier, normal effort
+    expect(by["opus-ctx-test-emedium"]).toEqual({ model: "opus", ctxPack: ["failing-test"], effort: "medium" }); // ctx-test knee
     // opus-normal x the other levers (exploration): bare control + scope-note + ctx-test-scope + guard.
     expect(by["opus"]).toEqual({ model: "opus" });
     expect(by["opus-scope-note"]).toEqual({ model: "opus", ctxPack: ["scope-note"] });
@@ -78,8 +79,8 @@ describe("driverGreenCandidates: the candidate set is well-formed", () => {
       expect(c.levers.denyBash).toBeUndefined();
     }
     expect(cs.filter((c) => c.levers.model).map((c) => c.id)).toEqual([
-      "opus-ctx-test-elow", "opus-ctx-test", "opus", "opus-scope-note", "opus-ctx-test-scope", "opus-single-test-guard",
-      "opus-e-low", "opus-e-medium", "opus-e-high", "opus-e-xhigh", "opus-e-max",
+      "opus-ctx-test-elow", "opus-ctx-test", "opus-ctx-test-emedium", "opus", "opus-scope-note", "opus-ctx-test-scope",
+      "opus-single-test-guard", "opus-e-low", "opus-e-medium", "opus-e-high", "opus-e-xhigh", "opus-e-max",
     ]);
   });
 });

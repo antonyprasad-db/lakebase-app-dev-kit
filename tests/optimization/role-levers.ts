@@ -232,6 +232,9 @@ export function driverGreenCandidates(): RoleCandidate[] {
     // MODEL TIER (normal effort): ctx-test on OPUS without think-less , isolates the model-tier effect
     // from the effort lever (does opus at default effort converge tighter / align better than opus-elow?).
     { id: "opus-ctx-test", levers: { model: "opus", ctxPack: ["failing-test"] } },
+    // ctx-test x MEDIUM effort on opus , the untested KNEE of the ctx-test effort ladder (low=fast but
+    // 1/3 milestone; default/high=377s 3/3). Does medium keep opus fast AND reliably at the milestone?
+    { id: "opus-ctx-test-emedium", levers: { model: "opus", ctxPack: ["failing-test"], effort: "medium" } },
     // OPUS-NORMAL x the OTHER levers , explore which scoping/enforcement lever best reaches the clean-code
     // + superseded-shift MILESTONE on opus at default effort (opus-ctx-test already hits it 3/3).
     { id: "opus", levers: { model: "opus" } }, // bare control: does opus reach the milestone WITHOUT scoping context?
