@@ -167,6 +167,15 @@ function layBundle(projectDir: string, consortDir: string, driverTurn: "green" |
   // (a later, further-along tree the drive resumes from). All are contained under SETUP_DIR.
   const codeDir = driverTurn === "green" ? b.preRedCodeDir : DRIVER_TURN_SEEDS[driverTurn].codeDir;
 
+  // The recorded DESIGN output (design-guide.json + .md + ia.md) under <consortDir>/design/. The
+  // recording ran ux-designer before any build turn (full-stack corpus), so with uiTrack ON the drive's
+  // design gate (orchestrator-drive.ts: uiTrack && breakdownDone && !designGuideReady -> ux-designer) is
+  // satisfied by design-guide.json being present , WITHOUT it the drive re-derives ux-designer before the
+  // driver turn under test and fails loud on the missing design-brief input. Feature-agnostic (the
+  // project design system), so laid for green/repair/refactor alike.
+  const DESIGN_ASSETS = join(SETUP_DIR, "design-assets");
+  overlayBundle(projectDir, { trees: [{ from: DESIGN_ASSETS, to: join(artifactRel, "design") }] });
+
   // Overlay the recorded trees + files via the shared provisioning primitive (it creates parent
   // dirs for each file, so no explicit mkdirSync is needed).
   overlayBundle(projectDir, {
