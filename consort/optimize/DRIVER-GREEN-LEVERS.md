@@ -81,6 +81,18 @@ fail structurally. The reference must be the SAME step's evaluation. `003`'s gre
 infra-degenerate at record time — "no deploy target" — and its `regression-assessment.json` used the
 legacy `fix` key; curation modernizes it to `fixDirective` so it parses as the regression it is.)*
 
+**ENFORCED: the next-turn assessment IS the discriminator , nothing else.** `buildDriverNextStepJudge`
+maps `evaluateNextStepDetermination` straight through (recorded next-turn navigator determination vs the
+candidate's, same/better/worse). It does NOT read the produced code, shortcut on honest-GREEN, or apply
+any milestone/resolution overlay. The next-turn agent (navigator assess/review) AND the orchestrator's
+deterministic assess (honest-GREEN verify, supersession pre-localization, smell/refactor detection)
+already evaluate the code results , re-implementing any of that in the judge is the mistake this locks
+out (two reverted regressions: an honest-GREEN shortcut, and a code-scanning "clean-code milestone").
+This holds for EVERY review/assessment step. Locked by "buildDriverNextStepJudge IS the next-turn
+assessment" in tests/bdd/optimize-role-cli.test.ts (the verdict must be identical for the same
+determination regardless of the produced code). Richer evaluation belongs in the next-turn assessment /
+orchestrator, never this closure.
+
 There is NO honest-GREEN shortcut: whether the driver's own green passed is a report signal, not the
 judge — the judge is the navigator's determination vs the recorded navigator's determination. Each
 candidate PRESERVES its inputs (the `navigator-eval/` determination markers + the driver/eval
@@ -96,29 +108,29 @@ repair turns later**, AFTER the code was fully cleaned (0 refs). Verified per-tu
 recorded run's **later resolved state**, not an alternative first-green diagnosis — 003 and 019 are
 **sequential stages**, not two readings of one state.
 
-**The milestone to beat is therefore CLEAN CODE + SUPERSEDED-SHIFT.** A candidate that reaches it on its
-FIRST green did in one turn what the recording took ~16 turns to do — it makes the entire repair loop
-**unnecessary**. `buildDriverNextStepJudge` encodes this as a code-state-conditioned rule (gated by
-`DriverTurnSpec.droppedSymbol`): when recorded=`regression` and candidate=`superseded-shift`, credit
-**pass-with-honors** IFF the candidate's production code is functionally clean
-(`productionCodeReferencesSymbol` = no REAL refs to the dropped symbol, ignoring inert docstring/comment
-mentions); superseded-shift with code STILL referencing the symbol is a **mis-diagnosis** (the regression
-stands) ⇒ FAIL.
+**The resolved state to reach is SUPERSEDED-SHIFT.** A candidate whose next-turn navigator returns
+`superseded-shift` (only prior tests remain superseded, no fresh regression) has, on its FIRST green,
+produced code the navigator assesses as clean-enough that the drop is complete — the state the recording
+reached only ~16 turns later. **This is read from the next-turn navigator determination, NOT a code
+scan** (an earlier `productionCodeReferencesSymbol` code-scan milestone was reverted: the next-turn agent
++ the orchestrator's deterministic assess already evaluate the code; the judge just maps their verdict).
+So whether reaching `superseded-shift` **beats** the recorded `regression` is decided by
+`evaluateNextStepDetermination`'s directional ranking + which recorded determination is pinned as the bar
+— a reference/directionality choice within the ONE discriminator, never a bespoke overlay.
 
-**Result (S2, n=3 live, re-judged):**
+**Empirical lever result (S2, n=3 live):** the config that most reliably drives the next-turn navigator to
+`superseded-shift` (vs a plain `regression`) is **opus + ctx-test**, and **medium effort** is the knee
+(low = unreliable, high/default = slower). Per-turn ~237–377s, but the value is that reaching the resolved
+state up front can make the recorded repair loop unnecessary. Recorded per-config:
 
-| config | model / effort | milestone (clean + superseded-shift) | per-turn time |
+| config | model / effort | next-turn determination (n=3) | per-turn time |
 |---|---|---|---|
-| **opus ctx-test** | opus / **normal** | **3 / 3** ✅ | 347 / 355 / 430s |
-| opus ctx-test-elow | opus / low | 1 / 3 | 274 / 284 / 315s |
-| sonnet ctx-test-elow | sonnet / low | 0 / 3 (all `regression`) | 199 / 221 / 634s |
+| opus ctx-test-emedium | opus / medium | 3× superseded-shift (tight) | 216 / 216 / 278s |
+| opus ctx-test | opus / normal | 3× superseded-shift | 347 / 355 / 430s |
+| sonnet ctx-test-elow | sonnet / low | 3× regression | 199 / 221 / 634s |
 
-**`opus ctx-test` at normal effort is the winner: 3/3 reach the milestone.** Per-turn it is "slower"
-(~377s) than the low-effort configs, but that one turn REPLACES the recorded 16-turn repair loop, so it
-is dramatically cheaper end-to-end — *a better job up front skips the later steps*. The discriminator
-correctly separates this from a mis-diagnosis: sonnet ctx-test that flagged superseded-shift while its
-code still carried 8 real `inventory_code` refs (trial-1) FAILS, while the clean-code superseded-shift
-runs pass-with-honors — same determination, opposite verdict, decided by code state.
+*(How those determinations SCORE against the recorded reference is the discriminator's call, per the
+enforced invariant above — not decided here by inspecting code.)*
 
 ## Why (the evidence, run-17 `stockflow-full`)
 

@@ -6,7 +6,7 @@
 import { describe, it, expect } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseArgs, expandChains, selectDriverCandidates, expandReplicas, readCampAppDir, DRIVER_GREEN_CODE_PIN_REL, DRIVER_TURN_SPECS, concatTreeFiles, loadPreservedArtifacts, classifyReproduce, isMissingJudgeTarget, buildDriverNextStepJudge, productionCodeReferencesSymbol } from "../optimization/optimize-role.cli";
+import { parseArgs, expandChains, selectDriverCandidates, expandReplicas, readCampAppDir, DRIVER_GREEN_CODE_PIN_REL, DRIVER_TURN_SPECS, concatTreeFiles, loadPreservedArtifacts, classifyReproduce, isMissingJudgeTarget, buildDriverNextStepJudge } from "../optimization/optimize-role.cli";
 import { mkdtempSync, mkdirSync as mkdirSyncFs, writeFileSync as writeFileSyncFs, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { ROLE_CHAINS } from "../../consort/optimize/role-chains";
@@ -285,96 +285,35 @@ describe("isMissingJudgeTarget: a judge short-circuit for an absent target is NO
   });
 });
 
-describe("buildDriverNextStepJudge is the discriminator , NO driver-output shortcut (anti-recurrence guard)", () => {
-  // LOCKS the INVARIANT on buildDriverNextStepJudge: a driver candidate is judged by comparing the
-  // candidate's live NAVIGATOR determination to the RECORDED navigator determination at the SAME step
-  // (same/better/worse), NEVER by a driver-output (honest-GREEN) signal. A prior change wrapped the judge
-  // with "greened in one turn => pass-with-honors", which mis-scored a green that IGNORED a supersession
-  // (a green can pass its own verify while breaking prior tests). None of these cases carry a green signal
-  // at all , the verdict is driven ONLY by the determination, so if a green-shortcut (or any constant
-  // pass) is re-added, the WORSE case flips to pass and this test fails. driver-green-s2's recorded
-  // same-step determination is a REGRESSION (003-navigator-assess: the drop left code referencing the
-  // dropped column , contract-incompleteness).
-  it("SAME: a candidate that reproduces the recorded regression passes (matches the recorded evaluation)", async () => {
-    const judge = buildDriverNextStepJudge("driver-green-s2");
-    const v = await judge.judgeCandidate({
-      candidateId: "faithful",
-      primary: undefined,
-      // `fix` (NOT `fixDirective`) is the kit's real field , this also locks the parser alias: a
-      // kit-produced regression must parse as a regression, else it'd read "insufficient" and mis-score.
-      producedArtifacts: { "navigator-eval/regression-assessment.json": JSON.stringify({ diagnosis: "code still references the dropped inventory_code column", fix: "remove every inventory_code reference" }) },
-    });
-    expect(v.passed).toBe(true);
-    expect(v.classification).not.toBe("pass-with-honors"); // same, not better
-  });
-  it("BETTER: a candidate whose navigator found the code CLEAN scores pass-with-honors", async () => {
-    const judge = buildDriverNextStepJudge("driver-green-s2");
-    // No navigator-eval markers => nothing to flag (equivalent) where the recorded run found a regression
-    // => FEWER issues => better. Credited by the determination comparison, not by any green signal.
-    const v = await judge.judgeCandidate({ candidateId: "clean", primary: undefined, producedArtifacts: {} });
-    expect(v.passed).toBe(true);
-    expect(v.classification).toBe("pass-with-honors");
-  });
-  it("WORSE: superseded-shift with NO production code cannot claim the clean-code milestone => FAILS", async () => {
-    const judge = buildDriverNextStepJudge("driver-green-s2");
-    // A bare superseded-shift marker with no app/ code gives no evidence the dropped symbol was removed,
-    // so the resolved-end-state milestone cannot be credited => stays FAIL (a green-shortcut would rescue it).
-    const v = await judge.judgeCandidate({
-      candidateId: "divergent",
-      primary: undefined,
-      producedArtifacts: { "navigator-eval/superseded-tests.json": JSON.stringify({ tests: ["tests/step_defs/test_S1_file_stock.py"], reason: "superseded by the drop" }) },
-    });
-    expect(v.passed).toBe(false);
-  });
-});
+describe("buildDriverNextStepJudge IS the next-turn assessment (ENFORCED: no bespoke discriminator)", () => {
+  // ENFORCED INVARIANT: the judge maps evaluateNextStepDetermination straight through , the RECORDED
+  // next-turn navigator determination vs the candidate's captured one, ranked same / better / worse. It
+  // must NOT read the produced CODE, shortcut on honest-GREEN, or apply any milestone/resolution overlay:
+  // the next-turn agent (navigator assess/review) AND the orchestrator's deterministic assess already
+  // evaluate the code results / smells / superseded tests. This locks TWO reverted regressions , an
+  // honest-GREEN shortcut, and a code-scanning "milestone" (productionCodeReferencesSymbol). Any richer
+  // evaluation belongs in the next-turn assessment, not this closure. driver-green-s2's recorded same-step
+  // determination is a REGRESSION.
+  const REG = { "navigator-eval/regression-assessment.json": JSON.stringify({ diagnosis: "code still references inventory_code", fix: "remove it" }) };
 
-describe("resolved-end-state MILESTONE: clean code + superseded-shift beats the recorded first-green regression", () => {
-  // The corpus reached `regression` at the drop step (turn 003, inventory_code still referenced) and only
-  // reached `superseded-shift` ~16 turns later, AFTER repairing the code (turn 019, 0 refs). So CLEAN CODE
-  // + SUPERSEDED-SHIFT is the resolved milestone. A candidate that hits it in ONE turn skipped the repair
-  // loop => BETTER. Superseded-shift with code STILL referencing the dropped symbol is a mis-diagnosis => WORSE.
-  const supersededMarker = { "navigator-eval/superseded-tests.json": JSON.stringify({ tests: ["tests/step_defs/test_S1_file_stock.py"], reason: "AC1 drops inventory_code" }) };
-  it("BETTER: superseded-shift + functionally-clean production code (no real refs) => pass-with-honors", async () => {
-    const v = await buildDriverNextStepJudge("driver-green-s2").judgeCandidate({
-      candidateId: "milestone",
-      primary: undefined,
-      producedArtifacts: {
-        ...supersededMarker,
-        // clean production code: only an inert docstring mention of the dropped symbol (a sentence), no real ref
-        "app/repositories/stock.py": "def upsert_stock(db, sku, location, quantity):\n    \"\"\"Upsert.\n\n    any row with both columns NULL had a nonconforming inventory_code.\n    \"\"\"\n    return db\n",
-      },
-    });
+  it("SAME: candidate's next-turn navigator reproduces the recorded regression => pass (same, not honors)", async () => {
+    const v = await buildDriverNextStepJudge("driver-green-s2").judgeCandidate({ candidateId: "faithful", primary: undefined, producedArtifacts: REG });
     expect(v.passed).toBe(true);
-    expect(v.classification).toBe("pass-with-honors");
-    expect(v.nextStep).toBe("resolved-end-state");
-  });
-  it("WORSE: superseded-shift + production code STILL referencing the dropped symbol => mis-diagnosis, FAILS", async () => {
-    const v = await buildDriverNextStepJudge("driver-green-s2").judgeCandidate({
-      candidateId: "misdiagnosis",
-      primary: undefined,
-      producedArtifacts: {
-        ...supersededMarker,
-        // dirty: a REAL code reference to the dropped column (the regression stands)
-        "app/repositories/stock.py": "def upsert_stock(db, sku, location, quantity, inventory_code=None):\n    stmt = insert(Stock).values(inventory_code=inventory_code)\n    return db.execute(stmt)\n",
-      },
-    });
-    expect(v.passed).toBe(false);
     expect(v.classification).not.toBe("pass-with-honors");
   });
-});
-
-describe("productionCodeReferencesSymbol: real code ref vs inert prose/comment", () => {
-  it("matches real refs (column/param/attr/string) and IGNORES a docstring/comment sentence", () => {
-    expect(productionCodeReferencesSymbol({ "app/m.py": '    inventory_code = Column(String)\n' }, "inventory_code")).toBe(true);
-    expect(productionCodeReferencesSymbol({ "app/m.py": '    values(inventory_code=x)\n' }, "inventory_code")).toBe(true);
-    expect(productionCodeReferencesSymbol({ "app/m.py": '    row.inventory_code\n' }, "inventory_code")).toBe(true);
-    expect(productionCodeReferencesSymbol({ "app/m.py": '    set_={"inventory_code": x}\n' }, "inventory_code")).toBe(true);
-    // inert: a prose sentence (the drop candidates' leftover docstring line) is NOT a real ref
-    expect(productionCodeReferencesSymbol({ "app/m.py": '    any row with both columns NULL had a nonconforming inventory_code.\n' }, "inventory_code")).toBe(false);
-    // whole-line comment is skipped
-    expect(productionCodeReferencesSymbol({ "app/m.py": '# drop inventory_code in this migration\n' }, "inventory_code")).toBe(false);
-    // only app/**.py is scanned (tests/ + non-py ignored)
-    expect(productionCodeReferencesSymbol({ "tests/t.py": 'inventory_code=1\n' }, "inventory_code")).toBe(false);
+  it("BETTER: candidate's next-turn navigator found the code clean (equivalent) => pass-with-honors", async () => {
+    const v = await buildDriverNextStepJudge("driver-green-s2").judgeCandidate({ candidateId: "clean", primary: undefined, producedArtifacts: {} });
+    expect(v.passed).toBe(true);
+    expect(v.classification).toBe("pass-with-honors");
+  });
+  it("the verdict is driven ONLY by the next-turn determination, NOT the produced code (no code-scan)", async () => {
+    // SAME determination (regression), wildly different app/ code: the verdict must be IDENTICAL. A
+    // code-scanning discriminator (the removed milestone) would diverge these; the pure delegate cannot.
+    const judge = buildDriverNextStepJudge("driver-green-s2");
+    const dirty = await judge.judgeCandidate({ candidateId: "dirty", primary: undefined, producedArtifacts: { ...REG, "app/repositories/stock.py": "values(inventory_code=inventory_code)\n" } });
+    const clean = await judge.judgeCandidate({ candidateId: "cleanish", primary: undefined, producedArtifacts: { ...REG, "app/repositories/stock.py": "def upsert(db):\n    return db\n" } });
+    expect(dirty.passed).toBe(clean.passed);
+    expect(dirty.classification).toBe(clean.classification); // code content did NOT change the verdict
   });
 });
 
