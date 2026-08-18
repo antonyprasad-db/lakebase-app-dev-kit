@@ -251,8 +251,15 @@ function layBundle(projectDir: string, consortDir: string, driverTurn: "green" |
         ...acFiles.map((f) => ({ from: join(raStoryDir, "acs", f), to: join(storyRel, "acs", f) })),
       ],
     });
-    const nfrs = join(CORPUS_RA, "nfrs.md");
-    if (existsSync(nfrs)) overlayBundle(projectDir, { files: [{ from: nfrs, to: join(artifactRel, "nfrs.md") }] });
+    // The recorded prompt's RUBRIC cites the narrative .md artifacts ("open ONLY if you need more"); lay
+    // whichever the recording has so no cited path dangles when the driver follows it.
+    for (const [src, dst] of [
+      [join(b.recordedArtifactsFeatureDir, "architecture.md"), join(featureRel, "architecture.md")],
+      [join(b.recordedArtifactsFeatureDir, "db-design.md"), join(featureRel, "db-design.md")],
+      [join(CORPUS_RA, "nfrs.md"), join(artifactRel, "nfrs.md")],
+    ] as const) {
+      if (existsSync(src)) overlayBundle(projectDir, { files: [{ from: src, to: dst }] });
+    }
     return;
   }
 
