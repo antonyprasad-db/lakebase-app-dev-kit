@@ -235,6 +235,9 @@ export function driverGreenCandidates(): RoleCandidate[] {
     // ctx-test x MEDIUM effort on opus , the untested KNEE of the ctx-test effort ladder (low=fast but
     // 1/3 milestone; default/high=377s 3/3). Does medium keep opus fast AND reliably at the milestone?
     { id: "opus-ctx-test-emedium", levers: { model: "opus", ctxPack: ["failing-test"], effort: "medium" } },
+    // ctx-test x HIGH effort on opus , the top of the repair effort ladder (repair is harder than green;
+    // medium gave PARITY (regression) on driver-repair, so more effort may be what RESOLVES it to equivalent).
+    { id: "opus-ctx-test-ehigh", levers: { model: "opus", ctxPack: ["failing-test"], effort: "high" } },
     // The 237s winner + ctx-migration: hand the driver the migration mechanism (path + create command +
     // models loc) so it skips the opening discovery (it grepped scripts/lk to find lakebase-new-migration).
     { id: "opus-ctx-test-emedium-migration", levers: { model: "opus", ctxPack: ["failing-test", "migration"], effort: "medium" } },

@@ -61,6 +61,7 @@ describe("driverGreenCandidates: the candidate set is well-formed", () => {
     expect(by["opus-ctx-test-elow"]).toEqual({ model: "opus", ctxPack: ["failing-test"], effort: "low" }); // COMBINED + opus tier
     expect(by["opus-ctx-test"]).toEqual({ model: "opus", ctxPack: ["failing-test"] }); // opus tier, normal effort
     expect(by["opus-ctx-test-emedium"]).toEqual({ model: "opus", ctxPack: ["failing-test"], effort: "medium" }); // ctx-test knee
+    expect(by["opus-ctx-test-ehigh"]).toEqual({ model: "opus", ctxPack: ["failing-test"], effort: "high" }); // repair effort ladder top
     expect(by["opus-ctx-test-emedium-migration"]).toEqual({ model: "opus", ctxPack: ["failing-test", "migration"], effort: "medium" }); // winner + ctx-migration
     // opus-normal x the other levers (exploration): bare control + scope-note + ctx-test-scope + guard.
     expect(by["opus"]).toEqual({ model: "opus" });
@@ -80,7 +81,7 @@ describe("driverGreenCandidates: the candidate set is well-formed", () => {
       expect(c.levers.denyBash).toBeUndefined();
     }
     expect(cs.filter((c) => c.levers.model).map((c) => c.id)).toEqual([
-      "opus-ctx-test-elow", "opus-ctx-test", "opus-ctx-test-emedium", "opus-ctx-test-emedium-migration",
+      "opus-ctx-test-elow", "opus-ctx-test", "opus-ctx-test-emedium", "opus-ctx-test-ehigh", "opus-ctx-test-emedium-migration",
       "opus", "opus-scope-note", "opus-ctx-test-scope", "opus-single-test-guard",
       "opus-e-low", "opus-e-medium", "opus-e-high", "opus-e-xhigh", "opus-e-max",
     ]);
