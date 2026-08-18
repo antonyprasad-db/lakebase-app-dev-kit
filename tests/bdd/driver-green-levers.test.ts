@@ -65,6 +65,10 @@ describe("driverGreenCandidates: the candidate set is well-formed", () => {
     expect(by["opus-scope-note"]).toEqual({ model: "opus", ctxPack: ["scope-note"] });
     expect(by["opus-ctx-test-scope"]).toEqual({ model: "opus", ctxPack: ["failing-test", "scope-note"] });
     expect(by["opus-single-test-guard"]).toEqual({ model: "opus", guardSuite: true });
+    // bare opus x effort sweep (faster-while-holding): the lowest effort that still hits the milestone.
+    expect(by["opus-e-low"]).toEqual({ model: "opus", effort: "low" });
+    expect(by["opus-e-medium"]).toEqual({ model: "opus", effort: "medium" });
+    expect(by["opus-e-high"]).toEqual({ model: "opus", effort: "high" });
     // No proven-harmful guardScan, no deprecated denyBash. Every opus-model lever is explicit below.
     for (const c of cs) {
       expect(c.levers.guardScan).toBeUndefined();
@@ -72,6 +76,7 @@ describe("driverGreenCandidates: the candidate set is well-formed", () => {
     }
     expect(cs.filter((c) => c.levers.model).map((c) => c.id)).toEqual([
       "opus-ctx-test-elow", "opus-ctx-test", "opus", "opus-scope-note", "opus-ctx-test-scope", "opus-single-test-guard",
+      "opus-e-low", "opus-e-medium", "opus-e-high",
     ]);
   });
 });

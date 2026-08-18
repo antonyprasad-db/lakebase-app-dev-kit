@@ -238,5 +238,10 @@ export function driverGreenCandidates(): RoleCandidate[] {
     { id: "opus-scope-note", levers: { model: "opus", ctxPack: ["scope-note"] } },
     { id: "opus-ctx-test-scope", levers: { model: "opus", ctxPack: ["failing-test", "scope-note"] } },
     { id: "opus-single-test-guard", levers: { model: "opus", guardSuite: true } },
+    // BARE OPUS x EFFORT , does the milestone (clean code + superseded-shift) hold as effort drops?
+    // The goal is FASTER-while-holding, so the winner is the LOWEST effort that still hits the milestone.
+    { id: "opus-e-low", levers: { model: "opus", effort: "low" } },
+    { id: "opus-e-medium", levers: { model: "opus", effort: "medium" } },
+    { id: "opus-e-high", levers: { model: "opus", effort: "high" } },
   ];
 }
