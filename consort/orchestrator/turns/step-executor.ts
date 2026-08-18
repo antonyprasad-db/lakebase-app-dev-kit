@@ -186,7 +186,11 @@ export async function execute(step: RunnableStep, ctx: StepCtx, deps: StepExecut
   // path leaves the prompt byte-identical). A declared-but-empty preparer is a logged anomaly
   // ("always something"), never a hard fail , the block simply appends nothing.
   const instructions = deps.instructionsFor(action, cfg);
-  if (deps.prepare) {
+  // REPLAY: when a verbatim body override is in effect for this turn (an experiment driving the corpus
+  // turn's recorded prompt), the recorded prompt ALREADY carries its context , SKIP phase-2.5 so a
+  // manifest-declared context-pack is not re-injected on top of it.
+  const overridden = action.kind === "invoke-role" && cfg.instructionsOverride?.(action) !== undefined;
+  if (deps.prepare && !overridden) {
     const preconditions = step.preconditions(action);
     // POSITION-AWARE injection: a precondition rides BEFORE ("prepend") or AFTER ("append", default)
     // the step's base instruction prompt , preserving the legacy inline positioning (the design

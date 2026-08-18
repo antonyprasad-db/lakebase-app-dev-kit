@@ -184,6 +184,16 @@ export interface DriveEffectsConfig {
    *  The inject-more/scan-less lever (module map, code snippets, exact refs).
    *  Return "" for no-op. */
   contextPackSuffix?(role: string, turn?: TurnKey): string;
+  /** instructionsOverride: replace a turn's BASE task body verbatim (before the
+   *  handback prefix + contextPackSuffix/taskSuffix appends still wrap it). Returns
+   *  undefined to leave the normal roleTaskBody in place. Its purpose is REPLAY: an
+   *  optimization experiment drives a turn from the corpus turn's recorded prompt.txt
+   *  (the exact context the agent saw) as the SOURCE, with levers appended via
+   *  contextPackSuffix , so the recorded context is held constant and the lever is the
+   *  only perturbation. When set for a turn, the executor also SKIPS phase-2.5
+   *  precondition preparation for that turn (the recorded prompt already carries the
+   *  context), so a manifest-declared context-pack is not re-injected on top. */
+  instructionsOverride?(action: Extract<WorkflowAction, { kind: "invoke-role" }>): string | undefined;
   /** allowedToolsForRole/disallowedToolsForRole: per-role tool-scope restriction
    *  (--allowed-tools / --disallowed-tools), the cap-what-the-agent-scans lever.
    *  Return undefined (or an empty list) to leave the tool scope unrestricted. */
@@ -1130,6 +1140,12 @@ export function buildTaskBody(
   cfg: DriveEffectsConfig,
   omit?: ReadonlySet<string>,
 ): string {
+  // REPLAY override: when the cfg supplies a verbatim base body for this turn (an experiment driving
+  // from the corpus turn's recorded prompt.txt), use it AS the body. The envelope (handback prefix +
+  // contextPackSuffix/taskSuffix appends) still wraps it, so a lever's added context lands AFTER the
+  // recorded context , recorded-as-source + appended-lever, never a regenerated substitute.
+  const override = cfg.instructionsOverride?.(action);
+  if (override !== undefined) return override;
   const storyLoop: "ac" | "hybrid-a" | "story" | undefined =
     "story" in action ? effectiveLoopForStory(cfg.loopGranularity ?? "story", action.story) : cfg.loopGranularity;
   return roleTaskBody(action, cfg.featureId, cfg.uiTrack ?? true, cfg.consortDir, { loop: storyLoop, cap: cfg.batchCap }, omit);
