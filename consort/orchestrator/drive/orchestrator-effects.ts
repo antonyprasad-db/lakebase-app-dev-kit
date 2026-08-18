@@ -1028,7 +1028,11 @@ function roleTaskBody(
               ? `Make the failing tests for story ${s}'s current layer-batch ALL GREEN in one pass (simplest honest code); implement until every test in the open batch passes, then run that layer's runner once.`
               : `Make the failing test for story ${s} GREEN (simplest honest code).`) +
           (uiTrack ? uiTrackBuild(root) : "") +
-          buildContextPack(consortDir, featureId, s, action.ac ?? "") +
+          // ctx-test ON by default for GREEN: inject the failing RED test body so the Driver does not
+          // Read/cat-discover it. Promoted from the driver-green tuning study (opus + medium effort +
+          // ctx-test was the faster-while-holding winner; other context levers were latency-neutral/harmful
+          // on opus, so ONLY failing-test is baked in). See consort/optimize/DRIVER-GREEN-LEVERS.md.
+          buildContextPack(consortDir, featureId, s, action.ac ?? "", { failingTest: true }) +
           supersededTestsDirective(consortDir, featureId, s)
         );
       }

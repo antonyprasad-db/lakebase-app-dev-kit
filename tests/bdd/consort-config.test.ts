@@ -78,7 +78,8 @@ describe("resolveConsortSettings: defaults when no file + no env", () => {
     expect(s.models["spec-author"]).toBe("opus");
     expect(s.effortFor("navigator", "review")).toBe("low");
     expect(s.effortFor("navigator", "red")).toBe("default");
-    expect(s.effortFor("driver", "green")).toBe("default");
+    expect(s.effortFor("driver", "green")).toBe("medium"); // driver-green tuning winner (opus + medium + ctx-test) is the promoted default
+    expect(s.modelFor("driver", "green")).toBe("opus"); //  ,, its model half (manifest-declared, no file needed)
     // spec-author's effort is keyed on the STEP, not the role: the optimize sweep
     // measured the BREAKDOWN step faster at low effort, so ONLY breakdown defaults
     // low; the per-story AC-authoring step (a different task) keeps the model default
@@ -163,19 +164,21 @@ describe("resolveConsortSettings: per-turn model tiering (driver GREEN/REFACTOR 
     expect(s.modelFor("driver")).toBe("opus");
   });
 
-  it("with no file, modelFor returns the recommended base for every turn", () => {
+  it("with no file, modelFor returns the recommended base for every turn (driver-green is the tuned opus default)", () => {
     const s = resolveConsortSettings({ projectDir: proj });
-    expect(s.modelFor("driver", "green")).toBe("sonnet");
+    expect(s.modelFor("driver", "green")).toBe("opus"); // manifest-declared promoted default (tuning winner)
+    expect(s.modelFor("driver", "red")).toBe("sonnet"); // other driver turns keep the recommended base
     expect(s.modelFor("spec-author")).toBe("opus");
   });
 
-  it("defaultConsortConfig seeds the balanced driver tier: RED + GREEN recommended, REFACTOR haiku", () => {
+  it("defaultConsortConfig seeds the tuned driver tier: RED recommended, GREEN opus+medium, REFACTOR haiku", () => {
     writeConsortConfig(proj, defaultConsortConfig());
     const s = resolveConsortSettings({ projectDir: proj });
     expect(s.modelFor("driver", "red")).toBe("sonnet");
-    // GREEN was haiku, but it thrashed round-trips (recorded 93 calls); the
-    // recommended model finishes in fewer round-trips, faster in wall-clock.
-    expect(s.modelFor("driver", "green")).toBe("sonnet");
+    // GREEN runs on OPUS at MEDIUM effort , the driver-green tuning winner (faster-while-holding:
+    // reliably reaches the clean-code + superseded-shift milestone at ~237s). See DRIVER-GREEN-LEVERS.md.
+    expect(s.modelFor("driver", "green")).toBe("opus");
+    expect(s.effortFor("driver", "green")).toBe("medium");
     expect(s.modelFor("driver", "refactor")).toBe("haiku");
     // navigator is model-tiered like driver: the heavy RED (whole-story test authoring)
     // runs on opus; the lighter judgment turns (review/assess/reflect) fall through to

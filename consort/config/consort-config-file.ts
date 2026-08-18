@@ -143,14 +143,15 @@ export function defaultConsortConfig(): ConsortConfigFile {
           // Overridable per project by editing consort-config.json.
           { model: { red: "opus" }, effort: { review: "low" } }
         : role === "driver"
-          ? // Model tiering: RED (test authoring) + GREEN (implementation) keep the
-            // recommended model; only the mechanical REFACTOR turn drops to a fast
-            // model. GREEN was on haiku, but the recorded worst GREEN turn thrashed
-            // 93 tool round-trips (haiku's trial-and-error), so wall-clock, not token
-            // cost, dominated. Sonnet finishes GREEN in far fewer round-trips, faster
-            // even at a higher per-token price. Overridable per project by editing
+          ? // Model tiering: RED (test authoring) keeps the recommended (sonnet) base; the
+            // mechanical REFACTOR turn drops to a fast model. GREEN runs on OPUS at MEDIUM effort
+            // , the driver-green tuning study's faster-while-holding winner: opus + medium effort +
+            // the failing-test context reached the clean-code + superseded-shift milestone reliably
+            // (3/3) at ~237s, beating sonnet and every other config; lower effort was unreliable,
+            // higher was slower, and added context (scope/migration) was latency. See
+            // consort/optimize/DRIVER-GREEN-LEVERS.md. Overridable per project by editing
             // consort-config.json (a project can flatten to a scalar `model`).
-            { model: { red: RECOMMENDED_MODELS[role], green: RECOMMENDED_MODELS[role], refactor: "haiku" } }
+            { model: { red: RECOMMENDED_MODELS[role], green: "opus", refactor: "haiku" }, effort: { green: "medium" } }
           : // Every other role's base is just its recommended model. Optimization
             // winners (e.g. spec-author breakdown -> haiku+low) are NOT hardcoded here;
             // they live in optimized-defaults.json and are deep-merged below, so the
