@@ -50,6 +50,7 @@ import { beginNextPendingBatch, storyTestProgress } from "../../../consort/pipel
 import { cycleDir } from "../../../consort/config/consort-paths.js";
 import { readRunConfig, type RunConfig } from "../../../consort/session/run-config.js";
 import { readReplaySet, rehydrate, type ReplaySet } from "../../optimization/replay-turn.js";
+import { contextAppendBlocks } from "../../../consort/orchestrator/build/build-context.js";
 import { applyDriverLevers, assignWorktreePort } from "../../optimization/driver-green-enforcement.js";
 import { peekLastAgentTranscript, peekLastAgentUsage } from "../../../consort/orchestrator/drive/claude-runner.js";
 import type { TurnUsage } from "../../../consort/session/claude-usage.js";
@@ -126,7 +127,7 @@ const CORPUS_RA = join(CORPUS_DIR, "recorded-artifacts");
  *  artifacts are the corpus recorded-artifacts, and the recorded prompt/levers ride along (replay). This
  *  is how an optimization experiment holds the recorded preconditions constant and perturbs only a lever
  *  , see [[feedback_experiments_replay_corpus_preconditions]]. `turnLabel` = the corpus turn dir name. */
-function replayBundleFromTurn(turnLabel: string, ac: string): DriverGreenBundle {
+export function replayBundleFromTurn(turnLabel: string, ac: string): DriverGreenBundle {
   const rs = readReplaySet(join(CORPUS_TURNS, turnLabel));
   const feature = String((rs.action as { feature?: string }).feature ?? deriveFeatureForStory(rs.story ?? ""));
   const story = rs.story ?? "";
@@ -718,6 +719,18 @@ export async function runDriverGreenOnScaffold(
               const bm = (action as { buildMode?: unknown }).buildMode;
               const isTarget = driverTurn === "green" ? bm === undefined : bm === driverTurn;
               return isTarget ? rehydrate(b.replay!.promptRaw, projectDir) : undefined;
+            },
+          }
+        : {}),
+      // CONTEXT-APPEND lever: a candidate's ctxPack (e.g. ["failing-test"]) APPENDS those context blocks
+      // AFTER the (recorded) base body , leverage-what-was-there, never a substitute. Only for the target
+      // driver turn; the eval turn gets none. This is how ctx-test's marginal effect is measured on top of
+      // the recorded prompt (the recorded green prompt carries NO test body, so this adds exactly it).
+      ...(lever?.ctxPack && lever.ctxPack.length
+        ? {
+            contextPackSuffix: (role: string): string => {
+              if (role !== "driver") return "";
+              return contextAppendBlocks(consortDir, b.story, lever.ctxPack!);
             },
           }
         : {}),

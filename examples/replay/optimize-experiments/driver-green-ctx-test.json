@@ -1,0 +1,20 @@
+{
+  "name": "driver-green-ctx-test",
+  "turn": "0156-driver",
+  "ac": "AC1-detail-view-shows-batch-and-serial",
+  "concurrency": 2,
+  "candidates": [
+    {
+      "id": "opus-e-medium",
+      "levers": { "model": "opus", "effort": "medium" }
+    },
+    {
+      "id": "opus-e-medium-ctx-test",
+      "levers": {
+        "model": "opus",
+        "effort": "medium",
+        "context": { "mode": "append", "include": ["failing-test"] }
+      }
+    }
+  ]
+}

@@ -183,6 +183,49 @@ function readCtxLeverMarker(consortDir: string): { dbState?: boolean; failingTes
   }
 }
 
+/** The ctx-test block: the failing RED test body, so the Driver does not Read/cat-discover it. Returns
+ *  "" when no failing test body is found. Shared by buildContextPack + the APPEND-lever path so the two
+ *  never drift. */
+function failingTestBlock(consortDir: string, story: string, reader: FailingTestReader = defaultFailingTestReader): string {
+  const body = reader(dirname(consortDir), story);
+  return body ? ` FAILING TEST (make THIS pass; do NOT search for it) ::\n\`\`\`python\n${body}\n\`\`\`` : "";
+}
+
+/** The scope-note block: an explicit layer-scoping directive (make ONLY the failing test green at its
+ *  own layer; do not chase other layers/the client SPA). Shared by buildContextPack + the append lever. */
+function scopeNoteBlock(): string {
+  return (
+    ` SCOPE :: Make ONLY the single failing test green with the SIMPLEST honest code at ITS OWN layer.` +
+    ` Iterate on that one test (\`uv run --env-file .env pytest <its path> -x -q\`). Do NOT investigate,` +
+    ` build, or run OTHER layers' surfaces this turn (e.g. if the failing test is backend, do not touch,` +
+    ` grep, or run the client/SPA , StockView*, vite, npx vitest; a later refactor turn owns that). The` +
+    ` post-turn honest-GREEN verify is authoritative; stop once the single test passes.`
+  );
+}
+
+/** APPEND-lever context: build ONLY the named context blocks (to APPEND after an already-assembled
+ *  prompt, e.g. a corpus turn's recorded prompt.txt in a replay experiment) , not the full pack. The
+ *  faithful "leverage what was there + append" path: the recorded prompt already carries RUBRIC/LAYOUT/
+ *  TESTS; a candidate's context lever adds these blocks on top. Blocks accrue in the requested order. */
+export function contextAppendBlocks(
+  consortDir: string,
+  story: string,
+  blocks: ReadonlyArray<"failing-test" | "scope-note" | "db-state" | "migration">,
+): string {
+  const out: string[] = [];
+  for (const b of blocks) {
+    if (b === "failing-test") {
+      const block = failingTestBlock(consortDir, story);
+      if (block) out.push(block);
+    } else if (b === "scope-note") {
+      out.push(scopeNoteBlock());
+    }
+    // db-state / migration append blocks are wired via buildContextPack's markers; not needed for the
+    // driver-green ctx-test append lever, so left to the full-pack path for now.
+  }
+  return out.join("");
+}
+
 function buildContextPack(
   consortDir: string,
   featureId: string,
@@ -235,10 +278,8 @@ function buildContextPack(
   // C2 (ctx-test): the failing RED test body, so the Driver does not Read/cat-discover it.
   const testOn = opts.failingTest ?? marker.failingTest ?? consortEnv("CTX_FAILINGTEST") === "1";
   if (testOn) {
-    const body = (opts.failingTestReader ?? defaultFailingTestReader)(dirname(consortDir), story);
-    if (body) {
-      parts.push(` FAILING TEST (make THIS pass; do NOT search for it) ::\n\`\`\`python\n${body}\n\`\`\``);
-    }
+    const block = failingTestBlock(consortDir, story, opts.failingTestReader ?? defaultFailingTestReader);
+    if (block) parts.push(block);
   }
 
   // scope-note: an explicit layer-scoping directive. The fast (-46%) driver runs scoped to the SINGLE
@@ -246,15 +287,7 @@ function buildContextPack(
   // client/SPA surface (~13 touches vs ~4). This makes that scoping deterministic instead of a per-run
   // coin flip. Layer-agnostic: it scopes to the failing test's OWN layer (whatever that is).
   const scopeOn = opts.scopeNote ?? marker.scopeNote ?? consortEnv("CTX_SCOPENOTE") === "1";
-  if (scopeOn) {
-    parts.push(
-      ` SCOPE :: Make ONLY the single failing test green with the SIMPLEST honest code at ITS OWN layer.` +
-        ` Iterate on that one test (\`uv run --env-file .env pytest <its path> -x -q\`). Do NOT investigate,` +
-        ` build, or run OTHER layers' surfaces this turn (e.g. if the failing test is backend, do not touch,` +
-        ` grep, or run the client/SPA , StockView*, vite, npx vitest; a later refactor turn owns that). The` +
-        ` post-turn honest-GREEN verify is authoritative; stop once the single test passes.`,
-    );
-  }
+  if (scopeOn) parts.push(scopeNoteBlock());
 
   // ctx-migration: the migration mechanism, so a schema/drop turn does not DISCOVER it. Measured on
   // opus-ctx-test-emedium: the driver guessed the migrations path (app/migrations vs alembic/versions)

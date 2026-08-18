@@ -32,7 +32,8 @@ import { roleCandidates, testStrategistCandidates, driverGreenCandidates } from 
 import { deployPortForIndex } from "./driver-green-enforcement.js";
 import { runRoleSweep, type SweepTrial, type ChainRunner, type QualityGate, type QualityVerdict, type SweepableChain } from "./role-sweep.js";
 import { reportRoleSweep, formatRoleSweepReport, type SweepReport } from "./role-sweep-report.js";
-import { scaffoldDriverGreenProject, teardownDriverGreenProject, runDriverGreenOnScaffold, sweepDriverGreenOrphans, DRIVER_GREEN_BUNDLE_S2, type RunDriverGreenResult } from "../integration/live/driver-build-support.js";
+import { scaffoldDriverGreenProject, teardownDriverGreenProject, runDriverGreenOnScaffold, sweepDriverGreenOrphans, DRIVER_GREEN_BUNDLE_S2, replayBundleFromTurn, type RunDriverGreenResult, type DriverGreenBundle } from "../integration/live/driver-build-support.js";
+import { loadExperimentConfig } from "./experiment-config.js";
 import { makeOpusJudge, makeVerdictAlignmentJudge, parseVerdictFile, makeBuildDiscriminatorJudge, parseNavigatorAssessMarker, makeSupersessionDeltaJudge, evaluateNavigatorAssessAlignment, evaluateNextStepDetermination, FUNCTIONAL_THRESHOLD, SEMANTIC_THRESHOLD, type BuildOutputKind, type VerdictOutput } from "../../consort/evaluation/semantic-gate.js";
 import { enabledAnalysts } from "../../consort/test-list/test-analyst-catalogue.js";
 import { RECOMMENDED_MODELS, type SpawnableAgentRole } from "../../consort/config/agent-models.js";
@@ -114,6 +115,10 @@ export interface OptimizeRoleArgs {
    *  ports). Used to measure a single lever's VARIANCE by running it N times IN PARALLEL in one trial
    *  (pair with --concurrency N). Absent/1 => no replication. */
   replicas?: number;
+  /** Path to an externalized EXPERIMENT config (turn + candidates + levers). When set (driver chains),
+   *  it SUPPLIES the candidates + the corpus turn (preconditions) + concurrency/replicas , the run picks
+   *  up the config instead of the hardcoded driverGreenCandidates()/default turn. See experiment-config. */
+  experiment?: string;
 }
 
 /** Parse argv (pure + exported for a unit test). Accepts --chains <set|list> OR the back-compat
@@ -139,6 +144,7 @@ export function parseArgs(argv: string[], chains: Record<string, unknown> = allC
     ...(conc !== undefined ? { concurrency: Math.max(1, Number(conc) || 1) } : {}),
     ...(cands ? { candidates: cands.split(",").map((s) => s.trim()).filter(Boolean) } : {}),
     ...(reps !== undefined ? { replicas: Math.max(1, Number(reps) || 1) } : {}),
+    ...(get("--experiment") ? { experiment: get("--experiment") } : {}),
   };
 }
 
@@ -187,7 +193,7 @@ export function selectDriverCandidates<C extends { id: string }>(all: C[], subse
 export async function sweepDriverGreen(
   handle: string,
   runRoot: string,
-  opts: { concurrency?: number; candidates?: string[]; replicas?: number } = {},
+  opts: { concurrency?: number; candidates?: string[]; replicas?: number; experiment?: string } = {},
 ): Promise<{ summary: ChainSummary }> {
   // GATED: only meaningful with a live test env (RUN_LIVE_STEP + LAKEBASE_TEST_E2E).
   if (!process.env.RUN_LIVE_STEP || !process.env.LAKEBASE_TEST_E2E) {
@@ -207,13 +213,24 @@ export async function sweepDriverGreen(
   // Driver turns use the ENFORCEMENT + CONTEXT lever set (DRIVER-GREEN-LEVERS.md) , the run-17 analysis
   // showed the driver's wall-clock is tool-churn (orientation + redundant self-verification), not model
   // tier (already sonnet), so the interesting levers are behavioral, not the generic model/effort grid.
-  const all = driverGreenCandidates();
+  // Externalized experiment config (--experiment): SUPPLIES the candidates + the corpus turn (fixed
+  // preconditions) + concurrency/replicas , the run picks it up instead of the hardcoded candidate set +
+  // default turn. Its driverTurn must match this handle (the handle names the judge + turn kind). Absent
+  // => the built-in driverGreenCandidates() + the default corpus turn for this handle.
+  const experiment = opts.experiment ? loadExperimentConfig(opts.experiment) : undefined;
+  if (experiment && experiment.driverTurn !== spec.driverTurn) {
+    throw new Error(`experiment "${experiment.name}" driverTurn=${experiment.driverTurn} does not match handle ${handle} (driverTurn=${spec.driverTurn})`);
+  }
+  const experimentBundle: DriverGreenBundle | undefined = experiment ? replayBundleFromTurn(experiment.turn, experiment.ac) : undefined;
+  const all = experiment ? experiment.roleCandidates : driverGreenCandidates();
   // Select the subset, then REPLICATE (--replicas N) into <id>-r1..-rN so one lever can be run N times
   // in parallel to measure its variance (each replica gets a unique id => unique deterministic port).
-  const candidates = expandReplicas(selectDriverCandidates(all, opts.candidates), opts.replicas);
+  const replicas = experiment?.replicas ?? opts.replicas;
+  const candidates = expandReplicas(selectDriverCandidates(all, opts.candidates), replicas);
+  const concurrency = experiment?.concurrency ?? opts.concurrency;
 
   // eslint-disable-next-line no-console
-  console.log(`[optimize-role] ${handle}: CLOUD LIVE driver-GREEN sweep, ${candidates.length} candidate(s)${opts.candidates?.length ? ` (subset: ${opts.candidates.join(",")})` : ""}${(opts.replicas ?? 1) > 1 ? ` x${opts.replicas} replicas` : ""}, concurrency=${opts.concurrency ?? 1}. run dir: ${runDir}`);
+  console.log(`[optimize-role] ${handle}: CLOUD LIVE driver-GREEN sweep${experiment ? ` [experiment: ${experiment.name} @ turn ${experiment.turn}]` : ""}, ${candidates.length} candidate(s)${opts.candidates?.length ? ` (subset: ${opts.candidates.join(",")})` : ""}${(replicas ?? 1) > 1 ? ` x${replicas} replicas` : ""}, concurrency=${concurrency ?? 1}. run dir: ${runDir}`);
 
   // The MANDATORY driver-turn judge (SHARED with the re-judge harness): the recorded corpus ALSO
   // evaluated this driver turn (the navigator turn that followed it). buildDriverNextStepJudge re-runs
@@ -233,7 +250,9 @@ export async function sweepDriverGreen(
   // Slug/branch prefix DERIVED from the pinned bundle's story (S2-drop-combined -> "s2", S3-stock-shows
   // -> "s3") so the worktree + Lakebase branch names name the RIGHT story , no hardcoded "s3" that
   // mislabels an S2 sweep for the results reader.
-  const pinnedBundle = handle === "driver-green-s2" ? DRIVER_GREEN_BUNDLE_S2 : undefined;
+  // The bundle for this sweep: the experiment config's corpus turn (when given) else the S2 legacy pin
+  // else the handle's default replay turn (resolved inside runDriverGreenOnScaffold).
+  const pinnedBundle = experimentBundle ?? (handle === "driver-green-s2" ? DRIVER_GREEN_BUNDLE_S2 : undefined);
   const pfx = (pinnedBundle?.story ?? "S3-stock-shows-split-fields").split("-")[0].toLowerCase();
   const runChain: ChainRunner = async (_c, _agentFor, candidateId, levers) => {
     // Deterministic per-candidate deploy port (base + index) so parallel candidates never collide on
@@ -245,7 +264,7 @@ export async function sweepDriverGreen(
       branch: `experiment/${pfx.toUpperCase()}-${spec.driverTurn}-${candidateId}`,
       driverTurn: spec.driverTurn,
       port: deployPortForIndex(idx),
-      ...(handle === "driver-green-s2" ? { bundle: DRIVER_GREEN_BUNDLE_S2 } : {}),
+      ...(pinnedBundle ? { bundle: pinnedBundle } : {}),
       ...(Object.keys(levers).length ? { leverOverride: levers } : {}),
     }) as RunDriverGreenResult | undefined;
     if (!result) throw new Error(`runDriverGreenOnScaffold returned void (expected RunDriverGreenResult)`);
@@ -275,7 +294,7 @@ export async function sweepDriverGreen(
   let trials: SweepTrial[];
   try {
     trials = await runRoleSweep(driverChain, candidates, runChain, {
-      ...(opts.concurrency ? { concurrency: opts.concurrency } : {}),
+      ...(concurrency ? { concurrency } : {}),
       quality,
       onStart: (candidate, i, total) => {
         // eslint-disable-next-line no-console
@@ -699,6 +718,7 @@ export async function runOptimizeRole(args: OptimizeRoleArgs): Promise<Record<st
         ...(args.concurrency ? { concurrency: args.concurrency } : {}),
         ...(args.candidates?.length ? { candidates: args.candidates } : {}),
         ...(args.replicas ? { replicas: args.replicas } : {}),
+        ...(args.experiment ? { experiment: args.experiment } : {}),
       });
     } else {
       reports[handle] = await sweepOneChain(handle, runRoot, {
