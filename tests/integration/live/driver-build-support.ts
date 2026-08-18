@@ -72,6 +72,19 @@ function assertEq<T>(actual: T, expected: T, message: string): void {
  *  pre-step assets live under here (see driver-green-setup/README.md), including its run-config.json. */
 const SETUP_DIR = join(KIT, "tests/integration/live/driver-green-setup");
 const RUN_CONFIG_PATH = join(SETUP_DIR, "driver-green.run.json");
+/** The RECORDED corpus run-config, curated into the bundle (self-contained). The sweep REPLAYS this
+ *  corpus, so the drive's ENVIRONMENT/replay settings (uiTrack, loop granularity, deploy target) come
+ *  from what was RECORDED , never hardcoded/defaulted. (Models + effort are NOT taken from here: those
+ *  are the swept LEVERS.) The stockflow corpus was recorded full-stack, so recorded uiTrack === true. */
+const RECORDED_RUN_CONFIG_PATH = join(SETUP_DIR, "recorded-run-config.json");
+function readRecordedRunConfig(): { uiTrack: boolean; loopGranularity: "story" | "ac" | "hybrid-a"; deployTarget: "local" | "workspace" } {
+  const r = JSON.parse(readFileSync(RECORDED_RUN_CONFIG_PATH, "utf8")) as { ui_track?: boolean; loop_granularity?: string; deploy_target?: string };
+  return {
+    uiTrack: r.ui_track === true,
+    loopGranularity: (r.loop_granularity as "story" | "ac" | "hybrid-a") ?? "story",
+    deployTarget: (r.deploy_target as "local" | "workspace") ?? "local",
+  };
+}
 
 /** A resolved pre-GREEN setup bundle: the story identity + the on-disk sources under a bundle dir. */
 export interface DriverGreenBundle {
@@ -331,6 +344,10 @@ export async function sweepDriverGreenOrphans(): Promise<void> {
 export async function scaffoldDriverGreenProject(): Promise<ScaffoldedDriverProject> {
   await sweepDriverGreenOrphans();
   const { scaffoldConfig } = resolveDriverGreenRunConfig();
+  // The scaffold-project op scaffolds the client only when uiTrack is on. Take uiTrack from the RECORDED
+  // corpus run-config (full-stack => true), not the run-config template's default , so the scaffolded
+  // project + its honest-GREEN verify include the client, matching the recording.
+  scaffoldConfig.uiTrack = readRecordedRunConfig().uiTrack;
   const setupCtx: LifecycleRunContext = { workspaceDir: KIT };
   const setup = await catalogueLifecycleDeps.run({ kind: "scaffold-project", config: scaffoldConfig }, setupCtx);
   if (!setup.ok || !setup.handle) throw new Error(`scaffold-project failed: ${setup.error ?? "no handle"}`);
@@ -544,6 +561,10 @@ export async function runDriverGreenOnScaffold(
     //    tool-scope is WIDER than navigator RED , it needs Bash to run the project's tests.
     //    When leverOverride is provided, patch the driver turn's model/effort/tools. ──
     const settings = resolveConsortSettings({ projectDir });
+    // The drive's ENVIRONMENT/replay settings come from the RECORDED corpus run-config (curated into the
+    // bundle), NOT hardcoded , the sweep replays this recording. Models + effort are NOT read here (those
+    // are the swept LEVERS, applied via leverOverride below).
+    const recorded = readRecordedRunConfig();
     const driverModel = opts.leverOverride?.model;
     const driverEffort = opts.leverOverride?.effort;
     const driverAllowedTools = opts.leverOverride?.allowedTools;
@@ -555,10 +576,12 @@ export async function runDriverGreenOnScaffold(
       featureId: b.feature,
       runner: { async run() {} },
       useManifestSteps: true,
-      uiTrack: false,
+      // uiTrack from the RECORDED run-config (stockflow was recorded full-stack => true). Hardcoding false
+      // under-verified the corpus and made client stories (e.g. the S3 StockViewPage repair) unresolvable.
+      uiTrack: recorded.uiTrack,
       approver: "human-proxy",
-      deployTarget: "local",
-      loopGranularity: "story",
+      deployTarget: recorded.deployTarget,
+      loopGranularity: recorded.loopGranularity,
       modelForRole: (role) => {
         if (role === "driver" && driverModel) return driverModel;
         return settings.models[role] ?? "sonnet";
