@@ -15,6 +15,7 @@ class StockIn(BaseModel):
     sku: str
     location: str
     quantity: int
+    inventory_code: Optional[str] = None
     par_level: Optional[int] = None
 
     @field_validator("quantity")
@@ -30,6 +31,7 @@ class StockOut(BaseModel):
     sku: str
     location: str
     quantity: int
+    inventory_code: Optional[str] = None
     par_level: Optional[int] = None
 
     model_config = {"from_attributes": True}
@@ -43,6 +45,7 @@ def file_stock(payload: StockIn, db=Depends(get_db)) -> StockOut:
             sku=payload.sku,
             location=payload.location,
             quantity=payload.quantity,
+            inventory_code=payload.inventory_code,
             par_level=payload.par_level,
             db=db,
         )

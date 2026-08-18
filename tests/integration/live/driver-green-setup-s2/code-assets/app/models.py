@@ -12,6 +12,7 @@ class Stock(Base):
     sku = Column(String(255), nullable=False)
     location = Column(String(255), nullable=False)
     quantity = Column(Integer, nullable=False)
+    inventory_code = Column(String(255), nullable=True)
     par_level = Column(Integer, nullable=True)
     batch_number = Column(String(255), nullable=True)
     serial_number = Column(String(255), nullable=True)

@@ -205,14 +205,19 @@ export async function sweepDriverGreen(
   // PRESERVES + JUDGES it identically to every other chain (no second engine).
   const project = await scaffoldDriverGreenProject();
   const driverChain: SweepableChain = { dir: handle, outputFile: "app", prompt: `driver ${spec.driverTurn} (live, shared scaffold)` };
+  // Slug/branch prefix DERIVED from the pinned bundle's story (S2-drop-combined -> "s2", S3-stock-shows
+  // -> "s3") so the worktree + Lakebase branch names name the RIGHT story , no hardcoded "s3" that
+  // mislabels an S2 sweep for the results reader.
+  const pinnedBundle = handle === "driver-green-s2" ? DRIVER_GREEN_BUNDLE_S2 : undefined;
+  const pfx = (pinnedBundle?.story ?? "S3-stock-shows-split-fields").split("-")[0].toLowerCase();
   const runChain: ChainRunner = async (_c, _agentFor, candidateId, levers) => {
     // Deterministic per-candidate deploy port (base + index) so parallel candidates never collide on
     // the shared :8000 the honest-GREEN verify binds , the concurrency-safety fix. Index from position
     // in the candidate set (ChainRunner carries no index); unique across the whole set regardless of cap.
     const idx = Math.max(0, candidates.findIndex((c) => c.id === candidateId));
     const result = await runDriverGreenOnScaffold(project, {
-      experimentSlug: `s3-${spec.driverTurn}-${candidateId}`,
-      branch: `experiment/S3-${spec.driverTurn}-${candidateId}`,
+      experimentSlug: `${pfx}-${spec.driverTurn}-${candidateId}`,
+      branch: `experiment/${pfx.toUpperCase()}-${spec.driverTurn}-${candidateId}`,
       driverTurn: spec.driverTurn,
       port: deployPortForIndex(idx),
       ...(handle === "driver-green-s2" ? { bundle: DRIVER_GREEN_BUNDLE_S2 } : {}),

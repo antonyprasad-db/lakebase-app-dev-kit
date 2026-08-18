@@ -27,8 +27,10 @@ echo "[curate-s2] wiping + rebuilding $DEST + $REF"
 rm -rf "$DEST" "$REF"
 mkdir -p "$DEST/code-assets" "$DEST/design/architecture" "$DEST/design/stories/S2-drop-combined-code/acs" "$REF"
 
-# 1. code-assets: the post-RED tree (exclude .tmp/ scratch).
-cp -R "$RB/turns/002-driver/code/." "$DEST/code-assets/"
+# 1. code-assets: the POST-RED tree = the RED turn's snapshot (001-navigator), which has the failing
+#    test AND still-present inventory_code (NOT the 002-DRIVER output, which is already green => vacuous
+#    turn => DQ "honest-GREEN stamped green"). Exclude .tmp/ scratch.
+cp -R "$RB/turns/001-navigator/code/." "$DEST/code-assets/"
 rm -rf "$DEST/code-assets/.tmp"
 
 # 2. design: the feature design artifacts + the target AC + the layout (conventions from the S3 bundle).

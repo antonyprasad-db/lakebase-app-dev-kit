@@ -13,6 +13,7 @@ def upsert_stock(
     sku: str,
     location: str,
     quantity: int,
+    inventory_code: Optional[str] = None,
     par_level: Optional[int] = None,
 ) -> Stock:
     """Insert or update a stock record by (sku, location) via atomic upsert."""
@@ -22,12 +23,14 @@ def upsert_stock(
             sku=sku,
             location=location,
             quantity=quantity,
+            inventory_code=inventory_code,
             par_level=par_level,
         )
         .on_conflict_do_update(
             constraint="uq_stock_sku_location",
             set_={
                 "quantity": quantity,
+                "inventory_code": inventory_code,
                 "par_level": par_level,
             },
         )

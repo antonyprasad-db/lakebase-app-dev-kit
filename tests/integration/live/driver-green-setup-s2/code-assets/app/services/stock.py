@@ -17,6 +17,7 @@ def file_stock(
     sku: str,
     location: str,
     quantity: int,
+    inventory_code: Optional[str] = None,
     par_level: Optional[int] = None,
     *,
     db=None,
@@ -35,6 +36,7 @@ def file_stock(
             sku=sku,
             location=location,
             quantity=quantity,
+            inventory_code=inventory_code,
             par_level=par_level,
         )
 
