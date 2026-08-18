@@ -49,6 +49,7 @@ import { writePipeline, readPipeline } from "../../../consort/pipeline/story-pip
 import { beginNextPendingBatch, storyTestProgress } from "../../../consort/pipeline/cycle-record.js";
 import { cycleDir } from "../../../consort/config/consort-paths.js";
 import { readRunConfig, type RunConfig } from "../../../consort/session/run-config.js";
+import { readReplaySet, rehydrate, type ReplaySet } from "../../optimization/replay-turn.js";
 import { applyDriverLevers, assignWorktreePort } from "../../optimization/driver-green-enforcement.js";
 import { peekLastAgentTranscript } from "../../../consort/orchestrator/drive/claude-runner.js";
 
@@ -93,9 +94,16 @@ export interface DriverGreenBundle {
   preRedCodeDir: string;
   recordedArtifactsFeatureDir: string;
   conventionsJson: string;
+  /** The design-system dir (design-guide.json + .md + ia.md) laid under <consortDir>/design/. */
+  designDir: string;
+  /** REPLAY source (set when the bundle is a corpus turn): the recorded replay-set. When present,
+   *  preRedCodeDir is the recorded pre-project (its <PROJECT_ROOT> token is rehydrated on laydown), the
+   *  recorded prompt.txt drives the target turn verbatim (cfg.instructionsOverride), and the recorded
+   *  levers.json is the model/effort baseline a candidate lever overrides. Absent => hand-curated seed. */
+  replay?: ReplaySet;
 }
 
-/** Build a bundle spec from a bundle dir (code-assets/ + design/) + story identity. */
+/** Build a bundle spec from a hand-curated bundle dir (code-assets/ + design/) + story identity. */
 function bundleFromDir(dir: string, feature: string, story: string, ac: string): DriverGreenBundle {
   return {
     feature,
@@ -104,7 +112,58 @@ function bundleFromDir(dir: string, feature: string, story: string, ac: string):
     preRedCodeDir: join(dir, "code-assets"),
     recordedArtifactsFeatureDir: join(dir, "design"),
     conventionsJson: join(dir, "design", "architecture", "conventions.json"),
+    designDir: join(dir, "design-assets"),
   };
+}
+
+/** The recorded stockflow-full corpus root (the source of truth for replay experiments). */
+const CORPUS_DIR = join(KIT, "examples/replay/corpora/stockflow-full");
+const CORPUS_TURNS = join(CORPUS_DIR, "turns");
+const CORPUS_RA = join(CORPUS_DIR, "recorded-artifacts");
+
+/** Build a bundle from an actual CORPUS turn: the pre-turn CODE is the recorded pre-project, the design
+ *  artifacts are the corpus recorded-artifacts, and the recorded prompt/levers ride along (replay). This
+ *  is how an optimization experiment holds the recorded preconditions constant and perturbs only a lever
+ *  , see [[feedback_experiments_replay_corpus_preconditions]]. `turnLabel` = the corpus turn dir name. */
+function replayBundleFromTurn(turnLabel: string, ac: string): DriverGreenBundle {
+  const rs = readReplaySet(join(CORPUS_TURNS, turnLabel));
+  const feature = String((rs.action as { feature?: string }).feature ?? deriveFeatureForStory(rs.story ?? ""));
+  const story = rs.story ?? "";
+  return {
+    feature,
+    story,
+    ac,
+    preRedCodeDir: rs.preProjectDir,
+    recordedArtifactsFeatureDir: join(CORPUS_RA, "features", feature),
+    conventionsJson: join(CORPUS_RA, "architecture", "conventions.json"),
+    designDir: join(CORPUS_RA, "design"),
+    replay: rs,
+  };
+}
+
+/** The default REPLAY bundle per driver-turn kind , the actual corpus turn for the F6-S3 read-UI story
+ *  (0156 green / 0158 repair / 0160 refactor). The AC identifies the story's primary AC for the artifact
+ *  copy; the recorded per-story test-list covers the whole story regardless. */
+function replayBundleForTurn(driverTurn: "green" | "repair" | "refactor"): DriverGreenBundle {
+  const AC = "AC1-detail-view-shows-batch-and-serial";
+  // GREEN has a deterministic pre-turn routing state (design done + open RED), fully reconstructable from
+  // the corpus. REPAIR/REFACTOR need the recorded pre-turn CYCLE state (assessed green-failure + regression,
+  // or a refactor:true review-verdict), which the cumulative corpus does not expose per-turn , that
+  // reconstruction is the next slice, so fail loud rather than mis-route to green.
+  if (driverTurn !== "green") {
+    throw new Error(`replay bundle for driverTurn="${driverTurn}" not wired yet: needs pre-turn cycle-state reconstruction (only green is deterministic). Pass opts.bundle explicitly to use a legacy seed.`);
+  }
+  return replayBundleFromTurn("0156-driver", AC);
+}
+
+/** The corpus turn's action carries the story but not always the feature; the corpus has one feature per
+ *  story slug family, so resolve it from recorded-artifacts/features (the single dir whose stories/ holds
+ *  the story). */
+function deriveFeatureForStory(story: string): string {
+  for (const f of readdirSync(join(CORPUS_RA, "features"), { withFileTypes: true })) {
+    if (f.isDirectory() && existsSync(join(CORPUS_RA, "features", f.name, "stories", story))) return f.name;
+  }
+  throw new Error(`no corpus feature owns story "${story}" under ${CORPUS_RA}/features`);
 }
 
 /** The DEFAULT setup bundle (S3-stock-shows-split-fields, the read-UI turn). A sweep can override it
@@ -163,21 +222,43 @@ function layBundle(projectDir: string, consortDir: string, driverTurn: "green" |
   const featureRel = join(artifactRel, "features", b.feature);
   const storyRel = join(featureRel, "stories", b.story);
 
-  // The CODE tree: green seeds the post-RED bundle; repair/refactor seed their recorded PRE-TURN snapshot
-  // (a later, further-along tree the drive resumes from). All are contained under SETUP_DIR.
-  const codeDir = driverTurn === "green" ? b.preRedCodeDir : DRIVER_TURN_SEEDS[driverTurn].codeDir;
-
   // The recorded DESIGN output (design-guide.json + .md + ia.md) under <consortDir>/design/. The
   // recording ran ux-designer before any build turn (full-stack corpus), so with uiTrack ON the drive's
   // design gate (orchestrator-drive.ts: uiTrack && breakdownDone && !designGuideReady -> ux-designer) is
   // satisfied by design-guide.json being present , WITHOUT it the drive re-derives ux-designer before the
   // driver turn under test and fails loud on the missing design-brief input. Feature-agnostic (the
   // project design system), so laid for green/repair/refactor alike.
-  const DESIGN_ASSETS = join(SETUP_DIR, "design-assets");
-  overlayBundle(projectDir, { trees: [{ from: DESIGN_ASSETS, to: join(artifactRel, "design") }] });
+  overlayBundle(projectDir, { trees: [{ from: b.designDir, to: join(artifactRel, "design") }] });
 
-  // Overlay the recorded trees + files via the shared provisioning primitive (it creates parent
-  // dirs for each file, so no explicit mkdirSync is needed).
+  if (b.replay) {
+    // REPLAY: the pre-turn CODE is the recorded pre-project (the exact tree the agent ran against); the
+    // build-input artifacts are the corpus recorded-artifacts (architecture / db-design / conventions /
+    // story.json + acs/ + the recorded per-story test-list). We copy the SAME build-input set the proven
+    // legacy routing needs (not the whole recorded story dir, which also holds post-completion artifacts
+    // like deploy-evidence/reflect-verdict that could mis-route), sourced from the recording. The
+    // <consortDir>/design/ system + pipeline/open-RED routing (below) do the rest; the recorded prompt.txt
+    // drives the turn (cfg.instructionsOverride).
+    const raStoryDir = join(b.recordedArtifactsFeatureDir, "stories", b.story);
+    const acFiles = readdirSync(join(raStoryDir, "acs")).filter((f) => f.endsWith(".json"));
+    overlayBundle(projectDir, {
+      trees: [{ from: b.preRedCodeDir, to: "." }],
+      files: [
+        { from: join(b.recordedArtifactsFeatureDir, "architecture.json"), to: join(featureRel, "architecture.json") },
+        { from: join(b.recordedArtifactsFeatureDir, "db-design.json"), to: join(featureRel, "db-design.json") },
+        { from: b.conventionsJson, to: join(artifactRel, "architecture", "conventions.json") },
+        { from: join(raStoryDir, "story.json"), to: join(storyRel, "story.json") },
+        { from: join(raStoryDir, "test-list-per-story.json"), to: join(storyRel, "test-list-per-story.json") },
+        ...acFiles.map((f) => ({ from: join(raStoryDir, "acs", f), to: join(storyRel, "acs", f) })),
+      ],
+    });
+    const nfrs = join(CORPUS_RA, "nfrs.md");
+    if (existsSync(nfrs)) overlayBundle(projectDir, { files: [{ from: nfrs, to: join(artifactRel, "nfrs.md") }] });
+    return;
+  }
+
+  // ── LEGACY hand-curated seed (SETUP_DIR bundles) , superseded by the replay path above. ──
+  // The CODE tree: green seeds the post-RED bundle; repair/refactor seed their recorded PRE-TURN snapshot.
+  const codeDir = driverTurn === "green" ? b.preRedCodeDir : DRIVER_TURN_SEEDS[driverTurn].codeDir;
   overlayBundle(projectDir, {
     trees: [{ from: codeDir, to: "." }],
     files: [
@@ -465,13 +546,12 @@ export async function runDriverGreenOnScaffold(
   project: ScaffoldedDriverProject,
   opts: RunDriverGreenOptions = {},
 ): Promise<RunDriverGreenResult | void> {
-  const b = opts.bundle ?? DRIVER_GREEN_BUNDLE;
-  // Which driver turn to exercise. green = post-RED seed -> driver GREEN -> navigator ASSESS; repair =
-  // recorded post-assess regression seed -> driver REPAIR -> navigator ASSESS; refactor = recorded
-  // post-review refactor:true seed -> driver REFACTOR -> navigator REVIEW. Each seed is the recorded
-  // PRE-TURN snapshot (contained under SETUP_DIR); its correctness (that the drive routes to the intended
-  // turn) is confirmed at the gated live run , this is a live-only path.
+  // Which driver turn to exercise. green -> driver GREEN -> navigator ASSESS; repair -> driver REPAIR ->
+  // navigator ASSESS; refactor -> driver REFACTOR -> navigator REVIEW. The default bundle REPLAYS the
+  // actual corpus turn for that kind (recorded pre-project + recorded prompt + recorded levers), so the
+  // preconditions are held constant and a candidate lever is the only perturbation.
   const driverTurn = opts.driverTurn ?? "green";
+  const b = opts.bundle ?? replayBundleForTurn(driverTurn);
   const experimentSlug = opts.experimentSlug ?? `s3-driver-${driverTurn}`;
   const branchName = opts.branch ?? `experiment/${b.story}`;
   const { lakebaseProjectId, host, parentBranch } = project;
@@ -614,6 +694,20 @@ export async function runDriverGreenOnScaffold(
       // default (""); the lever perturbs it. (The one recorded effort, review_effort, is for the review
       // turn, which the navigator EVAL below pins to opus/high explicitly.)
       effortForTurn: (role) => (role === "driver" && driverEffort ? (driverEffort === "default" ? "" : driverEffort) : ""),
+      // REPLAY: drive the TARGET driver turn from the corpus turn's recorded prompt.txt verbatim (the exact
+      // context the agent saw), rehydrated to this worktree , so the recorded context is held constant and
+      // the lever is the only perturbation. The navigator EVAL turn that follows returns undefined here, so
+      // it derives its determination normally (the discriminator). Context levers append via contextPackSuffix.
+      ...(b.replay
+        ? {
+            instructionsOverride: (action: Extract<WorkflowAction, { kind: "invoke-role" }>): string | undefined => {
+              if (action.role !== "driver" || !("story" in action) || action.story !== b.story) return undefined;
+              const bm = (action as { buildMode?: unknown }).buildMode;
+              const isTarget = driverTurn === "green" ? bm === undefined : bm === driverTurn;
+              return isTarget ? rehydrate(b.replay!.promptRaw, projectDir) : undefined;
+            },
+          }
+        : {}),
       allowedToolsForRole: (role) => {
         if (role === "driver") {
           if (driverAllowedTools) return driverAllowedTools;
