@@ -110,6 +110,10 @@ export interface OptimizeRoleArgs {
    *  MERGE with any per-candidate trials already persisted under the run dir, so the rollup covers
    *  the full set. Absent => every candidate runs. */
   candidates?: string[];
+  /** Replicate each SELECTED candidate N times, as `<id>-r1..-rN` (unique ids => unique deterministic
+   *  ports). Used to measure a single lever's VARIANCE by running it N times IN PARALLEL in one trial
+   *  (pair with --concurrency N). Absent/1 => no replication. */
+  replicas?: number;
 }
 
 /** Parse argv (pure + exported for a unit test). Accepts --chains <set|list> OR the back-compat
@@ -127,13 +131,23 @@ export function parseArgs(argv: string[], chains: Record<string, unknown> = allC
   const resolved = chainsSpec ? expandChains(chainsSpec, chains) : expandChains(role!, chains);
   const conc = get("--concurrency");
   const cands = get("--candidates");
+  const reps = get("--replicas");
   return {
     chains: resolved,
     ...(get("--base-model") ? { baseModel: get("--base-model") } : {}),
     ...(get("--telemetry-dir") ? { telemetryDir: get("--telemetry-dir") } : {}),
     ...(conc !== undefined ? { concurrency: Math.max(1, Number(conc) || 1) } : {}),
     ...(cands ? { candidates: cands.split(",").map((s) => s.trim()).filter(Boolean) } : {}),
+    ...(reps !== undefined ? { replicas: Math.max(1, Number(reps) || 1) } : {}),
   };
+}
+
+/** Replicate each candidate N times as `<id>-r1..-rN` (same levers, unique ids). N<=1 => unchanged.
+ *  Pure + exported for a unit test. The unique ids give each replica its own deterministic deploy port. */
+export function expandReplicas<C extends { id: string }>(cands: C[], replicas?: number): C[] {
+  const n = Math.max(1, replicas ?? 1);
+  if (n === 1) return cands;
+  return cands.flatMap((c) => Array.from({ length: n }, (_, k) => ({ ...c, id: `${c.id}-r${k + 1}` })));
 }
 
 /** The role's baseline model: the CLI override, else RECOMMENDED_MODELS, else sonnet. */
@@ -173,7 +187,7 @@ export function selectDriverCandidates<C extends { id: string }>(all: C[], subse
 export async function sweepDriverGreen(
   handle: string,
   runRoot: string,
-  opts: { concurrency?: number; candidates?: string[] } = {},
+  opts: { concurrency?: number; candidates?: string[]; replicas?: number } = {},
 ): Promise<{ summary: ChainSummary }> {
   // GATED: only meaningful with a live test env (RUN_LIVE_STEP + LAKEBASE_TEST_E2E).
   if (!process.env.RUN_LIVE_STEP || !process.env.LAKEBASE_TEST_E2E) {
@@ -194,10 +208,12 @@ export async function sweepDriverGreen(
   // showed the driver's wall-clock is tool-churn (orientation + redundant self-verification), not model
   // tier (already sonnet), so the interesting levers are behavioral, not the generic model/effort grid.
   const all = driverGreenCandidates();
-  const candidates = selectDriverCandidates(all, opts.candidates);
+  // Select the subset, then REPLICATE (--replicas N) into <id>-r1..-rN so one lever can be run N times
+  // in parallel to measure its variance (each replica gets a unique id => unique deterministic port).
+  const candidates = expandReplicas(selectDriverCandidates(all, opts.candidates), opts.replicas);
 
   // eslint-disable-next-line no-console
-  console.log(`[optimize-role] ${handle}: CLOUD LIVE driver-GREEN sweep, ${candidates.length} candidate(s)${opts.candidates?.length ? ` (subset: ${opts.candidates.join(",")})` : ""}, concurrency=${opts.concurrency ?? 1}. run dir: ${runDir}`);
+  console.log(`[optimize-role] ${handle}: CLOUD LIVE driver-GREEN sweep, ${candidates.length} candidate(s)${opts.candidates?.length ? ` (subset: ${opts.candidates.join(",")})` : ""}${(opts.replicas ?? 1) > 1 ? ` x${opts.replicas} replicas` : ""}, concurrency=${opts.concurrency ?? 1}. run dir: ${runDir}`);
 
   // The MANDATORY driver-turn judge (SHARED with the re-judge harness): the recorded corpus ALSO
   // evaluated this driver turn (the navigator turn that followed it). buildDriverNextStepJudge re-runs
@@ -664,6 +680,7 @@ export async function runOptimizeRole(args: OptimizeRoleArgs): Promise<Record<st
       reports[handle] = await sweepDriverGreen(handle, runRoot, {
         ...(args.concurrency ? { concurrency: args.concurrency } : {}),
         ...(args.candidates?.length ? { candidates: args.candidates } : {}),
+        ...(args.replicas ? { replicas: args.replicas } : {}),
       });
     } else {
       reports[handle] = await sweepOneChain(handle, runRoot, {

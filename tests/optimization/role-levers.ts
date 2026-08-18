@@ -223,5 +223,8 @@ export function driverGreenCandidates(): RoleCandidate[] {
     // can be read against a pure model-inference-param change (does thinking-less alone go faster, and
     // does the one-turn green still hold?). Effort/model tiers are otherwise a separate study.
     { id: "e-low", levers: { effort: "low" } },
+    // COMBINED: the fastest scoping lever (ctx-test) crossed with think-less (e-low) , does handing the
+    // failing test AND lowering effort keep the speed win while holding the determination aligned?
+    { id: "ctx-test-elow", levers: { ctxPack: ["failing-test"], effort: "low" } },
   ];
 }

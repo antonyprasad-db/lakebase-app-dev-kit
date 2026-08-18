@@ -6,7 +6,7 @@
 import { describe, it, expect } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseArgs, expandChains, selectDriverCandidates, readCampAppDir, DRIVER_GREEN_CODE_PIN_REL, DRIVER_TURN_SPECS, concatTreeFiles, loadPreservedArtifacts, classifyReproduce, isMissingJudgeTarget, buildDriverNextStepJudge } from "../optimization/optimize-role.cli";
+import { parseArgs, expandChains, selectDriverCandidates, expandReplicas, readCampAppDir, DRIVER_GREEN_CODE_PIN_REL, DRIVER_TURN_SPECS, concatTreeFiles, loadPreservedArtifacts, classifyReproduce, isMissingJudgeTarget, buildDriverNextStepJudge } from "../optimization/optimize-role.cli";
 import { mkdtempSync, mkdirSync as mkdirSyncFs, writeFileSync as writeFileSyncFs, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { ROLE_CHAINS } from "../../consort/optimize/role-chains";
@@ -108,6 +108,25 @@ describe("selectDriverCandidates (driver-green resume subset)", () => {
 
   it("throws loud on an unknown candidate id BEFORE any scaffold (a resume typo must fail fast)", () => {
     expect(() => selectDriverCandidates(all, ["m-haiku", "m-nope"])).toThrow(/unknown driver-green candidate\(s\): m-nope.*Known:.*baseline/i);
+  });
+});
+
+describe("expandReplicas (--replicas N: run one lever N times in parallel to measure variance)", () => {
+  it("N<=1 leaves the set unchanged", () => {
+    const cs = [{ id: "ctx-test-elow", levers: { effort: "low" } }];
+    expect(expandReplicas(cs)).toEqual(cs);
+    expect(expandReplicas(cs, 1)).toEqual(cs);
+  });
+  it("replicates each candidate into <id>-r1..-rN with the SAME levers + unique ids", () => {
+    const out = expandReplicas([{ id: "ctx-test-elow", levers: { ctxPack: ["failing-test"], effort: "low" } }], 3);
+    expect(out.map((c) => c.id)).toEqual(["ctx-test-elow-r1", "ctx-test-elow-r2", "ctx-test-elow-r3"]);
+    expect(out.every((c) => JSON.stringify(c.levers) === JSON.stringify({ ctxPack: ["failing-test"], effort: "low" }))).toBe(true);
+    expect(new Set(out.map((c) => c.id)).size).toBe(3); // unique => distinct deterministic ports
+  });
+  it("parseArgs reads --replicas (clamped >= 1)", () => {
+    expect(parseArgs(["--role", "driver-green-s2", "--replicas", "3"]).replicas).toBe(3);
+    expect(parseArgs(["--role", "driver-green-s2", "--replicas", "0"]).replicas).toBe(1);
+    expect(parseArgs(["--role", "driver-green-s2"]).replicas).toBeUndefined();
   });
 });
 

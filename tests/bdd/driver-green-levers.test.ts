@@ -57,6 +57,7 @@ describe("driverGreenCandidates: the candidate set is well-formed", () => {
     expect(by["ctx-test-scope"].ctxPack).toEqual(["failing-test", "scope-note"]);
     expect(by["single-test-guard"]).toEqual({ guardSuite: true }); // KEPT as a directive/control option
     expect(by["e-low"]).toEqual({ effort: "low" }); // CROSS-AXIS comparison (effort lever, scored alongside)
+    expect(by["ctx-test-elow"]).toEqual({ ctxPack: ["failing-test"], effort: "low" }); // COMBINED scoping + think-less
     // No proven-harmful guardScan, no deprecated denyBash, and NO model-tier lever (effort e-low aside).
     for (const c of cs) {
       expect(c.levers.guardScan).toBeUndefined();
