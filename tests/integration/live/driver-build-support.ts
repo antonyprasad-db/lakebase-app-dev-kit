@@ -579,7 +579,9 @@ export async function runDriverGreenOnScaffold(
     // Capture the DRIVER turn's prompt + reasoning + tool trace (peek, before the eval turn overwrites
     // it) so each experiment preserves what the driver was told + how it reasoned , the new judge can be
     // re-run against this offline, no re-execution.
-    const driverTx = peekLastAgentTranscript();
+    // Peek BY the candidate's worktree (cwd) , concurrency-safe: a parallel sibling must NOT clobber
+    // this candidate's transcript (the driver spawns with cwd=cfg.projectDir=projectDir=wtDir).
+    const driverTx = peekLastAgentTranscript(projectDir);
 
     // ── ASSERT: the honest-GREEN product-channel proof ──
     const productCodeExists = hasSourceFile(join(projectDir, "app"));
@@ -648,7 +650,7 @@ export async function runDriverGreenOnScaffold(
     // the code + determination, so the whole experiment is recorded and the judge can be re-run offline
     // (no re-execution). Under a `transcripts/` prefix so it never collides with the judge's
     // `navigator-eval/` marker reads. Best-effort (a turn with no captured transcript => empty).
-    const evalTx = peekLastAgentTranscript();
+    const evalTx = peekLastAgentTranscript(projectDir); // same worktree cwd; the eval overwrote the driver's entry (temporal, correct)
     if (driverTx) {
       producedArtifacts["transcripts/driver-prompt.txt"] = driverTx.prompt;
       producedArtifacts["transcripts/driver-reasoning.txt"] = driverTx.finalText;

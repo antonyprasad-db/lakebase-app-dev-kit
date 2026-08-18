@@ -192,7 +192,18 @@ export interface TurnTranscript {
  *  level for the same reason `sessions`/`sessionContext` are: the spawn and the
  *  record wrapper are separated by the effects boundary. */
 let lastAgentTranscript: TurnTranscript | undefined;
-export function takeLastAgentTranscript(): TurnTranscript | undefined {
+/** Per-cwd (per-worktree) transcript index, set alongside the global on each turn's close. CONCURRENCY
+ *  SAFETY: the bare `lastAgentTranscript` global is a RACE when candidates run in parallel (each spawn
+ *  overwrites it, so a peek returns whoever flushed last , cross-candidate transcript crosstalk). A
+ *  concurrent caller (the optimize sweep, one worktree per candidate) peeks BY ITS cwd to get its OWN
+ *  turn, never a sibling's. The serial drive keeps using the no-arg global path unchanged. */
+const lastAgentTranscriptByCwd = new Map<string, TurnTranscript>();
+export function takeLastAgentTranscript(cwd?: string): TurnTranscript | undefined {
+  if (cwd !== undefined) {
+    const t = lastAgentTranscriptByCwd.get(cwd);
+    lastAgentTranscriptByCwd.delete(cwd);
+    return t;
+  }
   const t = lastAgentTranscript;
   lastAgentTranscript = undefined;
   return t;
@@ -203,9 +214,18 @@ export function takeLastAgentTranscript(): TurnTranscript | undefined {
  *  consumers run per turn (the agent's lastResult + the record wrapper), the earlier one MUST peek,
  *  or the wrapper gets undefined and transcript.md is silently never written (the bug this fixes:
  *  every executor-dispatched agent turn lost its transcript to the double-consume race). The record
- *  wrapper remains the sole take()-clearer, at end of turn. */
-export function peekLastAgentTranscript(): TurnTranscript | undefined {
-  return lastAgentTranscript;
+ *  wrapper remains the sole take()-clearer, at end of turn.
+ *  Pass `cwd` to read the transcript for THAT worktree , the concurrency-safe path (see
+ *  lastAgentTranscriptByCwd); omit it for the serial global. */
+export function peekLastAgentTranscript(cwd?: string): TurnTranscript | undefined {
+  return cwd !== undefined ? lastAgentTranscriptByCwd.get(cwd) : lastAgentTranscript;
+}
+/** Record a turn's transcript as both the global last AND the per-cwd entry. Exported so the crosstalk
+ *  safety (peek-by-cwd returns THIS cwd's turn, never a concurrent sibling's) is unit-testable without
+ *  spawning claude. Called by spawnClaudeStreaming on each turn's close. */
+export function recordAgentTranscript(cwd: string, tx: TurnTranscript): void {
+  lastAgentTranscript = tx;
+  lastAgentTranscriptByCwd.set(cwd, tx);
 }
 
 /** Build the default per-turn monitor from the module timeout constants. A turn with
@@ -385,13 +405,16 @@ export function spawnClaudeStreaming(
       const pIdx = args.indexOf("-p");
       const rIdx = args.indexOf("--agent");
       const mIdx = args.indexOf("--model");
-      lastAgentTranscript = {
+      const tx: TurnTranscript = {
         prompt: pIdx >= 0 ? args[pIdx + 1] ?? "" : "",
         role: rIdx >= 0 ? args[rIdx + 1] : undefined,
         model: mIdx >= 0 ? args[mIdx + 1] : undefined,
         finalText: lastText,
         tools: allTools,
       };
+      // Record as global last AND per-cwd (the worktree), so a concurrent peek gets ITS OWN turn, not a
+      // sibling's , the fix for cross-candidate transcript crosstalk in parallel sweeps (global is a race).
+      recordAgentTranscript(cwd, tx);
       resolve(parseTurnUsage(lines));
     });
   });

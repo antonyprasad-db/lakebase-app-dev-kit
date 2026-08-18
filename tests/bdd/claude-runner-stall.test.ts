@@ -15,7 +15,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { spawn } from "node:child_process";
 import { createMonitorController } from "../../consort/orchestrator/turns/turn-monitor";
-import { defaultTurnMonitor } from "../../consort/orchestrator/drive/claude-runner";
+import { defaultTurnMonitor, recordAgentTranscript, peekLastAgentTranscript, takeLastAgentTranscript } from "../../consort/orchestrator/drive/claude-runner";
 import { assistantTextFromLine, assistantEventSummary } from "../../consort/session/claude-usage";
 
 describe("claude-runner stall wiring", () => {
@@ -104,5 +104,29 @@ describe("claude-runner stall wiring", () => {
     // The child was SIGKILLed (exit code null with a signal, or non-zero) , it did NOT
     // run to its natural 30s completion.
     expect(code === null || code !== 0).toBe(true);
+  });
+});
+
+describe("agent transcript capture is concurrency-safe (peek BY cwd, no cross-candidate crosstalk)", () => {
+  // The bug: peekLastAgentTranscript returned a module GLOBAL, so parallel candidates (each its own
+  // worktree) overwrote it and a peek got whoever flushed last , scrambling per-run transcript
+  // attribution in every concurrent sweep. Fix: index by cwd; a caller peeks BY its worktree.
+  const tx = (p: string) => ({ prompt: p, finalText: p + "-done", tools: [`Bash ${p}`] });
+  it("peek(cwd) returns THAT worktree's turn even after a sibling records later", () => {
+    recordAgentTranscript("/wt/candA", tx("A"));
+    recordAgentTranscript("/wt/candB", tx("B")); // a concurrent sibling flushes AFTER A
+    expect(peekLastAgentTranscript("/wt/candA")?.prompt).toBe("A"); // NOT clobbered by B
+    expect(peekLastAgentTranscript("/wt/candB")?.prompt).toBe("B");
+    expect(peekLastAgentTranscript()?.prompt).toBe("B"); // no-arg global = last flushed (serial back-compat)
+    takeLastAgentTranscript("/wt/candA");
+    takeLastAgentTranscript("/wt/candB");
+  });
+  it("take(cwd) clears only that worktree's entry", () => {
+    recordAgentTranscript("/wt/x", tx("X"));
+    recordAgentTranscript("/wt/y", tx("Y"));
+    expect(takeLastAgentTranscript("/wt/x")?.prompt).toBe("X");
+    expect(peekLastAgentTranscript("/wt/x")).toBeUndefined(); // cleared
+    expect(peekLastAgentTranscript("/wt/y")?.prompt).toBe("Y"); // sibling untouched
+    takeLastAgentTranscript("/wt/y");
   });
 });
