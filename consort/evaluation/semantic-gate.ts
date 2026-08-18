@@ -1050,16 +1050,9 @@ async function evaluateAssessNextStep(args: {
   const cc = candidate.classification;
   const base = { recordedClass: rc, candidateClass: cc };
 
-  // Candidate found NO issues (equivalent) where recorded found some => strictly fewer => HONORS.
-  if (cc === "equivalent" && rc !== "equivalent") {
-    return { ...base, verdict: "pass-with-honors", betterThanRecorded: true, reason: `candidate's next-step navigator found the code clean (equivalent) where the recorded run found "${rc}" , fewer issues` };
-  }
-  // Candidate escalated to a WORSE classification (a regression/insufficient) where recorded was
-  // clean or a benign shift => more/worse issues => FAIL.
-  if ((cc === "regression" || cc === "insufficient") && (rc === "equivalent" || rc === "superseded-shift")) {
-    return { ...base, verdict: "fail", reason: `candidate's next-step navigator escalated to "${cc}" where the recorded determination was "${rc}" , more/worse issues than recorded` };
-  }
-  // Both superseded-shift: compare the flagged SET directionally via the shared delta judge.
+  // Both superseded-shift: SAME rung on the ladder below , the flagged SET decides same/better/worse
+  // (identical / coverage-equivalent => same; strict subset => fewer issues => honors; superset / divergent
+  // set => more/different => worse). The shared makeSupersessionDeltaJudge owns the set comparison.
   if (rc === "superseded-shift" && cc === "superseded-shift") {
     const recSet = [...(recorded.supersededTests ?? [])].sort();
     const navSet = [...(candidate.supersededTests ?? [])].sort();
@@ -1075,19 +1068,32 @@ async function evaluateAssessNextStep(args: {
     if (verdict.equivalent) {
       return { ...base, verdict: "pass", reason: `candidate's superseded set is coverage-equivalent to the recorded ground truth (delta-judged)` };
     }
-    // Not equivalent: a strict subset (candidate flagged fewer, all within recorded) is fewer issues =>
-    // HONORS; a superset or a divergent set (over-flag / different tests) is more/different => FAIL.
     if (candidateSubset) {
       return { ...base, verdict: "pass-with-honors", betterThanRecorded: true, reason: `candidate flagged a strict subset of the recorded superseded set (${navSet.length} of ${recSet.length}) , fewer issues: ${(verdict.materialDifferences ?? []).join("; ")}` };
     }
     return { ...base, verdict: "fail", reason: `candidate's superseded set differs materially from the recorded ground truth${candidateSuperset ? " (over-flagged more tests)" : ""}: ${(verdict.materialDifferences ?? []).join("; ") || "sets not coverage-equivalent"}` };
   }
-  // Same classification with nothing to diff (equivalent==equivalent, regression==regression, etc.) => PASS.
-  if (cc === rc) {
-    return { ...base, verdict: "pass", reason: `candidate's next-step navigator reached the same determination ("${cc}")` };
+
+  // RESOLUTION LADDER , the "same or better" directional scorer over the next-turn navigator
+  // determination classes. A HIGHER rung is a MORE-RESOLVED outcome (the code is closer to correct-and-done):
+  //   equivalent (3)       : the navigator found the code clean , fully resolved.
+  //   superseded-shift (2) : the code is CORRECT; only PRIOR tests are now obsolete (a permissive refactor
+  //                          remains). The AC's change SUCCEEDED , strictly MORE resolved than a regression.
+  //   regression (1)       : the code is WRONG (broke behavior the AC did not intend).
+  //   insufficient (0)     : a failed verify the navigator could not even diagnose , least resolved.
+  // "same or better" = candidate rung >= recorded rung. This is the layered scorer that recognizes, e.g., a
+  // candidate reaching `superseded-shift` as BETTER than a recorded `regression` (the drop/change resolved;
+  // only test bookkeeping is left) , the case that matters for contract-change turns.
+  const RANK: Record<string, number> = { equivalent: 3, "superseded-shift": 2, regression: 1, insufficient: 0 };
+  const rr = RANK[rc] ?? 1;
+  const cr = RANK[cc] ?? 1;
+  if (cr > rr) {
+    return { ...base, verdict: "pass-with-honors", betterThanRecorded: true, reason: `candidate's next-turn navigator reached a MORE-RESOLVED determination "${cc}" than the recorded "${rc}" (resolution ladder: ${rc} -> ${cc})` };
   }
-  // Any other classification divergence is a mismatch => FAIL (do not silently pass an off-axis change).
-  return { ...base, verdict: "fail", reason: `candidate's next-step navigator determination "${cc}" diverges from the recorded "${rc}"` };
+  if (cr < rr) {
+    return { ...base, verdict: "fail", reason: `candidate's next-turn navigator determination "${cc}" is LESS resolved than the recorded "${rc}" (resolution ladder)` };
+  }
+  return { ...base, verdict: "pass", reason: `candidate's next-turn navigator reached an equally-resolved determination ("${cc}", same as recorded)` };
 }
 
 /** REVIEW-evaluator comparison for driver-REFACTOR (RESOLUTION semantics, not match). The corpus has no

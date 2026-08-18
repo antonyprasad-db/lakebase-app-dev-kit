@@ -306,6 +306,19 @@ describe("buildDriverNextStepJudge IS the next-turn assessment (ENFORCED: no bes
     expect(v.passed).toBe(true);
     expect(v.classification).toBe("pass-with-honors");
   });
+  it("BETTER: superseded-shift outranks the recorded regression on the resolution ladder => pass-with-honors", async () => {
+    // The resolution ladder scores same/better/worse over the DETERMINATION classes: superseded-shift (code
+    // correct, prior tests superseded) is MORE resolved than a regression (code broken). driver-green-s2's
+    // recorded next-turn determination is a regression, so a candidate whose navigator returns superseded-shift
+    // is BETTER , the contract-change case (the drop resolved; only test bookkeeping remains). No code scan.
+    const v = await buildDriverNextStepJudge("driver-green-s2").judgeCandidate({
+      candidateId: "resolved-drop",
+      primary: undefined,
+      producedArtifacts: { "navigator-eval/superseded.json": JSON.stringify({ verdict: "superseded", tests: ["tests/step_defs/test_S1_file_stock.py"], reason: "the drop supersedes prior tests" }) },
+    });
+    expect(v.passed).toBe(true);
+    expect(v.classification).toBe("pass-with-honors");
+  });
   it("the verdict is driven ONLY by the next-turn determination, NOT the produced code (no code-scan)", async () => {
     // SAME determination (regression), wildly different app/ code: the verdict must be IDENTICAL. A
     // code-scanning discriminator (the removed milestone) would diverge these; the pure delegate cannot.
