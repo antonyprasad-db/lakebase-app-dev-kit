@@ -1,0 +1,20 @@
+{
+  "name": "driver-green-s2-migration",
+  "turn": "0115-driver",
+  "ac": "AC1-column-dropped",
+  "concurrency": 2,
+  "candidates": [
+    {
+      "id": "opus-e-medium",
+      "levers": { "model": "opus", "effort": "medium" }
+    },
+    {
+      "id": "opus-e-medium-ctx-test",
+      "levers": {
+        "model": "opus",
+        "effort": "medium",
+        "context": { "mode": "append", "include": ["failing-test"] }
+      }
+    }
+  ]
+}
