@@ -52,17 +52,17 @@ describe("driverGreenCandidates: the candidate set is well-formed", () => {
     for (const id of ids) expect(id).toMatch(/^[a-z0-9-]+$/); // filesystem-safe
 
     const by = Object.fromEntries(cs.map((c) => [c.id, c.levers]));
-    // The scoping/context axis ONLY , enforcement dropped (noise/harm) + NO model/effort levers (off-thesis).
+    // The scoping/context axis (enforcement dropped as noise/harm) + e-low as the cross-axis effort point.
     expect(by["ctx-test"].ctxPack).toEqual(["failing-test"]);
     expect(by["scope-note"].ctxPack).toEqual(["scope-note"]);
     expect(by["ctx-test-scope"].ctxPack).toEqual(["failing-test", "scope-note"]);
     expect(by["single-test-guard"]).toEqual({ guardSuite: true }); // KEPT as a directive/control option
-    // No proven-harmful guardScan, no deprecated denyBash, and NO model/effort levers (scoping only).
+    expect(by["e-low"]).toEqual({ effort: "low" }); // CROSS-AXIS comparison (effort lever, scored alongside)
+    // No proven-harmful guardScan, no deprecated denyBash, and NO model-tier lever (effort e-low aside).
     for (const c of cs) {
       expect(c.levers.guardScan).toBeUndefined();
       expect(c.levers.denyBash).toBeUndefined();
       expect(c.levers.model).toBeUndefined();
-      expect(c.levers.effort).toBeUndefined();
     }
   });
 

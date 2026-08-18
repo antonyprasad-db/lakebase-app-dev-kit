@@ -50,12 +50,13 @@ overturned that:
   handing the driver the failing test removes the discover-then-sprawl opening.
 
 **Conclusion:** the causal axis is **CONTEXT/SCOPING** (inform the driver so it doesn't rabbit-hole),
-NOT **ENFORCEMENT** (blocking exploration backfires). Candidate set (`driverGreenCandidates`) is the
-scoping/context axis ONLY: `ctx-test`, `scope-note` (explicit "make only the failing test green at its
+NOT **ENFORCEMENT** (blocking exploration backfires). Candidate set (`driverGreenCandidates`): the
+scoping/context levers — `ctx-test`, `scope-note` (explicit "make only the failing test green at its
 layer; don't chase other layers"), `ctx-test-scope` (both — the deterministic encoding of the −46% good
-path), plus `single-test-guard` kept as a directive control. Dropped: `guard-scan`, `ctx-db`,
-`scope-guard`, `enforce-all`, and **`e-low`** (an effort lever — a model-inference parameter, off the
-scoping thesis; model-tier/effort are a separate axis, not swept here).
+path) — plus `single-test-guard` (a directive control) and **`e-low`** (a CROSS-AXIS comparison: the
+effort lever / think-less, a model-inference parameter — NOT a scoping lever, but scored so the scoping
+levers can be read against a pure model-param change). Dropped: `guard-scan`, `ctx-db`, `scope-guard`,
+`enforce-all`. Model tiers are a separate study, not swept here.
 
 **The right judge (single-turn, directional).** `buildDirectionalTurnJudge` wraps the assess/next-step
 comparison: a candidate that reaches **honest-GREEN in ONE turn on an assess-referenced turn** scores
@@ -187,8 +188,9 @@ So `--concurrency 2` and `4` are now safe (bounded also by Lakebase branch quota
 ## Run (after landing; live/cloud, user-kicked)
 
 Use the `driver-green-s2` handle (the thrashing S2 drop migration — the turn the levers target) and
-run at n≥3; omit `--candidates` to sweep the full scoping set (`ctx-test`, `scope-note`,
-`ctx-test-scope`, `single-test-guard`). There is NO live `baseline` candidate: the RECORDED original
+run at n≥3; omit `--candidates` to sweep the full set (`ctx-test`, `scope-note`, `ctx-test-scope`,
+`single-test-guard`, and `e-low` as the cross-axis effort comparison). There is NO live `baseline`
+candidate: the RECORDED original
 turn IS the baseline (its duration + determination are the judge reference).
 ```
 scripts/optimize-role.sh --chains driver-green-s2 \

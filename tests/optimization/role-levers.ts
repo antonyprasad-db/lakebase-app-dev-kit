@@ -204,7 +204,9 @@ export function testStrategistCandidates(enabledKinds: string[]): RoleCandidate[
  *                         layers (client/SPA)" directive , targets the residual client rabbit-hole
  *   - ctx-test-scope    : hand the test AND scope , the deterministic encoding of the -46% good path
  *   - single-test-guard : KEPT as a directive/control option (proven variance, not expected to win)
- * SCOPING/CONTEXT axis ONLY , no model-tier or effort levers (those are a separate, off-thesis axis).
+ *   - e-low             : CROSS-AXIS comparison , the effort lever (think less). NOT a scoping lever;
+ *                         scored so the scoping levers can be read against a pure model-param change.
+ * The thesis axis is SCOPING/CONTEXT; e-low is the one effort point kept for comparison (no model tiers).
  * Dropped (proven noise/harm): guard-scan, ctx-db, scope-guard, enforce-all. Run at n>=3.
  */
 export function driverGreenCandidates(): RoleCandidate[] {
@@ -217,5 +219,9 @@ export function driverGreenCandidates(): RoleCandidate[] {
     { id: "scope-note", levers: { ctxPack: ["scope-note"] } },
     { id: "ctx-test-scope", levers: { ctxPack: ["failing-test", "scope-note"] } },
     { id: "single-test-guard", levers: { guardSuite: true } },
+    // CROSS-AXIS comparison point (NOT scoping): the effort lever. Kept scored so the scoping levers
+    // can be read against a pure model-inference-param change (does thinking-less alone go faster, and
+    // does the one-turn green still hold?). Effort/model tiers are otherwise a separate study.
+    { id: "e-low", levers: { effort: "low" } },
   ];
 }
