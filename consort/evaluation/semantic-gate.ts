@@ -470,12 +470,16 @@ export type SupersessionDeltaJudge = (args: {
  *       or, WITHOUT fixDirective, insufficient / escalate (needs a human)
  *   - neither present => equivalent / accept (the navigator judged the code clean). */
 export function parseNavigatorAssessMarker(markerDir: string): DiscriminatorVerdict {
-  const sup = join(markerDir, "superseded-tests.json");
+  // Superseded determination filename: the kit's navigator writes `superseded.json`; older corpora used
+  // `superseded-tests.json`. Accept EITHER , WITHOUT this the kit's superseded-shift is invisible and the
+  // determination falls through to "equivalent" (clean), mis-scoring a real superseded-shift as a pass.
+  const sup = ["superseded.json", "superseded-tests.json"].map((n) => join(markerDir, n)).find((p) => existsSync(p));
   const reg = join(markerDir, "regression-assessment.json");
-  if (existsSync(sup)) {
+  if (sup) {
     try {
-      const j = JSON.parse(readFileSync(sup, "utf8")) as { tests?: unknown };
-      const tests = Array.isArray(j.tests) ? j.tests.map(String) : [];
+      const j = JSON.parse(readFileSync(sup, "utf8")) as { tests?: unknown; supersededTests?: unknown };
+      const raw = Array.isArray(j.tests) ? j.tests : Array.isArray(j.supersededTests) ? j.supersededTests : [];
+      const tests = raw.map(String);
       return { score: 1, classification: "superseded-shift", nextStep: "permissive-refactor-superseded", supersededTests: tests };
     } catch {
       /* fall through */
@@ -499,7 +503,23 @@ export function parseNavigatorAssessMarker(markerDir: string): DiscriminatorVerd
       /* fall through */
     }
   }
-  // No marker written => the navigator judged the driver's code clean.
+  // No determination marker. A FAILED green with no determination is NOT a clean pass: if green-failure.json
+  // records a failed verify (assessed, or a "…FAILED…" summary) but the navigator wrote neither a
+  // superseded nor a regression determination, the outcome is UNKNOWN/insufficient (a failed green the
+  // navigator did not diagnose), NEVER "equivalent". Only a genuine absence of failure is clean.
+  const gf = join(markerDir, "green-failure.json");
+  if (existsSync(gf)) {
+    try {
+      const g = JSON.parse(readFileSync(gf, "utf8")) as { assessed?: unknown; summary?: unknown };
+      const summary = typeof g.summary === "string" ? g.summary : "";
+      if (g.assessed === true || /fail/i.test(summary)) {
+        return { score: 0, classification: "insufficient", nextStep: "escalate" };
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  // No marker + no recorded green failure => the navigator judged the driver's code clean.
   return { score: 1, classification: "equivalent", nextStep: "accept" };
 }
 

@@ -308,3 +308,35 @@ describe("buildDriverNextStepJudge is the discriminator , NO driver-output short
     expect(v.passed).toBe(false);
   });
 });
+
+describe("parseNavigatorAssessMarker recognizes the kit's determination shapes (anti-false-clean guard)", () => {
+  // The kit-produced determinations were being MISREAD as clean, creating false pass-with-honors:
+  //  (1) the kit writes `superseded.json` (not `superseded-tests.json`) => a real superseded-shift fell
+  //      through to "equivalent" (clean); (2) a FAILED green with no determination file defaulted to
+  //      "equivalent" too. Both must be recognized. Uses a temp marker dir , no cloud, no LLM.
+  const mk = (files: Record<string, unknown>) => {
+    const dir = mkdtempSync(join(tmpdir(), "navmarker-"));
+    for (const [name, body] of Object.entries(files)) writeFileSyncFs(join(dir, name), JSON.stringify(body));
+    return dir;
+  };
+  it("reads `superseded.json` (the kit's filename) as superseded-shift with its test set", () => {
+    const dir = mk({ "superseded.json": { verdict: "superseded", tests: ["tests/step_defs/test_S1_file_stock.py", "tests/test_stock_db_invariants.py"] } });
+    try {
+      const v = parseNavigatorAssessMarker(dir);
+      expect(v.classification).toBe("superseded-shift");
+      expect(v.supersededTests).toEqual(["tests/step_defs/test_S1_file_stock.py", "tests/test_stock_db_invariants.py"]);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+  it("a FAILED green with NO determination is 'insufficient', NOT 'equivalent' (a failed green is never clean)", () => {
+    const dir = mk({ "green-failure.json": { assessed: true, summary: "GREEN verify FAILED against the running app" } });
+    try {
+      expect(parseNavigatorAssessMarker(dir).classification).toBe("insufficient");
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+  it("genuinely no markers + no recorded failure => equivalent (the clean case still holds)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "navmarker-clean-"));
+    try {
+      expect(parseNavigatorAssessMarker(dir).classification).toBe("equivalent");
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+});
