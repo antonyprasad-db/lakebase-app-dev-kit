@@ -581,12 +581,12 @@ export async function runDriverGreenOnScaffold(
     const storyProgress = storyTestProgress(consortDir, b.feature, b.story);
     const allGreen = storyProgress.allGreen;
     assert(productCodeExists, "driver wrote product code under app/");
-    // green/repair drive TOWARD honest-GREEN => assert it stamped green. refactor operates on
-    // already-green code (a cleanup) and its honest-GREEN is re-verified by its own cycle, so a
-    // hard all-green assert here is green/repair-appropriate; for refactor we require the turn ran.
-    if (driverTurn !== "refactor") {
-      assert(allGreen, "the AC's honest-GREEN cycle stamped green against the live branch");
-    }
+    // SINGLE-TURN measurement: this is ONE driver turn's worth of function, NOT the whole story. We do
+    // NOT require the story to be all-green , that is a MULTI-turn property (a 41-turn story like
+    // S2-drop-combined can never green in one bounded turn, and requiring it wrongly DQ'd every
+    // candidate). A FAILING green is a valid, scorable turn: it flows to the navigator assess below,
+    // and the judge scores that determination SAME/BETTER/WORSE vs the recorded original turn. `allGreen`
+    // is kept as an informational SIGNAL (classifyBuildTrial + the trial), never a hard gate.
     assert(result.stoppedAtBound || result.stoppedAtMax || result.iterations >= 1, "driver ran at least one bounded iteration");
     assertEq(readPipeline(consortDir, b.feature).build_active, b.story, "the pipeline's build_active is the swept story");
     void host;

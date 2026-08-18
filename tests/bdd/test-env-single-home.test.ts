@@ -25,6 +25,7 @@ const ALLOWED = [
   // The recorded app .env bundles for the driver-green live harness + its repair-seed / refactor-seed
   // variants (all recorded app data, not kit config; same category as the base code-assets bundle).
   "tests/integration/live/driver-green-setup/",
+  "tests/integration/live/driver-green-setup-s2/", // the S2 migration bundle (same recorded-app-data category)
   "docs/",
   "tests/bdd/test-env-single-home.test.ts",
   // Asserts the stockflow DEMO run.json's self-contained public default (a runnable example, not

@@ -228,9 +228,14 @@ export async function sweepDriverGreen(
     // the judge reads it without widening the ChainRunResult seam; the app/+tests stay for preservation.
     const producedArtifacts: Record<string, string> = { ...result.producedArtifacts };
     for (const [k, v] of Object.entries(result.nextStepMarker)) producedArtifacts[`${NEXT_STEP_MARKER_PREFIX}${k.split("/").pop()}`] = v;
-    // turns:[] (the driver's work is a full GREEN cycle, not a single ManifestTurn), so hand the harness's
+    // SINGLE-TURN: the gate is STRUCTURAL (the turn ran + produced code + a determination was captured ,
+    // guaranteed by reaching here; a crash was caught upstream => DQ). It is NOT `honestGreen`: a failing
+    // green is a valid scorable turn, and gating on green would skip the judge (role-sweep only judges
+    // gate-passers). Quality is the judge's SAME/BETTER/WORSE on the determination vs the recorded
+    // original; honestGreen rides along as a signal for the report, not a gate.
+    // turns:[] (the driver's work is a live cycle, not a single ManifestTurn), so hand the harness's
     // measured wall-clock explicitly , without it every candidate reads 0ms and the winner can't be ranked.
-    return { turns: [], producedArtifacts, gate: { passed: result.honestGreen }, durationMs: result.durationMs };
+    return { turns: [], producedArtifacts, gate: { passed: true, honestGreen: result.honestGreen }, durationMs: result.durationMs };
   };
 
   let trials: SweepTrial[];
