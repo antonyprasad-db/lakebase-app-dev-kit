@@ -53,6 +53,14 @@ export interface DriverTurnSpec {
    *  sweep scores each candidate's time against (same/better/worse), so we compare to the recording
    *  (not a noisy fresh baseline run). Absent => fall back to the live baseline candidate's median. */
   recordedBaselineMs?: number;
+  /** For a contract-DROP turn: the production symbol the AC removes (e.g. a dropped column). Enables the
+   *  RESOLVED-END-STATE (milestone) credit: the recorded run reached `regression` at THIS step and only
+   *  reached the resolved `superseded-shift` MANY turns later, AFTER repairing the code. A candidate that
+   *  reaches superseded-shift HERE with functionally-clean production code (no REAL refs to this symbol)
+   *  hit that milestone in ONE turn , the recorded run's later state , so it is BETTER, not a divergence.
+   *  Superseded-shift with code STILL referencing the symbol is a mis-diagnosis (the regression stands) =>
+   *  WORSE. Absent => no milestone credit (plain determination comparison). */
+  droppedSymbol?: string;
 }
 export const DRIVER_TURN_SPECS: Record<string, DriverTurnSpec> = {
   "driver-green": { driverTurn: "green", evaluatorKind: "assess", refRel: "next-step/driver-green" },
@@ -60,7 +68,7 @@ export const DRIVER_TURN_SPECS: Record<string, DriverTurnSpec> = {
   // exceed the S3 variance; see DRIVER-GREEN-LEVERS.md). Same green turn, its OWN bundle + judge reference.
   // recordedBaselineMs = the recorded original 002-driver green wall-clock (stockflow-full agent-log,
   // S2-drop-combined-code, first `green` phase = 667.2s) , the fixed time baseline for same/better/worse.
-  "driver-green-s2": { driverTurn: "green", evaluatorKind: "assess", refRel: "next-step/driver-green-s2", recordedBaselineMs: 667200 },
+  "driver-green-s2": { driverTurn: "green", evaluatorKind: "assess", refRel: "next-step/driver-green-s2", recordedBaselineMs: 667200, droppedSymbol: "inventory_code" },
   "driver-repair": { driverTurn: "repair", evaluatorKind: "assess", refRel: "next-step/driver-repair" },
   "driver-refactor": { driverTurn: "refactor", evaluatorKind: "review", refRel: "next-step/driver-refactor" },
 };
@@ -506,6 +514,39 @@ export function buildDriverNextStepJudge(handle: string): QualityGate {
                 candidateReview: parseVerdictFile(producedArtifacts[`${NEXT_STEP_MARKER_PREFIX}review-verdict.json`] ?? "{}"),
               }),
         });
+        // RESOLVED-END-STATE (milestone) credit for a contract-DROP turn. The recorded run reached
+        // `regression` at THIS step and only reached `superseded-shift` MANY turns later, AFTER repairing
+        // the code (verified in the corpus: inventory_code still referenced at turn 003 => regression;
+        // fully removed by turn 018 => turn 019 superseded-shift). So `superseded-shift` is the recorded
+        // run's LATER RESOLVED state, not an alternative first-green diagnosis. THE MILESTONE TO BEAT is
+        // CLEAN CODE + SUPERSEDED-SHIFT: a candidate reaching it HERE did in ONE turn what the recording
+        // took ~16 turns to do => strictly BETTER. But superseded-shift with code STILL referencing the
+        // dropped symbol is a mis-diagnosis (the regression stands) => stays WORSE. Gated by spec.droppedSymbol.
+        if (
+          spec.droppedSymbol &&
+          outcome.verdict === "fail" &&
+          outcome.recordedClass === "regression" &&
+          outcome.candidateClass === "superseded-shift"
+        ) {
+          const hasProductionCode = Object.keys(producedArtifacts).some((k) => k.startsWith("app/") && k.endsWith(".py"));
+          const dirty = productionCodeReferencesSymbol(producedArtifacts, spec.droppedSymbol);
+          if (hasProductionCode && !dirty) {
+            return {
+              passed: true,
+              classification: "pass-with-honors",
+              nextStep: "resolved-end-state",
+              reason: `MILESTONE: candidate reached CLEAN CODE + superseded-shift in ONE turn (no real '${spec.droppedSymbol}' refs in production code) , the recorded run's LATER resolved state (it reached superseded-shift only after ~16 repair turns). Skipping that repair loop is strictly BETTER than the recorded first-green regression.`,
+            };
+          }
+          return {
+            passed: false,
+            classification: outcome.candidateClass,
+            nextStep: outcome.verdict,
+            reason: dirty
+              ? `candidate flagged superseded-shift while production code STILL references the dropped '${spec.droppedSymbol}' , mis-diagnosis (the regression stands), NOT the clean-code milestone: ${outcome.reason}`
+              : `candidate flagged superseded-shift but produced NO production code to confirm the dropped '${spec.droppedSymbol}' was removed , cannot credit the clean-code milestone: ${outcome.reason}`,
+          };
+        }
         const passed = outcome.verdict !== "fail";
         const classification = outcome.verdict === "pass-with-honors" ? "pass-with-honors" : outcome.candidateClass;
         return { passed, classification, nextStep: outcome.verdict, reason: outcome.reason };
@@ -514,6 +555,25 @@ export function buildDriverNextStepJudge(handle: string): QualityGate {
       }
     },
   };
+}
+
+/** True when the candidate's PRODUCTION code (app/**.py in producedArtifacts) references `symbol` as a
+ *  REAL identifier , a column/field/param/attribute/string , NOT a bare prose mention in a comment or
+ *  docstring. The code-token regex (symbol adjacent to =, :, (, [, ., or a quote) distinguishes
+ *  `inventory_code=` / `Column("inventory_code")` / `.inventory_code` from a sentence like
+ *  "…a nonconforming inventory_code." (the inert docstring line the drop candidates leave behind).
+ *  Used by the resolved-end-state milestone credit. Pure + exported for a unit test. */
+export function productionCodeReferencesSymbol(producedArtifacts: Record<string, string>, symbol: string): boolean {
+  const esc = symbol.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const codeRef = new RegExp(`["'.]${esc}|${esc}\\s*[=:(\\[]|${esc}["']`);
+  for (const [k, v] of Object.entries(producedArtifacts)) {
+    if (!k.startsWith("app/") || !k.endsWith(".py")) continue;
+    for (const line of v.split("\n")) {
+      if (line.trim().startsWith("#")) continue; // whole-line comment => never a real ref
+      if (codeRef.test(line)) return true;
+    }
+  }
+  return false;
 }
 
 /** Sweep ONE chain end to end + persist its evidence + report under <runRoot>/<handle>/. Returns

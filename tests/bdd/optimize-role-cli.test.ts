@@ -6,7 +6,7 @@
 import { describe, it, expect } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseArgs, expandChains, selectDriverCandidates, expandReplicas, readCampAppDir, DRIVER_GREEN_CODE_PIN_REL, DRIVER_TURN_SPECS, concatTreeFiles, loadPreservedArtifacts, classifyReproduce, isMissingJudgeTarget, buildDriverNextStepJudge } from "../optimization/optimize-role.cli";
+import { parseArgs, expandChains, selectDriverCandidates, expandReplicas, readCampAppDir, DRIVER_GREEN_CODE_PIN_REL, DRIVER_TURN_SPECS, concatTreeFiles, loadPreservedArtifacts, classifyReproduce, isMissingJudgeTarget, buildDriverNextStepJudge, productionCodeReferencesSymbol } from "../optimization/optimize-role.cli";
 import { mkdtempSync, mkdirSync as mkdirSyncFs, writeFileSync as writeFileSyncFs, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { ROLE_CHAINS } from "../../consort/optimize/role-chains";
@@ -315,16 +315,66 @@ describe("buildDriverNextStepJudge is the discriminator , NO driver-output short
     expect(v.passed).toBe(true);
     expect(v.classification).toBe("pass-with-honors");
   });
-  it("WORSE: a candidate whose navigator determination DIVERGES from the recorded regression FAILS", async () => {
+  it("WORSE: superseded-shift with NO production code cannot claim the clean-code milestone => FAILS", async () => {
     const judge = buildDriverNextStepJudge("driver-green-s2");
-    // A superseded-shift determination is a DIFFERENT axis than the recorded regression => divergence =>
-    // FAIL. This is the case a green-shortcut would wrongly rescue (the driver turn "ran + produced code").
+    // A bare superseded-shift marker with no app/ code gives no evidence the dropped symbol was removed,
+    // so the resolved-end-state milestone cannot be credited => stays FAIL (a green-shortcut would rescue it).
     const v = await judge.judgeCandidate({
       candidateId: "divergent",
       primary: undefined,
       producedArtifacts: { "navigator-eval/superseded-tests.json": JSON.stringify({ tests: ["tests/step_defs/test_S1_file_stock.py"], reason: "superseded by the drop" }) },
     });
     expect(v.passed).toBe(false);
+  });
+});
+
+describe("resolved-end-state MILESTONE: clean code + superseded-shift beats the recorded first-green regression", () => {
+  // The corpus reached `regression` at the drop step (turn 003, inventory_code still referenced) and only
+  // reached `superseded-shift` ~16 turns later, AFTER repairing the code (turn 019, 0 refs). So CLEAN CODE
+  // + SUPERSEDED-SHIFT is the resolved milestone. A candidate that hits it in ONE turn skipped the repair
+  // loop => BETTER. Superseded-shift with code STILL referencing the dropped symbol is a mis-diagnosis => WORSE.
+  const supersededMarker = { "navigator-eval/superseded-tests.json": JSON.stringify({ tests: ["tests/step_defs/test_S1_file_stock.py"], reason: "AC1 drops inventory_code" }) };
+  it("BETTER: superseded-shift + functionally-clean production code (no real refs) => pass-with-honors", async () => {
+    const v = await buildDriverNextStepJudge("driver-green-s2").judgeCandidate({
+      candidateId: "milestone",
+      primary: undefined,
+      producedArtifacts: {
+        ...supersededMarker,
+        // clean production code: only an inert docstring mention of the dropped symbol (a sentence), no real ref
+        "app/repositories/stock.py": "def upsert_stock(db, sku, location, quantity):\n    \"\"\"Upsert.\n\n    any row with both columns NULL had a nonconforming inventory_code.\n    \"\"\"\n    return db\n",
+      },
+    });
+    expect(v.passed).toBe(true);
+    expect(v.classification).toBe("pass-with-honors");
+    expect(v.nextStep).toBe("resolved-end-state");
+  });
+  it("WORSE: superseded-shift + production code STILL referencing the dropped symbol => mis-diagnosis, FAILS", async () => {
+    const v = await buildDriverNextStepJudge("driver-green-s2").judgeCandidate({
+      candidateId: "misdiagnosis",
+      primary: undefined,
+      producedArtifacts: {
+        ...supersededMarker,
+        // dirty: a REAL code reference to the dropped column (the regression stands)
+        "app/repositories/stock.py": "def upsert_stock(db, sku, location, quantity, inventory_code=None):\n    stmt = insert(Stock).values(inventory_code=inventory_code)\n    return db.execute(stmt)\n",
+      },
+    });
+    expect(v.passed).toBe(false);
+    expect(v.classification).not.toBe("pass-with-honors");
+  });
+});
+
+describe("productionCodeReferencesSymbol: real code ref vs inert prose/comment", () => {
+  it("matches real refs (column/param/attr/string) and IGNORES a docstring/comment sentence", () => {
+    expect(productionCodeReferencesSymbol({ "app/m.py": '    inventory_code = Column(String)\n' }, "inventory_code")).toBe(true);
+    expect(productionCodeReferencesSymbol({ "app/m.py": '    values(inventory_code=x)\n' }, "inventory_code")).toBe(true);
+    expect(productionCodeReferencesSymbol({ "app/m.py": '    row.inventory_code\n' }, "inventory_code")).toBe(true);
+    expect(productionCodeReferencesSymbol({ "app/m.py": '    set_={"inventory_code": x}\n' }, "inventory_code")).toBe(true);
+    // inert: a prose sentence (the drop candidates' leftover docstring line) is NOT a real ref
+    expect(productionCodeReferencesSymbol({ "app/m.py": '    any row with both columns NULL had a nonconforming inventory_code.\n' }, "inventory_code")).toBe(false);
+    // whole-line comment is skipped
+    expect(productionCodeReferencesSymbol({ "app/m.py": '# drop inventory_code in this migration\n' }, "inventory_code")).toBe(false);
+    // only app/**.py is scanned (tests/ + non-py ignored)
+    expect(productionCodeReferencesSymbol({ "tests/t.py": 'inventory_code=1\n' }, "inventory_code")).toBe(false);
   });
 });
 
