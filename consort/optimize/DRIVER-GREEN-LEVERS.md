@@ -60,17 +60,26 @@ levers can be read against a pure model-param change). Dropped: `guard-scan`, `c
 
 **The discriminator (re-evaluate the turn the way the corpus did, then compare same/better/worse).**
 The corpus didn't just record the driver-green *output* — it recorded how that output was **evaluated**:
-the navigator turn that followed (an ASSESS on S2 — the green failed its honest-GREEN verify because
-the drop left production code referencing `inventory_code`, so the navigator determined a regression +
-superseded-shift). The sweep re-runs that SAME evaluation LIVE on each candidate (the harness drives the
-opus-high navigator eval; its determination is captured under `navigator-eval/` in `producedArtifacts`)
-and `buildDriverNextStepJudge` → `evaluateNextStepDetermination` compares the candidate's determination
-to the RECORDED one at the same step. The verdict is directional on the *issues found*:
+the navigator turn that immediately followed (`003-navigator-assess`). Its determination is a
+**regression** — the green failed because the drop left production code referencing `inventory_code`
+(contract-incompleteness), the same conclusion a live candidate's navigator reaches. That same-step
+determination is the pinned reference (`next-step/driver-green-s2/regression-assessment.json`). The sweep
+re-runs that SAME evaluation LIVE on each candidate (the harness drives the opus-high navigator eval; its
+determination is captured under `navigator-eval/` in `producedArtifacts`) and `buildDriverNextStepJudge`
+→ `evaluateNextStepDetermination` compares the candidate's determination to the RECORDED one at the same
+step. The verdict is directional on the *issues found*:
 - **PASS (same)** — candidate's determination is identical or coverage-equivalent to the recorded one
-  (e.g. both `superseded-shift` over an equivalent superseded-test set; both `regression`; both clean).
+  (here: reproduces the `regression`).
 - **PASS-WITH-HONORS (better)** — candidate found FEWER / NO issues where the recorded run found some
-  (clean where recorded was `regression`; a strict subset of the recorded superseded set).
-- **FAIL (worse)** — candidate escalated to a worse class, over-flagged, or diverged (more/different issues).
+  (clean / `equivalent` where recorded was a `regression`).
+- **FAIL (worse)** — candidate escalated to a worse class, over-flagged, or diverged onto a different axis
+  (more/different issues than the recorded regression).
+
+*(NOT pinned to `019-navigator`'s later flag-superseded turn: its `superseded-shift` is a DIFFERENT step,
+so a candidate doing a correct regression assess would read "worse" against it — every candidate would
+fail structurally. The reference must be the SAME step's evaluation. `003`'s green-verify was
+infra-degenerate at record time — "no deploy target" — and its `regression-assessment.json` used the
+legacy `fix` key; curation modernizes it to `fixDirective` so it parses as the regression it is.)*
 
 There is NO honest-GREEN shortcut: whether the driver's own green passed is a report signal, not the
 judge — the judge is the navigator's determination vs the recorded navigator's determination. Each

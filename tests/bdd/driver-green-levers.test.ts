@@ -260,11 +260,18 @@ describe("S2 migration re-pin bundle: well-formed (the thrashing-turn pin)", () 
     expect(has(`${B}/design/stories/S2-drop-combined-code/acs/AC1-column-dropped.json`)).toBe(true);
   });
 
-  it("the judge reference carries a scorable supersession determination (=> superseded-shift)", () => {
-    expect(has(`${REF}/superseded-tests.json`)).toBe(true);
-    const sup = JSON.parse(readFileSync(join(repo, REF, "superseded-tests.json"), "utf8"));
-    expect(sup.tests?.length).toBeGreaterThan(0); // a real superseded set (drop-column supersedes inventory_code tests)
-    expect(sup.reason).toBeTruthy();
+  it("the judge reference is the SAME-STEP evaluation , 003-navigator-assess's REGRESSION determination", () => {
+    // The reference is how the corpus evaluated THIS step: the navigator turn after the S2 driver-green
+    // (003-navigator-assess) determined a regression (drop left code referencing the dropped column). It
+    // must parse as classification "regression" (fixDirective present, schema-modernized on curation), so
+    // a candidate that reproduces the regression scores SAME. NOT superseded-tests.json (a later, different
+    // step). See consort/optimize/DRIVER-GREEN-LEVERS.md + curate-driver-green-s2.sh.
+    expect(has(`${REF}/regression-assessment.json`)).toBe(true);
+    expect(has(`${REF}/superseded-tests.json`)).toBe(false); // ONLY the regression file, else it'd parse as superseded-shift
+    const reg = JSON.parse(readFileSync(join(repo, REF, "regression-assessment.json"), "utf8"));
+    expect(typeof reg.diagnosis).toBe("string");
+    expect(typeof reg.fixDirective).toBe("string"); // the field parseNavigatorAssessMarker reads to classify a regression
+    expect(reg.fixDirective.length).toBeGreaterThan(0);
   });
 
   it("run-config pins the S2 story", () => {

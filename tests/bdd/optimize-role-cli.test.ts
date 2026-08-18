@@ -268,32 +268,41 @@ describe("isMissingJudgeTarget: a judge short-circuit for an absent target is NO
 
 describe("buildDriverNextStepJudge is the discriminator , NO driver-output shortcut (anti-recurrence guard)", () => {
   // LOCKS the INVARIANT on buildDriverNextStepJudge: a driver candidate is judged by comparing the
-  // NAVIGATOR's determination on the candidate to the RECORDED navigator determination at the same step
+  // candidate's live NAVIGATOR determination to the RECORDED navigator determination at the SAME step
   // (same/better/worse), NEVER by a driver-output (honest-GREEN) signal. A prior change wrapped the judge
   // with "greened in one turn => pass-with-honors", which mis-scored a green that IGNORED a supersession
-  // (a green can pass its own verify while breaking prior tests => WORSE, not better). These cases have a
-  // WORSE / BETTER navigator determination but say nothing about green; if a green-shortcut is ever
-  // re-added, the first case flips to pass and this test fails. driver-green-s2's recorded determination
-  // is superseded-shift (a real drop-column supersession the recorded navigator flagged).
-  it("FAILS a candidate whose navigator ESCALATED to a regression (worse than the recorded superseded-shift)", async () => {
+  // (a green can pass its own verify while breaking prior tests). None of these cases carry a green signal
+  // at all , the verdict is driven ONLY by the determination, so if a green-shortcut (or any constant
+  // pass) is re-added, the WORSE case flips to pass and this test fails. driver-green-s2's recorded
+  // same-step determination is a REGRESSION (003-navigator-assess: the drop left code referencing the
+  // dropped column , contract-incompleteness).
+  it("SAME: a candidate that reproduces the recorded regression passes (matches the recorded evaluation)", async () => {
     const judge = buildDriverNextStepJudge("driver-green-s2");
     const v = await judge.judgeCandidate({
-      candidateId: "regressed",
+      candidateId: "faithful",
       primary: undefined,
-      // The candidate's live navigator assessed a REGRESSION (code still references the dropped column) ,
-      // strictly WORSE than the recorded superseded-shift. Must FAIL even though the driver turn "ran".
-      producedArtifacts: { "navigator-eval/regression-assessment.json": JSON.stringify({ diagnosis: "code still references the dropped inventory_code column", fix: "remove every inventory_code reference" }) },
+      producedArtifacts: { "navigator-eval/regression-assessment.json": JSON.stringify({ diagnosis: "code still references the dropped inventory_code column", fixDirective: "remove every inventory_code reference" }) },
     });
-    expect(v.passed).toBe(false);
-    expect(v.classification).not.toBe("pass-with-honors");
+    expect(v.passed).toBe(true);
+    expect(v.classification).not.toBe("pass-with-honors"); // same, not better
   });
-  it("scores a candidate whose navigator found the code CLEAN (no issues) as pass-with-honors (BETTER)", async () => {
+  it("BETTER: a candidate whose navigator found the code CLEAN scores pass-with-honors", async () => {
     const judge = buildDriverNextStepJudge("driver-green-s2");
-    // No navigator-eval markers => the navigator found nothing to flag (equivalent) where the recorded
-    // run found a superseded-shift => FEWER issues => better. This is credited by the determination
-    // comparison, not by any green signal.
+    // No navigator-eval markers => nothing to flag (equivalent) where the recorded run found a regression
+    // => FEWER issues => better. Credited by the determination comparison, not by any green signal.
     const v = await judge.judgeCandidate({ candidateId: "clean", primary: undefined, producedArtifacts: {} });
     expect(v.passed).toBe(true);
     expect(v.classification).toBe("pass-with-honors");
+  });
+  it("WORSE: a candidate whose navigator determination DIVERGES from the recorded regression FAILS", async () => {
+    const judge = buildDriverNextStepJudge("driver-green-s2");
+    // A superseded-shift determination is a DIFFERENT axis than the recorded regression => divergence =>
+    // FAIL. This is the case a green-shortcut would wrongly rescue (the driver turn "ran + produced code").
+    const v = await judge.judgeCandidate({
+      candidateId: "divergent",
+      primary: undefined,
+      producedArtifacts: { "navigator-eval/superseded-tests.json": JSON.stringify({ tests: ["tests/step_defs/test_S1_file_stock.py"], reason: "superseded by the drop" }) },
+    });
+    expect(v.passed).toBe(false);
   });
 });
