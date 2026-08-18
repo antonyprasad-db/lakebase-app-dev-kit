@@ -5,7 +5,7 @@ import { describe, it, expect } from "vitest";
 import { mkdtempSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { loadExperimentConfig, driverTurnFromLabel } from "../optimization/experiment-config";
+import { loadExperimentConfig, driverTurnFromLabel, roleFromLabel, substrateForRole } from "../optimization/experiment-config";
 
 function write(obj: unknown): string {
   const dir = mkdtempSync(join(tmpdir(), "exp-cfg-"));
@@ -19,6 +19,28 @@ describe("experiment-config: driverTurnFromLabel", () => {
     expect(driverTurnFromLabel("0156-driver")).toBe("green");
     expect(driverTurnFromLabel("0158-driver-repair")).toBe("repair");
     expect(driverTurnFromLabel("0160-driver-refactor")).toBe("refactor");
+  });
+});
+
+describe("experiment-config: role + substrate (one config for every turn)", () => {
+  it("derives the role from any turn label (multi-segment roles included)", () => {
+    expect(roleFromLabel("0156-driver")).toBe("driver");
+    expect(roleFromLabel("0037-navigator-assess")).toBe("navigator");
+    expect(roleFromLabel("0006-ux-designer")).toBe("ux-designer");
+    expect(roleFromLabel("0042-spec-author")).toBe("spec-author");
+    expect(roleFromLabel("0044-architect-reviewer")).toBe("architect-reviewer");
+    expect(() => roleFromLabel("0001-nope")).toThrow(/no known role/);
+  });
+  it("maps role -> substrate: driver=cloud, everything else=lean (the one switch)", () => {
+    expect(substrateForRole("driver")).toBe("cloud");
+    expect(substrateForRole("navigator")).toBe("lean");
+    expect(substrateForRole("test-strategist")).toBe("lean");
+    expect(substrateForRole("ux-designer")).toBe("lean");
+  });
+  it("loadExperimentConfig exposes derived role + substrate", () => {
+    const cfg = loadExperimentConfig(join(__dirname, "../../examples/replay/optimize-experiments/driver-green-ctx-test.json"));
+    expect(cfg.role).toBe("driver");
+    expect(cfg.substrate).toBe("cloud");
   });
 });
 

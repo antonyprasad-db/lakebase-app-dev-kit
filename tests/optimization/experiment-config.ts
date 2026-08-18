@@ -40,10 +40,14 @@ export interface ExperimentCandidateSpec {
   levers: ExperimentLeverSpec;
 }
 
-/** A full experiment: the corpus turn (fixed preconditions) + the candidates (the only perturbations). */
+/** A full experiment: the corpus turn (fixed preconditions) + the candidates (the only perturbations).
+ *  ONE config shape for EVERY turn , driver or navigator or a design role. The turn label determines the
+ *  role, and the role determines the SUBSTRATE (driver => cloud/Lakebase honest-GREEN; everything else =>
+ *  lean/no-cloud) , so a single externally-configured harness runs them all off the recorded replay-set. */
 export interface ExperimentConfig {
   name: string;
-  /** Corpus turn label whose replay-set + recorded-artifacts are the preconditions (e.g. "0156-driver"). */
+  /** Corpus turn label whose replay-set + recorded-artifacts are the preconditions (e.g. "0156-driver",
+   *  "0006-ux-designer", "0037-navigator-assess"). */
   turn: string;
   /** The story AC the turn targets (identifies the artifact copy). */
   ac: string;
@@ -52,6 +56,35 @@ export interface ExperimentConfig {
   concurrency?: number;
   replicas?: number;
   candidates: ExperimentCandidateSpec[];
+}
+
+/** The spawnable roles (longest-first so multi-segment roles match before a bare prefix). The turn
+ *  label is "<ordinal>-<role>[-<mode>]"; the role is the longest known role that follows the ordinal. */
+const KNOWN_ROLES = [
+  "architect-reviewer",
+  "test-strategist",
+  "spec-author",
+  "ux-designer",
+  "product-owner",
+  "navigator",
+  "driver",
+  "dba",
+] as const;
+
+/** The role a corpus turn label names (e.g. "0037-navigator-assess" -> "navigator", "0156-driver" ->
+ *  "driver", "0006-ux-designer" -> "ux-designer"). Throws on an unrecognized label. */
+export function roleFromLabel(turn: string): string {
+  const afterOrdinal = turn.replace(/^\d+-/, "");
+  const role = KNOWN_ROLES.find((r) => afterOrdinal === r || afterOrdinal.startsWith(r + "-"));
+  if (!role) throw new Error(`turn label "${turn}": no known role (roles: ${KNOWN_ROLES.join(", ")})`);
+  return role;
+}
+
+/** The SUBSTRATE a role's turn runs on: the DRIVER needs a live Lakebase branch + the honest-GREEN
+ *  verify (cloud); every other role (navigator + the design roles) runs lean (no cloud). One switch that
+ *  the unified harness reads to pick the substrate , not two separate harnesses. */
+export function substrateForRole(role: string): "cloud" | "lean" {
+  return role === "driver" ? "cloud" : "lean";
 }
 
 /** The turn label's kind: "…-driver-repair" -> repair, "…-driver-refactor" -> refactor, else green. */
@@ -89,8 +122,11 @@ function toLeverPatch(spec: ExperimentLeverSpec, candidateId: string): RoleLever
   return patch;
 }
 
-/** Load + validate an experiment config, returning it with candidates normalized to RoleCandidate[]. */
-export function loadExperimentConfig(path: string): ExperimentConfig & { roleCandidates: RoleCandidate[] } {
+/** Load + validate an experiment config, returning it with candidates normalized to RoleCandidate[] +
+ *  the DERIVED role + substrate (the unified harness reads `substrate` to pick cloud vs lean). */
+export function loadExperimentConfig(
+  path: string,
+): ExperimentConfig & { roleCandidates: RoleCandidate[]; role: string; substrate: "cloud" | "lean" } {
   const raw = JSON.parse(readFileSync(path, "utf8")) as Partial<ExperimentConfig>;
   if (!raw.name || typeof raw.name !== "string") throw new Error(`experiment config ${path}: missing "name"`);
   if (!raw.turn || typeof raw.turn !== "string") throw new Error(`experiment config ${path}: missing "turn" (the corpus turn label)`);
@@ -112,5 +148,7 @@ export function loadExperimentConfig(path: string): ExperimentConfig & { roleCan
     ...(raw.replicas !== undefined ? { replicas: raw.replicas } : {}),
     candidates: raw.candidates,
     roleCandidates,
+    role: roleFromLabel(raw.turn),
+    substrate: substrateForRole(roleFromLabel(raw.turn)),
   };
 }
