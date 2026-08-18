@@ -31,10 +31,10 @@ describe("optimize-role expandChains", () => {
     expect(handles).toContain("navigator-reflect");
   });
 
-  it("expands the 'driver' set to the three driver-turn handles", () => {
+  it("expands the 'driver' set to the driver-turn handles", () => {
     const handles = expandChains("driver");
     expect(handles).toEqual(Object.keys(DRIVER_TURN_SPECS));
-    expect(handles).toEqual(["driver-green", "driver-repair", "driver-refactor"]);
+    expect(handles).toEqual(["driver-green", "driver-green-s2", "driver-repair", "driver-refactor"]);
   });
 
   it("expands a comma list of handles, de-duping while preserving order", () => {

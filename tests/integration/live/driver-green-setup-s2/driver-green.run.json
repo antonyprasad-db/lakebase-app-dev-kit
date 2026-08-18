@@ -1,0 +1,21 @@
+{
+  "id": "driver-green-live",
+  "description": "The GATED driver-GREEN honest-verify live check, config-driven. The workspace is NOT hardcoded here , databricksHost is the REQUIRED ${DATABRICKS_HOST} marker, which driver-build-support.ts exports from the ONE config home (resolveTestEnv -> .env.local.test.config: DATABRICKS_CONFIG_PROFILE / LAKEBASE_TEST_HOST) before loading this. So the single source of the workspace is that config file, not this run-config. Same setup/teardown lifecycle kinds as the stockflow demo (scaffold-project / remove-project). The driver-GREEN turn runs on the uncontained live executor between these ops (see driver-build-support.ts).",
+  "setup": {
+    "kind": "scaffold-project",
+    "config": {
+      "projectName": "${DRIVER_GREEN_PROJECT:-dg-live-{{TS}}}",
+      "databricksHost": "${DATABRICKS_HOST}",
+      "createGithubRepo": "${DRIVER_GREEN_CREATE_REPO:-false}",
+      "tiers": "${DRIVER_GREEN_TIERS:-1}",
+      "uiTrack": "${DRIVER_GREEN_UI:-false}",
+      "language": "${DRIVER_GREEN_LANGUAGE:-python}",
+      "runnerType": "${DRIVER_GREEN_RUNNER:-github-hosted}"
+    }
+  },
+  "start": { "kind": "invoke-role", "role": "driver", "story": "S2-drop-combined-code" },
+  "teardown": {
+    "kind": "remove-project",
+    "config": {}
+  }
+}

@@ -32,7 +32,7 @@ import { roleCandidates, testStrategistCandidates, driverGreenCandidates } from 
 import { deployPortForIndex } from "./driver-green-enforcement.js";
 import { runRoleSweep, type SweepTrial, type ChainRunner, type QualityGate, type QualityVerdict, type SweepableChain } from "./role-sweep.js";
 import { reportRoleSweep, formatRoleSweepReport, type SweepReport } from "./role-sweep-report.js";
-import { scaffoldDriverGreenProject, teardownDriverGreenProject, runDriverGreenOnScaffold, sweepDriverGreenOrphans, type RunDriverGreenResult } from "../integration/live/driver-build-support.js";
+import { scaffoldDriverGreenProject, teardownDriverGreenProject, runDriverGreenOnScaffold, sweepDriverGreenOrphans, DRIVER_GREEN_BUNDLE_S2, type RunDriverGreenResult } from "../integration/live/driver-build-support.js";
 import { makeOpusJudge, makeVerdictAlignmentJudge, parseVerdictFile, makeBuildDiscriminatorJudge, parseNavigatorAssessMarker, makeSupersessionDeltaJudge, evaluateNavigatorAssessAlignment, evaluateNextStepDetermination, FUNCTIONAL_THRESHOLD, SEMANTIC_THRESHOLD, type BuildOutputKind, type VerdictOutput } from "../../consort/evaluation/semantic-gate.js";
 import { enabledAnalysts } from "../../consort/test-list/test-analyst-catalogue.js";
 import { RECOMMENDED_MODELS, type SpawnableAgentRole } from "../../consort/config/agent-models.js";
@@ -52,6 +52,9 @@ export interface DriverTurnSpec {
 }
 export const DRIVER_TURN_SPECS: Record<string, DriverTurnSpec> = {
   "driver-green": { driverTurn: "green", evaluatorKind: "assess", refRel: "next-step/driver-green" },
+  // The S2-drop-combined MIGRATION thrasher pin (the turn where the full-suite waste is large enough to
+  // exceed the S3 variance; see DRIVER-GREEN-LEVERS.md). Same green turn, its OWN bundle + judge reference.
+  "driver-green-s2": { driverTurn: "green", evaluatorKind: "assess", refRel: "next-step/driver-green-s2" },
   "driver-repair": { driverTurn: "repair", evaluatorKind: "assess", refRel: "next-step/driver-repair" },
   "driver-refactor": { driverTurn: "refactor", evaluatorKind: "review", refRel: "next-step/driver-refactor" },
 };
@@ -212,6 +215,7 @@ export async function sweepDriverGreen(
       branch: `experiment/S3-${spec.driverTurn}-${candidateId}`,
       driverTurn: spec.driverTurn,
       port: deployPortForIndex(idx),
+      ...(handle === "driver-green-s2" ? { bundle: DRIVER_GREEN_BUNDLE_S2 } : {}),
       ...(Object.keys(levers).length ? { leverOverride: levers } : {}),
     }) as RunDriverGreenResult | undefined;
     if (!result) throw new Error(`runDriverGreenOnScaffold returned void (expected RunDriverGreenResult)`);

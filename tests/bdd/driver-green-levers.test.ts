@@ -240,6 +240,39 @@ describe("guard hook: executed as a real subprocess, segment-aware suite + scan 
   });
 });
 
+describe("S2 migration re-pin bundle: well-formed (the thrashing-turn pin)", () => {
+  const B = "tests/integration/live/driver-green-setup-s2";
+  const REF = "consort/evaluation/reference-assets/stockflow/next-step/driver-green-s2";
+  const repo = join(__dirname, "..", "..");
+  const has = (p: string) => existsSync(join(repo, p));
+
+  it("code-assets carries the S2 post-RED tree INCLUDING the failing drop-combined test", () => {
+    expect(has(`${B}/code-assets/app`)).toBe(true);
+    expect(has(`${B}/code-assets/alembic`)).toBe(true);
+    expect(has(`${B}/code-assets/tests/step_defs/test_S2_drop_combined_code.py`)).toBe(true); // the RED test to green
+    expect(has(`${B}/code-assets/tests/features/S2-drop-combined-code.feature`)).toBe(true);
+  });
+
+  it("design carries the feature artifacts + the target AC + the layout", () => {
+    for (const f of ["architecture.json", "db-design.json", "test-list.json", "architecture/conventions.json"]) {
+      expect(has(`${B}/design/${f}`)).toBe(true);
+    }
+    expect(has(`${B}/design/stories/S2-drop-combined-code/acs/AC1-column-dropped.json`)).toBe(true);
+  });
+
+  it("the judge reference carries a scorable supersession determination (=> superseded-shift)", () => {
+    expect(has(`${REF}/superseded-tests.json`)).toBe(true);
+    const sup = JSON.parse(readFileSync(join(repo, REF, "superseded-tests.json"), "utf8"));
+    expect(sup.tests?.length).toBeGreaterThan(0); // a real superseded set (drop-column supersedes inventory_code tests)
+    expect(sup.reason).toBeTruthy();
+  });
+
+  it("run-config pins the S2 story", () => {
+    const rc = JSON.parse(readFileSync(join(repo, B, "driver-green.run.json"), "utf8"));
+    expect(JSON.stringify(rc)).toMatch(/S2-drop-combined-code/);
+  });
+});
+
 describe("LIVE dispatch (mock step executor): levers reach the driver turn", () => {
   it("the agent receives a prompt with the ctx sections, and runs in a workspace carrying the enforcement files", async () => {
     const consortDir = join(root, ".consort");

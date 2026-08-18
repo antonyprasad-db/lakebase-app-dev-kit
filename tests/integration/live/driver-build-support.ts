@@ -72,17 +72,44 @@ function assertEq<T>(actual: T, expected: T, message: string): void {
 const SETUP_DIR = join(KIT, "tests/integration/live/driver-green-setup");
 const RUN_CONFIG_PATH = join(SETUP_DIR, "driver-green.run.json");
 
-/** The SETUP BUNDLE: every pre-GREEN precondition, resolved to its on-disk source under SETUP_DIR. */
-export const DRIVER_GREEN_BUNDLE = {
-  feature: "F6-split-tracking-code",
-  story: "S3-stock-shows-split-fields",
-  ac: "AC1-split-fields-shown",
-  /** The POST-RED application code tree (app/ + alembic + client + the authored RED tests). */
-  preRedCodeDir: join(SETUP_DIR, "code-assets"),
-  /** The design artifacts the driver's context pack reads. */
-  recordedArtifactsFeatureDir: join(SETUP_DIR, "design"),
-  conventionsJson: join(SETUP_DIR, "design", "architecture", "conventions.json"),
-} as const;
+/** A resolved pre-GREEN setup bundle: the story identity + the on-disk sources under a bundle dir. */
+export interface DriverGreenBundle {
+  feature: string;
+  story: string;
+  ac: string;
+  preRedCodeDir: string;
+  recordedArtifactsFeatureDir: string;
+  conventionsJson: string;
+}
+
+/** Build a bundle spec from a bundle dir (code-assets/ + design/) + story identity. */
+function bundleFromDir(dir: string, feature: string, story: string, ac: string): DriverGreenBundle {
+  return {
+    feature,
+    story,
+    ac,
+    preRedCodeDir: join(dir, "code-assets"),
+    recordedArtifactsFeatureDir: join(dir, "design"),
+    conventionsJson: join(dir, "design", "architecture", "conventions.json"),
+  };
+}
+
+/** The DEFAULT setup bundle (S3-stock-shows-split-fields, the read-UI turn). A sweep can override it
+ *  (opts.bundle) to target another pinned turn , e.g. the S2-drop-combined-code MIGRATION thrasher. */
+export const DRIVER_GREEN_BUNDLE: DriverGreenBundle = bundleFromDir(
+  SETUP_DIR,
+  "F6-split-tracking-code",
+  "S3-stock-shows-split-fields",
+  "AC1-split-fields-shown",
+);
+
+/** Pre-built S2 migration bundle (driver-green-setup-s2/, the run-17 thrasher). Its own dir + story. */
+export const DRIVER_GREEN_BUNDLE_S2: DriverGreenBundle = bundleFromDir(
+  join(KIT, "tests/integration/live/driver-green-setup-s2"),
+  "F6-split-tracking-code",
+  "S2-drop-combined-code",
+  "AC1-column-dropped",
+);
 
 /** Per-driver-turn SEED SOURCES (contained under SETUP_DIR; corpus assumed deleted). Each is the
  *  recorded PRE-TURN snapshot the corpus held right before that driver turn , the drive reads the SAME
@@ -117,8 +144,8 @@ function hasSourceFile(dir: string): boolean {
  *  The artifact-root segment is DERIVED from the caller's resolved `consortDir` (relative to
  *  projectDir), so the bundle lands in the EXACT dir the reads (storyTestProgress, beginNextPendingBatch)
  *  use , no re-derivation, no path string to drift from what the caller already resolved. */
-function layBundle(projectDir: string, consortDir: string, driverTurn: "green" | "repair" | "refactor" = "green"): void {
-  const b = DRIVER_GREEN_BUNDLE;
+function layBundle(projectDir: string, consortDir: string, driverTurn: "green" | "repair" | "refactor" = "green", bundle: DriverGreenBundle = DRIVER_GREEN_BUNDLE): void {
+  const b = bundle;
   const artifactRel = relative(projectDir, consortDir); // the one true artifact root, as the caller resolved it
   const featureRel = join(artifactRel, "features", b.feature);
   const storyRel = join(featureRel, "stories", b.story);
@@ -194,6 +221,9 @@ export interface RunDriverGreenOptions {
    *  honest-GREEN verify binds + polls THIS port instead of the shared :8000 , the concurrency-safety
    *  fix for --concurrency > 1 (each candidate owns a distinct port, deterministic by index). */
   port?: number;
+  /** Override the setup bundle (default S3). Pass DRIVER_GREEN_BUNDLE_S2 to sweep the S2-drop-combined
+   *  MIGRATION thrasher instead. Selects the post-RED tree, design, story/ac the turn drives against. */
+  bundle?: DriverGreenBundle;
   /** Per-candidate lever overrides: model, effort, allowedTools, disallowedTools. Merged into the
    *  driver turn's config ONLY (does not affect navigator or other roles). When absent, uses the
    *  settings defaults. */
@@ -401,7 +431,7 @@ export async function runDriverGreenOnScaffold(
   project: ScaffoldedDriverProject,
   opts: RunDriverGreenOptions = {},
 ): Promise<RunDriverGreenResult | void> {
-  const b = DRIVER_GREEN_BUNDLE;
+  const b = opts.bundle ?? DRIVER_GREEN_BUNDLE;
   // Which driver turn to exercise. green = post-RED seed -> driver GREEN -> navigator ASSESS; repair =
   // recorded post-assess regression seed -> driver REPAIR -> navigator ASSESS; refactor = recorded
   // post-review refactor:true seed -> driver REFACTOR -> navigator REVIEW. Each seed is the recorded
@@ -425,7 +455,7 @@ export async function runDriverGreenOnScaffold(
   try {
     // ── SEED (bundle overlay): the pre-turn app + tests + design + per-story test-list (+ the recorded
     //    pre-turn cycle markers for repair/refactor, which route the drive to that turn). ──
-    layBundle(projectDir, consortDir, driverTurn);
+    layBundle(projectDir, consortDir, driverTurn, b);
     execFileSync("git", ["add", "-A"], { cwd: projectDir, stdio: "pipe" });
     execFileSync("git", ["commit", "-m", `seed: pre-turn F6/S3 snapshot for driver ${driverTurn} (live)`, "--no-verify"], { cwd: projectDir, stdio: "pipe" });
 
