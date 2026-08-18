@@ -59,13 +59,14 @@ describe("driverGreenCandidates: the candidate set is well-formed", () => {
     expect(by["e-low"]).toEqual({ effort: "low" }); // CROSS-AXIS comparison (effort lever, scored alongside)
     expect(by["ctx-test-elow"]).toEqual({ ctxPack: ["failing-test"], effort: "low" }); // COMBINED scoping + think-less
     expect(by["opus-ctx-test-elow"]).toEqual({ model: "opus", ctxPack: ["failing-test"], effort: "low" }); // COMBINED + opus tier
-    // No proven-harmful guardScan, no deprecated denyBash. The ONLY model-tier lever is opus-ctx-test-elow
-    // (a deliberate combined point); every other candidate stays on the base model.
+    expect(by["opus-ctx-test"]).toEqual({ model: "opus", ctxPack: ["failing-test"] }); // opus tier, normal effort
+    // No proven-harmful guardScan, no deprecated denyBash. The model-tier levers are the two opus points
+    // (opus-ctx-test-elow + opus-ctx-test); every other candidate stays on the base model.
     for (const c of cs) {
       expect(c.levers.guardScan).toBeUndefined();
       expect(c.levers.denyBash).toBeUndefined();
     }
-    expect(cs.filter((c) => c.levers.model).map((c) => c.id)).toEqual(["opus-ctx-test-elow"]);
+    expect(cs.filter((c) => c.levers.model).map((c) => c.id)).toEqual(["opus-ctx-test-elow", "opus-ctx-test"]);
   });
 });
 

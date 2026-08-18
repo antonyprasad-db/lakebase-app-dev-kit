@@ -229,5 +229,8 @@ export function driverGreenCandidates(): RoleCandidate[] {
     // COMBINED + MODEL TIER: ctx-test-elow on OPUS , the one deliberate model-tier point (does a more
     // capable model + scoping + think-less hold the determination aligned where sonnet ctx-test diverged?).
     { id: "opus-ctx-test-elow", levers: { model: "opus", ctxPack: ["failing-test"], effort: "low" } },
+    // MODEL TIER (normal effort): ctx-test on OPUS without think-less , isolates the model-tier effect
+    // from the effort lever (does opus at default effort converge tighter / align better than opus-elow?).
+    { id: "opus-ctx-test", levers: { model: "opus", ctxPack: ["failing-test"] } },
   ];
 }
