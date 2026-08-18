@@ -475,6 +475,30 @@ export async function runDriverGreenOnScaffold(
       resetStaleBranch: true,
     });
 
+    // ── REALIGN repair/refactor seed cycle markers to the JUST-CUT experiment. ──
+    // The overlaid seed's cycle-*.json hardcode the RECORDED experiment_slug ("exp1") + branch_id (the
+    // recorded experiment branch). Those do NOT match the experiment THIS sweep just cut (per-candidate
+    // slug + branch). The drive reads the ACTIVE story's cycle experiment_slug to locate
+    // experiments/<slug>/outcomes.json (and branch_id for the DB branch), so a stale slug => ENOENT +
+    // crash (all candidates DQ'd on this before the fix). Rewrite the active story's markers to point at
+    // the just-cut experiment: slug from experimentSlug, branch_id from the cut's branch.txt.
+    if (driverTurn !== "green") {
+      const cutBranchId = readFileSync(join(consortDir, "experiments", b.feature, b.story, experimentSlug, "branch.txt"), "utf8").trim();
+      const storyCyclesDir = join(consortDir, "cycles", b.feature, b.story);
+      for (const acDir of readdirSync(storyCyclesDir)) {
+        const acPath = join(storyCyclesDir, acDir);
+        if (!statSync(acPath).isDirectory()) continue;
+        for (const f of readdirSync(acPath)) {
+          if (!/^cycle-.*\.json$/.test(f)) continue;
+          const p = join(acPath, f);
+          const c = JSON.parse(readFileSync(p, "utf8")) as { experiment_slug?: string; branch_id?: string };
+          if (c.experiment_slug !== undefined) c.experiment_slug = experimentSlug;
+          if (c.branch_id !== undefined) c.branch_id = cutBranchId;
+          writeFileSync(p, JSON.stringify(c, null, 2) + "\n");
+        }
+      }
+    }
+
     // ── SEED (pipeline + open RED cycle): route nextTransition to driver GREEN for S3. ──
     writePipeline(consortDir, {
       version: 1,
