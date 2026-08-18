@@ -826,6 +826,10 @@ function roleTaskBody(
           scanDirective +
           `   ./scripts/lk consort-cycle flag-superseded --feature ${featureId} --story ${s} --ac ${action.ac}` +
           ` --reason "<new AC + what changed>" --test <path_or_nodeid> [--test ...] --tdd-dir ${consortDir}\n` +
+          `   The flag-superseded command writes ${join(cycleDir(consortDir, featureId, s, action.ac ?? ""), "superseded-tests.json")}.` +
+          ` If for any reason the command will not run, FALL BACK to writing THAT EXACT file directly with the Write` +
+          ` tool: {"tests":["<path_or_nodeid>", ...],"reason":"<why superseded>"} , do NOT search the cache / scripts /` +
+          ` logs for the mechanism or invent a different filename. The orchestration honors that file too.\n` +
           `(b) If instead the failure is a GENUINE REGRESSION (the AC does NOT intend to change that behavior;` +
           ` the Driver's code is wrong), record your ROOT-CAUSE diagnosis so it travels to the Driver / the human` +
           ` instead of being lost. When the Driver can fix it, ALSO give a concrete repair directive (this routes a` +
@@ -893,7 +897,10 @@ function roleTaskBody(
           ` behavior/fields this story deliberately retired), or a GENUINE regression the refactor introduced?\n` +
           `Flag ONLY the genuinely superseded prior tests via` +
           ` \`./scripts/lk consort-cycle flag-superseded --feature ${featureId} --story ${s} --ac <ac> --test <path::test> [--test ...] --reason "<why superseded>"\`` +
-          ` , the Driver will then permissively refactor ONLY those. If instead the refactor broke CURRENT behavior` +
+          ` , the Driver will then permissively refactor ONLY those. That command writes superseded-tests.json in the` +
+          ` <ac>'s cycle dir; if it will not run, FALL BACK to writing THAT file directly with the Write tool` +
+          ` ({"tests":[...],"reason":"<why>"}) , do NOT search the cache / scripts / logs for the mechanism or invent a` +
+          ` different filename. If instead the refactor broke CURRENT behavior` +
           ` (a real regression), flag NOTHING; the orchestration raises it to a human. Never flag a test just to` +
           ` make a red go away. Do NOT edit product code or tests in this turn.`
         );

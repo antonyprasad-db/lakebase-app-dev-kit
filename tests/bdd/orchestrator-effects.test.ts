@@ -1163,6 +1163,20 @@ describe("commandsForAction: assess directive scans fitness/migration tests for 
     expect(t).toMatch(/EVERY failing test|COMPLETE set/);
   });
 
+  it("hands the navigator the superseded-tests.json fallback (no spelunking when flag-superseded won't run)", () => {
+    // Root cause of the assess-turn rabbit-hole (live: ctx-test-elow r2's navigator ran flag-superseded,
+    // it failed, so it grepped ~/.cache / scripts/lk to reverse-engineer the artifact + hand-wrote the
+    // WRONG filename `superseded.json`). The superseded branch must mirror the regression branch's explicit
+    // fallback: name the canonical file (superseded-tests.json) + "write it directly, do NOT search".
+    const t = (commandsForAction(
+      { kind: "invoke-role", role: "navigator", story: "S3-split-drop-old", buildMode: "assess", ac: "AC1-column-dropped" },
+      cfg(),
+    )[0] as { task: string }).task;
+    expect(t).toMatch(/superseded-tests\.json/); // the canonical artifact is named
+    expect(t).toMatch(/FALL BACK to writing THAT EXACT file/); // explicit fallback, like the regression branch
+    expect(t).toMatch(/do NOT search the cache \/ scripts \/ logs|invent a different filename/i); // anti-spelunk
+  });
+
   it("when a pre-localized superseded advisory is present, tells the agent to TRUST it and flag in one call (no re-verify spin)", () => {
     // Root cause of the F6/S3 55-min spin: the deterministic gate pre-localized the
     // superseded set (56 lines / 8 files), but the prompt still said "scan
