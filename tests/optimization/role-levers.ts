@@ -226,5 +226,8 @@ export function driverGreenCandidates(): RoleCandidate[] {
     // COMBINED: the fastest scoping lever (ctx-test) crossed with think-less (e-low) , does handing the
     // failing test AND lowering effort keep the speed win while holding the determination aligned?
     { id: "ctx-test-elow", levers: { ctxPack: ["failing-test"], effort: "low" } },
+    // COMBINED + MODEL TIER: ctx-test-elow on OPUS , the one deliberate model-tier point (does a more
+    // capable model + scoping + think-less hold the determination aligned where sonnet ctx-test diverged?).
+    { id: "opus-ctx-test-elow", levers: { model: "opus", ctxPack: ["failing-test"], effort: "low" } },
   ];
 }
