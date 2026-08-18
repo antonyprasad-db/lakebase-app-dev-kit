@@ -203,17 +203,19 @@ export function testStrategistCandidates(enabledKinds: string[]): RoleCandidate[
  *   - scope-note        : an explicit "make ONLY the failing test green at its layer; do not chase other
  *                         layers (client/SPA)" directive , targets the residual client rabbit-hole
  *   - ctx-test-scope    : hand the test AND scope , the deterministic encoding of the -46% good path
- *   - e-low             : driver at effort=low (the fast run simply DID LESS; less thinking may sprawl less)
  *   - single-test-guard : KEPT as a directive/control option (proven variance, not expected to win)
+ * SCOPING/CONTEXT axis ONLY , no model-tier or effort levers (those are a separate, off-thesis axis).
  * Dropped (proven noise/harm): guard-scan, ctx-db, scope-guard, enforce-all. Run at n>=3.
  */
 export function driverGreenCandidates(): RoleCandidate[] {
+  // NO live `baseline` candidate: the RECORDED original turn IS the baseline (its determination +
+  // duration are in the corpus, used as the judge reference + recordedBaselineMs). A fresh no-lever
+  // baseline would just be a redundant , and noisy (S3 swung 180-310s) , extra run. Every candidate is
+  // scored same/better/worse vs the recording.
   return [
-    { id: BASELINE_ID, levers: {} },
     { id: "ctx-test", levers: { ctxPack: ["failing-test"] } },
     { id: "scope-note", levers: { ctxPack: ["scope-note"] } },
     { id: "ctx-test-scope", levers: { ctxPack: ["failing-test", "scope-note"] } },
-    { id: "e-low", levers: { effort: "low" } },
     { id: "single-test-guard", levers: { guardSuite: true } },
   ];
 }

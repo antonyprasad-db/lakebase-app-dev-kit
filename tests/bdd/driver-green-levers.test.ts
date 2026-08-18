@@ -19,6 +19,7 @@ import { execFileSync } from "child_process";
 import { tmpdir } from "os";
 import { join } from "path";
 import { driverGreenCandidates } from "../../tests/optimization/role-levers";
+import { buildDirectionalTurnJudge, HONEST_GREEN_SIGNAL } from "../../tests/optimization/optimize-role.cli";
 import { applyDriverLevers, ctxPackEnv, guardHookScript, assignWorktreePort, deployPortForIndex, BASE_DEPLOY_PORT } from "../../tests/optimization/driver-green-enforcement";
 import { load } from "js-yaml";
 import { buildContextPack } from "../../consort/orchestrator/build/build-context";
@@ -43,26 +44,35 @@ afterEach(() => {
 });
 
 describe("driverGreenCandidates: the candidate set is well-formed", () => {
-  it("baseline first, unique fs-safe ids, and each candidate carries exactly its lever", () => {
+  it("NO live baseline (the recording is the baseline), unique fs-safe ids, each carries exactly its lever", () => {
     const cs = driverGreenCandidates();
-    expect(cs[0].id).toBe("baseline");
-    expect(cs[0].levers).toEqual({});
     const ids = cs.map((c) => c.id);
+    expect(ids).not.toContain("baseline"); // the recorded original IS the baseline (recordedBaselineMs + ref)
     expect(new Set(ids).size).toBe(ids.length); // unique
     for (const id of ids) expect(id).toMatch(/^[a-z0-9-]+$/); // filesystem-safe
 
     const by = Object.fromEntries(cs.map((c) => [c.id, c.levers]));
-    // The scoping axis (context-only; enforcement dropped after the n=3 sweep showed it noise/harm).
+    // The scoping/context axis ONLY , enforcement dropped (noise/harm) + NO model/effort levers (off-thesis).
     expect(by["ctx-test"].ctxPack).toEqual(["failing-test"]);
     expect(by["scope-note"].ctxPack).toEqual(["scope-note"]);
     expect(by["ctx-test-scope"].ctxPack).toEqual(["failing-test", "scope-note"]);
-    expect(by["e-low"]).toEqual({ effort: "low" });
     expect(by["single-test-guard"]).toEqual({ guardSuite: true }); // KEPT as a directive/control option
-    // The proven-harmful guardScan is no longer a candidate; no candidate uses the deprecated denyBash.
+    // No proven-harmful guardScan, no deprecated denyBash, and NO model/effort levers (scoping only).
     for (const c of cs) {
       expect(c.levers.guardScan).toBeUndefined();
       expect(c.levers.denyBash).toBeUndefined();
+      expect(c.levers.model).toBeUndefined();
+      expect(c.levers.effort).toBeUndefined();
     }
+  });
+
+  it("buildDirectionalTurnJudge: a clean green on an assess-referenced turn scores BETTER, not insufficient", async () => {
+    // The right judge for the single-turn analysis , greening in one turn where the recorded original
+    // failed its green is strictly better (not the old assess-only "insufficient"). Synchronous, no LLM.
+    const judge = buildDirectionalTurnJudge("driver-green-s2");
+    const v = await judge.judgeCandidate({ candidateId: "x", primary: undefined, producedArtifacts: { [HONEST_GREEN_SIGNAL]: "1" } });
+    expect(v.passed).toBe(true);
+    expect(v.classification).toBe("pass-with-honors");
   });
 });
 

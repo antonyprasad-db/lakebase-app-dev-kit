@@ -50,6 +50,7 @@ import { writePipeline, readPipeline } from "../../../consort/pipeline/story-pip
 import { beginNextPendingBatch, storyTestProgress } from "../../../consort/pipeline/cycle-record.js";
 import { cycleDir } from "../../../consort/config/consort-paths.js";
 import { applyDriverLevers, assignWorktreePort } from "../../optimization/driver-green-enforcement.js";
+import { peekLastAgentTranscript } from "../../../consort/orchestrator/drive/claude-runner.js";
 
 export const KIT = process.cwd();
 
@@ -575,6 +576,10 @@ export async function runDriverGreenOnScaffold(
     };
     const result = await runDriver(buildDriveEffects(cfg), { stopWhen: (a: WorkflowAction) => !isTargetDriverTurn(a), maxSteps: 4 });
     const durationMs = Date.now() - startTime;
+    // Capture the DRIVER turn's prompt + reasoning + tool trace (peek, before the eval turn overwrites
+    // it) so each experiment preserves what the driver was told + how it reasoned , the new judge can be
+    // re-run against this offline, no re-execution.
+    const driverTx = peekLastAgentTranscript();
 
     // ── ASSERT: the honest-GREEN product-channel proof ──
     const productCodeExists = hasSourceFile(join(projectDir, "app"));
@@ -638,6 +643,22 @@ export async function runDriverGreenOnScaffold(
     await runDriver(buildDriveEffects(evalCfg), { stopWhen: (a: WorkflowAction) => isDriverTurn(a), maxSteps: 3 });
     const markerDirAbs = cycleDir(consortDir, b.feature, b.story, b.ac);
     const nextStepMarker = snapshotTree(markerDirAbs, markerDirAbs);
+
+    // PRESERVE the prompts + reasoning + tool traces for BOTH turns (driver + navigator-eval) alongside
+    // the code + determination, so the whole experiment is recorded and the judge can be re-run offline
+    // (no re-execution). Under a `transcripts/` prefix so it never collides with the judge's
+    // `navigator-eval/` marker reads. Best-effort (a turn with no captured transcript => empty).
+    const evalTx = peekLastAgentTranscript();
+    if (driverTx) {
+      producedArtifacts["transcripts/driver-prompt.txt"] = driverTx.prompt;
+      producedArtifacts["transcripts/driver-reasoning.txt"] = driverTx.finalText;
+      producedArtifacts["transcripts/driver-tools.txt"] = driverTx.tools.join("\n");
+    }
+    if (evalTx) {
+      producedArtifacts["transcripts/navigator-eval-prompt.txt"] = evalTx.prompt;
+      producedArtifacts["transcripts/navigator-eval-reasoning.txt"] = evalTx.finalText;
+      producedArtifacts["transcripts/navigator-eval-tools.txt"] = evalTx.tools.join("\n");
+    }
 
     // `afterGreen` remains for the standalone equivalence test (which judges + asserts in-hook before
     // teardown). The SWEEP does NOT use it , it judges via the shared engine's mandatory judgeCandidate.
