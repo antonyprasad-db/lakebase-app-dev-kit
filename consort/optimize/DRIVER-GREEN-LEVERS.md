@@ -50,10 +50,20 @@ overturned that:
   handing the driver the failing test removes the discover-then-sprawl opening.
 
 **Conclusion:** the causal axis is **CONTEXT/SCOPING** (inform the driver so it doesn't rabbit-hole),
-NOT **ENFORCEMENT** (blocking exploration backfires). Revised candidate set (`driverGreenCandidates`):
-`ctx-test`, `scope-note` (explicit "make only the failing test green at its layer; don't chase other
-layers"), `ctx-test-scope` (both — the deterministic encoding of the −46% good path), `e-low`, plus
-`single-test-guard` kept as a control. Dropped: `guard-scan`, `ctx-db`, `scope-guard`, `enforce-all`.
+NOT **ENFORCEMENT** (blocking exploration backfires). Candidate set (`driverGreenCandidates`) is the
+scoping/context axis ONLY: `ctx-test`, `scope-note` (explicit "make only the failing test green at its
+layer; don't chase other layers"), `ctx-test-scope` (both — the deterministic encoding of the −46% good
+path), plus `single-test-guard` kept as a directive control. Dropped: `guard-scan`, `ctx-db`,
+`scope-guard`, `enforce-all`, and **`e-low`** (an effort lever — a model-inference parameter, off the
+scoping thesis; model-tier/effort are a separate axis, not swept here).
+
+**The right judge (single-turn, directional).** `buildDirectionalTurnJudge` wraps the assess/next-step
+comparison: a candidate that reaches **honest-GREEN in ONE turn on an assess-referenced turn** scores
+`pass-with-honors`/BETTER (the recorded original FAILED its green — that is why it carries an assess
+determination — so a clean one-turn resolution is strictly better, not the old assess-only
+"insufficient"). Each candidate PRESERVES its inputs (`HONEST_GREEN_SIGNAL` + next-step markers + the
+driver/eval transcripts, prompt/reasoning/tools) in `producedArtifacts`, so `--rejudge <runDir>`
+re-scores preserved outputs OFFLINE — the judge can be rebuilt and re-run without re-running the sweep.
 
 ## Why (the evidence, run-17 `stockflow-full`)
 
@@ -176,11 +186,16 @@ So `--concurrency 2` and `4` are now safe (bounded also by Lakebase branch quota
 
 ## Run (after landing; live/cloud, user-kicked)
 
+Use the `driver-green-s2` handle (the thrashing S2 drop migration — the turn the levers target) and
+run at n≥3; omit `--candidates` to sweep the full scoping set (`ctx-test`, `scope-note`,
+`ctx-test-scope`, `single-test-guard`). There is NO live `baseline` candidate: the RECORDED original
+turn IS the baseline (its duration + determination are the judge reference).
 ```
-scripts/optimize-role.sh --chains driver-green \
-  --candidates baseline,single-test-guard,deny-scan,ctx-db,ctx-test,migrate-once,enforce-all \
-  --telemetry-dir examples/replay/optimize-results/runs/<stamp> --concurrency 2
+scripts/optimize-role.sh --chains driver-green-s2 \
+  --telemetry-dir examples/replay/optimize-results/runs/<stamp> --concurrency 3
 ```
-Judged against `next-step/driver-green`; each candidate must still hold the deterministic honest-GREEN
-verify. A winner is promoted by baking its context sections ON by default in `build-context.ts` and its
-enforcement into the scaffold `.claude/settings.json` (a follow-up, once measured).
+Judged directionally against the recorded original (`next-step/driver-green-s2`) on BOTH axes: output
+(`buildDirectionalTurnJudge` — a clean one-turn green scores BETTER) and time (same/better/worse vs
+`recordedBaselineMs` = 667.2s). To re-score a preserved run with a rebuilt judge WITHOUT re-running:
+`scripts/optimize-role.sh --rejudge examples/replay/optimize-results/runs/<stamp>`. A winner is promoted
+by baking its context sections ON by default in `build-context.ts` (a follow-up, once measured).
