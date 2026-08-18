@@ -45,11 +45,10 @@ import { buildDriveEffects } from "../../../consort/orchestrator/drive/orchestra
 import { execRunner } from "../../../consort/orchestrator/drive/claude-runner.js";
 import type { DriveEffectsConfig } from "../../../consort/orchestrator/drive/orchestrator-effects.js";
 import type { WorkflowAction } from "../../../consort/orchestrator/drive/orchestrator-drive.js";
-import { resolveConsortSettings } from "../../../consort/orchestrator/settings/project-settings.js";
 import { writePipeline, readPipeline } from "../../../consort/pipeline/story-pipeline.js";
 import { beginNextPendingBatch, storyTestProgress } from "../../../consort/pipeline/cycle-record.js";
 import { cycleDir } from "../../../consort/config/consort-paths.js";
-import { readRecordedRunConfig as readRecordedRunConfigAt, readRecordedApprover as readRecordedApproverAt, resolveReplayEnv as resolveReplayEnvAt, type RecordedReplayEnv } from "../../optimization/replay-env.js";
+import { readRunConfig, type RunConfig } from "../../../consort/session/run-config.js";
 import { applyDriverLevers, assignWorktreePort } from "../../optimization/driver-green-enforcement.js";
 import { peekLastAgentTranscript } from "../../../consort/orchestrator/drive/claude-runner.js";
 
@@ -73,17 +72,18 @@ function assertEq<T>(actual: T, expected: T, message: string): void {
  *  pre-step assets live under here (see driver-green-setup/README.md), including its run-config.json. */
 const SETUP_DIR = join(KIT, "tests/integration/live/driver-green-setup");
 const RUN_CONFIG_PATH = join(SETUP_DIR, "driver-green.run.json");
-/** The RECORDED corpus run-config, curated into the bundle (self-contained). The sweep REPLAYS this
- *  corpus, so the drive's ENVIRONMENT/replay settings (uiTrack, loop granularity, deploy target) come
- *  from what was RECORDED , never hardcoded/defaulted. (Models + effort are NOT taken from here: those
- *  are the swept LEVERS.) The stockflow corpus was recorded full-stack, so recorded uiTrack === true. */
-// The replay-env resolver lives in a dependency-light module (tests/optimization/replay-env) so the
-// "recorded baseline + overridable lever, NOTHING hardcoded" contract is unit-testable + has ONE home.
-// These are thin path-bound aliases (the recorded run-config is curated into this bundle).
-const RECORDED_RUN_CONFIG_PATH = join(SETUP_DIR, "recorded-run-config.json");
-const readRecordedRunConfig = () => readRecordedRunConfigAt(RECORDED_RUN_CONFIG_PATH);
-const readRecordedApprover = () => readRecordedApproverAt(RECORDED_RUN_CONFIG_PATH);
-const resolveReplayEnv = (lever?: Partial<RecordedReplayEnv>) => resolveReplayEnvAt(RECORDED_RUN_CONFIG_PATH, lever);
+/** The RECORDED corpus run-config (the run-config.json snapshot the drive itself wrote at record time,
+ *  curated into this bundle). It is the SINGLE SOURCE OF SETTINGS for the experiment: EVERY optimization
+ *  experiment runs the turn on what the corpus recorded (per-role models, ui_track, loop granularity,
+ *  deploy target, session scope, batch cap, gates, review effort), then a candidate's LEVERS override
+ *  specific settings to test a perturbation. Read via the COMMON readRunConfig (the same reader the drive
+ *  uses) into the COMMON RunConfig type , no bespoke resolver, no inverse mapper: the snapshot already
+ *  holds the RESOLVED values, so we read them, never re-derive them. */
+function corpusRunConfig(): RunConfig {
+  const rc = readRunConfig(SETUP_DIR);
+  if (!rc) throw new Error(`driver-green bundle is missing its recorded run-config.json under ${SETUP_DIR}`);
+  return rc;
+}
 
 /** A resolved pre-GREEN setup bundle: the story identity + the on-disk sources under a bundle dir. */
 export interface DriverGreenBundle {
@@ -253,9 +253,9 @@ export interface RunDriverGreenOptions {
     guardScan?: boolean;
     denyBash?: string[];
     ctxPack?: ("db-state" | "failing-test" | "scope-note" | "migration")[];
-    /** ENVIRONMENT/replay levers. Each DEFAULTS to the RECORDED corpus run-config value (resolveReplayEnv);
-     *  a candidate may OVERRIDE it here to vary the environment the turn replays under. Mirrors the same
-     *  fields on RoleLeverPatch. */
+    /** ENVIRONMENT/replay levers. Each DEFAULTS to the RECORDED corpus run-config value; a candidate may
+     *  OVERRIDE it here to vary the environment the turn replays under. Mirrors the same fields on
+     *  RoleLeverPatch. */
     uiTrack?: boolean;
     loopGranularity?: "story" | "ac" | "hybrid-a";
     deployTarget?: "local" | "workspace";
@@ -354,7 +354,7 @@ export async function scaffoldDriverGreenProject(): Promise<ScaffoldedDriverProj
   // The scaffold-project op scaffolds the client only when uiTrack is on. Take uiTrack from the RECORDED
   // corpus run-config (full-stack => true), not the run-config template's default , so the scaffolded
   // project + its honest-GREEN verify include the client, matching the recording.
-  scaffoldConfig.uiTrack = readRecordedRunConfig().uiTrack;
+  scaffoldConfig.uiTrack = corpusRunConfig().ui_track;
   const setupCtx: LifecycleRunContext = { workspaceDir: KIT };
   const setup = await catalogueLifecycleDeps.run({ kind: "scaffold-project", config: scaffoldConfig }, setupCtx);
   if (!setup.ok || !setup.handle) throw new Error(`scaffold-project failed: ${setup.error ?? "no handle"}`);
@@ -567,16 +567,20 @@ export async function runDriverGreenOnScaffold(
     // ── DRIVE one real driver GREEN on the uncontained live executor (performViaExecutor). Driver
     //    tool-scope is WIDER than navigator RED , it needs Bash to run the project's tests.
     //    When leverOverride is provided, patch the driver turn's model/effort/tools. ──
-    const settings = resolveConsortSettings({ projectDir });
-    // The drive's ENVIRONMENT/replay settings DEFAULT to the RECORDED corpus run-config (curated into the
-    // bundle) , the sweep replays this recording , but each is an OVERRIDABLE lever: resolveReplayEnv takes
-    // the candidate's env override when present, else the recorded value. NOTHING is hardcoded. Models +
-    // effort are separate LEVERS (no recorded baseline), applied via leverOverride below.
-    const env = resolveReplayEnv(opts.leverOverride);
-    const driverModel = opts.leverOverride?.model;
-    const driverEffort = opts.leverOverride?.effort;
-    const driverAllowedTools = opts.leverOverride?.allowedTools;
-    const driverDisallowedTools = opts.leverOverride?.disallowedTools;
+    // EVERY setting the turn runs under comes from the RECORDED corpus run-config (corpusRunConfig, read
+    // via the common readRunConfig into the common RunConfig type) , the snapshot already holds the
+    // RESOLVED per-role models + options, so we READ them, never re-derive. A candidate's LEVER then
+    // OVERRIDES specific settings to test a perturbation (?? , so a falsy override like uiTrack:false
+    // wins). This is the ONE path for every optimization experiment: corpus settings, lever overrides.
+    const rc = corpusRunConfig();
+    const lever = opts.leverOverride;
+    const driverModel = lever?.model;
+    const driverEffort = lever?.effort;
+    const driverAllowedTools = lever?.allowedTools;
+    const driverDisallowedTools = lever?.disallowedTools;
+    // The gate approver identity is fixed by the recorded gates mode: only "proxy" gates are headless-
+    // viable (interactive gates would deadlock an unattended sweep), and proxy => the human-proxy approver.
+    if (rc.gates && rc.gates !== "proxy") throw new Error(`recorded gates=${rc.gates}: only "proxy" gates are headless-viable for the sweep`);
 
     const cfg: DriveEffectsConfig = {
       projectDir,
@@ -584,31 +588,23 @@ export async function runDriverGreenOnScaffold(
       featureId: b.feature,
       runner: { async run() {} },
       useManifestSteps: true,
-      // ENVIRONMENT/replay settings: recorded-baseline, lever-overridable (resolveReplayEnv). uiTrack from
-      // the RECORDED run-config (stockflow was recorded full-stack => true); hardcoding false under-verified
-      // the corpus and made client stories (e.g. the S3 StockViewPage repair) unresolvable. approver is
-      // DERIVED from the recorded gates mode (see readRecordedApprover), not a literal.
-      uiTrack: env.uiTrack,
-      approver: readRecordedApprover(),
-      deployTarget: env.deployTarget,
-      loopGranularity: env.loopGranularity,
-      buildSessionScope: env.buildSessionScope,
-      batchCap: env.batchCap,
-      modelForRole: (role) => {
-        if (role === "driver" && driverModel) return driverModel;
-        return settings.models[role] ?? "sonnet";
-      },
-      modelForTurn: (role, turn) => {
-        if (role === "driver" && driverModel) return driverModel;
-        return settings.modelFor(role, turn);
-      },
-      effortForTurn: (role, turn) => {
-        if (role === "driver" && driverEffort) {
-          return driverEffort === "default" ? "" : driverEffort;
-        }
-        const e = settings.effortFor(role, turn);
-        return e === "default" ? "" : e;
-      },
+      // Recorded corpus value, lever-overridable. uiTrack was recorded full-stack (true); a client story
+      // (e.g. the S3 StockViewPage repair) is unresolvable when it is forced off.
+      uiTrack: lever?.uiTrack ?? rc.ui_track,
+      approver: "human-proxy",
+      deployTarget: (lever?.deployTarget ?? rc.deploy_target) as "local" | "workspace",
+      loopGranularity: (lever?.loopGranularity ?? rc.loop_granularity) as "story" | "ac" | "hybrid-a",
+      buildSessionScope: (lever?.buildSessionScope ?? rc.build_session_scope) as "cycle" | "story",
+      batchCap: lever?.batchCap ?? rc.batch_cap,
+      // Per-role MODEL from the recording (rc.models[role]); the DRIVER role is perturbed by the lever.
+      // The corpus records one model per role (not per-turn), so every turn of a role uses that model ,
+      // faithful to the recording.
+      modelForRole: (role) => (role === "driver" && driverModel ? driverModel : (rc.models[role] ?? "sonnet")),
+      modelForTurn: (role) => (role === "driver" && driverModel ? driverModel : (rc.models[role] ?? "sonnet")),
+      // EFFORT: the corpus recorded no per-driver effort, so the driver turn's baseline is the model
+      // default (""); the lever perturbs it. (The one recorded effort, review_effort, is for the review
+      // turn, which the navigator EVAL below pins to opus/high explicitly.)
+      effortForTurn: (role) => (role === "driver" && driverEffort ? (driverEffort === "default" ? "" : driverEffort) : ""),
       allowedToolsForRole: (role) => {
         if (role === "driver") {
           if (driverAllowedTools) return driverAllowedTools;

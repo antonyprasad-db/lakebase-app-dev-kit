@@ -51,9 +51,10 @@ export interface RoleLeverPatch {
    *  (`"db-state"` = inject `alembic current`/`heads` once; `"failing-test"` = inject the failing RED
    *  test body). Applied by setting the `LAKEBASE_CONSORT_CTX_*` env the drive inherits. */
   ctxPack?: ("db-state" | "failing-test" | "scope-note" | "migration")[];
-  /** ENVIRONMENT/replay levers. Each DEFAULTS to the RECORDED corpus run-config value (the sweep replays
-   *  that recording); a candidate may OVERRIDE it to vary the environment. Absent => use the recorded
-   *  value. (Distinct from model/effort, which have no recorded baseline , they are pure levers.) */
+  /** ENVIRONMENT/replay levers. Like model/effort above, each DEFAULTS to the RECORDED corpus run-config
+   *  value (the sweep replays that recording) and a candidate OVERRIDEs it to test a perturbation. Absent
+   *  => use the recorded value. (The corpus is the single source for ALL turn settings , models, effort,
+   *  and these env knobs alike; levers are the only deviation.) */
   uiTrack?: boolean;
   loopGranularity?: "story" | "ac" | "hybrid-a";
   deployTarget?: "local" | "workspace";
