@@ -4,7 +4,25 @@
 > driver-green–specific levers the run-17 analysis surfaced. Nothing here changes the default drive
 > until a lever is SWEPT + judged + applied; the shipped code paths default the levers OFF.
 
-## ⭐ FINDINGS (first live sweep + n=3 replication, S3 pin) — read this first
+## ⛔ TERMINAL FINDING (S2 re-pin, live) — the sweep cannot measure these levers on a thrasher
+
+The driver-green sweep asserts the driver reaches **all-green in ONE bounded turn** (`assert(allGreen)`,
+`maxSteps: 4`, driver-build-support.ts:588). That works for a small, one-turn-greenable turn (S3). But
+the levers target the WASTE on the *thrashing migration* turns , which are inherently **multi-turn**:
+S2-drop-combined took **41 recorded turns** (its first driver-green FAILED → assess → 11 greens +
+repairs). Driven fresh as a single bounded turn, **every S2 candidate DQ'd on the all-green assert**
+(the drop + supersession refactor can't complete green in one turn). So there is a structural tension:
+- one-turn-greenable turns (S3) are small → they DON'T thrash → variance dominates, no lever separates;
+- thrashing turns (S2) are multi-turn → they can't one-turn-green → every candidate DQs.
+
+Therefore this sweep (which judges a one-turn green's next-step determination) is the WRONG instrument
+for measuring lever SPEED on multi-turn thrashing. Measuring that needs a different harness: drive the
+FULL multi-turn story with vs without a lever and compare total wall-clock / tool-call count /
+loop-count , not the one-turn-green sweep. Until that exists, the levers below are built + unit-tested
+but UNVALIDATED live (S3 can't separate them; S2 can't run them). guard-scan is the one exception:
+proven HARMFUL (2–3× slower , blocking exploration backfires).
+
+## ⭐ FINDINGS (first live sweep + n=3 replication, S3 pin)
 
 The first single-trial sweep declared `single-test-guard` the winner at **−46%**. Two follow-ups
 overturned that:
