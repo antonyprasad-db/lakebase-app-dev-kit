@@ -41,6 +41,8 @@ export interface RoleAgentUsage {
   outputTokens?: number;
   cacheReadTokens?: number;
   cacheCreationTokens?: number;
+  /** Tool calls the turn made (transcript tool count) , the "how much did it DO" signal. */
+  toolCalls?: number;
 }
 
 /** The agent's captured trace for the turn (prompt it was dispatched with, its final assistant

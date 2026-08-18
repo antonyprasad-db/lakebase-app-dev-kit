@@ -260,7 +260,16 @@ export async function sweepDriverGreen(
     // original; honestGreen rides along as a signal for the report, not a gate.
     // turns:[] (the driver's work is a live cycle, not a single ManifestTurn), so hand the harness's
     // measured wall-clock explicitly , without it every candidate reads 0ms and the winner can't be ranked.
-    return { turns: [], producedArtifacts, gate: { passed: true, honestGreen: result.honestGreen }, durationMs: result.durationMs };
+    return {
+      turns: [],
+      producedArtifacts,
+      gate: { passed: true, honestGreen: result.honestGreen },
+      durationMs: result.durationMs,
+      // Cost parity: surface the driver turn's usage (cost + tokens + numTurns + duration) + tool-call
+      // count so role-sweep records them in telemetry, exactly as the design-lane sweep does.
+      ...(result.usage ? { usage: result.usage } : {}),
+      ...(result.toolCalls !== undefined ? { toolCalls: result.toolCalls } : {}),
+    };
   };
 
   let trials: SweepTrial[];

@@ -18,7 +18,7 @@ import type { StepManifest } from "../../consort/orchestrator/steps/manifest.js"
 import type { StepAgent } from "../../consort/orchestrator/agents/agent-types.js";
 import type { ManifestTurn } from "../../consort/orchestrator/runners/manifest-runner.js";
 import type { RoleCandidate, RoleLeverPatch } from "./role-levers.js";
-import type { RoleTelemetry } from "../../consort/optimize/role-telemetry.js";
+import type { RoleTelemetry, RoleAgentUsage } from "../../consort/optimize/role-telemetry.js";
 
 /** The structural minimum a sweepable chain must expose , the subset the sweep engine reads (the
  *  manifest dir names the seed/live ids, outputFile is the primary artifact the gate + telemetry
@@ -50,6 +50,13 @@ export interface ChainRunResult {
    *  turn-derived `outerDurationMs` so the report can RANK candidates (the winner is the fastest
    *  quality-holding candidate); absent => the turn-derived value stands (design/navigator chains). */
   durationMs?: number;
+  /** OPTIONAL agent usage (cost + tokens + numTurns + agent duration) supplied by the runner when the
+   *  sweep cannot read it off a live ManifestTurn , e.g. a DRIVER-GREEN chain (turns: []). When present
+   *  it POPULATES telemetry.agent so EVERY run records cost with the consistent attribute set (parity
+   *  with the design-lane sweep). Absent => the turn-derived usage stands. */
+  usage?: RoleAgentUsage;
+  /** OPTIONAL tool-call count supplied by the runner (the driver turn's transcript tool count). */
+  toolCalls?: number;
 }
 
 /** The runner seam: run ONE chain with an optional per-manifest agent override + return the
@@ -208,7 +215,7 @@ async function runOneCandidate(
   quality: QualityGate | undefined,
 ): Promise<SweepTrial> {
   try {
-    const { turns, producedArtifacts, gate, durationMs } = await runChain(chain, agentForCandidate(chain, candidate.levers), candidate.id, candidate.levers);
+    const { turns, producedArtifacts, gate, durationMs, usage, toolCalls } = await runChain(chain, agentForCandidate(chain, candidate.levers), candidate.id, candidate.levers);
     const derived = trialTelemetry(chain, candidate, turns);
     // A runner-supplied gate (driver-green's honest-GREEN) overrides the design/navigator-shaped
     // derivation; otherwise the derived gate stands. ONE engine, all chain kinds.
@@ -219,6 +226,11 @@ async function runOneCandidate(
     // turn-derived value (design/navigator chains, whose duration IS the live turn's). The report reads
     // outerDurationMs, so this is the single place the driver's measured cycle time enters the ranking.
     if (durationMs !== undefined) telemetry.outerDurationMs = durationMs;
+    // Runner-supplied usage (driver-green: turns:[] carries no ManifestTurn usage) POPULATES the agent
+    // usage so EVERY run records cost + the consistent attributes (parity). toolCalls rides alongside.
+    if (usage || toolCalls !== undefined) {
+      telemetry.agent = { ...(telemetry.agent ?? {}), ...(usage ?? {}), ...(toolCalls !== undefined ? { toolCalls } : {}) };
+    }
     // PRESERVE the produced artifacts on the trial so the caller persists the actual outputs.
     const trial: SweepTrial = { candidateId: candidate.id, levers: candidate.levers, gatePassed, telemetry, producedArtifacts };
     // MANDATORY QUALITY JUDGE: every conformant candidate MUST be judged against the recorded

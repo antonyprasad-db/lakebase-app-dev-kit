@@ -51,7 +51,8 @@ import { cycleDir } from "../../../consort/config/consort-paths.js";
 import { readRunConfig, type RunConfig } from "../../../consort/session/run-config.js";
 import { readReplaySet, rehydrate, type ReplaySet } from "../../optimization/replay-turn.js";
 import { applyDriverLevers, assignWorktreePort } from "../../optimization/driver-green-enforcement.js";
-import { peekLastAgentTranscript } from "../../../consort/orchestrator/drive/claude-runner.js";
+import { peekLastAgentTranscript, peekLastAgentUsage } from "../../../consort/orchestrator/drive/claude-runner.js";
+import type { TurnUsage } from "../../../consort/session/claude-usage.js";
 
 export const KIT = process.cwd();
 
@@ -388,6 +389,11 @@ export interface RunDriverGreenResult {
    *  review-verdict.json, or EMPTY when the navigator judged the code clean). The driver-turn
    *  discriminator (evaluateNextStepDetermination) compares this to the recorded determination. */
   nextStepMarker: Record<string, string>;
+  /** The DRIVER turn's usage (cost + tokens + numTurns + agent duration), for cost parity across runs.
+   *  Undefined only if the CLI reported no usage line. The sweep records it into the trial telemetry. */
+  usage?: TurnUsage;
+  /** The DRIVER turn's tool-call count (from its transcript). */
+  toolCalls?: number;
 }
 
 /**
@@ -747,6 +753,11 @@ export async function runDriverGreenOnScaffold(
     // Peek BY the candidate's worktree (cwd) , concurrency-safe: a parallel sibling must NOT clobber
     // this candidate's transcript (the driver spawns with cwd=cfg.projectDir=projectDir=wtDir).
     const driverTx = peekLastAgentTranscript(projectDir);
+    // The DRIVER turn's usage (cost + tokens + numTurns + duration) + tool-call count, peeked BY cwd
+    // before the eval turn overwrites it , so EVERY experiment run records cost with the consistent
+    // TurnUsage attribute set (parity with the design-lane sweep). toolCalls comes from the transcript.
+    const driverUsage: TurnUsage | undefined = peekLastAgentUsage(projectDir);
+    const driverToolCalls = driverTx?.tools.length;
 
     // ── ASSERT: the honest-GREEN product-channel proof ──
     const productCodeExists = hasSourceFile(join(projectDir, "app"));
@@ -776,7 +787,7 @@ export async function runDriverGreenOnScaffold(
     // ── CAPTURE the produced code (app/ + tests/) as text BEFORE teardown, so the ONE sweep engine can
     //    PRESERVE it per candidate AND hand it to the mandatory judge (you cannot judge what was torn
     //    down). This is the driver's producedArtifacts, the same currency every chain returns. ──
-    const producedArtifacts: Record<string, string> = {
+    const producedArtifactsRaw: Record<string, string> = {
       ...snapshotTree(join(projectDir, "app"), projectDir),
       ...snapshotTree(join(projectDir, "tests"), projectDir),
       // CLIENT surface: on a UI story (uiTrack on , e.g. the S3 read-UI repair), the repair work lands
@@ -787,6 +798,11 @@ export async function runDriverGreenOnScaffold(
       ...(cfg.uiTrack ? snapshotTree(join(projectDir, "client", "src"), projectDir) : {}),
       ...(cfg.uiTrack ? snapshotTree(join(projectDir, "client", "tests"), projectDir) : {}),
     };
+    // Drop build junk (compiled bytecode) so the preserved artifacts are source-only , consistent across
+    // candidates + not swamped by machine-specific .pyc noise. snapshotTree does not filter.
+    const producedArtifacts: Record<string, string> = Object.fromEntries(
+      Object.entries(producedArtifactsRaw).filter(([p]) => !p.includes("__pycache__") && !p.endsWith(".pyc")),
+    );
 
     // ── THE NEXT-STEP NAVIGATOR EVALUATION (opus-high): after the driver turn greened, run ONE more
     //    live turn , the navigator EVALUATION turn nextTransition routes to (assess for a green that
@@ -848,6 +864,8 @@ export async function runDriverGreenOnScaffold(
         classify,
         producedArtifacts,
         nextStepMarker,
+        ...(driverUsage ? { usage: driverUsage } : {}),
+        ...(driverToolCalls !== undefined ? { toolCalls: driverToolCalls } : {}),
       };
     }
   } finally {

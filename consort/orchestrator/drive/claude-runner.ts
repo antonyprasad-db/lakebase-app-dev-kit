@@ -228,6 +228,21 @@ export function recordAgentTranscript(cwd: string, tx: TurnTranscript): void {
   lastAgentTranscriptByCwd.set(cwd, tx);
 }
 
+// Per-cwd last-turn USAGE (cost + tokens + numTurns + duration), the SAME crosstalk-safe mechanism as
+// the transcript: an optimize sweep peeks its OWN worktree's turn usage so EVERY run can record cost with
+// the consistent TurnUsage attribute set (parity with the design-lane sweep, which already carries usage).
+let lastAgentUsage: TurnUsage | undefined;
+const lastAgentUsageByCwd = new Map<string, TurnUsage>();
+/** PEEK the last turn's usage WITHOUT clearing it. Pass `cwd` for the concurrency-safe per-worktree read. */
+export function peekLastAgentUsage(cwd?: string): TurnUsage | undefined {
+  return cwd !== undefined ? lastAgentUsageByCwd.get(cwd) : lastAgentUsage;
+}
+/** Record a turn's usage as both the global last AND the per-cwd entry (mirrors recordAgentTranscript). */
+export function recordAgentUsage(cwd: string, usage: TurnUsage): void {
+  lastAgentUsage = usage;
+  lastAgentUsageByCwd.set(cwd, usage);
+}
+
 /** Build the default per-turn monitor from the module timeout constants. A turn with
  *  neither an inactivity nor a heartbeat window returns undefined (a byte-identical
  *  no-op controller). Exposed as its own function so tests can assert the mapping and
@@ -415,7 +430,11 @@ export function spawnClaudeStreaming(
       // Record as global last AND per-cwd (the worktree), so a concurrent peek gets ITS OWN turn, not a
       // sibling's , the fix for cross-candidate transcript crosstalk in parallel sweeps (global is a race).
       recordAgentTranscript(cwd, tx);
-      resolve(parseTurnUsage(lines));
+      // Record the turn's usage (cost + tokens + numTurns + duration) the SAME crosstalk-safe way, so a
+      // concurrent optimize sweep can peek ITS worktree's cost and record it (cost parity across runs).
+      const parsed = parseTurnUsage(lines);
+      if (parsed) recordAgentUsage(cwd, parsed);
+      resolve(parsed);
     });
   });
 }
