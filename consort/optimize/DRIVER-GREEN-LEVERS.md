@@ -87,6 +87,39 @@ candidate PRESERVES its inputs (the `navigator-eval/` determination markers + th
 transcripts — prompt/reasoning/tools — + the produced code) in `producedArtifacts`, so `--rejudge
 <runDir>` re-scores preserved outputs OFFLINE, without re-running the sweep.
 
+### ⭐ THE MILESTONE: clean code + superseded-shift (the resolved end-state, reached in ONE turn)
+
+The corpus evaluated the S2 drop step as a **regression** at turn 003 (production code still referenced
+the dropped `inventory_code`) and only reached the resolved **superseded-shift** at turn 019 — **~16
+repair turns later**, AFTER the code was fully cleaned (0 refs). Verified per-turn:
+`repositories/stock.py` had the ref at 002/003 and 0 refs by 014/018/019. So `superseded-shift` is the
+recorded run's **later resolved state**, not an alternative first-green diagnosis — 003 and 019 are
+**sequential stages**, not two readings of one state.
+
+**The milestone to beat is therefore CLEAN CODE + SUPERSEDED-SHIFT.** A candidate that reaches it on its
+FIRST green did in one turn what the recording took ~16 turns to do — it makes the entire repair loop
+**unnecessary**. `buildDriverNextStepJudge` encodes this as a code-state-conditioned rule (gated by
+`DriverTurnSpec.droppedSymbol`): when recorded=`regression` and candidate=`superseded-shift`, credit
+**pass-with-honors** IFF the candidate's production code is functionally clean
+(`productionCodeReferencesSymbol` = no REAL refs to the dropped symbol, ignoring inert docstring/comment
+mentions); superseded-shift with code STILL referencing the symbol is a **mis-diagnosis** (the regression
+stands) ⇒ FAIL.
+
+**Result (S2, n=3 live, re-judged):**
+
+| config | model / effort | milestone (clean + superseded-shift) | per-turn time |
+|---|---|---|---|
+| **opus ctx-test** | opus / **normal** | **3 / 3** ✅ | 347 / 355 / 430s |
+| opus ctx-test-elow | opus / low | 1 / 3 | 274 / 284 / 315s |
+| sonnet ctx-test-elow | sonnet / low | 0 / 3 (all `regression`) | 199 / 221 / 634s |
+
+**`opus ctx-test` at normal effort is the winner: 3/3 reach the milestone.** Per-turn it is "slower"
+(~377s) than the low-effort configs, but that one turn REPLACES the recorded 16-turn repair loop, so it
+is dramatically cheaper end-to-end — *a better job up front skips the later steps*. The discriminator
+correctly separates this from a mis-diagnosis: sonnet ctx-test that flagged superseded-shift while its
+code still carried 8 real `inventory_code` refs (trial-1) FAILS, while the clean-code superseded-shift
+runs pass-with-honors — same determination, opposite verdict, decided by code state.
+
 ## Why (the evidence, run-17 `stockflow-full`)
 
 `driver/green` is **46% of the whole run's wall-clock** (23 turns, 329 min, avg 859s, 1.06M output

@@ -60,13 +60,19 @@ describe("driverGreenCandidates: the candidate set is well-formed", () => {
     expect(by["ctx-test-elow"]).toEqual({ ctxPack: ["failing-test"], effort: "low" }); // COMBINED scoping + think-less
     expect(by["opus-ctx-test-elow"]).toEqual({ model: "opus", ctxPack: ["failing-test"], effort: "low" }); // COMBINED + opus tier
     expect(by["opus-ctx-test"]).toEqual({ model: "opus", ctxPack: ["failing-test"] }); // opus tier, normal effort
-    // No proven-harmful guardScan, no deprecated denyBash. The model-tier levers are the two opus points
-    // (opus-ctx-test-elow + opus-ctx-test); every other candidate stays on the base model.
+    // opus-normal x the other levers (exploration): bare control + scope-note + ctx-test-scope + guard.
+    expect(by["opus"]).toEqual({ model: "opus" });
+    expect(by["opus-scope-note"]).toEqual({ model: "opus", ctxPack: ["scope-note"] });
+    expect(by["opus-ctx-test-scope"]).toEqual({ model: "opus", ctxPack: ["failing-test", "scope-note"] });
+    expect(by["opus-single-test-guard"]).toEqual({ model: "opus", guardSuite: true });
+    // No proven-harmful guardScan, no deprecated denyBash. Every opus-model lever is explicit below.
     for (const c of cs) {
       expect(c.levers.guardScan).toBeUndefined();
       expect(c.levers.denyBash).toBeUndefined();
     }
-    expect(cs.filter((c) => c.levers.model).map((c) => c.id)).toEqual(["opus-ctx-test-elow", "opus-ctx-test"]);
+    expect(cs.filter((c) => c.levers.model).map((c) => c.id)).toEqual([
+      "opus-ctx-test-elow", "opus-ctx-test", "opus", "opus-scope-note", "opus-ctx-test-scope", "opus-single-test-guard",
+    ]);
   });
 });
 

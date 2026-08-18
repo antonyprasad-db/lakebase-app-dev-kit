@@ -232,5 +232,11 @@ export function driverGreenCandidates(): RoleCandidate[] {
     // MODEL TIER (normal effort): ctx-test on OPUS without think-less , isolates the model-tier effect
     // from the effort lever (does opus at default effort converge tighter / align better than opus-elow?).
     { id: "opus-ctx-test", levers: { model: "opus", ctxPack: ["failing-test"] } },
+    // OPUS-NORMAL x the OTHER levers , explore which scoping/enforcement lever best reaches the clean-code
+    // + superseded-shift MILESTONE on opus at default effort (opus-ctx-test already hits it 3/3).
+    { id: "opus", levers: { model: "opus" } }, // bare control: does opus reach the milestone WITHOUT scoping context?
+    { id: "opus-scope-note", levers: { model: "opus", ctxPack: ["scope-note"] } },
+    { id: "opus-ctx-test-scope", levers: { model: "opus", ctxPack: ["failing-test", "scope-note"] } },
+    { id: "opus-single-test-guard", levers: { model: "opus", guardSuite: true } },
   ];
 }
