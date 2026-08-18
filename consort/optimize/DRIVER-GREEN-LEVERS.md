@@ -4,7 +4,19 @@
 > driver-green–specific levers the run-17 analysis surfaced. Nothing here changes the default drive
 > until a lever is SWEPT + judged + applied; the shipped code paths default the levers OFF.
 
-## ⛔ TERMINAL FINDING (S2 re-pin, live) — the sweep cannot measure these levers on a thrasher
+## ✅ RESOLVED (single-turn model) — the sweep now measures one turn, scored vs the recording
+
+The blocker below was a single over-reaching assertion, not a real limit. `assert(allGreen)` required
+the WHOLE story green in one turn (fine for small S3, impossible for the 41-turn S2). Fixed: the sweep
+is now **single-turn** , it drops the all-green gate (the gate is structural: turn ran + produced code),
+lets a FAILING green flow to the navigator assess (already driven), and scores that determination
+**same/better/worse** vs the recorded original (the assess judge). Time is scored **same/better/worse**
+vs the **recorded original turn's duration** (`DriverTurnSpec.recordedBaselineMs`; driver-green-s2 =
+667.2s from the corpus agent-log), not a noisy fresh baseline. The corpus recording is the fixed
+reference for both axes (pre-state seed + post-state determination + duration). So the levers CAN now
+be measured on the S2 thrasher , one turn, no story completion required. (Original write-up below.)
+
+## ⛔ ORIGINAL FINDING (superseded by the fix above) — the sweep cannot measure these levers on a thrasher
 
 The driver-green sweep asserts the driver reaches **all-green in ONE bounded turn** (`assert(allGreen)`,
 `maxSteps: 4`, driver-build-support.ts:588). That works for a small, one-turn-greenable turn (S3). But
