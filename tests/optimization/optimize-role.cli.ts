@@ -199,10 +199,13 @@ export async function sweepDriverGreen(
   // eslint-disable-next-line no-console
   console.log(`[optimize-role] ${handle}: CLOUD LIVE driver-GREEN sweep, ${candidates.length} candidate(s)${opts.candidates?.length ? ` (subset: ${opts.candidates.join(",")})` : ""}, concurrency=${opts.concurrency ?? 1}. run dir: ${runDir}`);
 
-  // The MANDATORY driver-turn judge (SHARED with the re-judge harness , buildDriverNextStepJudge): run
-  // the candidate's NEXT-STEP navigator determination through evaluateNextStepDetermination vs the
-  // CONTAINED recorded determination. PASS / PASS-WITH-HONORS (flagged, better) / FAIL.
-  const quality: QualityGate = buildDirectionalTurnJudge(handle);
+  // The MANDATORY driver-turn judge (SHARED with the re-judge harness): the recorded corpus ALSO
+  // evaluated this driver turn (the navigator turn that followed it). buildDriverNextStepJudge re-runs
+  // that SAME evaluation LIVE on the candidate (the harness drives the opus-high navigator eval; its
+  // determination rides producedArtifacts under navigator-eval/) and compares the candidate's
+  // determination to the RECORDED one at the same step , the discriminator is SAME / BETTER / WORSE
+  // (evaluateNextStepDetermination). PASS (same) / PASS-WITH-HONORS (fewer/no issues, better) / FAIL (worse).
+  const quality: QualityGate = buildDriverNextStepJudge(handle);
 
   // The driver chain as a ChainRunner for the ONE sweep engine: scaffold ONCE (the #589 model), each
   // candidate cuts its own worktree + Lakebase branch off it, drives its DRIVER TURN + the live
@@ -234,9 +237,6 @@ export async function sweepDriverGreen(
     // the judge reads it without widening the ChainRunResult seam; the app/+tests stay for preservation.
     const producedArtifacts: Record<string, string> = { ...result.producedArtifacts };
     for (const [k, v] of Object.entries(result.nextStepMarker)) producedArtifacts[`${NEXT_STEP_MARKER_PREFIX}${k.split("/").pop()}`] = v;
-    // Thread the turn's honest-GREEN outcome to the directional judge (the seam only passes
-    // producedArtifacts): greening in ONE turn is BETTER than the recorded original that failed its green.
-    producedArtifacts[HONEST_GREEN_SIGNAL] = result.honestGreen ? "1" : "0";
     // SINGLE-TURN: the gate is STRUCTURAL (the turn ran + produced code + a determination was captured ,
     // guaranteed by reaching here; a crash was caught upstream => DQ). It is NOT `honestGreen`: a failing
     // green is a valid scorable turn, and gating on green would skip the judge (role-sweep only judges
@@ -312,10 +312,6 @@ export const DRIVER_GREEN_CODE_PIN_REL =
  *  separate test OF THE NAVIGATOR itself (how the navigator assessed/reviewed each driver candidate),
  *  so the prefix is a real path segment, not an opaque marker. */
 const NEXT_STEP_MARKER_PREFIX = "navigator-eval/";
-/** Reserved producedArtifacts key carrying the turn's honest-GREEN outcome ("1"/"0"), threaded to the
- *  directional judge (the QualityGate seam only passes producedArtifacts). Persisted with the trial, so
- *  the judge re-runs offline against preserved outputs. */
-export const HONEST_GREEN_SIGNAL = "__honest_green__";
 
 /** Concatenate the produced files under `prefix` with a matching extension into ONE deterministic text
  *  (sorted by relpath). Used to reconstruct the judged text when a chain's outputFile is a DIRECTORY
@@ -452,7 +448,17 @@ export function buildChainJudge(chain: RoleChain | BuildRoleChain, handle: strin
  *  through evaluateNextStepDetermination, comparing it to the CONTAINED recorded determination for that
  *  driver turn (assume corpus gone). Reuses makeSupersessionDeltaJudge (assess set-delta) +
  *  makeVerdictAlignmentJudge (review). Maps the directional verdict: pass + pass-with-honors => passed
- *  (honors surfaced via classification + nextStep); fail => not passed. A missing reference throws. */
+ *  (honors surfaced via classification + nextStep); fail => not passed. A missing reference throws.
+ *
+ *  INVARIANT , the discriminator is the NAVIGATOR DETERMINATION, never a turn OUTPUT signal. DO NOT wrap
+ *  this judge with an honest-GREEN (or any driver-output) shortcut that returns pass/pass-with-honors
+ *  WITHOUT consulting the navigator determination. The corpus recorded not just the driver output but how
+ *  the navigator EVALUATED it at that step; the trial re-runs that SAME evaluation live and this judge
+ *  compares the two, SAME / BETTER / WORSE. Whether the driver's own green passed is a report signal only
+ *  , a green that ignored a supersession is WORSE (it breaks prior tests), not "better", and ONLY the
+ *  navigator determination tells them apart. A shortcut here silently mis-scores that case. This invariant
+ *  is locked by "buildDriverNextStepJudge is the discriminator (no output shortcut)" in
+ *  tests/bdd/optimize-role-cli.test.ts , keep it green. See consort/optimize/DRIVER-GREEN-LEVERS.md. */
 export function buildDriverNextStepJudge(handle: string): QualityGate {
   const spec = DRIVER_TURN_SPECS[handle];
   if (!spec) throw new Error(`optimize-role: buildDriverNextStepJudge , unknown driver handle "${handle}"`);
@@ -490,36 +496,6 @@ export function buildDriverNextStepJudge(handle: string): QualityGate {
       } finally {
         rmSync(markerDir, { recursive: true, force: true });
       }
-    },
-  };
-}
-
-/** The DIRECTIONAL turn judge , the right judge for the single-turn analysis: score one driver turn's
- *  result SAME / BETTER / WORSE vs the RECORDED original, where "passed" = NOT-WORSE (per the model:
- *  assessing is just making sure you're not worse than the original turn). It wraps buildDriverNextStepJudge:
- *   - Candidate reached honest-GREEN on an ASSESS-referenced turn => BETTER. The recorded original FAILED
- *     its green (that is why it has an assess determination); resolving it cleanly in ONE turn is strictly
- *     better, so we do NOT mis-score the (correctly absent) assess determination as "insufficient".
- *   - Otherwise (failed green => assess, or a review turn) => delegate to the determination comparison,
- *     which already yields same (pass) / better (pass-with-honors) / worse (fail); passed = not-worse.
- *  Re-judgeable OFFLINE: its inputs (the HONEST_GREEN_SIGNAL + the next-step markers) are persisted in
- *  producedArtifacts, so `--rejudge` scores preserved outputs without re-running the experiment. */
-export function buildDirectionalTurnJudge(handle: string): QualityGate {
-  const base = buildDriverNextStepJudge(handle);
-  const spec = DRIVER_TURN_SPECS[handle];
-  return {
-    judgeCandidate: async (args) => {
-      const greened = args.producedArtifacts[HONEST_GREEN_SIGNAL] === "1";
-      if (greened && spec?.evaluatorKind === "assess") {
-        return {
-          passed: true,
-          classification: "pass-with-honors",
-          nextStep: "resolved-clean-green",
-          reason:
-            "candidate reached honest-GREEN in ONE turn; the recorded original failed its green (assess reference), so a clean resolution is strictly BETTER, not an insufficient assess",
-        };
-      }
-      return base.judgeCandidate(args);
     },
   };
 }
@@ -874,7 +850,7 @@ export async function runRejudge(runRoot: string): Promise<void> {
     // Resolve the SAME discriminator the live sweep used , driver via buildDriverNextStepJudge, else buildChainJudge.
     let quality: QualityGate;
     try {
-      quality = isDriver ? buildDirectionalTurnJudge(handle) : buildChainJudge(chain!, handle, isBuildChain);
+      quality = isDriver ? buildDriverNextStepJudge(handle) : buildChainJudge(chain!, handle, isBuildChain);
     } catch (e) {
       console.log(`[rejudge] ${handle}: cannot resolve discriminator (${e instanceof Error ? e.message : String(e)}); skipping`);
       continue;

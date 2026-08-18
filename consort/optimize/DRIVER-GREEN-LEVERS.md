@@ -58,13 +58,25 @@ effort lever / think-less, a model-inference parameter — NOT a scoping lever, 
 levers can be read against a pure model-param change). Dropped: `guard-scan`, `ctx-db`, `scope-guard`,
 `enforce-all`. Model tiers are a separate study, not swept here.
 
-**The right judge (single-turn, directional).** `buildDirectionalTurnJudge` wraps the assess/next-step
-comparison: a candidate that reaches **honest-GREEN in ONE turn on an assess-referenced turn** scores
-`pass-with-honors`/BETTER (the recorded original FAILED its green — that is why it carries an assess
-determination — so a clean one-turn resolution is strictly better, not the old assess-only
-"insufficient"). Each candidate PRESERVES its inputs (`HONEST_GREEN_SIGNAL` + next-step markers + the
-driver/eval transcripts, prompt/reasoning/tools) in `producedArtifacts`, so `--rejudge <runDir>`
-re-scores preserved outputs OFFLINE — the judge can be rebuilt and re-run without re-running the sweep.
+**The discriminator (re-evaluate the turn the way the corpus did, then compare same/better/worse).**
+The corpus didn't just record the driver-green *output* — it recorded how that output was **evaluated**:
+the navigator turn that followed (an ASSESS on S2 — the green failed its honest-GREEN verify because
+the drop left production code referencing `inventory_code`, so the navigator determined a regression +
+superseded-shift). The sweep re-runs that SAME evaluation LIVE on each candidate (the harness drives the
+opus-high navigator eval; its determination is captured under `navigator-eval/` in `producedArtifacts`)
+and `buildDriverNextStepJudge` → `evaluateNextStepDetermination` compares the candidate's determination
+to the RECORDED one at the same step. The verdict is directional on the *issues found*:
+- **PASS (same)** — candidate's determination is identical or coverage-equivalent to the recorded one
+  (e.g. both `superseded-shift` over an equivalent superseded-test set; both `regression`; both clean).
+- **PASS-WITH-HONORS (better)** — candidate found FEWER / NO issues where the recorded run found some
+  (clean where recorded was `regression`; a strict subset of the recorded superseded set).
+- **FAIL (worse)** — candidate escalated to a worse class, over-flagged, or diverged (more/different issues).
+
+There is NO honest-GREEN shortcut: whether the driver's own green passed is a report signal, not the
+judge — the judge is the navigator's determination vs the recorded navigator's determination. Each
+candidate PRESERVES its inputs (the `navigator-eval/` determination markers + the driver/eval
+transcripts — prompt/reasoning/tools — + the produced code) in `producedArtifacts`, so `--rejudge
+<runDir>` re-scores preserved outputs OFFLINE, without re-running the sweep.
 
 ## Why (the evidence, run-17 `stockflow-full`)
 

@@ -6,7 +6,7 @@
 import { describe, it, expect } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseArgs, expandChains, selectDriverCandidates, readCampAppDir, DRIVER_GREEN_CODE_PIN_REL, DRIVER_TURN_SPECS, concatTreeFiles, loadPreservedArtifacts, classifyReproduce, isMissingJudgeTarget } from "../optimization/optimize-role.cli";
+import { parseArgs, expandChains, selectDriverCandidates, readCampAppDir, DRIVER_GREEN_CODE_PIN_REL, DRIVER_TURN_SPECS, concatTreeFiles, loadPreservedArtifacts, classifyReproduce, isMissingJudgeTarget, buildDriverNextStepJudge } from "../optimization/optimize-role.cli";
 import { mkdtempSync, mkdirSync as mkdirSyncFs, writeFileSync as writeFileSyncFs, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { ROLE_CHAINS } from "../../consort/optimize/role-chains";
@@ -263,5 +263,37 @@ describe("isMissingJudgeTarget: a judge short-circuit for an absent target is NO
     expect(isMissingJudgeTarget("material difference vs the recorded ground truth: navigator missed tests/core.py")).toBe(false);
     expect(isMissingJudgeTarget("candidate's post-refactor review STILL requests refactor for the same issue")).toBe(false);
     expect(isMissingJudgeTarget(undefined)).toBe(false);
+  });
+});
+
+describe("buildDriverNextStepJudge is the discriminator , NO driver-output shortcut (anti-recurrence guard)", () => {
+  // LOCKS the INVARIANT on buildDriverNextStepJudge: a driver candidate is judged by comparing the
+  // NAVIGATOR's determination on the candidate to the RECORDED navigator determination at the same step
+  // (same/better/worse), NEVER by a driver-output (honest-GREEN) signal. A prior change wrapped the judge
+  // with "greened in one turn => pass-with-honors", which mis-scored a green that IGNORED a supersession
+  // (a green can pass its own verify while breaking prior tests => WORSE, not better). These cases have a
+  // WORSE / BETTER navigator determination but say nothing about green; if a green-shortcut is ever
+  // re-added, the first case flips to pass and this test fails. driver-green-s2's recorded determination
+  // is superseded-shift (a real drop-column supersession the recorded navigator flagged).
+  it("FAILS a candidate whose navigator ESCALATED to a regression (worse than the recorded superseded-shift)", async () => {
+    const judge = buildDriverNextStepJudge("driver-green-s2");
+    const v = await judge.judgeCandidate({
+      candidateId: "regressed",
+      primary: undefined,
+      // The candidate's live navigator assessed a REGRESSION (code still references the dropped column) ,
+      // strictly WORSE than the recorded superseded-shift. Must FAIL even though the driver turn "ran".
+      producedArtifacts: { "navigator-eval/regression-assessment.json": JSON.stringify({ diagnosis: "code still references the dropped inventory_code column", fix: "remove every inventory_code reference" }) },
+    });
+    expect(v.passed).toBe(false);
+    expect(v.classification).not.toBe("pass-with-honors");
+  });
+  it("scores a candidate whose navigator found the code CLEAN (no issues) as pass-with-honors (BETTER)", async () => {
+    const judge = buildDriverNextStepJudge("driver-green-s2");
+    // No navigator-eval markers => the navigator found nothing to flag (equivalent) where the recorded
+    // run found a superseded-shift => FEWER issues => better. This is credited by the determination
+    // comparison, not by any green signal.
+    const v = await judge.judgeCandidate({ candidateId: "clean", primary: undefined, producedArtifacts: {} });
+    expect(v.passed).toBe(true);
+    expect(v.classification).toBe("pass-with-honors");
   });
 });

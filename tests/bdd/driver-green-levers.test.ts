@@ -19,7 +19,6 @@ import { execFileSync } from "child_process";
 import { tmpdir } from "os";
 import { join } from "path";
 import { driverGreenCandidates } from "../../tests/optimization/role-levers";
-import { buildDirectionalTurnJudge, HONEST_GREEN_SIGNAL } from "../../tests/optimization/optimize-role.cli";
 import { applyDriverLevers, ctxPackEnv, guardHookScript, assignWorktreePort, deployPortForIndex, BASE_DEPLOY_PORT } from "../../tests/optimization/driver-green-enforcement";
 import { load } from "js-yaml";
 import { buildContextPack } from "../../consort/orchestrator/build/build-context";
@@ -64,15 +63,6 @@ describe("driverGreenCandidates: the candidate set is well-formed", () => {
       expect(c.levers.denyBash).toBeUndefined();
       expect(c.levers.model).toBeUndefined();
     }
-  });
-
-  it("buildDirectionalTurnJudge: a clean green on an assess-referenced turn scores BETTER, not insufficient", async () => {
-    // The right judge for the single-turn analysis , greening in one turn where the recorded original
-    // failed its green is strictly better (not the old assess-only "insufficient"). Synchronous, no LLM.
-    const judge = buildDirectionalTurnJudge("driver-green-s2");
-    const v = await judge.judgeCandidate({ candidateId: "x", primary: undefined, producedArtifacts: { [HONEST_GREEN_SIGNAL]: "1" } });
-    expect(v.passed).toBe(true);
-    expect(v.classification).toBe("pass-with-honors");
   });
 });
 
