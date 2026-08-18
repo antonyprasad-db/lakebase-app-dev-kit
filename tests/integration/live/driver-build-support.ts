@@ -673,6 +673,13 @@ export async function runDriverGreenOnScaffold(
     const producedArtifacts: Record<string, string> = {
       ...snapshotTree(join(projectDir, "app"), projectDir),
       ...snapshotTree(join(projectDir, "tests"), projectDir),
+      // CLIENT surface: on a UI story (uiTrack on , e.g. the S3 read-UI repair), the repair work lands
+      // under client/, so the judge MUST see it , without this the client story was scored blind to its
+      // own code (the confounder that made the driver-repair ladder plateau). Scope to client/src +
+      // client/tests ONLY: snapshotTree does not filter, and the whole client/ tree includes
+      // node_modules/.vite/dist (thousands of files) which would swamp the produced artifacts + judge.
+      ...(cfg.uiTrack ? snapshotTree(join(projectDir, "client", "src"), projectDir) : {}),
+      ...(cfg.uiTrack ? snapshotTree(join(projectDir, "client", "tests"), projectDir) : {}),
     };
 
     // ── THE NEXT-STEP NAVIGATOR EVALUATION (opus-high): after the driver turn greened, run ONE more
