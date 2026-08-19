@@ -126,7 +126,7 @@ function bundleFromDir(dir: string, feature: string, story: string, ac: string):
 /** The recorded stockflow-full corpus root (the source of truth for replay experiments). */
 export const CORPUS_DIR = join(KIT, "examples/replay/corpora/stockflow-full");
 export const CORPUS_TURNS = join(CORPUS_DIR, "turns");
-const CORPUS_RA = join(CORPUS_DIR, "recorded-artifacts");
+export const CORPUS_RA = join(CORPUS_DIR, "recorded-artifacts");
 /** The feature the shipped lean chain manifests bake into their paths , the token generateLeanReplayManifest
  *  swaps for the replayed turn's actual feature (a no-op when they match, e.g. an F6 turn). */
 const BUILD_FEATURE_TEMPLATE = "F6-split-tracking-code";
@@ -474,12 +474,20 @@ function layReplayDriverPreCycle(consortDir: string, bundle: DriverGreenBundle, 
     if (ra === undefined) throw new Error(`layReplayDriverPreCycle: no regression-assessment input in ${rs.turnDir}/replay-set/inputs`);
     writeFileSync(join(acCycleDir, "regression-assessment.json"), ra);
   } else {
-    // refactor: the STORY-level review.json (refactor_requested:true) that routes refactorPending, verbatim.
-    const recRv = join(rs.turnDir, "files", ARTIFACT_ROOT, "cycles", feature, story, "review.json");
-    if (!existsSync(recRv)) throw new Error(`layReplayDriverPreCycle: recorded review.json not found at ${recRv} (the refactor's routing directive)`);
+    // refactor: the STORY-level review state that routes refactorPending + satisfies the refactor route's
+    // required process event. Two files, both verbatim from the recording:
+    //  - review.json (refactor_requested:true) , what refactorPending reads (storyReviewState).
+    //  - review-verdict.json (refactor:true + notes) , the refactor route's REQUIRED process event AND the
+    //    directive the refactor must RESOLVE (the judge compares the post-refactor review to it). It is the
+    //    OUTPUT of the review turn that prompted this refactor , sourced from the cumulative recorded-artifacts.
     const storyDir = join(consortDir, "cycles", feature, story);
     mkdirSync(storyDir, { recursive: true });
+    const recRv = join(rs.turnDir, "files", ARTIFACT_ROOT, "cycles", feature, story, "review.json");
+    if (!existsSync(recRv)) throw new Error(`layReplayDriverPreCycle: recorded review.json not found at ${recRv} (the refactor's routing directive)`);
     writeFileSync(join(storyDir, "review.json"), readFileSync(recRv, "utf8"));
+    const recVerdict = join(CORPUS_RA, "cycles", feature, story, "review-verdict.json");
+    if (!existsSync(recVerdict)) throw new Error(`layReplayDriverPreCycle: recorded review-verdict.json not found at ${recVerdict} (the refactor route's required process event)`);
+    writeFileSync(join(storyDir, "review-verdict.json"), readFileSync(recVerdict, "utf8"));
   }
 }
 
@@ -1077,6 +1085,20 @@ export async function runDriverGreenOnScaffold(
       a.kind === "invoke-role" && a.role === "navigator" &&
       typeof (a as { buildMode?: unknown }).buildMode === "string" &&
       ["assess", "review", "assess-refactor", "reflect"].includes(String((a as { buildMode?: unknown }).buildMode));
+    // ── REFACTOR turn: FORCE a post-refactor RE-REVIEW. The recorded refactor flow routes refactor ->
+    //    acceptance (turn 0040), with NO natural re-review , yet the tuning target for driver-refactor is
+    //    "the refactor completes CLEANLY in this one step" (a clean refactor needs no follow-on refactor
+    //    loop). To gauge that, reset the STORY review state to "green, unreviewed" so the drive's
+    //    `reviewStoryPending` (allTestsGreen && !reviewed) routes a FRESH navigator review of the just-
+    //    refactored code. Clearing review.json (its reviewed_at/refactored_at, set by 0039's postTurn
+    //    @build-cycle) + the seeded review-verdict.json re-opens the review. The captured verdict is then
+    //    judged: refactor:false == the refactor resolved the recorded smells in one step (clean/terminal);
+    //    refactor:true == unresolved (a follow-on refactor would be needed). The driver lever is untouched. ──
+    if (driverTurn === "refactor") {
+      const storyCyc = join(consortDir, "cycles", b.feature, b.story);
+      rmSync(join(storyCyc, "review.json"), { force: true });
+      rmSync(join(storyCyc, "review-verdict.json"), { force: true });
+    }
     // The navigator eval uses its ACTUAL configured model (the applied-winner lever), resolved from the
     // workspace config , NOT a pinned opus-high. The driver lever stays untouched.
     const evalSettings = resolveConsortSettings({ projectDir });

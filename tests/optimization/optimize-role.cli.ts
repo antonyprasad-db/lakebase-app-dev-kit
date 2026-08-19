@@ -32,7 +32,7 @@ import { roleCandidates, testStrategistCandidates, driverGreenCandidates } from 
 import { deployPortForIndex } from "./driver-green-enforcement.js";
 import { runRoleSweep, type SweepTrial, type ChainRunner, type ChainRunResult, type QualityGate, type QualityVerdict, type SweepableChain } from "./role-sweep.js";
 import { reportRoleSweep, formatRoleSweepReport, type SweepReport } from "./role-sweep-report.js";
-import { scaffoldDriverGreenProject, teardownDriverGreenProject, runDriverGreenOnScaffold, runLeanReplayTurn, sweepDriverGreenOrphans, DRIVER_GREEN_BUNDLE_S2, replayBundleFromTurn, CORPUS_TURNS, type RunDriverGreenResult, type DriverGreenBundle, type ScaffoldedDriverProject } from "../integration/live/driver-build-support.js";
+import { scaffoldDriverGreenProject, teardownDriverGreenProject, runDriverGreenOnScaffold, runLeanReplayTurn, sweepDriverGreenOrphans, DRIVER_GREEN_BUNDLE_S2, replayBundleFromTurn, CORPUS_TURNS, CORPUS_RA, type RunDriverGreenResult, type DriverGreenBundle, type ScaffoldedDriverProject } from "../integration/live/driver-build-support.js";
 import { ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
 import type { RoleLeverPatch } from "./role-levers.js";
 import { loadExperimentConfig } from "./experiment-config.js";
@@ -353,22 +353,35 @@ function readRecordedNextReview(turnLabel: string, feature: string, story: strin
   return parseVerdictFile(readFileSync(rv, "utf8"));
 }
 
-/** The CORPUS-FAITHFUL repair-turn judge , the QUALITY method (NOT code-equivalence, which always has
- *  non-deterministic diffs; the navigator's assessment prompts already gauge quality). It is a TWO-TURN
- *  review: after the repair, the drive runs the navigator's ACTUAL next assessment (a REVIEW of the resolved
- *  story), run with the navigator's CONFIGURED model (the applied-winner lever, NOT a pinned opus-high , see
- *  runDriverGreenOnScaffold), and this judge compares that determination to the RECORDED next-step review
- *  (same/better/worse via evaluateNextStepDetermination). Gated on honest-GREEN (the repair resolved).
- *  See consort/optimize/DRIVER-REPAIR-TURN-REPLAY.md. */
-function buildDriverRepairNextStepJudge(turnLabel: string, feature: string, story: string): QualityGate {
+/** Read the recorded review DIRECTIVE that PROMPTED a refactor (the smells the refactor must resolve). The
+ *  refactor's recorded NEXT turn is acceptance (no review-verdict), so , unlike repair , the reference is
+ *  the UPSTREAM review-verdict, read from the corpus recorded-artifacts (the cumulative .consort mirror).
+ *  The harness FORCES a fresh post-refactor review (resets the story review state after the refactor so the
+ *  drive re-reviews the refactored code); that verdict is compared to THIS directive , clean (refactor:false)
+ *  == the refactor resolved the directive's smells in one step. */
+function readRecordedRefactorDirective(feature: string, story: string): VerdictOutput {
+  const rv = join(CORPUS_RA, "cycles", feature, story, "review-verdict.json");
+  if (!existsSync(rv)) throw new Error(`readRecordedRefactorDirective: no story-level review-verdict at ${rv} (the refactor's recorded directive)`);
+  return parseVerdictFile(readFileSync(rv, "utf8"));
+}
+
+/** The CORPUS-FAITHFUL post-turn REVIEW-quality judge , the QUALITY method (NOT code-equivalence, which
+ *  always has non-deterministic diffs; the navigator's review prompts already gauge quality). It is a
+ *  TWO-TURN review: after the driver turn, the drive runs the navigator's ACTUAL review of the resolved
+ *  story , run with the navigator's CONFIGURED model (the applied-winner lever, NOT a pinned opus-high , see
+ *  runDriverGreenOnScaffold) , and this judge compares that review-verdict to the recorded review directive
+ *  via evaluateNextStepDetermination(review): clean (refactor:false) => PASS (resolved), smells remaining =>
+ *  FAIL. Gated on honest-GREEN (the turn kept the story green). The two callers differ ONLY in which recorded
+ *  review is the directive (repair: the turn-AFTER review it routes to; refactor: the UPSTREAM review it must
+ *  resolve). See consort/optimize/DRIVER-REPAIR-TURN-REPLAY.md. */
+function buildReviewResolutionJudge(recordedReviewDirective: VerdictOutput): QualityGate {
   const cwd = process.cwd();
   const deltaJudge = makeSupersessionDeltaJudge({ cwd });
   const verdictJudge = makeVerdictAlignmentJudge({ cwd });
-  const recordedReviewDirective = readRecordedNextReview(turnLabel, feature, story);
   return {
     judgeCandidate: async ({ producedArtifacts }) => {
-      // GATE: the repair must have RESOLVED (honest-GREEN passed). Prefer the explicit marker; fall back to
-      // "a next-step review-verdict was produced" (a repair only routes to review AFTER greening).
+      // GATE: the turn must have kept the story honest-GREEN. Prefer the explicit marker; fall back to
+      // "a next-step review-verdict was produced" (the drive only routes to review when the story is green).
       let resolved: boolean;
       const hg = producedArtifacts["repair-honest-green.json"];
       if (hg !== undefined) {
@@ -376,18 +389,29 @@ function buildDriverRepairNextStepJudge(turnLabel: string, feature: string, stor
       } else {
         resolved = producedArtifacts[`${NEXT_STEP_MARKER_PREFIX}review-verdict.json`] !== undefined;
       }
-      if (!resolved) return { passed: false, reason: "repair did not resolve (honest-GREEN failed) , not the same quality as the recorded resolved repair" };
+      if (!resolved) return { passed: false, reason: "driver turn did not hold honest-GREEN , not the same quality as the recorded resolved turn" };
       const candRaw = producedArtifacts[`${NEXT_STEP_MARKER_PREFIX}review-verdict.json`];
-      if (candRaw === undefined) return { passed: false, reason: "no next-step review-verdict captured , the navigator's next assessment did not run/produce a verdict" };
+      if (candRaw === undefined) return { passed: false, reason: "no next-step review-verdict captured , the navigator's next review did not run/produce a verdict" };
       const candidateReview = parseVerdictFile(candRaw);
       // Two-turn quality: does the candidate's next-turn review reach the same-or-better determination as the
-      // recorded next review? (review evaluator , same/better/worse; the actual navigator model, not opus-high.)
+      // recorded directive? (review evaluator , clean=resolved=PASS; the actual navigator model, not opus-high.)
       const outcome = await evaluateNextStepDetermination({ evaluatorKind: "review", deltaJudge, verdictJudge, recordedReviewDirective, candidateReview });
       const passed = outcome.verdict !== "fail";
       const classification = outcome.verdict === "pass-with-honors" ? "pass-with-honors" : outcome.candidateClass;
       return { passed, classification, nextStep: outcome.verdict, reason: outcome.reason };
     },
   };
+}
+
+/** Repair-turn judge: reference = the recorded turn-AFTER review (the repair's recorded next step). */
+function buildDriverRepairNextStepJudge(turnLabel: string, feature: string, story: string): QualityGate {
+  return buildReviewResolutionJudge(readRecordedNextReview(turnLabel, feature, story));
+}
+
+/** Refactor-turn judge: reference = the recorded UPSTREAM review directive the refactor must resolve. The
+ *  tuning target is a CLEAN one-step refactor (post-refactor review clean => no follow-on refactor loop). */
+function buildDriverRefactorNextStepJudge(feature: string, story: string): QualityGate {
+  return buildReviewResolutionJudge(readRecordedRefactorDirective(feature, story));
 }
 
 export async function sweepDriverGreen(
@@ -446,7 +470,9 @@ export async function sweepDriverGreen(
   const quality: QualityGate =
     experiment && experimentBundle && spec.driverTurn === "repair"
       ? buildDriverRepairNextStepJudge(experiment.turn, experimentBundle.feature, experimentBundle.story)
-      : buildDriverNextStepJudge(handle);
+      : experiment && experimentBundle && spec.driverTurn === "refactor"
+        ? buildDriverRefactorNextStepJudge(experimentBundle.feature, experimentBundle.story)
+        : buildDriverNextStepJudge(handle);
 
   // The driver chain as a ChainRunner for the ONE sweep engine: scaffold ONCE (the #589 model), each
   // candidate cuts its own worktree + Lakebase branch off it, drives its DRIVER TURN + the live
@@ -1150,14 +1176,18 @@ export async function runRejudge(runRoot: string, experimentPath?: string): Prom
     // require a known chain (driver / build / design).
     const driverSpec = DRIVER_TURN_SPECS[handle];
     const isRepairExperiment = !!(experiment && experimentBundle && driverSpec?.driverTurn === "repair");
+    const isRefactorExperiment = !!(experiment && experimentBundle && driverSpec?.driverTurn === "refactor");
     const isExperimentChain = !!(experiment && experimentBundle && !isDriver && experiment.turn.endsWith(handle));
     if (!isDriver && !chain && !isExperimentChain) { console.log(`[rejudge] ${handle}: not a known chain, skipping`); continue; }
-    // Resolve the SAME discriminator the live sweep used , repair-experiment: code-equivalence; lean
-    // experiment: the corpus-faithful replay judge; driver: buildDriverNextStepJudge; else buildChainJudge.
+    // Resolve the SAME discriminator the live sweep used , repair/refactor-experiment: the two-turn review-
+    // resolution judge (post-turn navigator review vs the recorded directive); lean experiment: the corpus-
+    // faithful replay judge; driver: buildDriverNextStepJudge; else buildChainJudge.
     let quality: QualityGate;
     try {
       quality = isRepairExperiment
         ? buildDriverRepairNextStepJudge(experiment!.turn, experimentBundle!.feature, experimentBundle!.story)
+        : isRefactorExperiment
+        ? buildDriverRefactorNextStepJudge(experimentBundle!.feature, experimentBundle!.story)
         : isExperimentChain
           ? buildReplayTurnJudge(experiment!.turn, experimentBundle!.feature, experimentBundle!.story, experimentBundle!.ac, experiment!.discriminator ?? "assess")
           : isDriver ? buildDriverNextStepJudge(handle) : buildChainJudge(chain!, handle, isBuildChain);

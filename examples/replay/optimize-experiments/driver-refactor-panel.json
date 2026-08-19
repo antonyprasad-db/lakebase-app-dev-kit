@@ -1,7 +1,7 @@
 {
   "name": "driver-refactor-panel",
   "turn": "0039-driver-refactor",
-  "ac": "AC3-empty-state-message",
+  "ac": "",
   "driverTurn": "refactor",
   "concurrency": 3,
   "candidates": [

@@ -187,3 +187,39 @@ method does not support haiku , 1/2 haiku runs clean). driver-repair is UNTUNED 
 run. (2) For tuning, use a recorded-SMELLY sample (0037 F1-S2 or 0158 F6-S3, both recorded review:refactor-
 requested) , the bar becomes "no-worse than that recorded smell", which candidates reproducing the recorded
 quality can HOLD => rankable. 0053 stays the pipeline-validation sample, not the tuning sample.
+
+## Driver-REFACTOR turn , the tuning target + the forced-re-review pipeline (BUILT)
+
+Tuning target (user-locked): the refactor **completes CLEANLY in this one step** , a clean refactor leaves no
+smell, so no follow-on refactor loop is needed. Success == the post-refactor code passes a fresh review
+(refactor:false). This is NOT code-equivalence (non-deterministic diffs always exist); it is the two-turn
+QUALITY method , the navigator's ACTUAL review (configured model, not opus-high) gauges the refactored code.
+
+Corpus sample: **`0039-driver-refactor`** (F1 `S2-view-home-stock-table`, story-level, `ac:""`). The recorded
+review directive (`0038`'s review-verdict, at `recorded-artifacts/cycles/F1/S2/review-verdict.json`) is
+`refactor:true` with design-vocabulary CSS smells (HomePage.tsx `<table>` missing `className="table"`;
+`stock-table__quantity` undefined vs the guide's `.table__num`). The refactor must resolve THOSE.
+
+Why refactor needed a forced re-review (repair did not): a resolved repair routes to a navigator review on
+its OWN (state-derived). A refactor's recorded NEXT turn is **acceptance** (`0040`) , no natural re-review. So
+the harness FORCES one: after the refactor turn, `runDriverGreenOnScaffold` (refactor branch) **resets the
+story review state** (removes the story `review.json` + seeded `review-verdict.json`), leaving green +
+unreviewed => the drive's `reviewStoryPending` routes a FRESH navigator review of the refactored code. Its
+verdict lands at the story cycle dir, captured into `nextStepMarker` (`review-verdict.json`).
+
+What was built (commit on feat/driver-green-levers):
+1. `layReplayDriverPreCycle` refactor branch , seeds BOTH `review.json` (refactor_requested, routes
+   `refactorPending`, verbatim from the turn's own `.consort`) AND `review-verdict.json` (the directive, the
+   refactor route's REQUIRED process event, from `CORPUS_RA`). Story-level cycle (`green_at` set = all-green).
+2. Forced post-refactor re-review (the review-state reset above), reviewer on the CONFIGURED navigator model.
+3. Judge `buildDriverRefactorNextStepJudge(feature, story)` , DRY-shared `buildReviewResolutionJudge` (repair
+   uses it too): gate on honest-GREEN, then `evaluateNextStepDetermination(review)` (=> `evaluateReviewResolution`)
+   compares the forced review-verdict to the recorded directive , **refactor:false => PASS (resolved/clean,
+   one-step, terminal); refactor:true => FAIL (same issue = unresolved / different = new problem).** Reference
+   = `readRecordedRefactorDirective` (the UPSTREAM directive from `CORPUS_RA`, NOT the turn-after which is
+   acceptance). Wired into `sweepDriverGreen` AND `--rejudge` (`isRefactorExperiment`). Config
+   `driver-refactor-panel.json` (5 levers, `ac:""`). Hermetic: bdd 927 suites green, tsc clean.
+
+NEXT (live): smoke turn 0039 with 1 candidate (RUN_LIVE_STEP=1 LAKEBASE_TEST_E2E=1) to validate routing ->
+refactor -> forced re-review -> judge end to end; then the 5-lever panel. Beyond model levers, the preserved
+tool-call traces (`transcripts/`) inform prompt-revision levers if a clean one-step refactor proves hard to hold.
