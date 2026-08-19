@@ -96,8 +96,13 @@ export function formatAgentReport(args: FormatAgentReportArgs): FormatAgentRepor
   let raw: unknown;
   try {
     raw = JSON.parse(reportJson);
-  } catch (e) {
-    return { ok: false, entries: 0, error: `agent report (${source}) is not valid JSON: ${e instanceof Error ? e.message : String(e)}` };
+  } catch {
+    // TOLERANT: a non-JSON report block (a model that authored its report as prose/YAML rather than the
+    // {level,event,message} JSON) is still a real authoring signal , wrap the block text as a single
+    // free-text message entry, the SAME free-text semantics as `lk consort-log --message "<text>"`. The
+    // structured determination lives in the turn's real artifact (e.g. regression-assessment.json); the
+    // agent-log is the authoring record, so prose is a conformant message. Empty text still fails below.
+    raw = { message: reportJson.trim() };
   }
 
   const rawEntries: unknown[] = Array.isArray(raw) ? raw : [raw];
