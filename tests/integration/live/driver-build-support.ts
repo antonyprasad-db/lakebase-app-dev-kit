@@ -433,20 +433,25 @@ function layReplayRepairCycle(consortDir: string, bundle: DriverGreenBundle): vo
   const acCycleDir = join(consortDir, "cycles", feature, story, ac);
   mkdirSync(acCycleDir, { recursive: true });
 
-  // Open-RED cycle-NNN from the recorded test-list's AC items (test_ids drive storyTestProgress).
+  // Open-RED cycle-NNN covering the WHOLE STORY's tests (test_ids drive storyTestProgress). The recorded
+  // build cadence is story-level , ONE cycle per story (verified: the recorded S3 cycle-001 covers all of
+  // T31-T43, filed under the assessed AC's dir), so greening it completes the STORY and routes to the
+  // story-level REVIEW. Filtering test_ids to just the repaired AC left the story's OTHER tests "pending",
+  // so the drive routed to more building instead of the review (the smoke bug). Use the full story test-list.
   const testListPath = join(consortDir, "features", feature, "stories", story, "test-list-per-story.json");
   const testList = existsSync(testListPath)
     ? (JSON.parse(readFileSync(testListPath, "utf8")) as { items?: Array<{ id?: string; ac_id?: string; description?: string; layer?: string }> })
     : { items: [] };
-  const acItems = (testList.items ?? []).filter((i) => i.ac_id === ac);
-  const testIds = acItems.map((i) => i.id).filter((x): x is string => typeof x === "string");
-  if (testIds.length === 0) throw new Error(`layReplayRepairCycle: no test-list items for ac ${ac} (test-list at ${testListPath})`);
+  const storyItems = testList.items ?? [];
+  const testIds = storyItems.map((i) => i.id).filter((x): x is string => typeof x === "string");
+  if (testIds.length === 0) throw new Error(`layReplayRepairCycle: no test-list items for story ${story} (test-list at ${testListPath})`);
+  const acItems = storyItems.filter((i) => i.ac_id === ac);
   const cycle = {
     cycle_id: "cycle-001",
     feature_id: feature,
     story_id: story,
     ac_id: ac,
-    test_id: testIds[0],
+    test_id: acItems[0]?.id ?? testIds[0],
     test_description: acItems[0]?.description ?? "",
     experiment_slug: "exp1", // placeholder , REALIGNed to the just-cut experiment by runDriverGreenOnScaffold
     branch_id: `experiment-${story.toLowerCase()}-exp1`, // placeholder , REALIGNed

@@ -81,29 +81,29 @@ Owner note: the handroll (above) and the recorder change produce the SAME bytes;
 just moves the assembly into the recorder + off the live harness. Prefer the recorder change once the
 handroll has proven the turn-replay end to end.
 
-## Smoke result (1 candidate, sonnet, turn 0053) , the handroll is INSUFFICIENT; do the recorder change
+## Smoke result (1 candidate, sonnet, turn 0053) , pipeline VALIDATED; fixed a handroll test_ids bug
 
 Ran the single-candidate live smoke (commit 1e581502). What worked: `layReplayRepairCycle` ROUTED the
 drive to a repair (`[executor] dispatch driver-repair`), the driver repaired live (265.6s), honest-GREEN
-ran, and the judge scored it. What the smoke EXPOSED (the single-AC handroll is too thin):
+ran, and the judge scored it. It FAILED , and the diagnosis was a HANDROLL BUG, not a fundamental limit:
 
-1. **Pre-state must be the WHOLE STORY's cycle state, not one AC.** I seeded only AC1's cycle. Story
-   `S3-view-sku-detail` has other ACs (T37-T42) with NO cycles, so after AC1 the drive routes to MORE
-   BUILDING (a driver green/repair), never to the story-level REVIEW that `0053`->`0054` recorded.
-2. **The next-step capture stops before the review.** The eval loop is `runDriver(..., stopWhen:
-   isDriverTurn, maxSteps:3)` , after a repair whose next action is a DRIVER turn (per #1), it stops
-   IMMEDIATELY, so NO navigator eval runs. The marker capture then snapshots the AC cycle dir and picks
-   up my SEEDED `cycle-001.json` + `regression-assessment.json` (verified byte-identical to the seed =
-   contamination), and the review judge fails ("no next-step review-verdict produced").
+- The recorded build cadence is **story-level , ONE cycle per story.** The recorded S3 `cycle-001.json`
+  (filed under the assessed AC's dir) covers the WHOLE story's tests `T31-T43` (all ACs), red_at+green_at.
+- My first `layReplayRepairCycle` built `cycle-NNN` with only the **repaired AC's** test_ids (T31-T36),
+  so the story's OTHER tests (T37-T43) had no cycle => "pending" => after the repair greened AC1 the drive
+  routed to MORE BUILDING, never the story-level REVIEW. The next-step eval (`stopWhen: isDriverTurn`) then
+  stopped at that driver turn (no navigator eval ran), and the marker capture picked up my SEEDED
+  cycle-001 + regression-assessment (verified byte-identical = contamination) => review judge failed.
 
-Conclusion: a faithful repair->review replay needs (a) the whole story's pre-turn cycle state and (b) a
-next-step capture that drives PAST intermediate driver turns to the review. Hand-assembling the whole
-story cycle state per turn is exactly the work the RECORDER CHANGE removes , snapshot the entire
-pre-turn `.consort` (all of the story's cycles + markers) into `replay-set/pre-consort/`, lay it
-verbatim, and the recorder already knows the real next turn. So: **do the recorder change** rather than
-grow the handroll. The single-AC handroll (`layReplayRepairCycle`) stays as the proven routing seam but
-is NOT sufficient for the review-quality judgement on its own.
+FIX (commit follows): build `cycle-001` with the **WHOLE story's** test_ids (the full test-list, not
+filtered by ac), matching the recorded story-wide cycle. Then greening the repair completes the story =>
+story-level REVIEW => review-verdict at the story dir => captured => judged. `0053` IS an appropriate
+corpus record for tuning this turn , the earlier "handroll insufficient / need the recorder change"
+conclusion was WRONG (the record + single-cycle handroll are fine; only the test_ids filter was the bug).
 
-Cleanup note: the smoke's teardown logged "dg-live-... still present after 5 delete attempts" , that was
-eventual-consistency lag; a follow-up `list-projects` showed NO dg-live projects (it deleted). The next
-driver sweep also orphan-sweeps at start.
+The recorder change (snapshot full pre-`.consort`) is still the cleaner GENERAL fix + retires the
+synthesised cycle-NNN + DRIVER_TURN_SEEDS, but it is NOT required to tune the repair turn , the corrected
+handroll suffices for story-cadence repairs like 0053.
+
+Cleanup note: the smoke's teardown logged "dg-live-... still present after 5 delete attempts" , eventual-
+consistency lag; a follow-up `list-projects` showed NO dg-live projects (it deleted).
