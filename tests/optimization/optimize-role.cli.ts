@@ -339,6 +339,49 @@ function buildReplayTurnJudge(turnLabel: string, feature: string, story: string,
   };
 }
 
+/** Read the review-verdict the corpus recorded for the turn IMMEDIATELY AFTER the replayed repair turn
+ *  (ordinal+1) , the faithful "same quality" reference for a repair (its next step is a navigator review).
+ *  Returns the parsed VerdictOutput, or throws if the turn-after isn't a review with a verdict. */
+function readRecordedNextReview(repairTurnLabel: string, feature: string, story: string): VerdictOutput {
+  const repairOrd = Number(repairTurnLabel.split("-")[0]);
+  const next = readdirSync(CORPUS_TURNS)
+    .filter((d) => Number(d.split("-")[0]) === repairOrd + 1)
+    .sort()[0];
+  if (!next) throw new Error(`readRecordedNextReview: no turn after ${repairTurnLabel} (ordinal ${repairOrd + 1}) in ${CORPUS_TURNS}`);
+  const rv = join(CORPUS_TURNS, next, "files", ARTIFACT_ROOT, "cycles", feature, story, "review-verdict.json");
+  if (!existsSync(rv)) throw new Error(`readRecordedNextReview: turn-after ${next} has no story-level review-verdict at ${rv} (the repair's recorded next step is not a review)`);
+  return parseVerdictFile(readFileSync(rv, "utf8"));
+}
+
+/** The CORPUS-FAITHFUL repair-turn judge: a repair holds quality when it RESOLVED (honest-GREEN passed, so
+ *  the state-derived next step is a navigator REVIEW that wrote a verdict) AND that review is NO-WORSE than
+ *  the recorded next review (same/cleaner). A candidate that did not green produced no review-verdict =>
+ *  fail. Reuses the shared review evaluator (evaluateNextStepDetermination "review") vs the recorded
+ *  turn-after's verdict. See consort/optimize/DRIVER-REPAIR-TURN-REPLAY.md. */
+function buildDriverRepairReviewJudge(repairTurnLabel: string, feature: string, story: string): QualityGate {
+  const cwd = process.cwd();
+  const deltaJudge = makeSupersessionDeltaJudge({ cwd });
+  const verdictJudge = makeVerdictAlignmentJudge({ cwd });
+  const recordedReviewDirective = readRecordedNextReview(repairTurnLabel, feature, story);
+  return {
+    judgeCandidate: async ({ producedArtifacts }) => {
+      const candRaw = producedArtifacts[`${NEXT_STEP_MARKER_PREFIX}review-verdict.json`];
+      if (candRaw === undefined) return { passed: false, reason: "no next-step review-verdict produced , the repair did not resolve to a clean review (green + review is the quality bar)" };
+      const candidateReview = parseVerdictFile(candRaw);
+      const outcome = await evaluateNextStepDetermination({
+        evaluatorKind: "review",
+        deltaJudge,
+        verdictJudge,
+        recordedReviewDirective,
+        candidateReview,
+      });
+      const passed = outcome.verdict !== "fail";
+      const classification = outcome.verdict === "pass-with-honors" ? "pass-with-honors" : outcome.candidateClass;
+      return { passed, classification, nextStep: outcome.verdict, reason: outcome.reason };
+    },
+  };
+}
+
 export async function sweepDriverGreen(
   handle: string,
   runRoot: string,
@@ -387,7 +430,15 @@ export async function sweepDriverGreen(
   // determination rides producedArtifacts under navigator-eval/) and compares the candidate's
   // determination to the RECORDED one at the same step , the discriminator is SAME / BETTER / WORSE
   // (evaluateNextStepDetermination). PASS (same) / PASS-WITH-HONORS (fewer/no issues, better) / FAIL (worse).
-  const quality: QualityGate = buildDriverNextStepJudge(handle);
+  // A REPAIR experiment is judged CORPUS-FAITHFULLY: a repair resolves (honest-GREEN passes => state-derived
+  // next step is a REVIEW) and that review must be NO-WORSE than the recorded turn-after's review (green +
+  // review is the quality bar). buildDriverNextStepJudge's fixed reference-assets ref is a DIFFERENT
+  // (legacy) scenario, so for a repair experiment use the review judge vs the replayed turn's own next
+  // review. See consort/optimize/DRIVER-REPAIR-TURN-REPLAY.md.
+  const quality: QualityGate =
+    experiment && experimentBundle && spec.driverTurn === "repair"
+      ? buildDriverRepairReviewJudge(experiment.turn, experimentBundle.feature, experimentBundle.story)
+      : buildDriverNextStepJudge(handle);
 
   // The driver chain as a ChainRunner for the ONE sweep engine: scaffold ONCE (the #589 model), each
   // candidate cuts its own worktree + Lakebase branch off it, drives its DRIVER TURN + the live

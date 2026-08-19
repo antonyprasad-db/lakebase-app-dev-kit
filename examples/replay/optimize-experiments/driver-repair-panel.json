@@ -1,0 +1,14 @@
+{
+  "name": "driver-repair-panel",
+  "turn": "0053-driver-repair",
+  "ac": "AC1-detail-lists-sku-locations",
+  "driverTurn": "repair",
+  "concurrency": 3,
+  "candidates": [
+    { "id": "sonnet", "levers": { "model": "sonnet" } },
+    { "id": "sonnet-e-low", "levers": { "model": "sonnet", "effort": "low" } },
+    { "id": "haiku", "levers": { "model": "haiku" } },
+    { "id": "haiku-e-low", "levers": { "model": "haiku", "effort": "low" } },
+    { "id": "opus", "levers": { "model": "opus" } }
+  ]
+}
