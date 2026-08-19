@@ -216,7 +216,7 @@ const STORY_SCOPED_ROLES = new Set(["dba", "test-strategist", "driver", "spec-au
 /** Reconstruct a representative WorkflowAction from a manifest's `match`, so turnKeyForAction
  *  resolves the SAME TurnKey the drive derives for that step: drop the null sentinels (they mean
  *  "field ABSENT"), and add a story for the story-scoped roles that carry no mode/buildMode. */
-function actionFromManifestMatch(match: Record<string, unknown>, role: string): WorkflowAction {
+export function actionFromManifestMatch(match: Record<string, unknown>, role: string): WorkflowAction {
   const a: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(match)) {
     if (v === null) continue; // sentinel: field must be absent

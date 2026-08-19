@@ -78,7 +78,12 @@ describe("applyCandidateConfig (deep merge onto a base config)", () => {
   });
 
   it("merges a per-turn model override without dropping sibling role settings", () => {
-    const base = defaultConsortConfig();
+    // An explicit base with per-turn maps , this exercises applyCandidateConfig's merge semantics
+    // directly (defaultConsortConfig no longer carries per-turn maps; the manifest is that home now).
+    const base = {
+      version: 1 as const,
+      roles: { driver: { model: { red: "sonnet", green: "opus" } }, navigator: { effort: { review: "low" } } },
+    } as unknown as ReturnType<typeof defaultConsortConfig>;
     const merged = applyCandidateConfig(base, {
       id: "c1",
       configOverrides: { roles: { driver: { model: { green: "haiku" } } } },
@@ -86,9 +91,7 @@ describe("applyCandidateConfig (deep merge onto a base config)", () => {
     // driver.green overridden...
     expect((merged.roles?.driver?.model as Record<string, string>).green).toBe("haiku");
     // ...but the driver's OTHER turns + other roles survive
-    expect((merged.roles?.driver?.model as Record<string, string>).red).toBe(
-      (base.roles?.driver?.model as Record<string, string>).red,
-    );
+    expect((merged.roles?.driver?.model as Record<string, string>).red).toBe("sonnet");
     expect(merged.roles?.navigator).toEqual(base.roles?.navigator);
   });
 

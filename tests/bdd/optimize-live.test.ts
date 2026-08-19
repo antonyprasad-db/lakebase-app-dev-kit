@@ -260,10 +260,11 @@ describe("makeChampionWalkDeps: hermetic DESIGN handoff", () => {
 
     // The override was live during the haiku-green turn...
     expect(seenConfigs).toContain("haiku");
-    // ...and the on-disk config is back to the baseline (sonnet green) after.
+    // ...and the on-disk config is back to the baseline after (no green=haiku override left , the
+    // baseline carries no per-turn model map now, so driver.model is simply absent, which is correct).
     const finalCfg = loadConsortConfig(projectDir);
-    const finalModel = finalCfg?.roles?.driver?.model as Record<string, string>;
-    expect(finalModel.green).not.toBe("haiku");
+    const finalModel = finalCfg?.roles?.driver?.model as Record<string, string> | undefined;
+    expect(finalModel?.green).not.toBe("haiku");
   });
 
   it("writes a champion-walk.json + per-candidate experiment records", async () => {

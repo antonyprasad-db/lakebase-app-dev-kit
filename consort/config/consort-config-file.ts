@@ -15,12 +15,6 @@ import { dirname, join } from "path";
 import type { AgentRole } from "../logging/agent-log.js";
 import { ALL_AGENT_ROLES, type SpawnableAgentRole } from "./agent-models.js";
 import type { TurnKey, EffortLevel } from "./step-key.js";
-// The RECOMMENDED_MODELS base default the scaffold seeds; agent-models is a config-layer module.
-import { RECOMMENDED_MODELS } from "./agent-models.js";
-// Auto-applied optimization winners, deep-merged onto the base default (see defaultConsortConfig).
-// Static import so tsup inlines it into dist at build time; the champion walk's auto-apply writes
-// this file as DATA, never a TS rewrite.
-import OPTIMIZED_DEFAULTS from "./optimized-defaults.json";
 
 // AgentRole is referenced only to keep the type surface identical for re-exporters.
 export type { AgentRole };
@@ -130,67 +124,25 @@ export function resolveProjectSettings(projectDir: string): ProjectFileSettings 
 /** A default config seeded from the recommended models (for scaffold / `--init`),
  *  with the navigator REVIEW effort pinned low (the P6 default made explicit). */
 export function defaultConsortConfig(): ConsortConfigFile {
+  // ONE per-turn config home: the step-manifest `agentOptions` (model/effort per turn), read by
+  // resolveConsortSettings' manifest layer (manifestStep) and by the lean/replay harness directly.
+  // defaultConsortConfig no longer bakes per-role/per-turn model or effort , doing so wrote a SECOND
+  // copy into the scaffolded config file that SHADOWED the manifest, so a turn's model lived in two (or
+  // three, with optimized-defaults.json) places and had to be kept in sync by hand. Now the scaffold
+  // config carries only PROJECT settings (build/plan/project); every turn's model/effort comes from its
+  // manifest, and a project overrides a turn by adding roles.<role>.model/effort to its own
+  // consort-config.json (the file layer still wins over the manifest). The role base falls through to
+  // RECOMMENDED_MODELS in the resolver. Applied optimization winners are written to the MANIFEST
+  // agentOptions (optimize-apply), not here and not to an overlay file.
   const roles = {} as Record<SpawnableAgentRole, RoleSettingsFile>;
-  for (const role of ALL_AGENT_ROLES) {
-    roles[role] =
-      role === "navigator"
-        ? // Model tiering: the RED turn (whole-story failing-test authoring) is the
-          // Navigator's heaviest reasoning turn , it reads the architecture, NFRs, and
-          // the full test list and writes every failing test in one batch , so it runs
-          // on opus. REVIEW/ASSESS/REFLECT are lighter judgment turns and stay on the
-          // role base (sonnet) with review at low effort. A per-turn map (like driver's)
-          // overrides only `red`; the unnamed turns fall through to RECOMMENDED_MODELS.
-          // Overridable per project by editing consort-config.json.
-          { model: { red: "opus" }, effort: { review: "low" } }
-        : role === "driver"
-          ? // Model tiering: RED (test authoring) keeps the recommended (sonnet) base; the
-            // mechanical REFACTOR turn drops to a fast model. GREEN runs on OPUS at MEDIUM effort
-            // , the driver-green tuning study's faster-while-holding winner: opus + medium effort +
-            // the failing-test context reached the clean-code + superseded-shift milestone reliably
-            // (3/3) at ~237s, beating sonnet and every other config; lower effort was unreliable,
-            // higher was slower, and added context (scope/migration) was latency. See
-            // consort/optimize/DRIVER-GREEN-LEVERS.md. Overridable per project by editing
-            // consort-config.json (a project can flatten to a scalar `model`).
-            { model: { red: RECOMMENDED_MODELS[role], green: "opus", refactor: "haiku" }, effort: { green: "medium" } }
-          : // Every other role's base is just its recommended model. Optimization
-            // winners (e.g. spec-author breakdown -> haiku+low) are NOT hardcoded here;
-            // they live in optimized-defaults.json and are deep-merged below, so the
-            // champion walk's auto-apply is the single writer of applied winners.
-            { model: RECOMMENDED_MODELS[role] };
-  }
-  const base: ConsortConfigFile = {
+  for (const role of ALL_AGENT_ROLES) roles[role] = {};
+  return {
     version: 1,
     roles,
     build: { loopGranularity: "story", batchCap: 3, sessionScope: "story" },
     plan: { sizing: true },
     project: { uiTrack: true, gates: "interactive", deployTarget: "local", clientFramework: "none" },
   };
-  // Deep-merge the auto-applied optimization winners (optimized-defaults.json) on top.
-  // The champion walk's auto-apply writes DATA into that file (never a TS rewrite, so
-  // the "one source of truth / no source regex" rule holds); it is inlined into dist at
-  // build time. A winner keyed per-turn/step (e.g. spec-author.breakdown -> haiku) is
-  // merged element-wise so it augments the base rather than replacing a whole map.
-  return mergeOptimizedDefaults(base, OPTIMIZED_DEFAULTS as Partial<ConsortConfigFile>);
-}
-
-/** Element-wise deep-merge of the optimized-defaults overlay onto the base config.
- *  Plain objects merge recursively (so a per-turn `model`/`effort` map is augmented,
- *  not clobbered); scalars + arrays from the overlay win. Ignores the `_comment` key. */
-function mergeOptimizedDefaults<T>(base: T, overlay: unknown): T {
-  if (overlay === null || typeof overlay !== "object" || Array.isArray(overlay)) {
-    return (overlay === undefined ? base : (overlay as T));
-  }
-  const out: Record<string, unknown> = Array.isArray(base)
-    ? [...(base as unknown[])] as unknown as Record<string, unknown>
-    : { ...(base as Record<string, unknown>) };
-  for (const [k, v] of Object.entries(overlay as Record<string, unknown>)) {
-    if (k === "_comment") continue;
-    const b = out[k];
-    out[k] = b && typeof b === "object" && !Array.isArray(b) && v && typeof v === "object" && !Array.isArray(v)
-      ? mergeOptimizedDefaults(b, v)
-      : v;
-  }
-  return out as T;
 }
 
 /** Write a consort-config.json (scaffold/init). Does not overwrite unless force. */

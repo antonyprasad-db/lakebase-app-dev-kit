@@ -19,7 +19,7 @@
 // do on a viable winner, a non-viable candidate set, a systemic failure, a stop bound
 // , is unit-tested hermetically with no cloud, no model, no git. The live deps are
 // wired by the CLI (optimize-live's positionToNextHandoff + runChampionWalk +
-// optimize-apply's applyWinnerToOverlay + npm build + git commit).
+// optimize-apply's applyWinnerToManifests + npm build + git commit).
 //
 // SAFETY (unattended): a SYSTEMIC failure (auth expiry, Lakebase fork collision,
 // runner death , distinct from a candidate merely not self-healing) HALTS the loop

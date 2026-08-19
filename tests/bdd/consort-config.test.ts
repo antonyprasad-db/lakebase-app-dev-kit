@@ -77,9 +77,14 @@ describe("resolveConsortSettings: defaults when no file + no env", () => {
     expect(s.models.navigator).toBe("sonnet");
     expect(s.models["spec-author"]).toBe("opus");
     expect(s.effortFor("navigator", "review")).toBe("low");
-    expect(s.effortFor("navigator", "red")).toBe("default");
+    // navigator RED is the sonnet-e-low tuning winner (panel + confirm: ~29% faster than the opus
+    // default, ~half the cost, holds test coverage). Manifest-declared, no file/overlay , the single
+    // per-turn config home. RED is mechanical test-authoring, so the cheaper model holds.
+    expect(s.modelFor("navigator", "red")).toBe("sonnet");
+    expect(s.effortFor("navigator", "red")).toBe("low");
     expect(s.effortFor("driver", "green")).toBe("medium"); // driver-green tuning winner (opus + medium + ctx-test) is the promoted default
     expect(s.modelFor("driver", "green")).toBe("opus"); //  ,, its model half (manifest-declared, no file needed)
+    expect(s.modelFor("navigator", "assess")).toBe("opus"); // assess winner: opus holds the assessment, ~18% faster (manifest-declared)
     // spec-author's effort is keyed on the STEP, not the role: the optimize sweep
     // measured the BREAKDOWN step faster at low effort, so ONLY breakdown defaults
     // low; the per-story AC-authoring step (a different task) keeps the model default
@@ -180,10 +185,12 @@ describe("resolveConsortSettings: per-turn model tiering (driver GREEN/REFACTOR 
     expect(s.modelFor("driver", "green")).toBe("opus");
     expect(s.effortFor("driver", "green")).toBe("medium");
     expect(s.modelFor("driver", "refactor")).toBe("haiku");
-    // navigator is model-tiered like driver: the heavy RED (whole-story test authoring)
-    // runs on opus; the lighter judgment turns (review/assess/reflect) fall through to
-    // the sonnet base. Design roles keep their scalar recommended model.
-    expect(s.modelFor("navigator", "red")).toBe("opus");
+    // navigator is model-tiered per turn (all manifest-declared, the single per-turn config home):
+    // RED is the sonnet-e-low tuning winner (mechanical test authoring , cheaper model holds
+    // coverage); ASSESS runs on opus (deep root-cause reasoning); REVIEW falls through to the sonnet
+    // base. Design roles keep their scalar recommended model.
+    expect(s.modelFor("navigator", "red")).toBe("sonnet");
+    expect(s.modelFor("navigator", "assess")).toBe("opus");
     expect(s.modelFor("navigator", "review")).toBe("sonnet"); // base, not opus
     expect(s.modelFor("architect-reviewer")).toBe("opus");
   });
@@ -312,15 +319,20 @@ describe("legacy agent-config.json is honored below the new file", () => {
 });
 
 describe("defaultConsortConfig + write/load round-trip", () => {
-  it("seeds recommended models + navigator review low, and round-trips", () => {
+  it("seeds PROJECT settings only , no per-turn model/effort in the file (that is the manifest's job)", () => {
     const wrote = writeConsortConfig(proj, defaultConsortConfig());
     expect(wrote).toBe(true);
     const loaded = loadConsortConfig(proj);
     expect(loaded?.version).toBe(1);
-    // navigator is model-tiered: RED on opus via a per-turn map, review/assess/reflect
-    // fall through to the sonnet base.
-    expect((loaded?.roles?.navigator?.model as { red?: string })?.red).toBe("opus");
-    expect((loaded?.roles?.navigator?.effort as { review?: string })?.review).toBe("low");
+    // The single per-turn config home is the step-manifest agentOptions , the scaffolded config file no
+    // longer carries a SECOND copy of per-turn model/effort (which used to shadow the manifest). So the
+    // seeded roles are empty; per-turn model/effort resolves from the manifests, and a project overrides
+    // a turn by ADDING roles.<role>.model/effort to its own file.
+    expect(loaded?.roles?.navigator?.model).toBeUndefined();
+    expect(loaded?.roles?.navigator?.effort).toBeUndefined();
+    // Project-level settings DO round-trip.
+    expect(loaded?.build?.loopGranularity).toBe("story");
+    expect(loaded?.project?.uiTrack).toBe(true);
     // Does not overwrite without force.
     expect(writeConsortConfig(proj, defaultConsortConfig())).toBe(false);
   });

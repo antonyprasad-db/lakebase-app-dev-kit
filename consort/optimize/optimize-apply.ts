@@ -19,10 +19,15 @@
 // buildApplyPlan is PURE; applyAgentMdLevers does the filesystem writes. Kit edits
 // are LOCAL; pushing/releasing them to consumers stays a separate gated step.
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 import type { Candidate } from "./optimize-candidates.js";
+import { actionFromManifestMatch } from "../orchestrator/steps/manifest.js";
+import { turnKeyForAction } from "../orchestrator/drive/turn-key.js";
+
+/** Where the shipped step-manifests live under the kit dir , the ONE per-turn config home. */
+const MANIFESTS_REL = join("consort", "orchestrator", "steps", "manifests");
 
 /** A directly-appliable edit to a role's skills/consort/agents/<role>.md. */
 export interface AgentMdEdit {
@@ -119,20 +124,20 @@ export function buildApplyPlan(role: string, candidate: Candidate): ApplyPlan {
 }
 
 function modelDefaultEdit(role: string, turn: string | undefined, model: string): SourceEditProposal {
-  const where = turn ? `roles.${role}.model.${turn}` : `roles.${role}.model`;
+  const where = turn ? `(${role}, ${turn})` : `(${role}, every turn)`;
   return {
-    file: "consort/orchestrator/settings/project-settings.ts",
-    rationale: `defaultConsortConfig: set ${where} -> "${model}" (and mirror the role's frontmatter model: in skills/consort/agents/${role}.md + RECOMMENDED_MODELS in agent-models.ts if the BASE model changed).`,
-    regressionTest: `assert resolveConsortSettings().modelFor("${role}"${turn ? `, "${turn}"` : ""}) === "${model}" with no project override.`,
+    file: `${MANIFESTS_REL}/*.json (agentOptions.model)`,
+    rationale: `set agentOptions.model -> "${model}" in the step-manifest(s) whose (role, turnKey) is ${where} (mirror the role's frontmatter model: in skills/consort/agents/${role}.md + RECOMMENDED_MODELS in agent-models.ts if the BASE model changed). This is the ONE per-turn config home , applyWinnerToManifests writes it as data.`,
+    regressionTest: `assert resolveConsortSettings().modelFor("${role}"${turn ? `, "${turn}"` : ""}) === "${model}" with no project override (resolver reads the manifest).`,
   };
 }
 
 function effortDefaultEdit(role: string, turn: string | undefined, effort: string): SourceEditProposal {
-  const where = turn ? `roles.${role}.effort.${turn}` : `roles.${role}.effort`;
+  const where = turn ? `(${role}, ${turn})` : `(${role}, every turn)`;
   return {
-    file: "consort/orchestrator/settings/project-settings.ts",
-    rationale: `defaultConsortConfig / defaultEffort: set ${where} -> "${effort}".`,
-    regressionTest: `assert resolveConsortSettings().effortFor("${role}"${turn ? `, "${turn}"` : ""}) === "${effort}" with no project override.`,
+    file: `${MANIFESTS_REL}/*.json (agentOptions.effort)`,
+    rationale: `set agentOptions.effort -> "${effort}" in the step-manifest(s) whose (role, turnKey) is ${where}. The manifest is the single per-turn config home.`,
+    regressionTest: `assert resolveConsortSettings().effortFor("${role}"${turn ? `, "${turn}"` : ""}) === "${effort}" with no project override (resolver reads the manifest).`,
   };
 }
 
@@ -185,47 +190,78 @@ export function applyAgentMdLevers(kitDir: string, plan: ApplyPlan): string[] {
   return [...changed];
 }
 
-/** Deep-merge helper for the overlay (plain objects merge; scalars/arrays from the
- *  overlay win). Kept local so optimize-apply has no cross-module dependency. */
-function mergeOverlay(base: unknown, over: unknown): unknown {
-  if (over === null || typeof over !== "object" || Array.isArray(over)) return over;
-  const b = base && typeof base === "object" && !Array.isArray(base) ? (base as Record<string, unknown>) : {};
-  const out: Record<string, unknown> = { ...b };
-  for (const [k, v] of Object.entries(over as Record<string, unknown>)) {
-    out[k] = mergeOverlay(out[k], v);
+/** AUTO-APPLY a winning candidate's per-turn CONFIG levers (model/effort) into the kit's
+ *  step-manifest `agentOptions` , the ONE per-turn config home the resolver + lean/replay harness
+ *  read. This replaces the old optimized-defaults.json overlay (a SECOND copy that shadowed the
+ *  manifest): a win now lands in exactly the manifest(s) whose (role, turnKey) it names, so there is
+ *  a single place per turn. Collapsed keys (e.g. the three assess* buildModes share turnKey "assess")
+ *  are all patched together, keeping the parity guard satisfied. It writes DATA (JSON), never a TS
+ *  rewrite. A scalar role model/effort (no per-turn map) applies to EVERY manifest of that role.
+ *  build-knob winners are NOT per-turn and are reported by buildApplyPlan for a reviewed edit, not
+ *  written here. A BASELINE / content-only winner -> no-op (false). Idempotent. Returns true when any
+ *  manifest changed. Kit edits are LOCAL; committing/pushing is the caller's job. */
+export function applyWinnerToManifests(kitDir: string, candidate: Candidate): boolean {
+  const roles = candidate.configOverrides.roles ?? {};
+  if (!Object.keys(roles).length) return false; // baseline / content-only / build-only winner
+
+  const manifestsDir = join(kitDir, MANIFESTS_REL);
+  if (!existsSync(manifestsDir)) throw new Error(`optimize-apply: manifests dir missing at ${manifestsDir}`);
+  const files = readdirSync(manifestsDir).filter((f) => f.endsWith(".json"));
+  let changed = false;
+
+  for (const file of files) {
+    const path = join(manifestsDir, file);
+    let raw = readFileSync(path, "utf8");
+    const m = JSON.parse(raw) as { role?: string; match?: Record<string, unknown>; agentOptions?: { model?: string; effort?: string } };
+    if (!m.role || !m.match || !m.agentOptions) continue;
+    const settings = (roles as Record<string, { model?: unknown; effort?: unknown } | undefined>)[m.role];
+    if (!settings) continue;
+    const turnKey = turnKeyForAction(actionFromManifestMatch(m.match, m.role));
+    // Pick the winning model/effort for THIS manifest's turn: a per-turn map hits by key; a scalar
+    // applies to every turn of the role.
+    const pick = (v: string | Record<string, string> | undefined): string | undefined =>
+      typeof v === "string" ? v : v && turnKey && v[turnKey] ? v[turnKey] : undefined;
+    const model = pick(settings.model as string | Record<string, string> | undefined);
+    const effort = pick(settings.effort as string | Record<string, string> | undefined);
+    let touched = false;
+    if (model && m.agentOptions.model !== model) { raw = patchAgentOptionValue(raw, "model", model); touched = true; }
+    if (effort && m.agentOptions.effort !== effort) { raw = patchAgentOptionValue(raw, "effort", effort); touched = true; }
+    if (touched) {
+      writeFileSync(path, raw);
+      changed = true;
+    }
   }
-  return out;
+  return changed;
 }
 
-/** AUTO-APPLY a winning candidate's CONFIG levers (model/effort per turn/step, build
- *  knobs) into the kit's optimized-defaults.json , the data overlay defaultConsortConfig
- *  deep-merges. This is the unattended champion walk's persistence path: it writes
- *  DATA (never a TS regex-rewrite, so the single-source rule holds), and a rebuild
- *  inlines it into dist. Agent-.md (content) levers are applied separately by
- *  applyAgentMdLevers. A BASELINE winner has no config overrides -> no-op (returns
- *  false). Returns true when the overlay changed. Idempotent: re-applying the same
- *  winner is a no-op. Kit edits are LOCAL; committing/pushing is the caller's job. */
-export function applyWinnerToOverlay(kitDir: string, candidate: Candidate): boolean {
-  const overlayPath = join(kitDir, "consort", "config", "optimized-defaults.json");
-  const overlay = existsSync(overlayPath)
-    ? (JSON.parse(readFileSync(overlayPath, "utf8")) as Record<string, unknown>)
-    : { roles: {} };
-
-  // Build the overlay delta from the candidate's CONFIG overrides (roles + build).
-  const delta: Record<string, unknown> = {};
-  const roles = candidate.configOverrides.roles ?? {};
-  if (Object.keys(roles).length) delta.roles = roles;
-  const build = candidate.configOverrides.build ?? {};
-  if (Object.keys(build).length) delta.build = build;
-  if (!Object.keys(delta).length) return false; // baseline / content-only winner
-
-  const merged = mergeOverlay(overlay, delta) as Record<string, unknown>;
-  const before = JSON.stringify(overlay);
-  const after = JSON.stringify(merged);
-  if (before === after) return false; // idempotent no-op
-  // Preserve the leading _comment if present; write stable 2-space JSON.
-  writeFileSync(overlayPath, JSON.stringify(merged, null, 2) + "\n");
-  return true;
+/** Format-preserving replace/insert of `agentOptions.<key>` in a manifest's raw JSON text. Scopes to
+ *  the agentOptions object (so a model/effort key inside agent.config is never touched), replaces the
+ *  value in place when the key is present, or inserts it right after the opening brace otherwise ,
+ *  never reserialises the whole file, so the manifest's hand-authored compact formatting survives. */
+function patchAgentOptionValue(raw: string, key: "model" | "effort", value: string): string {
+  const anchor = raw.indexOf('"agentOptions"');
+  if (anchor < 0) throw new Error(`optimize-apply: no agentOptions block to patch (${key})`);
+  const open = raw.indexOf("{", anchor);
+  let depth = 0;
+  let close = -1;
+  for (let i = open; i < raw.length; i++) {
+    if (raw[i] === "{") depth++;
+    else if (raw[i] === "}") {
+      depth--;
+      if (depth === 0) { close = i; break; }
+    }
+  }
+  if (open < 0 || close < 0) throw new Error(`optimize-apply: malformed agentOptions block (${key})`);
+  const block = raw.slice(open, close + 1);
+  const re = new RegExp(`("${key}"\\s*:\\s*)"[^"]*"`);
+  if (re.test(block)) {
+    return raw.slice(0, open) + block.replace(re, `$1"${value}"`) + raw.slice(close + 1);
+  }
+  // Key absent , insert it right after the opening brace, matching the block's indentation.
+  const indentMatch = block.match(/\{\s*\n(\s*)"/);
+  const indent = indentMatch ? indentMatch[1] : "    ";
+  const inserted = block.replace(/\{\s*\n/, `{\n${indent}"${key}": "${value}",\n`);
+  return raw.slice(0, open) + inserted + raw.slice(close + 1);
 }
 
 /** Human-readable summary: what applied directly + what needs a reviewed source edit. */

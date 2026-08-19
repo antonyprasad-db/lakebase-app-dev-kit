@@ -242,9 +242,10 @@ Per handoff-that-needs-a-sweep:
    `git add` + commit it. That is what lets the NEXT run replay it (rule A). Only the PROJECT's
    experiments/ scratch is disposable.
 6. **APPLY the winner INTO THE KIT** (mandatory pause before the next handoff):
-   - CONFIG lever (model/effort, scalar or per-turn/step): `applyWinnerToOverlay` writes it
-     into `optimized-defaults.json` (DATA, deep-merged by defaultSftddConfig, NEVER a TS
-     rewrite). CONTENT lever (scan-tight/taskSuffix/tool-scope): `applyAgentMdLevers` edits
+   - CONFIG lever (model/effort per turn): `applyWinnerToManifests` writes it into the step-manifest
+     `agentOptions` of the matching (role, turnKey) , the ONE per-turn config home (DATA, format-
+     preserving, NEVER a TS rewrite; no overlay file). The resolver + lean/replay harness read the
+     manifest directly. CONTENT lever (scan-tight/taskSuffix/tool-scope): `applyAgentMdLevers` edits
      `skills/consort/agents/<role>.md`. BASELINE winner: nothing to apply; note it.
    - `npm run build` (inlines optimized-defaults.json into dist) + `git add -f dist` +
      `git add <overlay / agent md + the new recorded-artifacts>` + LOCAL commit (never push).

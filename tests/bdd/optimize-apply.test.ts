@@ -77,8 +77,10 @@ describe("buildApplyPlan (pure)", () => {
     expect(plan.agentMdEdits).toHaveLength(0);
     expect(plan.sourceEdits.length).toBeGreaterThanOrEqual(1);
     const edit = plan.sourceEdits[0];
-    expect(edit.file).toBe("consort/orchestrator/settings/project-settings.ts");
-    expect(edit.rationale).toMatch(/driver.*green.*haiku/i);
+    // The per-turn config home is the step-manifest agentOptions (not project-settings.ts / an overlay).
+    expect(edit.file).toMatch(/steps\/manifests\/\*\.json \(agentOptions\.model\)/);
+    expect(edit.rationale).toMatch(/agentOptions\.model.*haiku/i);
+    expect(edit.rationale).toMatch(/driver.*green/i);
     expect(edit.regressionTest).toBeTruthy();
   });
 

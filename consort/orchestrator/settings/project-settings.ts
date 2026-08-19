@@ -111,14 +111,14 @@ export function resolveConsortSettings(inputs: ResolveInputs): ResolvedSettings 
     budgets[role] = typeof rc?.maxBudgetUsd === "number" ? rc.maxBudgetUsd : undefined;
   }
 
-  // The per-step config-directory layer: the levers DECLARED for (role, turn) across the shipped
-  // step-manifests (agentOptions), indexed by the SAME turnKeyForAction the drive uses. This is
-  // the BASE per-step layer , below anything the PROJECT declares (file scalar / file per-turn
-  // map), above the per-role RECOMMENDED_MODELS base. Only consulted when a turn key is present
-  // (an undefined key means "no distinct step" , use the role scalar, never a manifest). The
-  // applied-optimization winners (optimized-defaults.json) sit ABOVE this layer but reach the
-  // resolver through the WRITTEN file (defaultConsortConfig bakes them in at scaffold), so a real
-  // project's file already carries them and wins here as the file layer.
+  // The per-step config home: the levers DECLARED for (role, turn) across the shipped step-manifests
+  // (agentOptions), indexed by the SAME turnKeyForAction the drive uses. This is the SINGLE source of
+  // per-turn model/effort , below only what the PROJECT itself declares in its consort-config.json
+  // (file scalar / file per-turn map, the override layer), above the per-role RECOMMENDED_MODELS base.
+  // Only consulted when a turn key is present (an undefined key means "no distinct step" , use the role
+  // scalar, never a manifest). Applied optimization winners are written HERE (optimize-apply's
+  // applyWinnerToManifests), not to a separate overlay file , defaultConsortConfig no longer bakes any
+  // per-turn model/effort, so there is exactly one place per turn.
   const manifestStep = (role: string, turn?: TurnKey): { model?: string; effort?: string } | undefined =>
     turn ? agentOptionsForStep(role, turn, turnKeyForAction) : undefined;
 

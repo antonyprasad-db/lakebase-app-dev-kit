@@ -1,13 +1,10 @@
-// Characterization guard: the step-manifest `agentOptions` (the per-step config directory) must
-// AGREE with what resolveConsortSettings() actually resolves for the same action, so agentOptions
-// can become the single source of truth WITHOUT changing live spawn behavior. For every shipped
-// manifest, agentOptions.{model,effort} must equal the resolver's {modelFor,effortFor}(role,
-// turnKeyForAction(action)) at the DEFAULT (no project sftdd-config.json) precedence.
-//
-// This is the contract Stage 0 establishes + Stage 1 relies on. It was RED before the Stage-0
-// corrections (4 drifts: driver-green model, spec-author-breakdown model, ux-designer effort,
-// test-strategist effort) and GREEN after. If it goes RED later, agentOptions + the resolver have
-// diverged again , fix the manifest (or the applied-winners overlay), not this test.
+// Single-source guard: the step-manifest `agentOptions` IS the per-turn config home, so for every
+// shipped manifest, agentOptions.{model,effort} must equal what resolveConsortSettings() resolves for
+// the same action at the DEFAULT precedence (no project consort-config.json). defaultConsortConfig no
+// longer bakes per-turn model/effort and there is no overlay file, so the resolver reads the manifest
+// directly , this guard therefore also proves nothing has re-introduced a file-layer copy that would
+// shadow the manifest. If it goes RED, either a manifest drifted or a per-turn default crept back into
+// defaultConsortConfig; fix the manifest (the one home), not this test.
 
 import { describe, it, expect } from "vitest";
 import { mkdtempSync } from "node:fs";
@@ -39,11 +36,11 @@ function actionFromMatch(match: Record<string, unknown>, role: string, hasMode: 
 }
 
 describe("step-manifest agentOptions ≡ resolveConsortSettings (per-step config parity)", () => {
-  // Resolve against what a REAL scaffolded project runs: project-sftdd-setup writes
-  // defaultConsortConfig() (RECOMMENDED_MODELS base + the optimized-defaults.json applied-winners
-  // overlay) to .lakebase/sftdd-config.json, and the drive reads THAT file. So seed the config
-  // exactly as scaffolding does, then resolve , this is the authoritative live behavior the
-  // manifest agentOptions must mirror (NOT the bare no-file fallback, which omits the overlay).
+  // Resolve against what a REAL scaffolded project runs: project setup writes defaultConsortConfig()
+  // (now PROJECT settings only , no per-turn model/effort) to the project consort-config.json, and the
+  // drive reads THAT file, falling through to the manifest agentOptions for per-turn model/effort. So
+  // seed the config exactly as scaffolding does, then resolve , the manifest agentOptions must equal
+  // what the resolver returns (which, with no file-layer per-turn copy, IS the manifest).
   const proj = mkdtempSync(join(tmpdir(), "parity-scaffolded-"));
   writeConsortConfig(proj, defaultConsortConfig(), { force: true });
   const settings = resolveConsortSettings({ projectDir: proj });
