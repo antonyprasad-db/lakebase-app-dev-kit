@@ -296,17 +296,19 @@ describe("buildDriverNextStepJudge IS the next-turn assessment (ENFORCED: no bes
   // determination is a REGRESSION.
   const REG = { "navigator-eval/regression-assessment.json": JSON.stringify({ diagnosis: "code still references inventory_code", fix: "remove it" }) };
 
-  it("SAME: candidate's next-turn navigator reproduces the recorded regression => pass (same, not honors)", async () => {
+  // These four exercise the LIVE regression-fidelity / delta / verdict judges (real model calls); the 30s
+  // default is too tight under API latency and flakes the pre-push gate, so give the live path room.
+  it("SAME: candidate's next-turn navigator reproduces the recorded regression => pass (same, not honors)", { timeout: 120_000 }, async () => {
     const v = await buildDriverNextStepJudge("driver-green-s2").judgeCandidate({ candidateId: "faithful", primary: undefined, producedArtifacts: REG });
     expect(v.passed).toBe(true);
     expect(v.classification).not.toBe("pass-with-honors");
   });
-  it("BETTER: candidate's next-turn navigator found the code clean (equivalent) => pass-with-honors", async () => {
+  it("BETTER: candidate's next-turn navigator found the code clean (equivalent) => pass-with-honors", { timeout: 120_000 }, async () => {
     const v = await buildDriverNextStepJudge("driver-green-s2").judgeCandidate({ candidateId: "clean", primary: undefined, producedArtifacts: {} });
     expect(v.passed).toBe(true);
     expect(v.classification).toBe("pass-with-honors");
   });
-  it("BETTER: superseded-shift outranks the recorded regression on the resolution ladder => pass-with-honors", async () => {
+  it("BETTER: superseded-shift outranks the recorded regression on the resolution ladder => pass-with-honors", { timeout: 120_000 }, async () => {
     // The resolution ladder scores same/better/worse over the DETERMINATION classes: superseded-shift (code
     // correct, prior tests superseded) is MORE resolved than a regression (code broken). driver-green-s2's
     // recorded next-turn determination is a regression, so a candidate whose navigator returns superseded-shift
@@ -319,7 +321,7 @@ describe("buildDriverNextStepJudge IS the next-turn assessment (ENFORCED: no bes
     expect(v.passed).toBe(true);
     expect(v.classification).toBe("pass-with-honors");
   });
-  it("the verdict is driven ONLY by the next-turn determination, NOT the produced code (no code-scan)", async () => {
+  it("the verdict is driven ONLY by the next-turn determination, NOT the produced code (no code-scan)", { timeout: 120_000 }, async () => {
     // SAME determination (regression), wildly different app/ code: the verdict must be IDENTICAL. A
     // code-scanning discriminator (the removed milestone) would diverge these; the pure delegate cannot.
     const judge = buildDriverNextStepJudge("driver-green-s2");
