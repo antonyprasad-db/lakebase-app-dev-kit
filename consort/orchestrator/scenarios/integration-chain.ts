@@ -132,8 +132,10 @@ export async function runIntegrationChain(config: IntegrationChainConfig): Promi
           instructionsFor: (_m: StepManifest, _a: WorkflowAction, _ws: string) => ({
             prompt: recordedPrompt,
             // The SAME agent-report guideline the lean chain's live run uses (build-role-chains
-            // runBuildRoleChainLive) , the lean lane's mechanism for eliciting the structured report the
-            // orchestrator formats into agent-log.jsonl (the cloud drive uses AGENT_TERSE_SUFFIX instead).
+            // runBuildRoleChainLive) , NOT a custom one. The recorded prompt may instruct Bash-logging the
+            // sandboxed agent cannot run; this guideline points it at the containment-proof report block,
+            // and the capture (below) + formatAgentReport's file fallback handle a block that is not the
+            // final message or a written .agent-report.json.
             guidelines: ["Author your output as instructed; end with the agent-report block; run no command."],
           }),
         }

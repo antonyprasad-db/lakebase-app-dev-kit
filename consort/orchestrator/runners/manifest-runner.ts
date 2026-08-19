@@ -251,7 +251,13 @@ function executorWiring(
             const provisioned = deps.provisionWorkspace ? deps.provisionWorkspace(manifest, action) : { outputPaths: undefined as Record<string, string> | undefined };
             const logSpec = manifest.outputs.find((o) => o.id === "agent-log");
             const logFile = logSpec ? (provisioned.outputPaths?.[logSpec.id] ?? logSpec.filename) : undefined;
-            formatAgentReport({ workspaceDir, role: manifest.role, reportText: agentFinalText(agent), ...(logFile ? { logFile } : {}) });
+            // Pass the final text ONLY when it carries a ```agent-report block; otherwise omit it so
+            // formatAgentReport falls back to the .agent-report.json FILE the agent wrote (Write, no Bash).
+            // A model that logged via the file (or emitted the block anywhere but the final message) still
+            // satisfies the agent-log output , the report block was the only channel before this.
+            const ft = agentFinalText(agent);
+            const reportText = ft && ft.includes("```agent-report") ? ft : undefined;
+            formatAgentReport({ workspaceDir, role: manifest.role, ...(reportText !== undefined ? { reportText } : {}), ...(logFile ? { logFile } : {}) });
           },
         }
       : {}),
