@@ -123,8 +123,8 @@ function bundleFromDir(dir: string, feature: string, story: string, ac: string):
 }
 
 /** The recorded stockflow-full corpus root (the source of truth for replay experiments). */
-const CORPUS_DIR = join(KIT, "examples/replay/corpora/stockflow-full");
-const CORPUS_TURNS = join(CORPUS_DIR, "turns");
+export const CORPUS_DIR = join(KIT, "examples/replay/corpora/stockflow-full");
+export const CORPUS_TURNS = join(CORPUS_DIR, "turns");
 const CORPUS_RA = join(CORPUS_DIR, "recorded-artifacts");
 
 /** Build a bundle from an actual CORPUS turn: the pre-turn CODE is the recorded pre-project, the design

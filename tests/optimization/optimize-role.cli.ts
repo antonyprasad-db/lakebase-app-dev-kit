@@ -32,7 +32,8 @@ import { roleCandidates, testStrategistCandidates, driverGreenCandidates } from 
 import { deployPortForIndex } from "./driver-green-enforcement.js";
 import { runRoleSweep, type SweepTrial, type ChainRunner, type ChainRunResult, type QualityGate, type QualityVerdict, type SweepableChain } from "./role-sweep.js";
 import { reportRoleSweep, formatRoleSweepReport, type SweepReport } from "./role-sweep-report.js";
-import { scaffoldDriverGreenProject, teardownDriverGreenProject, runDriverGreenOnScaffold, runLeanReplayTurn, sweepDriverGreenOrphans, DRIVER_GREEN_BUNDLE_S2, replayBundleFromTurn, type RunDriverGreenResult, type DriverGreenBundle, type ScaffoldedDriverProject } from "../integration/live/driver-build-support.js";
+import { scaffoldDriverGreenProject, teardownDriverGreenProject, runDriverGreenOnScaffold, runLeanReplayTurn, sweepDriverGreenOrphans, DRIVER_GREEN_BUNDLE_S2, replayBundleFromTurn, CORPUS_TURNS, type RunDriverGreenResult, type DriverGreenBundle, type ScaffoldedDriverProject } from "../integration/live/driver-build-support.js";
+import { ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
 import type { RoleLeverPatch } from "./role-levers.js";
 import { loadExperimentConfig } from "./experiment-config.js";
 import { makeOpusJudge, makeVerdictAlignmentJudge, parseVerdictFile, makeBuildDiscriminatorJudge, parseNavigatorAssessMarker, makeSupersessionDeltaJudge, evaluateNavigatorAssessAlignment, evaluateNextStepDetermination, FUNCTIONAL_THRESHOLD, SEMANTIC_THRESHOLD, type BuildOutputKind, type VerdictOutput } from "../../consort/evaluation/semantic-gate.js";
@@ -237,6 +238,50 @@ async function runReplayCandidate(args: {
     durationMs: result.durationMs,
     ...(result.usage ? { usage: result.usage } : {}),
     ...(result.toolCalls !== undefined ? { toolCalls: result.toolCalls } : {}),
+  };
+}
+
+/** The CORPUS-FAITHFUL lean judge: compares the candidate's produced assess marker to the SAME corpus
+ *  turn's RECORDED marker (its files/.consort snapshot), same/better/worse , the discriminator principle,
+ *  vs the replayed turn's own recorded determination (not the curated reference-assets). Mirrors
+ *  buildDriverNextStepJudge but the reference is the replayed turn itself. */
+function buildReplayTurnJudge(turnLabel: string, feature: string, story: string, ac: string): QualityGate {
+  const cwd = process.cwd();
+  const deltaJudge = makeSupersessionDeltaJudge({ cwd });
+  const verdictJudge = makeVerdictAlignmentJudge({ cwd });
+  const recSrc = join(CORPUS_TURNS, turnLabel, "files", ARTIFACT_ROOT, "cycles", feature, story, ac);
+  const MARKER_FILES = ["regression-assessment.json", "superseded-tests.json"];
+  return {
+    judgeCandidate: async ({ producedArtifacts }) => {
+      const recDir = mkdtempSync(join(tmpdir(), "rec-assess-"));
+      const candDir = mkdtempSync(join(tmpdir(), "cand-assess-"));
+      try {
+        // Recorded reference: the corpus turn's own produced assess markers.
+        for (const f of MARKER_FILES) {
+          const p = join(recSrc, f);
+          if (existsSync(p)) writeFileSync(join(recDir, f), readFileSync(p, "utf8"));
+        }
+        // Candidate: the assess markers this run produced (from the .consort snapshot).
+        const cyclePrefix = join(ARTIFACT_ROOT, "cycles", feature, story, ac) + "/";
+        for (const [k, v] of Object.entries(producedArtifacts)) {
+          const base = k.startsWith(cyclePrefix) ? k.slice(cyclePrefix.length) : undefined;
+          if (base && MARKER_FILES.includes(base)) writeFileSync(join(candDir, base), v);
+        }
+        const outcome = await evaluateNextStepDetermination({
+          evaluatorKind: "assess",
+          deltaJudge,
+          verdictJudge,
+          recordedMarkerDir: recDir,
+          candidateMarkerDir: candDir,
+        });
+        const passed = outcome.verdict !== "fail";
+        const classification = outcome.verdict === "pass-with-honors" ? "pass-with-honors" : outcome.candidateClass;
+        return { passed, classification, nextStep: outcome.verdict, reason: outcome.reason };
+      } finally {
+        rmSync(recDir, { recursive: true, force: true });
+        rmSync(candDir, { recursive: true, force: true });
+      }
+    },
   };
 }
 
@@ -625,7 +670,12 @@ export async function sweepOneChain(
   // A missing recorded reference is a HARD ERROR here (the evaluation cannot run without it), never a
   // silent skip. The closure is handed to runRoleSweep, which judges every conformant candidate and
   // DISQUALIFIES any with no verdict. Judges are the SHARED ones in consort/evaluation/semantic-gate.
-  const quality: QualityGate = buildChainJudge(chain, handle, isBuildChain);
+  // Experiment: the CORPUS-FAITHFUL discriminator (candidate marker vs the REPLAYED turn's recorded
+  // marker); otherwise the legacy per-chain judge (reference-assets). Both are mandatory LLM judges.
+  const quality: QualityGate =
+    experiment && experimentBundle
+      ? buildReplayTurnJudge(experiment.turn, experimentBundle.feature, experimentBundle.story, experimentBundle.ac)
+      : buildChainJudge(chain, handle, isBuildChain);
 
   // eslint-disable-next-line no-console
   console.log(
