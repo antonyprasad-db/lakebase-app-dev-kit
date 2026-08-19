@@ -313,12 +313,15 @@ function generateLeanReplayManifest(chainManifestDir: string, feature: string, s
     cfg.disallowedTools = (cfg.disallowedTools ?? []).filter((t) => t !== "Bash");
     cfg.allowedTools = Array.from(new Set([...(cfg.allowedTools ?? []), "Bash"]));
   }
-  // Point the agent-log output where `lk consort-log`/`consort-cycle` ACTUALLY write it ,
-  // <consortDir>/agent-log.jsonl (i.e. .consort/agent-log.jsonl) , not the reference-assets manifest's
-  // workspace-root "agent-log.jsonl" (that path is for the chain's formatAgentReports fallback). Without
-  // this the lk-written log lands under .consort/ while the validator checks the root and wrongly blocks.
-  const logOut = mf.outputs?.find((o) => o.id === "agent-log");
-  if (logOut) logOut.filename = join(ARTIFACT_ROOT, "agent-log.jsonl");
+  // Drop the `agent-log` output from the REPLAY manifest , evidence-based, not a shortcut. In the REAL
+  // drive the agent-log.jsonl is written by the RECORDER from turn events; the recorded navigator prompt
+  // (0157) instructs `lk consort-cycle` (write the assess MARKER) but has NO consort-log / agent-log
+  // instruction , the navigator does not author the log, the recorder does. The reference-assets chain's
+  // `*LoggedAuthoring` output fits ITS prompt (which asks the agent for a report); it does not fit a
+  // faithful replay of a turn whose recorded prompt never asked for one, and the lean substrate has no
+  // recorder. So the replay validates + judges the navigator's ACTUAL output , the assess marker
+  // (assessMarkerWritten stays required) , not a recorder artifact the replayed turn never produced.
+  if (Array.isArray(mf.outputs)) mf.outputs = mf.outputs.filter((o) => o.id !== "agent-log");
   liveRaw = JSON.stringify(mf, null, 2);
   const dir = mkdtempSync(join(tmpdir(), "replay-manifest-"));
   writeFileSync(join(dir, "live.json"), liveRaw);
