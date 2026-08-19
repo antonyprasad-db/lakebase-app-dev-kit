@@ -44,6 +44,13 @@ describe("experiment-config: ac is optional for a RED (story-scoped) turn", () =
   it("a non-red config still REQUIRES ac", () => {
     expect(() => loadExperimentConfig(write({ name: "a", turn: "0157-navigator-assess", candidates: [{ id: "opus", levers: {} }] }))).toThrow(/missing "ac"/);
   });
+  it("a REFACTOR turn is also story-scoped => ac is optional (the whole story is reviewed + refactored)", () => {
+    const cfg = loadExperimentConfig(write({ name: "rf", turn: "0039-driver-refactor", candidates: [{ id: "sonnet", levers: { model: "sonnet" } }] }));
+    expect(cfg.driverTurn).toBe("refactor");
+    expect(cfg.discriminator).toBe("review"); // refactor's next-step evaluator is a review
+    expect(cfg.ac).toBe("");
+    expect(cfg.substrate).toBe("cloud"); // driver turn
+  });
 });
 
 describe("experiment-config: role + substrate (one config for every turn)", () => {

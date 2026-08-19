@@ -150,9 +150,12 @@ export function loadExperimentConfig(
   if (!raw.name || typeof raw.name !== "string") throw new Error(`experiment config ${path}: missing "name"`);
   if (!raw.turn || typeof raw.turn !== "string") throw new Error(`experiment config ${path}: missing "turn" (the corpus turn label)`);
   const discriminator = raw.discriminator ?? discriminatorFromLabel(raw.turn);
-  // ac is REQUIRED for AC-scoped turns (assess/green/repair identify one AC's artifact); the RED turn is
-  // story-scoped (authors the whole story's tests) so ac is optional + unused there.
-  if (discriminator !== "red" && (!raw.ac || typeof raw.ac !== "string")) throw new Error(`experiment config ${path}: missing "ac" (required for a "${discriminator}" turn)`);
+  const driverTurn = raw.driverTurn ?? driverTurnFromLabel(raw.turn);
+  // ac is REQUIRED for AC-scoped turns (assess/green/repair identify one AC's artifact). STORY-scoped turns
+  // are exempt , ac is optional + unused (the harness derives the story cycle dir): the RED turn (authors the
+  // whole story's tests) and the REFACTOR turn (story-level review + refactor of the whole story).
+  const storyScoped = discriminator === "red" || driverTurn === "refactor";
+  if (!storyScoped && (!raw.ac || typeof raw.ac !== "string")) throw new Error(`experiment config ${path}: missing "ac" (required for a "${discriminator}" turn)`);
   if (!Array.isArray(raw.candidates) || raw.candidates.length === 0) throw new Error(`experiment config ${path}: "candidates" must be a non-empty array`);
   const seen = new Set<string>();
   const roleCandidates: RoleCandidate[] = raw.candidates.map((c) => {
@@ -165,7 +168,7 @@ export function loadExperimentConfig(
     name: raw.name,
     turn: raw.turn,
     ac: raw.ac ?? "",
-    driverTurn: raw.driverTurn ?? driverTurnFromLabel(raw.turn),
+    driverTurn,
     discriminator,
     ...(raw.concurrency !== undefined ? { concurrency: raw.concurrency } : {}),
     ...(raw.replicas !== undefined ? { replicas: raw.replicas } : {}),
