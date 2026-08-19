@@ -38,7 +38,11 @@ import type { LifecycleRunContext } from "../../../consort/orchestrator/provisio
 import type { ScaffoldHandle } from "../../../consort/orchestrator/provisioning/lifecycle-catalogue.js";
 import { cutExperiment, deleteExperiment } from "../../../consort/experiment/experiment.js";
 import { cutWorktree, forceRemoveWorktree } from "./shared-scaffold-support.js";
-import { snapshotTree } from "../../../consort/orchestrator/scenarios/integration-chain.js";
+import { snapshotTree, runIntegrationChain } from "../../../consort/orchestrator/scenarios/integration-chain.js";
+import { ARTIFACT_ROOT } from "../../../consort/config/consort-paths.js";
+import type { ManifestTurn } from "../../../consort/orchestrator/runners/manifest-runner.js";
+import type { StepManifest } from "../../../consort/orchestrator/steps/manifest.js";
+import type { StepAgent } from "../../../consort/orchestrator/agents/agent-types.js";
 import { sweepOrphanProjects, DEFAULT_TEST_PROJECT_PREFIXES } from "../../../consort/setup/orphan-project-sweep.js";
 import { runDriver } from "../../../consort/orchestrator/drive/orchestrator-run.js";
 import { buildDriveEffects } from "../../../consort/orchestrator/drive/orchestrator-effects.js";
@@ -261,6 +265,46 @@ export function layReplayPreconditions(
   ] as const) {
     if (existsSync(src)) overlayBundle(projectDir, { files: [{ from: src, to: dst }] });
   }
+}
+
+/** The LEAN substrate runner: replay a NON-driver corpus turn (navigator / design role) from its recorded
+ *  replay-set , no Lakebase, no honest-GREEN. It runs the SAME shared machinery as everything else: a
+ *  throwaway workspace seeded by layReplayPreconditions (the recorded pre-turn state), the recorded
+ *  prompt.txt as the turn's base body (recordedPromptFor → instructionsOverride, phase-2.5 gated), the
+ *  swept agent (agentFor from the sweep), and the shared `execute` step-executor via runIntegrationChain.
+ *  Returns the same {turns, producedArtifacts} shape as the cloud runner; usage rides turns[].agentResult
+ *  so the sweep records cost identically. This is the driver's cloud counterpart on the lean substrate ,
+ *  ONE process, two substrates. */
+export async function runLeanReplayTurn(
+  bundle: DriverGreenBundle,
+  agentFor: (m: StepManifest) => StepAgent | undefined,
+): Promise<{ turns: ManifestTurn[]; producedArtifacts: Record<string, string> }> {
+  const rs = bundle.replay;
+  if (!rs) throw new Error("runLeanReplayTurn requires a replay bundle (bundle.replay is unset)");
+  const { turns, producedArtifacts } = await runIntegrationChain({
+    manifestDir: join(KIT, "tests/integration/manifests"),
+    intakeDir: CORPUS_DIR,
+    feature: bundle.feature,
+    start: rs.action as WorkflowAction,
+    // Seed the recorded pre-turn state (the SAME primitive the cloud lane uses), then drive from the
+    // recorded prompt. Cloud-only routing (pipeline/branch) is NOT needed: a lean single-turn replay
+    // starts directly at the recorded action and runs just that turn (its next action has no lean manifest).
+    seedWorkspace: (ws) =>
+      layReplayPreconditions(ws, join(ws, ARTIFACT_ROOT), {
+        feature: bundle.feature,
+        story: bundle.story,
+        preProjectDir: bundle.preRedCodeDir,
+        recordedArtifactsFeatureDir: bundle.recordedArtifactsFeatureDir,
+        conventionsJson: bundle.conventionsJson,
+        designDir: bundle.designDir,
+      }),
+    recordedPromptFor: (ws) => rehydrate(rs.promptRaw, ws),
+    agentFor,
+    // A navigator/design turn writes its output under .consort (default snapshot); include code roots too
+    // so a turn that touches app/tests/client (rare on the lean lane) is still preserved.
+    extraSnapshotRoots: ["app", "tests", "client"],
+  });
+  return { turns, producedArtifacts };
 }
 
 function layBundle(projectDir: string, consortDir: string, driverTurn: "green" | "repair" | "refactor" = "green", bundle: DriverGreenBundle = DRIVER_GREEN_BUNDLE): void {

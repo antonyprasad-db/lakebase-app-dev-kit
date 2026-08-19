@@ -54,6 +54,19 @@ export interface IntegrationChainConfig {
    *  per-run). The test-strategist sweep passes `{ "test-analyst-roster": { analystOverrides } }` so
    *  the supervisor spawns each analyst Task with the swept per-analyst levers. Absent ⇒ unchanged. */
   preconditionOptions?: Record<string, Record<string, unknown>>;
+  /** OPTIONAL seed hook: run AFTER the throwaway workspace + kit agents are laid down and BEFORE the
+   *  chain runs, to populate the workspace with pre-turn state directly (instead of via seed-replay
+   *  manifests). The REPLAY experiment path uses this to lay a corpus turn's recorded preconditions
+   *  (layReplayPreconditions + recorded inputs) so the lean lane replays the SAME recorded state as the
+   *  cloud lane. Receives the workspace dir. Absent ⇒ seeding is manifest-driven (the default). */
+  seedWorkspace?(workspaceDir: string): void;
+  /** OPTIONAL replay prompt: the corpus turn's recorded prompt.txt, rehydrated to THIS run's workspace
+   *  (the closure receives the workspace dir so the caller can swap the <PROJECT_ROOT> token). When set,
+   *  it becomes the turn's base body verbatim (via instructionsFor) AND gates the executor's phase-2.5
+   *  precondition prep (via cfg.instructionsOverride) , so the lean lane replays the recorded prompt with
+   *  no regenerated context or re-injection, exactly like the cloud lane. Absent ⇒ the normal
+   *  instructionsFor/manifest path. */
+  recordedPromptFor?(workspaceDir: string): string;
 }
 
 /** What one integration-chain run reports. */
@@ -86,21 +99,35 @@ export async function runIntegrationChain(config: IntegrationChainConfig): Promi
   // so the CLI loads these project-local agents.)
   layDownKitAgents(workspaceDir);
 
+  // REPLAY seed: populate the workspace with the recorded pre-turn state (preconditions + inputs) before
+  // the chain runs, so a turn can be replayed from a corpus turn's recorded state rather than seed-replay
+  // manifests. Runs once, after the workspace exists, before any turn.
+  config.seedWorkspace?.(workspaceDir);
+
   const agentContext: Omit<AgentBuildContext, "workspaceDir"> = {
     corpusRoot: config.intakeDir,
     kitDir: process.cwd(),
   };
 
+  // REPLAY: the recorded prompt, rehydrated to this workspace. When set, it is the turn's base body AND
+  // gates phase-2.5 (cfg.instructionsOverride) so no regenerated context / re-injection , the lean lane
+  // behaves exactly like the cloud lane's instructionsOverride path.
+  const recordedPrompt = config.recordedPromptFor?.(workspaceDir);
   const runnerDeps: ManifestRunnerDeps = {
     workspaceDir,
     cfg: {
       projectDir: workspaceDir,
       consortDir: join(workspaceDir, ARTIFACT_ROOT),
       featureId: config.feature,
+      ...(recordedPrompt !== undefined ? { instructionsOverride: () => recordedPrompt } : {}),
     } as DriveEffectsConfig,
     agentContext,
     formatAgentReports: true,
-    ...(config.instructionsFor ? { instructionsFor: (m: StepManifest, _a: WorkflowAction, ws: string) => config.instructionsFor!(m, ws) } : {}),
+    ...(recordedPrompt !== undefined
+      ? { instructionsFor: (_m: StepManifest, _a: WorkflowAction, _ws: string) => ({ prompt: recordedPrompt }) }
+      : config.instructionsFor
+        ? { instructionsFor: (m: StepManifest, _a: WorkflowAction, ws: string) => config.instructionsFor!(m, ws) }
+        : {}),
     // Lever-injection seam: when a config.agentFor returns an override for a manifest, use it;
     // otherwise fall back to the catalogue (manifest.agent) so the seed/other steps are unchanged.
     // Only wired when config.agentFor is set, so the default run is byte-identical.
