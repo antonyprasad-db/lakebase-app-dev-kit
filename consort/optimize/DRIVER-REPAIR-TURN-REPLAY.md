@@ -172,3 +172,18 @@ CONSEQUENCE: the earlier code-equivalence panel/confirm results (and the haiku f
 must be re-run with this method (the preserved runs captured opus-high determinations, unusable here). Green
 uses the same two-turn method already (buildDriverNextStepJudge); refactor's recorded next turn is
 acceptance (no review), so it needs a forced post-refactor review , DEFERRED.
+
+## Corrected-method panel result , haiku flip REVERTED; 0053 (clean) is untunable; use a smelly sample
+
+Re-ran the 5-lever panel with the CORRECT method (two-turn determination, actual navigator model). Result:
+ALL 5 FAILED review:refactor-requested (sonnet 284.6s, sonnet-e-low 241.9s, haiku 315.9s, haiku-e-low 239.2s,
+opus 329.0s); the earlier smoke-haiku was the ONLY clean run (review:clean, 235.7s). So ~1/6 runs hold the
+clean bar , the actual-model review reliably finds the reachability/IA smell that recorded 0053->0054 did not.
+The method DISCRIMINATES fairly (not opus-high all-fail, not code-equiv all-pass), but 0053's recorded-CLEAN
+review is a HARD, high-variance bar that live repairs rarely hold => NOT tunable (can't rank holders).
+
+ACTIONS: (1) REVERTED driver-repair haiku->sonnet (the flip's code-equiv basis is invalid; the correct
+method does not support haiku , 1/2 haiku runs clean). driver-repair is UNTUNED (base sonnet) until a proper
+run. (2) For tuning, use a recorded-SMELLY sample (0037 F1-S2 or 0158 F6-S3, both recorded review:refactor-
+requested) , the bar becomes "no-worse than that recorded smell", which candidates reproducing the recorded
+quality can HOLD => rankable. 0053 stays the pipeline-validation sample, not the tuning sample.
