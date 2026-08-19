@@ -107,3 +107,31 @@ handroll suffices for story-cadence repairs like 0053.
 
 Cleanup note: the smoke's teardown logged "dg-live-... still present after 5 delete attempts" , eventual-
 consistency lag; a follow-up `list-projects` showed NO dg-live projects (it deleted).
+
+## Panel result + discriminator fix (the repair turn now tunes)
+
+Full 5-lever panel (turn 0053, live cloud). With the fresh-opus-high REVIEW judge, ALL 5 FAILED
+`review:refactor-requested` , but the diagnosis (verified) was a discriminator flaw, not lever quality:
+every candidate (incl opus) correctly routed the page (App.tsx SkuDetailPage refs=2) + had clean
+layering/NFRs per the review, yet all failed on a home-row-link IA nuance the recorded CLEAN review
+(0054) never required. A fresh opus-high re-review is simply STRICTER than the recorded reviewer, so
+"no-worse than recorded" is systematically unfair for a subjective review.
+
+FIX (commit 6265867c): judge the repair by CODE-equivalence to the recorded OUTPUT (buildDriverRepairCodeJudge
+, functional equivalence of the candidate's client/app code vs the code the recorded repair produced),
+GATED on honest-GREEN (repair resolved). Wired into sweepDriverGreen AND `--rejudge`. RE-JUDGING the
+preserved panel (no live re-run , `--rejudge <run> --experiment driver-repair-panel.json`) with the code
+judge: ALL 5 HOLD.
+
+| candidate    | code-score | wall    | cost   |
+|--------------|-----------:|--------:|-------:|
+| sonnet (base)| 0.90       | 304.7s  | $0.460 |
+| sonnet-e-low | 0.90       | 281.7s  | $0.342 |
+| haiku        | **1.00**   | 307.0s  | **$0.243** |
+| haiku-e-low  | 0.95       | 339.8s  | $0.287 |
+| opus         | 0.95       | 323.8s  | $0.895 |
+
+Finding: the repair turn is WELL-CONSTRAINED (fixDirective + failing tests pin the output), so even haiku
+holds FULL code-equivalence (1.00) at ~baseline speed and ~1/4 the opus cost , opus is over-provisioned.
+Timings are close (281-340s, n=1, noisy); the clear signal is COST (haiku $0.243 vs opus $0.895 at
+equal-or-better quality). Confirm with replicas (like assess/red) before flipping the repair lever.

@@ -1,0 +1,13 @@
+{
+  "handle": "driver-repair",
+  "candidateId": "haiku",
+  "rejudgeable": true,
+  "fresh": {
+    "passed": true,
+    "score": 1
+  },
+  "stored": {
+    "classification": "review:refactor-requested"
+  },
+  "reproduce": "DIVERGED (stored=review:refactor-requested fresh=?)"
+}
