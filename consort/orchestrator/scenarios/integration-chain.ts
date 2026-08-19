@@ -131,12 +131,15 @@ export async function runIntegrationChain(config: IntegrationChainConfig): Promi
           // artifact but the log-authoring output fails to validate and the step emits "blocked".
           instructionsFor: (_m: StepManifest, _a: WorkflowAction, _ws: string) => ({
             prompt: recordedPrompt,
-            // The SAME agent-report guideline the lean chain's live run uses (build-role-chains
-            // runBuildRoleChainLive) , NOT a custom one. The recorded prompt may instruct Bash-logging the
-            // sandboxed agent cannot run; this guideline points it at the containment-proof report block,
-            // and the capture (below) + formatAgentReport's file fallback handle a block that is not the
-            // final message or a written .agent-report.json.
-            guidelines: ["Author your output as instructed; end with the agent-report block; run no command."],
+            // The recorded prompt may instruct Bash logging (scripts/lk consort-log) the sandboxed lean
+            // agent cannot run, so direct it to the formatter's DESIGNED authorship channels for a
+            // sandboxed agent (agent-report-formatter): a plain Write of .agent-report.json (deterministic,
+            // no Bash) is the primary, with the ```agent-report block as the alternate. The orchestrator
+            // (formatAgentReports) turns whichever it finds into agent-log.jsonl. Do not run a shell
+            // command to log. A model that logs inconsistently in prose is handled by the tolerant parse.
+            guidelines: [
+              "To satisfy the agent-log requirement WITHOUT a shell command: WRITE a file `.agent-report.json` in the workspace , a JSON array of {level,event,message} entries (or one object) describing what you did (also fine to end with an equivalent ```agent-report block). Do NOT run scripts/lk or any shell command to log.",
+            ],
           }),
         }
       : config.instructionsFor
