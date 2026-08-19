@@ -30,9 +30,10 @@ import { ROLE_CHAINS, runRoleChainLive, INTAKE_REL, type RoleChain } from "../..
 import { BUILD_ROLE_CHAINS, runBuildRoleChainLive, BUILD_CORPUS_REL, type BuildRoleChain } from "../../consort/optimize/build-role-chains.js";
 import { roleCandidates, testStrategistCandidates, driverGreenCandidates } from "./role-levers.js";
 import { deployPortForIndex } from "./driver-green-enforcement.js";
-import { runRoleSweep, type SweepTrial, type ChainRunner, type QualityGate, type QualityVerdict, type SweepableChain } from "./role-sweep.js";
+import { runRoleSweep, type SweepTrial, type ChainRunner, type ChainRunResult, type QualityGate, type QualityVerdict, type SweepableChain } from "./role-sweep.js";
 import { reportRoleSweep, formatRoleSweepReport, type SweepReport } from "./role-sweep-report.js";
-import { scaffoldDriverGreenProject, teardownDriverGreenProject, runDriverGreenOnScaffold, sweepDriverGreenOrphans, DRIVER_GREEN_BUNDLE_S2, replayBundleFromTurn, type RunDriverGreenResult, type DriverGreenBundle } from "../integration/live/driver-build-support.js";
+import { scaffoldDriverGreenProject, teardownDriverGreenProject, runDriverGreenOnScaffold, runLeanReplayTurn, sweepDriverGreenOrphans, DRIVER_GREEN_BUNDLE_S2, replayBundleFromTurn, type RunDriverGreenResult, type DriverGreenBundle, type ScaffoldedDriverProject } from "../integration/live/driver-build-support.js";
+import type { RoleLeverPatch } from "./role-levers.js";
 import { loadExperimentConfig } from "./experiment-config.js";
 import { makeOpusJudge, makeVerdictAlignmentJudge, parseVerdictFile, makeBuildDiscriminatorJudge, parseNavigatorAssessMarker, makeSupersessionDeltaJudge, evaluateNavigatorAssessAlignment, evaluateNextStepDetermination, FUNCTIONAL_THRESHOLD, SEMANTIC_THRESHOLD, type BuildOutputKind, type VerdictOutput } from "../../consort/evaluation/semantic-gate.js";
 import { enabledAnalysts } from "../../consort/test-list/test-analyst-catalogue.js";
@@ -190,6 +191,55 @@ export function selectDriverCandidates<C extends { id: string }>(all: C[], subse
   return all.filter((c) => subset.includes(c.id));
 }
 
+/** ONE per-candidate replay dispatcher for BOTH substrates , the convergence point. Given the corpus
+ *  turn's bundle + the substrate, it runs the candidate through the SAME shared pieces (replay-set
+ *  preconditions + recorded prompt + swept agent) and returns the SAME ChainRunResult that runRoleSweep
+ *  consumes , so the sweep engine, judge, telemetry, and cost recording are identical for driver (cloud)
+ *  and navigator/design (lean). Cloud: a per-candidate worktree + Lakebase branch + honest-GREEN + the
+ *  next-turn navigator eval (the discriminator). Lean: a throwaway workspace, the single turn, no cloud
+ *  (usage rides turns[].agentResult). */
+async function runReplayCandidate(args: {
+  substrate: "cloud" | "lean";
+  bundle: DriverGreenBundle | undefined;
+  project: ScaffoldedDriverProject | undefined;
+  candidateId: string;
+  levers: RoleLeverPatch;
+  agentFor: (m: StepManifest) => StepAgent | undefined;
+  idx: number;
+  driverTurn: "green" | "repair" | "refactor";
+  pfx: string;
+}): Promise<ChainRunResult> {
+  if (args.substrate === "lean") {
+    if (!args.bundle) throw new Error("lean replay requires a bundle (the corpus turn to replay)");
+    // The lean lane's usage rides turns[].agentResult (the design-lane telemetry path), so cost is
+    // recorded identically; the gate is derived from the produced turn (no runner-supplied gate needed).
+    const { turns, producedArtifacts } = await runLeanReplayTurn(args.bundle, args.agentFor);
+    return { turns, producedArtifacts };
+  }
+  // CLOUD: the driver's live cycle (scaffold worktree + Lakebase branch + honest-GREEN + navigator eval).
+  const result = (await runDriverGreenOnScaffold(args.project!, {
+    experimentSlug: `${args.pfx}-${args.driverTurn}-${args.candidateId}`,
+    branch: `experiment/${args.pfx.toUpperCase()}-${args.driverTurn}-${args.candidateId}`,
+    driverTurn: args.driverTurn,
+    port: deployPortForIndex(args.idx),
+    ...(args.bundle ? { bundle: args.bundle } : {}),
+    ...(Object.keys(args.levers).length ? { leverOverride: args.levers } : {}),
+  })) as RunDriverGreenResult | undefined;
+  if (!result) throw new Error(`runDriverGreenOnScaffold returned void (expected RunDriverGreenResult)`);
+  // Merge the captured next-step navigator marker into producedArtifacts under the reserved prefix so the
+  // judge reads it without widening the ChainRunResult seam; the app/+tests stay for preservation.
+  const producedArtifacts: Record<string, string> = { ...result.producedArtifacts };
+  for (const [k, v] of Object.entries(result.nextStepMarker)) producedArtifacts[`${NEXT_STEP_MARKER_PREFIX}${k.split("/").pop()}`] = v;
+  return {
+    turns: [],
+    producedArtifacts,
+    gate: { passed: true },
+    durationMs: result.durationMs,
+    ...(result.usage ? { usage: result.usage } : {}),
+    ...(result.toolCalls !== undefined ? { toolCalls: result.toolCalls } : {}),
+  };
+}
+
 export async function sweepDriverGreen(
   handle: string,
   runRoot: string,
@@ -254,41 +304,21 @@ export async function sweepDriverGreen(
   // else the handle's default replay turn (resolved inside runDriverGreenOnScaffold).
   const pinnedBundle = experimentBundle ?? (handle === "driver-green-s2" ? DRIVER_GREEN_BUNDLE_S2 : undefined);
   const pfx = (pinnedBundle?.story ?? "S3-stock-shows-split-fields").split("-")[0].toLowerCase();
-  const runChain: ChainRunner = async (_c, _agentFor, candidateId, levers) => {
-    // Deterministic per-candidate deploy port (base + index) so parallel candidates never collide on
-    // the shared :8000 the honest-GREEN verify binds , the concurrency-safety fix. Index from position
-    // in the candidate set (ChainRunner carries no index); unique across the whole set regardless of cap.
+  const runChain: ChainRunner = async (_c, agentFor, candidateId, levers) => {
+    // Deterministic per-candidate deploy port (base + index) so parallel candidates never collide on the
+    // shared :8000 the honest-GREEN verify binds. Route through the ONE dispatcher (cloud substrate here).
     const idx = Math.max(0, candidates.findIndex((c) => c.id === candidateId));
-    const result = await runDriverGreenOnScaffold(project, {
-      experimentSlug: `${pfx}-${spec.driverTurn}-${candidateId}`,
-      branch: `experiment/${pfx.toUpperCase()}-${spec.driverTurn}-${candidateId}`,
+    return runReplayCandidate({
+      substrate: "cloud",
+      bundle: pinnedBundle,
+      project,
+      candidateId,
+      levers,
+      agentFor: agentFor as (m: StepManifest) => StepAgent | undefined,
+      idx,
       driverTurn: spec.driverTurn,
-      port: deployPortForIndex(idx),
-      ...(pinnedBundle ? { bundle: pinnedBundle } : {}),
-      ...(Object.keys(levers).length ? { leverOverride: levers } : {}),
-    }) as RunDriverGreenResult | undefined;
-    if (!result) throw new Error(`runDriverGreenOnScaffold returned void (expected RunDriverGreenResult)`);
-    // Merge the captured next-step navigator marker into producedArtifacts under the reserved prefix so
-    // the judge reads it without widening the ChainRunResult seam; the app/+tests stay for preservation.
-    const producedArtifacts: Record<string, string> = { ...result.producedArtifacts };
-    for (const [k, v] of Object.entries(result.nextStepMarker)) producedArtifacts[`${NEXT_STEP_MARKER_PREFIX}${k.split("/").pop()}`] = v;
-    // SINGLE-TURN: the gate is STRUCTURAL (the turn ran + produced code + a determination was captured ,
-    // guaranteed by reaching here; a crash was caught upstream => DQ). It is NOT `honestGreen`: a failing
-    // green is a valid scorable turn, and gating on green would skip the judge (role-sweep only judges
-    // gate-passers). Quality is the judge's SAME/BETTER/WORSE on the determination vs the recorded
-    // original; honestGreen rides along as a signal for the report, not a gate.
-    // turns:[] (the driver's work is a live cycle, not a single ManifestTurn), so hand the harness's
-    // measured wall-clock explicitly , without it every candidate reads 0ms and the winner can't be ranked.
-    return {
-      turns: [],
-      producedArtifacts,
-      gate: { passed: true, honestGreen: result.honestGreen },
-      durationMs: result.durationMs,
-      // Cost parity: surface the driver turn's usage (cost + tokens + numTurns + duration) + tool-call
-      // count so role-sweep records them in telemetry, exactly as the design-lane sweep does.
-      ...(result.usage ? { usage: result.usage } : {}),
-      ...(result.toolCalls !== undefined ? { toolCalls: result.toolCalls } : {}),
-    };
+      pfx,
+    });
   };
 
   let trials: SweepTrial[];
