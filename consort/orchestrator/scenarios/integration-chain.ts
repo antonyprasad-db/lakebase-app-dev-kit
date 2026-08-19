@@ -131,15 +131,12 @@ export async function runIntegrationChain(config: IntegrationChainConfig): Promi
           // artifact but the log-authoring output fails to validate and the step emits "blocked".
           instructionsFor: (_m: StepManifest, _a: WorkflowAction, _ws: string) => ({
             prompt: recordedPrompt,
-            // The recorded prompt may instruct Bash logging (scripts/lk consort-log) the sandboxed lean
-            // agent cannot run, so direct it to the formatter's DESIGNED authorship channels for a
-            // sandboxed agent (agent-report-formatter): a plain Write of .agent-report.json (deterministic,
-            // no Bash) is the primary, with the ```agent-report block as the alternate. The orchestrator
-            // (formatAgentReports) turns whichever it finds into agent-log.jsonl. Do not run a shell
-            // command to log. A model that logs inconsistently in prose is handled by the tolerant parse.
-            guidelines: [
-              "To satisfy the agent-log requirement WITHOUT a shell command: WRITE a file `.agent-report.json` in the workspace , a JSON array of {level,event,message} entries (or one object) describing what you did (also fine to end with an equivalent ```agent-report block). Do NOT run scripts/lk or any shell command to log.",
-            ],
+            // NO added guideline: the recorded prompt is the turn's real instruction , it already tells the
+            // agent how to log (via `scripts/lk consort-log`), which the lean workspace now provides
+            // (scripts/lk shim + Bash restored). Adding a guideline that forbids commands or prescribes a
+            // different channel would contradict the recording; the whole point is to replay it faithfully.
+            // (formatAgentReports stays on as a harmless fallback if the agent also emits a report block.)
+            guidelines: [],
           }),
         }
       : config.instructionsFor

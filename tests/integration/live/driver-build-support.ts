@@ -24,7 +24,7 @@
 //   - design/ : architecture/db-design/test-list/AC + conventions the driver's context pack reads.
 //   (deploy-targets.yaml / run-tests.sh / alembic env come from the SCAFFOLD, not the bundle.)
 
-import { readFileSync, writeFileSync, existsSync, statSync, readdirSync, mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, statSync, readdirSync, mkdtempSync, mkdirSync, chmodSync, rmSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
@@ -300,6 +300,17 @@ function generateLeanReplayManifest(chainManifestDir: string, feature: string, s
     }
   }
   if (!liveRaw) throw new Error(`no live (claude) manifest found in ${chainManifestDir} to template for replay`);
+  // FAITHFUL tool scope: the recorded turn ran in the real drive with Bash (it logs via `scripts/lk
+  // consort-log`, per the recorded prompt). The reference-assets chain SANDBOXES that (disallows Bash +
+  // relies on a report block), which a recorded-prompt replay follows inconsistently. Restore Bash so the
+  // agent logs the way it recorded (the lean workspace provides scripts/lk, see runLeanReplayTurn).
+  const mf = JSON.parse(liveRaw) as { agent?: { config?: { allowedTools?: string[]; disallowedTools?: string[] } } };
+  if (mf.agent?.config) {
+    const cfg = mf.agent.config;
+    cfg.disallowedTools = (cfg.disallowedTools ?? []).filter((t) => t !== "Bash");
+    cfg.allowedTools = Array.from(new Set([...(cfg.allowedTools ?? []), "Bash"]));
+    liveRaw = JSON.stringify(mf, null, 2);
+  }
   const dir = mkdtempSync(join(tmpdir(), "replay-manifest-"));
   writeFileSync(join(dir, "live.json"), liveRaw);
   return dir;
@@ -344,6 +355,18 @@ export async function runLeanReplayTurn(
         const dstDir = join(ws, ARTIFACT_ROOT, "cycles", bundle.feature, bundle.story, bundle.ac);
         mkdirSync(dstDir, { recursive: true });
         writeFileSync(join(dstDir, "green-failure.json"), readFileSync(gf, "utf8"));
+      }
+      // Provide the `lk` shim so the agent logs the way it recorded , `./scripts/lk consort-log ...` (the
+      // recorded prompt instructs it). The shim resolves the kit via LAKEBASE_KIT_DIR (runIntegrationChain
+      // sets it to this kit, which has dist/), so consort-log runs + writes agent-log.jsonl into the
+      // workspace .consort. This is why the manifest restores Bash (generateLeanReplayManifest): agent-
+      // authored report blocks were unreliable across runs; lk (a command the agent just runs) is not.
+      const lkSrc = join(KIT, "templates/project/common/scripts/lk");
+      if (existsSync(lkSrc)) {
+        const lkDst = join(ws, "scripts", "lk");
+        mkdirSync(join(ws, "scripts"), { recursive: true });
+        writeFileSync(lkDst, readFileSync(lkSrc, "utf8"));
+        chmodSync(lkDst, 0o755);
       }
     },
     recordedPromptFor: (ws) => rehydrate(rs.promptRaw, ws),
