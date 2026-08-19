@@ -249,7 +249,30 @@ config (loadExperimentConfig required it for non-RED turns). Local dg-live orpha
 
 FINDING (like 0053 repair): 0039's clean-in-one-step bar is HIGH-VARIANCE for sonnet , run #1 clean, run #2 left
 a different NFR smell. A single run is NOT decisive; the panel must use REPLICAS and rank levers by clean-HOLD
-rate (fraction of runs the post-refactor review is clean), not one shot. NEXT: run the 5-lever panel with
-replicas (n>=3) and rank by clean-hold rate; if no model lever reliably holds clean, add prompt-revision levers
-informed by the preserved `transcripts/` tool traces (the refactor left the empty-state NFR unaddressed , the
-refactor prompt may need to enumerate ALL open review-verdict notes, not just the design-token ones).
+rate (fraction of runs the post-refactor review is clean), not one shot.
+
+## Panel result (5 levers x 3 replicas, turn 0039) => WINNER: OPUS (shipped v0.3.9)
+
+Ran the full panel with replicas (rank by clean-HOLD rate, tiebreak wall then cost):
+
+| lever         | clean-hold | mean wall | mean cost |
+|---------------|-----------:|----------:|----------:|
+| **opus**      | **2/3**    | **334s**  | \$0.361   |
+| haiku-e-low   | 2/3        | 394s      | \$0.179   |
+| sonnet        | 2/3        | 710s      | \$0.409   |
+| sonnet-e-low  | 2/3 (1 DQ) | 827s      | \$0.248   |
+| haiku (was default) | **1/3** | 1142s   | \$0.207   |
+
+Four levers tie at 2/3 clean-hold; the prior HAIKU default is the WORST (1/3, and it THRASHES , ~1142s, ~3-4x
+the others). Among the 2/3 holders OPUS is the FASTEST (~334s , it nails the refactor without churn), and that
+efficiency makes it CHEAPER than sonnet (\$0.361 vs \$0.409) despite the per-token premium , opus DOMINATES
+sonnet on all three axes. vs haiku-e-low: opus is faster (334 vs 394) at ~2x cost (+\$0.18/turn), but
+haiku-e-low rides the haiku family that showed the worst full-effort result, so its low-effort 2/3 is not a
+tier to trust for a QUALITY-CRITICAL turn. Refactor is judgment-heavy (find + resolve ALL smells) => the
+strongest tier wins, exactly like ASSESS. FLIPPED all three refactor manifests (driver-refactor,
+-refactor-deploy, -refactor-superseded) model haiku -> **opus** (the single per-turn config home) + resolver
+assertion (consort-config.test.ts). Shipped in v0.3.9. The sonnet-e-low DQ was an INFRA hiccup (the throwaway
+worktree's client vitest needed npm install , it had already resolved the smells correctly), not a quality or
+routing failure. Residual: 2/3 (not 3/3) is the variance ceiling for a single-turn model lever; a future
+prompt-revision lever (enumerate ALL open review-verdict notes, not just the design-token ones , the FAIL runs
+left an empty-state NFR unaddressed) could push toward 3/3, informed by the preserved `transcripts/` tool traces.

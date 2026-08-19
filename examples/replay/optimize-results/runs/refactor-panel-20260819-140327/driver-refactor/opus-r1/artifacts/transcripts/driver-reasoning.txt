@@ -1,0 +1,1 @@
+Green — all 8 tests pass with the design-vocabulary classes applied.

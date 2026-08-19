@@ -1,26 +1,53 @@
 {
   "id": "driver-refactor",
   "role": "driver",
-  "agent": { "kind": "claude", "config": { "role": "driver" } },
-  "match": { "kind": "invoke-role", "role": "driver", "buildMode": "refactor" },
+  "agent": {
+    "kind": "claude",
+    "config": {
+      "role": "driver"
+    }
+  },
+  "match": {
+    "kind": "invoke-role",
+    "role": "driver",
+    "buildMode": "refactor"
+  },
   "inputs": [
-    { "id": "code", "source": "story:code", "optional": true, "description": "The GREEN implementation the Driver restructures (behavior-preserving). OPTIONAL: 'code' is the project tree the UNCONTAINED agent reads directly, NOT a `.consort` artifact file — there is no <storyDir>/code path to presence-check, so a required gate fails loud on every refactor turn. The agent reads the real code itself." }
+    {
+      "id": "code",
+      "source": "story:code",
+      "optional": true,
+      "description": "The GREEN implementation the Driver restructures (behavior-preserving). OPTIONAL: 'code' is the project tree the UNCONTAINED agent reads directly, NOT a `.consort` artifact file \u2014 there is no <storyDir>/code path to presence-check, so a required gate fails loud on every refactor turn. The agent reads the real code itself."
+    }
   ],
   "preconditions": [
-    { "id": "pack", "kind": "context-pack", "position": "append", "description": "The context pack (rubric + module layout) APPENDED after the refactor directive so the Driver restructures against the known layout without re-reading the design tree." }
+    {
+      "id": "pack",
+      "kind": "context-pack",
+      "position": "append",
+      "description": "The context pack (rubric + module layout) APPENDED after the refactor directive so the Driver restructures against the known layout without re-reading the design tree."
+    }
   ],
-  "requiresEvents": ["review-verdict"],
+  "requiresEvents": [
+    "review-verdict"
+  ],
   "outputs": [],
   "routing": {
-    "produced": { "next": "state-derived" }
+    "produced": {
+      "next": "state-derived"
+    }
   },
   "agentOptions": {
-    "model": "haiku",
+    "model": "opus",
     "effort": "default",
     "session": "resume",
     "resumeKeyFrom": "story"
   },
   "postTurn": [
-    { "bin": "@build-cycle", "args": [], "when": "after" }
+    {
+      "bin": "@build-cycle",
+      "args": [],
+      "when": "after"
+    }
   ]
 }

@@ -288,14 +288,14 @@ describe("commandsFromManifest ≡ commandsForAction: all build turns (full comm
     expect(fromManifest).toEqual(commandsForAction(action, cfg()));
   });
 
-  it("driver refactor turns declare the haiku model tier in agentOptions", () => {
-    // The model-tier lever (REFACTOR on a fast model) is now DECLARED in the manifest, not only
-    // in defaultConsortConfig's per-turn map , the parity test guards the two agree.
+  it("driver refactor turns declare the opus model tier in agentOptions", () => {
+    // The model-tier lever (REFACTOR on the tuning-winner model) is now DECLARED in the manifest, not
+    // only in defaultConsortConfig's per-turn map , the parity test guards the two agree.
     const refactor: WorkflowAction = { kind: "invoke-role", role: "driver", story: STORY, buildMode: "refactor" };
-    // With a cfg whose modelForTurn tiers refactor->haiku (as the real resolver does), the spawn
-    // command carries haiku; byte-identity with legacy is the assertion above. Here just sanity
-    // that the two paths agree under model tiering.
-    const tiered = cfg({ modelForTurn: (r, t) => (r === "driver" && t === "refactor" ? "haiku" : "sonnet") });
+    // With a cfg whose modelForTurn tiers refactor->opus (as the real resolver does , the driver-refactor
+    // tuning winner), the spawn command carries opus; byte-identity with legacy is the assertion above.
+    // Here just sanity that the two paths agree under model tiering.
+    const tiered = cfg({ modelForTurn: (r, t) => (r === "driver" && t === "refactor" ? "opus" : "sonnet") });
     expect(commandsFromManifest(refactor, tiered)).toEqual(commandsForAction(refactor, tiered));
   });
 });

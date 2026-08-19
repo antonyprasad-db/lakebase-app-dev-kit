@@ -1,0 +1,1 @@
+Refactor applied: `className="table"` on `<table>`, `className="stock-table__quantity table__num"` on quantity cell, `className="empty-state"` on empty-state `<p>`.

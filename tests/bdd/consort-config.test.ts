@@ -177,7 +177,7 @@ describe("resolveConsortSettings: per-turn model tiering (driver GREEN/REFACTOR 
     expect(s.modelFor("spec-author")).toBe("opus");
   });
 
-  it("defaultConsortConfig seeds the tuned driver tier: RED recommended, GREEN opus+medium, REFACTOR haiku", () => {
+  it("defaultConsortConfig seeds the tuned driver tier: RED recommended, GREEN opus+medium, REFACTOR opus", () => {
     writeConsortConfig(proj, defaultConsortConfig());
     const s = resolveConsortSettings({ projectDir: proj });
     expect(s.modelFor("driver", "red")).toBe("sonnet");
@@ -185,7 +185,12 @@ describe("resolveConsortSettings: per-turn model tiering (driver GREEN/REFACTOR 
     // reliably reaches the clean-code + superseded-shift milestone at ~237s). See DRIVER-GREEN-LEVERS.md.
     expect(s.modelFor("driver", "green")).toBe("opus");
     expect(s.effortFor("driver", "green")).toBe("medium");
-    expect(s.modelFor("driver", "refactor")).toBe("haiku");
+    // REFACTOR runs on OPUS , the driver-refactor tuning winner (5-lever x3-replica panel, turn 0039):
+    // opus ties for the best clean-in-one-step rate (2/3) AND is the FASTEST holder (~334s), and its
+    // efficiency makes it cheaper than sonnet (~$0.36 vs $0.41). The prior haiku default was the WORST
+    // (1/3, thrashing to ~1142s). Judgment-heavy turn => the strongest tier wins, like ASSESS. See
+    // DRIVER-REPAIR-TURN-REPLAY.md.
+    expect(s.modelFor("driver", "refactor")).toBe("opus");
     // navigator is model-tiered per turn (all manifest-declared, the single per-turn config home):
     // RED is the sonnet-e-low tuning winner (mechanical test authoring , cheaper model holds
     // coverage); ASSESS runs on opus (deep root-cause reasoning); REVIEW falls through to the sonnet

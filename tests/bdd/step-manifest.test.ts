@@ -142,8 +142,8 @@ describe("agentOptionsForStep (per-step config-directory layer for the resolver)
     expect(agentOptionsForStep("spec-author", "breakdown", turnKeyForAction)).toEqual({ model: "haiku", effort: "low" });
     // navigator review = sonnet+low (the former defaultEffort entry, now declared).
     expect(agentOptionsForStep("navigator", "review", turnKeyForAction)).toEqual({ model: "sonnet", effort: "low" });
-    // driver refactor = haiku (the model tier), default effort.
-    expect(agentOptionsForStep("driver", "refactor", turnKeyForAction)).toEqual({ model: "haiku", effort: "default" });
+    // driver refactor = opus (the driver-refactor tuning winner: fastest 2/3 clean-holder), default effort.
+    expect(agentOptionsForStep("driver", "refactor", turnKeyForAction)).toEqual({ model: "opus", effort: "default" });
   });
 
   it("returns undefined for a (role, turnKey) no shipped manifest declares", () => {
@@ -158,7 +158,9 @@ describe("agentOptionsForStep (per-step config-directory layer for the resolver)
     // applied optimize winner (opus , the regression-fidelity panel: opus holds the assessment and is
     // ~18% faster than the sonnet default on the heavy regression-assess variant).
     expect(agentOptionsForStep("navigator", "assess", turnKeyForAction)).toEqual({ model: "opus", effort: "default" });
-    expect(agentOptionsForStep("driver", "refactor", turnKeyForAction)).toEqual({ model: "haiku", effort: "default" });
+    // driver refactor / refactor-deploy / refactor-superseded all carry the tuning winner (opus) , they must
+    // agree so the collapsed lookup returns one lever set without throwing.
+    expect(agentOptionsForStep("driver", "refactor", turnKeyForAction)).toEqual({ model: "opus", effort: "default" });
   });
 
   it("THROWS when two manifests for the same resolved (role, turnKey) declare different levers", () => {

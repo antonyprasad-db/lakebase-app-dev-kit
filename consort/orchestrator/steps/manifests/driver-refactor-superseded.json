@@ -1,22 +1,41 @@
 {
   "id": "driver-refactor-superseded",
   "role": "driver",
-  "agent": { "kind": "claude", "config": { "role": "driver" } },
-  "match": { "kind": "invoke-role", "role": "driver", "buildMode": "refactor-superseded" },
+  "agent": {
+    "kind": "claude",
+    "config": {
+      "role": "driver"
+    }
+  },
+  "match": {
+    "kind": "invoke-role",
+    "role": "driver",
+    "buildMode": "refactor-superseded"
+  },
   "inputs": [
-    { "id": "superseded-tests", "source": "story:superseded-tests.json", "description": "The superseded tests the Navigator flagged during refactor-verify , the Driver edits ONLY these." }
+    {
+      "id": "superseded-tests",
+      "source": "story:superseded-tests.json",
+      "description": "The superseded tests the Navigator flagged during refactor-verify , the Driver edits ONLY these."
+    }
   ],
   "outputs": [],
   "routing": {
-    "produced": { "next": "state-derived" }
+    "produced": {
+      "next": "state-derived"
+    }
   },
   "agentOptions": {
-    "model": "haiku",
+    "model": "opus",
     "effort": "default",
     "session": "resume",
     "resumeKeyFrom": "story"
   },
   "postTurn": [
-    { "bin": "@build-cycle", "args": [], "when": "after" }
+    {
+      "bin": "@build-cycle",
+      "args": [],
+      "when": "after"
+    }
   ]
 }

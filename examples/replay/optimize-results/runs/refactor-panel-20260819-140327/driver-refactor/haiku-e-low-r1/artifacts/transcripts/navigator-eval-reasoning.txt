@@ -1,0 +1,1 @@
+Verdict written — `refactor: true` for the loading/error blank-region violation of NFR-F1-empty-state-clean-render.
