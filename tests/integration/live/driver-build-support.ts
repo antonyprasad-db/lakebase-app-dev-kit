@@ -126,6 +126,9 @@ function bundleFromDir(dir: string, feature: string, story: string, ac: string):
 export const CORPUS_DIR = join(KIT, "examples/replay/corpora/stockflow-full");
 export const CORPUS_TURNS = join(CORPUS_DIR, "turns");
 const CORPUS_RA = join(CORPUS_DIR, "recorded-artifacts");
+/** The feature the shipped lean chain manifests bake into their paths , the token generateLeanReplayManifest
+ *  swaps for the replayed turn's actual feature (a no-op when they match, e.g. an F6 turn). */
+const BUILD_FEATURE_TEMPLATE = "F6-split-tracking-code";
 
 /** Build a bundle from an actual CORPUS turn: the pre-turn CODE is the recorded pre-project, the design
  *  artifacts are the corpus recorded-artifacts, and the recorded prompt/levers ride along (replay). This
@@ -275,6 +278,33 @@ export function layReplayPreconditions(
  *  Returns the same {turns, producedArtifacts} shape as the cloud runner; usage rides turns[].agentResult
  *  so the sweep records cost identically. This is the driver's cloud counterpart on the lean substrate ,
  *  ONE process, two substrates. */
+/** Generate a per-turn LEAN manifest by templating the chain's LIVE (claude) manifest to a concrete
+ *  feature/story/ac. The shipped chain manifest is baked to ONE curated story (its `match` +
+ *  input/output PATHS), so replaying an ARBITRARY corpus turn needs the story/ac swapped throughout. We
+ *  read the live manifest, replace its recorded story/ac (+ feature) tokens with the actual ones, and
+ *  write ONLY that manifest to a fresh dir (the seed manifest is intentionally omitted , seedWorkspace
+ *  lays the pre-turn state instead). Returns the new manifest dir. */
+function generateLeanReplayManifest(chainManifestDir: string, feature: string, story: string, ac: string): string {
+  const files = readdirSync(chainManifestDir).filter((f) => f.endsWith(".json"));
+  let liveRaw: string | undefined;
+  for (const f of files) {
+    const raw = readFileSync(join(chainManifestDir, f), "utf8");
+    const m = JSON.parse(raw) as { agent?: { kind?: string }; match?: { story?: string; ac?: string } };
+    if (m.agent?.kind === "claude") {
+      // Swap the template's story/ac (+ feature) for the actual, everywhere they appear (match + paths).
+      let out = raw;
+      if (m.match?.story) out = out.split(m.match.story).join(story);
+      if (m.match?.ac) out = out.split(m.match.ac).join(ac);
+      out = out.split(BUILD_FEATURE_TEMPLATE).join(feature);
+      liveRaw = out;
+    }
+  }
+  if (!liveRaw) throw new Error(`no live (claude) manifest found in ${chainManifestDir} to template for replay`);
+  const dir = mkdtempSync(join(tmpdir(), "replay-manifest-"));
+  writeFileSync(join(dir, "live.json"), liveRaw);
+  return dir;
+}
+
 export async function runLeanReplayTurn(
   bundle: DriverGreenBundle,
   agentFor: (m: StepManifest) => StepAgent | undefined,
@@ -282,8 +312,12 @@ export async function runLeanReplayTurn(
 ): Promise<{ turns: ManifestTurn[]; producedArtifacts: Record<string, string> }> {
   const rs = bundle.replay;
   if (!rs) throw new Error("runLeanReplayTurn requires a replay bundle (bundle.replay is unset)");
+  // Per-turn manifest generation: the chain's LIVE manifest is baked to ONE curated story/ac (its match +
+  // input/output paths). Template it to THIS corpus turn's actual feature/story/ac so an ARBITRARY turn
+  // replays , the SEED manifest is dropped (we seed via seedWorkspace). Written to a throwaway dir.
+  const replayManifestDir = generateLeanReplayManifest(manifestDir, bundle.feature, bundle.story, bundle.ac);
   const { turns, producedArtifacts } = await runIntegrationChain({
-    manifestDir,
+    manifestDir: replayManifestDir,
     intakeDir: CORPUS_DIR,
     feature: bundle.feature,
     start: rs.action as WorkflowAction,
