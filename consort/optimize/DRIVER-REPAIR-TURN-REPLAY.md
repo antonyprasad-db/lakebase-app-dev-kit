@@ -135,3 +135,19 @@ Finding: the repair turn is WELL-CONSTRAINED (fixDirective + failing tests pin t
 holds FULL code-equivalence (1.00) at ~baseline speed and ~1/4 the opus cost , opus is over-provisioned.
 Timings are close (281-340s, n=1, noisy); the clear signal is COST (haiku $0.243 vs opus $0.895 at
 equal-or-better quality). Confirm with replicas (like assess/red) before flipping the repair lever.
+
+## Confirm sweep (haiku x3 + sonnet-e-low x3) => FLIPPED driver-repair to haiku
+
+n=4 each (3 confirm replicas + the panel run), all HOLD code-equivalence vs the recorded output:
+
+| lever        | code-equiv (mean) | wall (mean, range)      | cost (mean) |
+|--------------|-------------------|-------------------------|-------------|
+| haiku        | **0.99** (0.95-1.0)| 301.8s (260-358, sd 37) | **$0.20**   |
+| sonnet-e-low | 0.91 (0.85-1.0)   | 282.2s (262-309, sd 17) | $0.31       |
+| sonnet (base, n=1)| 0.90         | 304.7s                  | $0.46       |
+
+Neither is a big SPEED win (all ~300s , the repair isn't slow enough per-turn to speed up much). The win
+is COST + FIDELITY: haiku is cheapest (~$0.20, ~2.3x under the sonnet baseline) AND has the highest
+code-equivalence (0.99 , its repairs match the recorded output best), holding across all 4 runs.
+FLIPPED `driver-repair.json` agentOptions model sonnet -> **haiku** (only manifest on the `repair` turnKey;
+the single config home). Resolver assertion added (consort-config.test.ts). All consumers now default to it.

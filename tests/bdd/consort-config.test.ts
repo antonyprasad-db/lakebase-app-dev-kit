@@ -85,6 +85,7 @@ describe("resolveConsortSettings: defaults when no file + no env", () => {
     expect(s.effortFor("driver", "green")).toBe("medium"); // driver-green tuning winner (opus + medium + ctx-test) is the promoted default
     expect(s.modelFor("driver", "green")).toBe("opus"); //  ,, its model half (manifest-declared, no file needed)
     expect(s.modelFor("navigator", "assess")).toBe("opus"); // assess winner: opus holds the assessment, ~18% faster (manifest-declared)
+    expect(s.modelFor("driver", "repair")).toBe("haiku"); // repair winner: haiku holds full code-equivalence (well-constrained turn) at ~2.3x lower cost (confirm sweep, manifest-declared)
     // spec-author's effort is keyed on the STEP, not the role: the optimize sweep
     // measured the BREAKDOWN step faster at low effort, so ONLY breakdown defaults
     // low; the per-story AC-authoring step (a different task) keeps the model default

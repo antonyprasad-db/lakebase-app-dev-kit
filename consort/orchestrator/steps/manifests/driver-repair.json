@@ -12,7 +12,7 @@
     "produced": { "next": "state-derived" }
   },
   "agentOptions": {
-    "model": "sonnet",
+    "model": "haiku",
     "effort": "default",
     "session": "resume",
     "resumeKeyFrom": "story"
