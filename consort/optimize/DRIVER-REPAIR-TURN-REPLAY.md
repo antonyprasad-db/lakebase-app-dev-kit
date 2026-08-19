@@ -220,6 +220,36 @@ What was built (commit on feat/driver-green-levers):
    acceptance). Wired into `sweepDriverGreen` AND `--rejudge` (`isRefactorExperiment`). Config
    `driver-refactor-panel.json` (5 levers, `ac:""`). Hermetic: bdd 927 suites green, tsc clean.
 
-NEXT (live): smoke turn 0039 with 1 candidate (RUN_LIVE_STEP=1 LAKEBASE_TEST_E2E=1) to validate routing ->
-refactor -> forced re-review -> judge end to end; then the 5-lever panel. Beyond model levers, the preserved
-tool-call traces (`transcripts/`) inform prompt-revision levers if a clean one-step refactor proves hard to hold.
+Beyond model levers, the preserved tool-call traces (`transcripts/`) inform prompt-revision levers if a clean
+one-step refactor proves hard to hold.
+
+## Smoke result (1 candidate, sonnet, turn 0039) , pipeline VALIDATED end to end + fixed a stopWhen bug
+
+Two live single-candidate smokes (RUN_LIVE_STEP=1 LAKEBASE_TEST_E2E=1) proved the WHOLE path, and the two
+runs happened to exercise BOTH judge branches (non-determinism is the point):
+- Routing: `[executor] dispatch driver-refactor` fired (seeded review.json refactor_requested + review-verdict
+  process event route it). The refactor resolved the recorded design-token smells (className="table",
+  `.table__num` on the quantity cell), 19 client tests green.
+- Forced re-review: after the refactor, the review-state reset routes `[executor] dispatch navigator-review`
+  (the recorded flow would go straight to acceptance). It runs on the CONFIGURED navigator model, writes the
+  story review-verdict, captured into nextStepMarker.
+- Judge: run #1's review came back CLEAN (`refactor:false`) => would PASS (resolved in one step). Run #2's
+  sonnet refactor left a DIFFERENT smell (an empty-state NFR , renderStockSection returns null for
+  loading/error) => review `refactor:true` => judge FAILED (`review:refactor-requested`, quality below
+  baseline), 282.8s , a LEGITIMATE quality verdict, not a DQ.
+
+BUG FOUND + FIXED (commit 3eed018c): the next-step eval ran the drive with `stopWhen=isDriverTurn`, so a CLEAN
+review (which routes to acceptance -> promote `git checkout production`, a branch the scaffold lacks) threw and
+DQ'd the candidate on a harness artifact. (Repair never hit this: its review requests refactor => next action
+IS a driver turn => stops.) Fixed: stop once the ONE navigator-eval turn has run, whether the drive hands back
+to a driver turn OR advances past the eval (`evalTurnRan` guard + maxSteps backstop). Re-smoke: no DQ, clean
+FAIL verdict. Config fix (commit 1abb0a8b): a refactor turn is story-scoped => `ac` optional in the experiment
+config (loadExperimentConfig required it for non-RED turns). Local dg-live orphans verified gone (list-projects
+= 0; eventual-consistency lag, not a leak).
+
+FINDING (like 0053 repair): 0039's clean-in-one-step bar is HIGH-VARIANCE for sonnet , run #1 clean, run #2 left
+a different NFR smell. A single run is NOT decisive; the panel must use REPLICAS and rank levers by clean-HOLD
+rate (fraction of runs the post-refactor review is clean), not one shot. NEXT: run the 5-lever panel with
+replicas (n>=3) and rank by clean-hold rate; if no model lever reliably holds clean, add prompt-revision levers
+informed by the preserved `transcripts/` tool traces (the refactor left the empty-state NFR unaddressed , the
+refactor prompt may need to enumerate ALL open review-verdict notes, not just the design-token ones).
