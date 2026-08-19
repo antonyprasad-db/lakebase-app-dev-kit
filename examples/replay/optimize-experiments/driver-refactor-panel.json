@@ -1,0 +1,14 @@
+{
+  "name": "driver-refactor-panel",
+  "turn": "0039-driver-refactor",
+  "ac": "AC3-empty-state-message",
+  "driverTurn": "refactor",
+  "concurrency": 3,
+  "candidates": [
+    { "id": "haiku", "levers": { "model": "haiku" } },
+    { "id": "sonnet", "levers": { "model": "sonnet" } },
+    { "id": "sonnet-e-low", "levers": { "model": "sonnet", "effort": "low" } },
+    { "id": "haiku-e-low", "levers": { "model": "haiku", "effort": "low" } },
+    { "id": "opus", "levers": { "model": "opus" } }
+  ]
+}

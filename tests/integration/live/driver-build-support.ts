@@ -416,37 +416,37 @@ export async function runLeanReplayTurn(
   return { turns, producedArtifacts };
 }
 
-/** Lay the pre-turn CYCLE state a REPAIR replay needs to route the drive to repair, built from the corpus
- *  turn's OWN recorded data (see consort/optimize/DRIVER-REPAIR-TURN-REPLAY.md). The drive routes to repair
- *  when the AC has an OPEN-RED cycle (`repairRegressionFixAc` -> storyTestProgress().openRed[0].ac_id) AND
- *  `hasPendingRegressionFix` (green-failure.assessed + a non-empty fixDirective, repair not yet attempted).
- *  - cycle-NNN.json  : SYNTHESISED open-RED record (red_at, no green_at) from the recorded test-list's AC
- *    items. experiment_slug/branch_id are placeholders the caller's REALIGN step rewrites to the just-cut
- *    experiment. This is the only constructed piece.
- *  - green-failure.json      : copied verbatim from the recorded turn's own files/.consort (carries the
- *    assessed:true + fixDirective the routing reads).
- *  - regression-assessment.json : copied from the recorded replay-set input (the driver's repair prompt reads it).
- */
-function layReplayRepairCycle(consortDir: string, bundle: DriverGreenBundle): void {
+/** Lay the pre-turn CYCLE state a REPAIR or REFACTOR replay needs to route the drive to that turn, built
+ *  from the corpus turn's OWN recorded data (see consort/optimize/DRIVER-REPAIR-TURN-REPLAY.md). Both share a
+ *  SYNTHESISED story-wide cycle-NNN (test_ids from the recorded test-list, so storyTestProgress sees the
+ *  WHOLE story; experiment_slug/branch_id are placeholders the caller's REALIGN step rewrites). The routing
+ *  markers differ:
+ *   - repair  : OPEN-RED cycle (red_at, no green_at) + green-failure.json (verbatim from the turn's own
+ *     files/.consort , carries assessed:true + fixDirective) + regression-assessment.json (recorded input).
+ *     => `repairRegressionFixAc` (open-RED AC + hasPendingRegressionFix) routes the driver repair.
+ *   - refactor: GREEN cycle (red_at + green_at , story all-green so NO open-RED) + a story-level review.json
+ *     (verbatim from the turn's own files/.consort , carries refactor_requested:true + refactor_notes).
+ *     => `refactorPending` (reviewed + refactorRequested + not-yet-refactored) routes the driver refactor.
+ *  Only the cycle record is constructed; the routing markers are copied verbatim from the recording. */
+function layReplayDriverPreCycle(consortDir: string, bundle: DriverGreenBundle, driverTurn: "repair" | "refactor"): void {
   const rs = bundle.replay!;
-  const { feature, story, ac } = bundle;
-  const acCycleDir = join(consortDir, "cycles", feature, story, ac);
-  mkdirSync(acCycleDir, { recursive: true });
-
-  // Open-RED cycle-NNN covering the WHOLE STORY's tests (test_ids drive storyTestProgress). The recorded
-  // build cadence is story-level , ONE cycle per story (verified: the recorded S3 cycle-001 covers all of
-  // T31-T43, filed under the assessed AC's dir), so greening it completes the STORY and routes to the
-  // story-level REVIEW. Filtering test_ids to just the repaired AC left the story's OTHER tests "pending",
-  // so the drive routed to more building instead of the review (the smoke bug). Use the full story test-list.
+  const { feature, story } = bundle;
   const testListPath = join(consortDir, "features", feature, "stories", story, "test-list-per-story.json");
   const testList = existsSync(testListPath)
     ? (JSON.parse(readFileSync(testListPath, "utf8")) as { items?: Array<{ id?: string; ac_id?: string; description?: string; layer?: string }> })
     : { items: [] };
   const storyItems = testList.items ?? [];
   const testIds = storyItems.map((i) => i.id).filter((x): x is string => typeof x === "string");
-  if (testIds.length === 0) throw new Error(`layReplayRepairCycle: no test-list items for story ${story} (test-list at ${testListPath})`);
+  if (testIds.length === 0) throw new Error(`layReplayDriverPreCycle: no test-list items for story ${story} (test-list at ${testListPath})`);
+  // The cycle is filed under ONE AC dir (story-wide cadence , the recorded cycle-001 sits under one AC yet
+  // covers all story tests). Repair uses the assessed AC (bundle.ac); refactor is STORY-level (no ac) => file
+  // under the story's first test-list AC.
+  const ac = bundle.ac || (storyItems[0]?.ac_id ?? "");
+  if (!ac) throw new Error(`layReplayDriverPreCycle: cannot resolve an AC dir for ${story}`);
   const acItems = storyItems.filter((i) => i.ac_id === ac);
-  const cycle = {
+  const acCycleDir = join(consortDir, "cycles", feature, story, ac);
+  mkdirSync(acCycleDir, { recursive: true });
+  const cycle: Record<string, unknown> = {
     cycle_id: "cycle-001",
     feature_id: feature,
     story_id: story,
@@ -455,22 +455,31 @@ function layReplayRepairCycle(consortDir: string, bundle: DriverGreenBundle): vo
     test_description: acItems[0]?.description ?? "",
     experiment_slug: "exp1", // placeholder , REALIGNed to the just-cut experiment by runDriverGreenOnScaffold
     branch_id: `experiment-${story.toLowerCase()}-exp1`, // placeholder , REALIGNed
-    red_at: "2026-08-09T00:00:00.000Z", // pre-turn; NO green_at => open RED
+    red_at: "2026-08-09T00:00:00.000Z",
+    ...(driverTurn === "refactor" ? { green_at: "2026-08-09T00:05:00.000Z" } : {}), // refactor: story all-green
     layer: acItems[0]?.layer ?? "E2E",
     test_ids: testIds,
     chunk: "batch-1",
   };
   writeFileSync(join(acCycleDir, "cycle-001.json"), JSON.stringify(cycle, null, 2) + "\n");
 
-  // green-failure.json , verbatim from the recorded turn's own .consort (carries assessed + fixDirective).
-  const recGf = join(rs.turnDir, "files", ARTIFACT_ROOT, "cycles", feature, story, ac, "green-failure.json");
-  if (!existsSync(recGf)) throw new Error(`layReplayRepairCycle: recorded green-failure.json not found at ${recGf}`);
-  writeFileSync(join(acCycleDir, "green-failure.json"), readFileSync(recGf, "utf8"));
-
-  // regression-assessment.json , the recorded input the driver's repair prompt reads.
-  const ra = rs.inputs["regression-assessment"];
-  if (ra === undefined) throw new Error(`layReplayRepairCycle: no regression-assessment input in ${rs.turnDir}/replay-set/inputs`);
-  writeFileSync(join(acCycleDir, "regression-assessment.json"), ra);
+  if (driverTurn === "repair") {
+    // green-failure.json , verbatim from the recorded turn's own .consort (carries assessed + fixDirective).
+    const recGf = join(rs.turnDir, "files", ARTIFACT_ROOT, "cycles", feature, story, ac, "green-failure.json");
+    if (!existsSync(recGf)) throw new Error(`layReplayDriverPreCycle: recorded green-failure.json not found at ${recGf}`);
+    writeFileSync(join(acCycleDir, "green-failure.json"), readFileSync(recGf, "utf8"));
+    // regression-assessment.json , the recorded input the driver's repair prompt reads.
+    const ra = rs.inputs["regression-assessment"];
+    if (ra === undefined) throw new Error(`layReplayDriverPreCycle: no regression-assessment input in ${rs.turnDir}/replay-set/inputs`);
+    writeFileSync(join(acCycleDir, "regression-assessment.json"), ra);
+  } else {
+    // refactor: the STORY-level review.json (refactor_requested:true) that routes refactorPending, verbatim.
+    const recRv = join(rs.turnDir, "files", ARTIFACT_ROOT, "cycles", feature, story, "review.json");
+    if (!existsSync(recRv)) throw new Error(`layReplayDriverPreCycle: recorded review.json not found at ${recRv} (the refactor's routing directive)`);
+    const storyDir = join(consortDir, "cycles", feature, story);
+    mkdirSync(storyDir, { recursive: true });
+    writeFileSync(join(storyDir, "review.json"), readFileSync(recRv, "utf8"));
+  }
 }
 
 function layBundle(projectDir: string, consortDir: string, driverTurn: "green" | "repair" | "refactor" = "green", bundle: DriverGreenBundle = DRIVER_GREEN_BUNDLE): void {
@@ -489,13 +498,13 @@ function layBundle(projectDir: string, consortDir: string, driverTurn: "green" |
       conventionsJson: b.conventionsJson,
       designDir: b.designDir,
     });
-    // REPAIR routing: layReplayPreconditions lays design + code + test-list + acs, but NOT the pre-turn
-    // CYCLE state the drive reads to route a repair (open-RED cycle-NNN + assessed green-failure with a
-    // fixDirective + regression-assessment). Build that stand-in FROM the recorded turn's own data (see
-    // consort/optimize/DRIVER-REPAIR-TURN-REPLAY.md). Only the cycle-NNN record is synthesised; green-
-    // failure + regression-assessment are copied verbatim from the recording. (Retired by the planned
-    // recorder change that snapshots pre-`.consort` into the replay-set.)
-    if (driverTurn === "repair") layReplayRepairCycle(consortDir, b);
+    // REPAIR / REFACTOR routing: layReplayPreconditions lays design + code + test-list + acs, but NOT the
+    // pre-turn CYCLE state the drive reads to route these turns (repair: open-RED cycle + green-failure +
+    // regression-assessment; refactor: GREEN cycle + a refactor_requested review.json). Build that stand-in
+    // FROM the recorded turn's own data (see consort/optimize/DRIVER-REPAIR-TURN-REPLAY.md). Only the cycle
+    // record is synthesised; the routing markers are copied verbatim. (Retired by the planned recorder
+    // change that snapshots pre-`.consort` into the replay-set.)
+    if (driverTurn === "repair" || driverTurn === "refactor") layReplayDriverPreCycle(consortDir, b, driverTurn);
     return;
   }
 

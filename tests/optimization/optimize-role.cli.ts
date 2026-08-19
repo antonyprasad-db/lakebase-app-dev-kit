@@ -349,7 +349,7 @@ function buildReplayTurnJudge(turnLabel: string, feature: string, story: string,
  *  routed the page + had clean layering/NFRs, yet all "failed" on a home-row-link IA nuance the recorded
  *  clean review never required). Comparing to the recorded output is fair + objective. Same idea as the
  *  driver-green code judge. See consort/optimize/DRIVER-REPAIR-TURN-REPLAY.md. */
-function buildDriverRepairCodeJudge(repairTurnLabel: string, feature: string, _story: string): QualityGate {
+function buildDriverTurnCodeJudge(repairTurnLabel: string, feature: string, _story: string): QualityGate {
   const cwd = process.cwd();
   const judge = makeOpusJudge({ cwd });
   const CODE_PREFIXES = ["client/src/", "app/"] as const;
@@ -357,7 +357,7 @@ function buildDriverRepairCodeJudge(repairTurnLabel: string, feature: string, _s
   // The recorded OUTPUT: the code the recorded repair turn produced (its files/ tree), client + app only.
   const recMap = snapshotTree(join(CORPUS_TURNS, repairTurnLabel, "files"), join(CORPUS_TURNS, repairTurnLabel, "files"));
   const reference = CODE_PREFIXES.map((p) => concatTreeFiles(recMap, p, CODE_EXTS)).join("\n");
-  if (!reference.trim()) throw new Error(`buildDriverRepairCodeJudge: recorded turn ${repairTurnLabel} produced no client/app code to compare against`);
+  if (!reference.trim()) throw new Error(`buildDriverTurnCodeJudge: recorded turn ${repairTurnLabel} produced no client/app code to compare against`);
   void feature;
   return {
     judgeCandidate: async ({ producedArtifacts }) => {
@@ -434,8 +434,8 @@ export async function sweepDriverGreen(
   // (legacy) scenario, so for a repair experiment use the review judge vs the replayed turn's own next
   // review. See consort/optimize/DRIVER-REPAIR-TURN-REPLAY.md.
   const quality: QualityGate =
-    experiment && experimentBundle && spec.driverTurn === "repair"
-      ? buildDriverRepairCodeJudge(experiment.turn, experimentBundle.feature, experimentBundle.story)
+    experiment && experimentBundle && (spec.driverTurn === "repair" || spec.driverTurn === "refactor")
+      ? buildDriverTurnCodeJudge(experiment.turn, experimentBundle.feature, experimentBundle.story)
       : buildDriverNextStepJudge(handle);
 
   // The driver chain as a ChainRunner for the ONE sweep engine: scaffold ONCE (the #589 model), each
@@ -1139,7 +1139,7 @@ export async function runRejudge(runRoot: string, experimentPath?: string): Prom
     // e.g. "0157-navigator-assess" -> "navigator-assess") , score it through the replay judge. Otherwise
     // require a known chain (driver / build / design).
     const driverSpec = DRIVER_TURN_SPECS[handle];
-    const isRepairExperiment = !!(experiment && experimentBundle && driverSpec?.driverTurn === "repair");
+    const isRepairExperiment = !!(experiment && experimentBundle && (driverSpec?.driverTurn === "repair" || driverSpec?.driverTurn === "refactor"));
     const isExperimentChain = !!(experiment && experimentBundle && !isDriver && experiment.turn.endsWith(handle));
     if (!isDriver && !chain && !isExperimentChain) { console.log(`[rejudge] ${handle}: not a known chain, skipping`); continue; }
     // Resolve the SAME discriminator the live sweep used , repair-experiment: code-equivalence; lean
@@ -1147,7 +1147,7 @@ export async function runRejudge(runRoot: string, experimentPath?: string): Prom
     let quality: QualityGate;
     try {
       quality = isRepairExperiment
-        ? buildDriverRepairCodeJudge(experiment!.turn, experimentBundle!.feature, experimentBundle!.story)
+        ? buildDriverTurnCodeJudge(experiment!.turn, experimentBundle!.feature, experimentBundle!.story)
         : isExperimentChain
           ? buildReplayTurnJudge(experiment!.turn, experimentBundle!.feature, experimentBundle!.story, experimentBundle!.ac, experiment!.discriminator ?? "assess")
           : isDriver ? buildDriverNextStepJudge(handle) : buildChainJudge(chain!, handle, isBuildChain);
