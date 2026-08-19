@@ -1109,10 +1109,20 @@ export async function runDriverGreenOnScaffold(
       effortForTurn: (role, turn) => (role === "navigator" ? evalSettings.effortFor("navigator", turn) : cfg.effortForTurn!(role, turn)),
     } as DriveEffectsConfig;
     evalCfg.runner = execRunner(evalCfg);
-    // Run until we LEAVE the navigator-eval turn (i.e. stop once the drive would hand back to the driver
-    // or advance): the single eval turn is what we want. If the drive routes straight past eval (clean),
-    // this stops immediately and the marker capture below is empty (= candidate clean).
-    await runDriver(buildDriveEffects(evalCfg), { stopWhen: (a: WorkflowAction) => isDriverTurn(a), maxSteps: 3 });
+    // Run the ONE navigator-eval turn, then STOP , whether the drive hands back to a driver turn (a repair/
+    // refactor whose review still requests refactor) OR ADVANCES past the eval. A CLEAN review (refactor:false)
+    // routes to acceptance -> promote (`git checkout production`), which the scaffold has no branch for and
+    // would throw + DQ the candidate; we only need the captured review-verdict, so stopping right after the
+    // eval turn is both sufficient AND avoids the acceptance/promote path. `evalTurnRan` guards the "advanced
+    // past eval" stop so a pre-eval bookkeeping action can't halt us BEFORE the eval turn runs (maxSteps is a
+    // backstop). isDriverTurn still stops a hand-back even before the eval (the drive never re-derives the same
+    // driver turn we just ran, so this only fires on a genuine next driver turn).
+    let evalTurnRan = false;
+    const stopAfterEval = (a: WorkflowAction): boolean => {
+      if (isNavigatorEval(a)) { evalTurnRan = true; return false; }
+      return evalTurnRan || isDriverTurn(a);
+    };
+    await runDriver(buildDriveEffects(evalCfg), { stopWhen: stopAfterEval, maxSteps: 3 });
     const markerDirAbs = cycleDir(consortDir, b.feature, b.story, b.ac);
     const nextStepMarker = snapshotTree(markerDirAbs, markerDirAbs);
     // A next-step REVIEW (the natural route after a RESOLVED repair) writes its verdict at the STORY cycle
