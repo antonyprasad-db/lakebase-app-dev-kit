@@ -6757,25 +6757,6 @@ var RECOMMENDED_MODELS = {
 var ALL_AGENT_ROLES = Object.keys(RECOMMENDED_MODELS);
 var AGENT_CONFIG_REL = (0, import_path.join)(".lakebase", "agent-config.json");
 
-// consort/config/optimized-defaults.json
-var optimized_defaults_default = {
-  _comment: "Auto-applied optimization winners, deep-merged onto defaultSftddConfig()'s base. Written by optimize-apply (data, never a TS rewrite) so an unattended champion walk can bake each winner into the kit default; inlined into dist at build time. roles.<role>.{model,effort} may be a scalar or a per-turn/step map keyed by TurnKey (breakdown/acs/architect/dba/test-list/ux for design; red/green/review/refactor/assess/repair for build). Edit via the apply path, not by hand.",
-  roles: {
-    "spec-author": {
-      model: {
-        breakdown: "haiku"
-      },
-      effort: {
-        breakdown: "low"
-      }
-    },
-    "ux-designer": {
-      model: "opus",
-      effort: "low"
-    }
-  }
-};
-
 // consort/config/consort-config-file.ts
 var CONSORT_CONFIG_REL = (0, import_path2.join)(".lakebase", "consort-config.json");
 var LEGACY_CONFIG_RELS = [
@@ -6816,53 +6797,14 @@ function resolveProjectSettings(projectDir) {
 }
 function defaultConsortConfig() {
   const roles = {};
-  for (const role of ALL_AGENT_ROLES) {
-    roles[role] = role === "navigator" ? (
-      // Model tiering: the RED turn (whole-story failing-test authoring) is the
-      // Navigator's heaviest reasoning turn , it reads the architecture, NFRs, and
-      // the full test list and writes every failing test in one batch , so it runs
-      // on opus. REVIEW/ASSESS/REFLECT are lighter judgment turns and stay on the
-      // role base (sonnet) with review at low effort. A per-turn map (like driver's)
-      // overrides only `red`; the unnamed turns fall through to RECOMMENDED_MODELS.
-      // Overridable per project by editing consort-config.json.
-      { model: { red: "opus" }, effort: { review: "low" } }
-    ) : role === "driver" ? (
-      // Model tiering: RED (test authoring) + GREEN (implementation) keep the
-      // recommended model; only the mechanical REFACTOR turn drops to a fast
-      // model. GREEN was on haiku, but the recorded worst GREEN turn thrashed
-      // 93 tool round-trips (haiku's trial-and-error), so wall-clock, not token
-      // cost, dominated. Sonnet finishes GREEN in far fewer round-trips, faster
-      // even at a higher per-token price. Overridable per project by editing
-      // consort-config.json (a project can flatten to a scalar `model`).
-      { model: { red: RECOMMENDED_MODELS[role], green: RECOMMENDED_MODELS[role], refactor: "haiku" } }
-    ) : (
-      // Every other role's base is just its recommended model. Optimization
-      // winners (e.g. spec-author breakdown -> haiku+low) are NOT hardcoded here;
-      // they live in optimized-defaults.json and are deep-merged below, so the
-      // champion walk's auto-apply is the single writer of applied winners.
-      { model: RECOMMENDED_MODELS[role] }
-    );
-  }
-  const base = {
+  for (const role of ALL_AGENT_ROLES) roles[role] = {};
+  return {
     version: 1,
     roles,
     build: { loopGranularity: "story", batchCap: 3, sessionScope: "story" },
     plan: { sizing: true },
     project: { uiTrack: true, gates: "interactive", deployTarget: "local", clientFramework: "none" }
   };
-  return mergeOptimizedDefaults(base, optimized_defaults_default);
-}
-function mergeOptimizedDefaults(base, overlay) {
-  if (overlay === null || typeof overlay !== "object" || Array.isArray(overlay)) {
-    return overlay === void 0 ? base : overlay;
-  }
-  const out = Array.isArray(base) ? [...base] : { ...base };
-  for (const [k, v] of Object.entries(overlay)) {
-    if (k === "_comment") continue;
-    const b = out[k];
-    out[k] = b && typeof b === "object" && !Array.isArray(b) && v && typeof v === "object" && !Array.isArray(v) ? mergeOptimizedDefaults(b, v) : v;
-  }
-  return out;
 }
 function writeConsortConfig(projectDir, config, opts) {
   const f = (0, import_path2.join)(projectDir, CONSORT_CONFIG_REL);

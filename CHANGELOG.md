@@ -6,6 +6,51 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.9] - 2026-08-19
+
+A tuning release. The per-turn model/effort matrix is optimized from a
+corpus-faithful live experiment harness (each recorded turn is replayed under
+lever perturbations and the candidate is judged against what that turn recorded),
+and the per-turn config now has a single home. All changes fold onto 0.3.8; no
+behavior is removed. Legacy `sftdd` names/paths still read for back-compat.
+
+### Changed
+
+- **Per-turn model defaults are tuned to the fastest configuration that holds
+  quality.** Each default is the winner of a replicated live panel judged against
+  the recorded turn:
+  - **Navigator ASSESS → opus.** The regression-assessment is judgment-heavy
+    (root-cause diagnosis); opus holds the assessment and is ~18% faster than the
+    prior sonnet default on the heavy regression variant.
+  - **Navigator RED → sonnet + low effort.** Authoring a story's failing tests is
+    mechanical; the cheaper model holds coverage at ~29% faster / ~half the cost
+    of the opus default.
+  - **Driver REFACTOR → opus.** In a 5-lever × 3-replica panel ranked by
+    clean-in-one-step rate (the post-refactor review comes back clean, so no
+    follow-on refactor loop is needed), opus ties for the best hold rate AND is
+    the fastest holder — and being efficient it costs less than sonnet. The prior
+    haiku default was the worst (it thrashed).
+- **One home for the per-turn model/effort matrix: the step manifests.** The
+  per-turn `agentOptions` on each step manifest is now the single source for a
+  turn's model + effort; the scaffolded config file no longer carries a second
+  copy that could shadow it, and the separate optimized-defaults file is removed.
+  A project still overrides any turn by adding `roles.<role>.model/effort` to its
+  own `.lakebase/consort-config.json`.
+
+### Added
+
+- **The Navigator's assess discriminator grades regression root-cause fidelity.**
+  When a candidate lands the `regression` determination, the diagnosis +
+  fix-directive content is graded against the recorded ground truth, so a
+  class-match with a wrong root cause no longer passes.
+
+### Fixed
+
+- **Robust agent-report capture in the drive.** The Driver/Navigator report block
+  is now captured wherever it appears in the transcript (full text, with a file
+  fallback) and tolerates a prose/YAML report block, so a well-formed turn is no
+  longer dropped on a formatting variation.
+
 ## [0.3.8] - 2026-08-14
 
 A defect-fix release hardening the design lane and the per-story acceptance gate,

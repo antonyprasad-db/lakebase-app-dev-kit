@@ -6658,7 +6658,7 @@ __export(optimize_cli_exports, {
 module.exports = __toCommonJS(optimize_cli_exports);
 init_cjs_shims();
 var import_util4 = require("@databricks-solutions/lakebase-scm-utils/util");
-var import_node_path24 = require("path");
+var import_node_path25 = require("path");
 
 // consort/optimize/optimize-candidates.ts
 init_cjs_shims();
@@ -7151,27 +7151,6 @@ function syncBacklog(tdd, sprint) {
 init_cjs_shims();
 var import_fs2 = require("fs");
 var import_path2 = require("path");
-
-// consort/config/optimized-defaults.json
-var optimized_defaults_default = {
-  _comment: "Auto-applied optimization winners, deep-merged onto defaultSftddConfig()'s base. Written by optimize-apply (data, never a TS rewrite) so an unattended champion walk can bake each winner into the kit default; inlined into dist at build time. roles.<role>.{model,effort} may be a scalar or a per-turn/step map keyed by TurnKey (breakdown/acs/architect/dba/test-list/ux for design; red/green/review/refactor/assess/repair for build). Edit via the apply path, not by hand.",
-  roles: {
-    "spec-author": {
-      model: {
-        breakdown: "haiku"
-      },
-      effort: {
-        breakdown: "low"
-      }
-    },
-    "ux-designer": {
-      model: "opus",
-      effort: "low"
-    }
-  }
-};
-
-// consort/config/consort-config-file.ts
 var CONSORT_CONFIG_REL = (0, import_path2.join)(".lakebase", "consort-config.json");
 var LEGACY_CONFIG_RELS = [
   (0, import_path2.join)(".lakebase", "sftdd-config.json"),
@@ -7211,53 +7190,14 @@ function resolveProjectSettings(projectDir) {
 }
 function defaultConsortConfig() {
   const roles = {};
-  for (const role of ALL_AGENT_ROLES) {
-    roles[role] = role === "navigator" ? (
-      // Model tiering: the RED turn (whole-story failing-test authoring) is the
-      // Navigator's heaviest reasoning turn , it reads the architecture, NFRs, and
-      // the full test list and writes every failing test in one batch , so it runs
-      // on opus. REVIEW/ASSESS/REFLECT are lighter judgment turns and stay on the
-      // role base (sonnet) with review at low effort. A per-turn map (like driver's)
-      // overrides only `red`; the unnamed turns fall through to RECOMMENDED_MODELS.
-      // Overridable per project by editing consort-config.json.
-      { model: { red: "opus" }, effort: { review: "low" } }
-    ) : role === "driver" ? (
-      // Model tiering: RED (test authoring) + GREEN (implementation) keep the
-      // recommended model; only the mechanical REFACTOR turn drops to a fast
-      // model. GREEN was on haiku, but the recorded worst GREEN turn thrashed
-      // 93 tool round-trips (haiku's trial-and-error), so wall-clock, not token
-      // cost, dominated. Sonnet finishes GREEN in far fewer round-trips, faster
-      // even at a higher per-token price. Overridable per project by editing
-      // consort-config.json (a project can flatten to a scalar `model`).
-      { model: { red: RECOMMENDED_MODELS[role], green: RECOMMENDED_MODELS[role], refactor: "haiku" } }
-    ) : (
-      // Every other role's base is just its recommended model. Optimization
-      // winners (e.g. spec-author breakdown -> haiku+low) are NOT hardcoded here;
-      // they live in optimized-defaults.json and are deep-merged below, so the
-      // champion walk's auto-apply is the single writer of applied winners.
-      { model: RECOMMENDED_MODELS[role] }
-    );
-  }
-  const base = {
+  for (const role of ALL_AGENT_ROLES) roles[role] = {};
+  return {
     version: 1,
     roles,
     build: { loopGranularity: "story", batchCap: 3, sessionScope: "story" },
     plan: { sizing: true },
     project: { uiTrack: true, gates: "interactive", deployTarget: "local", clientFramework: "none" }
   };
-  return mergeOptimizedDefaults(base, optimized_defaults_default);
-}
-function mergeOptimizedDefaults(base, overlay) {
-  if (overlay === null || typeof overlay !== "object" || Array.isArray(overlay)) {
-    return overlay === void 0 ? base : overlay;
-  }
-  const out = Array.isArray(base) ? [...base] : { ...base };
-  for (const [k, v] of Object.entries(overlay)) {
-    if (k === "_comment") continue;
-    const b = out[k];
-    out[k] = b && typeof b === "object" && !Array.isArray(b) && v && typeof v === "object" && !Array.isArray(v) ? mergeOptimizedDefaults(b, v) : v;
-  }
-  return out;
 }
 function writeConsortConfig(projectDir, config, opts) {
   const f = (0, import_path2.join)(projectDir, CONSORT_CONFIG_REL);
@@ -8089,8 +8029,8 @@ var driver_green_default = {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "sonnet",
-    effort: "default",
+    model: "opus",
+    effort: "medium",
     session: "resume",
     resumeKeyFrom: "story"
   },
@@ -8142,8 +8082,8 @@ var navigator_red_default = {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "opus",
-    effort: "default",
+    model: "sonnet",
+    effort: "low",
     session: "resume",
     resumeKeyFrom: "story"
   },
@@ -8222,7 +8162,7 @@ var navigator_assess_default = {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "sonnet",
+    model: "opus",
     effort: "default",
     session: "resume",
     resumeKeyFrom: "story"
@@ -8248,7 +8188,7 @@ var navigator_assess_deploy_default = {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "sonnet",
+    model: "opus",
     effort: "default",
     session: "resume",
     resumeKeyFrom: "story"
@@ -8272,7 +8212,7 @@ var navigator_assess_refactor_default = {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "sonnet",
+    model: "opus",
     effort: "default",
     session: "resume",
     resumeKeyFrom: "story"
@@ -8286,27 +8226,54 @@ var navigator_assess_refactor_default = {
 var driver_refactor_default = {
   id: "driver-refactor",
   role: "driver",
-  agent: { kind: "claude", config: { role: "driver" } },
-  match: { kind: "invoke-role", role: "driver", buildMode: "refactor" },
+  agent: {
+    kind: "claude",
+    config: {
+      role: "driver"
+    }
+  },
+  match: {
+    kind: "invoke-role",
+    role: "driver",
+    buildMode: "refactor"
+  },
   inputs: [
-    { id: "code", source: "story:code", optional: true, description: "The GREEN implementation the Driver restructures (behavior-preserving). OPTIONAL: 'code' is the project tree the UNCONTAINED agent reads directly, NOT a `.consort` artifact file \u2014 there is no <storyDir>/code path to presence-check, so a required gate fails loud on every refactor turn. The agent reads the real code itself." }
+    {
+      id: "code",
+      source: "story:code",
+      optional: true,
+      description: "The GREEN implementation the Driver restructures (behavior-preserving). OPTIONAL: 'code' is the project tree the UNCONTAINED agent reads directly, NOT a `.consort` artifact file \u2014 there is no <storyDir>/code path to presence-check, so a required gate fails loud on every refactor turn. The agent reads the real code itself."
+    }
   ],
   preconditions: [
-    { id: "pack", kind: "context-pack", position: "append", description: "The context pack (rubric + module layout) APPENDED after the refactor directive so the Driver restructures against the known layout without re-reading the design tree." }
+    {
+      id: "pack",
+      kind: "context-pack",
+      position: "append",
+      description: "The context pack (rubric + module layout) APPENDED after the refactor directive so the Driver restructures against the known layout without re-reading the design tree."
+    }
   ],
-  requiresEvents: ["review-verdict"],
+  requiresEvents: [
+    "review-verdict"
+  ],
   outputs: [],
   routing: {
-    produced: { next: "state-derived" }
+    produced: {
+      next: "state-derived"
+    }
   },
   agentOptions: {
-    model: "haiku",
+    model: "opus",
     effort: "default",
     session: "resume",
     resumeKeyFrom: "story"
   },
   postTurn: [
-    { bin: "@build-cycle", args: [], when: "after" }
+    {
+      bin: "@build-cycle",
+      args: [],
+      when: "after"
+    }
   ]
 };
 
@@ -8314,23 +8281,42 @@ var driver_refactor_default = {
 var driver_refactor_deploy_default = {
   id: "driver-refactor-deploy",
   role: "driver",
-  agent: { kind: "claude", config: { role: "driver" } },
-  match: { kind: "invoke-role", role: "driver", buildMode: "refactor-deploy" },
+  agent: {
+    kind: "claude",
+    config: {
+      role: "driver"
+    }
+  },
+  match: {
+    kind: "invoke-role",
+    role: "driver",
+    buildMode: "refactor-deploy"
+  },
   inputs: [
-    { id: "deploy-verify-scope", source: "story:deploy-verify-scope.json", description: "The contamination-fragile tests the Navigator flagged , the Driver edits ONLY these (no product code)." }
+    {
+      id: "deploy-verify-scope",
+      source: "story:deploy-verify-scope.json",
+      description: "The contamination-fragile tests the Navigator flagged , the Driver edits ONLY these (no product code)."
+    }
   ],
   outputs: [],
   routing: {
-    produced: { next: "state-derived" }
+    produced: {
+      next: "state-derived"
+    }
   },
   agentOptions: {
-    model: "haiku",
+    model: "opus",
     effort: "default",
     session: "resume",
     resumeKeyFrom: "story"
   },
   postTurn: [
-    { bin: "@build-cycle", args: [], when: "after" }
+    {
+      bin: "@build-cycle",
+      args: [],
+      when: "after"
+    }
   ]
 };
 
@@ -8338,23 +8324,42 @@ var driver_refactor_deploy_default = {
 var driver_refactor_superseded_default = {
   id: "driver-refactor-superseded",
   role: "driver",
-  agent: { kind: "claude", config: { role: "driver" } },
-  match: { kind: "invoke-role", role: "driver", buildMode: "refactor-superseded" },
+  agent: {
+    kind: "claude",
+    config: {
+      role: "driver"
+    }
+  },
+  match: {
+    kind: "invoke-role",
+    role: "driver",
+    buildMode: "refactor-superseded"
+  },
   inputs: [
-    { id: "superseded-tests", source: "story:superseded-tests.json", description: "The superseded tests the Navigator flagged during refactor-verify , the Driver edits ONLY these." }
+    {
+      id: "superseded-tests",
+      source: "story:superseded-tests.json",
+      description: "The superseded tests the Navigator flagged during refactor-verify , the Driver edits ONLY these."
+    }
   ],
   outputs: [],
   routing: {
-    produced: { next: "state-derived" }
+    produced: {
+      next: "state-derived"
+    }
   },
   agentOptions: {
-    model: "haiku",
+    model: "opus",
     effort: "default",
     session: "resume",
     resumeKeyFrom: "story"
   },
   postTurn: [
-    { bin: "@build-cycle", args: [], when: "after" }
+    {
+      bin: "@build-cycle",
+      args: [],
+      when: "after"
+    }
   ]
 };
 
@@ -8397,8 +8402,8 @@ var driver_green_superseded_default = {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "sonnet",
-    effort: "default",
+    model: "opus",
+    effort: "medium",
     session: "resume",
     resumeKeyFrom: "story"
   },
@@ -9034,13 +9039,29 @@ var ArtifactOutOfRootError = class extends Error {
   checkedSibling;
 };
 var lastAgentTranscript;
-function takeLastAgentTranscript() {
+var lastAgentTranscriptByCwd = /* @__PURE__ */ new Map();
+function takeLastAgentTranscript(cwd) {
+  if (cwd !== void 0) {
+    const t2 = lastAgentTranscriptByCwd.get(cwd);
+    lastAgentTranscriptByCwd.delete(cwd);
+    return t2;
+  }
   const t = lastAgentTranscript;
   lastAgentTranscript = void 0;
   return t;
 }
-function peekLastAgentTranscript() {
-  return lastAgentTranscript;
+function peekLastAgentTranscript(cwd) {
+  return cwd !== void 0 ? lastAgentTranscriptByCwd.get(cwd) : lastAgentTranscript;
+}
+function recordAgentTranscript(cwd, tx) {
+  lastAgentTranscript = tx;
+  lastAgentTranscriptByCwd.set(cwd, tx);
+}
+var lastAgentUsage;
+var lastAgentUsageByCwd = /* @__PURE__ */ new Map();
+function recordAgentUsage(cwd, usage) {
+  lastAgentUsage = usage;
+  lastAgentUsageByCwd.set(cwd, usage);
 }
 function defaultTurnMonitor(sink) {
   const heartbeatMs = TURN_HEARTBEAT_MS > 0 ? TURN_HEARTBEAT_MS : void 0;
@@ -9079,6 +9100,7 @@ function spawnClaudeStreaming(args, cwd, monitorOverride) {
       }
     };
     let lastText = "";
+    let allText = "";
     const allTools = [];
     let stalled = false;
     const monitor = monitorOverride ?? defaultTurnMonitor((p) => {
@@ -9128,6 +9150,7 @@ function spawnClaudeStreaming(args, cwd, monitorOverride) {
       }
       if (text) {
         lastText = text;
+        allText += (allText ? "\n" : "") + text;
         liveWrite(text.endsWith("\n") ? text : `${text}
 `);
         monitorCtl.progress({ kind: "text" });
@@ -9170,14 +9193,20 @@ function spawnClaudeStreaming(args, cwd, monitorOverride) {
       const pIdx = args.indexOf("-p");
       const rIdx = args.indexOf("--agent");
       const mIdx = args.indexOf("--model");
-      lastAgentTranscript = {
+      const tx = {
         prompt: pIdx >= 0 ? args[pIdx + 1] ?? "" : "",
         role: rIdx >= 0 ? args[rIdx + 1] : void 0,
         model: mIdx >= 0 ? args[mIdx + 1] : void 0,
-        finalText: lastText,
+        // When the turn emitted a ```agent-report block, use the FULL assistant text as finalText so the
+        // record/log phase can extract the (possibly non-final / streamed) block; otherwise keep the last
+        // message (unchanged for turns that emit no report block).
+        finalText: allText.includes("```agent-report") ? allText : lastText,
         tools: allTools
       };
-      resolve4(parseTurnUsage(lines));
+      recordAgentTranscript(cwd, tx);
+      const parsed = parseTurnUsage(lines);
+      if (parsed) recordAgentUsage(cwd, parsed);
+      resolve4(parsed);
     });
   });
 }
@@ -9523,7 +9552,7 @@ function composeOnAction(...hooks) {
 // consort/orchestrator/drive/orchestrator-effects.ts
 init_cjs_shims();
 var fs15 = __toESM(require("fs"), 1);
-var import_node_path19 = require("path");
+var import_node_path20 = require("path");
 
 // consort/orchestrator/drive/orchestrator-drive.ts
 init_cjs_shims();
@@ -9801,7 +9830,8 @@ async function execute(step, ctx, deps) {
   }
   const { workspaceDir, artifactDir, metaDir, outputPaths } = deps.provisionWorkspace(action, cfg);
   const instructions = deps.instructionsFor(action, cfg);
-  if (deps.prepare) {
+  const overridden = action.kind === "invoke-role" && cfg.instructionsOverride?.(action) !== void 0;
+  if (deps.prepare && !overridden) {
     const preconditions = step.preconditions(action);
     let prependBlocks = "";
     let appendBlocks = "";
@@ -13812,7 +13842,9 @@ function formatRoleResponse(args) {
 
 // consort/orchestrator/build/build-context.ts
 init_cjs_shims();
+var import_node_child_process5 = require("child_process");
 var fs14 = __toESM(require("fs"), 1);
+var import_node_path19 = require("path");
 function artifactRoot(consortDir) {
   return consortDir;
 }
@@ -13849,6 +13881,44 @@ function rubricSourcesNote(rubric, featureId, root) {
   if (!rubric) return "";
   return ` The rubric above is pre-extracted from ${root}/features/${featureId}/architecture.md, ${root}/nfrs.md, and ${root}/design/design-guide.md, open those full files ONLY if you need more detail than it carries (do not re-read them by default).`;
 }
+var defaultDbStateReader = (projectDir) => {
+  const one = (args) => {
+    try {
+      return (0, import_node_child_process5.execSync)(`uv run --env-file .env alembic ${args}`, { cwd: projectDir, stdio: ["ignore", "pipe", "ignore"], timeout: 6e4 }).toString().trim() || void 0;
+    } catch {
+      return void 0;
+    }
+  };
+  const current = one("current");
+  const heads = one("heads");
+  return current || heads ? { current, heads } : void 0;
+};
+var defaultFailingTestReader = (projectDir, story) => {
+  const file = (0, import_node_path19.join)(projectDir, "tests", "step_defs", `test_${story.replace(/-/g, "_")}.py`);
+  try {
+    const body = fs14.readFileSync(file, "utf8");
+    return body.length > 4e3 ? body.slice(0, 4e3) + "\n\u2026 (truncated; read the full file if needed)" : body;
+  } catch {
+    return void 0;
+  }
+};
+function readCtxLeverMarker(consortDir) {
+  try {
+    return JSON.parse(fs14.readFileSync((0, import_node_path19.join)(consortDir, "ctx-levers.json"), "utf8"));
+  } catch {
+    return {};
+  }
+}
+function failingTestBlock(consortDir, story, reader = defaultFailingTestReader) {
+  const body = reader((0, import_node_path19.dirname)(consortDir), story);
+  return body ? ` FAILING TEST (make THIS pass; do NOT search for it) ::
+\`\`\`python
+${body}
+\`\`\`` : "";
+}
+function scopeNoteBlock() {
+  return ` SCOPE :: Make ONLY the single failing test green with the SIMPLEST honest code at ITS OWN layer. Iterate on that one test (\`uv run --env-file .env pytest <its path> -x -q\`). Do NOT investigate, build, or run OTHER layers' surfaces this turn (e.g. if the failing test is backend, do not touch, grep, or run the client/SPA , StockView*, vite, npx vitest; a later refactor turn owns that). The post-turn honest-GREEN verify is authoritative; stop once the single test passes.`;
+}
 function buildContextPack(consortDir, featureId, story, ac, opts = {}) {
   const root = artifactRoot(consortDir);
   const rubric = contextRubric(consortDir, featureId, story, ac);
@@ -13862,6 +13932,29 @@ function buildContextPack(consortDir, featureId, story, ac, opts = {}) {
   if (!opts.skipTestLoop) {
     parts.push(
       ` TESTS :: this story's tests are under tests/step_defs/ (behavior, one file per story) and tests/architecture/ (fitness: layering, persistence invariants, migration reversibility). Read those named paths directly; do NOT find/grep/ls to locate them. Iterate against the single failing test while fixing; the honest-GREEN verify is the authoritative full run.`
+    );
+  }
+  const marker = readCtxLeverMarker(consortDir);
+  const dbOn = opts.dbState ?? marker.dbState ?? consortEnv("CTX_DBSTATE") === "1";
+  if (dbOn) {
+    const st = (opts.dbStateReader ?? defaultDbStateReader)((0, import_node_path19.dirname)(consortDir));
+    if (st && (st.current || st.heads)) {
+      parts.push(
+        ` DB STATE (already probed, do NOT re-run alembic current/heads) ::${st.current ? ` current=${st.current.replace(/\s+/g, " ")}` : ""}${st.heads ? ` head=${st.heads.replace(/\s+/g, " ")}` : ""}. The branch is migrated to head; iterate with \`uv run --env-file .env pytest <path>\` (no re-migrate).`
+      );
+    }
+  }
+  const testOn = opts.failingTest ?? marker.failingTest ?? consortEnv("CTX_FAILINGTEST") === "1";
+  if (testOn) {
+    const block = failingTestBlock(consortDir, story, opts.failingTestReader ?? defaultFailingTestReader);
+    if (block) parts.push(block);
+  }
+  const scopeOn = opts.scopeNote ?? marker.scopeNote ?? consortEnv("CTX_SCOPENOTE") === "1";
+  if (scopeOn) parts.push(scopeNoteBlock());
+  const migrationOn = opts.migration ?? marker.migration ?? consortEnv("CTX_MIGRATION") === "1";
+  if (migrationOn) {
+    parts.push(
+      ` MIGRATION :: alembic migrations live in alembic/versions/. Create one with \`./scripts/lk lakebase-new-migration --name "<short desc>"\` (do NOT hand-author the revision file or grep scripts/lk to find the command). ORM models are in app/models.py; apply with \`uv run --env-file .env alembic upgrade head\`.`
     );
   }
   return parts.join("");
@@ -14186,10 +14279,11 @@ function roleTaskBody(action, featureId, uiTrack, consortDir, build, omit) {
 `;
         return advisory + `ASSESS a failed honest-GREEN verify for AC ${action.ac} in story ${s}. The Driver made the current test pass, but the full-suite verify against the running app FAILED, some OTHER test(s) now fail.
 ` + scanDirective + `   ./scripts/lk consort-cycle flag-superseded --feature ${featureId} --story ${s} --ac ${action.ac} --reason "<new AC + what changed>" --test <path_or_nodeid> [--test ...] --tdd-dir ${consortDir}
+   The flag-superseded command writes ${(0, import_node_path20.join)(cycleDir(consortDir, featureId, s, action.ac ?? ""), "superseded-tests.json")}. If for any reason the command will not run, FALL BACK to writing THAT EXACT file directly with the Write tool: {"tests":["<path_or_nodeid>", ...],"reason":"<why superseded>"} , do NOT search the cache / scripts / logs for the mechanism or invent a different filename. The orchestration honors that file too.
 (b) If instead the failure is a GENUINE REGRESSION (the AC does NOT intend to change that behavior; the Driver's code is wrong), record your ROOT-CAUSE diagnosis so it travels to the Driver / the human instead of being lost. When the Driver can fix it, ALSO give a concrete repair directive (this routes a bounded Driver repair turn):
    ./scripts/lk consort-cycle assess-regression --feature ${featureId} --story ${s} --ac ${action.ac} --diagnosis "<the WHY: which behavior broke + the root cause>" [--fix "<what the Driver should change>"] --tdd-dir ${consortDir}
    Include --fix ONLY when the fix is clear + within the Driver's reach (e.g. a wrong default, a missing filter, an off-by-one); OMIT --fix when it needs a human / a design or spec change (the orchestration then escalates carrying your diagnosis).
-CRITICAL , recording the verdict is the ONLY output of this turn. The orchestration reads your verdict from ${(0, import_node_path19.join)(cycleDir(consortDir, featureId, s, action.ac ?? ""), "regression-assessment.json")} (the assess-regression command writes it). Writing green-failure.json or just explaining the fix in prose is NOT the verdict , without that file a DRIVER-FIXABLE regression wrongly escalates to a human and the sprint halts. Run the ONE command above as a SINGLE line (do not split across lines, do not wrap in bash -c). If for any reason the command will not run, FALL BACK to writing the file directly with the Write tool: {"diagnosis":"<why>","fix":"<what to change>"} at that exact path , the orchestration honors that too.
+CRITICAL , recording the verdict is the ONLY output of this turn. The orchestration reads your verdict from ${(0, import_node_path20.join)(cycleDir(consortDir, featureId, s, action.ac ?? ""), "regression-assessment.json")} (the assess-regression command writes it). Writing green-failure.json or just explaining the fix in prose is NOT the verdict , without that file a DRIVER-FIXABLE regression wrongly escalates to a human and the sprint halts. Run the ONE command above as a SINGLE line (do not split across lines, do not wrap in bash -c). If for any reason the command will not run, FALL BACK to writing the file directly with the Write tool: {"diagnosis":"<why>","fix":"<what to change>"} at that exact path , the orchestration honors that too.
 Flag ONLY tests the new AC truly supersedes; never flag a test just to make a red go away. For a regression, always record a diagnosis (+ fix when driver-fixable) , never nothing.`;
       }
       if (action.buildMode === "assess-deploy") {
@@ -14211,7 +14305,7 @@ Deterministic supersession advisory (prior tests referencing a symbol the refact
 ${marker.superseded_advisory}
 ` : "") + `
 Decide, per failing test: is it a PRIOR test this story legitimately SUPERSEDES (it asserts old behavior/fields this story deliberately retired), or a GENUINE regression the refactor introduced?
-Flag ONLY the genuinely superseded prior tests via \`./scripts/lk consort-cycle flag-superseded --feature ${featureId} --story ${s} --ac <ac> --test <path::test> [--test ...] --reason "<why superseded>"\` , the Driver will then permissively refactor ONLY those. If instead the refactor broke CURRENT behavior (a real regression), flag NOTHING; the orchestration raises it to a human. Never flag a test just to make a red go away. Do NOT edit product code or tests in this turn.`;
+Flag ONLY the genuinely superseded prior tests via \`./scripts/lk consort-cycle flag-superseded --feature ${featureId} --story ${s} --ac <ac> --test <path::test> [--test ...] --reason "<why superseded>"\` , the Driver will then permissively refactor ONLY those. That command writes superseded-tests.json in the <ac>'s cycle dir; if it will not run, FALL BACK to writing THAT file directly with the Write tool ({"tests":[...],"reason":"<why>"}) , do NOT search the cache / scripts / logs for the mechanism or invent a different filename. If instead the refactor broke CURRENT behavior (a real regression), flag NOTHING; the orchestration raises it to a human. Never flag a test just to make a red go away. Do NOT edit product code or tests in this turn.`;
       }
       if (action.buildMode === "review") {
         if ((build?.loop ?? "story") === "story") {
@@ -14247,7 +14341,11 @@ Edit ONLY the flagged test files. The orchestrator re-verifies the full suite af
         return `REFACTOR AC ${action.ac} in story ${s} per the Navigator's review (${root}/cycles/${featureId}/${s}/${action.ac}/review.json -> refactor_notes), guided by the architecture (${root}/features/${featureId}/architecture.md), the NFRs (${root}/nfrs.md), + design guide (${root}/design/design-guide.md). If review.json has no refactor_notes, this refactor was queued by a BLOCKING build-quality gate (a layering / design-adherence / import-coupling smell in ${root}/smells.json): run that gate to see the violation (e.g. \`consort-layering-clean --project-dir .\`) and fix exactly what it flags , typically extract the duplicated/misplaced code into one shared helper in its correct layer. Keep ALL tests green and do not change what the outer-boundary tests check, refactor only.` + pack(action.ac ?? "");
       }
       {
-        return ((build?.loop ?? "story") === "story" ? `Make ALL of story ${s}'s failing tests GREEN in one pass (simplest honest code); implement until every one of the story's tests passes, then run the story's tests once.` : build?.loop === "hybrid-a" ? `Make the failing tests for story ${s}'s current layer-batch ALL GREEN in one pass (simplest honest code); implement until every test in the open batch passes, then run that layer's runner once.` : `Make the failing test for story ${s} GREEN (simplest honest code).`) + (uiTrack ? uiTrackBuild(root) : "") + buildContextPack(consortDir, featureId, s, action.ac ?? "") + supersededTestsDirective(consortDir, featureId, s);
+        return ((build?.loop ?? "story") === "story" ? `Make ALL of story ${s}'s failing tests GREEN in one pass (simplest honest code); implement until every one of the story's tests passes, then run the story's tests once.` : build?.loop === "hybrid-a" ? `Make the failing tests for story ${s}'s current layer-batch ALL GREEN in one pass (simplest honest code); implement until every test in the open batch passes, then run that layer's runner once.` : `Make the failing test for story ${s} GREEN (simplest honest code).`) + (uiTrack ? uiTrackBuild(root) : "") + // ctx-test ON by default for GREEN: inject the failing RED test body so the Driver does not
+        // Read/cat-discover it. Promoted from the driver-green tuning study (opus + medium effort +
+        // ctx-test was the faster-while-holding winner; other context levers were latency-neutral/harmful
+        // on opus, so ONLY failing-test is baked in). See consort/optimize/DRIVER-GREEN-LEVERS.md.
+        buildContextPack(consortDir, featureId, s, action.ac ?? "", { failingTest: true }) + supersededTestsDirective(consortDir, featureId, s);
       }
     default:
       return `Work story ${s}.`;
@@ -14283,6 +14381,8 @@ function designArtifactExpectation(action, consortDir, featureId) {
   return null;
 }
 function buildTaskBody(action, cfg, omit) {
+  const override = cfg.instructionsOverride?.(action);
+  if (override !== void 0) return override;
   const storyLoop = "story" in action ? effectiveLoopForStory(cfg.loopGranularity ?? "story", action.story) : cfg.loopGranularity;
   return roleTaskBody(action, cfg.featureId, cfg.uiTrack ?? true, cfg.consortDir, { loop: storyLoop, cap: cfg.batchCap }, omit);
 }
@@ -14784,7 +14884,7 @@ function buildDriveEffects(cfg) {
     onHandback(handoff, detail) {
       const file = handbackFile(cfg.consortDir, cfg.featureId, handoff.responder, handoff.story);
       try {
-        fs15.mkdirSync((0, import_node_path19.dirname)(file), { recursive: true });
+        fs15.mkdirSync((0, import_node_path20.dirname)(file), { recursive: true });
         fs15.writeFileSync(file, `${detail}
 `, "utf8");
       } catch {
@@ -14795,9 +14895,9 @@ function buildDriveEffects(cfg) {
 
 // consort/evaluation/semantic-gate.ts
 init_cjs_shims();
-var import_node_child_process5 = require("child_process");
+var import_node_child_process6 = require("child_process");
 var import_node_fs17 = require("fs");
-var import_node_path20 = require("path");
+var import_node_path21 = require("path");
 function stepArtifactPath(base, step, featureId) {
   switch (step) {
     case "ux":
@@ -14822,8 +14922,8 @@ var REFERENCE_ASSETS_REL = "consort/evaluation/reference-assets/stockflow";
 var CANONICAL = "stockflow";
 function referenceCorpusRoot(kitRoot2) {
   const override = process.env.CONSORT_REFERENCE_CORPUS?.trim();
-  if (override) return override.startsWith("/") ? override : (0, import_node_path20.join)(kitRoot2, override);
-  return (0, import_node_path20.join)(kitRoot2, REFERENCE_ASSETS_REL);
+  if (override) return override.startsWith("/") ? override : (0, import_node_path21.join)(kitRoot2, override);
+  return (0, import_node_path21.join)(kitRoot2, REFERENCE_ASSETS_REL);
 }
 var SEMANTIC_THRESHOLD = 0.85;
 function hasDesignReference(step) {
@@ -14845,7 +14945,7 @@ function resolveStepReference(args) {
   const { kitRoot: kitRoot2, step, featureId, storyId } = args;
   if (!hasDesignReference(step)) return null;
   const corpus = CANONICAL;
-  const root = (0, import_node_path20.join)(referenceCorpusRoot(kitRoot2), "recorded-artifacts");
+  const root = (0, import_node_path21.join)(referenceCorpusRoot(kitRoot2), "recorded-artifacts");
   if (!(0, import_node_fs17.existsSync)(root)) return null;
   if (step === "acs") {
     const sdir = storiesDir(root, featureId);
@@ -14855,7 +14955,7 @@ function resolveStepReference(args) {
     for (const story of stories) {
       const adir = acsDir(root, featureId, story);
       if (!(0, import_node_fs17.existsSync)(adir)) continue;
-      for (const ac of (0, import_node_fs17.readdirSync)(adir)) if (ac.endsWith(".json")) paths.push((0, import_node_path20.join)(adir, ac));
+      for (const ac of (0, import_node_fs17.readdirSync)(adir)) if (ac.endsWith(".json")) paths.push((0, import_node_path21.join)(adir, ac));
     }
     return paths.length ? { corpus, paths, label: storyId ? `stories/${storyId}/acs/*.json` : "stories/*/acs/*.json (feature-aggregate)" } : null;
   }
@@ -14873,7 +14973,7 @@ function readCandidateArtifact(args) {
     for (const story of (0, import_node_fs17.readdirSync)(sdir)) {
       const adir = acsDir(consortDir, featureId, story);
       if (!(0, import_node_fs17.existsSync)(adir)) continue;
-      for (const ac of (0, import_node_fs17.readdirSync)(adir)) if (ac.endsWith(".json")) parts.push((0, import_node_fs17.readFileSync)((0, import_node_path20.join)(adir, ac), "utf8"));
+      for (const ac of (0, import_node_fs17.readdirSync)(adir)) if (ac.endsWith(".json")) parts.push((0, import_node_fs17.readFileSync)((0, import_node_path21.join)(adir, ac), "utf8"));
     }
     return parts.length ? parts.join("\n---\n") : null;
   }
@@ -14956,7 +15056,7 @@ function makeOpusJudge(opts) {
   const model = opts.model ?? "opus";
   return ({ step, reference, candidate, functional }) => new Promise((resolve4) => {
     const prompt = functional ? buildFunctionalJudgePrompt(functional, reference, candidate) : buildJudgePrompt(step, reference, candidate);
-    (0, import_node_child_process5.execFile)(
+    (0, import_node_child_process6.execFile)(
       "claude",
       ["-p", prompt, "--model", model, "--permission-mode", "acceptEdits", "--strict-mcp-config", "--output-format", "json"],
       { cwd: opts.cwd, maxBuffer: 32 * 1024 * 1024, timeout: 5 * 6e4 },
@@ -14980,19 +15080,19 @@ function makeOpusJudge(opts) {
 // consort/optimize/optimize-live.ts
 init_cjs_shims();
 var import_node_fs20 = require("fs");
-var import_node_child_process6 = require("child_process");
-var import_node_path23 = require("path");
+var import_node_child_process7 = require("child_process");
+var import_node_path24 = require("path");
 
 // consort/optimize/optimize-agent-overlay.ts
 init_cjs_shims();
 var import_node_fs18 = require("fs");
-var import_node_path21 = require("path");
+var import_node_path22 = require("path");
 function overlayAgent(args) {
   const { projectDir, role, markdown } = args;
-  const agentPath = (0, import_node_path21.join)(projectDir, ".claude", "agents", `${role}.md`);
+  const agentPath = (0, import_node_path22.join)(projectDir, ".claude", "agents", `${role}.md`);
   const hadBaseline = (0, import_node_fs18.existsSync)(agentPath);
   const baseline = hadBaseline ? (0, import_node_fs18.readFileSync)(agentPath, "utf8") : void 0;
-  (0, import_node_fs18.mkdirSync)((0, import_node_path21.dirname)(agentPath), { recursive: true });
+  (0, import_node_fs18.mkdirSync)((0, import_node_path22.dirname)(agentPath), { recursive: true });
   (0, import_node_fs18.writeFileSync)(agentPath, markdown);
   return {
     restore() {
@@ -15049,7 +15149,7 @@ function evaluateDesignGate(args) {
 init_cjs_shims();
 var import_node_fs19 = require("fs");
 var import_node_os = require("os");
-var import_node_path22 = require("path");
+var import_node_path23 = require("path");
 function captureDesignArtifacts(args) {
   const { consortDir, destDir } = args;
   (0, import_node_fs19.rmSync)(destDir, { recursive: true, force: true });
@@ -15063,8 +15163,8 @@ function restoreDesignArtifacts(args) {
 }
 function snapshotDesign(args) {
   const { consortDir } = args;
-  const backup = (0, import_node_fs19.mkdtempSync)((0, import_node_path22.join)((0, import_node_os.tmpdir)(), "optimize-design-snap-"));
-  const backupTree = (0, import_node_path22.join)(backup, (0, import_node_path22.basename)(consortDir));
+  const backup = (0, import_node_fs19.mkdtempSync)((0, import_node_path23.join)((0, import_node_os.tmpdir)(), "optimize-design-snap-"));
+  const backupTree = (0, import_node_path23.join)(backup, (0, import_node_path23.basename)(consortDir));
   (0, import_node_fs19.cpSync)(consortDir, backupTree, { recursive: true });
   return {
     restore() {
@@ -15136,10 +15236,10 @@ function applyCandidate(ctx, candidate) {
   };
 }
 function writeTrialRecord(ctx, handoff, candidate, trial, result) {
-  const dir = (0, import_node_path23.join)(ctx.experimentsDir, handoff.id, candidate.id, `trial-${trial}`);
+  const dir = (0, import_node_path24.join)(ctx.experimentsDir, handoff.id, candidate.id, `trial-${trial}`);
   (0, import_node_fs20.mkdirSync)(dir, { recursive: true });
-  (0, import_node_fs20.writeFileSync)((0, import_node_path23.join)(dir, "candidate.json"), JSON.stringify(candidate, null, 2) + "\n");
-  (0, import_node_fs20.writeFileSync)((0, import_node_path23.join)(dir, "result.json"), JSON.stringify(result, null, 2) + "\n");
+  (0, import_node_fs20.writeFileSync)((0, import_node_path24.join)(dir, "candidate.json"), JSON.stringify(candidate, null, 2) + "\n");
+  (0, import_node_fs20.writeFileSync)((0, import_node_path24.join)(dir, "result.json"), JSON.stringify(result, null, 2) + "\n");
 }
 function makeChampionWalkDeps(ctx) {
   return {
@@ -15172,7 +15272,7 @@ function makeChampionWalkDeps(ctx) {
         const tokens = ctx.readTurnTokens?.({ handoff });
         const artifactsRef = gate.passed && !isBuildHandoff(handoff) ? captureDesignArtifacts({
           consortDir: ctx.consortDir,
-          destDir: (0, import_node_path23.join)(ctx.experimentsDir, handoff.id, candidate.id, `trial-${trial}`, "artifacts")
+          destDir: (0, import_node_path24.join)(ctx.experimentsDir, handoff.id, candidate.id, `trial-${trial}`, "artifacts")
         }) : void 0;
         result = {
           gatePassed: gate.passed,
@@ -15214,7 +15314,7 @@ function makeChampionWalkDeps(ctx) {
           restoreCandidate();
         }
       }
-      const champ = (0, import_node_path23.join)(ctx.experimentsDir, "champion-walk.json");
+      const champ = (0, import_node_path24.join)(ctx.experimentsDir, "champion-walk.json");
       const prior = (0, import_node_fs20.existsSync)(champ) ? JSON.parse((0, import_node_fs20.readFileSync)(champ, "utf8")) : { winners: [] };
       prior.winners.push({ handoffId: handoff.id, candidateId: candidate.id });
       (0, import_node_fs20.mkdirSync)(ctx.experimentsDir, { recursive: true });
@@ -15260,10 +15360,10 @@ function makeLiveSpawnTurn(featureId, seams) {
 function realBuildGitOps(projectDir) {
   return {
     async sha() {
-      return (0, import_node_child_process6.execFileSync)("git", ["rev-parse", "HEAD"], { cwd: projectDir, encoding: "utf8" }).trim();
+      return (0, import_node_child_process7.execFileSync)("git", ["rev-parse", "HEAD"], { cwd: projectDir, encoding: "utf8" }).trim();
     },
     async resetHard(sha) {
-      (0, import_node_child_process6.execFileSync)("git", ["reset", "--hard", sha], { cwd: projectDir, stdio: "ignore" });
+      (0, import_node_child_process7.execFileSync)("git", ["reset", "--hard", sha], { cwd: projectDir, stdio: "ignore" });
     }
   };
 }
@@ -15530,7 +15630,7 @@ function buildCtxForHandoff(handoff, loc) {
     projectDir,
     consortDir,
     featureId,
-    experimentsDir: (0, import_node_path24.join)(projectDir, "experiments"),
+    experimentsDir: (0, import_node_path25.join)(projectDir, "experiments"),
     spawnTurn: makeLiveSpawnTurn(featureId, {
       buildCfg: (fid) => buildCfg({ feature: fid, projectDir }, fid),
       // Dispatch the PINNED turn THROUGH the executor (buildDriveEffects.performViaExecutor) ,
@@ -15596,7 +15696,7 @@ async function main() {
     process.stderr.write("usage: consort-optimize --scenario <dir> --feature <id> [--handoff <id>] [--only design|build] --candidates <spec> --trials N [--dry-run]\n");
     return 2;
   }
-  const projectDir = (0, import_node_path24.resolve)(args.projectDir ?? process.cwd());
+  const projectDir = (0, import_node_path25.resolve)(args.projectDir ?? process.cwd());
   const consortDir = resolveConsortDir(projectDir);
   const featureId = args.feature;
   const sweep = parseSweepSpec(args.candidates ?? "");

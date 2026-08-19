@@ -7571,8 +7571,8 @@ var driver_green_default = {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "sonnet",
-    effort: "default",
+    model: "opus",
+    effort: "medium",
     session: "resume",
     resumeKeyFrom: "story"
   },
@@ -7624,8 +7624,8 @@ var navigator_red_default = {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "opus",
-    effort: "default",
+    model: "sonnet",
+    effort: "low",
     session: "resume",
     resumeKeyFrom: "story"
   },
@@ -7704,7 +7704,7 @@ var navigator_assess_default = {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "sonnet",
+    model: "opus",
     effort: "default",
     session: "resume",
     resumeKeyFrom: "story"
@@ -7730,7 +7730,7 @@ var navigator_assess_deploy_default = {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "sonnet",
+    model: "opus",
     effort: "default",
     session: "resume",
     resumeKeyFrom: "story"
@@ -7754,7 +7754,7 @@ var navigator_assess_refactor_default = {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "sonnet",
+    model: "opus",
     effort: "default",
     session: "resume",
     resumeKeyFrom: "story"
@@ -7768,27 +7768,54 @@ var navigator_assess_refactor_default = {
 var driver_refactor_default = {
   id: "driver-refactor",
   role: "driver",
-  agent: { kind: "claude", config: { role: "driver" } },
-  match: { kind: "invoke-role", role: "driver", buildMode: "refactor" },
+  agent: {
+    kind: "claude",
+    config: {
+      role: "driver"
+    }
+  },
+  match: {
+    kind: "invoke-role",
+    role: "driver",
+    buildMode: "refactor"
+  },
   inputs: [
-    { id: "code", source: "story:code", optional: true, description: "The GREEN implementation the Driver restructures (behavior-preserving). OPTIONAL: 'code' is the project tree the UNCONTAINED agent reads directly, NOT a `.consort` artifact file \u2014 there is no <storyDir>/code path to presence-check, so a required gate fails loud on every refactor turn. The agent reads the real code itself." }
+    {
+      id: "code",
+      source: "story:code",
+      optional: true,
+      description: "The GREEN implementation the Driver restructures (behavior-preserving). OPTIONAL: 'code' is the project tree the UNCONTAINED agent reads directly, NOT a `.consort` artifact file \u2014 there is no <storyDir>/code path to presence-check, so a required gate fails loud on every refactor turn. The agent reads the real code itself."
+    }
   ],
   preconditions: [
-    { id: "pack", kind: "context-pack", position: "append", description: "The context pack (rubric + module layout) APPENDED after the refactor directive so the Driver restructures against the known layout without re-reading the design tree." }
+    {
+      id: "pack",
+      kind: "context-pack",
+      position: "append",
+      description: "The context pack (rubric + module layout) APPENDED after the refactor directive so the Driver restructures against the known layout without re-reading the design tree."
+    }
   ],
-  requiresEvents: ["review-verdict"],
+  requiresEvents: [
+    "review-verdict"
+  ],
   outputs: [],
   routing: {
-    produced: { next: "state-derived" }
+    produced: {
+      next: "state-derived"
+    }
   },
   agentOptions: {
-    model: "haiku",
+    model: "opus",
     effort: "default",
     session: "resume",
     resumeKeyFrom: "story"
   },
   postTurn: [
-    { bin: "@build-cycle", args: [], when: "after" }
+    {
+      bin: "@build-cycle",
+      args: [],
+      when: "after"
+    }
   ]
 };
 
@@ -7796,23 +7823,42 @@ var driver_refactor_default = {
 var driver_refactor_deploy_default = {
   id: "driver-refactor-deploy",
   role: "driver",
-  agent: { kind: "claude", config: { role: "driver" } },
-  match: { kind: "invoke-role", role: "driver", buildMode: "refactor-deploy" },
+  agent: {
+    kind: "claude",
+    config: {
+      role: "driver"
+    }
+  },
+  match: {
+    kind: "invoke-role",
+    role: "driver",
+    buildMode: "refactor-deploy"
+  },
   inputs: [
-    { id: "deploy-verify-scope", source: "story:deploy-verify-scope.json", description: "The contamination-fragile tests the Navigator flagged , the Driver edits ONLY these (no product code)." }
+    {
+      id: "deploy-verify-scope",
+      source: "story:deploy-verify-scope.json",
+      description: "The contamination-fragile tests the Navigator flagged , the Driver edits ONLY these (no product code)."
+    }
   ],
   outputs: [],
   routing: {
-    produced: { next: "state-derived" }
+    produced: {
+      next: "state-derived"
+    }
   },
   agentOptions: {
-    model: "haiku",
+    model: "opus",
     effort: "default",
     session: "resume",
     resumeKeyFrom: "story"
   },
   postTurn: [
-    { bin: "@build-cycle", args: [], when: "after" }
+    {
+      bin: "@build-cycle",
+      args: [],
+      when: "after"
+    }
   ]
 };
 
@@ -7820,23 +7866,42 @@ var driver_refactor_deploy_default = {
 var driver_refactor_superseded_default = {
   id: "driver-refactor-superseded",
   role: "driver",
-  agent: { kind: "claude", config: { role: "driver" } },
-  match: { kind: "invoke-role", role: "driver", buildMode: "refactor-superseded" },
+  agent: {
+    kind: "claude",
+    config: {
+      role: "driver"
+    }
+  },
+  match: {
+    kind: "invoke-role",
+    role: "driver",
+    buildMode: "refactor-superseded"
+  },
   inputs: [
-    { id: "superseded-tests", source: "story:superseded-tests.json", description: "The superseded tests the Navigator flagged during refactor-verify , the Driver edits ONLY these." }
+    {
+      id: "superseded-tests",
+      source: "story:superseded-tests.json",
+      description: "The superseded tests the Navigator flagged during refactor-verify , the Driver edits ONLY these."
+    }
   ],
   outputs: [],
   routing: {
-    produced: { next: "state-derived" }
+    produced: {
+      next: "state-derived"
+    }
   },
   agentOptions: {
-    model: "haiku",
+    model: "opus",
     effort: "default",
     session: "resume",
     resumeKeyFrom: "story"
   },
   postTurn: [
-    { bin: "@build-cycle", args: [], when: "after" }
+    {
+      bin: "@build-cycle",
+      args: [],
+      when: "after"
+    }
   ]
 };
 
@@ -7879,8 +7944,8 @@ var driver_green_superseded_default = {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "sonnet",
-    effort: "default",
+    model: "opus",
+    effort: "medium",
     session: "resume",
     resumeKeyFrom: "story"
   },
@@ -8477,13 +8542,32 @@ var ArtifactOutOfRootError = class extends Error {
   checkedSibling;
 };
 var lastAgentTranscript;
-function takeLastAgentTranscript() {
+var lastAgentTranscriptByCwd = /* @__PURE__ */ new Map();
+function takeLastAgentTranscript(cwd) {
+  if (cwd !== void 0) {
+    const t2 = lastAgentTranscriptByCwd.get(cwd);
+    lastAgentTranscriptByCwd.delete(cwd);
+    return t2;
+  }
   const t = lastAgentTranscript;
   lastAgentTranscript = void 0;
   return t;
 }
-function peekLastAgentTranscript() {
-  return lastAgentTranscript;
+function peekLastAgentTranscript(cwd) {
+  return cwd !== void 0 ? lastAgentTranscriptByCwd.get(cwd) : lastAgentTranscript;
+}
+function recordAgentTranscript(cwd, tx) {
+  lastAgentTranscript = tx;
+  lastAgentTranscriptByCwd.set(cwd, tx);
+}
+var lastAgentUsage;
+var lastAgentUsageByCwd = /* @__PURE__ */ new Map();
+function peekLastAgentUsage(cwd) {
+  return cwd !== void 0 ? lastAgentUsageByCwd.get(cwd) : lastAgentUsage;
+}
+function recordAgentUsage(cwd, usage) {
+  lastAgentUsage = usage;
+  lastAgentUsageByCwd.set(cwd, usage);
 }
 function defaultTurnMonitor(sink) {
   const heartbeatMs = TURN_HEARTBEAT_MS > 0 ? TURN_HEARTBEAT_MS : void 0;
@@ -8522,6 +8606,7 @@ function spawnClaudeStreaming(args, cwd, monitorOverride) {
       }
     };
     let lastText = "";
+    let allText = "";
     const allTools = [];
     let stalled = false;
     const monitor = monitorOverride ?? defaultTurnMonitor((p) => {
@@ -8571,6 +8656,7 @@ function spawnClaudeStreaming(args, cwd, monitorOverride) {
       }
       if (text) {
         lastText = text;
+        allText += (allText ? "\n" : "") + text;
         liveWrite(text.endsWith("\n") ? text : `${text}
 `);
         monitorCtl.progress({ kind: "text" });
@@ -8613,14 +8699,20 @@ function spawnClaudeStreaming(args, cwd, monitorOverride) {
       const pIdx = args.indexOf("-p");
       const rIdx = args.indexOf("--agent");
       const mIdx = args.indexOf("--model");
-      lastAgentTranscript = {
+      const tx = {
         prompt: pIdx >= 0 ? args[pIdx + 1] ?? "" : "",
         role: rIdx >= 0 ? args[rIdx + 1] : void 0,
         model: mIdx >= 0 ? args[mIdx + 1] : void 0,
-        finalText: lastText,
+        // When the turn emitted a ```agent-report block, use the FULL assistant text as finalText so the
+        // record/log phase can extract the (possibly non-final / streamed) block; otherwise keep the last
+        // message (unchanged for turns that emit no report block).
+        finalText: allText.includes("```agent-report") ? allText : lastText,
         tools: allTools
       };
-      resolve3(parseTurnUsage(lines));
+      recordAgentTranscript(cwd, tx);
+      const parsed = parseTurnUsage(lines);
+      if (parsed) recordAgentUsage(cwd, parsed);
+      resolve3(parsed);
     });
   });
 }
@@ -8972,6 +9064,9 @@ export {
   defaultTurnMonitor,
   execRunner,
   peekLastAgentTranscript,
+  peekLastAgentUsage,
+  recordAgentTranscript,
+  recordAgentUsage,
   spawnClaudeStreaming,
   spawnCmd,
   takeLastAgentTranscript

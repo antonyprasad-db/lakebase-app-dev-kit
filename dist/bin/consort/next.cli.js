@@ -7180,8 +7180,8 @@ var driver_green_default = {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "sonnet",
-    effort: "default",
+    model: "opus",
+    effort: "medium",
     session: "resume",
     resumeKeyFrom: "story"
   },
@@ -7233,8 +7233,8 @@ var navigator_red_default = {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "opus",
-    effort: "default",
+    model: "sonnet",
+    effort: "low",
     session: "resume",
     resumeKeyFrom: "story"
   },
@@ -7313,7 +7313,7 @@ var navigator_assess_default = {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "sonnet",
+    model: "opus",
     effort: "default",
     session: "resume",
     resumeKeyFrom: "story"
@@ -7339,7 +7339,7 @@ var navigator_assess_deploy_default = {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "sonnet",
+    model: "opus",
     effort: "default",
     session: "resume",
     resumeKeyFrom: "story"
@@ -7363,7 +7363,7 @@ var navigator_assess_refactor_default = {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "sonnet",
+    model: "opus",
     effort: "default",
     session: "resume",
     resumeKeyFrom: "story"
@@ -7377,27 +7377,54 @@ var navigator_assess_refactor_default = {
 var driver_refactor_default = {
   id: "driver-refactor",
   role: "driver",
-  agent: { kind: "claude", config: { role: "driver" } },
-  match: { kind: "invoke-role", role: "driver", buildMode: "refactor" },
+  agent: {
+    kind: "claude",
+    config: {
+      role: "driver"
+    }
+  },
+  match: {
+    kind: "invoke-role",
+    role: "driver",
+    buildMode: "refactor"
+  },
   inputs: [
-    { id: "code", source: "story:code", optional: true, description: "The GREEN implementation the Driver restructures (behavior-preserving). OPTIONAL: 'code' is the project tree the UNCONTAINED agent reads directly, NOT a `.consort` artifact file \u2014 there is no <storyDir>/code path to presence-check, so a required gate fails loud on every refactor turn. The agent reads the real code itself." }
+    {
+      id: "code",
+      source: "story:code",
+      optional: true,
+      description: "The GREEN implementation the Driver restructures (behavior-preserving). OPTIONAL: 'code' is the project tree the UNCONTAINED agent reads directly, NOT a `.consort` artifact file \u2014 there is no <storyDir>/code path to presence-check, so a required gate fails loud on every refactor turn. The agent reads the real code itself."
+    }
   ],
   preconditions: [
-    { id: "pack", kind: "context-pack", position: "append", description: "The context pack (rubric + module layout) APPENDED after the refactor directive so the Driver restructures against the known layout without re-reading the design tree." }
+    {
+      id: "pack",
+      kind: "context-pack",
+      position: "append",
+      description: "The context pack (rubric + module layout) APPENDED after the refactor directive so the Driver restructures against the known layout without re-reading the design tree."
+    }
   ],
-  requiresEvents: ["review-verdict"],
+  requiresEvents: [
+    "review-verdict"
+  ],
   outputs: [],
   routing: {
-    produced: { next: "state-derived" }
+    produced: {
+      next: "state-derived"
+    }
   },
   agentOptions: {
-    model: "haiku",
+    model: "opus",
     effort: "default",
     session: "resume",
     resumeKeyFrom: "story"
   },
   postTurn: [
-    { bin: "@build-cycle", args: [], when: "after" }
+    {
+      bin: "@build-cycle",
+      args: [],
+      when: "after"
+    }
   ]
 };
 
@@ -7405,23 +7432,42 @@ var driver_refactor_default = {
 var driver_refactor_deploy_default = {
   id: "driver-refactor-deploy",
   role: "driver",
-  agent: { kind: "claude", config: { role: "driver" } },
-  match: { kind: "invoke-role", role: "driver", buildMode: "refactor-deploy" },
+  agent: {
+    kind: "claude",
+    config: {
+      role: "driver"
+    }
+  },
+  match: {
+    kind: "invoke-role",
+    role: "driver",
+    buildMode: "refactor-deploy"
+  },
   inputs: [
-    { id: "deploy-verify-scope", source: "story:deploy-verify-scope.json", description: "The contamination-fragile tests the Navigator flagged , the Driver edits ONLY these (no product code)." }
+    {
+      id: "deploy-verify-scope",
+      source: "story:deploy-verify-scope.json",
+      description: "The contamination-fragile tests the Navigator flagged , the Driver edits ONLY these (no product code)."
+    }
   ],
   outputs: [],
   routing: {
-    produced: { next: "state-derived" }
+    produced: {
+      next: "state-derived"
+    }
   },
   agentOptions: {
-    model: "haiku",
+    model: "opus",
     effort: "default",
     session: "resume",
     resumeKeyFrom: "story"
   },
   postTurn: [
-    { bin: "@build-cycle", args: [], when: "after" }
+    {
+      bin: "@build-cycle",
+      args: [],
+      when: "after"
+    }
   ]
 };
 
@@ -7429,23 +7475,42 @@ var driver_refactor_deploy_default = {
 var driver_refactor_superseded_default = {
   id: "driver-refactor-superseded",
   role: "driver",
-  agent: { kind: "claude", config: { role: "driver" } },
-  match: { kind: "invoke-role", role: "driver", buildMode: "refactor-superseded" },
+  agent: {
+    kind: "claude",
+    config: {
+      role: "driver"
+    }
+  },
+  match: {
+    kind: "invoke-role",
+    role: "driver",
+    buildMode: "refactor-superseded"
+  },
   inputs: [
-    { id: "superseded-tests", source: "story:superseded-tests.json", description: "The superseded tests the Navigator flagged during refactor-verify , the Driver edits ONLY these." }
+    {
+      id: "superseded-tests",
+      source: "story:superseded-tests.json",
+      description: "The superseded tests the Navigator flagged during refactor-verify , the Driver edits ONLY these."
+    }
   ],
   outputs: [],
   routing: {
-    produced: { next: "state-derived" }
+    produced: {
+      next: "state-derived"
+    }
   },
   agentOptions: {
-    model: "haiku",
+    model: "opus",
     effort: "default",
     session: "resume",
     resumeKeyFrom: "story"
   },
   postTurn: [
-    { bin: "@build-cycle", args: [], when: "after" }
+    {
+      bin: "@build-cycle",
+      args: [],
+      when: "after"
+    }
   ]
 };
 
@@ -7488,8 +7553,8 @@ var driver_green_superseded_default = {
     produced: { next: "state-derived" }
   },
   agentOptions: {
-    model: "sonnet",
-    effort: "default",
+    model: "opus",
+    effort: "medium",
     session: "resume",
     resumeKeyFrom: "story"
   },
@@ -7632,7 +7697,7 @@ function resolveConsortSettings(inputs) {
 // consort/orchestrator/drive/orchestrator-effects.ts
 init_esm_shims();
 import * as fs15 from "fs";
-import { dirname as dirname16, join as join34 } from "path";
+import { dirname as dirname17, join as join35 } from "path";
 
 // consort/orchestrator/drive/orchestrator-drive.ts
 init_esm_shims();
@@ -9622,7 +9687,9 @@ function designGuideConformance(consortDir) {
 
 // consort/orchestrator/build/build-context.ts
 init_esm_shims();
+import { execSync as execSync2 } from "child_process";
 import * as fs14 from "fs";
+import { dirname as dirname16, join as join34 } from "path";
 
 // consort/orchestrator/build/preconditions.ts
 init_esm_shims();
