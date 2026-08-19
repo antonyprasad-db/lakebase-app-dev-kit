@@ -1,8 +1,10 @@
 // The per-agent-turn REPLAY SET is what lets an optimization experiment replay ONE manifest step in
 // isolation: the pre-state (full project code tree BEFORE the turn) + the resolved inputs / assembled
-// prompt / guidelines / levers the turn ran with. These guards pin that wrapWithRecorder writes the
-// complete bundle into the turn dir BEFORE the agent mutates the tree, and that .consort is NOT
-// snapshotted into it (it is delta-tracked separately by recordTurn).
+// prompt / guidelines / levers the turn ran with, PLUS the full pre-turn `.consort` STATE tree
+// (pre-consort/) a replay lays verbatim instead of reconstructing the cycle state. These guards pin that
+// wrapWithRecorder writes the complete bundle into the turn dir BEFORE the agent mutates the tree, that
+// pre-consort/ captures the `.consort` STATE (minus append-only streams + runtime ephemera), and that the
+// code pre-project tree still excludes `.consort`.
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "node:fs";
@@ -29,6 +31,15 @@ beforeEach(() => {
   writeFileSync(join(projectDir, "app", "models.py"), "class Stock: pass\n");
   writeFileSync(join(projectDir, "tests", "test_stock.py"), "def test(): assert True\n");
   writeFileSync(join(consortDir, "product-overview.md"), "the product\n");
+  // .consort STATE (kept by pre-consort): a top-level file, a nested state tree.
+  writeFileSync(join(consortDir, "smells.json"), "[]\n");
+  mkdirSync(join(consortDir, "features", "F1"), { recursive: true });
+  writeFileSync(join(consortDir, "features", "F1", "workflow-state.json"), '{"phase":"build"}\n');
+  // append-only STREAMS + runtime ephemera (EXCLUDED from pre-consort).
+  writeFileSync(join(consortDir, "agent-log.jsonl"), '{"e":"turn"}\n');
+  writeFileSync(join(consortDir, "correspondence.jsonl"), '{"c":"kickoff"}\n');
+  writeFileSync(join(consortDir, "agent-live.log"), "live reasoning...\n");
+  writeFileSync(join(consortDir, "deploy.pid"), "12345\n");
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
@@ -82,8 +93,18 @@ describe("wrapWithRecorder: the per-agent-turn replay set", () => {
     expect(readFileSync(join(setDir, "pre-project", "app", "models.py"), "utf8")).toContain("class Stock");
     expect(readFileSync(join(setDir, "pre-project", "tests", "test_stock.py"), "utf8")).toContain("def test()");
     expect(existsSync(join(setDir, "pre-project", "app", "produced-after.py")), "pre-state must NOT contain the file the turn produced").toBe(false);
-    // .consort is NOT snapshotted into the replay set (it is delta-tracked separately).
+    // .consort is NOT snapshotted into the pre-project CODE tree (that is code-only).
     expect(existsSync(join(setDir, "pre-project", ".consort")), ".consort excluded from pre-project").toBe(false);
+
+    // pre-consort/ , the full pre-turn .consort STATE tree, laid verbatim by a replay.
+    expect(readFileSync(join(setDir, "pre-consort", "product-overview.md"), "utf8")).toBe("the product\n");
+    expect(readFileSync(join(setDir, "pre-consort", "smells.json"), "utf8")).toBe("[]\n");
+    expect(readFileSync(join(setDir, "pre-consort", "features", "F1", "workflow-state.json"), "utf8")).toContain('"phase":"build"'); // nested state kept
+    // append-only STREAMS + runtime ephemera are EXCLUDED (not pre-turn routing state; O(turns^2) / transient).
+    expect(existsSync(join(setDir, "pre-consort", "agent-log.jsonl")), "agent-log stream excluded").toBe(false);
+    expect(existsSync(join(setDir, "pre-consort", "correspondence.jsonl")), "correspondence stream excluded").toBe(false);
+    expect(existsSync(join(setDir, "pre-consort", "agent-live.log")), "liveness sidecar excluded").toBe(false);
+    expect(existsSync(join(setDir, "pre-consort", "deploy.pid")), "pid ephemera excluded").toBe(false);
 
     // inputs/<id> , the resolved contents handed to the step.
     expect(readFileSync(join(setDir, "inputs", "product-overview"), "utf8")).toBe("the product\n");

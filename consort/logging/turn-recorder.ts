@@ -309,8 +309,14 @@ export function recordCorrespondence(recordDir: string, entry: CorrespondenceEnt
  *   guidelines.json     , the instruction guidelines (empty array when none).
  *   levers.json         , the RESOLVED agent levers (model/effort/session/toolScope) the turn ran
  *                         with , exactly what an optimization sweep varies.
- * `.consort` is NOT snapshotted here (it is delta-tracked every turn by recordTurn + the cumulative
- * recorded-artifacts mirror); the replay set is the CODE pre-state + the invocation conditions.
+ *   pre-consort/        , the FULL `.consort` STATE tree BEFORE the turn (cycles/features/experiments/
+ *                         design/smells/workflow , everything the drive reads to DERIVE this turn's
+ *                         routing), minus append-only event streams + runtime ephemera (see
+ *                         preConsortKeep). A replay lays this verbatim as the starting `.consort`
+ *                         instead of RECONSTRUCTING the pre-turn cycle state from prior turns' data (the
+ *                         driver-repair/refactor handroll). ADDITIVE: the replay path PREFERS pre-consort
+ *                         when present and falls back to the handroll when absent, so nothing that
+ *                         consumes the old path is retired until a fresh recording fills this.
  * MUST be called BEFORE the agent mutates the tree (pre-state), from the record wrapper.
  */
 export function recordReplaySet(args: {
@@ -340,7 +346,18 @@ export function recordReplaySet(args: {
     mkdirSync(dirname(dst), { recursive: true });
     cpSync(abs, dst);
   }
-  void consortDir; // .consort is delta-tracked by recordTurn, not snapshotted into the replay set.
+  // pre-consort/ , the full `.consort` STATE tree BEFORE the turn, laid verbatim by a replay so it never
+  // has to reconstruct the pre-turn cycle/review state from prior turns' data. Excludes append-only event
+  // STREAMS (agent-log/correspondence , already mirrored into the corpus separately, and O(turns^2) if
+  // snapshotted every turn) + runtime ephemera (pid/lock/socket + the liveness sidecar) , none of which is
+  // pre-turn routing state. Same walk+cpSync primitive as pre-project.
+  const preConsortDir = join(setDir, "pre-consort");
+  for (const abs of walk(consortDir, preConsortKeep)) {
+    const rel = relative(consortDir, abs);
+    const dst = join(preConsortDir, rel);
+    mkdirSync(dirname(dst), { recursive: true });
+    cpSync(abs, dst);
+  }
 
   // inputs/<id> , the resolved contents handed to the step.
   const inDir = join(setDir, "inputs");
@@ -457,6 +474,22 @@ export function renderTranscriptMd(t: RecordedTranscript, label: string): string
   }
   lines.push("## Final reasoning", "", t.finalText.trim() || "(no final assistant text)", "");
   return lines.join("\n");
+}
+
+/** Keep-predicate for the pre-`.consort` snapshot: the full STATE tree, minus what a replay never needs to
+ *  lay and that would bloat or destabilise the corpus:
+ *   - append-only event STREAMS (`agent-log.jsonl`, `correspondence.jsonl`) , not pre-turn routing state;
+ *     already captured/mirrored into the corpus separately, and snapshotting a growing log at EVERY turn
+ *     is O(turns^2) storage.
+ *   - runtime ephemera (`*.pid`, `*.lock`, `*.sock`, the `agent-live.log` liveness sidecar) , transient +
+ *     non-deterministic, never state.
+ *  Everything else (cycles/features/experiments/design/architecture/planning/sprints/deploy/escalations +
+ *  smells/workflow/run-config/selection-log) is kept verbatim. */
+function preConsortKeep(abs: string): boolean {
+  const base = abs.split(/[/\\]/).pop() ?? "";
+  if (base === "agent-log.jsonl" || base === "correspondence.jsonl") return false;
+  if (base === "agent-live.log" || /\.(pid|lock|sock)$/.test(base)) return false;
+  return true;
 }
 
 /** Recursively list files under a dir, applying an optional path filter. */

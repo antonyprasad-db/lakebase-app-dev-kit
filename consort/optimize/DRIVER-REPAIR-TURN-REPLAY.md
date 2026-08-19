@@ -64,22 +64,25 @@ scenario; we build it from the corpus turn instead.
    `0054`); candidate = the captured next-step review; gate on honest-GREEN.
 4. `driver-repair` experiment config (turn `0053`) + run the cloud sweep solo.
 
-## Recorder change (so we STOP handrolling) , the real fix, PLANNED
+## Recorder change (so we STOP handrolling) , CAPTURE + REPLAY-PREFER IMPLEMENTED; handroll KEPT as fallback
 
-Root cause = the recorder omits the pre-turn `.consort` cycle state from `replay-set/`. Fix: at turn
-start, the recorder snapshots the turn's pre-`.consort` cycle dir (`cycles/<f>/<s>/<ac>/` , the
-`cycle-NNN.json` + `green-failure.json` + `regression-assessment.json` + any `review-verdict.json`)
-into `replay-set/pre-consort/`. Then:
-- the replay path lays `replay-set/pre-consort/` verbatim , no constructed `cycle-NNN`, no per-turn
-  handroll, works for EVERY turn kind (repair/refactor/green);
-- `DRIVER_TURN_SEEDS` is **retired** (it exists only because this state was missing);
-- existing corpora get a one-time **backfill**: reconstruct `pre-consort/` from the union of prior
-  turns' produced cycle files (cycle record from the green turn, green-failure/regression from the
-  assess) , the same data the handroll uses, done once per turn instead of in the harness.
+Root cause = the recorder omitted the pre-turn `.consort` state from `replay-set/`. IMPLEMENTED (additive):
+- **Capture** (`recordReplaySet`, turn-recorder.ts): at turn start (pre-state), snapshots the FULL pre-turn
+  `.consort` STATE tree into `replay-set/pre-consort/` , everything the drive reads to derive routing
+  (cycles/features/experiments/design/architecture/planning/sprints/deploy/escalations + smells/workflow/
+  run-config/selection-log). EXCLUDES append-only event STREAMS (`agent-log.jsonl`, `correspondence.jsonl` ,
+  already mirrored separately, and O(turns^2) if snapshotted per-turn) + runtime ephemera (`*.pid/lock/sock`,
+  `agent-live.log`) via `preConsortKeep`. Hermetic: replay-set-recorder.test.ts.
+- **Replay-prefer** (`layBundle`, driver-build-support.ts): when `replay-set/pre-consort/` exists, lay it
+  verbatim (`cpSync`) as the starting `.consort` , works for EVERY turn kind, no constructed `cycle-NNN`.
+  When ABSENT (every corpus recorded BEFORE this change), fall back to the handroll `layReplayDriverPreCycle`.
 
-Owner note: the handroll (above) and the recorder change produce the SAME bytes; the recorder change
-just moves the assembly into the recorder + off the live harness. Prefer the recorder change once the
-handroll has proven the turn-replay end to end.
+NOTHING retired yet (per the owner): `DRIVER_TURN_SEEDS` + the handroll STAY until an ACTUAL fresh recording
+fills `pre-consort/` and the replay-prefer path is validated live against it. Only then: retire
+`DRIVER_TURN_SEEDS`, delete `layReplayDriverPreCycle`, and optionally one-time-backfill old corpora. The
+handroll and the pre-consort capture produce the same routing state; pre-consort is the faithful verbatim
+source (no reconstruction). The replay-prefer branch is dormant on existing corpora (no `pre-consort/`),
+so this change cannot regress the shipped repair/refactor tuning.
 
 ## Smoke result (1 candidate, sonnet, turn 0053) , pipeline VALIDATED; fixed a handroll test_ids bug
 

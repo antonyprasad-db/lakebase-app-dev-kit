@@ -24,7 +24,7 @@
 //   - design/ : architecture/db-design/test-list/AC + conventions the driver's context pack reads.
 //   (deploy-targets.yaml / run-tests.sh / alembic env come from the SCAFFOLD, not the bundle.)
 
-import { readFileSync, writeFileSync, existsSync, statSync, readdirSync, mkdtempSync, mkdirSync, chmodSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, statSync, readdirSync, mkdtempSync, mkdirSync, chmodSync, rmSync, cpSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
@@ -507,13 +507,20 @@ function layBundle(projectDir: string, consortDir: string, driverTurn: "green" |
       conventionsJson: b.conventionsJson,
       designDir: b.designDir,
     });
-    // REPAIR / REFACTOR routing: layReplayPreconditions lays design + code + test-list + acs, but NOT the
-    // pre-turn CYCLE state the drive reads to route these turns (repair: open-RED cycle + green-failure +
-    // regression-assessment; refactor: GREEN cycle + a refactor_requested review.json). Build that stand-in
-    // FROM the recorded turn's own data (see consort/optimize/DRIVER-REPAIR-TURN-REPLAY.md). Only the cycle
-    // record is synthesised; the routing markers are copied verbatim. (Retired by the planned recorder
-    // change that snapshots pre-`.consort` into the replay-set.)
-    if (driverTurn === "repair" || driverTurn === "refactor") layReplayDriverPreCycle(consortDir, b, driverTurn);
+    // PRE-TURN `.consort` STATE. layReplayPreconditions lays design + code + test-list + acs, but NOT the
+    // pre-turn CYCLE state the drive reads to route repair/refactor. Two sources, PREFERRING the faithful one:
+    //  (1) replay-set/pre-consort/ , the recorder now snapshots the full pre-turn `.consort` STATE verbatim.
+    //      When present, lay it as-is (it already carries cycles + review/green-failure/regression markers
+    //      for EVERY turn kind) , no reconstruction. This is the path the recorder change enables.
+    //  (2) FALLBACK (no pre-consort in this recording , every corpus captured before the recorder change):
+    //      the handroll layReplayDriverPreCycle reconstructs the repair/refactor cycle state from the turn's
+    //      own data. KEPT until a fresh recording fills pre-consort , nothing retired yet.
+    const preConsortDir = b.replay.turnDir ? join(b.replay.turnDir, "replay-set", "pre-consort") : "";
+    if (preConsortDir && existsSync(preConsortDir)) {
+      cpSync(preConsortDir, consortDir, { recursive: true }); // lay the recorded pre-turn .consort verbatim
+    } else if (driverTurn === "repair" || driverTurn === "refactor") {
+      layReplayDriverPreCycle(consortDir, b, driverTurn);
+    }
     return;
   }
 
