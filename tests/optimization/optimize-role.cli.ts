@@ -589,7 +589,7 @@ export function buildDriverNextStepJudge(handle: string): QualityGate {
 export async function sweepOneChain(
   handle: string,
   runRoot: string,
-  opts: { baseModel?: string; concurrency?: number; baselineDir?: string } = {},
+  opts: { baseModel?: string; concurrency?: number; baselineDir?: string; experiment?: string } = {},
 ): Promise<SweepReport> {
   // Determine if this is a design or build chain.
   const isBuildChain = handle in BUILD_ROLE_CHAINS;
@@ -602,8 +602,19 @@ export async function sweepOneChain(
   // The test-strategist is a SUPERVISOR , its optimization target is the per-analyst SUBAGENT levers,
   // not its own model. Its candidate set permutes ALL enabled analysts (behavior/fitness/client);
   // every other chain uses the single-role model/effort set.
-  const candidates =
-    handle === "test-strategist"
+  // Externalized experiment config (--experiment): SUPPLIES the candidates + the corpus turn (fixed
+  // preconditions) , the LEAN lane replays the recorded replay-set (recorded prompt + pre-project) via the
+  // ONE dispatcher (runReplayCandidate substrate:"lean"), not the curated reference-assets + regenerated
+  // prompt. Absent => the built-in candidate set + the reference-assets chain (legacy). The judge stays the
+  // per-chain discriminator either way.
+  const experiment = opts.experiment ? loadExperimentConfig(opts.experiment) : undefined;
+  if (experiment && experiment.substrate !== "lean") {
+    throw new Error(`experiment "${experiment.name}" (role ${experiment.role}) is substrate=${experiment.substrate}; a lean chain sweep needs a lean turn (use the driver-green handle for a cloud turn)`);
+  }
+  const experimentBundle: DriverGreenBundle | undefined = experiment ? replayBundleFromTurn(experiment.turn, experiment.ac) : undefined;
+  const candidates = experiment
+    ? experiment.roleCandidates
+    : handle === "test-strategist"
       ? testStrategistCandidates(enabledAnalysts({ projectDir: "", uiTrack: true }).map((a) => a.kind))
       : roleCandidates(baseModel);
   const runDir = join(runRoot, handle);
@@ -622,20 +633,34 @@ export async function sweepOneChain(
       `quality judge: MANDATORY (per-chain discriminator). run dir: ${runDir}`,
   );
 
-  const runChain: ChainRunner = isBuildChain
-    ? async (c, agentFor, _id, levers) =>
-        runBuildRoleChainLive(c as BuildRoleChain, {
+  const runChain: ChainRunner = experiment
+    ? // LEAN REPLAY: the ONE dispatcher, replaying the corpus turn's recorded state + prompt (no cloud).
+      async (_c, agentFor, candidateId, levers) =>
+        runReplayCandidate({
+          substrate: "lean",
+          bundle: experimentBundle,
+          project: undefined,
+          candidateId,
+          levers,
           agentFor: agentFor as (m: StepManifest) => StepAgent | undefined,
+          idx: 0,
+          driverTurn: "green",
+          pfx: "",
         })
-    : async (c, agentFor, _id, levers) =>
-        runRoleChainLive(c as RoleChain, {
-          agentFor: agentFor as (m: StepManifest) => StepAgent | undefined,
-          // TEST-STRATEGIST: forward the candidate's per-analyst overrides into the roster preparer.
-          ...(levers.analystOverrides ? { analystOverrides: levers.analystOverrides } : {}),
-        });
+    : isBuildChain
+      ? async (c, agentFor, _id, levers) =>
+          runBuildRoleChainLive(c as BuildRoleChain, {
+            agentFor: agentFor as (m: StepManifest) => StepAgent | undefined,
+          })
+      : async (c, agentFor, _id, levers) =>
+          runRoleChainLive(c as RoleChain, {
+            agentFor: agentFor as (m: StepManifest) => StepAgent | undefined,
+            // TEST-STRATEGIST: forward the candidate's per-analyst overrides into the roster preparer.
+            ...(levers.analystOverrides ? { analystOverrides: levers.analystOverrides } : {}),
+          });
   const trials = await runRoleSweep(chain, candidates, runChain, {
     ...(quality ? { quality } : {}),
-    ...(opts.concurrency ? { concurrency: opts.concurrency } : {}),
+    ...((experiment?.concurrency ?? opts.concurrency) ? { concurrency: experiment?.concurrency ?? opts.concurrency } : {}),
     onStart: (candidate, i, total) => {
       // eslint-disable-next-line no-console
       console.log(`[optimize-role] ${handle} (${i}/${total}) running ${candidate.id} , levers ${JSON.stringify(candidate.levers)} ...`);
@@ -755,6 +780,7 @@ export async function runOptimizeRole(args: OptimizeRoleArgs): Promise<Record<st
         ...(args.baseModel ? { baseModel: args.baseModel } : {}),
         ...(args.concurrency ? { concurrency: args.concurrency } : {}),
         ...(baselineDir ? { baselineDir } : {}),
+        ...(args.experiment ? { experiment: args.experiment } : {}),
       });
     }
   }
