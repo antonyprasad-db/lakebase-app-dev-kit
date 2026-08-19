@@ -124,7 +124,19 @@ export async function runIntegrationChain(config: IntegrationChainConfig): Promi
     agentContext,
     formatAgentReports: true,
     ...(recordedPrompt !== undefined
-      ? { instructionsFor: (_m: StepManifest, _a: WorkflowAction, _ws: string) => ({ prompt: recordedPrompt }) }
+      ? {
+          // The recorded prompt is the base body; the agent-report guideline is REQUIRED so the turn ends
+          // with the structured report the orchestrator formats into agent-log.jsonl (the manifest's
+          // navigatorLoggedAuthoring / *LoggedAuthoring output validator). Without it the turn produces its
+          // artifact but the log-authoring output fails to validate and the step emits "blocked".
+          instructionsFor: (_m: StepManifest, _a: WorkflowAction, _ws: string) => ({
+            prompt: recordedPrompt,
+            // The SAME agent-report guideline the lean chain's live run uses (build-role-chains
+            // runBuildRoleChainLive) , the lean lane's mechanism for eliciting the structured report the
+            // orchestrator formats into agent-log.jsonl (the cloud drive uses AGENT_TERSE_SUFFIX instead).
+            guidelines: ["Author your output as instructed; end with the agent-report block; run no command."],
+          }),
+        }
       : config.instructionsFor
         ? { instructionsFor: (m: StepManifest, _a: WorkflowAction, ws: string) => config.instructionsFor!(m, ws) }
         : {}),
@@ -142,6 +154,14 @@ export async function runIntegrationChain(config: IntegrationChainConfig): Promi
     provisionWorkspace: (m: StepManifest) => {
       const outputPaths = config.outputPathsByRole?.[m.role];
       return outputPaths ? { workspaceDir, outputPaths } : { workspaceDir };
+    },
+    // Surface a turn's output-VALIDATION violations (the reason a step emits "blocked" + re-issues).
+    // Previously computed but never shown, so a blocked lean turn aborted with only "blocked" and no
+    // cause. Log them so the failing validator is visible (observability, not load-bearing).
+    onRecord: (rec: { action: WorkflowAction; violations: string[] }) => {
+      if (rec.violations.length) {
+        process.stderr.write(`[integration-chain] step ${JSON.stringify(rec.action)} VIOLATIONS: ${rec.violations.join(" ; ")}\n`);
+      }
     },
     ...(config.preconditionOptions ? { preconditionOptions: config.preconditionOptions } : {}),
   };
