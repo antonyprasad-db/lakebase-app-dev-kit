@@ -305,6 +305,8 @@ function generateLeanReplayManifest(chainManifestDir: string, feature: string, s
   // relies on a report block), which a recorded-prompt replay follows inconsistently. Restore Bash so the
   // agent logs the way it recorded (the lean workspace provides scripts/lk, see runLeanReplayTurn).
   const mf = JSON.parse(liveRaw) as {
+    match?: { role?: string; story?: string; ac?: string; buildMode?: string };
+    inputs?: Array<{ id?: string; source?: string; description?: string }>;
     agent?: { config?: { allowedTools?: string[]; disallowedTools?: string[] } };
     outputs?: Array<{ id?: string; filename?: string }>;
   };
@@ -312,6 +314,21 @@ function generateLeanReplayManifest(chainManifestDir: string, feature: string, s
     const cfg = mf.agent.config;
     cfg.disallowedTools = (cfg.disallowedTools ?? []).filter((t) => t !== "Bash");
     cfg.allowedTools = Array.from(new Set([...(cfg.allowedTools ?? []), "Bash"]));
+  }
+  // FAITHFUL RED input: the reference-assets chain manifest sources test-list at FEATURE scope
+  // (feature:.consort/features/F6/test-list.json) + a single curated AC file , both laid by its seed
+  // manifest. The REPLAY drops that seed and lays the corpus turn's recorded pre-turn state via
+  // layReplayPreconditions, which puts the STORY-level test-list-per-story.json + the story's real acs/ at
+  // .consort/features/<feature>/stories/<story>/. resolveInputs strips `feature:`, expands {feature}/{story}
+  // from the action, and readFileSyncs ONE FILE (no `story:` scope, no directory). So point test-list at the
+  // story-level file layReplayPreconditions actually lays; the story's ACs are already embedded in the
+  // recorded prompt (which drives verbatim) + on disk, so no separate ac input is needed as a phase-1 gate.
+  // RED = a navigator invoke-role with a story and NO buildMode/ac (assess/review/reflect carry a buildMode;
+  // green is driver).
+  if (mf.match?.role === "navigator" && mf.match.story && !mf.match.buildMode && !mf.match.ac) {
+    mf.inputs = [
+      { id: "test-list", source: "feature:.consort/features/{feature}/stories/{story}/test-list-per-story.json", description: "The story's ordered test list , every item must be covered + faithfully asserted." },
+    ];
   }
   // Drop the `agent-log` output from the REPLAY manifest , evidence-based, not a shortcut. In the REAL
   // drive the agent-log.jsonl is written by the RECORDER from turn events; the recorded navigator prompt
