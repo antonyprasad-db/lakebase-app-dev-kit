@@ -305,6 +305,10 @@ export function spawnClaudeStreaming(
       }
     };
     let lastText = "";
+    // Accumulate the assistant text containing a ```agent-report fence (the report block may precede a
+    // closing message, so the LAST message alone can miss it). Held so the transcript's finalText carries
+    // the report block for the record/log phase (formatAgentReport extracts the fence from finalText).
+    let reportText = "";
     const allTools: string[] = []; // accumulate for the recorded transcript
     // Per-turn liveness monitor (Slice 3): fed one progress event per stream line, it
     // re-arms an inactivity deadline on every line and, after a stretch of total silence
@@ -366,6 +370,7 @@ export function spawnClaudeStreaming(
       // thinking, not spinning, mid-turn.
       if (text) {
         lastText = text; // hold for the console; only the final one is printed at close
+        if (text.includes("```agent-report")) reportText = text; // keep the report-block message (may precede a closing one)
         liveWrite(text.endsWith("\n") ? text : `${text}\n`);
         monitorCtl.progress({ kind: "text" }); // assistant text = real liveness; re-arm
       }
@@ -424,7 +429,10 @@ export function spawnClaudeStreaming(
         prompt: pIdx >= 0 ? args[pIdx + 1] ?? "" : "",
         role: rIdx >= 0 ? args[rIdx + 1] : undefined,
         model: mIdx >= 0 ? args[mIdx + 1] : undefined,
-        finalText: lastText,
+        // Prefer the message that carries the ```agent-report block (the record/log phase extracts the
+        // report from finalText); a model that emits the report then a closing line would otherwise lose
+        // it. Falls back to the last message when no report block was emitted (unchanged behavior).
+        finalText: reportText || lastText,
         tools: allTools,
       };
       // Record as global last AND per-cwd (the worktree), so a concurrent peek gets ITS OWN turn, not a
