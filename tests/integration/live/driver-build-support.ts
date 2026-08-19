@@ -218,54 +218,72 @@ function hasSourceFile(dir: string): boolean {
  *  The artifact-root segment is DERIVED from the caller's resolved `consortDir` (relative to
  *  projectDir), so the bundle lands in the EXACT dir the reads (storyTestProgress, beginNextPendingBatch)
  *  use , no re-derivation, no path string to drift from what the caller already resolved. */
+/** Lay a corpus turn's REPLAY preconditions: the recorded design system + the recorded pre-project code
+ *  tree + the recorded-artifacts build inputs (architecture/db-design/conventions/story.json + acs/ + the
+ *  recorded per-story test-list + the narrative .md the prompt cites). This is the SHARED preconditions
+ *  primitive BOTH substrates use , the cloud driver AND the lean navigator/design turns , so every
+ *  optimization experiment replays the SAME recorded state off ONE function (no per-lane seed). The turn's
+ *  recorded prompt drives it separately via cfg.instructionsOverride; cloud-only routing (pipeline/cut-
+ *  experiment/Lakebase) is layered by the cloud runner AFTER this. */
+export function layReplayPreconditions(
+  projectDir: string,
+  consortDir: string,
+  spec: { feature: string; story: string; preProjectDir: string; recordedArtifactsFeatureDir: string; conventionsJson: string; designDir: string },
+): void {
+  const artifactRel = relative(projectDir, consortDir);
+  const featureRel = join(artifactRel, "features", spec.feature);
+  const storyRel = join(featureRel, "stories", spec.story);
+  // Design system , satisfies the ux-designer gate (uiTrack && breakdownDone && !designGuideReady); UI
+  // stories build to it. Feature-agnostic project design system.
+  overlayBundle(projectDir, { trees: [{ from: spec.designDir, to: join(artifactRel, "design") }] });
+  // Pre-turn CODE = recorded pre-project (the exact tree the agent ran against); build-input artifacts =
+  // the corpus recorded-artifacts (NOT the whole recorded story dir, which holds post-completion artifacts
+  // like deploy-evidence/reflect-verdict that could mis-route).
+  const raStoryDir = join(spec.recordedArtifactsFeatureDir, "stories", spec.story);
+  const acFiles = readdirSync(join(raStoryDir, "acs")).filter((f) => f.endsWith(".json"));
+  overlayBundle(projectDir, {
+    trees: [{ from: spec.preProjectDir, to: "." }],
+    files: [
+      { from: join(spec.recordedArtifactsFeatureDir, "architecture.json"), to: join(featureRel, "architecture.json") },
+      { from: join(spec.recordedArtifactsFeatureDir, "db-design.json"), to: join(featureRel, "db-design.json") },
+      { from: spec.conventionsJson, to: join(artifactRel, "architecture", "conventions.json") },
+      { from: join(raStoryDir, "story.json"), to: join(storyRel, "story.json") },
+      { from: join(raStoryDir, "test-list-per-story.json"), to: join(storyRel, "test-list-per-story.json") },
+      ...acFiles.map((f) => ({ from: join(raStoryDir, "acs", f), to: join(storyRel, "acs", f) })),
+    ],
+  });
+  // The recorded prompt's RUBRIC cites the narrative .md artifacts ("open ONLY if you need more"); lay
+  // whichever the recording has so no cited path dangles when the agent follows it.
+  for (const [src, dst] of [
+    [join(spec.recordedArtifactsFeatureDir, "architecture.md"), join(featureRel, "architecture.md")],
+    [join(spec.recordedArtifactsFeatureDir, "db-design.md"), join(featureRel, "db-design.md")],
+    [join(CORPUS_RA, "nfrs.md"), join(artifactRel, "nfrs.md")],
+  ] as const) {
+    if (existsSync(src)) overlayBundle(projectDir, { files: [{ from: src, to: dst }] });
+  }
+}
+
 function layBundle(projectDir: string, consortDir: string, driverTurn: "green" | "repair" | "refactor" = "green", bundle: DriverGreenBundle = DRIVER_GREEN_BUNDLE): void {
   const b = bundle;
   const artifactRel = relative(projectDir, consortDir); // the one true artifact root, as the caller resolved it
   const featureRel = join(artifactRel, "features", b.feature);
   const storyRel = join(featureRel, "stories", b.story);
 
-  // The recorded DESIGN output (design-guide.json + .md + ia.md) under <consortDir>/design/. The
-  // recording ran ux-designer before any build turn (full-stack corpus), so with uiTrack ON the drive's
-  // design gate (orchestrator-drive.ts: uiTrack && breakdownDone && !designGuideReady -> ux-designer) is
-  // satisfied by design-guide.json being present , WITHOUT it the drive re-derives ux-designer before the
-  // driver turn under test and fails loud on the missing design-brief input. Feature-agnostic (the
-  // project design system), so laid for green/repair/refactor alike.
-  overlayBundle(projectDir, { trees: [{ from: b.designDir, to: join(artifactRel, "design") }] });
-
   if (b.replay) {
-    // REPLAY: the pre-turn CODE is the recorded pre-project (the exact tree the agent ran against); the
-    // build-input artifacts are the corpus recorded-artifacts (architecture / db-design / conventions /
-    // story.json + acs/ + the recorded per-story test-list). We copy the SAME build-input set the proven
-    // legacy routing needs (not the whole recorded story dir, which also holds post-completion artifacts
-    // like deploy-evidence/reflect-verdict that could mis-route), sourced from the recording. The
-    // <consortDir>/design/ system + pipeline/open-RED routing (below) do the rest; the recorded prompt.txt
-    // drives the turn (cfg.instructionsOverride).
-    const raStoryDir = join(b.recordedArtifactsFeatureDir, "stories", b.story);
-    const acFiles = readdirSync(join(raStoryDir, "acs")).filter((f) => f.endsWith(".json"));
-    overlayBundle(projectDir, {
-      trees: [{ from: b.preRedCodeDir, to: "." }],
-      files: [
-        { from: join(b.recordedArtifactsFeatureDir, "architecture.json"), to: join(featureRel, "architecture.json") },
-        { from: join(b.recordedArtifactsFeatureDir, "db-design.json"), to: join(featureRel, "db-design.json") },
-        { from: b.conventionsJson, to: join(artifactRel, "architecture", "conventions.json") },
-        { from: join(raStoryDir, "story.json"), to: join(storyRel, "story.json") },
-        { from: join(raStoryDir, "test-list-per-story.json"), to: join(storyRel, "test-list-per-story.json") },
-        ...acFiles.map((f) => ({ from: join(raStoryDir, "acs", f), to: join(storyRel, "acs", f) })),
-      ],
+    // REPLAY: the ONE shared preconditions primitive (also used by the lean navigator/design substrate).
+    layReplayPreconditions(projectDir, consortDir, {
+      feature: b.feature,
+      story: b.story,
+      preProjectDir: b.preRedCodeDir,
+      recordedArtifactsFeatureDir: b.recordedArtifactsFeatureDir,
+      conventionsJson: b.conventionsJson,
+      designDir: b.designDir,
     });
-    // The recorded prompt's RUBRIC cites the narrative .md artifacts ("open ONLY if you need more"); lay
-    // whichever the recording has so no cited path dangles when the driver follows it.
-    for (const [src, dst] of [
-      [join(b.recordedArtifactsFeatureDir, "architecture.md"), join(featureRel, "architecture.md")],
-      [join(b.recordedArtifactsFeatureDir, "db-design.md"), join(featureRel, "db-design.md")],
-      [join(CORPUS_RA, "nfrs.md"), join(artifactRel, "nfrs.md")],
-    ] as const) {
-      if (existsSync(src)) overlayBundle(projectDir, { files: [{ from: src, to: dst }] });
-    }
     return;
   }
 
   // ── LEGACY hand-curated seed (SETUP_DIR bundles) , superseded by the replay path above. ──
+  overlayBundle(projectDir, { trees: [{ from: b.designDir, to: join(artifactRel, "design") }] });
   // The CODE tree: green seeds the post-RED bundle; repair/refactor seed their recorded PRE-TURN snapshot.
   const codeDir = driverTurn === "green" ? b.preRedCodeDir : DRIVER_TURN_SEEDS[driverTurn].codeDir;
   overlayBundle(projectDir, {
