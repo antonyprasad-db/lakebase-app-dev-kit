@@ -1,0 +1,13 @@
+{
+  "name": "navigator-red-confirm",
+  "turn": "0088-navigator",
+  "discriminator": "red",
+  "concurrency": 3,
+  "candidates": [
+    { "id": "sonnet-e-low", "levers": { "model": "sonnet", "effort": "low" } },
+    { "id": "sonnet-e-low-2", "levers": { "model": "sonnet", "effort": "low" } },
+    { "id": "sonnet-e-low-3", "levers": { "model": "sonnet", "effort": "low" } },
+    { "id": "opus", "levers": { "model": "opus" } },
+    { "id": "opus-2", "levers": { "model": "opus" } }
+  ]
+}
