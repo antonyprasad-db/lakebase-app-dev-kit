@@ -80,3 +80,30 @@ into `replay-set/pre-consort/`. Then:
 Owner note: the handroll (above) and the recorder change produce the SAME bytes; the recorder change
 just moves the assembly into the recorder + off the live harness. Prefer the recorder change once the
 handroll has proven the turn-replay end to end.
+
+## Smoke result (1 candidate, sonnet, turn 0053) , the handroll is INSUFFICIENT; do the recorder change
+
+Ran the single-candidate live smoke (commit 1e581502). What worked: `layReplayRepairCycle` ROUTED the
+drive to a repair (`[executor] dispatch driver-repair`), the driver repaired live (265.6s), honest-GREEN
+ran, and the judge scored it. What the smoke EXPOSED (the single-AC handroll is too thin):
+
+1. **Pre-state must be the WHOLE STORY's cycle state, not one AC.** I seeded only AC1's cycle. Story
+   `S3-view-sku-detail` has other ACs (T37-T42) with NO cycles, so after AC1 the drive routes to MORE
+   BUILDING (a driver green/repair), never to the story-level REVIEW that `0053`->`0054` recorded.
+2. **The next-step capture stops before the review.** The eval loop is `runDriver(..., stopWhen:
+   isDriverTurn, maxSteps:3)` , after a repair whose next action is a DRIVER turn (per #1), it stops
+   IMMEDIATELY, so NO navigator eval runs. The marker capture then snapshots the AC cycle dir and picks
+   up my SEEDED `cycle-001.json` + `regression-assessment.json` (verified byte-identical to the seed =
+   contamination), and the review judge fails ("no next-step review-verdict produced").
+
+Conclusion: a faithful repair->review replay needs (a) the whole story's pre-turn cycle state and (b) a
+next-step capture that drives PAST intermediate driver turns to the review. Hand-assembling the whole
+story cycle state per turn is exactly the work the RECORDER CHANGE removes , snapshot the entire
+pre-turn `.consort` (all of the story's cycles + markers) into `replay-set/pre-consort/`, lay it
+verbatim, and the recorder already knows the real next turn. So: **do the recorder change** rather than
+grow the handroll. The single-AC handroll (`layReplayRepairCycle`) stays as the proven routing seam but
+is NOT sufficient for the review-quality judgement on its own.
+
+Cleanup note: the smoke's teardown logged "dg-live-... still present after 5 delete attempts" , that was
+eventual-consistency lag; a follow-up `list-projects` showed NO dg-live projects (it deleted). The next
+driver sweep also orphan-sweeps at start.
