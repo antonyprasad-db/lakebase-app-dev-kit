@@ -304,13 +304,22 @@ function generateLeanReplayManifest(chainManifestDir: string, feature: string, s
   // consort-log`, per the recorded prompt). The reference-assets chain SANDBOXES that (disallows Bash +
   // relies on a report block), which a recorded-prompt replay follows inconsistently. Restore Bash so the
   // agent logs the way it recorded (the lean workspace provides scripts/lk, see runLeanReplayTurn).
-  const mf = JSON.parse(liveRaw) as { agent?: { config?: { allowedTools?: string[]; disallowedTools?: string[] } } };
+  const mf = JSON.parse(liveRaw) as {
+    agent?: { config?: { allowedTools?: string[]; disallowedTools?: string[] } };
+    outputs?: Array<{ id?: string; filename?: string }>;
+  };
   if (mf.agent?.config) {
     const cfg = mf.agent.config;
     cfg.disallowedTools = (cfg.disallowedTools ?? []).filter((t) => t !== "Bash");
     cfg.allowedTools = Array.from(new Set([...(cfg.allowedTools ?? []), "Bash"]));
-    liveRaw = JSON.stringify(mf, null, 2);
   }
+  // Point the agent-log output where `lk consort-log`/`consort-cycle` ACTUALLY write it ,
+  // <consortDir>/agent-log.jsonl (i.e. .consort/agent-log.jsonl) , not the reference-assets manifest's
+  // workspace-root "agent-log.jsonl" (that path is for the chain's formatAgentReports fallback). Without
+  // this the lk-written log lands under .consort/ while the validator checks the root and wrongly blocks.
+  const logOut = mf.outputs?.find((o) => o.id === "agent-log");
+  if (logOut) logOut.filename = join(ARTIFACT_ROOT, "agent-log.jsonl");
+  liveRaw = JSON.stringify(mf, null, 2);
   const dir = mkdtempSync(join(tmpdir(), "replay-manifest-"));
   writeFileSync(join(dir, "live.json"), liveRaw);
   return dir;
