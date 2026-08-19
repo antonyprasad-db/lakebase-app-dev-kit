@@ -1,0 +1,12 @@
+{
+  "name": "navigator-assess-confirm",
+  "turn": "0157-navigator-assess",
+  "ac": "AC1-detail-view-shows-batch-and-serial",
+  "concurrency": 3,
+  "candidates": [
+    { "id": "sonnet", "levers": { "model": "sonnet" } },
+    { "id": "opus", "levers": { "model": "opus" } },
+    { "id": "opus-2", "levers": { "model": "opus" } },
+    { "id": "opus-3", "levers": { "model": "opus" } }
+  ]
+}
