@@ -53,6 +53,12 @@ export interface ExperimentConfig {
   ac: string;
   /** The driver turn kind. Derived from the turn label when omitted (…-repair / …-refactor / else green). */
   driverTurn?: "green" | "repair" | "refactor";
+  /** The DISCRIMINATOR (judge evaluator) for this turn , named + externalized, not code-selected. "assess"
+   *  = compare the produced assess marker (superseded/regression) to the recorded one; "review" = compare
+   *  the produced review-verdict to the recorded one. Derived from the turn when omitted (…-refactor /
+   *  …-review => review; else assess). The judge scores the candidate vs the REPLAYED turn's recorded
+   *  determination (same/better/worse) using this evaluator. */
+  discriminator?: "assess" | "review";
   concurrency?: number;
   replicas?: number;
   candidates: ExperimentCandidateSpec[];
@@ -92,6 +98,12 @@ export function driverTurnFromLabel(turn: string): "green" | "repair" | "refacto
   if (/-repair\b/.test(turn) || turn.endsWith("-repair")) return "repair";
   if (/-refactor\b/.test(turn) || turn.endsWith("-refactor")) return "refactor";
   return "green";
+}
+
+/** The discriminator (judge evaluator) a turn label implies: a REFACTOR/REVIEW turn is judged on its
+ *  review-verdict ("review"); everything else (green/repair/assess) on its assess marker ("assess"). */
+export function discriminatorFromLabel(turn: string): "assess" | "review" {
+  return /-refactor\b|-refactor$|-review\b|-review$/.test(turn) ? "review" : "assess";
 }
 
 /** Normalize a declarative lever spec to the harness RoleLeverPatch. `context.append` -> ctxPack (the
@@ -144,6 +156,7 @@ export function loadExperimentConfig(
     turn: raw.turn,
     ac: raw.ac,
     driverTurn: raw.driverTurn ?? driverTurnFromLabel(raw.turn),
+    discriminator: raw.discriminator ?? discriminatorFromLabel(raw.turn),
     ...(raw.concurrency !== undefined ? { concurrency: raw.concurrency } : {}),
     ...(raw.replicas !== undefined ? { replicas: raw.replicas } : {}),
     candidates: raw.candidates,

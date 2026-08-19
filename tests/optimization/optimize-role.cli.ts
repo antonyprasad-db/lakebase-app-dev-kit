@@ -27,7 +27,7 @@ import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, mkdtem
 import { tmpdir } from "node:os";
 import { join, dirname, relative } from "node:path";
 import { ROLE_CHAINS, runRoleChainLive, INTAKE_REL, type RoleChain } from "../../consort/optimize/role-chains.js";
-import { BUILD_ROLE_CHAINS, runBuildRoleChainLive, BUILD_CORPUS_REL, type BuildRoleChain } from "../../consort/optimize/build-role-chains.js";
+import { BUILD_ROLE_CHAINS, runBuildRoleChainLive, BUILD_CORPUS_REL, BUILD_MANIFESTS_REL, type BuildRoleChain } from "../../consort/optimize/build-role-chains.js";
 import { roleCandidates, testStrategistCandidates, driverGreenCandidates } from "./role-levers.js";
 import { deployPortForIndex } from "./driver-green-enforcement.js";
 import { runRoleSweep, type SweepTrial, type ChainRunner, type ChainRunResult, type QualityGate, type QualityVerdict, type SweepableChain } from "./role-sweep.js";
@@ -209,12 +209,15 @@ async function runReplayCandidate(args: {
   idx: number;
   driverTurn: "green" | "repair" | "refactor";
   pfx: string;
+  /** The chain's manifest dir , required for the lean substrate (the per-chain manifest subdir). */
+  manifestDir?: string;
 }): Promise<ChainRunResult> {
   if (args.substrate === "lean") {
     if (!args.bundle) throw new Error("lean replay requires a bundle (the corpus turn to replay)");
+    if (!args.manifestDir) throw new Error("lean replay requires a manifestDir (the chain's manifest subdir)");
     // The lean lane's usage rides turns[].agentResult (the design-lane telemetry path), so cost is
     // recorded identically; the gate is derived from the produced turn (no runner-supplied gate needed).
-    const { turns, producedArtifacts } = await runLeanReplayTurn(args.bundle, args.agentFor);
+    const { turns, producedArtifacts } = await runLeanReplayTurn(args.bundle, args.agentFor, args.manifestDir);
     return { turns, producedArtifacts };
   }
   // CLOUD: the driver's live cycle (scaffold worktree + Lakebase branch + honest-GREEN + navigator eval).
@@ -245,7 +248,12 @@ async function runReplayCandidate(args: {
  *  turn's RECORDED marker (its files/.consort snapshot), same/better/worse , the discriminator principle,
  *  vs the replayed turn's own recorded determination (not the curated reference-assets). Mirrors
  *  buildDriverNextStepJudge but the reference is the replayed turn itself. */
-function buildReplayTurnJudge(turnLabel: string, feature: string, story: string, ac: string): QualityGate {
+function buildReplayTurnJudge(turnLabel: string, feature: string, story: string, ac: string, discriminator: "assess" | "review"): QualityGate {
+  if (discriminator !== "assess") {
+    // "review" compares review-verdict.json (recordedReviewDirective vs candidateReview) , wired when a
+    // refactor/review turn is first targeted; assess (superseded/regression markers) is what's live now.
+    throw new Error(`buildReplayTurnJudge: discriminator "${discriminator}" not yet wired (assess only)`);
+  }
   const cwd = process.cwd();
   const deltaJudge = makeSupersessionDeltaJudge({ cwd });
   const verdictJudge = makeVerdictAlignmentJudge({ cwd });
@@ -674,7 +682,7 @@ export async function sweepOneChain(
   // marker); otherwise the legacy per-chain judge (reference-assets). Both are mandatory LLM judges.
   const quality: QualityGate =
     experiment && experimentBundle
-      ? buildReplayTurnJudge(experiment.turn, experimentBundle.feature, experimentBundle.story, experimentBundle.ac)
+      ? buildReplayTurnJudge(experiment.turn, experimentBundle.feature, experimentBundle.story, experimentBundle.ac, experiment.discriminator ?? "assess")
       : buildChainJudge(chain, handle, isBuildChain);
 
   // eslint-disable-next-line no-console
@@ -696,6 +704,8 @@ export async function sweepOneChain(
           idx: 0,
           driverTurn: "green",
           pfx: "",
+          // The per-chain manifest subdir (e.g. navigator-assess-chain) , the lean turn's manifests.
+          manifestDir: join(process.cwd(), BUILD_MANIFESTS_REL, chain.dir),
         })
     : isBuildChain
       ? async (c, agentFor, _id, levers) =>

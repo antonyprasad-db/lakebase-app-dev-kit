@@ -278,11 +278,12 @@ export function layReplayPreconditions(
 export async function runLeanReplayTurn(
   bundle: DriverGreenBundle,
   agentFor: (m: StepManifest) => StepAgent | undefined,
+  manifestDir: string,
 ): Promise<{ turns: ManifestTurn[]; producedArtifacts: Record<string, string> }> {
   const rs = bundle.replay;
   if (!rs) throw new Error("runLeanReplayTurn requires a replay bundle (bundle.replay is unset)");
   const { turns, producedArtifacts } = await runIntegrationChain({
-    manifestDir: join(KIT, "tests/integration/manifests"),
+    manifestDir,
     intakeDir: CORPUS_DIR,
     feature: bundle.feature,
     start: rs.action as WorkflowAction,
