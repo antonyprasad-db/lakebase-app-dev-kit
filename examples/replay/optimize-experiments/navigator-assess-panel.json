@@ -1,0 +1,13 @@
+{
+  "name": "navigator-assess-panel",
+  "turn": "0157-navigator-assess",
+  "ac": "AC1-detail-view-shows-batch-and-serial",
+  "concurrency": 3,
+  "candidates": [
+    { "id": "opus", "levers": { "model": "opus" } },
+    { "id": "opus-e-low", "levers": { "model": "opus", "effort": "low" } },
+    { "id": "sonnet-e-low", "levers": { "model": "sonnet", "effort": "low" } },
+    { "id": "haiku", "levers": { "model": "haiku" } },
+    { "id": "haiku-e-low", "levers": { "model": "haiku", "effort": "low" } }
+  ]
+}
