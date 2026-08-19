@@ -49,16 +49,19 @@ export interface ExperimentConfig {
   /** Corpus turn label whose replay-set + recorded-artifacts are the preconditions (e.g. "0156-driver",
    *  "0006-ux-designer", "0037-navigator-assess"). */
   turn: string;
-  /** The story AC the turn targets (identifies the artifact copy). */
-  ac: string;
+  /** The story AC the turn targets (identifies the artifact copy). Required for AC-scoped turns
+   *  (assess/green/repair); OPTIONAL (and unused) for the story-scoped RED turn, which authors the whole
+   *  story's tests, not one AC's. */
+  ac?: string;
   /** The driver turn kind. Derived from the turn label when omitted (…-repair / …-refactor / else green). */
   driverTurn?: "green" | "repair" | "refactor";
   /** The DISCRIMINATOR (judge evaluator) for this turn , named + externalized, not code-selected. "assess"
    *  = compare the produced assess marker (superseded/regression) to the recorded one; "review" = compare
-   *  the produced review-verdict to the recorded one. Derived from the turn when omitted (…-refactor /
-   *  …-review => review; else assess). The judge scores the candidate vs the REPLAYED turn's recorded
-   *  determination (same/better/worse) using this evaluator. */
-  discriminator?: "assess" | "review";
+   *  the produced review-verdict to the recorded one; "red" = functional coverage of the produced tests vs
+   *  the tests the recorded turn authored. Derived from the turn when omitted (…-refactor / …-review =>
+   *  review; a plain navigator/red build turn => red; else assess). The judge scores the candidate vs the
+   *  REPLAYED turn's recorded output using this evaluator. */
+  discriminator?: "assess" | "review" | "red";
   concurrency?: number;
   replicas?: number;
   candidates: ExperimentCandidateSpec[];
@@ -101,9 +104,13 @@ export function driverTurnFromLabel(turn: string): "green" | "repair" | "refacto
 }
 
 /** The discriminator (judge evaluator) a turn label implies: a REFACTOR/REVIEW turn is judged on its
- *  review-verdict ("review"); everything else (green/repair/assess) on its assess marker ("assess"). */
-export function discriminatorFromLabel(turn: string): "assess" | "review" {
-  return /-refactor\b|-refactor$|-review\b|-review$/.test(turn) ? "review" : "assess";
+ *  review-verdict ("review"); a plain navigator BUILD turn (label ends "-navigator", no build-mode
+ *  suffix , the story-level RED turn that authors the failing tests) on functional test coverage
+ *  ("red"); everything else (green/repair/assess) on its assess marker ("assess"). */
+export function discriminatorFromLabel(turn: string): "assess" | "review" | "red" {
+  if (/-refactor\b|-refactor$|-review\b|-review$/.test(turn)) return "review";
+  if (/-navigator$/.test(turn)) return "red";
+  return "assess";
 }
 
 /** Normalize a declarative lever spec to the harness RoleLeverPatch. `context.append` -> ctxPack (the
@@ -138,11 +145,14 @@ function toLeverPatch(spec: ExperimentLeverSpec, candidateId: string): RoleLever
  *  the DERIVED role + substrate (the unified harness reads `substrate` to pick cloud vs lean). */
 export function loadExperimentConfig(
   path: string,
-): ExperimentConfig & { roleCandidates: RoleCandidate[]; role: string; substrate: "cloud" | "lean" } {
+): Omit<ExperimentConfig, "ac"> & { ac: string; roleCandidates: RoleCandidate[]; role: string; substrate: "cloud" | "lean" } {
   const raw = JSON.parse(readFileSync(path, "utf8")) as Partial<ExperimentConfig>;
   if (!raw.name || typeof raw.name !== "string") throw new Error(`experiment config ${path}: missing "name"`);
   if (!raw.turn || typeof raw.turn !== "string") throw new Error(`experiment config ${path}: missing "turn" (the corpus turn label)`);
-  if (!raw.ac || typeof raw.ac !== "string") throw new Error(`experiment config ${path}: missing "ac"`);
+  const discriminator = raw.discriminator ?? discriminatorFromLabel(raw.turn);
+  // ac is REQUIRED for AC-scoped turns (assess/green/repair identify one AC's artifact); the RED turn is
+  // story-scoped (authors the whole story's tests) so ac is optional + unused there.
+  if (discriminator !== "red" && (!raw.ac || typeof raw.ac !== "string")) throw new Error(`experiment config ${path}: missing "ac" (required for a "${discriminator}" turn)`);
   if (!Array.isArray(raw.candidates) || raw.candidates.length === 0) throw new Error(`experiment config ${path}: "candidates" must be a non-empty array`);
   const seen = new Set<string>();
   const roleCandidates: RoleCandidate[] = raw.candidates.map((c) => {
@@ -154,9 +164,9 @@ export function loadExperimentConfig(
   return {
     name: raw.name,
     turn: raw.turn,
-    ac: raw.ac,
+    ac: raw.ac ?? "",
     driverTurn: raw.driverTurn ?? driverTurnFromLabel(raw.turn),
-    discriminator: raw.discriminator ?? discriminatorFromLabel(raw.turn),
+    discriminator,
     ...(raw.concurrency !== undefined ? { concurrency: raw.concurrency } : {}),
     ...(raw.replicas !== undefined ? { replicas: raw.replicas } : {}),
     candidates: raw.candidates,

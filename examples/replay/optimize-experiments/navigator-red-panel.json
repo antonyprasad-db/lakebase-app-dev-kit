@@ -1,0 +1,13 @@
+{
+  "name": "navigator-red-panel",
+  "turn": "0088-navigator",
+  "discriminator": "red",
+  "concurrency": 3,
+  "candidates": [
+    { "id": "opus", "levers": { "model": "opus" } },
+    { "id": "sonnet", "levers": { "model": "sonnet" } },
+    { "id": "sonnet-e-low", "levers": { "model": "sonnet", "effort": "low" } },
+    { "id": "haiku", "levers": { "model": "haiku" } },
+    { "id": "haiku-e-low", "levers": { "model": "haiku", "effort": "low" } }
+  ]
+}

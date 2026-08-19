@@ -252,13 +252,37 @@ async function runReplayCandidate(args: {
  *  turn's RECORDED marker (its files/.consort snapshot), same/better/worse , the discriminator principle,
  *  vs the replayed turn's own recorded determination (not the curated reference-assets). Mirrors
  *  buildDriverNextStepJudge but the reference is the replayed turn itself. */
-function buildReplayTurnJudge(turnLabel: string, feature: string, story: string, ac: string, discriminator: "assess" | "review"): QualityGate {
-  if (discriminator !== "assess") {
-    // "review" compares review-verdict.json (recordedReviewDirective vs candidateReview) , wired when a
-    // refactor/review turn is first targeted; assess (superseded/regression markers) is what's live now.
-    throw new Error(`buildReplayTurnJudge: discriminator "${discriminator}" not yet wired (assess only)`);
-  }
+function buildReplayTurnJudge(turnLabel: string, feature: string, story: string, ac: string, discriminator: "assess" | "review" | "red"): QualityGate {
   const cwd = process.cwd();
+  if (discriminator === "red") {
+    // navigator-RED: functional coverage of the candidate's authored tests vs the tests the REPLAYED
+    // corpus turn recorded (the corpus-faithful reference , what THAT turn produced, not curated
+    // reference-assets). A faster/cheaper lever HOLDS the score when its tests cover the SAME behaviors
+    // (score >= FUNCTIONAL_THRESHOLD); missing coverage drops the score. Mirrors the reference-assets red
+    // path (makeOpusJudge functional:"tests") but the reference is the replayed turn's own test tree.
+    const judge = makeOpusJudge({ cwd });
+    const RED_EXTS = [".py", ".ts", ".tsx", ".feature"] as const;
+    // The recorded turn's authored test tree: pytest under tests/, Vitest under client/tests/, Gherkin
+    // .feature. snapshotTree loads files/ into the SAME {relpath -> contents} shape concatTreeFiles reads.
+    const recMap = snapshotTree(join(CORPUS_TURNS, turnLabel, "files"), join(CORPUS_TURNS, turnLabel, "files"));
+    const reference = concatTreeFiles(recMap, "tests/", RED_EXTS) + "\n" + concatTreeFiles(recMap, "client/tests/", RED_EXTS);
+    if (!reference.trim()) {
+      throw new Error(`buildReplayTurnJudge(red): recorded turn ${turnLabel} has no test tree under files/tests|client/tests , cannot judge.`);
+    }
+    return {
+      judgeCandidate: async ({ producedArtifacts }) => {
+        const candidate = concatTreeFiles(producedArtifacts, "tests/", RED_EXTS) + "\n" + concatTreeFiles(producedArtifacts, "client/tests/", RED_EXTS);
+        if (!candidate.trim()) return { passed: false, reason: "no tests produced to judge" };
+        const v = await judge({ step: "test-list" as never, reference, candidate, functional: "tests" as BuildOutputKind });
+        return { passed: v.score >= FUNCTIONAL_THRESHOLD, score: v.score };
+      },
+    };
+  }
+  if (discriminator === "review") {
+    // "review" compares review-verdict.json (recordedReviewDirective vs candidateReview) , wired when a
+    // refactor/review turn is first targeted; assess + red are what's live now.
+    throw new Error(`buildReplayTurnJudge: discriminator "${discriminator}" not yet wired (assess + red only)`);
+  }
   const deltaJudge = makeSupersessionDeltaJudge({ cwd });
   const verdictJudge = makeVerdictAlignmentJudge({ cwd });
   // Regression-fidelity judge: when both determinations are `regression`, grade the diagnosis + fixDirective

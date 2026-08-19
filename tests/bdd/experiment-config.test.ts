@@ -5,7 +5,7 @@ import { describe, it, expect } from "vitest";
 import { mkdtempSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { loadExperimentConfig, driverTurnFromLabel, roleFromLabel, substrateForRole } from "../optimization/experiment-config";
+import { loadExperimentConfig, driverTurnFromLabel, roleFromLabel, substrateForRole, discriminatorFromLabel } from "../optimization/experiment-config";
 
 function write(obj: unknown): string {
   const dir = mkdtempSync(join(tmpdir(), "exp-cfg-"));
@@ -19,6 +19,30 @@ describe("experiment-config: driverTurnFromLabel", () => {
     expect(driverTurnFromLabel("0156-driver")).toBe("green");
     expect(driverTurnFromLabel("0158-driver-repair")).toBe("repair");
     expect(driverTurnFromLabel("0160-driver-refactor")).toBe("refactor");
+  });
+});
+
+describe("experiment-config: discriminatorFromLabel", () => {
+  it("maps a plain navigator BUILD turn to the RED coverage discriminator", () => {
+    expect(discriminatorFromLabel("0088-navigator")).toBe("red");
+    expect(discriminatorFromLabel("0020-navigator")).toBe("red");
+  });
+  it("maps navigator-assess to assess and refactor/review to review", () => {
+    expect(discriminatorFromLabel("0157-navigator-assess")).toBe("assess");
+    expect(discriminatorFromLabel("0160-driver-refactor")).toBe("review");
+    expect(discriminatorFromLabel("0162-navigator-review")).toBe("review");
+  });
+});
+
+describe("experiment-config: ac is optional for a RED (story-scoped) turn", () => {
+  it("a red config parses with NO ac (defaults to empty)", () => {
+    const cfg = loadExperimentConfig(write({ name: "r", turn: "0088-navigator", discriminator: "red", candidates: [{ id: "opus", levers: { model: "opus" } }] }));
+    expect(cfg.discriminator).toBe("red");
+    expect(cfg.ac).toBe("");
+    expect(cfg.substrate).toBe("lean");
+  });
+  it("a non-red config still REQUIRES ac", () => {
+    expect(() => loadExperimentConfig(write({ name: "a", turn: "0157-navigator-assess", candidates: [{ id: "opus", levers: {} }] }))).toThrow(/missing "ac"/);
   });
 });
 
@@ -82,5 +106,14 @@ describe("experiment-config: loadExperimentConfig", () => {
     expect(cfg.driverTurn).toBe("green");
     const ctx = cfg.roleCandidates.find((c) => c.id === "opus-e-medium-ctx-test");
     expect(ctx?.levers).toMatchObject({ model: "opus", effort: "medium", ctxPack: ["failing-test"] });
+  });
+
+  it("the shipped navigator-red-panel config parses as a lean RED sweep (story-scoped, no ac)", () => {
+    const cfg = loadExperimentConfig(join(__dirname, "../../examples/replay/optimize-experiments/navigator-red-panel.json"));
+    expect(cfg.turn).toBe("0088-navigator");
+    expect(cfg.discriminator).toBe("red");
+    expect(cfg.role).toBe("navigator");
+    expect(cfg.substrate).toBe("lean");
+    expect(cfg.roleCandidates.map((c) => c.id)).toEqual(["opus", "sonnet", "sonnet-e-low", "haiku", "haiku-e-low"]);
   });
 });
