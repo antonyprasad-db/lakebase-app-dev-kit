@@ -151,3 +151,24 @@ is COST + FIDELITY: haiku is cheapest (~$0.20, ~2.3x under the sonnet baseline) 
 code-equivalence (0.99 , its repairs match the recorded output best), holding across all 4 runs.
 FLIPPED `driver-repair.json` agentOptions model sonnet -> **haiku** (only manifest on the `repair` turnKey;
 the single config home). Resolver assertion added (consort-config.test.ts). All consumers now default to it.
+
+## METHOD CORRECTION: two-turn quality (next-turn determination, ACTUAL navigator model)
+
+Code-equivalence was the WRONG discriminator (there are always non-deterministic diffs; the navigator's
+assessment prompts ALREADY gauge code quality). The correct method is the QUALITY of the NEXT turn: after
+the repair, run the navigator's ACTUAL next assessment (a story-level REVIEW of the resolved code) and
+compare ITS determination to the RECORDED next-step review , a TWO-TURN review (same/better/worse via
+evaluateNextStepDetermination). Two fixes:
+1. `runDriverGreenOnScaffold` next-turn eval now runs the navigator with its ACTUAL CONFIGURED model
+   (resolveConsortSettings on the workspace = the applied-winner lever per turn: assess=opus, review=
+   sonnet/low), NOT a pinned opus-high. The opus-high pin was pathologically strict , it flagged smells
+   (a home-row-link IA nuance) the recorded reviewer passed, failing every correct repair. The actual
+   configured reviewer matches the recorded reviewer's calibration => a fair comparison.
+2. `buildDriverTurnCodeJudge` -> `buildDriverRepairNextStepJudge`: compare the candidate's captured
+   next-turn review-verdict to the recorded next review (readRecordedNextReview, the turn-after's
+   review-verdict), review evaluator, gated on honest-GREEN.
+
+CONSEQUENCE: the earlier code-equivalence panel/confirm results (and the haiku flip) are INVALIDATED , they
+must be re-run with this method (the preserved runs captured opus-high determinations, unusable here). Green
+uses the same two-turn method already (buildDriverNextStepJudge); refactor's recorded next turn is
+acceptance (no review), so it needs a forced post-refactor review , DEFERRED.

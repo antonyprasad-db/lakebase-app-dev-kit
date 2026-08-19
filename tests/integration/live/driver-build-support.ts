@@ -52,6 +52,7 @@ import type { WorkflowAction } from "../../../consort/orchestrator/drive/orchest
 import { writePipeline, readPipeline } from "../../../consort/pipeline/story-pipeline.js";
 import { beginNextPendingBatch, storyTestProgress } from "../../../consort/pipeline/cycle-record.js";
 import { cycleDir } from "../../../consort/config/consort-paths.js";
+import { resolveConsortSettings } from "../../../consort/orchestrator/settings/project-settings.js";
 import { readRunConfig, type RunConfig } from "../../../consort/session/run-config.js";
 import { readReplaySet, rehydrate, type ReplaySet } from "../../optimization/replay-turn.js";
 import { contextAppendBlocks } from "../../../consort/orchestrator/build/build-context.js";
@@ -1061,27 +1062,29 @@ export async function runDriverGreenOnScaffold(
       Object.entries(producedArtifactsRaw).filter(([p]) => !p.includes("__pycache__") && !p.endsWith(".pyc")),
     );
 
-    // ── THE NEXT-STEP NAVIGATOR EVALUATION (opus-high): after the driver turn greened, run ONE more
-    //    live turn , the navigator EVALUATION turn nextTransition routes to (assess for a green that
-    //    tripped the full-suite verify; review/accept for a clean one). The NAVIGATOR is pinned
-    //    opus-high (a fixed, strong evaluator) regardless of the driver lever being swept, so the
-    //    determination is a stable judge of the driver's output. Its marker lands in the AC cycle dir
-    //    UNDER THE RESOLVED consortDir (never a hardcoded artifact root). We capture that marker dir as
-    //    text so the mandatory judge compares the candidate's next-step determination to the recorded
-    //    one (evaluateNextStepDetermination). Best-effort + bounded: a clean green routes to
-    //    review/accept and writes no assess marker => empty capture => the judge's "candidate clean"
-    //    (pass-with-honors) input. ──
+    // ── THE NEXT-STEP NAVIGATOR EVALUATION: after the driver turn, run ONE more live turn , the navigator
+    //    ASSESSMENT the drive routes to (assess for a green that tripped the full-suite verify; REVIEW for a
+    //    resolved repair/refactor). This is the QUALITY discriminator: the navigator's ACTUAL assessment
+    //    (its prompts already gauge code quality) gauges the driver turn's output, and the judge compares
+    //    its determination to the RECORDED next-step determination (two-turn review). The navigator runs with
+    //    its ACTUAL CONFIGURED model (resolveConsortSettings on the workspace = the applied-winner lever per
+    //    turn: assess=opus, review=sonnet/low, ...), NOT a pinned opus-high , an artificially strong evaluator
+    //    was STRICTER than the recorded reviewer and failed correct repairs on smells the recording passed.
+    //    The driver lever is untouched (it already ran). Its marker lands in the AC/story cycle dir under the
+    //    RESOLVED consortDir; captured below for the judge (evaluateNextStepDetermination). ──
     const isDriverTurn = (a: WorkflowAction): boolean => a.kind === "invoke-role" && a.role === "driver";
     const isNavigatorEval = (a: WorkflowAction): boolean =>
       a.kind === "invoke-role" && a.role === "navigator" &&
       typeof (a as { buildMode?: unknown }).buildMode === "string" &&
       ["assess", "review", "assess-refactor", "reflect"].includes(String((a as { buildMode?: unknown }).buildMode));
-    // Pin the navigator opus-high for the eval turn; keep the driver lever untouched (it already greened).
+    // The navigator eval uses its ACTUAL configured model (the applied-winner lever), resolved from the
+    // workspace config , NOT a pinned opus-high. The driver lever stays untouched.
+    const evalSettings = resolveConsortSettings({ projectDir });
     const evalCfg: DriveEffectsConfig = {
       ...cfg,
-      modelForRole: (role) => (role === "navigator" ? "opus" : cfg.modelForRole!(role)),
-      modelForTurn: (role, turn) => (role === "navigator" ? "opus" : cfg.modelForTurn!(role, turn)),
-      effortForTurn: (role, turn) => (role === "navigator" ? "high" : cfg.effortForTurn!(role, turn)),
+      modelForRole: (role) => (role === "navigator" ? evalSettings.modelFor("navigator") : cfg.modelForRole!(role)),
+      modelForTurn: (role, turn) => (role === "navigator" ? evalSettings.modelFor("navigator", turn) : cfg.modelForTurn!(role, turn)),
+      effortForTurn: (role, turn) => (role === "navigator" ? evalSettings.effortFor("navigator", turn) : cfg.effortForTurn!(role, turn)),
     } as DriveEffectsConfig;
     evalCfg.runner = execRunner(evalCfg);
     // Run until we LEAVE the navigator-eval turn (i.e. stop once the drive would hand back to the driver

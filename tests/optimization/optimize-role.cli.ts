@@ -342,28 +342,33 @@ function buildReplayTurnJudge(turnLabel: string, feature: string, story: string,
   };
 }
 
-/** The CORPUS-FAITHFUL repair-turn judge: compare the candidate's REPAIRED CODE to the code the RECORDED
- *  repair produced (FUNCTIONAL equivalence , same behaviors + placement), GATED on the repair having
- *  RESOLVED (honest-GREEN passed). Judges against the recorded OUTPUT, NOT a fresh subjective review , the
- *  panel proved a fresh opus-high re-review is stricter than the recorded review (all 5 levers correctly
- *  routed the page + had clean layering/NFRs, yet all "failed" on a home-row-link IA nuance the recorded
- *  clean review never required). Comparing to the recorded output is fair + objective. Same idea as the
- *  driver-green code judge. See consort/optimize/DRIVER-REPAIR-TURN-REPLAY.md. */
-function buildDriverTurnCodeJudge(repairTurnLabel: string, feature: string, _story: string): QualityGate {
+/** Read the review-verdict the corpus recorded for the turn IMMEDIATELY AFTER the replayed repair turn ,
+ *  the recorded NEXT-STEP determination the two-turn quality comparison judges against. */
+function readRecordedNextReview(turnLabel: string, feature: string, story: string): VerdictOutput {
+  const ord = Number(turnLabel.split("-")[0]);
+  const next = readdirSync(CORPUS_TURNS).filter((d) => Number(d.split("-")[0]) === ord + 1).sort()[0];
+  if (!next) throw new Error(`readRecordedNextReview: no turn after ${turnLabel} (ordinal ${ord + 1}) in ${CORPUS_TURNS}`);
+  const rv = join(CORPUS_TURNS, next, "files", ARTIFACT_ROOT, "cycles", feature, story, "review-verdict.json");
+  if (!existsSync(rv)) throw new Error(`readRecordedNextReview: turn-after ${next} has no story-level review-verdict at ${rv} (the repair's recorded next step is not a review)`);
+  return parseVerdictFile(readFileSync(rv, "utf8"));
+}
+
+/** The CORPUS-FAITHFUL repair-turn judge , the QUALITY method (NOT code-equivalence, which always has
+ *  non-deterministic diffs; the navigator's assessment prompts already gauge quality). It is a TWO-TURN
+ *  review: after the repair, the drive runs the navigator's ACTUAL next assessment (a REVIEW of the resolved
+ *  story), run with the navigator's CONFIGURED model (the applied-winner lever, NOT a pinned opus-high , see
+ *  runDriverGreenOnScaffold), and this judge compares that determination to the RECORDED next-step review
+ *  (same/better/worse via evaluateNextStepDetermination). Gated on honest-GREEN (the repair resolved).
+ *  See consort/optimize/DRIVER-REPAIR-TURN-REPLAY.md. */
+function buildDriverRepairNextStepJudge(turnLabel: string, feature: string, story: string): QualityGate {
   const cwd = process.cwd();
-  const judge = makeOpusJudge({ cwd });
-  const CODE_PREFIXES = ["client/src/", "app/"] as const;
-  const CODE_EXTS = [".ts", ".tsx", ".py"] as const;
-  // The recorded OUTPUT: the code the recorded repair turn produced (its files/ tree), client + app only.
-  const recMap = snapshotTree(join(CORPUS_TURNS, repairTurnLabel, "files"), join(CORPUS_TURNS, repairTurnLabel, "files"));
-  const reference = CODE_PREFIXES.map((p) => concatTreeFiles(recMap, p, CODE_EXTS)).join("\n");
-  if (!reference.trim()) throw new Error(`buildDriverTurnCodeJudge: recorded turn ${repairTurnLabel} produced no client/app code to compare against`);
-  void feature;
+  const deltaJudge = makeSupersessionDeltaJudge({ cwd });
+  const verdictJudge = makeVerdictAlignmentJudge({ cwd });
+  const recordedReviewDirective = readRecordedNextReview(turnLabel, feature, story);
   return {
     judgeCandidate: async ({ producedArtifacts }) => {
       // GATE: the repair must have RESOLVED (honest-GREEN passed). Prefer the explicit marker; fall back to
-      // "a next-step review-verdict was produced" (a repair only routes to review AFTER greening) for runs
-      // preserved before the marker existed.
+      // "a next-step review-verdict was produced" (a repair only routes to review AFTER greening).
       let resolved: boolean;
       const hg = producedArtifacts["repair-honest-green.json"];
       if (hg !== undefined) {
@@ -372,10 +377,15 @@ function buildDriverTurnCodeJudge(repairTurnLabel: string, feature: string, _sto
         resolved = producedArtifacts[`${NEXT_STEP_MARKER_PREFIX}review-verdict.json`] !== undefined;
       }
       if (!resolved) return { passed: false, reason: "repair did not resolve (honest-GREEN failed) , not the same quality as the recorded resolved repair" };
-      const candidate = CODE_PREFIXES.map((p) => concatTreeFiles(producedArtifacts, p, CODE_EXTS)).join("\n");
-      if (!candidate.trim()) return { passed: false, reason: "no candidate client/app code produced to judge" };
-      const v = await judge({ step: "code" as never, reference, candidate, functional: "code" as BuildOutputKind });
-      return { passed: v.score >= FUNCTIONAL_THRESHOLD, score: v.score };
+      const candRaw = producedArtifacts[`${NEXT_STEP_MARKER_PREFIX}review-verdict.json`];
+      if (candRaw === undefined) return { passed: false, reason: "no next-step review-verdict captured , the navigator's next assessment did not run/produce a verdict" };
+      const candidateReview = parseVerdictFile(candRaw);
+      // Two-turn quality: does the candidate's next-turn review reach the same-or-better determination as the
+      // recorded next review? (review evaluator , same/better/worse; the actual navigator model, not opus-high.)
+      const outcome = await evaluateNextStepDetermination({ evaluatorKind: "review", deltaJudge, verdictJudge, recordedReviewDirective, candidateReview });
+      const passed = outcome.verdict !== "fail";
+      const classification = outcome.verdict === "pass-with-honors" ? "pass-with-honors" : outcome.candidateClass;
+      return { passed, classification, nextStep: outcome.verdict, reason: outcome.reason };
     },
   };
 }
@@ -434,8 +444,8 @@ export async function sweepDriverGreen(
   // (legacy) scenario, so for a repair experiment use the review judge vs the replayed turn's own next
   // review. See consort/optimize/DRIVER-REPAIR-TURN-REPLAY.md.
   const quality: QualityGate =
-    experiment && experimentBundle && (spec.driverTurn === "repair" || spec.driverTurn === "refactor")
-      ? buildDriverTurnCodeJudge(experiment.turn, experimentBundle.feature, experimentBundle.story)
+    experiment && experimentBundle && spec.driverTurn === "repair"
+      ? buildDriverRepairNextStepJudge(experiment.turn, experimentBundle.feature, experimentBundle.story)
       : buildDriverNextStepJudge(handle);
 
   // The driver chain as a ChainRunner for the ONE sweep engine: scaffold ONCE (the #589 model), each
@@ -1139,7 +1149,7 @@ export async function runRejudge(runRoot: string, experimentPath?: string): Prom
     // e.g. "0157-navigator-assess" -> "navigator-assess") , score it through the replay judge. Otherwise
     // require a known chain (driver / build / design).
     const driverSpec = DRIVER_TURN_SPECS[handle];
-    const isRepairExperiment = !!(experiment && experimentBundle && (driverSpec?.driverTurn === "repair" || driverSpec?.driverTurn === "refactor"));
+    const isRepairExperiment = !!(experiment && experimentBundle && driverSpec?.driverTurn === "repair");
     const isExperimentChain = !!(experiment && experimentBundle && !isDriver && experiment.turn.endsWith(handle));
     if (!isDriver && !chain && !isExperimentChain) { console.log(`[rejudge] ${handle}: not a known chain, skipping`); continue; }
     // Resolve the SAME discriminator the live sweep used , repair-experiment: code-equivalence; lean
@@ -1147,7 +1157,7 @@ export async function runRejudge(runRoot: string, experimentPath?: string): Prom
     let quality: QualityGate;
     try {
       quality = isRepairExperiment
-        ? buildDriverTurnCodeJudge(experiment!.turn, experimentBundle!.feature, experimentBundle!.story)
+        ? buildDriverRepairNextStepJudge(experiment!.turn, experimentBundle!.feature, experimentBundle!.story)
         : isExperimentChain
           ? buildReplayTurnJudge(experiment!.turn, experimentBundle!.feature, experimentBundle!.story, experimentBundle!.ac, experiment!.discriminator ?? "assess")
           : isDriver ? buildDriverNextStepJudge(handle) : buildChainJudge(chain!, handle, isBuildChain);
