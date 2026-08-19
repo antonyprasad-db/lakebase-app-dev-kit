@@ -154,8 +154,10 @@ describe("agentOptionsForStep (per-step config-directory layer for the resolver)
 
   it("collapsed buildModes resolve ONE lever set (the three assess* share the assess key)", () => {
     // assess / assess-deploy / assess-refactor all map to turnKey "assess"; their manifests must
-    // agree, so the lookup returns a single {model,effort} without throwing.
-    expect(agentOptionsForStep("navigator", "assess", turnKeyForAction)).toEqual({ model: "sonnet", effort: "default" });
+    // agree, so the lookup returns a single {model,effort} without throwing. All three carry the
+    // applied optimize winner (opus , the regression-fidelity panel: opus holds the assessment and is
+    // ~18% faster than the sonnet default on the heavy regression-assess variant).
+    expect(agentOptionsForStep("navigator", "assess", turnKeyForAction)).toEqual({ model: "opus", effort: "default" });
     expect(agentOptionsForStep("driver", "refactor", turnKeyForAction)).toEqual({ model: "haiku", effort: "default" });
   });
 
