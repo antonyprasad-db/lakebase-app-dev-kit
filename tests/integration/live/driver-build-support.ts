@@ -24,7 +24,7 @@
 //   - design/ : architecture/db-design/test-list/AC + conventions the driver's context pack reads.
 //   (deploy-targets.yaml / run-tests.sh / alembic env come from the SCAFFOLD, not the bundle.)
 
-import { readFileSync, writeFileSync, existsSync, statSync, readdirSync, mkdtempSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, statSync, readdirSync, mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
@@ -290,7 +290,7 @@ export async function runLeanReplayTurn(
     // Seed the recorded pre-turn state (the SAME primitive the cloud lane uses), then drive from the
     // recorded prompt. Cloud-only routing (pipeline/branch) is NOT needed: a lean single-turn replay
     // starts directly at the recorded action and runs just that turn (its next action has no lean manifest).
-    seedWorkspace: (ws) =>
+    seedWorkspace: (ws) => {
       layReplayPreconditions(ws, join(ws, ARTIFACT_ROOT), {
         feature: bundle.feature,
         story: bundle.story,
@@ -298,7 +298,20 @@ export async function runLeanReplayTurn(
         recordedArtifactsFeatureDir: bundle.recordedArtifactsFeatureDir,
         conventionsJson: bundle.conventionsJson,
         designDir: bundle.designDir,
-      }),
+      });
+      // Lay the PRE-TURN cycle INPUT (green-failure.json = the failed green an assess turn evaluates)
+      // from the corpus turn's recorded .consort , NOT the assess OUTPUT markers (regression-assessment/
+      // superseded-tests: those are what the candidate produces + the judge's recorded reference). So the
+      // assess turn has the failing state it assesses, faithful to the recording. Best-effort (absent for
+      // a turn with no failed green).
+      const recCycleDir = join(bundle.replay!.turnDir, "files", ARTIFACT_ROOT, "cycles", bundle.feature, bundle.story, bundle.ac);
+      const gf = join(recCycleDir, "green-failure.json");
+      if (existsSync(gf)) {
+        const dstDir = join(ws, ARTIFACT_ROOT, "cycles", bundle.feature, bundle.story, bundle.ac);
+        mkdirSync(dstDir, { recursive: true });
+        writeFileSync(join(dstDir, "green-failure.json"), readFileSync(gf, "utf8"));
+      }
+    },
     recordedPromptFor: (ws) => rehydrate(rs.promptRaw, ws),
     agentFor,
     // A navigator/design turn writes its output under .consort (default snapshot); include code roots too

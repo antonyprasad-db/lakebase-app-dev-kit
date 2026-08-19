@@ -1,0 +1,12 @@
+{
+  "name": "navigator-assess-s3",
+  "turn": "0157-navigator-assess",
+  "ac": "AC1-detail-view-shows-batch-and-serial",
+  "concurrency": 1,
+  "candidates": [
+    {
+      "id": "opus",
+      "levers": { "model": "opus" }
+    }
+  ]
+}
