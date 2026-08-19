@@ -36,7 +36,7 @@ import { scaffoldDriverGreenProject, teardownDriverGreenProject, runDriverGreenO
 import { ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
 import type { RoleLeverPatch } from "./role-levers.js";
 import { loadExperimentConfig } from "./experiment-config.js";
-import { makeOpusJudge, makeVerdictAlignmentJudge, parseVerdictFile, makeBuildDiscriminatorJudge, parseNavigatorAssessMarker, makeSupersessionDeltaJudge, evaluateNavigatorAssessAlignment, evaluateNextStepDetermination, FUNCTIONAL_THRESHOLD, SEMANTIC_THRESHOLD, type BuildOutputKind, type VerdictOutput } from "../../consort/evaluation/semantic-gate.js";
+import { makeOpusJudge, makeVerdictAlignmentJudge, parseVerdictFile, makeBuildDiscriminatorJudge, parseNavigatorAssessMarker, makeSupersessionDeltaJudge, makeRegressionFidelityJudge, evaluateNavigatorAssessAlignment, evaluateNextStepDetermination, FUNCTIONAL_THRESHOLD, SEMANTIC_THRESHOLD, type BuildOutputKind, type VerdictOutput } from "../../consort/evaluation/semantic-gate.js";
 import { enabledAnalysts } from "../../consort/test-list/test-analyst-catalogue.js";
 import { RECOMMENDED_MODELS, type SpawnableAgentRole } from "../../consort/config/agent-models.js";
 import type { StepManifest } from "../../consort/orchestrator/steps/manifest.js";
@@ -261,8 +261,24 @@ function buildReplayTurnJudge(turnLabel: string, feature: string, story: string,
   const cwd = process.cwd();
   const deltaJudge = makeSupersessionDeltaJudge({ cwd });
   const verdictJudge = makeVerdictAlignmentJudge({ cwd });
+  // Regression-fidelity judge: when both determinations are `regression`, grade the diagnosis + fixDirective
+  // CONTENT against the recorded ground truth (not just the class), so a candidate that lands the regression
+  // class with a WRONG root cause FAILS instead of silently passing (the panel finding). Same fixed-opus
+  // judge family as deltaJudge.
+  const regressionJudge = makeRegressionFidelityJudge({ cwd });
   const recSrc = join(CORPUS_TURNS, turnLabel, "files", ARTIFACT_ROOT, "cycles", feature, story, ac);
   const MARKER_FILES = ["regression-assessment.json", "superseded-tests.json"];
+  // The recorded failed-verify summary (green-failure.json) gives the fidelity judge the failure context.
+  const failureSummary = ((): string | undefined => {
+    const p = join(recSrc, "green-failure.json");
+    if (!existsSync(p)) return undefined;
+    try {
+      const g = JSON.parse(readFileSync(p, "utf8")) as { summary?: unknown };
+      return typeof g.summary === "string" ? g.summary : undefined;
+    } catch {
+      return undefined;
+    }
+  })();
   return {
     judgeCandidate: async ({ producedArtifacts }) => {
       const recDir = mkdtempSync(join(tmpdir(), "rec-assess-"));
@@ -283,6 +299,8 @@ function buildReplayTurnJudge(turnLabel: string, feature: string, story: string,
           evaluatorKind: "assess",
           deltaJudge,
           verdictJudge,
+          regressionJudge,
+          ...(failureSummary ? { failureSummary } : {}),
           recordedMarkerDir: recDir,
           candidateMarkerDir: candDir,
         });
@@ -596,10 +614,23 @@ export function buildDriverNextStepJudge(handle: string): QualityGate {
   const cwd = process.cwd();
   const deltaJudge = makeSupersessionDeltaJudge({ cwd });
   const verdictJudge = makeVerdictAlignmentJudge({ cwd });
+  // Regression-fidelity judge (parity with buildReplayTurnJudge): grade the diagnosis + fixDirective
+  // content when both determinations are `regression`, so a class-only match with a wrong root cause fails.
+  const regressionJudge = makeRegressionFidelityJudge({ cwd });
   const recordedRefDir = join(cwd, BUILD_CORPUS_REL, spec.refRel);
   if (!existsSync(recordedRefDir)) {
     throw new Error(`optimize-role: MISSING contained next-step reference for ${handle} at ${recordedRefDir} , the LLM judge is mandatory and cannot run without it.`);
   }
+  const driverFailureSummary = ((): string | undefined => {
+    const p = join(recordedRefDir, "green-failure.json");
+    if (!existsSync(p)) return undefined;
+    try {
+      const g = JSON.parse(readFileSync(p, "utf8")) as { summary?: unknown };
+      return typeof g.summary === "string" ? g.summary : undefined;
+    } catch {
+      return undefined;
+    }
+  })();
   const recordedReviewDirective: VerdictOutput | undefined =
     spec.evaluatorKind === "review" ? parseVerdictFile(readCampReference(join(spec.refRel, "review-verdict.json"), `${handle} recorded review directive`)) : undefined;
   return {
@@ -614,6 +645,8 @@ export function buildDriverNextStepJudge(handle: string): QualityGate {
           evaluatorKind: spec.evaluatorKind,
           deltaJudge,
           verdictJudge,
+          regressionJudge,
+          ...(driverFailureSummary ? { failureSummary: driverFailureSummary } : {}),
           ...(spec.evaluatorKind === "assess"
             ? { recordedMarkerDir: recordedRefDir, candidateMarkerDir: markerDir }
             : {
@@ -1011,21 +1044,34 @@ export function classifyReproduce(
  *  producedArtifacts from artifacts/, resolve the chain's discriminator, re-run it vs the recorded
  *  reference, and compare to the stored telemetry verdict. Writes <candidate>/rejudge.json + prints a
  *  reproduce report. LOCAL (opus judges only) , safe to run alongside nothing-live. */
-export async function runRejudge(runRoot: string): Promise<void> {
+export async function runRejudge(runRoot: string, experimentPath?: string): Promise<void> {
   if (!existsSync(runRoot)) throw new Error(`optimize-role --rejudge: run dir not found: ${runRoot}`);
   // eslint-disable-next-line no-console
-  console.log(`[rejudge] re-judging preserved outputs under ${runRoot}`);
+  console.log(`[rejudge] re-judging preserved outputs under ${runRoot}${experimentPath ? ` [experiment: ${experimentPath}]` : ""}`);
+  // EXPERIMENT rejudge: when --experiment is given, the matching chain dir is re-scored through the SAME
+  // corpus-faithful replay discriminator the sweep used (buildReplayTurnJudge vs the replayed turn's
+  // recorded marker), NOT buildChainJudge (reference-assets). This is how the tightened assess judge
+  // (regression fidelity) re-scores preserved outputs without re-running any agent.
+  const experiment = experimentPath ? loadExperimentConfig(experimentPath) : undefined;
+  const experimentBundle = experiment ? replayBundleFromTurn(experiment.turn, experiment.ac) : undefined;
   const chainDirs = readdirSync(runRoot, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
   for (const handle of chainDirs) {
     const chainDir = join(runRoot, handle);
     const isDriver = handle in DRIVER_TURN_SPECS;
     const isBuildChain = handle in BUILD_ROLE_CHAINS;
     const chain = isDriver ? undefined : (isBuildChain ? BUILD_ROLE_CHAINS[handle] : ROLE_CHAINS[handle]);
-    if (!isDriver && !chain) { console.log(`[rejudge] ${handle}: not a known chain, skipping`); continue; }
-    // Resolve the SAME discriminator the live sweep used , driver via buildDriverNextStepJudge, else buildChainJudge.
+    // An experiment run's chain dir is the experiment turn's chain (turn label ends with the handle, e.g.
+    // "0157-navigator-assess" -> "navigator-assess"); score it through the replay judge even if it is not a
+    // known static chain. Otherwise require a known chain (driver / build / design).
+    const isExperimentChain = !!(experiment && experimentBundle && experiment.turn.endsWith(handle));
+    if (!isDriver && !chain && !isExperimentChain) { console.log(`[rejudge] ${handle}: not a known chain, skipping`); continue; }
+    // Resolve the SAME discriminator the live sweep used , experiment: the corpus-faithful replay judge;
+    // driver: buildDriverNextStepJudge; else buildChainJudge (reference-assets).
     let quality: QualityGate;
     try {
-      quality = isDriver ? buildDriverNextStepJudge(handle) : buildChainJudge(chain!, handle, isBuildChain);
+      quality = isExperimentChain
+        ? buildReplayTurnJudge(experiment!.turn, experimentBundle!.feature, experimentBundle!.story, experimentBundle!.ac, experiment!.discriminator ?? "assess")
+        : isDriver ? buildDriverNextStepJudge(handle) : buildChainJudge(chain!, handle, isBuildChain);
     } catch (e) {
       console.log(`[rejudge] ${handle}: cannot resolve discriminator (${e instanceof Error ? e.message : String(e)}); skipping`);
       continue;
@@ -1081,8 +1127,10 @@ if (isCliEntry(import.meta.url)) {
   // --rejudge <runDir> : re-score a preserved run's outputs through their own discriminator (LOCAL, no
   // live drive). Otherwise run the normal sweep.
   const rejudgeIdx = process.argv.indexOf("--rejudge");
+  const expIdx = process.argv.indexOf("--experiment");
+  const experimentArg = expIdx >= 0 && expIdx + 1 < process.argv.length ? process.argv[expIdx + 1] : undefined;
   const entry = rejudgeIdx >= 0 && rejudgeIdx + 1 < process.argv.length
-    ? runRejudge(process.argv[rejudgeIdx + 1])
+    ? runRejudge(process.argv[rejudgeIdx + 1], experimentArg)
     : runOptimizeRole(parseArgs(process.argv.slice(2)));
   entry
     .then(() => process.exit(0)) // a sweep with no winner is still a successful run

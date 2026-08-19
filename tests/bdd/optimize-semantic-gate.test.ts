@@ -23,6 +23,8 @@ import {
   buildRedCoverageJudgePrompt,
   evaluateNavigatorAssessAlignment,
   buildSupersessionDeltaPrompt,
+  buildRegressionFidelityPrompt,
+  parseRegressionFidelityReply,
   type DiscriminatorVerdict,
   // The DRIVER-TURN discriminator: directional next-step navigator determination vs recorded.
   evaluateNextStepDetermination,
@@ -435,6 +437,37 @@ describe("evaluateNextStepDetermination: driver-turn discriminator = next-step n
     rmSync(rec, { recursive: true, force: true }); rmSync(cand, { recursive: true, force: true });
   });
 
+  // BOTH regression (same rung): class-match alone is not enough. A fidelity judge grades the diagnosis +
+  // fixDirective CONTENT vs the recorded ground truth , the panel finding (fast candidates held the class
+  // but misdiagnosed the root cause). Aligned => pass; material divergence => fail. Absent judge => legacy.
+  const alignedFidelity = async () => ({ aligned: true, materialDifferences: [] });
+  const materialFidelity = async () => ({ aligned: false, materialDifferences: ["blames the ORM serializer; the real bug is an empty repositories/__init__.py (import-ordering)"] });
+
+  it("assess: both regression, fidelity judge ALIGNED => PASS", async () => {
+    const rec = writeMarker({ "regression-assessment.json": { diagnosis: "repos.stock unresolved , empty __init__.py", fixDirective: "add 'from . import stock'" } });
+    const cand = writeMarker({ "regression-assessment.json": { diagnosis: "same import-ordering bug, worded differently", fixDirective: "import the submodule in __init__" } });
+    const r = await evaluateNextStepDetermination({ evaluatorKind: "assess", recordedMarkerDir: rec, candidateMarkerDir: cand, deltaJudge: equivalentDelta, verdictJudge: sameIssueJudge, regressionJudge: alignedFidelity });
+    expect(r.verdict).toBe("pass");
+    rmSync(rec, { recursive: true, force: true }); rmSync(cand, { recursive: true, force: true });
+  });
+
+  it("assess: both regression, fidelity judge MATERIAL (wrong root cause) => FAIL", async () => {
+    const rec = writeMarker({ "regression-assessment.json": { diagnosis: "repos.stock unresolved , empty __init__.py", fixDirective: "add 'from . import stock'" } });
+    const cand = writeMarker({ "regression-assessment.json": { diagnosis: "the ORM serializer mishandles null batch_number", fixDirective: "fix StockOut.model_validate" } });
+    const r = await evaluateNextStepDetermination({ evaluatorKind: "assess", recordedMarkerDir: rec, candidateMarkerDir: cand, deltaJudge: equivalentDelta, verdictJudge: sameIssueJudge, regressionJudge: materialFidelity });
+    expect(r.verdict).toBe("fail");
+    expect(r.reason).toMatch(/diverges materially|root cause|misdirected/i);
+    rmSync(rec, { recursive: true, force: true }); rmSync(cand, { recursive: true, force: true });
+  });
+
+  it("assess: both regression, NO fidelity judge => PASS (legacy class-only ladder, unchanged)", async () => {
+    const rec = writeMarker({ "regression-assessment.json": { diagnosis: "a", fixDirective: "b" } });
+    const cand = writeMarker({ "regression-assessment.json": { diagnosis: "totally different", fixDirective: "different" } });
+    const r = await evaluateNextStepDetermination({ evaluatorKind: "assess", recordedMarkerDir: rec, candidateMarkerDir: cand, deltaJudge: equivalentDelta, verdictJudge: sameIssueJudge });
+    expect(r.verdict).toBe("pass"); // no regressionJudge => same rung passes (prior behavior)
+    rmSync(rec, { recursive: true, force: true }); rmSync(cand, { recursive: true, force: true });
+  });
+
   it("review (driver-refactor): candidate post-refactor review CLEAN (refactor=false) => PASS (issue resolved)", async () => {
     const directive: VerdictOutput = { refactor: true, notes: "client still uses inventory_code" };
     const candidate: VerdictOutput = { refactor: false, notes: "swapped to batch/serial; clean" };
@@ -476,6 +509,27 @@ describe("buildSupersessionDeltaPrompt: judge the DELTA between two concrete set
     expect(p).toMatch(/tests\/d\.py/); // the navigator set is IN the prompt
     expect(p).toMatch(/tests\/b\.py/); // the recorded ground-truth set is IN the prompt
     expect(p).toMatch(/"equivalent"/); // demands a JSON verdict
+  });
+});
+
+describe("buildRegressionFidelityPrompt + parse: judge the ROOT CAUSE + fix, not just the class", () => {
+  it("asks whether the candidate reaches the SAME root cause + a resolving fix, and demands a JSON verdict", () => {
+    const p = buildRegressionFidelityPrompt(
+      { diagnosis: "ORM serializer null bug", fixDirective: "fix model_validate" },
+      { diagnosis: "empty repositories __init__.py", fixDirective: "import the submodule" },
+      "1 failing test: T48 AttributeError",
+    );
+    expect(p).toMatch(/root cause/i);
+    expect(p).toMatch(/misdirect/i);
+    expect(p).toMatch(/model_validate/); // the candidate is IN the prompt
+    expect(p).toMatch(/repositories __init__|import the submodule/); // the recorded ground truth is IN the prompt
+    expect(p).toMatch(/T48/); // the failure context is IN the prompt
+    expect(p).toMatch(/"aligned"/); // demands a JSON verdict
+  });
+  it("parses an aligned verdict; unparseable => NOT aligned (fail-safe)", () => {
+    expect(parseRegressionFidelityReply('{"aligned":true,"materialDifferences":[]}').aligned).toBe(true);
+    expect(parseRegressionFidelityReply('{"aligned":false,"materialDifferences":["wrong layer"]}')).toEqual({ aligned: false, materialDifferences: ["wrong layer"] });
+    expect(parseRegressionFidelityReply("the model could not decide").aligned).toBe(false);
   });
 });
 

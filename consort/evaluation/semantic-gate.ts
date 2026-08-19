@@ -463,6 +463,27 @@ export type SupersessionDeltaJudge = (args: {
   reason?: string;
 }) => Promise<SupersessionDeltaVerdict>;
 
+/** The regression-fidelity judge's verdict: does the candidate's regression assessment reach the SAME
+ *  root cause (and a fix that would actually resolve the failure) as the recorded ground truth?
+ *  aligned:false names the material divergence (a wrong root cause / a fix aimed at the wrong layer).
+ *  Mirrors SupersessionDeltaVerdict, for the regression class. */
+export interface RegressionFidelityVerdict {
+  aligned: boolean;
+  materialDifferences?: string[];
+}
+
+/** Injected regression-fidelity judge: given the candidate's + recorded diagnosis/fixDirective (both
+ *  already classified `regression`), decide whether the candidate FAITHFULLY reaches the same root cause
+ *  and prescribes a fix that would resolve the SAME failure. Benign wording/detail differences are
+ *  aligned; a different/wrong root cause or a misdirected fix (which would send the driver at the wrong
+ *  change) is MATERIAL. Real impl spawns fixed-opus; stubbable in tests. This is the regression analogue
+ *  of the superseded-shift set delta , class-match alone never proves two regression assessments agree. */
+export type RegressionFidelityJudge = (args: {
+  candidate: { diagnosis?: string; fixDirective?: string };
+  recorded: { diagnosis?: string; fixDirective?: string };
+  failureSummary?: string;
+}) => Promise<RegressionFidelityVerdict>;
+
 /** Parse the navigator's ASSESS marker files (in an AC cycle dir) into a discriminator-
  *  shaped verdict, so it can be diffed against the independent oracle. The markers:
  *   - superseded-tests.json {tests,reason}   => superseded-shift / permissive-refactor-superseded
@@ -616,6 +637,66 @@ export function makeSupersessionDeltaJudge(opts: { cwd: string }): SupersessionD
       buildSupersessionDeltaPrompt(navigatorSet, recordedSet, reason),
       parseSupersessionDeltaReply,
       (msg) => ({ equivalent: false, materialDifferences: [msg] }),
+    );
+}
+
+/** Build the regression-fidelity judge prompt: ask a FIXED model whether the candidate's regression
+ *  diagnosis reaches the SAME root cause as the recorded ground truth AND whether its fixDirective would
+ *  resolve the SAME failure. Benign = different wording / level of detail / an equivalent way to express
+ *  the same cause+fix. MATERIAL = a different or wrong root cause, or a fix aimed at the wrong layer that
+ *  would NOT resolve the actual failure (which would misdirect the driver). */
+export function buildRegressionFidelityPrompt(
+  candidate: { diagnosis?: string; fixDirective?: string },
+  recorded: { diagnosis?: string; fixDirective?: string },
+  failureSummary?: string,
+): string {
+  return [
+    `You are a strict senior engineer comparing two REGRESSION assessments for the SAME failed build-verify , a Navigator's diagnosis + fix directive, and the RECORDED GROUND-TRUTH assessment the canonical navigator produced for the same failure.`,
+    failureSummary ? `The failure being diagnosed: ${failureSummary}` : ``,
+    `Both assessments already agree it is a genuine, driver-fixable regression. Decide whether the CANDIDATE reaches the SAME ROOT CAUSE and prescribes a fix that would ACTUALLY RESOLVE that failure , the way the ground truth does.`,
+    `Benign (aligned:true): the candidate names the same underlying root cause and a fix that would resolve the same failure, even with different wording, a different level of detail, or a different-but-equivalent way to express the same change.`,
+    `MATERIAL (aligned:false): the candidate blames a DIFFERENT or WRONG root cause, or its fix targets the WRONG layer / would NOT resolve the actual failure , anything that would MISDIRECT the driver into the wrong change.`,
+    `Return ONLY a JSON object on a single line: {"aligned": <bool>, "materialDifferences": ["<the wrong root cause or misdirected fix, empty when none>", ...]}. aligned:true when the difference is only benign/wording; aligned:false with the specific material divergence(s) named otherwise.`,
+    ``,
+    `RECORDED GROUND-TRUTH diagnosis:`,
+    recorded.diagnosis ?? "(none)",
+    ``,
+    `RECORDED GROUND-TRUTH fixDirective:`,
+    recorded.fixDirective ?? "(none)",
+    ``,
+    `CANDIDATE diagnosis:`,
+    candidate.diagnosis ?? "(none)",
+    ``,
+    `CANDIDATE fixDirective:`,
+    candidate.fixDirective ?? "(none)",
+  ].join("\n");
+}
+
+/** Parse a regression-fidelity reply into a verdict (tolerant; unparseable => NOT aligned, fail-safe, so
+ *  a judge that cannot answer never silently passes a divergent diagnosis). */
+export function parseRegressionFidelityReply(reply: string): RegressionFidelityVerdict {
+  const m = reply.match(/\{[\s\S]*"aligned"[\s\S]*\}/);
+  if (m) {
+    try {
+      const obj = JSON.parse(m[0]) as { aligned?: unknown; materialDifferences?: unknown };
+      const aligned = obj.aligned === true;
+      const materialDifferences = Array.isArray(obj.materialDifferences) ? obj.materialDifferences.map(String) : undefined;
+      return { aligned, ...(materialDifferences ? { materialDifferences } : {}) };
+    } catch {
+      /* fall through */
+    }
+  }
+  return { aligned: false, materialDifferences: ["regression-fidelity judge reply not parseable"] };
+}
+
+/** The real regression-fidelity judge: fixed-opus, judges the two concrete regression assessments. */
+export function makeRegressionFidelityJudge(opts: { cwd: string }): RegressionFidelityJudge {
+  return ({ candidate, recorded, failureSummary }) =>
+    spawnOpusJudge(
+      opts.cwd,
+      buildRegressionFidelityPrompt(candidate, recorded, failureSummary),
+      parseRegressionFidelityReply,
+      (msg) => ({ aligned: false, materialDifferences: [msg] }),
     );
 }
 
@@ -1043,6 +1124,8 @@ async function evaluateAssessNextStep(args: {
   recordedMarkerDir: string;
   candidateMarkerDir: string;
   deltaJudge: SupersessionDeltaJudge;
+  regressionJudge?: RegressionFidelityJudge;
+  failureSummary?: string;
 }): Promise<NextStepOutcome> {
   const recorded = parseNavigatorAssessMarker(args.recordedMarkerDir);
   const candidate = parseNavigatorAssessMarker(args.candidateMarkerDir);
@@ -1072,6 +1155,24 @@ async function evaluateAssessNextStep(args: {
       return { ...base, verdict: "pass-with-honors", betterThanRecorded: true, reason: `candidate flagged a strict subset of the recorded superseded set (${navSet.length} of ${recSet.length}) , fewer issues: ${(verdict.materialDifferences ?? []).join("; ")}` };
     }
     return { ...base, verdict: "fail", reason: `candidate's superseded set differs materially from the recorded ground truth${candidateSuperset ? " (over-flagged more tests)" : ""}: ${(verdict.materialDifferences ?? []).join("; ") || "sets not coverage-equivalent"}` };
+  }
+
+  // Both regression (SAME rung): class-match alone is NOT enough , a candidate can land the regression
+  // class with a WRONG root cause or a fix aimed at the wrong layer, which would MISDIRECT the driver into
+  // the wrong change (the navigator-assess panel finding: two fast candidates "held the class" but
+  // misdiagnosed). When a fidelity judge is supplied, grade the diagnosis + fixDirective CONTENT against
+  // the recorded ground truth , the regression analogue of the superseded-shift SET delta: aligned => pass;
+  // a material divergence => fail. Absent judge => fall through to the class-only resolution ladder (legacy).
+  if (rc === "regression" && cc === "regression" && args.regressionJudge) {
+    const verdict = await args.regressionJudge({
+      candidate: { diagnosis: candidate.diagnosis, fixDirective: candidate.fixDirective },
+      recorded: { diagnosis: recorded.diagnosis, fixDirective: recorded.fixDirective },
+      ...(args.failureSummary ? { failureSummary: args.failureSummary } : {}),
+    });
+    if (verdict.aligned) {
+      return { ...base, verdict: "pass", reason: `candidate's regression assessment reaches the same root cause + a resolving fix as the recorded ground truth (fidelity-judged)` };
+    }
+    return { ...base, verdict: "fail", reason: `candidate's regression assessment diverges materially from the recorded ground truth: ${(verdict.materialDifferences ?? []).join("; ") || "different root cause / misdirected fix"}` };
   }
 
   // RESOLUTION LADDER , the "same or better" directional scorer over the next-turn navigator
@@ -1145,12 +1246,24 @@ export async function evaluateNextStepDetermination(args: {
   candidateReview?: VerdictOutput;
   deltaJudge: SupersessionDeltaJudge;
   verdictJudge: (a: { recordedVerdict: VerdictOutput; candidateVerdict: VerdictOutput; kind: "review" | "reflect" }) => Promise<VerdictAlignmentOutcome>;
+  /** OPTIONAL regression-fidelity judge: when both determinations are `regression` (same rung), grade the
+   *  diagnosis + fixDirective CONTENT against the recorded ground truth , class-match alone can pass a
+   *  candidate that landed the regression class with a WRONG root cause. Absent => class-only (legacy). */
+  regressionJudge?: RegressionFidelityJudge;
+  /** OPTIONAL failure context for the regression-fidelity judge (the failed-verify summary). */
+  failureSummary?: string;
 }): Promise<NextStepOutcome> {
   if (args.evaluatorKind === "assess") {
     if (args.recordedMarkerDir === undefined || args.candidateMarkerDir === undefined) {
       throw new Error("evaluateNextStepDetermination(assess) requires recordedMarkerDir + candidateMarkerDir");
     }
-    return evaluateAssessNextStep({ recordedMarkerDir: args.recordedMarkerDir, candidateMarkerDir: args.candidateMarkerDir, deltaJudge: args.deltaJudge });
+    return evaluateAssessNextStep({
+      recordedMarkerDir: args.recordedMarkerDir,
+      candidateMarkerDir: args.candidateMarkerDir,
+      deltaJudge: args.deltaJudge,
+      ...(args.regressionJudge ? { regressionJudge: args.regressionJudge } : {}),
+      ...(args.failureSummary ? { failureSummary: args.failureSummary } : {}),
+    });
   }
   if (args.recordedReviewDirective === undefined || args.candidateReview === undefined) {
     throw new Error("evaluateNextStepDetermination(review) requires recordedReviewDirective + candidateReview");
