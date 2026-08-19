@@ -154,15 +154,24 @@ export function replayBundleFromTurn(turnLabel: string, ac: string): DriverGreen
  *  (0156 green / 0158 repair / 0160 refactor). The AC identifies the story's primary AC for the artifact
  *  copy; the recorded per-story test-list covers the whole story regardless. */
 function replayBundleForTurn(driverTurn: "green" | "repair" | "refactor"): DriverGreenBundle {
-  const AC = "AC1-detail-view-shows-batch-and-serial";
-  // GREEN has a deterministic pre-turn routing state (design done + open RED), fully reconstructable from
-  // the corpus. REPAIR/REFACTOR need the recorded pre-turn CYCLE state (assessed green-failure + regression,
-  // or a refactor:true review-verdict), which the cumulative corpus does not expose per-turn , that
-  // reconstruction is the next slice, so fail loud rather than mis-route to green.
-  if (driverTurn !== "green") {
-    throw new Error(`replay bundle for driverTurn="${driverTurn}" not wired yet: needs pre-turn cycle-state reconstruction (only green is deterministic). Pass opts.bundle explicitly to use a legacy seed.`);
+  // Each driver turn kind has a recorded DEFAULT corpus turn whose replay-set is the full pre-state
+  // (prompt + pre-project code) and whose recorded .consort + inputs are the pre-turn CYCLE state; the
+  // `.consort` tree comes from layReplayPreconditions/recorded-artifacts (no driver turn snapshots it into
+  // pre-project). NOTHING needs reconstructing , every turn has pre + post recorded:
+  //   GREEN    : design done + open RED (0156-driver).
+  //   REPAIR   : the assessed green-failure + the navigator's fixDirective, recorded as
+  //              replay-set/inputs/regression-assessment (0037-driver-repair).
+  //   REFACTOR : the review directive, recorded at recorded-artifacts/cycles/<F>/<S>/review.json
+  //              (0039-driver-refactor).
+  // An experiment overrides the default turn via its config (replayBundleFromTurn(experiment.turn, ac)).
+  switch (driverTurn) {
+    case "green":
+      return replayBundleFromTurn("0156-driver", "AC1-detail-view-shows-batch-and-serial");
+    case "repair":
+      return replayBundleFromTurn("0037-driver-repair", "AC3-empty-state-message");
+    case "refactor":
+      return replayBundleFromTurn("0039-driver-refactor", "");
   }
-  return replayBundleFromTurn("0156-driver", AC);
 }
 
 /** The corpus turn's action carries the story but not always the feature; the corpus has one feature per
