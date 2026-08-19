@@ -238,6 +238,9 @@ async function runReplayCandidate(args: {
   // judge reads it without widening the ChainRunResult seam; the app/+tests stay for preservation.
   const producedArtifacts: Record<string, string> = { ...result.producedArtifacts };
   for (const [k, v] of Object.entries(result.nextStepMarker)) producedArtifacts[`${NEXT_STEP_MARKER_PREFIX}${k.split("/").pop()}`] = v;
+  // Surface the honest-GREEN outcome so a code-equivalence judge can GATE on "the repair resolved" (the
+  // objective signal) without a fresh subjective review. Preserved per candidate; read by the repair judge.
+  producedArtifacts["repair-honest-green.json"] = JSON.stringify({ passed: result.honestGreen });
   return {
     turns: [],
     producedArtifacts,
@@ -339,45 +342,40 @@ function buildReplayTurnJudge(turnLabel: string, feature: string, story: string,
   };
 }
 
-/** Read the review-verdict the corpus recorded for the turn IMMEDIATELY AFTER the replayed repair turn
- *  (ordinal+1) , the faithful "same quality" reference for a repair (its next step is a navigator review).
- *  Returns the parsed VerdictOutput, or throws if the turn-after isn't a review with a verdict. */
-function readRecordedNextReview(repairTurnLabel: string, feature: string, story: string): VerdictOutput {
-  const repairOrd = Number(repairTurnLabel.split("-")[0]);
-  const next = readdirSync(CORPUS_TURNS)
-    .filter((d) => Number(d.split("-")[0]) === repairOrd + 1)
-    .sort()[0];
-  if (!next) throw new Error(`readRecordedNextReview: no turn after ${repairTurnLabel} (ordinal ${repairOrd + 1}) in ${CORPUS_TURNS}`);
-  const rv = join(CORPUS_TURNS, next, "files", ARTIFACT_ROOT, "cycles", feature, story, "review-verdict.json");
-  if (!existsSync(rv)) throw new Error(`readRecordedNextReview: turn-after ${next} has no story-level review-verdict at ${rv} (the repair's recorded next step is not a review)`);
-  return parseVerdictFile(readFileSync(rv, "utf8"));
-}
-
-/** The CORPUS-FAITHFUL repair-turn judge: a repair holds quality when it RESOLVED (honest-GREEN passed, so
- *  the state-derived next step is a navigator REVIEW that wrote a verdict) AND that review is NO-WORSE than
- *  the recorded next review (same/cleaner). A candidate that did not green produced no review-verdict =>
- *  fail. Reuses the shared review evaluator (evaluateNextStepDetermination "review") vs the recorded
- *  turn-after's verdict. See consort/optimize/DRIVER-REPAIR-TURN-REPLAY.md. */
-function buildDriverRepairReviewJudge(repairTurnLabel: string, feature: string, story: string): QualityGate {
+/** The CORPUS-FAITHFUL repair-turn judge: compare the candidate's REPAIRED CODE to the code the RECORDED
+ *  repair produced (FUNCTIONAL equivalence , same behaviors + placement), GATED on the repair having
+ *  RESOLVED (honest-GREEN passed). Judges against the recorded OUTPUT, NOT a fresh subjective review , the
+ *  panel proved a fresh opus-high re-review is stricter than the recorded review (all 5 levers correctly
+ *  routed the page + had clean layering/NFRs, yet all "failed" on a home-row-link IA nuance the recorded
+ *  clean review never required). Comparing to the recorded output is fair + objective. Same idea as the
+ *  driver-green code judge. See consort/optimize/DRIVER-REPAIR-TURN-REPLAY.md. */
+function buildDriverRepairCodeJudge(repairTurnLabel: string, feature: string, _story: string): QualityGate {
   const cwd = process.cwd();
-  const deltaJudge = makeSupersessionDeltaJudge({ cwd });
-  const verdictJudge = makeVerdictAlignmentJudge({ cwd });
-  const recordedReviewDirective = readRecordedNextReview(repairTurnLabel, feature, story);
+  const judge = makeOpusJudge({ cwd });
+  const CODE_PREFIXES = ["client/src/", "app/"] as const;
+  const CODE_EXTS = [".ts", ".tsx", ".py"] as const;
+  // The recorded OUTPUT: the code the recorded repair turn produced (its files/ tree), client + app only.
+  const recMap = snapshotTree(join(CORPUS_TURNS, repairTurnLabel, "files"), join(CORPUS_TURNS, repairTurnLabel, "files"));
+  const reference = CODE_PREFIXES.map((p) => concatTreeFiles(recMap, p, CODE_EXTS)).join("\n");
+  if (!reference.trim()) throw new Error(`buildDriverRepairCodeJudge: recorded turn ${repairTurnLabel} produced no client/app code to compare against`);
+  void feature;
   return {
     judgeCandidate: async ({ producedArtifacts }) => {
-      const candRaw = producedArtifacts[`${NEXT_STEP_MARKER_PREFIX}review-verdict.json`];
-      if (candRaw === undefined) return { passed: false, reason: "no next-step review-verdict produced , the repair did not resolve to a clean review (green + review is the quality bar)" };
-      const candidateReview = parseVerdictFile(candRaw);
-      const outcome = await evaluateNextStepDetermination({
-        evaluatorKind: "review",
-        deltaJudge,
-        verdictJudge,
-        recordedReviewDirective,
-        candidateReview,
-      });
-      const passed = outcome.verdict !== "fail";
-      const classification = outcome.verdict === "pass-with-honors" ? "pass-with-honors" : outcome.candidateClass;
-      return { passed, classification, nextStep: outcome.verdict, reason: outcome.reason };
+      // GATE: the repair must have RESOLVED (honest-GREEN passed). Prefer the explicit marker; fall back to
+      // "a next-step review-verdict was produced" (a repair only routes to review AFTER greening) for runs
+      // preserved before the marker existed.
+      let resolved: boolean;
+      const hg = producedArtifacts["repair-honest-green.json"];
+      if (hg !== undefined) {
+        try { resolved = (JSON.parse(hg) as { passed?: unknown }).passed === true; } catch { resolved = false; }
+      } else {
+        resolved = producedArtifacts[`${NEXT_STEP_MARKER_PREFIX}review-verdict.json`] !== undefined;
+      }
+      if (!resolved) return { passed: false, reason: "repair did not resolve (honest-GREEN failed) , not the same quality as the recorded resolved repair" };
+      const candidate = CODE_PREFIXES.map((p) => concatTreeFiles(producedArtifacts, p, CODE_EXTS)).join("\n");
+      if (!candidate.trim()) return { passed: false, reason: "no candidate client/app code produced to judge" };
+      const v = await judge({ step: "code" as never, reference, candidate, functional: "code" as BuildOutputKind });
+      return { passed: v.score >= FUNCTIONAL_THRESHOLD, score: v.score };
     },
   };
 }
@@ -437,7 +435,7 @@ export async function sweepDriverGreen(
   // review. See consort/optimize/DRIVER-REPAIR-TURN-REPLAY.md.
   const quality: QualityGate =
     experiment && experimentBundle && spec.driverTurn === "repair"
-      ? buildDriverRepairReviewJudge(experiment.turn, experimentBundle.feature, experimentBundle.story)
+      ? buildDriverRepairCodeJudge(experiment.turn, experimentBundle.feature, experimentBundle.story)
       : buildDriverNextStepJudge(handle);
 
   // The driver chain as a ChainRunner for the ONE sweep engine: scaffold ONCE (the #589 model), each
@@ -1135,18 +1133,24 @@ export async function runRejudge(runRoot: string, experimentPath?: string): Prom
     const isDriver = handle in DRIVER_TURN_SPECS;
     const isBuildChain = handle in BUILD_ROLE_CHAINS;
     const chain = isDriver ? undefined : (isBuildChain ? BUILD_ROLE_CHAINS[handle] : ROLE_CHAINS[handle]);
-    // An experiment run's chain dir is the experiment turn's chain (turn label ends with the handle, e.g.
-    // "0157-navigator-assess" -> "navigator-assess"); score it through the replay judge even if it is not a
-    // known static chain. Otherwise require a known chain (driver / build / design).
-    const isExperimentChain = !!(experiment && experimentBundle && experiment.turn.endsWith(handle));
+    // A DRIVER-REPAIR experiment is judged by the corpus-faithful CODE-equivalence judge (candidate code vs
+    // the recorded repaired output, gated on honest-GREEN) , NOT the lean replay judge and NOT a fresh
+    // review. A LEAN experiment's chain dir is the experiment turn's chain (turn label ends with the handle,
+    // e.g. "0157-navigator-assess" -> "navigator-assess") , score it through the replay judge. Otherwise
+    // require a known chain (driver / build / design).
+    const driverSpec = DRIVER_TURN_SPECS[handle];
+    const isRepairExperiment = !!(experiment && experimentBundle && driverSpec?.driverTurn === "repair");
+    const isExperimentChain = !!(experiment && experimentBundle && !isDriver && experiment.turn.endsWith(handle));
     if (!isDriver && !chain && !isExperimentChain) { console.log(`[rejudge] ${handle}: not a known chain, skipping`); continue; }
-    // Resolve the SAME discriminator the live sweep used , experiment: the corpus-faithful replay judge;
-    // driver: buildDriverNextStepJudge; else buildChainJudge (reference-assets).
+    // Resolve the SAME discriminator the live sweep used , repair-experiment: code-equivalence; lean
+    // experiment: the corpus-faithful replay judge; driver: buildDriverNextStepJudge; else buildChainJudge.
     let quality: QualityGate;
     try {
-      quality = isExperimentChain
-        ? buildReplayTurnJudge(experiment!.turn, experimentBundle!.feature, experimentBundle!.story, experimentBundle!.ac, experiment!.discriminator ?? "assess")
-        : isDriver ? buildDriverNextStepJudge(handle) : buildChainJudge(chain!, handle, isBuildChain);
+      quality = isRepairExperiment
+        ? buildDriverRepairCodeJudge(experiment!.turn, experimentBundle!.feature, experimentBundle!.story)
+        : isExperimentChain
+          ? buildReplayTurnJudge(experiment!.turn, experimentBundle!.feature, experimentBundle!.story, experimentBundle!.ac, experiment!.discriminator ?? "assess")
+          : isDriver ? buildDriverNextStepJudge(handle) : buildChainJudge(chain!, handle, isBuildChain);
     } catch (e) {
       console.log(`[rejudge] ${handle}: cannot resolve discriminator (${e instanceof Error ? e.message : String(e)}); skipping`);
       continue;
