@@ -216,9 +216,13 @@ async function runReplayCandidate(args: {
     if (!args.bundle) throw new Error("lean replay requires a bundle (the corpus turn to replay)");
     if (!args.manifestDir) throw new Error("lean replay requires a manifestDir (the chain's manifest subdir)");
     // The lean lane's usage rides turns[].agentResult (the design-lane telemetry path), so cost is
-    // recorded identically; the gate is derived from the produced turn (no runner-supplied gate needed).
+    // recorded identically. Supply a STRUCTURAL gate (passed) , same as the cloud path: reaching here
+    // means the turn ran + produced its determination, which is a valid SCORABLE turn (the judge scores
+    // it same/better/worse vs the recorded marker; a thin/empty determination is the judge's call, not a
+    // gate skip). Without this, role-sweep derives a DESIGN-shaped gate (producedOk on chain.outputFile +
+    // design-complete) that a replayed build turn does not fit, wrongly skipping the mandatory judge.
     const { turns, producedArtifacts } = await runLeanReplayTurn(args.bundle, args.agentFor, args.manifestDir);
-    return { turns, producedArtifacts };
+    return { turns, producedArtifacts, gate: { passed: true } };
   }
   // CLOUD: the driver's live cycle (scaffold worktree + Lakebase branch + honest-GREEN + navigator eval).
   const result = (await runDriverGreenOnScaffold(args.project!, {
