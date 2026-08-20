@@ -1,7 +1,7 @@
 {
   "name": "driver-repair-panel",
-  "turn": "0053-driver-repair",
-  "ac": "AC1-detail-lists-sku-locations",
+  "turn": "0065-driver-repair",
+  "ac": "AC1-detail-lists-locations",
   "driverTurn": "repair",
   "concurrency": 3,
   "candidates": [
