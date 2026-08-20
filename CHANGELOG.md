@@ -50,6 +50,15 @@ behavior is removed. Legacy `sftdd` names/paths still read for back-compat.
   is now captured wherever it appears in the transcript (full text, with a file
   fallback) and tolerates a prose/YAML report block, so a well-formed turn is no
   longer dropped on a formatting variation.
+- **Navigator-RED test authoring enforces test-state ownership.** Every RED
+  authoring directive now carries a mandatory canon: a test owns the state it
+  asserts on. For an empty / collection / aggregate assertion the test must scope
+  to per-run-unique keys (assert only its own rows, or query a per-run-unique slice
+  that is genuinely empty) or explicitly clear the aggregate — never assume a clean
+  shared DB or assert absolute whole-table state (e.g. `len(all) == 0`). This
+  prevents a class of flaky/false tests on the reused per-branch acceptance DB
+  (an empty-state test that asserts the whole store is empty while a prior story's
+  committed rows persist), and it holds on the tuned `navigator-RED` model tier.
 
 ## [0.3.8] - 2026-08-14
 

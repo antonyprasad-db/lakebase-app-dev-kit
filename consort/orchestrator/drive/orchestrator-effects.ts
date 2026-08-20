@@ -299,7 +299,31 @@ function storyStubScope(consortDir: string, featureId: string, storyId: string):
  * the substrate stamped pending[0], so the recorded cycle test_id diverged from
  * the test actually written. Naming the test makes the agent obey the order.
  */
+/** Mandatory TEST-STATE-OWNERSHIP canon , appended to EVERY RED authoring directive. The acceptance DB is a
+ *  SHARED branch reused across the story's cycles and already holds rows PRIOR stories committed, so a test
+ *  that assumes ambient state or asserts absolute whole-collection state (e.g. len(all) == 0) is flaky by
+ *  design. This is the canon opus infers and a cheaper RED model otherwise drops (the S2 empty-state HIL:
+ *  sonnet+low asserted a whole-store empty on a DB carrying S1's rows). Stated explicitly, the cheaper model
+ *  obeys it (it already scoped the NON-empty test to per-run-unique keys when the test-list said so). */
+const STATE_OWNERSHIP_CANON =
+  " TEST STATE OWNERSHIP (mandatory): each test OWNS the state it asserts on , the acceptance DB is a shared" +
+  " branch reused across the story's cycles and already holds rows other stories committed. For any COLLECTION" +
+  " or AGGREGATE assertion (an empty list/table, \"returns all\", a count), NEVER assume ambient state and NEVER" +
+  " assert absolute whole-table state (e.g. len(all) == 0): SCOPE to per-run-unique keys , assert only your own" +
+  " seeded rows, or query a per-run-unique slice that is genuinely empty , or explicitly clear the aggregate you" +
+  " claim empty. Also revert/roll back rows a test writes so it never leaks state into another test.";
+
 function nextPendingTestDirective(
+  consortDir: string,
+  featureId: string,
+  story: string,
+  loop?: "ac" | "hybrid-a" | "story",
+  cap?: number,
+): string {
+  return nextPendingTestDirectiveBody(consortDir, featureId, story, loop, cap) + STATE_OWNERSHIP_CANON;
+}
+
+function nextPendingTestDirectiveBody(
   consortDir: string,
   featureId: string,
   story: string,
