@@ -6,6 +6,48 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.10] - 2026-08-20
+
+Adds opt-out usage telemetry, makes the kit installable off the Databricks network,
+and completes the faithful-replay recorder change. All changes fold onto 0.3.9;
+legacy `sftdd` names/paths still read for back-compat.
+
+### Added
+
+- **Level-1 usage telemetry for `consort-drive`** (#185, thanks @kemjim). Opt-out
+  (on by default), allowlist-scoped OpenTelemetry spans for drive turns, plus a
+  `consort-telemetry` CLI and a local collector tool. Emits only from real
+  interactive runs (never in CI / non-TTY, and never when `CONSORT_TELEMETRY=0`
+  or after `consort-telemetry disable`); a one-time first-run notice prints how to
+  turn it off. Only allowlisted, non-sensitive fields are emitted, nothing leaves
+  the machine until a maintainer arms a real endpoint, and a config-write failure
+  never breaks a run. See TELEMETRY.md.
+- **Pre-turn `.consort` capture** (`replay-set/pre-consort/`). The turn recorder
+  snapshots the full pre-turn `.consort` STATE (cycles / features / experiments /
+  design / smells / workflow), excluding append-only streams + runtime ephemera,
+  so a replay lays the pre-turn state verbatim instead of reconstructing it.
+- **`stockflow-optimization-study` replay corpus**: the two-sprint F1+F6 scope
+  re-recorded under the v0.3.9-tuned model matrix, with `pre-consort/` on every
+  agent turn and a clean (zero-HIL) run.
+
+### Changed
+
+- **Driver repair/refactor replays lay `pre-consort/` verbatim; the handroll is
+  retired.** `layReplayDriverPreCycle` + the legacy `DRIVER_TURN_SEEDS` are removed;
+  a repair/refactor turn without `pre-consort` now fails loud pointing at a
+  pre-consort corpus. A `LAKEBASE_SFTDD_CORPUS_DIR` override selects the replay
+  corpus.
+
+### Fixed
+
+- **npm lockfiles are installable off the Databricks network.** Committed lockfiles
+  resolved to the internal npm proxy (`npm-proxy.cloud.databricks.com`); `npm ci`
+  fetches those verbatim and HANGS for anyone off-network. They now resolve to the
+  public registry (the proxy is a faithful npmjs mirror, so `integrity` stays valid
+  and internal machines still reach them through their `HTTP_PROXY`). The scaffold
+  self-heals its `client/package-lock.json` before install, and a CI guard blocks a
+  non-public `resolved` host from being committed.
+
 ## [0.3.9] - 2026-08-19
 
 A tuning release. The per-turn model/effort matrix is optimized from a
