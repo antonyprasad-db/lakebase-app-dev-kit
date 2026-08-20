@@ -14880,6 +14880,12 @@ var import_node_crypto6 = require("crypto");
 var DEFAULT_TELEMETRY_ENABLED = true;
 var UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 var isUuidV4 = (s) => typeof s === "string" && UUID_V4.test(s);
+function telemetryDebug(msg, err) {
+  if (!process.env.CONSORT_TELEMETRY_DEBUG) return;
+  const detail = err instanceof Error ? err.message : err !== void 0 ? String(err) : "";
+  process.stderr.write(`[consort-telemetry] ${msg}${detail ? `: ${detail}` : ""}
+`);
+}
 function telemetryConfigDir(deps = {}) {
   const env = deps.env ?? process.env;
   const xdg = env.XDG_CONFIG_HOME?.trim();
@@ -14906,15 +14912,25 @@ function readStoredConfig(deps = {}) {
   }
 }
 function writeStoredConfig(cfg, deps = {}) {
-  const dir = telemetryConfigDir(deps);
-  fs19.mkdirSync(dir, { recursive: true });
-  fs19.writeFileSync(telemetryConfigFile(deps), JSON.stringify(cfg, null, 2) + "\n", "utf8");
-  return cfg;
+  try {
+    const dir = telemetryConfigDir(deps);
+    fs19.mkdirSync(dir, { recursive: true });
+    fs19.writeFileSync(telemetryConfigFile(deps), JSON.stringify(cfg, null, 2) + "\n", "utf8");
+    return { cfg, persisted: true };
+  } catch (err) {
+    telemetryDebug("could not persist telemetry config (degrading to an ephemeral id for this run)", err);
+    return { cfg, persisted: false };
+  }
 }
 function ensureInstallId(deps = {}) {
-  const existing = readStoredConfig(deps);
-  if (existing) return existing.install_id;
-  return writeStoredConfig({ install_id: (0, import_node_crypto6.randomUUID)(), telemetry_enabled: DEFAULT_TELEMETRY_ENABLED }, deps).install_id;
+  try {
+    const existing = readStoredConfig(deps);
+    if (existing) return existing.install_id;
+    return writeStoredConfig({ install_id: (0, import_node_crypto6.randomUUID)(), telemetry_enabled: DEFAULT_TELEMETRY_ENABLED }, deps).cfg.install_id;
+  } catch (err) {
+    telemetryDebug("ensureInstallId failed (using an ephemeral id for this run)", err);
+    return (0, import_node_crypto6.randomUUID)();
+  }
 }
 function isTelemetryEnabled(deps = {}) {
   return (readStoredConfig(deps) ?? { telemetry_enabled: DEFAULT_TELEMETRY_ENABLED }).telemetry_enabled;
@@ -14973,6 +14989,14 @@ function gateOutcome(action, threw) {
   return threw ? "fail" : "pass";
 }
 function beginTelemetryRun(deps) {
+  try {
+    return beginTelemetryRunUnsafe(deps);
+  } catch (err) {
+    telemetryDebug("beginTelemetryRun failed; telemetry disabled for this run", err);
+    return NOOP_RUN;
+  }
+}
+function beginTelemetryRunUnsafe(deps) {
   const env = deps.env ?? process.env;
   const isTTY = deps.isTTY ?? !!process.stdout.isTTY;
   const enabledFlag = deps.telemetryEnabled ?? isTelemetryEnabled(deps);
@@ -15020,13 +15044,19 @@ function beginTelemetryRun(deps) {
       onCorrespondence: inner.onCorrespondence ? (a, s, i) => inner.onCorrespondence(a, s, i) : void 0,
       onHandback: inner.onHandback ? (h, d) => inner.onHandback(h, d) : void 0,
       assertRouteSatisfiable: inner.assertRouteSatisfiable ? (a, s) => inner.assertRouteSatisfiable(a, s) : void 0,
-      // Executor-dispatched agent turns run THROUGH performViaExecutor (perform is
-      // not called), so a child span must be timed here too.
+      // Executor-dispatched agent turns run THROUGH performViaExecutor (the driver
+      // does NOT then call perform), so a child span is timed here , but ONLY when
+      // the inner returns a DEFINED bounded route, i.e. the action was actually
+      // handled by the executor. When it returns `undefined` the action was NOT
+      // executor-dispatched: the driver falls through to `perform`, whose wrapper
+      // records the span, so recording here too would DOUBLE-COUNT every non-
+      // executor action (the common case: gates, cut-experiment, deploy, merge, ...).
+      // On a throw we still record (fail), since no fall-through perform will run.
       performViaExecutor: inner.performViaExecutor ? async (action, state, routerDeps) => {
         const start = now();
         try {
           const r = await inner.performViaExecutor(action, state, routerDeps);
-          recordChild(action, pendingOrdinal, start, false);
+          if (r !== void 0) recordChild(action, pendingOrdinal, start, false);
           return r;
         } catch (err) {
           recordChild(action, pendingOrdinal, start, true);
