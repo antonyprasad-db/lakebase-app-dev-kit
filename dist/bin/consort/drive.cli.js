@@ -3259,8 +3259,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path12) {
-      let input = path12;
+    function removeDotSegments(path13) {
+      let input = path13;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3513,8 +3513,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path12, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path12 && path12 !== "/" ? path12 : void 0;
+        const [path13, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path13 && path13 !== "/" ? path13 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -6922,8 +6922,8 @@ function migrateLegacyArtifactDir(projectDir = process.cwd()) {
 }
 
 // bin/consort/drive.cli.ts
-import * as fs19 from "fs";
-import * as path11 from "path";
+import * as fs20 from "fs";
+import * as path12 from "path";
 import * as readline2 from "readline";
 
 // consort/logging/turn-recorder.ts
@@ -9709,9 +9709,9 @@ function checkDbDesign(dbDesignJson2, architectureJson2) {
   }
   return violations.length > 0 ? { ok: false, violations } : { ok: true };
 }
-function canonicalArtifactName(path12) {
-  const base = basename(path12);
-  if (basename(dirname9(path12)) === "acs" && base.endsWith(".json")) return "ac.json";
+function canonicalArtifactName(path13) {
+  const base = basename(path13);
+  if (basename(dirname9(path13)) === "acs" && base.endsWith(".json")) return "ac.json";
   return base;
 }
 
@@ -14689,6 +14689,404 @@ function writeRunConfig(inputs) {
   return cfg;
 }
 
+// consort/telemetry/with-telemetry.ts
+init_esm_shims();
+
+// consort/telemetry/allowlist.ts
+init_esm_shims();
+var TELEMETRY_SCHEMA = "consort/v1";
+var TELEMETRY_LEVEL = 1;
+var RESOURCE_ATTR_KEYS = [
+  "schema",
+  "install_id",
+  "consort_version",
+  "node_version",
+  "os",
+  "arch",
+  "shell",
+  "ci",
+  "tty",
+  "level"
+];
+var RUN_SPAN_FIELDS = [
+  "trace_id",
+  "span_id",
+  "name",
+  "start_ts",
+  "end_ts",
+  "duration_ms",
+  "command",
+  "outcome",
+  "exit_code",
+  "gates_total"
+];
+var GATE_SPAN_FIELDS = [
+  "trace_id",
+  "parent_span_id",
+  "span_id",
+  "name",
+  "gate",
+  "ordinal",
+  "start_ts",
+  "end_ts",
+  "duration_ms",
+  "outcome"
+];
+var OS_VALUES = ["darwin", "linux", "win32", "other"];
+var ARCH_VALUES = ["arm64", "x64", "other"];
+var RUN_SPAN_NAME = "consort.run";
+var GATE_SPAN_NAME = "consort.gate";
+var GATE_KINDS = [
+  "invoke-role",
+  "project-architect-notes",
+  "surface-gate",
+  "approve-gate",
+  "design-complete",
+  "approve-plan-gate",
+  "planning-complete",
+  "dispatch",
+  "cut-experiment",
+  "deploy-verify-heal",
+  "await-acceptance",
+  "accept",
+  "complete",
+  "feature-complete",
+  "deploy",
+  "approve-deploy-gate",
+  "deploy-complete",
+  "prepare-pr",
+  "wait-ci",
+  "approve-promote-gate",
+  "merge",
+  "raise-to-hil",
+  "revise-route",
+  "done"
+];
+var RESOURCE_KEY_SET = new Set(RESOURCE_ATTR_KEYS);
+var GATE_KIND_SET = new Set(GATE_KINDS);
+var isKnownGateKind = (k) => GATE_KIND_SET.has(k);
+function pickAllowed(obj, allowed) {
+  const set = new Set(allowed);
+  const src = obj;
+  const out = {};
+  for (const k of Object.keys(src)) {
+    if (set.has(k)) out[k] = src[k];
+  }
+  return out;
+}
+
+// consort/telemetry/consent.ts
+init_esm_shims();
+var inCi = (env) => {
+  const v = (env.CI ?? "").trim();
+  if (v === "") return false;
+  return !/^(0|false)$/i.test(v);
+};
+var killed = (env) => (env.CONSORT_TELEMETRY ?? "").trim() === "0";
+function shouldEmitTelemetry(inp) {
+  if (killed(inp.env)) return false;
+  if (inCi(inp.env)) return false;
+  if (!inp.isTTY) return false;
+  if (!inp.telemetryEnabled) return false;
+  return true;
+}
+
+// consort/telemetry/emitter.ts
+init_esm_shims();
+
+// consort/telemetry/spans.ts
+init_esm_shims();
+import { randomBytes as randomBytes2 } from "crypto";
+var newTraceId = () => randomBytes2(16).toString("hex");
+var newSpanId = () => randomBytes2(8).toString("hex");
+var sanitizeRunSpan = (s) => pickAllowed(s, RUN_SPAN_FIELDS);
+var sanitizeGateSpan = (s) => pickAllowed(s, GATE_SPAN_FIELDS);
+var isRunSpan = (s) => s.name === RUN_SPAN_NAME;
+
+// consort/telemetry/emitter.ts
+var DEFAULT_QUEUE_CAP = 200;
+var DEFAULT_TIMEOUT_MS = 500;
+var noopSink = { deliver() {
+} };
+function httpSink(opts) {
+  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const doFetch = opts.fetchImpl ?? fetch;
+  return {
+    deliver(payload) {
+      try {
+        const body = payload.spans.map((s) => JSON.stringify(wireLine(s, payload))).join("\n") + "\n";
+        const signal = typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(timeoutMs) : void 0;
+        void Promise.resolve(
+          doFetch(`${opts.endpoint.replace(/\/$/, "")}/v1/traces`, {
+            method: "POST",
+            headers: { "content-type": "application/x-ndjson" },
+            body,
+            ...signal ? { signal } : {}
+          })
+        ).then(
+          () => {
+          },
+          (err) => opts.onError?.(err)
+        );
+      } catch (err) {
+        opts.onError?.(err);
+      }
+    }
+  };
+}
+function wireLine(span, payload) {
+  const clean = isRunSpan(span) ? sanitizeRunSpan(span) : sanitizeGateSpan(span);
+  return isRunSpan(span) ? { schema: payload.schema, ...clean, resource: payload.resource } : { schema: payload.schema, ...clean };
+}
+function endpointMode(env) {
+  const endpoint = env.CONSORT_TELEMETRY_ENDPOINT?.trim() || void 0;
+  const signedOff = /^(1|true)$/i.test((env.CONSORT_TELEMETRY_SIGNOFF ?? "").trim());
+  return { endpoint, signedOff, willPost: !!endpoint && signedOff };
+}
+function resolveSink(env) {
+  const mode = endpointMode(env);
+  return mode.willPost ? httpSink({ endpoint: mode.endpoint }) : noopSink;
+}
+var TelemetryEmitter = class {
+  queue = [];
+  sink;
+  resource;
+  cap;
+  constructor(opts) {
+    this.sink = opts.sink;
+    this.resource = opts.resource;
+    this.cap = opts.queueCap ?? DEFAULT_QUEUE_CAP;
+  }
+  /** Number of spans currently queued (diagnostic; tests assert the cap). */
+  get queued() {
+    return this.queue.length;
+  }
+  /** Append a span, dropping the OLDEST if the queue is at cap. Sanitizes first,
+   *  so a non-allowlisted field never reaches the queue. Never throws. */
+  enqueue(span) {
+    try {
+      const clean = isRunSpan(span) ? sanitizeRunSpan(span) : sanitizeGateSpan(span);
+      if (this.queue.length >= this.cap) this.queue.shift();
+      this.queue.push(clean);
+    } catch {
+    }
+  }
+  /** Drain the queue into one payload and deliver it fire-and-forget. Swallows
+   *  all errors. A no-op / empty queue returns immediately. */
+  flush() {
+    if (this.queue.length === 0) return;
+    const spans = this.queue.splice(0);
+    try {
+      this.sink.deliver({ schema: this.resource.schema, resource: this.resource, spans });
+    } catch {
+    }
+  }
+};
+
+// consort/telemetry/home-config.ts
+init_esm_shims();
+import * as fs19 from "fs";
+import * as os from "os";
+import * as path11 from "path";
+import { randomUUID as randomUUID3 } from "crypto";
+var DEFAULT_TELEMETRY_ENABLED = true;
+var UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+var isUuidV4 = (s) => typeof s === "string" && UUID_V4.test(s);
+function telemetryConfigDir(deps = {}) {
+  const env = deps.env ?? process.env;
+  const xdg = env.XDG_CONFIG_HOME?.trim();
+  const base = xdg && xdg.length > 0 ? xdg : path11.join(deps.homedir ?? os.homedir(), ".config");
+  return path11.join(base, "consort");
+}
+function telemetryConfigFile(deps = {}) {
+  return path11.join(telemetryConfigDir(deps), "telemetry.json");
+}
+function readStoredConfig(deps = {}) {
+  let raw;
+  try {
+    raw = fs19.readFileSync(telemetryConfigFile(deps), "utf8");
+  } catch {
+    return null;
+  }
+  try {
+    const data = JSON.parse(raw);
+    if (!isUuidV4(data.install_id)) return null;
+    const telemetry_enabled = typeof data.telemetry_enabled === "boolean" ? data.telemetry_enabled : DEFAULT_TELEMETRY_ENABLED;
+    return { install_id: data.install_id, telemetry_enabled };
+  } catch {
+    return null;
+  }
+}
+function writeStoredConfig(cfg, deps = {}) {
+  const dir = telemetryConfigDir(deps);
+  fs19.mkdirSync(dir, { recursive: true });
+  fs19.writeFileSync(telemetryConfigFile(deps), JSON.stringify(cfg, null, 2) + "\n", "utf8");
+  return cfg;
+}
+function ensureInstallId(deps = {}) {
+  const existing = readStoredConfig(deps);
+  if (existing) return existing.install_id;
+  return writeStoredConfig({ install_id: randomUUID3(), telemetry_enabled: DEFAULT_TELEMETRY_ENABLED }, deps).install_id;
+}
+function isTelemetryEnabled(deps = {}) {
+  return (readStoredConfig(deps) ?? { telemetry_enabled: DEFAULT_TELEMETRY_ENABLED }).telemetry_enabled;
+}
+function isFirstRun(deps = {}) {
+  return readStoredConfig(deps) === null;
+}
+
+// consort/telemetry/resource.ts
+init_esm_shims();
+function normalizeOs(platform) {
+  return OS_VALUES.includes(platform) ? platform : "other";
+}
+function normalizeArch(arch) {
+  return ARCH_VALUES.includes(arch) ? arch : "other";
+}
+function normalizeShell(env) {
+  const shellPath = (env.SHELL ?? "").trim();
+  const base = shellPath.split(/[\\/]/).pop()?.toLowerCase() ?? "";
+  if (base === "zsh" || base === "bash" || base === "fish") return base;
+  if (base === "pwsh" || base === "powershell") return "powershell";
+  if (env.PSModulePath && !env.SHELL) return "powershell";
+  return "unknown";
+}
+function ciBool(env) {
+  const v = (env.CI ?? "").trim();
+  return v !== "" && !/^(0|false)$/i.test(v);
+}
+function buildResourceAttrs(deps = {}) {
+  const env = deps.env ?? process.env;
+  return {
+    schema: TELEMETRY_SCHEMA,
+    install_id: ensureInstallId(deps),
+    consort_version: deps.version ?? kitVersion2(),
+    node_version: process.versions.node,
+    os: normalizeOs(deps.platform ?? process.platform),
+    arch: normalizeArch(deps.arch ?? process.arch),
+    shell: normalizeShell(env),
+    ci: ciBool(env),
+    tty: deps.isTTY ?? !!process.stdout.isTTY,
+    level: TELEMETRY_LEVEL
+  };
+}
+
+// consort/telemetry/with-telemetry.ts
+var FIRST_RUN_NOTICE = "[consort] Anonymous* usage telemetry is on (*pseudonymous: a random per-install id, no PII).\n          Nothing leaves this machine until a maintainer enables a real endpoint.\n          Turn it off any time: `consort-telemetry disable` (or CONSORT_TELEMETRY=0).\n          Details: TELEMETRY.md.\n";
+var NOOP_RUN = {
+  enabled: false,
+  traceId: void 0,
+  wrap: (inner) => inner,
+  finish: () => {
+  }
+};
+function gateOutcome(action, threw) {
+  if (action.kind === "raise-to-hil") return "abort";
+  return threw ? "fail" : "pass";
+}
+function beginTelemetryRun(deps) {
+  const env = deps.env ?? process.env;
+  const isTTY = deps.isTTY ?? !!process.stdout.isTTY;
+  const enabledFlag = deps.telemetryEnabled ?? isTelemetryEnabled(deps);
+  if (!shouldEmitTelemetry({ telemetryEnabled: enabledFlag, isTTY, env })) return NOOP_RUN;
+  const now = deps.now ?? Date.now;
+  if (deps.onNotice && isFirstRun(deps)) deps.onNotice(FIRST_RUN_NOTICE);
+  const resource = buildResourceAttrs({ ...deps, isTTY });
+  const sink = deps.sink ?? resolveSink(env);
+  const emitter = new TelemetryEmitter({ sink, resource });
+  const traceId = newTraceId();
+  const rootSpanId = newSpanId();
+  const rootStart = now();
+  let gates = 0;
+  let finished = false;
+  const recordChild = (action, ordinal, start, threw) => {
+    if (action.kind === "done") return;
+    if (!isKnownGateKind(action.kind)) return;
+    const end = now();
+    const span = {
+      trace_id: traceId,
+      parent_span_id: rootSpanId,
+      span_id: newSpanId(),
+      name: GATE_SPAN_NAME,
+      gate: action.kind,
+      ordinal,
+      start_ts: start,
+      end_ts: end,
+      duration_ms: end - start,
+      outcome: gateOutcome(action, threw)
+    };
+    emitter.enqueue(span);
+    gates += 1;
+  };
+  const wrap = (inner) => {
+    let pendingOrdinal = 0;
+    return {
+      readState: () => inner.readState(),
+      onAction: (action, i) => {
+        pendingOrdinal = i;
+        inner.onAction?.(action, i);
+      },
+      // Forward every optional seam UNCHANGED (mirrors the recording decorators),
+      // so telemetry composition never disables routing / correspondence / etc.
+      onRoutingDecision: inner.onRoutingDecision ? (a, s, i, src) => inner.onRoutingDecision(a, s, i, src) : void 0,
+      onCorrespondence: inner.onCorrespondence ? (a, s, i) => inner.onCorrespondence(a, s, i) : void 0,
+      onHandback: inner.onHandback ? (h, d) => inner.onHandback(h, d) : void 0,
+      assertRouteSatisfiable: inner.assertRouteSatisfiable ? (a, s) => inner.assertRouteSatisfiable(a, s) : void 0,
+      // Executor-dispatched agent turns run THROUGH performViaExecutor (perform is
+      // not called), so a child span must be timed here too.
+      performViaExecutor: inner.performViaExecutor ? async (action, state, routerDeps) => {
+        const start = now();
+        try {
+          const r = await inner.performViaExecutor(action, state, routerDeps);
+          recordChild(action, pendingOrdinal, start, false);
+          return r;
+        } catch (err) {
+          recordChild(action, pendingOrdinal, start, true);
+          throw err;
+        }
+      } : void 0,
+      async perform(action) {
+        const start = now();
+        try {
+          await inner.perform(action);
+          recordChild(action, pendingOrdinal, start, false);
+        } catch (err) {
+          recordChild(action, pendingOrdinal, start, true);
+          throw err;
+        }
+      }
+    };
+  };
+  const finish = (info) => {
+    if (finished) return;
+    finished = true;
+    const end = now();
+    const root = {
+      trace_id: traceId,
+      span_id: rootSpanId,
+      name: RUN_SPAN_NAME,
+      start_ts: rootStart,
+      end_ts: end,
+      duration_ms: end - rootStart,
+      command: deps.command,
+      outcome: info.outcome,
+      exit_code: info.exit_code,
+      gates_total: gates
+    };
+    emitter.enqueue(root);
+    emitter.flush();
+  };
+  if (deps.registerExitFlush !== false) {
+    process.once("beforeExit", () => {
+      if (!finished) emitter.flush();
+    });
+  }
+  return { enabled: true, traceId, wrap, finish };
+}
+function withTelemetry(inner, run) {
+  return run.wrap(inner);
+}
+
 // bin/consort/drive.cli.ts
 function parseArgs(argv) {
   const out = {};
@@ -14804,14 +15202,14 @@ function makeConfirmContinue() {
       const poll = setInterval(() => {
         let raw;
         try {
-          raw = fs19.readFileSync(answerFile, "utf8");
+          raw = fs20.readFileSync(answerFile, "utf8");
         } catch {
           return;
         }
         const a = raw.trim().toLowerCase();
         if (a === "") return;
         try {
-          fs19.rmSync(answerFile, { force: true });
+          fs20.rmSync(answerFile, { force: true });
         } catch {
         }
         if (a === "y" || a === "yes") {
@@ -15032,7 +15430,7 @@ async function runSprintMode(args) {
   const sprint = args.sprint;
   const projectDir = args.projectDir ?? process.cwd();
   const consortDir = args.consortDir ?? resolveConsortDir(projectDir);
-  const lkShim = path11.join(projectDir, "scripts", "lk");
+  const lkShim = path12.join(projectDir, "scripts", "lk");
   const settings = resolveConsortSettings({ projectDir });
   const gates = effectiveGates(args, projectDir);
   const interactive = gates === "interactive";
@@ -15045,10 +15443,10 @@ async function runSprintMode(args) {
     const intakeCandidates = [
       { artifact: "product-overview.md", rel: "product-overview.md", ask: "a product overview , the framing + goals the features are proposed from" },
       { artifact: "nfrs.md", rel: "nfrs.md", ask: "the non-functional requirements (NFRs) the work must satisfy" },
-      { artifact: "design-brief.md", rel: path11.join("design", "design-brief.md"), ask: "a design brief , the UX/visual direction for the SPA" },
-      { artifact: "warehouse.png", rel: path11.join("design", "assets", "warehouse.png"), binary: true, ask: "any brand asset(s) (logo/icon) to carry into the design" }
+      { artifact: "design-brief.md", rel: path12.join("design", "design-brief.md"), ask: "a design brief , the UX/visual direction for the SPA" },
+      { artifact: "warehouse.png", rel: path12.join("design", "assets", "warehouse.png"), binary: true, ask: "any brand asset(s) (logo/icon) to carry into the design" }
     ];
-    const resolved = intakeCandidates.map((c) => ({ ...c, abs: path11.join(consortDir, c.rel) }));
+    const resolved = intakeCandidates.map((c) => ({ ...c, abs: path12.join(consortDir, c.rel) }));
     recordCorrespondence(recordDirForKickoff, {
       seq: 0,
       direction: "hil-to-orch",
@@ -15076,15 +15474,15 @@ Place each under the project's \`.consort/\`; I will read them as the proposal +
       response: { by: "orchestrator" },
       outcome: { validated: true }
     });
-    const intakeCopyDir = path11.join(recordDirForKickoff, "intake");
-    const submitted = resolved.filter((c) => fs19.existsSync(c.abs)).map((c) => {
-      const dest = path11.join(intakeCopyDir, c.rel);
+    const intakeCopyDir = path12.join(recordDirForKickoff, "intake");
+    const submitted = resolved.filter((c) => fs20.existsSync(c.abs)).map((c) => {
+      const dest = path12.join(intakeCopyDir, c.rel);
       try {
-        fs19.mkdirSync(path11.dirname(dest), { recursive: true });
-        fs19.copyFileSync(c.abs, dest);
+        fs20.mkdirSync(path12.dirname(dest), { recursive: true });
+        fs20.copyFileSync(c.abs, dest);
       } catch {
       }
-      return { artifact: c.artifact, contentRef: path11.join("intake", c.rel), ...c.binary ? { binary: true } : {} };
+      return { artifact: c.artifact, contentRef: path12.join("intake", c.rel), ...c.binary ? { binary: true } : {} };
     });
     recordCorrespondence(recordDirForKickoff, {
       seq: 2,
@@ -15128,7 +15526,7 @@ Place each under the project's \`.consort/\`; I will read them as the proposal +
       return backlogFeatureIds(readBacklog(consortDir, sprint));
     },
     async commitAndPushRequests() {
-      const root = path11.basename(consortDir);
+      const root = path12.basename(consortDir);
       for (const id of backlogFeatureIds(readBacklog(consortDir, sprint))) {
         await spawnCmd("git", ["add", "--", `${root}/features/${id}/feature-request.md`], projectDir).catch(() => void 0);
       }
@@ -15190,7 +15588,7 @@ Place each under the project's \`.consort/\`; I will read them as the proposal +
         `[sprint] RAISED TO HIL${on} , halting sprint ${sprint}.
 ` + (e?.source ? `        source: ${e.source}
 ` : "") + (e?.reason ? `        reason: ${e.reason}
-` : "") + `        recorded under ${path11.basename(consortDir)}/escalations/ ; resolve it, then re-run to resume.
+` : "") + `        recorded under ${path12.basename(consortDir)}/escalations/ ; resolve it, then re-run to resume.
 `
       );
       return 3;
@@ -15358,14 +15756,23 @@ then re-run.
   const gates = effectiveGates(args, cfg.projectDir);
   snapshotRunConfig(cfg, bound ?? "full", gates);
   const interactive = gates === "interactive";
+  const telemetry = beginTelemetryRun({
+    command: bound ?? "build",
+    onNotice: (m) => process.stderr.write(m)
+  });
+  let result;
+  let caught;
   try {
-    const result = await runDriver(withTurnRecording(withBuildRecording(buildDriveEffects(cfg), cfg), cfg), {
-      maxSteps: args.maxSteps,
-      transition: boundOpts.transition,
-      stopWhen: gatedStopWhen(boundOpts.stopWhen, interactive),
-      pauseBefore,
-      confirmContinue
-    });
+    result = await runDriver(
+      withTelemetry(withTurnRecording(withBuildRecording(buildDriveEffects(cfg), cfg), cfg), telemetry),
+      {
+        maxSteps: args.maxSteps,
+        transition: boundOpts.transition,
+        stopWhen: gatedStopWhen(boundOpts.stopWhen, interactive),
+        pauseBefore,
+        confirmContinue
+      }
+    );
     const pendingGate = pendingGateOf(result);
     const pendingInput = pendingInputOf(result);
     if (result.escalated) {
@@ -15374,7 +15781,7 @@ then re-run.
         `[drive] RAISED TO HIL after ${result.iterations} actions , awaiting HIL decision.
         source: ${e?.source}
         reason: ${e?.reason}
-        recorded under ${path11.basename(cfg.consortDir)}/escalations/ ; resolve it, then re-run to resume.
+        recorded under ${path12.basename(cfg.consortDir)}/escalations/ ; resolve it, then re-run to resume.
 `
       );
       return 3;
@@ -15399,6 +15806,7 @@ then re-run.
     }
     return 0;
   } catch (err) {
+    caught = err;
     if (err instanceof ProtocolViolationError) {
       const h = err.handoff;
       try {
@@ -15421,7 +15829,7 @@ then re-run.
       } catch {
       }
       process.stderr.write(`[drive] ${err.message}
-        recorded under ${path11.basename(cfg.consortDir)}/escalations/ ; fix the responder, then re-run.
+        recorded under ${path12.basename(cfg.consortDir)}/escalations/ ; fix the responder, then re-run.
 `);
       return 3;
     }
@@ -15446,7 +15854,7 @@ then re-run.
       } catch {
       }
       process.stderr.write(`[drive] ${err.message}
-        recorded under ${path11.basename(cfg.consortDir)}/escalations/ ; resolve it, then re-run.
+        recorded under ${path12.basename(cfg.consortDir)}/escalations/ ; resolve it, then re-run.
 `);
       return 3;
     }
@@ -15464,6 +15872,12 @@ then re-run.
 `);
     return 1;
   } finally {
+    const outcome = caught ? "error" : result?.escalated ? "aborted" : "completed";
+    const exitCode = caught ? 1 : result?.escalated ? 3 : 0;
+    try {
+      telemetry.finish({ outcome, exit_code: exitCode });
+    } catch {
+    }
     const recordingOrReplaying = !!consortEnv("REPLAY_DIR") || !!consortEnv("REPLAY_BUILD_DIR") || !!consortEnv("RECORD_BUILD_DIR") || !!consortEnv("RECORD_DIR");
     if (cfg.featureId && !recordingOrReplaying) {
       emitNextJson(cfg.consortDir, cfg.featureId, cfg.projectDir, {
