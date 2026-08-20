@@ -1,0 +1,11 @@
+{
+  "name": "navigator-red-s2-isolation",
+  "turn": "0034-navigator",
+  "discriminator": "red",
+  "concurrency": 3,
+  "replicas": 3,
+  "candidates": [
+    { "id": "opus", "levers": { "model": "opus" } },
+    { "id": "sonnet-e-low", "levers": { "model": "sonnet", "effort": "low" } }
+  ]
+}
