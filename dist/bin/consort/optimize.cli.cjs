@@ -11248,7 +11248,13 @@ function recordReplaySet(args) {
     (0, import_node_fs8.mkdirSync)((0, import_node_path9.dirname)(dst), { recursive: true });
     (0, import_node_fs8.cpSync)(abs, dst);
   }
-  void consortDir;
+  const preConsortDir = (0, import_node_path9.join)(setDir, "pre-consort");
+  for (const abs of walk(consortDir, preConsortKeep)) {
+    const rel = (0, import_node_path9.relative)(consortDir, abs);
+    const dst = (0, import_node_path9.join)(preConsortDir, rel);
+    (0, import_node_fs8.mkdirSync)((0, import_node_path9.dirname)(dst), { recursive: true });
+    (0, import_node_fs8.cpSync)(abs, dst);
+  }
   const inDir = (0, import_node_path9.join)(setDir, "inputs");
   (0, import_node_fs8.mkdirSync)(inDir, { recursive: true });
   for (const [id, content] of Object.entries(inputs)) {
@@ -11312,6 +11318,12 @@ function renderTranscriptMd(t, label) {
   }
   lines.push("## Final reasoning", "", t.finalText.trim() || "(no final assistant text)", "");
   return lines.join("\n");
+}
+function preConsortKeep(abs) {
+  const base = abs.split(/[/\\]/).pop() ?? "";
+  if (base === "agent-log.jsonl" || base === "correspondence.jsonl") return false;
+  if (base === "agent-live.log" || /\.(pid|lock|sock)$/.test(base)) return false;
+  return true;
 }
 function walk(dir, keep) {
   if (!(0, import_node_fs8.existsSync)(dir)) return [];
@@ -14105,7 +14117,11 @@ function storyStubScope(consortDir, featureId, storyId) {
     return "";
   }
 }
+var STATE_OWNERSHIP_CANON = ` TEST STATE OWNERSHIP (mandatory): each test OWNS the state it asserts on , the acceptance DB is a shared branch reused across the story's cycles and already holds rows other stories committed. For any COLLECTION or AGGREGATE assertion (an empty list/table, "returns all", a count), NEVER assume ambient state and NEVER assert absolute whole-table state (e.g. len(all) == 0): SCOPE to per-run-unique keys , assert only your own seeded rows, or query a per-run-unique slice that is genuinely empty , or explicitly clear the aggregate you claim empty. Also revert/roll back rows a test writes so it never leaks state into another test.`;
 function nextPendingTestDirective(consortDir, featureId, story, loop, cap) {
+  return nextPendingTestDirectiveBody(consortDir, featureId, story, loop, cap) + STATE_OWNERSHIP_CANON;
+}
+function nextPendingTestDirectiveBody(consortDir, featureId, story, loop, cap) {
   if ((loop ?? "story") === "story") {
     let batch = [];
     try {
