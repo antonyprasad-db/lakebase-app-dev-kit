@@ -44,7 +44,6 @@ var import_util = require("@databricks-solutions/lakebase-scm-utils/util");
 
 // consort/telemetry/allowlist.ts
 var TELEMETRY_SCHEMA = "consort/v1";
-var TELEMETRY_LEVEL = 1;
 var RESOURCE_ATTR_KEYS = [
   "schema",
   "install_id",
@@ -56,6 +55,60 @@ var RESOURCE_ATTR_KEYS = [
   "ci",
   "tty",
   "level"
+];
+var RUN_SPAN_FIELDS_L1 = [
+  "trace_id",
+  "span_id",
+  "name",
+  "start_ts",
+  "end_ts",
+  "duration_ms",
+  "command",
+  "outcome",
+  "exit_code",
+  "gates_total"
+];
+var RUN_SPAN_FIELDS_L2 = [
+  // Repair & loop dynamics (counts).
+  "red_green_cycles",
+  "refactor_iterations",
+  "revise_rounds",
+  "selfheal_attempts",
+  "hil_escalations",
+  // Project shape (counts, not content), each suffixed `_count` so it reads as a
+  // count and never collides with a `.consort` layout path segment. The gate COUNT
+  // is already carried by the L1 `gates_total`, so it is not duplicated here.
+  "feature_count",
+  "story_count",
+  "ac_count",
+  "test_count",
+  // Config/levers: whether the UX-adherence track is engaged (boolean).
+  "ui_track"
+];
+var RUN_SPAN_FIELDS = [...RUN_SPAN_FIELDS_L1, ...RUN_SPAN_FIELDS_L2];
+var GATE_SPAN_FIELDS_L1 = [
+  "trace_id",
+  "parent_span_id",
+  "span_id",
+  "name",
+  "gate",
+  "ordinal",
+  "start_ts",
+  "end_ts",
+  "duration_ms",
+  "outcome"
+];
+var GATE_SPAN_FIELDS_L2 = ["fail_class"];
+var GATE_SPAN_FIELDS = [...GATE_SPAN_FIELDS_L1, ...GATE_SPAN_FIELDS_L2];
+var ROLE_VALUES = [
+  "spec-author",
+  "architect-reviewer",
+  "dba",
+  "ux-designer",
+  "test-strategist",
+  "navigator",
+  "driver",
+  "product-owner"
 ];
 var GATE_KINDS = [
   "invoke-role",
@@ -85,6 +138,7 @@ var GATE_KINDS = [
 ];
 var RESOURCE_KEY_SET = new Set(RESOURCE_ATTR_KEYS);
 var GATE_KIND_SET = new Set(GATE_KINDS);
+var ROLE_VALUE_SET = new Set(ROLE_VALUES);
 
 // consort/telemetry/consent.ts
 var inCi = (env) => {
@@ -124,6 +178,7 @@ var os = __toESM(require("os"), 1);
 var path2 = __toESM(require("path"), 1);
 var import_node_crypto2 = require("crypto");
 var DEFAULT_TELEMETRY_ENABLED = true;
+var DEFAULT_TELEMETRY_LEVEL = 1;
 var UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 var isUuidV4 = (s) => typeof s === "string" && UUID_V4.test(s);
 function telemetryDebug(msg, err) {
@@ -152,7 +207,9 @@ function readStoredConfig(deps = {}) {
     const data = JSON.parse(raw);
     if (!isUuidV4(data.install_id)) return null;
     const telemetry_enabled = typeof data.telemetry_enabled === "boolean" ? data.telemetry_enabled : DEFAULT_TELEMETRY_ENABLED;
-    return { install_id: data.install_id, telemetry_enabled };
+    const telemetry_level = data.telemetry_level === 2 ? 2 : DEFAULT_TELEMETRY_LEVEL;
+    const l2_opt_in_notified = data.l2_opt_in_notified === true;
+    return { install_id: data.install_id, telemetry_enabled, telemetry_level, l2_opt_in_notified };
   } catch {
     return null;
   }
@@ -181,10 +238,27 @@ function ensureInstallId(deps = {}) {
 function isTelemetryEnabled(deps = {}) {
   return (readStoredConfig(deps) ?? { telemetry_enabled: DEFAULT_TELEMETRY_ENABLED }).telemetry_enabled;
 }
-function setTelemetryEnabled(enabled, deps = {}) {
+function updateStoredConfig(patch, deps = {}) {
   const existing = readStoredConfig(deps);
-  const install_id = existing?.install_id ?? (0, import_node_crypto2.randomUUID)();
-  return writeStoredConfig({ install_id, telemetry_enabled: enabled }, deps).cfg;
+  const base = existing ?? {
+    install_id: (0, import_node_crypto2.randomUUID)(),
+    telemetry_enabled: DEFAULT_TELEMETRY_ENABLED,
+    telemetry_level: DEFAULT_TELEMETRY_LEVEL
+  };
+  return writeStoredConfig({ ...base, ...patch }, deps).cfg;
+}
+function setTelemetryEnabled(enabled, deps = {}) {
+  return updateStoredConfig({ telemetry_enabled: enabled }, deps);
+}
+function setTelemetryLevel(level, deps = {}) {
+  return updateStoredConfig({ telemetry_level: level }, deps);
+}
+function resolveTelemetryLevel(deps = {}) {
+  const env = deps.env ?? process.env;
+  const raw = (env.CONSORT_TELEMETRY_LEVEL ?? "").trim();
+  if (raw === "2") return 2;
+  if (raw === "1") return 1;
+  return readStoredConfig(deps)?.telemetry_level === 2 ? 2 : DEFAULT_TELEMETRY_LEVEL;
 }
 
 // consort/telemetry/resource.ts
@@ -194,18 +268,35 @@ function ciBool(env) {
 }
 
 // bin/consort/telemetry.cli.ts
-var HELP = `consort-telemetry , inspect + toggle Consort Level-1 usage telemetry
+var HELP = `consort-telemetry , inspect + toggle Consort usage telemetry
 
 Usage:
-  consort-telemetry status [--json]   Show consent state, install id, endpoint mode
-  consort-telemetry enable            Persist telemetry_enabled = true
-  consort-telemetry disable           Persist telemetry_enabled = false
+  consort-telemetry status [--json]     Show consent state, level, install id, endpoint
+  consort-telemetry enable [--level N]  Persist telemetry_enabled = true (N = 1 or 2)
+  consort-telemetry disable             Persist telemetry_enabled = false
 
-Telemetry is PSEUDONYMOUS (a random per-install UUID, no PII) and, by default,
-writes NOTHING off this machine (the sink is a local no-op until a maintainer
-arms a real endpoint). Silence it any time with 'disable' or CONSORT_TELEMETRY=0.
-See TELEMETRY.md.
+Telemetry is PSEUDONYMOUS (a random per-install UUID, no PII) and OPT-OUT: by
+default a normal interactive run reports to the Consort maintainers' endpoint ,
+only allowlisted enums / counts / durations (no paths, code, or names). Opt out
+any time with 'disable', CONSORT_TELEMETRY=0, or running non-interactively / in
+CI; un-arm the endpoint entirely with CONSORT_TELEMETRY_SIGNOFF=0.
+
+Level 2 is a SEPARATE, EXPLICIT opt-in (off by default) that captures more , per-
+role turn timings + coarse repair/loop counts (still allowlisted, no free text).
+Turn it on with 'enable --level 2' (or CONSORT_TELEMETRY_LEVEL=2); go back with
+'enable --level 1'. See TELEMETRY.md.
 `;
+function parseLevelFlag(argv) {
+  const eq = argv.find((a) => a.startsWith("--level="));
+  let raw = eq ? eq.slice("--level=".length) : void 0;
+  if (raw === void 0) {
+    const i = argv.indexOf("--level");
+    if (i >= 0) raw = argv[i + 1];
+  }
+  if (raw === "2") return 2;
+  if (raw === "1") return 1;
+  return void 0;
+}
 function buildStatus(deps) {
   const env = deps.env ?? process.env;
   const isTTY = deps.isTTY ?? !!process.stdout.isTTY;
@@ -222,7 +313,7 @@ function buildStatus(deps) {
     endpoint_armed: mode.willPost,
     config_file: telemetryConfigFile(deps),
     schema: TELEMETRY_SCHEMA,
-    level: TELEMETRY_LEVEL
+    level: resolveTelemetryLevel(deps)
   };
 }
 function renderStatus(s) {
@@ -232,7 +323,7 @@ function renderStatus(s) {
     tty:               ${s.is_tty}
     in CI:             ${s.in_ci}
     CONSORT_TELEMETRY=0: ${s.killed}
-  endpoint armed:      ${s.endpoint_armed} (default no-op sink until a maintainer signs off)
+  endpoint armed:      ${s.endpoint_armed} (opt-out, armed by default; CONSORT_TELEMETRY_SIGNOFF=0 to un-arm)
   install id:          ${s.install_id}
   config file:         ${s.config_file}
 `;
@@ -249,8 +340,14 @@ function runTelemetryCli(argv, deps = {}) {
       return 0;
     }
     case "enable": {
-      const cfg = setTelemetryEnabled(true, deps);
-      out(json ? JSON.stringify({ telemetry_enabled: cfg.telemetry_enabled }, null, 2) + "\n" : "telemetry enabled\n");
+      setTelemetryEnabled(true, deps);
+      const requested = parseLevelFlag(argv);
+      if (requested !== void 0) setTelemetryLevel(requested, deps);
+      const level = resolveTelemetryLevel(deps);
+      out(
+        json ? JSON.stringify({ telemetry_enabled: true, level }, null, 2) + "\n" : `telemetry enabled (level ${level})
+`
+      );
       return 0;
     }
     case "disable": {

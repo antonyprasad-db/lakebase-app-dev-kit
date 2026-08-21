@@ -6,6 +6,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.12] - 2026-08-21
+
+### Added
+
+- **Level 2 (opt-in) usage telemetry** (#186, thanks @kemjim). A separate, explicit opt-in
+  (OFF by default) on top of the shipped Level 1: `consort-telemetry enable --level 2` or
+  `CONSORT_TELEMETRY_LEVEL=2`. It answers "why does a run fail / where is the bottleneck" and
+  emits a `consort.turn` span per role invocation (role + timing, with coarse
+  model/effort/token_bucket/retry_count buckets), coarse `consort.run` loop dynamics
+  (`red_green_cycles`, `refactor_iterations`, `revise_rounds`, `selfheal_attempts`,
+  `hil_escalations`), coarse project shape (`story_count` / `ui_track`), and a gate
+  `fail_class` failure-signature enum. Still closed enums / counts / durations only, never
+  free text; every Level-1 opt-out applies unchanged. Also fixes stale `consort-telemetry`
+  help/status strings that described the pre-armed local-sink behavior.
+
+### Changed
+
+- **Re-pointed `@databricks-solutions/lakebase-scm-utils` to v0.2.0** (was v0.1.3). Picks up
+  the `lakebase-scm-cleanup` teardown bin (safe list / branches / project cleanup) and the
+  doctor JDK version-gate fail-open fix.
+
 ## [0.3.11] - 2026-08-21
 
 ### Changed

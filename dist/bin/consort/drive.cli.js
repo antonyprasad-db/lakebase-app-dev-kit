@@ -14695,7 +14695,6 @@ init_esm_shims();
 // consort/telemetry/allowlist.ts
 init_esm_shims();
 var TELEMETRY_SCHEMA = "consort/v1";
-var TELEMETRY_LEVEL = 1;
 var RESOURCE_ATTR_KEYS = [
   "schema",
   "install_id",
@@ -14708,7 +14707,7 @@ var RESOURCE_ATTR_KEYS = [
   "tty",
   "level"
 ];
-var RUN_SPAN_FIELDS = [
+var RUN_SPAN_FIELDS_L1 = [
   "trace_id",
   "span_id",
   "name",
@@ -14720,7 +14719,25 @@ var RUN_SPAN_FIELDS = [
   "exit_code",
   "gates_total"
 ];
-var GATE_SPAN_FIELDS = [
+var RUN_SPAN_FIELDS_L2 = [
+  // Repair & loop dynamics (counts).
+  "red_green_cycles",
+  "refactor_iterations",
+  "revise_rounds",
+  "selfheal_attempts",
+  "hil_escalations",
+  // Project shape (counts, not content), each suffixed `_count` so it reads as a
+  // count and never collides with a `.consort` layout path segment. The gate COUNT
+  // is already carried by the L1 `gates_total`, so it is not duplicated here.
+  "feature_count",
+  "story_count",
+  "ac_count",
+  "test_count",
+  // Config/levers: whether the UX-adherence track is engaged (boolean).
+  "ui_track"
+];
+var RUN_SPAN_FIELDS = [...RUN_SPAN_FIELDS_L1, ...RUN_SPAN_FIELDS_L2];
+var GATE_SPAN_FIELDS_L1 = [
   "trace_id",
   "parent_span_id",
   "span_id",
@@ -14732,10 +14749,35 @@ var GATE_SPAN_FIELDS = [
   "duration_ms",
   "outcome"
 ];
+var GATE_SPAN_FIELDS_L2 = ["fail_class"];
+var GATE_SPAN_FIELDS = [...GATE_SPAN_FIELDS_L1, ...GATE_SPAN_FIELDS_L2];
+var TURN_SPAN_FIELDS = [
+  "trace_id",
+  "parent_span_id",
+  "span_id",
+  "name",
+  "role",
+  "model",
+  "effort",
+  "duration_ms",
+  "retry_count",
+  "token_bucket"
+];
 var OS_VALUES = ["darwin", "linux", "win32", "other"];
 var ARCH_VALUES = ["arm64", "x64", "other"];
+var ROLE_VALUES = [
+  "spec-author",
+  "architect-reviewer",
+  "dba",
+  "ux-designer",
+  "test-strategist",
+  "navigator",
+  "driver",
+  "product-owner"
+];
 var RUN_SPAN_NAME = "consort.run";
 var GATE_SPAN_NAME = "consort.gate";
+var TURN_SPAN_NAME = "consort.turn";
 var GATE_KINDS = [
   "invoke-role",
   "project-architect-notes",
@@ -14765,6 +14807,8 @@ var GATE_KINDS = [
 var RESOURCE_KEY_SET = new Set(RESOURCE_ATTR_KEYS);
 var GATE_KIND_SET = new Set(GATE_KINDS);
 var isKnownGateKind = (k) => GATE_KIND_SET.has(k);
+var ROLE_VALUE_SET = new Set(ROLE_VALUES);
+var isKnownRole = (r) => ROLE_VALUE_SET.has(r);
 function pickAllowed(obj, allowed) {
   const set = new Set(allowed);
   const src = obj;
@@ -14801,7 +14845,10 @@ var newTraceId = () => randomBytes2(16).toString("hex");
 var newSpanId = () => randomBytes2(8).toString("hex");
 var sanitizeRunSpan = (s) => pickAllowed(s, RUN_SPAN_FIELDS);
 var sanitizeGateSpan = (s) => pickAllowed(s, GATE_SPAN_FIELDS);
+var sanitizeTurnSpan = (s) => pickAllowed(s, TURN_SPAN_FIELDS);
 var isRunSpan = (s) => s.name === RUN_SPAN_NAME;
+var isTurnSpan = (s) => s.name === TURN_SPAN_NAME;
+var sanitizeSpan = (s) => isRunSpan(s) ? sanitizeRunSpan(s) : isTurnSpan(s) ? sanitizeTurnSpan(s) : sanitizeGateSpan(s);
 
 // consort/telemetry/emitter.ts
 var DEFAULT_QUEUE_CAP = 200;
@@ -14837,7 +14884,7 @@ function httpSink(opts) {
   };
 }
 function wireLine(span, payload) {
-  const clean = isRunSpan(span) ? sanitizeRunSpan(span) : sanitizeGateSpan(span);
+  const clean = sanitizeSpan(span);
   return isRunSpan(span) ? { schema: payload.schema, ...clean, resource: payload.resource } : { schema: payload.schema, ...clean };
 }
 var DEFAULT_ENDPOINT = "https://consort-telemetry-ingest-v2.azurewebsites.net";
@@ -14871,7 +14918,7 @@ var TelemetryEmitter = class {
    *  so a non-allowlisted field never reaches the queue. Never throws. */
   enqueue(span) {
     try {
-      const clean = isRunSpan(span) ? sanitizeRunSpan(span) : sanitizeGateSpan(span);
+      const clean = sanitizeSpan(span);
       if (this.queue.length >= this.cap) this.queue.shift();
       this.queue.push(clean);
     } catch {
@@ -14896,6 +14943,7 @@ import * as os from "os";
 import * as path11 from "path";
 import { randomUUID as randomUUID3 } from "crypto";
 var DEFAULT_TELEMETRY_ENABLED = true;
+var DEFAULT_TELEMETRY_LEVEL = 1;
 var UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 var isUuidV4 = (s) => typeof s === "string" && UUID_V4.test(s);
 function telemetryDebug(msg, err) {
@@ -14924,7 +14972,9 @@ function readStoredConfig(deps = {}) {
     const data = JSON.parse(raw);
     if (!isUuidV4(data.install_id)) return null;
     const telemetry_enabled = typeof data.telemetry_enabled === "boolean" ? data.telemetry_enabled : DEFAULT_TELEMETRY_ENABLED;
-    return { install_id: data.install_id, telemetry_enabled };
+    const telemetry_level = data.telemetry_level === 2 ? 2 : DEFAULT_TELEMETRY_LEVEL;
+    const l2_opt_in_notified = data.l2_opt_in_notified === true;
+    return { install_id: data.install_id, telemetry_enabled, telemetry_level, l2_opt_in_notified };
   } catch {
     return null;
   }
@@ -14955,6 +15005,28 @@ function isTelemetryEnabled(deps = {}) {
 }
 function isFirstRun(deps = {}) {
   return readStoredConfig(deps) === null;
+}
+function updateStoredConfig(patch, deps = {}) {
+  const existing = readStoredConfig(deps);
+  const base = existing ?? {
+    install_id: randomUUID3(),
+    telemetry_enabled: DEFAULT_TELEMETRY_ENABLED,
+    telemetry_level: DEFAULT_TELEMETRY_LEVEL
+  };
+  return writeStoredConfig({ ...base, ...patch }, deps).cfg;
+}
+function resolveTelemetryLevel(deps = {}) {
+  const env = deps.env ?? process.env;
+  const raw = (env.CONSORT_TELEMETRY_LEVEL ?? "").trim();
+  if (raw === "2") return 2;
+  if (raw === "1") return 1;
+  return readStoredConfig(deps)?.telemetry_level === 2 ? 2 : DEFAULT_TELEMETRY_LEVEL;
+}
+function isL2NoticeSeen(deps = {}) {
+  return readStoredConfig(deps)?.l2_opt_in_notified === true;
+}
+function markL2NoticeSeen(deps = {}) {
+  updateStoredConfig({ l2_opt_in_notified: true }, deps);
 }
 
 // consort/telemetry/resource.ts
@@ -14989,12 +15061,13 @@ function buildResourceAttrs(deps = {}) {
     shell: normalizeShell(env),
     ci: ciBool(env),
     tty: deps.isTTY ?? !!process.stdout.isTTY,
-    level: TELEMETRY_LEVEL
+    level: deps.level ?? resolveTelemetryLevel(deps)
   };
 }
 
 // consort/telemetry/with-telemetry.ts
 var FIRST_RUN_NOTICE = "[consort] Anonymous* usage telemetry is on (*pseudonymous: a random per-install id, no PII).\n          Each interactive run reports to the Consort maintainers' endpoint; only\n          allowlisted, non-sensitive fields are sent (no paths, code, or names).\n          Turn it off any time: `consort-telemetry disable` (or CONSORT_TELEMETRY=0).\n          Details: TELEMETRY.md.\n";
+var L2_OPT_IN_NOTICE = "[consort] Level-2 usage telemetry is ON (you opted in).\n          On top of Level 1, it reports per-role turn timings and coarse\n          repair/loop counts , still only allowlisted enums, counts, and\n          durations (no prompts, code, paths, error text, or names).\n          Back to Level 1 any time: `consort-telemetry enable --level 1`.\n          Details: TELEMETRY.md.\n";
 var NOOP_RUN = {
   enabled: false,
   traceId: void 0,
@@ -15020,8 +15093,14 @@ function beginTelemetryRunUnsafe(deps) {
   const enabledFlag = deps.telemetryEnabled ?? isTelemetryEnabled(deps);
   if (!shouldEmitTelemetry({ telemetryEnabled: enabledFlag, isTTY, env })) return NOOP_RUN;
   const now = deps.now ?? Date.now;
+  const level = deps.level ?? resolveTelemetryLevel(deps);
+  const l2 = level === 2;
   if (deps.onNotice && isFirstRun(deps)) deps.onNotice(FIRST_RUN_NOTICE);
-  const resource = buildResourceAttrs({ ...deps, isTTY });
+  if (deps.onNotice && l2 && !isL2NoticeSeen(deps)) {
+    deps.onNotice(L2_OPT_IN_NOTICE);
+    markL2NoticeSeen(deps);
+  }
+  const resource = buildResourceAttrs({ ...deps, isTTY, level });
   const sink = deps.sink ?? resolveSink(env);
   const emitter = new TelemetryEmitter({ sink, resource });
   const traceId = newTraceId();
@@ -15029,6 +15108,35 @@ function beginTelemetryRunUnsafe(deps) {
   const rootStart = now();
   let gates = 0;
   let finished = false;
+  const l2Counts = {
+    red_green_cycles: 0,
+    refactor_iterations: 0,
+    revise_rounds: 0,
+    selfheal_attempts: 0,
+    hil_escalations: 0
+  };
+  let lastState;
+  const tallyL2 = (action) => {
+    switch (action.kind) {
+      case "raise-to-hil":
+        l2Counts.hil_escalations += 1;
+        break;
+      case "revise-route":
+        l2Counts.revise_rounds += 1;
+        break;
+      case "invoke-role": {
+        const bm = "buildMode" in action ? action.buildMode : void 0;
+        if (bm && bm.startsWith("refactor")) l2Counts.refactor_iterations += 1;
+        else if (bm && (bm.startsWith("assess") || bm === "repair")) l2Counts.selfheal_attempts += 1;
+        else if (action.role === "driver" && bm === void 0) l2Counts.red_green_cycles += 1;
+        break;
+      }
+      case "deploy-verify-heal":
+        if (action.mode.startsWith("refactor")) l2Counts.refactor_iterations += 1;
+        else l2Counts.selfheal_attempts += 1;
+        break;
+    }
+  };
   const recordChild = (action, ordinal, start, threw) => {
     if (action.kind === "done") return;
     if (!isKnownGateKind(action.kind)) return;
@@ -15047,11 +15155,31 @@ function beginTelemetryRunUnsafe(deps) {
     };
     emitter.enqueue(span);
     gates += 1;
+    if (l2) {
+      tallyL2(action);
+      if (action.kind === "invoke-role" && isKnownRole(action.role)) {
+        const turn = {
+          trace_id: traceId,
+          parent_span_id: rootSpanId,
+          span_id: newSpanId(),
+          name: TURN_SPAN_NAME,
+          role: action.role,
+          duration_ms: end - start
+        };
+        emitter.enqueue(turn);
+      }
+    }
   };
   const wrap = (inner) => {
     let pendingOrdinal = 0;
     return {
-      readState: () => inner.readState(),
+      // Tap the readState seam to capture the last state the driver observed, so
+      // finish() can record coarse L2 project shape without its own async read.
+      readState: async () => {
+        const s = await inner.readState();
+        lastState = s;
+        return s;
+      },
       onAction: (action, i) => {
         pendingOrdinal = i;
         inner.onAction?.(action, i);
@@ -15109,6 +15237,17 @@ function beginTelemetryRunUnsafe(deps) {
       exit_code: info.exit_code,
       gates_total: gates
     };
+    if (l2) {
+      root.red_green_cycles = l2Counts.red_green_cycles;
+      root.refactor_iterations = l2Counts.refactor_iterations;
+      root.revise_rounds = l2Counts.revise_rounds;
+      root.selfheal_attempts = l2Counts.selfheal_attempts;
+      root.hil_escalations = l2Counts.hil_escalations;
+      if (lastState) {
+        if (typeof lastState.uiTrack === "boolean") root.ui_track = lastState.uiTrack;
+        if (Array.isArray(lastState.storyOrder)) root.story_count = lastState.storyOrder.length;
+      }
+    }
     emitter.enqueue(root);
     emitter.flush();
   };
