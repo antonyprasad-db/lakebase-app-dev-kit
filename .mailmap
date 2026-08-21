@@ -1,0 +1,9 @@
+# Canonicalize commit authorship.
+#
+# "Test User <test@example.com>" was a mistaken local git-config identity used for
+# most of this repo's history; every such commit is Kevin Hartman. This also unifies
+# Kevin's two historical emails (the GitHub-privacy noreply and the databricks one)
+# into one canonical identity. mailmap rewrites display only (shortlog, the GitHub
+# contributors graph, blame) — it does not alter commit hashes or history.
+Kevin Hartman <kevin.hartman@databricks.com> <test@example.com>
+Kevin Hartman <kevin.hartman@databricks.com> <49316710+kevin-hartman@users.noreply.github.com>
