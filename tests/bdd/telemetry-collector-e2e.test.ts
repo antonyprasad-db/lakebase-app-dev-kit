@@ -3,7 +3,8 @@
 //   AC9: a two-action run POSTed to the collector lands 3 NDJSON lines (root +
 //        two gate children) that all share one trace id.
 //   AC7: the collector tolerates an unknown field and still answers 202.
-//   AC10: with the sign-off flag unset the sink is the local no-op , no real POST
+//   AC10: telemetry is armed by default; with the sign-off flag explicitly OFF
+//        (CONSORT_TELEMETRY_SIGNOFF=0) the sink is the local no-op , no real POST
 //        reaches the collector.
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -75,9 +76,10 @@ describe("telemetry collector E2E", () => {
     expect(JSON.parse(lines[0])).toMatchObject({ some_future_field: 42 });
   });
 
-  it("sign-off flag unset -> no-op sink, so NO real POST reaches the collector (AC10)", async () => {
-    // resolveSink with only an endpoint (no sign-off) must be the no-op sink.
-    const env = { CONSORT_TELEMETRY_ENDPOINT: collector.url };
+  it("sign-off explicitly OFF (CONSORT_TELEMETRY_SIGNOFF=0) -> no-op sink, so NO real POST reaches the collector (AC10)", async () => {
+    // Armed by default: the no-op path now requires an explicit un-arm. resolveSink with
+    // sign-off turned OFF must be the no-op sink even though an endpoint is present.
+    const env = { CONSORT_TELEMETRY_ENDPOINT: collector.url, CONSORT_TELEMETRY_SIGNOFF: "0" };
     const run = beginTelemetryRun({
       command: "build",
       sink: resolveSink(env), // <- the production resolution, sign-off UNSET

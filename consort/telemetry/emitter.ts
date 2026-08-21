@@ -55,6 +55,11 @@ export function memorySink(): MemorySink {
 export interface HttpSinkOptions {
   endpoint: string;
   timeoutMs?: number;
+  /** Optional shared bearer token, sent as `Authorization: Bearer <token>`. Lets a
+   *  PUBLIC (non-Databricks) ingest endpoint reject anonymous traffic. This is a
+   *  soft secret (it ships in the client): abuse deterrence, not real authZ. It is
+   *  NOT a Databricks OAuth token and does NOT unlock a Databricks App. */
+  token?: string;
   /** Injectable fetch (tests). Defaults to the global fetch. */
   fetchImpl?: typeof fetch;
   /** Observed on any delivery error (tests / diagnostics). Never rethrown. */
@@ -84,10 +89,12 @@ export function httpSink(opts: HttpSinkOptions): TelemetrySink {
             : undefined;
         // Fire-and-forget: do NOT await. Swallow rejection so an unhandled
         // rejection never surfaces.
+        const headers: Record<string, string> = { "content-type": "application/x-ndjson" };
+        if (opts.token) headers["authorization"] = `Bearer ${opts.token}`;
         void Promise.resolve(
           doFetch(`${opts.endpoint.replace(/\/$/, "")}/v1/traces`, {
             method: "POST",
-            headers: { "content-type": "application/x-ndjson" },
+            headers,
             body,
             ...(signal ? { signal } : {}),
           }),
@@ -112,31 +119,44 @@ function wireLine(span: TelemetrySpan, payload: TracePayload): Record<string, un
     : { schema: payload.schema, ...clean };
 }
 
-/** The state of the endpoint gate: the two conditions that must BOTH hold for a
- *  real POST, and whether they do. */
+/** The armed-by-default ingest endpoint. Telemetry is OPT-OUT and always-on: a
+ *  normal interactive run posts here automatically. The endpoint accepts anonymous
+ *  POSTs (no token), so nothing sensitive ships in the client. Operators opt out via
+ *  `consort-telemetry disable`, `CONSORT_TELEMETRY=0`, CI, or a non-TTY run (consent.ts),
+ *  point elsewhere with `CONSORT_TELEMETRY_ENDPOINT`, or un-arm with
+ *  `CONSORT_TELEMETRY_SIGNOFF=0`. */
+export const DEFAULT_ENDPOINT = "https://consort-telemetry-ingest-v2.azurewebsites.net";
+
+/** The state of the endpoint gate. */
 export interface EndpointMode {
   endpoint?: string;
   signedOff: boolean;
-  /** True only when a real endpoint is configured AND the sign-off flag is set. */
+  /** True when an endpoint is set (default armed) AND sign-off is not turned off. */
   willPost: boolean;
 }
 
-/** Read the endpoint gate from the env. A real POST requires BOTH
- *  CONSORT_TELEMETRY_ENDPOINT and the CONSORT_TELEMETRY_SIGNOFF privacy flag. */
+/** Read the endpoint gate. Armed by default: the endpoint defaults to
+ *  DEFAULT_ENDPOINT and sign-off defaults ON. A consenting run posts unless the
+ *  operator points the endpoint elsewhere or sets CONSORT_TELEMETRY_SIGNOFF=0/false.
+ *  (The opt-out consent checks in consent.ts still gate whether we reach here.) */
 export function endpointMode(env: NodeJS.ProcessEnv): EndpointMode {
-  const endpoint = env.CONSORT_TELEMETRY_ENDPOINT?.trim() || undefined;
-  const signedOff = /^(1|true)$/i.test((env.CONSORT_TELEMETRY_SIGNOFF ?? "").trim());
+  const endpoint = env.CONSORT_TELEMETRY_ENDPOINT?.trim() || DEFAULT_ENDPOINT;
+  const raw = (env.CONSORT_TELEMETRY_SIGNOFF ?? "").trim();
+  const signedOff = raw === "" ? true : /^(1|true)$/i.test(raw);
   return { endpoint, signedOff, willPost: !!endpoint && signedOff };
 }
 
 /**
- * Resolve the sink from the env: the local no-op sink by default; a real HTTP
- * sink ONLY when an endpoint is configured AND the sign-off flag is set. This is
- * the "nothing phones home until a human flips the real endpoint" gate.
+ * Resolve the sink from the env: a real HTTP sink to the armed endpoint by default
+ * (opt-out, always-on). Returns the no-op sink only when sign-off is explicitly
+ * turned off (`CONSORT_TELEMETRY_SIGNOFF=0`). An optional `CONSORT_TELEMETRY_TOKEN`
+ * is sent as a bearer if set (the default endpoint needs none).
  */
 export function resolveSink(env: NodeJS.ProcessEnv): TelemetrySink {
   const mode = endpointMode(env);
-  return mode.willPost ? httpSink({ endpoint: mode.endpoint! }) : noopSink;
+  if (!mode.willPost) return noopSink;
+  const token = env.CONSORT_TELEMETRY_TOKEN?.trim() || undefined;
+  return httpSink({ endpoint: mode.endpoint!, token });
 }
 
 export interface TelemetryEmitterOptions {

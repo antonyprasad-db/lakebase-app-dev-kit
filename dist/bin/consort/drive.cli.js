@@ -14816,10 +14816,12 @@ function httpSink(opts) {
       try {
         const body = payload.spans.map((s) => JSON.stringify(wireLine(s, payload))).join("\n") + "\n";
         const signal = typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(timeoutMs) : void 0;
+        const headers = { "content-type": "application/x-ndjson" };
+        if (opts.token) headers["authorization"] = `Bearer ${opts.token}`;
         void Promise.resolve(
           doFetch(`${opts.endpoint.replace(/\/$/, "")}/v1/traces`, {
             method: "POST",
-            headers: { "content-type": "application/x-ndjson" },
+            headers,
             body,
             ...signal ? { signal } : {}
           })
@@ -14838,14 +14840,18 @@ function wireLine(span, payload) {
   const clean = isRunSpan(span) ? sanitizeRunSpan(span) : sanitizeGateSpan(span);
   return isRunSpan(span) ? { schema: payload.schema, ...clean, resource: payload.resource } : { schema: payload.schema, ...clean };
 }
+var DEFAULT_ENDPOINT = "https://consort-telemetry-ingest-v2.azurewebsites.net";
 function endpointMode(env) {
-  const endpoint = env.CONSORT_TELEMETRY_ENDPOINT?.trim() || void 0;
-  const signedOff = /^(1|true)$/i.test((env.CONSORT_TELEMETRY_SIGNOFF ?? "").trim());
+  const endpoint = env.CONSORT_TELEMETRY_ENDPOINT?.trim() || DEFAULT_ENDPOINT;
+  const raw = (env.CONSORT_TELEMETRY_SIGNOFF ?? "").trim();
+  const signedOff = raw === "" ? true : /^(1|true)$/i.test(raw);
   return { endpoint, signedOff, willPost: !!endpoint && signedOff };
 }
 function resolveSink(env) {
   const mode = endpointMode(env);
-  return mode.willPost ? httpSink({ endpoint: mode.endpoint }) : noopSink;
+  if (!mode.willPost) return noopSink;
+  const token = env.CONSORT_TELEMETRY_TOKEN?.trim() || void 0;
+  return httpSink({ endpoint: mode.endpoint, token });
 }
 var TelemetryEmitter = class {
   queue = [];
@@ -14988,7 +14994,7 @@ function buildResourceAttrs(deps = {}) {
 }
 
 // consort/telemetry/with-telemetry.ts
-var FIRST_RUN_NOTICE = "[consort] Anonymous* usage telemetry is on (*pseudonymous: a random per-install id, no PII).\n          Nothing leaves this machine until a maintainer enables a real endpoint.\n          Turn it off any time: `consort-telemetry disable` (or CONSORT_TELEMETRY=0).\n          Details: TELEMETRY.md.\n";
+var FIRST_RUN_NOTICE = "[consort] Anonymous* usage telemetry is on (*pseudonymous: a random per-install id, no PII).\n          Each interactive run reports to the Consort maintainers' endpoint; only\n          allowlisted, non-sensitive fields are sent (no paths, code, or names).\n          Turn it off any time: `consort-telemetry disable` (or CONSORT_TELEMETRY=0).\n          Details: TELEMETRY.md.\n";
 var NOOP_RUN = {
   enabled: false,
   traceId: void 0,

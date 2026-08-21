@@ -66,9 +66,11 @@ function shouldEmitTelemetry(inp) {
 import { randomBytes } from "crypto";
 
 // consort/telemetry/emitter.ts
+var DEFAULT_ENDPOINT = "https://consort-telemetry-ingest-v2.azurewebsites.net";
 function endpointMode(env) {
-  const endpoint = env.CONSORT_TELEMETRY_ENDPOINT?.trim() || void 0;
-  const signedOff = /^(1|true)$/i.test((env.CONSORT_TELEMETRY_SIGNOFF ?? "").trim());
+  const endpoint = env.CONSORT_TELEMETRY_ENDPOINT?.trim() || DEFAULT_ENDPOINT;
+  const raw = (env.CONSORT_TELEMETRY_SIGNOFF ?? "").trim();
+  const signedOff = raw === "" ? true : /^(1|true)$/i.test(raw);
   return { endpoint, signedOff, willPost: !!endpoint && signedOff };
 }
 

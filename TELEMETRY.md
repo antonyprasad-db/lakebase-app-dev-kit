@@ -8,6 +8,27 @@ the contract: what is collected, what is **not**, and how to turn it off.
 This is **Level 1**: `consort-drive` only, one trace per run, resource + span
 attributes drawn from a **closed allowlist**. No free-form data is ever collected.
 
+## Why this is collected
+
+Consort is a deterministic orchestrator with many roles and gates; without telemetry the
+maintainers have no visibility into how it behaves outside their own machines. Each field
+answers a specific product question — and nothing more:
+
+- **`command`, `gate`, `gates_total`, `ordinal`** — which parts of the workflow are actually
+  exercised and how long a typical run is, to guide where to invest and what to simplify.
+- **`outcome` (run + per gate), `exit_code`** — where runs *end*: how often they complete vs
+  abort vs escalate to a human, and which gates fail most. This is the primary signal for
+  finding and fixing failure hotspots.
+- **`duration_ms` (run + per gate)** — which steps are slow, to prioritize performance work.
+- **`consort_version`, `node_version`, `os`, `arch`, `shell`** — the environment spread, so
+  changes are tested against what people actually run and regressions can be tied to a version.
+- **`install_id`, `ci`, `tty`** — distinct-install adoption over time, and separating real
+  interactive use from automation.
+
+**What it is NOT for:** it is never used to identify a person, never sold or shared, and
+carries no work content — no prompts, code, specs, feature text, file paths, or names. It
+cannot reconstruct *what* you built, only coarse structural facts about *how* the tool ran.
+
 ## Pseudonymous, not anonymous
 
 Each install gets a random **UUIDv4 `install_id`** (created once, stored under
@@ -24,14 +45,23 @@ error messages. A build-time reachability test
 emitter can produce is not on the allowlist, and the emitter drops any
 non-allowlisted key at runtime as a second layer of defense.
 
-## Nothing phones home by default
+## Where telemetry goes (armed by default)
 
-**The endpoint defaults to a local no-op sink.** Even with telemetry "enabled",
-nothing leaves your machine until a maintainer arms a real endpoint by setting
-**both** `CONSORT_TELEMETRY_ENDPOINT` **and** the privacy sign-off flag
-`CONSORT_TELEMETRY_SIGNOFF=1`. With the sign-off unset, `consort-drive` builds the
-trace in memory and discards it. This gate exists so the collection code can ship
-and be exercised (via the local collector) before any real-endpoint decision.
+Telemetry is **opt-out and always-on**: a normal interactive run reports to the
+Consort maintainers' ingest endpoint automatically. The endpoint is baked into the
+client (`DEFAULT_ENDPOINT` in `consort/telemetry/emitter.ts`) and armed by default —
+no per-machine setup. The only fields sent are the allowlisted, non-sensitive ones
+below (no paths, code, spec/feature content, hostnames, usernames, or errors).
+
+To **opt out**, use any of: `consort-telemetry disable` (persisted), `CONSORT_TELEMETRY=0`
+(per invocation), or simply run non-interactively / in CI (see Consent). To **point
+elsewhere**, set `CONSORT_TELEMETRY_ENDPOINT`; to **un-arm entirely**, set
+`CONSORT_TELEMETRY_SIGNOFF=0` (returns the emitter to a local no-op sink).
+
+The default endpoint accepts **anonymous** POSTs, so nothing sensitive ships in the
+client. If you run your own endpoint that needs a bearer, set `CONSORT_TELEMETRY_TOKEN`
+and the emitter adds `Authorization: Bearer <token>` (a soft secret — abuse deterrence,
+not real authorization).
 
 The sender is a small hand-rolled NDJSON `POST` (no OpenTelemetry SDK). It is
 **fire-and-forget**: bounded in-memory queue (cap 200, drop-oldest), one attempt,

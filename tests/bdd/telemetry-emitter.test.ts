@@ -6,6 +6,7 @@ import { describe, it, expect } from "vitest";
 import {
   TelemetryEmitter,
   DEFAULT_QUEUE_CAP,
+  DEFAULT_ENDPOINT,
   endpointMode,
   httpSink,
   memorySink,
@@ -132,21 +133,77 @@ describe("telemetry emitter", () => {
   });
 });
 
-describe("endpoint gate (AC10): nothing phones home until a maintainer flips it", () => {
-  it("no endpoint + no sign-off -> no-op sink", () => {
-    expect(resolveSink({})).toBe(noopSink);
-    expect(endpointMode({})).toEqual({ endpoint: undefined, signedOff: false, willPost: false });
+describe("endpoint gate: armed by default (opt-out, always-on)", () => {
+  it("empty env -> armed at the DEFAULT endpoint (real HTTP sink)", () => {
+    expect(resolveSink({})).not.toBe(noopSink);
+    const m = endpointMode({});
+    expect(m.endpoint).toBe(DEFAULT_ENDPOINT);
+    expect(m.signedOff).toBe(true);
+    expect(m.willPost).toBe(true);
   });
 
-  it("endpoint set but sign-off UNSET -> still the no-op sink (no real POST)", () => {
-    const env = { CONSORT_TELEMETRY_ENDPOINT: "http://127.0.0.1:4318" };
+  it("CONSORT_TELEMETRY_SIGNOFF=0 explicitly un-arms -> no-op sink", () => {
+    const env = { CONSORT_TELEMETRY_SIGNOFF: "0" };
     expect(resolveSink(env)).toBe(noopSink);
     expect(endpointMode(env).willPost).toBe(false);
   });
 
-  it("endpoint set AND sign-off set -> a real HTTP sink (not the no-op)", () => {
-    const env = { CONSORT_TELEMETRY_ENDPOINT: "http://127.0.0.1:4318", CONSORT_TELEMETRY_SIGNOFF: "1" };
+  it("CONSORT_TELEMETRY_ENDPOINT overrides the default; stays armed", () => {
+    const env = { CONSORT_TELEMETRY_ENDPOINT: "http://127.0.0.1:4318" };
     expect(resolveSink(env)).not.toBe(noopSink);
     expect(endpointMode(env)).toEqual({ endpoint: "http://127.0.0.1:4318", signedOff: true, willPost: true });
+  });
+});
+
+describe("shared bearer token (soft secret for a public ingest endpoint)", () => {
+  /** Capture the last fetch init so we can inspect headers. Resolves the POST OK. */
+  function capturingFetch() {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetchImpl = ((url: string, init: RequestInit) => {
+      calls.push({ url, init });
+      return Promise.resolve(new Response(null, { status: 202 }));
+    }) as unknown as typeof fetch;
+    return { calls, fetchImpl };
+  }
+
+  function headersOf(init: RequestInit): Record<string, string> {
+    // The sink builds headers as a plain object, so read it back the same way.
+    return (init.headers ?? {}) as Record<string, string>;
+  }
+
+  it("httpSink sends `Authorization: Bearer <token>` when a token is set", () => {
+    const { calls, fetchImpl } = capturingFetch();
+    const sink = httpSink({ endpoint: "http://ingest.example", token: "sekret-123", fetchImpl });
+    sink.deliver({ schema: "consort/v1", resource: RESOURCE, spans: [rootSpan()] });
+    expect(calls).toHaveLength(1);
+    const h = headersOf(calls[0].init);
+    expect(h["authorization"]).toBe("Bearer sekret-123");
+    expect(h["content-type"]).toBe("application/x-ndjson");
+    expect(calls[0].url).toBe("http://ingest.example/v1/traces");
+  });
+
+  it("httpSink sends NO authorization header when no token is set", () => {
+    const { calls, fetchImpl } = capturingFetch();
+    const sink = httpSink({ endpoint: "http://ingest.example", fetchImpl });
+    sink.deliver({ schema: "consort/v1", resource: RESOURCE, spans: [rootSpan()] });
+    expect(headersOf(calls[0].init)["authorization"]).toBeUndefined();
+  });
+
+  it("resolveSink threads CONSORT_TELEMETRY_TOKEN into the real HTTP sink", async () => {
+    const { calls, fetchImpl } = capturingFetch();
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = fetchImpl;
+    try {
+      const sink = resolveSink({
+        CONSORT_TELEMETRY_ENDPOINT: "http://ingest.example",
+        CONSORT_TELEMETRY_SIGNOFF: "1",
+        CONSORT_TELEMETRY_TOKEN: "from-env-tok",
+      });
+      expect(sink).not.toBe(noopSink);
+      sink.deliver({ schema: "consort/v1", resource: RESOURCE, spans: [rootSpan()] });
+      expect(headersOf(calls[0].init)["authorization"]).toBe("Bearer from-env-tok");
+    } finally {
+      globalThis.fetch = realFetch;
+    }
   });
 });

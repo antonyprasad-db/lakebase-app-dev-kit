@@ -35,7 +35,8 @@ import { newSpanId, newTraceId, type GateSpan, type RunSpan } from "./spans.js";
 /** The one-time first-run notice (stderr). Pseudonymous, local no-op by default. */
 export const FIRST_RUN_NOTICE =
   "[consort] Anonymous* usage telemetry is on (*pseudonymous: a random per-install id, no PII).\n" +
-  "          Nothing leaves this machine until a maintainer enables a real endpoint.\n" +
+  "          Each interactive run reports to the Consort maintainers' endpoint; only\n" +
+  "          allowlisted, non-sensitive fields are sent (no paths, code, or names).\n" +
   "          Turn it off any time: `consort-telemetry disable` (or CONSORT_TELEMETRY=0).\n" +
   "          Details: TELEMETRY.md.\n";
 

@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.11] - 2026-08-21
+
+### Changed
+
+- **Usage telemetry is now armed by default (opt-out, always-on).** A normal interactive
+  `consort-drive` run reports its pseudonymous, allowlisted trace to the Consort maintainers'
+  ingest endpoint automatically (no per-machine setup); previously the endpoint defaulted to a
+  local no-op sink. Opt out with `consort-telemetry disable`, `CONSORT_TELEMETRY=0`, or by
+  running non-interactively / in CI; un-arm with `CONSORT_TELEMETRY_SIGNOFF=0`; re-point with
+  `CONSORT_TELEMETRY_ENDPOINT`. The endpoint accepts anonymous POSTs, so no secret ships in the
+  client. First consenting run prints a one-time notice; TELEMETRY.md documents what is (and is
+  not) collected, and why. Fire-and-forget (never changes CLI behavior, latency, or exit code).
+
 ## [0.3.10] - 2026-08-20
 
 Adds opt-out usage telemetry, makes the kit installable off the Databricks network,

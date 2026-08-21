@@ -61,7 +61,12 @@ describe("consort-telemetry CLI", () => {
     expect(s.will_emit_now).toBe(false);
   });
 
-  it("status reports the endpoint is NOT armed by default", () => {
+  it("status reports the endpoint IS armed by default (opt-out, always-on)", () => {
+    expect(status().endpoint_armed).toBe(true);
+  });
+
+  it("status reflects un-arming via CONSORT_TELEMETRY_SIGNOFF=0", () => {
+    deps = { ...deps, env: { CONSORT_TELEMETRY_SIGNOFF: "0" } };
     expect(status().endpoint_armed).toBe(false);
   });
 
