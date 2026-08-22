@@ -3,11 +3,11 @@
 // hermetic parts: the carry-forward note tagging, list, and arg validation.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { spikeNotes } from "../../consort/experiment/spike";
+import { spikeNotes, deleteSpike } from "../../consort/experiment/spike";
 import { collectSpikeInputs } from "../../consort/experiment/spike-carryforward";
 import { runSpikeCli } from "../../bin/consort/spike.cli";
 
@@ -70,5 +70,35 @@ describe("runSpikeCli", () => {
   it("rejects an unknown subcommand", async () => {
     vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     expect(await runSpikeCli(["frobnicate"])).toBe(2);
+  });
+});
+
+describe("deleteSpike --purge-notes (keep notes by default)", () => {
+  // deleteBranchToo:false keeps this hermetic (no Lakebase); we exercise the notes path.
+  it("preserves the spike notes dir by default (learning survives)", async () => {
+    seedSpike("keep-me", spikeNotes("keep-me"));
+    // instance is unused when deleteBranchToo:false, but the type requires it (as the CLI always passes).
+    await deleteSpike({ consortDir: tdd, projectDir: tdd, spikeSlug: "keep-me", deleteBranchToo: false, instance: "" });
+    expect(existsSync(join(tdd, "spikes", "keep-me"))).toBe(true);
+    expect(existsSync(join(tdd, "spikes", "keep-me", "notes.md"))).toBe(true);
+  });
+
+  it("removes the spike notes dir when purgeNotes is set", async () => {
+    seedSpike("nuke-me", spikeNotes("nuke-me"));
+    await deleteSpike({
+      consortDir: tdd,
+      projectDir: tdd,
+      spikeSlug: "nuke-me",
+      deleteBranchToo: false,
+      purgeNotes: true,
+      instance: "",
+    });
+    expect(existsSync(join(tdd, "spikes", "nuke-me"))).toBe(false);
+  });
+
+  it("throws a clear error for an unknown spike", async () => {
+    await expect(
+      deleteSpike({ consortDir: tdd, projectDir: tdd, spikeSlug: "ghost", deleteBranchToo: false, instance: "" }),
+    ).rejects.toThrow(/not found/);
   });
 });

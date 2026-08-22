@@ -17,6 +17,7 @@ import * as path from "node:path";
 import { resolveConsortDir } from "../../consort/config/consort-paths.js";
 
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
+import { readEnvVar } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { cutSpike, listSpikes, deleteSpike, spikeNotes } from "../../consort/experiment/spike.js";
 
 interface ParsedArgs {
@@ -29,6 +30,7 @@ interface ParsedArgs {
   projectDir?: string;
   consortDir?: string;
   keepBranch?: boolean;
+  purgeNotes?: boolean;
   json?: boolean;
 }
 
@@ -45,6 +47,7 @@ function parseArgs(argv: string[]): ParsedArgs {
       case "--project-dir": out.projectDir = argv[++i]; break;
       case "--tdd-dir": out.consortDir = argv[++i]; break;
       case "--keep-branch": out.keepBranch = true; break;
+      case "--purge-notes": out.purgeNotes = true; break;
       case "--json": out.json = true; break;
     }
   }
@@ -54,12 +57,17 @@ function parseArgs(argv: string[]): ParsedArgs {
 const HELP = `consort-spike (throwaway spike branches)
 
 Usage:
-  consort-spike cut --slug <s> --instance <i> [--for <feature>] [--parent <b>] [--ttl <t>] [--project-dir <d>] [--json]
+  consort-spike cut --slug <s> [--instance <i>] [--for <feature>] [--parent <b>] [--ttl <t>] [--project-dir <d>] [--json]
   consort-spike list [--project-dir <d>] [--json]
-  consort-spike delete --slug <s> --instance <i> [--keep-branch] [--project-dir <d>]
+  consort-spike delete --slug <s> [--instance <i>] [--keep-branch] [--purge-notes] [--project-dir <d>]
 
 A spike is throwaway exploration outside the TDD loop. --for <feature> tags the
 notes so the learning carries forward into that feature's design-spec gate.
+
+--instance / --host default from the project .env (LAKEBASE_PROJECT_ID / DATABRICKS_HOST),
+so from inside a scaffolded project you can omit them. On delete, the notes are KEPT by
+default (the learning survives the branch teardown); pass --purge-notes to also remove the
+spike's .consort/spikes/<slug>/ dir for a full cleanup.
 `;
 
 function tddDirFor(args: ParsedArgs): string {
@@ -74,6 +82,13 @@ export async function runSpikeCli(argv: string[]): Promise<number> {
   }
   const args = parseArgs(argv.slice(1));
   const consortDir = tddDirFor(args);
+
+  // Pair with create-project: default the instance + host from the project .env
+  // (LAKEBASE_PROJECT_ID / DATABRICKS_HOST) so a spike can be cut / torn down from
+  // inside a scaffolded project without re-typing them. Explicit flags win.
+  const envPath = path.join(args.projectDir ?? process.cwd(), ".env");
+  if (!args.instance) args.instance = readEnvVar(envPath, "LAKEBASE_PROJECT_ID");
+  if (!args.host) args.host = readEnvVar(envPath, "DATABRICKS_HOST");
 
   try {
     if (sub === "cut") {
@@ -122,10 +137,14 @@ export async function runSpikeCli(argv: string[]): Promise<number> {
         projectDir: args.projectDir ?? process.cwd(),
         spikeSlug: args.slug,
         deleteBranchToo: !args.keepBranch,
+        purgeNotes: args.purgeNotes,
         instance: args.instance ?? "",
         host: args.host,
       });
-      process.stdout.write(`consort-spike: deleted ${args.slug}${args.keepBranch ? " (branch kept)" : ""}\n`);
+      const tail = [args.keepBranch ? "branch kept" : null, args.purgeNotes ? "notes purged" : "notes kept"]
+        .filter(Boolean)
+        .join(", ");
+      process.stdout.write(`consort-spike: deleted ${args.slug} (${tail})\n`);
       return 0;
     }
 

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "fs";
 import { join } from "path";
 import { createPairedBranch, deletePairedBranch } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import type { BranchLookupOpts, LakebaseBranchInfo } from "@databricks-solutions/lakebase-scm-utils/lakebase";
@@ -97,10 +97,13 @@ export interface DeleteSpikeArgs extends BranchLookupOpts {
   spikeSlug: string;
   /** Delete the Lakebase branch + git branch. Default true for spikes (they're throwaway by definition). */
   deleteBranchToo?: boolean;
+  /** Also remove the spike's `.consort/spikes/<slug>/` notes dir. Default FALSE:
+   *  notes are preserved so the learning survives the branch teardown. */
+  purgeNotes?: boolean;
 }
 
 export async function deleteSpike(args: DeleteSpikeArgs): Promise<void> {
-  const { consortDir, projectDir, spikeSlug, deleteBranchToo = true, ...lookup } = args;
+  const { consortDir, projectDir, spikeSlug, deleteBranchToo = true, purgeNotes = false, ...lookup } = args;
   const dir = join(consortDir, "spikes", spikeSlug);
   if (!existsSync(dir)) throw new Error(`spike ${spikeSlug} not found at ${dir}`);
   if (deleteBranchToo) {
@@ -108,5 +111,7 @@ export async function deleteSpike(args: DeleteSpikeArgs): Promise<void> {
     // PAIRED teardown: Lakebase branch + git branch (local + remote). Best-effort.
     await deletePairedBranch({ instance: lookup.instance, branch: branchId, cwd: projectDir });
   }
-  // Notes preserved on disk so the learning survives the branch teardown.
+  // Notes are preserved by default so the learning survives the branch teardown;
+  // --purge-notes opts into removing the whole spike dir for a full cleanup.
+  if (purgeNotes) rmSync(dir, { recursive: true, force: true });
 }
