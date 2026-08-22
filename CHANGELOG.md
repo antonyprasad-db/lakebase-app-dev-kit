@@ -6,6 +6,31 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.13] - 2026-08-22
+
+### Added
+
+- **First-project example on `/consort:start`.** On a first run, `/consort:start` offers
+  the bundled StockFlow example; accepting stages the seed via the new
+  `lakebase-stage-first-project` bin (intake + one `feature-request.md` per feature into
+  the fresh project's `.consort/`), so you can drive a real product end to end without
+  authoring your own intake. Offered once (a marker separate from telemetry state).
+- **`consort-spike delete --purge-notes`** (default off): also removes the spike's
+  `.consort/spikes/<slug>/` dir. Notes are preserved by default so the learning survives
+  the branch teardown. `consort-spike` cut/delete now default `--instance`/`--host` from
+  the project `.env`.
+
+### Changed
+
+- **`/consort:start` model profile is now Default or Customize** (Lean removed). Default
+  uses the tuned per-turn manifest defaults as-is; Customize sets model AND effort, per
+  role and per manifest step, in `consort-config.json`. Fixed the stale `agent-config.json`
+  reference.
+- **Re-pointed `@databricks-solutions/lakebase-scm-utils` to v0.2.1** — the
+  `scripts/consort.sh` launcher rename (was the stale `sftdd.sh`) and `lakebase-scm-cleanup`
+  resolving `--instance`/`--host` from the project `.env`. Added a Teardown/reclaim section
+  to `/consort:start`.
+
 ## [0.3.12] - 2026-08-21
 
 ### Added

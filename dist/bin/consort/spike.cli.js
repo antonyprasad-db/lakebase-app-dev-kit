@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+// bin/consort/spike.cli.ts
+import * as path from "path";
+
 // consort/config/consort-paths.ts
 import * as fs from "fs";
 import { join } from "path";
@@ -18,9 +21,10 @@ function resolveConsortDir(projectDir = process.cwd()) {
 
 // bin/consort/spike.cli.ts
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
+import { readEnvVar } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 
 // consort/experiment/spike.ts
-import { existsSync as existsSync2, mkdirSync as mkdirSync2, readdirSync as readdirSync2, readFileSync as readFileSync2, statSync as statSync2, writeFileSync as writeFileSync2 } from "fs";
+import { existsSync as existsSync2, mkdirSync as mkdirSync2, readdirSync as readdirSync2, readFileSync as readFileSync2, rmSync, statSync as statSync2, writeFileSync as writeFileSync2 } from "fs";
 import { join as join2 } from "path";
 import { createPairedBranch, deletePairedBranch } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 function branchIdOf(info) {
@@ -87,13 +91,14 @@ function listSpikes(consortDir) {
   return out;
 }
 async function deleteSpike(args) {
-  const { consortDir, projectDir, spikeSlug, deleteBranchToo = true, ...lookup } = args;
+  const { consortDir, projectDir, spikeSlug, deleteBranchToo = true, purgeNotes = false, ...lookup } = args;
   const dir = join2(consortDir, "spikes", spikeSlug);
   if (!existsSync2(dir)) throw new Error(`spike ${spikeSlug} not found at ${dir}`);
   if (deleteBranchToo) {
     const branchId = readFileSync2(join2(dir, "branch.txt"), "utf8").trim();
     await deletePairedBranch({ instance: lookup.instance, branch: branchId, cwd: projectDir });
   }
+  if (purgeNotes) rmSync(dir, { recursive: true, force: true });
 }
 
 // bin/consort/spike.cli.ts
@@ -128,6 +133,9 @@ function parseArgs(argv) {
       case "--keep-branch":
         out.keepBranch = true;
         break;
+      case "--purge-notes":
+        out.purgeNotes = true;
+        break;
       case "--json":
         out.json = true;
         break;
@@ -138,12 +146,17 @@ function parseArgs(argv) {
 var HELP = `consort-spike (throwaway spike branches)
 
 Usage:
-  consort-spike cut --slug <s> --instance <i> [--for <feature>] [--parent <b>] [--ttl <t>] [--project-dir <d>] [--json]
+  consort-spike cut --slug <s> [--instance <i>] [--for <feature>] [--parent <b>] [--ttl <t>] [--project-dir <d>] [--json]
   consort-spike list [--project-dir <d>] [--json]
-  consort-spike delete --slug <s> --instance <i> [--keep-branch] [--project-dir <d>]
+  consort-spike delete --slug <s> [--instance <i>] [--keep-branch] [--purge-notes] [--project-dir <d>]
 
 A spike is throwaway exploration outside the TDD loop. --for <feature> tags the
 notes so the learning carries forward into that feature's design-spec gate.
+
+--instance / --host default from the project .env (LAKEBASE_PROJECT_ID / DATABRICKS_HOST),
+so from inside a scaffolded project you can omit them. On delete, the notes are KEPT by
+default (the learning survives the branch teardown); pass --purge-notes to also remove the
+spike's .consort/spikes/<slug>/ dir for a full cleanup.
 `;
 function tddDirFor(args) {
   return args.consortDir ?? resolveConsortDir(args.projectDir ?? ".");
@@ -156,6 +169,9 @@ async function runSpikeCli(argv) {
   }
   const args = parseArgs(argv.slice(1));
   const consortDir = tddDirFor(args);
+  const envPath = path.join(args.projectDir ?? process.cwd(), ".env");
+  if (!args.instance) args.instance = readEnvVar(envPath, "LAKEBASE_PROJECT_ID");
+  if (!args.host) args.host = readEnvVar(envPath, "DATABRICKS_HOST");
   try {
     if (sub === "cut") {
       if (!args.slug || !args.instance) {
@@ -198,10 +214,12 @@ async function runSpikeCli(argv) {
         projectDir: args.projectDir ?? process.cwd(),
         spikeSlug: args.slug,
         deleteBranchToo: !args.keepBranch,
+        purgeNotes: args.purgeNotes,
         instance: args.instance ?? "",
         host: args.host
       });
-      process.stdout.write(`consort-spike: deleted ${args.slug}${args.keepBranch ? " (branch kept)" : ""}
+      const tail = [args.keepBranch ? "branch kept" : null, args.purgeNotes ? "notes purged" : "notes kept"].filter(Boolean).join(", ");
+      process.stdout.write(`consort-spike: deleted ${args.slug} (${tail})
 `);
       return 0;
     }
