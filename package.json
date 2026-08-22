@@ -1,6 +1,6 @@
 {
   "name": "@databricks-solutions/consort",
-  "version": "0.3.13",
+  "version": "0.3.14",
   "description": "Lakebase-backed application development kit – shared scripts, agent skills (SCM and SFTDD), MCP server, and OpenAI Foundry tool spec. Consumed by lakebase-scm-extension and coding agents (Claude Code, Claude Desktop, OpenAI Codex, Cursor, Databricks Genie Code).",
   "type": "module",
   "private": false,
@@ -82,6 +82,7 @@
     "consort-agent-model": "./dist/bin/consort/agent-models.cli.js",
     "consort-approve-gate": "./dist/bin/consort/approve-gate.cli.js",
     "consort-canon-notes": "./dist/bin/consort/project-canon-notes.cli.js",
+    "consort-check-update": "./dist/bin/consort/check-update.cli.js",
     "consort-contract-clean": "./dist/bin/consort/contract-clean.cli.js",
     "consort-migration-clean": "./dist/bin/consort/migration-app-clean.cli.js",
     "consort-cycle": "./dist/bin/consort/cycle.cli.js",

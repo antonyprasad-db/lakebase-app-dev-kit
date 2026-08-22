@@ -6,6 +6,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.14] - 2026-08-22
+
+### Added
+
+- **Update-availability notice.** `/consort:start` now runs `consort-check-update`, which
+  compares the installed kit version to the highest published git tag and, if you are
+  behind, prints the exact update commands (`claude plugin marketplace update … && claude
+  plugin update …`, plus `./scripts/lk --warm`). Throttled to once/day (a timestamp in the
+  XDG config dir), bounded network, and fail-silent, so it is never a per-run tax and never
+  blocks a run. Check any time with `consort-check-update [--force]`. Also documents the
+  update flow (incl. the required marketplace refresh) in the README.
+
 ## [0.3.13] - 2026-08-22
 
 ### Added
