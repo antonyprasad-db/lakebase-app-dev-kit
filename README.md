@@ -139,10 +139,16 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full live-test prerequisites and 
 
 When a new kit version ships, refresh what a scaffolded project runs against:
 
+- **Know when there is one.** `/consort:start` runs `consort-check-update` (throttled to once/day, silent when current, never blocks) and surfaces a notice if you are behind. Check any time with `./scripts/lk consort-check-update` (`--force` skips the throttle).
 - **Get the latest kit** (the one `/design`, `/build`, etc. actually run): `./scripts/lk --warm`. The shim compares the project's pinned commit to the live tip of its ref and reinstalls on drift, so `--warm` is the canonical "pull the newest kit" step. (`./scripts/lk --rewarm` forces a fresh install of the resolved commit.)
 - **Refresh the role-agent definitions**: `./scripts/lk lakebase-update-agents`. Project creation only *seeds* `.claude/agents/` (it never overwrites a file already there), so a kit bugfix to a role prompt does not reach an already-scaffolded project until you refresh. The drive also auto-refreshes agents when it detects the kit version moved; run the command yourself to refresh out of band. Use `--dry-run` to preview, `--keep-local` to keep a project-edited agent.
 - **Refresh the workflow commands**: `./scripts/lk lakebase-update-commands` (the `.claude/commands/*.md` counterpart; hook files are left untouched).
-- **Refresh the plugin** (Claude Code plugin install): `claude plugin update consort@databricks-solutions`. The plugin version tracks each release, so the updater refreshes the cache when a new version ships.
+- **Refresh the plugin** (Claude Code): first refresh the marketplace cache, then update, then restart Claude Code:
+  ```bash
+  claude plugin marketplace update databricks-solutions
+  claude plugin update consort@databricks-solutions
+  ```
+  The marketplace refresh matters , without it `plugin update` compares against a stale view of the repo and reports "up to date." The plugin version tracks each release (`.claude-plugin/plugin.json`), which is what `plugin update` uses to detect the new version. Note: `claude plugin install` on an already-installed plugin is a no-op , use `update`.
 
 ## What's in this repo
 
