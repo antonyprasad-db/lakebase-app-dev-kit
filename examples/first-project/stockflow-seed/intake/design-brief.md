@@ -117,9 +117,15 @@ markup:
 
 - **App icon.** StockFlow has a brand icon (a warehouse mark) shown
   next to the title, plus a favicon for the browser tab. The asset ships
-  with this brief at `intake/assets/warehouse.png`; the build copies it
-  to `client/src/assets/warehouse.png` and references it from the navbar
-  / page title. Every screen should feel like one branded product.
+  **alongside this brief**, in `assets/warehouse.png` (the same folder as
+  `design-brief.md` once staged, i.e. `design/assets/warehouse.png` — NOT
+  under `intake/`). The build MUST copy it to
+  `client/src/assets/warehouse.png`, render it in the navbar next to the
+  "StockFlow" title, and set it as the browser-tab favicon. Wiring the
+  warehouse icon in is required, not optional: a shell that ships without
+  the icon actually rendering (navbar image + favicon), or with a
+  placeholder, has not met the brand requirement. Every screen should
+  feel like one branded product.
 - **Icon set.** Use a single line-style icon set consistently (e.g.
   inbound/outbound, scan, warehouse, stock-level states); do not mix
   icon styles.
