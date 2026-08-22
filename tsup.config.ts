@@ -17,6 +17,7 @@ export default defineConfig({
     // MCP server.
     "scripts/index": "scripts/index.ts",
     "bin/lakebase/create-project.cli": "bin/lakebase/create-project.cli.ts",
+    "bin/lakebase/stage-first-project.cli": "bin/lakebase/stage-first-project.cli.ts",
     "bin/lakebase/adopt-consort.cli": "bin/lakebase/adopt-consort.cli.ts",
     "bin/lakebase/resolve-consort-dir.cli": "bin/lakebase/resolve-consort-dir.cli.ts",
     "bin/lakebase/update-commands.cli": "bin/lakebase/update-commands.cli.ts",

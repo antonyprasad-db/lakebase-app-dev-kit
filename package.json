@@ -12,6 +12,7 @@
     "scripts",
     "skills",
     "templates",
+    "examples/first-project",
     "install.sh",
     "README.md",
     "LICENSE.md"
@@ -110,6 +111,7 @@
     "lakebase-adopt-sftdd": "./dist/bin/lakebase/adopt-consort.cli.js",
     "lakebase-adopt-tdd": "./dist/bin/lakebase/adopt-consort.cli.js",
     "lakebase-create-project": "./dist/bin/lakebase/create-project.cli.js",
+    "lakebase-stage-first-project": "./dist/bin/lakebase/stage-first-project.cli.js",
     "lakebase-feature-status": "./dist/bin/consort/feature-status.cli.js",
     "lakebase-mcp-server": "./dist/apps/mcp-server/index.js",
     "lakebase-resolve-consort-dir": "./dist/bin/lakebase/resolve-consort-dir.cli.js",

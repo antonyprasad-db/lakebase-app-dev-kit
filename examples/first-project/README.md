@@ -110,7 +110,7 @@ when unsure):
 | Tiers | `2` (prod + staging) |
 | Language | `python` |
 | E2E / Infra | default (on) |
-| Model profile | **Full** (recommended) |
+| Model profile | **Default** (recommended) |
 
 Two constraints worth knowing before you answer:
 
