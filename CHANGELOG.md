@@ -6,6 +6,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.15] - 2026-08-22
+
+### Changed
+
+- **Repointed the substrate to `@databricks-solutions/lakebase-scm-utils` v0.2.2** —
+  the doctor now resolves the profile from a pinned `--databricks-host` and threads that
+  host into the auth checks, so `lakebase-create-project`'s environment gate no longer
+  fails spuriously against the DEFAULT profile's stale token when a target host is pinned.
+
+### Fixed
+
+- **`/consort:start` create flow now force-refreshes the runtime kit (`./scripts/lk --rewarm`)
+  before staging / resuming.** The runtime kit is cached per-ref in a shared location
+  (`~/.cache/consort/<ref>`); a project created after an older kit was last used could run
+  that stale cache and miss newly-added bins (e.g. `lakebase-stage-first-project`). The
+  create + first-project-example paths now rewarm unconditionally so a fresh project runs
+  the kit that was just installed.
+- **`/consort:start` no longer routes free-text create answers through a multiple-choice
+  prompt** (project name / parent dir / Databricks host / GitHub owner), which triggered an
+  "Invalid tool parameters" error; only the genuine either/or decisions (tiers, language,
+  E2E, model profile, own-project-vs-example) use a structured choice.
+
 ## [0.3.14] - 2026-08-22
 
 ### Added

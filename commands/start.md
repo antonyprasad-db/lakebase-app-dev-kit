@@ -47,14 +47,20 @@ Before the create questions, on the user's **first** time only, offer the bundle
 
 - **Gate , first run only.** Compute `MARKER="${XDG_CONFIG_HOME:-$HOME/.config}/consort/first-project-offered"`. If it **already exists**, SKIP this offer entirely (they have used Consort before) and go straight to the create questions. Otherwise make the offer, then `mkdir -p "$(dirname "$MARKER")" && touch "$MARKER"` (either way) so it is never offered again. This marker is deliberately SEPARATE from `~/.config/consort/telemetry.json` so it never affects the one-time telemetry notice.
 - **The offer.** Ask: create your **own** project, or **run the bundled StockFlow example** (a warehouse-inventory product you drive end to end)?
-- **If they pick the example:** run the create questions with the settings the example expects , language `python`, `--ui-track` on (it is a UI product), E2E on, tiers `2` (or `1` with `--no-github`), model profile **Default** , create the project (below), then `cd` in and bring in the seed files with the kit bin:
+- **If they pick the example:** most create settings are FIXED for it (language `python`, `--ui-track` on, E2E on, model profile **Default**), so the ONLY things left to ask are:
+  - **project name** (kebab-case), **parent directory** (default: the parent of cwd, else `~/code`), and **Databricks host** (offer `$DATABRICKS_HOST` / `~/.databrickscfg`). These are FREE TEXT: ask them in plain prose, and do NOT put them through a multiple-choice question (that is what triggers an "Invalid tool parameters" error: a text answer has no options).
+  - **GitHub owner, or `--no-github`**: the one genuine either/or, and it sets the tier count. A GitHub owner ⇒ tiers `2` (prod + staging); `--no-github` ⇒ tiers `1` (prod only). This is the only decision worth a structured choice.
+
+  Then create the project (below), `cd` in, **refresh the project's runtime kit to the current release**, and bring in the seed files with the kit bin:
   ```bash
+  ./scripts/lk --rewarm                        # force-fresh the runtime kit (avoids a stale shared cache from an earlier project)
   ./scripts/lk lakebase-stage-first-project
   ```
+  The `--rewarm` matters: the runtime kit is cached per-ref in a shared location (`~/.cache/consort/<ref>`), so a project created after you last used an OLDER kit can otherwise run that stale cache and miss newly-added bins like `lakebase-stage-first-project`. `--rewarm` reinstalls it unconditionally, so the project runs the kit you just installed. (If `--rewarm` reports the bin still missing, your Consort plugin itself is behind , update it per "Check for a newer Consort" above , then re-run.)
   It copies the example's intake (`product-overview.md`, `nfrs.md`, `design-brief.md`, and the warehouse icon) and one `feature-request.md` per feature into the new project's `.consort/`. Then resume: **`/plan`** (the Spec Author proposes a sprint from the staged intake), or **`/design F1-stock-visibility`** to jump straight into the first feature. `examples/first-project/README.md` in the kit is the walkthrough.
 - **If they pick their own project:** proceed with the questions below as normal.
 
-Walk the user through the create questions (ask, do not assume; offer the noted defaults):
+Walk the user through the create questions (ask, do not assume; offer the noted defaults). Most of these are FREE TEXT (project name, parent directory, Databricks host, GitHub owner): ask them in plain prose. Reserve a structured multiple-choice prompt only for the genuine either/or decisions (tiers 1/2/3, language, E2E on/off, model profile); never wrap a free-text answer in an options prompt (it errors with "Invalid tool parameters").
 
 - **Project name** (kebab-case, the Lakebase id + dir name; on the `--no-github` path the creator makes the target directory, or reuses an existing EMPTY one, but refuses a non-empty directory); **parent directory** (default: parent of cwd or `~/code`); **Databricks host** (offer `DATABRICKS_HOST` / `~/.databrickscfg` if present); **GitHub owner** (or `--no-github`); **tiers** (`1` prod / `2` prod+staging / `3` prod+staging+dev, surface this, do not pick silently; **tiers `2`/`3` require a GitHub repo**, cutting a long-running tier pushes its git side to origin, so `--no-github` with `--tiers 2`/`3` is refused up front, pair `--no-github` with `--tiers 1`); **language** (`python`/`nodejs`/`java`/`kotlin`); **E2E/Infra** (default on for nodejs); **model profile** (see "Per-role model profile" just below).
 
@@ -97,10 +103,11 @@ the environment, then re-run; do not pass `--skip-doctor` to force past a real
 failure (it only exists for the rare case the human has already verified the
 environment another way).
 
-On success, tell the user to enter the new project and resume:
+On success, tell the user to enter the new project, refresh its runtime kit, and resume:
 
 ```
 cd <parent-dir>/<name>
+./scripts/lk --rewarm    # force-fresh the runtime kit so this project runs the release you just installed, not a stale shared cache
 ```
 
 then re-run **`/consort:start`** there (it will find `.consort/` and resume at `/plan`), or `./scripts/consort.sh plan` to open the orchestrator session directly. Do not start the workflow from the current directory, the project is elsewhere.
