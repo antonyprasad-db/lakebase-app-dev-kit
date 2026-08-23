@@ -9067,6 +9067,7 @@ function buildCfg(args, featureId) {
       // the structured agent-log by makeOnAction below, so the raw action JSON is
       // console noise on every line , append it only under LAKEBASE_CONSORT_TRACE.
       (action, i) => {
+        if (consortEnv("QUIET")) return;
         const trace = consortEnv("TRACE") ? `  ${JSON.stringify(action)}` : "";
         process.stderr.write(`[drive] ${String(i).padStart(3, "0")} ${describeAction(action, { featureId })}${trace}
 `);

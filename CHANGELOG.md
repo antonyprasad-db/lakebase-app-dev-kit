@@ -6,6 +6,35 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.19] - 2026-08-23
+
+### Fixed
+
+- **Auth resolution is now fixed centrally (repoint to scm-utils v0.2.6).** Every
+  in-project `databricks` call auto-targets the project's workspace (the wrapper reads
+  `.env` `DATABRICKS_HOST`), so the drive's auth preflight, credential mint, and every
+  role turn use the project workspace instead of falling back to the DEFAULT profile.
+  This closes the doctor / tier-cut / drive-preflight class in one place; you no longer
+  need to source `.env` or export a profile before a run.
+- **The architect-reviewer can no longer corrupt an AC.** New `consort-annotate-ac`
+  safe-writer (parse → merge `layer` + `architectural_notes` on top → write valid JSON,
+  every field preserved); the agent is rewired to call it instead of hand-editing the AC
+  JSON with Edit (a dropped brace previously yielded malformed JSON that aborted the drive
+  two steps later on a conformance PROTOCOL VIOLATION).
+
+### Changed
+
+- **The orchestrator narrates live instead of going silent.** The drive's per-turn
+  progress (`[drive] NNN <phase/role>`) is on by default (`LAKEBASE_CONSORT_QUIET=1`
+  silences it for captures/CI), and the operating contract + `/sprint` now direct the
+  session to run the drive in the background, tail its progress, and relay each
+  phase/role/gate transition in plain language , never a multi-minute silent wait, still
+  no per-CLI play-by-play.
+- **Plain-language kit + create narration** (scm-utils v0.2.6): `--install` / `--refresh`
+  replace `--warm` / `--rewarm` (old flags still work); the toolkit download and
+  create-project both narrate with durations; `/consort:start` sets the one-time
+  provisioning expectation up front and offers to install the Consort viewer extension.
+
 ## [0.3.18] - 2026-08-22
 
 ### Fixed

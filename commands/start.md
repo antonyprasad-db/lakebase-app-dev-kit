@@ -20,8 +20,8 @@ Drive the workflow through the **deterministic orchestrator** (`consort-drive`),
    - **This project pins its kit to a version.** A project created by a recent kit records the exact release it was scaffolded with in `.lakebase/kit-ref` (e.g. `v0.3.15`) , an IMMUTABLE tag , so `./scripts/lk` always resolves that same version from a version-keyed cache and never silently drifts onto a moving `main`. That determinism is deliberate: upgrading the runtime kit is an explicit step (below), not something a background tip-move does to you mid-work.
    - **Check for a newer Consort first.** Run `./scripts/lk consort-check-update` (throttled to once/day, silent when current, never blocks). If it prints that a newer version is available, relay it and offer to upgrade before continuing:
      1. Update the plugin (the slash commands): `claude plugin marketplace update databricks-solutions && claude plugin update consort@databricks-solutions`, then restart Claude Code.
-     2. Move THIS project onto that version , the plugin update does NOT touch a project's runtime kit: write the new version tag into `.lakebase/kit-ref` (e.g. `printf 'vX.Y.Z\n' > .lakebase/kit-ref`) then `./scripts/lk --rewarm` to install it. Because the ref is version-keyed, this is a one-time fresh install; future runs are instant.
-   - **Older project pinned to `main` (or no `.lakebase/kit-ref`)?** That's the legacy, drift-prone case: `./scripts/lk --warm` only reinstalls if `main`'s tip moved and the fast path otherwise serves whatever it first cached. Pin it to a real version once , `printf 'v<current>\n' > .lakebase/kit-ref && ./scripts/lk --rewarm` , and it stops drifting. The drive auto-refreshes the project's `.claude/agents/` when it detects the kit changed; to refresh out of band run `./scripts/lk lakebase-update-agents`.
+     2. Move THIS project onto that version , the plugin update does NOT touch a project's runtime kit: write the new version tag into `.lakebase/kit-ref` (e.g. `printf 'vX.Y.Z\n' > .lakebase/kit-ref`) then `./scripts/lk --refresh` to install it. Because the ref is version-keyed, this is a one-time fresh install; future runs are instant.
+   - **Older project pinned to `main` (or no `.lakebase/kit-ref`)?** That's the legacy, drift-prone case: `./scripts/lk --install` only reinstalls if `main`'s tip moved and the fast path otherwise serves whatever it first cached. Pin it to a real version once , `printf 'v<current>\n' > .lakebase/kit-ref && ./scripts/lk --refresh` , and it stops drifting. The drive auto-refreshes the project's `.claude/agents/` when it detects the kit changed; to refresh out of band run `./scripts/lk lakebase-update-agents`.
 2. **Continue the loop.** Offer the human the autonomous path or a single step:
    - **Whole sprint (autonomous):** **`/sprint [name]`** flows plan -> per feature `design` -> `build` -> `deploy`, pausing only at gates. Resumable; re-invoke to continue past an approved gate.
    - Or one phase at a time (lowest-ready first):
@@ -56,10 +56,10 @@ Before the create questions, on the user's **first** time only, offer the bundle
 
   Then create the project (below), `cd` in, **refresh the project's runtime kit to the current release**, and bring in the seed files with the kit bin:
   ```bash
-  ./scripts/lk --rewarm                        # force-fresh the runtime kit (avoids a stale shared cache from an earlier project)
+  ./scripts/lk --refresh                        # re-download the Consort toolkit fresh (avoids a stale shared cache from an earlier project)
   ./scripts/lk lakebase-stage-first-project
   ```
-  The `--rewarm` matters: the runtime kit is cached per-ref in a shared location (`~/.cache/consort/<ref>`), so a project created after you last used an OLDER kit can otherwise run that stale cache and miss newly-added bins like `lakebase-stage-first-project`. `--rewarm` reinstalls it unconditionally, so the project runs the kit you just installed. (If `--rewarm` reports the bin still missing, your Consort plugin itself is behind , update it per "Check for a newer Consort" above , then re-run.)
+  The `--refresh` matters: the Consort toolkit is cached per version in a shared location (`~/.cache/consort/<ref>`), so a project created after you last used an OLDER kit can otherwise run that stale cache and miss newly-added bins like `lakebase-stage-first-project`. `--refresh` reinstalls it unconditionally, so the project runs the kit you just installed. (If `--refresh` reports the bin still missing, your Consort plugin itself is behind , update it per "Check for a newer Consort" above , then re-run.)
   It copies the example's intake (`product-overview.md`, `nfrs.md`, `design-brief.md`, and the warehouse icon) and one `feature-request.md` per feature into the new project's `.consort/`. Then resume: **`/plan`** (the Spec Author proposes a sprint from the staged intake), or **`/design F1-stock-visibility`** to jump straight into the first feature. `examples/first-project/README.md` in the kit is the walkthrough.
 - **If they pick their own project:** proceed with the questions below as normal.
 
@@ -86,7 +86,9 @@ Step keys (`<step>`): build turns `red` / `green` / `review` / `refactor` / `ass
 
 Realize it: on the **Default** path pass no model flags. On the **Customize** path, pass any simple per-role model picks to `lakebase-create-project` via `--agent-model <role>=<model>`, then write per-role effort and any per-step model/effort maps into `.lakebase/consort-config.json` under `roles.<role>` after creation (the file is editable and resolver-honored). The selection persists there.
 
-Then run the kit's creator (surface the exact command first; report its output, which prints a `Next:` hint):
+Then run the kit's creator (surface the exact command first; report its output, which prints a `Next:` hint).
+
+**Set the human's expectation BEFORE you run it , this is a one-time provision that takes a few minutes and must not look hung.** Tell them plainly, e.g.: *"Setting up the project now , one-time, usually ~3-6 min. It creates the GitHub repo, a Lakebase database, the project files, the CI runner, and downloads the Consort toolkit"* (add *"and cuts the staging tier"* for `--tiers 2`+). Note the slow parts up front (**the CI runner setup and the toolkit download**), say you'll report when it finishes, then run it. The creator streams a step-by-step progress line for each stage (and an upfront plan of its own), so relay meaningful progress rather than going silent for minutes.
 
 ```bash
 # Pin the create-project to THIS plugin's own version so a fresh install ALWAYS
@@ -100,7 +102,7 @@ KIT_REF="${LAKEBASE_KIT_REF:-}"
 if [ -z "$KIT_REF" ] && [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json" ]; then
   KIT_REF="v$(node -p "require('${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json').version" 2>/dev/null || true)"
 fi
-KIT_REF="${KIT_REF:-v0.3.18}"   # stamped at release; == package.json version (enforced by tests/bdd/start-kit-pin.test.ts)
+KIT_REF="${KIT_REF:-v0.3.19}"   # stamped at release; == package.json version (enforced by tests/bdd/start-kit-pin.test.ts)
 KIT_PKG="github:databricks-solutions/consort#${KIT_REF}"
 npx --yes --package="$KIT_PKG" lakebase-create-project \
   --project-name "<name>" --parent-dir "<parent-dir>" \
@@ -122,10 +124,44 @@ On success, tell the user to enter the new project, refresh its runtime kit, and
 
 ```
 cd <parent-dir>/<name>
-./scripts/lk --rewarm    # force-fresh the runtime kit so this project runs the release you just installed, not a stale shared cache
+./scripts/lk --refresh    # re-download the Consort toolkit fresh so this project runs the release you just installed, not a stale shared cache
 ```
 
 then re-run **`/consort:start`** there (it will find `.consort/` and resume at `/plan`), or `./scripts/consort.sh plan` to open the orchestrator session directly. Do not start the workflow from the current directory, the project is elsewhere.
+
+### Offer the Consort viewer extension (fresh project, before the first phase)
+
+When you hand off to the first workflow step (`/plan`, `/sprint`, `/design`, or `/spike`) on a **freshly created** project, also encourage the **Consort VS Code / Cursor extension** , a live viewer that shows the workflow as it runs (paired branches, phase/gate state, per-role progress), which is much nicer than watching a terminal. Offer to set it up for them:
+
+> "Consort has a VS Code / Cursor extension that shows the run live , branches, gates, and each role's progress. Want me to install it and open your editor on the project?"
+
+**First check whether they even have an editor**, then, if yes, do it for them (download the latest release `.vsix`, install, open the project). The `cursor` / `code` CLI is often NOT on PATH even when the app IS installed (users skip the editor's "Install command in PATH" step), so fall back to the macOS app-bundle CLI before concluding it's missing:
+```bash
+# Find a usable Cursor/VS Code CLI: PATH first, then the installed .app's bundled CLI.
+find_editor() {
+  for c in cursor code; do command -v "$c" >/dev/null 2>&1 && { echo "$c"; return; }; done
+  for p in "/Applications/Cursor.app/Contents/Resources/app/bin/cursor" \
+           "$HOME/Applications/Cursor.app/Contents/Resources/app/bin/cursor" \
+           "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code" \
+           "$HOME/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"; do
+    [ -x "$p" ] && { echo "$p"; return; }
+  done
+}
+ED="$(find_editor)"
+if [ -z "$ED" ]; then
+  echo "Neither Cursor nor VS Code found. Install one, then the extension (manual steps below)."
+else
+  mkdir -p /tmp/consort-ext
+  # latest release .vsix from the extension repo (not on the marketplace)
+  gh release download --repo databricks-solutions/lakebase-scm-extension \
+    --pattern '*.vsix' --dir /tmp/consort-ext --clobber
+  "$ED" --install-extension /tmp/consort-ext/*.vsix
+  "$ED" "<parent-dir>/<name>"                          # open the PROJECT dir with the extension active
+fi
+```
+- **Confirm which editor** if both are present (prefer the one they're using). The app-bundle fallback means an installed-but-not-on-PATH editor still works; if you used the bundle path, mention they can enable the short command via the editor's *"Shell Command: Install 'code'/'cursor' command in PATH"*.
+- **If neither is installed**, don't force it: point them to install Cursor or VS Code, then the manual path , download the `*.vsix` from `https://github.com/databricks-solutions/lakebase-scm-extension/releases/latest` and use the editor's **Extensions → ⋯ → Install from VSIX**, then open the project folder.
+- This is an **offer, not a gate** , if they decline, continue straight to the chosen workflow step. Only offer it once, on the fresh-project hand-off.
 
 ---
 

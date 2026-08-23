@@ -5,15 +5,18 @@ flow: plan the backlog (to the plan gate), then for each feature claim its branc
 and drive it `design` -> `build` -> `deploy` to done. Control returns to the human
 only at the gates, the human answers them live; headless, the Human Proxy does.
 
-## Operating contract (drive, do not narrate)
+## Operating contract (drive + relay progress)
 
-Follow `@consort/references/orchestrator-contract.md`: drive to
-completion via `consort-next` (enact its `primary_action`, then continue),
-and stop for the human ONLY at a HITL gate or a blocker. At a stop, present the
+Follow `@consort/references/orchestrator-contract.md`: drive to completion via
+`consort-next` (enact its `primary_action`, then continue), and stop for the human
+ONLY at a HITL gate or a blocker. **Never go silent while it runs** , relay the
+drive's live phase/role/gate transitions in plain language (see "How it runs"
+below) so a multi-minute run always shows what's happening. At a stop, present the
 decision (the `next` option titles + their `hil_prompt`s), not the CLIs you ran;
-report outcomes ("S2 accepted", "F1 shipped to staging"), not per-command
-play-by-play; show working software at the acceptance + deploy gates. Verbose
-step narration is opt-in (`LAKEBASE_CONSORT_VERBOSE_AGENT=1`), off by default.
+report outcomes ("S2 accepted", "F1 shipped to staging"). Show working software at
+the acceptance + deploy gates. The relay is the phase/role/gate story, NOT a
+per-command play-by-play (that finding-hunting mode stays opt-in via
+`LAKEBASE_CONSORT_VERBOSE_AGENT=1`).
 
 This is the autonomous path. The Tier-2 commands (`/plan`, `/design`, `/build`,
 `/deploy`) are for running ONE phase at a time when you want hands-on control;
@@ -39,6 +42,23 @@ GATES=interactive; [ "${LAKEBASE_CONSORT_HUMAN_PROXY:-}" = "1" ] && GATES=proxy
 ./scripts/lk \
   consort-drive --sprint "<sprint-name>" --gates "$GATES" --project-dir "$PWD"
 ```
+
+**Run it so you can relay progress live (don't run it as a silent blocking call).**
+The drive narrates each turn to stderr (`[drive] NNN <what it's doing>`, on by
+default). Launch it in the BACKGROUND with output to a log, tail the log, and relay
+each transition to the human in plain language as it lands , so a multi-minute
+planning/build phase is never a silent wait:
+```bash
+./scripts/lk consort-drive --sprint "<sprint-name>" --gates "$GATES" --project-dir "$PWD" \
+  > .consort/drive-live.log 2>&1 &            # background
+# then tail .consort/drive-live.log and relay: "[drive] 000 dispatch spec-author for design"
+#   -> "Planning: Spec Author is drafting the backlog…"; on a GATE/PAUSED marker or exit,
+#   stop tailing and surface the gate decision to the human.
+```
+Translate the terse `[drive]` markers into the phase/role/gate story (Spec Author →
+Architect → Test Strategist → gates); do NOT relay the raw CLIs or state reads.
+When the drive prints a `GATE`/`PAUSED` marker (or exits), present that decision,
+then re-run to continue past it.
 
 It FLOWS: plan -> **[PLAN GATE]** -> for each backlog feature: claim its branch
 (via `lakebase-scm-claim-feature-branch`, the SCM entry-tier fork the driver does

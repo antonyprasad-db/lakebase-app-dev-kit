@@ -933,6 +933,11 @@ export function buildCfg(args: ParsedArgs, featureId: string): DriveEffectsConfi
       // the structured agent-log by makeOnAction below, so the raw action JSON is
       // console noise on every line , append it only under LAKEBASE_CONSORT_TRACE.
       (action, i) => {
+        // Per-turn progress narration to stderr, ON BY DEFAULT so the drive is not
+        // silent during a run (the human , or the relaying session tailing this ,
+        // sees each phase/role/gate transition). LAKEBASE_CONSORT_QUIET=1 silences
+        // it for captures / CI where the structured agent-log is the record.
+        if (consortEnv("QUIET")) return;
         const trace = consortEnv("TRACE") ? `  ${JSON.stringify(action)}` : "";
         process.stderr.write(`[drive] ${String(i).padStart(3, "0")} ${describeAction(action, { featureId })}${trace}\n`);
       },

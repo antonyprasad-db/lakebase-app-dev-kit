@@ -38,6 +38,7 @@ export default defineConfig({
     "bin/consort/sync-backlog.cli": "bin/consort/sync-backlog.cli.ts",
     "bin/consort/telemetry.cli": "bin/consort/telemetry.cli.ts",
     "bin/consort/check-update.cli": "bin/consort/check-update.cli.ts",
+    "bin/consort/annotate-ac.cli": "bin/consort/annotate-ac.cli.ts",
     "bin/consort/approve-gate.cli": "bin/consort/approve-gate.cli.ts",
     "bin/consort/project-canon-notes.cli": "bin/consort/project-canon-notes.cli.ts",
     "bin/consort/migration-app-clean.cli": "bin/consort/migration-app-clean.cli.ts",
