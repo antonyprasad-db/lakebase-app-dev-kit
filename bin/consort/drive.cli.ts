@@ -489,7 +489,11 @@ function featuresWithAuthoredRequest(consortDir: string): string[] {
 }
 
 /** Candidate feature ids the Spec Author proposed for THIS sprint , the `## F...`
- *  headings in `planning/feature-proposals.md` (the recommended backlog). */
+ *  headings in `planning/feature-proposals.md`. NOTE: these are only the RAW
+ *  heading tokens; the Spec Author may label items with its own positional ids
+ *  (`## F1`, `## F2`, ...) that are a DIFFERENT id space from the authored folder
+ *  ids (`F1-stock-visibility`, ...). Callers MUST validate against the real
+ *  folders before treating these as feature ids (see composeInputPause). */
 function proposedFeatureIds(consortDir: string): string[] {
   try {
     const md = fs.readFileSync(featureProposalsMd(consortDir), "utf8");
@@ -516,15 +520,33 @@ export function composeInputPause(action: WorkflowAction, sprint?: string, conso
   const proposed = consortDir ? proposedFeatureIds(consortDir) : [];
   if (existing.length > 0) {
     // Requests exist on disk: this is a COMMIT-the-backlog decision, not authoring.
-    const pick = (proposed.length ? proposed : existing).join(",");
-    const proposedLine = proposed.length
-      ? `        Planning proposed for this sprint: ${proposed.join(", ")} (see ${ARTIFACT_ROOT}/planning/feature-proposals.md).\n`
+    // ONLY pre-fill --features with proposal ids that EXACTLY match an authored
+    // feature-request folder. The Spec Author may label its proposal items with a
+    // positional id space (`## F1`, `## F2`, ...) that is NOT the folder id space
+    // (`F1-stock-visibility`, ...), and `consort-sync-backlog` matches folder ids
+    // EXACTLY , so pre-filling raw proposal labels would emit a --features list
+    // that resolves to NOTHING (an empty backlog + "no feature-request.md"
+    // warnings, exit 2), or , worse if a future matcher went prefix , silently
+    // select the wrong folders (e.g. `F5` -> a deferred `F5-cycle-count`). When the
+    // proposal's labels do not match real folders, DO NOT guess: fall back to the
+    // placeholder and make the human commit by the real folder ids listed above.
+    const authored = new Set(existing);
+    const proposedValid = proposed.filter((id) => authored.has(id));
+    const mismatched = proposed.filter((id) => !authored.has(id));
+    const pick = proposedValid.length ? proposedValid.join(",") : "<id[,id...]>";
+    const proposedLine = proposedValid.length
+      ? `        Planning proposed for this sprint: ${proposedValid.join(", ")} (see ${ARTIFACT_ROOT}/planning/feature-proposals.md).\n`
+      : "";
+    const mismatchLine = mismatched.length
+      ? `        NOTE: the proposal labels its items ${mismatched.join(", ")} , the Spec Author's own numbering, NOT the authored\n` +
+        `        folder ids above. Commit by the FOLDER ids (map from the proposal's titles); do not pass the proposal's labels.\n`
       : "";
     return (
       `[drive] PAUSED , awaiting the Product Owner's sprint backlog. This is a DECISION, not an authoring task:\n` +
       `        ${existing.length} feature-request(s) are already authored (${existing.join(", ")}) , none need writing.\n` +
       proposedLine +
-      `        COMMIT which features are in sprint "${s}":\n` +
+      mismatchLine +
+      `        COMMIT which features are in sprint "${s}" (by folder id):\n` +
       `          consort-sync-backlog --sprint ${s} --features ${pick}\n` +
       `        then re-run the drive , it advances to the (interactive) plan gate.\n`
     );

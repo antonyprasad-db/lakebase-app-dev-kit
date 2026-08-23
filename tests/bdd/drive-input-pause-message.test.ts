@@ -59,8 +59,10 @@ describe("composeInputPause , the planning author-requests pause", () => {
     expect(msg).toContain("F2-stock-adjustment");
     // The whole point: do NOT tell the human to author requests that exist.
     expect(msg).not.toContain(AUTHOR_PHRASE);
-    // Names the exact commit command.
-    expect(msg).toContain("consort-sync-backlog --sprint s1 --features F1-stock-visibility,F2-stock-adjustment");
+    // No proposal was written here, so it must NOT guess the backlog (pre-filling
+    // ALL authored folders would be wrong); it names the commit command with the
+    // placeholder so the human picks the sprint's features by folder id.
+    expect(msg).toContain("consort-sync-backlog --sprint s1 --features <id[,id...]>");
   });
 
   it("pre-fills --features from the Spec Author's proposals, not all authored ids", () => {
@@ -73,6 +75,37 @@ describe("composeInputPause , the planning author-requests pause", () => {
     expect(msg).toContain("--features F1-stock-visibility,F2-stock-adjustment");
     // F3 is authored but not proposed, so it must not be pre-filled into the commit.
     expect(msg).not.toContain("F2-stock-adjustment,F3-inbound-receipt");
+  });
+
+  it("does NOT pre-fill proposal labels that are not authored folder ids (positional-id proposal)", () => {
+    // The authored folders use slug ids; the Spec Author's proposal uses its OWN
+    // positional labels (## F1, ## F2, ...). Regression (v0.3.21): those labels were
+    // lifted verbatim into `--features F1,F2,F3,F4,F5`, which sync-backlog can't
+    // resolve (exact folder-id match) , an empty backlog , and which a prefix matcher
+    // would mis-map (F5 -> the DEFERRED F5-cycle-count).
+    for (const f of ["F1-stock-visibility", "F2-stock-adjustment", "F3-inbound-receipt", "F4-outbound-pick", "F5-cycle-count"]) {
+      authorRequest(f);
+    }
+    writeProposals("F1", "F2", "F3", "F4", "F5"); // positional labels, NOT folder ids
+    const msg = composeInputPause(ACTION, "s1", tdd);
+    // The regression must not recur: raw positional labels are never pre-filled.
+    expect(msg).not.toContain("--features F1,F2,F3,F4,F5");
+    // Instead: the placeholder + a note naming the proposal's (non-folder) labels.
+    expect(msg).toContain("--features <id[,id...]>");
+    expect(msg).toContain("NOT the authored");
+    expect(msg).toContain("F1, F2, F3, F4, F5");
+    // The deferred cycle-count must never be silently pulled into a pre-fill.
+    expect(msg).not.toContain("--features F5-cycle-count");
+  });
+
+  it("pre-fills only the proposal ids that ARE authored folders (partial match)", () => {
+    authorRequest("F1-stock-visibility");
+    authorRequest("F2-stock-adjustment");
+    writeProposals("F1-stock-visibility", "F99-bogus"); // one real folder, one not
+    const msg = composeInputPause(ACTION, "s1", tdd);
+    expect(msg).toContain("--features F1-stock-visibility\n"); // only the valid one
+    expect(msg).toContain("F99-bogus"); // flagged in the mismatch note
+    expect(msg).toContain("NOT the authored");
   });
 
   it("no consortDir (single-feature driver path) => falls back to the author message", () => {

@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.22] - 2026-08-23
+
+### Fixed
+
+- **Feature ids in the sprint proposal are now the canonical folder ids , the `/sprint` commit command is correct.** The Spec Author's `/plan` proposal must label each candidate with its `features/<id>/` folder id (`F<n>-<slug>`) and, when `feature-request.md` folders already exist (a staged first-project or a re-plan), REUSE those exact ids , never invent a fresh positional `## F1 — <title>` numbering. A positional label is a different id space from the folders, so `consort-sync-backlog` (which matches folder ids exactly) can't commit it (empty backlog) or, under a looser matcher, maps `F5` to the WRONG `F5-*` folder (e.g. a deferred `F5-cycle-count`). Two-sided fix: (1) `spec-author` propose guidance requires canonical folder ids; (2) the `/sprint` planning pause (`composeInputPause`) now validates the proposal's ids against the authored folders and pre-fills `--features` only with exact matches , when the proposal used non-folder labels it emits the placeholder plus a NOTE naming them, instead of a bogus contiguous `--features F1,F2,F3,F4,F5` that a run then mis-committed. Also corrected the stale "no `feature-request.md` exists yet" planning premise that led the Spec Author to ignore the staged folders.
+
 ## [0.3.21] - 2026-08-23
 
 ### Changed

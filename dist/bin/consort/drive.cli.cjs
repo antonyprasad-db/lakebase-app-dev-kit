@@ -15626,12 +15626,18 @@ function composeInputPause(action, sprint, consortDir) {
   const existing = consortDir ? featuresWithAuthoredRequest(consortDir) : [];
   const proposed = consortDir ? proposedFeatureIds(consortDir) : [];
   if (existing.length > 0) {
-    const pick = (proposed.length ? proposed : existing).join(",");
-    const proposedLine = proposed.length ? `        Planning proposed for this sprint: ${proposed.join(", ")} (see ${ARTIFACT_ROOT}/planning/feature-proposals.md).
+    const authored = new Set(existing);
+    const proposedValid = proposed.filter((id) => authored.has(id));
+    const mismatched = proposed.filter((id) => !authored.has(id));
+    const pick = proposedValid.length ? proposedValid.join(",") : "<id[,id...]>";
+    const proposedLine = proposedValid.length ? `        Planning proposed for this sprint: ${proposedValid.join(", ")} (see ${ARTIFACT_ROOT}/planning/feature-proposals.md).
+` : "";
+    const mismatchLine = mismatched.length ? `        NOTE: the proposal labels its items ${mismatched.join(", ")} , the Spec Author's own numbering, NOT the authored
+        folder ids above. Commit by the FOLDER ids (map from the proposal's titles); do not pass the proposal's labels.
 ` : "";
     return `[drive] PAUSED , awaiting the Product Owner's sprint backlog. This is a DECISION, not an authoring task:
         ${existing.length} feature-request(s) are already authored (${existing.join(", ")}) , none need writing.
-` + proposedLine + `        COMMIT which features are in sprint "${s}":
+` + proposedLine + mismatchLine + `        COMMIT which features are in sprint "${s}" (by folder id):
           consort-sync-backlog --sprint ${s} --features ${pick}
         then re-run the drive , it advances to the (interactive) plan gate.
 `;
