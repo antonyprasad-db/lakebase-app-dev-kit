@@ -89,7 +89,19 @@ Realize it: on the **Default** path pass no model flags. On the **Customize** pa
 Then run the kit's creator (surface the exact command first; report its output, which prints a `Next:` hint):
 
 ```bash
-KIT_PKG="github:databricks-solutions/consort${LAKEBASE_KIT_REF:+#${LAKEBASE_KIT_REF}}"
+# Pin the create-project to THIS plugin's own version so a fresh install ALWAYS
+# scaffolds a coherent project , the create-project, launcher (consort.sh), kit-ref,
+# and scm-utils-ref all resolve to the version you installed, never a stale npx
+# cache or the mutable `main` branch. Precedence:
+#   1. LAKEBASE_KIT_REF            (explicit override; dev / capture)
+#   2. the running plugin's version (read from ${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json)
+#   3. KIT_VERSION_AT_RELEASE       (stamped into this command at release; the reliable floor)
+KIT_REF="${LAKEBASE_KIT_REF:-}"
+if [ -z "$KIT_REF" ] && [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json" ]; then
+  KIT_REF="v$(node -p "require('${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json').version" 2>/dev/null || true)"
+fi
+KIT_REF="${KIT_REF:-v0.3.17}"   # stamped at release; == package.json version (enforced by tests/bdd/start-kit-pin.test.ts)
+KIT_PKG="github:databricks-solutions/consort#${KIT_REF}"
 npx --yes --package="$KIT_PKG" lakebase-create-project \
   --project-name "<name>" --parent-dir "<parent-dir>" \
   --databricks-host "<host>" --github-owner "<owner>" \

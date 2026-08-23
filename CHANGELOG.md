@@ -6,6 +6,34 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.17] - 2026-08-22
+
+### Changed
+
+- **Repointed the substrate to `@databricks-solutions/lakebase-scm-utils` v0.2.4** , the
+  runtime-kit install (`lk --warm` / `--rewarm`) now narrates instead of going dark (a
+  leading "installing ... ~1-2 min" line + streamed npm progress + a "ready" line) and
+  installs leaner (`--omit=dev --no-audit --no-fund`, since the kit ships prebuilt dist/).
+
+### Fixed
+
+- **`/consort:start` now pins `lakebase-create-project` to the installed plugin's own
+  version, instead of a bare `github:databricks-solutions/consort`.** The unpinned spec
+  let `npx` resolve create-project from its cache or the mutable `main` branch, so a
+  fresh plugin install could scaffold from the wrong kit. The create ref now resolves,
+  in order: `LAKEBASE_KIT_REF` → the running plugin's version (`${CLAUDE_PLUGIN_ROOT}/
+  .claude-plugin/plugin.json`) → a release-stamped floor (guarded by
+  `tests/bdd/start-kit-pin.test.ts`, which forces the stamp to equal `package.json`).
+- **`lakebase-create-project` now refuses to scaffold from a STALE substrate.** `npx` can
+  update the top-level kit while reusing a cached older nested
+  `@databricks-solutions/lakebase-scm-utils` (it does not re-resolve transitive git deps
+  on cache reuse) , which silently produced a broken project (old `sftdd.sh` launcher +
+  mismatched `.lakebase/scm-utils-ref`). Create now compares the resolved substrate to the
+  version this kit declares and, on mismatch, **aborts before provisioning anything** with
+  a clear remediation (clear the npx cache and retry). An explicit `LAKEBASE_SCM_UTILS_REF`
+  / `_DIR` override still wins. Together with the pin above, a clean install resolves to a
+  coherent project and a dirty cache is caught, not shipped.
+
 ## [0.3.16] - 2026-08-22
 
 ### Added

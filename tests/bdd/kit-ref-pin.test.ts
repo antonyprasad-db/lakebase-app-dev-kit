@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { kitRefPin, readConsortVersion } from "../../consort/lakebase/kit-ref-pin.js";
+import { kitRefPin, readConsortVersion, declaredSubstrateVersion } from "../../consort/lakebase/kit-ref-pin.js";
 
 describe("kitRefPin", () => {
   it("pins to v<version> when LAKEBASE_KIT_REF is unset", () => {
@@ -64,5 +64,40 @@ describe("readConsortVersion", () => {
     const deep = path.join(root, "a", "b");
     fs.mkdirSync(deep, { recursive: true });
     expect(readConsortVersion(deep)).toBeUndefined();
+  });
+});
+
+describe("declaredSubstrateVersion", () => {
+  let root: string;
+  beforeEach(() => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), "kit-ref-pin-sub-"));
+  });
+  afterEach(() => {
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  const writeConsort = (dep: string | undefined) =>
+    fs.writeFileSync(
+      path.join(root, "package.json"),
+      JSON.stringify({
+        name: "@databricks-solutions/consort",
+        version: "0.3.17",
+        ...(dep ? { dependencies: { "@databricks-solutions/lakebase-scm-utils": dep } } : {}),
+      }),
+    );
+
+  it("extracts the vX.Y.Z from a github tag spec", () => {
+    writeConsort("github:databricks-solutions/lakebase-scm-utils#v0.2.3");
+    expect(declaredSubstrateVersion(root)).toBe("0.2.3");
+  });
+
+  it("returns undefined for an unpinned (branch/main) spec", () => {
+    writeConsort("github:databricks-solutions/lakebase-scm-utils#main");
+    expect(declaredSubstrateVersion(root)).toBeUndefined();
+  });
+
+  it("returns undefined when the substrate dep is absent", () => {
+    writeConsort(undefined);
+    expect(declaredSubstrateVersion(root)).toBeUndefined();
   });
 });

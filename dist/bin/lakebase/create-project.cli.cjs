@@ -277,13 +277,13 @@ function kitRefPin(env, version) {
   const v = (version ?? "").trim();
   return v ? `v${v}` : void 0;
 }
-function readConsortVersion(fromDir) {
+function findConsortPkg(fromDir) {
   let d = fromDir;
   for (let i = 0; i < 8; i++) {
     try {
       const pkg = JSON.parse((0, import_node_fs.readFileSync)((0, import_node_path2.join)(d, "package.json"), "utf-8"));
       if (pkg.name === CONSORT_PKG && typeof pkg.version === "string" && pkg.version) {
-        return pkg.version;
+        return pkg;
       }
     } catch {
     }
@@ -293,6 +293,16 @@ function readConsortVersion(fromDir) {
   }
   return void 0;
 }
+function readConsortVersion(fromDir) {
+  const v = findConsortPkg(fromDir)?.version;
+  return typeof v === "string" ? v : void 0;
+}
+function declaredSubstrateVersion(fromDir) {
+  const spec = findConsortPkg(fromDir)?.dependencies?.["@databricks-solutions/lakebase-scm-utils"];
+  if (typeof spec !== "string") return void 0;
+  const m = spec.match(/#v?(\d+\.\d+\.\d+)\b/);
+  return m ? m[1] : void 0;
+}
 function consortVersionFromModule(metaUrl) {
   try {
     return readConsortVersion((0, import_node_path2.dirname)((0, import_node_url3.fileURLToPath)(metaUrl)));
@@ -300,8 +310,34 @@ function consortVersionFromModule(metaUrl) {
     return void 0;
   }
 }
+function declaredSubstrateVersionFromModule(metaUrl) {
+  try {
+    return declaredSubstrateVersion((0, import_node_path2.dirname)((0, import_node_url3.fileURLToPath)(metaUrl)));
+  } catch {
+    return void 0;
+  }
+}
+
+// consort/lakebase/substrate-check.ts
+function substrateMismatchMessage(input) {
+  const env = input.env ?? {};
+  if (env.LAKEBASE_SCM_UTILS_REF && env.LAKEBASE_SCM_UTILS_REF.trim() || env.LAKEBASE_SCM_UTILS_DIR && env.LAKEBASE_SCM_UTILS_DIR.trim()) {
+    return null;
+  }
+  const { declared, installed } = input;
+  if (!declared || !installed) return null;
+  if (declared === installed) return null;
+  return `Substrate mismatch: this kit declares @databricks-solutions/lakebase-scm-utils v${declared}, but the resolved install is v${installed}.
+Your npx/npm cache served a STALE substrate , npx can update the top-level kit while reusing a cached nested dependency, which would scaffold a broken project (wrong launcher, mismatched .lakebase refs). Refusing to create from it.
+
+Fix: clear the npx cache and retry the version-pinned create from /consort:start:
+  rm -rf "$(npm config get cache)/_npx"   # or: npx clear-npx-cache
+(Set LAKEBASE_SCM_UTILS_REF to override deliberately for dev.)`;
+}
 
 // bin/lakebase/create-project.cli.ts
+var import_node_module = require("module");
+var import_node_fs2 = require("fs");
 function parseArgs(argv) {
   const out = {};
   for (let i = 0; i < argv.length; i++) {
@@ -508,6 +544,22 @@ async function main() {
       return 2;
     }
     process.stderr.write("[doctor] environment ok\n");
+  }
+  {
+    const declared = declaredSubstrateVersionFromModule(importMetaUrl);
+    let installed;
+    try {
+      const req = (0, import_node_module.createRequire)(importMetaUrl);
+      installed = JSON.parse(
+        (0, import_node_fs2.readFileSync)(req.resolve("@databricks-solutions/lakebase-scm-utils/package.json"), "utf8")
+      ).version;
+    } catch {
+    }
+    const mismatch = substrateMismatchMessage({ declared, installed, env: process.env });
+    if (mismatch) {
+      process.stderr.write("\n" + mismatch + "\n");
+      return 2;
+    }
   }
   const pin = kitRefPin(process.env, consortVersionFromModule(importMetaUrl));
   if (pin) {

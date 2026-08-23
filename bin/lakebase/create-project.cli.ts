@@ -9,7 +9,10 @@
 import { createProject, CreateProjectArgs } from "../../consort/lakebase/create-project.js";
 import { ALL_AGENT_ROLES, type SpawnableAgentRole } from "../../consort/config/agent-models.js";
 import { runCreateDoctorGate, formatGateBlockers } from "../../consort/lakebase/create-doctor-gate.js";
-import { kitRefPin, consortVersionFromModule } from "../../consort/lakebase/kit-ref-pin.js";
+import { kitRefPin, consortVersionFromModule, declaredSubstrateVersionFromModule } from "../../consort/lakebase/kit-ref-pin.js";
+import { substrateMismatchMessage } from "../../consort/lakebase/substrate-check.js";
+import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
 
 interface ParsedArgs {
   jsonInput?: string;
@@ -245,6 +248,31 @@ async function main(): Promise<number> {
       return 2;
     }
     process.stderr.write("[doctor] environment ok\n");
+  }
+
+  // Substrate integrity gate: refuse to scaffold from a STALE nested substrate.
+  // npx can update the top-level kit while reusing a cached older
+  // @databricks-solutions/lakebase-scm-utils , that silently produces a broken
+  // project (wrong launcher, mismatched .lakebase refs). Verify the installed
+  // substrate matches what this kit declares, and fail loud BEFORE provisioning
+  // anything (a repo + a Lakebase database).
+  {
+    const declared = declaredSubstrateVersionFromModule(import.meta.url);
+    let installed: string | undefined;
+    try {
+      const req = createRequire(import.meta.url);
+      installed = JSON.parse(
+        readFileSync(req.resolve("@databricks-solutions/lakebase-scm-utils/package.json"), "utf8"),
+      ).version;
+    } catch {
+      // Can't resolve the installed substrate , leave undefined; the check no-ops
+      // and the downstream scaffold still guards.
+    }
+    const mismatch = substrateMismatchMessage({ declared, installed, env: process.env });
+    if (mismatch) {
+      process.stderr.write("\n" + mismatch + "\n");
+      return 2;
+    }
   }
 
   // Pin the scaffolded project's runtime kit ref to THIS kit's version so it

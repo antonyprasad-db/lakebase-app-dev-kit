@@ -41,16 +41,20 @@ export function kitRefPin(env: NodeJS.ProcessEnv, version: string | undefined): 
  * the dist/bin/lakebase layout and to being invoked from a temp npx extract).
  * Returns `undefined` if it can't find a matching, versioned package.json.
  */
-export function readConsortVersion(fromDir: string): string | undefined {
+interface ConsortPkg {
+  name?: unknown;
+  version?: unknown;
+  dependencies?: Record<string, unknown>;
+}
+
+/** Walk up from `fromDir` to the nearest `@databricks-solutions/consort` package.json. */
+function findConsortPkg(fromDir: string): ConsortPkg | undefined {
   let d = fromDir;
   for (let i = 0; i < 8; i++) {
     try {
-      const pkg = JSON.parse(readFileSync(join(d, "package.json"), "utf-8")) as {
-        name?: unknown;
-        version?: unknown;
-      };
+      const pkg = JSON.parse(readFileSync(join(d, "package.json"), "utf-8")) as ConsortPkg;
       if (pkg.name === CONSORT_PKG && typeof pkg.version === "string" && pkg.version) {
-        return pkg.version;
+        return pkg;
       }
     } catch {
       // no package.json here (or unreadable) , keep walking up
@@ -62,10 +66,39 @@ export function readConsortVersion(fromDir: string): string | undefined {
   return undefined;
 }
 
+export function readConsortVersion(fromDir: string): string | undefined {
+  const v = findConsortPkg(fromDir)?.version;
+  return typeof v === "string" ? v : undefined;
+}
+
+/**
+ * The substrate version THIS kit declares it depends on , the `vX.Y.Z` in
+ * `dependencies["@databricks-solutions/lakebase-scm-utils"]`
+ * (e.g. `github:databricks-solutions/lakebase-scm-utils#v0.2.3` -> `"0.2.3"`).
+ * This is the version the scaffold SHOULD run against; compare it to the actually-
+ * installed nested substrate to catch a stale-cache mismatch. Returns `undefined`
+ * if the dep is absent or not version-pinned (e.g. a `main`/branch/dir spec).
+ */
+export function declaredSubstrateVersion(fromDir: string): string | undefined {
+  const spec = findConsortPkg(fromDir)?.dependencies?.["@databricks-solutions/lakebase-scm-utils"];
+  if (typeof spec !== "string") return undefined;
+  const m = spec.match(/#v?(\d+\.\d+\.\d+)\b/);
+  return m ? m[1] : undefined;
+}
+
 /** Convenience: resolve the version from an ESM module URL (`import.meta.url`). */
 export function consortVersionFromModule(metaUrl: string): string | undefined {
   try {
     return readConsortVersion(dirname(fileURLToPath(metaUrl)));
+  } catch {
+    return undefined;
+  }
+}
+
+/** Convenience: resolve the declared substrate version from an ESM module URL. */
+export function declaredSubstrateVersionFromModule(metaUrl: string): string | undefined {
+  try {
+    return declaredSubstrateVersion(dirname(fileURLToPath(metaUrl)));
   } catch {
     return undefined;
   }
