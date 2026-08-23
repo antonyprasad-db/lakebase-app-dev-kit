@@ -100,7 +100,7 @@ KIT_REF="${LAKEBASE_KIT_REF:-}"
 if [ -z "$KIT_REF" ] && [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json" ]; then
   KIT_REF="v$(node -p "require('${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json').version" 2>/dev/null || true)"
 fi
-KIT_REF="${KIT_REF:-v0.3.17}"   # stamped at release; == package.json version (enforced by tests/bdd/start-kit-pin.test.ts)
+KIT_REF="${KIT_REF:-v0.3.18}"   # stamped at release; == package.json version (enforced by tests/bdd/start-kit-pin.test.ts)
 KIT_PKG="github:databricks-solutions/consort#${KIT_REF}"
 npx --yes --package="$KIT_PKG" lakebase-create-project \
   --project-name "<name>" --parent-dir "<parent-dir>" \

@@ -6,6 +6,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.18] - 2026-08-22
+
+### Fixed
+
+- **`--tiers 2` / `--tiers 3` now actually cut the staging/dev tiers** (repoint to
+  `@databricks-solutions/lakebase-scm-utils` v0.2.5). The tier-cut primitive dropped the
+  workspace host, so it resolved auth ambiently and fell back to the DEFAULT profile ,
+  silently leaving a multi-tier create prod-only. It now runs against the same workspace
+  the rest of create used.
+
+### Added
+
+- **`lakebase-cut-tier` recovery bin** (from scm-utils v0.2.5) , cut a missing tier
+  without re-creating the project: `./scripts/lk lakebase-cut-tier --name staging
+  --fork-from main` (defaults instance + host from `.env`). A create-time tier-cut failure
+  is now a loud "INCOMPLETE TIERS" warning that names this exact recovery command.
+
 ## [0.3.17] - 2026-08-22
 
 ### Changed
