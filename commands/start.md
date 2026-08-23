@@ -88,7 +88,24 @@ Realize it: on the **Default** path pass no model flags. On the **Customize** pa
 
 Then run the kit's creator (surface the exact command first; report its output, which prints a `Next:` hint).
 
-**Set the human's expectation BEFORE you run it , this is a one-time provision that takes a few minutes and must not look hung.** Tell them plainly, e.g.: *"Setting up the project now , one-time, usually ~3-6 min. It creates the GitHub repo, a Lakebase database, the project files, the CI runner, and downloads the Consort toolkit"* (add *"and cuts the staging tier"* for `--tiers 2`+). Note the slow parts up front (**the CI runner setup and the toolkit download**), say you'll report when it finishes, then run it. The creator streams a step-by-step progress line for each stage (and an upfront plan of its own), so relay meaningful progress rather than going silent for minutes.
+**BEFORE you run it, give the human the full timeline so they can step away and come back at the right time.** This is a one-time provision of a few minutes; it must not look hung, and they shouldn't have to babysit it. Present the itemized steps with their usual durations and a total ETA , something like:
+
+> "Setting up your project now , a **one-time setup, usually ~4-6 minutes total**, in two parts. You can step away and come back in about **6 minutes**.
+>
+> **Part 1 , provisioning (~2-4 min):**
+> 1. **GitHub repo** , create + clone (~5-15s)
+> 2. **Lakebase database** , provision Postgres + resolve the endpoint (~30-90s)
+> 3. **Project files** , scaffold the app + `.consort/` + wire E2E (~5-10s)
+> 4. **CI service principal** , the workflow identity (~5-15s)
+> 5. **Self-hosted CI runner** , download + register + start it (**~1-2 min , the slow one; looks quietest, that's normal**)
+> 6. **Staging tier** , cut the paired Lakebase + git branch (~20-40s) *(only for `--tiers 2`/`3`)*
+> 7. **Initial commit + push** (~5-15s)
+>
+> **Part 2 , Consort toolkit download (~1-2 min):** right after create I run `./scripts/lk --refresh`, which downloads the kit + its dependencies **once** for this version (instant on every command after). This is deliberately separate from create , it's a heavy download, so we do it once at a reliable point rather than risk it mid-provision.
+>
+> I'll narrate each step as it happens and ping you the moment it's done (or if anything needs you)."
+
+Tune to the options (drop step 6 on `--no-github`/`--tiers 1`; a cold toolkit download over a slow network can push Part 2 to ~2-3 min). Then run it, relaying each step live (the creator streams a progress line per stage), so the wait is narrated, not silent.
 
 ```bash
 # Pin the create-project to THIS plugin's own version so a fresh install ALWAYS
@@ -102,7 +119,7 @@ KIT_REF="${LAKEBASE_KIT_REF:-}"
 if [ -z "$KIT_REF" ] && [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json" ]; then
   KIT_REF="v$(node -p "require('${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json').version" 2>/dev/null || true)"
 fi
-KIT_REF="${KIT_REF:-v0.3.19}"   # stamped at release; == package.json version (enforced by tests/bdd/start-kit-pin.test.ts)
+KIT_REF="${KIT_REF:-v0.3.20}"   # stamped at release; == package.json version (enforced by tests/bdd/start-kit-pin.test.ts)
 KIT_PKG="github:databricks-solutions/consort#${KIT_REF}"
 npx --yes --package="$KIT_PKG" lakebase-create-project \
   --project-name "<name>" --parent-dir "<parent-dir>" \

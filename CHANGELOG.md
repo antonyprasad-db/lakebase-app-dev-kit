@@ -6,6 +6,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.20] - 2026-08-23
+
+### Changed
+
+- **Repointed to `@databricks-solutions/lakebase-scm-utils` v0.2.9** , its dual-format build is now correct in BOTH directions: the CJS build bundles the ESM-only deps (octokit + @databricks/*), fixing the lakebase-scm-extension activation, while the ESM build keeps `@databricks/*` external so consort's own ESM import of the substrate loads cleanly (v0.2.8 inlined `@databricks/sdk-experimental` into the ESM output, whose runtime `require("https")` threw "Dynamic require of https is not supported"). create also no longer prefetches the toolkit (it downloads once at first `./scripts/lk` use / `--refresh`).
+
+### Added
+
+- **`/consort:start` presents an itemized create timeline up front** , the ordered steps (repo, Lakebase DB, files, CI runner[, tiers], commit) with per-step durations + a total ETA + "come back in ~N min", and the toolkit download shown as the one-time post-create `--refresh` step , so a multi-minute create is a known wait, not a mystery.
+
 ## [0.3.19] - 2026-08-23
 
 ### Fixed
