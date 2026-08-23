@@ -6658,12 +6658,29 @@ import { existsSync as existsSync11, readFileSync as readFileSync11, writeFileSy
 init_esm_shims();
 var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
 var ENV_PREFIX = ENV_PREFIXES[0];
+var LEGACY_REMOVAL_VERSION = "v0.4.0";
+var warnedLegacyEnv = /* @__PURE__ */ new Set();
 function consortEnv(suffix, env = process.env) {
-  for (const prefix of ENV_PREFIXES) {
-    const v = env[`${prefix}${suffix}`];
-    if (v !== void 0) return v;
+  for (let i = 0; i < ENV_PREFIXES.length; i++) {
+    const name = `${ENV_PREFIXES[i]}${suffix}`;
+    const v = env[name];
+    if (v !== void 0) {
+      if (i > 0) warnLegacyEnv(name, suffix);
+      return v;
+    }
   }
   return void 0;
+}
+function warnLegacyEnv(legacyName, suffix) {
+  if (warnedLegacyEnv.has(legacyName)) return;
+  warnedLegacyEnv.add(legacyName);
+  try {
+    process.stderr.write(
+      `[deprecated] ${legacyName} is a legacy sftdd/tdd-era env name; use ${ENV_PREFIX}${suffix} instead (removed in consort ${LEGACY_REMOVAL_VERSION}). Still honored for now.
+`
+    );
+  } catch {
+  }
 }
 
 // consort/gates/human-proxy.ts
@@ -8346,7 +8363,7 @@ function summarizeRequest(from) {
 function supplyProposals(args = {}) {
   const consortDir = args.consortDir ?? resolveConsortDir();
   const pairs = args.pairs ?? recordedRequestPairs();
-  if (pairs.length === 0) return { written: false, count: 0, reason: "no recorded feature-requests (LAKEBASE_SFTDD_SPRINT_REQUESTS unset/empty)" };
+  if (pairs.length === 0) return { written: false, count: 0, reason: "no recorded feature-requests (LAKEBASE_CONSORT_SPRINT_REQUESTS unset/empty)" };
   const sections = pairs.map(({ featureId, from }) => {
     const { ask, rationale } = summarizeRequest(from);
     return `## ${featureId}
@@ -8872,7 +8889,7 @@ function runSupplyRequestsCli(argv) {
     process.stdout.write(`human-proxy: supplied ${result.supplied.length} feature-request(s): ${result.supplied.join(", ")}
 `);
   } else {
-    process.stdout.write(`human-proxy: no recorded feature-requests to supply (LAKEBASE_SFTDD_SPRINT_REQUESTS unset/empty)
+    process.stdout.write(`human-proxy: no recorded feature-requests to supply (LAKEBASE_CONSORT_SPRINT_REQUESTS unset/empty)
 `);
   }
   if (result.skipped.length > 0) {

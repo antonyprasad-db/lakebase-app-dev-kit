@@ -438,7 +438,7 @@ export function writeBacklog(tdd: string, backlog: SprintBacklog): void {
  * membership declaration that scopes syncBacklog. `undefined` means the file is
  * absent (unscoped: every committed request is in scope, single-sprint/legacy);
  * `[]` means present-but-empty (nothing in scope). Both the Human Proxy (headless,
- * from $LAKEBASE_SFTDD_SPRINT_REQUESTS) and a human-in-the-loop PO (via
+ * from $LAKEBASE_CONSORT_SPRINT_REQUESTS) and a human-in-the-loop PO (via
  * consort-sync-backlog) declare membership through THIS one file.
  */
 export function readRequested(tdd: string, sprint: string): string[] | undefined {

@@ -191,7 +191,7 @@ export function assertNotStrandedAgentTurn(action: WorkflowAction): void {
       `skip the executor's recording, output validation, and routing contract (silent corruption). ` +
       `Fix: add it to the executor allowlist (executorDispatched) with a shipped manifest, or , if it ` +
       `is genuinely agent-less , to deterministicAgentless. Do NOT run it on legacy. (Likely cause: a ` +
-      `coverage gap, or LAKEBASE_SFTDD_USE_MANIFEST_STEPS forcing the legacy path.)`,
+      `coverage gap, or LAKEBASE_CONSORT_USE_MANIFEST_STEPS forcing the legacy path.)`,
   );
 }
 

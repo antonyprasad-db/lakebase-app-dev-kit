@@ -13,15 +13,44 @@ export const ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_T
 /** The canonical env prefix new writes/docs should use. */
 export const ENV_PREFIX = ENV_PREFIXES[0];
 
+/** The consort version in which the legacy `LAKEBASE_SFTDD_*` / `LAKEBASE_TDD_*`
+ *  env prefixes (and the `lakebase-sftdd-*` / `lakebase-tdd-*` bin aliases) are
+ *  scheduled for removal. Surfaced in the deprecation warning below. */
+export const LEGACY_REMOVAL_VERSION = "v0.4.0";
+
+// Warn at most once per distinct legacy env name, per process. Keeps the nudge
+// visible without spamming loops/captures that read the same knob every turn.
+const warnedLegacyEnv = new Set<string>();
+
 /** Read a kit env knob by SUFFIX (e.g. "LOOP" -> LAKEBASE_CONSORT_LOOP), falling
- *  back through the legacy prefixes newest-first. Prefer this over process.env. */
+ *  back through the legacy prefixes newest-first. Prefer this over process.env.
+ *  Resolving via a legacy prefix emits a one-time deprecation warning (removal is
+ *  scheduled for {@link LEGACY_REMOVAL_VERSION}); the value is still returned. */
 export function consortEnv(
   suffix: string,
   env: NodeJS.ProcessEnv = process.env,
 ): string | undefined {
-  for (const prefix of ENV_PREFIXES) {
-    const v = env[`${prefix}${suffix}`];
-    if (v !== undefined) return v;
+  for (let i = 0; i < ENV_PREFIXES.length; i++) {
+    const name = `${ENV_PREFIXES[i]}${suffix}`;
+    const v = env[name];
+    if (v !== undefined) {
+      if (i > 0) warnLegacyEnv(name, suffix);
+      return v;
+    }
   }
   return undefined;
+}
+
+function warnLegacyEnv(legacyName: string, suffix: string): void {
+  if (warnedLegacyEnv.has(legacyName)) return;
+  warnedLegacyEnv.add(legacyName);
+  try {
+    process.stderr.write(
+      `[deprecated] ${legacyName} is a legacy sftdd/tdd-era env name; ` +
+        `use ${ENV_PREFIX}${suffix} instead (removed in consort ${LEGACY_REMOVAL_VERSION}). ` +
+        `Still honored for now.\n`,
+    );
+  } catch {
+    // A deprecation notice must never break env resolution.
+  }
 }

@@ -62,7 +62,7 @@ The escalation `detail` the test-strategist writes (`--slot detail="<which ACs +
 
 ### Self-healing when the PO is a Human Proxy (headless)
 
-In `LAKEBASE_TDD_HUMAN_PROXY=1` there is no live human to make the `accept | revise` call, yet the workflow must still recover rather than halt forever. The revise-routing must therefore be **self-healing under the Human Proxy**: when a spec-level escalation is raised headless, the Human Proxy makes the `accept | revise` decision in the human's place and drives the circle-back autonomously, exactly as Gate 1/2/3 are already approved headless today.
+In `LAKEBASE_CONSORT_HUMAN_PROXY=1` there is no live human to make the `accept | revise` call, yet the workflow must still recover rather than halt forever. The revise-routing must therefore be **self-healing under the Human Proxy**: when a spec-level escalation is raised headless, the Human Proxy makes the `accept | revise` decision in the human's place and drives the circle-back autonomously, exactly as Gate 1/2/3 are already approved headless today.
 
 - **Bounded autonomy.** The Human Proxy may `revise` a spec-level overlap **once per story** (re-route to the spec-author -> re-gate -> resume). A second escape of the *same* `ac-overlap` on the same story after a revise is a hard halt (the proxy could not heal it; a real human must look). This bound prevents an infinite revise<->stall loop when the spec-author cannot actually separate the ACs.
 - **Recorded decision.** The proxy records its choice as the PO's, the same `gate.modified|gate.approved` events the real PO would emit, with the routed-to role and the verdict it acted on, so the headless run is auditable as a self-heal (not an invisible auto-edit). The PO still owns the assertions on paper; the proxy is acting *as* the PO under an explicit headless contract.
@@ -80,7 +80,7 @@ Required:
 - A feature whose ACs overlap (AC_n's `then` implied by AC_m) is caught at the design gate as `ac-overlap` and halts there, not after build cycles.
 - The deterministic backstop flags exact-duplicate AC `then` clauses in the spec-author self-check.
 - (Part B) On a spec-level escalation, the PO can choose `revise`; the orchestrator routes the **test-strategist's verdict to the spec-author** (the smell's owning author), re-runs it + re-gates (1->2->3) + resumes build, with no human re-run and no AC weakened without PO approval.
-- (Part B) Headless (`LAKEBASE_TDD_HUMAN_PROXY=1`), the same circle-back is **self-healing**: the Human Proxy makes the `accept | revise` decision as the PO, routes to the spec-author, and re-gates, all without a live human, bounded to one revise per story per smell before a hard halt.
+- (Part B) Headless (`LAKEBASE_CONSORT_HUMAN_PROXY=1`), the same circle-back is **self-healing**: the Human Proxy makes the `accept | revise` decision as the PO, routes to the spec-author, and re-gates, all without a live human, bounded to one revise per story per smell before a hard halt.
 
 ## Implementation notes (Phase 2, landed)
 

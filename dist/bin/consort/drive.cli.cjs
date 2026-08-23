@@ -6651,12 +6651,29 @@ init_cjs_shims();
 init_cjs_shims();
 var ENV_PREFIXES = ["LAKEBASE_CONSORT_", "LAKEBASE_SFTDD_", "LAKEBASE_TDD_"];
 var ENV_PREFIX = ENV_PREFIXES[0];
+var LEGACY_REMOVAL_VERSION = "v0.4.0";
+var warnedLegacyEnv = /* @__PURE__ */ new Set();
 function consortEnv(suffix, env = process.env) {
-  for (const prefix of ENV_PREFIXES) {
-    const v = env[`${prefix}${suffix}`];
-    if (v !== void 0) return v;
+  for (let i = 0; i < ENV_PREFIXES.length; i++) {
+    const name = `${ENV_PREFIXES[i]}${suffix}`;
+    const v = env[name];
+    if (v !== void 0) {
+      if (i > 0) warnLegacyEnv(name, suffix);
+      return v;
+    }
   }
   return void 0;
+}
+function warnLegacyEnv(legacyName, suffix) {
+  if (warnedLegacyEnv.has(legacyName)) return;
+  warnedLegacyEnv.add(legacyName);
+  try {
+    process.stderr.write(
+      `[deprecated] ${legacyName} is a legacy sftdd/tdd-era env name; use ${ENV_PREFIX}${suffix} instead (removed in consort ${LEGACY_REMOVAL_VERSION}). Still honored for now.
+`
+    );
+  } catch {
+  }
 }
 
 // consort/config/consort-paths.ts
@@ -12892,7 +12909,7 @@ function assertNotStrandedAgentTurn(action) {
   if (action.kind !== "invoke-role") return;
   if (executorDispatched(action) || deterministicAgentless(action)) return;
   throw new Error(
-    `LEGACY AGENT-PATH GUARD: invoke-role action ${JSON.stringify(action)} is neither executor-dispatched nor a sanctioned deterministic-agentless action (author-requests / estimate-committed). A real agent turn must NEVER run on the legacy commandsForAction path , it would skip the executor's recording, output validation, and routing contract (silent corruption). Fix: add it to the executor allowlist (executorDispatched) with a shipped manifest, or , if it is genuinely agent-less , to deterministicAgentless. Do NOT run it on legacy. (Likely cause: a coverage gap, or LAKEBASE_SFTDD_USE_MANIFEST_STEPS forcing the legacy path.)`
+    `LEGACY AGENT-PATH GUARD: invoke-role action ${JSON.stringify(action)} is neither executor-dispatched nor a sanctioned deterministic-agentless action (author-requests / estimate-committed). A real agent turn must NEVER run on the legacy commandsForAction path , it would skip the executor's recording, output validation, and routing contract (silent corruption). Fix: add it to the executor allowlist (executorDispatched) with a shipped manifest, or , if it is genuinely agent-less , to deterministicAgentless. Do NOT run it on legacy. (Likely cause: a coverage gap, or LAKEBASE_CONSORT_USE_MANIFEST_STEPS forcing the legacy path.)`
   );
 }
 function manifestPostTurnCommands(manifest, when, action, cfg, deps) {
@@ -15333,10 +15350,10 @@ Flags:
                        build kickoff) | release-engineer (the deploy/verify). The
                        driver blocks for a human [Y/n], then RESUMES the same run
                        on Y , it never leaves the state machine. n re-asks. Set
-                       LAKEBASE_SFTDD_AUTO_CONTINUE=1 to auto-confirm (non-interactive).
+                       LAKEBASE_CONSORT_AUTO_CONTINUE=1 to auto-confirm (non-interactive).
   --gates <mode>       interactive (default: stop AT each HITL gate so the human
                        answers, then re-run) | proxy (headless: Human Proxy
-                       approves; requires LAKEBASE_SFTDD_AUTO_CONTINUE=1 or CI).
+                       approves; requires LAKEBASE_CONSORT_AUTO_CONTINUE=1 or CI).
                        Run-scoped: overrides project.gates for THIS run only,
                        never rewrites sftdd-config.json.
   --no-sizing          Skip the Architect's t-shirt-sizing (planning-poker) step:
@@ -15405,7 +15422,7 @@ function makeConfirmContinue() {
     }
     reject(
       new Error(
-        `[drive] PAUSED at the ${label} handoff with no human channel , refusing to continue. Set LAKEBASE_SFTDD_AUTO_CONTINUE=1 (deliberate headless), provide LAKEBASE_SFTDD_GATE_ANSWER_FILE, or run in an interactive terminal.`
+        `[drive] PAUSED at the ${label} handoff with no human channel , refusing to continue. Set LAKEBASE_CONSORT_AUTO_CONTINUE=1 (deliberate headless), provide LAKEBASE_CONSORT_GATE_ANSWER_FILE, or run in an interactive terminal.`
       )
     );
   });
@@ -15843,8 +15860,8 @@ async function main() {
   if (effectiveGates(args, args.projectDir ?? process.cwd()) === "proxy" && !hasNonInteractiveSignal()) {
     process.stderr.write(
       `consort-drive: gate mode 'proxy' (Human Proxy approves headlessly) requires an explicit
-non-interactive signal (LAKEBASE_SFTDD_AUTO_CONTINUE=1 or CI). Refusing to bypass HITL in an
-interactive/dev context. Unset LAKEBASE_SFTDD_HUMAN_PROXY, or pass --gates interactive.
+non-interactive signal (LAKEBASE_CONSORT_AUTO_CONTINUE=1 or CI). Refusing to bypass HITL in an
+interactive/dev context. Unset LAKEBASE_CONSORT_HUMAN_PROXY, or pass --gates interactive.
 `
     );
     return 2;

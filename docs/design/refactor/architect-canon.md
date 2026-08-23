@@ -6,7 +6,7 @@ conventions work; builds directly on the revise-routing self-heal (FEIP-7626).
 
 ## Problem
 
-In the SFTDD design lane the architect-reviewer fires a **live agent turn per
+In the Consort design lane the architect-reviewer fires a **live agent turn per
 story, on every feature**. `nextDesignAction` dispatches it whenever a story has
 ACs but is not yet annotated (`orchestrator-drive.ts`: the
 `!design.architectAnnotated` branch), and its task

@@ -75,18 +75,18 @@ The same orchestrated path runs for real and headless; headless, the Human Proxy
 
 ## Headless / Human Proxy mode
 
-By default every gate is HITL (the workflow halts for the Product Owner). When `LAKEBASE_SFTDD_HUMAN_PROXY=1` (set by CI and the smoke), the approver role is **performed by** the `human-proxy` identity, a diligent stand-in, not a rubber stamp. For the artifact gates (`spec`/`plan`/`test_list`/`promote`), it approves a `gates.json` gate and emits `gate.approved` only when both hold (the `deploy` gate is certified differently, see the `/deploy` bullet below):
+By default every gate is HITL (the workflow halts for the Product Owner). When `LAKEBASE_CONSORT_HUMAN_PROXY=1` (set by CI and the smoke), the approver role is **performed by** the `human-proxy` identity, a diligent stand-in, not a rubber stamp. For the artifact gates (`spec`/`plan`/`test_list`/`promote`), it approves a `gates.json` gate and emits `gate.approved` only when both hold (the `deploy` gate is certified differently, see the `/deploy` bullet below):
 - **Given the artifacts:** the gate's expected artifacts EXIST (a missing one is refused).
 - **Format-conformant:** each validates against its declared format (JSON against its schema; narrative MD against its required sections, see `references/spec-format.md` + `consort-gate-conformance`). A malformed artifact, or one missing a required section, is refused.
 
 So the producing role's job here is to HAND the approver complete, conformant artifacts, recording its recommended resolutions (decisions, NFR acceptances, orderings) INSIDE them rather than leaving open questions for a human reply. A gate advances because real well-formed work was verified, never because it was skipped; a missing/malformed artifact hard-blocks in CI exactly as for a human.
 
 Beyond the gates, the Human Proxy stands in wherever the path needs human input (`consort-human-proxy` has two subcommands, `supply` and `approve`; both validate-then-place, neither fabricates or skips):
-- **Project intake** (precondition of `/plan` + `/design`): `supply`s `product-overview.md` / `nfrs.md` / `design-brief.md` from `$LAKEBASE_SFTDD_RECORDED_INTAKE_DIR`; `consort-intake` then passes because they're present + conformant.
+- **Project intake** (precondition of `/plan` + `/design`): `supply`s `product-overview.md` / `nfrs.md` / `design-brief.md` from `$LAKEBASE_CONSORT_RECORDED_INTAKE_DIR`; `consort-intake` then passes because they're present + conformant.
 - **`/plan` backlog:** the Architect sizes the candidates live; the Proxy `supply`s the recorded `feature-request.md` files (the PO's groomed sprint). `sync-backlog` projects `backlog.json` (committed ids + sizes).
 - **`/deploy` gate:** confirms the app came up reachable AND the verify passed, then records `gate.approved`; never approves a non-reachable or failed-verify deploy.
 
-Check the mode with `[ "$LAKEBASE_SFTDD_HUMAN_PROXY" = "1" ]`. Absent/unset = normal HITL.
+Check the mode with `[ "$LAKEBASE_CONSORT_HUMAN_PROXY" = "1" ]`. Absent/unset = normal HITL.
 
 ## Configuration (one source of truth per setting)
 
@@ -94,7 +94,7 @@ Every knob has exactly ONE home; see [`CONFIG.md`](CONFIG.md) for the full table
 
 - **Project settings** (what the project IS: `uiTrack`, `gates`, `deployTarget`, the per-role model matrix, build cadence) live only in `.lakebase/consort-config.json`, resolved **file -> code default** by `resolveConsortSettings`. There is no env or flag override at read time. The writers are create-project (create-time, e.g. `--ui-track`) and the drive's write-through flags (`--gates` / `--deploy-target` / `--no-sizing`), which persist INTO the file before it is read.
 - **`uiTrack` is the single door for the UX lane.** It drives BOTH the UX Designer (design-guide / `ia.md` / adherence gate) AND the e2e harness (create-project derives e2e from it, and refuses a UI project without it). A UI project can never run with the UX lane off.
-- **Run-mode knobs** (record/replay, headless, debug, e.g. `LAKEBASE_CONSORT_AUTO_CONTINUE`, `_TRACE`, `_RECORD_DIR`) are per-invocation `LAKEBASE_CONSORT_*` env vars, read via `consortEnv` (canonical prefix; the legacy `LAKEBASE_SFTDD_*` / `LAKEBASE_TDD_*` prefixes are still honored). They are NOT project settings and never belong in `consort-config.json`. (`LAKEBASE_SFTDD_HUMAN_PROXY`, the headless-approver switch, is a raw-shell-checked var the command templates read directly, not a `consortEnv` knob.)
+- **Run-mode knobs** (record/replay, headless, debug, e.g. `LAKEBASE_CONSORT_AUTO_CONTINUE`, `_TRACE`, `_RECORD_DIR`) are per-invocation `LAKEBASE_CONSORT_*` env vars, read via `consortEnv` (canonical prefix; the legacy `LAKEBASE_CONSORT_*` / `LAKEBASE_CONSORT_*` prefixes are still honored). They are NOT project settings and never belong in `consort-config.json`. (`LAKEBASE_CONSORT_HUMAN_PROXY`, the headless-approver switch, is a raw-shell-checked var the command templates read directly, not a `consortEnv` knob.)
 - **Capture-time conditions** live in a scenario's `scenario.json` and are funneled into create-project flags by `capture-scenario.sh`; they never reach the drive directly.
 
 ## Agent roles (the per-role agent runtime)

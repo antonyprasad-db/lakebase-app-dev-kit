@@ -14,7 +14,7 @@ There are three homes, and they do not overlap:
 2. **Run-mode knobs** are per-invocation and live in `LAKEBASE_CONSORT_*` environment
    variables. They describe how THIS run behaves (record/replay, headless, debug),
    not what the project is. They are read via the `consortEnv(...)` accessor (one door
-   each), which also honors the legacy `LAKEBASE_SFTDD_*` and `LAKEBASE_TDD_*` prefixes.
+   each), which also honors the legacy `LAKEBASE_CONSORT_*` and `LAKEBASE_CONSORT_*` prefixes.
 3. **Capture-time conditions** live in a scenario's `scenario.json`. They are read
    only by the capture harness and funneled into create-project as flags; they never
    reach the drive directly.
@@ -61,7 +61,7 @@ plain run (no override flag) never mutates it.
 ## Run-mode knobs (home: `LAKEBASE_CONSORT_*` env)
 
 Per-invocation, read via `consortEnv("<SUFFIX>")` (canonical `LAKEBASE_CONSORT_<SUFFIX>`,
-legacy fallbacks `LAKEBASE_SFTDD_<SUFFIX>` then `LAKEBASE_TDD_<SUFFIX>`). These are NOT
+legacy fallbacks `LAKEBASE_CONSORT_<SUFFIX>` then `LAKEBASE_CONSORT_<SUFFIX>`). These are NOT
 project settings and never belong in `consort-config.json`.
 
 | Knob | Env var | Purpose |

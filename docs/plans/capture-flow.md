@@ -61,7 +61,7 @@ response side is faithful (extend human-proxy to write its per-question answers,
 FINDING (code review): the intake interviews the design doc called "step 3 remains" are ALREADY
 documented + wired end-to-end:
 - `/design` Step 0.5 (design.md:44-71): the full Product / NFR / UX interview question sets, the
-  interactive-vs-headless split, the Human Proxy `supply` path from `$LAKEBASE_SFTDD_RECORDED_INTAKE_DIR`,
+  interactive-vs-headless split, the Human Proxy `supply` path from `$LAKEBASE_CONSORT_RECORDED_INTAKE_DIR`,
   and the `consort-intake` precondition (exit 5, un-skippable) that REFUSES phase 1 until intake conforms.
 - `/plan` Step 0 (plan.md:17-25): the SAME project intake facilitated at planning , and `/plan` is what
   `/sprint` runs FIRST, so a sprint-first run hits intake at planning. Headless, the Human Proxy supplies

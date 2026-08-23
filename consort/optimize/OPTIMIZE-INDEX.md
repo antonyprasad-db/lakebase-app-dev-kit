@@ -119,7 +119,7 @@ Hermetic coverage incl. a mock-step-executor "live" dispatch: `tests/bdd/driver-
 Everything past the next `---` documents the retired **champion-walk** harness. Its file paths are
 stale: the modules moved from `scripts/sftdd/` to `consort/optimize/*.ts`, `optimize.cli.ts` is gone,
 and the run wrapper `examples/replay/optimize-scenario.sh` no longer exists (use
-`scripts/optimize-role.sh`). `LAKEBASE_SFTDD_REPLAY_DIR` is still a live (legacy-read) env var. The
+`scripts/optimize-role.sh`). `LAKEBASE_CONSORT_REPLAY_DIR` is still a live (legacy-read) env var. The
 sections are kept for provenance only , do not build on them.
 
 ---
@@ -201,7 +201,7 @@ TWO ABSOLUTE RULES (both learned the hard way; violating either WASTES LIVE-CLOU
 - **A recorded winner is REPLAYED, never re-run.** Once a handoff's winner artifact is in the
   replay corpus (`examples/replay/corpora/stockflow-optimize/recorded-artifacts/`), you NEVER
   sweep it AND NEVER spawn its model again — not even to "advance the drive past it". Set
-  `LAKEBASE_SFTDD_REPLAY_DIR=<corpus>` and the drive-runner (drive-runner.ts:403) COPIES the
+  `LAKEBASE_CONSORT_REPLAY_DIR=<corpus>` and the drive-runner (drive-runner.ts:403) COPIES the
   recorded artifact from disk in ~0s for any `REPLAYABLE_DESIGN_ROLES` role (spec-author,
   architect-reviewer, dba, test-strategist, ux-designer, product-owner). It fast-forwards
   through EVERY recorded role and STOPS at the first UN-recorded one.
@@ -216,7 +216,7 @@ per-story; the old sweep was voided by the ac.schema `layer` bug) and `architect
 
 Per handoff-that-needs-a-sweep:
 1. **POSITION via REPLAY (no model runs):** launch the single-handoff run with
-   `LAKEBASE_SFTDD_REPLAY_DIR` pointed at the corpus. Recorded roles replay from disk (~0s,
+   `LAKEBASE_CONSORT_REPLAY_DIR` pointed at the corpus. Recorded roles replay from disk (~0s,
    no `claude -p`); the drive halts at the first un-recorded role = the one to sweep. NEVER
    drive a recorded role "at its winner" without REPLAY_DIR — that spawns the model (the
    mistake: "drive breakdown once at winner").
@@ -496,7 +496,7 @@ auto-deny. acceptEdits is honored + grants Write AND Bash headless. See memory
 - Tests: `tests/bdd/optimize-*.test.ts`. Live: `tests/live/*`.
 
 ## Scenario corpus + where results/metrics live
-- `examples/replay/corpora/stockflow-optimize/` — intake/ + scenario.json.pending (tiers 2, uiTrack, python, self-hosted). `recorded-artifacts/` + `turns/` are the KEPT, COMMITTED REPLAY CORPUS (winners' .sftdd output); set LAKEBASE_SFTDD_REPLAY_DIR to it to fast-forward. Do NOT scrub it.
+- `examples/replay/corpora/stockflow-optimize/` — intake/ + scenario.json.pending (tiers 2, uiTrack, python, self-hosted). `recorded-artifacts/` + `turns/` are the KEPT, COMMITTED REPLAY CORPUS (winners' .sftdd output); set LAKEBASE_CONSORT_REPLAY_DIR to it to fast-forward. Do NOT scrub it.
 - `examples/replay/optimize-results/<handoff>/` — COMMITTED run metrics: summary.json (per-candidate median/gate/cost + winner), report.md (champion-walk table), champion-walk.json, per-candidate trial result.json. The source of truth for metrics; survives teardown.
 - `<project>/experiments/` — raw per-candidate trial scratch (disposable, dies with the project). Run logs: /tmp/optimize-*.log.
 
@@ -509,7 +509,7 @@ auto-deny. acceptEdits is honored + grants Write AND Bash headless. See memory
 > UN-RECORDED role (see "THE ONE WAY THROUGH" above): `optimize-scenario.sh ... --trials N`
 > with NO --sweep-lane, which sweeps the ONE role the drive sits on, records the winner
 > (advances the drive), and exits. To reach that role WITHOUT re-running the recorded roles
-> before it, set `LAKEBASE_SFTDD_REPLAY_DIR` so they replay from disk (rule A above) and the
+> before it, set `LAKEBASE_CONSORT_REPLAY_DIR` so they replay from disk (rule A above) and the
 > drive halts at the first un-recorded role. NEVER sweep or re-run a role whose winner is
 > already recorded. The reference below is kept only to explain WHY the lane path is off ,
 > not as a thing to run.

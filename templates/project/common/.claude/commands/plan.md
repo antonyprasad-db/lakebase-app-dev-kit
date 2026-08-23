@@ -42,13 +42,13 @@ Each `feature-request.md` is the open-ended, plain-English ask in the PO's voice
 
 (With `--feature`, the precondition additionally requires that feature's `feature-request.md` to exist and conform, the same check `/design <feature-id>` runs at its Step 0.5.)
 
-### Headless (`LAKEBASE_SFTDD_HUMAN_PROXY=1`)
+### Headless (`LAKEBASE_CONSORT_HUMAN_PROXY=1`)
 
-There is no human to interview. The Human Proxy stands in for the PO and SUPPLIES each sprint item's `feature-request.md` from the pre-recorded sprint backlog (`$LAKEBASE_SFTDD_RECORDED_INTAKE_DIR`): the recorded files ARE the PO's groomed, prioritized sprint. Validate-then-place; it refuses a missing or non-conformant recording.
+There is no human to interview. The Human Proxy stands in for the PO and SUPPLIES each sprint item's `feature-request.md` from the pre-recorded sprint backlog (`$LAKEBASE_CONSORT_RECORDED_INTAKE_DIR`): the recorded files ARE the PO's groomed, prioritized sprint. Validate-then-place; it refuses a missing or non-conformant recording.
 
 ```bash
 ./scripts/lk consort-human-proxy supply \
-  --from "$LAKEBASE_SFTDD_RECORDED_INTAKE_DIR/<feature-id>.md" \
+  --from "$LAKEBASE_CONSORT_RECORDED_INTAKE_DIR/<feature-id>.md" \
   --to ".consort/features/<feature-id>/feature-request.md" \
   --artifact feature-request.md --feature "<feature-id>"
 ```
@@ -70,7 +70,7 @@ orchestrator driver, bounded to planning only (`--plan-only`), with interactive
 gates so YOU answer the sprint plan gate (headless: the Human Proxy):
 
 ```bash
-GATES=interactive; [ "${LAKEBASE_SFTDD_HUMAN_PROXY:-}" = "1" ] && GATES=proxy
+GATES=interactive; [ "${LAKEBASE_CONSORT_HUMAN_PROXY:-}" = "1" ] && GATES=proxy
 ./scripts/lk \
   consort-drive --sprint "<sprint-name>" --plan-only --gates "$GATES" --project-dir "$PWD"
 ```

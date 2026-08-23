@@ -368,7 +368,7 @@ export function supplyProposals(
 ): SupplyProposalsResult {
   const consortDir = args.consortDir ?? resolveConsortDir();
   const pairs = args.pairs ?? recordedRequestPairs();
-  if (pairs.length === 0) return { written: false, count: 0, reason: "no recorded feature-requests (LAKEBASE_SFTDD_SPRINT_REQUESTS unset/empty)" };
+  if (pairs.length === 0) return { written: false, count: 0, reason: "no recorded feature-requests (LAKEBASE_CONSORT_SPRINT_REQUESTS unset/empty)" };
   const sections = pairs.map(({ featureId, from }) => {
     const { ask, rationale } = summarizeRequest(from);
     return (

@@ -6,6 +6,36 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.16] - 2026-08-22
+
+### Added
+
+- **Scaffolded projects now pin the runtime kit to the kit's release version.**
+  `lakebase-create-project` defaults `LAKEBASE_KIT_REF` to `v<version>`, which the
+  substrate writes to `.lakebase/kit-ref`, so a new project resolves an IMMUTABLE,
+  version-keyed kit cache (`~/.cache/consort/v<version>`) instead of a mutable `main`
+  that silently goes stale. Mirrors the substrate's `scm-utils-ref` pin. An explicit
+  `LAKEBASE_KIT_REF` (dev override / capture) still wins. `/consort:start`'s resume
+  guidance now explains that upgrading a project's kit is a deliberate `kit-ref` bump.
+
+### Deprecated
+
+- **Legacy `sftdd` / `tdd`-era names are deprecated (removed in v0.4.0).** The
+  `lakebase-sftdd-*` / `lakebase-tdd-*` bin aliases and the `LAKEBASE_SFTDD_*` /
+  `LAKEBASE_TDD_*` env prefixes still work, but now warn once when used (`consortEnv()`
+  for env; the scaffolded `scripts/lk` launcher for the aliases), pointing at the
+  `consort-*` / `lakebase-*` names and `LAKEBASE_CONSORT_*`. See `DEPRECATIONS.md`.
+
+### Changed
+
+- **Repointed the substrate to `@databricks-solutions/lakebase-scm-utils` v0.2.3**
+  (its share of the de-sftdd sweep + the lk-alias deprecation warning).
+- **Swept leftover `sftdd`-era drift** from help text, error messages, code comments,
+  and docs (the framework is Consort); env-var display strings now show
+  `LAKEBASE_CONSORT_*`. Back-compat literals (the alias bins, `ENV_PREFIXES`, the
+  `.sftdd`/`.tdd` artifact roots + migration, the legacy `sftdd-config.json` read, the
+  `--sftdd-dir` flag alias) are unchanged.
+
 ## [0.3.15] - 2026-08-22
 
 ### Changed

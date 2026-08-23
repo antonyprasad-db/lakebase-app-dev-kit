@@ -79,12 +79,12 @@ Root cause = the recorder omitted the pre-turn `.consort` state from `replay-set
 
 RETIRED (proven first, per the owner): `layReplayDriverPreCycle` (the handroll) + `DRIVER_TURN_SEEDS` (the
 legacy seed) are DELETED. PROOF (live, 1-pass): replayed `0067-driver-refactor` from stockflow-optimization-study
-with `LAKEBASE_SFTDD_CORPUS_DIR` pointed at it , `[layBundle] laid pre-turn .consort verbatim` (no handroll),
+with `LAKEBASE_CONSORT_CORPUS_DIR` pointed at it , `[layBundle] laid pre-turn .consort verbatim` (no handroll),
 the drive routed the S3 refactor from the verbatim state, refactored, forced re-review CLEAN, honest-GREEN
 judge PASSED (355.5s). Consequences:
 - Repair/refactor replays now REQUIRE a pre-consort corpus. The only one today is **stockflow-optimization-study**
   (recorded with the recorder change). Run repair/refactor experiments with
-  `LAKEBASE_SFTDD_CORPUS_DIR=examples/replay/corpora/stockflow-optimization-study` (a new env override on
+  `LAKEBASE_CONSORT_CORPUS_DIR=examples/replay/corpora/stockflow-optimization-study` (a new env override on
   `CORPUS_DIR`). The default `replayBundleForTurn` turns + the driver-repair/refactor-panel configs now point at
   that corpus's turns (repair=0065-driver-repair, refactor=0067-driver-refactor).
 - GREEN needs no pre-consort (opens its own RED cycle) , its default stays the stockflow-full `0156-driver`.

@@ -48,9 +48,9 @@ npm run typecheck   # tsc --noEmit
 
 ```
 scripts/
-  sftdd/                       # the deterministic orchestrator + per-role logic
-  lakebase/                    # create-project, adopt-sftdd, update-commands,
-                               #   resolve-sftdd-dir
+  consort/                       # the deterministic orchestrator + per-role logic
+  lakebase/                    # create-project, adopt-consort, update-commands,
+                               #   resolve-consort-dir
   index.ts                     # package barrel
   openai-foundry.py            # generates tools/openai-foundry/*.tools.json
   skills.py                    # regenerates manifest.json from skills/
@@ -182,7 +182,7 @@ Required env vars:
 | `DATABRICKS_HOST` | Your workspace URL (or set `DATABRICKS_CONFIG_PROFILE` + have `~/.databrickscfg`). |
 | `GITHUB_OWNER` | Your sandbox GitHub user or org; the smoke creates + uses a repo under it. |
 
-Optional: `LAKEBASE_KIT_REF` (pin the kit to a branch/tag/sha instead of this checkout's built `dist/`), `LAKEBASE_KIT_DIR` (point `lk` at a specific kit install), `LAKEBASE_TDD_AUTO_CONTINUE=1` (auto-answer the pause-at-handoff gates in CI).
+Optional: `LAKEBASE_KIT_REF` (pin the kit to a branch/tag/sha instead of this checkout's built `dist/`), `LAKEBASE_KIT_DIR` (point `lk` at a specific kit install), `LAKEBASE_CONSORT_AUTO_CONTINUE=1` (auto-answer the pause-at-handoff gates in CI).
 
 **Run** , the orchestrator has four scripts in `examples/replay/`:
 

@@ -13,7 +13,7 @@ import { consortEnv } from "../../consort/config/consort-env.js";
 
 /** Require at least this fraction of the model window still free to RESUME
  *  (the default; a smaller warm window = a LARGER required free fraction, set via
- *  LAKEBASE_SFTDD_CONTEXT_FREE_FRACTION to tighten how early lighter roles reset). */
+ *  LAKEBASE_CONSORT_CONTEXT_FREE_FRACTION to tighten how early lighter roles reset). */
 export const CONTEXT_FREE_FRACTION_REQUIRED = 0.4;
 
 /** The required-free fraction in force, honoring the env override (clamped to a
@@ -42,7 +42,7 @@ export function requiredFreeFraction(env: NodeJS.ProcessEnv = process.env): numb
  * starts a turn FRESH when the prior context would not leave the required free
  * window fraction, and the mid-turn prompt-too-long retry catches a turn that
  * balloons anyway , so context growth stays bounded without paying the fresh-start
- * tax on every turn. Set `LAKEBASE_SFTDD_HEAVY_ROLES=driver,navigator` (or any
+ * tax on every turn. Set `LAKEBASE_CONSORT_HEAVY_ROLES=driver,navigator` (or any
  * comma list) to restore the proactive always-FRESH cap for those roles.
  */
 export const DEFAULT_HEAVY_ROLES = [] as const;

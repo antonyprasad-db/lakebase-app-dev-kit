@@ -99,7 +99,7 @@ run_scenarios() {
     name="$(basename "$d")"
     blue ""
     blue "==> Replaying scenario: $name"
-    LAKEBASE_SFTDD_AUTO_CONTINUE=1 bash "$scen_root/replay-scenario.sh" --scenario "$name" --to release-engineer
+    LAKEBASE_CONSORT_AUTO_CONTINUE=1 bash "$scen_root/replay-scenario.sh" --scenario "$name" --to release-engineer
     ran=$((ran + 1))
   done
   if [[ "$ran" -eq 0 ]]; then

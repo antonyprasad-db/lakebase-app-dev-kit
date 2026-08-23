@@ -267,6 +267,40 @@ function formatGateBlockers(blockers) {
   return lines.join("\n");
 }
 
+// consort/lakebase/kit-ref-pin.ts
+var import_node_url3 = require("url");
+var import_node_path2 = require("path");
+var import_node_fs = require("fs");
+var CONSORT_PKG = "@databricks-solutions/consort";
+function kitRefPin(env, version) {
+  if (env.LAKEBASE_KIT_REF && env.LAKEBASE_KIT_REF.trim()) return void 0;
+  const v = (version ?? "").trim();
+  return v ? `v${v}` : void 0;
+}
+function readConsortVersion(fromDir) {
+  let d = fromDir;
+  for (let i = 0; i < 8; i++) {
+    try {
+      const pkg = JSON.parse((0, import_node_fs.readFileSync)((0, import_node_path2.join)(d, "package.json"), "utf-8"));
+      if (pkg.name === CONSORT_PKG && typeof pkg.version === "string" && pkg.version) {
+        return pkg.version;
+      }
+    } catch {
+    }
+    const up = (0, import_node_path2.dirname)(d);
+    if (up === d) break;
+    d = up;
+  }
+  return void 0;
+}
+function consortVersionFromModule(metaUrl) {
+  try {
+    return readConsortVersion((0, import_node_path2.dirname)((0, import_node_url3.fileURLToPath)(metaUrl)));
+  } catch {
+    return void 0;
+  }
+}
+
 // bin/lakebase/create-project.cli.ts
 function parseArgs(argv) {
   const out = {};
@@ -474,6 +508,14 @@ async function main() {
       return 2;
     }
     process.stderr.write("[doctor] environment ok\n");
+  }
+  const pin = kitRefPin(process.env, consortVersionFromModule(importMetaUrl));
+  if (pin) {
+    process.env.LAKEBASE_KIT_REF = pin;
+    process.stderr.write(
+      `[kit-ref] pinning the scaffolded kit to ${pin} (immutable version , avoids mutable-main cache drift)
+`
+    );
   }
   const result = await createProject(input, (step, detail) => {
     process.stderr.write(`[${step}]${detail ? ` ${detail}` : ""}

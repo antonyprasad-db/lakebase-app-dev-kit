@@ -126,10 +126,10 @@ Flags:
                        build kickoff) | release-engineer (the deploy/verify). The
                        driver blocks for a human [Y/n], then RESUMES the same run
                        on Y , it never leaves the state machine. n re-asks. Set
-                       LAKEBASE_SFTDD_AUTO_CONTINUE=1 to auto-confirm (non-interactive).
+                       LAKEBASE_CONSORT_AUTO_CONTINUE=1 to auto-confirm (non-interactive).
   --gates <mode>       interactive (default: stop AT each HITL gate so the human
                        answers, then re-run) | proxy (headless: Human Proxy
-                       approves; requires LAKEBASE_SFTDD_AUTO_CONTINUE=1 or CI).
+                       approves; requires LAKEBASE_CONSORT_AUTO_CONTINUE=1 or CI).
                        Run-scoped: overrides project.gates for THIS run only,
                        never rewrites sftdd-config.json.
   --no-sizing          Skip the Architect's t-shirt-sizing (planning-poker) step:
@@ -198,8 +198,8 @@ function makeConfirmContinue(): (action: WorkflowAction) => Promise<void> {
       reject(
         new Error(
           `[drive] PAUSED at the ${label} handoff with no human channel , refusing to continue. ` +
-            `Set LAKEBASE_SFTDD_AUTO_CONTINUE=1 (deliberate headless), provide ` +
-            `LAKEBASE_SFTDD_GATE_ANSWER_FILE, or run in an interactive terminal.`,
+            `Set LAKEBASE_CONSORT_AUTO_CONTINUE=1 (deliberate headless), provide ` +
+            `LAKEBASE_CONSORT_GATE_ANSWER_FILE, or run in an interactive terminal.`,
         ),
       );
     });
@@ -779,7 +779,7 @@ function effectiveGates(args: ParsedArgs, projectDir: string): "interactive" | "
 
 /** True when the run has an explicit non-interactive signal (CI / auto-continue).
  *  Headless proxy gating is only legitimate with one of these; otherwise a stray
- *  LAKEBASE_SFTDD_HUMAN_PROXY leaking into a dev shell would silently bypass HITL. */
+ *  LAKEBASE_CONSORT_HUMAN_PROXY leaking into a dev shell would silently bypass HITL. */
 function hasNonInteractiveSignal(): boolean {
   return consortEnv("AUTO_CONTINUE") === "1" || /^(1|true)$/i.test(process.env.CI ?? "");
 }
@@ -865,14 +865,14 @@ async function main(): Promise<number> {
 
   // HITL enforcement: headless proxy gating is only legitimate with an explicit
   // non-interactive signal. Refuse `proxy` in an interactive/dev context so a
-  // stray LAKEBASE_SFTDD_HUMAN_PROXY (which the /plan|/sprint|... commands turn
+  // stray LAKEBASE_CONSORT_HUMAN_PROXY (which the /plan|/sprint|... commands turn
   // into `--gates proxy`) can't silently bypass the human. CI + the smokes set
   // LAKEBASE_CONSORT_AUTO_CONTINUE=1 (or CI), so they pass.
   if (effectiveGates(args, args.projectDir ?? process.cwd()) === "proxy" && !hasNonInteractiveSignal()) {
     process.stderr.write(
       `consort-drive: gate mode 'proxy' (Human Proxy approves headlessly) requires an explicit\n` +
-        `non-interactive signal (LAKEBASE_SFTDD_AUTO_CONTINUE=1 or CI). Refusing to bypass HITL in an\n` +
-        `interactive/dev context. Unset LAKEBASE_SFTDD_HUMAN_PROXY, or pass --gates interactive.\n`,
+        `non-interactive signal (LAKEBASE_CONSORT_AUTO_CONTINUE=1 or CI). Refusing to bypass HITL in an\n` +
+        `interactive/dev context. Unset LAKEBASE_CONSORT_HUMAN_PROXY, or pass --gates interactive.\n`,
     );
     return 2;
   }

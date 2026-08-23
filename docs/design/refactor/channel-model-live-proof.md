@@ -306,7 +306,7 @@ action has (2)+(3); the non-agent + deterministic branches remain.** That deleti
 - Live cloud runs: never interrupt pre-teardown; tear down after; the env door is
   `scripts/run-live-tests.sh` (sources config + sets gates), not hand-built.
 - Design-lane live turns are LEAN (no cloud). scm-utils external API (SftddSetupHooks alias)
-  stays; env prefix now LAKEBASE_CONSORT_* (legacy LAKEBASE_SFTDD_/TDD_ read).
+  stays; env prefix now LAKEBASE_CONSORT_* (legacy LAKEBASE_CONSORT_/TDD_ read).
 
 ## Key files
 - `consort/orchestrator/drive/executor-dispatch.ts` , allowlist + outputPathsForAction + provisionWorkspace (the widen point).

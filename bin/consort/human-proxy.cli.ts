@@ -87,7 +87,7 @@ function runSupplyRequestsCli(argv: string[]): number {
   if (result.supplied.length > 0) {
     process.stdout.write(`human-proxy: supplied ${result.supplied.length} feature-request(s): ${result.supplied.join(", ")}\n`);
   } else {
-    process.stdout.write(`human-proxy: no recorded feature-requests to supply (LAKEBASE_SFTDD_SPRINT_REQUESTS unset/empty)\n`);
+    process.stdout.write(`human-proxy: no recorded feature-requests to supply (LAKEBASE_CONSORT_SPRINT_REQUESTS unset/empty)\n`);
   }
   if (result.skipped.length > 0) {
     process.stderr.write(

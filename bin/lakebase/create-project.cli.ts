@@ -9,6 +9,7 @@
 import { createProject, CreateProjectArgs } from "../../consort/lakebase/create-project.js";
 import { ALL_AGENT_ROLES, type SpawnableAgentRole } from "../../consort/config/agent-models.js";
 import { runCreateDoctorGate, formatGateBlockers } from "../../consort/lakebase/create-doctor-gate.js";
+import { kitRefPin, consortVersionFromModule } from "../../consort/lakebase/kit-ref-pin.js";
 
 interface ParsedArgs {
   jsonInput?: string;
@@ -244,6 +245,20 @@ async function main(): Promise<number> {
       return 2;
     }
     process.stderr.write("[doctor] environment ok\n");
+  }
+
+  // Pin the scaffolded project's runtime kit ref to THIS kit's version so it
+  // resolves an immutable, version-keyed kit cache instead of a mutable `main`
+  // that silently goes stale (missing bins, old orchestrator). The substrate's
+  // create-project Step 7e writes `.lakebase/kit-ref` straight from
+  // LAKEBASE_KIT_REF, so defaulting the env var here is all it takes. An explicit
+  // LAKEBASE_KIT_REF (dev override / capture pin) still wins.
+  const pin = kitRefPin(process.env, consortVersionFromModule(import.meta.url));
+  if (pin) {
+    process.env.LAKEBASE_KIT_REF = pin;
+    process.stderr.write(
+      `[kit-ref] pinning the scaffolded kit to ${pin} (immutable version , avoids mutable-main cache drift)\n`,
+    );
   }
 
   const result = await createProject(input, (step, detail) => {

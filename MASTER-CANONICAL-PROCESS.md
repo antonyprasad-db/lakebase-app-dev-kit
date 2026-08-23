@@ -197,7 +197,7 @@ validation + `validateAndBound`. `executorDispatched` returns **true** for:
 **false**, `performViaExecutor` returns `undefined` and the turn falls to `commandsForAction`
 (`orchestrator-effects.ts`). Today that is:
 - **`product-owner` `author-requests`** and **`architect-reviewer` `estimate-committed`** (`executor-dispatch.ts:98`) — the two agent modes NOT yet migrated. They run every sprint.
-- Any un-allowlisted role/mode, or an env override `LAKEBASE_SFTDD_USE_MANIFEST_STEPS=0/false/off/no` which forces ALL actions to legacy.
+- Any un-allowlisted role/mode, or an env override `LAKEBASE_CONSORT_USE_MANIFEST_STEPS=0/false/off/no` which forces ALL actions to legacy.
 - **Non-agent actions** (`planning-complete`, `feature-complete`, `deploy-complete`, gates, dispatch,
   cut-experiment, `set-phase`) are `kind !== "invoke-role"` → they are NOT agent turns and correctly
   flow through the deterministic `commandsForAction` path. `set-phase` (the phase-transition writer)
@@ -544,9 +544,9 @@ the correct args.
 - `LAKEBASE_CONSORT_RECORD_DIR=<persistent dir NOT under the project>` turns recording on;
   `_replay-smoke.sh` auto-derives `LAKEBASE_CONSORT_RECORD_BUILD_DIR=<RECORD_DIR>/recorded-build`.
   `routing-decisions.jsonl` + `correspondence.jsonl` (§5) are written at the same `recordDir`.
-- `run-capture.sh` sets `PAUSE_BEFORE=navigator`; `LAKEBASE_SFTDD_AUTO_CONTINUE=1` auto-confirms
+- `run-capture.sh` sets `PAUSE_BEFORE=navigator`; `LAKEBASE_CONSORT_AUTO_CONTINUE=1` auto-confirms
   that pause so the run does design→build in one process, unattended.
-- The manifest-steps path is pinned ON (`LAKEBASE_SFTDD_USE_MANIFEST_STEPS=1`) so the executor is the
+- The manifest-steps path is pinned ON (`LAKEBASE_CONSORT_USE_MANIFEST_STEPS=1`) so the executor is the
   sole agent path + the route-satisfiable seam fires; a stray `=0` cannot drop the capture to legacy.
 
 **Scaffold-vs-reuse:** `FRESH=1` unless `$PROJECT_DIR/.git` exists, in which case `FRESH=0` → reuse
