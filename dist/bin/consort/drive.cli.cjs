@@ -12,6 +12,10 @@ var __esm = (fn, res) => function __init() {
 var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
@@ -28,6 +32,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // node_modules/tsup/assets/cjs_shims.js
 var getImportMetaUrl, importMetaUrl;
@@ -6645,6 +6650,11 @@ var require_ajv = __commonJS({
 });
 
 // bin/consort/drive.cli.ts
+var drive_cli_exports = {};
+__export(drive_cli_exports, {
+  composeInputPause: () => composeInputPause
+});
+module.exports = __toCommonJS(drive_cli_exports);
 init_cjs_shims();
 
 // consort/config/consort-env.ts
@@ -15596,16 +15606,45 @@ function reportGate(gate, ctx = {}) {
 `
   );
 }
-function reportInput(action, sprint) {
+function featuresWithAuthoredRequest(consortDir) {
+  try {
+    return fs20.readdirSync(featuresDir(consortDir), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).filter((id) => hasFeatureRequest(consortDir, id)).sort();
+  } catch {
+    return [];
+  }
+}
+function proposedFeatureIds(consortDir) {
+  try {
+    const md = fs20.readFileSync(featureProposalsMd(consortDir), "utf8");
+    return [...md.matchAll(/^##\s+(F\S+)/gm)].map((m) => m[1]);
+  } catch {
+    return [];
+  }
+}
+function composeInputPause(action, sprint, consortDir) {
   const s = sprint ?? "<sprint>";
-  process.stderr.write(
-    `[drive] PAUSED , awaiting human input (${describeAction(action)}). Nothing was approved or produced yet.
-        The Product Owner must:
+  const existing = consortDir ? featuresWithAuthoredRequest(consortDir) : [];
+  const proposed = consortDir ? proposedFeatureIds(consortDir) : [];
+  if (existing.length > 0) {
+    const pick = (proposed.length ? proposed : existing).join(",");
+    const proposedLine = proposed.length ? `        Planning proposed for this sprint: ${proposed.join(", ")} (see ${ARTIFACT_ROOT}/planning/feature-proposals.md).
+` : "";
+    return `[drive] PAUSED , awaiting the Product Owner's sprint backlog. This is a DECISION, not an authoring task:
+        ${existing.length} feature-request(s) are already authored (${existing.join(", ")}) , none need writing.
+` + proposedLine + `        COMMIT which features are in sprint "${s}":
+          consort-sync-backlog --sprint ${s} --features ${pick}
+        then re-run the drive , it advances to the (interactive) plan gate.
+`;
+  }
+  return `[drive] PAUSED , awaiting human input (${describeAction(action)}). Nothing was approved or produced yet.
+        No feature-request.md exists yet, so the Product Owner must:
           1. author the sprint's feature-request(s) at ${ARTIFACT_ROOT}/features/<id>/feature-request.md, then
           2. commit the backlog: consort-sync-backlog --sprint ${s} --features <id[,id...]>
         then re-run the drive , it will advance to the (interactive) plan gate.
-`
-  );
+`;
+}
+function reportInput(action, sprint, consortDir) {
+  process.stderr.write(composeInputPause(action, sprint, consortDir));
 }
 async function runSprintMode(args) {
   const sprint = args.sprint;
@@ -15748,7 +15787,7 @@ Place each under the project's \`.consort/\`; I will read them as the proposal +
         return 0;
       }
       if (planning.pendingInput) {
-        reportInput(planning.pendingInput, sprint);
+        reportInput(planning.pendingInput, sprint, consortDir);
         return 2;
       }
       process.stderr.write(`[plan] ${sprint} planning complete (plan gate approved)
@@ -15783,7 +15822,7 @@ Place each under the project's \`.consort/\`; I will read them as the proposal +
     if (result.pendingInput) {
       if (result.pendingFeature) process.stderr.write(`[sprint] paused on ${result.pendingFeature}
 `);
-      reportInput(result.pendingInput, sprint);
+      reportInput(result.pendingInput, sprint, consortDir);
       return 2;
     }
     process.stderr.write(`[sprint] ${sprint} complete: ${result.features.length} feature(s)
@@ -15972,7 +16011,7 @@ then re-run.
     } else if (pendingGate) {
       reportGate(pendingGate, { featureId: cfg.featureId, featureBranch: cfg.featureBranch });
     } else if (pendingInput) {
-      reportInput(pendingInput);
+      reportInput(pendingInput, cfg.sprintName, cfg.consortDir);
       return 2;
     } else if (result.stoppedAtBound) {
       const label = bound ?? "phase";
@@ -16079,4 +16118,8 @@ if ((0, import_util4.isCliEntry)(importMetaUrl)) {
     }
   );
 }
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  composeInputPause
+});
 //# sourceMappingURL=drive.cli.cjs.map

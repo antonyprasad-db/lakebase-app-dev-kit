@@ -6,6 +6,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.21] - 2026-08-23
+
+### Changed
+
+- **Repointed to `@databricks-solutions/lakebase-scm-utils` v0.2.10** , its `run-tests.sh` now fails fast (before any backend/migration work) when client test files exist under `client/` with no `client/package.json` to run them, instead of silently skipping the client suite and greening client-owned ACs with zero coverage (a false GREEN that surfaced only as "the home screen doesn't exist" at the acceptance gate).
+
+### Fixed
+
+- **`/sprint` planning pause no longer mislabels a pre-seeded backlog as "author the feature-requests".** When `feature-request.md` files already exist on disk (a staged first-project, or a prior propose turn), the pause now reads as a COMMIT decision , it names the already-authored features, surfaces the Spec Author's proposed set, and prints the exact `consort-sync-backlog` command (pre-filled from the proposals) , instead of telling the human to author requests that already exist.
+- **Navigator RED authoring rule for source-scanning fitness tests.** A config-in-env / no-hard-coded-DB-URL / ORM-only-import fitness test MUST scope its scan to the app source tree (never `rglob` the repo root, which descends into `.venv`/`site-packages` and matches a dependency's docstring DSN , unclearable, dead-locking honest GREEN into a HIL escalation), use any source-roots constant it declares, and never flag env-interpolated URL construction as a hard-coded URL.
+
+### Added
+
+- **`/consort:start` now treats the UI track as a first-class create decision.** The create flow asks it as a structured either/or (UI SPA ⇒ `--ui-track`, backend-only ⇒ `--no-ui-track`) and the command template carries the flag; the StockFlow example forces `--ui-track` on. Previously the flow neither asked nor passed it, so `lakebase-create-project`'s opt-in default silently made every project backend-only (`clientFramework=none`) , starving a UI product of its client scaffold.
+- **`/consort:start` relays long steps live instead of running them foreground.** `lakebase-create-project`, `./scripts/lk --refresh`, and the resume-phase driver (`/sprint`, `/plan`, `/design`, `/build`, `/deploy`) must be backgrounded to a log and tailed, announcing each role AT ITS DISPATCH line (start), not narrated from chunked foreground reads that surface a role only once it has finished.
+
 ## [0.3.20] - 2026-08-23
 
 ### Changed

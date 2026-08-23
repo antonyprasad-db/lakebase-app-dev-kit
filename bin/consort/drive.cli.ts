@@ -16,7 +16,14 @@
 // run, then exits (no execution) - a safe "what will the driver do next?".
 
 import { consortEnv } from "../../consort/config/consort-env.js";
-import { resolveConsortDir, ARTIFACT_ROOT, LEGACY_ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
+import {
+  resolveConsortDir,
+  ARTIFACT_ROOT,
+  LEGACY_ARTIFACT_ROOT,
+  featuresDir,
+  hasFeatureRequest,
+  featureProposalsMd,
+} from "../../consort/config/consort-paths.js";
 import { migrateLegacyArtifactDir } from "../../consort/config/migrate-artifact-dir.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -466,18 +473,74 @@ function reportGate(gate: WorkflowAction, ctx: { featureId?: string; sprint?: st
   );
 }
 
-/** Report an interactive pause awaiting HUMAN INPUT (the PO's feature-request(s)
- *  at author-requests). Unlike a gate (work done, awaiting approval), NOTHING has
- *  been produced , so this must never read as "approved/complete". */
-function reportInput(action: WorkflowAction, sprint?: string): void {
+/** Feature ids that already have an authored `feature-request.md` on disk
+ *  (a staged first-project seeds one per feature; a prior planning turn may too). */
+function featuresWithAuthoredRequest(consortDir: string): string[] {
+  try {
+    return fs
+      .readdirSync(featuresDir(consortDir), { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name)
+      .filter((id) => hasFeatureRequest(consortDir, id))
+      .sort();
+  } catch {
+    return [];
+  }
+}
+
+/** Candidate feature ids the Spec Author proposed for THIS sprint , the `## F...`
+ *  headings in `planning/feature-proposals.md` (the recommended backlog). */
+function proposedFeatureIds(consortDir: string): string[] {
+  try {
+    const md = fs.readFileSync(featureProposalsMd(consortDir), "utf8");
+    return [...md.matchAll(/^##\s+(F\S+)/gm)].map((m) => m[1]);
+  } catch {
+    return [];
+  }
+}
+
+/** Compose the interactive pause message for the planning `author-requests` step.
+ *  NOTHING has been approved/committed, so this must never read as "complete".
+ *  But the human's ACTION depends on disk state, and conflating the two is what
+ *  makes this pause look like the orchestrator is "confused":
+ *   - No `feature-request.md` yet   -> author them, then commit the backlog.
+ *   - Requests ALREADY authored (staged first-project, or a prior propose turn)
+ *     -> there is nothing to author; the human only COMMITS which of the existing
+ *     requests are in this sprint. We branch on the real state and name the exact
+ *     commit command (pre-filling the proposed features when planning proposed a
+ *     set), so a pre-seeded backlog is never mislabeled as "author the requests".
+ *  Pure (returns the string) so the branching is unit-testable off a fixture dir. */
+export function composeInputPause(action: WorkflowAction, sprint?: string, consortDir?: string): string {
   const s = sprint ?? "<sprint>";
-  process.stderr.write(
+  const existing = consortDir ? featuresWithAuthoredRequest(consortDir) : [];
+  const proposed = consortDir ? proposedFeatureIds(consortDir) : [];
+  if (existing.length > 0) {
+    // Requests exist on disk: this is a COMMIT-the-backlog decision, not authoring.
+    const pick = (proposed.length ? proposed : existing).join(",");
+    const proposedLine = proposed.length
+      ? `        Planning proposed for this sprint: ${proposed.join(", ")} (see ${ARTIFACT_ROOT}/planning/feature-proposals.md).\n`
+      : "";
+    return (
+      `[drive] PAUSED , awaiting the Product Owner's sprint backlog. This is a DECISION, not an authoring task:\n` +
+      `        ${existing.length} feature-request(s) are already authored (${existing.join(", ")}) , none need writing.\n` +
+      proposedLine +
+      `        COMMIT which features are in sprint "${s}":\n` +
+      `          consort-sync-backlog --sprint ${s} --features ${pick}\n` +
+      `        then re-run the drive , it advances to the (interactive) plan gate.\n`
+    );
+  }
+  return (
     `[drive] PAUSED , awaiting human input (${describeAction(action)}). Nothing was approved or produced yet.\n` +
-      `        The Product Owner must:\n` +
-      `          1. author the sprint's feature-request(s) at ${ARTIFACT_ROOT}/features/<id>/feature-request.md, then\n` +
-      `          2. commit the backlog: consort-sync-backlog --sprint ${s} --features <id[,id...]>\n` +
-      `        then re-run the drive , it will advance to the (interactive) plan gate.\n`,
+    `        No feature-request.md exists yet, so the Product Owner must:\n` +
+    `          1. author the sprint's feature-request(s) at ${ARTIFACT_ROOT}/features/<id>/feature-request.md, then\n` +
+    `          2. commit the backlog: consort-sync-backlog --sprint ${s} --features <id[,id...]>\n` +
+    `        then re-run the drive , it will advance to the (interactive) plan gate.\n`
   );
+}
+
+/** Write the planning `author-requests` pause to stderr (see composeInputPause). */
+function reportInput(action: WorkflowAction, sprint?: string, consortDir?: string): void {
+  process.stderr.write(composeInputPause(action, sprint, consortDir));
 }
 
 /**
@@ -718,7 +781,7 @@ async function runSprintMode(args: ParsedArgs): Promise<number> {
       // non-zero (the postcondition , an approved plan , is not met), so a caller
       // never advances on an empty backlog thinking the plan was approved.
       if (planning.pendingInput) {
-        reportInput(planning.pendingInput, sprint);
+        reportInput(planning.pendingInput, sprint, consortDir);
         return 2;
       }
       process.stderr.write(`[plan] ${sprint} planning complete (plan gate approved)\n`);
@@ -757,7 +820,7 @@ async function runSprintMode(args: ParsedArgs): Promise<number> {
       // NOT run (empty backlog). Report + exit non-zero so nothing treats it as a
       // completed sprint.
       if (result.pendingFeature) process.stderr.write(`[sprint] paused on ${result.pendingFeature}\n`);
-      reportInput(result.pendingInput, sprint);
+      reportInput(result.pendingInput, sprint, consortDir);
       return 2;
     }
     process.stderr.write(`[sprint] ${sprint} complete: ${result.features.length} feature(s)\n`);
@@ -1018,7 +1081,7 @@ async function main(): Promise<number> {
     } else if (pendingInput) {
       // A human-input pause (the PO's author-requests) is NOT a completed bound:
       // nothing was produced. Report honestly + exit non-zero (never "complete").
-      reportInput(pendingInput);
+      reportInput(pendingInput, cfg.sprintName, cfg.consortDir);
       return 2;
     } else if (result.stoppedAtBound) {
       const label = bound ?? "phase";

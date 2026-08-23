@@ -31,6 +31,7 @@ Drive the workflow through the **deterministic orchestrator** (`consort-drive`),
      - Built but not deployed/reviewed -> **`/deploy <feature-id> --target local`** (the working-software gate).
    - Need to explore an unknown first? **`/spike <slug> [--for <feature>]`** (throwaway, outside the loop).
    - Confirm the chosen step with the human, invoke that project-scaffolded command (it runs the deterministic driver, which spawns the role agents + pauses at gates), then loop.
+   - **Run the driver in the BACKGROUND and relay each role AS IT STARTS , do NOT run it foreground and narrate from chunks.** The driver streams one `[drive] NNN dispatch <role> for <phase>` line to stderr the moment each role STARTS (e.g. `dispatch dba for design`, then `dispatch test-strategist for design`), and a `[drive] <role> turn Ns` line when it finishes. A blocking foreground run buffers these, so you only observe whatever state exists when the call returns , which is how a role ends up announced only at completion ("Test Strategist has produced …") while another was caught mid-flight ("the DBA is now turning …"). Instead background the command to a log (`... > "$LOG" 2>&1 &`), TAIL `$LOG`, and announce each `dispatch <role>` line in plain language WHEN IT LANDS ("Test Strategist: starting the ordered test list"), then its completion , so every role is narrated at its start, in order. This is the orchestrator-contract's rule 1 (`skills/consort/references/orchestrator-contract.md`); follow it for `/sprint`, `/plan`, `/design`, `/build`, and `/deploy` alike.
 
 **Teardown / reclaim** (run from inside the project; both default the Lakebase instance + host from the project `.env`, so you need not re-specify them):
 - **Done with a spike?** `./scripts/lk consort-spike delete --slug <slug>` tears down its paired Lakebase + git branch. Notes are KEPT by default (the learning survives); add `--purge-notes` to also remove `.consort/spikes/<slug>/`.
@@ -50,7 +51,7 @@ Before the create questions, on the user's **first** time only, offer the bundle
 
 - **Gate , first run only.** Compute `MARKER="${XDG_CONFIG_HOME:-$HOME/.config}/consort/first-project-offered"`. If it **already exists**, SKIP this offer entirely (they have used Consort before) and go straight to the create questions. Otherwise make the offer, then `mkdir -p "$(dirname "$MARKER")" && touch "$MARKER"` (either way) so it is never offered again. This marker is deliberately SEPARATE from `~/.config/consort/telemetry.json` so it never affects the one-time telemetry notice.
 - **The offer.** Ask: create your **own** project, or **run the bundled StockFlow example** (a warehouse-inventory product you drive end to end)?
-- **If they pick the example:** most create settings are FIXED for it (language `python`, `--ui-track` on, E2E on, model profile **Default**), so the ONLY things left to ask are:
+- **If they pick the example:** most create settings are FIXED for it (language `python`, **`--ui-track` on** , StockFlow is a UI product with a `design-brief.md`, so the create command MUST pass `--ui-track`; E2E is then forced on; model profile **Default**), so the ONLY things left to ask are:
   - **project name** (kebab-case), **parent directory** (default: the parent of cwd, else `~/code`), and **Databricks host** (offer `$DATABRICKS_HOST` / `~/.databrickscfg`). These are FREE TEXT: ask them in plain prose, and do NOT put them through a multiple-choice question (that is what triggers an "Invalid tool parameters" error: a text answer has no options).
   - **GitHub owner, or `--no-github`**: the one genuine either/or, and it sets the tier count. A GitHub owner ⇒ tiers `2` (prod + staging); `--no-github` ⇒ tiers `1` (prod only). This is the only decision worth a structured choice.
 
@@ -63,9 +64,11 @@ Before the create questions, on the user's **first** time only, offer the bundle
   It copies the example's intake (`product-overview.md`, `nfrs.md`, `design-brief.md`, and the warehouse icon) and one `feature-request.md` per feature into the new project's `.consort/`. Then resume: **`/plan`** (the Spec Author proposes a sprint from the staged intake), or **`/design F1-stock-visibility`** to jump straight into the first feature. `examples/first-project/README.md` in the kit is the walkthrough.
 - **If they pick their own project:** proceed with the questions below as normal.
 
-Walk the user through the create questions (ask, do not assume; offer the noted defaults). Most of these are FREE TEXT (project name, parent directory, Databricks host, GitHub owner): ask them in plain prose. Reserve a structured multiple-choice prompt only for the genuine either/or decisions (tiers 1/2/3, language, E2E on/off, model profile); never wrap a free-text answer in an options prompt (it errors with "Invalid tool parameters").
+Walk the user through the create questions (ask, do not assume; offer the noted defaults). Most of these are FREE TEXT (project name, parent directory, Databricks host, GitHub owner): ask them in plain prose. Reserve a structured multiple-choice prompt only for the genuine either/or decisions (tiers 1/2/3, language, UI track (UI SPA / backend-only), E2E on/off, model profile); never wrap a free-text answer in an options prompt (it errors with "Invalid tool parameters").
 
-- **Project name** (kebab-case, the Lakebase id + dir name; on the `--no-github` path the creator makes the target directory, or reuses an existing EMPTY one, but refuses a non-empty directory); **parent directory** (default: parent of cwd or `~/code`); **Databricks host** (offer `DATABRICKS_HOST` / `~/.databrickscfg` if present); **GitHub owner** (or `--no-github`); **tiers** (`1` prod / `2` prod+staging / `3` prod+staging+dev, surface this, do not pick silently; **tiers `2`/`3` require a GitHub repo**, cutting a long-running tier pushes its git side to origin, so `--no-github` with `--tiers 2`/`3` is refused up front, pair `--no-github` with `--tiers 1`); **language** (`python`/`nodejs`/`java`/`kotlin`); **E2E/Infra** (default on for nodejs); **model profile** (see "Per-role model profile" just below).
+- **Project name** (kebab-case, the Lakebase id + dir name; on the `--no-github` path the creator makes the target directory, or reuses an existing EMPTY one, but refuses a non-empty directory); **parent directory** (default: parent of cwd or `~/code`); **Databricks host** (offer `DATABRICKS_HOST` / `~/.databrickscfg` if present); **GitHub owner** (or `--no-github`); **tiers** (`1` prod / `2` prod+staging / `3` prod+staging+dev, surface this, do not pick silently; **tiers `2`/`3` require a GitHub repo**, cutting a long-running tier pushes its git side to origin, so `--no-github` with `--tiers 2`/`3` is refused up front, pair `--no-github` with `--tiers 1`); **language** (`python`/`nodejs`/`java`/`kotlin`); **UI track** (see just below , you MUST set it explicitly); **E2E/Infra** (default on for nodejs; forced on when UI track is on); **model profile** (see "Per-role model profile" just below).
+
+**UI track , ASK it, never leave it unset.** A structured either/or that is the SINGLE SOURCE for "this project has a UI": a **UI SPA** project ⇒ pass **`--ui-track`** (the creator scaffolds a React `client/`, sets `clientFramework=react`, and REQUIRES the e2e harness so E2E is forced on), a **backend-only** project ⇒ pass **`--no-ui-track`** (`clientFramework=none`, no client scaffold). It drives whether the design lane may author client/E2E ACs and whether the UX role runs. **`lakebase-create-project` defaults an UNSET flag to backend-only (`--no-ui-track`)**, so if you skip this question a UI product is silently scaffolded with NO client , its home-screen/E2E ACs then have nowhere to build and the run's honest-GREEN verify refuses to pass (the `run-tests.sh` client-scaffold guard). If the intake has a `design/design-brief.md` (a UI product), the answer is almost certainly `--ui-track`; confirm with the user rather than assuming. Pass exactly one of `--ui-track` / `--no-ui-track` on every create.
 
 ### Per-role model profile
 
@@ -105,7 +108,9 @@ Then run the kit's creator (surface the exact command first; report its output, 
 >
 > I'll narrate each step as it happens and ping you the moment it's done (or if anything needs you)."
 
-Tune to the options (drop step 6 on `--no-github`/`--tiers 1`; a cold toolkit download over a slow network can push Part 2 to ~2-3 min). Then run it, relaying each step live (the creator streams a progress line per stage), so the wait is narrated, not silent.
+Tune to the options (drop step 6 on `--no-github`/`--tiers 1`; a cold toolkit download over a slow network can push Part 2 to ~2-3 min).
+
+**Run it in the BACKGROUND and relay each stage live , do NOT run it as a blocking foreground call.** `lakebase-create-project` streams one `[stage] detail` line to stderr per step (`[Creating GitHub repository...]`, `[Creating Lakebase database (provisioning Postgres, ~30-60s)...]`, `[Scaffolding project files...]`, `[Setting up CI auth (service principal)...]`, `[Setting up the self-hosted CI runner ...]`, `[Cutting staging tier ...]`, `[Creating initial commit...]`, `[Project created successfully!]`). A blocking foreground run holds all of that until the command returns, so the human sees a spinner for ~3 minutes and NOTHING else , which is exactly the "it looks hung / I can't see what's going on" failure the timeline above is meant to prevent. The narration promise is only deliverable if you background the command to a log and tail that log, relaying each new `[stage]` line to the human as it appears (the same live-relay you use for `/sprint`). Run the command as `<cmd> > "$LOG" 2>&1 &`, capture the PID, then poll/tail `$LOG` and surface each `[...]` line until the process exits; on exit, relay the final `Next:` hint.
 
 ```bash
 # Pin the create-project to THIS plugin's own version so a fresh install ALWAYS
@@ -119,14 +124,23 @@ KIT_REF="${LAKEBASE_KIT_REF:-}"
 if [ -z "$KIT_REF" ] && [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json" ]; then
   KIT_REF="v$(node -p "require('${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json').version" 2>/dev/null || true)"
 fi
-KIT_REF="${KIT_REF:-v0.3.20}"   # stamped at release; == package.json version (enforced by tests/bdd/start-kit-pin.test.ts)
+KIT_REF="${KIT_REF:-v0.3.21}"   # stamped at release; == package.json version (enforced by tests/bdd/start-kit-pin.test.ts)
 KIT_PKG="github:databricks-solutions/consort#${KIT_REF}"
+
+# Background it to a log so you can relay the [stage] lines live (see above).
+# Do NOT run this as a blocking foreground call , the human would see only a
+# spinner for the whole ~3 min provisioning wait.
+LOG="$(mktemp -t consort-create.XXXX.log)"
 npx --yes --package="$KIT_PKG" lakebase-create-project \
   --project-name "<name>" --parent-dir "<parent-dir>" \
   --databricks-host "<host>" --github-owner "<owner>" \
   --language "<language>" --tiers "<1|2|3>" \
+  (--ui-track|--no-ui-track) \
   [--no-github] [--enable-e2e|--no-e2e] [--enable-infra|--no-infra] \
-  [--agent-model <role>=<model> ...]
+  [--agent-model <role>=<model> ...] > "$LOG" 2>&1 &
+CREATE_PID=$!
+# Now tail "$LOG" and relay each new `[stage]` line to the human until
+# CREATE_PID exits; the final line is the `Next:` hint + a JSON result.
 ```
 
 **Environment gate.** Before provisioning anything, `lakebase-create-project`
@@ -143,6 +157,8 @@ On success, tell the user to enter the new project, refresh its runtime kit, and
 cd <parent-dir>/<name>
 ./scripts/lk --refresh    # re-download the Consort toolkit fresh so this project runs the release you just installed, not a stale shared cache
 ```
+
+**`--refresh` is the other multi-minute step , relay it live the same way, not foreground.** It narrates its own download ("Downloading the Consort toolkit … one-time, ~1-2 min … ready"), but a blocking foreground run buffers that behind a spinner exactly like create does. Background it to a log and tail it (`./scripts/lk --refresh > "$LOG" 2>&1 &`), relaying the "Downloading …" / "ready" lines, so the ~1-2 min toolkit download is narrated, not silent. If YOU (the operator) run it on the user's behalf rather than having them run it, this is required; if you hand the command to the user to run themselves, tell them it's a one-time ~1-2 min download that will print progress.
 
 then re-run **`/consort:start`** there (it will find `.consort/` and resume at `/plan`), or `./scripts/consort.sh plan` to open the orchestrator session directly. Do not start the workflow from the current directory, the project is elsewhere.
 
