@@ -8,20 +8,26 @@ This command launches the Consort (spec-first, test-driven) loop. First detect w
 
 ### 0. Telemetry briefing (once, before anything else)
 
-Consort reports pseudonymous usage telemetry to its maintainers. The human MUST be told this in plain language the first time you run `/consort:start` for them , and be offered the Level-1 opt-out and the Level-2 opt-in , **here, where they can actually read it** (a stderr notice buried in a background drive is not a disclosure). Gate on the `acknowledged` flag, not on whether a config file exists:
+Consort reports pseudonymous usage telemetry to its maintainers. The human MUST be told this in plain language the first time you run `/consort:start` for them , and be offered the Level-1 opt-out and the Level-2 opt-in , **here, where they can actually read it** (a stderr notice buried in a background drive is not a disclosure). Gate on the `acknowledged` flag, not on whether a config file exists.
 
-1. Run `./scripts/lk consort-telemetry status --json` and read `acknowledged`.
+**Invoke the telemetry CLI via the PLUGIN's binary, NOT `./scripts/lk`.** This step runs BEFORE the Create/Resume branch, and on a fresh install (the Create path) there is no scaffolded `./scripts/lk` yet , so `./scripts/lk consort-telemetry …` silently FAILS and the human's answer is never persisted (exactly the "I chose Level 2 and it didn't stick" bug). The plugin always ships `dist/`, so define this once and use it for every call below (it writes the same home config `~/.config/consort/telemetry.json` regardless of any project):
+```bash
+TCLI="node \"$CLAUDE_PLUGIN_ROOT/dist/bin/consort/telemetry.cli.js\""
+```
+
+1. Run `$TCLI status --json` and read `acknowledged`.
 2. **If `acknowledged` is `true`, SKIP this section entirely** , they have already been briefed and made a choice; go straight to the `.consort/` check below.
 3. **If `acknowledged` is `false`** (a brand-new install, OR an older config that predates this briefing), present this verbatim and wait for their answer:
-   > "Before we start: Consort reports **pseudonymous** usage telemetry to its maintainers , a random per-install id (no personal data, no code, no paths, no names), only allowlisted event names, counts, and durations. It's **on by default (opt-out)**.
-   > • **Level 1** (default): high-level phase/gate events. Reply **'keep'** to leave it on, or **'opt out'** to turn it off.
-   > • **Level 2** (separate, explicit opt-in): additionally per-role turn timings + coarse repair/loop counts (still allowlisted, no free text). Reply **'level 2'** to help the maintainers tune the workflow.
-   > You can change this any time with `./scripts/lk consort-telemetry {enable|disable} [--level 2]`."
-4. Record their choice so this never re-fires (each of these sets `acknowledged=true`):
-   - **keep / leave on** -> `./scripts/lk consort-telemetry ack`
-   - **opt out** -> `./scripts/lk consort-telemetry disable`
-   - **level 2** -> `./scripts/lk consort-telemetry enable --level 2`
-5. Then continue to the branch below. Never block on this , if they don't answer, default to leaving Level 1 on and run `consort-telemetry ack` so you don't nag them again next run.
+   > "Before we start: Consort runs entirely in your own workspace, so its maintainers have **no other window into how it's actually working** , this pseudonymous usage telemetry is their only signal for improving it. It carries a random per-install id and nothing else identifying: **no personal data, no code, no paths, no names** , only allowlisted event names, counts, and durations. It's **on by default (opt-out)**.
+   > • **Level 1** (default): high-level phase/gate events , enough to see where runs stall. Reply **'keep'** to leave it on, or **'opt out'** to turn it off entirely.
+   > • **Level 2** (separate, explicit opt-in): also per-role turn timings + coarse repair/loop counts (still allowlisted, no free text) , the signal that actually drives tuning the roles and gates. Reply **'level 2'** if you're willing to help make Consort better.
+   > You can change this any time with `consort-telemetry {enable|disable} [--level 2]` (or `./scripts/lk consort-telemetry …` inside a project)."
+4. **RECORD their choice by actually RUNNING the matching command** (do NOT just note the answer in your reply , if you don't run it, nothing persists). Each sets `acknowledged=true`:
+   - **keep / leave on** -> `$TCLI ack`
+   - **opt out** -> `$TCLI disable`
+   - **level 2** -> `$TCLI enable --level 2`
+   Then re-run `$TCLI status --json` and CONFIRM the write landed (`acknowledged:true`, and `telemetry_level:2` for a Level-2 choice) before moving on.
+5. Then continue to the branch below. Never block on this , if they don't answer, default to leaving Level 1 on and run `$TCLI ack` so you don't nag them again next run.
 
 **Check the current project root for a `.consort/` directory.**
 - If `.consort/` exists, go to **A. Resume**.
@@ -130,7 +136,7 @@ Then run the kit's creator (surface the exact command first; report its output, 
 
 Tune to the options (drop step 6 on `--no-github`/`--tiers 1`; a cold toolkit download over a slow network can push Part 2 to ~2-3 min).
 
-**Run it in the BACKGROUND and relay each stage live , do NOT run it as a blocking foreground call.** `lakebase-create-project` streams one `[stage] detail` line to stderr per step (`[Creating GitHub repository...]`, `[Creating Lakebase database (provisioning Postgres, ~30-60s)...]`, `[Scaffolding project files...]`, `[Setting up CI auth (service principal)...]`, `[Setting up the self-hosted CI runner ...]`, `[Cutting staging tier ...]`, `[Creating initial commit...]`, `[Project created successfully!]`). A blocking foreground run holds all of that until the command returns, so the human sees a spinner for ~3 minutes and NOTHING else , which is exactly the "it looks hung / I can't see what's going on" failure the timeline above is meant to prevent. The narration promise is only deliverable if you background the command to a log and tail that log, relaying each new `[stage]` line to the human as it appears (the same live-relay you use for `/sprint`). Run the command as `<cmd> > "$LOG" 2>&1 &`, capture the PID, then poll/tail `$LOG` and surface each `[...]` line until the process exits; on exit, relay the final `Next:` hint.
+**Launch it via the kit's create launcher and relay it poll-once , exactly like a drive; do NOT run `npx` directly and do NOT tail it in a foreground loop.** Create has TWO silent windows that both look hung: (1) `npx` first git-fetches the kit + its dependencies (cold: ~1-3 min) and prints NOTHING the whole time , the log sits empty; then (2) once running, `lakebase-create-project` streams one `[stage]` line per step (`[Creating GitHub repository...]`, `[Creating Lakebase database (provisioning Postgres, ~30-60s)...]`, `[Scaffolding project files...]`, `[Setting up CI auth (service principal)...]`, `[Setting up the self-hosted CI runner ...]`, `[Cutting staging tier ...]`, `[Creating initial commit...]`, `[Project created successfully!]`). The bin cannot narrate its OWN download, so the plugin ships **`$CLAUDE_PLUGIN_ROOT/scripts/consort-create.sh`**, which prints an elapsed-time heartbeat during the fetch and then forwards the `[stage]` lines. Two rules make it visible: **(a)** launch `consort-create.sh` backgrounded to a log; **(b)** relay that log with **poll-once `consort-watch --since`** , a long foreground tail loop is itself a blocking call the harness buffers, so the human sees nothing until it returns ("nothing reported until all done"). The plugin ships `dist/`, so `consort-watch` is runnable via `$CLAUDE_PLUGIN_ROOT/dist/bin/consort/watch.cli.js` even before the project exists. Relay each batch, then re-poll with the printed cursor until `status=done`; on exit, relay the final `Next:` hint.
 
 ```bash
 # Pin the create-project to THIS plugin's own version so a fresh install ALWAYS
@@ -144,14 +150,14 @@ KIT_REF="${LAKEBASE_KIT_REF:-}"
 if [ -z "$KIT_REF" ] && [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json" ]; then
   KIT_REF="v$(node -p "require('${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json').version" 2>/dev/null || true)"
 fi
-KIT_REF="${KIT_REF:-v0.3.25}"   # stamped at release; == package.json version (enforced by tests/bdd/start-kit-pin.test.ts)
+KIT_REF="${KIT_REF:-v0.3.26}"   # stamped at release; == package.json version (enforced by tests/bdd/start-kit-pin.test.ts)
 KIT_PKG="github:databricks-solutions/consort#${KIT_REF}"
 
-# Background it to a log so you can relay the [stage] lines live (see above).
-# Do NOT run this as a blocking foreground call , the human would see only a
-# spinner for the whole ~3 min provisioning wait.
+# Launch via the kit's create launcher (heartbeat during the silent npx fetch, then
+# forwards the [stage] lines), backgrounded to a log. Do NOT call npx directly and do
+# NOT tail this in a foreground loop , relay it poll-once (below).
 LOG="$(mktemp -t consort-create.XXXX.log)"
-npx --yes --package="$KIT_PKG" lakebase-create-project \
+bash "$CLAUDE_PLUGIN_ROOT/scripts/consort-create.sh" "$KIT_PKG" \
   --project-name "<name>" --parent-dir "<parent-dir>" \
   --databricks-host "<host>" --github-owner "<owner>" \
   --language "<language>" --tiers "<1|2|3>" \
@@ -159,8 +165,13 @@ npx --yes --package="$KIT_PKG" lakebase-create-project \
   [--no-github] [--enable-e2e|--no-e2e] [--enable-infra|--no-infra] \
   [--agent-model <role>=<model> ...] > "$LOG" 2>&1 &
 CREATE_PID=$!
-# Now tail "$LOG" and relay each new `[stage]` line to the human until
-# CREATE_PID exits; the final line is the `Next:` hint + a JSON result.
+
+# Relay it POLL-ONCE (one call per turn), narrating each batch, until status=done.
+# The plugin ships dist/, so consort-watch runs before the project exists:
+#   node "$CLAUDE_PLUGIN_ROOT/dist/bin/consort/watch.cli.js" --since 0 --log "$LOG" --pid "$CREATE_PID"
+#     -> relays new lines, ends with: [consort-watch] cursor=<N> status=<running|done|...>
+#   next call: --since <N> (the printed cursor); repeat until status=done.
+# On done, relay the final `Next:` hint from the tail of the log.
 ```
 
 **Environment gate.** Before provisioning anything, `lakebase-create-project`
