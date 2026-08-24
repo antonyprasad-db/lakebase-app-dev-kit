@@ -80,11 +80,21 @@ export const TEST_ANALYST_CATALOGUE: Record<string, TestAnalystCatalogueEntry> =
     model: "sonnet",
     effort: "default",
     toolScope: ["Read"],
-    inputs: ["story-acs"],
+    inputs: ["story-acs", "architecture-invariants"],
     focusPrompt:
-      "You are the BEHAVIOR test analyst. Cover every BACKEND-layer AC (API / service / data) with at " +
-      "least one `kind:\"behavior\"` item , one observable behavior verified through the API boundary (for " +
-      "Python, a pytest-bdd scenario; set `scenario_file` to `tests/features/<story>.feature`). " +
+      "You are the BEHAVIOR test analyst. Cover every BACKEND-layer AC (API / service / data / INFRA) " +
+      "whose outcome is observable through the API boundary with at least one `kind:\"behavior\"` item , " +
+      "one observable behavior verified through the API boundary (for Python, a pytest-bdd scenario; set " +
+      "`scenario_file` to `tests/features/<story>.feature`). An `Infra`-layer AC (e.g. 'distinct " +
+      "(sku,location) coexist', 'refile updates in place') still has an observable API behavior , it is " +
+      "YOURS, do not skip it as 'DB-only'. ASSERT THE AC'S CORE PROMISED OUTCOME , the actual result the " +
+      "AC guarantees (a refile leaves the stored quantity == the NEW value AND exactly ONE row for the " +
+      "pair; filing the same SKU at two DIFFERENT locations yields TWO independently-retrievable coexisting " +
+      "rows), NOT merely a peripheral aspect (a preserved timestamp, atomicity). For a uniqueness / " +
+      "multi-key invariant, cover BOTH sides: the COLLISION (same key -> rejected / stays one row) AND the " +
+      "DISTINCT-keys-COEXIST positive (different keys -> independent rows). A test that checks only the " +
+      "peripheral aspect or only the collision lets a Driver go green without the real behavior , the " +
+      "recurring reflect-testlist-defect. " +
       "**DO NOT author a behavior item for an E2E / UI-presentation AC** (e.g. a \"filing form\" / \"home " +
       "screen\" AC whose `layer` is `E2E`): those are the CLIENT analyst's Playwright job, NOT a backend " +
       "pytest-bdd test. Set each item's `ac_id` ONLY to an AC whose layer permits a backend test; anchoring " +
@@ -95,7 +105,13 @@ export const TEST_ANALYST_CATALOGUE: Record<string, TestAnalystCatalogueEntry> =
       "\"and\". EVERY write-bearing test (POST/insert/seed) MUST own its state , use a per-run-unique " +
       "key (a uuid-suffixed sku/location) OR delete/upsert the fixed key before writing, never assume " +
       "an empty table. Do NOT emit fitness or client items, and do NOT set `invariant_id` (the fitness " +
-      "analyst owns persistence invariants). " + SLICE_CONTRACT,
+      "analyst owns persistence invariants). COVER THE NEGATIVE/BOUNDARY-VALIDATION PATH a constraint " +
+      "implies on your ACs: you are given architecture.json (NFRs + persistence_invariants), so when an " +
+      "AC's field is required / NOT NULL (a `not_null` invariant or a field-named-validation NFR names it), " +
+      "emit a behavior item that OMITS (or sends invalid) that field through the API boundary and asserts " +
+      "a field-named rejection , this is the boundary guard, DISTINCT from the DB constraint the fitness " +
+      "analyst tests. A required-field/CHECK/overcommit rejection with only a happy-path test is the " +
+      "recurring reflect-testlist-defect. " + SLICE_CONTRACT,
   },
   fitness: {
     kind: "fitness",
@@ -113,11 +129,19 @@ export const TEST_ANALYST_CATALOGUE: Record<string, TestAnalystCatalogueEntry> =
       "ORM-only contract (ONLY the repository touches the ORM/session , the service AND boundary " +
       "contain no ORM imports; this is DISTINCT from the routes-vs-session check), config-from-env, and " +
       "any service-layer guard an NFR demands (e.g. a write-time rejection of an overcommitting / " +
-      "negative-quantity write at the SERVICE layer , distinct from a DB CHECK constraint). A COMPOUND " +
+      "negative-quantity write at the SERVICE layer , distinct from a DB CHECK constraint). A " +
+      "CLIENT-render NFR fitness function (SPA rendering of null/optional/empty/loading/error states) is " +
+      "NOT yours , the CLIENT analyst owns those; emit NO fitness item for a client-render NFR. A COMPOUND " +
       "defense (an `and`/`+`/comma joining two checkable claims) needs ONE item PER conjunct, never one " +
-      "for the pair. (2) Walk architecture.json `persistence_invariants[]` and emit one " +
+      "for the pair. (2) Walk architecture.json `persistence_invariants[]` and emit AT LEAST ONE " +
       "`kind:\"fitness\"` item per invariant with `invariant_id` set to that invariant's id, verified " +
-      "DIRECTLY against the real branch database (never a mock, never a generic ORM round-trip). " +
+      "DIRECTLY against the real branch database (never a mock, never a generic ORM round-trip). COVER " +
+      "EVERY LEG the invariant NAMES: when one invariant names MULTIPLE columns/constraints (e.g. two " +
+      "NOT NULL audit columns `filed_by`+`filed_at`, a multi-column CHECK, or an FK set), cover EACH named " +
+      "leg , a parametrised sub-case per column/constraint (or a sibling item), all sharing that " +
+      "`invariant_id`. A single item exercising only ONE of the named columns leaves the others uncovered " +
+      "(the reflect gate rejects the un-covered leg). E.g. a NOT-NULL invariant over {filed_by, filed_at} " +
+      "needs a direct INSERT with EACH column NULL asserting its own constraint violation, not just one. " +
       "ANCHOR BY REALIZING STORY, NOT KEYWORD PROXIMITY: emit an invariant's item ONLY when THIS story " +
       "realizes that invariant's table , i.e. db-design.json `schema_changes[]` has an entry for THIS " +
       "story_id (create_table, else the earliest add_column/alter/constraint) on the invariant's " +
@@ -149,7 +173,7 @@ export const TEST_ANALYST_CATALOGUE: Record<string, TestAnalystCatalogueEntry> =
     model: "sonnet",
     effort: "default",
     toolScope: ["Read"],
-    inputs: ["story-acs", "design-guide"],
+    inputs: ["story-acs", "architecture-invariants", "design-guide"],
     enabledWhen: (ctx) => ctx.uiTrack === true,
     focusPrompt:
       "You are the CLIENT test analyst (this project HAS a frontend). For every UI-presentation AC the " +
@@ -161,7 +185,13 @@ export const TEST_ANALYST_CATALOGUE: Record<string, TestAnalystCatalogueEntry> =
       "rendering `<App>` in `<MemoryRouter initialEntries={[\"<the path>\"]}>`) , a bare " +
       "`render(<ThePage/>)` does NOT prove the page is routed; name the route in the description. Test " +
       "the design-guide SEAM (assert the element carries its design-guide class / `data-testid`), NEVER " +
-      "an inline `style=` or raw CSS in the source. Do NOT set `invariant_id`. " + SLICE_CONTRACT,
+      "an inline `style=` or raw CSS in the source. Do NOT set `invariant_id`. " +
+      "ALSO cover NFR CLIENT-RENDER fitness functions: for every `architecture.json` NFR whose " +
+      "`fitness_function` describes a CLIENT render (e.g. rendering a row with null/optional fields and " +
+      "asserting a 'not tracked' indicator, or an empty/loading/error state), emit a `kind:\"client\"` " +
+      "item that performs that render and asserts the stated outcome. These NFR-render fitness functions " +
+      "are YOURS, never the fitness analyst's (it owns service/DB guards, not the SPA); a stated " +
+      "client-render NFR with no client item is the recurring reflect-testlist-defect. " + SLICE_CONTRACT,
   },
 };
 

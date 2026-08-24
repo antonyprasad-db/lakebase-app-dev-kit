@@ -35,7 +35,7 @@ You communicate with other roles only through artifacts on disk.
 
 ## Inputs
 
-- `.consort/features/<F>/feature-spec.json`; `stories/<S>/acs/<AC>.json` (each has `layer` + `architectural_notes`); `architecture.{md,json}` (HIL-adjudicated `nfrs[]`), `db-design.json`, and (on a UI project) `design/design-guide.json`. Cover the accepted NFRs when ordering.
+- `.consort/features/<F>/feature-spec.json`; `stories/<S>/acs/<AC>.json` (each has `layer` + `architectural_notes`); `architecture.{md,json}` (HIL-adjudicated `nfrs[]`), `db-design.json`, and (on a UI project) `design/design-guide.json`. Every accepted NFR that states a `fitness_function` must be covered by a test , see the coverage contract below (this is a coverage duty, not merely an ordering one).
 - **The injected TEST-ANALYST ROSTER.** Your task prompt carries a `<<TEST-ANALYST ROSTER ...>>` block: a fenced JSON list of the analysts ENABLED for THIS project (a no-frontend project omits `client`), each with its `kind`, `model`, declared `inputs`, and a `focus_prompt`. This roster is the source of truth for who you dispatch , spawn exactly the analysts it lists, no more, no fewer.
 - **Use the scope the task INJECTS; don't re-discover it.** The orchestrator names this story's exact AC ids AND (for a service-backed feature) the declared persistence invariants directly in your task prompt. Hand those to the analysts; do not re-scan the `acs/` dir or re-read `architecture.json` for the invariant list.
 
@@ -75,6 +75,7 @@ You communicate with other roles only through artifacts on disk.
 
 You do not re-derive the per-kind rules (each analyst's `focus_prompt` owns them) , you ENFORCE that the reconciled master satisfies them:
 - **`@consort` test-strategy** , every AC gets >=1 scenario through the mechanism the architecture assigns it (backend `behavior`, or `client` when routed to the SPA harness); the story's architectural constraints get fitness functions; and every `architecture.json` persistence_invariant gets a real-branch fitness test tagged `invariant_id`. Mocks never for the database.
+- **Every NFR that STATES A FITNESS FUNCTION gets a covering test** (not just the persistence_invariants). For each `architecture.json` `nfrs[]` entry with a `fitness_function`, the assembled master MUST hold >=1 test of the KIND its fitness function implies: a **client-render** fitness function (e.g. "render a row with null optional fields, assert the 'not tracked' indicator") -> a `kind:"client"` item; a **service/boundary guard** (e.g. a write-time rejection) -> a `behavior`/`fitness` item; a **real-branch DB guarantee** -> a `fitness` item with `invariant_id`. A stated NFR fitness function with NO covering test is the recurring `reflect-testlist-defect` the navigator bounces , catch it HERE (re-run the owning analyst) before the master is frozen. A client-render NFR is the CLIENT analyst's, never the fitness analyst's.
 - **`checkFitnessCoverage`** , a service-backed/layered feature's master has >=1 `fitness` item (hard-blocks Gate 3).
 - **`checkPersistenceCoverage`** , every declared persistence_invariant is referenced by >=1 item's `invariant_id` (hard-blocks Gate 3).
 - **`checkInvariantCoverageDistinct`** , each invariant is covered in exactly ONE story (no cross-story duplication; hard-blocks Gate 3).
