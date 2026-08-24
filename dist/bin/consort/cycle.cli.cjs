@@ -8626,6 +8626,23 @@ function firstRefactorPendingAc(consortDir, featureId, story) {
   }
   return null;
 }
+function installBrandAsset(projectDir, consortDir, appIcon) {
+  try {
+    const base = (0, import_path7.basename)(appIcon.install_to);
+    const src = [
+      (0, import_path7.join)(consortDir, "design", "assets", base),
+      (0, import_path7.join)(projectDir, appIcon.source),
+      (0, import_path7.join)(consortDir, appIcon.source)
+    ].find((p) => (0, import_fs7.existsSync)(p));
+    if (!src) return false;
+    const dest = (0, import_path7.join)(projectDir, appIcon.install_to);
+    (0, import_fs7.mkdirSync)((0, import_path7.dirname)(dest), { recursive: true });
+    (0, import_fs7.copyFileSync)(src, dest);
+    return true;
+  } catch {
+    return false;
+  }
+}
 function flagUxAdherenceIfDirty(consortDir, story) {
   try {
     let designClasses;
@@ -8640,6 +8657,7 @@ function flagUxAdherenceIfDirty(consortDir, story) {
       }
     } catch {
     }
+    if (appIcon) installBrandAsset((0, import_path7.dirname)(consortDir), consortDir, appIcon);
     const ux = checkUxClean({ projectDir: (0, import_path7.dirname)(consortDir), designClasses, appIcon });
     if (!ux.clean && !hasOpenSmell(consortDir, "ux-adherence", story)) {
       writeSmellsLog(consortDir, [{ smell: "ux-adherence", cycle_ids: [], detail: summarizeUxViolations(ux), story_id: story }]);

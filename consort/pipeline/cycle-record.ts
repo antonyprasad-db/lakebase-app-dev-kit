@@ -18,9 +18,9 @@
 // drift , the bug that stalled the live smoke (the Navigator hand-wrote a
 // cycle with `status:"red"` instead of the `red_at` the probe reads).
 
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync, mkdirSync, rmSync } from "fs";
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync, mkdirSync, rmSync, copyFileSync } from "fs";
 import { consortEnv } from "../../consort/config/consort-env.js";
-import { join, dirname } from "path";
+import { join, dirname, basename } from "path";
 import {
   storyTestListJson,
   cyclesRootDir,
@@ -779,6 +779,39 @@ export function firstRefactorPendingAc(consortDir: string, featureId: string, st
  * clean, so non-UI projects are a complete no-op. Best-effort: never throws into the
  * review path (a scan error must not block recording the verdict).
  */
+/**
+ * Deterministically install the brand icon's REAL bytes at the design-guide's
+ * `install_to` (e.g. client/public/warehouse.png). The staged intake asset lives at
+ * `.consort/design/assets/<basename>` (stage-first-project put it there); a coding agent
+ * cannot copy a binary via text writes, so this is the ONLY place the actual image lands
+ * in the client , the driver only references it. Overwrites (the staged asset is the
+ * source of truth, so it replaces any placeholder the driver wrote to pass the check).
+ * Best-effort + idempotent; when no staged source exists the ux-adherence gate reports
+ * the asset missing at `install_to` as usual. Exported for a focused test.
+ */
+export function installBrandAsset(
+  projectDir: string,
+  consortDir: string,
+  appIcon: { source: string; install_to: string },
+): boolean {
+  try {
+    const base = basename(appIcon.install_to);
+    // Prefer the staged design asset; fall back to the guide's declared source path.
+    const src = [
+      join(consortDir, "design", "assets", base),
+      join(projectDir, appIcon.source),
+      join(consortDir, appIcon.source),
+    ].find((p) => existsSync(p));
+    if (!src) return false; // no bytes to install , the gate flags "missing at install_to"
+    const dest = join(projectDir, appIcon.install_to);
+    mkdirSync(dirname(dest), { recursive: true });
+    copyFileSync(src, dest);
+    return true;
+  } catch {
+    return false; // best-effort; a copy failure surfaces as the gate's "asset missing" violation
+  }
+}
+
 function flagUxAdherenceIfDirty(consortDir: string, story: string): void {
   try {
     // Read the design guide (when present) so the scan enforces its declared
@@ -803,6 +836,12 @@ function flagUxAdherenceIfDirty(consortDir: string, story: string): void {
     } catch {
       /* malformed guide -> conservative defaults; the guide gate reports its shape */
     }
+    // DETERMINISTIC brand-asset install: copy the real image bytes from the staged
+    // intake asset into the design-guide's `install_to` (e.g. client/public/warehouse.png)
+    // so the built app actually SERVES it. A coding agent cannot `cp` a binary via text
+    // writes , without this the icon is declared + referenced but never present, and the
+    // app ships the placeholder. The driver only has to REFERENCE it (index.html + shell).
+    if (appIcon) installBrandAsset(dirname(consortDir), consortDir, appIcon);
     const ux = checkUxClean({ projectDir: dirname(consortDir), designClasses, appIcon });
     if (!ux.clean && !hasOpenSmell(consortDir, "ux-adherence", story)) {
       writeSmellsLog(consortDir, [{ smell: "ux-adherence", cycle_ids: [], detail: summarizeUxViolations(ux), story_id: story }]);

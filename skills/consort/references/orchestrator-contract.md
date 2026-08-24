@@ -57,6 +57,43 @@ the phase/role/gate transitions; don't narrate the tooling.
    auto-emitted `.consort/next.json`), enact its `primary_action`, and continue. Do
    NOT stop or ask unless `next` surfaces a HITL decision (a gate) or a blocker.
    Re-running the drive after a gate is part of driving, not a question to pose.
+   **The interactive drive exits after ONE turn (a fresh session per role, for context
+   headroom), so a pid going away with only a `[drive] <role> turn Ns` line and NO
+   gate/pause/escalation marker is a NORMAL turn boundary, NOT a crash , `consort-watch`
+   may even report `status=done` for such a marker-less pid-gone exit. On ANY exit,
+   immediately run `consort-next` and ACT (resume the next turn, surface the
+   author-requests `consort-sync-backlog` decision, or a gate) , NEVER investigate a
+   marker-less exit as "reaped mid-plan". The only real failure is `RAISED TO HIL` /
+   a `.consort/escalations/` record. Reading `next` + doing the next thing is the whole
+   loop; sitting on a marker-less exit is the lag to eliminate.**
+
+2. **Know the per-STORY cadence , a "deploy" mid-feature is NOT a feature ship.** Each
+   gate-approved story is built in its OWN experiment branch and taken all the way to
+   ACCEPT before the next story is even designed: design -> spec gate -> RED/GREEN ->
+   review/refactor -> **per-story DEPLOY** (the Release Engineer verifies THAT STORY's
+   experiment branch is working software , reachable + `verify.passed`; the teeth that
+   gate acceptance) -> **per-story ACCEPT gate** (the PO merges the experiment into the
+   feature branch). This repeats for S1, then S2, ... So the Release Engineer / a
+   `deploy` firing while other stories are still "designing" is the CURRENT story's
+   working-software check on its experiment branch , NOT a ship of the whole feature,
+   and nothing incomplete is shipping. The FEATURE-level deploy + promote happen ONLY
+   after EVERY story is accepted. Do NOT alarm at "deploy" with sibling stories unbuilt;
+   read `consort-next` for the scope (it names the story) and report the per-story
+   accept decision, not a phantom feature ship. **At the per-story ACCEPT gate, OFFER
+   the human to SEE the working software before they decide , do not make them accept on
+   trust.** The story's experiment branch is checked out + already deployed/verified, so
+   `./scripts/run-dev.sh` serves the REAL app on its paired Lakebase branch: for a UI
+   product, start it and give them the client URL to click through THIS story's behavior;
+   for a backend/service, give them the endpoint(s) + a ready `curl`/Postman example that
+   exercises this story's ACs. Let them try it, then present accept / discard / revise,
+   and stop the dev server once they're done. (`run-dev.sh` picks the port , backend
+   8200/8000/8080, client 5200 , and reads the experiment branch's `DATABASE_URL`.)
+   **Also offer to GENERATE SEED DATA so the review isn't an empty app.** `run-dev.sh`
+   auto-runs a seed hook on start (`scripts/seed_dev.py` by default; `SEED=0` skips; the
+   script OWNS its idempotency , it no-ops when data already exists). If no seed script
+   exists (or they want richer sample data), generate a `scripts/seed_dev.py` that inserts
+   a handful of representative rows for THIS story's tables (idempotent), so the working
+   software shows meaningful data when they click through / hit the API.
 
 2. **At a HITL stop, present the decision, not the mechanics.** Show the `next`
    option titles + their `hil_prompt`(s) and enact the one chosen. Do not narrate

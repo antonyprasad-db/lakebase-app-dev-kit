@@ -7005,7 +7005,7 @@ import { mergePaired } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 
 // consort/pipeline/cycle-record.ts
 init_esm_shims();
-import { existsSync as existsSync15, readFileSync as readFileSync16, readdirSync as readdirSync11, statSync as statSync8, writeFileSync as writeFileSync9, mkdirSync as mkdirSync10, rmSync as rmSync6 } from "fs";
+import { existsSync as existsSync15, readFileSync as readFileSync16, readdirSync as readdirSync11, statSync as statSync8, writeFileSync as writeFileSync9, mkdirSync as mkdirSync10, rmSync as rmSync6, copyFileSync } from "fs";
 
 // consort/config/consort-env.ts
 init_esm_shims();
@@ -7037,7 +7037,7 @@ function warnLegacyEnv(legacyName, suffix) {
 }
 
 // consort/pipeline/cycle-record.ts
-import { join as join15, dirname as dirname6 } from "path";
+import { join as join15, dirname as dirname6, basename } from "path";
 
 // consort/deploy/deploy.ts
 init_esm_shims();

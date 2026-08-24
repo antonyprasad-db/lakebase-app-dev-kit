@@ -8535,8 +8535,8 @@ function lastReflectReviseFingerprint(consortDir, story_id) {
 
 // consort/pipeline/cycle-record.ts
 init_esm_shims();
-import { existsSync as existsSync16, readFileSync as readFileSync16, readdirSync as readdirSync10, statSync as statSync7, writeFileSync as writeFileSync9, mkdirSync as mkdirSync9, rmSync as rmSync7 } from "fs";
-import { join as join17, dirname as dirname6 } from "path";
+import { existsSync as existsSync16, readFileSync as readFileSync16, readdirSync as readdirSync10, statSync as statSync7, writeFileSync as writeFileSync9, mkdirSync as mkdirSync9, rmSync as rmSync7, copyFileSync } from "fs";
+import { join as join17, dirname as dirname6, basename } from "path";
 
 // consort/test-list/test-list.ts
 init_esm_shims();
@@ -9530,7 +9530,7 @@ function architectNovelty(canon, storyAcs, storyArchitectureJsonContent) {
 
 // consort/orchestrator/validators/conformance/artifact-conformance.ts
 init_esm_shims();
-import { join as join21, basename, dirname as dirname9 } from "path";
+import { join as join21, basename as basename2, dirname as dirname9 } from "path";
 var ARTIFACT_FORMATS = {
   "feature-spec.json": { kind: "json-schema", schema: "feature.schema.json" },
   "story.json": { kind: "json-schema", schema: "story.schema.json" },
@@ -9748,8 +9748,8 @@ function checkDbDesign(dbDesignJson2, architectureJson2) {
   return violations.length > 0 ? { ok: false, violations } : { ok: true };
 }
 function canonicalArtifactName(path13) {
-  const base = basename(path13);
-  if (basename(dirname9(path13)) === "acs" && base.endsWith(".json")) return "ac.json";
+  const base = basename2(path13);
+  if (basename2(dirname9(path13)) === "acs" && base.endsWith(".json")) return "ac.json";
   return base;
 }
 
@@ -11497,7 +11497,7 @@ import * as readline from "readline";
 
 // consort/logging/replay-artifacts.ts
 init_esm_shims();
-import { existsSync as existsSync35, mkdirSync as mkdirSync21, readdirSync as readdirSync22, copyFileSync as copyFileSync3, statSync as statSync13 } from "fs";
+import { existsSync as existsSync35, mkdirSync as mkdirSync21, readdirSync as readdirSync22, copyFileSync as copyFileSync4, statSync as statSync13 } from "fs";
 import { join as join31, dirname as dirname14 } from "path";
 var REPLAYABLE_DESIGN_ROLES = /* @__PURE__ */ new Set([
   "spec-author",
@@ -11510,7 +11510,7 @@ var REPLAYABLE_DESIGN_ROLES = /* @__PURE__ */ new Set([
 function cp(src, dst) {
   if (!existsSync35(src)) return false;
   mkdirSync21(dirname14(dst), { recursive: true });
-  copyFileSync3(src, dst);
+  copyFileSync4(src, dst);
   return true;
 }
 function cpDir(srcDir, dstDir) {
@@ -11520,7 +11520,7 @@ function cpDir(srcDir, dstDir) {
   for (const name of readdirSync22(srcDir)) {
     const s = join31(srcDir, name);
     if (!statSync13(s).isFile()) continue;
-    copyFileSync3(s, join31(dstDir, name));
+    copyFileSync4(s, join31(dstDir, name));
     copied = true;
   }
   return copied;
@@ -11868,10 +11868,10 @@ import { readWorkflowState as readWorkflowState2 } from "@databricks-solutions/l
 // consort/setup/stray-artifact-recovery.ts
 init_esm_shims();
 import { existsSync as existsSync37, mkdirSync as mkdirSync22, cpSync as cpSync5, rmSync as rmSync10, readdirSync as readdirSync23, statSync as statSync14 } from "fs";
-import { join as join33, dirname as dirname16, basename as basename2 } from "path";
+import { join as join33, dirname as dirname16, basename as basename3 } from "path";
 function malformedSiblingRoot(projectDir) {
   const p = projectDir.replace(/\/+$/, "");
-  return `${dirname16(p)}-${basename2(p)}`;
+  return `${dirname16(p)}-${basename3(p)}`;
 }
 function listFilesRel(dir) {
   const out = [];
@@ -13382,7 +13382,7 @@ var TEST_ANALYST_CATALOGUE = {
     toolScope: ["Read"],
     inputs: ["story-acs", "architecture-invariants", "design-guide"],
     enabledWhen: (ctx) => ctx.uiTrack === true,
-    focusPrompt: 'You are the CLIENT test analyst (this project HAS a frontend). For every UI-presentation AC the architecture routes to the SPA\'s own client harness, emit a `kind:"client"` item with `scenario_file` under `client/tests/` (e.g. `client/tests/pages/<Screen>.test.tsx`). Do NOT fold a presentation AC into the backend pytest-bdd suite , that mechanism mismatch is a defect. For an AC that OWNS a page/route, at least one client item MUST exercise the page THROUGH THE REAL `<App>` at the AC\'s route (a Playwright e2e that navigates the route, OR a component test rendering `<App>` in `<MemoryRouter initialEntries={["<the path>"]}>`) , a bare `render(<ThePage/>)` does NOT prove the page is routed; name the route in the description. Test the design-guide SEAM (assert the element carries its design-guide class / `data-testid`), NEVER an inline `style=` or raw CSS in the source. Do NOT set `invariant_id`. ALSO cover NFR CLIENT-RENDER fitness functions: for every `architecture.json` NFR whose `fitness_function` describes a CLIENT render (e.g. rendering a row with null/optional fields and asserting a \'not tracked\' indicator, or an empty/loading/error state), emit a `kind:"client"` item that performs that render and asserts the stated outcome. These NFR-render fitness functions are YOURS, never the fitness analyst\'s (it owns service/DB guards, not the SPA); a stated client-render NFR with no client item is the recurring reflect-testlist-defect. ' + SLICE_CONTRACT
+    focusPrompt: "You are the CLIENT test analyst (this project HAS a frontend). For every UI-presentation AC the architecture routes to the SPA's own client harness, emit a `kind:\"client\"` item with `scenario_file` under `client/tests/` (e.g. `client/tests/pages/<Screen>.test.tsx`). Do NOT fold a presentation AC into the backend pytest-bdd suite , that mechanism mismatch is a defect. For an AC that OWNS a page/route, at least one client item MUST exercise the page THROUGH THE REAL `<App>` at the AC's route (a Playwright e2e that navigates the route, OR a component test rendering `<App>` in `<MemoryRouter initialEntries={[\"<the path>\"]}>`) , a bare `render(<ThePage/>)` does NOT prove the page is routed; name the route in the description. Test the design-guide SEAM (assert the element carries its design-guide class / `data-testid`), NEVER an inline `style=` or raw CSS in the source. Do NOT set `invariant_id`. MATCH THE TEST TO THE AC's `layer`: an AC whose `layer` is **`E2E`** is verified END-TO-END against the REAL paired-branch DB , it REQUIRES a real Playwright e2e (scenario_file under `client/tests/e2e/\u2026`) that drives the DEPLOYED app in a browser against the live DB, with NO mocked/stubbed fetch and NO in-memory data. A mocked/stubbed COMPONENT test (rendering `<App>`/`<Page>` with fake data) is ONLY for a pure presentation/rendering AC, NEVER for an `E2E`-layer AC , drafting an E2E-layer AC as a mocked component test is the recurring reflect-testlist-defect (it cannot hit the DB the layer demands). One real e2e per E2E-layer AC. ALSO cover NFR CLIENT-RENDER fitness functions: for every `architecture.json` NFR whose `fitness_function` describes a CLIENT render (e.g. rendering a row with null/optional fields and asserting a 'not tracked' indicator, or an empty/loading/error state), emit a `kind:\"client\"` item that performs that render and asserts the stated outcome. These NFR-render fitness functions are YOURS, never the fitness analyst's (it owns service/DB guards, not the SPA); a stated client-render NFR with no client item is the recurring reflect-testlist-defect. " + SLICE_CONTRACT
   }
 };
 function enabledAnalysts(ctx) {
@@ -14325,10 +14325,11 @@ function buildNextOptions(action, ctx) {
         {
           id: "acceptance.accept",
           title: `Accept story ${story}`,
-          hil_prompt: `Accept story ${story}? I will merge its experiment into the feature branch, run its migrations, and tear the experiment down.`,
+          hil_prompt: `Accept story ${story}? I will merge its experiment into the feature branch, run its migrations, and tear the experiment down. First OFFER the human to SEE it working: the story's experiment branch is checked out + deployed, so \`./scripts/run-dev.sh\` serves the real app on its paired Lakebase branch , for a UI product point them at the client URL to click through this story; for a backend/service, give them the endpoint(s) + a curl/Postman example that exercises this story's ACs. Only then take the accept/discard/revise decision.`,
           kind: "gate",
-          enact: gateEnact
+          enact: gateEnact,
           // consort-pipeline accept ... (owns the merge)
+          note: "Before deciding, offer a working-software review , run `./scripts/run-dev.sh` (serves the checked-out experiment branch against its Lakebase branch) and hand the human the client URL (UI) or the API endpoint + a curl/Postman example for this story's ACs; stop the server when they're done. Also offer to GENERATE SEED DATA so it isn't an empty app: run-dev.sh auto-runs `scripts/seed_dev.py` on start (SEED=0 skips; idempotent); if none exists, generate one that inserts representative rows for this story's tables."
         },
         {
           id: "acceptance.discard",

@@ -98,6 +98,11 @@ describe("buildNextOptions: the decision menu per stop", () => {
     });
     // every option poses a question to the human
     expect(opts.every((o) => o.hil_prompt.length > 0)).toBe(true);
+    // the accept gate offers a working-software review before the decision (run-dev.sh)
+    const acc = opts.find((o) => o.id === "acceptance.accept")!;
+    expect(acc.note).toMatch(/run-dev\.sh/);
+    expect(acc.note).toMatch(/working-software|curl|client URL|Postman/i);
+    expect(acc.note).toMatch(/seed_dev\.py|SEED DATA/i); // offers to seed the review
   });
 
   it("author-requests surfaces the exact consort-sync-backlog command (no kit-scanning to find it)", () => {

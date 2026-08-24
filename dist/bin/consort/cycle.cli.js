@@ -6759,7 +6759,7 @@ function readAcLayer(tdd, f, acId) {
 
 // consort/pipeline/cycle-record.ts
 init_esm_shims();
-import { existsSync as existsSync16, readFileSync as readFileSync17, readdirSync as readdirSync11, statSync as statSync8, writeFileSync as writeFileSync11, mkdirSync as mkdirSync11, rmSync as rmSync5 } from "fs";
+import { existsSync as existsSync16, readFileSync as readFileSync17, readdirSync as readdirSync11, statSync as statSync8, writeFileSync as writeFileSync11, mkdirSync as mkdirSync11, rmSync as rmSync5, copyFileSync } from "fs";
 
 // consort/config/consort-env.ts
 init_esm_shims();
@@ -6791,7 +6791,7 @@ function warnLegacyEnv(legacyName, suffix) {
 }
 
 // consort/pipeline/cycle-record.ts
-import { join as join16, dirname as dirname6 } from "path";
+import { join as join16, dirname as dirname6, basename } from "path";
 
 // consort/test-list/test-list.ts
 init_esm_shims();
@@ -8631,6 +8631,23 @@ function firstRefactorPendingAc(consortDir, featureId, story) {
   }
   return null;
 }
+function installBrandAsset(projectDir, consortDir, appIcon) {
+  try {
+    const base = basename(appIcon.install_to);
+    const src = [
+      join16(consortDir, "design", "assets", base),
+      join16(projectDir, appIcon.source),
+      join16(consortDir, appIcon.source)
+    ].find((p) => existsSync16(p));
+    if (!src) return false;
+    const dest = join16(projectDir, appIcon.install_to);
+    mkdirSync11(dirname6(dest), { recursive: true });
+    copyFileSync(src, dest);
+    return true;
+  } catch {
+    return false;
+  }
+}
 function flagUxAdherenceIfDirty(consortDir, story) {
   try {
     let designClasses;
@@ -8645,6 +8662,7 @@ function flagUxAdherenceIfDirty(consortDir, story) {
       }
     } catch {
     }
+    if (appIcon) installBrandAsset(dirname6(consortDir), consortDir, appIcon);
     const ux = checkUxClean({ projectDir: dirname6(consortDir), designClasses, appIcon });
     if (!ux.clean && !hasOpenSmell(consortDir, "ux-adherence", story)) {
       writeSmellsLog(consortDir, [{ smell: "ux-adherence", cycle_ids: [], detail: summarizeUxViolations(ux), story_id: story }]);

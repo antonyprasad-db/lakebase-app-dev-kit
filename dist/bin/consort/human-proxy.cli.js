@@ -8589,8 +8589,8 @@ var REFLECT_SMELLS = Object.values(SMELL_FOR_OWNER);
 
 // consort/pipeline/cycle-record.ts
 init_esm_shims();
-import { existsSync as existsSync23, readFileSync as readFileSync24, readdirSync as readdirSync15, statSync as statSync9, writeFileSync as writeFileSync16, mkdirSync as mkdirSync14, rmSync as rmSync7 } from "fs";
-import { join as join21, dirname as dirname9 } from "path";
+import { existsSync as existsSync23, readFileSync as readFileSync24, readdirSync as readdirSync15, statSync as statSync9, writeFileSync as writeFileSync16, mkdirSync as mkdirSync14, rmSync as rmSync7, copyFileSync } from "fs";
+import { join as join21, dirname as dirname9, basename as basename3 } from "path";
 
 // consort/deploy/deploy.ts
 init_esm_shims();

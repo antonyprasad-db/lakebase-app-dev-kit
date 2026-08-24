@@ -6829,8 +6829,8 @@ function resolveOpenSmells(consortDir, smell, opts) {
 
 // consort/pipeline/cycle-record.ts
 init_esm_shims();
-import { existsSync as existsSync11, readFileSync as readFileSync12, readdirSync as readdirSync7, statSync as statSync5, writeFileSync as writeFileSync7, mkdirSync as mkdirSync6, rmSync as rmSync5 } from "fs";
-import { join as join12, dirname as dirname4 } from "path";
+import { existsSync as existsSync11, readFileSync as readFileSync12, readdirSync as readdirSync7, statSync as statSync5, writeFileSync as writeFileSync7, mkdirSync as mkdirSync6, rmSync as rmSync5, copyFileSync } from "fs";
+import { join as join12, dirname as dirname4, basename } from "path";
 
 // consort/test-list/test-list.ts
 init_esm_shims();

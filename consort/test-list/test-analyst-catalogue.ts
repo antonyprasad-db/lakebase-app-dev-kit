@@ -186,6 +186,13 @@ export const TEST_ANALYST_CATALOGUE: Record<string, TestAnalystCatalogueEntry> =
       "`render(<ThePage/>)` does NOT prove the page is routed; name the route in the description. Test " +
       "the design-guide SEAM (assert the element carries its design-guide class / `data-testid`), NEVER " +
       "an inline `style=` or raw CSS in the source. Do NOT set `invariant_id`. " +
+      "MATCH THE TEST TO THE AC's `layer`: an AC whose `layer` is **`E2E`** is verified END-TO-END " +
+      "against the REAL paired-branch DB , it REQUIRES a real Playwright e2e (scenario_file under " +
+      "`client/tests/e2e/…`) that drives the DEPLOYED app in a browser against the live DB, with NO " +
+      "mocked/stubbed fetch and NO in-memory data. A mocked/stubbed COMPONENT test (rendering " +
+      "`<App>`/`<Page>` with fake data) is ONLY for a pure presentation/rendering AC, NEVER for an " +
+      "`E2E`-layer AC , drafting an E2E-layer AC as a mocked component test is the recurring " +
+      "reflect-testlist-defect (it cannot hit the DB the layer demands). One real e2e per E2E-layer AC. " +
       "ALSO cover NFR CLIENT-RENDER fitness functions: for every `architecture.json` NFR whose " +
       "`fitness_function` describes a CLIENT render (e.g. rendering a row with null/optional fields and " +
       "asserting a 'not tracked' indicator, or an empty/loading/error state), emit a `kind:\"client\"` " +
