@@ -90,11 +90,29 @@ export interface ParsedArgs {
   help?: boolean;
 }
 
+/** A deterministic CLI effect (a kit SCM bin , wait-ci / merge / prepare-pr / deploy ,
+ *  or any command the drive spawns) exited non-zero. Carries the bin + exit code so the
+ *  drive's top-level catch can record a RESUMABLE escalation and emit a classified
+ *  `RAISED TO HIL` halt line. Without a typed error the reject was a bare
+ *  `new Error("<bin> exited N")` that fell through drive.cli's catch to an UNPREFIXED
+ *  stderr line , `classifyDriveLine` returns null for it, so a session tailing
+ *  `drive-live.log` (or a Monitor watching it) never surfaces the failure and the run
+ *  looks like it is "still waiting on CI" when it has actually died. */
+export class CliEffectError extends Error {
+  constructor(
+    public readonly bin: string,
+    public readonly code: number | null,
+  ) {
+    super(`${bin} exited ${code}`);
+    this.name = "CliEffectError";
+  }
+}
+
 export function spawnCmd(bin: string, args: string[], cwd: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(bin, args, { cwd, stdio: "inherit" });
     child.on("error", (err) => reject(err));
-    child.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`${bin} exited ${code}`))));
+    child.on("close", (code) => (code === 0 ? resolve() : reject(new CliEffectError(bin, code))));
   });
 }
 
@@ -820,12 +838,20 @@ export function execRunner(cfg: DriveEffectsConfig): CommandRunner {
       }
       // cmd.kind === "cli": resolve the kit bin to its dist JS via the kit's
       // package.json bin map so it runs regardless of PATH; fall back to the
-      // bare name for anything not a kit bin (external tools on PATH).
+      // bare name for anything not a kit bin (external tools on PATH). Re-key any
+      // CliEffectError to the LOGICAL bin (cmd.bin, e.g. "lakebase-scm-wait-ci"),
+      // not the "node" interpreter spawnCmd saw , so the drive's halt names the
+      // step that failed (wait-ci / merge / prepare-pr) instead of "node exited 1".
       const js = resolveKitBinJs(cmd.bin);
-      if (js) {
-        await spawnCmd("node", [js, ...cmd.args], cfg.projectDir);
-      } else {
-        await spawnCmd(cmd.bin, cmd.args, cfg.projectDir);
+      try {
+        if (js) {
+          await spawnCmd("node", [js, ...cmd.args], cfg.projectDir);
+        } else {
+          await spawnCmd(cmd.bin, cmd.args, cfg.projectDir);
+        }
+      } catch (e) {
+        if (e instanceof CliEffectError) throw new CliEffectError(cmd.bin, e.code);
+        throw e;
       }
     },
   };

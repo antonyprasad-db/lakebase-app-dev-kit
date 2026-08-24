@@ -103,8 +103,11 @@ export const TEST_ANALYST_CATALOGUE: Record<string, TestAnalystCatalogueEntry> =
       "API-layer AC, never the form/screen AC. Test at the OUTERMOST public boundary matching the AC's " +
       "layer. One test per scenario, never an " +
       "\"and\". EVERY write-bearing test (POST/insert/seed) MUST own its state , use a per-run-unique " +
-      "key (a uuid-suffixed sku/location) OR delete/upsert the fixed key before writing, never assume " +
-      "an empty table. Do NOT emit fitness or client items, and do NOT set `invariant_id` (the fitness " +
+      "key suffixed with the platform's BUILT-IN UUID (Python `uuid.uuid4()` from the stdlib; JS/TS " +
+      "`crypto.randomUUID()`; Java `java.util.UUID`) OR delete/upsert the fixed key before writing, never " +
+      "assume an empty table. NEVER add a UUID dependency: in JS/TS do NOT `import ... from \"uuid\"` , the " +
+      "`uuid` npm package is not a scaffolded dependency and fails CI with \"Cannot find package 'uuid'\". " +
+      "Do NOT emit fitness or client items, and do NOT set `invariant_id` (the fitness " +
       "analyst owns persistence invariants). COVER THE NEGATIVE/BOUNDARY-VALIDATION PATH a constraint " +
       "implies on your ACs: you are given architecture.json (NFRs + persistence_invariants), so when an " +
       "AC's field is required / NOT NULL (a `not_null` invariant or a field-named-validation NFR names it), " +

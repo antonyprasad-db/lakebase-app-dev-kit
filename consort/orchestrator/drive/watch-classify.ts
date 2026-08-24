@@ -78,6 +78,12 @@ export function classifyDriveLine(raw: string): WatchClass | null {
   if (/\bRAISED TO HIL\b/.test(line)) {
     return { kind: "escalation", text: line.replace(/^\[(drive|sprint)\] /, ""), stop: true, outcome: "escalation" };
   }
+  // An unexpected crash the drive could not classify (drive.cli's last-resort catch).
+  // A terminal failure , STOP so the watcher / a Monitor surfaces it instead of the
+  // run looking still-in-flight (a bare error line would classify as `null` + be skipped).
+  if (/^\[drive\] ABORTED\b/.test(line)) {
+    return { kind: "escalation", text: line.replace(/^\[drive\] /, ""), stop: true, outcome: "escalation" };
+  }
   if (/^\[drive\] GATE awaiting human approval:/.test(line)) {
     return { kind: "gate", text: line, stop: true, outcome: "gate" };
   }

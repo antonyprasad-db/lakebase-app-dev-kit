@@ -16,7 +16,7 @@
 // every item maps to one of the story's ACs (the S2 live-stall bug).
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { storyAcIds, readAcLayer, readAcArchitecturalNotes, storyTestListJson, acsDir, designGuideJson, architectureJson, dbDesignJson, featureSpecJson, storiesDir } from "../../consort/config/consort-paths.js";
+import { storyAcIds, readAcLayer, readAcArchitecturalNotes, storyTestListJson, acsDir, designGuideJson, designAssetsDir, architectureJson, dbDesignJson, featureSpecJson, storiesDir } from "../../consort/config/consort-paths.js";
 import { checkArtifactConformance, canonicalArtifactName, checkDbDesign, checkStoryIndependence } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
 
 export interface FormatViolation {
@@ -348,6 +348,44 @@ export function designGuideHasComponents(consortDir: string): { ok: boolean; pro
   return { ok: true };
 }
 
+/** Whether a brand asset was STAGED (an image under `.consort/design/assets/`) but the
+ *  design-guide omits `app_icon`. The staged asset is the ONLY thing that wires the brand
+ *  mark in: the kit copies its real bytes to `install_to` (installBrandAsset) and the
+ *  ux-adherence gate enforces the app shell (favicon + navbar) references it , BOTH keyed
+ *  on the guide's `app_icon`. Omitting the declaration means the icon SILENTLY never ships
+ *  (it only lands if some AC happens to reference it, the "built app doesn't incorporate
+ *  warehouse.png" gap). This catches it at the UX Designer's self-check , the source ,
+ *  rather than shipping a placeholder. Ok when nothing is staged (no obligation). */
+export function brandAssetDeclared(consortDir: string): { ok: boolean; problem?: string } {
+  const assetsDir = designAssetsDir(consortDir);
+  if (!existsSync(assetsDir)) return { ok: true };
+  let staged: string[];
+  try {
+    staged = readdirSync(assetsDir).filter((f) => /\.(png|jpe?g|svg|webp|ico|gif|avif)$/i.test(f));
+  } catch {
+    return { ok: true };
+  }
+  if (staged.length === 0) return { ok: true }; // nothing staged , the guide need not declare an icon
+  const file = designGuideJson(consortDir);
+  if (existsSync(file)) {
+    try {
+      const guide = JSON.parse(readFileSync(file, "utf8")) as { app_icon?: { source?: string; install_to?: string } };
+      if (guide.app_icon?.source && guide.app_icon?.install_to) return { ok: true };
+    } catch {
+      return { ok: true }; // malformed JSON is designGuideConformance's job to report
+    }
+  }
+  const first = staged[0];
+  return {
+    ok: false,
+    problem:
+      `a brand asset is staged (.consort/design/assets/${first}) but design-guide.json omits \`app_icon\` , ` +
+      `declare it so the brand mark actually ships: ` +
+      `"app_icon": { "source": ".consort/design/assets/${first}", "install_to": "client/public/${first}" }. ` +
+      `Without it the kit never installs the real bytes and the ux-adherence gate never enforces the favicon/navbar reference , the icon ships only by luck.`,
+  };
+}
+
 /** ux-designer (project-level, UI track): the machine-checkable design-guide.json
  *  exists and conforms to design-guide.schema.json. The model is told NOT to read
  *  the schema, so it drifts on shape (camelCase keys, nested spacing, extra
@@ -361,6 +399,10 @@ function checkUxDesigner(args: FormatArgs, v: FormatViolation[]): void {
   }
   const c = designGuideHasComponents(args.consortDir);
   if (!c.ok) v.push({ artifact: "design/design-guide.json", problem: c.problem ?? "design-guide.json is missing components" });
+  // A staged brand asset with no `app_icon` declaration is a design-guide defect: the
+  // brand mark would silently never ship. Fail the self-check at the source.
+  const b = brandAssetDeclared(args.consortDir);
+  if (!b.ok) v.push({ artifact: "design/design-guide.json", problem: b.problem ?? "a staged brand asset is not declared as app_icon" });
 }
 
 const CHECKERS: Record<string, (a: FormatArgs, v: FormatViolation[]) => void> = {

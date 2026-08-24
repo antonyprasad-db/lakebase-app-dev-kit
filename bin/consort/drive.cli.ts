@@ -79,6 +79,7 @@ import {
   ClaudeTurnError,
   ReplayCorpusMissError,
   ArtifactOutOfRootError,
+  CliEffectError,
 } from "../../consort/orchestrator/drive/claude-runner.js";
 import { beginTelemetryRun, withTelemetry } from "../../consort/telemetry/with-telemetry.js";
 
@@ -1250,6 +1251,41 @@ async function main(): Promise<number> {
       process.stderr.write(`[drive] ${err.message}\n        recorded under ${path.basename(cfg.consortDir)}/escalations/ ; resolve it, then re-run.\n`);
       return 3;
     }
+    // A deterministic CLI effect (an SCM bin , wait-ci / merge / prepare-pr , or
+    // deploy) exited non-zero mid-drive: the CI-failure class. Record a RESUMABLE
+    // escalation and emit the CLASSIFIED `RAISED TO HIL` halt line so a session
+    // tailing drive-live.log (or a Monitor watching it) actually SURFACES the
+    // failure. Without this the reject fell to the bare-message catch-all below ,
+    // an UNPREFIXED "<bin> exited N" line that classifyDriveLine returns null for ,
+    // so the watcher skipped it and the run looked like it was "still waiting on CI"
+    // after the drive had already died. The bin itself streamed its own diagnosis
+    // (e.g. "CI failed for PR <url>. Failed checks: …") to the drive log above;
+    // consort-diagnose bundles it. Mirrors the deploy-verify escalation pattern.
+    if (err instanceof CliEffectError) {
+      const reason = `${err.bin} exited ${err.code}. See the drive log above for the failing checks / cause; fix them (push to the branch) and re-run.`;
+      try {
+        writeEscalation(cfg.consortDir, { source: `cli:${err.bin}`, reason, feature_id: cfg.featureId });
+        emitAgentLogEvent(
+          {
+            role: "orchestrator",
+            level: "error",
+            event: "escalation.raised",
+            feature_id: cfg.featureId,
+            slots: { source: `cli:${err.bin}`, reason },
+          },
+          { consortDir: cfg.consortDir },
+        );
+      } catch {
+        /* best-effort; the classified halt line below is the load-bearing signal */
+      }
+      process.stderr.write(
+        `[drive] RAISED TO HIL , ${err.bin} failed.\n` +
+          `        reason: ${reason}\n` +
+          `        recorded under ${path.basename(cfg.consortDir)}/escalations/ ; once the root cause is fixed, clear it with \`consort-resolve-escalation\` (keeps the record , do NOT rm it), then re-run to resume.\n` +
+          `        To troubleshoot or share the failure, bundle the local forensics: consort-diagnose\n`,
+      );
+      return 3;
+    }
     // A replay corpus miss: the recording is incomplete for a turn the pipeline
     // dispatched. Not an escalation (no live workflow to resume) , it is a corpus/
     // config defect. Fail loud with the missing-artifact guidance; no agent ran.
@@ -1265,7 +1301,14 @@ async function main(): Promise<number> {
       process.stderr.write(`[drive] ${err.message}\n`);
       return 3;
     }
-    process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+    // Last resort: an UNEXPECTED error escaped every typed branch. Do NOT let it die
+    // as a bare, unprefixed line , classifyDriveLine returns null for that, so a
+    // session / Monitor tailing drive-live.log never learns the drive crashed (the run
+    // looks still-in-flight). Prefix + a terminal `ABORTED` marker the watcher STOPS on.
+    process.stderr.write(
+      `[drive] ABORTED , unexpected error: ${err instanceof Error ? err.message : String(err)}\n` +
+        `        To troubleshoot or share the failure, bundle the local forensics: consort-diagnose\n`,
+    );
     return 1;
   } finally {
     // Close the telemetry root span with a coarse run outcome + exit code (an

@@ -77,6 +77,22 @@ describe("classifyDriveLine , STOP points (control returns to the human)", () =>
     });
   });
 
+  it("ABORTED headline (unexpected crash) => escalation, STOP , never a silent, skipped line", () => {
+    // Regression: a deterministic CLI effect (wait-ci / merge) or an unexpected error
+    // used to die as a bare, unprefixed "<bin> exited N" line that classifyDriveLine
+    // returned null for, so a Monitor tailing drive-live.log never surfaced the CI
+    // failure and the run looked like it was "still waiting on CI" after it had died.
+    const c = classifyDriveLine("[drive] ABORTED , unexpected error: something broke");
+    expect(c).toMatchObject({ kind: "escalation", stop: true, outcome: "escalation" });
+    expect(c?.text).toContain("ABORTED");
+  });
+
+  it("a CLI-effect failure that raised to HIL (wait-ci) => escalation, STOP", () => {
+    expect(
+      classifyDriveLine("[drive] RAISED TO HIL , lakebase-scm-wait-ci failed."),
+    ).toMatchObject({ kind: "escalation", stop: true, outcome: "escalation" });
+  });
+
   it("escalation (recorded under escalations/) => escalation, STOP", () => {
     const c = classifyDriveLine(
       "        recorded under stockflow/escalations/ ; resolve it, then re-run to resume.",

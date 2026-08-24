@@ -30,6 +30,7 @@ import {
   storyReviewVerdictJson,
   ALL_ARTIFACT_ROOTS,
   designGuideJson,
+  designAssetsDir,
 } from "../../consort/config/consort-paths.js";
 import { markTestItemGreen } from "../test-list/test-list.js";
 import { listExperiments } from "../../consort/experiment/experiment.js";
@@ -798,7 +799,7 @@ export function installBrandAsset(
     const base = basename(appIcon.install_to);
     // Prefer the staged design asset; fall back to the guide's declared source path.
     const src = [
-      join(consortDir, "design", "assets", base),
+      join(designAssetsDir(consortDir), base),
       join(projectDir, appIcon.source),
       join(consortDir, appIcon.source),
     ].find((p) => existsSync(p));

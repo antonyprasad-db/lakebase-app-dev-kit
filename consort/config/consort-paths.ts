@@ -102,6 +102,11 @@ export const designBriefMd = (tdd: string): string => join(tdd, "design", "desig
  *  authored once from the design brief; gates the UI build (design-guide.md is
  *  its human-readable sibling, ia.md the information architecture). */
 export const designGuideJson = (tdd: string): string => join(tdd, "design", "design-guide.json");
+/** The staged brand/design assets dir (`.consort/design/assets/`): where the intake
+ *  stages an app icon / logo (e.g. `warehouse.png`) for the UX Designer to declare via
+ *  the guide's `app_icon` and the kit to install the real bytes from. A staged asset
+ *  with no `app_icon` is a design-guide defect (`brandAssetDeclared`). */
+export const designAssetsDir = (tdd: string): string => join(tdd, "design", "assets");
 /** Project-level architecture conventions: the canonical layer layout (role ->
  *  module) the FIRST service-backed feature establishes, persisted across
  *  features so every later feature's architecture inherits + conforms to it

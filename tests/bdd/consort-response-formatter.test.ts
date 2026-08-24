@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { formatRoleResponse, designGuideConformance } from "../../consort/session/response-formatter";
+import { formatRoleResponse, designGuideConformance, brandAssetDeclared } from "../../consort/session/response-formatter";
 
 const F = "F1-file-bug";
 const S = "S2-submit-create-bug";
@@ -357,6 +357,57 @@ describe("response-formatter: ux-designer (design-guide.json conforms to its sch
     expect(bad.problem).toMatch(/font_family|additional properties/i);
     writeJson(designGuide(), CONFORMANT);
     expect(designGuideConformance(tdd)).toEqual({ ok: true });
+  });
+});
+
+describe("response-formatter: ux-designer (a STAGED brand asset must be declared as app_icon)", () => {
+  const CONFORMANT_UI = {
+    typography: { font_family: "'DM Sans', sans-serif", scale: { "text-base": "15px" }, line_heights: { body: "1.5" }, font_weights: { medium: "500" } },
+    colors: { brand: { "brand-red": "#FF3621" } },
+    spacing: { "space-4": "16px" },
+    components: { page: { class: "page" }, card: { class: "card" }, button: { class: "btn" } },
+  };
+  const guidePath = (): string => join(tdd, "design", "design-guide.json");
+  const stageAsset = (name = "warehouse.png"): void => {
+    const dir = join(tdd, "design", "assets");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, name), Buffer.from([0x89, 0x50, 0x4e, 0x47])); // PNG-ish bytes
+  };
+
+  it("PASSES when nothing is staged (no app_icon obligation)", () => {
+    writeJson(guidePath(), CONFORMANT_UI);
+    expect(brandAssetDeclared(tdd)).toEqual({ ok: true });
+    expect(formatRoleResponse({ role: "ux-designer", consortDir: tdd, featureId: F }).ok).toBe(true);
+  });
+
+  it("FLAGS a staged asset the guide omits from app_icon (the icon would silently never ship)", () => {
+    stageAsset("warehouse.png");
+    writeJson(guidePath(), CONFORMANT_UI); // conformant + has components, but NO app_icon
+    const b = brandAssetDeclared(tdd);
+    expect(b.ok).toBe(false);
+    expect(b.problem).toMatch(/app_icon/);
+    expect(b.problem).toMatch(/warehouse\.png/);
+    const r = formatRoleResponse({ role: "ux-designer", consortDir: tdd, featureId: F });
+    expect(r.ok).toBe(false);
+    expect(r.violations.map((v) => v.problem).join("\n")).toMatch(/app_icon/);
+  });
+
+  it("PASSES once the guide declares app_icon for the staged asset", () => {
+    stageAsset("warehouse.png");
+    writeJson(guidePath(), {
+      ...CONFORMANT_UI,
+      app_icon: { source: ".consort/design/assets/warehouse.png", install_to: "client/public/warehouse.png" },
+    });
+    expect(brandAssetDeclared(tdd)).toEqual({ ok: true });
+    expect(formatRoleResponse({ role: "ux-designer", consortDir: tdd, featureId: F }).ok).toBe(true);
+  });
+
+  it("ignores non-image files in the assets dir (only a real brand asset obliges)", () => {
+    const dir = join(tdd, "design", "assets");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "notes.txt"), "not an image");
+    writeJson(guidePath(), CONFORMANT_UI);
+    expect(brandAssetDeclared(tdd)).toEqual({ ok: true });
   });
 });
 
