@@ -13,8 +13,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { resolveConsortDir } from "../../consort/config/consort-paths.js";
-import { classifyDriveLine, type WatchLineKind } from "../../consort/orchestrator/drive/watch-classify.js";
+import { classifyDriveLine, type WatchLineKind, type WatchClass } from "../../consort/orchestrator/drive/watch-classify.js";
 import { openArtifactsInEditor } from "../../consort/orchestrator/open/open-in-editor.js";
+import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 
 interface Args {
   log?: string;
@@ -95,6 +96,95 @@ const alive = (pid: number): boolean => {
 };
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
+/** Read the WHOLE log and return the LAST classified STOP line (gate/pause/escalation/
+ *  done), or null if none. Used when the drive already reached a terminal marker before
+ *  (or just as) we attached , a fast detached run that stopped before this follow
+ *  started from EOF. Without it we'd miss the marker and falsely report an unclean exit.
+ *  Works for ANY step (it matches whatever the classifier flags as a stop). */
+export function scanLastStop(logPath: string): WatchClass | null {
+  let last: WatchClass | null = null;
+  try {
+    for (const line of fs.readFileSync(logPath, "utf8").split("\n")) {
+      const c = classifyDriveLine(line);
+      if (c?.stop) last = c;
+    }
+  } catch {
+    /* unreadable , treat as no stop found */
+  }
+  return last;
+}
+
+/** Emit the stop GUIDANCE for a terminal transition (open the review artifacts at a
+ *  gate/pause; point at consort-diagnose on escalation; else "run complete") and return
+ *  the process exit code (3 for escalation, else 0). The stop LINE itself is printed by
+ *  the caller. Shared by the live follow AND the late-attach scan so both behave alike. */
+function emitStop(c: WatchClass, consortDir: string, open: boolean): number {
+  if (c.outcome === "gate" || c.outcome === "pause") {
+    if (open) {
+      const res = openArtifactsInEditor(consortDir, currentScope(consortDir));
+      if (res.opened) process.stderr.write(`consort-watch: opened ${res.files.length} artifact(s) for review in ${res.editor}.\n`);
+      else if (res.reason === "not-in-editor" && res.files.length) process.stderr.write(`consort-watch: review artifacts (not in an editor): ${res.files.map((f) => path.basename(f)).join(", ")}\n`);
+    }
+    process.stderr.write("consort-watch: control is back with you , run `consort-next` for the exact command, then re-run the drive.\n");
+  } else if (c.outcome === "escalation") {
+    process.stderr.write(`consort-watch: the run escalated , \`consort-diagnose\` bundles the forensics; after fixing the cause, \`consort-resolve-escalation\` clears it (do NOT rm the record), then re-run.\n`);
+  } else {
+    process.stderr.write("consort-watch: run complete.\n");
+  }
+  return c.outcome === "escalation" ? 3 : 0;
+}
+
+export type PollStatus = "running" | "gate" | "pause" | "escalation" | "done" | "waiting";
+export interface PollResult {
+  /** The lines a human sees this poll, already PREFIX-formatted (role/gate/etc.). */
+  relayed: string[];
+  /** New byte offset , pass as the next `--since`. */
+  cursor: number;
+  /** running until a stop is seen (this batch OR, when the pid is gone, anywhere in the log). */
+  status: PollStatus;
+}
+
+/** POLL-ONCE, pure + testable (no stdout): read new lines from `since` to EOF, format
+ *  each meaningful transition for relay, and resolve the status. This is the ONE relay
+ *  the guidance mandates , the caller loops it (narrating `relayed` each time) until
+ *  `status` is a stop. `isAlive` is injectable so a test can drive the pid-gone path. */
+export function pollOnce(
+  logPath: string,
+  since: number,
+  pid?: number,
+  isAlive: (p: number) => boolean = alive,
+): PollResult {
+  if (!fs.existsSync(logPath)) return { relayed: [], cursor: 0, status: "waiting" };
+  const size = fs.statSync(logPath).size;
+  const from = since < 0 || since > size ? 0 : since; // clamp; truncation => re-read
+  const relayed: string[] = [];
+  let status: PollStatus = "running";
+  if (size > from) {
+    const fd = fs.openSync(logPath, "r");
+    const buf = Buffer.alloc(size - from);
+    fs.readSync(fd, buf, 0, buf.length, from);
+    fs.closeSync(fd);
+    let inNotice = false;
+    for (const line of buf.toString("utf8").split("\n")) {
+      if (inNotice) {
+        if (/^\s+\S/.test(line)) { relayed.push(line.replace(/\s+$/, "")); continue; }
+        inNotice = false;
+      }
+      const c = classifyDriveLine(line);
+      if (!c) continue;
+      relayed.push(`${PREFIX[c.kind]} ${c.text}`);
+      if (c.kind === "notice") { inNotice = true; continue; }
+      if (c.stop && c.outcome) status = c.outcome; // last stop in this batch wins
+    }
+  }
+  // Process gone + nothing new PAST our cursor => scan the whole log for the real
+  // terminal marker (a stop at any step the caller's cursor started after).
+  if (status === "running" && pid !== undefined && !isAlive(pid) && size <= from) {
+    status = scanLastStop(logPath)?.outcome ?? "done";
+  }
+  return { relayed, cursor: size, status };
+}
+
 async function main(): Promise<number> {
   const args = parseArgs(process.argv.slice(2));
   const consortDir = args.consortDir ?? resolveConsortDir(args.projectDir);
@@ -106,34 +196,9 @@ async function main(): Promise<number> {
   // (they see only a spinner until it returns), so the caller LOOPS short --since calls
   // and narrates each batch. Returns fast whether or not there is new content.
   if (args.since !== undefined) {
-    if (!fs.existsSync(logPath)) {
-      process.stdout.write(`[consort-watch] cursor=0 status=waiting\n`);
-      return 0;
-    }
-    const size = fs.statSync(logPath).size;
-    const from = args.since < 0 || args.since > size ? 0 : args.since; // clamp; truncation => re-read
-    let status: "running" | "gate" | "pause" | "escalation" | "done" | "waiting" = "running";
-    if (size > from) {
-      const fd = fs.openSync(logPath, "r");
-      const buf = Buffer.alloc(size - from);
-      fs.readSync(fd, buf, 0, buf.length, from);
-      fs.closeSync(fd);
-      let inNotice = false;
-      for (const line of buf.toString("utf8").split("\n")) {
-        if (inNotice) {
-          if (/^\s+\S/.test(line)) { process.stdout.write(`${line.replace(/\s+$/, "")}\n`); continue; }
-          inNotice = false;
-        }
-        const c = classifyDriveLine(line);
-        if (!c) continue;
-        process.stdout.write(`${PREFIX[c.kind]} ${c.text}\n`);
-        if (c.kind === "notice") { inNotice = true; continue; }
-        if (c.stop && c.outcome) status = c.outcome; // last stop in this batch wins
-      }
-    }
-    // Process gone + nothing new => it ended without a terminal line (crash/kill).
-    if (status === "running" && args.pid !== undefined && !alive(args.pid) && size <= from) status = "done";
-    process.stdout.write(`[consort-watch] cursor=${size} status=${status}\n`);
+    const r = pollOnce(logPath, args.since, args.pid);
+    for (const line of r.relayed) process.stdout.write(`${line}\n`);
+    process.stdout.write(`[consort-watch] cursor=${r.cursor} status=${r.status}\n`);
     return 0;
   }
 
@@ -185,30 +250,22 @@ async function main(): Promise<number> {
         if (!c) continue;
         process.stdout.write(`${PREFIX[c.kind]} ${c.text}\n`);
         if (c.kind === "notice") { inNotice = true; continue; }
-        if (c.stop) {
-          // The exact next command lives in the authoritative read-only surface, not
-          // in this line's indented follow-up (which the classifier skips). Point there.
-          if (c.outcome === "gate" || c.outcome === "pause") {
-            // Surface the artifacts under review in the editor (when inside Cursor/Code),
-            // so the human reviews the spec/architecture/test-list/ACs without hunting.
-            if (args.open) {
-              const res = openArtifactsInEditor(consortDir, currentScope(consortDir));
-              if (res.opened) process.stderr.write(`consort-watch: opened ${res.files.length} artifact(s) for review in ${res.editor}.\n`);
-              else if (res.reason === "not-in-editor" && res.files.length) process.stderr.write(`consort-watch: review artifacts (not in an editor): ${res.files.map((f) => path.basename(f)).join(", ")}\n`);
-            }
-            process.stderr.write("consort-watch: control is back with you , run `consort-next` for the exact command, then re-run the drive.\n");
-          } else if (c.outcome === "escalation") {
-            process.stderr.write(`consort-watch: the run escalated , \`consort-diagnose\` bundles the forensics; after fixing the cause, \`consort-resolve-escalation\` clears it (do NOT rm the record), then re-run.\n`);
-          } else {
-            process.stderr.write("consort-watch: run complete.\n");
-          }
-          return c.outcome === "escalation" ? 3 : 0;
-        }
+        // The exact next command lives in the authoritative read-only surface, not in
+        // this line's indented follow-up (which the classifier skips) , emitStop points there.
+        if (c.stop) return emitStop(c, consortDir, args.open);
       }
     }
-    // Drive process gone + nothing more to read => it ended without a clean terminal
-    // line (a crash / kill). Report and stop so the watcher never hangs forever.
+    // Drive process gone + nothing more to read PAST our offset. This is the common
+    // late-attach case: a fast detached drive wrote its terminal marker (a PAUSE at any
+    // step, a gate, done) and exited BEFORE we started following from EOF. Scan the whole
+    // log for the last stop and report the REAL outcome , NOT a false "unclean exit".
+    // Only when there is genuinely no stop marker anywhere is it a crash/kill.
     if (args.pid && !alive(args.pid) && fs.statSync(logPath).size <= offset) {
+      const last = scanLastStop(logPath);
+      if (last) {
+        process.stdout.write(`${PREFIX[last.kind]} ${last.text}\n`);
+        return emitStop(last, consortDir, args.open);
+      }
       process.stderr.write(`consort-watch: drive pid ${args.pid} is no longer running (no terminal line seen).\n`);
       return 3;
     }
@@ -226,7 +283,9 @@ async function main(): Promise<number> {
   }
 }
 
-main().then((code) => process.exit(code)).catch((e) => {
-  process.stderr.write(`consort-watch: ${e instanceof Error ? e.message : String(e)}\n`);
-  process.exit(1);
-});
+if (isCliEntry(import.meta.url)) {
+  main().then((code) => process.exit(code)).catch((e) => {
+    process.stderr.write(`consort-watch: ${e instanceof Error ? e.message : String(e)}\n`);
+    process.exit(1);
+  });
+}

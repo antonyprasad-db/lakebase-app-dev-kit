@@ -8,6 +8,8 @@ This command launches the Consort (spec-first, test-driven) loop. First detect w
 
 ### 0. Telemetry briefing (once, before anything else)
 
+**This is a SILENT precondition , do NOT narrate it.** Never say "checking telemetry", "handling the telemetry briefing", "step 0", or announce that you are looking at telemetry. Just run the `status --json` check quietly. On an already-acknowledged install (the common case) this step produces **ZERO** user-visible output about telemetry , you go straight to the project-state detection below as if it were your first action. The ONLY time telemetry is ever mentioned to the human is the one-time briefing itself, when `acknowledged` is false.
+
 Consort reports pseudonymous usage telemetry to its maintainers. The human MUST be told this in plain language the first time you run `/consort:start` for them , and be offered the Level-1 opt-out and the Level-2 opt-in , **here, where they can actually read it** (a stderr notice buried in a background drive is not a disclosure). Gate on the `acknowledged` flag, not on whether a config file exists.
 
 **Invoke the telemetry CLI via the PLUGIN's binary, NOT `./scripts/lk`.** This step runs BEFORE the Create/Resume branch, and on a fresh install (the Create path) there is no scaffolded `./scripts/lk` yet , so `./scripts/lk consort-telemetry …` silently FAILS and the human's answer is never persisted (exactly the "I chose Level 2 and it didn't stick" bug). The plugin always ships `dist/`, so resolve its binary dir once and use it for every call below (it writes the same home config `~/.config/consort/telemetry.json` regardless of any project). **`$CLAUDE_PLUGIN_ROOT` is NOT reliably exported into a tool shell** , so prefer it but fall back to the plugin cache:
@@ -24,8 +26,8 @@ TCLI="node \"$CONSORT_ROOT/dist/bin/consort/telemetry.cli.js\""
 ```
 (Same `$CONSORT_ROOT` resolves `consort-watch` for the create relay in **B. Create** below.)
 
-1. Run `$TCLI status --json` and read `acknowledged`.
-2. **If `acknowledged` is `true`, SKIP this section entirely** , they have already been briefed and made a choice; go straight to the `.consort/` check below.
+1. Quietly run `$TCLI status --json` and read `acknowledged` (do NOT narrate this).
+2. **If `acknowledged` is `true`, SKIP this section SILENTLY** , they have already been briefed and made a choice; say NOTHING about telemetry and go straight to the `.consort/` check below.
 3. **If `acknowledged` is `false`** (a brand-new install, OR an older config that predates this briefing), present this verbatim and wait for their answer:
    > "One quick thing before we start , Consort's usage telemetry. Consort runs entirely in your own workspace, so a telemetry capture is the only way its maintainers can see what's working and make it better. It's **pseudonymous**: a random per-install id and nothing that identifies you , **no personal data, no code, no file paths, no names** , just event names, counts, and timings from a fixed allowlist. It's **on by default**, and you can opt out or change it anytime. How would you like it set?
    > • **ok** , leave it on at the default (Level 1: high-level phase and gate events).
@@ -66,7 +68,13 @@ Drive the workflow through the **deterministic orchestrator** (`consort-drive`),
    - Confirm the chosen step with the human, invoke that project-scaffolded command (it runs the deterministic driver, which spawns the role agents + pauses at gates), then loop.
    - **Run the driver DETACHED, then relay it with short poll-once calls , do NOT run it foreground and narrate from chunks, and do NOT background it with `nohup … &`.** The driver streams one `[drive] NNN dispatch <role> for <phase>` line the moment each role STARTS (e.g. `dispatch dba for design`, then `dispatch test-strategist for design`) and a `[drive] <role> turn Ns` line when it finishes. Two hard rules make this observable AND durable:
      1. **Launch with `--detach`, never `nohup`/`&`.** Run **`./scripts/lk consort-drive <flags> --detach`**. It re-launches the drive in its OWN session (setsid) and returns immediately, printing the child pid + the watch command. This is the ONLY launch that survives your turn ending: a `nohup … &` (or a bare `&`) leaves the drive in your tool call's process group, which the harness SIGTERMs when the call returns , that is the "drive reaped between turns" failure. `--detach` escapes that group; nothing about a later watcher call can reach it either. The drive SELF-WRITES `.consort/drive-live.log` (do NOT redirect stderr to it , the drive owns it; a redirect double-writes).
-     2. **Relay with poll-once `consort-watch --since <cursor>`, in a loop , NOT a blocking watch.** A long-blocking call is NOT streamed to the human (they see only a spinner until it returns), so narrate between short calls: `./scripts/lk consort-watch --since 0 --pid <drive-pid>` prints the new log lines + a `[consort-watch] cursor=<N> status=<running|gate|pause|escalation|done|waiting>` trailer and EXITS at once. Narrate that batch to the human, then call again with `--since <N>` (the printed cursor). Repeat until `status` is `gate`/`pause`/`escalation`/`done`. Do NOT hand-roll a `tail -f … | while read; case …` loop (brittle) and do NOT rely on a blocking watch to relay. When it stops, run `consort-next` for the exact command that clears it.
+     2. **To SEE EACH STEP LIVE, relay POLL-ONCE with `consort-watch --since <cursor>` in a loop , this is the ONLY foreground-safe way, and it is mandatory.** Each call returns IMMEDIATELY with the new transitions (role dispatch / turn-done / gate / pause / escalation / done) + a `[consort-watch] cursor=<N> status=<running|gate|pause|escalation|done|waiting>` trailer, then EXITS. You narrate that batch to the human and call again with the printed `<N>` , so the human watches the design lane unfold (Spec Author → UX → Architect → DBA → Test Strategist) turn by turn:
+        ```bash
+        ./scripts/lk consort-watch --since 0  --pid <drive-pid>   # first batch + cursor
+        ./scripts/lk consort-watch --since <N> --pid <drive-pid>  # next batch (use the printed cursor); repeat
+        ```
+        Poll about every 15-20s while `status=running` (fast enough to feel live, not so fast it burns turns); stop when `status` is `gate`/`pause`/`escalation`/`done`, then run `consort-next` for the exact command that clears it.
+        **NEVER run a BLOCKING `consort-watch` as a foreground call , not `--timeout 0`, not the default bound, not any blocking follow.** The harness buffers a foreground call and shows NOTHING until it returns , the human stares at a spinner for the whole phase and sees no steps (the exact failure to avoid). `--timeout 0` is valid ONLY as the command handed to the **Monitor tool** (which streams it live); if you are not *literally* invoking the Monitor tool, you are in a Bash call , use poll-once. And NEVER hand-roll a `tail -f … | while read; case …` loop.
      This is the orchestrator-contract's rule 1 (`skills/consort/references/orchestrator-contract.md`); follow it for `/sprint`, `/plan`, `/design`, `/build`, and `/deploy` alike.
 
 **Teardown / reclaim** (run from inside the project; both default the Lakebase instance + host from the project `.env`, so you need not re-specify them):
@@ -169,7 +177,7 @@ KIT_REF="${LAKEBASE_KIT_REF:-}"
 if [ -z "$KIT_REF" ] && [ -f "$CONSORT_ROOT/.claude-plugin/plugin.json" ]; then
   KIT_REF="v$(node -p "require('$CONSORT_ROOT/.claude-plugin/plugin.json').version" 2>/dev/null || true)"
 fi
-KIT_REF="${KIT_REF:-v0.3.28}"   # stamped at release; == package.json version (enforced by tests/bdd/start-kit-pin.test.ts)
+KIT_REF="${KIT_REF:-v0.3.29}"   # stamped at release; == package.json version (enforced by tests/bdd/start-kit-pin.test.ts)
 export LAKEBASE_KIT_REF="$KIT_REF"
 
 # Launch scaffolding DETACHED (own session): it prints the child pid + a live-log path

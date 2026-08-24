@@ -18350,7 +18350,7 @@ async function runLeanReplayTurn(bundle, agentFor, manifestDir) {
         (0, import_node_fs29.mkdirSync)(dstDir, { recursive: true });
         (0, import_node_fs29.writeFileSync)((0, import_node_path34.join)(dstDir, "green-failure.json"), (0, import_node_fs29.readFileSync)(gf, "utf8"));
       }
-      const lkSrc = (0, import_node_path34.join)(KIT, "templates/project/common/scripts/lk");
+      const lkSrc = (0, import_node_path34.join)(KIT, "examples/replay/lk");
       if ((0, import_node_fs29.existsSync)(lkSrc)) {
         const lkDst = (0, import_node_path34.join)(ws, "scripts", "lk");
         (0, import_node_fs29.mkdirSync)((0, import_node_path34.join)(ws, "scripts"), { recursive: true });

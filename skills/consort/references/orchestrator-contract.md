@@ -26,16 +26,20 @@ the phase/role/gate transitions; don't narrate the tooling.
    launch that survives your turn ending: a `nohup … &` leaves the drive in your tool
    call's process group, which the harness SIGTERMs on turn-end (the "drive reaped
    between turns" failure); `--detach` escapes that group. Do NOT redirect stderr to
-   `drive-live.log` (the drive owns it , a redirect double-writes). **(b) Relay with
-   poll-once `./scripts/lk consort-watch --since <cursor> --pid <drive-pid>` in a
-   LOOP, not a blocking watch.** A long-blocking call is not streamed to the human
-   (they see only a spinner); each `--since` call prints the new lines + a
+   `drive-live.log` (the drive owns it , a redirect double-writes). **(b) To SHOW EACH
+   STEP LIVE, relay POLL-ONCE with `consort-watch --since <cursor>` in a loop , the ONLY
+   foreground-safe way, mandatory.** Each call returns IMMEDIATELY with the new lines + a
    `[consort-watch] cursor=<N> status=<running|gate|pause|escalation|done|waiting>`
-   trailer and EXITS , narrate that batch, then call again with the printed cursor
-   until `status` is a stop. The same poll-once relay follows create + refresh (their
-   `[stage]` / `lk:` lines classify too). Do NOT hand-roll a `tail -f … | while
-   read; case …` loop (brittle; the kit owns the formats). `consort-watch` relays each
-   transition as it lands ,
+   trailer and EXITS; narrate that batch, then call again with the printed `<N>` (poll
+   ~every 15-20s while running) until `status` is a stop. **NEVER run a BLOCKING
+   `consort-watch` as a foreground Bash call , not `--timeout 0`, not the default bound,
+   not any follow , the harness buffers it and the human sees only a spinner until it
+   returns (no steps). `--timeout 0` is valid ONLY as the command handed to the Monitor
+   TOOL (which streams it live); if you are not literally invoking the Monitor tool you
+   are in a Bash call , use poll-once.** NEVER hand-roll a `tail -f … | while read; case
+   …` monitor (brittle; the kit owns the formats). The same poll-once relay follows
+   create + refresh (their `[stage]` / `lk:` lines classify too). `consort-watch` relays
+   each transition as it lands ,
    e.g. "Planning: Spec Author proposing the backlog… → Architect estimating… → Plan
    gate reached." , and STOPS at a gate / pause / escalation / run-end (then run
    `consort-next` for the exact command that clears it). When it stops at a gate,

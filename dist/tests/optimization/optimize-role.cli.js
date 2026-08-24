@@ -18338,7 +18338,7 @@ async function runLeanReplayTurn(bundle, agentFor, manifestDir) {
         mkdirSync35(dstDir, { recursive: true });
         writeFileSync31(join58(dstDir, "green-failure.json"), readFileSync50(gf, "utf8"));
       }
-      const lkSrc = join58(KIT, "templates/project/common/scripts/lk");
+      const lkSrc = join58(KIT, "examples/replay/lk");
       if (existsSync56(lkSrc)) {
         const lkDst = join58(ws, "scripts", "lk");
         mkdirSync35(join58(ws, "scripts"), { recursive: true });

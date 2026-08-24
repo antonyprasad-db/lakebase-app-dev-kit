@@ -206,6 +206,7 @@ function openArtifactsInEditor(consortDir, opts = {}) {
 }
 
 // bin/consort/watch.cli.ts
+import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 function currentScope(consortDir) {
   try {
     const ws = JSON.parse(fs4.readFileSync(path2.join(consortDir, "workflow-state.json"), "utf8"));
@@ -275,47 +276,79 @@ var alive = (pid) => {
   }
 };
 var sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function scanLastStop(logPath) {
+  let last = null;
+  try {
+    for (const line of fs4.readFileSync(logPath, "utf8").split("\n")) {
+      const c = classifyDriveLine(line);
+      if (c?.stop) last = c;
+    }
+  } catch {
+  }
+  return last;
+}
+function emitStop(c, consortDir, open) {
+  if (c.outcome === "gate" || c.outcome === "pause") {
+    if (open) {
+      const res = openArtifactsInEditor(consortDir, currentScope(consortDir));
+      if (res.opened) process.stderr.write(`consort-watch: opened ${res.files.length} artifact(s) for review in ${res.editor}.
+`);
+      else if (res.reason === "not-in-editor" && res.files.length) process.stderr.write(`consort-watch: review artifacts (not in an editor): ${res.files.map((f) => path2.basename(f)).join(", ")}
+`);
+    }
+    process.stderr.write("consort-watch: control is back with you , run `consort-next` for the exact command, then re-run the drive.\n");
+  } else if (c.outcome === "escalation") {
+    process.stderr.write(`consort-watch: the run escalated , \`consort-diagnose\` bundles the forensics; after fixing the cause, \`consort-resolve-escalation\` clears it (do NOT rm the record), then re-run.
+`);
+  } else {
+    process.stderr.write("consort-watch: run complete.\n");
+  }
+  return c.outcome === "escalation" ? 3 : 0;
+}
+function pollOnce(logPath, since, pid, isAlive = alive) {
+  if (!fs4.existsSync(logPath)) return { relayed: [], cursor: 0, status: "waiting" };
+  const size = fs4.statSync(logPath).size;
+  const from = since < 0 || since > size ? 0 : since;
+  const relayed = [];
+  let status = "running";
+  if (size > from) {
+    const fd = fs4.openSync(logPath, "r");
+    const buf = Buffer.alloc(size - from);
+    fs4.readSync(fd, buf, 0, buf.length, from);
+    fs4.closeSync(fd);
+    let inNotice = false;
+    for (const line of buf.toString("utf8").split("\n")) {
+      if (inNotice) {
+        if (/^\s+\S/.test(line)) {
+          relayed.push(line.replace(/\s+$/, ""));
+          continue;
+        }
+        inNotice = false;
+      }
+      const c = classifyDriveLine(line);
+      if (!c) continue;
+      relayed.push(`${PREFIX[c.kind]} ${c.text}`);
+      if (c.kind === "notice") {
+        inNotice = true;
+        continue;
+      }
+      if (c.stop && c.outcome) status = c.outcome;
+    }
+  }
+  if (status === "running" && pid !== void 0 && !isAlive(pid) && size <= from) {
+    status = scanLastStop(logPath)?.outcome ?? "done";
+  }
+  return { relayed, cursor: size, status };
+}
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const consortDir = args.consortDir ?? resolveConsortDir(args.projectDir);
   const logPath = args.log ?? path2.join(consortDir, "drive-live.log");
   if (args.since !== void 0) {
-    if (!fs4.existsSync(logPath)) {
-      process.stdout.write(`[consort-watch] cursor=0 status=waiting
+    const r = pollOnce(logPath, args.since, args.pid);
+    for (const line of r.relayed) process.stdout.write(`${line}
 `);
-      return 0;
-    }
-    const size = fs4.statSync(logPath).size;
-    const from = args.since < 0 || args.since > size ? 0 : args.since;
-    let status = "running";
-    if (size > from) {
-      const fd = fs4.openSync(logPath, "r");
-      const buf = Buffer.alloc(size - from);
-      fs4.readSync(fd, buf, 0, buf.length, from);
-      fs4.closeSync(fd);
-      let inNotice2 = false;
-      for (const line of buf.toString("utf8").split("\n")) {
-        if (inNotice2) {
-          if (/^\s+\S/.test(line)) {
-            process.stdout.write(`${line.replace(/\s+$/, "")}
-`);
-            continue;
-          }
-          inNotice2 = false;
-        }
-        const c = classifyDriveLine(line);
-        if (!c) continue;
-        process.stdout.write(`${PREFIX[c.kind]} ${c.text}
-`);
-        if (c.kind === "notice") {
-          inNotice2 = true;
-          continue;
-        }
-        if (c.stop && c.outcome) status = c.outcome;
-      }
-    }
-    if (status === "running" && args.pid !== void 0 && !alive(args.pid) && size <= from) status = "done";
-    process.stdout.write(`[consort-watch] cursor=${size} status=${status}
+    process.stdout.write(`[consort-watch] cursor=${r.cursor} status=${r.status}
 `);
     return 0;
   }
@@ -369,27 +402,16 @@ async function main() {
           inNotice = true;
           continue;
         }
-        if (c.stop) {
-          if (c.outcome === "gate" || c.outcome === "pause") {
-            if (args.open) {
-              const res = openArtifactsInEditor(consortDir, currentScope(consortDir));
-              if (res.opened) process.stderr.write(`consort-watch: opened ${res.files.length} artifact(s) for review in ${res.editor}.
-`);
-              else if (res.reason === "not-in-editor" && res.files.length) process.stderr.write(`consort-watch: review artifacts (not in an editor): ${res.files.map((f) => path2.basename(f)).join(", ")}
-`);
-            }
-            process.stderr.write("consort-watch: control is back with you , run `consort-next` for the exact command, then re-run the drive.\n");
-          } else if (c.outcome === "escalation") {
-            process.stderr.write(`consort-watch: the run escalated , \`consort-diagnose\` bundles the forensics; after fixing the cause, \`consort-resolve-escalation\` clears it (do NOT rm the record), then re-run.
-`);
-          } else {
-            process.stderr.write("consort-watch: run complete.\n");
-          }
-          return c.outcome === "escalation" ? 3 : 0;
-        }
+        if (c.stop) return emitStop(c, consortDir, args.open);
       }
     }
     if (args.pid && !alive(args.pid) && fs4.statSync(logPath).size <= offset) {
+      const last = scanLastStop(logPath);
+      if (last) {
+        process.stdout.write(`${PREFIX[last.kind]} ${last.text}
+`);
+        return emitStop(last, consortDir, args.open);
+      }
       process.stderr.write(`consort-watch: drive pid ${args.pid} is no longer running (no terminal line seen).
 `);
       return 3;
@@ -404,9 +426,15 @@ async function main() {
     await sleep(400);
   }
 }
-main().then((code) => process.exit(code)).catch((e) => {
-  process.stderr.write(`consort-watch: ${e instanceof Error ? e.message : String(e)}
+if (isCliEntry(import.meta.url)) {
+  main().then((code) => process.exit(code)).catch((e) => {
+    process.stderr.write(`consort-watch: ${e instanceof Error ? e.message : String(e)}
 `);
-  process.exit(1);
-});
+    process.exit(1);
+  });
+}
+export {
+  pollOnce,
+  scanLastStop
+};
 //# sourceMappingURL=watch.cli.js.map
