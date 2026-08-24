@@ -314,7 +314,28 @@ Fix: clear the npx cache and retry the version-pinned create from /consort:start
 
 // bin/lakebase/create-project.cli.ts
 import { createRequire } from "module";
-import { readFileSync as readFileSync7, appendFileSync, writeFileSync as writeFileSync5 } from "fs";
+import { readFileSync as readFileSync7, appendFileSync, writeFileSync as writeFileSync5, openSync, closeSync } from "fs";
+import * as os from "os";
+import * as path4 from "path";
+
+// consort/session/relaunch-detached.ts
+import { spawn } from "child_process";
+function relaunchDetached(childArgs, opts = {}) {
+  try {
+    const child = spawn(process.execPath, [process.argv[1], ...childArgs], {
+      detached: true,
+      // setsid(2): new session + process group, escapes the caller's group-SIGTERM
+      stdio: opts.stdio ?? "ignore",
+      env: opts.env ?? process.env
+    });
+    child.unref();
+    return child.pid ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// bin/lakebase/create-project.cli.ts
 function parseArgs(argv) {
   const out = {};
   for (let i = 0; i < argv.length; i++) {
@@ -470,15 +491,45 @@ Flags:
                       product-owner. (release-engineer is deterministic, not a
                       tunable agent.) Omitted roles use their recommended model.
                       Persisted to .lakebase/agent-config.json.
+  --detach            Re-launch scaffolding in a NEW session and return at once, so
+                      the ~3-4 min provision never hits the harness ~2min bash timeout
+                      and survives the turn ending. Captures the child's output (doctor
+                      + every [stage] line + final JSON) to a log and prints the
+                      consort-watch command to relay it poll-once. Use this to watch
+                      each step live instead of a silent foreground call.
+  --progress-log <p>  Tee the [stage] lines to this file too (structured relay sink).
   --json-input        Pass all args as a single JSON object (BDD harness)
 
 Output: JSON on stdout (CreateProjectResult). Progress to stderr.
 `;
 async function main() {
-  const args = parseArgs(process.argv.slice(2));
+  const rawArgv = process.argv.slice(2);
+  const args = parseArgs(rawArgv);
   if (args.help) {
     process.stdout.write(HELP);
     return 0;
+  }
+  if (rawArgv.includes("--detach")) {
+    const childArgs = rawArgv.filter((a) => a !== "--detach");
+    const logPath = path4.join(os.tmpdir(), `consort-create-${Date.now()}.log`);
+    let pid = null;
+    try {
+      const fd = openSync(logPath, "a");
+      pid = relaunchDetached(childArgs, { stdio: ["ignore", fd, fd] });
+      closeSync(fd);
+    } catch {
+      pid = null;
+    }
+    if (pid !== null) {
+      process.stdout.write(
+        `lakebase-create-project: scaffolding detached into its own session as pid ${pid} (survives this turn + the ~2min bash timeout).
+  live log: ${logPath}
+  relay it: consort-watch --since 0 --log ${logPath} --pid ${pid}   (re-poll with the printed cursor until status=done)
+`
+      );
+      return 0;
+    }
+    process.stderr.write("lakebase-create-project: detach re-spawn failed , running in-process instead.\n");
   }
   let input;
   if (args.jsonInput) {

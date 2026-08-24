@@ -27,7 +27,7 @@ import {
 import { migrateLegacyArtifactDir } from "../../consort/config/migrate-artifact-dir.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { spawn } from "node:child_process";
+import { relaunchDetached as spawnDetached } from "../../consort/session/relaunch-detached.js";
 import * as readline from "node:readline";
 
 import { recordTurn, seedRecorderBaseline, recordCorrespondence, recordRoutingDecision, lastRecordedOrdinal, type CorrespondenceEntry } from "../../consort/logging/turn-recorder.js";
@@ -914,25 +914,20 @@ function snapshotRunConfig(cfg: DriveEffectsConfig, bound: string, gates: "inter
  *  child PID + the poll-once watch command and exit 0. Returns the child pid, or null
  *  when spawning failed (caller then falls through to a normal in-process run). */
 function relaunchDetached(rawArgv: string[], consortDir: string): number | null {
-  const childArgs = rawArgv.filter((a) => a !== "--detach");
-  try {
-    const child = spawn(process.execPath, [process.argv[1], ...childArgs], {
-      detached: true, // setsid(2): new session + process group, escapes the caller's group-SIGTERM
-      stdio: "ignore", // the child self-tees to .consort/drive-live.log; nothing to inherit
-      env: process.env,
-    });
-    child.unref();
-    if (child.pid === undefined) return null;
-    const logPath = path.join(consortDir, "drive-live.log");
-    process.stdout.write(
-      `consort-drive: detached into its own session as pid ${child.pid} (survives this turn/shell).\n` +
-        `  live log: ${logPath}\n` +
-        `  relay it:  ./scripts/lk consort-watch --since 0 --pid ${child.pid}   (then re-poll with the printed cursor)\n`,
-    );
-    return child.pid;
-  } catch {
-    return null; // spawn failed , caller runs in-process instead of losing the run
-  }
+  // stdio "ignore": the drive self-tees its narration to .consort/drive-live.log, so
+  // the detached child loses nothing by discarding its stdio.
+  const pid = spawnDetached(
+    rawArgv.filter((a) => a !== "--detach"),
+    { stdio: "ignore" },
+  );
+  if (pid === null) return null; // spawn failed , caller runs in-process instead of losing the run
+  const logPath = path.join(consortDir, "drive-live.log");
+  process.stdout.write(
+    `consort-drive: detached into its own session as pid ${pid} (survives this turn/shell).\n` +
+      `  live log: ${logPath}\n` +
+      `  relay it:  ./scripts/lk consort-watch --since 0 --pid ${pid}   (then re-poll with the printed cursor)\n`,
+  );
+  return pid;
 }
 
 /** Tee the drive's stderr narration to `<consortDir>/drive-live.log` so a watcher

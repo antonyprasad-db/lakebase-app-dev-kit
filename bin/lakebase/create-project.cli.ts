@@ -12,7 +12,10 @@ import { runCreateDoctorGate, formatGateBlockers } from "../../consort/lakebase/
 import { kitRefPin, consortVersionFromModule, declaredSubstrateVersionFromModule } from "../../consort/lakebase/kit-ref-pin.js";
 import { substrateMismatchMessage } from "../../consort/lakebase/substrate-check.js";
 import { createRequire } from "node:module";
-import { readFileSync, appendFileSync, writeFileSync } from "node:fs";
+import { readFileSync, appendFileSync, writeFileSync, openSync, closeSync } from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { relaunchDetached } from "../../consort/session/relaunch-detached.js";
 
 interface ParsedArgs {
   jsonInput?: string;
@@ -194,16 +197,53 @@ Flags:
                       product-owner. (release-engineer is deterministic, not a
                       tunable agent.) Omitted roles use their recommended model.
                       Persisted to .lakebase/agent-config.json.
+  --detach            Re-launch scaffolding in a NEW session and return at once, so
+                      the ~3-4 min provision never hits the harness ~2min bash timeout
+                      and survives the turn ending. Captures the child's output (doctor
+                      + every [stage] line + final JSON) to a log and prints the
+                      consort-watch command to relay it poll-once. Use this to watch
+                      each step live instead of a silent foreground call.
+  --progress-log <p>  Tee the [stage] lines to this file too (structured relay sink).
   --json-input        Pass all args as a single JSON object (BDD harness)
 
 Output: JSON on stdout (CreateProjectResult). Progress to stderr.
 `;
 
 async function main(): Promise<number> {
-  const args = parseArgs(process.argv.slice(2));
+  const rawArgv = process.argv.slice(2);
+  const args = parseArgs(rawArgv);
   if (args.help) {
     process.stdout.write(HELP);
     return 0;
+  }
+
+  // --detach: re-launch scaffolding in its OWN session and return at once, so the ~3-4
+  // min provision NEVER hits the harness's ~2min bash timeout (a foreground call is
+  // killed; a plain `&` is reaped at turn-end). The child's stdout+stderr , doctor +
+  // every `[stage]` line + the final JSON , are captured to a log the caller relays
+  // POLL-ONCE with `consort-watch --since` (so each step shows live). Must run BEFORE
+  // any side effect (doctor gate, provisioning) so the CHILD owns them. Falls through
+  // to an in-process run only if the re-spawn itself fails (never silently drops it).
+  if (rawArgv.includes("--detach")) {
+    const childArgs = rawArgv.filter((a) => a !== "--detach");
+    const logPath = path.join(os.tmpdir(), `consort-create-${Date.now()}.log`);
+    let pid: number | null = null;
+    try {
+      const fd = openSync(logPath, "a");
+      pid = relaunchDetached(childArgs, { stdio: ["ignore", fd, fd] });
+      closeSync(fd);
+    } catch {
+      pid = null;
+    }
+    if (pid !== null) {
+      process.stdout.write(
+        `lakebase-create-project: scaffolding detached into its own session as pid ${pid} (survives this turn + the ~2min bash timeout).\n` +
+          `  live log: ${logPath}\n` +
+          `  relay it: consort-watch --since 0 --log ${logPath} --pid ${pid}   (re-poll with the printed cursor until status=done)\n`,
+      );
+      return 0;
+    }
+    process.stderr.write("lakebase-create-project: detach re-spawn failed , running in-process instead.\n");
   }
 
   let input: CreateProjectArgs;

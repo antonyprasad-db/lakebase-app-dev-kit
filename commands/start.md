@@ -53,8 +53,8 @@ Drive the workflow through the **deterministic orchestrator** (`consort-drive`),
    - **This project pins its kit to a version.** A project created by a recent kit records the exact release it was scaffolded with in `.lakebase/kit-ref` (e.g. `v0.3.15`) , an IMMUTABLE tag , so `./scripts/lk` always resolves that same version from a version-keyed cache and never silently drifts onto a moving `main`. That determinism is deliberate: upgrading the runtime kit is an explicit step (below), not something a background tip-move does to you mid-work.
    - **Check for a newer Consort first.** Run `./scripts/lk consort-check-update` (throttled to once/day, silent when current, never blocks). If it prints that a newer version is available, relay it and offer to upgrade before continuing:
      1. Update the plugin (the slash commands): `claude plugin marketplace update databricks-solutions && claude plugin update consort@databricks-solutions`, then restart Claude Code.
-     2. Move THIS project onto that version , the plugin update does NOT touch a project's runtime kit: write the new version tag into `.lakebase/kit-ref` (e.g. `printf 'vX.Y.Z\n' > .lakebase/kit-ref`) then `./scripts/lk --refresh` to install it. Because the ref is version-keyed, this is a one-time fresh install; future runs are instant.
-   - **Older project pinned to `main` (or no `.lakebase/kit-ref`)?** That's the legacy, drift-prone case: `./scripts/lk --install` only reinstalls if `main`'s tip moved and the fast path otherwise serves whatever it first cached. Pin it to a real version once , `printf 'v<current>\n' > .lakebase/kit-ref && ./scripts/lk --refresh` , and it stops drifting. The drive auto-refreshes the project's `.claude/agents/` when it detects the kit changed; to refresh out of band run `./scripts/lk lakebase-update-agents`.
+     2. Move THIS project onto that version , the plugin update does NOT touch a project's runtime kit: write the new version tag into `.lakebase/kit-ref` (e.g. `printf 'vX.Y.Z\n' > .lakebase/kit-ref`) then `./scripts/lk --refresh --detach` to install it (detached + relayed poll-once, like Part 2 , a multi-minute install must never be a blocking foreground call). Because the ref is version-keyed, this is a one-time fresh install; future runs are instant.
+   - **Older project pinned to `main` (or no `.lakebase/kit-ref`)?** That's the legacy, drift-prone case: `./scripts/lk --install` only reinstalls if `main`'s tip moved and the fast path otherwise serves whatever it first cached. Pin it to a real version once , `printf 'v<current>\n' > .lakebase/kit-ref && ./scripts/lk --refresh --detach` (detached + relayed poll-once) , and it stops drifting. The drive auto-refreshes the project's `.claude/agents/` when it detects the kit changed; to refresh out of band run `./scripts/lk lakebase-update-agents`.
 2. **Continue the loop.** Offer the human the autonomous path or a single step:
    - **Whole sprint (autonomous):** **`/sprint [name]`** flows plan -> per feature `design` -> `build` -> `deploy`, pausing only at gates. Resumable; re-invoke to continue past an approved gate.
    - Or one phase at a time (lowest-ready first):
@@ -91,10 +91,10 @@ Before the create questions, on the user's **first** time only, offer the bundle
   - **project name** (kebab-case), **parent directory** (default: the parent of cwd, else `~/code`), and **Databricks host** (offer `$DATABRICKS_HOST` / `~/.databrickscfg`). These are FREE TEXT: ask them in plain prose, and do NOT put them through a multiple-choice question (that is what triggers an "Invalid tool parameters" error: a text answer has no options).
   - **GitHub owner, or `--no-github`**: the one genuine either/or, and it sets the tier count. A GitHub owner ⇒ tiers `2` (prod + staging); `--no-github` ⇒ tiers `1` (prod only). This is the only decision worth a structured choice.
 
-  Then create the project (below), `cd` in, **refresh the project's runtime kit to the current release**, and bring in the seed files with the kit bin:
+  Then create the project (below), `cd` in, **refresh the project's runtime kit to the current release** (the Part-2 kit download , detach + relay it live, exactly as in the Create flow's Part 2 below), and only AFTER it reports `status=done` bring in the seed files:
   ```bash
-  ./scripts/lk --refresh                        # re-download the Consort toolkit fresh (avoids a stale shared cache from an earlier project)
-  ./scripts/lk lakebase-stage-first-project
+  ./scripts/lk --refresh --detach   # detached; relay its live log poll-once (see Part 2) until status=done
+  ./scripts/lk lakebase-stage-first-project   # run this ONLY after the refresh above has finished
   ```
   The `--refresh` matters: the Consort toolkit is cached per version in a shared location (`~/.cache/consort/<ref>`), so a project created after you last used an OLDER kit can otherwise run that stale cache and miss newly-added bins like `lakebase-stage-first-project`. `--refresh` reinstalls it unconditionally, so the project runs the kit you just installed. (If `--refresh` reports the bin still missing, your Consort plugin itself is behind , update it per "Check for a newer Consort" above , then re-run.)
   It copies the example's intake (`product-overview.md`, `nfrs.md`, `design-brief.md`, and the warehouse icon) and one `feature-request.md` per feature into the new project's `.consort/`. Then resume: **`/plan`** (the Spec Author proposes a sprint from the staged intake), or **`/design F1-stock-visibility`** to jump straight into the first feature. `examples/first-project/README.md` in the kit is the walkthrough.
@@ -140,30 +140,18 @@ Then run the kit's creator (surface the exact command first; report its output, 
 > 6. **Staging tier** , cut the paired Lakebase + git branch (~20-40s) *(only for `--tiers 2`/`3`)*
 > 7. **Initial commit + push** (~5-15s)
 >
-> **Part 2 , Consort toolkit download (~1-2 min):** right after create I run `./scripts/lk --refresh`, which downloads the kit + its dependencies **once** for this version (instant on every command after). This is deliberately separate from create , it's a heavy download, so we do it once at a reliable point rather than risk it mid-provision.
+> **Part 2 , Consort toolkit download (~1-2 min):** right after create I run `./scripts/lk --refresh`, which downloads the kit + its dependencies **once** for this version (instant on every command after). I'll stream each package as it installs. This is deliberately separate from create , it's a heavy download, so we do it once at a reliable point rather than risk it mid-provision.
 >
 > I'll narrate each step as it happens and ping you the moment it's done (or if anything needs you)."
 
+**Do not confuse the two parts when you narrate.** **Part 1 (scaffolding) does NOT download the toolkit** , it runs from the plugin's ALREADY-installed binary, so the very first thing you see is `[doctor] …`, not a download. The **only** kit download is **Part 2** (`./scripts/lk --refresh`). Never label a kit download as "Part 1", and never tell the human "Part 1 is downloading the toolkit" , if you see download/`npm http fetch`/`lk: … downloading` lines, that is Part 2. (The old flow re-fetched the kit via `npx` at the start of create, which is exactly the mislabeling this removes.)
+
 Tune to the options (drop step 6 on `--no-github`/`--tiers 1`; a cold toolkit download over a slow network can push Part 2 to ~2-3 min).
 
-**Launch it via the kit's create launcher and relay it poll-once , exactly like a drive; do NOT run `npx` directly and do NOT tail it in a foreground loop.** Create has TWO silent windows that both look hung: (1) `npx` first git-fetches the kit + its dependencies (cold: ~1-3 min) and prints NOTHING the whole time , the log sits empty; then (2) once running, `lakebase-create-project` streams one `[stage]` line per step (`[Creating GitHub repository...]`, `[Creating Lakebase database (provisioning Postgres, ~30-60s)...]`, `[Scaffolding project files...]`, `[Setting up CI auth (service principal)...]`, `[Setting up the self-hosted CI runner ...]`, `[Cutting staging tier ...]`, `[Creating initial commit...]`, `[Project created successfully!]`). The bin cannot narrate its OWN download, so the plugin ships **`$CLAUDE_PLUGIN_ROOT/scripts/consort-create.sh`**, which prints an elapsed-time heartbeat during the fetch and then forwards the `[stage]` lines. Two rules make it visible: **(a)** launch `consort-create.sh` backgrounded to a log; **(b)** relay that log with **poll-once `consort-watch --since`** , a long foreground tail loop is itself a blocking call the harness buffers, so the human sees nothing until it returns ("nothing reported until all done"). The plugin ships `dist/`, so `consort-watch` is runnable via `$CLAUDE_PLUGIN_ROOT/dist/bin/consort/watch.cli.js` even before the project exists. Relay each batch, then re-poll with the printed cursor until `status=done`; on exit, relay the final `Next:` hint.
+**Launch scaffolding from the plugin's OWN binary with `--detach`, and relay it poll-once , NEVER foreground.** The plugin already ships the scaffolder (`dist/bin/lakebase/create-project.cli.js`), so run THAT directly. Do NOT `npx`-fetch the kit again just to run create , that re-downloads the whole kit (a silent multi-minute window BEFORE Part 1 even starts) and is the redundant fetch that used to look hung. `--detach` re-launches scaffolding in its OWN session and returns at once, capturing every step (`[doctor]`, `[Creating GitHub repository...]`, `[Creating Lakebase database …]`, `[Scaffolding project files...]`, `[Setting up CI auth …]`, `[Setting up the self-hosted CI runner …]`, `[Cutting staging tier …]`, `[Creating initial commit...]`, `[Project created successfully!]`) to a log. This is the ONLY launch that both **(a) cannot hit the harness ~2min bash timeout** on a ~3-4 min provision (a foreground call is killed; a plain `&` is reaped at turn-end) **and (b) lets you see each step LIVE** , relay the log with **poll-once `consort-watch --since`** (a foreground tail loop buffers until it returns , "nothing until all done"). Relay each batch, re-poll with the printed cursor until `status=done`, then relay the final `Next:` hint.
 
 ```bash
-# Pin the create-project to THIS plugin's own version so a fresh install ALWAYS
-# scaffolds a coherent project , the create-project, launcher (consort.sh), kit-ref,
-# and scm-utils-ref all resolve to the version you installed, never a stale npx
-# cache or the mutable `main` branch. Precedence:
-#   1. LAKEBASE_KIT_REF            (explicit override; dev / capture)
-#   2. the running plugin's version (read from ${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json)
-#   3. KIT_VERSION_AT_RELEASE       (stamped into this command at release; the reliable floor)
-KIT_REF="${LAKEBASE_KIT_REF:-}"
-if [ -z "$KIT_REF" ] && [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json" ]; then
-  KIT_REF="v$(node -p "require('${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json').version" 2>/dev/null || true)"
-fi
-KIT_REF="${KIT_REF:-v0.3.27}"   # stamped at release; == package.json version (enforced by tests/bdd/start-kit-pin.test.ts)
-KIT_PKG="github:databricks-solutions/consort#${KIT_REF}"
-
-# Resolve the plugin's shipped files (launcher + consort-watch), robust to
+# Resolve the plugin's shipped binaries (create-project + consort-watch), robust to
 # $CLAUDE_PLUGIN_ROOT being unset in this tool shell (it usually is). Same resolver as
 # step 0. Each bash block is a fresh shell, so re-resolve here.
 CONSORT_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
@@ -172,23 +160,33 @@ if [ -z "$CONSORT_ROOT" ] || [ ! -d "$CONSORT_ROOT/dist" ]; then
     | sort -V | tail -1 | sed 's#/dist$##')"
 fi
 
-# Launch via the kit's create launcher (heartbeat during the silent npx fetch, then
-# forwards the [stage] lines), backgrounded to a log. Do NOT call npx directly and do
-# NOT tail this in a foreground loop , relay it poll-once (below).
-LOG="$(mktemp -t consort-create.XXXX.log)"
-bash "$CONSORT_ROOT/scripts/consort-create.sh" "$KIT_PKG" \
+# Pin the scaffolded project's runtime kit to THIS plugin's version (immutable), so its
+# ./scripts/lk resolves the same release. Precedence: an explicit LAKEBASE_KIT_REF wins;
+# else the running plugin's version; else the release-stamped floor. Running the plugin's
+# OWN create binary already implies this version , set it explicitly so the pin is
+# unambiguous. (Stamp form below is enforced by tests/bdd/start-kit-pin.test.ts.)
+KIT_REF="${LAKEBASE_KIT_REF:-}"
+if [ -z "$KIT_REF" ] && [ -f "$CONSORT_ROOT/.claude-plugin/plugin.json" ]; then
+  KIT_REF="v$(node -p "require('$CONSORT_ROOT/.claude-plugin/plugin.json').version" 2>/dev/null || true)"
+fi
+KIT_REF="${KIT_REF:-v0.3.28}"   # stamped at release; == package.json version (enforced by tests/bdd/start-kit-pin.test.ts)
+export LAKEBASE_KIT_REF="$KIT_REF"
+
+# Launch scaffolding DETACHED (own session): it prints the child pid + a live-log path
+# and returns at once. NO npx, NO foreground, NO `&` , --detach handles survival.
+node "$CONSORT_ROOT/dist/bin/lakebase/create-project.cli.js" --detach \
   --project-name "<name>" --parent-dir "<parent-dir>" \
   --databricks-host "<host>" --github-owner "<owner>" \
   --language "<language>" --tiers "<1|2|3>" \
   (--ui-track|--no-ui-track) \
   [--no-github] [--enable-e2e|--no-e2e] [--enable-infra|--no-infra] \
-  [--agent-model <role>=<model> ...] > "$LOG" 2>&1 &
-CREATE_PID=$!
+  [--agent-model <role>=<model> ...]
+#   -> prints: "... scaffolding detached ... as pid <PID>" + "live log: <LOG>" + the relay cmd.
 
-# Relay it POLL-ONCE (one call per turn), narrating each batch, until status=done.
-# The plugin ships dist/, so consort-watch runs before the project exists:
-#   node "$CONSORT_ROOT/dist/bin/consort/watch.cli.js" --since 0 --log "$LOG" --pid "$CREATE_PID"
-#     -> relays new lines, ends with: [consort-watch] cursor=<N> status=<running|done|...>
+# Relay it POLL-ONCE (one call per turn), narrating each batch, until status=done:
+#   node "$CONSORT_ROOT/dist/bin/consort/watch.cli.js" --since 0 --log "<LOG>" --pid "<PID>"
+#     -> relays new lines, ends with: [consort-watch] cursor=<N> status=<running|done|...>;
+#        re-poll with the printed <N> until status=done.
 #   next call: --since <N> (the printed cursor); repeat until status=done.
 # On done, relay the final `Next:` hint from the tail of the log.
 ```
@@ -205,10 +203,18 @@ On success, tell the user to enter the new project, refresh its runtime kit, and
 
 ```
 cd <parent-dir>/<name>
-./scripts/lk --refresh    # re-download the Consort toolkit fresh so this project runs the release you just installed, not a stale shared cache
+./scripts/lk --refresh --detach   # Part 2 kit download , detached + relayed poll-once (see below), NOT foreground
 ```
 
-**`--refresh` is the other multi-minute step , relay it live the same way, not foreground.** It narrates its own download ("Downloading the Consort toolkit … one-time, ~1-2 min … ready"), but a blocking foreground run buffers that behind a spinner exactly like create does. Background it to a log and tail it (`./scripts/lk --refresh > "$LOG" 2>&1 &`), relaying the "Downloading …" / "ready" lines, so the ~1-2 min toolkit download is narrated, not silent. If YOU (the operator) run it on the user's behalf rather than having them run it, this is required; if you hand the command to the user to run themselves, tell them it's a one-time ~1-2 min download that will print progress.
+**Part 2 , the kit download (`./scripts/lk --refresh --detach`): relay it live the same way, NEVER foreground.** This is the other multi-minute step, so it uses the SAME detach + poll-once pattern as create , a foreground run buffers behind a spinner and a ~1-2 min install risks the ~2min bash timeout. Pass **`--detach`**: `lk` re-launches the install in its OWN session and returns at once, printing the child pid + a live-log path. The install streams **what is being installed** to that log (each package: `lk: npm http fetch GET 200 …/<pkg>…`), not just a clock. Relay it poll-once with the plugin's `consort-watch` (the project's own `./scripts/lk consort-watch` may not be installed YET , that is what this step installs):
+```bash
+# from inside the freshly created project dir:
+./scripts/lk --refresh --detach
+#   -> prints: "toolkit install detached ... as pid <PID>" + "live log: <LOG>".
+# Relay poll-once with the PLUGIN's consort-watch (always present), until status=done:
+#   node "$CONSORT_ROOT/dist/bin/consort/watch.cli.js" --since 0 --log "<LOG>" --pid "<PID>"
+```
+If you hand the command to the user to run themselves instead, tell them it's a one-time ~1-2 min download that prints each package as it installs.
 
 then re-run **`/consort:start`** there (it will find `.consort/` and resume at `/plan`), or `./scripts/consort.sh plan` to open the orchestrator session directly. Do not start the workflow from the current directory, the project is elsewhere.
 

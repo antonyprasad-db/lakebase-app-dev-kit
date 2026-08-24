@@ -6941,7 +6941,26 @@ function migrateLegacyArtifactDir(projectDir = process.cwd()) {
 // bin/consort/drive.cli.ts
 import * as fs20 from "fs";
 import * as path12 from "path";
-import { spawn as spawn3 } from "child_process";
+
+// consort/session/relaunch-detached.ts
+init_esm_shims();
+import { spawn } from "child_process";
+function relaunchDetached(childArgs, opts = {}) {
+  try {
+    const child = spawn(process.execPath, [process.argv[1], ...childArgs], {
+      detached: true,
+      // setsid(2): new session + process group, escapes the caller's group-SIGTERM
+      stdio: opts.stdio ?? "ignore",
+      env: opts.env ?? process.env
+    });
+    child.unref();
+    return child.pid ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// bin/consort/drive.cli.ts
 import * as readline2 from "readline";
 
 // consort/logging/turn-recorder.ts
@@ -8524,7 +8543,7 @@ init_esm_shims();
 
 // consort/deploy/deploy.ts
 init_esm_shims();
-import { execSync, spawn } from "child_process";
+import { execSync, spawn as spawn2 } from "child_process";
 import { randomBytes } from "crypto";
 import { existsSync as existsSync10, mkdirSync as mkdirSync6, readFileSync as readFileSync10, rmSync as rmSync4, writeFileSync as writeFileSync6 } from "fs";
 import { dirname as dirname4, join as join11 } from "path";
@@ -11357,7 +11376,7 @@ import { randomUUID as randomUUID2 } from "crypto";
 
 // consort/orchestrator/drive/claude-runner.ts
 init_esm_shims();
-import { spawn as spawn2 } from "child_process";
+import { spawn as spawn3 } from "child_process";
 
 // consort/setup/project-consort-setup.ts
 init_esm_shims();
@@ -11968,7 +11987,7 @@ var TURN_INACTIVITY_TIMEOUT_MS = Number(consortEnv("TURN_INACTIVITY_TIMEOUT_MS")
 var TURN_HEARTBEAT_MS = Number(consortEnv("TURN_HEARTBEAT_MS") ?? String(60 * 1e3));
 function spawnCmd(bin, args, cwd) {
   return new Promise((resolve3, reject) => {
-    const child = spawn2(bin, args, { cwd, stdio: "inherit" });
+    const child = spawn3(bin, args, { cwd, stdio: "inherit" });
     child.on("error", (err) => reject(err));
     child.on("close", (code) => code === 0 ? resolve3() : reject(new Error(`${bin} exited ${code}`)));
   });
@@ -12043,7 +12062,7 @@ function defaultTurnMonitor(sink) {
 }
 function spawnClaudeStreaming(args, cwd, monitorOverride) {
   return new Promise((resolve3, reject) => {
-    const child = spawn2("claude", args, { cwd, stdio: ["inherit", "pipe", "pipe"] });
+    const child = spawn3("claude", args, { cwd, stdio: ["inherit", "pipe", "pipe"] });
     const lines = [];
     let sawTooLong = false;
     let sawTransient = false;
@@ -15875,29 +15894,20 @@ function snapshotRunConfig(cfg, bound, gates) {
     modelForRole: cfg.modelForRole ?? (() => "inherit")
   });
 }
-function relaunchDetached(rawArgv, consortDir) {
-  const childArgs = rawArgv.filter((a) => a !== "--detach");
-  try {
-    const child = spawn3(process.execPath, [process.argv[1], ...childArgs], {
-      detached: true,
-      // setsid(2): new session + process group, escapes the caller's group-SIGTERM
-      stdio: "ignore",
-      // the child self-tees to .consort/drive-live.log; nothing to inherit
-      env: process.env
-    });
-    child.unref();
-    if (child.pid === void 0) return null;
-    const logPath = path12.join(consortDir, "drive-live.log");
-    process.stdout.write(
-      `consort-drive: detached into its own session as pid ${child.pid} (survives this turn/shell).
+function relaunchDetached2(rawArgv, consortDir) {
+  const pid = relaunchDetached(
+    rawArgv.filter((a) => a !== "--detach"),
+    { stdio: "ignore" }
+  );
+  if (pid === null) return null;
+  const logPath = path12.join(consortDir, "drive-live.log");
+  process.stdout.write(
+    `consort-drive: detached into its own session as pid ${pid} (survives this turn/shell).
   live log: ${logPath}
-  relay it:  ./scripts/lk consort-watch --since 0 --pid ${child.pid}   (then re-poll with the printed cursor)
+  relay it:  ./scripts/lk consort-watch --since 0 --pid ${pid}   (then re-poll with the printed cursor)
 `
-    );
-    return child.pid;
-  } catch {
-    return null;
-  }
+  );
+  return pid;
 }
 function teeStderrToDriveLog(consortDir) {
   try {
@@ -15923,7 +15933,7 @@ async function main() {
   }
   if (rawArgv.includes("--detach")) {
     const cdir = args.consortDir ?? resolveConsortDir(args.projectDir ?? process.cwd());
-    const pid = relaunchDetached(rawArgv, cdir);
+    const pid = relaunchDetached2(rawArgv, cdir);
     if (pid !== null) return 0;
     process.stderr.write("consort-drive: detach re-spawn failed , running in-process instead.\n");
   }

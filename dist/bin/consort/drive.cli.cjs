@@ -6949,7 +6949,26 @@ function migrateLegacyArtifactDir(projectDir = process.cwd()) {
 // bin/consort/drive.cli.ts
 var fs20 = __toESM(require("fs"), 1);
 var path11 = __toESM(require("path"), 1);
-var import_node_child_process8 = require("child_process");
+
+// consort/session/relaunch-detached.ts
+init_cjs_shims();
+var import_node_child_process2 = require("child_process");
+function relaunchDetached(childArgs, opts = {}) {
+  try {
+    const child = (0, import_node_child_process2.spawn)(process.execPath, [process.argv[1], ...childArgs], {
+      detached: true,
+      // setsid(2): new session + process group, escapes the caller's group-SIGTERM
+      stdio: opts.stdio ?? "ignore",
+      env: opts.env ?? process.env
+    });
+    child.unref();
+    return child.pid ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// bin/consort/drive.cli.ts
 var readline2 = __toESM(require("readline"), 1);
 
 // consort/logging/turn-recorder.ts
@@ -8277,7 +8296,7 @@ var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebas
 
 // consort/experiment/experiment.ts
 init_cjs_shims();
-var import_node_child_process2 = require("child_process");
+var import_node_child_process3 = require("child_process");
 var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/pipeline/run-cycle.ts
@@ -8522,7 +8541,7 @@ init_cjs_shims();
 
 // consort/deploy/deploy.ts
 init_cjs_shims();
-var import_node_child_process3 = require("child_process");
+var import_node_child_process4 = require("child_process");
 var import_node_crypto2 = require("crypto");
 var import_node_fs3 = require("fs");
 var import_node_path5 = require("path");
@@ -11355,7 +11374,7 @@ var import_node_crypto4 = require("crypto");
 
 // consort/orchestrator/drive/claude-runner.ts
 init_cjs_shims();
-var import_node_child_process5 = require("child_process");
+var import_node_child_process6 = require("child_process");
 
 // consort/setup/project-consort-setup.ts
 init_cjs_shims();
@@ -11775,7 +11794,7 @@ function isTransientApiErrorSignal(line) {
 
 // consort/config/kit-bin.ts
 init_cjs_shims();
-var import_node_child_process4 = require("child_process");
+var import_node_child_process5 = require("child_process");
 var fs12 = __toESM(require("fs"), 1);
 var path7 = __toESM(require("path"), 1);
 var kitRootCache;
@@ -11966,7 +11985,7 @@ var TURN_INACTIVITY_TIMEOUT_MS = Number(consortEnv("TURN_INACTIVITY_TIMEOUT_MS")
 var TURN_HEARTBEAT_MS = Number(consortEnv("TURN_HEARTBEAT_MS") ?? String(60 * 1e3));
 function spawnCmd(bin, args, cwd) {
   return new Promise((resolve3, reject) => {
-    const child = (0, import_node_child_process5.spawn)(bin, args, { cwd, stdio: "inherit" });
+    const child = (0, import_node_child_process6.spawn)(bin, args, { cwd, stdio: "inherit" });
     child.on("error", (err) => reject(err));
     child.on("close", (code) => code === 0 ? resolve3() : reject(new Error(`${bin} exited ${code}`)));
   });
@@ -12041,7 +12060,7 @@ function defaultTurnMonitor(sink) {
 }
 function spawnClaudeStreaming(args, cwd, monitorOverride) {
   return new Promise((resolve3, reject) => {
-    const child = (0, import_node_child_process5.spawn)("claude", args, { cwd, stdio: ["inherit", "pipe", "pipe"] });
+    const child = (0, import_node_child_process6.spawn)("claude", args, { cwd, stdio: ["inherit", "pipe", "pipe"] });
     const lines = [];
     let sawTooLong = false;
     let sawTransient = false;
@@ -13203,7 +13222,7 @@ function designGuideConformance(consortDir) {
 
 // consort/orchestrator/build/build-context.ts
 init_cjs_shims();
-var import_node_child_process6 = require("child_process");
+var import_node_child_process7 = require("child_process");
 var fs15 = __toESM(require("fs"), 1);
 var import_node_path20 = require("path");
 function artifactRoot(consortDir) {
@@ -13245,7 +13264,7 @@ function rubricSourcesNote(rubric, featureId, root) {
 var defaultDbStateReader = (projectDir) => {
   const one = (args) => {
     try {
-      return (0, import_node_child_process6.execSync)(`uv run --env-file .env alembic ${args}`, { cwd: projectDir, stdio: ["ignore", "pipe", "ignore"], timeout: 6e4 }).toString().trim() || void 0;
+      return (0, import_node_child_process7.execSync)(`uv run --env-file .env alembic ${args}`, { cwd: projectDir, stdio: ["ignore", "pipe", "ignore"], timeout: 6e4 }).toString().trim() || void 0;
     } catch {
       return void 0;
     }
@@ -14605,7 +14624,7 @@ var import_util4 = require("@databricks-solutions/lakebase-scm-utils/util");
 
 // consort/orchestrator/provisioning/credentials.ts
 init_cjs_shims();
-var import_node_child_process7 = require("child_process");
+var import_node_child_process8 = require("child_process");
 var import_lakebase10 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 async function driveAuthPreflight(host, check = import_lakebase10.checkDatabricksAuth) {
   const res = await check(host);
@@ -15873,29 +15892,20 @@ function snapshotRunConfig(cfg, bound, gates) {
     modelForRole: cfg.modelForRole ?? (() => "inherit")
   });
 }
-function relaunchDetached(rawArgv, consortDir) {
-  const childArgs = rawArgv.filter((a) => a !== "--detach");
-  try {
-    const child = (0, import_node_child_process8.spawn)(process.execPath, [process.argv[1], ...childArgs], {
-      detached: true,
-      // setsid(2): new session + process group, escapes the caller's group-SIGTERM
-      stdio: "ignore",
-      // the child self-tees to .consort/drive-live.log; nothing to inherit
-      env: process.env
-    });
-    child.unref();
-    if (child.pid === void 0) return null;
-    const logPath = path11.join(consortDir, "drive-live.log");
-    process.stdout.write(
-      `consort-drive: detached into its own session as pid ${child.pid} (survives this turn/shell).
+function relaunchDetached2(rawArgv, consortDir) {
+  const pid = relaunchDetached(
+    rawArgv.filter((a) => a !== "--detach"),
+    { stdio: "ignore" }
+  );
+  if (pid === null) return null;
+  const logPath = path11.join(consortDir, "drive-live.log");
+  process.stdout.write(
+    `consort-drive: detached into its own session as pid ${pid} (survives this turn/shell).
   live log: ${logPath}
-  relay it:  ./scripts/lk consort-watch --since 0 --pid ${child.pid}   (then re-poll with the printed cursor)
+  relay it:  ./scripts/lk consort-watch --since 0 --pid ${pid}   (then re-poll with the printed cursor)
 `
-    );
-    return child.pid;
-  } catch {
-    return null;
-  }
+  );
+  return pid;
 }
 function teeStderrToDriveLog(consortDir) {
   try {
@@ -15921,7 +15931,7 @@ async function main() {
   }
   if (rawArgv.includes("--detach")) {
     const cdir = args.consortDir ?? resolveConsortDir(args.projectDir ?? process.cwd());
-    const pid = relaunchDetached(rawArgv, cdir);
+    const pid = relaunchDetached2(rawArgv, cdir);
     if (pid !== null) return 0;
     process.stderr.write("consort-drive: detach re-spawn failed , running in-process instead.\n");
   }
