@@ -22,6 +22,7 @@ import {
   checkPersistenceCoverage,
   checkInvariantCoverageDistinct,
   invariantRealizingStory,
+  checkSchemaChangeStoryRealizes,
   checkServiceBackedDeclaration,
   checkDbDesign,
 } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
@@ -371,6 +372,48 @@ function serviceBackedReason(consortDir: string, featureId: string): string | nu
 }
 
 /**
+ * db-design story-attribution spec-gate condition: a `create_table` must be attributed to a story
+ * that actually persists (has an API/Infra AC), never a pure UI/E2E shell story. This closes the
+ * root cause of the persistence-invariant reflect loop , a scaffold story handed the table creation
+ * makes `invariantRealizingStory` name it the owner, so the fitness PI tests anchor there and the
+ * navigator reflect gate bounces them. Cross-checks db-design `schema_changes[]` against each
+ * story's AC `layer`s (the same acs/ walk serviceBackedReason uses). Null when every create_table
+ * is attributed to a persisting story / no db-design / no create_table.
+ */
+function schemaChangeStoryRealizesReason(consortDir: string, featureId: string): string | null {
+  const dbFile = dbDesignJson(consortDir, featureId);
+  if (!existsSync(dbFile)) return null;
+  let db: { schema_changes?: Array<{ story_id?: string; kind?: string; table?: string }> };
+  try {
+    db = JSON.parse(readFileSync(dbFile, "utf8"));
+  } catch {
+    return null; // malformed db-design is reported by dbDesignReason
+  }
+  const changes = db.schema_changes ?? [];
+  if (changes.length === 0) return null;
+  const storiesDir = join(featureDir(consortDir, featureId), "stories");
+  if (!existsSync(storiesDir)) return null;
+  const storyLayers = new Map<string, string[]>();
+  for (const s of readdirSync(storiesDir)) {
+    const ad = join(storiesDir, s, "acs");
+    if (!existsSync(ad)) continue;
+    const layers: string[] = [];
+    for (const f of readdirSync(ad)) {
+      if (!f.endsWith(".json")) continue;
+      try {
+        const layer = (JSON.parse(readFileSync(join(ad, f), "utf8")) as { layer?: string }).layer;
+        if (typeof layer === "string") layers.push(layer);
+      } catch {
+        /* a malformed AC is reported by acsConformanceReason */
+      }
+    }
+    storyLayers.set(s, layers);
+  }
+  const r = checkSchemaChangeStoryRealizes(changes, storyLayers);
+  return r.ok ? null : `db-design story attribution failed: ${r.violations.join("; ")}`;
+}
+
+/**
  * Resolve the artifact inputs for a gate from files that ACTUALLY exist AND
  * conform to their declared format. Returns a `reason` (so the caller skips
  * rather than fabricates) when a required artifact is absent or any present
@@ -452,6 +495,11 @@ export function resolveArtifactInputs(
       // persistence_invariant with a physical table/constraint.
       const dbReason = dbDesignReason(consortDir, featureId);
       if (dbReason !== null) return { reason: dbReason };
+      // db-design must attribute each create_table to a story that actually persists (API/Infra AC),
+      // never a UI/E2E shell story , the mis-attribution that otherwise makes the fitness PI tests
+      // anchor to a scaffold story and get bounced by the navigator reflect gate.
+      const schemaStoryReason = schemaChangeStoryRealizesReason(consortDir, featureId);
+      if (schemaStoryReason !== null) return { reason: schemaStoryReason };
       const nfrReason = nfrCoverageReason(consortDir, featureId);
       return nfrReason === null ? conf : { reason: nfrReason };
     }

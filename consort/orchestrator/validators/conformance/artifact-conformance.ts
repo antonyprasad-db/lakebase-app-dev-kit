@@ -875,6 +875,49 @@ export function invariantRealizingStory(
 }
 
 /**
+ * Guard the ROOT cause of the persistence-invariant reflect loop: a db-design that attributes a
+ * `create_table` to a story whose ACs are ALL non-persisting (a pure UI/E2E shell, no API/Infra
+ * layer). Such a story cannot realize a table , it has no data-layer AC that needs one , so
+ * `invariantRealizingStory` (which trusts db-design) resolves the invariant's owner to the shell
+ * story, the fitness analyst dutifully anchors its PI tests there, and only the navigator reflect
+ * gate (which reads the shell story's ACs) catches it , then bounces the whole design lane back to
+ * the architect + test-strategist. Catching the mis-attribution HERE turns that round-trip into a
+ * deterministic, correctly-routed db-design error (owner: DBA/architect) BEFORE the build lane.
+ *
+ * `schemaChanges` = db-design `schema_changes[]`; `storyLayers` = each story's AC `layer`s. A story
+ * "can realize a table" iff it has >=1 AC whose layer is not E2E (i.e. an API or Infra boundary).
+ * Only `create_table` is checked (the moment a table is introduced); a story unknown to
+ * `storyLayers` is skipped (reported by the AC-conformance check). Pure. No create_table, or every
+ * attribution valid => ok.
+ */
+export function checkSchemaChangeStoryRealizes(
+  schemaChanges: Array<{ story_id?: string; kind?: string; table?: string }>,
+  storyLayers: Map<string, string[]>,
+): ConformanceResult {
+  const canRealize = (story: string): boolean =>
+    (storyLayers.get(story) ?? []).some((l) => l.toUpperCase() !== "E2E");
+  const violations: string[] = [];
+  const seen = new Set<string>();
+  for (const c of schemaChanges) {
+    if (!c || c.kind !== "create_table" || typeof c.story_id !== "string" || typeof c.table !== "string") continue;
+    if (!storyLayers.has(c.story_id)) continue; // unknown story , reported by the AC-conformance check
+    const key = `${c.story_id}::${c.table}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (!canRealize(c.story_id)) {
+      violations.push(
+        `db-design attributes create_table ${c.table} to ${c.story_id}, whose ACs are all non-persisting ` +
+          `(UI/E2E shell , no API/Infra layer). A scaffold/shell story cannot realize a table it has no data AC ` +
+          `for. Attribute the create_table (and the invariants it realizes) to the story that first reads/writes ` +
+          `${c.table}; a shell story gets no schema_changes. (This is the mis-anchoring the navigator reflect gate ` +
+          `otherwise bounces back through the whole design lane.)`,
+      );
+    }
+  }
+  return violations.length === 0 ? { ok: true } : { ok: false, violations };
+}
+
+/**
  * Map a file path to the canonical artifact name the registry is keyed by.
  * Acceptance-criteria files are named <AC>.json/.md but share the "ac.json"
  * contract, so any *.json under an `acs/` directory normalizes to "ac.json".

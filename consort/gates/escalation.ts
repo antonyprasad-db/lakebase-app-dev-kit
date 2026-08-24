@@ -33,6 +33,10 @@ export interface Escalation {
   /** Optional human note on WHY it was resolved (what the root-cause fix was),
    *  stamped by `consort-resolve-escalation`. Kept for the audit trail. */
   resolution?: string;
+  /** Self-documenting resolution path, stamped into the record at write time. A session that opens
+   *  this file directly (rather than `consort-next` / `consort-watch`) still learns the correct clear
+   *  path , the resolve verb , instead of improvising a hand-edit / rm of this file or smells.json. */
+  how_to_resolve?: string;
 }
 
 /** Bad smells that BLOCK the build (vs. advisory ones). A flagged blocking smell
@@ -103,6 +107,10 @@ export function writeEscalation(
     ...(esc.story_id ? { story_id: esc.story_id } : {}),
     ...(esc.ac_id ? { ac_id: esc.ac_id } : {}),
     raised_at: esc.raised_at ?? new Date().toISOString(),
+    how_to_resolve:
+      `After fixing the ROOT CAUSE, clear this with: consort-resolve-escalation --id ${id} --resolution "<what you fixed>". ` +
+      `That clears this escalation (and any blocking smell) and KEEPS the audit trail. Do NOT hand-edit or delete this ` +
+      `file, and do NOT edit smells.json, to move the run forward , that desyncs on-disk state from the drive.`,
   };
   fs.mkdirSync(escalationsDir(consortDir), { recursive: true });
   fs.writeFileSync(file, JSON.stringify(full, null, 2) + "\n", "utf8");

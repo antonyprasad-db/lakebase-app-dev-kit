@@ -10038,8 +10038,12 @@ function blockersOf(state) {
       source: e.source,
       reason: e.reason,
       ...e.story_id ? { story: e.story_id } : {},
-      resolver: null,
-      resolver_hint: "Resolve the underlying problem (clear the escalation file under .consort/escalations/ and any blocking smell in .consort/smells.json), then resume the drive."
+      // The deterministic clear is the resolve verb , NOT hand-editing state. `consort-resolve-escalation`
+      // clears BOTH the escalation file AND any blocking smell in one shot and KEEPS the audit trail. Emitting
+      // the exact command here (and NOT telling the operator to rm/edit the files) is what stops a session
+      // improvising a hand-edit of .consort/escalations/ or smells.json to move the run forward.
+      resolver: { bin: "consort-resolve-escalation", args: ["--id", e.id, "--resolution", "<what you fixed>"] },
+      resolver_hint: `Fix the root cause, then run: consort-resolve-escalation --id ${e.id} --resolution "<what you fixed>" (clears this escalation AND any blocking smell, keeps the audit trail), then resume the drive. Do NOT hand-edit or delete the escalation file or smells.json to move forward , that desyncs on-disk state.`
     }
   ];
 }

@@ -24,11 +24,23 @@ interface PollResult {
     cursor: number;
     /** running until a stop is seen (this batch OR, when the pid is gone, anywhere in the log). */
     status: PollStatus;
+    /** MEASURED liveness, never inferred: ms since the log's last write (now - mtime). A long
+     *  silent stretch is a slow OR a hung turn , the log ALONE CANNOT tell which (one model
+     *  call writes nothing until it returns), so the caller RELAYS this number and must NOT
+     *  invent a "hung" / "stuck N min" verdict from it. The only authoritative stall signal is
+     *  the drive's own `[drive] turn stalled:` line (emitted by the in-process inactivity
+     *  monitor after real silence), which classifies as kind `stalled`. */
+    silentMs: number;
+    /** MEASURED: is the drive pid alive? `null` when no pid was supplied (unknown, never guessed). */
+    pidAlive: boolean | null;
 }
 /** POLL-ONCE, pure + testable (no stdout): read new lines from `since` to EOF, format
  *  each meaningful transition for relay, and resolve the status. This is the ONE relay
  *  the guidance mandates , the caller loops it (narrating `relayed` each time) until
- *  `status` is a stop. `isAlive` is injectable so a test can drive the pid-gone path. */
-declare function pollOnce(logPath: string, since: number, pid?: number, isAlive?: (p: number) => boolean): PollResult;
+ *  `status` is a stop. `isAlive` is injectable so a test can drive the pid-gone path;
+ *  `nowMs` is injectable so a test can drive the measured-silence path deterministically.
+ *  Also returns MEASURED liveness (`silentMs`, `pidAlive`) so the caller relays real
+ *  numbers and never has to guess how long a quiet turn has been running. */
+declare function pollOnce(logPath: string, since: number, pid?: number, isAlive?: (p: number) => boolean, nowMs?: number): PollResult;
 
 export { type PollResult, type PollStatus, pollOnce, scanLastStop };

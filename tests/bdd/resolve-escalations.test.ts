@@ -86,3 +86,16 @@ describe("blocking-smell blockers (the dual-source rule , T27's kind)", () => {
     expect(escalationsFromSmells(tdd, "F1")).toHaveLength(0);
   });
 });
+
+describe("writeEscalation: the record self-documents its resolve path (so a session never hand-edits it)", () => {
+  it("stamps how_to_resolve pointing at consort-resolve-escalation --id <id>, and warns off hand-editing", () => {
+    const e = writeEscalation(tdd, { source: "deploy-verify", reason: "port 8000 busy", feature_id: "F1" });
+    expect(e.how_to_resolve).toContain("consort-resolve-escalation");
+    expect(e.how_to_resolve).toContain(`--id ${e.id}`);
+    expect(e.how_to_resolve ?? "").toMatch(/do NOT hand-edit/i);
+    expect(e.how_to_resolve ?? "").toMatch(/smells\.json/i);
+    // Persisted to disk (what a session opening the file directly actually reads), not just returned.
+    const onDisk = readEscalations(tdd).find((x) => x.id === e.id);
+    expect(onDisk?.how_to_resolve).toBe(e.how_to_resolve);
+  });
+});

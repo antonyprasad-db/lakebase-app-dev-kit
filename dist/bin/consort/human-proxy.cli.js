@@ -7687,6 +7687,24 @@ function invariantRealizingStory(architectureJson2, dbDesignJson2) {
   }
   return out;
 }
+function checkSchemaChangeStoryRealizes(schemaChanges, storyLayers) {
+  const canRealize = (story) => (storyLayers.get(story) ?? []).some((l) => l.toUpperCase() !== "E2E");
+  const violations = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const c of schemaChanges) {
+    if (!c || c.kind !== "create_table" || typeof c.story_id !== "string" || typeof c.table !== "string") continue;
+    if (!storyLayers.has(c.story_id)) continue;
+    const key = `${c.story_id}::${c.table}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (!canRealize(c.story_id)) {
+      violations.push(
+        `db-design attributes create_table ${c.table} to ${c.story_id}, whose ACs are all non-persisting (UI/E2E shell , no API/Infra layer). A scaffold/shell story cannot realize a table it has no data AC for. Attribute the create_table (and the invariants it realizes) to the story that first reads/writes ${c.table}; a shell story gets no schema_changes. (This is the mis-anchoring the navigator reflect gate otherwise bounces back through the whole design lane.)`
+      );
+    }
+  }
+  return violations.length === 0 ? { ok: true } : { ok: false, violations };
+}
 function canonicalArtifactName(path4) {
   const base = basename(path4);
   if (basename(dirname(path4)) === "acs" && base.endsWith(".json")) return "ac.json";
@@ -8100,6 +8118,37 @@ function serviceBackedReason(consortDir, featureId) {
   const r = checkServiceBackedDeclaration(arch, { acLayers, nfrsText });
   return r.ok ? null : `service_backed declaration failed: ${r.violations.join("; ")}`;
 }
+function schemaChangeStoryRealizesReason(consortDir, featureId) {
+  const dbFile = dbDesignJson(consortDir, featureId);
+  if (!existsSync10(dbFile)) return null;
+  let db;
+  try {
+    db = JSON.parse(readFileSync10(dbFile, "utf8"));
+  } catch {
+    return null;
+  }
+  const changes = db.schema_changes ?? [];
+  if (changes.length === 0) return null;
+  const storiesDir2 = join9(featureDir2(consortDir, featureId), "stories");
+  if (!existsSync10(storiesDir2)) return null;
+  const storyLayers = /* @__PURE__ */ new Map();
+  for (const s of readdirSync6(storiesDir2)) {
+    const ad = join9(storiesDir2, s, "acs");
+    if (!existsSync10(ad)) continue;
+    const layers = [];
+    for (const f of readdirSync6(ad)) {
+      if (!f.endsWith(".json")) continue;
+      try {
+        const layer = JSON.parse(readFileSync10(join9(ad, f), "utf8")).layer;
+        if (typeof layer === "string") layers.push(layer);
+      } catch {
+      }
+    }
+    storyLayers.set(s, layers);
+  }
+  const r = checkSchemaChangeStoryRealizes(changes, storyLayers);
+  return r.ok ? null : `db-design story attribution failed: ${r.violations.join("; ")}`;
+}
 function resolveArtifactInputs(gate, fdir, promoteRef, consortDir, featureId) {
   const readIfPresent = (name) => {
     const p = join9(fdir, name);
@@ -8141,6 +8190,8 @@ function resolveArtifactInputs(gate, fdir, promoteRef, consortDir, featureId) {
       if (layeringReason !== null) return { reason: layeringReason };
       const dbReason = dbDesignReason(consortDir, featureId);
       if (dbReason !== null) return { reason: dbReason };
+      const schemaStoryReason = schemaChangeStoryRealizesReason(consortDir, featureId);
+      if (schemaStoryReason !== null) return { reason: schemaStoryReason };
       const nfrReason = nfrCoverageReason(consortDir, featureId);
       return nfrReason === null ? conf : { reason: nfrReason };
     }

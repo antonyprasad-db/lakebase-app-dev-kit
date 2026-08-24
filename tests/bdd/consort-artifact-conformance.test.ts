@@ -19,6 +19,7 @@ import {
   checkPersistenceCoverage,
   checkInvariantCoverageDistinct,
   invariantRealizingStory,
+  checkSchemaChangeStoryRealizes,
   checkStoryIndependence,
   checkAcIndependence,
   checkServiceBackedDeclaration,
@@ -967,5 +968,46 @@ describe("invariantRealizingStory: invariant -> the story whose migration realiz
     expect(invariantRealizingStory(undefined, db).size).toBe(0);
     expect(invariantRealizingStory(arch, undefined).size).toBe(0);
     expect(invariantRealizingStory("{bad", db).size).toBe(0);
+  });
+});
+
+describe("checkSchemaChangeStoryRealizes: a create_table must not land on a UI/E2E shell story", () => {
+  const layers = (m: Record<string, string[]>): Map<string, string[]> => new Map(Object.entries(m));
+
+  it("flags a create_table attributed to a pure-shell story (all E2E ACs) , the reflect-loop root cause", () => {
+    const changes = [
+      { story_id: "S1-scaffold-app-shell", kind: "create_table", table: "stock_levels" },
+      { story_id: "S1-scaffold-app-shell", kind: "create_table", table: "stock_adjustments" },
+    ];
+    const r = checkSchemaChangeStoryRealizes(
+      changes,
+      layers({ "S1-scaffold-app-shell": ["E2E", "E2E", "E2E", "E2E"], "S2-record-adjustment": ["API", "E2E"] }),
+    );
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error("unreachable");
+    expect(r.violations.length).toBe(2); // one per mis-attributed table
+    expect(r.violations.join("\n")).toContain("stock_levels");
+    expect(r.violations.join("\n")).toContain("S1-scaffold-app-shell");
+  });
+
+  it("passes when the create_table is attributed to a persisting story (has an API or Infra AC)", () => {
+    const changes = [{ story_id: "S2-record-adjustment", kind: "create_table", table: "stock_levels" }];
+    expect(checkSchemaChangeStoryRealizes(changes, layers({ "S2-record-adjustment": ["API", "E2E"] })).ok).toBe(true);
+    expect(checkSchemaChangeStoryRealizes(changes, layers({ "S2-record-adjustment": ["Infra"] })).ok).toBe(true);
+  });
+
+  it("only checks create_table, skips unknown stories, and is a no-op with nothing to create", () => {
+    // An add_column on a shell story is not this defect (the table was created by its realizing story).
+    expect(
+      checkSchemaChangeStoryRealizes(
+        [{ story_id: "S1-scaffold-app-shell", kind: "add_column", table: "stock_levels" }],
+        layers({ "S1-scaffold-app-shell": ["E2E"] }),
+      ).ok,
+    ).toBe(true);
+    // A story absent from the layer map is skipped (reported by the AC-conformance check), never flagged here.
+    expect(
+      checkSchemaChangeStoryRealizes([{ story_id: "S9-ghost", kind: "create_table", table: "t" }], layers({})).ok,
+    ).toBe(true);
+    expect(checkSchemaChangeStoryRealizes([], layers({})).ok).toBe(true);
   });
 });

@@ -305,9 +305,12 @@ function emitStop(c, consortDir, open) {
   }
   return c.outcome === "escalation" ? 3 : 0;
 }
-function pollOnce(logPath, since, pid, isAlive = alive) {
-  if (!fs4.existsSync(logPath)) return { relayed: [], cursor: 0, status: "waiting" };
-  const size = fs4.statSync(logPath).size;
+function pollOnce(logPath, since, pid, isAlive = alive, nowMs = Date.now()) {
+  const pidAlive = pid === void 0 ? null : isAlive(pid);
+  if (!fs4.existsSync(logPath)) return { relayed: [], cursor: 0, status: "waiting", silentMs: 0, pidAlive };
+  const st = fs4.statSync(logPath);
+  const size = st.size;
+  const silentMs = Math.max(0, nowMs - st.mtimeMs);
   const from = since < 0 || since > size ? 0 : since;
   const relayed = [];
   let status = "running";
@@ -335,10 +338,10 @@ function pollOnce(logPath, since, pid, isAlive = alive) {
       if (c.stop && c.outcome) status = c.outcome;
     }
   }
-  if (status === "running" && pid !== void 0 && !isAlive(pid) && size <= from) {
+  if (status === "running" && pidAlive === false && size <= from) {
     status = scanLastStop(logPath)?.outcome ?? "done";
   }
-  return { relayed, cursor: size, status };
+  return { relayed, cursor: size, status, silentMs, pidAlive };
 }
 async function main() {
   const args = parseArgs(process.argv.slice(2));
@@ -348,8 +351,10 @@ async function main() {
     const r = pollOnce(logPath, args.since, args.pid);
     for (const line of r.relayed) process.stdout.write(`${line}
 `);
-    process.stdout.write(`[consort-watch] cursor=${r.cursor} status=${r.status}
-`);
+    process.stdout.write(
+      `[consort-watch] cursor=${r.cursor} status=${r.status} silent_for_s=${Math.round(r.silentMs / 1e3)} pid_alive=${r.pidAlive === null ? "unknown" : r.pidAlive}
+`
+    );
     return 0;
   }
   const APPEAR_MS = 3e4;

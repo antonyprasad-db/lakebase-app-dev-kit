@@ -7,7 +7,7 @@
 // real stop. Run: `npx vitest run tests/bdd/consort-watch-relay.test.ts`.
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, writeFileSync, appendFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync, appendFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pollOnce, scanLastStop } from "../../bin/consort/watch.cli";
@@ -78,5 +78,34 @@ describe("consort-watch poll-once = live step visibility in the session", () => 
     expect(scanLastStop(log)?.outcome).toBe("pause");
     writeFileSync(log, "[drive] 000 dispatch spec-author for breakdown\n"); // no stop line
     expect(scanLastStop(log)).toBeNull();
+  });
+
+  // Anti-hallucination contract: a quiet turn is reported with MEASURED silence + pid
+  // liveness, never re-classified as a stall from elapsed time. A single model call is
+  // silent until it returns, so a long silence is "slow OR hung , can't tell from the log";
+  // the poller hands the caller the real number instead of letting it invent one.
+  it("reports MEASURED silent_for + pid liveness for a quiet turn, and never infers a stall from duration", () => {
+    appendFileSync(log, "[drive] 004 dispatch test-strategist for design\n");
+    const t0 = pollOnce(log, 0, 4242, () => true);
+    expect(t0.status).toBe("running");
+    expect(t0.pidAlive).toBe(true);
+
+    // 20 minutes pass with NO new log line (a long, silent model call). The poller reports
+    // the measured silence and keeps status "running" , it does NOT manufacture "stalled".
+    const mtime = statSync(log).mtimeMs;
+    const later = pollOnce(log, t0.cursor, 4242, () => true, mtime + 20 * 60_000);
+    expect(later.relayed).toEqual([]); // nothing new
+    expect(later.status).toBe("running"); // NOT "stalled" , duration is not a stall verdict
+    expect(later.silentMs).toBe(20 * 60_000); // measured, not guessed
+    expect(later.pidAlive).toBe(true);
+
+    // No pid supplied => liveness is unknown (null), never a guess.
+    expect(pollOnce(log, t0.cursor).pidAlive).toBeNull();
+
+    // pid gone with no new lines => the existing terminal-scan path still resolves the stop.
+    appendFileSync(log, "[drive] done in 5 actions\n");
+    const ended = pollOnce(log, 0, 4242, () => false);
+    expect(ended.status).toBe("done");
+    expect(ended.pidAlive).toBe(false);
   });
 });

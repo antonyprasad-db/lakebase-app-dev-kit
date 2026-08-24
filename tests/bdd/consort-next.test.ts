@@ -178,7 +178,7 @@ describe("buildNextSnapshot: reconciled state, blockers, truthful summary", () =
     expect(snap.state.stories).toEqual({ S1: "done", S2: "done" });
   });
 
-  it("a non-routable escalation surfaces a blocker with a resolver hint (real nextTransition)", () => {
+  it("an escalation surfaces a blocker whose resolver is the resolve VERB (never a hand-edit hint)", () => {
     const snap = buildNextSnapshot(
       "feature",
       baseState({ escalation: { id: "e1", source: "smell:fragility", reason: "flaky aggregate", story_id: "S2" } }),
@@ -186,8 +186,16 @@ describe("buildNextSnapshot: reconciled state, blockers, truthful summary", () =
     );
     expect(snap.primary_action.kind).toBe("raise-to-hil");
     expect(snap.state.blockers).toHaveLength(1);
-    expect(snap.state.blockers[0]).toMatchObject({ source: "smell:fragility", reason: "flaky aggregate", story: "S2", resolver: null });
-    expect(snap.state.blockers[0].resolver_hint).toBeTruthy();
+    // The deterministic clear is the resolve verb (clears the escalation AND any blocking smell), not a
+    // null resolver + "rm the files" hint , the old hint that led sessions to hand-edit state on disk.
+    expect(snap.state.blockers[0]).toMatchObject({
+      source: "smell:fragility",
+      reason: "flaky aggregate",
+      story: "S2",
+      resolver: { bin: "consort-resolve-escalation", args: ["--id", "e1", "--resolution", "<what you fixed>"] },
+    });
+    expect(snap.state.blockers[0].resolver_hint).toMatch(/consort-resolve-escalation --id e1/);
+    expect(snap.state.blockers[0].resolver_hint).toMatch(/do NOT hand-edit/i);
     expect(snap.summary).toMatch(/BLOCKED/);
   });
 

@@ -142,20 +142,36 @@ export interface PollResult {
   cursor: number;
   /** running until a stop is seen (this batch OR, when the pid is gone, anywhere in the log). */
   status: PollStatus;
+  /** MEASURED liveness, never inferred: ms since the log's last write (now - mtime). A long
+   *  silent stretch is a slow OR a hung turn , the log ALONE CANNOT tell which (one model
+   *  call writes nothing until it returns), so the caller RELAYS this number and must NOT
+   *  invent a "hung" / "stuck N min" verdict from it. The only authoritative stall signal is
+   *  the drive's own `[drive] turn stalled:` line (emitted by the in-process inactivity
+   *  monitor after real silence), which classifies as kind `stalled`. */
+  silentMs: number;
+  /** MEASURED: is the drive pid alive? `null` when no pid was supplied (unknown, never guessed). */
+  pidAlive: boolean | null;
 }
 
 /** POLL-ONCE, pure + testable (no stdout): read new lines from `since` to EOF, format
  *  each meaningful transition for relay, and resolve the status. This is the ONE relay
  *  the guidance mandates , the caller loops it (narrating `relayed` each time) until
- *  `status` is a stop. `isAlive` is injectable so a test can drive the pid-gone path. */
+ *  `status` is a stop. `isAlive` is injectable so a test can drive the pid-gone path;
+ *  `nowMs` is injectable so a test can drive the measured-silence path deterministically.
+ *  Also returns MEASURED liveness (`silentMs`, `pidAlive`) so the caller relays real
+ *  numbers and never has to guess how long a quiet turn has been running. */
 export function pollOnce(
   logPath: string,
   since: number,
   pid?: number,
   isAlive: (p: number) => boolean = alive,
+  nowMs: number = Date.now(),
 ): PollResult {
-  if (!fs.existsSync(logPath)) return { relayed: [], cursor: 0, status: "waiting" };
-  const size = fs.statSync(logPath).size;
+  const pidAlive = pid === undefined ? null : isAlive(pid);
+  if (!fs.existsSync(logPath)) return { relayed: [], cursor: 0, status: "waiting", silentMs: 0, pidAlive };
+  const st = fs.statSync(logPath);
+  const size = st.size;
+  const silentMs = Math.max(0, nowMs - st.mtimeMs); // measured: since the last log write
   const from = since < 0 || since > size ? 0 : since; // clamp; truncation => re-read
   const relayed: string[] = [];
   let status: PollStatus = "running";
@@ -179,10 +195,10 @@ export function pollOnce(
   }
   // Process gone + nothing new PAST our cursor => scan the whole log for the real
   // terminal marker (a stop at any step the caller's cursor started after).
-  if (status === "running" && pid !== undefined && !isAlive(pid) && size <= from) {
+  if (status === "running" && pidAlive === false && size <= from) {
     status = scanLastStop(logPath)?.outcome ?? "done";
   }
-  return { relayed, cursor: size, status };
+  return { relayed, cursor: size, status, silentMs, pidAlive };
 }
 
 async function main(): Promise<number> {
@@ -191,14 +207,20 @@ async function main(): Promise<number> {
   const logPath = args.log ?? path.join(consortDir, "drive-live.log");
 
   // POLL-ONCE (--since <offset>): read new lines from the offset, relay them, print a
-  // machine-readable `[consort-watch] cursor=<N> status=<…>` trailer, and EXIT at once.
-  // This is the harness-friendly relay , a blocking follow is not streamed to the human
-  // (they see only a spinner until it returns), so the caller LOOPS short --since calls
-  // and narrates each batch. Returns fast whether or not there is new content.
+  // machine-readable `[consort-watch] cursor=<N> status=<…> silent_for_s=<N> pid_alive=<…>`
+  // trailer, and EXIT at once. This is the harness-friendly relay , a blocking follow is not
+  // streamed to the human (they see only a spinner until it returns), so the caller LOOPS
+  // short --since calls and narrates each batch. `silent_for_s` + `pid_alive` are MEASURED
+  // (log mtime + pid probe): relay them as-is and do NOT infer a "hung" / "stuck N min"
+  // verdict from a long silence , one model call is silent until it returns, so only the
+  // drive's own `stalled` line is an authoritative stall. Returns fast whether or not there
+  // is new content.
   if (args.since !== undefined) {
     const r = pollOnce(logPath, args.since, args.pid);
     for (const line of r.relayed) process.stdout.write(`${line}\n`);
-    process.stdout.write(`[consort-watch] cursor=${r.cursor} status=${r.status}\n`);
+    process.stdout.write(
+      `[consort-watch] cursor=${r.cursor} status=${r.status} silent_for_s=${Math.round(r.silentMs / 1000)} pid_alive=${r.pidAlive === null ? "unknown" : r.pidAlive}\n`,
+    );
     return 0;
   }
 
