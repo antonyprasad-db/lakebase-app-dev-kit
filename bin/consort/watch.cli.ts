@@ -37,6 +37,15 @@ interface Args {
    *  until it returns), so the caller LOOPS short `--since <cursor>` calls and
    *  narrates each batch. undefined = the (legacy) blocking follow mode. */
   since?: number;
+  /** PERSISTENT MONITOR mode (for the Monitor tool, NOT a Bash call): follow the log
+   *  indefinitely and stop ONLY at a terminal marker (gate/pause/escalation/done).
+   *  Unlike a `--pid`-bound follow, it does NOT exit when a drive process dies , so ONE
+   *  monitor spans the drive's mid-turn silences AND its turn-by-turn re-runs (each run
+   *  truncates drive-live.log; the follow re-reads from 0). This is the kit-owned
+   *  replacement for a hand-rolled `tail -F | while read; case …`. Implies no timeout
+   *  bound. Use ONLY as a Monitor-tool command; a blocking Bash call shows only a
+   *  spinner until it returns. */
+  monitor: boolean;
 }
 
 /** The current feature/story from workflow-state, to scope the review-artifact open. */
@@ -53,7 +62,7 @@ function currentScope(consortDir: string): { feature?: string; story?: string } 
 }
 
 function parseArgs(argv: string[]): Args {
-  const out: Args = { fromStart: false, projectDir: process.cwd(), open: true, timeout: 90 };
+  const out: Args = { fromStart: false, projectDir: process.cwd(), open: true, timeout: 90, monitor: false };
   for (let i = 0; i < argv.length; i++) {
     switch (argv[i]) {
       case "--log": out.log = argv[++i]; break;
@@ -64,10 +73,13 @@ function parseArgs(argv: string[]): Args {
       case "--project-dir": out.projectDir = argv[++i]; break;
       case "--tdd-dir": case "--consort-dir": out.consortDir = argv[++i]; break;
       case "--no-open": out.open = false; break;
+      case "--monitor": out.monitor = true; out.timeout = 0; break; // persistent: no self-bound
       case "-h": case "--help":
         process.stdout.write(
           "consort-watch , follow a backgrounded drive's live log and relay transitions.\n\n" +
-            "  consort-watch [--log <path>] [--pid <n>] [--from-start] [--project-dir <p>]\n\n" +
+            "  consort-watch [--log <path>] [--pid <n>] [--from-start] [--project-dir <p>]\n" +
+            "  consort-watch --since <cursor> [--pid <n>]   POLL-ONCE: new lines + status, exit at once (for a Bash-call relay loop)\n" +
+            "  consort-watch --monitor                      PERSISTENT: follow the log across silences + drive re-runs, stop only at a marker (for the Monitor TOOL)\n\n" +
             "Defaults --log to <consort>/drive-live.log (the scaffolded `> … 2>&1 &` sink).\n" +
             "Stops at a gate / pause / escalation / run-end. Exit 0 clean, 3 escalation, 2 no log.\n",
         );
@@ -249,6 +261,19 @@ async function main(): Promise<number> {
   const watchStart = Date.now();
   process.stderr.write(`consort-watch: following ${logPath}${args.pid ? ` (pid ${args.pid})` : ""}\n`);
 
+  // Monitor late-attach: if the drive ALREADY wrote a terminal marker before this monitor
+  // started following from EOF, report it now. Monitor mode skips the pid-gone exit (to
+  // span re-runs), so without this it would follow an already-finished log forever. (In
+  // the normal case , armed while the drive runs, no marker yet , scanLastStop is null and
+  // we follow forward. A re-run truncates the log, so no stale marker survives.)
+  if (args.monitor) {
+    const last = scanLastStop(logPath);
+    if (last) {
+      process.stdout.write(`${PREFIX[last.kind]} ${last.text}\n`);
+      return emitStop(last, consortDir, args.open);
+    }
+  }
+
   for (;;) {
     const size = fs.statSync(logPath).size;
     if (size < offset) offset = 0; // truncated / rotated , restart
@@ -282,7 +307,10 @@ async function main(): Promise<number> {
     // step, a gate, done) and exited BEFORE we started following from EOF. Scan the whole
     // log for the last stop and report the REAL outcome , NOT a false "unclean exit".
     // Only when there is genuinely no stop marker anywhere is it a crash/kill.
-    if (args.pid && !alive(args.pid) && fs.statSync(logPath).size <= offset) {
+    // SKIPPED in --monitor mode: a persistent monitor spans the drive's turn-by-turn
+    // re-runs, so a dead pid between runs is NORMAL , it keeps following the log (which
+    // the next run truncates + rewrites) and exits ONLY at a real terminal marker above.
+    if (!args.monitor && args.pid && !alive(args.pid) && fs.statSync(logPath).size <= offset) {
       const last = scanLastStop(logPath);
       if (last) {
         process.stdout.write(`${PREFIX[last.kind]} ${last.text}\n`);

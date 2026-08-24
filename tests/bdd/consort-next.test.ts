@@ -100,6 +100,26 @@ describe("buildNextOptions: the decision menu per stop", () => {
     expect(opts.every((o) => o.hil_prompt.length > 0)).toBe(true);
   });
 
+  it("author-requests surfaces the exact consort-sync-backlog command (no kit-scanning to find it)", () => {
+    // Regression: the planning author-requests step used to fall to the bare "resume"
+    // default, so a session ran consort-next, got no command, and grepped the kit to
+    // rediscover consort-sync-backlog. consort-next must NAME the command itself.
+    const opts = buildNextOptions(
+      { kind: "invoke-role", role: "product-owner", mode: "author-requests" } as WorkflowAction,
+      { sprint: "stockflow-s1", approver: "po@example.com" },
+    );
+    const commit = opts.find((o) => o.id === "backlog.commit")!;
+    expect(commit).toBeDefined();
+    expect(commit.enact).toEqual({
+      bin: "consort-sync-backlog",
+      args: ["--sprint", "stockflow-s1", "--features", "<id[,id...]>"],
+    });
+    expect(commit.note).toContain("feature-proposals.md"); // points at the project's proposal for the ids
+    expect(opts.some((o) => o.id === "hold")).toBe(true); // hold is still offered
+    // NOT the bare resume default
+    expect(opts.some((o) => o.id === "resume")).toBe(false);
+  });
+
   it("each approval gate offers approve + hold with the correct enact command", () => {
     for (const [action, id] of [
       [{ kind: "approve-plan-gate" }, "plan.approve"],

@@ -256,7 +256,7 @@ function currentScope(consortDir) {
   }
 }
 function parseArgs(argv) {
-  const out = { fromStart: false, projectDir: process.cwd(), open: true, timeout: 90 };
+  const out = { fromStart: false, projectDir: process.cwd(), open: true, timeout: 90, monitor: false };
   for (let i = 0; i < argv.length; i++) {
     switch (argv[i]) {
       case "--log":
@@ -284,10 +284,15 @@ function parseArgs(argv) {
       case "--no-open":
         out.open = false;
         break;
+      case "--monitor":
+        out.monitor = true;
+        out.timeout = 0;
+        break;
+      // persistent: no self-bound
       case "-h":
       case "--help":
         process.stdout.write(
-          "consort-watch , follow a backgrounded drive's live log and relay transitions.\n\n  consort-watch [--log <path>] [--pid <n>] [--from-start] [--project-dir <p>]\n\nDefaults --log to <consort>/drive-live.log (the scaffolded `> \u2026 2>&1 &` sink).\nStops at a gate / pause / escalation / run-end. Exit 0 clean, 3 escalation, 2 no log.\n"
+          "consort-watch , follow a backgrounded drive's live log and relay transitions.\n\n  consort-watch [--log <path>] [--pid <n>] [--from-start] [--project-dir <p>]\n  consort-watch --since <cursor> [--pid <n>]   POLL-ONCE: new lines + status, exit at once (for a Bash-call relay loop)\n  consort-watch --monitor                      PERSISTENT: follow the log across silences + drive re-runs, stop only at a marker (for the Monitor TOOL)\n\nDefaults --log to <consort>/drive-live.log (the scaffolded `> \u2026 2>&1 &` sink).\nStops at a gate / pause / escalation / run-end. Exit 0 clean, 3 escalation, 2 no log.\n"
         );
         process.exit(0);
     }
@@ -418,6 +423,14 @@ async function main() {
   const watchStart = Date.now();
   process.stderr.write(`consort-watch: following ${logPath}${args.pid ? ` (pid ${args.pid})` : ""}
 `);
+  if (args.monitor) {
+    const last = scanLastStop(logPath);
+    if (last) {
+      process.stdout.write(`${PREFIX[last.kind]} ${last.text}
+`);
+      return emitStop(last, consortDir, args.open);
+    }
+  }
   for (; ; ) {
     const size = fs4.statSync(logPath).size;
     if (size < offset) offset = 0;
@@ -450,7 +463,7 @@ async function main() {
         if (c.stop) return emitStop(c, consortDir, args.open);
       }
     }
-    if (args.pid && !alive(args.pid) && fs4.statSync(logPath).size <= offset) {
+    if (!args.monitor && args.pid && !alive(args.pid) && fs4.statSync(logPath).size <= offset) {
       const last = scanLastStop(logPath);
       if (last) {
         process.stdout.write(`${PREFIX[last.kind]} ${last.text}

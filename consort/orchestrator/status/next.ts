@@ -158,6 +158,30 @@ export function buildNextOptions(action: WorkflowAction, ctx: NextContext): Next
     featureBranch: ctx.featureBranch,
   });
 
+  // Planning `author-requests`: the PO commits WHICH proposed features are in this
+  // sprint. This has a dedicated CLI (`consort-sync-backlog`), so it is NOT a bare
+  // "resume" (the default) , surface the exact command HERE so a session reads it off
+  // consort-next (the authoritative surface) instead of grepping the kit to rediscover
+  // how the backlog is recorded. The feature-request(s) are already authored (a staged
+  // first-project, or a prior turn), so this is a COMMIT decision, not authoring.
+  if (action.kind === "invoke-role" && "mode" in action && (action as { mode?: string }).mode === "author-requests") {
+    return [
+      {
+        id: "backlog.commit",
+        title: "Commit the sprint backlog",
+        hil_prompt:
+          "Which proposed features are in this sprint? Commit them (by folder id) to lock the backlog; the drive then advances to the plan gate.",
+        kind: "action",
+        enact: { bin: "consort-sync-backlog", args: ["--sprint", ctx.sprint ?? "<sprint>", "--features", "<id[,id...]>"] },
+        note:
+          "Pick the features from .consort/planning/feature-proposals.md and pass their FOLDER ids " +
+          "(e.g. F1-stock-visibility,F2-stock-adjustment) , NOT the proposal's `## F1` heading labels. " +
+          "A pure UI/shell story is not a feature; commit only the features this sprint delivers.",
+      },
+      holdOption(),
+    ];
+  }
+
   switch (action.kind) {
     case "accept": {
       // The richest, highest-stakes menu: the PO's acceptance decision. accept

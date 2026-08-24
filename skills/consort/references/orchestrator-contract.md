@@ -34,10 +34,13 @@ the phase/role/gate transitions; don't narrate the tooling.
    ~every 15-20s while running) until `status` is a stop. **NEVER run a BLOCKING
    `consort-watch` as a foreground Bash call , not `--timeout 0`, not the default bound,
    not any follow , the harness buffers it and the human sees only a spinner until it
-   returns (no steps). `--timeout 0` is valid ONLY as the command handed to the Monitor
-   TOOL (which streams it live); if you are not literally invoking the Monitor tool you
-   are in a Bash call , use poll-once.** NEVER hand-roll a `tail -f … | while read; case
-   …` monitor (brittle; the kit owns the formats). The same poll-once relay follows
+   returns (no steps). If you are literally invoking the Monitor TOOL (a persistent
+   background task that streams output live), hand it `./scripts/lk consort-watch
+   --monitor` , the persistent mode that follows the log across mid-turn silences AND
+   turn-by-turn re-runs (do NOT pass `--pid`: a pid-bound follow exits when that one
+   drive process dies) and stops only at a terminal marker. Otherwise you are in a Bash
+   call , use poll-once.** NEVER hand-roll a `tail -f … | while read; case …` monitor
+   (brittle; the kit owns the formats). The same poll-once relay follows
    create + refresh (their `[stage]` / `lk:` lines classify too). `consort-watch` relays
    each transition as it lands ,
    e.g. "Planning: Spec Author proposing the backlog… → Architect estimating… → Plan

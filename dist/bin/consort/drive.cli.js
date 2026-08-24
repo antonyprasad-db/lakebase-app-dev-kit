@@ -14305,6 +14305,19 @@ function buildNextOptions(action, ctx) {
     approver: ctx.approver,
     featureBranch: ctx.featureBranch
   });
+  if (action.kind === "invoke-role" && "mode" in action && action.mode === "author-requests") {
+    return [
+      {
+        id: "backlog.commit",
+        title: "Commit the sprint backlog",
+        hil_prompt: "Which proposed features are in this sprint? Commit them (by folder id) to lock the backlog; the drive then advances to the plan gate.",
+        kind: "action",
+        enact: { bin: "consort-sync-backlog", args: ["--sprint", ctx.sprint ?? "<sprint>", "--features", "<id[,id...]>"] },
+        note: "Pick the features from .consort/planning/feature-proposals.md and pass their FOLDER ids (e.g. F1-stock-visibility,F2-stock-adjustment) , NOT the proposal's `## F1` heading labels. A pure UI/shell story is not a feature; commit only the features this sprint delivers."
+      },
+      holdOption()
+    ];
+  }
   switch (action.kind) {
     case "accept": {
       const story = storyOf4(action) ?? "<story>";
