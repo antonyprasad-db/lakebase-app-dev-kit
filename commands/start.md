@@ -10,20 +10,30 @@ This command launches the Consort (spec-first, test-driven) loop. First detect w
 
 Consort reports pseudonymous usage telemetry to its maintainers. The human MUST be told this in plain language the first time you run `/consort:start` for them , and be offered the Level-1 opt-out and the Level-2 opt-in , **here, where they can actually read it** (a stderr notice buried in a background drive is not a disclosure). Gate on the `acknowledged` flag, not on whether a config file exists.
 
-**Invoke the telemetry CLI via the PLUGIN's binary, NOT `./scripts/lk`.** This step runs BEFORE the Create/Resume branch, and on a fresh install (the Create path) there is no scaffolded `./scripts/lk` yet , so `./scripts/lk consort-telemetry …` silently FAILS and the human's answer is never persisted (exactly the "I chose Level 2 and it didn't stick" bug). The plugin always ships `dist/`, so define this once and use it for every call below (it writes the same home config `~/.config/consort/telemetry.json` regardless of any project):
+**Invoke the telemetry CLI via the PLUGIN's binary, NOT `./scripts/lk`.** This step runs BEFORE the Create/Resume branch, and on a fresh install (the Create path) there is no scaffolded `./scripts/lk` yet , so `./scripts/lk consort-telemetry …` silently FAILS and the human's answer is never persisted (exactly the "I chose Level 2 and it didn't stick" bug). The plugin always ships `dist/`, so resolve its binary dir once and use it for every call below (it writes the same home config `~/.config/consort/telemetry.json` regardless of any project). **`$CLAUDE_PLUGIN_ROOT` is NOT reliably exported into a tool shell** , so prefer it but fall back to the plugin cache:
 ```bash
-TCLI="node \"$CLAUDE_PLUGIN_ROOT/dist/bin/consort/telemetry.cli.js\""
+# Resolve the plugin's shipped binary dir, robust to $CLAUDE_PLUGIN_ROOT being unset.
+CONSORT_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
+if [ -z "$CONSORT_ROOT" ] || [ ! -d "$CONSORT_ROOT/dist" ]; then
+  # The plugin installs at ~/.claude/plugins/cache/databricks-solutions/consort/<version>/;
+  # after a plugin update the newest cached version is the running one.
+  CONSORT_ROOT="$(ls -d "$HOME/.claude/plugins/cache/databricks-solutions/consort"/*/dist 2>/dev/null \
+    | sort -V | tail -1 | sed 's#/dist$##')"
+fi
+TCLI="node \"$CONSORT_ROOT/dist/bin/consort/telemetry.cli.js\""
 ```
+(Same `$CONSORT_ROOT` resolves `consort-watch` for the create relay in **B. Create** below.)
 
 1. Run `$TCLI status --json` and read `acknowledged`.
 2. **If `acknowledged` is `true`, SKIP this section entirely** , they have already been briefed and made a choice; go straight to the `.consort/` check below.
 3. **If `acknowledged` is `false`** (a brand-new install, OR an older config that predates this briefing), present this verbatim and wait for their answer:
-   > "Before we start: Consort runs entirely in your own workspace, so its maintainers have **no other window into how it's actually working** , this pseudonymous usage telemetry is their only signal for improving it. It carries a random per-install id and nothing else identifying: **no personal data, no code, no paths, no names** , only allowlisted event names, counts, and durations. It's **on by default (opt-out)**.
-   > • **Level 1** (default): high-level phase/gate events , enough to see where runs stall. Reply **'keep'** to leave it on, or **'opt out'** to turn it off entirely.
-   > • **Level 2** (separate, explicit opt-in): also per-role turn timings + coarse repair/loop counts (still allowlisted, no free text) , the signal that actually drives tuning the roles and gates. Reply **'level 2'** if you're willing to help make Consort better.
-   > You can change this any time with `consort-telemetry {enable|disable} [--level 2]` (or `./scripts/lk consort-telemetry …` inside a project)."
+   > "One quick thing before we start , Consort's usage telemetry. Consort runs entirely in your own workspace, so a telemetry capture is the only way its maintainers can see what's working and make it better. It's **pseudonymous**: a random per-install id and nothing that identifies you , **no personal data, no code, no file paths, no names** , just event names, counts, and timings from a fixed allowlist. It's **on by default**, and you can opt out or change it anytime. How would you like it set?
+   > • **ok** , leave it on at the default (Level 1: high-level phase and gate events).
+   > • **level 2** , opt in to a bit more (per-role turn timings + coarse repair/loop counts, still allowlisted, no free text). This is the signal that most helps tune the roles and gates , the biggest favor you can do the project.
+   > • **opt out** , turn telemetry off entirely.
+   > (Change it later anytime: `consort-telemetry {enable|disable} [--level 2]`, or `./scripts/lk consort-telemetry …` inside a project.)"
 4. **RECORD their choice by actually RUNNING the matching command** (do NOT just note the answer in your reply , if you don't run it, nothing persists). Each sets `acknowledged=true`:
-   - **keep / leave on** -> `$TCLI ack`
+   - **ok / leave on** -> `$TCLI ack`
    - **opt out** -> `$TCLI disable`
    - **level 2** -> `$TCLI enable --level 2`
    Then re-run `$TCLI status --json` and CONFIRM the write landed (`acknowledged:true`, and `telemetry_level:2` for a Level-2 choice) before moving on.
@@ -150,14 +160,23 @@ KIT_REF="${LAKEBASE_KIT_REF:-}"
 if [ -z "$KIT_REF" ] && [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json" ]; then
   KIT_REF="v$(node -p "require('${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json').version" 2>/dev/null || true)"
 fi
-KIT_REF="${KIT_REF:-v0.3.26}"   # stamped at release; == package.json version (enforced by tests/bdd/start-kit-pin.test.ts)
+KIT_REF="${KIT_REF:-v0.3.27}"   # stamped at release; == package.json version (enforced by tests/bdd/start-kit-pin.test.ts)
 KIT_PKG="github:databricks-solutions/consort#${KIT_REF}"
+
+# Resolve the plugin's shipped files (launcher + consort-watch), robust to
+# $CLAUDE_PLUGIN_ROOT being unset in this tool shell (it usually is). Same resolver as
+# step 0. Each bash block is a fresh shell, so re-resolve here.
+CONSORT_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
+if [ -z "$CONSORT_ROOT" ] || [ ! -d "$CONSORT_ROOT/dist" ]; then
+  CONSORT_ROOT="$(ls -d "$HOME/.claude/plugins/cache/databricks-solutions/consort"/*/dist 2>/dev/null \
+    | sort -V | tail -1 | sed 's#/dist$##')"
+fi
 
 # Launch via the kit's create launcher (heartbeat during the silent npx fetch, then
 # forwards the [stage] lines), backgrounded to a log. Do NOT call npx directly and do
 # NOT tail this in a foreground loop , relay it poll-once (below).
 LOG="$(mktemp -t consort-create.XXXX.log)"
-bash "$CLAUDE_PLUGIN_ROOT/scripts/consort-create.sh" "$KIT_PKG" \
+bash "$CONSORT_ROOT/scripts/consort-create.sh" "$KIT_PKG" \
   --project-name "<name>" --parent-dir "<parent-dir>" \
   --databricks-host "<host>" --github-owner "<owner>" \
   --language "<language>" --tiers "<1|2|3>" \
@@ -168,7 +187,7 @@ CREATE_PID=$!
 
 # Relay it POLL-ONCE (one call per turn), narrating each batch, until status=done.
 # The plugin ships dist/, so consort-watch runs before the project exists:
-#   node "$CLAUDE_PLUGIN_ROOT/dist/bin/consort/watch.cli.js" --since 0 --log "$LOG" --pid "$CREATE_PID"
+#   node "$CONSORT_ROOT/dist/bin/consort/watch.cli.js" --since 0 --log "$LOG" --pid "$CREATE_PID"
 #     -> relays new lines, ends with: [consort-watch] cursor=<N> status=<running|done|...>
 #   next call: --since <N> (the printed cursor); repeat until status=done.
 # On done, relay the final `Next:` hint from the tail of the log.
