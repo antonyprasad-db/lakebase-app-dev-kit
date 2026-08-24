@@ -16,7 +16,7 @@ This command launches the Consort (spec-first, test-driven) loop. First detect w
 
 Drive the workflow through the **deterministic orchestrator** (`consort-drive`), invoked by the slash commands below. You coordinate only: run the right command for the project's state, and surface every gate to the human. The driver spawns the role agents (`product-owner`, `spec-author`, `ux-designer`, `architect-reviewer`, `test-strategist`, `navigator`, `driver`, or `release-engineer`), which are scaffolded into the project's `.claude/agents/` and invoked as `claude --agent <role>`, and obeys the state machine; the orchestrator is not an LLM agent. You write no spec, code, test, or deploy yourself.
 
-1. **Take stock** (read, then summarize back): `.consort/product-overview.md` (what the product is), `.consort/nfrs.md`, `.consort/design/design-brief.md` (if UI), `.consort/workflow-state.json` (current `phase` + locus, your source of truth), `.consort/planning/feature-proposals.md`, and each `.consort/features/*/` (feature-request, feature-spec, architecture, test-list, gates.json). Confirm SCM state via `lakebase-scm-state`. Give the human a short situation report: what the project is about, the current phase, and each feature's status.
+1. **Take stock** (read, then summarize back): `.consort/product-overview.md` (what the product is), `.consort/nfrs.md`, `.consort/design/design-brief.md` (if UI), `.consort/planning/feature-proposals.md`, and each `.consort/features/*/` (feature-request, feature-spec, architecture, test-list, gates.json). **For the authoritative "where am I / what next", run `./scripts/lk consort-next`** , it DERIVES the phase + the next ready action from the artifacts on disk (the real source of truth). Do NOT rely on `.consort/workflow-state.json`'s `phase` for that: it is only a COARSE per-project slot that advances during a FEATURE drive (design → build → deploy), so it reads `discovery` all through PLANNING , even after `feature-proposals.md` exists , and treating it as the source of truth reports a stale phase (a planning-done project still shows `discovery`). Confirm SCM state via `lakebase-scm-state`. Give the human a short situation report: what the project is about, the current phase (per `consort-next`), and each feature's status.
    - **This project pins its kit to a version.** A project created by a recent kit records the exact release it was scaffolded with in `.lakebase/kit-ref` (e.g. `v0.3.15`) , an IMMUTABLE tag , so `./scripts/lk` always resolves that same version from a version-keyed cache and never silently drifts onto a moving `main`. That determinism is deliberate: upgrading the runtime kit is an explicit step (below), not something a background tip-move does to you mid-work.
    - **Check for a newer Consort first.** Run `./scripts/lk consort-check-update` (throttled to once/day, silent when current, never blocks). If it prints that a newer version is available, relay it and offer to upgrade before continuing:
      1. Update the plugin (the slash commands): `claude plugin marketplace update databricks-solutions && claude plugin update consort@databricks-solutions`, then restart Claude Code.
@@ -31,7 +31,7 @@ Drive the workflow through the **deterministic orchestrator** (`consort-drive`),
      - Built but not deployed/reviewed -> **`/deploy <feature-id> --target local`** (the working-software gate).
    - Need to explore an unknown first? **`/spike <slug> [--for <feature>]`** (throwaway, outside the loop).
    - Confirm the chosen step with the human, invoke that project-scaffolded command (it runs the deterministic driver, which spawns the role agents + pauses at gates), then loop.
-   - **Run the driver in the BACKGROUND and relay each role AS IT STARTS , do NOT run it foreground and narrate from chunks.** The driver streams one `[drive] NNN dispatch <role> for <phase>` line to stderr the moment each role STARTS (e.g. `dispatch dba for design`, then `dispatch test-strategist for design`), and a `[drive] <role> turn Ns` line when it finishes. A blocking foreground run buffers these, so you only observe whatever state exists when the call returns , which is how a role ends up announced only at completion ("Test Strategist has produced …") while another was caught mid-flight ("the DBA is now turning …"). Instead background the command to `.consort/drive-live.log` (`... > .consort/drive-live.log 2>&1 &`) and **watch it with the kit's own `./scripts/lk consort-watch --pid <drive-pid>`** , do NOT hand-roll a `tail -f … | while read; case …` loop (it re-guesses the drive's line formats and is brittle). `consort-watch` relays each `dispatch <role>` at its START and each turn's completion in plain language, and STOPS at a gate / pause / escalation / run-end; when it stops, run `consort-next` for the exact command that clears it. This is the orchestrator-contract's rule 1 (`skills/consort/references/orchestrator-contract.md`); follow it for `/sprint`, `/plan`, `/design`, `/build`, and `/deploy` alike.
+   - **Run the driver in the BACKGROUND and relay each role AS IT STARTS , do NOT run it foreground and narrate from chunks.** The driver streams one `[drive] NNN dispatch <role> for <phase>` line to stderr the moment each role STARTS (e.g. `dispatch dba for design`, then `dispatch test-strategist for design`), and a `[drive] <role> turn Ns` line when it finishes. A blocking foreground run buffers these, so you only observe whatever state exists when the call returns , which is how a role ends up announced only at completion ("Test Strategist has produced …") while another was caught mid-flight ("the DBA is now turning …"). Instead launch it **detached** so a watcher timeout can't kill it , `nohup ./scripts/lk consort-drive … >/dev/null 2>&1 &` , and **watch it with `./scripts/lk consort-watch --pid <drive-pid>`**. The drive SELF-WRITES `.consort/drive-live.log` (do NOT redirect stderr to that file , the drive owns it, a redirect double-writes; and do NOT use a bare harness background task expecting output there , the drive's own log is what `consort-watch` follows). Do NOT hand-roll a `tail -f … | while read; case …` loop (brittle). `consort-watch` relays each `dispatch <role>` at its START and each turn's completion, STOPS at a gate / pause / escalation / run-end, and **bounds its own wait (~90s)** so a foreground call stays under the harness timeout , if it prints "still running", re-run it (the detached drive keeps going). When it stops, run `consort-next` for the exact command that clears it. This is the orchestrator-contract's rule 1 (`skills/consort/references/orchestrator-contract.md`); follow it for `/sprint`, `/plan`, `/design`, `/build`, and `/deploy` alike.
 
 **Teardown / reclaim** (run from inside the project; both default the Lakebase instance + host from the project `.env`, so you need not re-specify them):
 - **Done with a spike?** `./scripts/lk consort-spike delete --slug <slug>` tears down its paired Lakebase + git branch. Notes are KEPT by default (the learning survives); add `--purge-notes` to also remove `.consort/spikes/<slug>/`.
@@ -124,7 +124,7 @@ KIT_REF="${LAKEBASE_KIT_REF:-}"
 if [ -z "$KIT_REF" ] && [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json" ]; then
   KIT_REF="v$(node -p "require('${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json').version" 2>/dev/null || true)"
 fi
-KIT_REF="${KIT_REF:-v0.3.23}"   # stamped at release; == package.json version (enforced by tests/bdd/start-kit-pin.test.ts)
+KIT_REF="${KIT_REF:-v0.3.24}"   # stamped at release; == package.json version (enforced by tests/bdd/start-kit-pin.test.ts)
 KIT_PKG="github:databricks-solutions/consort#${KIT_REF}"
 
 # Background it to a log so you can relay the [stage] lines live (see above).
@@ -184,12 +184,16 @@ ED="$(find_editor)"
 if [ -z "$ED" ]; then
   echo "Neither Cursor nor VS Code found. Install one, then the extension (manual steps below)."
 else
-  mkdir -p /tmp/consort-ext
-  # latest release .vsix from the extension repo (not on the marketplace)
+  # Download into a FRESH dir , NOT a fixed /tmp/consort-ext: a leftover older .vsix
+  # from a prior run persists (`--clobber` only overwrites the SAME name), so a
+  # `*.vsix` glob would then match two versions and `--install-extension` could pick
+  # the wrong (older) one. A fresh dir holds only the LATEST release's single .vsix.
+  DEST="$(mktemp -d)"
   gh release download --repo databricks-solutions/lakebase-scm-extension \
-    --pattern '*.vsix' --dir /tmp/consort-ext --clobber
-  "$ED" --install-extension /tmp/consort-ext/*.vsix
-  "$ED" "<parent-dir>/<name>"                          # open the PROJECT dir with the extension active
+    --pattern '*.vsix' --dir "$DEST" --clobber          # the latest release (not on the marketplace)
+  VSIX="$(ls -t "$DEST"/*.vsix 2>/dev/null | head -1)"   # newest, defensively (should be exactly one)
+  "$ED" --install-extension "$VSIX" --force              # --force so a same-version reinstall still applies
+  "$ED" "<parent-dir>/<name>"                            # open the PROJECT dir with the extension active
 fi
 ```
 - **Confirm which editor** if both are present (prefer the one they're using). The app-bundle fallback means an installed-but-not-on-PATH editor still works; if you used the bundle path, mention they can enable the short command via the editor's *"Shell Command: Install 'code'/'cursor' command in PATH"*.

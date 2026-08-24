@@ -44,6 +44,8 @@ function resolveConsortDir(projectDir = process.cwd()) {
 }
 var featuresDir = (tdd) => (0, import_node_path.join)(tdd, "features");
 var planningDir = (tdd) => (0, import_node_path.join)(tdd, "planning");
+var productOverviewMd = (tdd) => (0, import_node_path.join)(tdd, "product-overview.md");
+var nfrsMd = (tdd) => (0, import_node_path.join)(tdd, "nfrs.md");
 var designBriefMd = (tdd) => (0, import_node_path.join)(tdd, "design", "design-brief.md");
 var designGuideJson = (tdd) => (0, import_node_path.join)(tdd, "design", "design-guide.json");
 var featureProposalsMd = (tdd) => (0, import_node_path.join)(planningDir(tdd), "feature-proposals.md");
@@ -57,6 +59,7 @@ var architectureMd = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd,
 var dbDesignJson = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "db-design.json");
 var dbDesignMd = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "db-design.md");
 var featureTestListJson = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "test-list.json");
+var featureTestListMd = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "test-list.md");
 var storiesDir = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "stories");
 var storyDir = (tdd, f, s) => (0, import_node_path.join)(storiesDir(tdd, f), s);
 function findStoryDir(tdd, f, s) {
@@ -85,6 +88,9 @@ function classifyDriveLine(raw) {
   const line = raw.replace(/\s+$/, "");
   if (/recorded under .*escalations\//.test(line)) {
     return { kind: "escalation", text: line.trim(), stop: true, outcome: "escalation" };
+  }
+  if (line.startsWith("[consort]")) {
+    return { kind: "notice", text: line.replace(/^\[consort\] /, ""), stop: false };
   }
   const isDrive = line.startsWith("[drive]");
   const isSprint = line.startsWith("[sprint]");
@@ -137,9 +143,14 @@ function reviewArtifacts(consortDir, opts = {}) {
   const add = (p) => {
     if (fs2.existsSync(p) && !out.includes(p)) out.push(p);
   };
+  add(productOverviewMd(consortDir));
+  add(nfrsMd(consortDir));
   add(featureProposalsMd(consortDir));
+  add((0, import_node_path2.join)(consortDir, "planning", "estimates.json"));
   add(designBriefMd(consortDir));
+  add((0, import_node_path2.join)(consortDir, "design", "design-guide.md"));
   add(designGuideJson(consortDir));
+  add((0, import_node_path2.join)(consortDir, "design", "ia.md"));
   const { feature: f, story: s } = opts;
   if (f) {
     add(featureRequestMd(consortDir, f));
@@ -149,6 +160,7 @@ function reviewArtifacts(consortDir, opts = {}) {
     add(architectureJson(consortDir, f));
     add(dbDesignMd(consortDir, f));
     add(dbDesignJson(consortDir, f));
+    add(featureTestListMd(consortDir, f));
     add(featureTestListJson(consortDir, f));
     if (s) {
       add((0, import_node_path2.join)(storyDir(consortDir, f, s), "story.md"));
@@ -222,7 +234,7 @@ function currentScope(consortDir) {
   }
 }
 function parseArgs(argv) {
-  const out = { fromStart: false, projectDir: process.cwd(), open: true };
+  const out = { fromStart: false, projectDir: process.cwd(), open: true, timeout: 90 };
   for (let i = 0; i < argv.length; i++) {
     switch (argv[i]) {
       case "--log":
@@ -230,6 +242,9 @@ function parseArgs(argv) {
         break;
       case "--pid":
         out.pid = Number(argv[++i]);
+        break;
+      case "--timeout":
+        out.timeout = Number(argv[++i]);
         break;
       case "--from-start":
         out.fromStart = true;
@@ -264,6 +279,7 @@ var PREFIX = {
   escalation: "FAIL:",
   done: "DONE:",
   stalled: " !!",
+  notice: "[consort]",
   info: "   ."
 };
 var alive = (pid) => {
@@ -296,6 +312,8 @@ async function main() {
   }
   let offset = args.fromStart ? 0 : fs4.statSync(logPath).size;
   let carry = "";
+  let inNotice = false;
+  const watchStart = Date.now();
   process.stderr.write(`consort-watch: following ${logPath}${args.pid ? ` (pid ${args.pid})` : ""}
 `);
   for (; ; ) {
@@ -311,10 +329,22 @@ async function main() {
       const lines = carry.split("\n");
       carry = lines.pop() ?? "";
       for (const line of lines) {
+        if (inNotice) {
+          if (/^\s+\S/.test(line)) {
+            process.stdout.write(`${line.replace(/\s+$/, "")}
+`);
+            continue;
+          }
+          inNotice = false;
+        }
         const c = classifyDriveLine(line);
         if (!c) continue;
         process.stdout.write(`${PREFIX[c.kind]} ${c.text}
 `);
+        if (c.kind === "notice") {
+          inNotice = true;
+          continue;
+        }
         if (c.stop) {
           if (c.outcome === "gate" || c.outcome === "pause") {
             if (args.open) {
@@ -339,6 +369,13 @@ async function main() {
       process.stderr.write(`consort-watch: drive pid ${args.pid} is no longer running (no terminal line seen).
 `);
       return 3;
+    }
+    if (args.timeout > 0 && (Date.now() - watchStart) / 1e3 >= args.timeout) {
+      process.stderr.write(
+        `consort-watch: still running after ${args.timeout}s and no gate yet , the drive continues in the background. Re-run \`consort-watch\` to keep relaying (or pass --timeout 0 when running consort-watch itself detached).
+`
+      );
+      return 0;
     }
     await sleep(400);
   }

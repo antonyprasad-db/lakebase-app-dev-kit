@@ -52,6 +52,47 @@ describe("reviewArtifacts", () => {
   });
 });
 
+describe("reviewArtifacts COVERS the artifact channel (single source , no drift)", () => {
+  // The invariant: whatever a role writes to the `artifact` channel (declared in the
+  // step manifests) MUST be opened by reviewArtifacts. This test derives the truth
+  // from SHIPPED_MANIFESTS, so adding an artifact-channel output that reviewArtifacts
+  // does not open fails the build , the review set can't silently drift from the channel.
+  it("opens every artifact-channel manifest output", async () => {
+    const { SHIPPED_MANIFESTS } = await import("../../consort/orchestrator/steps/manifest");
+    const artifactOutputs = [
+      ...new Set(
+        SHIPPED_MANIFESTS.flatMap((m) => (m.outputs ?? []).filter((o) => o.channel === "artifact").map((o) => o.filename)),
+      ),
+    ];
+    expect(artifactOutputs.length).toBeGreaterThan(0);
+
+    const F = "F1-x";
+    const S = "S1-y";
+    // A fixture with every artifact-channel output present at its scoped location.
+    write("planning/estimates.json");
+    write("planning/feature-proposals.md");
+    write("design/design-guide.json");
+    write(`features/${F}/feature-spec.json`);
+    write(`features/${F}/architecture.json`);
+    write(`features/${F}/db-design.json`);
+    write(`features/${F}/test-list.json`);
+    write(`features/${F}/stories/${S}/acs/AC1-a.json`);
+
+    const opened = reviewArtifacts(tdd, { feature: F, story: S });
+    const basenames = new Set(opened.map((p) => p.split("/").pop()));
+    const parentDirs = new Set(opened.map((p) => p.split("/").slice(-2, -1)[0]));
+
+    for (const fn of artifactOutputs) {
+      if (fn === "acs") {
+        expect(parentDirs.has("acs"), `artifact-channel dir output "acs" , no AC file opened (drift)`).toBe(true);
+      } else {
+        const base = fn.split("/").pop()!;
+        expect(basenames.has(base), `artifact-channel output "${fn}" is NOT opened by reviewArtifacts (drift)`).toBe(true);
+      }
+    }
+  });
+});
+
 describe("openArtifactsInEditor", () => {
   const editorEnv = { PATH: "", TERM_PROGRAM: "vscode" } as NodeJS.ProcessEnv;
 

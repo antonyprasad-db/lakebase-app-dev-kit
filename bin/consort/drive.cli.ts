@@ -895,6 +895,27 @@ function snapshotRunConfig(cfg: DriveEffectsConfig, bound: string, gates: "inter
   });
 }
 
+/** Tee the drive's stderr narration to `<consortDir>/drive-live.log` so a watcher
+ *  (`consort-watch`) can follow it REGARDLESS of how the drive was launched. Visibility
+ *  used to depend on the caller redirecting stderr (`> .consort/drive-live.log`); when a
+ *  session instead detached the drive as a harness background task, that redirect was
+ *  lost and the log stayed empty (the watcher saw nothing). The drive OWNS the log now
+ *  , do NOT also shell-redirect stderr to it (that double-writes). Best-effort: a log
+ *  failure never breaks the run. Fresh file per run (truncate). */
+function teeStderrToDriveLog(consortDir: string): void {
+  try {
+    fs.mkdirSync(consortDir, { recursive: true });
+    const stream = fs.createWriteStream(path.join(consortDir, "drive-live.log"), { flags: "w" });
+    const orig = process.stderr.write.bind(process.stderr);
+    process.stderr.write = ((chunk: string | Uint8Array, enc?: unknown, cb?: unknown): boolean => {
+      try { stream.write(chunk as never); } catch { /* never break the run on a log write */ }
+      return (orig as (c: unknown, e?: unknown, cb?: unknown) => boolean)(chunk, enc, cb);
+    }) as typeof process.stderr.write;
+  } catch {
+    /* logging is best-effort; never abort the drive */
+  }
+}
+
 async function main(): Promise<number> {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
@@ -913,6 +934,10 @@ async function main(): Promise<number> {
       );
     }
   }
+  // Self-tee the live narration to .consort/drive-live.log so `consort-watch` can
+  // follow it no matter how this drive was launched (foreground, nohup, or a harness
+  // background task). Do this BEFORE any phase runs so nothing is missed.
+  teeStderrToDriveLog(args.consortDir ?? resolveConsortDir(args.projectDir ?? process.cwd()));
   // Write-through the drive's ad-hoc override flags into consort-config.json BEFORE
   // any settings resolution, so the file stays the single source of truth (the
   // flag is a WRITER, not a parallel reader; absent flags never mutate the file).

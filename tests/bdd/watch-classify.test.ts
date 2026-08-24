@@ -93,6 +93,17 @@ describe("classifyDriveLine , STOP points (control returns to the human)", () =>
   });
 });
 
+describe("classifyDriveLine , [consort] disclosures are surfaced (not dropped)", () => {
+  it("a [consort] telemetry-briefing line => notice, shown, no stop", () => {
+    // Regression: the notice lands in drive-live.log but the classifier used to return
+    // null for non-[drive]/[sprint] lines, so consort-watch dropped the L1/L2 briefing
+    // the orchestrator contract requires surfacing , the human was never briefed.
+    const c = classifyDriveLine("[consort] Anonymous* usage telemetry is on (no PII).");
+    expect(c).toMatchObject({ kind: "notice", stop: false });
+    expect(c?.text).toContain("usage telemetry is on");
+  });
+});
+
 describe("classifyDriveLine , non-narration lines are skipped", () => {
   it.each(["", "  ", "raw pytest output", "{\"event\":\"x\"}", "npm warn something"])(
     "returns null for %j",

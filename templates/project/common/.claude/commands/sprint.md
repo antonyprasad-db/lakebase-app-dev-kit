@@ -44,20 +44,24 @@ GATES=interactive; [ "${LAKEBASE_CONSORT_HUMAN_PROXY:-}" = "1" ] && GATES=proxy
 ```
 
 **Run it so you can relay progress live (don't run it as a silent blocking call).**
-The drive narrates each turn to stderr (`[drive] NNN <what it's doing>`, on by
-default). Launch it in the BACKGROUND to a log, then **watch it with the kit's own
-`consort-watch`** , do NOT hand-roll a `tail -f … | while read; case …` loop (it
-re-guesses the drive's line formats and is brittle):
+The drive narrates each turn to stderr AND self-writes `.consort/drive-live.log` (it
+owns that file, so visibility does NOT depend on how you launch it). Launch it
+**detached** so a watcher timeout can never kill it, then **watch it with the kit's
+own `consort-watch`** , do NOT hand-roll a `tail -f … | while read; case …` loop
+(brittle) and do NOT redirect stderr to `drive-live.log` (the drive already writes
+it , a redirect double-writes):
 ```bash
-./scripts/lk consort-drive --sprint "<sprint-name>" --gates "$GATES" --project-dir "$PWD" \
-  > .consort/drive-live.log 2>&1 &            # background
+nohup ./scripts/lk consort-drive --sprint "<sprint-name>" --gates "$GATES" --project-dir "$PWD" \
+  >/dev/null 2>&1 &                            # detached; the drive self-writes .consort/drive-live.log
 DRIVE_PID=$!
-./scripts/lk consort-watch --pid "$DRIVE_PID"  # follows .consort/drive-live.log
+./scripts/lk consort-watch --pid "$DRIVE_PID"  # follows .consort/drive-live.log (bounded ~90s; re-run to keep watching)
 ```
-`consort-watch` relays each phase/role/gate transition in plain language as it lands
-and STOPS at a gate / pause / escalation / run-end (exit 0 clean, 3 on escalation),
-so you never watch a silent wait or hand-parse the log. When it stops, surface the
-decision to the human and run `consort-next` for the exact command that clears it.
+`consort-watch` relays each phase/role/gate transition as it lands and STOPS at a
+gate / pause / escalation / run-end (exit 0 clean, 3 on escalation). It also **bounds
+its own wait (~90s) so a foreground call stays under the harness timeout** , if it
+prints "still running", just re-run it; the detached drive keeps going. When it
+stops, surface the decision to the human and run `consort-next` for the exact command
+that clears it.
 Translate the transitions into the phase/role/gate story (Spec Author → Architect →
 Test Strategist → gates); do NOT relay the raw CLIs or state reads.
 When the drive prints a `GATE`/`PAUSED` marker (or exits), present that decision,

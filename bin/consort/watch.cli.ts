@@ -24,6 +24,11 @@ interface Args {
   consortDir?: string;
   /** Open the reviewable artifacts in the editor when stopping at a gate/pause. */
   open: boolean;
+  /** Bounded foreground wait (seconds): exit 0 ("still running") after this long
+   *  WITHOUT a stop, so a foreground invocation stays under the harness's ~2min
+   *  bash timeout (whose SIGTERM can otherwise kill a same-group drive). 0 = no
+   *  bound (use when running consort-watch itself as a detached/background task). */
+  timeout: number;
 }
 
 /** The current feature/story from workflow-state, to scope the review-artifact open. */
@@ -40,11 +45,12 @@ function currentScope(consortDir: string): { feature?: string; story?: string } 
 }
 
 function parseArgs(argv: string[]): Args {
-  const out: Args = { fromStart: false, projectDir: process.cwd(), open: true };
+  const out: Args = { fromStart: false, projectDir: process.cwd(), open: true, timeout: 90 };
   for (let i = 0; i < argv.length; i++) {
     switch (argv[i]) {
       case "--log": out.log = argv[++i]; break;
       case "--pid": out.pid = Number(argv[++i]); break;
+      case "--timeout": out.timeout = Number(argv[++i]); break;
       case "--from-start": out.fromStart = true; break;
       case "--project-dir": out.projectDir = argv[++i]; break;
       case "--tdd-dir": case "--consort-dir": out.consortDir = argv[++i]; break;
@@ -72,6 +78,7 @@ const PREFIX: Record<WatchLineKind, string> = {
   escalation: "FAIL:",
   done: "DONE:",
   stalled: " !!",
+  notice: "[consort]",
   info: "   .",
 };
 
@@ -103,6 +110,11 @@ async function main(): Promise<number> {
   // Follow from the current end (like `tail -n 0 -f`) unless --from-start.
   let offset = args.fromStart ? 0 : fs.statSync(logPath).size;
   let carry = "";
+  // A `[consort]` disclosure is multi-line: the first line classifies as `notice`;
+  // the following indented lines (the opt-out + Level-2 offer) carry no prefix, so we
+  // surface them verbatim while inside the block. Persists across chunk reads.
+  let inNotice = false;
+  const watchStart = Date.now();
   process.stderr.write(`consort-watch: following ${logPath}${args.pid ? ` (pid ${args.pid})` : ""}\n`);
 
   for (;;) {
@@ -118,9 +130,16 @@ async function main(): Promise<number> {
       const lines = carry.split("\n");
       carry = lines.pop() ?? ""; // keep the partial last line for next read
       for (const line of lines) {
+        // Inside a `[consort]` disclosure block, surface the indented continuation
+        // lines (opt-out + Level-2 offer) verbatim; a blank / non-indented line ends it.
+        if (inNotice) {
+          if (/^\s+\S/.test(line)) { process.stdout.write(`${line.replace(/\s+$/, "")}\n`); continue; }
+          inNotice = false;
+        }
         const c = classifyDriveLine(line);
         if (!c) continue;
         process.stdout.write(`${PREFIX[c.kind]} ${c.text}\n`);
+        if (c.kind === "notice") { inNotice = true; continue; }
         if (c.stop) {
           // The exact next command lives in the authoritative read-only surface, not
           // in this line's indented follow-up (which the classifier skips). Point there.
@@ -147,6 +166,16 @@ async function main(): Promise<number> {
     if (args.pid && !alive(args.pid) && fs.statSync(logPath).size <= offset) {
       process.stderr.write(`consort-watch: drive pid ${args.pid} is no longer running (no terminal line seen).\n`);
       return 3;
+    }
+    // Bounded foreground wait: exit cleanly BEFORE the harness's ~2min bash timeout
+    // fires a SIGTERM (which, if the drive shares this process group, would kill the
+    // drive too). The drive keeps running detached; re-run consort-watch to resume.
+    if (args.timeout > 0 && (Date.now() - watchStart) / 1000 >= args.timeout) {
+      process.stderr.write(
+        `consort-watch: still running after ${args.timeout}s and no gate yet , the drive continues in the background. ` +
+          `Re-run \`consort-watch\` to keep relaying (or pass --timeout 0 when running consort-watch itself detached).\n`,
+      );
+      return 0;
     }
     await sleep(400);
   }

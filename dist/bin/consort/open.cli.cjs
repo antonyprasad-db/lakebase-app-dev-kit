@@ -44,6 +44,8 @@ function resolveConsortDir(projectDir = process.cwd()) {
 }
 var featuresDir = (tdd) => (0, import_node_path.join)(tdd, "features");
 var planningDir = (tdd) => (0, import_node_path.join)(tdd, "planning");
+var productOverviewMd = (tdd) => (0, import_node_path.join)(tdd, "product-overview.md");
+var nfrsMd = (tdd) => (0, import_node_path.join)(tdd, "nfrs.md");
 var designBriefMd = (tdd) => (0, import_node_path.join)(tdd, "design", "design-brief.md");
 var designGuideJson = (tdd) => (0, import_node_path.join)(tdd, "design", "design-guide.json");
 var featureProposalsMd = (tdd) => (0, import_node_path.join)(planningDir(tdd), "feature-proposals.md");
@@ -57,6 +59,7 @@ var architectureMd = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd,
 var dbDesignJson = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "db-design.json");
 var dbDesignMd = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "db-design.md");
 var featureTestListJson = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "test-list.json");
+var featureTestListMd = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "test-list.md");
 var storiesDir = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "stories");
 var storyDir = (tdd, f, s) => (0, import_node_path.join)(storiesDir(tdd, f), s);
 function findStoryDir(tdd, f, s) {
@@ -93,9 +96,14 @@ function reviewArtifacts(consortDir, opts = {}) {
   const add = (p) => {
     if (fs2.existsSync(p) && !out.includes(p)) out.push(p);
   };
+  add(productOverviewMd(consortDir));
+  add(nfrsMd(consortDir));
   add(featureProposalsMd(consortDir));
+  add((0, import_node_path2.join)(consortDir, "planning", "estimates.json"));
   add(designBriefMd(consortDir));
+  add((0, import_node_path2.join)(consortDir, "design", "design-guide.md"));
   add(designGuideJson(consortDir));
+  add((0, import_node_path2.join)(consortDir, "design", "ia.md"));
   const { feature: f, story: s } = opts;
   if (f) {
     add(featureRequestMd(consortDir, f));
@@ -105,6 +113,7 @@ function reviewArtifacts(consortDir, opts = {}) {
     add(architectureJson(consortDir, f));
     add(dbDesignMd(consortDir, f));
     add(dbDesignJson(consortDir, f));
+    add(featureTestListMd(consortDir, f));
     add(featureTestListJson(consortDir, f));
     if (s) {
       add((0, import_node_path2.join)(storyDir(consortDir, f, s), "story.md"));

@@ -17,12 +17,15 @@ the phase/role/gate transitions; don't narrate the tooling.
 
 1. **Relay live progress , never go silent.** The drive emits a per-turn progress
    line to stderr (`[drive] NNN <what it's doing>`), on by default (silence it only
-   for captures/CI with `LAKEBASE_CONSORT_QUIET=1`). Run the drive so you can
-   surface that stream to the human live: launch it in the BACKGROUND to
-   `.consort/drive-live.log`, then **watch it with the kit's own `./scripts/lk
-   consort-watch --pid <drive-pid>`** , do NOT hand-roll a `tail -f … | while read;
-   case …` loop (it re-guesses the drive's line formats and is brittle; the kit owns
-   them). `consort-watch` relays each transition in plain language as it lands ,
+   for captures/CI with `LAKEBASE_CONSORT_QUIET=1`), and the drive SELF-WRITES
+   `.consort/drive-live.log` (it owns that file, so visibility does not depend on how
+   you launch it). Run the drive so you can surface that stream live: launch it
+   **detached** (`nohup ./scripts/lk consort-drive … >/dev/null 2>&1 &`) so a watcher
+   timeout can't kill it, then **watch it with `./scripts/lk consort-watch --pid
+   <drive-pid>`**. Do NOT redirect stderr to `drive-live.log` (the drive already
+   writes it , a redirect double-writes), and do NOT hand-roll a `tail -f … | while
+   read; case …` loop (brittle; the kit owns the formats). `consort-watch` relays each
+   transition as it lands ,
    e.g. "Planning: Spec Author proposing the backlog… → Architect estimating… → Plan
    gate reached." , and STOPS at a gate / pause / escalation / run-end (then run
    `consort-next` for the exact command that clears it). When it stops at a gate,

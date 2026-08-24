@@ -15869,6 +15869,21 @@ function snapshotRunConfig(cfg, bound, gates) {
     modelForRole: cfg.modelForRole ?? (() => "inherit")
   });
 }
+function teeStderrToDriveLog(consortDir) {
+  try {
+    fs20.mkdirSync(consortDir, { recursive: true });
+    const stream = fs20.createWriteStream(path12.join(consortDir, "drive-live.log"), { flags: "w" });
+    const orig = process.stderr.write.bind(process.stderr);
+    process.stderr.write = ((chunk, enc, cb) => {
+      try {
+        stream.write(chunk);
+      } catch {
+      }
+      return orig(chunk, enc, cb);
+    });
+  } catch {
+  }
+}
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
@@ -15885,6 +15900,7 @@ async function main() {
       );
     }
   }
+  teeStderrToDriveLog(args.consortDir ?? resolveConsortDir(args.projectDir ?? process.cwd()));
   applyProjectOverrides(args.projectDir ?? process.cwd(), {
     deployTarget: args.deployTarget,
     sizing: args.noSizing === true ? false : void 0

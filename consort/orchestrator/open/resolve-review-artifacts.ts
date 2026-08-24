@@ -7,6 +7,8 @@
 import * as fs from "node:fs";
 import { join } from "node:path";
 import {
+  productOverviewMd,
+  nfrsMd,
   designBriefMd,
   designGuideJson,
   featureProposalsMd,
@@ -17,6 +19,7 @@ import {
   architectureJson,
   dbDesignMd,
   dbDesignJson,
+  featureTestListMd,
   featureTestListJson,
   storyDir,
   storyJson,
@@ -32,10 +35,15 @@ export function reviewArtifacts(consortDir: string, opts: { feature?: string; st
     if (fs.existsSync(p) && !out.includes(p)) out.push(p);
   };
 
-  // Design + planning context (relevant at every review).
+  // Product + design + planning context (relevant at every review).
+  add(productOverviewMd(consortDir));
+  add(nfrsMd(consortDir));
   add(featureProposalsMd(consortDir));
+  add(join(consortDir, "planning", "estimates.json")); // architect-estimator: the t-shirt sizes the PO commits from
   add(designBriefMd(consortDir));
+  add(join(consortDir, "design", "design-guide.md")); // ux-designer narrative (the reviewable one)
   add(designGuideJson(consortDir));
+  add(join(consortDir, "design", "ia.md")); // ux-designer IA: screens + navigation + flows
 
   const { feature: f, story: s } = opts;
   if (f) {
@@ -46,6 +54,7 @@ export function reviewArtifacts(consortDir: string, opts: { feature?: string; st
     add(architectureJson(consortDir, f));
     add(dbDesignMd(consortDir, f));
     add(dbDesignJson(consortDir, f));
+    add(featureTestListMd(consortDir, f)); // rendered test list (human-readable)
     add(featureTestListJson(consortDir, f));
     if (s) {
       add(join(storyDir(consortDir, f, s), "story.md"));

@@ -6,6 +6,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.24] - 2026-08-23
+
+### Fixed
+
+- **The driver self-writes `.consort/drive-live.log`** , visibility no longer depends on how it's launched. It used to rely on the caller's `> .consort/drive-live.log` redirect, so detaching the drive (e.g. as a harness background task) diverted its output and `consort-watch` followed an empty log. The drive now tees its stderr narration to that file itself. Launch **detached** (`nohup … >/dev/null 2>&1 &`) , do NOT redirect to `drive-live.log` (double-writes).
+- **`consort-watch` surfaces the `[consort]` telemetry disclosure (L1/L2 briefing).** The classifier returned null for non-`[drive]`/`[sprint]` lines, so the one-time notice landed in `drive-live.log` and the narrator silently dropped it , the human was never briefed despite the contract requiring it. Now surfaced verbatim (first line + indented continuation). + guard test.
+- **`consort-watch --timeout` (default ~90s)** , a bounded, resumable foreground wait, so a watcher can't exceed the harness's ~2min bash timeout (whose SIGTERM had killed a same-group drive). Prints "still running" and exits 0; re-run to keep watching.
+- **`/consort:start` take-stock uses `consort-next` as the authoritative state.** `workflow-state.json`'s `phase` is a coarse per-project slot that only advances during a FEATURE drive, so it reads `discovery` through planning; treating it as the source of truth misreported a planning-done project.
+- **Extension install uses a fresh temp dir.** The snippet reused a fixed `/tmp/consort-ext` with `--clobber`, so a stale older `.vsix` lingered and `--install-extension *.vsix` could pick the wrong version ("two versions came down"). Now downloads into a fresh `mktemp -d` and installs the newest.
+
+### Changed
+
+- **`reviewArtifacts` now covers the full artifact channel, enforced.** Expanded to the complete authored set (product-overview, nfrs, ia.md, design-guide.md, test-list.md, estimates.json, …), and a test derives the artifact-channel outputs from the step manifests and **asserts `reviewArtifacts` opens every one** , so the editor-review set can never drift from what the roles actually write.
+- **Repointed to `@databricks-solutions/lakebase-scm-utils` v0.2.12** , `lk` now prints an install heartbeat during a backgrounded `--refresh` (npm's progress is TTY-gated, so the log otherwise sat silent for 1-2 min).
+
 ## [0.3.23] - 2026-08-23
 
 ### Added

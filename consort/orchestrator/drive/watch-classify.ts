@@ -19,6 +19,7 @@ export type WatchLineKind =
   | "escalation" // raised to HIL          (STOP, failure)
   | "done" // run / sprint complete   (STOP)
   | "stalled" // a turn stalled + is retrying (warn, continue)
+  | "notice" // a `[consort]` disclosure (telemetry L1/L2 briefing) , surfaced verbatim
   | "info"; // another `[drive]`/`[sprint]` line worth showing
 
 export interface WatchClass {
@@ -42,6 +43,17 @@ export function classifyDriveLine(raw: string): WatchClass | null {
   // preceding "[drive] <err>" line falls through to `info` and shows the error text.
   if (/recorded under .*escalations\//.test(line)) {
     return { kind: "escalation", text: line.trim(), stop: true, outcome: "escalation" };
+  }
+
+  // `[consort]` disclosures (the one-time telemetry L1/L2 briefing, written to the
+  // drive's stderr by onNotice) are NOT tooling noise , the orchestrator contract
+  // requires surfacing them. They land in drive-live.log like everything else, so the
+  // narrator MUST relay them; without this they were dropped by the guard below and
+  // the human was never briefed. The notice is multi-line , this classifies its FIRST
+  // line; the watcher surfaces the indented continuation lines that follow (they carry
+  // the opt-out + the Level-2 offer).
+  if (line.startsWith("[consort]")) {
+    return { kind: "notice", text: line.replace(/^\[consort\] /, ""), stop: false };
   }
 
   const isDrive = line.startsWith("[drive]");

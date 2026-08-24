@@ -21,6 +21,8 @@ function resolveConsortDir(projectDir = process.cwd()) {
 }
 var featuresDir = (tdd) => join(tdd, "features");
 var planningDir = (tdd) => join(tdd, "planning");
+var productOverviewMd = (tdd) => join(tdd, "product-overview.md");
+var nfrsMd = (tdd) => join(tdd, "nfrs.md");
 var designBriefMd = (tdd) => join(tdd, "design", "design-brief.md");
 var designGuideJson = (tdd) => join(tdd, "design", "design-guide.json");
 var featureProposalsMd = (tdd) => join(planningDir(tdd), "feature-proposals.md");
@@ -34,6 +36,7 @@ var architectureMd = (tdd, f) => join(featureResolved(tdd, f), "architecture.md"
 var dbDesignJson = (tdd, f) => join(featureResolved(tdd, f), "db-design.json");
 var dbDesignMd = (tdd, f) => join(featureResolved(tdd, f), "db-design.md");
 var featureTestListJson = (tdd, f) => join(featureResolved(tdd, f), "test-list.json");
+var featureTestListMd = (tdd, f) => join(featureResolved(tdd, f), "test-list.md");
 var storiesDir = (tdd, f) => join(featureResolved(tdd, f), "stories");
 var storyDir = (tdd, f, s) => join(storiesDir(tdd, f), s);
 function findStoryDir(tdd, f, s) {
@@ -70,9 +73,14 @@ function reviewArtifacts(consortDir, opts = {}) {
   const add = (p) => {
     if (fs2.existsSync(p) && !out.includes(p)) out.push(p);
   };
+  add(productOverviewMd(consortDir));
+  add(nfrsMd(consortDir));
   add(featureProposalsMd(consortDir));
+  add(join2(consortDir, "planning", "estimates.json"));
   add(designBriefMd(consortDir));
+  add(join2(consortDir, "design", "design-guide.md"));
   add(designGuideJson(consortDir));
+  add(join2(consortDir, "design", "ia.md"));
   const { feature: f, story: s } = opts;
   if (f) {
     add(featureRequestMd(consortDir, f));
@@ -82,6 +90,7 @@ function reviewArtifacts(consortDir, opts = {}) {
     add(architectureJson(consortDir, f));
     add(dbDesignMd(consortDir, f));
     add(dbDesignJson(consortDir, f));
+    add(featureTestListMd(consortDir, f));
     add(featureTestListJson(consortDir, f));
     if (s) {
       add(join2(storyDir(consortDir, f, s), "story.md"));
