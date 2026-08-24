@@ -226,9 +226,14 @@ If you hand the command to the user to run themselves instead, tell them it's a 
 
 then re-run **`/consort:start`** there (it will find `.consort/` and resume at `/plan`), or `./scripts/consort.sh plan` to open the orchestrator session directly. Do not start the workflow from the current directory, the project is elsewhere.
 
-### Offer the Consort viewer extension (fresh project, before the first phase)
+### Offer the viewer extension + get the terminal right (fresh project OR resume)
 
-When you hand off to the first workflow step (`/plan`, `/sprint`, `/design`, or `/spike`) on a **freshly created** project, also encourage the **Consort VS Code / Cursor extension** , a live viewer that shows the workflow as it runs (paired branches, phase/gate state, per-role progress), which is much nicer than watching a terminal. Offer to set it up for them:
+Make sure the human is driving from the best place , on the hand-off to the first workflow step (`/plan`, `/sprint`, `/design`, `/spike`) of a fresh project, AND on a `/consort:start` that resumes an existing one (this is NOT fresh-create-only , a resuming user needs the same choice). **FIRST detect whether this session is ALREADY inside the editor's integrated terminal** , the same signal the kit uses in `isInsideEditor` (`TERM_PROGRAM` contains `vscode`/`cursor`, or `CURSOR_TRACE_ID` / `VSCODE_PID` is set):
+```bash
+inside_editor() { case "${TERM_PROGRAM:-}" in *[Vv]scode*|*[Cc]ursor*) return 0 ;; esac; [ -n "${CURSOR_TRACE_ID:-}" ] || [ -n "${VSCODE_PID:-}" ]; }
+```
+- **Already inside the IDE terminal** (`inside_editor` true) → do NOT tell them to open a new terminal or "move" anywhere , that reads as pushing them OUT of the terminal they are already in. Just offer to install the live-viewer extension if it is not set up, then continue the workflow step in THIS terminal.
+- **NOT inside an IDE terminal** → offer the **Consort VS Code / Cursor extension** (a live viewer: paired branches, phase/gate state, per-role progress) AND to move there (or keep driving here). Offer to set it up for them:
 
 > "Consort has a VS Code / Cursor extension that shows the run live , branches, gates, and each role's progress. Want me to install it and open your editor on the project?"
 
@@ -266,7 +271,7 @@ fi
   > "Your project is open in <editor> with the live viewer. To drive the workflow from there, open a terminal in that window (**Ctrl+`**), run `claude`, and then `/consort:start` , it reads the project state and picks up exactly where this leaves off. Or I can keep driving from here and you just watch the viewer. Which do you prefer?"
 
   `/consort:start` in the new window is safe to resume with because state is DERIVED from disk (`consort-next` is authoritative) , there is no session-local progress to lose. If they want to keep driving from THIS session, that is fine too; the extension viewer updates from the same `.consort` state either way. Drive from ONE session at a time (two concurrent drives on one project race on the git worktree).
-- This is an **offer, not a gate** , if they decline, continue straight to the chosen workflow step. Only offer it once, on the fresh-project hand-off.
+- **Surface the move choice as its OWN standalone STOP , this is a hard gate, not a line buried in a batch of setup questions.** Ask ONLY "move to the editor + live viewer, or keep driving here?" and then STOP: do NOT bundle it with other setup questions (workspace, stack, first feature, etc.), do NOT ask anything else in the same turn, and do NOT proceed to the workflow step until the human has answered THIS question. It is still an offer , if they choose "keep driving here" you continue in this terminal , but the human must actively make the terminal choice; the flow may never skip past it or fold it into other prompts (that is the "I was never gated at the move offer" defect). Present it once per session, on a fresh project OR a resume. **Skip it entirely only when the session is already inside the IDE terminal** (`inside_editor` true): then there is nothing to move, so continue in place and never prompt them out.
 
 ---
 
