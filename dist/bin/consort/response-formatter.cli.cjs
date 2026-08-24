@@ -6662,6 +6662,7 @@ function resolveConsortDir(projectDir = process.cwd()) {
 }
 var featuresDir = (tdd) => (0, import_node_path.join)(tdd, "features");
 var designGuideJson = (tdd) => (0, import_node_path.join)(tdd, "design", "design-guide.json");
+var designAssetsDir = (tdd) => (0, import_node_path.join)(tdd, "design", "assets");
 var featureDir = (tdd, featureId) => (0, import_node_path.join)(featuresDir(tdd), featureId);
 var featureResolved = (tdd, f) => findFeatureDir(tdd, f) ?? featureDir(tdd, f);
 var featureSpecJson = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "feature-spec.json");
@@ -7288,6 +7289,31 @@ function designGuideHasComponents(consortDir) {
   }
   return { ok: true };
 }
+function brandAssetDeclared(consortDir) {
+  const assetsDir = designAssetsDir(consortDir);
+  if (!(0, import_node_fs.existsSync)(assetsDir)) return { ok: true };
+  let staged;
+  try {
+    staged = (0, import_node_fs.readdirSync)(assetsDir).filter((f) => /\.(png|jpe?g|svg|webp|ico|gif|avif)$/i.test(f));
+  } catch {
+    return { ok: true };
+  }
+  if (staged.length === 0) return { ok: true };
+  const file = designGuideJson(consortDir);
+  if ((0, import_node_fs.existsSync)(file)) {
+    try {
+      const guide = JSON.parse((0, import_node_fs.readFileSync)(file, "utf8"));
+      if (guide.app_icon?.source && guide.app_icon?.install_to) return { ok: true };
+    } catch {
+      return { ok: true };
+    }
+  }
+  const first = staged[0];
+  return {
+    ok: false,
+    problem: `a brand asset is staged (.consort/design/assets/${first}) but design-guide.json omits \`app_icon\` , declare it so the brand mark actually ships: "app_icon": { "source": ".consort/design/assets/${first}", "install_to": "client/public/${first}" }. Without it the kit never installs the real bytes and the ux-adherence gate never enforces the favicon/navbar reference , the icon ships only by luck.`
+  };
+}
 function checkUxDesigner(args, v) {
   const r = designGuideConformance(args.consortDir);
   if (!r.ok) {
@@ -7296,6 +7322,8 @@ function checkUxDesigner(args, v) {
   }
   const c = designGuideHasComponents(args.consortDir);
   if (!c.ok) v.push({ artifact: "design/design-guide.json", problem: c.problem ?? "design-guide.json is missing components" });
+  const b = brandAssetDeclared(args.consortDir);
+  if (!b.ok) v.push({ artifact: "design/design-guide.json", problem: b.problem ?? "a staged brand asset is not declared as app_icon" });
 }
 var CHECKERS = {
   "spec-author": checkSpecAuthor,

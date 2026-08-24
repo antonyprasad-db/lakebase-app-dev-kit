@@ -79,6 +79,9 @@ function classifyDriveLine(raw) {
   if (/\bRAISED TO HIL\b/.test(line)) {
     return { kind: "escalation", text: line.replace(/^\[(drive|sprint)\] /, ""), stop: true, outcome: "escalation" };
   }
+  if (/^\[drive\] ABORTED\b/.test(line)) {
+    return { kind: "escalation", text: line.replace(/^\[drive\] /, ""), stop: true, outcome: "escalation" };
+  }
   if (/^\[drive\] GATE awaiting human approval:/.test(line)) {
     return { kind: "gate", text: line, stop: true, outcome: "gate" };
   }

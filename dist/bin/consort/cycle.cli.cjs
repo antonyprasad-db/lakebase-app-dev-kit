@@ -6670,6 +6670,7 @@ var acReviewVerdictJson = (tdd, f, s, ac) => (0, import_node_path.join)(cyclesRo
 var storyReviewJson = (tdd, f, s) => (0, import_node_path.join)(cyclesRootDir(tdd), f, s, "review.json");
 var storyReviewVerdictJson = (tdd, f, s) => (0, import_node_path.join)(cyclesRootDir(tdd), f, s, "review-verdict.json");
 var designGuideJson = (tdd) => (0, import_node_path.join)(tdd, "design", "design-guide.json");
+var designAssetsDir = (tdd) => (0, import_node_path.join)(tdd, "design", "assets");
 var featureDir = (tdd, featureId) => (0, import_node_path.join)(featuresDir(tdd), featureId);
 var featureResolved = (tdd, f) => findFeatureDir(tdd, f) ?? featureDir(tdd, f);
 var featureTestListJson = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "test-list.json");
@@ -8630,7 +8631,7 @@ function installBrandAsset(projectDir, consortDir, appIcon) {
   try {
     const base = (0, import_path7.basename)(appIcon.install_to);
     const src = [
-      (0, import_path7.join)(consortDir, "design", "assets", base),
+      (0, import_path7.join)(designAssetsDir(consortDir), base),
       (0, import_path7.join)(projectDir, appIcon.source),
       (0, import_path7.join)(consortDir, appIcon.source)
     ].find((p) => (0, import_fs7.existsSync)(p));

@@ -6675,6 +6675,7 @@ var acReviewVerdictJson = (tdd, f, s, ac) => join(cyclesRootDir(tdd), f, s, ac, 
 var storyReviewJson = (tdd, f, s) => join(cyclesRootDir(tdd), f, s, "review.json");
 var storyReviewVerdictJson = (tdd, f, s) => join(cyclesRootDir(tdd), f, s, "review-verdict.json");
 var designGuideJson = (tdd) => join(tdd, "design", "design-guide.json");
+var designAssetsDir = (tdd) => join(tdd, "design", "assets");
 var featureDir = (tdd, featureId) => join(featuresDir(tdd), featureId);
 var featureResolved = (tdd, f) => findFeatureDir(tdd, f) ?? featureDir(tdd, f);
 var featureTestListJson = (tdd, f) => join(featureResolved(tdd, f), "test-list.json");
@@ -8635,7 +8636,7 @@ function installBrandAsset(projectDir, consortDir, appIcon) {
   try {
     const base = basename(appIcon.install_to);
     const src = [
-      join16(consortDir, "design", "assets", base),
+      join16(designAssetsDir(consortDir), base),
       join16(projectDir, appIcon.source),
       join16(consortDir, appIcon.source)
     ].find((p) => existsSync16(p));

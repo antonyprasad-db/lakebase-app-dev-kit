@@ -8514,11 +8514,21 @@ var MAX_TRANSIENT_RETRIES = Number(consortEnv("MAX_TRANSIENT_RETRIES") ?? "5");
 var TRANSIENT_BACKOFF_MS = Number(consortEnv("TRANSIENT_BACKOFF_MS") ?? "5000");
 var TURN_INACTIVITY_TIMEOUT_MS = Number(consortEnv("TURN_INACTIVITY_TIMEOUT_MS") ?? String(10 * 60 * 1e3));
 var TURN_HEARTBEAT_MS = Number(consortEnv("TURN_HEARTBEAT_MS") ?? String(60 * 1e3));
+var CliEffectError = class extends Error {
+  constructor(bin, code) {
+    super(`${bin} exited ${code}`);
+    this.bin = bin;
+    this.code = code;
+    this.name = "CliEffectError";
+  }
+  bin;
+  code;
+};
 function spawnCmd(bin, args, cwd) {
   return new Promise((resolve3, reject) => {
     const child = spawn(bin, args, { cwd, stdio: "inherit" });
     child.on("error", (err) => reject(err));
-    child.on("close", (code) => code === 0 ? resolve3() : reject(new Error(`${bin} exited ${code}`)));
+    child.on("close", (code) => code === 0 ? resolve3() : reject(new CliEffectError(bin, code)));
   });
 }
 var ClaudeTurnError = class extends Error {
@@ -8955,10 +8965,15 @@ function execRunner(cfg) {
         return;
       }
       const js = resolveKitBinJs(cmd.bin);
-      if (js) {
-        await spawnCmd("node", [js, ...cmd.args], cfg.projectDir);
-      } else {
-        await spawnCmd(cmd.bin, cmd.args, cfg.projectDir);
+      try {
+        if (js) {
+          await spawnCmd("node", [js, ...cmd.args], cfg.projectDir);
+        } else {
+          await spawnCmd(cmd.bin, cmd.args, cfg.projectDir);
+        }
+      } catch (e) {
+        if (e instanceof CliEffectError) throw new CliEffectError(cmd.bin, e.code);
+        throw e;
       }
     }
   };
@@ -9075,6 +9090,7 @@ function composeOnAction(...hooks) {
 export {
   ArtifactOutOfRootError,
   ClaudeTurnError,
+  CliEffectError,
   ReplayCorpusMissError,
   buildCfg,
   claudeBaseArgs,

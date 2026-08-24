@@ -243,6 +243,19 @@ interface ParsedArgs {
     noSizing?: boolean;
     help?: boolean;
 }
+/** A deterministic CLI effect (a kit SCM bin , wait-ci / merge / prepare-pr / deploy ,
+ *  or any command the drive spawns) exited non-zero. Carries the bin + exit code so the
+ *  drive's top-level catch can record a RESUMABLE escalation and emit a classified
+ *  `RAISED TO HIL` halt line. Without a typed error the reject was a bare
+ *  `new Error("<bin> exited N")` that fell through drive.cli's catch to an UNPREFIXED
+ *  stderr line , `classifyDriveLine` returns null for it, so a session tailing
+ *  `drive-live.log` (or a Monitor watching it) never surfaces the failure and the run
+ *  looks like it is "still waiting on CI" when it has actually died. */
+declare class CliEffectError extends Error {
+    readonly bin: string;
+    readonly code: number | null;
+    constructor(bin: string, code: number | null);
+}
 declare function spawnCmd(bin: string, args: string[], cwd: string): Promise<void>;
 /**
  * Spawn a `claude -p --output-format stream-json --verbose` turn, TEE the
@@ -397,4 +410,4 @@ declare function execRunner(cfg: DriveEffectsConfig): CommandRunner;
 /** Build a DriveEffectsConfig for a feature (or planning, featureId ""). */
 declare function buildCfg(args: ParsedArgs, featureId: string): DriveEffectsConfig;
 
-export { ArtifactOutOfRootError, ClaudeTurnError, type ParsedArgs, ReplayCorpusMissError, type TurnTranscript, buildCfg, claudeBaseArgs, claudeToolArgs, defaultTurnMonitor, execRunner, peekLastAgentTranscript, peekLastAgentUsage, recordAgentTranscript, recordAgentUsage, spawnClaudeStreaming, spawnCmd, takeLastAgentTranscript };
+export { ArtifactOutOfRootError, ClaudeTurnError, CliEffectError, type ParsedArgs, ReplayCorpusMissError, type TurnTranscript, buildCfg, claudeBaseArgs, claudeToolArgs, defaultTurnMonitor, execRunner, peekLastAgentTranscript, peekLastAgentUsage, recordAgentTranscript, recordAgentUsage, spawnClaudeStreaming, spawnCmd, takeLastAgentTranscript };
