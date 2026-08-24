@@ -36,6 +36,12 @@ export interface StoredTelemetryConfig {
   telemetry_enabled: boolean;
   telemetry_level?: TelemetryLevel;
   l2_opt_in_notified?: boolean;
+  /** True once the human has been BRIEFED and made (or knowingly kept) a telemetry
+   *  choice , the L1 opt-out + L2 opt-in disclosure at `/consort:start`. Distinct from
+   *  the config merely EXISTING: the config is written the first time an install id is
+   *  minted (which happens with no human present), so existence is NOT acknowledgment.
+   *  `/consort:start` presents the briefing until this is true. */
+  acknowledged?: boolean;
 }
 
 /** Default consent when no decision has been recorded yet (opt-out model, paired
@@ -86,6 +92,7 @@ export function readStoredConfig(deps: HomeConfigDeps = {}): StoredTelemetryConf
       telemetry_enabled?: unknown;
       telemetry_level?: unknown;
       l2_opt_in_notified?: unknown;
+      acknowledged?: unknown;
     };
     if (!isUuidV4(data.install_id)) return null;
     const telemetry_enabled =
@@ -94,7 +101,8 @@ export function readStoredConfig(deps: HomeConfigDeps = {}): StoredTelemetryConf
     // (garbage, 0, 3, "2") falls back to the default (Level 1). Never throws.
     const telemetry_level: TelemetryLevel = data.telemetry_level === 2 ? 2 : DEFAULT_TELEMETRY_LEVEL;
     const l2_opt_in_notified = data.l2_opt_in_notified === true;
-    return { install_id: data.install_id, telemetry_enabled, telemetry_level, l2_opt_in_notified };
+    const acknowledged = data.acknowledged === true;
+    return { install_id: data.install_id, telemetry_enabled, telemetry_level, l2_opt_in_notified, acknowledged };
   } catch {
     return null;
   }
@@ -183,6 +191,19 @@ export function setTelemetryEnabled(enabled: boolean, deps: HomeConfigDeps = {})
  *  install id + consent + notice flag. Never throws. */
 export function setTelemetryLevel(level: TelemetryLevel, deps: HomeConfigDeps = {}): StoredTelemetryConfig {
   return updateStoredConfig({ telemetry_level: level }, deps);
+}
+
+/** True once the human has been briefed and made/kept a telemetry choice. FALSE for
+ *  a config that merely exists (install id minted with no human present) , so the
+ *  `/consort:start` briefing shows until the human actually decides. Pure read. */
+export function isTelemetryAcknowledged(deps: HomeConfigDeps = {}): boolean {
+  return readStoredConfig(deps)?.acknowledged === true;
+}
+
+/** Record that the human has been briefed + decided (any of enable/disable/level, or
+ *  an explicit "keep defaults" ack). Preserves every other field. Never throws. */
+export function markTelemetryAcknowledged(deps: HomeConfigDeps = {}): StoredTelemetryConfig {
+  return updateStoredConfig({ acknowledged: true }, deps);
 }
 
 /**

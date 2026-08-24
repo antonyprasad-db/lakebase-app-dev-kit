@@ -104,6 +104,29 @@ describe("classifyDriveLine , [consort] disclosures are surfaced (not dropped)",
   });
 });
 
+describe("classifyDriveLine , create + refresh narration relays through the SAME watcher", () => {
+  // One relay follows create / refresh / drive. create narrates provisioning as
+  // bracketed stage lines (NOT [drive]/[sprint]); the guard used to drop them, so a
+  // session watching `lakebase-create-project` saw nothing. Any bracketed stage line
+  // now relays as info; raw npm/pytest noise still skips.
+  it.each([
+    "[doctor] verifying environment before provisioning...",
+    "[Creating GitHub repository...]",
+    "[Scaffolding project files...]",
+    "[Project created successfully!]",
+  ])("create stage line %j => info, shown, no stop", (line) => {
+    const c = classifyDriveLine(line);
+    expect(c).toMatchObject({ kind: "info", stop: false });
+    expect(c?.text.length).toBeGreaterThan(0);
+  });
+
+  it("a `lk:` install-heartbeat line (backgrounded --refresh) => info, shown, no stop", () => {
+    const c = classifyDriveLine("lk: still downloading the Consort toolkit (15s)...");
+    expect(c).toMatchObject({ kind: "info", stop: false });
+    expect(c?.text).toBe("still downloading the Consort toolkit (15s)...");
+  });
+});
+
 describe("classifyDriveLine , non-narration lines are skipped", () => {
   it.each(["", "  ", "raw pytest output", "{\"event\":\"x\"}", "npm warn something"])(
     "returns null for %j",

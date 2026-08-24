@@ -92,9 +92,13 @@ function classifyDriveLine(raw) {
   if (line.startsWith("[consort]")) {
     return { kind: "notice", text: line.replace(/^\[consort\] /, ""), stop: false };
   }
+  if (/^lk: /.test(line)) {
+    return { kind: "info", text: line.replace(/^lk: /, ""), stop: false };
+  }
   const isDrive = line.startsWith("[drive]");
   const isSprint = line.startsWith("[sprint]");
-  if (!isDrive && !isSprint) return null;
+  const isBracketed = /^\[[^\]]+\]/.test(line);
+  if (!isDrive && !isSprint && !isBracketed) return null;
   if (/\bRAISED TO HIL\b/.test(line)) {
     return { kind: "escalation", text: line.replace(/^\[(drive|sprint)\] /, ""), stop: true, outcome: "escalation" };
   }
@@ -246,6 +250,9 @@ function parseArgs(argv) {
       case "--timeout":
         out.timeout = Number(argv[++i]);
         break;
+      case "--since":
+        out.since = Number(argv[++i]);
+        break;
       case "--from-start":
         out.fromStart = true;
         break;
@@ -295,6 +302,46 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   const consortDir = args.consortDir ?? resolveConsortDir(args.projectDir);
   const logPath = args.log ?? path2.join(consortDir, "drive-live.log");
+  if (args.since !== void 0) {
+    if (!fs4.existsSync(logPath)) {
+      process.stdout.write(`[consort-watch] cursor=0 status=waiting
+`);
+      return 0;
+    }
+    const size = fs4.statSync(logPath).size;
+    const from = args.since < 0 || args.since > size ? 0 : args.since;
+    let status = "running";
+    if (size > from) {
+      const fd = fs4.openSync(logPath, "r");
+      const buf = Buffer.alloc(size - from);
+      fs4.readSync(fd, buf, 0, buf.length, from);
+      fs4.closeSync(fd);
+      let inNotice2 = false;
+      for (const line of buf.toString("utf8").split("\n")) {
+        if (inNotice2) {
+          if (/^\s+\S/.test(line)) {
+            process.stdout.write(`${line.replace(/\s+$/, "")}
+`);
+            continue;
+          }
+          inNotice2 = false;
+        }
+        const c = classifyDriveLine(line);
+        if (!c) continue;
+        process.stdout.write(`${PREFIX[c.kind]} ${c.text}
+`);
+        if (c.kind === "notice") {
+          inNotice2 = true;
+          continue;
+        }
+        if (c.stop && c.outcome) status = c.outcome;
+      }
+    }
+    if (status === "running" && args.pid !== void 0 && !alive(args.pid) && size <= from) status = "done";
+    process.stdout.write(`[consort-watch] cursor=${size} status=${status}
+`);
+    return 0;
+  }
   const APPEAR_MS = 3e4;
   const t0 = Date.now();
   while (!fs4.existsSync(logPath)) {

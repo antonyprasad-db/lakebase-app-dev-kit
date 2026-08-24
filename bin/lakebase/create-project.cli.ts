@@ -12,10 +12,13 @@ import { runCreateDoctorGate, formatGateBlockers } from "../../consort/lakebase/
 import { kitRefPin, consortVersionFromModule, declaredSubstrateVersionFromModule } from "../../consort/lakebase/kit-ref-pin.js";
 import { substrateMismatchMessage } from "../../consort/lakebase/substrate-check.js";
 import { createRequire } from "node:module";
-import { readFileSync } from "node:fs";
+import { readFileSync, appendFileSync, writeFileSync } from "node:fs";
 
 interface ParsedArgs {
   jsonInput?: string;
+  /** Tee the `[stage]` progress lines to this file (in addition to stderr), so a
+   *  caller can tail/poll it for live relay regardless of how create was launched. */
+  progressLog?: string;
   projectName?: string;
   parentDir?: string;
   databricksHost?: string;
@@ -42,6 +45,9 @@ function parseArgs(argv: string[]): ParsedArgs {
     switch (a) {
       case "--json-input":
         out.jsonInput = argv[++i];
+        break;
+      case "--progress-log":
+        out.progressLog = argv[++i];
         break;
       case "--project-name":
         out.projectName = argv[++i];
@@ -289,8 +295,18 @@ async function main(): Promise<number> {
     );
   }
 
+  // Tee stage lines to --progress-log (fresh file) so a caller can poll it for live
+  // relay regardless of how create was launched (the caller owns the path , no
+  // dependency on a shell redirect the launch might drop). Best-effort; never fatal.
+  if (args.progressLog) {
+    try { writeFileSync(args.progressLog, ""); } catch { /* ignore */ }
+  }
   const result = await createProject(input, (step, detail) => {
-    process.stderr.write(`[${step}]${detail ? ` ${detail}` : ""}\n`);
+    const line = `[${step}]${detail ? ` ${detail}` : ""}\n`;
+    process.stderr.write(line);
+    if (args.progressLog) {
+      try { appendFileSync(args.progressLog, line); } catch { /* best-effort log */ }
+    }
   });
   process.stdout.write(JSON.stringify(result, null, 2) + "\n");
   return 0;

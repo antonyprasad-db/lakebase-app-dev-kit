@@ -19,11 +19,21 @@ the phase/role/gate transitions; don't narrate the tooling.
    line to stderr (`[drive] NNN <what it's doing>`), on by default (silence it only
    for captures/CI with `LAKEBASE_CONSORT_QUIET=1`), and the drive SELF-WRITES
    `.consort/drive-live.log` (it owns that file, so visibility does not depend on how
-   you launch it). Run the drive so you can surface that stream live: launch it
-   **detached** (`nohup ./scripts/lk consort-drive … >/dev/null 2>&1 &`) so a watcher
-   timeout can't kill it, then **watch it with `./scripts/lk consort-watch --pid
-   <drive-pid>`**. Do NOT redirect stderr to `drive-live.log` (the drive already
-   writes it , a redirect double-writes), and do NOT hand-roll a `tail -f … | while
+   you launch it). Run the drive so you can surface that stream live, with TWO hard
+   rules. **(a) Launch with `--detach`, never `nohup`/`&`.** `./scripts/lk
+   consort-drive … --detach` re-launches the drive in its OWN session (setsid) and
+   returns at once, printing the child pid + the watch command. This is the only
+   launch that survives your turn ending: a `nohup … &` leaves the drive in your tool
+   call's process group, which the harness SIGTERMs on turn-end (the "drive reaped
+   between turns" failure); `--detach` escapes that group. Do NOT redirect stderr to
+   `drive-live.log` (the drive owns it , a redirect double-writes). **(b) Relay with
+   poll-once `./scripts/lk consort-watch --since <cursor> --pid <drive-pid>` in a
+   LOOP, not a blocking watch.** A long-blocking call is not streamed to the human
+   (they see only a spinner); each `--since` call prints the new lines + a
+   `[consort-watch] cursor=<N> status=<running|gate|pause|escalation|done|waiting>`
+   trailer and EXITS , narrate that batch, then call again with the printed cursor
+   until `status` is a stop. The same poll-once relay follows create + refresh (their
+   `[stage]` / `lk:` lines classify too). Do NOT hand-roll a `tail -f … | while
    read; case …` loop (brittle; the kit owns the formats). `consort-watch` relays each
    transition as it lands ,
    e.g. "Planning: Spec Author proposing the backlog… → Architect estimating… → Plan

@@ -6949,6 +6949,7 @@ function migrateLegacyArtifactDir(projectDir = process.cwd()) {
 // bin/consort/drive.cli.ts
 var fs20 = __toESM(require("fs"), 1);
 var path11 = __toESM(require("path"), 1);
+var import_node_child_process8 = require("child_process");
 var readline2 = __toESM(require("readline"), 1);
 
 // consort/logging/turn-recorder.ts
@@ -12521,9 +12522,9 @@ function composeOnAction(...hooks) {
 
 // consort/orchestrator/agents/claude-step-agent.ts
 var ClaudeStepAgent = class {
-  constructor(levers, spawn3, liveDispatch) {
+  constructor(levers, spawn4, liveDispatch) {
     this.levers = levers;
-    this.spawn = spawn3 ?? spawnClaudeStreaming;
+    this.spawn = spawn4 ?? spawnClaudeStreaming;
     this.liveDispatch = liveDispatch;
     this.sessionId = levers.resumeSessionId;
   }
@@ -14989,7 +14990,8 @@ function readStoredConfig(deps = {}) {
     const telemetry_enabled = typeof data.telemetry_enabled === "boolean" ? data.telemetry_enabled : DEFAULT_TELEMETRY_ENABLED;
     const telemetry_level = data.telemetry_level === 2 ? 2 : DEFAULT_TELEMETRY_LEVEL;
     const l2_opt_in_notified = data.l2_opt_in_notified === true;
-    return { install_id: data.install_id, telemetry_enabled, telemetry_level, l2_opt_in_notified };
+    const acknowledged = data.acknowledged === true;
+    return { install_id: data.install_id, telemetry_enabled, telemetry_level, l2_opt_in_notified, acknowledged };
   } catch {
     return null;
   }
@@ -15352,6 +15354,10 @@ Flags:
   --instance <id>      Lakebase instance id (threaded to experiment branch ops)
   --deploy-target <t>  Deploy target for the deploy phase (default: local)
   --approver <name>    Headless gate approver (default: human-proxy)
+  --detach             Re-launch in a NEW session (setsid) and return at once, so the
+                       run survives this shell/turn ending. Use this INSTEAD of
+                       nohup/& (which the harness reaps on turn-end). Prints the child
+                       pid + the consort-watch command; follow the run via that.
   --dry-run            Print the single next action + its commands, then exit
   --max-steps <n>      Stop after n actions (incremental/live testing + safety)
   --plan-only          Tier-2: run the sprint planning sub-machine only (/plan)
@@ -15867,6 +15873,30 @@ function snapshotRunConfig(cfg, bound, gates) {
     modelForRole: cfg.modelForRole ?? (() => "inherit")
   });
 }
+function relaunchDetached(rawArgv, consortDir) {
+  const childArgs = rawArgv.filter((a) => a !== "--detach");
+  try {
+    const child = (0, import_node_child_process8.spawn)(process.execPath, [process.argv[1], ...childArgs], {
+      detached: true,
+      // setsid(2): new session + process group, escapes the caller's group-SIGTERM
+      stdio: "ignore",
+      // the child self-tees to .consort/drive-live.log; nothing to inherit
+      env: process.env
+    });
+    child.unref();
+    if (child.pid === void 0) return null;
+    const logPath = path11.join(consortDir, "drive-live.log");
+    process.stdout.write(
+      `consort-drive: detached into its own session as pid ${child.pid} (survives this turn/shell).
+  live log: ${logPath}
+  relay it:  ./scripts/lk consort-watch --since 0 --pid ${child.pid}   (then re-poll with the printed cursor)
+`
+    );
+    return child.pid;
+  } catch {
+    return null;
+  }
+}
 function teeStderrToDriveLog(consortDir) {
   try {
     fs20.mkdirSync(consortDir, { recursive: true });
@@ -15883,10 +15913,17 @@ function teeStderrToDriveLog(consortDir) {
   }
 }
 async function main() {
-  const args = parseArgs(process.argv.slice(2));
+  const rawArgv = process.argv.slice(2);
+  const args = parseArgs(rawArgv);
   if (args.help) {
     process.stdout.write(help());
     return 0;
+  }
+  if (rawArgv.includes("--detach")) {
+    const cdir = args.consortDir ?? resolveConsortDir(args.projectDir ?? process.cwd());
+    const pid = relaunchDetached(rawArgv, cdir);
+    if (pid !== null) return 0;
+    process.stderr.write("consort-drive: detach re-spawn failed , running in-process instead.\n");
   }
   if (!args.consortDir) {
     const projectDir = args.projectDir ?? process.cwd();

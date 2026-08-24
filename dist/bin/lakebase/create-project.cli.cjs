@@ -346,6 +346,9 @@ function parseArgs(argv) {
       case "--json-input":
         out.jsonInput = argv[++i];
         break;
+      case "--progress-log":
+        out.progressLog = argv[++i];
+        break;
       case "--project-name":
         out.projectName = argv[++i];
         break;
@@ -569,9 +572,22 @@ async function main() {
 `
     );
   }
+  if (args.progressLog) {
+    try {
+      (0, import_node_fs2.writeFileSync)(args.progressLog, "");
+    } catch {
+    }
+  }
   const result = await createProject(input, (step, detail) => {
-    process.stderr.write(`[${step}]${detail ? ` ${detail}` : ""}
-`);
+    const line = `[${step}]${detail ? ` ${detail}` : ""}
+`;
+    process.stderr.write(line);
+    if (args.progressLog) {
+      try {
+        (0, import_node_fs2.appendFileSync)(args.progressLog, line);
+      } catch {
+      }
+    }
   });
   process.stdout.write(JSON.stringify(result, null, 2) + "\n");
   return 0;

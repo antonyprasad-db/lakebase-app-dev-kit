@@ -81,4 +81,45 @@ describe("consort-telemetry CLI", () => {
     const b = status().install_id;
     expect(a).toBe(b);
   });
+
+  // The /consort:start briefing gate surfaced through the CLI: status exposes
+  // `acknowledged` (false until a choice is recorded), and each of ack/enable/disable
+  // records it. This is what the command reads to decide whether to brief.
+  it("status.acknowledged starts FALSE and every explicit choice flips it true", () => {
+    expect(status().acknowledged).toBe(false); // fresh: briefing WOULD fire
+
+    // `ack` (keep-defaults path) acknowledges WITHOUT changing consent.
+    expect(runTelemetryCli(["ack"], deps)).toBe(0);
+    expect(out.join("")).toContain("acknowledged");
+    let s = status();
+    expect(s.acknowledged).toBe(true);
+    expect(s.telemetry_enabled).toBe(true); // consent unchanged
+
+    // disable also acknowledges.
+    rmSync(home, { recursive: true, force: true });
+    expect(status().acknowledged).toBe(false);
+    runTelemetryCli(["disable"], deps);
+    s = status();
+    expect(s.acknowledged).toBe(true);
+    expect(s.telemetry_enabled).toBe(false);
+
+    // enable --level 2 acknowledges + opts in.
+    rmSync(home, { recursive: true, force: true });
+    expect(status().acknowledged).toBe(false);
+    runTelemetryCli(["enable", "--level", "2"], deps);
+    s = status();
+    expect(s.acknowledged).toBe(true);
+    expect(s.level).toBe(2);
+  });
+
+  it("ack --json emits the acknowledged flag + preserves current consent", () => {
+    runTelemetryCli(["disable"], deps); // choose off first (also acks) ...
+    rmSync(home, { recursive: true, force: true }); // ... then reset so ack sees fresh
+    runTelemetryCli(["disable"], deps);
+    out.length = 0;
+    expect(runTelemetryCli(["ack", "--json"], deps)).toBe(0);
+    const j = JSON.parse(out.join("")) as { acknowledged: boolean; telemetry_enabled: boolean };
+    expect(j.acknowledged).toBe(true);
+    expect(j.telemetry_enabled).toBe(false); // ack never flips consent
+  });
 });

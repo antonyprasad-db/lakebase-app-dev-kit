@@ -23,6 +23,10 @@ interface TelemetryStatus {
     config_file: string;
     schema: string;
     level: number;
+    /** True once the human has been briefed + decided. FALSE means `/consort:start`
+     *  should present the L1 opt-out + L2 opt-in briefing (a config that merely exists
+     *  is NOT acknowledgment). This is the gate for the briefing. */
+    acknowledged: boolean;
 }
 /** Run the CLI. Returns the process exit code. Never throws. */
 declare function runTelemetryCli(argv: string[], deps?: TelemetryCliDeps): number;

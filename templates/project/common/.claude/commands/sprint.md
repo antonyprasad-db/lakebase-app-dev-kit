@@ -45,23 +45,32 @@ GATES=interactive; [ "${LAKEBASE_CONSORT_HUMAN_PROXY:-}" = "1" ] && GATES=proxy
 
 **Run it so you can relay progress live (don't run it as a silent blocking call).**
 The drive narrates each turn to stderr AND self-writes `.consort/drive-live.log` (it
-owns that file, so visibility does NOT depend on how you launch it). Launch it
-**detached** so a watcher timeout can never kill it, then **watch it with the kit's
-own `consort-watch`** , do NOT hand-roll a `tail -f … | while read; case …` loop
-(brittle) and do NOT redirect stderr to `drive-live.log` (the drive already writes
-it , a redirect double-writes):
+owns that file, so visibility does NOT depend on how you launch it). Two hard rules:
+launch with **`--detach`** (NOT `nohup`/`&`) so the run survives your turn ending, and
+relay with **poll-once `consort-watch --since <cursor>` in a loop** (NOT a blocking
+watch). Do NOT hand-roll a `tail -f … | while read; case …` loop (brittle) and do NOT
+redirect stderr to `drive-live.log` (the drive already writes it , a redirect
+double-writes):
 ```bash
-nohup ./scripts/lk consort-drive --sprint "<sprint-name>" --gates "$GATES" --project-dir "$PWD" \
-  >/dev/null 2>&1 &                            # detached; the drive self-writes .consort/drive-live.log
-DRIVE_PID=$!
-./scripts/lk consort-watch --pid "$DRIVE_PID"  # follows .consort/drive-live.log (bounded ~90s; re-run to keep watching)
+# --detach re-launches the drive in its OWN session (setsid) and prints the child pid.
+# This is the ONLY launch that survives the turn ending: a `nohup … &` leaves the drive
+# in this tool call's process group, which the harness SIGTERMs on turn-end (the drive
+# then gets "reaped between turns"). --detach escapes that group.
+DRIVE_PID=$(./scripts/lk consort-drive --sprint "<sprint-name>" --gates "$GATES" --project-dir "$PWD" --detach \
+  | sed -n 's/.*as pid \([0-9]*\).*/\1/p')
+# Poll-once relay: each call prints the NEW lines + a cursor+status trailer and EXITS.
+# In your session, make ONE call per turn, narrate the batch to the human, then call
+# again next turn with the printed cursor , until status is gate|pause|escalation|done.
+./scripts/lk consort-watch --since 0 --pid "$DRIVE_PID"
+#   -> relays new lines, ends with: [consort-watch] cursor=<N> status=<...>
+# next call (use the printed <N>):
+./scripts/lk consort-watch --since <N> --pid "$DRIVE_PID"
 ```
-`consort-watch` relays each phase/role/gate transition as it lands and STOPS at a
-gate / pause / escalation / run-end (exit 0 clean, 3 on escalation). It also **bounds
-its own wait (~90s) so a foreground call stays under the harness timeout** , if it
-prints "still running", just re-run it; the detached drive keeps going. When it
-stops, surface the decision to the human and run `consort-next` for the exact command
-that clears it.
+Each `--since` call relays the new phase/role/gate transitions and prints
+`[consort-watch] cursor=<N> status=<running|gate|pause|escalation|done|waiting>`. Keep
+re-polling with the printed cursor, narrating each batch, until `status` is a stop
+(gate / pause / escalation / done). When it stops, surface the decision to the human
+and run `consort-next` for the exact command that clears it.
 Translate the transitions into the phase/role/gate story (Spec Author → Architect →
 Test Strategist → gates); do NOT relay the raw CLIs or state reads.
 When the drive prints a `GATE`/`PAUSED` marker (or exits), present that decision,

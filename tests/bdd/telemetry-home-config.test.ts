@@ -9,6 +9,8 @@ import { join } from "node:path";
 import {
   ensureInstallId,
   isTelemetryEnabled,
+  isTelemetryAcknowledged,
+  markTelemetryAcknowledged,
   setTelemetryEnabled,
   telemetryConfigDir,
   telemetryConfigFile,
@@ -88,6 +90,38 @@ describe("telemetry home config", () => {
     expect(ensureInstallId(deps)).toMatch(UUID_V4);
     // Sanity: the rewritten file is valid JSON now.
     expect(() => JSON.parse(readFileSync(file, "utf8"))).not.toThrow();
+  });
+
+  // The /consort:start briefing gate: `acknowledged` is FALSE for a config that
+  // merely EXISTS (an install id was minted with no human present) and only becomes
+  // true once the human is briefed + decides. This is what stops the briefing from
+  // firing forever OR never (the bug: gating on file existence, so a pre-existing
+  // config never briefs and a fresh minted-id config never stops).
+  it("acknowledged defaults FALSE, even for a config that already exists", () => {
+    expect(isTelemetryAcknowledged(deps)).toBe(false); // nothing yet
+    ensureInstallId(deps); // config now EXISTS (id minted) but was never acknowledged
+    expect(readStoredConfig(deps)?.install_id).toMatch(UUID_V4);
+    expect(isTelemetryAcknowledged(deps)).toBe(false); // existence != acknowledgment
+  });
+
+  it("markTelemetryAcknowledged flips it true + persists, preserving consent + id", () => {
+    const id = ensureInstallId(deps);
+    setTelemetryEnabled(false, deps); // an opt-out choice
+    expect(isTelemetryAcknowledged(deps)).toBe(false);
+    markTelemetryAcknowledged(deps);
+    expect(isTelemetryAcknowledged(deps)).toBe(true);
+    // consent + identity untouched by the acknowledgment
+    expect(isTelemetryEnabled(deps)).toBe(false);
+    expect(readStoredConfig(deps)?.install_id).toBe(id);
+  });
+
+  it("markTelemetryAcknowledged mints an id when none exists yet + never throws unwritable", () => {
+    const cfg = markTelemetryAcknowledged(deps);
+    expect(cfg.install_id).toMatch(UUID_V4);
+    expect(cfg.acknowledged).toBe(true);
+    const fileHome = join(home, "home-as-file2");
+    writeFileSync(fileHome, "x", "utf8");
+    expect(() => markTelemetryAcknowledged({ homedir: fileHome, env: {} })).not.toThrow();
   });
 
   // Regression (BLOCKING FIX 2): the config-write path must never throw (it feeds

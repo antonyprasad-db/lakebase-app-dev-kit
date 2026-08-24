@@ -314,7 +314,7 @@ Fix: clear the npx cache and retry the version-pinned create from /consort:start
 
 // bin/lakebase/create-project.cli.ts
 import { createRequire } from "module";
-import { readFileSync as readFileSync7 } from "fs";
+import { readFileSync as readFileSync7, appendFileSync, writeFileSync as writeFileSync5 } from "fs";
 function parseArgs(argv) {
   const out = {};
   for (let i = 0; i < argv.length; i++) {
@@ -322,6 +322,9 @@ function parseArgs(argv) {
     switch (a) {
       case "--json-input":
         out.jsonInput = argv[++i];
+        break;
+      case "--progress-log":
+        out.progressLog = argv[++i];
         break;
       case "--project-name":
         out.projectName = argv[++i];
@@ -546,9 +549,22 @@ async function main() {
 `
     );
   }
+  if (args.progressLog) {
+    try {
+      writeFileSync5(args.progressLog, "");
+    } catch {
+    }
+  }
   const result = await createProject(input, (step, detail) => {
-    process.stderr.write(`[${step}]${detail ? ` ${detail}` : ""}
-`);
+    const line = `[${step}]${detail ? ` ${detail}` : ""}
+`;
+    process.stderr.write(line);
+    if (args.progressLog) {
+      try {
+        appendFileSync(args.progressLog, line);
+      } catch {
+      }
+    }
   });
   process.stdout.write(JSON.stringify(result, null, 2) + "\n");
   return 0;

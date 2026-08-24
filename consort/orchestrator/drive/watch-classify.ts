@@ -56,9 +56,21 @@ export function classifyDriveLine(raw: string): WatchClass | null {
     return { kind: "notice", text: line.replace(/^\[consort\] /, ""), stop: false };
   }
 
+  // `lk:` install narration (a backgrounded `--refresh` , the kit download + heartbeat).
+  // The same relay follows create / refresh / drive, so surface these verbatim.
+  if (/^lk: /.test(line)) {
+    return { kind: "info", text: line.replace(/^lk: /, ""), stop: false };
+  }
+
   const isDrive = line.startsWith("[drive]");
   const isSprint = line.startsWith("[sprint]");
-  if (!isDrive && !isSprint) return null;
+  // `lakebase-create-project` narrates provisioning as bracketed stage lines , e.g.
+  // "[Creating GitHub repository...]", "[Scaffolding project files...]", "[doctor] …",
+  // "[Project created successfully!]". Relay ANY bracketed line, not just [drive]/[sprint],
+  // so create's Part-1 stages surface through the same watcher. Non-bracketed noise
+  // (raw npm/pytest lines) is still skipped.
+  const isBracketed = /^\[[^\]]+\]/.test(line);
+  if (!isDrive && !isSprint && !isBracketed) return null;
 
   // ── STOP points (control returns to the human) ───────────────────────────
   // The escalation headline itself ("[drive]/[sprint] RAISED TO HIL …"), so the

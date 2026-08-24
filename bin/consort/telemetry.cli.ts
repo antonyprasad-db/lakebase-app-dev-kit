@@ -24,6 +24,8 @@ import { ciBool } from "../../consort/telemetry/resource.js";
 import {
   ensureInstallId,
   isTelemetryEnabled,
+  isTelemetryAcknowledged,
+  markTelemetryAcknowledged,
   resolveTelemetryLevel,
   setTelemetryEnabled,
   setTelemetryLevel,
@@ -43,6 +45,9 @@ Usage:
   consort-telemetry status [--json]     Show consent state, level, install id, endpoint
   consort-telemetry enable [--level N]  Persist telemetry_enabled = true (N = 1 or 2)
   consort-telemetry disable             Persist telemetry_enabled = false
+  consort-telemetry ack [--json]        Record that you've been briefed + keep the
+                                        current settings (stops the /consort:start
+                                        briefing without changing consent)
 
 Telemetry is PSEUDONYMOUS (a random per-install UUID, no PII) and OPT-OUT: by
 default a normal interactive run reports to the Consort maintainers' endpoint ,
@@ -82,6 +87,10 @@ export interface TelemetryStatus {
   config_file: string;
   schema: string;
   level: number;
+  /** True once the human has been briefed + decided. FALSE means `/consort:start`
+   *  should present the L1 opt-out + L2 opt-in briefing (a config that merely exists
+   *  is NOT acknowledgment). This is the gate for the briefing. */
+  acknowledged: boolean;
 }
 
 function buildStatus(deps: TelemetryCliDeps): TelemetryStatus {
@@ -101,6 +110,7 @@ function buildStatus(deps: TelemetryCliDeps): TelemetryStatus {
     config_file: telemetryConfigFile(deps),
     schema: TELEMETRY_SCHEMA,
     level: resolveTelemetryLevel(deps),
+    acknowledged: isTelemetryAcknowledged(deps),
   };
 }
 
@@ -114,6 +124,7 @@ function renderStatus(s: TelemetryStatus): string {
     `    CONSORT_TELEMETRY=0: ${s.killed}\n` +
     `  endpoint armed:      ${s.endpoint_armed} (opt-out, armed by default; CONSORT_TELEMETRY_SIGNOFF=0 to un-arm)\n` +
     `  install id:          ${s.install_id}\n` +
+    `  acknowledged:        ${s.acknowledged} (false => /consort:start briefs the L1 opt-out + L2 opt-in)\n` +
     `  config file:         ${s.config_file}\n`
   );
 }
@@ -135,17 +146,37 @@ export function runTelemetryCli(argv: string[], deps: TelemetryCliDeps = {}): nu
       setTelemetryEnabled(true, deps);
       const requested = parseLevelFlag(argv);
       if (requested !== undefined) setTelemetryLevel(requested, deps);
+      markTelemetryAcknowledged(deps); // an explicit choice IS acknowledgment
       const level = resolveTelemetryLevel(deps);
       out(
         json
-          ? JSON.stringify({ telemetry_enabled: true, level }, null, 2) + "\n"
+          ? JSON.stringify({ telemetry_enabled: true, level, acknowledged: true }, null, 2) + "\n"
           : `telemetry enabled (level ${level})\n`,
       );
       return 0;
     }
     case "disable": {
       const cfg = setTelemetryEnabled(false, deps);
-      out(json ? JSON.stringify({ telemetry_enabled: cfg.telemetry_enabled }, null, 2) + "\n" : "telemetry disabled\n");
+      markTelemetryAcknowledged(deps); // an explicit choice IS acknowledgment
+      out(
+        json
+          ? JSON.stringify({ telemetry_enabled: cfg.telemetry_enabled, acknowledged: true }, null, 2) + "\n"
+          : "telemetry disabled\n",
+      );
+      return 0;
+    }
+    case "ack": {
+      // Record that the human has been briefed + keeps the current settings (the
+      // `/consort:start` "keep defaults" path). Distinct from enable/disable: no
+      // consent change, only the acknowledgment flag , so the briefing stops firing.
+      markTelemetryAcknowledged(deps);
+      const level = resolveTelemetryLevel(deps);
+      const enabled = isTelemetryEnabled(deps);
+      out(
+        json
+          ? JSON.stringify({ acknowledged: true, telemetry_enabled: enabled, level }, null, 2) + "\n"
+          : `telemetry acknowledged (enabled ${enabled}, level ${level}) , kept as-is\n`,
+      );
       return 0;
     }
     case "--help":

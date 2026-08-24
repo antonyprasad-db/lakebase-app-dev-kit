@@ -29,6 +29,13 @@ interface Args {
    *  bash timeout (whose SIGTERM can otherwise kill a same-group drive). 0 = no
    *  bound (use when running consort-watch itself as a detached/background task). */
   timeout: number;
+  /** POLL-ONCE mode: read new lines from this byte offset, relay them, print
+   *  `[consort-watch] cursor=<N> status=<running|gate|pause|escalation|done|waiting>`,
+   *  and EXIT immediately (no blocking). This is the harness-friendly relay: a
+   *  long-blocking follow is NOT streamed to the human (they see only a spinner
+   *  until it returns), so the caller LOOPS short `--since <cursor>` calls and
+   *  narrates each batch. undefined = the (legacy) blocking follow mode. */
+  since?: number;
 }
 
 /** The current feature/story from workflow-state, to scope the review-artifact open. */
@@ -51,6 +58,7 @@ function parseArgs(argv: string[]): Args {
       case "--log": out.log = argv[++i]; break;
       case "--pid": out.pid = Number(argv[++i]); break;
       case "--timeout": out.timeout = Number(argv[++i]); break;
+      case "--since": out.since = Number(argv[++i]); break;
       case "--from-start": out.fromStart = true; break;
       case "--project-dir": out.projectDir = argv[++i]; break;
       case "--tdd-dir": case "--consort-dir": out.consortDir = argv[++i]; break;
@@ -91,6 +99,43 @@ async function main(): Promise<number> {
   const args = parseArgs(process.argv.slice(2));
   const consortDir = args.consortDir ?? resolveConsortDir(args.projectDir);
   const logPath = args.log ?? path.join(consortDir, "drive-live.log");
+
+  // POLL-ONCE (--since <offset>): read new lines from the offset, relay them, print a
+  // machine-readable `[consort-watch] cursor=<N> status=<…>` trailer, and EXIT at once.
+  // This is the harness-friendly relay , a blocking follow is not streamed to the human
+  // (they see only a spinner until it returns), so the caller LOOPS short --since calls
+  // and narrates each batch. Returns fast whether or not there is new content.
+  if (args.since !== undefined) {
+    if (!fs.existsSync(logPath)) {
+      process.stdout.write(`[consort-watch] cursor=0 status=waiting\n`);
+      return 0;
+    }
+    const size = fs.statSync(logPath).size;
+    const from = args.since < 0 || args.since > size ? 0 : args.since; // clamp; truncation => re-read
+    let status: "running" | "gate" | "pause" | "escalation" | "done" | "waiting" = "running";
+    if (size > from) {
+      const fd = fs.openSync(logPath, "r");
+      const buf = Buffer.alloc(size - from);
+      fs.readSync(fd, buf, 0, buf.length, from);
+      fs.closeSync(fd);
+      let inNotice = false;
+      for (const line of buf.toString("utf8").split("\n")) {
+        if (inNotice) {
+          if (/^\s+\S/.test(line)) { process.stdout.write(`${line.replace(/\s+$/, "")}\n`); continue; }
+          inNotice = false;
+        }
+        const c = classifyDriveLine(line);
+        if (!c) continue;
+        process.stdout.write(`${PREFIX[c.kind]} ${c.text}\n`);
+        if (c.kind === "notice") { inNotice = true; continue; }
+        if (c.stop && c.outcome) status = c.outcome; // last stop in this batch wins
+      }
+    }
+    // Process gone + nothing new => it ended without a terminal line (crash/kill).
+    if (status === "running" && args.pid !== undefined && !alive(args.pid) && size <= from) status = "done";
+    process.stdout.write(`[consort-watch] cursor=${size} status=${status}\n`);
+    return 0;
+  }
 
   // Wait (bounded) for the log to appear , the drive may be backgrounding just now.
   const APPEAR_MS = 30_000;

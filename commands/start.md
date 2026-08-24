@@ -6,6 +6,23 @@ description: Launch the Consort workflow (spec-first design, test-driven build o
 
 This command launches the Consort (spec-first, test-driven) loop. First detect where you are, then branch.
 
+### 0. Telemetry briefing (once, before anything else)
+
+Consort reports pseudonymous usage telemetry to its maintainers. The human MUST be told this in plain language the first time you run `/consort:start` for them , and be offered the Level-1 opt-out and the Level-2 opt-in , **here, where they can actually read it** (a stderr notice buried in a background drive is not a disclosure). Gate on the `acknowledged` flag, not on whether a config file exists:
+
+1. Run `./scripts/lk consort-telemetry status --json` and read `acknowledged`.
+2. **If `acknowledged` is `true`, SKIP this section entirely** , they have already been briefed and made a choice; go straight to the `.consort/` check below.
+3. **If `acknowledged` is `false`** (a brand-new install, OR an older config that predates this briefing), present this verbatim and wait for their answer:
+   > "Before we start: Consort reports **pseudonymous** usage telemetry to its maintainers , a random per-install id (no personal data, no code, no paths, no names), only allowlisted event names, counts, and durations. It's **on by default (opt-out)**.
+   > • **Level 1** (default): high-level phase/gate events. Reply **'keep'** to leave it on, or **'opt out'** to turn it off.
+   > • **Level 2** (separate, explicit opt-in): additionally per-role turn timings + coarse repair/loop counts (still allowlisted, no free text). Reply **'level 2'** to help the maintainers tune the workflow.
+   > You can change this any time with `./scripts/lk consort-telemetry {enable|disable} [--level 2]`."
+4. Record their choice so this never re-fires (each of these sets `acknowledged=true`):
+   - **keep / leave on** -> `./scripts/lk consort-telemetry ack`
+   - **opt out** -> `./scripts/lk consort-telemetry disable`
+   - **level 2** -> `./scripts/lk consort-telemetry enable --level 2`
+5. Then continue to the branch below. Never block on this , if they don't answer, default to leaving Level 1 on and run `consort-telemetry ack` so you don't nag them again next run.
+
 **Check the current project root for a `.consort/` directory.**
 - If `.consort/` exists, go to **A. Resume**.
 - If it does not, go to **B. Create**.
@@ -31,7 +48,10 @@ Drive the workflow through the **deterministic orchestrator** (`consort-drive`),
      - Built but not deployed/reviewed -> **`/deploy <feature-id> --target local`** (the working-software gate).
    - Need to explore an unknown first? **`/spike <slug> [--for <feature>]`** (throwaway, outside the loop).
    - Confirm the chosen step with the human, invoke that project-scaffolded command (it runs the deterministic driver, which spawns the role agents + pauses at gates), then loop.
-   - **Run the driver in the BACKGROUND and relay each role AS IT STARTS , do NOT run it foreground and narrate from chunks.** The driver streams one `[drive] NNN dispatch <role> for <phase>` line to stderr the moment each role STARTS (e.g. `dispatch dba for design`, then `dispatch test-strategist for design`), and a `[drive] <role> turn Ns` line when it finishes. A blocking foreground run buffers these, so you only observe whatever state exists when the call returns , which is how a role ends up announced only at completion ("Test Strategist has produced …") while another was caught mid-flight ("the DBA is now turning …"). Instead launch it **detached** so a watcher timeout can't kill it , `nohup ./scripts/lk consort-drive … >/dev/null 2>&1 &` , and **watch it with `./scripts/lk consort-watch --pid <drive-pid>`**. The drive SELF-WRITES `.consort/drive-live.log` (do NOT redirect stderr to that file , the drive owns it, a redirect double-writes; and do NOT use a bare harness background task expecting output there , the drive's own log is what `consort-watch` follows). Do NOT hand-roll a `tail -f … | while read; case …` loop (brittle). `consort-watch` relays each `dispatch <role>` at its START and each turn's completion, STOPS at a gate / pause / escalation / run-end, and **bounds its own wait (~90s)** so a foreground call stays under the harness timeout , if it prints "still running", re-run it (the detached drive keeps going). When it stops, run `consort-next` for the exact command that clears it. This is the orchestrator-contract's rule 1 (`skills/consort/references/orchestrator-contract.md`); follow it for `/sprint`, `/plan`, `/design`, `/build`, and `/deploy` alike.
+   - **Run the driver DETACHED, then relay it with short poll-once calls , do NOT run it foreground and narrate from chunks, and do NOT background it with `nohup … &`.** The driver streams one `[drive] NNN dispatch <role> for <phase>` line the moment each role STARTS (e.g. `dispatch dba for design`, then `dispatch test-strategist for design`) and a `[drive] <role> turn Ns` line when it finishes. Two hard rules make this observable AND durable:
+     1. **Launch with `--detach`, never `nohup`/`&`.** Run **`./scripts/lk consort-drive <flags> --detach`**. It re-launches the drive in its OWN session (setsid) and returns immediately, printing the child pid + the watch command. This is the ONLY launch that survives your turn ending: a `nohup … &` (or a bare `&`) leaves the drive in your tool call's process group, which the harness SIGTERMs when the call returns , that is the "drive reaped between turns" failure. `--detach` escapes that group; nothing about a later watcher call can reach it either. The drive SELF-WRITES `.consort/drive-live.log` (do NOT redirect stderr to it , the drive owns it; a redirect double-writes).
+     2. **Relay with poll-once `consort-watch --since <cursor>`, in a loop , NOT a blocking watch.** A long-blocking call is NOT streamed to the human (they see only a spinner until it returns), so narrate between short calls: `./scripts/lk consort-watch --since 0 --pid <drive-pid>` prints the new log lines + a `[consort-watch] cursor=<N> status=<running|gate|pause|escalation|done|waiting>` trailer and EXITS at once. Narrate that batch to the human, then call again with `--since <N>` (the printed cursor). Repeat until `status` is `gate`/`pause`/`escalation`/`done`. Do NOT hand-roll a `tail -f … | while read; case …` loop (brittle) and do NOT rely on a blocking watch to relay. When it stops, run `consort-next` for the exact command that clears it.
+     This is the orchestrator-contract's rule 1 (`skills/consort/references/orchestrator-contract.md`); follow it for `/sprint`, `/plan`, `/design`, `/build`, and `/deploy` alike.
 
 **Teardown / reclaim** (run from inside the project; both default the Lakebase instance + host from the project `.env`, so you need not re-specify them):
 - **Done with a spike?** `./scripts/lk consort-spike delete --slug <slug>` tears down its paired Lakebase + git branch. Notes are KEPT by default (the learning survives); add `--purge-notes` to also remove `.consort/spikes/<slug>/`.
@@ -124,7 +144,7 @@ KIT_REF="${LAKEBASE_KIT_REF:-}"
 if [ -z "$KIT_REF" ] && [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json" ]; then
   KIT_REF="v$(node -p "require('${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json').version" 2>/dev/null || true)"
 fi
-KIT_REF="${KIT_REF:-v0.3.24}"   # stamped at release; == package.json version (enforced by tests/bdd/start-kit-pin.test.ts)
+KIT_REF="${KIT_REF:-v0.3.25}"   # stamped at release; == package.json version (enforced by tests/bdd/start-kit-pin.test.ts)
 KIT_PKG="github:databricks-solutions/consort#${KIT_REF}"
 
 # Background it to a log so you can relay the [stage] lines live (see above).
@@ -198,6 +218,10 @@ fi
 ```
 - **Confirm which editor** if both are present (prefer the one they're using). The app-bundle fallback means an installed-but-not-on-PATH editor still works; if you used the bundle path, mention they can enable the short command via the editor's *"Shell Command: Install 'code'/'cursor' command in PATH"*.
 - **If neither is installed**, don't force it: point them to install Cursor or VS Code, then the manual path , download the `*.vsix` from `https://github.com/databricks-solutions/lakebase-scm-extension/releases/latest` and use the editor's **Extensions → ⋯ → Install from VSIX**, then open the project folder.
+- **After the editor opens, offer to RESUME the workflow there , don't just leave them in a fresh window.** Opening the project is only half the hand-off: the new editor window has no session driving it. Tell them how to continue in that window, and let them choose where to drive from:
+  > "Your project is open in <editor> with the live viewer. To drive the workflow from there, open a terminal in that window (**Ctrl+`**), run `claude`, and then `/consort:start` , it reads the project state and picks up exactly where this leaves off. Or I can keep driving from here and you just watch the viewer. Which do you prefer?"
+
+  `/consort:start` in the new window is safe to resume with because state is DERIVED from disk (`consort-next` is authoritative) , there is no session-local progress to lose. If they want to keep driving from THIS session, that is fine too; the extension viewer updates from the same `.consort` state either way. Drive from ONE session at a time (two concurrent drives on one project race on the git worktree).
 - This is an **offer, not a gate** , if they decline, continue straight to the chosen workflow step. Only offer it once, on the fresh-project hand-off.
 
 ---

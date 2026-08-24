@@ -27,6 +27,7 @@ import {
 import { migrateLegacyArtifactDir } from "../../consort/config/migrate-artifact-dir.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { spawn } from "node:child_process";
 import * as readline from "node:readline";
 
 import { recordTurn, seedRecorderBaseline, recordCorrespondence, recordRoutingDecision, lastRecordedOrdinal, type CorrespondenceEntry } from "../../consort/logging/turn-recorder.js";
@@ -125,6 +126,10 @@ Flags:
   --instance <id>      Lakebase instance id (threaded to experiment branch ops)
   --deploy-target <t>  Deploy target for the deploy phase (default: local)
   --approver <name>    Headless gate approver (default: human-proxy)
+  --detach             Re-launch in a NEW session (setsid) and return at once, so the
+                       run survives this shell/turn ending. Use this INSTEAD of
+                       nohup/& (which the harness reaps on turn-end). Prints the child
+                       pid + the consort-watch command; follow the run via that.
   --dry-run            Print the single next action + its commands, then exit
   --max-steps <n>      Stop after n actions (incremental/live testing + safety)
   --plan-only          Tier-2: run the sprint planning sub-machine only (/plan)
@@ -895,6 +900,41 @@ function snapshotRunConfig(cfg: DriveEffectsConfig, bound: string, gates: "inter
   });
 }
 
+/** Re-launch THIS drive in its own session (detached) and return immediately, so a
+ *  long run survives the launching shell/turn ending. This is the durable fix for the
+ *  "detached drive gets reaped between turns" failure: `nohup … &` is NOT enough on
+ *  macOS , the harness SIGTERMs the launching tool call's whole PROCESS GROUP when it
+ *  returns, and macOS has no `setsid` binary to escape it. Node's `spawn(detached:true)`
+ *  DOES call setsid(2), putting the child in a NEW session + process group that the
+ *  SIGTERM never reaches; `.unref()` frees the parent's event loop so we can exit now.
+ *
+ *  The child re-runs the exact same resolved bin (`process.argv[1]`, whatever the `lk`
+ *  shim resolved) with `--detach` stripped, and self-tees its narration to
+ *  `.consort/drive-live.log` (so `stdio: "ignore"` here loses nothing). We print the
+ *  child PID + the poll-once watch command and exit 0. Returns the child pid, or null
+ *  when spawning failed (caller then falls through to a normal in-process run). */
+function relaunchDetached(rawArgv: string[], consortDir: string): number | null {
+  const childArgs = rawArgv.filter((a) => a !== "--detach");
+  try {
+    const child = spawn(process.execPath, [process.argv[1], ...childArgs], {
+      detached: true, // setsid(2): new session + process group, escapes the caller's group-SIGTERM
+      stdio: "ignore", // the child self-tees to .consort/drive-live.log; nothing to inherit
+      env: process.env,
+    });
+    child.unref();
+    if (child.pid === undefined) return null;
+    const logPath = path.join(consortDir, "drive-live.log");
+    process.stdout.write(
+      `consort-drive: detached into its own session as pid ${child.pid} (survives this turn/shell).\n` +
+        `  live log: ${logPath}\n` +
+        `  relay it:  ./scripts/lk consort-watch --since 0 --pid ${child.pid}   (then re-poll with the printed cursor)\n`,
+    );
+    return child.pid;
+  } catch {
+    return null; // spawn failed , caller runs in-process instead of losing the run
+  }
+}
+
 /** Tee the drive's stderr narration to `<consortDir>/drive-live.log` so a watcher
  *  (`consort-watch`) can follow it REGARDLESS of how the drive was launched. Visibility
  *  used to depend on the caller redirecting stderr (`> .consort/drive-live.log`); when a
@@ -917,10 +957,22 @@ function teeStderrToDriveLog(consortDir: string): void {
 }
 
 async function main(): Promise<number> {
-  const args = parseArgs(process.argv.slice(2));
+  const rawArgv = process.argv.slice(2);
+  const args = parseArgs(rawArgv);
   if (args.help) {
     process.stdout.write(help());
     return 0;
+  }
+  // --detach: re-launch in a NEW session and return immediately, so the run survives
+  // the launching turn/shell ending (the recurring "reaped between turns" failure).
+  // Must happen BEFORE any side effect (log tee, config write, provisioning) so the
+  // child , not this short-lived parent , owns them. Falls through to an in-process
+  // run only if the re-spawn itself failed (never silently drops the run).
+  if (rawArgv.includes("--detach")) {
+    const cdir = args.consortDir ?? resolveConsortDir(args.projectDir ?? process.cwd());
+    const pid = relaunchDetached(rawArgv, cdir);
+    if (pid !== null) return 0;
+    process.stderr.write("consort-drive: detach re-spawn failed , running in-process instead.\n");
   }
   // Auto-migrate a legacy artifact dir (".sftdd"/".tdd") to ".consort" before any
   // mode runs, so existing projects move to the current name on their next

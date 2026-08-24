@@ -208,7 +208,8 @@ function readStoredConfig(deps = {}) {
     const telemetry_enabled = typeof data.telemetry_enabled === "boolean" ? data.telemetry_enabled : DEFAULT_TELEMETRY_ENABLED;
     const telemetry_level = data.telemetry_level === 2 ? 2 : DEFAULT_TELEMETRY_LEVEL;
     const l2_opt_in_notified = data.l2_opt_in_notified === true;
-    return { install_id: data.install_id, telemetry_enabled, telemetry_level, l2_opt_in_notified };
+    const acknowledged = data.acknowledged === true;
+    return { install_id: data.install_id, telemetry_enabled, telemetry_level, l2_opt_in_notified, acknowledged };
   } catch {
     return null;
   }
@@ -252,6 +253,12 @@ function setTelemetryEnabled(enabled, deps = {}) {
 function setTelemetryLevel(level, deps = {}) {
   return updateStoredConfig({ telemetry_level: level }, deps);
 }
+function isTelemetryAcknowledged(deps = {}) {
+  return readStoredConfig(deps)?.acknowledged === true;
+}
+function markTelemetryAcknowledged(deps = {}) {
+  return updateStoredConfig({ acknowledged: true }, deps);
+}
 function resolveTelemetryLevel(deps = {}) {
   const env = deps.env ?? process.env;
   const raw = (env.CONSORT_TELEMETRY_LEVEL ?? "").trim();
@@ -273,6 +280,9 @@ Usage:
   consort-telemetry status [--json]     Show consent state, level, install id, endpoint
   consort-telemetry enable [--level N]  Persist telemetry_enabled = true (N = 1 or 2)
   consort-telemetry disable             Persist telemetry_enabled = false
+  consort-telemetry ack [--json]        Record that you've been briefed + keep the
+                                        current settings (stops the /consort:start
+                                        briefing without changing consent)
 
 Telemetry is PSEUDONYMOUS (a random per-install UUID, no PII) and OPT-OUT: by
 default a normal interactive run reports to the Consort maintainers' endpoint ,
@@ -312,7 +322,8 @@ function buildStatus(deps) {
     endpoint_armed: mode.willPost,
     config_file: telemetryConfigFile(deps),
     schema: TELEMETRY_SCHEMA,
-    level: resolveTelemetryLevel(deps)
+    level: resolveTelemetryLevel(deps),
+    acknowledged: isTelemetryAcknowledged(deps)
   };
 }
 function renderStatus(s) {
@@ -324,6 +335,7 @@ function renderStatus(s) {
     CONSORT_TELEMETRY=0: ${s.killed}
   endpoint armed:      ${s.endpoint_armed} (opt-out, armed by default; CONSORT_TELEMETRY_SIGNOFF=0 to un-arm)
   install id:          ${s.install_id}
+  acknowledged:        ${s.acknowledged} (false => /consort:start briefs the L1 opt-out + L2 opt-in)
   config file:         ${s.config_file}
 `;
 }
@@ -342,16 +354,30 @@ function runTelemetryCli(argv, deps = {}) {
       setTelemetryEnabled(true, deps);
       const requested = parseLevelFlag(argv);
       if (requested !== void 0) setTelemetryLevel(requested, deps);
+      markTelemetryAcknowledged(deps);
       const level = resolveTelemetryLevel(deps);
       out(
-        json ? JSON.stringify({ telemetry_enabled: true, level }, null, 2) + "\n" : `telemetry enabled (level ${level})
+        json ? JSON.stringify({ telemetry_enabled: true, level, acknowledged: true }, null, 2) + "\n" : `telemetry enabled (level ${level})
 `
       );
       return 0;
     }
     case "disable": {
       const cfg = setTelemetryEnabled(false, deps);
-      out(json ? JSON.stringify({ telemetry_enabled: cfg.telemetry_enabled }, null, 2) + "\n" : "telemetry disabled\n");
+      markTelemetryAcknowledged(deps);
+      out(
+        json ? JSON.stringify({ telemetry_enabled: cfg.telemetry_enabled, acknowledged: true }, null, 2) + "\n" : "telemetry disabled\n"
+      );
+      return 0;
+    }
+    case "ack": {
+      markTelemetryAcknowledged(deps);
+      const level = resolveTelemetryLevel(deps);
+      const enabled = isTelemetryEnabled(deps);
+      out(
+        json ? JSON.stringify({ acknowledged: true, telemetry_enabled: enabled, level }, null, 2) + "\n" : `telemetry acknowledged (enabled ${enabled}, level ${level}) , kept as-is
+`
+      );
       return 0;
     }
     case "--help":
