@@ -45,18 +45,21 @@ GATES=interactive; [ "${LAKEBASE_CONSORT_HUMAN_PROXY:-}" = "1" ] && GATES=proxy
 
 **Run it so you can relay progress live (don't run it as a silent blocking call).**
 The drive narrates each turn to stderr (`[drive] NNN <what it's doing>`, on by
-default). Launch it in the BACKGROUND with output to a log, tail the log, and relay
-each transition to the human in plain language as it lands , so a multi-minute
-planning/build phase is never a silent wait:
+default). Launch it in the BACKGROUND to a log, then **watch it with the kit's own
+`consort-watch`** , do NOT hand-roll a `tail -f … | while read; case …` loop (it
+re-guesses the drive's line formats and is brittle):
 ```bash
 ./scripts/lk consort-drive --sprint "<sprint-name>" --gates "$GATES" --project-dir "$PWD" \
   > .consort/drive-live.log 2>&1 &            # background
-# then tail .consort/drive-live.log and relay: "[drive] 000 dispatch spec-author for design"
-#   -> "Planning: Spec Author is drafting the backlog…"; on a GATE/PAUSED marker or exit,
-#   stop tailing and surface the gate decision to the human.
+DRIVE_PID=$!
+./scripts/lk consort-watch --pid "$DRIVE_PID"  # follows .consort/drive-live.log
 ```
-Translate the terse `[drive]` markers into the phase/role/gate story (Spec Author →
-Architect → Test Strategist → gates); do NOT relay the raw CLIs or state reads.
+`consort-watch` relays each phase/role/gate transition in plain language as it lands
+and STOPS at a gate / pause / escalation / run-end (exit 0 clean, 3 on escalation),
+so you never watch a silent wait or hand-parse the log. When it stops, surface the
+decision to the human and run `consort-next` for the exact command that clears it.
+Translate the transitions into the phase/role/gate story (Spec Author → Architect →
+Test Strategist → gates); do NOT relay the raw CLIs or state reads.
 When the drive prints a `GATE`/`PAUSED` marker (or exits), present that decision,
 then re-run to continue past it.
 

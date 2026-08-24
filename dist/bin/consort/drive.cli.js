@@ -13340,7 +13340,7 @@ var TEST_ANALYST_CATALOGUE = {
     effort: "default",
     toolScope: ["Read"],
     inputs: ["story-acs"],
-    focusPrompt: 'You are the BEHAVIOR test analyst. Cover EVERY provided story AC with at least one `kind:"behavior"` item , one observable behavior verified through the API boundary (for Python, a pytest-bdd scenario; set `scenario_file` to `tests/features/<story>.feature`). Test at the OUTERMOST public boundary matching the AC\'s layer. One test per scenario, never an "and". EVERY write-bearing test (POST/insert/seed) MUST own its state , use a per-run-unique key (a uuid-suffixed sku/location) OR delete/upsert the fixed key before writing, never assume an empty table. Do NOT emit fitness or client items, and do NOT set `invariant_id` (the fitness analyst owns persistence invariants). ' + SLICE_CONTRACT
+    focusPrompt: 'You are the BEHAVIOR test analyst. Cover every BACKEND-layer AC (API / service / data) with at least one `kind:"behavior"` item , one observable behavior verified through the API boundary (for Python, a pytest-bdd scenario; set `scenario_file` to `tests/features/<story>.feature`). **DO NOT author a behavior item for an E2E / UI-presentation AC** (e.g. a "filing form" / "home screen" AC whose `layer` is `E2E`): those are the CLIENT analyst\'s Playwright job, NOT a backend pytest-bdd test. Set each item\'s `ac_id` ONLY to an AC whose layer permits a backend test; anchoring a 2xx / response-shape check to a UI AC (instead of the API-layer AC) is the recurring mis-route the reflect gate rejects , if an AC\'s observable outcome is an HTTP response shape, it belongs on the API-layer AC, never the form/screen AC. Test at the OUTERMOST public boundary matching the AC\'s layer. One test per scenario, never an "and". EVERY write-bearing test (POST/insert/seed) MUST own its state , use a per-run-unique key (a uuid-suffixed sku/location) OR delete/upsert the fixed key before writing, never assume an empty table. Do NOT emit fitness or client items, and do NOT set `invariant_id` (the fitness analyst owns persistence invariants). ' + SLICE_CONTRACT
   },
   fitness: {
     kind: "fitness",
@@ -14848,7 +14848,6 @@ var killed = (env) => (env.CONSORT_TELEMETRY ?? "").trim() === "0";
 function shouldEmitTelemetry(inp) {
   if (killed(inp.env)) return false;
   if (inCi(inp.env)) return false;
-  if (!inp.isTTY) return false;
   if (!inp.telemetryEnabled) return false;
   return true;
 }
@@ -15084,7 +15083,7 @@ function buildResourceAttrs(deps = {}) {
 }
 
 // consort/telemetry/with-telemetry.ts
-var FIRST_RUN_NOTICE = "[consort] Anonymous* usage telemetry is on (*pseudonymous: a random per-install id, no PII).\n          Each interactive run reports to the Consort maintainers' endpoint; only\n          allowlisted, non-sensitive fields are sent (no paths, code, or names).\n          Turn it off any time: `consort-telemetry disable` (or CONSORT_TELEMETRY=0).\n          Details: TELEMETRY.md.\n";
+var FIRST_RUN_NOTICE = "[consort] Anonymous* usage telemetry is on (*pseudonymous: a random per-install id, no PII).\n          Each run of Consort reports to the maintainers' endpoint; only allowlisted,\n          non-sensitive fields are sent (no paths, code, error text, or names).\n          Help the maintainers more , opt in to Level 2: `consort-telemetry enable --level 2`\n          adds per-role timings + coarse failure classes (still no code/paths/names), so they\n          can find and fix what makes runs slow or fail. It's off by default; this is the ask.\n          Turn telemetry off any time: `consort-telemetry disable` (or CONSORT_TELEMETRY=0).\n          Details: TELEMETRY.md.\n";
 var L2_OPT_IN_NOTICE = "[consort] Level-2 usage telemetry is ON (you opted in).\n          On top of Level 1, it reports per-role turn timings and coarse\n          repair/loop counts , still only allowlisted enums, counts, and\n          durations (no prompts, code, paths, error text, or names).\n          Back to Level 1 any time: `consort-telemetry enable --level 1`.\n          Details: TELEMETRY.md.\n";
 var NOOP_RUN = {
   enabled: false,
@@ -15109,7 +15108,7 @@ function beginTelemetryRunUnsafe(deps) {
   const env = deps.env ?? process.env;
   const isTTY = deps.isTTY ?? !!process.stdout.isTTY;
   const enabledFlag = deps.telemetryEnabled ?? isTelemetryEnabled(deps);
-  if (!shouldEmitTelemetry({ telemetryEnabled: enabledFlag, isTTY, env })) return NOOP_RUN;
+  if (!shouldEmitTelemetry({ telemetryEnabled: enabledFlag, env })) return NOOP_RUN;
   const now = deps.now ?? Date.now;
   const level = deps.level ?? resolveTelemetryLevel(deps);
   const l2 = level === 2;
@@ -15816,7 +15815,8 @@ Place each under the project's \`.consort/\`; I will read them as the proposal +
         `[sprint] RAISED TO HIL${on} , halting sprint ${sprint}.
 ` + (e?.source ? `        source: ${e.source}
 ` : "") + (e?.reason ? `        reason: ${e.reason}
-` : "") + `        recorded under ${path12.basename(consortDir)}/escalations/ ; resolve it, then re-run to resume.
+` : "") + `        recorded under ${path12.basename(consortDir)}/escalations/ ; once the root cause is fixed, clear it with \`consort-resolve-escalation\` (keeps the record , do NOT rm it), then re-run to resume.
+        To troubleshoot or share the failure, bundle the local forensics: consort-diagnose
 `
       );
       return 3;
@@ -16009,7 +16009,8 @@ then re-run.
         `[drive] RAISED TO HIL after ${result.iterations} actions , awaiting HIL decision.
         source: ${e?.source}
         reason: ${e?.reason}
-        recorded under ${path12.basename(cfg.consortDir)}/escalations/ ; resolve it, then re-run to resume.
+        recorded under ${path12.basename(cfg.consortDir)}/escalations/ ; once the root cause is fixed, clear it with \`consort-resolve-escalation\` (keeps the record , do NOT rm it), then re-run to resume.
+        To troubleshoot or share the failure, bundle the local forensics: consort-diagnose
 `
       );
       return 3;

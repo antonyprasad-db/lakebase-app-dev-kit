@@ -18,12 +18,20 @@ the phase/role/gate transitions; don't narrate the tooling.
 1. **Relay live progress , never go silent.** The drive emits a per-turn progress
    line to stderr (`[drive] NNN <what it's doing>`), on by default (silence it only
    for captures/CI with `LAKEBASE_CONSORT_QUIET=1`). Run the drive so you can
-   surface that stream to the human live: launch it in the BACKGROUND with output
-   to a log, TAIL the log, and relay each transition in plain language as it
-   arrives , e.g. "Planning: Spec Author proposing the backlog… → Architect
-   estimating… → Plan gate reached." Translate the terse markers to human phrasing
-   (`dispatch spec-author for design` → "Spec Author: starting design"). This is
-   the phase/role/gate story, NOT a play-by-play of CLIs or state reads.
+   surface that stream to the human live: launch it in the BACKGROUND to
+   `.consort/drive-live.log`, then **watch it with the kit's own `./scripts/lk
+   consort-watch --pid <drive-pid>`** , do NOT hand-roll a `tail -f … | while read;
+   case …` loop (it re-guesses the drive's line formats and is brittle; the kit owns
+   them). `consort-watch` relays each transition in plain language as it lands ,
+   e.g. "Planning: Spec Author proposing the backlog… → Architect estimating… → Plan
+   gate reached." , and STOPS at a gate / pause / escalation / run-end (then run
+   `consort-next` for the exact command that clears it). When it stops at a gate,
+   `consort-watch` also OPENS the artifacts under review (feature-spec, architecture,
+   db-design, test-list, story + ACs) in your editor when you are inside Cursor/Code,
+   so you review them directly instead of hunting , run `./scripts/lk consort-open`
+   yourself to (re)open them for the current feature/story at any time. Translate the terse markers
+   to human phrasing (`dispatch spec-author for design` → "Spec Author: starting
+   design"). This is the phase/role/gate story, NOT a play-by-play of CLIs or state reads.
 
 2. **Drive to completion.** On every stop, read `consort-next` (or the
    auto-emitted `.consort/next.json`), enact its `primary_action`, and continue. Do
@@ -45,7 +53,16 @@ the phase/role/gate transitions; don't narrate the tooling.
 5. **Handle blockers, then continue.** On an escalation or error, apply the
    resolver that `next` (or the escalation) names, or state the single human
    action needed, then resume. Do not turn a blocker into a narrated
-   investigation.
+   investigation. On a **raise-to-HIL escalation**, run **`./scripts/lk
+   consort-diagnose`** , it ANALYZES the failure (class + real reason/assertion +
+   a suggested remediation) and bundles the forensics into `.consort/diagnostics/<ts>/`
+   (the content telemetry never carries). Then: (1) **TROUBLESHOOT** , attempt the
+   suggested remediation, and (2) **ASK the human whether to share the failure
+   condition with the maintainers** (this is their call , the bundle is local
+   content; if they consent, attach it to a consort issue). Once the root cause is
+   fixed, clear the halt with **`./scripts/lk consort-resolve-escalation`** (it
+   stamps `resolved_at` and KEEPS the record , never `rm` the escalation file) and
+   re-run so the driver retries the failed action fresh.
 
 6. **Only the human's DECISIONS go to the human.** Spec/plan/test-list/deploy/
    promote gates and per-story acceptance are theirs to decide. Everything else
@@ -63,3 +80,10 @@ opt-in (`LAKEBASE_CONSORT_VERBOSE_AGENT=1`, or when the human asks for it), for
 debugging the kit itself , not the normal consumer path. Default = live
 phase/role/gate relay (rule 1) + decisions at gates; never silence, never
 per-command noise.
+
+**One exception , the `[consort]` telemetry notice is NOT tooling noise; surface it.**
+On the first run, `consort-drive` prints a one-time `[consort] … usage telemetry is on …`
+notice to stderr. That is a **disclosure** (what's collected + how to opt out + the
+Level-2 opt-in that helps the maintainers), and in an agent-driven run the human only
+sees it if you relay it. Surface that `[consort]` notice to the human verbatim, once ,
+do NOT filter it as tooling. It fires only once (state is persisted), so it is not noise.

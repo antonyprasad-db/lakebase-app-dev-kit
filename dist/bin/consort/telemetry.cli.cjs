@@ -150,7 +150,6 @@ var killed = (env) => (env.CONSORT_TELEMETRY ?? "").trim() === "0";
 function shouldEmitTelemetry(inp) {
   if (killed(inp.env)) return false;
   if (inCi(inp.env)) return false;
-  if (!inp.isTTY) return false;
   if (!inp.telemetryEnabled) return false;
   return true;
 }
@@ -306,7 +305,7 @@ function buildStatus(deps) {
   return {
     telemetry_enabled,
     install_id,
-    will_emit_now: shouldEmitTelemetry({ telemetryEnabled: telemetry_enabled, isTTY, env }),
+    will_emit_now: shouldEmitTelemetry({ telemetryEnabled: telemetry_enabled, env }),
     is_tty: isTTY,
     in_ci: ciBool(env),
     killed: (env.CONSORT_TELEMETRY ?? "").trim() === "0",

@@ -828,7 +828,8 @@ async function runSprintMode(args: ParsedArgs): Promise<number> {
         `[sprint] RAISED TO HIL${on} , halting sprint ${sprint}.\n` +
           (e?.source ? `        source: ${e.source}\n` : "") +
           (e?.reason ? `        reason: ${e.reason}\n` : "") +
-          `        recorded under ${path.basename(consortDir)}/escalations/ ; resolve it, then re-run to resume.\n`,
+          `        recorded under ${path.basename(consortDir)}/escalations/ ; once the root cause is fixed, clear it with \`consort-resolve-escalation\` (keeps the record , do NOT rm it), then re-run to resume.\n` +
+          `        To troubleshoot or share the failure, bundle the local forensics: consort-diagnose\n`,
       );
       return 3;
     }
@@ -1093,7 +1094,8 @@ async function main(): Promise<number> {
       process.stderr.write(
         `[drive] RAISED TO HIL after ${result.iterations} actions , awaiting HIL decision.\n` +
           `        source: ${e?.source}\n        reason: ${e?.reason}\n` +
-          `        recorded under ${path.basename(cfg.consortDir)}/escalations/ ; resolve it, then re-run to resume.\n`,
+          `        recorded under ${path.basename(cfg.consortDir)}/escalations/ ; once the root cause is fixed, clear it with \`consort-resolve-escalation\` (keeps the record , do NOT rm it), then re-run to resume.\n` +
+          `        To troubleshoot or share the failure, bundle the local forensics: consort-diagnose\n`,
       );
       return 3;
     } else if (result.stoppedAtMax) {

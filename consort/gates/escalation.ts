@@ -30,6 +30,9 @@ export interface Escalation {
   raised_at: string;
   /** Set when the HIL resolves it (a human edits this in, or a resolve verb does). */
   resolved_at?: string;
+  /** Optional human note on WHY it was resolved (what the root-cause fix was),
+   *  stamped by `consort-resolve-escalation`. Kept for the audit trail. */
+  resolution?: string;
 }
 
 /** Bad smells that BLOCK the build (vs. advisory ones). A flagged blocking smell
@@ -149,6 +152,37 @@ export function resolveEscalationsForStory(
     if (e.story_id !== story) continue;
     if (e.feature_id !== undefined && e.feature_id !== featureId) continue;
     fs.writeFileSync(escalationFile(consortDir, e.id), JSON.stringify({ ...e, resolved_at: at }, null, 2) + "\n", "utf8");
+    resolved.push(e.id);
+  }
+  return resolved;
+}
+
+/** Resolve (stamp `resolved_at` + optional `resolution` note on) UNRESOLVED explicit
+ *  FILE escalations, the supported way to clear a HIL halt once the root cause is
+ *  fixed , instead of `rm`-ing the record (which destroys the audit trail). The
+ *  record is KEPT; `firstPendingEscalation` already ignores anything with a
+ *  `resolved_at`, so the drive stops pre-empting and retries the failed action fresh.
+ *  Scope with `opts`: a specific `id`; else all pending files matching `featureId`
+ *  and/or `story`; else (no scope) ALL pending explicit-file escalations. Returns the
+ *  ids it resolved (empty when none matched). Smell-derived escalations are NOT files
+ *  , they clear when their smell clears (the dual-source rule), so this never touches
+ *  them. */
+export function resolveEscalations(
+  consortDir: string,
+  opts: { id?: string; featureId?: string; story?: string; resolution?: string; at?: string } = {},
+): string[] {
+  const at = opts.at ?? new Date().toISOString();
+  const resolved: string[] = [];
+  for (const e of readEscalations(consortDir)) {
+    if (e.resolved_at) continue;
+    if (opts.id && e.id !== opts.id) continue;
+    if (opts.featureId && e.feature_id !== undefined && e.feature_id !== opts.featureId) continue;
+    if (opts.story && e.story_id !== opts.story) continue;
+    fs.writeFileSync(
+      escalationFile(consortDir, e.id),
+      JSON.stringify({ ...e, resolved_at: at, ...(opts.resolution ? { resolution: opts.resolution } : {}) }, null, 2) + "\n",
+      "utf8",
+    );
     resolved.push(e.id);
   }
   return resolved;

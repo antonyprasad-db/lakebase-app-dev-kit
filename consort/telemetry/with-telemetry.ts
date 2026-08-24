@@ -45,9 +45,12 @@ import { newSpanId, newTraceId, type GateSpan, type RunSpan, type TurnSpan } fro
 /** The one-time first-run notice (stderr). Pseudonymous, armed by default. */
 export const FIRST_RUN_NOTICE =
   "[consort] Anonymous* usage telemetry is on (*pseudonymous: a random per-install id, no PII).\n" +
-  "          Each interactive run reports to the Consort maintainers' endpoint; only\n" +
-  "          allowlisted, non-sensitive fields are sent (no paths, code, or names).\n" +
-  "          Turn it off any time: `consort-telemetry disable` (or CONSORT_TELEMETRY=0).\n" +
+  "          Each run of Consort reports to the maintainers' endpoint; only allowlisted,\n" +
+  "          non-sensitive fields are sent (no paths, code, error text, or names).\n" +
+  "          Help the maintainers more , opt in to Level 2: `consort-telemetry enable --level 2`\n" +
+  "          adds per-role timings + coarse failure classes (still no code/paths/names), so they\n" +
+  "          can find and fix what makes runs slow or fail. It's off by default; this is the ask.\n" +
+  "          Turn telemetry off any time: `consort-telemetry disable` (or CONSORT_TELEMETRY=0).\n" +
   "          Details: TELEMETRY.md.\n";
 
 /** The one-time LEVEL-2 opt-in notice (stderr). Shown once, on the first run after
@@ -136,7 +139,7 @@ function beginTelemetryRunUnsafe(deps: BeginRunDeps): TelemetryRun {
   const env = deps.env ?? process.env;
   const isTTY = deps.isTTY ?? !!process.stdout.isTTY;
   const enabledFlag = deps.telemetryEnabled ?? isTelemetryEnabled(deps);
-  if (!shouldEmitTelemetry({ telemetryEnabled: enabledFlag, isTTY, env })) return NOOP_RUN;
+  if (!shouldEmitTelemetry({ telemetryEnabled: enabledFlag, env })) return NOOP_RUN;
 
   const now = deps.now ?? Date.now;
   const level = deps.level ?? resolveTelemetryLevel(deps);

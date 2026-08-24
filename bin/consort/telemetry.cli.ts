@@ -93,7 +93,7 @@ function buildStatus(deps: TelemetryCliDeps): TelemetryStatus {
   return {
     telemetry_enabled,
     install_id,
-    will_emit_now: shouldEmitTelemetry({ telemetryEnabled: telemetry_enabled, isTTY, env }),
+    will_emit_now: shouldEmitTelemetry({ telemetryEnabled: telemetry_enabled, env }),
     is_tty: isTTY,
     in_ci: ciBool(env),
     killed: (env.CONSORT_TELEMETRY ?? "").trim() === "0",

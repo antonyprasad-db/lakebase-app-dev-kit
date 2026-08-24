@@ -6,6 +6,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.23] - 2026-08-23
+
+### Added
+
+- **`consort-watch` , a live drive-log narrator.** Follows a backgrounded drive's `.consort/drive-live.log`, relays each phase/role/gate transition in plain language as it lands, and STOPS at a gate / pause / escalation / run-end (exit 3 on escalation). Replaces the brittle hand-rolled `tail -f … | while read; case …` monitors; the classifier owns the drive's line formats. Wired into `sprint.md`, `/consort:start`, and the orchestrator contract; opens the review artifacts (below) at a gate.
+- **`consort-diagnose` , failure analysis + a redacted, shareable bundle.** On an escalation it ANALYZES the failure (class + real reason/assertion + a suggested remediation to attempt) and bundles the local forensics (escalations, green-failures, workflow-state, log tails) into `.consort/diagnostics/<ts>/`. The bundle is AUTO-REDACTED (DSN passwords / `dapi…` tokens / `Bearer` headers / secret assignments / home-path usernames masked) before it can be shared; the terminal analysis stays full-fidelity for local troubleshooting. Sharing is manual + consented (attach to a consort issue), never auto-uploaded.
+- **`consort-resolve-escalation` , clear a HIL halt the supported way.** Stamps `resolved_at` on escalation FILES (keeps the record, never `rm`) AND marks blocking SMELLS `cleared` , the dual-source rule , so a smell-derived halt (e.g. a reflect-gate defect) is clearable without hand-editing `smells.json`. The driver then retries the failed action fresh.
+- **`consort-open` , open the role artifacts in the editor for review.** Opens the feature-spec / architecture / db-design / test-list / story + ACs in Cursor/Code when the session is inside the editor (else prints paths; never launches one uninvited). Driven both by `consort-watch` (at a gate) and directly.
+
+### Changed / Fixed
+
+- **Telemetry is captured whenever Consort is used** , the `isTTY` consent gate is gone (an agent-driven run is non-TTY yet fully human-driven; the gate silently suppressed telemetry for the primary usage). Disclosure fires regardless of TTY, and the first-run notice now presents the **Level-2 opt-in** as a way to help the maintainers.
+- **Behavior-analyst no longer mis-routes backend tests onto E2E ACs.** Its prompt said "cover EVERY story AC with a behavior item," so it authored a backend pytest-bdd test even for a UI/E2E AC (the recurring reflect-gate bounce). It now covers only backend-layer ACs and never anchors a behavior/response-shape test to an E2E/UI AC (those are the client analyst's Playwright job).
+- **Repointed to `@databricks-solutions/lakebase-scm-utils` v0.2.11** , the scaffold's `deploy-targets.yaml` now ships a `migrate:` command so the deploy gate forward-migrates the served branch (no more `relation … does not exist` 500s on a green verify), and transient `.consort/drive-live.log` + `.consort/diagnostics/` are gitignored.
+
 ## [0.3.22] - 2026-08-23
 
 ### Fixed

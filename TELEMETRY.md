@@ -50,16 +50,23 @@ non-allowlisted key at runtime as a second layer of defense.
 
 ## Where telemetry goes (armed by default)
 
-Telemetry is **opt-out and always-on**: a normal interactive run reports to the
-Consort maintainers' ingest endpoint automatically. The endpoint is baked into the
-client (`DEFAULT_ENDPOINT` in `consort/telemetry/emitter.ts`) and armed by default —
-no per-machine setup. The only fields sent are the allowlisted, non-sensitive ones
-below (no paths, code, spec/feature content, hostnames, usernames, or errors).
+Telemetry is **opt-out and always-on**: telemetry is captured **whenever Consort is
+used** , the launch method is irrelevant (an interactive terminal, the `consort.sh`
+shell launcher, or an agent-driven run where Claude Code spawns `consort-drive` as a
+subprocess). It reports to the Consort maintainers' ingest endpoint automatically. The
+endpoint is baked into the client (`DEFAULT_ENDPOINT` in `consort/telemetry/emitter.ts`)
+and armed by default — no per-machine setup. The only fields sent are the allowlisted,
+non-sensitive ones below (no paths, code, spec/feature content, hostnames, usernames, or
+errors).
 
-To **opt out**, use any of: `consort-telemetry disable` (persisted), `CONSORT_TELEMETRY=0`
-(per invocation), or simply run non-interactively / in CI (see Consent). To **point
-elsewhere**, set `CONSORT_TELEMETRY_ENDPOINT`; to **un-arm entirely**, set
-`CONSORT_TELEMETRY_SIGNOFF=0` (returns the emitter to a local no-op sink).
+> **Note:** telemetry used to *also* require an interactive TTY (`stdout.isTTY`). That
+> gate silently suppressed telemetry for the primary usage pattern , agent-driven runs
+> are non-TTY yet fully human-driven , so it is GONE. Capture no longer depends on a
+> terminal; disclosure (the first-run notice) is delivered regardless of TTY.
+
+To **opt out**, use either: `consort-telemetry disable` (persisted) or `CONSORT_TELEMETRY=0`
+(per invocation). To **point elsewhere**, set `CONSORT_TELEMETRY_ENDPOINT`; to **un-arm
+entirely**, set `CONSORT_TELEMETRY_SIGNOFF=0` (returns the emitter to a local no-op sink).
 
 The default endpoint accepts **anonymous** POSTs, so nothing sensitive ships in the
 client. If you run your own endpoint that needs a bearer, set `CONSORT_TELEMETRY_TOKEN`
@@ -78,9 +85,12 @@ Telemetry is emitted for a run **iff all** of these hold:
 | Condition | Why |
 |---|---|
 | `telemetry_enabled === true` (persisted) | Your recorded opt-out choice. Default: on. |
-| `stdout` is an interactive TTY | Only real, interactive human runs. |
-| Not in CI (`CI` unset / `0` / `false`) | Never in automation. |
+| Not in CI (`CI` unset / `0` / `false`) | A project's CI pipeline is not a user of Consort. |
 | `CONSORT_TELEMETRY !== "0"` | Consort's explicit per-invocation kill. |
+
+There is **no TTY condition** , telemetry is captured whether Consort is driven from an
+interactive terminal, the shell launcher, or an agent. The launch method does not affect
+capture.
 
 Environment overrides **always win**, and they only ever *disable*. There is no
 force-enable env var: you can always silence telemetry, but nothing can turn it on
@@ -167,8 +177,8 @@ consort-telemetry status             # shows the resolved level
 
 `CONSORT_TELEMETRY_LEVEL` wins for that invocation (`2` opts in, `1` forces back to
 Level 1); otherwise the persisted level applies. Opting in to Level 2 does **not**
-change consent: every Level-1 opt-out (`disable`, `CONSORT_TELEMETRY=0`, CI /
-non-TTY, `CONSORT_TELEMETRY_SIGNOFF=0`) still applies unchanged. On the first run
+change consent: every Level-1 disabler (`disable`, `CONSORT_TELEMETRY=0`, CI,
+`CONSORT_TELEMETRY_SIGNOFF=0`) still applies unchanged. On the first run
 after you opt in, `consort-drive` prints a one-time Level-2 notice to stderr.
 
 ### What Level 2 adds (schema `consort/v1`, `level = 2`)
