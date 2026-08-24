@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
+# TEST FIXTURE , NOT the scaffold lk. This is a minimal kit-only `lk` the live-replay
+# harness (tests/integration/live/driver-build-support.ts) copies into a lean workspace
+# so a replayed agent can log via `./scripts/lk consort-log …`. The REAL scaffold `lk`
+# (the two-package substrate+kit resolver a created project actually gets) lives in
+# @databricks-solutions/lakebase-scm-utils/templates/project/common/scripts/lk , edit
+# THAT one for scaffolded-project behavior. This copy is unpublished (outside `files`).
+#
 # lk , run a kit CLI fast, without the npx tax.
 #
+# `npx --package=github:databricks-solutions/consort#<ref> <bin>`
 # `npx --package=github:databricks-solutions/consort#<ref> <bin>`
 # re-resolves the GitHub ref on EVERY call (~3.5s even warm). This shim resolves
 # the kit ONCE per ref into a shared cache and runs the bin via `node dist/...`

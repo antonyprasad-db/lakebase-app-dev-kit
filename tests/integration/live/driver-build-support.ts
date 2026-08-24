@@ -394,7 +394,7 @@ export async function runLeanReplayTurn(
       // sets it to this kit, which has dist/), so consort-log runs + writes agent-log.jsonl into the
       // workspace .consort. This is why the manifest restores Bash (generateLeanReplayManifest): agent-
       // authored report blocks were unreliable across runs; lk (a command the agent just runs) is not.
-      const lkSrc = join(KIT, "templates/project/common/scripts/lk");
+      const lkSrc = join(KIT, "examples/replay/lk"); // the kit-only replay FIXTURE lk (not the scaffold lk, which lives in scm-utils)
       if (existsSync(lkSrc)) {
         const lkDst = join(ws, "scripts", "lk");
         mkdirSync(join(ws, "scripts"), { recursive: true });

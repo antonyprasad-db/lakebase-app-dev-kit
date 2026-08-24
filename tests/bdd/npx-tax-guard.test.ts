@@ -2,8 +2,9 @@
 // project must go through the fast `./scripts/lk` resolver (node dist, ~0.09s),
 // NOT `npx --package=github#ref <bin>` (~3.5s, re-resolves the ref every call).
 //
-// The smoke's create-project bootstrap also runs through the kit's OWN committed
-// lk (templates/project/common/scripts/lk) so a run is DETERMINISTIC: lk resolves
+// The smoke's create-project bootstrap also runs through the scaffolded project's
+// `./scripts/lk` (the real two-package resolver shipped by scm-utils) so a run is
+// DETERMINISTIC: lk resolves
 // via `npm install <committish>` (content-addressed for a SHA, honors a pre-built
 // $LAKEBASE_KIT_DIR), never the `npx pack` path that throws "GitFetcher requires
 // an Arborist constructor" on a SHA committish, and never a moving ref's stale
