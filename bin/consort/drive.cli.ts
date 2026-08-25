@@ -706,7 +706,7 @@ async function runSprintMode(args: ParsedArgs): Promise<number> {
   // so drivePlanning + driveFeature (below) can wrap their runDriver with it; finished
   // in the finally at the end. Consent + the detached sink resolve exactly as the
   // feature path (a no-op session when consent fails; never blocks the drive).
-  const telemetry = beginTelemetryRun({ command: "build", onNotice: (m) => process.stderr.write(m) });
+  const telemetry = beginTelemetryRun({ command: "sprint", onNotice: (m) => process.stderr.write(m) });
 
   const effects: SprintEffects = {
     async drivePlanning() {

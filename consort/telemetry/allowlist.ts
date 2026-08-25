@@ -137,10 +137,14 @@ export const RUN_OUTCOMES = ["completed", "aborted", "error"] as const;
 export type RunOutcome = (typeof RUN_OUTCOMES)[number];
 export const GATE_OUTCOMES = ["pass", "fail", "skip", "abort"] as const;
 export type GateOutcome = (typeof GATE_OUTCOMES)[number];
-// The consort-drive phases plus `spike` (the throwaway-branch op run by `consort-spike`,
-// outside the TDD loop , not a role drive, so it emits a root run with zero gate spans).
-// Every user-invoked command must emit telemetry regardless of which bin serves it.
-export const COMMANDS = ["plan", "design", "build", "deploy", "spike"] as const;
+// The consort-drive phases. `sprint` is the `/consort:start` umbrella run (planning +
+// each per-feature drive under ONE root run); `plan` / `design` / `build` / `deploy` are
+// the per-phase feature-path runs (a Tier-2 bound maps to its slash command, a full
+// feature run reports `build`). Plus `spike`, the throwaway-branch op run by
+// `consort-spike` (outside the TDD loop , not a role drive, so it emits a root run with
+// zero gate spans). Every user-invoked command must emit telemetry regardless of which
+// bin serves it , so a dashboard can tell a whole-sprint run apart from a single phase.
+export const COMMANDS = ["sprint", "plan", "design", "build", "deploy", "spike"] as const;
 export type TelemetryCommand = (typeof COMMANDS)[number];
 
 // ── Closed enums the LEVEL-2 constrained fields draw from ───────────

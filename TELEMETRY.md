@@ -133,7 +133,9 @@ consort-telemetry enable          # re-enable
 
 **Root span `consort.run`** (one per `consort-drive` run):
 `trace_id`, `span_id`, `name` (`"consort.run"`), `start_ts` / `end_ts` (epoch ms),
-`duration_ms`, `command` (`plan` \| `design` \| `build` \| `deploy`; a full
+`duration_ms`, `command` (`sprint` \| `plan` \| `design` \| `build` \| `deploy`;
+the `/consort:start` sprint umbrella , planning + every feature drive under one root
+run , reports `sprint`, while a single feature-path run reports its phase and a full
 feature run reports `build`), `outcome` (`completed` \| `aborted` \| `error`),
 `exit_code` (coarse: `0` completed, `3` aborted/escalation, `1` error),
 `gates_total` (child span count).

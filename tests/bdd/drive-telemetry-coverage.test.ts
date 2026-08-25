@@ -34,6 +34,10 @@ describe("drive.cli telemetry coverage , every drive loop is telemetry-wrapped",
     expect(sprintBody).toMatch(/beginTelemetryRun\(/);
     expect(sprintBody).toMatch(/telemetry\.finish\(/);
     expect(sprintBody).toMatch(/withTelemetry\(/);
+    // The sprint umbrella run MUST be labeled "sprint", not "build" , else a dashboard
+    // cannot tell a whole /consort:start run apart from a single build-phase run (the two
+    // are distinct COMMANDS). Guards against the label regressing to "build".
+    expect(sprintBody).toMatch(/beginTelemetryRun\(\s*\{\s*command:\s*["']sprint["']/);
   });
 
   it("sprint mode emits the authoritative next.json on every stop (parity with the feature path)", () => {
