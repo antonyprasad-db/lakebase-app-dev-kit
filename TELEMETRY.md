@@ -210,12 +210,16 @@ of a failure drawn from a closed enum (e.g. `merge-etimedout`, `npm-proxy-hang`,
 *messages*, file paths, branch names, hostnames, or usernames. Level 2 still cannot
 reconstruct *what* you built.
 
-> **Note on population.** This release ships the full Level-2 vocabulary + opt-in and
-> emits `consort.turn` (role + timing) and the coarse `consort.run` counts from the
-> deterministic driver seam. The optional turn buckets (`model` / `effort` /
-> `token_bucket` / `retry_count`) and `gate.fail_class` are part of the closed
-> allowlist and are populated as the executor / failure-classifier surfaces them;
-> until then they are simply absent (never guessed, never free text).
+> **Note on population.** Level 2 emits `consort.turn` (role + timing) and the coarse
+> `consort.run` counts from the deterministic driver seam. The optional turn buckets
+> `model` / `effort` / `token_bucket` / `retry_count` are now populated from the
+> runner's per-turn meta: `model` and `effort` are the coarse family / lever the turn
+> actually ran with, `token_bucket` is the `xs`–`xl` band of the turn's processed
+> (input + output) tokens, and `retry_count` is its combined context-overflow +
+> transient retry count (`0` on a clean turn). Each is omitted when the runner surfaced
+> no value (a null column) , never guessed, never a raw id/count. `gate.fail_class`
+> remains part of the closed allowlist and is populated as the failure-classifier
+> surfaces it.
 
 ## Running the local collector
 
