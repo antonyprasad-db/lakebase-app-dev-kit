@@ -19,6 +19,7 @@ import { resolveConsortDir } from "../../consort/config/consort-paths.js";
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 import { readEnvVar } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { cutSpike, listSpikes, deleteSpike, spikeNotes } from "../../consort/experiment/spike.js";
+import { beginTelemetryRun } from "../../consort/telemetry/with-telemetry.js";
 
 interface ParsedArgs {
   slug?: string;
@@ -90,11 +91,27 @@ export async function runSpikeCli(argv: string[]): Promise<number> {
   if (!args.instance) args.instance = readEnvVar(envPath, "LAKEBASE_PROJECT_ID");
   if (!args.host) args.host = readEnvVar(envPath, "DATABRICKS_HOST");
 
+  // Every user-invoked command emits telemetry, regardless of which bin serves it. A
+  // spike (cut/delete) is not a role drive, so it emits a root `consort.run` (command
+  // "spike") with zero gate spans, flushed by the detached sender at the end. list/help
+  // are reads (telemetry undefined => finishTel is a no-op). Never blocks the CLI.
+  const telemetry =
+    sub === "cut" || sub === "delete"
+      ? beginTelemetryRun({ command: "spike", onNotice: (m) => process.stderr.write(m) })
+      : undefined;
+  const finishTel = (rc: number): number => {
+    try {
+      telemetry?.finish({ outcome: rc === 0 ? "completed" : "error", exit_code: rc });
+    } catch {
+      /* telemetry never affects the CLI */
+    }
+    return rc;
+  };
   try {
     if (sub === "cut") {
       if (!args.slug || !args.instance) {
         process.stderr.write("Error: cut requires --slug and --instance.\n");
-        return 2;
+        return finishTel(2);
       }
       const rec = await cutSpike({
         consortDir,
@@ -112,7 +129,7 @@ export async function runSpikeCli(argv: string[]): Promise<number> {
           ? `${JSON.stringify(rec)}\n`
           : `consort-spike: cut ${rec.spike_slug} (branch ${rec.branch_id})${args.forFeature ? ` for ${args.forFeature}` : ""}\n`,
       );
-      return 0;
+      return finishTel(0);
     }
 
     if (sub === "list") {
@@ -124,13 +141,13 @@ export async function runSpikeCli(argv: string[]): Promise<number> {
               ? spikes.map((s) => `${s.spike_slug}\t${s.branch_id}`).join("\n") + "\n"
               : "(no spikes)\n"),
       );
-      return 0;
+      return finishTel(0);
     }
 
     if (sub === "delete") {
       if (!args.slug || (!args.keepBranch && !args.instance)) {
         process.stderr.write("Error: delete requires --slug (and --instance unless --keep-branch).\n");
-        return 2;
+        return finishTel(2);
       }
       await deleteSpike({
         consortDir,
@@ -145,14 +162,14 @@ export async function runSpikeCli(argv: string[]): Promise<number> {
         .filter(Boolean)
         .join(", ");
       process.stdout.write(`consort-spike: deleted ${args.slug} (${tail})\n`);
-      return 0;
+      return finishTel(0);
     }
 
     process.stderr.write(`Error: unknown subcommand "${sub}".\n\n${HELP}`);
-    return 2;
+    return finishTel(2);
   } catch (e) {
     process.stderr.write(`consort-spike: ${e instanceof Error ? e.message : String(e)}\n`);
-    return 7;
+    return finishTel(7);
   }
 }
 

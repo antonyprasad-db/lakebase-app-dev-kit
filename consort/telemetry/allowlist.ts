@@ -137,7 +137,10 @@ export const RUN_OUTCOMES = ["completed", "aborted", "error"] as const;
 export type RunOutcome = (typeof RUN_OUTCOMES)[number];
 export const GATE_OUTCOMES = ["pass", "fail", "skip", "abort"] as const;
 export type GateOutcome = (typeof GATE_OUTCOMES)[number];
-export const COMMANDS = ["plan", "design", "build", "deploy"] as const;
+// The consort-drive phases plus `spike` (the throwaway-branch op run by `consort-spike`,
+// outside the TDD loop , not a role drive, so it emits a root run with zero gate spans).
+// Every user-invoked command must emit telemetry regardless of which bin serves it.
+export const COMMANDS = ["plan", "design", "build", "deploy", "spike"] as const;
 export type TelemetryCommand = (typeof COMMANDS)[number];
 
 // ── Closed enums the LEVEL-2 constrained fields draw from ───────────

@@ -36,7 +36,7 @@ import { recordBuildTurn, nextBuildTurnNumber } from "../../consort/pipeline/rec
 import { runDriver, driverBoundOptions, ProtocolViolationError, UnexpectedCallbackError, type DriveEffects, type DriverBound, type RunDriverResult, type RunDriverOptions } from "../../consort/orchestrator/drive/orchestrator-run.js";
 import type { DriveState } from "../../consort/orchestrator/workflow/workflow-vocabulary.js";
 import { writeEscalation } from "../../consort/gates/escalation.js";
-import { emitNextJson } from "../../consort/orchestrator/status/next.js";
+import { emitNextJson, buildNextSnapshot } from "../../consort/orchestrator/status/next.js";
 import { emitAgentLogEvent } from "../../consort/logging/agent-log.js";
 import { resetStaleTerminalPhase } from "../../consort/gates/workflow-phase.js";
 import {
@@ -699,6 +699,15 @@ async function runSprintMode(args: ParsedArgs): Promise<number> {
     });
   }
 
+  // Telemetry for the SPRINT path (the `/consort:start` default). Sprint mode used to
+  // emit NOTHING , beginTelemetryRun lived only in the single-feature path, so every
+  // `--sprint` run (planning + each per-feature drive) was invisible: an empty
+  // telemetry.runs despite heavy use. One run per sprint-mode invocation, opened here
+  // so drivePlanning + driveFeature (below) can wrap their runDriver with it; finished
+  // in the finally at the end. Consent + the detached sink resolve exactly as the
+  // feature path (a no-op session when consent fails; never blocks the drive).
+  const telemetry = beginTelemetryRun({ command: "build", onNotice: (m) => process.stderr.write(m) });
+
   const effects: SprintEffects = {
     async drivePlanning() {
       const cfg = buildCfg(args, "");
@@ -732,7 +741,7 @@ async function runSprintMode(args: ParsedArgs): Promise<number> {
         readState: async () => deriveSprintPlanningState(consortDir, sprint, { skipSizing }),
       };
       const base = driverBoundOptions("plan");
-      const r = await runDriver(withTurnRecording(planning, cfg), {
+      const r = await runDriver(withTelemetry(withTurnRecording(planning, cfg), telemetry), {
         ...base,
         stopWhen: gatedStopWhen(base.stopWhen, interactive),
       });
@@ -796,7 +805,7 @@ async function runSprintMode(args: ParsedArgs): Promise<number> {
       resetStaleTerminalPhase(cfg.consortDir);
       cfg.runner = execRunner(cfg);
       snapshotRunConfig(cfg, "full", gates);
-      const r = await runDriver(withTurnRecording(withBuildRecording(buildDriveEffects(cfg), cfg), cfg), {
+      const r = await runDriver(withTelemetry(withTurnRecording(withBuildRecording(buildDriveEffects(cfg), cfg), cfg), telemetry), {
         stopWhen: gatedStopWhen(undefined, interactive),
       });
       return stepResultOf(r);
@@ -805,6 +814,7 @@ async function runSprintMode(args: ParsedArgs): Promise<number> {
     onSkip: (f, i) => process.stderr.write(`[sprint] feature ${i + 1}: ${f} , already shipped, skipping\n`),
   };
 
+  const runBody = async (): Promise<number> => {
   // /plan: planning only (do not enter the per-feature loop).
   if (args.planOnly) {
     try {
@@ -868,6 +878,46 @@ async function runSprintMode(args: ParsedArgs): Promise<number> {
     process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
     return 1;
   }
+  };
+
+  // Bracket EVERY sprint exit path in the telemetry run's lifecycle: finish() closes
+  // the root span + hands the batch to the detached sender (survives process.exit).
+  // 3 => aborted (escalation), 1 => error (caught), else completed (0 = gate/complete,
+  // 2 = author-requests pause). Never throws into the CLI.
+  let code = 1;
+  try {
+    code = await runBody();
+  } finally {
+    const outcome = code === 3 ? "aborted" : code === 1 ? "error" : "completed";
+    try {
+      telemetry.finish({ outcome, exit_code: code });
+    } catch {
+      /* telemetry never affects CLI behavior */
+    }
+    // Auto-emit the AUTHORITATIVE sprint "what next" snapshot to <root>/next.json on
+    // EVERY sprint stop (parity with the feature path's emitNextJson). Sprint mode used
+    // to write NOTHING here, so after a plan gate / backlog pause the driving session
+    // and the extension had no deterministic on-disk signal , they were left tailing the
+    // TRANSIENT drive-live.log (empty/gone between turns), which is why an interactive
+    // sprint sat silent at the plan gate. This is exactly what `consort-next --sprint`
+    // returns; the session's contract is "on any drive exit, read next.json + surface it".
+    const recordingOrReplaying =
+      !!consortEnv("REPLAY_DIR") || !!consortEnv("REPLAY_BUILD_DIR") || !!consortEnv("RECORD_BUILD_DIR") || !!consortEnv("RECORD_DIR");
+    if (!recordingOrReplaying) {
+      try {
+        const snap = buildNextSnapshot(
+          "sprint",
+          deriveSprintPlanningState(consortDir, sprint, { skipSizing }),
+          { sprint, version: kitVersion() },
+        );
+        fs.mkdirSync(consortDir, { recursive: true });
+        fs.writeFileSync(path.join(consortDir, "next.json"), JSON.stringify(snap, null, 2) + "\n", "utf8");
+      } catch {
+        /* best-effort: next.json is advisory; never let it fail the run */
+      }
+    }
+  }
+  return code;
 }
 
 /** The RUN-SCOPED gate mode: a `--gates` flag overrides for THIS run only; absent,

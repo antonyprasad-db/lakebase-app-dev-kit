@@ -44,8 +44,12 @@ the phase/role/gate transitions; don't narrate the tooling.
    create + refresh (their `[stage]` / `lk:` lines classify too). `consort-watch` relays
    each transition as it lands ,
    e.g. "Planning: Spec Author proposing the backlog… → Architect estimating… → Plan
-   gate reached." , and STOPS at a gate / pause / escalation / run-end (then run
-   `consort-next` for the exact command that clears it). When it stops at a gate,
+   gate reached." **`consort-watch` is NARRATION ONLY: its `status` is a display hint,
+   NEVER the gate/stop authority.** `drive-live.log` is a transient per-process sink
+   (truncated each turn, gone between turns, and it may carry NO stop marker), so
+   `status` can read `running` while a gate is actually open, or `done` at a mere turn
+   boundary. **The stop/gate authority is ALWAYS the drive pid (gone = stopped) + `consort-next`
+   (rule 2), never a log line.** When `consort-next` reports a gate,
    `consort-watch` also OPENS the artifacts under review (feature-spec, architecture,
    db-design, test-list, story + ACs) in your editor when you are inside Cursor/Code,
    so you review them directly instead of hunting , run `./scripts/lk consort-open`
