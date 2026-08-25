@@ -14870,6 +14870,18 @@ var TURN_SPAN_FIELDS = [
 ];
 var OS_VALUES = ["darwin", "linux", "win32", "other"];
 var ARCH_VALUES = ["arm64", "x64", "other"];
+function commandForFeaturePhase(phase) {
+  switch (phase) {
+    case "design":
+      return "design";
+    case "build":
+      return "build";
+    case "complete":
+      return "deploy";
+    default:
+      return "build";
+  }
+}
 var ROLE_VALUES = [
   "spec-author",
   "architect-reviewer",
@@ -16255,8 +16267,15 @@ then re-run.
   const gates = effectiveGates(args, cfg.projectDir);
   snapshotRunConfig(cfg, bound ?? "full", gates);
   const interactive = gates === "interactive";
+  const featureDriveCommand = () => {
+    try {
+      return commandForFeaturePhase(deriveFeaturePhase(summarizeStories(cfg.consortDir, cfg.featureId)));
+    } catch {
+      return "build";
+    }
+  };
   const telemetry = beginTelemetryRun({
-    command: bound ?? "build",
+    command: bound ?? featureDriveCommand(),
     onNotice: (m) => process.stderr.write(m)
   });
   let result;

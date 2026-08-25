@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.40] - 2026-08-25
+
+### Fixed
+
+- **A plain `--feature` drive now labels its telemetry by the feature's phase, not a hardcoded `build`.** `/design`, `/build`, and `/deploy` all invoke `consort-drive --feature <F>` with no phase flag (the drive derives the phase from disk), but the feature path hardcoded the `consort.run` `command` to `build` — so a design or deploy drive mislabeled as `build`, and the dashboard showed everything under `build`. A new `commandForFeaturePhase` maps the feature's derived phase (`design` → `design`, `build` → `build`, a fully-accepted `complete` feature → `deploy`; null/unknown → `build`) to the command; an explicit `--plan-only` / `--only` bound still wins. `runs.command` is `TEXT`, so no server change.
+
 ## [0.3.39] - 2026-08-25
 
 ### Fixed
