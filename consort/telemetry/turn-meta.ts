@@ -78,5 +78,12 @@ export function turnSpanFieldsFromMeta(meta: TurnMeta | undefined): Partial<Turn
   if (effort) out.effort = effort;
   const tokenBucket = bucketTokens(meta.usage);
   if (tokenBucket) out.token_bucket = tokenBucket;
+  // retry_count is a plain count, not an enum: carry it whenever the runner recorded a
+  // finite non-negative number, INCLUDING 0 (a measured clean turn , distinct from an
+  // omitted/null column meaning the runner surfaced no meta at all). This is the "who is
+  // flaky" signal: mostly 0, occasionally >0 when a turn hit the overflow/transient budgets.
+  if (typeof meta.retryCount === "number" && Number.isFinite(meta.retryCount) && meta.retryCount >= 0) {
+    out.retry_count = meta.retryCount;
+  }
   return out;
 }

@@ -78,21 +78,29 @@ describe("bucketTokens: coarsen a turn's processed tokens to a TOKEN_BUCKET band
 });
 
 describe("turnSpanFieldsFromMeta: build the optional span fields from a recorded meta", () => {
-  it("populates model + effort + token_bucket from a full meta", () => {
+  it("populates model + effort + token_bucket + retry_count from a full meta", () => {
     expect(
       turnSpanFieldsFromMeta({
         role: "driver",
         model: "claude-opus-4-8",
         effort: "high",
+        retryCount: 2,
         usage: { inputTokens: 90_000, outputTokens: 5_000 },
       }),
-    ).toEqual({ model: "opus", effort: "high", token_bucket: "m" });
+    ).toEqual({ model: "opus", effort: "high", token_bucket: "m", retry_count: 2 });
+  });
+  it("carries retry_count: 0 as a real measurement (clean turn, distinct from omitted/null)", () => {
+    expect(turnSpanFieldsFromMeta({ role: "driver", retryCount: 0 })).toEqual({ retry_count: 0 });
   });
   it("omits fields the runner did not surface (no key, not a null value)", () => {
-    // model present, effort + usage absent => only model set (others omitted, null columns).
+    // model present, effort + usage + retryCount absent => only model set (others null columns).
     expect(turnSpanFieldsFromMeta({ role: "driver", model: "claude-sonnet-5" })).toEqual({ model: "sonnet" });
     // all absent => empty object (turn span keeps only role + timing).
     expect(turnSpanFieldsFromMeta({ role: "driver" })).toEqual({});
+  });
+  it("ignores a malformed retryCount (negative / non-finite) rather than shipping it", () => {
+    expect(turnSpanFieldsFromMeta({ role: "driver", retryCount: -1 })).toEqual({});
+    expect(turnSpanFieldsFromMeta({ role: "driver", retryCount: NaN })).toEqual({});
   });
   it("undefined meta yields an empty object (best-effort read may find nothing)", () => {
     expect(turnSpanFieldsFromMeta(undefined)).toEqual({});
