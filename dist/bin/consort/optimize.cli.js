@@ -9082,6 +9082,12 @@ function recordAgentUsage(cwd, usage) {
   lastAgentUsage = usage;
   lastAgentUsageByCwd.set(cwd, usage);
 }
+var lastTurnMeta;
+var lastTurnMetaByCwd = /* @__PURE__ */ new Map();
+function recordTurnMeta(cwd, meta) {
+  lastTurnMeta = meta;
+  lastTurnMetaByCwd.set(cwd, meta);
+}
 function defaultTurnMonitor(sink) {
   const heartbeatMs = TURN_HEARTBEAT_MS > 0 ? TURN_HEARTBEAT_MS : void 0;
   const inactivityTimeoutMs = TURN_INACTIVITY_TIMEOUT_MS > 0 ? TURN_INACTIVITY_TIMEOUT_MS : void 0;
@@ -9389,6 +9395,13 @@ function execRunner(cfg) {
             throw e;
           }
         }
+        recordTurnMeta(cfg.projectDir, {
+          role: cmd.role,
+          model: cmd.model,
+          effort: cmd.effort,
+          retryCount: overflowRetries + transientRetries,
+          usage
+        });
         const turnMs = Date.now() - turnStart;
         if (usage) {
           if (cmd.resumeKey) sessionContext.set(cmd.resumeKey, turnContextTokens(usage));

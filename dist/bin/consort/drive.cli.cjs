@@ -12063,6 +12063,22 @@ function recordAgentUsage(cwd, usage) {
   lastAgentUsage = usage;
   lastAgentUsageByCwd.set(cwd, usage);
 }
+var lastTurnMeta;
+var lastTurnMetaByCwd = /* @__PURE__ */ new Map();
+function takeLastTurnMeta(cwd) {
+  if (cwd !== void 0) {
+    const m2 = lastTurnMetaByCwd.get(cwd);
+    lastTurnMetaByCwd.delete(cwd);
+    return m2;
+  }
+  const m = lastTurnMeta;
+  lastTurnMeta = void 0;
+  return m;
+}
+function recordTurnMeta(cwd, meta) {
+  lastTurnMeta = meta;
+  lastTurnMetaByCwd.set(cwd, meta);
+}
 function defaultTurnMonitor(sink) {
   const heartbeatMs = TURN_HEARTBEAT_MS > 0 ? TURN_HEARTBEAT_MS : void 0;
   const inactivityTimeoutMs = TURN_INACTIVITY_TIMEOUT_MS > 0 ? TURN_INACTIVITY_TIMEOUT_MS : void 0;
@@ -12370,6 +12386,13 @@ function execRunner(cfg) {
             throw e;
           }
         }
+        recordTurnMeta(cfg.projectDir, {
+          role: cmd.role,
+          model: cmd.model,
+          effort: cmd.effort,
+          retryCount: overflowRetries + transientRetries,
+          usage
+        });
         const turnMs = Date.now() - turnStart;
         if (usage) {
           if (cmd.resumeKey) sessionContext.set(cmd.resumeKey, turnContextTokens(usage));
@@ -14857,6 +14880,7 @@ var ROLE_VALUES = [
   "driver",
   "product-owner"
 ];
+var EFFORT_VALUES = ["low", "medium", "high", "unknown"];
 var RUN_SPAN_NAME = "consort.run";
 var GATE_SPAN_NAME = "consort.gate";
 var TURN_SPAN_NAME = "consort.turn";
@@ -15204,6 +15228,53 @@ function buildResourceAttrs(deps = {}) {
   };
 }
 
+// consort/telemetry/turn-meta.ts
+init_cjs_shims();
+function bucketModel(modelId) {
+  if (!modelId || !modelId.trim()) return void 0;
+  const m = modelId.toLowerCase();
+  if (m.includes("opus")) return "opus";
+  if (m.includes("sonnet")) return "sonnet";
+  if (m.includes("haiku")) return "haiku";
+  if (m.includes("fable")) return "fable";
+  return "other";
+}
+function normalizeEffort(effort) {
+  if (!effort || !effort.trim()) return void 0;
+  const e = effort.trim().toLowerCase();
+  return EFFORT_VALUES.includes(e) ? e : "unknown";
+}
+var TOKEN_BUCKET_THRESHOLDS = [
+  { bucket: "xs", maxExclusive: 25e3 },
+  { bucket: "s", maxExclusive: 75e3 },
+  { bucket: "m", maxExclusive: 2e5 },
+  { bucket: "l", maxExclusive: 5e5 },
+  { bucket: "xl", maxExclusive: Infinity }
+];
+function bucketTokens(usage) {
+  if (!usage) return void 0;
+  const total = (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
+  if (!Number.isFinite(total) || total <= 0) return void 0;
+  for (const t of TOKEN_BUCKET_THRESHOLDS) {
+    if (total < t.maxExclusive) return t.bucket;
+  }
+  return "xl";
+}
+function turnSpanFieldsFromMeta(meta) {
+  if (!meta) return {};
+  const out = {};
+  const model = bucketModel(meta.model);
+  if (model) out.model = model;
+  const effort = normalizeEffort(meta.effort);
+  if (effort) out.effort = effort;
+  const tokenBucket = bucketTokens(meta.usage);
+  if (tokenBucket) out.token_bucket = tokenBucket;
+  if (typeof meta.retryCount === "number" && Number.isFinite(meta.retryCount) && meta.retryCount >= 0) {
+    out.retry_count = meta.retryCount;
+  }
+  return out;
+}
+
 // consort/telemetry/with-telemetry.ts
 var FIRST_RUN_NOTICE = "[consort] Anonymous* usage telemetry is on (*pseudonymous: a random per-install id, no PII).\n          Each run of Consort reports to the maintainers' endpoint; only allowlisted,\n          non-sensitive fields are sent (no paths, code, error text, or names).\n          Help the maintainers more , opt in to Level 2: `consort-telemetry enable --level 2`\n          adds per-role timings + coarse failure classes (still no code/paths/names), so they\n          can find and fix what makes runs slow or fail. It's off by default; this is the ask.\n          Turn telemetry off any time: `consort-telemetry disable` (or CONSORT_TELEMETRY=0).\n          Details: TELEMETRY.md.\n";
 var L2_OPT_IN_NOTICE = "[consort] Level-2 usage telemetry is ON (you opted in).\n          On top of Level 1, it reports per-role turn timings and coarse\n          repair/loop counts , still only allowlisted enums, counts, and\n          durations (no prompts, code, paths, error text, or names).\n          Back to Level 1 any time: `consort-telemetry enable --level 1`.\n          Details: TELEMETRY.md.\n";
@@ -15303,7 +15374,8 @@ function beginTelemetryRunUnsafe(deps) {
           span_id: newSpanId(),
           name: TURN_SPAN_NAME,
           role: action.role,
-          duration_ms: end - start
+          duration_ms: end - start,
+          ...turnSpanFieldsFromMeta(takeLastTurnMeta())
         };
         emitter.enqueue(turn);
       }
@@ -15985,13 +16057,18 @@ Place each under the project's \`.consort/\`; I will read them as the proposal +
     const recordingOrReplaying = !!consortEnv("REPLAY_DIR") || !!consortEnv("REPLAY_BUILD_DIR") || !!consortEnv("RECORD_BUILD_DIR") || !!consortEnv("RECORD_DIR");
     if (!recordingOrReplaying) {
       try {
-        const snap = buildNextSnapshot(
-          "sprint",
-          deriveSprintPlanningState(consortDir, sprint, { skipSizing }),
-          { sprint, version: kitVersion2() }
-        );
-        fs20.mkdirSync(consortDir, { recursive: true });
-        fs20.writeFileSync(path11.join(consortDir, "next.json"), JSON.stringify(snap, null, 2) + "\n", "utf8");
+        const claimed = (0, import_lakebase11.readWorkflowState)(projectDir)?.feature_id?.trim();
+        if (claimed) {
+          emitNextJson(consortDir, claimed, projectDir, { version: kitVersion2() });
+        } else {
+          const snap = buildNextSnapshot(
+            "sprint",
+            deriveSprintPlanningState(consortDir, sprint, { skipSizing }),
+            { sprint, version: kitVersion2() }
+          );
+          fs20.mkdirSync(consortDir, { recursive: true });
+          fs20.writeFileSync(path11.join(consortDir, "next.json"), JSON.stringify(snap, null, 2) + "\n", "utf8");
+        }
       } catch {
       }
     }

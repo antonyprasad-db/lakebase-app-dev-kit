@@ -6662,11 +6662,14 @@ __export(claude_runner_exports, {
   execRunner: () => execRunner,
   peekLastAgentTranscript: () => peekLastAgentTranscript,
   peekLastAgentUsage: () => peekLastAgentUsage,
+  peekLastTurnMeta: () => peekLastTurnMeta,
   recordAgentTranscript: () => recordAgentTranscript,
   recordAgentUsage: () => recordAgentUsage,
+  recordTurnMeta: () => recordTurnMeta,
   spawnClaudeStreaming: () => spawnClaudeStreaming,
   spawnCmd: () => spawnCmd,
-  takeLastAgentTranscript: () => takeLastAgentTranscript
+  takeLastAgentTranscript: () => takeLastAgentTranscript,
+  takeLastTurnMeta: () => takeLastTurnMeta
 });
 module.exports = __toCommonJS(claude_runner_exports);
 init_cjs_shims();
@@ -8619,6 +8622,25 @@ function recordAgentUsage(cwd, usage) {
   lastAgentUsage = usage;
   lastAgentUsageByCwd.set(cwd, usage);
 }
+var lastTurnMeta;
+var lastTurnMetaByCwd = /* @__PURE__ */ new Map();
+function takeLastTurnMeta(cwd) {
+  if (cwd !== void 0) {
+    const m2 = lastTurnMetaByCwd.get(cwd);
+    lastTurnMetaByCwd.delete(cwd);
+    return m2;
+  }
+  const m = lastTurnMeta;
+  lastTurnMeta = void 0;
+  return m;
+}
+function peekLastTurnMeta(cwd) {
+  return cwd !== void 0 ? lastTurnMetaByCwd.get(cwd) : lastTurnMeta;
+}
+function recordTurnMeta(cwd, meta) {
+  lastTurnMeta = meta;
+  lastTurnMetaByCwd.set(cwd, meta);
+}
 function defaultTurnMonitor(sink) {
   const heartbeatMs = TURN_HEARTBEAT_MS > 0 ? TURN_HEARTBEAT_MS : void 0;
   const inactivityTimeoutMs = TURN_INACTIVITY_TIMEOUT_MS > 0 ? TURN_INACTIVITY_TIMEOUT_MS : void 0;
@@ -8926,6 +8948,13 @@ function execRunner(cfg) {
             throw e;
           }
         }
+        recordTurnMeta(cfg.projectDir, {
+          role: cmd.role,
+          model: cmd.model,
+          effort: cmd.effort,
+          retryCount: overflowRetries + transientRetries,
+          usage
+        });
         const turnMs = Date.now() - turnStart;
         if (usage) {
           if (cmd.resumeKey) sessionContext.set(cmd.resumeKey, turnContextTokens(usage));
@@ -9123,10 +9152,13 @@ function composeOnAction(...hooks) {
   execRunner,
   peekLastAgentTranscript,
   peekLastAgentUsage,
+  peekLastTurnMeta,
   recordAgentTranscript,
   recordAgentUsage,
+  recordTurnMeta,
   spawnClaudeStreaming,
   spawnCmd,
-  takeLastAgentTranscript
+  takeLastAgentTranscript,
+  takeLastTurnMeta
 });
 //# sourceMappingURL=claude-runner.cjs.map

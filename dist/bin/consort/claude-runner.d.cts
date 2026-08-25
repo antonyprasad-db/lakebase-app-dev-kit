@@ -351,6 +351,31 @@ declare function recordAgentTranscript(cwd: string, tx: TurnTranscript): void;
 declare function peekLastAgentUsage(cwd?: string): TurnUsage | undefined;
 /** Record a turn's usage as both the global last AND the per-cwd entry (mirrors recordAgentTranscript). */
 declare function recordAgentUsage(cwd: string, usage: TurnUsage): void;
+/** Per-turn EXECUTION metadata for the telemetry decorator: the model + reasoning-effort the turn
+ *  actually ran with, how many times it was retried (context-overflow + transient budgets combined),
+ *  and the turn's usage (tokens). Distinct from TurnUsage (which is parsed from the CLI result event):
+ *  model/effort/retryCount are runner-side knobs not present in that event. Recorded by the runner AFTER
+ *  a turn's retry loop settles; TAKEn by the telemetry decorator (with-telemetry) when it builds the
+ *  per-turn span. Best-effort observability, never load-bearing. */
+interface TurnMeta {
+    role?: string;
+    /** The exact model id the turn ran on (e.g. an "opus"/"sonnet" family id); bucketed at the span. */
+    model?: string;
+    /** The reasoning-effort lever the turn ran with ("" / undefined when none was passed). */
+    effort?: string;
+    /** Combined retry count for the turn (context-overflow retries + transient retries). 0 = clean. */
+    retryCount?: number;
+    usage?: TurnUsage;
+}
+/** TAKE (read + clear) the last turn's meta. Mirrors takeLastAgentTranscript: the telemetry decorator is
+ *  the SOLE per-turn consumer, so take-clears prevents a stale meta leaking onto the NEXT turn's span (a
+ *  gate action between two role turns records no meta; without the clear it would inherit the prior
+ *  turn's model/effort). Pass `cwd` for the concurrency-safe per-worktree read; omit for the serial drive. */
+declare function takeLastTurnMeta(cwd?: string): TurnMeta | undefined;
+/** PEEK the last turn's meta WITHOUT clearing (parity with peekLastAgentTranscript / peekLastAgentUsage). */
+declare function peekLastTurnMeta(cwd?: string): TurnMeta | undefined;
+/** Record a turn's meta as both the global last AND the per-cwd entry (mirrors recordAgentUsage). */
+declare function recordTurnMeta(cwd: string, meta: TurnMeta): void;
 /** Build the default per-turn monitor from the module timeout constants. A turn with
  *  neither an inactivity nor a heartbeat window returns undefined (a byte-identical
  *  no-op controller). Exposed as its own function so tests can assert the mapping and
@@ -410,4 +435,4 @@ declare function execRunner(cfg: DriveEffectsConfig): CommandRunner;
 /** Build a DriveEffectsConfig for a feature (or planning, featureId ""). */
 declare function buildCfg(args: ParsedArgs, featureId: string): DriveEffectsConfig;
 
-export { ArtifactOutOfRootError, ClaudeTurnError, CliEffectError, type ParsedArgs, ReplayCorpusMissError, type TurnTranscript, buildCfg, claudeBaseArgs, claudeToolArgs, defaultTurnMonitor, execRunner, peekLastAgentTranscript, peekLastAgentUsage, recordAgentTranscript, recordAgentUsage, spawnClaudeStreaming, spawnCmd, takeLastAgentTranscript };
+export { ArtifactOutOfRootError, ClaudeTurnError, CliEffectError, type ParsedArgs, ReplayCorpusMissError, type TurnMeta, type TurnTranscript, buildCfg, claudeBaseArgs, claudeToolArgs, defaultTurnMonitor, execRunner, peekLastAgentTranscript, peekLastAgentUsage, peekLastTurnMeta, recordAgentTranscript, recordAgentUsage, recordTurnMeta, spawnClaudeStreaming, spawnCmd, takeLastAgentTranscript, takeLastTurnMeta };
