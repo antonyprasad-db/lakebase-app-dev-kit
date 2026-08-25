@@ -13,6 +13,7 @@ import {
   writeSprintBacklog,
   syncBacklog,
   deriveSprintPlanningState,
+  shippedBecauseLaterFeatureClaimed,
   type SprintEffects,
 } from "../../consort/intake/orchestrator-sprint";
 import { writeEstimates } from "../../consort/config/consort-paths";
@@ -25,6 +26,37 @@ beforeEach(() => {
   tdd = mkdtempSync(join(tmpdir(), "sprint-"));
 });
 afterEach(() => rmSync(tdd, { recursive: true, force: true }));
+
+describe("shippedBecauseLaterFeatureClaimed , the sprint-resume skip fix", () => {
+  const backlog = ["F1-stock-visibility", "F2-stock-adjustment", "F3-audit"];
+
+  it("SKIPS an earlier feature when a LATER backlog feature holds the SCM claim", () => {
+    // The trap: F1 shipped + merged, F2 then claimed. Deriving F1's own next action
+    // reads F2's shared SCM ladder and never returns `done`, so the loop re-claimed F1
+    // and tripped `already at feature-claimed for F2`. A later claim proves F1 shipped.
+    expect(shippedBecauseLaterFeatureClaimed("F1-stock-visibility", "F2-stock-adjustment", backlog)).toBe(true);
+    expect(shippedBecauseLaterFeatureClaimed("F1-stock-visibility", "F3-audit", backlog)).toBe(true);
+  });
+
+  it("does NOT skip the feature that itself holds the claim (it is in-flight)", () => {
+    expect(shippedBecauseLaterFeatureClaimed("F2-stock-adjustment", "F2-stock-adjustment", backlog)).toBe(false);
+  });
+
+  it("does NOT skip when an EARLIER feature holds the claim (cannot prove this one shipped)", () => {
+    expect(shippedBecauseLaterFeatureClaimed("F2-stock-adjustment", "F1-stock-visibility", backlog)).toBe(false);
+  });
+
+  it("is a no-op for an absent/empty claim or an id not in the backlog (caller falls back to the own-workflow derive)", () => {
+    expect(shippedBecauseLaterFeatureClaimed("F1-stock-visibility", undefined, backlog)).toBe(false);
+    expect(shippedBecauseLaterFeatureClaimed("F1-stock-visibility", "", backlog)).toBe(false);
+    expect(shippedBecauseLaterFeatureClaimed("F9-not-in-backlog", "F2-stock-adjustment", backlog)).toBe(false);
+    expect(shippedBecauseLaterFeatureClaimed("F1-stock-visibility", "F9-not-in-backlog", backlog)).toBe(false);
+  });
+
+  it("matches feature ids case-insensitively (normalized)", () => {
+    expect(shippedBecauseLaterFeatureClaimed("f1-stock-visibility", "F2-STOCK-ADJUSTMENT", backlog)).toBe(true);
+  });
+});
 
 describe("sprint backlog manifest", () => {
   it("round-trips features; empty when absent", () => {

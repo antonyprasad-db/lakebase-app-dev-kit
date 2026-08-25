@@ -56,6 +56,7 @@ import {
   runSprint,
   readSprintBacklog,
   backlogFeatureIds,
+  shippedBecauseLaterFeatureClaimed,
   syncBacklog,
   deriveSprintPlanningState,
   type SprintEffects,
@@ -765,7 +766,16 @@ async function runSprintMode(args: ParsedArgs): Promise<number> {
       // job (FEIP-8018). Best-effort: any read/derive error => not shipped (drive it).
       try {
         const { action } = await planNextAction(buildCfg(args, featureId));
-        return action.kind === "done";
+        if (action.kind === "done") return true;
+        // Fallback for the shared-SCM-state trap: the single workflow-state holds ONE
+        // claim, so once a LATER backlog feature is claimed, this earlier (shipped)
+        // feature's promote-phase derive reads the LATER feature's SCM ladder and never
+        // returns `done` , so isFeatureShipped was false and the loop re-claimed it,
+        // tripping `already at feature-claimed for <later>`. A later feature holding the
+        // claim PROVES this one was released at merge (the claim frees only on ship).
+        const scm = readWorkflowState(projectDir);
+        const backlog = backlogFeatureIds(readSprintBacklog(consortDir, sprint));
+        return shippedBecauseLaterFeatureClaimed(featureId, scm?.feature_id, backlog);
       } catch {
         return false;
       }

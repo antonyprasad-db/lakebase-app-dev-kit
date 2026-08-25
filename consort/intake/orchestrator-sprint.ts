@@ -162,6 +162,35 @@ export interface RunSprintResult {
 }
 
 /**
+ * Whether `featureId` is provably shipped BECAUSE a LATER backlog feature currently
+ * holds the single SCM claim. The SCM workflow-state (`.lakebase/workflow-state.json`)
+ * tracks ONE feature claim at a time; a feature's claim is released only when it merges
+ * (ships), so you cannot be claimed for a later feature until every earlier one released.
+ * Therefore, when the claim is held by a feature that comes AFTER `featureId` in the
+ * backlog, `featureId` was released == shipped.
+ *
+ * This closes the sprint-resume trap (the shared SCM state pollutes an earlier feature's
+ * promote-phase derive): once F2 is claimed, deriving F1's own next-action reads F2's SCM
+ * ladder and never returns `done`, so `isFeatureShipped(F1)` was false and the loop
+ * re-claimed F1 , tripping `already at feature-claimed for F2`. Compared case-insensitively
+ * on the feature id. Returns false for an absent/empty/self/earlier claim, or an id not in
+ * the backlog (then the caller falls back to the own-workflow `done` derive).
+ */
+export function shippedBecauseLaterFeatureClaimed(
+  featureId: string,
+  claimedFeatureId: string | undefined,
+  backlogIds: string[],
+): boolean {
+  const norm = (s: string): string => s.trim().toLowerCase();
+  if (!claimedFeatureId || !featureId) return false;
+  if (norm(claimedFeatureId) === norm(featureId)) return false; // this feature is the one in-flight
+  const idx = backlogIds.findIndex((id) => norm(id) === norm(featureId));
+  const claimedIdx = backlogIds.findIndex((id) => norm(id) === norm(claimedFeatureId));
+  if (idx < 0 || claimedIdx < 0) return false;
+  return claimedIdx > idx; // a LATER backlog feature holds the claim => this one was released (shipped)
+}
+
+/**
  * Run a sprint: plan (to the gate) -> for each backlog feature: claim + drive.
  * RESUMABLE: in interactive mode a step halts at a HITL gate (pendingGate); the
  * whole run returns so the session can surface it. The human approves and
