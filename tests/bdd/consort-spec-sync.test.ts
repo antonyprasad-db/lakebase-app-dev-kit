@@ -9,6 +9,7 @@ import {
   readWorkflowState,
   writeWorkflowState,
   normalizeStoryJson,
+  healAndReportStoryNarrative,
   type Feature,
   type WorkflowState,
 } from "../../consort/intake/spec-sync";
@@ -234,5 +235,55 @@ describe("normalizeStoryJson", () => {
     expect(obj.asA).toBe("the-json-role");
     expect(obj.iWantTo).toBe("the-json-want");
     expect(obj.soThat).toBe("the-json-outcome");
+  });
+});
+
+describe("healAndReportStoryNarrative , the breakdown post-hook's heal + fail-fast input", () => {
+  const storyDir = (s = "S1-test-story") => join(tdd, "features", "F1-test-feature", "stories", s);
+  const narrativeMd = (role: string) =>
+    [`# story`, "", `As a ${role},`, `I want a thing,`, `So that an outcome.`, ""].join("\n");
+
+  it("heals a stub from story.md and reports NO missing (the common breakdown drift)", () => {
+    // JSON stub lacks the narrative; story.md carries it => backfilled, none missing.
+    writeFileSync(join(storyDir(), "story.json"), JSON.stringify({ id: "S1", independence: { distinct_from_prior: true, rationale: "r" } }));
+    writeFileSync(join(storyDir(), "story.md"), narrativeMd("warehouse engineer"));
+    const { healed, missing } = healAndReportStoryNarrative(tdd, "F1");
+    expect(healed).toEqual(["S1-test-story"]);
+    expect(missing).toEqual([]);
+    const obj = JSON.parse(readFileSync(join(storyDir(), "story.json"), "utf8"));
+    expect(obj.asA).toBe("warehouse engineer");
+    expect(obj.iWantTo).toBe("a thing");
+    expect(obj.soThat).toBe("an outcome");
+  });
+
+  it("reports the story as missing when story.md ALSO lacks a parseable narrative (fail-fast trigger)", () => {
+    // The unrecoverable case (e.g. a truncated breakdown turn): nothing to backfill FROM,
+    // so the stub stays non-conformant and the caller must halt at DESIGN.
+    writeFileSync(join(storyDir(), "story.json"), JSON.stringify({ id: "S1" }));
+    writeFileSync(join(storyDir(), "story.md"), "# story\n\nSome prose with no As-a / I-want / So-that lines.\n");
+    const { healed, missing } = healAndReportStoryNarrative(tdd, "F1");
+    expect(healed).toEqual([]); // nothing to heal
+    expect(missing).toHaveLength(1);
+    expect(missing[0].story).toBe("S1-test-story");
+    expect(missing[0].fields).toEqual(["asA", "iWantTo", "soThat"]);
+  });
+
+  it("across stories: heals the recoverable one, reports only the unhealable one", () => {
+    mkdirSync(join(storyDir("S2-second"), "acs"), { recursive: true });
+    // S1: JSON missing, md has it -> healed.
+    writeFileSync(join(storyDir(), "story.json"), JSON.stringify({ id: "S1" }));
+    writeFileSync(join(storyDir(), "story.md"), narrativeMd("ops user"));
+    // S2: JSON missing, md missing narrative -> reported.
+    writeFileSync(join(storyDir("S2-second"), "story.json"), JSON.stringify({ id: "S2", independence: { distinct_from_prior: true, rationale: "r" } }));
+    writeFileSync(join(storyDir("S2-second"), "story.md"), "# s2\n\nNo narrative here.\n");
+    const { healed, missing } = healAndReportStoryNarrative(tdd, "F1");
+    expect(healed).toEqual(["S1-test-story"]);
+    expect(missing.map((m) => m.story)).toEqual(["S2-second"]);
+  });
+
+  it("returns clean (no missing) once every stub is conformant , idempotent", () => {
+    writeFileSync(join(storyDir(), "story.json"), JSON.stringify({ id: "S1", asA: "u", iWantTo: "w", soThat: "s", feature_id: "F1" }));
+    writeFileSync(join(storyDir(), "story.md"), "# story\n\nAlready conformant.\n");
+    expect(healAndReportStoryNarrative(tdd, "F1")).toEqual({ healed: [], missing: [] });
   });
 });

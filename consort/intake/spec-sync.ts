@@ -191,6 +191,50 @@ export function normalizeStoryJson(consortDir: string, featureId: string): strin
   return changed;
 }
 
+/** The story.json fields the feature-complete conformance gate hard-requires
+ *  (story.schema.json `required`). story.md is the authoritative narrative source. */
+const REQUIRED_STORY_NARRATIVE = ["asA", "iWantTo", "soThat"] as const;
+
+/**
+ * Heal each of a feature's story.json stubs from the authoritative story.md
+ * (normalizeStoryJson backfill), THEN report the stories whose story.json STILL
+ * lacks a required narrative field , i.e. story.md ALSO carried no parseable
+ * As-a/I-want/So-that. This is the breakdown post-hook's fail-fast input: the
+ * spec-author reliably writes the narrative to story.md but not always the JSON
+ * stub, so the backfill fixes the common case; a story the backfill CANNOT fix is
+ * a genuinely incomplete breakdown that must HALT at design (the caller returns
+ * non-zero), not detonate the feature-complete conformance gate ~160 build turns
+ * later after the whole feature is built + accepted. Idempotent (delegates to the
+ * idempotent normalizeStoryJson). Returns the ids it healed + the ids still
+ * missing narrative (with the specific gap fields).
+ */
+export function healAndReportStoryNarrative(
+  consortDir: string,
+  featureId: string,
+): { healed: string[]; missing: { story: string; fields: string[] }[] } {
+  const healed = normalizeStoryJson(consortDir, featureId);
+  const stories = storiesDir(consortDir, featureId);
+  const missing: { story: string; fields: string[] }[] = [];
+  if (existsSync(stories)) {
+    for (const s of readdirSync(stories)) {
+      const file = join(stories, s, "story.json");
+      if (!existsSync(file)) continue; // no stub yet , the breakdown-complete guard owns that
+      let obj: Record<string, unknown>;
+      try {
+        obj = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
+      } catch {
+        missing.push({ story: s, fields: ["<unparseable story.json>"] });
+        continue;
+      }
+      const gaps = REQUIRED_STORY_NARRATIVE.filter(
+        (k) => typeof obj[k] !== "string" || (obj[k] as string).trim().length === 0,
+      );
+      if (gaps.length > 0) missing.push({ story: s, fields: [...gaps] });
+    }
+  }
+  return { healed, missing };
+}
+
 export function writeFeature(consortDir: string, feature: Feature): void {
   const dir = findFeatureDir(consortDir, feature.id);
   const jsonPath = join(dir, "feature-spec.json");

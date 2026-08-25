@@ -55,6 +55,7 @@ import {
   type StoryStatus,
   type StoryPipeline,
 } from "../../consort/pipeline/story-pipeline";
+import { healAndReportStoryNarrative } from "../../consort/intake/spec-sync";
 import { join } from "path";
 import { resolveConsortDir, ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
 import { reviseStoryWithSelfHeal, clearStoryBlockingSmellOnDiscard, rebuildStory } from "../../consort/orchestrator/status/revise.js";
@@ -194,9 +195,31 @@ async function main(): Promise<number> {
       // by the driver right after spec-author breakdown so the streaming lanes
       // have stories to advance. Re-reads + writes the pipeline itself.
       const r = syncBreakdownToPipeline(consortDir, feature);
+      // Heal + assert story.json narrative conformance AT the producer's own hook
+      // (self-contained: does its own story.md backfill, so it does not depend on the
+      // separate post-turn --reconcile having run first). The spec-author reliably
+      // writes the As-a/I-want/So-that narrative to story.md but not always into the
+      // JSON stub; the backfill fixes that. A stub the backfill CANNOT heal (story.md
+      // also lacks a parseable narrative , e.g. a truncated breakdown turn) is a
+      // genuinely incomplete breakdown: FAIL FAST here at design (exit non-zero halts
+      // the drive) instead of passing build+accept and only detonating the
+      // feature-complete conformance gate ~160 turns later (the observed F1/F6 halt
+      // that blocked advancing to the next feature).
+      const { healed, missing } = healAndReportStoryNarrative(consortDir, feature);
       process.stdout.write(
-        `sync-breakdown: +${r.added.length} (${r.added.join(", ") || "none"}); ${r.total.length} tracked\n`,
+        `sync-breakdown: +${r.added.length} (${r.added.join(", ") || "none"}); ${r.total.length} tracked` +
+          (healed.length ? `; healed narrative in ${healed.join(", ")} from story.md` : "") +
+          "\n",
       );
+      if (missing.length > 0) {
+        process.stderr.write(
+          `sync-breakdown: FAIL , ${missing.length} story stub(s) still missing required narrative after story.md backfill: ` +
+            missing.map((m) => `${m.story} [${m.fields.join("/")}]`).join(", ") +
+            `. The spec-author must write the "As a / I want / So that" narrative into each story.md ` +
+            `(story.schema requires asA/iWantTo/soThat on story.json). Halting at design, not the feature-complete gate.\n`,
+        );
+        return 1;
+      }
       return 0;
     }
     case "set": {
