@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.39] - 2026-08-25
+
+### Fixed
+
+- **The sprint umbrella run is now labeled `sprint`, not `build`.** `/consort:start` (`runSprintMode`) hardcoded the root `consort.run`'s `command` as `build`, so a whole-sprint run (planning + every feature drive under one root run) was indistinguishable from a single build-phase run on the dashboard. Added `sprint` to the `command` allowlist and emit it from the sprint path; the feature path is unchanged (a Tier-2 bound still maps to `plan` / `design` / `build` / `deploy`, and a full feature run still reports `build`). `runs.command` is `TEXT`, so no server change.
+
 ## [0.3.38] - 2026-08-25
 
 ### Added

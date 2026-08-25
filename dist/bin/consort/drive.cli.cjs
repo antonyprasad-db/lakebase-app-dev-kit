@@ -15928,7 +15928,7 @@ Place each under the project's \`.consort/\`; I will read them as the proposal +
       outcome: { validated: submitted.length > 0 }
     });
   }
-  const telemetry = beginTelemetryRun({ command: "build", onNotice: (m) => process.stderr.write(m) });
+  const telemetry = beginTelemetryRun({ command: "sprint", onNotice: (m) => process.stderr.write(m) });
   const effects = {
     async drivePlanning() {
       const cfg = buildCfg(args, "");
