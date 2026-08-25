@@ -58,9 +58,15 @@ the phase/role/gate transitions; don't narrate the tooling.
    design"). This is the phase/role/gate story, NOT a play-by-play of CLIs or state reads.
 
 2. **Drive to completion.** On every stop, read `consort-next` (or the
-   auto-emitted `.consort/next.json`), enact its `primary_action`, and continue. Do
-   NOT stop or ask unless `next` surfaces a HITL decision (a gate) or a blocker.
-   Re-running the drive after a gate is part of driving, not a question to pose.
+   auto-emitted `.consort/next.json`) and gate on its **`awaiting_human` boolean , the
+   SOLE human-needed signal**: `false` ⇒ enact `primary_action` / RESUME the drive and
+   continue; `true` ⇒ STOP and surface the decision (use the non-`resume` option's
+   `hil_prompt` + `enact`). **Do NOT gate on `primary_action.kind` or `state.open_gates`**:
+   the planning backlog pause (`author-requests`) is an `invoke-role` (product-owner)
+   with EMPTY `open_gates`, so those two read it as "resume" and the session sits SILENT
+   at the backlog decision , the recurring "no HITL alert" failure. `awaiting_human`
+   covers gates, the backlog commit, AND per-story accept/discard/revise uniformly.
+   Re-running the drive after a human decision is part of driving, not a question to pose.
    **The interactive drive exits after ONE turn (a fresh session per role, for context
    headroom), so a pid going away with only a `[drive] <role> turn Ns` line and NO
    gate/pause/escalation marker is a NORMAL turn boundary, NOT a crash , `consort-watch`

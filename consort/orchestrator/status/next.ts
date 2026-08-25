@@ -92,6 +92,15 @@ export interface NextSnapshot {
   /** The decision menu: every valid next choice, each with its enact command +
    *  hil_prompt. Always includes a "hold" checkpoint option. */
   options: NextOption[];
+  /** TRUE when the next move requires a HUMAN decision , a gate, the planning backlog
+   *  commit, or a per-story accept/discard/revise , i.e. NO autonomous `resume` option
+   *  is offered. This is the SOLE signal a session / watcher / the extension should gate
+   *  on: `false` ⇒ resume the drive; `true` ⇒ surface the decision to the human at once.
+   *  Do NOT reverse-engineer it from `primary_action.kind` or `open_gates`: the planning
+   *  `author-requests` pause is modeled as an `invoke-role` (product-owner) with EMPTY
+   *  open_gates, so those two miss it , which is exactly what left the session silent at
+   *  the backlog decision. */
+  awaiting_human: boolean;
   /** A plain-language summary of where things stand + what the human is being
    *  asked, for the agent to relay verbatim (truthful phase-complete messaging). */
   summary: string;
@@ -411,13 +420,19 @@ export function buildNextSnapshot(
     blockers: blockersOf(state),
   };
   const primary = { kind: action.kind, describe: describeAction(action, { featureId: ctx.featureId }) };
+  const options = buildNextOptions(action, ctx);
+  // A human is needed iff the menu offers a DECISION (a gate, or a non-`resume` action
+  // like backlog.commit / accept / discard / revise) rather than an autonomous `resume`.
+  // `hold` (kind:"noop") is always present and never counts.
+  const awaiting_human = options.some((o) => o.kind === "gate" || (o.kind === "action" && o.id !== "resume"));
   return {
     scope,
     ...(ctx.featureId ? { feature: ctx.featureId } : {}),
     ...(ctx.sprint ? { sprint: ctx.sprint } : {}),
     state: nextState,
     primary_action: primary,
-    options: buildNextOptions(action, ctx),
+    options,
+    awaiting_human,
     summary: summarize(scope, action, nextState, ctx),
     authoritative_playbook_version: ctx.version ?? "unknown",
     generated_at: ctx.now ?? new Date().toISOString(),

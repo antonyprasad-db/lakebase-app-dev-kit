@@ -203,6 +203,32 @@ describe("buildNextSnapshot: reconciled state, blockers, truthful summary", () =
     expect(snap.state.stories).toEqual({ S1: "done", S2: "done" });
   });
 
+  it("awaiting_human is the SOLE human-needed signal , TRUE for the backlog pause even though it is an invoke-role with empty open_gates", () => {
+    // The planning author-requests pause is modeled as invoke-role (product-owner) with
+    // EMPTY open_gates, so gating on kind/open_gates read it as "resume" and the session
+    // sat SILENT at the backlog decision. awaiting_human keys on the option menu instead.
+    const backlog = buildNextSnapshot(
+      "sprint",
+      baseState(),
+      { ...CTX, sprint: "s1" },
+      fixed({ kind: "invoke-role", role: "product-owner", mode: "author-requests" } as WorkflowAction),
+    );
+    expect(backlog.primary_action.kind).toBe("invoke-role"); // NOT a gate kind
+    expect(backlog.state.open_gates).toEqual([]); // NOT modeled as an open gate
+    expect(backlog.awaiting_human).toBe(true); // ...yet a human IS needed (option: backlog.commit)
+
+    // A gate + a per-story accept both require the human.
+    expect(buildNextSnapshot("feature", baseState(), CTX, fixed({ kind: "accept", story: "S3" })).awaiting_human).toBe(true);
+
+    // An autonomous role turn offers `resume` => the session drives on, no human needed.
+    const roleTurn = buildNextSnapshot("feature", baseState(), CTX, fixed({ kind: "invoke-role", role: "driver" } as WorkflowAction));
+    expect(roleTurn.options.map((o) => o.id)).toContain("resume");
+    expect(roleTurn.awaiting_human).toBe(false);
+
+    // Terminal states are not "awaiting a human".
+    expect(buildNextSnapshot("feature", baseState({ phase: "done" }), CTX, fixed({ kind: "done" })).awaiting_human).toBe(false);
+  });
+
   it("an escalation surfaces a blocker whose resolver is the resolve VERB (never a hand-edit hint)", () => {
     const snap = buildNextSnapshot(
       "feature",
