@@ -154,8 +154,20 @@ function shouldEmitTelemetry(inp) {
   return true;
 }
 
+// consort/telemetry/emitter.ts
+var import_node_child_process2 = require("child_process");
+var import_node_fs = require("fs");
+var import_node_os = require("os");
+var import_node_path = require("path");
+var import_node_crypto2 = require("crypto");
+
 // consort/telemetry/spans.ts
 var import_node_crypto = require("crypto");
+
+// consort/config/kit-bin.ts
+var import_node_child_process = require("child_process");
+var fs = __toESM(require("fs"), 1);
+var path = __toESM(require("path"), 1);
 
 // consort/telemetry/emitter.ts
 var DEFAULT_ENDPOINT = "https://consort-telemetry-ingest-v2.azurewebsites.net";
@@ -166,16 +178,11 @@ function endpointMode(env) {
   return { endpoint, signedOff, willPost: !!endpoint && signedOff };
 }
 
-// consort/config/kit-bin.ts
-var import_node_child_process = require("child_process");
-var fs = __toESM(require("fs"), 1);
-var path = __toESM(require("path"), 1);
-
 // consort/telemetry/home-config.ts
 var fs2 = __toESM(require("fs"), 1);
 var os = __toESM(require("os"), 1);
 var path2 = __toESM(require("path"), 1);
-var import_node_crypto2 = require("crypto");
+var import_node_crypto3 = require("crypto");
 var DEFAULT_TELEMETRY_ENABLED = true;
 var DEFAULT_TELEMETRY_LEVEL = 1;
 var UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -229,10 +236,10 @@ function ensureInstallId(deps = {}) {
   try {
     const existing = readStoredConfig(deps);
     if (existing) return existing.install_id;
-    return writeStoredConfig({ install_id: (0, import_node_crypto2.randomUUID)(), telemetry_enabled: DEFAULT_TELEMETRY_ENABLED }, deps).cfg.install_id;
+    return writeStoredConfig({ install_id: (0, import_node_crypto3.randomUUID)(), telemetry_enabled: DEFAULT_TELEMETRY_ENABLED }, deps).cfg.install_id;
   } catch (err) {
     telemetryDebug("ensureInstallId failed (using an ephemeral id for this run)", err);
-    return (0, import_node_crypto2.randomUUID)();
+    return (0, import_node_crypto3.randomUUID)();
   }
 }
 function isTelemetryEnabled(deps = {}) {
@@ -241,7 +248,7 @@ function isTelemetryEnabled(deps = {}) {
 function updateStoredConfig(patch, deps = {}) {
   const existing = readStoredConfig(deps);
   const base = existing ?? {
-    install_id: (0, import_node_crypto2.randomUUID)(),
+    install_id: (0, import_node_crypto3.randomUUID)(),
     telemetry_enabled: DEFAULT_TELEMETRY_ENABLED,
     telemetry_level: DEFAULT_TELEMETRY_LEVEL
   };

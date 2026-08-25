@@ -115,8 +115,20 @@ function shouldEmitTelemetry(inp) {
   return true;
 }
 
+// consort/telemetry/emitter.ts
+import { spawn } from "child_process";
+import { writeFileSync } from "fs";
+import { tmpdir } from "os";
+import { join as join2 } from "path";
+import { randomUUID } from "crypto";
+
 // consort/telemetry/spans.ts
 import { randomBytes } from "crypto";
+
+// consort/config/kit-bin.ts
+import { spawnSync } from "child_process";
+import * as fs from "fs";
+import * as path from "path";
 
 // consort/telemetry/emitter.ts
 var DEFAULT_ENDPOINT = "https://consort-telemetry-ingest-v2.azurewebsites.net";
@@ -127,16 +139,11 @@ function endpointMode(env) {
   return { endpoint, signedOff, willPost: !!endpoint && signedOff };
 }
 
-// consort/config/kit-bin.ts
-import { spawnSync } from "child_process";
-import * as fs from "fs";
-import * as path from "path";
-
 // consort/telemetry/home-config.ts
 import * as fs2 from "fs";
 import * as os from "os";
 import * as path2 from "path";
-import { randomUUID } from "crypto";
+import { randomUUID as randomUUID2 } from "crypto";
 var DEFAULT_TELEMETRY_ENABLED = true;
 var DEFAULT_TELEMETRY_LEVEL = 1;
 var UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -190,10 +197,10 @@ function ensureInstallId(deps = {}) {
   try {
     const existing = readStoredConfig(deps);
     if (existing) return existing.install_id;
-    return writeStoredConfig({ install_id: randomUUID(), telemetry_enabled: DEFAULT_TELEMETRY_ENABLED }, deps).cfg.install_id;
+    return writeStoredConfig({ install_id: randomUUID2(), telemetry_enabled: DEFAULT_TELEMETRY_ENABLED }, deps).cfg.install_id;
   } catch (err) {
     telemetryDebug("ensureInstallId failed (using an ephemeral id for this run)", err);
-    return randomUUID();
+    return randomUUID2();
   }
 }
 function isTelemetryEnabled(deps = {}) {
@@ -202,7 +209,7 @@ function isTelemetryEnabled(deps = {}) {
 function updateStoredConfig(patch, deps = {}) {
   const existing = readStoredConfig(deps);
   const base = existing ?? {
-    install_id: randomUUID(),
+    install_id: randomUUID2(),
     telemetry_enabled: DEFAULT_TELEMETRY_ENABLED,
     telemetry_level: DEFAULT_TELEMETRY_LEVEL
   };

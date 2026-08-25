@@ -12559,9 +12559,9 @@ function composeOnAction(...hooks) {
 
 // consort/orchestrator/agents/claude-step-agent.ts
 var ClaudeStepAgent = class {
-  constructor(levers, spawn4, liveDispatch) {
+  constructor(levers, spawn5, liveDispatch) {
     this.levers = levers;
-    this.spawn = spawn4 ?? spawnClaudeStreaming;
+    this.spawn = spawn5 ?? spawnClaudeStreaming;
     this.liveDispatch = liveDispatch;
     this.sessionId = levers.resumeSessionId;
   }
@@ -14917,6 +14917,11 @@ function shouldEmitTelemetry(inp) {
 
 // consort/telemetry/emitter.ts
 init_esm_shims();
+import { spawn as spawn4 } from "child_process";
+import { writeFileSync as writeFileSync28 } from "fs";
+import { tmpdir } from "os";
+import { join as join44 } from "path";
+import { randomUUID as randomUUID3 } from "crypto";
 
 // consort/telemetry/spans.ts
 init_esm_shims();
@@ -14945,7 +14950,7 @@ function httpSink(opts) {
         const signal = typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(timeoutMs) : void 0;
         const headers = { "content-type": "application/x-ndjson" };
         if (opts.token) headers["authorization"] = `Bearer ${opts.token}`;
-        void Promise.resolve(
+        return Promise.resolve(
           doFetch(`${opts.endpoint.replace(/\/$/, "")}/v1/traces`, {
             method: "POST",
             headers,
@@ -14974,10 +14979,35 @@ function endpointMode(env) {
   const signedOff = raw === "" ? true : /^(1|true)$/i.test(raw);
   return { endpoint, signedOff, willPost: !!endpoint && signedOff };
 }
+function detachedHttpSink(opts) {
+  const spawnImpl = opts.spawnFn ?? spawn4;
+  const dir = opts.tmpDir ?? tmpdir();
+  const url = `${opts.endpoint.replace(/\/$/, "")}/v1/traces`;
+  return {
+    deliver(payload) {
+      try {
+        const body = payload.spans.map((s) => JSON.stringify(wireLine(s, payload))).join("\n") + "\n";
+        const file = join44(dir, `consort-telemetry-${randomUUID3()}.ndjson`);
+        writeFileSync28(file, body);
+        const child = spawnImpl(process.execPath, [opts.senderJs, file, url, opts.token ?? ""], {
+          detached: true,
+          stdio: "ignore"
+        });
+        child.unref();
+      } catch {
+      }
+    }
+  };
+}
 function resolveSink(env) {
   const mode = endpointMode(env);
   if (!mode.willPost) return noopSink;
   const token = env.CONSORT_TELEMETRY_TOKEN?.trim() || void 0;
+  try {
+    const senderJs = resolveKitBinJs("consort-telemetry-send");
+    if (senderJs) return detachedHttpSink({ endpoint: mode.endpoint, token, senderJs });
+  } catch {
+  }
   return httpSink({ endpoint: mode.endpoint, token });
 }
 var TelemetryEmitter = class {
@@ -14985,6 +15015,9 @@ var TelemetryEmitter = class {
   sink;
   resource;
   cap;
+  /** Promises for deliveries kicked off by flush(), so flushAndWait() can bound-await
+   *  them at shutdown (the fix for the drive-exit race that dropped every POST). */
+  inflight = [];
   constructor(opts) {
     this.sink = opts.sink;
     this.resource = opts.resource;
@@ -15010,7 +15043,31 @@ var TelemetryEmitter = class {
     if (this.queue.length === 0) return;
     const spans = this.queue.splice(0);
     try {
-      this.sink.deliver({ schema: this.resource.schema, resource: this.resource, spans });
+      const p = this.sink.deliver({ schema: this.resource.schema, resource: this.resource, spans });
+      if (p && typeof p.then === "function") {
+        this.inflight.push(p.then(() => {
+        }, () => {
+        }));
+      }
+    } catch {
+    }
+  }
+  /** Drain the queue AND bound-await the in-flight deliveries, up to `timeoutMs`.
+   *  Call this ONCE at process shutdown (after finish()) so the final POST is not
+   *  abandoned when the CLI calls process.exit() , the drive-exit race that silently
+   *  dropped every run's telemetry. Never throws, never waits longer than the bound;
+   *  a slow/cold endpoint is capped, not blocking. A no-op sink resolves at once. */
+  async flushAndWait(timeoutMs) {
+    try {
+      this.flush();
+      if (this.inflight.length === 0) return;
+      const pending = Promise.allSettled(this.inflight.splice(0));
+      let timer;
+      const capped = new Promise((resolve3) => {
+        timer = setTimeout(resolve3, Math.max(0, timeoutMs));
+      });
+      await Promise.race([pending.then(() => void 0), capped]);
+      if (timer) clearTimeout(timer);
     } catch {
     }
   }
@@ -15021,7 +15078,7 @@ init_esm_shims();
 import * as fs19 from "fs";
 import * as os from "os";
 import * as path11 from "path";
-import { randomUUID as randomUUID3 } from "crypto";
+import { randomUUID as randomUUID4 } from "crypto";
 var DEFAULT_TELEMETRY_ENABLED = true;
 var DEFAULT_TELEMETRY_LEVEL = 1;
 var UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -15075,10 +15132,10 @@ function ensureInstallId(deps = {}) {
   try {
     const existing = readStoredConfig(deps);
     if (existing) return existing.install_id;
-    return writeStoredConfig({ install_id: randomUUID3(), telemetry_enabled: DEFAULT_TELEMETRY_ENABLED }, deps).cfg.install_id;
+    return writeStoredConfig({ install_id: randomUUID4(), telemetry_enabled: DEFAULT_TELEMETRY_ENABLED }, deps).cfg.install_id;
   } catch (err) {
     telemetryDebug("ensureInstallId failed (using an ephemeral id for this run)", err);
-    return randomUUID3();
+    return randomUUID4();
   }
 }
 function isTelemetryEnabled(deps = {}) {
@@ -15090,7 +15147,7 @@ function isFirstRun(deps = {}) {
 function updateStoredConfig(patch, deps = {}) {
   const existing = readStoredConfig(deps);
   const base = existing ?? {
-    install_id: randomUUID3(),
+    install_id: randomUUID4(),
     telemetry_enabled: DEFAULT_TELEMETRY_ENABLED,
     telemetry_level: DEFAULT_TELEMETRY_LEVEL
   };
