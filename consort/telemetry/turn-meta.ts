@@ -11,7 +11,7 @@
 // in spans.ts + TURN_SPAN_FIELDS, so this file never needs an allowlist change.
 
 import type { TurnMeta } from "../orchestrator/drive/claude-runner.js";
-import { EFFORT_VALUES, type EffortValue, type ModelValue } from "./allowlist.js";
+import { EFFORT_VALUES, type EffortValue, type ModelValue, type TokenBucketValue } from "./allowlist.js";
 import type { TurnSpan } from "./spans.js";
 
 /** Coarsen a concrete model id into the MODEL_VALUES family bucket (never the exact
@@ -38,6 +38,34 @@ export function normalizeEffort(effort: string | undefined): EffortValue | undef
   return (EFFORT_VALUES as readonly string[]).includes(e) ? (e as EffortValue) : "unknown";
 }
 
+/** Coarse token bands for a turn's PROCESSED tokens (input + output). Cache-read
+ *  tokens are reused context, not fresh work, so they are EXCLUDED , the bucket
+ *  reflects "how big was this turn's actual processing", the tuning signal for
+ *  who is expensive/slow (a later step may split input vs output). Ordered ascending
+ *  by exclusive upper bound; `xl` is the open-ended top. Named consts so the bands
+ *  are tunable + unit-tested, never magic numbers buried in a branch. */
+export const TOKEN_BUCKET_THRESHOLDS: ReadonlyArray<{ bucket: TokenBucketValue; maxExclusive: number }> = [
+  { bucket: "xs", maxExclusive: 25_000 },
+  { bucket: "s", maxExclusive: 75_000 },
+  { bucket: "m", maxExclusive: 200_000 },
+  { bucket: "l", maxExclusive: 500_000 },
+  { bucket: "xl", maxExclusive: Infinity },
+];
+
+/** Bucket a turn's usage into a TOKEN_BUCKET_VALUES band by its processed
+ *  (input + output) tokens. Absent usage, or a non-positive/non-finite total,
+ *  yields undefined (the span omits the field , a null column, distinct from `xs`
+ *  which is a real, measured-small turn). */
+export function bucketTokens(usage: TurnMeta["usage"]): TokenBucketValue | undefined {
+  if (!usage) return undefined;
+  const total = (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
+  if (!Number.isFinite(total) || total <= 0) return undefined;
+  for (const t of TOKEN_BUCKET_THRESHOLDS) {
+    if (total < t.maxExclusive) return t.bucket;
+  }
+  return "xl";
+}
+
 /** Build the OPTIONAL enum/coarse fields of a `consort.turn` span from a recorded
  *  turn meta. Returns only the fields it can populate; an omitted field means the
  *  runner did not surface that datum (a null column downstream). */
@@ -48,5 +76,7 @@ export function turnSpanFieldsFromMeta(meta: TurnMeta | undefined): Partial<Turn
   if (model) out.model = model;
   const effort = normalizeEffort(meta.effort);
   if (effort) out.effort = effort;
+  const tokenBucket = bucketTokens(meta.usage);
+  if (tokenBucket) out.token_bucket = tokenBucket;
   return out;
 }

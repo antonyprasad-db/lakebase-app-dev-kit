@@ -4,8 +4,8 @@
 // "no lever" vs "unknown lever" distinction, and the omit-when-absent contract.
 
 import { describe, it, expect } from "vitest";
-import { bucketModel, normalizeEffort, turnSpanFieldsFromMeta } from "../../consort/telemetry/turn-meta";
-import { MODEL_VALUES, EFFORT_VALUES } from "../../consort/telemetry/allowlist";
+import { bucketModel, normalizeEffort, bucketTokens, turnSpanFieldsFromMeta, TOKEN_BUCKET_THRESHOLDS } from "../../consort/telemetry/turn-meta";
+import { MODEL_VALUES, EFFORT_VALUES, TOKEN_BUCKET_VALUES } from "../../consort/telemetry/allowlist";
 
 describe("bucketModel: coarsen a concrete model id to the MODEL_VALUES family", () => {
   it("buckets each family by substring, robust to id decorations", () => {
@@ -49,17 +49,49 @@ describe("normalizeEffort: coarsen the effort lever to EFFORT_VALUES", () => {
   });
 });
 
+describe("bucketTokens: coarsen a turn's processed tokens to a TOKEN_BUCKET band", () => {
+  it("buckets input+output totals across the band boundaries (exclusive upper bounds)", () => {
+    const b = (i: number, o = 0) => bucketTokens({ inputTokens: i, outputTokens: o });
+    expect(b(1)).toBe("xs");
+    expect(b(24_999)).toBe("xs");
+    expect(b(25_000)).toBe("s"); // boundary is exclusive on xs
+    expect(b(40_000, 3_000)).toBe("s"); // 43k total
+    expect(b(74_999)).toBe("s");
+    expect(b(75_000)).toBe("m");
+    expect(b(199_999)).toBe("m");
+    expect(b(200_000)).toBe("l");
+    expect(b(499_999)).toBe("l");
+    expect(b(500_000)).toBe("xl");
+    expect(b(5_000_000)).toBe("xl"); // open-ended top
+  });
+  it("EXCLUDES cache-read tokens (reused context, not fresh work)", () => {
+    // A warm resume: tiny fresh input+output but a huge cache read stays 'xs'.
+    expect(bucketTokens({ inputTokens: 500, outputTokens: 800, cacheReadTokens: 900_000 })).toBe("xs");
+  });
+  it("absent usage or non-positive total yields undefined (span omits the field)", () => {
+    expect(bucketTokens(undefined)).toBeUndefined();
+    expect(bucketTokens({ inputTokens: 0, outputTokens: 0 })).toBeUndefined();
+  });
+  it("every threshold bucket is a valid TOKEN_BUCKET_VALUES member", () => {
+    for (const t of TOKEN_BUCKET_THRESHOLDS) expect(TOKEN_BUCKET_VALUES).toContain(t.bucket);
+  });
+});
+
 describe("turnSpanFieldsFromMeta: build the optional span fields from a recorded meta", () => {
-  it("populates model + effort from a full meta", () => {
-    expect(turnSpanFieldsFromMeta({ role: "driver", model: "claude-opus-4-8", effort: "high" })).toEqual({
-      model: "opus",
-      effort: "high",
-    });
+  it("populates model + effort + token_bucket from a full meta", () => {
+    expect(
+      turnSpanFieldsFromMeta({
+        role: "driver",
+        model: "claude-opus-4-8",
+        effort: "high",
+        usage: { inputTokens: 90_000, outputTokens: 5_000 },
+      }),
+    ).toEqual({ model: "opus", effort: "high", token_bucket: "m" });
   });
   it("omits fields the runner did not surface (no key, not a null value)", () => {
-    // model present, effort absent => only model set (effort omitted, a null column).
+    // model present, effort + usage absent => only model set (others omitted, null columns).
     expect(turnSpanFieldsFromMeta({ role: "driver", model: "claude-sonnet-5" })).toEqual({ model: "sonnet" });
-    // both absent => empty object (turn span keeps only role + timing).
+    // all absent => empty object (turn span keeps only role + timing).
     expect(turnSpanFieldsFromMeta({ role: "driver" })).toEqual({});
   });
   it("undefined meta yields an empty object (best-effort read may find nothing)", () => {
