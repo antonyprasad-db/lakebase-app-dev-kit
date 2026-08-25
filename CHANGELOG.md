@@ -6,6 +6,125 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.38] - 2026-08-25
+
+### Added
+
+- **Level 2 per-turn tuning telemetry (opt-in).** `consort.turn` spans now carry content-free tuning fields populated from the runner's per-turn meta: `model` (`opus`|`sonnet`|`haiku`|`fable`|`other`), `effort` (`low`|`medium`|`high`|`unknown`), `token_bucket` (xs–xl band of input+output tokens, cache reads excluded), and `retry_count` (context-overflow + transient retries). Still enums/counts/buckets only, never prompts or code.
+
+### Fixed
+
+- **Breakdown story.json heal + fail-fast.** `consort-pipeline sync-breakdown` heals each `story.json` from the authoritative `story.md` narrative, then fails fast (halts at design) if a stub still lacks `asA`/`iWantTo`/`soThat`, instead of the conformance gate detonating at feature-complete and blocking the next feature.
+- **Sprint-stop next.json feature-scoping.** Once a feature is claimed, the sprint stop emits the feature-scoped snapshot so `awaiting_human` reads correctly at a real feature gate.
+
+## [0.3.37] - 2026-08-25
+
+### Fixed
+
+- **`awaiting_human` is now the authoritative "a human is needed" signal.** The planning `author-requests` pause is modeled with empty `open_gates`, so every consumer (the driving session, a watcher, guidance) read it as "resume" and never surfaced it. `consort-next` / `next.json` now carries `awaiting_human: true` when the only way forward is a human decision (a gate, the backlog commit, or a per-story accept/discard/revise), and `false` otherwise. `start.md` + the orchestrator contract gate solely on `awaiting_human`, never `primary_action.kind` / `open_gates` which miss the backlog pause.
+- **Gate authority is `consort-next` + pid, never the log.** `drive-live.log` is a transient per-process sink and must never drive a gate decision. The "is a human needed / what next" decision comes from `consort-next`; "did the drive stop" comes from the pid being gone.
+
+## [0.3.36] - 2026-08-25
+
+### Changed
+
+- **Every command emits telemetry (was: `--feature` only).** Sprint mode (`/consort:start`, `/sprint`, `/plan`) now begins its own `consort.run`, wraps planning + each per-feature drive in `withTelemetry`, and finishes on every exit path, delivered by the detached sender. `consort-spike` emits its own `consort.run` with `command: "spike"`. A guard test fails the build if any `runDriver` is not telemetry-wrapped.
+- **Sprint mode emits the authoritative next.json on every stop.** Parity with the feature path, so the driving session + extension have a deterministic on-disk signal instead of tailing the transient `drive-live.log`.
+
+## [0.3.35] - 2026-08-25
+
+### Fixed
+
+- **Telemetry actually lands now: delivered via a detached sender that survives `process.exit`.** The emitter POSTed fire-and-forget in-process, and `consort-drive` calls `process.exit` immediately after finish, tearing down the in-flight socket before the request completes. `resolveSink` now returns a `detachedHttpSink` that spools to a temp file and hands it to a detached, `unref`'d background sender (`consort-telemetry-send`), which owns the POST with a 10s timeout. The drive exits instantly with no wait or latency, no blocking.
+
+## [0.3.34] - 2026-08-25
+
+### Fixed
+
+- **Sprint-resume no longer hard-stops re-claiming an already-shipped feature.** Once a later feature (F2) is claimed, the single SCM workflow-state holds F2's claim, so deriving an earlier shipped feature's (F1) next-action never returns `done`. The loop re-claimed F1, tripping `already at feature-claimed for F2`, a hard stop that repeated on every relaunch. Now a later backlog feature holding the claim proves the earlier one was released, so the sprint treats it as shipped and skips it.
+
+## [0.3.33] - 2026-08-24
+
+### Fixed
+
+- **Local deploy-verify now runs the client Playwright suite.** The deploy gate's `run-tests.sh` only ran the project-root Playwright layout, skipping the full-stack project's SPA Playwright under `client/` (which CI runs as its own gated step), so local acceptance skipped the client E2E entirely. It now runs `cd client && playwright install chromium && playwright test --pass-with-no-tests`, mirroring CI.
+- **Scaffold starter E2E is now a recognized supersession case.** The scaffold's throwaway starter spec (`client/tests/e2e/home.spec.ts`), which asserts the placeholder home page, is now explicitly flag-supersede-and-delete when the first story replaces that placeholder with real content. Left in place it asserts removed UI and fails CI forever.
+- **Language-aware idempotent-seed UUID guidance.** UUID guidance across Navigator, Test Strategist, and behavior analyst is now language-aware, Python `uuid.uuid4()` / JS `crypto.randomUUID()` / Java `java.util.UUID`, never the `uuid` npm package (not a scaffolded dependency; fails CI).
+
+## [0.3.32] - 2026-08-24
+
+### Fixed
+
+- **CLI-effect failures now surface to the watcher / Monitor.** A deterministic CLI effect (SCM steps `wait-ci` / `merge` / `prepare-pr`) that exits non-zero now rejects with a typed `CliEffectError`, recorded as a resumable escalation with a classified `[drive] RAISED TO HIL` halt line. Previously the reject fell to a bare, unprefixed line that `classifyDriveLine` skipped, so a session tailing `drive-live.log` never surfaced it. The last-resort catch also now emits a classified `[drive] ABORTED` line.
+- **A staged brand asset must be declared as `app_icon`.** A brand asset staged under `.consort/design/assets/` with no `app_icon` in `design-guide.json` is now a UX Designer self-check violation (`brandAssetDeclared`), fixing the "built app doesn't incorporate the brand icon" gap.
+
+## [0.3.31] - 2026-08-24
+
+### Changed
+
+- **`consort-next` surfaces the backlog command.** At the planning `author-requests` step, `consort-next` emits the exact `consort-sync-backlog --sprint <s> --features <id[,id...]>` command instead of a bare "resume", so a session reads the backlog-commit command off the authoritative surface.
+- **`consort-watch --monitor` (persistent Monitor mode).** For the Monitor tool: follows the log across the drive's mid-turn silences AND its turn-by-turn re-runs (truncation-aware), stopping only at a real terminal marker, unlike a `--pid`-bound follow which exits when that process dies.
+- **Test-strategist fan-out provisioning + coverage completeness.** The serial reflect whack-a-mole was rooted in under-provisioned analysts; the first-pass list is now complete, with the behavior analyst covering infrastructure-layer ACs' observable behavior and boundary validation, the client analyst owning client-render NFR fitness functions, the fitness analyst covering every leg of multi-column invariants, and the supervisor ensuring every NFR with a `fitness_function` gets a covering test.
+
+## [0.3.30] - 2026-08-24
+
+### Fixed
+
+- **Measured watch liveness (relay, never infer).** `consort-watch` poll-once returns measured `silent_for_s` (log mtime) + `pid_alive` (pid probe). The rule: relay these numbers, never infer a "hung" verdict from a long silence, since one model call is silent until it returns.
+- **Reflect-loop root cause fixed at the spec gate.** A `create_table` attributed to a pure UI/E2E shell story (no API/Infra AC) is now hard-blocked at the spec gate as a deterministic db-design error (`checkSchemaChangeStoryRealizes`), instead of the fitness tests anchoring to the shell story and getting bounced through the whole design lane.
+- **Self-documenting escalations.** Each escalation record is stamped with `how_to_resolve`, and `consort-next` emits a structured `resolver` + hint pointing at `consort-resolve-escalation --id <id> --resolution "<why>"`, which clears the escalation AND any blocking smell and keeps the audit trail.
+
+### Changed
+
+- **Standalone IDE-terminal gate.** `/consort:start` surfaces the "move to the editor + live viewer vs keep driving here" choice as its own hard gate, on a fresh project OR a resume, and skips it when the session is already inside the IDE terminal.
+
+## [0.3.29] - 2026-08-24
+
+### Changed
+
+- **Poll-once is the single mandated relay.** `./scripts/lk consort-watch --since <cursor>` returns immediately with new transitions + a `cursor=<N> status=<…>` trailer. A blocking `consort-watch` (any `--timeout`) run as a Bash call buffers and shows nothing until it returns, so it is now forbidden; `--timeout 0` is documented as Monitor-tool-only. No hand-rolled `tail -f | while read; case`.
+
+### Fixed
+
+- **Auto-open artifacts on any late attach.** When a fast detached drive wrote its terminal marker and exited before the watch attached (following from EOF), the watcher now scans the log for the real last stop of any step and reports it, opening the review artifacts at a gate/pause, instead of a false exit-3 "unclean exit".
+- **Silent telemetry step 0.** `/consort:start` never narrates "checking telemetry"; on an already-acknowledged install it emits nothing and proceeds.
+
+## [0.3.28] - 2026-08-24
+
+### Changed
+
+- **Live, timeout-proof create (Part 1).** `lakebase-create-project --detach` re-launches scaffolding in its OWN session (setsid via `spawn(detached:true).unref()`) and returns immediately, capturing `[doctor]` + every `[stage]` line + the final JSON to a log the caller relays poll-once. Create now runs from the plugin's own binary, not `npx`, which used to re-download the whole kit just to run create.
+- **Live, timeout-proof kit download (Part 2).** Requires scm-utils v0.2.13: the scaffolded `lk` streams npm's per-package install progress and supports `./scripts/lk --refresh --detach`.
+- **`start.md` updated.** Explicit "Part 1 does NOT download the toolkit" directive; swept every `--refresh` to `--detach` + poll-once; `$CLAUDE_PLUGIN_ROOT` resolved with a plugin-cache fallback.
+
+## [0.3.27] - 2026-08-24
+
+### Fixed
+
+- **Plugin-binary resolution without `$CLAUDE_PLUGIN_ROOT`.** `$CLAUDE_PLUGIN_ROOT` is not reliably exported into the Bash tool shell, so the telemetry briefing and create-relay hard-failed. Both now resolve the plugin's shipped `dist/` via `$CLAUDE_PLUGIN_ROOT` when set, else the plugin cache (`~/.claude/plugins/cache/databricks-solutions/consort/<newest>/`).
+
+### Changed
+
+- **Reworded telemetry offer.** Leads with what it is; three uniformly-structured replies with opt out last; the accept-the-default reply is **ok** (telemetry is on by default). Level 2 framed as the biggest favor to the project.
+
+## [0.3.26] - 2026-08-24
+
+### Added
+
+- **Create relay (heartbeat + poll-once).** The `npx` git-fetch of the kit is silent for ~1-3 min. A new `scripts/consort-create.sh` wrapper prints an elapsed-time heartbeat during the fetch, then forwards create's `[stage]` lines. `start.md` launches via `consort-create.sh` backgrounded to a log and relays it poll-once with `consort-watch --since`, instead of a foreground tail loop the harness buffers.
+
+### Fixed
+
+- **Telemetry-briefing persistence fix.** The `/consort:start` briefing runs before the Create/Resume branch, so on a fresh install there is no `./scripts/lk` yet and every persist call silently failed. The briefing now invokes the plugin's own telemetry binary, records the choice by actually running the command, and confirms the write landed before continuing.
+
+## [0.3.25] - 2026-08-24
+
+### Added
+
+- **Launch durability (`consort-drive --detach`).** Re-launches the drive in its OWN session (setsid via `spawn(detached:true).unref()`) and returns immediately. A `nohup … &` leaves the drive in the tool call's process group, which the harness SIGTERMs on turn-end; `--detach` escapes that group.
+- **Live relay (one relay for drive / create / refresh).** `consort-watch --since <cursor>` poll-once returns immediately with new log lines + a `cursor=<N> status=<running|gate|pause|escalation|done|waiting>` trailer. The classifier now relays create `[stage]` lines and refresh `lk:` lines too. `lakebase-create-project --progress-log <path>` tees stage lines to a caller-owned file for the same poll-once relay.
+- **Telemetry briefing at `/consort:start`.** New `acknowledged` gate (distinct from config existence) + `consort-telemetry ack`. The Level-1 opt-out and Level-2 opt-in are disclosed where the human can read them, gated on `acknowledged=false`, instead of a stderr notice that only fired once inside `consort-drive`.
+
 ## [0.3.24] - 2026-08-23
 
 ### Fixed
