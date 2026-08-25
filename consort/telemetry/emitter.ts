@@ -12,6 +12,11 @@
 // The sender is hand-rolled (a small NDJSON POST over global fetch) , NOT the
 // OpenTelemetry SDK. One try, ~500ms timeout, all errors swallowed.
 
+import { spawn } from "node:child_process";
+import { writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { randomUUID } from "node:crypto";
 import {
   isRunSpan,
   sanitizeSpan,
@@ -19,13 +24,19 @@ import {
   type TelemetrySpan,
   type TracePayload,
 } from "./spans.js";
+import { resolveKitBinJs } from "../config/kit-bin.js";
 
 export const DEFAULT_QUEUE_CAP = 200;
 export const DEFAULT_TIMEOUT_MS = 500;
 
-/** A destination for delivered trace batches. MUST NOT throw; SHOULD NOT block. */
+/** A destination for delivered trace batches. MUST NOT throw; SHOULD NOT block.
+ *  MAY return a Promise that resolves when delivery completes (an HTTP sink), so a
+ *  bounded shutdown flush can AWAIT it before the process exits , without this the
+ *  fire-and-forget POST is abandoned when the CLI calls process.exit() and every
+ *  run's telemetry is silently lost (the drive-exit race). A void return = nothing
+ *  to await (noop / in-memory). */
 export interface TelemetrySink {
-  deliver(payload: TracePayload): void;
+  deliver(payload: TracePayload): void | Promise<void>;
 }
 
 /** The default sink: discards everything. No network, no I/O, no latency. */
@@ -85,11 +96,12 @@ export function httpSink(opts: HttpSinkOptions): TelemetrySink {
           typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
             ? AbortSignal.timeout(timeoutMs)
             : undefined;
-        // Fire-and-forget: do NOT await. Swallow rejection so an unhandled
-        // rejection never surfaces.
+        // Kick off the request. We RETURN the settled promise (errors swallowed
+        // into onError) so a caller MAY await delivery at shutdown; a normal
+        // enqueue/flush still never awaits it, so the run is never blocked.
         const headers: Record<string, string> = { "content-type": "application/x-ndjson" };
         if (opts.token) headers["authorization"] = `Bearer ${opts.token}`;
-        void Promise.resolve(
+        return Promise.resolve(
           doFetch(`${opts.endpoint.replace(/\/$/, "")}/v1/traces`, {
             method: "POST",
             headers,
@@ -144,16 +156,66 @@ export function endpointMode(env: NodeJS.ProcessEnv): EndpointMode {
   return { endpoint, signedOff, willPost: !!endpoint && signedOff };
 }
 
+export interface DetachedHttpSinkOptions {
+  endpoint: string;
+  token?: string;
+  /** Resolved dist path of the detached sender bin (`consort-telemetry-send`). */
+  senderJs: string;
+  /** Injectable for tests (default: node:child_process spawn). */
+  spawnFn?: typeof spawn;
+  /** Injectable temp dir for the handoff spool file (tests). */
+  tmpDir?: string;
+}
+
 /**
- * Resolve the sink from the env: a real HTTP sink to the armed endpoint by default
- * (opt-out, always-on). Returns the no-op sink only when sign-off is explicitly
- * turned off (`CONSORT_TELEMETRY_SIGNOFF=0`). An optional `CONSORT_TELEMETRY_TOKEN`
- * is sent as a bearer if set (the default endpoint needs none).
+ * A sink that hands the batch to a DETACHED background process (the sender bin) and
+ * returns IMMEDIATELY. The parent (`consort-drive`) never awaits the POST and is never
+ * blocked or delayed, yet delivery SURVIVES the parent's `process.exit()` , the fix for
+ * the exit race where the in-process fire-and-forget POST was torn down at exit and
+ * every run's telemetry was silently dropped. The batch is spooled to a temp file and
+ * the sender (setsid + stdio ignored + unref'd) owns the network with a cold-start-
+ * tolerant timeout. Never throws; a failed spawn just drops this batch.
+ */
+export function detachedHttpSink(opts: DetachedHttpSinkOptions): TelemetrySink {
+  const spawnImpl = opts.spawnFn ?? spawn;
+  const dir = opts.tmpDir ?? tmpdir();
+  const url = `${opts.endpoint.replace(/\/$/, "")}/v1/traces`;
+  return {
+    deliver(payload) {
+      try {
+        const body = payload.spans.map((s) => JSON.stringify(wireLine(s, payload))).join("\n") + "\n";
+        const file = join(dir, `consort-telemetry-${randomUUID()}.ndjson`);
+        writeFileSync(file, body); // tiny local write (sub-ms); the ONLY synchronous work
+        const child = spawnImpl(process.execPath, [opts.senderJs, file, url, opts.token ?? ""], {
+          detached: true,
+          stdio: "ignore",
+        });
+        child.unref(); // the parent must not wait on, or be kept alive by, the child
+      } catch {
+        /* never throw into the caller; a failed spawn drops this batch */
+      }
+    },
+  };
+}
+
+/**
+ * Resolve the sink from the env: deliver to the armed endpoint by default (opt-out,
+ * always-on), via a DETACHED sender so the POST survives the drive's process.exit
+ * without blocking it. Returns the no-op sink only when sign-off is explicitly turned
+ * off (`CONSORT_TELEMETRY_SIGNOFF=0`). Falls back to the in-process `httpSink` only when
+ * the sender bin can't be resolved (a dev/non-dist layout), so telemetry still works
+ * there. An optional `CONSORT_TELEMETRY_TOKEN` is sent as a bearer if set.
  */
 export function resolveSink(env: NodeJS.ProcessEnv): TelemetrySink {
   const mode = endpointMode(env);
   if (!mode.willPost) return noopSink;
   const token = env.CONSORT_TELEMETRY_TOKEN?.trim() || undefined;
+  try {
+    const senderJs = resolveKitBinJs("consort-telemetry-send");
+    if (senderJs) return detachedHttpSink({ endpoint: mode.endpoint!, token, senderJs });
+  } catch {
+    /* fall through to the in-process sink */
+  }
   return httpSink({ endpoint: mode.endpoint!, token });
 }
 
@@ -174,6 +236,9 @@ export class TelemetryEmitter {
   private readonly sink: TelemetrySink;
   private readonly resource: ResourceAttrs;
   private readonly cap: number;
+  /** Promises for deliveries kicked off by flush(), so flushAndWait() can bound-await
+   *  them at shutdown (the fix for the drive-exit race that dropped every POST). */
+  private readonly inflight: Promise<void>[] = [];
 
   constructor(opts: TelemetryEmitterOptions) {
     this.sink = opts.sink;
@@ -204,9 +269,36 @@ export class TelemetryEmitter {
     if (this.queue.length === 0) return;
     const spans = this.queue.splice(0);
     try {
-      this.sink.deliver({ schema: this.resource.schema, resource: this.resource, spans });
+      const p = this.sink.deliver({ schema: this.resource.schema, resource: this.resource, spans });
+      // An HTTP sink returns a settled promise; retain it so flushAndWait() can
+      // await delivery at shutdown. flush() itself still never awaits (never blocks
+      // the run). A void return (noop / in-memory) adds nothing.
+      if (p && typeof (p as Promise<void>).then === "function") {
+        this.inflight.push((p as Promise<void>).then(() => {}, () => {}));
+      }
     } catch {
       /* swallow: a broken sink must never break the CLI */
+    }
+  }
+
+  /** Drain the queue AND bound-await the in-flight deliveries, up to `timeoutMs`.
+   *  Call this ONCE at process shutdown (after finish()) so the final POST is not
+   *  abandoned when the CLI calls process.exit() , the drive-exit race that silently
+   *  dropped every run's telemetry. Never throws, never waits longer than the bound;
+   *  a slow/cold endpoint is capped, not blocking. A no-op sink resolves at once. */
+  async flushAndWait(timeoutMs: number): Promise<void> {
+    try {
+      this.flush();
+      if (this.inflight.length === 0) return;
+      const pending = Promise.allSettled(this.inflight.splice(0));
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const capped = new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, Math.max(0, timeoutMs));
+      });
+      await Promise.race([pending.then(() => undefined), capped]);
+      if (timer) clearTimeout(timer);
+    } catch {
+      /* telemetry never throws into the CLI */
     }
   }
 }

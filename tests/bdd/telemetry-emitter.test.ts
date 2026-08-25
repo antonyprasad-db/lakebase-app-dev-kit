@@ -9,12 +9,16 @@ import {
   DEFAULT_ENDPOINT,
   endpointMode,
   httpSink,
+  detachedHttpSink,
   memorySink,
   noopSink,
   resolveSink,
   type TelemetrySink,
 } from "../../consort/telemetry/emitter";
 import type { GateSpan, ResourceAttrs, RunSpan } from "../../consort/telemetry/spans";
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const RESOURCE: ResourceAttrs = {
   schema: "consort/v1",
@@ -205,5 +209,52 @@ describe("shared bearer token (soft secret for a public ingest endpoint)", () =>
     } finally {
       globalThis.fetch = realFetch;
     }
+  });
+});
+
+describe("detachedHttpSink , delivery survives process.exit WITHOUT blocking the drive", () => {
+  it("deliver() spawns a DETACHED, unref'd sender and returns synchronously (never awaited, never blocks)", () => {
+    // The drive-exit-race fix: instead of an in-process fire-and-forget POST that the
+    // CLI's process.exit() tears down (dropping EVERY run's telemetry), the batch is
+    // spooled and handed to a detached background process that outlives the parent.
+    const dir = mkdtempSync(join(tmpdir(), "det-sink-"));
+    try {
+      const calls: Array<{ bin: string; args: string[]; opts: Record<string, unknown> }> = [];
+      let unrefCalls = 0;
+      const fakeSpawn = ((bin: string, args: string[], opts: Record<string, unknown>) => {
+        calls.push({ bin, args, opts });
+        return { unref: () => { unrefCalls += 1; } };
+      }) as unknown as typeof import("node:child_process").spawn;
+      const sink = detachedHttpSink({
+        endpoint: "https://ingest.example/",
+        token: "tok",
+        senderJs: "/kit/dist/bin/consort/telemetry-send.cli.js",
+        spawnFn: fakeSpawn,
+        tmpDir: dir,
+      });
+      const ret = sink.deliver({ schema: "consort/v1", resource: RESOURCE, spans: [rootSpan()] });
+      expect(ret).toBeUndefined(); // returns void immediately , no promise, no await, no block
+      expect(calls).toHaveLength(1);
+      expect(calls[0].bin).toBe(process.execPath); // node
+      expect(calls[0].args[0]).toBe("/kit/dist/bin/consort/telemetry-send.cli.js");
+      expect(calls[0].args[2]).toBe("https://ingest.example/v1/traces"); // trailing slash normalized
+      expect(calls[0].args[3]).toBe("tok");
+      expect(calls[0].opts).toMatchObject({ detached: true, stdio: "ignore" });
+      expect(unrefCalls).toBe(1); // parent must not be kept alive by the child
+      // the batch was spooled to the exact file the sender is told to read
+      const spool = calls[0].args[1];
+      expect(readdirSync(dir)).toContain(spool.split("/").pop());
+      expect(readFileSync(spool, "utf8")).toContain("consort.run");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("never throws even if the spawn itself throws (a failed send is dropped, not surfaced)", () => {
+    const boom = (() => {
+      throw new Error("spawn EACCES");
+    }) as unknown as typeof import("node:child_process").spawn;
+    const sink = detachedHttpSink({ endpoint: "https://x", senderJs: "/s.js", spawnFn: boom });
+    expect(() => sink.deliver({ schema: "consort/v1", resource: RESOURCE, spans: [rootSpan()] })).not.toThrow();
   });
 });

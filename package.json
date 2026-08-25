@@ -111,6 +111,7 @@
     "consort-spike": "./dist/bin/consort/spike.cli.js",
     "consort-sync-backlog": "./dist/bin/consort/sync-backlog.cli.js",
     "consort-telemetry": "./dist/bin/consort/telemetry.cli.js",
+    "consort-telemetry-send": "./dist/bin/consort/telemetry-send.cli.js",
     "consort-test-list": "./dist/bin/consort/test-list.cli.js",
     "consort-timing": "./dist/bin/consort/timing-report.cli.js",
     "lakebase-adopt-consort": "./dist/bin/lakebase/adopt-consort.cli.js",
