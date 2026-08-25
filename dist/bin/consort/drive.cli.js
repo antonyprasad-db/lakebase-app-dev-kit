@@ -14623,6 +14623,15 @@ function deriveSprintPlanningState(consortDir, sprint, opts = {}) {
     buildActive: null
   };
 }
+function shippedBecauseLaterFeatureClaimed(featureId, claimedFeatureId, backlogIds) {
+  const norm = (s) => s.trim().toLowerCase();
+  if (!claimedFeatureId || !featureId) return false;
+  if (norm(claimedFeatureId) === norm(featureId)) return false;
+  const idx = backlogIds.findIndex((id) => norm(id) === norm(featureId));
+  const claimedIdx = backlogIds.findIndex((id) => norm(id) === norm(claimedFeatureId));
+  if (idx < 0 || claimedIdx < 0) return false;
+  return claimedIdx > idx;
+}
 async function runSprint(effects) {
   const planning = await effects.drivePlanning();
   if (planning.escalated) return { features: [], escalated: true, escalation: planning.escalation };
@@ -15822,7 +15831,10 @@ Place each under the project's \`.consort/\`; I will read them as the proposal +
     async isFeatureShipped(featureId) {
       try {
         const { action } = await planNextAction(buildCfg(args, featureId));
-        return action.kind === "done";
+        if (action.kind === "done") return true;
+        const scm = readWorkflowState3(projectDir);
+        const backlog = backlogFeatureIds(readBacklog(consortDir, sprint));
+        return shippedBecauseLaterFeatureClaimed(featureId, scm?.feature_id, backlog);
       } catch {
         return false;
       }
