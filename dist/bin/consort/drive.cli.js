@@ -14529,13 +14529,16 @@ function buildNextSnapshot(scope, state, ctx, transition = nextTransition) {
     blockers: blockersOf(state)
   };
   const primary = { kind: action.kind, describe: describeAction(action, { featureId: ctx.featureId }) };
+  const options = buildNextOptions(action, ctx);
+  const awaiting_human = options.some((o) => o.kind === "gate" || o.kind === "action" && o.id !== "resume");
   return {
     scope,
     ...ctx.featureId ? { feature: ctx.featureId } : {},
     ...ctx.sprint ? { sprint: ctx.sprint } : {},
     state: nextState,
     primary_action: primary,
-    options: buildNextOptions(action, ctx),
+    options,
+    awaiting_human,
     summary: summarize(scope, action, nextState, ctx),
     authoritative_playbook_version: ctx.version ?? "unknown",
     generated_at: ctx.now ?? (/* @__PURE__ */ new Date()).toISOString()
