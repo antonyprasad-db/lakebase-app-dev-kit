@@ -15,7 +15,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { spawn } from "node:child_process";
 import { createMonitorController } from "../../consort/orchestrator/turns/turn-monitor";
-import { defaultTurnMonitor, recordAgentTranscript, peekLastAgentTranscript, takeLastAgentTranscript } from "../../consort/orchestrator/drive/claude-runner";
+import { defaultTurnMonitor, recordAgentTranscript, peekLastAgentTranscript, takeLastAgentTranscript, recordTurnMeta, peekLastTurnMeta, takeLastTurnMeta, type TurnMeta } from "../../consort/orchestrator/drive/claude-runner";
 import { assistantTextFromLine, assistantEventSummary } from "../../consort/session/claude-usage";
 
 describe("claude-runner stall wiring", () => {
@@ -128,5 +128,44 @@ describe("agent transcript capture is concurrency-safe (peek BY cwd, no cross-ca
     expect(peekLastAgentTranscript("/wt/x")).toBeUndefined(); // cleared
     expect(peekLastAgentTranscript("/wt/y")?.prompt).toBe("Y"); // sibling untouched
     takeLastAgentTranscript("/wt/y");
+  });
+});
+
+describe("per-turn meta seam (recordTurnMeta / takeLastTurnMeta) , the telemetry turn-span source", () => {
+  // The runner records model/effort/retryCount/usage per turn AFTER its retry loop settles; the
+  // telemetry decorator TAKEs it when building the consort.turn span. Same crosstalk-safe mechanism
+  // as the transcript/usage seams: the serial drive uses the no-arg global, a concurrent sweep its cwd.
+  const meta = (over: Partial<TurnMeta> = {}): TurnMeta => ({
+    role: "driver",
+    model: "claude-opus-4-8",
+    effort: "high",
+    retryCount: 0,
+    usage: { inputTokens: 1234, outputTokens: 567 },
+    ...over,
+  });
+
+  it("round-trips a recorded meta on the serial global and TAKE clears it", () => {
+    recordTurnMeta("/proj", meta({ role: "navigator", retryCount: 2 }));
+    expect(peekLastTurnMeta()?.role).toBe("navigator"); // peek does not clear
+    const taken = takeLastTurnMeta();
+    expect(taken?.role).toBe("navigator");
+    expect(taken?.model).toBe("claude-opus-4-8");
+    expect(taken?.effort).toBe("high");
+    expect(taken?.retryCount).toBe(2);
+    expect(taken?.usage?.inputTokens).toBe(1234);
+    // take-clears: a following action (e.g. a gate) that records NO meta must not inherit this one.
+    expect(peekLastTurnMeta()).toBeUndefined();
+    expect(takeLastTurnMeta()).toBeUndefined();
+  });
+
+  it("peek/take BY cwd return THAT worktree's meta even after a sibling records later (no crosstalk)", () => {
+    recordTurnMeta("/wt/a", meta({ role: "driver" }));
+    recordTurnMeta("/wt/b", meta({ role: "navigator" })); // sibling flushes AFTER a
+    expect(peekLastTurnMeta("/wt/a")?.role).toBe("driver"); // NOT clobbered by b
+    expect(peekLastTurnMeta("/wt/b")?.role).toBe("navigator");
+    expect(takeLastTurnMeta("/wt/a")?.role).toBe("driver");
+    expect(peekLastTurnMeta("/wt/a")).toBeUndefined(); // cleared
+    expect(peekLastTurnMeta("/wt/b")?.role).toBe("navigator"); // sibling untouched
+    takeLastTurnMeta("/wt/b");
   });
 });

@@ -261,6 +261,50 @@ export function recordAgentUsage(cwd: string, usage: TurnUsage): void {
   lastAgentUsageByCwd.set(cwd, usage);
 }
 
+/** Per-turn EXECUTION metadata for the telemetry decorator: the model + reasoning-effort the turn
+ *  actually ran with, how many times it was retried (context-overflow + transient budgets combined),
+ *  and the turn's usage (tokens). Distinct from TurnUsage (which is parsed from the CLI result event):
+ *  model/effort/retryCount are runner-side knobs not present in that event. Recorded by the runner AFTER
+ *  a turn's retry loop settles; TAKEn by the telemetry decorator (with-telemetry) when it builds the
+ *  per-turn span. Best-effort observability, never load-bearing. */
+export interface TurnMeta {
+  role?: string;
+  /** The exact model id the turn ran on (e.g. an "opus"/"sonnet" family id); bucketed at the span. */
+  model?: string;
+  /** The reasoning-effort lever the turn ran with ("" / undefined when none was passed). */
+  effort?: string;
+  /** Combined retry count for the turn (context-overflow retries + transient retries). 0 = clean. */
+  retryCount?: number;
+  usage?: TurnUsage;
+}
+// Per-cwd last-turn META, the SAME crosstalk-safe mechanism as the transcript + usage: a concurrent
+// sweep TAKEs its OWN worktree's turn meta, never a sibling's. The serial drive uses the no-arg global.
+let lastTurnMeta: TurnMeta | undefined;
+const lastTurnMetaByCwd = new Map<string, TurnMeta>();
+/** TAKE (read + clear) the last turn's meta. Mirrors takeLastAgentTranscript: the telemetry decorator is
+ *  the SOLE per-turn consumer, so take-clears prevents a stale meta leaking onto the NEXT turn's span (a
+ *  gate action between two role turns records no meta; without the clear it would inherit the prior
+ *  turn's model/effort). Pass `cwd` for the concurrency-safe per-worktree read; omit for the serial drive. */
+export function takeLastTurnMeta(cwd?: string): TurnMeta | undefined {
+  if (cwd !== undefined) {
+    const m = lastTurnMetaByCwd.get(cwd);
+    lastTurnMetaByCwd.delete(cwd);
+    return m;
+  }
+  const m = lastTurnMeta;
+  lastTurnMeta = undefined;
+  return m;
+}
+/** PEEK the last turn's meta WITHOUT clearing (parity with peekLastAgentTranscript / peekLastAgentUsage). */
+export function peekLastTurnMeta(cwd?: string): TurnMeta | undefined {
+  return cwd !== undefined ? lastTurnMetaByCwd.get(cwd) : lastTurnMeta;
+}
+/** Record a turn's meta as both the global last AND the per-cwd entry (mirrors recordAgentUsage). */
+export function recordTurnMeta(cwd: string, meta: TurnMeta): void {
+  lastTurnMeta = meta;
+  lastTurnMetaByCwd.set(cwd, meta);
+}
+
 /** Build the default per-turn monitor from the module timeout constants. A turn with
  *  neither an inactivity nor a heartbeat window returns undefined (a byte-identical
  *  no-op controller). Exposed as its own function so tests can assert the mapping and
@@ -756,6 +800,18 @@ export function execRunner(cfg: DriveEffectsConfig): CommandRunner {
             throw e;
           }
         }
+        // Record this turn's execution meta for the telemetry decorator to read when it builds the
+        // per-turn span: the model + effort it ACTUALLY ran with, the combined retry count (both
+        // budgets), and the usage. Recorded on the SAME cwd the turn spawned under (crosstalk-safe),
+        // unconditionally (model/effort/retry are worth capturing even when usage parsing yielded
+        // nothing). Best-effort observability; a plain assignment that never throws.
+        recordTurnMeta(cfg.projectDir, {
+          role: cmd.role,
+          model: cmd.model,
+          effort: cmd.effort,
+          retryCount: overflowRetries + transientRetries,
+          usage,
+        });
         // Log the turn's CONTEXT SIZE + usage right after it returns (role + model
         // + effort after role; the token counts in metadata). Best-effort: never
         // let a logging hiccup break the turn.
