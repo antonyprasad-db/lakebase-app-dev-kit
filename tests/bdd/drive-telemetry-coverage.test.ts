@@ -63,4 +63,15 @@ describe("drive.cli telemetry coverage , every drive loop is telemetry-wrapped",
     expect(spike).toMatch(/beginTelemetryRun\(\s*\{\s*command:\s*["']spike["']/);
     expect(spike).toMatch(/\.finish\(/);
   });
+
+  it("a plain --feature run derives its command from the feature phase, not a hardcoded 'build'", () => {
+    // /design, /build, /deploy ALL invoke `consort-drive --feature` with no phase flag,
+    // so the run's telemetry command must come from the feature's phase
+    // (commandForFeaturePhase), else design + deploy drives mislabel as "build" and a
+    // dashboard cannot tell them apart. Guards against reverting to the hardcoded default.
+    expect(SRC).toMatch(/commandForFeaturePhase\(/);
+    expect(SRC).toMatch(/command:\s*bound\s*\?\?\s*featureDriveCommand\(\)/);
+    // the old hardcoded fallback must be gone
+    expect(SRC).not.toMatch(/command:\s*bound\s*\?\?\s*["']build["']/);
+  });
 });

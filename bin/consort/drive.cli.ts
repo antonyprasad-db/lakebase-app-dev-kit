@@ -83,6 +83,8 @@ import {
   CliEffectError,
 } from "../../consort/orchestrator/drive/claude-runner.js";
 import { beginTelemetryRun, withTelemetry } from "../../consort/telemetry/with-telemetry.js";
+import { commandForFeaturePhase, type TelemetryCommand } from "../../consort/telemetry/allowlist.js";
+import { deriveFeaturePhase, summarizeStories } from "../../consort/orchestrator/status/feature-status.js";
 
 
 function parseArgs(argv: string[]): ParsedArgs {
@@ -1212,10 +1214,20 @@ async function main(): Promise<number> {
   // consent passes (persisted-enabled + interactive TTY + not CI/
   // CONSORT_TELEMETRY=0), and even then nothing leaves the machine until a
   // maintainer arms a real endpoint (the sink defaults to a local no-op). The
-  // decorator never throws into the driver and never blocks it. `command` maps a
-  // Tier-2 bound to its slash command; a full feature run reports "build".
+  // decorator never throws into the driver and never blocks it. `command`: an
+  // explicit Tier-2 bound (--plan-only / --only) maps to its slash command; a plain
+  // --feature drive (what /design, /build, /deploy all invoke, no phase flag) DERIVES
+  // its command from the feature's phase on disk, so a design or deploy drive no longer
+  // mislabels as "build". Best-effort , any read failure falls back to "build".
+  const featureDriveCommand = (): TelemetryCommand => {
+    try {
+      return commandForFeaturePhase(deriveFeaturePhase(summarizeStories(cfg.consortDir, cfg.featureId)));
+    } catch {
+      return "build";
+    }
+  };
   const telemetry = beginTelemetryRun({
-    command: bound ?? "build",
+    command: bound ?? featureDriveCommand(),
     onNotice: (m) => process.stderr.write(m),
   });
   let result: RunDriverResult | undefined;

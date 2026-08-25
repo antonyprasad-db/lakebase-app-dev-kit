@@ -34,6 +34,8 @@ import {
   SHELL_VALUES,
   TOKEN_BUCKET_VALUES,
   TURN_SPAN_FIELDS,
+  COMMANDS,
+  commandForFeaturePhase,
   pickAllowed,
 } from "../../consort/telemetry/allowlist";
 import { buildResourceAttrs } from "../../consort/telemetry/resource";
@@ -234,5 +236,22 @@ describe("telemetry allowlist reachability (no unlisted / no silent field)", () 
     expect(EFFORT_VALUES).toContain("unknown");
     expect(TOKEN_BUCKET_VALUES.length).toBeGreaterThan(0);
     expect(FAIL_CLASSES).toContain("other"); // an uncategorized failure signature
+  });
+});
+
+describe("commandForFeaturePhase: a plain --feature drive labels by the feature's phase", () => {
+  it("maps each derived phase to its command (complete => deploy)", () => {
+    // deriveFeaturePhase returns "design" | "build" | "complete" | null.
+    expect(commandForFeaturePhase("design")).toBe("design");
+    expect(commandForFeaturePhase("build")).toBe("build");
+    expect(commandForFeaturePhase("complete")).toBe("deploy"); // a fully-accepted feature drive deploys
+  });
+  it("falls back to 'build' for null/unknown, and every result is a valid COMMAND", () => {
+    for (const p of [null, undefined, "designing", "", "weird"] as (string | null | undefined)[]) {
+      expect(commandForFeaturePhase(p)).toBe("build");
+    }
+    for (const p of ["design", "build", "complete", null]) {
+      expect(COMMANDS).toContain(commandForFeaturePhase(p));
+    }
   });
 });

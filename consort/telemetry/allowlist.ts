@@ -147,6 +147,28 @@ export type GateOutcome = (typeof GATE_OUTCOMES)[number];
 export const COMMANDS = ["sprint", "plan", "design", "build", "deploy", "spike"] as const;
 export type TelemetryCommand = (typeof COMMANDS)[number];
 
+/** Map a feature's DERIVED phase (from `deriveFeaturePhase`: `"design"` | `"build"` |
+ *  `"complete"` | null) to the telemetry command for a plain, unbounded `--feature`
+ *  drive. `/design`, `/build`, and `/deploy` ALL invoke `consort-drive --feature <F>`
+ *  with no phase flag (the drive derives the phase from disk), so the run's command must
+ *  come from the feature's phase, not a hardcoded default , else a design or deploy drive
+ *  mislabels as `build` and a dashboard cannot tell them apart. A fully-accepted
+ *  (`"complete"`) feature drive runs the deploy phase, so it maps to `deploy`. An
+ *  explicit bound (`--plan-only` / `--only`) still wins upstream; this is only the
+ *  fallback when no bound is set. null/unknown falls back to `build` (the safe default). */
+export function commandForFeaturePhase(phase: string | null | undefined): TelemetryCommand {
+  switch (phase) {
+    case "design":
+      return "design";
+    case "build":
+      return "build";
+    case "complete":
+      return "deploy";
+    default:
+      return "build";
+  }
+}
+
 // ── Closed enums the LEVEL-2 constrained fields draw from ───────────
 //
 // The role ensemble (matches the `role` literals in the WorkflowAction union:
