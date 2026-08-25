@@ -905,13 +905,27 @@ async function runSprintMode(args: ParsedArgs): Promise<number> {
       !!consortEnv("REPLAY_DIR") || !!consortEnv("REPLAY_BUILD_DIR") || !!consortEnv("RECORD_BUILD_DIR") || !!consortEnv("RECORD_DIR");
     if (!recordingOrReplaying) {
       try {
-        const snap = buildNextSnapshot(
-          "sprint",
-          deriveSprintPlanningState(consortDir, sprint, { skipSizing }),
-          { sprint, version: kitVersion() },
-        );
-        fs.mkdirSync(consortDir, { recursive: true });
-        fs.writeFileSync(path.join(consortDir, "next.json"), JSON.stringify(snap, null, 2) + "\n", "utf8");
+        // Scope the snapshot to WHERE the drive actually is. Once a feature is claimed
+        // (SCM feature_id set), the sprint is executing THAT feature's lane, so a
+        // planning-scoped snapshot would mis-describe it , it can't see the feature's
+        // spec/accept gates, so its `awaiting_human` reads false at a real feature gate
+        // and a consumer keying on next.json would miss it. Emit the FEATURE-scoped
+        // snapshot then (reusing the exact feature-path writer), and the planning snapshot
+        // only while no feature is claimed (true planning scope). Purely changes next.json
+        // CONTENT , an advisory artifact the drive never reads back , so no run/telemetry
+        // side effect.
+        const claimed = readWorkflowState(projectDir)?.feature_id?.trim();
+        if (claimed) {
+          emitNextJson(consortDir, claimed, projectDir, { version: kitVersion() });
+        } else {
+          const snap = buildNextSnapshot(
+            "sprint",
+            deriveSprintPlanningState(consortDir, sprint, { skipSizing }),
+            { sprint, version: kitVersion() },
+          );
+          fs.mkdirSync(consortDir, { recursive: true });
+          fs.writeFileSync(path.join(consortDir, "next.json"), JSON.stringify(snap, null, 2) + "\n", "utf8");
+        }
       } catch {
         /* best-effort: next.json is advisory; never let it fail the run */
       }

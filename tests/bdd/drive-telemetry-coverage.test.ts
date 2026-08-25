@@ -44,6 +44,11 @@ describe("drive.cli telemetry coverage , every drive loop is telemetry-wrapped",
     const sprintBody = SRC.slice(SRC.indexOf("async function runSprintMode"), SRC.indexOf("function effectiveGates"));
     expect(sprintBody).toMatch(/buildNextSnapshot\(\s*["']sprint["']/);
     expect(sprintBody).toMatch(/next\.json/);
+    // Scope-correctness: when a feature is CLAIMED, the sprint stop must emit the
+    // FEATURE-scoped snapshot (else next.json mis-describes the feature's lane and
+    // misses its spec/accept gates). Guarded so it can't regress to planning-only.
+    expect(sprintBody).toMatch(/readWorkflowState\([^)]*\)\??\.feature_id/);
+    expect(sprintBody).toMatch(/emitNextJson\(/);
   });
 
   it("consort-spike (a non-drive command) also begins telemetry , every command emits", () => {
