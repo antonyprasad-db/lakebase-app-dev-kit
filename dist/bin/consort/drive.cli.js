@@ -15855,6 +15855,7 @@ Place each under the project's \`.consort/\`; I will read them as the proposal +
       outcome: { validated: submitted.length > 0 }
     });
   }
+  const telemetry = beginTelemetryRun({ command: "build", onNotice: (m) => process.stderr.write(m) });
   const effects = {
     async drivePlanning() {
       const cfg = buildCfg(args, "");
@@ -15868,7 +15869,7 @@ Place each under the project's \`.consort/\`; I will read them as the proposal +
         readState: async () => deriveSprintPlanningState(consortDir, sprint, { skipSizing })
       };
       const base = driverBoundOptions("plan");
-      const r = await runDriver(withTurnRecording(planning, cfg), {
+      const r = await runDriver(withTelemetry(withTurnRecording(planning, cfg), telemetry), {
         ...base,
         stopWhen: gatedStopWhen(base.stopWhen, interactive)
       });
@@ -15904,7 +15905,7 @@ Place each under the project's \`.consort/\`; I will read them as the proposal +
       resetStaleTerminalPhase(cfg.consortDir);
       cfg.runner = execRunner(cfg);
       snapshotRunConfig(cfg, "full", gates);
-      const r = await runDriver(withTurnRecording(withBuildRecording(buildDriveEffects(cfg), cfg), cfg), {
+      const r = await runDriver(withTelemetry(withTurnRecording(withBuildRecording(buildDriveEffects(cfg), cfg), cfg), telemetry), {
         stopWhen: gatedStopWhen(void 0, interactive)
       });
       return stepResultOf(r);
@@ -15914,18 +15915,55 @@ Place each under the project's \`.consort/\`; I will read them as the proposal +
     onSkip: (f, i) => process.stderr.write(`[sprint] feature ${i + 1}: ${f} , already shipped, skipping
 `)
   };
-  if (args.planOnly) {
+  const runBody = async () => {
+    if (args.planOnly) {
+      try {
+        const planning = await effects.drivePlanning();
+        if (planning.pendingGate) {
+          reportGate(planning.pendingGate, { sprint });
+          return 0;
+        }
+        if (planning.pendingInput) {
+          reportInput(planning.pendingInput, sprint, consortDir);
+          return 2;
+        }
+        process.stderr.write(`[plan] ${sprint} planning complete (plan gate approved)
+`);
+        return 0;
+      } catch (err) {
+        process.stderr.write(`${err instanceof Error ? err.message : String(err)}
+`);
+        return 1;
+      }
+    }
     try {
-      const planning = await effects.drivePlanning();
-      if (planning.pendingGate) {
-        reportGate(planning.pendingGate, { sprint });
+      const result = await runSprint(effects);
+      if (result.escalated) {
+        const e = result.escalation;
+        const on = result.pendingFeature ? ` on ${result.pendingFeature}` : "";
+        process.stderr.write(
+          `[sprint] RAISED TO HIL${on} , halting sprint ${sprint}.
+` + (e?.source ? `        source: ${e.source}
+` : "") + (e?.reason ? `        reason: ${e.reason}
+` : "") + `        recorded under ${path12.basename(consortDir)}/escalations/ ; once the root cause is fixed, clear it with \`consort-resolve-escalation\` (keeps the record , do NOT rm it), then re-run to resume.
+        To troubleshoot or share the failure, bundle the local forensics: consort-diagnose
+`
+        );
+        return 3;
+      }
+      if (result.pendingGate) {
+        if (result.pendingFeature) process.stderr.write(`[sprint] paused on ${result.pendingFeature}
+`);
+        reportGate(result.pendingGate, { sprint, featureId: result.pendingFeature });
         return 0;
       }
-      if (planning.pendingInput) {
-        reportInput(planning.pendingInput, sprint, consortDir);
+      if (result.pendingInput) {
+        if (result.pendingFeature) process.stderr.write(`[sprint] paused on ${result.pendingFeature}
+`);
+        reportInput(result.pendingInput, sprint, consortDir);
         return 2;
       }
-      process.stderr.write(`[plan] ${sprint} planning complete (plan gate approved)
+      process.stderr.write(`[sprint] ${sprint} complete: ${result.features.length} feature(s)
 `);
       return 0;
     } catch (err) {
@@ -15933,42 +15971,31 @@ Place each under the project's \`.consort/\`; I will read them as the proposal +
 `);
       return 1;
     }
-  }
+  };
+  let code = 1;
   try {
-    const result = await runSprint(effects);
-    if (result.escalated) {
-      const e = result.escalation;
-      const on = result.pendingFeature ? ` on ${result.pendingFeature}` : "";
-      process.stderr.write(
-        `[sprint] RAISED TO HIL${on} , halting sprint ${sprint}.
-` + (e?.source ? `        source: ${e.source}
-` : "") + (e?.reason ? `        reason: ${e.reason}
-` : "") + `        recorded under ${path12.basename(consortDir)}/escalations/ ; once the root cause is fixed, clear it with \`consort-resolve-escalation\` (keeps the record , do NOT rm it), then re-run to resume.
-        To troubleshoot or share the failure, bundle the local forensics: consort-diagnose
-`
-      );
-      return 3;
+    code = await runBody();
+  } finally {
+    const outcome = code === 3 ? "aborted" : code === 1 ? "error" : "completed";
+    try {
+      telemetry.finish({ outcome, exit_code: code });
+    } catch {
     }
-    if (result.pendingGate) {
-      if (result.pendingFeature) process.stderr.write(`[sprint] paused on ${result.pendingFeature}
-`);
-      reportGate(result.pendingGate, { sprint, featureId: result.pendingFeature });
-      return 0;
+    const recordingOrReplaying = !!consortEnv("REPLAY_DIR") || !!consortEnv("REPLAY_BUILD_DIR") || !!consortEnv("RECORD_BUILD_DIR") || !!consortEnv("RECORD_DIR");
+    if (!recordingOrReplaying) {
+      try {
+        const snap = buildNextSnapshot(
+          "sprint",
+          deriveSprintPlanningState(consortDir, sprint, { skipSizing }),
+          { sprint, version: kitVersion2() }
+        );
+        fs20.mkdirSync(consortDir, { recursive: true });
+        fs20.writeFileSync(path12.join(consortDir, "next.json"), JSON.stringify(snap, null, 2) + "\n", "utf8");
+      } catch {
+      }
     }
-    if (result.pendingInput) {
-      if (result.pendingFeature) process.stderr.write(`[sprint] paused on ${result.pendingFeature}
-`);
-      reportInput(result.pendingInput, sprint, consortDir);
-      return 2;
-    }
-    process.stderr.write(`[sprint] ${sprint} complete: ${result.features.length} feature(s)
-`);
-    return 0;
-  } catch (err) {
-    process.stderr.write(`${err instanceof Error ? err.message : String(err)}
-`);
-    return 1;
   }
+  return code;
 }
 function effectiveGates(args, projectDir) {
   const flag = args.gates;
