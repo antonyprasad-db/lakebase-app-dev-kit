@@ -41,6 +41,8 @@ import {
 } from "./home-config.js";
 import { buildResourceAttrs, type ResourceDeps } from "./resource.js";
 import { newSpanId, newTraceId, type GateSpan, type RunSpan, type TurnSpan } from "./spans.js";
+import { takeLastTurnMeta } from "../orchestrator/drive/claude-runner.js";
+import { turnSpanFieldsFromMeta } from "./turn-meta.js";
 
 /** The one-time first-run notice (stderr). Pseudonymous, armed by default. */
 export const FIRST_RUN_NOTICE =
@@ -225,9 +227,11 @@ function beginTelemetryRunUnsafe(deps: BeginRunDeps): TelemetryRun {
     gates += 1;
 
     // Level-2 (opt-in) only: tally coarse dynamics and, for a role invocation,
-    // emit a `consort.turn` span (role + timing). model / effort / token_bucket /
-    // retry_count are NOT available at this seam, so they are simply omitted , the
-    // sanitizer keeps only allowlisted keys either way.
+    // emit a `consort.turn` span (role + timing + the coarse model/effort the turn
+    // ran with). The runner records that meta after the turn's retry loop settles;
+    // we TAKE it here (single per-turn consumer, take-clears so a gate action between
+    // two role turns can't inherit a stale model/effort). All fields it yields are
+    // closed-enum buckets , the sanitizer keeps only allowlisted keys either way.
     if (l2) {
       tallyL2(action);
       if (action.kind === "invoke-role" && isKnownRole(action.role)) {
@@ -238,6 +242,7 @@ function beginTelemetryRunUnsafe(deps: BeginRunDeps): TelemetryRun {
           name: TURN_SPAN_NAME,
           role: action.role,
           duration_ms: end - start,
+          ...turnSpanFieldsFromMeta(takeLastTurnMeta()),
         };
         emitter.enqueue(turn);
       }

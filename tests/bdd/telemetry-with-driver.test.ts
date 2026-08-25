@@ -13,6 +13,7 @@ import { beginTelemetryRun, type BeginRunDeps, type TelemetryRun } from "../../c
 import { memorySink, type MemorySink } from "../../consort/telemetry/emitter";
 import { isRunSpan, isTurnSpan, type GateSpan, type RunSpan, type TurnSpan } from "../../consort/telemetry/spans";
 import { ROLE_VALUES } from "../../consort/telemetry/allowlist";
+import { recordTurnMeta } from "../../consort/orchestrator/drive/claude-runner";
 
 /** A scripted DriveEffects that performs `actions` in order then reaches `done`.
  *  `transition` ignores state; `perform` advances a cursor (optionally throwing). */
@@ -334,6 +335,45 @@ describe("withTelemetry over the driver loop", () => {
     // Coarse project shape from the last state the driver observed.
     expect(root.story_count).toBe(2);
     expect(root.ui_track).toBe(true);
+  });
+
+  it("Level 2 turn spans carry the coarse model + effort the runner recorded (A2)", async () => {
+    // The runner records per-turn meta (model/effort/retry/usage) after its retry loop
+    // settles; the decorator TAKEs it when building the turn span. Here `perform` stands
+    // in for the runner, recording a distinct meta per role turn; a gate action records
+    // NONE, proving take-clears (no stale model/effort leaks onto the next turn).
+    const META: Record<string, { model: string; effort: string }> = {
+      navigator: { model: "system.ai.claude-opus-4-8[1m]", effort: "high" },
+      driver: { model: "claude-sonnet-5", effort: "low" },
+    };
+    const actions: WorkflowAction[] = [
+      { kind: "invoke-role", role: "navigator", story: "S1" },
+      { kind: "approve-gate", story: "S1" } as WorkflowAction, // a gate: no turn meta recorded
+      { kind: "invoke-role", role: "driver", story: "S1" },
+    ];
+    const sink = memorySink();
+    const run = beginTelemetryRun({ ...CONSENTING(home, sink), level: 2 });
+    let i = 0;
+    const effects: DriveEffects = {
+      async readState() {
+        return {} as DriveState;
+      },
+      async perform(action) {
+        // Mimic the runner: a role turn records its meta on the serial global.
+        if (action.kind === "invoke-role" && META[action.role]) {
+          recordTurnMeta("/proj", { role: action.role, ...META[action.role], retryCount: 0 });
+        }
+      },
+    };
+    const transition = (): WorkflowAction => (i < actions.length ? actions[i++] : { kind: "done" });
+    await runDriver(run.wrap(effects), { transition, enforceExpectations: false });
+    run.finish({ outcome: "completed", exit_code: 0 });
+
+    const turns = sink.payloads[0].spans.filter(isTurnSpan) as TurnSpan[];
+    expect(turns.map((t) => t.role)).toEqual(["navigator", "driver"]);
+    // Each turn carries the coarse bucket of ITS OWN recorded meta (not a sibling's).
+    expect(turns[0]).toMatchObject({ role: "navigator", model: "opus", effort: "high" });
+    expect(turns[1]).toMatchObject({ role: "driver", model: "sonnet", effort: "low" });
   });
 
   it("Level 1 (default) emits NO turn spans and NO L2 fields on the root", async () => {
