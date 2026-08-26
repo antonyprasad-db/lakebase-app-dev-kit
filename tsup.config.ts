@@ -25,6 +25,7 @@ export default defineConfig({
     "bin/consort/feature-status.cli": "bin/consort/feature-status.cli.ts",
     "bin/consort/next.cli": "bin/consort/next.cli.ts",
     "bin/consort/watch.cli": "bin/consort/watch.cli.ts",
+    "bin/consort/upgrade.cli": "bin/consort/upgrade.cli.ts",
     "bin/consort/diagnose.cli": "bin/consort/diagnose.cli.ts",
     "bin/consort/resolve-escalation.cli": "bin/consort/resolve-escalation.cli.ts",
     "bin/consort/open.cli": "bin/consort/open.cli.ts",

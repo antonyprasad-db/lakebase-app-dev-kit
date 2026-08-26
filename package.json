@@ -102,6 +102,7 @@
     "consort-log": "./dist/bin/consort/agent-log.cli.js",
     "consort-next": "./dist/bin/consort/next.cli.js",
     "consort-watch": "./dist/bin/consort/watch.cli.js",
+    "consort-upgrade": "./dist/bin/consort/upgrade.cli.js",
     "consort-diagnose": "./dist/bin/consort/diagnose.cli.js",
     "consort-resolve-escalation": "./dist/bin/consort/resolve-escalation.cli.js",
     "consort-open": "./dist/bin/consort/open.cli.js",

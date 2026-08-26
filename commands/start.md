@@ -86,6 +86,15 @@ Drive the workflow through the **deterministic orchestrator** (`consort-drive`),
 - **Done with a spike?** `./scripts/lk consort-spike delete --slug <slug>` tears down its paired Lakebase + git branch. Notes are KEPT by default (the learning survives); add `--purge-notes` to also remove `.consort/spikes/<slug>/`.
 - **Reclaim a whole project's substrate?** `./scripts/lk lakebase-scm-cleanup list` (see what's there), then `... branches` (delete the ephemeral branches; tiers + trunk protected) or `... project --confirm <id>` (destroy the project). Dry-run unless `--yes`. This is the counterpart to `lakebase-create-project`.
 
+**Upgrading the kit , safe even for a run IN FLIGHT.** A run is a SEQUENCE of drive processes with HITL gates between them, and the kit version is bound at each drive LAUNCH , so upgrade ONLY AT A STOP (a gate/pause), NEVER mid-turn (swapping the kit under a running drive is split-brain within one run). Use the kit-owned command , do NOT hand-edit `.lakebase/kit-ref*` (that is how the committed ref drifts from the run pin and a resume silently runs a stale kit):
+1. **Quiesce** , confirm the drive is stopped at a gate: its pid is gone AND `consort-next` shows `awaiting_human`. If a drive is still running, wait for it to reach the gate.
+2. **Upgrade** , invoke the TARGET version's upgrade (it pins the project to itself, so refreshing from its own files is always correct):
+   `LAKEBASE_KIT_REF=<target> ./scripts/lk --refresh`   then
+   `LAKEBASE_KIT_REF=<target> ./scripts/lk consort-upgrade --pid <the drive pid>`
+   It REFUSES if a drive is still running (or the run is not at a stop); otherwise it dual-pins `.lakebase/kit-ref.local` (the run) + committed `.lakebase/kit-ref` (CI) IN LOCKSTEP (no drift), refreshes the scaffolded surface (agents + commands + scripts + CI workflows; the `scripts/lk` shim + project config are left as-is), records the prior pins for rollback, and prints the resume + rollback commands.
+3. **Resume** , re-run your drive command (`consort-next` gives the exact one). It runs `<target>`, re-derives state from disk, and continues from the gate.
+4. **Rollback** (if a resume misbehaves) , `./scripts/lk consort-upgrade --rollback` then `./scripts/lk --refresh` restores the prior kit. Reversibility + upgrading only at a stop is the safety net: a bad resume fails loud before it can damage the run, and you roll back.
+
 The commands (`/sprint`, `/plan`, `/design`, `/build`, `/deploy`, `/spike`) are scaffolded into the project (version-pinned); you invoke them, you do not reimplement them. You write no spec, code, test, or deploy yourself.
 
 ---
