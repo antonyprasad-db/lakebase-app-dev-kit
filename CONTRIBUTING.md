@@ -230,6 +230,7 @@ The package is consumed via git URL (`github:databricks-solutions/consort#<tag>`
 2. Bump `package.json` version on the current pre-release line (the v0.3.0 line graduated from alpha to beta: `0.3.0-beta.<N+1>`; see `CHANGELOG.md` for the active series). Bump the plugin manifests (`.claude-plugin/plugin.json` + `.cursor-plugin/plugin.json`) to the SAME version , `claude plugin update` compares versions to decide whether to refresh its cache, so a frozen plugin version means content moves but the updater never refreshes. A test (`plugin.test.ts`) fails if they drift.
 3. Tag the bump commit: `git tag v0.3.0-beta.<N> && git push origin v0.3.0-beta.<N>`.
 4. Consumers update their git URL pin to the new tag.
+5. **Refresh the docs Knowledge Assistant** so the `#consort-for-app-dev` auto-answer bot serves the current release: `./scripts/refresh-kb.sh`. It re-uploads the Consort docs (agent + reference docs, commands, `TELEMETRY.md`, `CHANGELOG.md`) to the KA's UC Volume and syncs the Knowledge Assistant , the KA ingests a snapshot, not the git repo, so it goes stale until re-synced. Skipping this only means the bot answers from the previous release's docs.
 
 Tags are append-only by default; only force-move a tag when you've just merged a follow-up that should clearly ship under the same version (rare).
 
