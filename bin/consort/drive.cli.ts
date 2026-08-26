@@ -84,7 +84,7 @@ import {
   CliEffectError,
 } from "../../consort/orchestrator/drive/claude-runner.js";
 import { beginTelemetryRun, withTelemetry } from "../../consort/telemetry/with-telemetry.js";
-import { commandForFeaturePhase, type TelemetryCommand } from "../../consort/telemetry/allowlist.js";
+import { commandForFeaturePhase, outcomeForExit, type TelemetryCommand } from "../../consort/telemetry/allowlist.js";
 import { deriveFeaturePhase, summarizeStories } from "../../consort/orchestrator/status/feature-status.js";
 
 
@@ -899,13 +899,14 @@ async function runSprintMode(args: ParsedArgs): Promise<number> {
 
   // Bracket EVERY sprint exit path in the telemetry run's lifecycle: finish() closes
   // the root span + hands the batch to the detached sender (survives process.exit).
-  // 3 => aborted (escalation), 1 => error (caught), else completed (0 = gate/complete,
-  // 2 = author-requests pause). Never throws into the CLI.
+  // outcome + exit_code BOTH derive from the run's actual exit `code` via outcomeForExit
+  // (0 => completed, 3 => aborted, any other non-zero => error), so an author-requests
+  // pause / empty-backlog failure (exit 2) is recorded as `error`, never `completed`.
   let code = 1;
   try {
     code = await runBody();
   } finally {
-    const outcome = code === 3 ? "aborted" : code === 1 ? "error" : "completed";
+    const outcome = outcomeForExit(code);
     try {
       telemetry.finish({ outcome, exit_code: code });
     } catch {
@@ -1246,7 +1247,11 @@ async function main(): Promise<number> {
     onNotice: (m) => process.stderr.write(m),
   });
   let result: RunDriverResult | undefined;
-  let caught: unknown;
+  // Capture the REAL exit code the drive returns, so telemetry's outcome + exit_code BOTH
+  // derive from it (via outcomeForExit) below , a non-zero exit (a guard / pending-input /
+  // CLI-effect failure: 2 or 3) can never be mis-recorded as a completed run. The IIFE lets
+  // the finish() see the actual returned code instead of re-deriving it and drifting.
+  const exitCode: number = await (async (): Promise<number> => {
   try {
     result = await runDriver(
       withTelemetry(withTurnRecording(withBuildRecording(buildDriveEffects(cfg), cfg), cfg), telemetry),
@@ -1296,7 +1301,6 @@ async function main(): Promise<number> {
     }
     return 0;
   } catch (err) {
-    caught = err;
     // A handoff EXPECTATION violation: a role returned nothing/null for the
     // artifact it owed (or the workflow tried to advance past an unmet handoff).
     // Record an escalation + emit escalation.raised (honor "escalate on any
@@ -1411,34 +1415,33 @@ async function main(): Promise<number> {
         `        To troubleshoot or share the failure, bundle the local forensics: consort-diagnose\n`,
     );
     return 1;
-  } finally {
-    // Close the telemetry root span with a coarse run outcome + exit code (an
-    // error -> error/1, an escalation -> aborted/3, else completed/0). A no-op
-    // when telemetry consent did not pass; never throws into the CLI.
-    const outcome = caught ? "error" : result?.escalated ? "aborted" : "completed";
-    const exitCode = caught ? 1 : result?.escalated ? 3 : 0;
-    try {
-      telemetry.finish({ outcome, exit_code: exitCode });
-    } catch {
-      /* telemetry never affects CLI behavior */
-    }
-    // Auto-emit the authoritative "what next" snapshot to <root>/next.json on
-    // EVERY stop (a gate, an escalation, feature-complete, an error, a killed
-    // run), so an orchestrating agent's contract is "on any stop, read next.json
-    // and present its options" instead of reverse-engineering the next move and
-    // drifting into freeform (FEIP-8017). Feature scope only (the stops that need
-    // it); `consort-next --sprint` answers sprint scope on demand. Skipped
-    // under replay/record so the recorded corpora stay clean; best-effort inside.
-    const recordingOrReplaying =
-      !!consortEnv("REPLAY_DIR") || !!consortEnv("REPLAY_BUILD_DIR") || !!consortEnv("RECORD_BUILD_DIR") || !!consortEnv("RECORD_DIR");
-    if (cfg.featureId && !recordingOrReplaying) {
-      emitNextJson(cfg.consortDir, cfg.featureId, cfg.projectDir, {
-        uiTrack: cfg.uiTrack,
-        version: kitVersion(),
-        ...(cfg.featureBranch ? { featureBranch: cfg.featureBranch } : {}),
-      });
-    }
   }
+  })();
+  // Close the telemetry root span: outcome + exit_code BOTH derive from the ACTUAL exit
+  // code via outcomeForExit (0 => completed, 3 => aborted, any other non-zero => error),
+  // so a guard / pending-input / CLI-effect failure (exit 2 or 3) is never recorded
+  // "completed". A no-op when telemetry consent did not pass; never throws into the CLI.
+  try {
+    telemetry.finish({ outcome: outcomeForExit(exitCode), exit_code: exitCode });
+  } catch {
+    /* telemetry never affects CLI behavior */
+  }
+  // Auto-emit the authoritative "what next" snapshot to <root>/next.json on EVERY stop (a
+  // gate, an escalation, feature-complete, an error, a killed run), so an orchestrating
+  // agent's contract is "on any stop, read next.json and present its options" instead of
+  // reverse-engineering the next move and drifting into freeform (FEIP-8017). Feature scope
+  // only (the stops that need it); `consort-next --sprint` answers sprint scope on demand.
+  // Skipped under replay/record so the recorded corpora stay clean; best-effort inside.
+  const recordingOrReplaying =
+    !!consortEnv("REPLAY_DIR") || !!consortEnv("REPLAY_BUILD_DIR") || !!consortEnv("RECORD_BUILD_DIR") || !!consortEnv("RECORD_DIR");
+  if (cfg.featureId && !recordingOrReplaying) {
+    emitNextJson(cfg.consortDir, cfg.featureId, cfg.projectDir, {
+      uiTrack: cfg.uiTrack,
+      version: kitVersion(),
+      ...(cfg.featureBranch ? { featureBranch: cfg.featureBranch } : {}),
+    });
+  }
+  return exitCode;
 }
 
 // Guard the CLI entry so this module can be imported (by tests + the optimize

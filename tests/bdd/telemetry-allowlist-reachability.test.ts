@@ -36,6 +36,8 @@ import {
   TURN_SPAN_FIELDS,
   COMMANDS,
   commandForFeaturePhase,
+  outcomeForExit,
+  RUN_OUTCOMES,
   pickAllowed,
 } from "../../consort/telemetry/allowlist";
 import { buildResourceAttrs } from "../../consort/telemetry/resource";
@@ -252,6 +254,26 @@ describe("commandForFeaturePhase: a plain --feature drive labels by the feature'
     }
     for (const p of ["design", "build", "complete", null]) {
       expect(COMMANDS).toContain(commandForFeaturePhase(p));
+    }
+  });
+});
+
+describe("outcomeForExit: run outcome derives from the ACTUAL exit code (one source of truth)", () => {
+  it("maps 0 => completed, 3 => aborted, and every OTHER non-zero => error", () => {
+    expect(outcomeForExit(0)).toBe("completed");
+    expect(outcomeForExit(3)).toBe("aborted");
+    expect(outcomeForExit(1)).toBe("error");
+    // The regression: exit 2 (a guard / empty-backlog / pending-input / CLI-effect failure)
+    // must be `error`, NOT `completed` , the ad-hoc `code===3?aborted:code===1?error:completed`
+    // let 2 fall through to `completed`, recording a failed run as a success.
+    expect(outcomeForExit(2)).toBe("error");
+    expect(outcomeForExit(127)).toBe("error");
+  });
+  it("never records a non-zero exit as 'completed', and every result is a valid RUN_OUTCOME", () => {
+    for (let code = 0; code <= 5; code++) {
+      const o = outcomeForExit(code);
+      expect(RUN_OUTCOMES).toContain(o);
+      if (code !== 0) expect(o).not.toBe("completed");
     }
   });
 });

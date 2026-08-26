@@ -135,6 +135,18 @@ export const SHELL_VALUES = ["zsh", "bash", "fish", "powershell", "unknown"] as 
 export type ShellValue = (typeof SHELL_VALUES)[number];
 export const RUN_OUTCOMES = ["completed", "aborted", "error"] as const;
 export type RunOutcome = (typeof RUN_OUTCOMES)[number];
+
+/** Map a drive's ACTUAL process exit code to the run outcome , the SINGLE source of truth
+ *  so `outcome` and `exit_code` can never disagree. `0` => completed; `3` => aborted (a
+ *  HITL escalation); ANY other non-zero (`1` error, `2` a guard / empty-backlog /
+ *  pending-input / CLI-effect failure, …) => error. The prior ad-hoc derivations only
+ *  special-cased 3 and 1, so exit `2` fell through to "completed" , a failed run recorded
+ *  as a success (seen on real installs). A non-zero exit is NEVER "completed". */
+export function outcomeForExit(code: number): RunOutcome {
+  if (code === 0) return "completed";
+  if (code === 3) return "aborted";
+  return "error";
+}
 export const GATE_OUTCOMES = ["pass", "fail", "skip", "abort"] as const;
 export type GateOutcome = (typeof GATE_OUTCOMES)[number];
 // The consort-drive phases. `sprint` is the `/consort:start` umbrella run (planning +
