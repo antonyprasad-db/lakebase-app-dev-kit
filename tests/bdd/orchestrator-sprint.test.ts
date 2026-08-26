@@ -14,6 +14,7 @@ import {
   syncBacklog,
   deriveSprintPlanningState,
   shippedBecauseLaterFeatureClaimed,
+  shippedByClearedClaim,
   type SprintEffects,
 } from "../../consort/intake/orchestrator-sprint";
 import { writeEstimates } from "../../consort/config/consort-paths";
@@ -55,6 +56,24 @@ describe("shippedBecauseLaterFeatureClaimed , the sprint-resume skip fix", () =>
 
   it("matches feature ids case-insensitively (normalized)", () => {
     expect(shippedBecauseLaterFeatureClaimed("f1-stock-visibility", "F2-STOCK-ADJUSTMENT", backlog)).toBe(true);
+  });
+});
+
+describe("shippedByClearedClaim , the last-feature / complete-sprint skip fix", () => {
+  it("is TRUE when the claim is cleared AND the feature is fully complete (shipped)", () => {
+    // The final feature shipped: claim freed at merge, stories all done+accepted.
+    expect(shippedByClearedClaim(undefined, "complete")).toBe(true);
+    expect(shippedByClearedClaim("", "complete")).toBe(true);
+    expect(shippedByClearedClaim("   ", "complete")).toBe(true);
+  });
+  it("is FALSE while a feature still holds the claim (in-flight, not yet merged)", () => {
+    // A feature accepted-but-not-yet-merged still HOLDS the claim; it must not be skipped.
+    expect(shippedByClearedClaim("F2-stock-adjustment", "complete")).toBe(false);
+  });
+  it("is FALSE for a not-complete feature even with the claim cleared (still has design/build work)", () => {
+    expect(shippedByClearedClaim(undefined, "build")).toBe(false);
+    expect(shippedByClearedClaim(undefined, "design")).toBe(false);
+    expect(shippedByClearedClaim(undefined, null)).toBe(false);
   });
 });
 
@@ -226,6 +245,29 @@ describe("runSprint (pure over SprintEffects)", () => {
     expect(result.skipped).toEqual(["F1-a"]);
     // F1 is NOT claimed or driven; F2 runs normally.
     expect(calls).toEqual(["plan", "skip:F1-a", "claim:F2-b", "drive:F2-b"]);
+  });
+
+  it("a fully-shipped sprint (EVERY feature shipped) skips all and reports complete , no re-drive, no error", async () => {
+    // Re-pointing --sprint at a finished sprint: with the claim cleared, isFeatureShipped
+    // returns true for every backlog feature (see shippedByClearedClaim). runSprint must
+    // skip them ALL and return cleanly (no pendingGate/pendingInput/escalation), so the CLI
+    // reports "complete" (exit 0) instead of re-driving a shipped feature and erroring.
+    const calls: string[] = [];
+    const result = await runSprint({
+      async drivePlanning() { calls.push("plan"); return {}; },
+      async readBacklog() { return ["F1-a", "F2-b"]; },
+      async isFeatureShipped() { return true; }, // whole sprint already shipped
+      async claimFeature(f) { calls.push(`claim:${f}`); },
+      async driveFeature(f) { calls.push(`drive:${f}`); return {}; },
+      onSkip: (f) => calls.push(`skip:${f}`),
+    });
+    expect(result.features).toEqual(["F1-a", "F2-b"]);
+    expect(result.skipped).toEqual(["F1-a", "F2-b"]);
+    expect(result.pendingGate).toBeUndefined();
+    expect(result.pendingInput).toBeUndefined();
+    expect(result.escalated).toBeUndefined();
+    // NOTHING claimed or driven , all skipped.
+    expect(calls).toEqual(["plan", "skip:F1-a", "skip:F2-b"]);
   });
 
   it("commits+pushes the authored requests AFTER planning and BEFORE any feature is claimed", async () => {

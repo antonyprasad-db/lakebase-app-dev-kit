@@ -57,6 +57,7 @@ import {
   readSprintBacklog,
   backlogFeatureIds,
   shippedBecauseLaterFeatureClaimed,
+  shippedByClearedClaim,
   syncBacklog,
   deriveSprintPlanningState,
   type SprintEffects,
@@ -708,7 +709,14 @@ async function runSprintMode(args: ParsedArgs): Promise<number> {
   // so drivePlanning + driveFeature (below) can wrap their runDriver with it; finished
   // in the finally at the end. Consent + the detached sink resolve exactly as the
   // feature path (a no-op session when consent fails; never blocks the drive).
-  const telemetry = beginTelemetryRun({ command: "sprint", onNotice: (m) => process.stderr.write(m) });
+  // A `--sprint --plan-only` invocation (the /plan command) enters runSprintMode too but
+  // runs ONLY planning (the runBody planOnly branch below), so it reports `plan`, not
+  // `sprint`. A full `--sprint` (planning + every feature drive) reports `sprint`. Without
+  // this split, /plan collapsed into `sprint` and never appeared as its own command.
+  const telemetry = beginTelemetryRun({
+    command: args.planOnly ? "plan" : "sprint",
+    onNotice: (m) => process.stderr.write(m),
+  });
 
   const effects: SprintEffects = {
     async drivePlanning() {
@@ -786,7 +794,14 @@ async function runSprintMode(args: ParsedArgs): Promise<number> {
         // claim PROVES this one was released at merge (the claim frees only on ship).
         const scm = readWorkflowState(projectDir);
         const backlog = backlogFeatureIds(readSprintBacklog(consortDir, sprint));
-        return shippedBecauseLaterFeatureClaimed(featureId, scm?.feature_id, backlog);
+        if (shippedBecauseLaterFeatureClaimed(featureId, scm?.feature_id, backlog)) return true;
+        // The LAST shipped feature / a fully-complete sprint: the claim is CLEARED (it frees
+        // only at merge) and this feature's stories are all done+accepted, so it deployed +
+        // promoted (shipped). Its own-derive above can't return `done` here , the merge record
+        // lived in the now-cleared claim state , so without this a sprint RE-RUN re-drives the
+        // shipped feature and errors (exit 2) instead of skipping it and reporting the sprint
+        // already complete (exit 0).
+        return shippedByClearedClaim(scm?.feature_id, deriveFeaturePhase(summarizeStories(consortDir, featureId)));
       } catch {
         return false;
       }

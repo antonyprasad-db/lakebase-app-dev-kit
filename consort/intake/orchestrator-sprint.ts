@@ -191,6 +191,31 @@ export function shippedBecauseLaterFeatureClaimed(
 }
 
 /**
+ * Whether `featureId` is provably shipped because the SCM claim is CLEARED (no feature
+ * in-flight) yet this feature's stories are ALL done+accepted (`featurePhase === "complete"`).
+ * The single SCM claim frees ONLY at merge, so a cleared claim proves every feature that was
+ * driven released its claim (== deployed + promoted). A feature that reached "complete" (all
+ * stories accepted) with the claim now clear therefore SHIPPED , you cannot have a
+ * merged/claim-cleared feature that was not deployed, and mid-flight (accepted but not yet
+ * deployed) the claim is still HELD.
+ *
+ * This is the companion to `shippedBecauseLaterFeatureClaimed` for the LAST feature (and thus
+ * the whole sprint): once the FINAL feature ships and the claim clears, no later feature holds
+ * the claim (that heuristic can't fire), and the feature's own promote-derive can no longer
+ * confirm its merge (the merge record lived in the now-cleared claim state), so it derives back
+ * to "needs deploy" and is NOT `done`. Without this, a sprint RE-RUN re-drives the shipped
+ * feature and errors (exit 2) instead of reporting the sprint already complete (exit 0).
+ * Conservative: fires ONLY when the claim is empty AND the phase is exactly "complete".
+ */
+export function shippedByClearedClaim(
+  claimedFeatureId: string | undefined,
+  featurePhase: string | null | undefined,
+): boolean {
+  const cleared = !claimedFeatureId || claimedFeatureId.trim().length === 0;
+  return cleared && featurePhase === "complete";
+}
+
+/**
  * Run a sprint: plan (to the gate) -> for each backlog feature: claim + drive.
  * RESUMABLE: in interactive mode a step halts at a HITL gate (pendingGate); the
  * whole run returns so the session can surface it. The human approves and
