@@ -10,7 +10,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync, appendFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { pollOnce, scanLastStop } from "../../bin/consort/watch.cli";
+import { pollOnce, scanLastStop, readNextStop } from "../../bin/consort/watch.cli";
 
 describe("consort-watch poll-once = live step visibility in the session", () => {
   let dir: string;
@@ -107,5 +107,53 @@ describe("consort-watch poll-once = live step visibility in the session", () => 
     const ended = pollOnce(log, 0, 4242, () => false);
     expect(ended.status).toBe("done");
     expect(ended.pidAlive).toBe(false);
+  });
+});
+
+describe("readNextStop , the authoritative stop signal the persistent monitor keys on", () => {
+  let dir: string;
+  beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "watch-next-")); });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+  const writeNext = (snap: unknown) => writeFileSync(join(dir, "next.json"), JSON.stringify(snap));
+
+  it("reads awaiting_human + the human prompt + the exact enact command off next.json", () => {
+    writeNext({
+      generated_at: "2026-08-26T01:00:00.000Z",
+      awaiting_human: true,
+      summary: "acceptance gate on S1",
+      primary_action: { kind: "accept", story: "S1" },
+      options: [
+        { id: "acceptance.accept", kind: "gate", hil_prompt: "Accept story S1?", enact: { bin: "consort-pipeline", args: ["accept", "--feature", "F1", "--story", "S1"] } },
+        { id: "hold", kind: "noop" },
+      ],
+    });
+    const ns = readNextStop(dir)!;
+    expect(ns.awaiting_human).toBe(true);
+    expect(ns.done).toBe(false);
+    expect(ns.escalated).toBe(false);
+    expect(ns.hil).toBe("Accept story S1?");
+    expect(ns.enact).toBe("consort-pipeline accept --feature F1 --story S1");
+    expect(ns.generated_at).toBe("2026-08-26T01:00:00.000Z");
+  });
+
+  it("classifies done and escalation from primary_action.kind", () => {
+    writeNext({ generated_at: "t1", awaiting_human: false, primary_action: { kind: "done" }, options: [] });
+    expect(readNextStop(dir)).toMatchObject({ done: true, awaiting_human: false });
+    writeNext({ generated_at: "t2", awaiting_human: true, primary_action: { kind: "raise-to-hil" }, summary: "BLOCKED", options: [] });
+    expect(readNextStop(dir)).toMatchObject({ escalated: true, awaiting_human: true });
+  });
+
+  it("an autonomous mid-run snapshot (awaiting_human false, resume) is NOT a stop the monitor surfaces", () => {
+    writeNext({ generated_at: "t3", awaiting_human: false, primary_action: { kind: "invoke-role", role: "driver" }, options: [{ id: "resume" }] });
+    const ns = readNextStop(dir)!;
+    expect(ns.awaiting_human).toBe(false);
+    expect(ns.done).toBe(false);
+    expect(ns.escalated).toBe(false);
+  });
+
+  it("returns null when next.json is absent or malformed (drive not yet stopped)", () => {
+    expect(readNextStop(dir)).toBeNull(); // absent
+    writeFileSync(join(dir, "next.json"), "{not json");
+    expect(readNextStop(dir)).toBeNull(); // malformed
   });
 });

@@ -146,6 +146,75 @@ function emitStop(c: WatchClass, consortDir: string, open: boolean): number {
   return c.outcome === "escalation" ? 3 : 0;
 }
 
+/** The AUTHORITATIVE stop signal: `.consort/next.json`, which the drive writes on EVERY
+ *  stop (a gate, the planning backlog pause, accept/discard/revise, done, or an escalation)
+ *  and NEVER while running. Read directly (no derive) so the persistent monitor can alert
+ *  the INSTANT the drive stops, WITHOUT waiting on a `[drive]` marker the transient
+ *  drive-live.log may never carry , the sit-at-gate bug. `generated_at` is stamped fresh on
+ *  each stop, so a change since the monitor attached means a NEW stop (not the stale prior
+ *  one). `awaiting_human` is the sole human-needed signal (mirrors consort-next). Returns
+ *  null when next.json is absent/unreadable (the drive has not stopped yet). */
+interface NextStop {
+  generated_at: string;
+  awaiting_human: boolean;
+  done: boolean;
+  escalated: boolean;
+  summary: string;
+  hil?: string;
+  enact?: string;
+}
+export function readNextStop(consortDir: string): NextStop | null {
+  try {
+    const s = JSON.parse(fs.readFileSync(path.join(consortDir, "next.json"), "utf8")) as Record<string, unknown>;
+    const primary = s.primary_action as { kind?: string } | undefined;
+    const opts = Array.isArray(s.options) ? (s.options as Array<Record<string, unknown>>) : [];
+    const opt = opts.find((o) => o?.id !== "resume" && o?.id !== "hold" && o?.kind !== "noop");
+    const enactObj = opt?.enact as { bin?: string; args?: string[] } | undefined;
+    const enact = enactObj?.bin ? `${enactObj.bin}${enactObj.args?.length ? " " + enactObj.args.join(" ") : ""}` : undefined;
+    return {
+      generated_at: String(s.generated_at ?? ""),
+      awaiting_human: s.awaiting_human === true,
+      done: primary?.kind === "done",
+      escalated: primary?.kind === "raise-to-hil",
+      summary: String(s.summary ?? ""),
+      hil: typeof opt?.hil_prompt === "string" ? (opt.hil_prompt as string) : undefined,
+      enact,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** True when next.json describes a real STOP the monitor must surface (a human decision,
+ *  a terminal done, or an escalation) , as opposed to a mid-run snapshot. */
+function isNextStop(ns: NextStop | null): ns is NextStop {
+  return !!ns && (ns.awaiting_human || ns.done || ns.escalated);
+}
+
+/** Emit the stop from next.json (the authoritative surface) and return the exit code.
+ *  Used by the persistent monitor so a drive-stop is surfaced the moment next.json changes,
+ *  never contingent on a log marker. Escalation => 3; gate/done => 0. */
+function emitNextStop(ns: NextStop, consortDir: string, open: boolean): number {
+  process.stdout.write(`[consort-watch] DRIVE STOPPED , ${ns.summary || (ns.done ? "run complete" : ns.escalated ? "escalation" : "awaiting a decision")}\n`);
+  if (ns.escalated) {
+    process.stderr.write("consort-watch: the run escalated , `consort-diagnose` bundles the forensics; after fixing the cause, `consort-resolve-escalation` clears it (do NOT rm the record), then re-run.\n");
+    return 3;
+  }
+  if (ns.done) {
+    process.stderr.write("consort-watch: run complete.\n");
+    return 0;
+  }
+  // awaiting_human at a gate / backlog / accept-discard-revise: surface the prompt + the
+  // exact enact command, and open the review artifacts.
+  if (ns.hil) process.stdout.write(`[consort-watch] HUMAN NEEDED: ${ns.hil}${ns.enact ? ` , run: ${ns.enact}` : ""}\n`);
+  if (open) {
+    const res = openArtifactsInEditor(consortDir, currentScope(consortDir));
+    if (res.opened) process.stderr.write(`consort-watch: opened ${res.files.length} artifact(s) for review in ${res.editor}.\n`);
+  }
+  process.stderr.write("consort-watch: control is back with you , run `consort-next` for the exact command, then re-run the drive.\n");
+  return 0;
+}
+
 export type PollStatus = "running" | "gate" | "pause" | "escalation" | "done" | "waiting";
 export interface PollResult {
   /** The lines a human sees this poll, already PREFIX-formatted (role/gate/etc.). */
@@ -274,6 +343,34 @@ async function main(): Promise<number> {
     }
   }
 
+  // Persistent-monitor stop detection , the fix for "sits at a gate for hours". The drive
+  // writes next.json on EVERY stop, so the monitor alerts the INSTANT it stops instead of
+  // waiting on a [drive] log marker the transient log may never carry. `nextBaseline` is the
+  // snapshot present at attach (the drive is running now, so this is the prior/handled stop);
+  // the no-pid fallback fires only on a CHANGE. With --pid (recommended), a dead pid IS the
+  // stop , unambiguous, no staleness. Either way the authoritative STATE comes from next.json.
+  const nextBaseline = readNextStop(consortDir)?.generated_at ?? "";
+  const monitorStopCheck = (): number | null => {
+    const pidGone = args.pid !== undefined && !alive(args.pid);
+    const ns = readNextStop(consortDir);
+    if (pidGone) {
+      if (isNextStop(ns)) return emitNextStop(ns, consortDir, args.open);
+      const last = scanLastStop(logPath);
+      if (last) {
+        process.stdout.write(`${PREFIX[last.kind]} ${last.text}\n`);
+        return emitStop(last, consortDir, args.open);
+      }
+      process.stderr.write(`consort-watch: drive pid ${args.pid} is no longer running and no stop was recorded , run consort-next to check for a crash.\n`);
+      return 3;
+    }
+    // No --pid: a FRESH next.json stop (generated_at changed since attach) means the drive
+    // stopped even though we cannot probe its pid.
+    if (args.pid === undefined && isNextStop(ns) && ns.generated_at !== nextBaseline) {
+      return emitNextStop(ns, consortDir, args.open);
+    }
+    return null;
+  };
+
   for (;;) {
     const size = fs.statSync(logPath).size;
     if (size < offset) offset = 0; // truncated / rotated , restart
@@ -307,10 +404,18 @@ async function main(): Promise<number> {
     // step, a gate, done) and exited BEFORE we started following from EOF. Scan the whole
     // log for the last stop and report the REAL outcome , NOT a false "unclean exit".
     // Only when there is genuinely no stop marker anywhere is it a crash/kill.
-    // SKIPPED in --monitor mode: a persistent monitor spans the drive's turn-by-turn
-    // re-runs, so a dead pid between runs is NORMAL , it keeps following the log (which
-    // the next run truncates + rewrites) and exits ONLY at a real terminal marker above.
-    if (!args.monitor && args.pid && !alive(args.pid) && fs.statSync(logPath).size <= offset) {
+    // Persistent monitor: alert the moment the drive STOPS , keyed on the authoritative
+    // next.json (written on every stop) + the drive pid, NEVER on a [drive] log marker that
+    // the transient log may never carry. This is the fix for the monitor sitting silently at
+    // a gate for hours: previously --monitor skipped the pid-gone check to "span re-runs" and
+    // waited only for a marker, so a marker-less drive-exit (a plan gate that wrote next.json
+    // but no [drive] stop line) left it polling forever.
+    if (args.monitor) {
+      const code = monitorStopCheck();
+      if (code !== null) return code;
+    } else if (args.pid && !alive(args.pid) && fs.statSync(logPath).size <= offset) {
+      // Non-monitor follow: the drive is gone + nothing more to read. Report the last
+      // stop marker, else a genuine crash (no terminal line seen).
       const last = scanLastStop(logPath);
       if (last) {
         process.stdout.write(`${PREFIX[last.kind]} ${last.text}\n`);
