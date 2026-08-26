@@ -16,6 +16,24 @@ interface WatchClass {
  *  started from EOF. Without it we'd miss the marker and falsely report an unclean exit.
  *  Works for ANY step (it matches whatever the classifier flags as a stop). */
 declare function scanLastStop(logPath: string): WatchClass | null;
+/** The AUTHORITATIVE stop signal: `.consort/next.json`, which the drive writes on EVERY
+ *  stop (a gate, the planning backlog pause, accept/discard/revise, done, or an escalation)
+ *  and NEVER while running. Read directly (no derive) so the persistent monitor can alert
+ *  the INSTANT the drive stops, WITHOUT waiting on a `[drive]` marker the transient
+ *  drive-live.log may never carry , the sit-at-gate bug. `generated_at` is stamped fresh on
+ *  each stop, so a change since the monitor attached means a NEW stop (not the stale prior
+ *  one). `awaiting_human` is the sole human-needed signal (mirrors consort-next). Returns
+ *  null when next.json is absent/unreadable (the drive has not stopped yet). */
+interface NextStop {
+    generated_at: string;
+    awaiting_human: boolean;
+    done: boolean;
+    escalated: boolean;
+    summary: string;
+    hil?: string;
+    enact?: string;
+}
+declare function readNextStop(consortDir: string): NextStop | null;
 type PollStatus = "running" | "gate" | "pause" | "escalation" | "done" | "waiting";
 interface PollResult {
     /** The lines a human sees this poll, already PREFIX-formatted (role/gate/etc.). */
@@ -43,4 +61,4 @@ interface PollResult {
  *  numbers and never has to guess how long a quiet turn has been running. */
 declare function pollOnce(logPath: string, since: number, pid?: number, isAlive?: (p: number) => boolean, nowMs?: number): PollResult;
 
-export { type PollResult, type PollStatus, pollOnce, scanLastStop };
+export { type PollResult, type PollStatus, pollOnce, readNextStop, scanLastStop };

@@ -32,6 +32,7 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var watch_cli_exports = {};
 __export(watch_cli_exports, {
   pollOnce: () => pollOnce,
+  readNextStop: () => readNextStop,
   scanLastStop: () => scanLastStop
 });
 module.exports = __toCommonJS(watch_cli_exports);
@@ -353,6 +354,51 @@ function emitStop(c, consortDir, open) {
   }
   return c.outcome === "escalation" ? 3 : 0;
 }
+function readNextStop(consortDir) {
+  try {
+    const s = JSON.parse(fs4.readFileSync(path2.join(consortDir, "next.json"), "utf8"));
+    const primary = s.primary_action;
+    const opts = Array.isArray(s.options) ? s.options : [];
+    const opt = opts.find((o) => o?.id !== "resume" && o?.id !== "hold" && o?.kind !== "noop");
+    const enactObj = opt?.enact;
+    const enact = enactObj?.bin ? `${enactObj.bin}${enactObj.args?.length ? " " + enactObj.args.join(" ") : ""}` : void 0;
+    return {
+      generated_at: String(s.generated_at ?? ""),
+      awaiting_human: s.awaiting_human === true,
+      done: primary?.kind === "done",
+      escalated: primary?.kind === "raise-to-hil",
+      summary: String(s.summary ?? ""),
+      hil: typeof opt?.hil_prompt === "string" ? opt.hil_prompt : void 0,
+      enact
+    };
+  } catch {
+    return null;
+  }
+}
+function isNextStop(ns) {
+  return !!ns && (ns.awaiting_human || ns.done || ns.escalated);
+}
+function emitNextStop(ns, consortDir, open) {
+  process.stdout.write(`[consort-watch] DRIVE STOPPED , ${ns.summary || (ns.done ? "run complete" : ns.escalated ? "escalation" : "awaiting a decision")}
+`);
+  if (ns.escalated) {
+    process.stderr.write("consort-watch: the run escalated , `consort-diagnose` bundles the forensics; after fixing the cause, `consort-resolve-escalation` clears it (do NOT rm the record), then re-run.\n");
+    return 3;
+  }
+  if (ns.done) {
+    process.stderr.write("consort-watch: run complete.\n");
+    return 0;
+  }
+  if (ns.hil) process.stdout.write(`[consort-watch] HUMAN NEEDED: ${ns.hil}${ns.enact ? ` , run: ${ns.enact}` : ""}
+`);
+  if (open) {
+    const res = openArtifactsInEditor(consortDir, currentScope(consortDir));
+    if (res.opened) process.stderr.write(`consort-watch: opened ${res.files.length} artifact(s) for review in ${res.editor}.
+`);
+  }
+  process.stderr.write("consort-watch: control is back with you , run `consort-next` for the exact command, then re-run the drive.\n");
+  return 0;
+}
 function pollOnce(logPath, since, pid, isAlive = alive, nowMs = Date.now()) {
   const pidAlive = pid === void 0 ? null : isAlive(pid);
   if (!fs4.existsSync(logPath)) return { relayed: [], cursor: 0, status: "waiting", silentMs: 0, pidAlive };
@@ -434,6 +480,27 @@ async function main() {
       return emitStop(last, consortDir, args.open);
     }
   }
+  const nextBaseline = readNextStop(consortDir)?.generated_at ?? "";
+  const monitorStopCheck = () => {
+    const pidGone = args.pid !== void 0 && !alive(args.pid);
+    const ns = readNextStop(consortDir);
+    if (pidGone) {
+      if (isNextStop(ns)) return emitNextStop(ns, consortDir, args.open);
+      const last = scanLastStop(logPath);
+      if (last) {
+        process.stdout.write(`${PREFIX[last.kind]} ${last.text}
+`);
+        return emitStop(last, consortDir, args.open);
+      }
+      process.stderr.write(`consort-watch: drive pid ${args.pid} is no longer running and no stop was recorded , run consort-next to check for a crash.
+`);
+      return 3;
+    }
+    if (args.pid === void 0 && isNextStop(ns) && ns.generated_at !== nextBaseline) {
+      return emitNextStop(ns, consortDir, args.open);
+    }
+    return null;
+  };
   for (; ; ) {
     const size = fs4.statSync(logPath).size;
     if (size < offset) offset = 0;
@@ -466,7 +533,10 @@ async function main() {
         if (c.stop) return emitStop(c, consortDir, args.open);
       }
     }
-    if (!args.monitor && args.pid && !alive(args.pid) && fs4.statSync(logPath).size <= offset) {
+    if (args.monitor) {
+      const code = monitorStopCheck();
+      if (code !== null) return code;
+    } else if (args.pid && !alive(args.pid) && fs4.statSync(logPath).size <= offset) {
       const last = scanLastStop(logPath);
       if (last) {
         process.stdout.write(`${PREFIX[last.kind]} ${last.text}
@@ -497,6 +567,7 @@ if ((0, import_util.isCliEntry)(importMetaUrl)) {
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   pollOnce,
+  readNextStop,
   scanLastStop
 });
 //# sourceMappingURL=watch.cli.cjs.map

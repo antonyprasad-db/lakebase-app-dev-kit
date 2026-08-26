@@ -14658,6 +14658,10 @@ function shippedBecauseLaterFeatureClaimed(featureId, claimedFeatureId, backlogI
   if (idx < 0 || claimedIdx < 0) return false;
   return claimedIdx > idx;
 }
+function shippedByClearedClaim(claimedFeatureId, featurePhase) {
+  const cleared = !claimedFeatureId || claimedFeatureId.trim().length === 0;
+  return cleared && featurePhase === "complete";
+}
 async function runSprint(effects) {
   const planning = await effects.drivePlanning();
   if (planning.escalated) return { features: [], escalated: true, escalation: planning.escalation };
@@ -15942,7 +15946,10 @@ Place each under the project's \`.consort/\`; I will read them as the proposal +
       outcome: { validated: submitted.length > 0 }
     });
   }
-  const telemetry = beginTelemetryRun({ command: "sprint", onNotice: (m) => process.stderr.write(m) });
+  const telemetry = beginTelemetryRun({
+    command: args.planOnly ? "plan" : "sprint",
+    onNotice: (m) => process.stderr.write(m)
+  });
   const effects = {
     async drivePlanning() {
       const cfg = buildCfg(args, "");
@@ -15979,7 +15986,8 @@ Place each under the project's \`.consort/\`; I will read them as the proposal +
         if (action.kind === "done") return true;
         const scm = readWorkflowState3(projectDir);
         const backlog = backlogFeatureIds(readBacklog(consortDir, sprint));
-        return shippedBecauseLaterFeatureClaimed(featureId, scm?.feature_id, backlog);
+        if (shippedBecauseLaterFeatureClaimed(featureId, scm?.feature_id, backlog)) return true;
+        return shippedByClearedClaim(scm?.feature_id, deriveFeaturePhase(summarizeStories(consortDir, featureId)));
       } catch {
         return false;
       }

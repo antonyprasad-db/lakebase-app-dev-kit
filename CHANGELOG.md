@@ -6,6 +6,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.41] - 2026-08-26
+
+### Fixed
+
+- **The persistent watch monitor now alerts the instant the drive stops, instead of sitting at a gate for hours.** `consort-watch --monitor` skipped the pid-gone check and emitted only on a `[drive]` terminal marker in `drive-live.log` — but that log is transient and may carry no stop marker at all, so a marker-less drive-exit (a gate that wrote `next.json` but no `[drive]` line) left the monitor polling forever while `next.json` already said `awaiting_human`. It now tracks the authoritative `.consort/next.json` (written on every stop) + the drive pid: the moment the drive stops it emits `[consort-watch] DRIVE STOPPED …` + `HUMAN NEEDED: <prompt> — run: <enact>` and exits. `start.md` + the orchestrator-contract now say to pass `--pid` and never wait on a log marker.
+- **`/plan` now labels its telemetry run `plan`, not `sprint`.** `/plan` is `consort-drive --sprint <s> --plan-only`, which enters `runSprintMode`; that path hardcoded `command: "sprint"` regardless of `--plan-only`, so a planning-only run reported `sprint` and `plan` never appeared. Now `command = args.planOnly ? "plan" : "sprint"`.
+- **Re-running `--sprint` on a fully-shipped sprint reports complete (exit 0) instead of erroring (exit 2).** Once the last feature shipped and the SCM claim cleared, neither the own-workflow `done` derive nor `shippedBecauseLaterFeatureClaimed` recognized the shipped features, so the loop re-drove them and errored. New `shippedByClearedClaim`: a cleared claim + a fully-`complete` feature ⇒ shipped (the claim frees only at merge), so the sprint skips every feature and reports complete.
+
 ## [0.3.40] - 2026-08-25
 
 ### Fixed
