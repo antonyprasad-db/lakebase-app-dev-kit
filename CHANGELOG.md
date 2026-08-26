@@ -6,6 +6,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.42] - 2026-08-26
+
+### Added
+
+- **`consort-upgrade` , in-flight-safe kit upgrade.** A run is a sequence of `consort-drive` processes with HITL gates between them, and the kit version is bound at each drive launch, so the only safe moment to upgrade is *at a stop*. The command **quiesce-gates** (refuses unless no drive is provably running via `--pid` and the run is at a clean stop per `next.json awaiting_human`/`done`), refreshes the kit cache to the target, **dual-pins** `.lakebase/kit-ref.local` (run) + committed `.lakebase/kit-ref` (CI) in lockstep — fixing the committed-vs-`.local` drift that ran a stale kit under a resumed run — refreshes the full kit-owned surface (agents + commands + `scripts/` helpers + CI workflows, leaving the scm-utils `scripts/lk` shim + project config untouched), and prints the resume + rollback commands. Reversible: `consort-upgrade --rollback` restores the prior pins instantly (reversibility + upgrading only at a stop is the safety net, not a speculative version check). `start.md` documents the quiesce → upgrade → resume process.
+
+### Fixed
+
+- **A run's telemetry `outcome` now derives from its actual exit code (never `completed` on a non-zero exit).** Both `finish()` sites computed `outcome` separately from the exit code and neither mapped exit `2`, so a guard / empty-backlog / pending-input failure (exit 2) was recorded `outcome=completed` — a failed run logged as a success (observed on real installs). New `outcomeForExit` (`0`→completed, `3`→aborted, any other non-zero→error) is the single source; the feature path now captures its real exit code and derives both `outcome` and `exit_code` from it, so they can never disagree.
+
 ## [0.3.41] - 2026-08-26
 
 ### Fixed

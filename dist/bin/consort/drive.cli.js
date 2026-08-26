@@ -14876,6 +14876,11 @@ var TURN_SPAN_FIELDS = [
 ];
 var OS_VALUES = ["darwin", "linux", "win32", "other"];
 var ARCH_VALUES = ["arm64", "x64", "other"];
+function outcomeForExit(code) {
+  if (code === 0) return "completed";
+  if (code === 3) return "aborted";
+  return "error";
+}
 function commandForFeaturePhase(phase) {
   switch (phase) {
     case "design":
@@ -16071,7 +16076,7 @@ Place each under the project's \`.consort/\`; I will read them as the proposal +
   try {
     code = await runBody();
   } finally {
-    const outcome = code === 3 ? "aborted" : code === 1 ? "error" : "completed";
+    const outcome = outcomeForExit(code);
     try {
       telemetry.finish({ outcome, exit_code: code });
     } catch {
@@ -16289,161 +16294,159 @@ then re-run.
     onNotice: (m) => process.stderr.write(m)
   });
   let result;
-  let caught;
-  try {
-    result = await runDriver(
-      withTelemetry(withTurnRecording(withBuildRecording(buildDriveEffects(cfg), cfg), cfg), telemetry),
-      {
-        maxSteps: args.maxSteps,
-        transition: boundOpts.transition,
-        stopWhen: gatedStopWhen(boundOpts.stopWhen, interactive),
-        pauseBefore,
-        confirmContinue
-      }
-    );
-    const pendingGate = pendingGateOf(result);
-    const pendingInput = pendingInputOf(result);
-    if (result.escalated) {
-      const e = result.escalation;
-      process.stderr.write(
-        `[drive] RAISED TO HIL after ${result.iterations} actions , awaiting HIL decision.
+  const exitCode = await (async () => {
+    try {
+      result = await runDriver(
+        withTelemetry(withTurnRecording(withBuildRecording(buildDriveEffects(cfg), cfg), cfg), telemetry),
+        {
+          maxSteps: args.maxSteps,
+          transition: boundOpts.transition,
+          stopWhen: gatedStopWhen(boundOpts.stopWhen, interactive),
+          pauseBefore,
+          confirmContinue
+        }
+      );
+      const pendingGate = pendingGateOf(result);
+      const pendingInput = pendingInputOf(result);
+      if (result.escalated) {
+        const e = result.escalation;
+        process.stderr.write(
+          `[drive] RAISED TO HIL after ${result.iterations} actions , awaiting HIL decision.
         source: ${e?.source}
         reason: ${e?.reason}
         recorded under ${path12.basename(cfg.consortDir)}/escalations/ ; once the root cause is fixed, clear it with \`consort-resolve-escalation\` (keeps the record , do NOT rm it), then re-run to resume.
         To troubleshoot or share the failure, bundle the local forensics: consort-diagnose
 `
-      );
-      return 3;
-    } else if (result.stoppedAtMax) {
-      process.stderr.write(`[drive] stopped at --max-steps ${args.maxSteps} (${result.iterations} actions)
+        );
+        return 3;
+      } else if (result.stoppedAtMax) {
+        process.stderr.write(`[drive] stopped at --max-steps ${args.maxSteps} (${result.iterations} actions)
 `);
-    } else if (pendingGate) {
-      reportGate(pendingGate, { featureId: cfg.featureId, featureBranch: cfg.featureBranch });
-    } else if (pendingInput) {
-      reportInput(pendingInput, cfg.sprintName, cfg.consortDir);
-      return 2;
-    } else if (result.stoppedAtBound) {
-      const label = bound ?? "phase";
-      process.stderr.write(
-        result.iterations === 0 ? `[drive] ${label} already complete (0 actions, nothing to do; the per-story pipeline already carried it out)
+      } else if (pendingGate) {
+        reportGate(pendingGate, { featureId: cfg.featureId, featureBranch: cfg.featureBranch });
+      } else if (pendingInput) {
+        reportInput(pendingInput, cfg.sprintName, cfg.consortDir);
+        return 2;
+      } else if (result.stoppedAtBound) {
+        const label = bound ?? "phase";
+        process.stderr.write(
+          result.iterations === 0 ? `[drive] ${label} already complete (0 actions, nothing to do; the per-story pipeline already carried it out)
 ` : `[drive] ${label} complete in ${result.iterations} actions (bounded)
 `
-      );
-    } else {
-      process.stderr.write(`[drive] done in ${result.iterations} actions
-`);
-    }
-    return 0;
-  } catch (err) {
-    caught = err;
-    if (err instanceof ProtocolViolationError) {
-      const h = err.handoff;
-      try {
-        writeEscalation(cfg.consortDir, {
-          source: `protocol:${h.responder}`,
-          reason: err.message,
-          feature_id: cfg.featureId,
-          ...h.story ? { story_id: h.story } : {}
-        });
-        emitAgentLogEvent(
-          {
-            role: "orchestrator",
-            level: "error",
-            event: "escalation.raised",
-            feature_id: cfg.featureId,
-            slots: { source: `protocol:${h.responder}`, reason: err.message, ...h.story ? { story: h.story } : {} }
-          },
-          { consortDir: cfg.consortDir }
         );
-      } catch {
+      } else {
+        process.stderr.write(`[drive] done in ${result.iterations} actions
+`);
       }
-      process.stderr.write(`[drive] ${err.message}
+      return 0;
+    } catch (err) {
+      if (err instanceof ProtocolViolationError) {
+        const h = err.handoff;
+        try {
+          writeEscalation(cfg.consortDir, {
+            source: `protocol:${h.responder}`,
+            reason: err.message,
+            feature_id: cfg.featureId,
+            ...h.story ? { story_id: h.story } : {}
+          });
+          emitAgentLogEvent(
+            {
+              role: "orchestrator",
+              level: "error",
+              event: "escalation.raised",
+              feature_id: cfg.featureId,
+              slots: { source: `protocol:${h.responder}`, reason: err.message, ...h.story ? { story: h.story } : {} }
+            },
+            { consortDir: cfg.consortDir }
+          );
+        } catch {
+        }
+        process.stderr.write(`[drive] ${err.message}
         recorded under ${path12.basename(cfg.consortDir)}/escalations/ ; fix the responder, then re-run.
 `);
-      return 3;
-    }
-    if (err instanceof UnexpectedCallbackError) {
-      try {
-        writeEscalation(cfg.consortDir, {
-          source: `protocol:unexpected-caller:${err.from}`,
-          reason: err.message,
-          feature_id: cfg.featureId,
-          ...err.scope.story ? { story_id: err.scope.story } : {}
-        });
-        emitAgentLogEvent(
-          {
-            role: "orchestrator",
-            level: "error",
-            event: "escalation.raised",
-            feature_id: cfg.featureId,
-            slots: { source: `protocol:unexpected-caller:${err.from}`, reason: err.message, ...err.scope.story ? { story: err.scope.story } : {} }
-          },
-          { consortDir: cfg.consortDir }
-        );
-      } catch {
+        return 3;
       }
-      process.stderr.write(`[drive] ${err.message}
+      if (err instanceof UnexpectedCallbackError) {
+        try {
+          writeEscalation(cfg.consortDir, {
+            source: `protocol:unexpected-caller:${err.from}`,
+            reason: err.message,
+            feature_id: cfg.featureId,
+            ...err.scope.story ? { story_id: err.scope.story } : {}
+          });
+          emitAgentLogEvent(
+            {
+              role: "orchestrator",
+              level: "error",
+              event: "escalation.raised",
+              feature_id: cfg.featureId,
+              slots: { source: `protocol:unexpected-caller:${err.from}`, reason: err.message, ...err.scope.story ? { story: err.scope.story } : {} }
+            },
+            { consortDir: cfg.consortDir }
+          );
+        } catch {
+        }
+        process.stderr.write(`[drive] ${err.message}
         recorded under ${path12.basename(cfg.consortDir)}/escalations/ ; resolve it, then re-run.
 `);
-      return 3;
-    }
-    if (err instanceof CliEffectError) {
-      const reason = `${err.bin} exited ${err.code}. See the drive log above for the failing checks / cause; fix them (push to the branch) and re-run.`;
-      try {
-        writeEscalation(cfg.consortDir, { source: `cli:${err.bin}`, reason, feature_id: cfg.featureId });
-        emitAgentLogEvent(
-          {
-            role: "orchestrator",
-            level: "error",
-            event: "escalation.raised",
-            feature_id: cfg.featureId,
-            slots: { source: `cli:${err.bin}`, reason }
-          },
-          { consortDir: cfg.consortDir }
-        );
-      } catch {
+        return 3;
       }
-      process.stderr.write(
-        `[drive] RAISED TO HIL , ${err.bin} failed.
+      if (err instanceof CliEffectError) {
+        const reason = `${err.bin} exited ${err.code}. See the drive log above for the failing checks / cause; fix them (push to the branch) and re-run.`;
+        try {
+          writeEscalation(cfg.consortDir, { source: `cli:${err.bin}`, reason, feature_id: cfg.featureId });
+          emitAgentLogEvent(
+            {
+              role: "orchestrator",
+              level: "error",
+              event: "escalation.raised",
+              feature_id: cfg.featureId,
+              slots: { source: `cli:${err.bin}`, reason }
+            },
+            { consortDir: cfg.consortDir }
+          );
+        } catch {
+        }
+        process.stderr.write(
+          `[drive] RAISED TO HIL , ${err.bin} failed.
         reason: ${reason}
         recorded under ${path12.basename(cfg.consortDir)}/escalations/ ; once the root cause is fixed, clear it with \`consort-resolve-escalation\` (keeps the record , do NOT rm it), then re-run to resume.
         To troubleshoot or share the failure, bundle the local forensics: consort-diagnose
 `
-      );
-      return 3;
-    }
-    if (err instanceof ReplayCorpusMissError) {
-      process.stderr.write(`${err.message}
+        );
+        return 3;
+      }
+      if (err instanceof ReplayCorpusMissError) {
+        process.stderr.write(`${err.message}
 `);
-      return 2;
-    }
-    if (err instanceof ArtifactOutOfRootError) {
-      process.stderr.write(`[drive] ${err.message}
+        return 2;
+      }
+      if (err instanceof ArtifactOutOfRootError) {
+        process.stderr.write(`[drive] ${err.message}
 `);
-      return 3;
-    }
-    process.stderr.write(
-      `[drive] ABORTED , unexpected error: ${err instanceof Error ? err.message : String(err)}
+        return 3;
+      }
+      process.stderr.write(
+        `[drive] ABORTED , unexpected error: ${err instanceof Error ? err.message : String(err)}
         To troubleshoot or share the failure, bundle the local forensics: consort-diagnose
 `
-    );
-    return 1;
-  } finally {
-    const outcome = caught ? "error" : result?.escalated ? "aborted" : "completed";
-    const exitCode = caught ? 1 : result?.escalated ? 3 : 0;
-    try {
-      telemetry.finish({ outcome, exit_code: exitCode });
-    } catch {
+      );
+      return 1;
     }
-    const recordingOrReplaying = !!consortEnv("REPLAY_DIR") || !!consortEnv("REPLAY_BUILD_DIR") || !!consortEnv("RECORD_BUILD_DIR") || !!consortEnv("RECORD_DIR");
-    if (cfg.featureId && !recordingOrReplaying) {
-      emitNextJson(cfg.consortDir, cfg.featureId, cfg.projectDir, {
-        uiTrack: cfg.uiTrack,
-        version: kitVersion2(),
-        ...cfg.featureBranch ? { featureBranch: cfg.featureBranch } : {}
-      });
-    }
+  })();
+  try {
+    telemetry.finish({ outcome: outcomeForExit(exitCode), exit_code: exitCode });
+  } catch {
   }
+  const recordingOrReplaying = !!consortEnv("REPLAY_DIR") || !!consortEnv("REPLAY_BUILD_DIR") || !!consortEnv("RECORD_BUILD_DIR") || !!consortEnv("RECORD_DIR");
+  if (cfg.featureId && !recordingOrReplaying) {
+    emitNextJson(cfg.consortDir, cfg.featureId, cfg.projectDir, {
+      uiTrack: cfg.uiTrack,
+      version: kitVersion2(),
+      ...cfg.featureBranch ? { featureBranch: cfg.featureBranch } : {}
+    });
+  }
+  return exitCode;
 }
 if (isCliEntry(import.meta.url)) {
   main().then(
