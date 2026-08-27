@@ -9,7 +9,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { spawnSync } from "node:child_process";
-import { reviewArtifacts } from "./resolve-review-artifacts.js";
+import { reviewArtifacts, roleArtifacts } from "./resolve-review-artifacts.js";
 
 /** macOS app-bundle CLIs, the fallback when the editor's `code`/`cursor` shim was
  *  never installed on PATH (users skip that step). Mirrors start.md's find_editor. */
@@ -89,6 +89,28 @@ export function openArtifactsInEditor(consortDir: string, opts: OpenOpts = {}): 
             return false;
           }
         });
+  if (!files.length) return { files, opened: false, reason: "no-artifacts" };
+
+  const cmd = findEditorCmd(env);
+  if (!cmd) return { files, opened: false, reason: "no-editor" };
+  if (!isInsideEditor(env) && !opts.force) return { files, opened: false, editor: cmd, reason: "not-in-editor" };
+
+  const spawn = opts.spawn ?? ((c, fs2) => { spawnSync(c, fs2, { stdio: "ignore" }); });
+  try {
+    spawn(cmd, files);
+  } catch {
+    return { files, opened: false, editor: cmd, reason: "no-editor" };
+  }
+  return { files, opened: true, editor: cmd };
+}
+
+/** Per-turn open: reveal exactly what the role that just finished its turn produced (from
+ *  roleArtifacts), opening in the editor when inside its terminal. Same guards + result shape
+ *  as openArtifactsInEditor, but role-scoped instead of the whole review set , so each turn
+ *  shows only its own output. Never throws. */
+export function openRoleArtifacts(consortDir: string, role: string, opts: OpenOpts = {}): OpenResult {
+  const env = opts.env ?? process.env;
+  const files = roleArtifacts(consortDir, role, { feature: opts.feature, story: opts.story });
   if (!files.length) return { files, opened: false, reason: "no-artifacts" };
 
   const cmd = findEditorCmd(env);

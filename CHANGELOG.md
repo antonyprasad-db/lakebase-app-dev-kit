@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.45] - 2026-08-27
+
+### Fixed
+
+- **Per-turn artifact open now fires in the design lane's actual relay.** The per-turn "open what the role just produced" (added in 0.3.43) lived only in `consort-watch`'s blocking-tail / `--monitor` loop, but the design lane is narrated through the mandatory POLL-ONCE `consort-watch --since` relay, which returns before that loop , so the open never fired during a normal run and artifacts silently never opened. It is now wired into the `--since` relay: on each finished role turn it opens EXACTLY what that role produced (new role→artifact map: spec-author→spec/ACs, architect-reviewer→architecture, dba→db-design, test-strategist→test-list, ux-designer→design-guide/ia, navigator→the reflected story), scoped to the live feature/story. A design-role open that is skipped is NO LONGER silent , it relays why (not inside the editor's terminal / no editor CLI / nothing authored yet); build (driver) turns stay quiet. Opening still only happens inside the editor's integrated terminal (visibility only, never launches an editor uninvited).
+- **`consort-watch --monitor` no longer false-alarms exit-3 at benign turn boundaries.** The deterministic drive exits per turn and is re-run, so a gone pid is usually a benign boundary, not a crash. The monitor now classifies a gone pid by the next-action identity: advanced to a new action → exit 0 with a re-run hint; the SAME pending action with no stop recorded → the exit-3 crash alarm. Real stops (a gate / done / escalation via `next.json`) are unchanged.
+
 ## [0.3.44] - 2026-08-27
 
 ### Added

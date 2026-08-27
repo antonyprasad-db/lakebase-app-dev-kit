@@ -71,3 +71,88 @@ export function reviewArtifacts(consortDir: string, opts: { feature?: string; st
   }
   return out;
 }
+
+/** The design roles that PRODUCE reviewable artifacts. A turn-done for one of these with
+ *  nothing to open is worth reporting (scope/timing); a build turn (driver) opening nothing
+ *  is expected + stays silent. Slugs match the telemetry ROLE_VALUES closed enum. */
+export const DESIGN_ROLES: ReadonlySet<string> = new Set([
+  "product-owner",
+  "spec-author",
+  "architect-reviewer",
+  "dba",
+  "ux-designer",
+  "test-strategist",
+  "navigator",
+]);
+
+/** The reviewable artifacts a SPECIFIC role produces this turn, existing-only, in review
+ *  order , so the per-turn open reveals exactly what the role that just finished authored
+ *  (not the whole review set). Empty for `driver` (build turns emit code, no design artifact)
+ *  and for any role with no output yet. Scope comes from the live workflow-state feature/story. */
+export function roleArtifacts(consortDir: string, role: string, opts: { feature?: string; story?: string } = {}): string[] {
+  const { feature: f, story: s } = opts;
+  const out: string[] = [];
+  const add = (p: string): void => {
+    if (fs.existsSync(p) && !out.includes(p)) out.push(p);
+  };
+  switch (role) {
+    case "product-owner":
+      add(productOverviewMd(consortDir));
+      add(nfrsMd(consortDir));
+      add(featureProposalsMd(consortDir));
+      break;
+    case "spec-author":
+      if (f) {
+        add(featureSpecMd(consortDir, f));
+        add(featureSpecJson(consortDir, f));
+      }
+      if (f && s) {
+        add(join(storyDir(consortDir, f, s), "story.md"));
+        add(storyJson(consortDir, f, s));
+        try {
+          for (const a of fs.readdirSync(acsDir(consortDir, f, s)).filter((n) => n.endsWith(".json")).sort()) {
+            add(join(acsDir(consortDir, f, s), a));
+          }
+        } catch {
+          /* no acs dir yet */
+        }
+      }
+      break;
+    case "architect-reviewer":
+      if (f) {
+        add(architectureMd(consortDir, f));
+        add(architectureJson(consortDir, f));
+      }
+      break;
+    case "dba":
+      if (f) {
+        add(dbDesignMd(consortDir, f));
+        add(dbDesignJson(consortDir, f));
+      }
+      break;
+    case "ux-designer":
+      add(join(consortDir, "design", "design-guide.md"));
+      add(designGuideJson(consortDir));
+      add(join(consortDir, "design", "ia.md"));
+      add(designBriefMd(consortDir));
+      break;
+    case "test-strategist":
+      if (f) {
+        add(featureTestListMd(consortDir, f));
+        add(featureTestListJson(consortDir, f));
+      }
+      if (f && s) add(storyTestListJson(consortDir, f, s));
+      break;
+    case "navigator":
+      // reflect: the story under review , what's going into the gate the human is about to
+      // approve, so they see the reflected design (not the reflect verdict itself).
+      if (f && s) {
+        add(join(storyDir(consortDir, f, s), "story.md"));
+        add(storyJson(consortDir, f, s));
+      }
+      break;
+    default:
+      break; // driver + anything else: no reviewable design artifact
+  }
+  return out;
+}

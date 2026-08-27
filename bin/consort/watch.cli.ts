@@ -14,7 +14,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { resolveConsortDir } from "../../consort/config/consort-paths.js";
 import { classifyDriveLine, type WatchLineKind, type WatchClass } from "../../consort/orchestrator/drive/watch-classify.js";
-import { openArtifactsInEditor } from "../../consort/orchestrator/open/open-in-editor.js";
+import { openRoleArtifacts } from "../../consort/orchestrator/open/open-in-editor.js";
+import { DESIGN_ROLES } from "../../consort/orchestrator/open/resolve-review-artifacts.js";
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 
 interface Args {
@@ -58,6 +59,28 @@ function currentScope(consortDir: string): { feature?: string; story?: string } 
     return { ...(ws.feature_id ? { feature: ws.feature_id } : {}), ...(ws.story_id ? { story: ws.story_id } : {}) };
   } catch {
     return {};
+  }
+}
+
+/** Per-turn open + relay report: open exactly what the just-finished ROLE produced (roleArtifacts,
+ *  scoped to the live feature/story) and return one line for the human , NEVER silent for a design
+ *  role: it says what it opened, or WHY it could not (not inside the editor's terminal / no editor
+ *  CLI / nothing authored yet), so a skip is diagnosable instead of looking like nothing happened.
+ *  A build turn (driver , no reviewable design artifact) returns null: opening nothing is expected.
+ *  This is the visibility the design lane needs , after each role's turn, see its artifacts. */
+export function reportRoleOpen(consortDir: string, role: string, env: NodeJS.ProcessEnv): string | null {
+  const res = openRoleArtifacts(consortDir, role, { ...currentScope(consortDir), env });
+  if (res.opened) return `[consort-watch] opened ${res.files.length} artifact(s) produced by ${role} in ${res.editor}`;
+  if (!DESIGN_ROLES.has(role)) return null; // build turn / no design output: expected, stay silent
+  switch (res.reason) {
+    case "not-in-editor":
+      return `[consort-watch] ${role} turn done , ${res.files.length} artifact(s) to review, NOT opened , run this relay inside your Cursor/VS Code integrated terminal to auto-open them (else review via consort-open)`;
+    case "no-editor":
+      return `[consort-watch] ${role} turn done , no cursor/code CLI found to open its ${res.files.length} artifact(s) , install the editor's shell command (else review via consort-open)`;
+    case "no-artifacts":
+      return `[consort-watch] ${role} turn done , no reviewable artifact found yet for this scope`;
+    default:
+      return null;
   }
 }
 
@@ -150,7 +173,7 @@ function emitStop(c: WatchClass): number {
  *  each stop, so a change since the monitor attached means a NEW stop (not the stale prior
  *  one). `awaiting_human` is the sole human-needed signal (mirrors consort-next). Returns
  *  null when next.json is absent/unreadable (the drive has not stopped yet). */
-interface NextStop {
+export interface NextStop {
   generated_at: string;
   awaiting_human: boolean;
   done: boolean;
@@ -187,6 +210,34 @@ function isNextStop(ns: NextStop | null): ns is NextStop {
   return !!ns && (ns.awaiting_human || ns.done || ns.escalated);
 }
 
+/** When the monitored drive's PID is gone, classify WHY it exited , so the persistent
+ *  --monitor does not false-alarm on every turn. The deterministic drive performs its
+ *  action(s) and EXITS at a boundary (the driver re-runs it per turn), so a dead pid is
+ *  usually NOT a crash.
+ *  - `stop`  : a real terminal , a gate/pause/done/escalation (next.json awaiting_human/
+ *              done/escalated, or a log stop marker).
+ *  - `turn-boundary` : the drive ADVANCED to a new next-action and exited cleanly for a
+ *              re-run (its action identity , `enact`, else `summary` , CHANGED since we
+ *              attached). Benign; the driver just re-runs. NOT a crash.
+ *  - `crash` : pid gone with NO progress (same pending action) AND no stop marker , genuinely
+ *              stuck or died (e.g. a substrate-failure the re-run keeps hitting).
+ *  The ACTION IDENTITY, not `generated_at`, is the progress signal: a crash that re-derives +
+ *  re-writes the SAME action each retry keeps the same identity (generated_at still advances),
+ *  so it is correctly caught as `crash` rather than hidden as false progress. */
+export type PidGoneKind = "stop" | "turn-boundary" | "crash";
+export function classifyPidGone(
+  ns: NextStop | null,
+  actionBaseline: string,
+  lastStop: WatchClass | null,
+): PidGoneKind {
+  // Read the action identity BEFORE the isNextStop guard: isNextStop is a type predicate, so
+  // after it TS narrows `ns` to null and would reject ns.enact/summary.
+  const action = ns ? (ns.enact ?? ns.summary ?? "") : "";
+  if (isNextStop(ns) || lastStop) return "stop";
+  if (action && action !== actionBaseline) return "turn-boundary";
+  return "crash";
+}
+
 /** Emit the stop from next.json (the authoritative surface) and return the exit code.
  *  Used by the persistent monitor so a drive-stop is surfaced the moment next.json changes,
  *  never contingent on a log marker. Escalation => 3; gate/done => 0. */
@@ -211,6 +262,10 @@ export type PollStatus = "running" | "gate" | "pause" | "escalation" | "done" | 
 export interface PollResult {
   /** The lines a human sees this poll, already PREFIX-formatted (role/gate/etc.). */
   relayed: string[];
+  /** Roles whose turn FINISHED in this batch (one per `[drive] <role> turn Ns` line), in
+   *  order , the caller opens each role's produced artifacts for the human to review before
+   *  the next turn. Empty when no turn completed this poll. */
+  turnsDone: string[];
   /** New byte offset , pass as the next `--since`. */
   cursor: number;
   /** running until a stop is seen (this batch OR, when the pid is gone, anywhere in the log). */
@@ -241,12 +296,13 @@ export function pollOnce(
   nowMs: number = Date.now(),
 ): PollResult {
   const pidAlive = pid === undefined ? null : isAlive(pid);
-  if (!fs.existsSync(logPath)) return { relayed: [], cursor: 0, status: "waiting", silentMs: 0, pidAlive };
+  if (!fs.existsSync(logPath)) return { relayed: [], turnsDone: [], cursor: 0, status: "waiting", silentMs: 0, pidAlive };
   const st = fs.statSync(logPath);
   const size = st.size;
   const silentMs = Math.max(0, nowMs - st.mtimeMs); // measured: since the last log write
   const from = since < 0 || since > size ? 0 : since; // clamp; truncation => re-read
   const relayed: string[] = [];
+  const turnsDone: string[] = [];
   let status: PollStatus = "running";
   if (size > from) {
     const fd = fs.openSync(logPath, "r");
@@ -263,6 +319,11 @@ export function pollOnce(
       if (!c) continue;
       relayed.push(`${PREFIX[c.kind]} ${c.text}`);
       if (c.kind === "notice") { inNotice = true; continue; }
+      // A finished role turn: record the role so the caller can open what it produced.
+      if (c.kind === "turn-done") {
+        const role = c.text.match(/^(\S+) turn/)?.[1];
+        if (role) turnsDone.push(role);
+      }
       if (c.stop && c.outcome) status = c.outcome; // last stop in this batch wins
     }
   }
@@ -271,7 +332,7 @@ export function pollOnce(
   if (status === "running" && pidAlive === false && size <= from) {
     status = scanLastStop(logPath)?.outcome ?? "done";
   }
-  return { relayed, cursor: size, status, silentMs, pidAlive };
+  return { relayed, turnsDone, cursor: size, status, silentMs, pidAlive };
 }
 
 async function main(): Promise<number> {
@@ -291,6 +352,17 @@ async function main(): Promise<number> {
   if (args.since !== undefined) {
     const r = pollOnce(logPath, args.since, args.pid);
     for (const line of r.relayed) process.stdout.write(`${line}\n`);
+    // PER-TURN artifact open , THE path the design lane actually runs. For each role whose
+    // turn finished this batch, reveal what it produced (a no-op unless inside the editor;
+    // openRoleArtifacts' own guard) and relay the result, so the human sees each role's output
+    // turn by turn. (The old open lived only in the blocking-tail/--monitor loop below, which
+    // the mandatory poll-once relay never enters , so it never fired during a normal run.)
+    if (args.open) {
+      for (const role of r.turnsDone) {
+        const rep = reportRoleOpen(consortDir, role, process.env);
+        if (rep) process.stdout.write(`${rep}\n`);
+      }
+    }
     process.stdout.write(
       `[consort-watch] cursor=${r.cursor} status=${r.status} silent_for_s=${Math.round(r.silentMs / 1000)} pid_alive=${r.pidAlive === null ? "unknown" : r.pidAlive}\n`,
     );
@@ -320,9 +392,6 @@ async function main(): Promise<number> {
   // surface them verbatim while inside the block. Persists across chunk reads.
   let inNotice = false;
   const watchStart = Date.now();
-  // Per-turn artifact open: timestamp of the previous turn boundary, so each `turn-done`
-  // opens only what changed since it. Starts at attach so the first finished turn opens its delta.
-  let lastTurnOpenMs = watchStart;
   process.stderr.write(`consort-watch: following ${logPath}${args.pid ? ` (pid ${args.pid})` : ""}\n`);
 
   // Monitor late-attach: if the drive ALREADY wrote a terminal marker before this monitor
@@ -345,17 +414,30 @@ async function main(): Promise<number> {
   // the no-pid fallback fires only on a CHANGE. With --pid (recommended), a dead pid IS the
   // stop , unambiguous, no staleness. Either way the authoritative STATE comes from next.json.
   const nextBaseline = readNextStop(consortDir)?.generated_at ?? "";
+  // The pending next-ACTION at attach (enact, else summary) , the progress signal for the
+  // pid-gone check: a CHANGE means the drive advanced a turn (benign boundary); UNCHANGED +
+  // no stop means it is stuck/crashed on the same action.
+  const baselineForAction = readNextStop(consortDir);
+  const actionBaseline = baselineForAction ? (baselineForAction.enact ?? baselineForAction.summary ?? "") : "";
   const monitorStopCheck = (): number | null => {
     const pidGone = args.pid !== undefined && !alive(args.pid);
     const ns = readNextStop(consortDir);
     if (pidGone) {
-      if (isNextStop(ns)) return emitNextStop(ns);
       const last = scanLastStop(logPath);
-      if (last) {
-        process.stdout.write(`${PREFIX[last.kind]} ${last.text}\n`);
-        return emitStop(last);
+      const kind = classifyPidGone(ns, actionBaseline, last);
+      if (kind === "stop") {
+        if (isNextStop(ns)) return emitNextStop(ns);
+        process.stdout.write(`${PREFIX[last!.kind]} ${last!.text}\n`);
+        return emitStop(last!);
       }
-      process.stderr.write(`consort-watch: drive pid ${args.pid} is no longer running and no stop was recorded , run consort-next to check for a crash.\n`);
+      if (kind === "turn-boundary") {
+        // Benign: the drive advanced a turn and exited for a re-run (NOT a crash). Exit 0
+        // with a re-run hint instead of the exit-3 crash alarm, so a per-turn drive does not
+        // trip a false "check for a crash" every single turn boundary.
+        process.stdout.write(`[consort-watch] turn boundary , the drive advanced (${ns?.summary || ns?.enact || "next action ready"}) and exited; re-run the drive to continue.\n`);
+        return 0;
+      }
+      process.stderr.write(`consort-watch: drive pid ${args.pid} is no longer running with no progress + no stop recorded , run consort-next to check for a crash.\n`);
       return 3;
     }
     // No --pid: a FRESH next.json stop (generated_at changed since attach) means the drive
@@ -389,16 +471,14 @@ async function main(): Promise<number> {
         if (!c) continue;
         process.stdout.write(`${PREFIX[c.kind]} ${c.text}\n`);
         if (c.kind === "notice") { inNotice = true; continue; }
-        // PER-TURN artifact open: when a role's turn finishes, reveal ONLY what that turn
-        // produced (reviewable artifacts modified since the previous turn) , visibility only,
-        // and a no-op unless inside an editor (openArtifactsInEditor's own guard). This is
-        // what replaces the old batch-open at the gate.
+        // PER-TURN artifact open: when a role's turn finishes, reveal exactly what THAT role
+        // produced , visibility only, a no-op unless inside an editor, and never silent for a
+        // design role (reportRoleOpen says opened / why-not). Same path as the poll-once relay.
         if (c.kind === "turn-done" && args.open) {
           const role = c.text.match(/^(\S+) turn/)?.[1];
-          const res = openArtifactsInEditor(consortDir, { ...currentScope(consortDir), changedSinceMs: lastTurnOpenMs });
-          lastTurnOpenMs = Date.now();
-          if (res.opened) {
-            process.stderr.write(`consort-watch: opened ${res.files.length} artifact(s)${role ? ` produced by ${role}` : ""} in ${res.editor}.\n`);
+          if (role) {
+            const rep = reportRoleOpen(consortDir, role, process.env);
+            if (rep) process.stdout.write(`${rep}\n`);
           }
         }
         // The exact next command lives in the authoritative read-only surface, not in

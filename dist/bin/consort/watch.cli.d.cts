@@ -10,6 +10,13 @@ interface WatchClass {
     outcome?: "gate" | "pause" | "done" | "escalation";
 }
 
+/** Per-turn open + relay report: open exactly what the just-finished ROLE produced (roleArtifacts,
+ *  scoped to the live feature/story) and return one line for the human , NEVER silent for a design
+ *  role: it says what it opened, or WHY it could not (not inside the editor's terminal / no editor
+ *  CLI / nothing authored yet), so a skip is diagnosable instead of looking like nothing happened.
+ *  A build turn (driver , no reviewable design artifact) returns null: opening nothing is expected.
+ *  This is the visibility the design lane needs , after each role's turn, see its artifacts. */
+declare function reportRoleOpen(consortDir: string, role: string, env: NodeJS.ProcessEnv): string | null;
 /** Read the WHOLE log and return the LAST classified STOP line (gate/pause/escalation/
  *  done), or null if none. Used when the drive already reached a terminal marker before
  *  (or just as) we attached , a fast detached run that stopped before this follow
@@ -34,10 +41,30 @@ interface NextStop {
     enact?: string;
 }
 declare function readNextStop(consortDir: string): NextStop | null;
+/** When the monitored drive's PID is gone, classify WHY it exited , so the persistent
+ *  --monitor does not false-alarm on every turn. The deterministic drive performs its
+ *  action(s) and EXITS at a boundary (the driver re-runs it per turn), so a dead pid is
+ *  usually NOT a crash.
+ *  - `stop`  : a real terminal , a gate/pause/done/escalation (next.json awaiting_human/
+ *              done/escalated, or a log stop marker).
+ *  - `turn-boundary` : the drive ADVANCED to a new next-action and exited cleanly for a
+ *              re-run (its action identity , `enact`, else `summary` , CHANGED since we
+ *              attached). Benign; the driver just re-runs. NOT a crash.
+ *  - `crash` : pid gone with NO progress (same pending action) AND no stop marker , genuinely
+ *              stuck or died (e.g. a substrate-failure the re-run keeps hitting).
+ *  The ACTION IDENTITY, not `generated_at`, is the progress signal: a crash that re-derives +
+ *  re-writes the SAME action each retry keeps the same identity (generated_at still advances),
+ *  so it is correctly caught as `crash` rather than hidden as false progress. */
+type PidGoneKind = "stop" | "turn-boundary" | "crash";
+declare function classifyPidGone(ns: NextStop | null, actionBaseline: string, lastStop: WatchClass | null): PidGoneKind;
 type PollStatus = "running" | "gate" | "pause" | "escalation" | "done" | "waiting";
 interface PollResult {
     /** The lines a human sees this poll, already PREFIX-formatted (role/gate/etc.). */
     relayed: string[];
+    /** Roles whose turn FINISHED in this batch (one per `[drive] <role> turn Ns` line), in
+     *  order , the caller opens each role's produced artifacts for the human to review before
+     *  the next turn. Empty when no turn completed this poll. */
+    turnsDone: string[];
     /** New byte offset , pass as the next `--since`. */
     cursor: number;
     /** running until a stop is seen (this batch OR, when the pid is gone, anywhere in the log). */
@@ -61,4 +88,4 @@ interface PollResult {
  *  numbers and never has to guess how long a quiet turn has been running. */
 declare function pollOnce(logPath: string, since: number, pid?: number, isAlive?: (p: number) => boolean, nowMs?: number): PollResult;
 
-export { type PollResult, type PollStatus, pollOnce, readNextStop, scanLastStop };
+export { type NextStop, type PidGoneKind, type PollResult, type PollStatus, classifyPidGone, pollOnce, readNextStop, reportRoleOpen, scanLastStop };

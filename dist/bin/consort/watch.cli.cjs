@@ -31,8 +31,10 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // bin/consort/watch.cli.ts
 var watch_cli_exports = {};
 __export(watch_cli_exports, {
+  classifyPidGone: () => classifyPidGone,
   pollOnce: () => pollOnce,
   readNextStop: () => readNextStop,
+  reportRoleOpen: () => reportRoleOpen,
   scanLastStop: () => scanLastStop
 });
 module.exports = __toCommonJS(watch_cli_exports);
@@ -71,7 +73,6 @@ var featureDir = (tdd, featureId) => (0, import_node_path.join)(featuresDir(tdd)
 var featureResolved = (tdd, f) => findFeatureDir(tdd, f) ?? featureDir(tdd, f);
 var featureSpecJson = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "feature-spec.json");
 var featureSpecMd = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "feature-spec.md");
-var featureRequestMd = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "feature-request.md");
 var architectureJson = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "architecture.json");
 var architectureMd = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "architecture.md");
 var dbDesignJson = (tdd, f) => (0, import_node_path.join)(featureResolved(tdd, f), "db-design.json");
@@ -163,41 +164,76 @@ var import_node_child_process = require("child_process");
 // consort/orchestrator/open/resolve-review-artifacts.ts
 var fs2 = __toESM(require("fs"), 1);
 var import_node_path2 = require("path");
-function reviewArtifacts(consortDir, opts = {}) {
+var DESIGN_ROLES = /* @__PURE__ */ new Set([
+  "product-owner",
+  "spec-author",
+  "architect-reviewer",
+  "dba",
+  "ux-designer",
+  "test-strategist",
+  "navigator"
+]);
+function roleArtifacts(consortDir, role, opts = {}) {
+  const { feature: f, story: s } = opts;
   const out = [];
   const add = (p) => {
     if (fs2.existsSync(p) && !out.includes(p)) out.push(p);
   };
-  add(productOverviewMd(consortDir));
-  add(nfrsMd(consortDir));
-  add(featureProposalsMd(consortDir));
-  add((0, import_node_path2.join)(consortDir, "planning", "estimates.json"));
-  add(designBriefMd(consortDir));
-  add((0, import_node_path2.join)(consortDir, "design", "design-guide.md"));
-  add(designGuideJson(consortDir));
-  add((0, import_node_path2.join)(consortDir, "design", "ia.md"));
-  const { feature: f, story: s } = opts;
-  if (f) {
-    add(featureRequestMd(consortDir, f));
-    add(featureSpecMd(consortDir, f));
-    add(featureSpecJson(consortDir, f));
-    add(architectureMd(consortDir, f));
-    add(architectureJson(consortDir, f));
-    add(dbDesignMd(consortDir, f));
-    add(dbDesignJson(consortDir, f));
-    add(featureTestListMd(consortDir, f));
-    add(featureTestListJson(consortDir, f));
-    if (s) {
-      add((0, import_node_path2.join)(storyDir(consortDir, f, s), "story.md"));
-      add(storyJson(consortDir, f, s));
-      add(storyTestListJson(consortDir, f, s));
-      try {
-        for (const a of fs2.readdirSync(acsDir(consortDir, f, s)).filter((n) => n.endsWith(".json")).sort()) {
-          add((0, import_node_path2.join)(acsDir(consortDir, f, s), a));
-        }
-      } catch {
+  switch (role) {
+    case "product-owner":
+      add(productOverviewMd(consortDir));
+      add(nfrsMd(consortDir));
+      add(featureProposalsMd(consortDir));
+      break;
+    case "spec-author":
+      if (f) {
+        add(featureSpecMd(consortDir, f));
+        add(featureSpecJson(consortDir, f));
       }
-    }
+      if (f && s) {
+        add((0, import_node_path2.join)(storyDir(consortDir, f, s), "story.md"));
+        add(storyJson(consortDir, f, s));
+        try {
+          for (const a of fs2.readdirSync(acsDir(consortDir, f, s)).filter((n) => n.endsWith(".json")).sort()) {
+            add((0, import_node_path2.join)(acsDir(consortDir, f, s), a));
+          }
+        } catch {
+        }
+      }
+      break;
+    case "architect-reviewer":
+      if (f) {
+        add(architectureMd(consortDir, f));
+        add(architectureJson(consortDir, f));
+      }
+      break;
+    case "dba":
+      if (f) {
+        add(dbDesignMd(consortDir, f));
+        add(dbDesignJson(consortDir, f));
+      }
+      break;
+    case "ux-designer":
+      add((0, import_node_path2.join)(consortDir, "design", "design-guide.md"));
+      add(designGuideJson(consortDir));
+      add((0, import_node_path2.join)(consortDir, "design", "ia.md"));
+      add(designBriefMd(consortDir));
+      break;
+    case "test-strategist":
+      if (f) {
+        add(featureTestListMd(consortDir, f));
+        add(featureTestListJson(consortDir, f));
+      }
+      if (f && s) add(storyTestListJson(consortDir, f, s));
+      break;
+    case "navigator":
+      if (f && s) {
+        add((0, import_node_path2.join)(storyDir(consortDir, f, s), "story.md"));
+        add(storyJson(consortDir, f, s));
+      }
+      break;
+    default:
+      break;
   }
   return out;
 }
@@ -231,16 +267,9 @@ function findEditorCmd(env = process.env) {
 function isInsideEditor(env = process.env) {
   return /vscode|cursor/i.test(env.TERM_PROGRAM ?? "") || Boolean(env.CURSOR_TRACE_ID) || Boolean(env.VSCODE_PID);
 }
-function openArtifactsInEditor(consortDir, opts = {}) {
+function openRoleArtifacts(consortDir, role, opts = {}) {
   const env = opts.env ?? process.env;
-  const all = reviewArtifacts(consortDir, { feature: opts.feature, story: opts.story });
-  const files = opts.changedSinceMs === void 0 ? all : all.filter((f) => {
-    try {
-      return fs3.statSync(f).mtimeMs >= opts.changedSinceMs;
-    } catch {
-      return false;
-    }
-  });
+  const files = roleArtifacts(consortDir, role, { feature: opts.feature, story: opts.story });
   if (!files.length) return { files, opened: false, reason: "no-artifacts" };
   const cmd = findEditorCmd(env);
   if (!cmd) return { files, opened: false, reason: "no-editor" };
@@ -264,6 +293,21 @@ function currentScope(consortDir) {
     return { ...ws.feature_id ? { feature: ws.feature_id } : {}, ...ws.story_id ? { story: ws.story_id } : {} };
   } catch {
     return {};
+  }
+}
+function reportRoleOpen(consortDir, role, env) {
+  const res = openRoleArtifacts(consortDir, role, { ...currentScope(consortDir), env });
+  if (res.opened) return `[consort-watch] opened ${res.files.length} artifact(s) produced by ${role} in ${res.editor}`;
+  if (!DESIGN_ROLES.has(role)) return null;
+  switch (res.reason) {
+    case "not-in-editor":
+      return `[consort-watch] ${role} turn done , ${res.files.length} artifact(s) to review, NOT opened , run this relay inside your Cursor/VS Code integrated terminal to auto-open them (else review via consort-open)`;
+    case "no-editor":
+      return `[consort-watch] ${role} turn done , no cursor/code CLI found to open its ${res.files.length} artifact(s) , install the editor's shell command (else review via consort-open)`;
+    case "no-artifacts":
+      return `[consort-watch] ${role} turn done , no reviewable artifact found yet for this scope`;
+    default:
+      return null;
   }
 }
 function parseArgs(argv) {
@@ -378,6 +422,12 @@ function readNextStop(consortDir) {
 function isNextStop(ns) {
   return !!ns && (ns.awaiting_human || ns.done || ns.escalated);
 }
+function classifyPidGone(ns, actionBaseline, lastStop) {
+  const action = ns ? ns.enact ?? ns.summary ?? "" : "";
+  if (isNextStop(ns) || lastStop) return "stop";
+  if (action && action !== actionBaseline) return "turn-boundary";
+  return "crash";
+}
 function emitNextStop(ns) {
   process.stdout.write(`[consort-watch] DRIVE STOPPED , ${ns.summary || (ns.done ? "run complete" : ns.escalated ? "escalation" : "awaiting a decision")}
 `);
@@ -396,12 +446,13 @@ function emitNextStop(ns) {
 }
 function pollOnce(logPath, since, pid, isAlive = alive, nowMs = Date.now()) {
   const pidAlive = pid === void 0 ? null : isAlive(pid);
-  if (!fs4.existsSync(logPath)) return { relayed: [], cursor: 0, status: "waiting", silentMs: 0, pidAlive };
+  if (!fs4.existsSync(logPath)) return { relayed: [], turnsDone: [], cursor: 0, status: "waiting", silentMs: 0, pidAlive };
   const st = fs4.statSync(logPath);
   const size = st.size;
   const silentMs = Math.max(0, nowMs - st.mtimeMs);
   const from = since < 0 || since > size ? 0 : since;
   const relayed = [];
+  const turnsDone = [];
   let status = "running";
   if (size > from) {
     const fd = fs4.openSync(logPath, "r");
@@ -424,13 +475,17 @@ function pollOnce(logPath, since, pid, isAlive = alive, nowMs = Date.now()) {
         inNotice = true;
         continue;
       }
+      if (c.kind === "turn-done") {
+        const role = c.text.match(/^(\S+) turn/)?.[1];
+        if (role) turnsDone.push(role);
+      }
       if (c.stop && c.outcome) status = c.outcome;
     }
   }
   if (status === "running" && pidAlive === false && size <= from) {
     status = scanLastStop(logPath)?.outcome ?? "done";
   }
-  return { relayed, cursor: size, status, silentMs, pidAlive };
+  return { relayed, turnsDone, cursor: size, status, silentMs, pidAlive };
 }
 async function main() {
   const args = parseArgs(process.argv.slice(2));
@@ -440,6 +495,13 @@ async function main() {
     const r = pollOnce(logPath, args.since, args.pid);
     for (const line of r.relayed) process.stdout.write(`${line}
 `);
+    if (args.open) {
+      for (const role of r.turnsDone) {
+        const rep = reportRoleOpen(consortDir, role, process.env);
+        if (rep) process.stdout.write(`${rep}
+`);
+      }
+    }
     process.stdout.write(
       `[consort-watch] cursor=${r.cursor} status=${r.status} silent_for_s=${Math.round(r.silentMs / 1e3)} pid_alive=${r.pidAlive === null ? "unknown" : r.pidAlive}
 `
@@ -465,7 +527,6 @@ async function main() {
   let carry = "";
   let inNotice = false;
   const watchStart = Date.now();
-  let lastTurnOpenMs = watchStart;
   process.stderr.write(`consort-watch: following ${logPath}${args.pid ? ` (pid ${args.pid})` : ""}
 `);
   if (args.monitor) {
@@ -477,18 +538,26 @@ async function main() {
     }
   }
   const nextBaseline = readNextStop(consortDir)?.generated_at ?? "";
+  const baselineForAction = readNextStop(consortDir);
+  const actionBaseline = baselineForAction ? baselineForAction.enact ?? baselineForAction.summary ?? "" : "";
   const monitorStopCheck = () => {
     const pidGone = args.pid !== void 0 && !alive(args.pid);
     const ns = readNextStop(consortDir);
     if (pidGone) {
-      if (isNextStop(ns)) return emitNextStop(ns);
       const last = scanLastStop(logPath);
-      if (last) {
+      const kind = classifyPidGone(ns, actionBaseline, last);
+      if (kind === "stop") {
+        if (isNextStop(ns)) return emitNextStop(ns);
         process.stdout.write(`${PREFIX[last.kind]} ${last.text}
 `);
         return emitStop(last);
       }
-      process.stderr.write(`consort-watch: drive pid ${args.pid} is no longer running and no stop was recorded , run consort-next to check for a crash.
+      if (kind === "turn-boundary") {
+        process.stdout.write(`[consort-watch] turn boundary , the drive advanced (${ns?.summary || ns?.enact || "next action ready"}) and exited; re-run the drive to continue.
+`);
+        return 0;
+      }
+      process.stderr.write(`consort-watch: drive pid ${args.pid} is no longer running with no progress + no stop recorded , run consort-next to check for a crash.
 `);
       return 3;
     }
@@ -528,10 +597,9 @@ async function main() {
         }
         if (c.kind === "turn-done" && args.open) {
           const role = c.text.match(/^(\S+) turn/)?.[1];
-          const res = openArtifactsInEditor(consortDir, { ...currentScope(consortDir), changedSinceMs: lastTurnOpenMs });
-          lastTurnOpenMs = Date.now();
-          if (res.opened) {
-            process.stderr.write(`consort-watch: opened ${res.files.length} artifact(s)${role ? ` produced by ${role}` : ""} in ${res.editor}.
+          if (role) {
+            const rep = reportRoleOpen(consortDir, role, process.env);
+            if (rep) process.stdout.write(`${rep}
 `);
           }
         }
@@ -571,8 +639,10 @@ if ((0, import_util.isCliEntry)(importMetaUrl)) {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  classifyPidGone,
   pollOnce,
   readNextStop,
+  reportRoleOpen,
   scanLastStop
 });
 //# sourceMappingURL=watch.cli.cjs.map
