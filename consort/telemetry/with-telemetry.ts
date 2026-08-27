@@ -24,7 +24,9 @@ import {
   TURN_SPAN_NAME,
   isKnownGateKind,
   isKnownRole,
+  isKnownPhase,
   type GateOutcome,
+  type PhaseValue,
   type RunOutcome,
   type TelemetryCommand,
   type TelemetryLevel,
@@ -43,6 +45,28 @@ import { buildResourceAttrs, type ResourceDeps } from "./resource.js";
 import { newSpanId, newTraceId, type GateSpan, type RunSpan, type TurnSpan } from "./spans.js";
 import { takeLastTurnMeta } from "../orchestrator/drive/claude-runner.js";
 import { turnSpanFieldsFromMeta } from "./turn-meta.js";
+
+/** The PHASE of an invoke-role action , WHAT KIND of turn it is , for the L1 gate span
+ *  (undefined for any non-invoke-role gate). Passes the action's buildMode/mode through
+ *  when it is a known phase, maps an unmapped one to "other", and falls back to the role's
+ *  base phase when the turn carries no sub-mode. Closed-enum output; never free text. */
+export function phaseForAction(action: WorkflowAction): PhaseValue | undefined {
+  if (action.kind !== "invoke-role") return undefined;
+  const raw =
+    ("buildMode" in action && typeof action.buildMode === "string" ? action.buildMode : undefined) ??
+    ("mode" in action && typeof action.mode === "string" ? action.mode : undefined);
+  if (raw) return isKnownPhase(raw) ? raw : "other";
+  switch (action.role) {
+    case "spec-author": return "spec";
+    case "architect-reviewer": return "architecture";
+    case "dba": return "db-design";
+    case "test-strategist": return "test-strategy";
+    case "ux-designer": return "ux-design";
+    case "driver": return "green"; // base build turn = the GREEN attempt
+    case "navigator": return "red"; // base build turn = the RED test
+    default: return "other";
+  }
+}
 
 /** The one-time first-run notice (stderr). Pseudonymous, armed by default. */
 export const FIRST_RUN_NOTICE =
@@ -223,6 +247,14 @@ function beginTelemetryRunUnsafe(deps: BeginRunDeps): TelemetryRun {
       duration_ms: end - start,
       outcome: gateOutcome(action, threw),
     };
+    // L1: attribute duration to the role + phase for a role invocation (closed enums), so
+    // the DEFAULT telemetry is not blind to where the run spends its time (previously every
+    // role turn landed as the coarse gate:"invoke-role").
+    if (action.kind === "invoke-role" && isKnownRole(action.role)) {
+      span.role = action.role;
+      const phase = phaseForAction(action);
+      if (phase) span.phase = phase;
+    }
     emitter.enqueue(span);
     gates += 1;
 
@@ -232,8 +264,10 @@ function beginTelemetryRunUnsafe(deps: BeginRunDeps): TelemetryRun {
     // we TAKE it here (single per-turn consumer, take-clears so a gate action between
     // two role turns can't inherit a stale model/effort). All fields it yields are
     // closed-enum buckets , the sanitizer keeps only allowlisted keys either way.
+    // L1: the repair/loop counts are aggregate health , tallied on EVERY run.
+    tallyL2(action);
+    // L2 (opt-in) only: the per-turn cost/flakiness span (model/effort/token/retry).
     if (l2) {
-      tallyL2(action);
       if (action.kind === "invoke-role" && isKnownRole(action.role)) {
         const turn: TurnSpan = {
           trace_id: traceId,
@@ -327,17 +361,16 @@ function beginTelemetryRunUnsafe(deps: BeginRunDeps): TelemetryRun {
       exit_code: info.exit_code,
       gates_total: gates,
     };
-    // Level-2 (opt-in) only: attach the coarse repair/loop counts + project shape.
-    if (l2) {
-      root.red_green_cycles = l2Counts.red_green_cycles;
-      root.refactor_iterations = l2Counts.refactor_iterations;
-      root.revise_rounds = l2Counts.revise_rounds;
-      root.selfheal_attempts = l2Counts.selfheal_attempts;
-      root.hil_escalations = l2Counts.hil_escalations;
-      if (lastState) {
-        if (typeof lastState.uiTrack === "boolean") root.ui_track = lastState.uiTrack;
-        if (Array.isArray(lastState.storyOrder)) root.story_count = lastState.storyOrder.length;
-      }
+    // L1: repair/loop dynamics are always emitted (aggregate health , "is it thrashing").
+    root.red_green_cycles = l2Counts.red_green_cycles;
+    root.refactor_iterations = l2Counts.refactor_iterations;
+    root.revise_rounds = l2Counts.revise_rounds;
+    root.selfheal_attempts = l2Counts.selfheal_attempts;
+    root.hil_escalations = l2Counts.hil_escalations;
+    // Level-2 (opt-in) only: coarse project shape.
+    if (l2 && lastState) {
+      if (typeof lastState.uiTrack === "boolean") root.ui_track = lastState.uiTrack;
+      if (Array.isArray(lastState.storyOrder)) root.story_count = lastState.storyOrder.length;
     }
     emitter.enqueue(root);
     emitter.flush();

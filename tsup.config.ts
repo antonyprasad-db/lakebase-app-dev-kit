@@ -45,6 +45,8 @@ export default defineConfig({
     "bin/consort/telemetry-send.cli": "bin/consort/telemetry-send.cli.ts",
     "bin/consort/check-update.cli": "bin/consort/check-update.cli.ts",
     "bin/consort/annotate-ac.cli": "bin/consort/annotate-ac.cli.ts",
+    "bin/consort/cross-story-context.cli": "bin/consort/cross-story-context.cli.ts",
+    "bin/consort/reopen-story.cli": "bin/consort/reopen-story.cli.ts",
     "bin/consort/approve-gate.cli": "bin/consort/approve-gate.cli.ts",
     "bin/consort/project-canon-notes.cli": "bin/consort/project-canon-notes.cli.ts",
     "bin/consort/migration-app-clean.cli": "bin/consort/migration-app-clean.cli.ts",

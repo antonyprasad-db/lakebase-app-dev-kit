@@ -166,6 +166,9 @@ describe("telemetry allowlist reachability (no unlisted / no silent field)", () 
       duration_ms: 5,
       retry_count: 0,
       token_bucket: "m",
+      token_bucket_input: "m",
+      token_bucket_output: "xs",
+      token_bucket_cache_read: "l",
       // forbidden extras a turn span must never ship:
       prompt: "write the failing test for AC-3",
       cwd: "/Users/someone/secret",

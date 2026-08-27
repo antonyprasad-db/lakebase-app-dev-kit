@@ -6778,15 +6778,17 @@ var RUN_SPAN_FIELDS_L1 = [
   "command",
   "outcome",
   "exit_code",
-  "gates_total"
-];
-var RUN_SPAN_FIELDS_L2 = [
-  // Repair & loop dynamics (counts).
+  "gates_total",
+  // Repair & loop dynamics , PROMOTED to L1: "is the ensemble thrashing" is a HEALTH
+  // signal (L1's job), and these are aggregate run-level COUNTS , no per-turn detail, no
+  // content. Tallied on every run now, not just at level 2.
   "red_green_cycles",
   "refactor_iterations",
   "revise_rounds",
   "selfheal_attempts",
-  "hil_escalations",
+  "hil_escalations"
+];
+var RUN_SPAN_FIELDS_L2 = [
   // Project shape (counts, not content), each suffixed `_count` so it reads as a
   // count and never collides with a `.consort` layout path segment. The gate COUNT
   // is already carried by the L1 `gates_total`, so it is not duplicated here.
@@ -6804,6 +6806,8 @@ var GATE_SPAN_FIELDS_L1 = [
   "span_id",
   "name",
   "gate",
+  "role",
+  "phase",
   "ordinal",
   "start_ts",
   "end_ts",
@@ -6822,7 +6826,12 @@ var TURN_SPAN_FIELDS = [
   "effort",
   "duration_ms",
   "retry_count",
-  "token_bucket"
+  "token_bucket",
+  // Cost split (each a coarse TOKEN_BUCKET_VALUES band): input = context read, output =
+  // generation, cache_read = reuse , WHY a turn is expensive (read-heavy vs write-heavy).
+  "token_bucket_input",
+  "token_bucket_output",
+  "token_bucket_cache_read"
 ];
 var OS_VALUES = ["darwin", "linux", "win32", "other"];
 var ARCH_VALUES = ["arm64", "x64", "other"];
@@ -6835,6 +6844,24 @@ var ROLE_VALUES = [
   "navigator",
   "driver",
   "product-owner"
+];
+var PHASE_VALUES = [
+  "breakdown",
+  "spec",
+  "architecture",
+  "db-design",
+  "test-strategy",
+  "ux-design",
+  "reflect",
+  "red",
+  "green",
+  "review",
+  "refactor",
+  "refactor-superseded",
+  "assess",
+  "assess-refactor",
+  "repair",
+  "other"
 ];
 var EFFORT_VALUES = ["low", "medium", "high", "unknown"];
 var RUN_SPAN_NAME = "consort.run";
@@ -6871,6 +6898,8 @@ var GATE_KIND_SET = new Set(GATE_KINDS);
 var isKnownGateKind = (k) => GATE_KIND_SET.has(k);
 var ROLE_VALUE_SET = new Set(ROLE_VALUES);
 var isKnownRole = (r) => ROLE_VALUE_SET.has(r);
+var PHASE_VALUE_SET = new Set(PHASE_VALUES);
+var isKnownPhase = (p) => PHASE_VALUE_SET.has(p);
 function pickAllowed(obj, allowed) {
   const set = new Set(allowed);
   const src = obj;
@@ -7508,14 +7537,16 @@ var TOKEN_BUCKET_THRESHOLDS = [
   { bucket: "l", maxExclusive: 5e5 },
   { bucket: "xl", maxExclusive: Infinity }
 ];
-function bucketTokens(usage) {
-  if (!usage) return void 0;
-  const total = (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
-  if (!Number.isFinite(total) || total <= 0) return void 0;
+function bucketCount(n) {
+  if (typeof n !== "number" || !Number.isFinite(n) || n <= 0) return void 0;
   for (const t of TOKEN_BUCKET_THRESHOLDS) {
-    if (total < t.maxExclusive) return t.bucket;
+    if (n < t.maxExclusive) return t.bucket;
   }
   return "xl";
+}
+function bucketTokens(usage) {
+  if (!usage) return void 0;
+  return bucketCount((usage.inputTokens ?? 0) + (usage.outputTokens ?? 0));
 }
 function turnSpanFieldsFromMeta(meta) {
   if (!meta) return {};
@@ -7526,6 +7557,14 @@ function turnSpanFieldsFromMeta(meta) {
   if (effort) out.effort = effort;
   const tokenBucket = bucketTokens(meta.usage);
   if (tokenBucket) out.token_bucket = tokenBucket;
+  if (meta.usage) {
+    const bi = bucketCount(meta.usage.inputTokens);
+    if (bi) out.token_bucket_input = bi;
+    const bo = bucketCount(meta.usage.outputTokens);
+    if (bo) out.token_bucket_output = bo;
+    const bc = bucketCount(meta.usage.cacheReadTokens);
+    if (bc) out.token_bucket_cache_read = bc;
+  }
   if (typeof meta.retryCount === "number" && Number.isFinite(meta.retryCount) && meta.retryCount >= 0) {
     out.retry_count = meta.retryCount;
   }
@@ -7533,6 +7572,31 @@ function turnSpanFieldsFromMeta(meta) {
 }
 
 // consort/telemetry/with-telemetry.ts
+function phaseForAction(action) {
+  if (action.kind !== "invoke-role") return void 0;
+  const raw = ("buildMode" in action && typeof action.buildMode === "string" ? action.buildMode : void 0) ?? ("mode" in action && typeof action.mode === "string" ? action.mode : void 0);
+  if (raw) return isKnownPhase(raw) ? raw : "other";
+  switch (action.role) {
+    case "spec-author":
+      return "spec";
+    case "architect-reviewer":
+      return "architecture";
+    case "dba":
+      return "db-design";
+    case "test-strategist":
+      return "test-strategy";
+    case "ux-designer":
+      return "ux-design";
+    case "driver":
+      return "green";
+    // base build turn = the GREEN attempt
+    case "navigator":
+      return "red";
+    // base build turn = the RED test
+    default:
+      return "other";
+  }
+}
 var FIRST_RUN_NOTICE = "[consort] Anonymous* usage telemetry is on (*pseudonymous: a random per-install id, no PII).\n          Each run of Consort reports to the maintainers' endpoint; only allowlisted,\n          non-sensitive fields are sent (no paths, code, error text, or names).\n          Help the maintainers more , opt in to Level 2: `consort-telemetry enable --level 2`\n          adds per-role timings + coarse failure classes (still no code/paths/names), so they\n          can find and fix what makes runs slow or fail. It's off by default; this is the ask.\n          Turn telemetry off any time: `consort-telemetry disable` (or CONSORT_TELEMETRY=0).\n          Details: TELEMETRY.md.\n";
 var L2_OPT_IN_NOTICE = "[consort] Level-2 usage telemetry is ON (you opted in).\n          On top of Level 1, it reports per-role turn timings and coarse\n          repair/loop counts , still only allowlisted enums, counts, and\n          durations (no prompts, code, paths, error text, or names).\n          Back to Level 1 any time: `consort-telemetry enable --level 1`.\n          Details: TELEMETRY.md.\n";
 var NOOP_RUN = {
@@ -7620,10 +7684,15 @@ function beginTelemetryRunUnsafe(deps) {
       duration_ms: end - start,
       outcome: gateOutcome(action, threw)
     };
+    if (action.kind === "invoke-role" && isKnownRole(action.role)) {
+      span.role = action.role;
+      const phase = phaseForAction(action);
+      if (phase) span.phase = phase;
+    }
     emitter.enqueue(span);
     gates += 1;
+    tallyL2(action);
     if (l2) {
-      tallyL2(action);
       if (action.kind === "invoke-role" && isKnownRole(action.role)) {
         const turn = {
           trace_id: traceId,
@@ -7705,16 +7774,14 @@ function beginTelemetryRunUnsafe(deps) {
       exit_code: info.exit_code,
       gates_total: gates
     };
-    if (l2) {
-      root.red_green_cycles = l2Counts.red_green_cycles;
-      root.refactor_iterations = l2Counts.refactor_iterations;
-      root.revise_rounds = l2Counts.revise_rounds;
-      root.selfheal_attempts = l2Counts.selfheal_attempts;
-      root.hil_escalations = l2Counts.hil_escalations;
-      if (lastState) {
-        if (typeof lastState.uiTrack === "boolean") root.ui_track = lastState.uiTrack;
-        if (Array.isArray(lastState.storyOrder)) root.story_count = lastState.storyOrder.length;
-      }
+    root.red_green_cycles = l2Counts.red_green_cycles;
+    root.refactor_iterations = l2Counts.refactor_iterations;
+    root.revise_rounds = l2Counts.revise_rounds;
+    root.selfheal_attempts = l2Counts.selfheal_attempts;
+    root.hil_escalations = l2Counts.hil_escalations;
+    if (l2 && lastState) {
+      if (typeof lastState.uiTrack === "boolean") root.ui_track = lastState.uiTrack;
+      if (Array.isArray(lastState.storyOrder)) root.story_count = lastState.storyOrder.length;
     }
     emitter.enqueue(root);
     emitter.flush();

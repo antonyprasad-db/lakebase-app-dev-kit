@@ -6945,9 +6945,12 @@ var kitConsortHooks = {
 };
 
 // consort/lakebase/create-project.ts
+function resolveEnableE2e(input) {
+  return input.clientFramework === "react" ? true : input.enableE2e;
+}
 function createProject(input, progress) {
   return (0, import_lakebase.createProject)(
-    { ...input, consortHooks: input.consortHooks ?? kitConsortHooks },
+    { ...input, enableE2e: resolveEnableE2e(input), consortHooks: input.consortHooks ?? kitConsortHooks },
     progress
   );
 }

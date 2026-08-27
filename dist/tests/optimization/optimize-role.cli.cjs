@@ -15883,9 +15883,12 @@ var import_node_child_process7 = require("child_process");
 // consort/lakebase/create-project.ts
 init_cjs_shims();
 var import_lakebase11 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+function resolveEnableE2e(input) {
+  return input.clientFramework === "react" ? true : input.enableE2e;
+}
 function createProject(input, progress) {
   return (0, import_lakebase11.createProject)(
-    { ...input, consortHooks: input.consortHooks ?? kitConsortHooks },
+    { ...input, enableE2e: resolveEnableE2e(input), consortHooks: input.consortHooks ?? kitConsortHooks },
     progress
   );
 }

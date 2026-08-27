@@ -58,19 +58,21 @@ export const RUN_SPAN_FIELDS_L1 = [
   "outcome",
   "exit_code",
   "gates_total",
-] as const;
-
-/** The ADDITIONAL Level-2 `consort.run` span fields (present only on a level-2
- *  run). All are counts (numbers) or a single boolean lever — never free text.
- *  Repair & loop dynamics + coarse project shape, i.e. "is the ensemble
- *  thrashing" and "how big is the work", never WHAT the work is. */
-export const RUN_SPAN_FIELDS_L2 = [
-  // Repair & loop dynamics (counts).
+  // Repair & loop dynamics , PROMOTED to L1: "is the ensemble thrashing" is a HEALTH
+  // signal (L1's job), and these are aggregate run-level COUNTS , no per-turn detail, no
+  // content. Tallied on every run now, not just at level 2.
   "red_green_cycles",
   "refactor_iterations",
   "revise_rounds",
   "selfheal_attempts",
   "hil_escalations",
+] as const;
+
+/** The ADDITIONAL Level-2 `consort.run` span fields (present only on a level-2
+ *  run). All are counts (numbers) or a single boolean lever — never free text.
+ *  Coarse project shape ("how big is the work", never WHAT the work is) + the ui_track
+ *  lever. (The repair/loop dynamics moved to L1 above.) */
+export const RUN_SPAN_FIELDS_L2 = [
   // Project shape (counts, not content), each suffixed `_count` so it reads as a
   // count and never collides with a `.consort` layout path segment. The gate COUNT
   // is already carried by the L1 `gates_total`, so it is not duplicated here.
@@ -86,13 +88,19 @@ export const RUN_SPAN_FIELDS_L2 = [
 export const RUN_SPAN_FIELDS = [...RUN_SPAN_FIELDS_L1, ...RUN_SPAN_FIELDS_L2] as const;
 export type RunSpanField = (typeof RUN_SPAN_FIELDS)[number];
 
-/** The Level-1 child `consort.gate` span fields (one per performed action). */
+/** The Level-1 child `consort.gate` span fields (one per performed action). `role` +
+ *  `phase` are carried ONLY for an `invoke-role` action (undefined for every other gate
+ *  kind); both are closed enums (no free text), so the DEFAULT (L1) telemetry can attribute
+ *  duration to the specific role + phase , where the majority of a run's time goes , instead
+ *  of lumping every role turn under `gate: "invoke-role"`. */
 export const GATE_SPAN_FIELDS_L1 = [
   "trace_id",
   "parent_span_id",
   "span_id",
   "name",
   "gate",
+  "role",
+  "phase",
   "ordinal",
   "start_ts",
   "end_ts",
@@ -123,6 +131,11 @@ export const TURN_SPAN_FIELDS = [
   "duration_ms",
   "retry_count",
   "token_bucket",
+  // Cost split (each a coarse TOKEN_BUCKET_VALUES band): input = context read, output =
+  // generation, cache_read = reuse , WHY a turn is expensive (read-heavy vs write-heavy).
+  "token_bucket_input",
+  "token_bucket_output",
+  "token_bucket_cache_read",
 ] as const;
 export type TurnSpanField = (typeof TURN_SPAN_FIELDS)[number];
 
@@ -197,6 +210,31 @@ export const ROLE_VALUES = [
   "product-owner",
 ] as const;
 export type RoleValue = (typeof ROLE_VALUES)[number];
+
+/** The PHASE of a role invocation , WHAT KIND of turn it is , so the DEFAULT L1 gate span
+ *  can split the two roles that dominate runtime (navigator: reflect/red/review/assess;
+ *  driver: green/refactor) instead of one coarse "invoke-role". Derived from the action's
+ *  buildMode/mode, else the role's base phase; "other" catches any unmapped mode so a new
+ *  buildMode never ships as free text. */
+export const PHASE_VALUES = [
+  "breakdown",
+  "spec",
+  "architecture",
+  "db-design",
+  "test-strategy",
+  "ux-design",
+  "reflect",
+  "red",
+  "green",
+  "review",
+  "refactor",
+  "refactor-superseded",
+  "assess",
+  "assess-refactor",
+  "repair",
+  "other",
+] as const;
+export type PhaseValue = (typeof PHASE_VALUES)[number];
 
 /** The model FAMILY a turn ran on (coarse bucket, never the exact model id). */
 export const MODEL_VALUES = ["opus", "sonnet", "haiku", "fable", "other"] as const;
@@ -275,6 +313,10 @@ export const isKnownGateKind = (k: string): k is GateKind => GATE_KIND_SET.has(k
 const ROLE_VALUE_SET = new Set<string>(ROLE_VALUES);
 /** True when `r` is one of the role ensemble members. */
 export const isKnownRole = (r: string): r is RoleValue => ROLE_VALUE_SET.has(r);
+
+const PHASE_VALUE_SET = new Set<string>(PHASE_VALUES);
+/** True when `p` is one of the closed phase values. */
+export const isKnownPhase = (p: string): p is PhaseValue => PHASE_VALUE_SET.has(p);
 
 /**
  * Keep ONLY the allowlisted keys of `obj`, dropping every other key. The runtime

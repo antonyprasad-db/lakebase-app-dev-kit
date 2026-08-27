@@ -66,15 +66,17 @@ var RUN_SPAN_FIELDS_L1 = [
   "command",
   "outcome",
   "exit_code",
-  "gates_total"
-];
-var RUN_SPAN_FIELDS_L2 = [
-  // Repair & loop dynamics (counts).
+  "gates_total",
+  // Repair & loop dynamics , PROMOTED to L1: "is the ensemble thrashing" is a HEALTH
+  // signal (L1's job), and these are aggregate run-level COUNTS , no per-turn detail, no
+  // content. Tallied on every run now, not just at level 2.
   "red_green_cycles",
   "refactor_iterations",
   "revise_rounds",
   "selfheal_attempts",
-  "hil_escalations",
+  "hil_escalations"
+];
+var RUN_SPAN_FIELDS_L2 = [
   // Project shape (counts, not content), each suffixed `_count` so it reads as a
   // count and never collides with a `.consort` layout path segment. The gate COUNT
   // is already carried by the L1 `gates_total`, so it is not duplicated here.
@@ -92,6 +94,8 @@ var GATE_SPAN_FIELDS_L1 = [
   "span_id",
   "name",
   "gate",
+  "role",
+  "phase",
   "ordinal",
   "start_ts",
   "end_ts",
@@ -109,6 +113,24 @@ var ROLE_VALUES = [
   "navigator",
   "driver",
   "product-owner"
+];
+var PHASE_VALUES = [
+  "breakdown",
+  "spec",
+  "architecture",
+  "db-design",
+  "test-strategy",
+  "ux-design",
+  "reflect",
+  "red",
+  "green",
+  "review",
+  "refactor",
+  "refactor-superseded",
+  "assess",
+  "assess-refactor",
+  "repair",
+  "other"
 ];
 var GATE_KINDS = [
   "invoke-role",
@@ -139,6 +161,7 @@ var GATE_KINDS = [
 var RESOURCE_KEY_SET = new Set(RESOURCE_ATTR_KEYS);
 var GATE_KIND_SET = new Set(GATE_KINDS);
 var ROLE_VALUE_SET = new Set(ROLE_VALUES);
+var PHASE_VALUE_SET = new Set(PHASE_VALUES);
 
 // consort/telemetry/consent.ts
 var inCi = (env) => {

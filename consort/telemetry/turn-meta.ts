@@ -56,14 +56,20 @@ export const TOKEN_BUCKET_THRESHOLDS: ReadonlyArray<{ bucket: TokenBucketValue; 
  *  (input + output) tokens. Absent usage, or a non-positive/non-finite total,
  *  yields undefined (the span omits the field , a null column, distinct from `xs`
  *  which is a real, measured-small turn). */
-export function bucketTokens(usage: TurnMeta["usage"]): TokenBucketValue | undefined {
-  if (!usage) return undefined;
-  const total = (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
-  if (!Number.isFinite(total) || total <= 0) return undefined;
+/** Bucket ONE non-negative token count into a TOKEN_BUCKET_VALUES band; undefined for an
+ *  absent / non-positive / non-finite value. Shared by the combined + the per-component
+ *  (input / output / cache-read) buckets. */
+export function bucketCount(n: number | undefined): TokenBucketValue | undefined {
+  if (typeof n !== "number" || !Number.isFinite(n) || n <= 0) return undefined;
   for (const t of TOKEN_BUCKET_THRESHOLDS) {
-    if (total < t.maxExclusive) return t.bucket;
+    if (n < t.maxExclusive) return t.bucket;
   }
   return "xl";
+}
+
+export function bucketTokens(usage: TurnMeta["usage"]): TokenBucketValue | undefined {
+  if (!usage) return undefined;
+  return bucketCount((usage.inputTokens ?? 0) + (usage.outputTokens ?? 0));
 }
 
 /** Build the OPTIONAL enum/coarse fields of a `consort.turn` span from a recorded
@@ -78,6 +84,16 @@ export function turnSpanFieldsFromMeta(meta: TurnMeta | undefined): Partial<Turn
   if (effort) out.effort = effort;
   const tokenBucket = bucketTokens(meta.usage);
   if (tokenBucket) out.token_bucket = tokenBucket;
+  // L2 cost split: input (context read) vs output (generation) vs cache-read (reuse), each a
+  // coarse band , shows whether a turn is expensive because it READS a lot or WRITES a lot.
+  if (meta.usage) {
+    const bi = bucketCount(meta.usage.inputTokens);
+    if (bi) out.token_bucket_input = bi;
+    const bo = bucketCount(meta.usage.outputTokens);
+    if (bo) out.token_bucket_output = bo;
+    const bc = bucketCount(meta.usage.cacheReadTokens);
+    if (bc) out.token_bucket_cache_read = bc;
+  }
   // retry_count is a plain count, not an enum: carry it whenever the runner recorded a
   // finite non-negative number, INCLUDING 0 (a measured clean turn , distinct from an
   // omitted/null column meaning the runner surfaced no meta at all). This is the "who is

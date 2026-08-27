@@ -396,8 +396,10 @@ describe("withTelemetry over the driver loop", () => {
     expect(payload.resource.level).toBe(1);
     expect(payload.spans.some(isTurnSpan)).toBe(false);
     const root = payload.spans.filter(isRunSpan)[0] as RunSpan;
-    expect(root.red_green_cycles).toBeUndefined();
-    expect(root.hil_escalations).toBeUndefined();
+    // Loop/repair counts are now L1 (aggregate health) , present even on a level-1 run.
+    expect(typeof root.red_green_cycles).toBe("number");
+    expect(typeof root.hil_escalations).toBe("number");
+    // Project shape + the per-turn spans stay Level-2 only.
     expect(root.story_count).toBeUndefined();
     expect(root.ui_track).toBeUndefined();
   });

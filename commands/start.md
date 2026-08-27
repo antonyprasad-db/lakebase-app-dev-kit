@@ -32,8 +32,8 @@ TCLI="node \"$CONSORT_ROOT/dist/bin/consort/telemetry.cli.js\""
 2. **If `acknowledged` is `true`, SKIP this section SILENTLY** , they have already been briefed and made a choice; say NOTHING about telemetry and go straight to the `.consort/` check below.
 3. **If `acknowledged` is `false`** (a brand-new install, OR an older config that predates this briefing), present this verbatim and wait for their answer:
    > "One quick thing before we start , Consort's usage telemetry. Consort runs entirely in your own workspace, so a telemetry capture is the only way its maintainers can see what's working and make it better. It's **pseudonymous**: a random per-install id and nothing that identifies you , **no personal data, no code, no file paths, no names** , just event names, counts, and timings from a fixed allowlist. It's **on by default**, and you can opt out or change it anytime. How would you like it set?
-   > • **ok** , leave it on at the default (Level 1: high-level phase and gate events).
-   > • **level 2** , opt in to a bit more (per-role turn timings + coarse repair/loop counts, still allowlisted, no free text). This is the signal that most helps tune the roles and gates , the biggest favor you can do the project.
+   > • **ok** , leave it on at the default (Level 1: high-level phase and gate events , the role + phase of each step with timings and counts, never code, paths, or names).
+   > • **level 2** , opt in to a bit more: the per-turn cost , which model + effort + a coarse token bucket + retry count , plus repair/loop dynamics and the failure taxonomy (still allowlisted, no free text). Level 1 already shows WHERE the time goes (role + phase); this adds WHY a turn is expensive/slow/flaky and where the ensemble thrashes , the biggest favor you can do the project.
    > • **opt out** , turn telemetry off entirely.
    > (Change it later anytime: `consort-telemetry {enable|disable} [--level 2]`, or `./scripts/lk consort-telemetry …` inside a project.)"
 4. **RECORD their choice by actually RUNNING the matching command** (do NOT just note the answer in your reply , if you don't run it, nothing persists). Each sets `acknowledged=true`:
@@ -193,7 +193,7 @@ KIT_REF="${LAKEBASE_KIT_REF:-}"
 if [ -z "$KIT_REF" ] && [ -f "$CONSORT_ROOT/.claude-plugin/plugin.json" ]; then
   KIT_REF="v$(node -p "require('$CONSORT_ROOT/.claude-plugin/plugin.json').version" 2>/dev/null || true)"
 fi
-KIT_REF="${KIT_REF:-v0.3.43}"   # stamped at release; == package.json version (enforced by tests/bdd/start-kit-pin.test.ts)
+KIT_REF="${KIT_REF:-v0.3.44}"   # stamped at release; == package.json version (enforced by tests/bdd/start-kit-pin.test.ts)
 export LAKEBASE_KIT_REF="$KIT_REF"
 
 # Launch scaffolding DETACHED (own session): it prints the child pid + a live-log path

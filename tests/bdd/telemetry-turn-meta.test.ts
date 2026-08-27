@@ -87,7 +87,14 @@ describe("turnSpanFieldsFromMeta: build the optional span fields from a recorded
         retryCount: 2,
         usage: { inputTokens: 90_000, outputTokens: 5_000 },
       }),
-    ).toEqual({ model: "opus", effort: "high", token_bucket: "m", retry_count: 2 });
+    ).toEqual({
+      model: "opus",
+      effort: "high",
+      token_bucket: "m",
+      token_bucket_input: "m", // 90k
+      token_bucket_output: "xs", // 5k
+      retry_count: 2,
+    });
   });
   it("carries retry_count: 0 as a real measurement (clean turn, distinct from omitted/null)", () => {
     expect(turnSpanFieldsFromMeta({ role: "driver", retryCount: 0 })).toEqual({ retry_count: 0 });

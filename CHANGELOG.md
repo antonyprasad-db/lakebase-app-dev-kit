@@ -6,6 +6,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.44] - 2026-08-27
+
+### Added
+
+- **Cross-story design review (prevents the cross-story AC conflict).** The design lane reviewed each story in isolation, so a later story could author an AC that contradicts an earlier, already-gated story (e.g. rejecting a SKU that an earlier story's gated AC establishes stock for) , invisible until the build lane. New `consort-cross-story-context` CLI surfaces the feature's OTHER stories' ACs + the architecture's open decisions; the navigator reflect turn now checks this story's ACs against gated sibling ACs (and against open decisions) and, on a contradiction, records a spec-author finding that HOLDS the spec gate. The architect records/reconciles the decisions.
+- **`open_decisions[]` in `architecture.json`.** First-class record of deliberately-unresolved boundary decisions, so a later story cannot silently resolve one in a way that breaks a sibling; the architect records them and reconciles when a later story settles one.
+- **`consort-reopen-story` , reopen a story for genuine re-design.** `withdraw-gate`/`revise` leave a story's ACs on disk (so the drive just re-approves the stale spec); this backs up + clears the ACs/test-list/reflect-verdict and empties `story.json.acs[]` so `hasAcs` is false and the Spec Author is re-dispatched.
+- **Telemetry L1 gate fidelity , `role` + `phase` on the gate span.** The default (L1) telemetry lumped every role turn under the coarse `gate:"invoke-role"`; it now carries the `role` + `phase` (both closed enums) of each invoke-role turn, so the default view attributes a run's duration to role × phase (where most of the time goes).
+- **Telemetry L2 token cost split.** The `consort.turn` span now carries coarse `token_bucket_input` / `token_bucket_output` / `token_bucket_cache_read` bands , read-heavy vs write-heavy vs cache reuse.
+- **E2E runs locally before CI for UI projects.** A UI project (React SPA client) now ALWAYS wires the Playwright E2E harness, so the LOCAL deploy-verify gate (which runs before `prepare-pr` -> CI) runs the client E2E , instead of CI being the first place E2E ever runs. Previously `enable-e2e` defaulted off, so a default-scaffolded UI project shipped its Playwright suite un-run until CI. Backend-only projects are unchanged (honor the flag; default off).
+
+### Changed
+
+- **Repair/loop dynamics promoted from L2 to L1.** `red_green_cycles`, `refactor_iterations`, `revise_rounds`, `selfheal_attempts`, `hil_escalations` are now on the DEFAULT level (aggregate health , "is the ensemble thrashing"), tallied on every run. Coarse project-shape counts + the per-turn cost span stay L2. The disclosure (`start.md` / `TELEMETRY.md`) is updated accordingly: L1 = WHERE the time goes (role × phase + loop dynamics); L2 = WHY a turn is costly (model/effort/token split) + the failure taxonomy.
+
 ## [0.3.43] - 2026-08-26
 
 ### Changed

@@ -124,6 +124,40 @@
         },
         "additionalProperties": false
       }
+    },
+    "open_decisions": {
+      "type": "array",
+      "description": "Architectural decisions deliberately LEFT UNRESOLVED here (deferred boundary/design questions, e.g. whether a canonical SKU catalog table should exist vs. treating stock_records as the SKU authority). First-class so a LATER story cannot silently resolve one in a way that contradicts an earlier, already-gated story: the cross-story design review reads these, and a story that resolves an open decision must record how (decision_status -> \"resolved\", resolved_by_story, resolution) and reconcile it against the stories that deferred it. Empty is valid.",
+      "items": {
+        "type": "object",
+        "required": ["id", "question", "decision_status"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable id, e.g. \"OD1-sku-catalog-authority\"."
+          },
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The unresolved decision, one line (e.g. \"Is stock_records the authority on whether a SKU is 'known', or is a separate SKU catalog needed?\")."
+          },
+          "decision_status": {
+            "type": "string",
+            "enum": ["open", "resolved", "deferred"],
+            "description": "open = still unresolved; resolved = a later story settled it (set resolved_by_story + resolution); deferred = intentionally postponed to a named later story."
+          },
+          "resolved_by_story": {
+            "type": "string",
+            "description": "The story id that resolved this decision. Set together with decision_status=resolved."
+          },
+          "resolution": {
+            "type": "string",
+            "description": "How it was resolved, one line , the reconciliation the cross-story review checks siblings against."
+          },
+          "note": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
     }
   },
   "additionalProperties": false

@@ -144,7 +144,12 @@ feature run reports `build`), `outcome` (`completed` \| `aborted` \| `error`),
 no-op is not a span): `trace_id`, `parent_span_id`, `span_id`, `name`
 (`"consort.gate"`), `gate` (the WorkflowAction kind — see below), `ordinal`,
 `start_ts` / `end_ts`, `duration_ms`, `outcome` (`pass` \| `fail` \| `skip` \|
-`abort`).
+`abort`). For an `invoke-role` gate ONLY, it also carries `role` (the ensemble
+member) and `phase` (the KIND of turn: breakdown / spec / architecture / db-design /
+test-strategy / ux-design / reflect / red / green / review / refactor /
+refactor-superseded / assess / assess-refactor / repair / other) — both CLOSED enums,
+so the default view attributes a run's duration to role × phase (where most of the time
+goes) instead of one coarse `invoke-role`. Never free text.
 
 ### The `gate` enum (frozen WorkflowAction kinds)
 
@@ -185,7 +190,10 @@ after you opt in, `consort-drive` prints a one-time Level-2 notice to stderr.
 
 ### What Level 2 adds (schema `consort/v1`, `level = 2`)
 
-On top of everything in Level 1:
+On top of everything in Level 1 (which already attributes each turn's DURATION to its
+role + phase on the gate span , the *where does the time go* map), Level 2 adds the
+per-turn COST & flakiness and the loop dynamics , the *why is a turn expensive / slow /
+flaky, and is the ensemble thrashing*:
 
 **Turn span `consort.turn`** (one per role invocation): `trace_id`,
 `parent_span_id`, `span_id`, `name` (`"consort.turn"`), `role` (`spec-author` \|

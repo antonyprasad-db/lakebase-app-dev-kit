@@ -23,6 +23,7 @@ import {
   type GateOutcome,
   type ModelValue,
   type OsValue,
+  type PhaseValue,
   type RoleValue,
   type RunOutcome,
   type ShellValue,
@@ -86,6 +87,10 @@ export interface GateSpan {
   span_id: string;
   name: typeof GATE_SPAN_NAME;
   gate: GateKind;
+  /** For an `invoke-role` gate only: the role + phase of the turn (closed enums), so the
+   *  DEFAULT L1 view attributes duration to role × phase. Undefined for other gate kinds. */
+  role?: RoleValue;
+  phase?: PhaseValue;
   ordinal: number;
   start_ts: number;
   end_ts: number;
@@ -109,6 +114,11 @@ export interface TurnSpan {
   duration_ms: number;
   retry_count?: number;
   token_bucket?: TokenBucketValue;
+  /** L2 cost split (coarse bands): input = context read, output = generation,
+   *  cache_read = reuse , shows whether a turn is read-heavy or write-heavy. */
+  token_bucket_input?: TokenBucketValue;
+  token_bucket_output?: TokenBucketValue;
+  token_bucket_cache_read?: TokenBucketValue;
 }
 
 export type TelemetrySpan = RunSpan | GateSpan | TurnSpan;

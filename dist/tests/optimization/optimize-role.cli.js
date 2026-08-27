@@ -15861,9 +15861,12 @@ init_esm_shims();
 import {
   createProject as baseCreateProject
 } from "@databricks-solutions/lakebase-scm-utils/lakebase";
+function resolveEnableE2e(input) {
+  return input.clientFramework === "react" ? true : input.enableE2e;
+}
 function createProject(input, progress) {
   return baseCreateProject(
-    { ...input, consortHooks: input.consortHooks ?? kitConsortHooks },
+    { ...input, enableE2e: resolveEnableE2e(input), consortHooks: input.consortHooks ?? kitConsortHooks },
     progress
   );
 }
