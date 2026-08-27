@@ -16,6 +16,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { spawnSync } from "node:child_process";
 import {
   KIT_REF_FILE,
   KIT_REF_LOCAL_FILE,
@@ -182,4 +183,52 @@ export function refreshSurface(projectDir: string, kitDir: string, targetVersion
   }
   const count = (files: Array<{ outcome: string }>): number => files.filter((f) => f.outcome === "added" || f.outcome === "updated").length;
   return { agents: count(a.files), commands: count(c.files), scripts, workflows };
+}
+
+/** The kit-owned tracked paths refreshSurface + pinBoth rewrite. Committed by EXACT path so the
+ *  commit never touches app code, the `.consort` corpus, the scm-utils `scripts/lk` shim (which
+ *  refreshSurface leaves untouched), or the run-local pins (`.lakebase/kit-ref.local` / `.prev`
+ *  are gitignored; `.lakebase/kit-ref` is the tracked CI pin). */
+const KIT_SURFACE_PATHS = [".claude/agents", ".claude/commands", "scripts", ".github/workflows", ".lakebase/kit-ref"];
+
+export interface CommitSurfaceResult {
+  committed: boolean;
+  sha?: string;
+  /** When committed=false, why: "not-a-git-repo" | "nothing-to-commit" | "commit-failed". */
+  reason?: string;
+}
+
+/**
+ * Commit the kit-owned surface an in-flight upgrade just refreshed, so the working tree is CLEAN
+ * afterwards. This is the durable fix for the mid-run-upgrade failure: refreshSurface + pinBoth
+ * rewrite tracked files (`.claude/commands` + `agents` + `scripts` + `.github/workflows` +
+ * `.lakebase/kit-ref`), and the very next experiment/feature fork REFUSES to fork while the tree
+ * has uncommitted tracked changes (they would ride onto the new branch , paired-branch's guard).
+ * Committing them here (matching the repo's own `chore: bump committed kit-ref` convention) leaves
+ * the fork a clean tree. Staged by EXACT kit path (never app code or the `.consort` corpus).
+ * `--no-verify` so a slow pre-commit hook (e.g. schema-diff) cannot hang the upgrade , this is kit
+ * metadata, not app code. No-op (committed:false) when not a git repo or nothing changed. Never
+ * throws; the git runner is injectable for tests.
+ */
+export function commitRefreshedSurface(
+  projectDir: string,
+  targetVersion: string,
+  git: (args: string[]) => { status: number | null; stdout: string } = (a) => {
+    const r = spawnSync("git", ["-C", projectDir, ...a], { encoding: "utf8" });
+    return { status: r.status, stdout: r.stdout ?? "" };
+  },
+): CommitSurfaceResult {
+  if (git(["rev-parse", "--is-inside-work-tree"]).status !== 0) return { committed: false, reason: "not-a-git-repo" };
+  // Only stage paths that exist , `git add` fails the whole command on a missing pathspec.
+  const paths = KIT_SURFACE_PATHS.filter((p) => fs.existsSync(path.join(projectDir, p)));
+  if (!paths.length) return { committed: false, reason: "nothing-to-commit" };
+  git(["add", "--", ...paths]);
+  // Anything actually staged under the kit paths? (exit 0 = no diff => nothing to commit)
+  if (git(["diff", "--cached", "--quiet", "--", ...paths]).status === 0) {
+    return { committed: false, reason: "nothing-to-commit" };
+  }
+  if (git(["commit", "--no-verify", "-m", `chore(kit): refresh scaffolded surface to ${targetVersion}`]).status !== 0) {
+    return { committed: false, reason: "commit-failed" };
+  }
+  return { committed: true, sha: git(["rev-parse", "--short", "HEAD"]).stdout.trim() };
 }

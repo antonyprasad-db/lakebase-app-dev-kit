@@ -30,7 +30,7 @@ var importMetaUrl = /* @__PURE__ */ getImportMetaUrl();
 // bin/consort/upgrade.cli.ts
 var fs6 = __toESM(require("fs"), 1);
 var path5 = __toESM(require("path"), 1);
-var import_node_child_process2 = require("child_process");
+var import_node_child_process3 = require("child_process");
 
 // consort/config/consort-paths.ts
 var fs = __toESM(require("fs"), 1);
@@ -74,6 +74,7 @@ function kitVersion() {
 // consort/lakebase/upgrade.ts
 var fs5 = __toESM(require("fs"), 1);
 var path4 = __toESM(require("path"), 1);
+var import_node_child_process2 = require("child_process");
 
 // consort/config/kit-ref.ts
 var import_node_fs = require("fs");
@@ -334,6 +335,23 @@ function refreshSurface(projectDir, kitDir, targetVersion) {
   const count = (files) => files.filter((f) => f.outcome === "added" || f.outcome === "updated").length;
   return { agents: count(a.files), commands: count(c.files), scripts, workflows };
 }
+var KIT_SURFACE_PATHS = [".claude/agents", ".claude/commands", "scripts", ".github/workflows", ".lakebase/kit-ref"];
+function commitRefreshedSurface(projectDir, targetVersion, git = (a) => {
+  const r = (0, import_node_child_process2.spawnSync)("git", ["-C", projectDir, ...a], { encoding: "utf8" });
+  return { status: r.status, stdout: r.stdout ?? "" };
+}) {
+  if (git(["rev-parse", "--is-inside-work-tree"]).status !== 0) return { committed: false, reason: "not-a-git-repo" };
+  const paths = KIT_SURFACE_PATHS.filter((p) => fs5.existsSync(path4.join(projectDir, p)));
+  if (!paths.length) return { committed: false, reason: "nothing-to-commit" };
+  git(["add", "--", ...paths]);
+  if (git(["diff", "--cached", "--quiet", "--", ...paths]).status === 0) {
+    return { committed: false, reason: "nothing-to-commit" };
+  }
+  if (git(["commit", "--no-verify", "-m", `chore(kit): refresh scaffolded surface to ${targetVersion}`]).status !== 0) {
+    return { committed: false, reason: "commit-failed" };
+  }
+  return { committed: true, sha: git(["rev-parse", "--short", "HEAD"]).stdout.trim() };
+}
 
 // bin/consort/upgrade.cli.ts
 var import_util = require("@databricks-solutions/lakebase-scm-utils/util");
@@ -416,7 +434,7 @@ async function main() {
     if (fs6.existsSync(lk)) {
       process.stderr.write(`consort-upgrade: refreshing the kit cache to ${ref} ...
 `);
-      const r = (0, import_node_child_process2.spawnSync)(lk, ["--refresh"], {
+      const r = (0, import_node_child_process3.spawnSync)(lk, ["--refresh"], {
         cwd: args.projectDir,
         stdio: "inherit",
         env: { ...process.env, LAKEBASE_KIT_REF: ref },
@@ -430,12 +448,14 @@ async function main() {
   }
   const pin = pinBoth(args.projectDir, ref);
   const surf = refreshSurface(args.projectDir, kitRoot(), target);
+  const committed = commitRefreshedSurface(args.projectDir, ref);
   process.stdout.write(
     `consort-upgrade: UPGRADED to ${ref}.
   pins: .local ${pin.previousLocal ?? "(unset)"} -> ${ref}; committed ${pin.previousCommitted ?? "(unset)"} -> ${ref} (in lockstep, no drift).
   surface: ${surf.agents} agent(s) + ${surf.commands} command(s) + ${surf.scripts} script(s) + ${surf.workflows} CI workflow(s) refreshed from ${ref} (the scm-utils scripts/lk shim + project config left as-is).
+  committed: ${committed.committed ? `${committed.sha} , kit surface committed, tree clean for the next fork` : `nothing committed (${committed.reason}) , if the tree is dirty with kit files, commit them before the next fork`}.
   RESUME: run \`consort-next\` for the exact command, then re-run your drive , it runs ${ref}, re-derives state from disk, and continues from the gate.
-  ROLLBACK (instant undo): \`./scripts/lk consort-upgrade --rollback\` then \`./scripts/lk --refresh\`.
+  ROLLBACK (instant undo): \`./scripts/lk consort-upgrade --rollback\` then \`./scripts/lk --refresh\` (re-commit the restored surface if the next fork reports a dirty tree).
 `
   );
   return 0;

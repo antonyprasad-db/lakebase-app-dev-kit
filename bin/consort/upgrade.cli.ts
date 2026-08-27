@@ -28,7 +28,7 @@ import * as path from "node:path";
 import { spawnSync } from "node:child_process";
 import { resolveConsortDir } from "../../consort/config/consort-paths.js";
 import { kitRoot, kitVersion } from "../../consort/config/kit-bin.js";
-import { quiesceGate, pinBoth, rollbackPins, refreshSurface } from "../../consort/lakebase/upgrade.js";
+import { quiesceGate, pinBoth, rollbackPins, refreshSurface, commitRefreshedSurface } from "../../consort/lakebase/upgrade.js";
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 
 interface Args {
@@ -136,13 +136,18 @@ async function main(): Promise<number> {
   const pin = pinBoth(args.projectDir, ref);
   // 4. Refresh the scaffolded surface from THIS (the target) kit.
   const surf = refreshSurface(args.projectDir, kitRoot(), target);
+  // 5. Commit the refreshed kit-owned surface so the tree is CLEAN. Without this, the refreshed
+  //    tracked files (agents/commands/scripts/workflows/kit-ref) sit uncommitted and the run's
+  //    NEXT experiment/feature fork refuses to fork a dirty tree , the mid-run-upgrade failure.
+  const committed = commitRefreshedSurface(args.projectDir, ref);
 
   process.stdout.write(
     `consort-upgrade: UPGRADED to ${ref}.\n` +
       `  pins: .local ${pin.previousLocal ?? "(unset)"} -> ${ref}; committed ${pin.previousCommitted ?? "(unset)"} -> ${ref} (in lockstep, no drift).\n` +
       `  surface: ${surf.agents} agent(s) + ${surf.commands} command(s) + ${surf.scripts} script(s) + ${surf.workflows} CI workflow(s) refreshed from ${ref} (the scm-utils scripts/lk shim + project config left as-is).\n` +
+      `  committed: ${committed.committed ? `${committed.sha} , kit surface committed, tree clean for the next fork` : `nothing committed (${committed.reason}) , if the tree is dirty with kit files, commit them before the next fork`}.\n` +
       `  RESUME: run \`consort-next\` for the exact command, then re-run your drive , it runs ${ref}, re-derives state from disk, and continues from the gate.\n` +
-      `  ROLLBACK (instant undo): \`./scripts/lk consort-upgrade --rollback\` then \`./scripts/lk --refresh\`.\n`,
+      `  ROLLBACK (instant undo): \`./scripts/lk consort-upgrade --rollback\` then \`./scripts/lk --refresh\` (re-commit the restored surface if the next fork reports a dirty tree).\n`,
   );
   return 0;
 }

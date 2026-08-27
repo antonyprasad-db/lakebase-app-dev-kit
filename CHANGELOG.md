@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.46] - 2026-08-27
+
+### Fixed
+
+- **In-flight kit upgrade now leaves a clean working tree.** `consort-upgrade` refreshes the scaffolded surface (`.claude/agents` + `.claude/commands` + `scripts` + `.github/workflows`) and re-pins `.lakebase/kit-ref`, but left those tracked files uncommitted , so the run's NEXT experiment/feature fork refused (`paired-branch` rejects a dirty tree whose uncommitted tracked changes would ride onto the new branch), stranding a mid-run bump with a `refusing to fork` error. `consort-upgrade` now commits that refreshed surface itself (`chore(kit): refresh scaffolded surface to <version>`, `--no-verify`), scoped by EXACT kit-owned path so it never sweeps in app code or the `.consort` corpus, and no-ops cleanly when there's nothing to commit or it's not a git repo. Matches the repo's own `chore: bump committed kit-ref` convention. (The raw `./scripts/lk --refresh` remains a fresh-install tool , use `consort-upgrade --pid <drive-pid>` to bump a live run.)
+
 ## [0.3.45] - 2026-08-27
 
 ### Fixed
