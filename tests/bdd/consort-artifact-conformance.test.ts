@@ -16,6 +16,7 @@ import {
   scanFeatureConformance,
   checkLayeringDeclared,
   checkFitnessCoverage,
+  checkE2ECoverage,
   checkPersistenceCoverage,
   checkInvariantCoverageDistinct,
   invariantRealizingStory,
@@ -1009,5 +1010,46 @@ describe("checkSchemaChangeStoryRealizes: a create_table must not land on a UI/E
       checkSchemaChangeStoryRealizes([{ story_id: "S9-ghost", kind: "create_table", table: "t" }], layers({})).ok,
     ).toBe(true);
     expect(checkSchemaChangeStoryRealizes([], layers({})).ok).toBe(true);
+  });
+});
+
+describe("checkE2ECoverage: an E2E-layer AC needs a REAL e2e test, not a mocked component test", () => {
+  const tl = (items: Array<{ ac_id: string; kind: string; scenario_file?: string }>): string =>
+    JSON.stringify({ items });
+
+  it("passes when the E2E-layer AC has a real Playwright e2e (scenario_file under e2e/)", () => {
+    const list = tl([
+      { ac_id: "AC1-over-available-rejected", kind: "behavior", scenario_file: "tests/features/s3.feature" },
+      { ac_id: "AC1-over-available-rejected", kind: "client", scenario_file: "client/tests/e2e/pick-errors.spec.ts" },
+    ]);
+    expect(checkE2ECoverage(list, ["AC1-over-available-rejected"]).ok).toBe(true);
+  });
+
+  it("HARD-BLOCKS when the E2E-layer AC is covered ONLY by a mocked component test (the S3 defect)", () => {
+    const list = tl([
+      { ac_id: "AC1-over-available-rejected", kind: "client", scenario_file: "client/tests/pages/OutboundPickPage.test.tsx" },
+      { ac_id: "AC1-over-available-rejected", kind: "behavior", scenario_file: "tests/features/s3.feature" },
+    ]);
+    const r = checkE2ECoverage(list, ["AC1-over-available-rejected"]);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.violations[0]).toContain("AC1-over-available-rejected");
+      expect(r.violations[0]).toContain("client/tests/e2e/");
+    }
+  });
+
+  it("HARD-BLOCKS when an E2E-layer AC has no covering test at all", () => {
+    const r = checkE2ECoverage(tl([]), ["AC2-unknown-sku-rejected"]);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.violations[0]).toContain("has no covering test");
+  });
+
+  it("is vacuously ok when there are no E2E-layer ACs (a backend-only or pure-presentation feature)", () => {
+    const list = tl([{ ac_id: "AC1", kind: "client", scenario_file: "client/tests/pages/Home.test.tsx" }]);
+    expect(checkE2ECoverage(list, []).ok).toBe(true);
+  });
+
+  it("reports invalid test-list JSON rather than throwing", () => {
+    expect(checkE2ECoverage("{not json", ["AC1"]).ok).toBe(false);
   });
 });

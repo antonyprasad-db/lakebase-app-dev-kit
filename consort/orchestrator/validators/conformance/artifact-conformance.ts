@@ -531,6 +531,46 @@ export function checkFitnessCoverage(testListJson: string, architectureJson: str
 }
 
 /**
+ * E2E coverage (the client<->server CONTRACT): an AC whose acceptance is the CLIENT rendering an
+ * outcome DERIVED FROM A REAL SERVER RESPONSE , a validation rejection shown inline, a success
+ * confirmation, an error state from a failed request , is a client<->server contract, tagged
+ * `layer:"E2E"`, and MUST be covered by a REAL end-to-end test: a Playwright spec (scenario_file
+ * under an `e2e/` path, e.g. `client/tests/e2e/…`) that drives the deployed app against the live
+ * API. A mocked component test is NOT sufficient , it stubs the response envelope, so a fabricated
+ * shape passes green while the real wire contract drifts. That is exactly the recurring S2/S3
+ * inline-error defect: the client mocked a flat `{quantity: …}` body, went green, and shipped a
+ * form that rendered nothing against the real backend's `{detail: {quantity: …}}`. Makes
+ * test-strategy.md's long-standing E2E rule a DETERMINISTIC gate (it was prose the supervisor was
+ * asked to "catch"). For each `layer:"E2E"` AC id, the assembled test-list must hold >=1 item whose
+ * `scenario_file` is under an `e2e/` path. Empty `e2eAcIds` (no E2E-layer AC) is vacuously ok.
+ */
+export function checkE2ECoverage(testListJson: string, e2eAcIds: string[]): ConformanceResult {
+  if (e2eAcIds.length === 0) return { ok: true };
+  let tl: { items?: Array<{ ac_id?: string; kind?: string; scenario_file?: string }> };
+  try {
+    tl = JSON.parse(testListJson);
+  } catch (err) {
+    return { ok: false, violations: [`test-list.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`] };
+  }
+  const items = tl.items ?? [];
+  const isE2e = (sf?: string): boolean => typeof sf === "string" && /(^|\/)e2e\//.test(sf);
+  const violations: string[] = [];
+  for (const acId of e2eAcIds) {
+    const forAc = items.filter((i) => i.ac_id === acId);
+    if (forAc.some((i) => isE2e(i.scenario_file))) continue;
+    const how = forAc.length
+      ? `covered only by ${forAc.map((i) => i.scenario_file ?? `kind:${i.kind ?? "?"}`).join(", ")}`
+      : "has no covering test";
+    violations.push(
+      `E2E-layer AC ${acId} ${how} , a mocked component test cannot verify the real client<->server contract ` +
+        `(a fabricated response envelope passes green while the real wire shape drifts). Add a real Playwright ` +
+        `e2e (scenario_file under client/tests/e2e/) that drives the deployed app against the live API`,
+    );
+  }
+  return violations.length === 0 ? { ok: true } : { ok: false, violations };
+}
+
+/**
  * Persistence coverage (robust DB testing, not an ORM re-test): a service-backed
  * feature's architecture MUST declare its `persistence_invariants[]` (the DB-level
  * guarantees the SCHEMA enforces , a unique key, an FK/cascade, a NOT NULL/CHECK, a

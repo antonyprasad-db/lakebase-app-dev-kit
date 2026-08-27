@@ -19,6 +19,7 @@ import {
   checkNfrCoverage,
   projectBriefRefs,
   checkFitnessCoverage,
+  checkE2ECoverage,
   checkPersistenceCoverage,
   checkInvariantCoverageDistinct,
   invariantRealizingStory,
@@ -262,6 +263,36 @@ function fitnessCoverageReason(consortDir: string, featureId: string, testListJs
   if (arch === undefined) return null;
   const r = checkFitnessCoverage(testListJson, arch);
   return r.ok ? null : `fitness coverage failed: ${r.violations.join("; ")}`;
+}
+
+/**
+ * E2E-coverage test_list-gate condition: every AC tagged `layer:"E2E"` (a client<->server
+ * contract , the client rendering a REAL server response) MUST have a real Playwright e2e in the
+ * test-list (scenario_file under an `e2e/` path), never only a mocked component test whose
+ * fabricated response envelope drifts from the real wire contract. Makes test-strategy.md's E2E
+ * rule a DETERMINISTIC gate (was prose the supervisor was asked to catch), closing the recurring
+ * S2/S3 inline-error defect. Collects `layer:"E2E"` AC ids by the same per-story acs walk
+ * serviceBackedReason uses. Null when covered / no E2E-layer AC / no test-list.
+ */
+function e2eCoverageReason(consortDir: string, featureId: string, testListJson: string): string | null {
+  const storiesDir = join(featureDir(consortDir, featureId), "stories");
+  if (!existsSync(storiesDir)) return null;
+  const e2eAcIds: string[] = [];
+  for (const s of readdirSync(storiesDir)) {
+    const ad = join(storiesDir, s, "acs");
+    if (!existsSync(ad)) continue;
+    for (const f of readdirSync(ad)) {
+      if (!f.endsWith(".json")) continue;
+      try {
+        const ac = JSON.parse(readFileSync(join(ad, f), "utf8")) as { id?: string; layer?: string };
+        if (ac.layer === "E2E") e2eAcIds.push(ac.id ?? f.replace(/\.json$/, ""));
+      } catch {
+        /* a malformed AC is caught by acsConformanceReason */
+      }
+    }
+  }
+  const r = checkE2ECoverage(testListJson, e2eAcIds);
+  return r.ok ? null : `E2E coverage failed: ${r.violations.join("; ")}`;
 }
 
 /**
@@ -540,6 +571,14 @@ export function resolveArtifactInputs(
         // overlap); drop it from the later story.
         const distinctReason = invariantCoverageDistinctReason(consortDir, featureId, tlJson);
         if (distinctReason !== null) return { reason: distinctReason };
+        // E2E coverage (Gate 3): an AC whose acceptance is a CLIENT render of a real SERVER
+        // response (a validation rejection shown inline, a success confirmation) is a
+        // client<->server contract , layer:"E2E" , and MUST have a real Playwright e2e, never
+        // only a mocked component test whose fabricated response envelope drifts from the real
+        // wire contract (the S3 inline-error defect: the mock used a flat body, the backend
+        // sent {detail:{...}}, so nothing rendered against the live API).
+        const e2eReason = e2eCoverageReason(consortDir, featureId, tlJson);
+        if (e2eReason !== null) return { reason: e2eReason };
       }
       return conf;
     }

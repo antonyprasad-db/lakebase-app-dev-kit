@@ -7100,6 +7100,27 @@ function checkFitnessCoverage(testListJson, architectureJson2) {
   }
   return { ok: true };
 }
+function checkE2ECoverage(testListJson, e2eAcIds) {
+  if (e2eAcIds.length === 0) return { ok: true };
+  let tl;
+  try {
+    tl = JSON.parse(testListJson);
+  } catch (err) {
+    return { ok: false, violations: [`test-list.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`] };
+  }
+  const items = tl.items ?? [];
+  const isE2e = (sf) => typeof sf === "string" && /(^|\/)e2e\//.test(sf);
+  const violations = [];
+  for (const acId of e2eAcIds) {
+    const forAc = items.filter((i) => i.ac_id === acId);
+    if (forAc.some((i) => isE2e(i.scenario_file))) continue;
+    const how = forAc.length ? `covered only by ${forAc.map((i) => i.scenario_file ?? `kind:${i.kind ?? "?"}`).join(", ")}` : "has no covering test";
+    violations.push(
+      `E2E-layer AC ${acId} ${how} , a mocked component test cannot verify the real client<->server contract (a fabricated response envelope passes green while the real wire shape drifts). Add a real Playwright e2e (scenario_file under client/tests/e2e/) that drives the deployed app against the live API`
+    );
+  }
+  return violations.length === 0 ? { ok: true } : { ok: false, violations };
+}
 function checkPersistenceCoverage(testListJson, architectureJson2) {
   let arch;
   try {
@@ -8088,6 +8109,25 @@ function fitnessCoverageReason(consortDir, featureId, testListJson) {
   const r = checkFitnessCoverage(testListJson, arch);
   return r.ok ? null : `fitness coverage failed: ${r.violations.join("; ")}`;
 }
+function e2eCoverageReason(consortDir, featureId, testListJson) {
+  const storiesDir2 = join9(featureDir2(consortDir, featureId), "stories");
+  if (!existsSync11(storiesDir2)) return null;
+  const e2eAcIds = [];
+  for (const s of readdirSync6(storiesDir2)) {
+    const ad = join9(storiesDir2, s, "acs");
+    if (!existsSync11(ad)) continue;
+    for (const f of readdirSync6(ad)) {
+      if (!f.endsWith(".json")) continue;
+      try {
+        const ac = JSON.parse(readFileSync11(join9(ad, f), "utf8"));
+        if (ac.layer === "E2E") e2eAcIds.push(ac.id ?? f.replace(/\.json$/, ""));
+      } catch {
+      }
+    }
+  }
+  const r = checkE2ECoverage(testListJson, e2eAcIds);
+  return r.ok ? null : `E2E coverage failed: ${r.violations.join("; ")}`;
+}
 function persistenceCoverageReason(consortDir, featureId, testListJson) {
   const arch = readArchitecture(consortDir, featureId);
   if (arch === void 0) return null;
@@ -8255,6 +8295,8 @@ function resolveArtifactInputs(gate, fdir, promoteRef, consortDir, featureId) {
         if (persistenceReason !== null) return { reason: persistenceReason };
         const distinctReason = invariantCoverageDistinctReason(consortDir, featureId, tlJson);
         if (distinctReason !== null) return { reason: distinctReason };
+        const e2eReason = e2eCoverageReason(consortDir, featureId, tlJson);
+        if (e2eReason !== null) return { reason: e2eReason };
       }
       return conf;
     }

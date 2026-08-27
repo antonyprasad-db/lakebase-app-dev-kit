@@ -6,6 +6,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.48] - 2026-08-27
+
+### Added
+
+- **`checkE2ECoverage` , a deterministic gate that a client↔server-contract AC has a REAL e2e, not a mocked component test.** An AC tagged `layer:"E2E"` (the client rendering an outcome derived from a real server response , a validation rejection shown inline, a success confirmation, an error state) now HARD-BLOCKS the test_list gate unless the test-list holds a Playwright e2e for it (`scenario_file` under an `e2e/` path). A mocked component test alone no longer passes: it stubs the response envelope, so a fabricated shape goes green while the real wire contract drifts , the recurring S2/S3 inline-error defect (the client mocked a flat `{quantity}` body; the backend sent `{detail:{quantity}}`, so the form rendered nothing against the live API). This turns test-strategy.md's long-standing E2E rule from prose the supervisor was asked to catch into an enforced gate condition (`gate-conformance-guard`).
+
+### Changed
+
+- **Architect classifies client↔server-render ACs as `layer:"E2E"`.** `architect-reviewer.md` now carries an explicit rule: an AC whose observable outcome is the client rendering something derived from a real server response is a client↔server contract and MUST be `E2E` (never `API`, which tests only the server half, and never a pure-presentation tag). This is the classification that routes such ACs into the E2E coverage gate above. `test-strategist.md` notes the E2E rule is now deterministically enforced.
+
 ## [0.3.47] - 2026-08-27
 
 ### Fixed
