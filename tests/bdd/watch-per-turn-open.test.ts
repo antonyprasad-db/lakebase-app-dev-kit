@@ -4,7 +4,7 @@
 // silently (a design-role skip says WHY). These lock the three pieces: the role->artifact map,
 // the editor-guarded open, pollOnce surfacing finished roles, and the relay report line.
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, chmodSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -173,10 +173,16 @@ describe("reportRoleOpen (never silent for a design role; silent for a build tur
   });
   it("LAKEBASE_CONSORT_OPEN=1 force-opens from a NON-editor (background monitor) context", () => {
     // No TERM_PROGRAM (a background monitor), but the opt-in forces the open , the editor CLI
-    // surfaces the file in the running instance regardless of the caller's terminal.
-    const line = reportRoleOpen(f.dir, "architect-reviewer", { PATH: f.binDir, LAKEBASE_CONSORT_OPEN: "1" });
+    // surfaces the file in the running instance regardless of the caller's terminal. INJECT the
+    // spawn so the test asserts the open WITHOUT launching the real editor (a real spawnSync
+    // resolves the editor against the process PATH, not this fixture's , so it would open the
+    // temp fixture files in the developer's actual editor; never do that from a test).
+    const spawn = vi.fn();
+    const line = reportRoleOpen(f.dir, "architect-reviewer", { PATH: f.binDir, LAKEBASE_CONSORT_OPEN: "1" }, spawn);
     expect(line).toContain("opened");
     expect(line).not.toContain("NOT opened");
+    expect(spawn).toHaveBeenCalledOnce();
+    expect(spawn.mock.calls[0][1].some((p: string) => p.endsWith("architecture.md"))).toBe(true);
   });
 });
 

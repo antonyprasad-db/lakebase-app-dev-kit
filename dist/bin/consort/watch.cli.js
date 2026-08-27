@@ -279,9 +279,9 @@ function openRoleArtifacts(consortDir, role, opts = {}) {
 
 // bin/consort/watch.cli.ts
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
-function reportRoleOpen(consortDir, role, env) {
+function reportRoleOpen(consortDir, role, env, spawn) {
   const force = env.LAKEBASE_CONSORT_OPEN === "1" || env.LAKEBASE_CONSORT_OPEN === "force";
-  const res = openRoleArtifacts(consortDir, role, { ...resolveScope(consortDir), env, force });
+  const res = openRoleArtifacts(consortDir, role, { ...resolveScope(consortDir), env, force, ...spawn ? { spawn } : {} });
   if (res.opened) return `[consort-watch] opened ${res.files.length} artifact(s) produced by ${role} in ${res.editor}`;
   if (!DESIGN_ROLES.has(role)) return null;
   switch (res.reason) {

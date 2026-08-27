@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.49] - 2026-08-27
+
+### Fixed
+
+- **The drive's on-resume kit-drift resync now commits its refreshed surface, so the next fork sees a clean tree.** `resyncAgentsOnKitDrift` re-writes `.claude/agents` when the running kit drifts from the last-synced version, but left them uncommitted , so the run's next experiment/feature fork REFUSED (paired-branch rejects a dirty tree whose uncommitted tracked changes would ride onto the new branch). This is the same fork-refuse class v0.3.46 fixed for `consort-upgrade`, but triggered by the drive's OWN resync , e.g. after a `git checkout` of the feature branch drifts its committed surface (an older kit version) from the run pin, the drive re-refreshes the agents on resume and, previously, stranded them uncommitted. The resync now commits the refreshed surface via `commitRefreshedSurface` (no-op outside a git repo; never throws).
+- **The per-turn-open force test no longer launches the developer's real editor.** The v0.3.47 `LAKEBASE_CONSORT_OPEN` test resolved a fake editor via a fixture `PATH`, but `spawnSync` resolves against the real `process.env.PATH` , so it opened the temp fixture files in the developer's actual editor on every release push (the pre-push suite runs locally). `reportRoleOpen` now takes an injectable `spawn` (production behavior unchanged , the poll-once/tail callers never pass it) and the test injects a `vi.fn()`, so no subprocess launches.
+
 ## [0.3.48] - 2026-08-27
 
 ### Added

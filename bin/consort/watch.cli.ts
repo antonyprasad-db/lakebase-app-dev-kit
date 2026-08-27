@@ -55,12 +55,19 @@ interface Args {
  *  CLI / nothing authored yet), so a skip is diagnosable instead of looking like nothing happened.
  *  A build turn (driver , no reviewable design artifact) returns null: opening nothing is expected.
  *  This is the visibility the design lane needs , after each role's turn, see its artifacts. */
-export function reportRoleOpen(consortDir: string, role: string, env: NodeJS.ProcessEnv): string | null {
+export function reportRoleOpen(
+  consortDir: string,
+  role: string,
+  env: NodeJS.ProcessEnv,
+  spawn?: (cmd: string, files: string[]) => void,
+): string | null {
   // LAKEBASE_CONSORT_OPEN=1/force lets a background monitor (whose process is NOT the editor's
   // integrated terminal, so isInsideEditor is false) still open , the human opted in, and the
   // editor CLI surfaces the file in the already-running instance regardless of the caller.
+  // `spawn` is injectable so a test asserts the open WITHOUT launching the real editor (the
+  // default resolves + spawns the real editor CLI, as production wants).
   const force = env.LAKEBASE_CONSORT_OPEN === "1" || env.LAKEBASE_CONSORT_OPEN === "force";
-  const res = openRoleArtifacts(consortDir, role, { ...resolveScope(consortDir), env, force });
+  const res = openRoleArtifacts(consortDir, role, { ...resolveScope(consortDir), env, force, ...(spawn ? { spawn } : {}) });
   if (res.opened) return `[consort-watch] opened ${res.files.length} artifact(s) produced by ${role} in ${res.editor}`;
   if (!DESIGN_ROLES.has(role)) return null; // build turn / no design output: expected, stay silent
   switch (res.reason) {

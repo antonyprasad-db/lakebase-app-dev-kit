@@ -3259,8 +3259,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path9) {
-      let input = path9;
+    function removeDotSegments(path11) {
+      let input = path11;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3513,8 +3513,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path9, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path9 && path9 !== "/" ? path9 : void 0;
+        const [path11, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path11 && path11 !== "/" ? path11 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -6648,7 +6648,7 @@ var require_ajv = __commonJS({
 
 // bin/consort/spike.cli.ts
 init_esm_shims();
-import * as path8 from "path";
+import * as path10 from "path";
 
 // consort/config/consort-paths.ts
 init_esm_shims();
@@ -7315,8 +7315,8 @@ function warnLegacyEnv(legacyName, suffix) {
 
 // consort/setup/project-consort-setup.ts
 init_esm_shims();
-import * as fs6 from "fs";
-import * as path6 from "path";
+import * as fs8 from "fs";
+import * as path8 from "path";
 import { fileURLToPath as fileURLToPath3 } from "url";
 
 // consort/config/consort-config-file.ts
@@ -7358,14 +7358,33 @@ init_esm_shims();
 import * as fs5 from "fs";
 import * as path5 from "path";
 
+// consort/lakebase/upgrade.ts
+init_esm_shims();
+import * as fs7 from "fs";
+import * as path7 from "path";
+import { spawnSync as spawnSync2 } from "child_process";
+
+// consort/config/kit-ref.ts
+init_esm_shims();
+import { existsSync as existsSync6, readFileSync as readFileSync7, writeFileSync as writeFileSync6, mkdirSync as mkdirSync6 } from "fs";
+import { dirname as dirname6, join as join10 } from "path";
+
+// consort/lakebase/update-commands.ts
+init_esm_shims();
+import * as fs6 from "fs";
+import * as path6 from "path";
+
+// consort/lakebase/upgrade.ts
+var AGENT_SYNC_MARKER = path7.join(".claude", "agents", ".kit-version");
+
 // consort/setup/project-consort-setup.ts
-var __dirname2 = path6.dirname(fileURLToPath3(import.meta.url));
-var AGENT_SYNC_MARKER = path6.join(".claude", "agents", ".kit-version");
+var __dirname2 = path8.dirname(fileURLToPath3(import.meta.url));
+var AGENT_SYNC_MARKER2 = path8.join(".claude", "agents", ".kit-version");
 
 // consort/orchestrator/drive/claude-runner.ts
 import { randomUUID as randomUUID3 } from "crypto";
-import * as fs8 from "fs";
-import * as path7 from "path";
+import * as fs10 from "fs";
+import * as path9 from "path";
 import * as readline from "readline";
 
 // consort/logging/replay-artifacts.ts
@@ -7389,16 +7408,16 @@ init_esm_shims();
 // consort/orchestrator/validators/schema-loader.ts
 init_esm_shims();
 var import_ajv = __toESM(require_ajv(), 1);
-import { existsSync as existsSync7, readFileSync as readFileSync8 } from "fs";
-import { join as join11 } from "path";
+import { existsSync as existsSync10, readFileSync as readFileSync11 } from "fs";
+import { join as join14 } from "path";
 function resolveSchemaDir() {
-  const direct = join11(__dirname, "..", "..", "config", "schemas");
-  if (existsSync7(direct)) return direct;
+  const direct = join14(__dirname, "..", "..", "config", "schemas");
+  if (existsSync10(direct)) return direct;
   let dir = __dirname;
   for (let i = 0; i < 8; i++) {
-    const cand = join11(dir, "consort", "config", "schemas");
-    if (existsSync7(cand)) return cand;
-    const parent = join11(dir, "..");
+    const cand = join14(dir, "consort", "config", "schemas");
+    if (existsSync10(cand)) return cand;
+    const parent = join14(dir, "..");
     if (parent === dir) break;
     dir = parent;
   }
@@ -7463,15 +7482,15 @@ var AGENT_LOG_EVENT_NAMES = Object.keys(EVENT_TEMPLATES);
 
 // consort/gates/workflow-phase.ts
 init_esm_shims();
-import * as fs7 from "fs";
+import * as fs9 from "fs";
 
 // consort/orchestrator/settings/project-settings.ts
 init_esm_shims();
 
 // consort/orchestrator/steps/manifest.ts
 init_esm_shims();
-import { readFileSync as readFileSync10, readdirSync as readdirSync6, existsSync as existsSync9 } from "fs";
-import { join as join12 } from "path";
+import { readFileSync as readFileSync13, readdirSync as readdirSync8, existsSync as existsSync12 } from "fs";
+import { join as join15 } from "path";
 
 // consort/orchestrator/drive/turn-key.ts
 init_esm_shims();
@@ -7490,8 +7509,8 @@ import { readWorkflowState } from "@databricks-solutions/lakebase-scm-utils/lake
 
 // consort/setup/stray-artifact-recovery.ts
 init_esm_shims();
-import { existsSync as existsSync10, mkdirSync as mkdirSync8, cpSync as cpSync2, rmSync as rmSync2, readdirSync as readdirSync7, statSync as statSync4 } from "fs";
-import { join as join13, dirname as dirname7, basename } from "path";
+import { existsSync as existsSync13, mkdirSync as mkdirSync11, cpSync as cpSync3, rmSync as rmSync3, readdirSync as readdirSync9, statSync as statSync4 } from "fs";
+import { join as join16, dirname as dirname10, basename } from "path";
 
 // consort/orchestrator/turns/turn-monitor.ts
 init_esm_shims();
@@ -7862,7 +7881,7 @@ async function runSpikeCli(argv) {
   }
   const args = parseArgs(argv.slice(1));
   const consortDir = tddDirFor(args);
-  const envPath = path8.join(args.projectDir ?? process.cwd(), ".env");
+  const envPath = path10.join(args.projectDir ?? process.cwd(), ".env");
   if (!args.instance) args.instance = readEnvVar(envPath, "LAKEBASE_PROJECT_ID");
   if (!args.host) args.host = readEnvVar(envPath, "DATABRICKS_HOST");
   const telemetry = sub === "cut" || sub === "delete" ? beginTelemetryRun({ command: "spike", onNotice: (m) => process.stderr.write(m) }) : void 0;

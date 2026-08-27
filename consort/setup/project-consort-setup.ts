@@ -17,6 +17,7 @@ import { ARTIFACT_ROOT } from "../../consort/config/consort-paths.js";
 import { defaultConsortConfig, writeConsortConfig } from "../../consort/config/consort-config-file.js";
 import { adoptTdd } from "../lakebase/adopt-consort.js";
 import { updateAgents } from "../lakebase/update-agents.js";
+import { commitRefreshedSurface } from "../lakebase/upgrade.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -199,6 +200,8 @@ export function resyncAgentsOnKitDrift(projectDir: string): {
   refreshed: boolean;
   from?: string;
   to?: string;
+  /** Whether the refreshed surface was committed (so the tree stays clean for the next fork). */
+  committed?: boolean;
 } {
   try {
     const root = resolveKitRoot();
@@ -214,7 +217,14 @@ export function resyncAgentsOnKitDrift(projectDir: string): {
     updateAgents({ projectDir, kitDir: root, force: true });
     fs.mkdirSync(path.dirname(markerPath), { recursive: true });
     fs.writeFileSync(markerPath, current + "\n");
-    return { refreshed: true, from: last || undefined, to: current };
+    // Commit the refreshed agent surface so a drift-resync leaves a CLEAN working tree. Otherwise
+    // the run's next experiment/feature fork REFUSES to fork , the paired-branch guard rejects the
+    // uncommitted tracked .claude/agents this resync just re-wrote. That is the same fork-refuse
+    // class v0.3.46 fixed for consort-upgrade, but triggered by the drive's own on-resume resync
+    // (e.g. after a branch checkout drifts the committed surface from the run pin). No-op outside a
+    // git repo; never throws (commitRefreshedSurface returns a result).
+    const commit = commitRefreshedSurface(projectDir, current);
+    return { refreshed: true, from: last || undefined, to: current, committed: commit.committed };
   } catch {
     return { refreshed: false };
   }

@@ -16,7 +16,7 @@ interface WatchClass {
  *  CLI / nothing authored yet), so a skip is diagnosable instead of looking like nothing happened.
  *  A build turn (driver , no reviewable design artifact) returns null: opening nothing is expected.
  *  This is the visibility the design lane needs , after each role's turn, see its artifacts. */
-declare function reportRoleOpen(consortDir: string, role: string, env: NodeJS.ProcessEnv): string | null;
+declare function reportRoleOpen(consortDir: string, role: string, env: NodeJS.ProcessEnv, spawn?: (cmd: string, files: string[]) => void): string | null;
 /** Read the WHOLE log and return the LAST classified STOP line (gate/pause/escalation/
  *  done), or null if none. Used when the drive already reached a terminal marker before
  *  (or just as) we attached , a fast detached run that stopped before this follow

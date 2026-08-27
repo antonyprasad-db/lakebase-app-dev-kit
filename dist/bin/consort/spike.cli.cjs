@@ -3262,8 +3262,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path8) {
-      let input = path8;
+    function removeDotSegments(path10) {
+      let input = path10;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3516,8 +3516,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path8, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path8 && path8 !== "/" ? path8 : void 0;
+        const [path10, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path10 && path10 !== "/" ? path10 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -6656,7 +6656,7 @@ __export(spike_cli_exports, {
 });
 module.exports = __toCommonJS(spike_cli_exports);
 init_cjs_shims();
-var path7 = __toESM(require("path"), 1);
+var path9 = __toESM(require("path"), 1);
 
 // consort/config/consort-paths.ts
 init_cjs_shims();
@@ -7290,7 +7290,7 @@ function buildResourceAttrs(deps = {}) {
 
 // consort/orchestrator/drive/claude-runner.ts
 init_cjs_shims();
-var import_node_child_process3 = require("child_process");
+var import_node_child_process4 = require("child_process");
 
 // consort/config/consort-env.ts
 init_cjs_shims();
@@ -7323,8 +7323,8 @@ function warnLegacyEnv(legacyName, suffix) {
 
 // consort/setup/project-consort-setup.ts
 init_cjs_shims();
-var fs6 = __toESM(require("fs"), 1);
-var path5 = __toESM(require("path"), 1);
+var fs8 = __toESM(require("fs"), 1);
+var path7 = __toESM(require("path"), 1);
 var import_node_url2 = require("url");
 
 // consort/config/consort-config-file.ts
@@ -7366,14 +7366,33 @@ init_cjs_shims();
 var fs5 = __toESM(require("fs"), 1);
 var path4 = __toESM(require("path"), 1);
 
+// consort/lakebase/upgrade.ts
+init_cjs_shims();
+var fs7 = __toESM(require("fs"), 1);
+var path6 = __toESM(require("path"), 1);
+var import_node_child_process3 = require("child_process");
+
+// consort/config/kit-ref.ts
+init_cjs_shims();
+var import_node_fs2 = require("fs");
+var import_node_path3 = require("path");
+
+// consort/lakebase/update-commands.ts
+init_cjs_shims();
+var fs6 = __toESM(require("fs"), 1);
+var path5 = __toESM(require("path"), 1);
+
+// consort/lakebase/upgrade.ts
+var AGENT_SYNC_MARKER = path6.join(".claude", "agents", ".kit-version");
+
 // consort/setup/project-consort-setup.ts
-var __dirname2 = path5.dirname((0, import_node_url2.fileURLToPath)(importMetaUrl));
-var AGENT_SYNC_MARKER = path5.join(".claude", "agents", ".kit-version");
+var __dirname2 = path7.dirname((0, import_node_url2.fileURLToPath)(importMetaUrl));
+var AGENT_SYNC_MARKER2 = path7.join(".claude", "agents", ".kit-version");
 
 // consort/orchestrator/drive/claude-runner.ts
 var import_node_crypto4 = require("crypto");
-var fs8 = __toESM(require("fs"), 1);
-var path6 = __toESM(require("path"), 1);
+var fs10 = __toESM(require("fs"), 1);
+var path8 = __toESM(require("path"), 1);
 var readline = __toESM(require("readline"), 1);
 
 // consort/logging/replay-artifacts.ts
@@ -7471,15 +7490,15 @@ var AGENT_LOG_EVENT_NAMES = Object.keys(EVENT_TEMPLATES);
 
 // consort/gates/workflow-phase.ts
 init_cjs_shims();
-var fs7 = __toESM(require("fs"), 1);
+var fs9 = __toESM(require("fs"), 1);
 
 // consort/orchestrator/settings/project-settings.ts
 init_cjs_shims();
 
 // consort/orchestrator/steps/manifest.ts
 init_cjs_shims();
-var import_node_fs2 = require("fs");
-var import_node_path3 = require("path");
+var import_node_fs3 = require("fs");
+var import_node_path4 = require("path");
 
 // consort/orchestrator/drive/turn-key.ts
 init_cjs_shims();
@@ -7498,8 +7517,8 @@ var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebas
 
 // consort/setup/stray-artifact-recovery.ts
 init_cjs_shims();
-var import_node_fs3 = require("fs");
-var import_node_path4 = require("path");
+var import_node_fs4 = require("fs");
+var import_node_path5 = require("path");
 
 // consort/orchestrator/turns/turn-monitor.ts
 init_cjs_shims();
@@ -7870,7 +7889,7 @@ async function runSpikeCli(argv) {
   }
   const args = parseArgs(argv.slice(1));
   const consortDir = tddDirFor(args);
-  const envPath = path7.join(args.projectDir ?? process.cwd(), ".env");
+  const envPath = path9.join(args.projectDir ?? process.cwd(), ".env");
   if (!args.instance) args.instance = (0, import_lakebase3.readEnvVar)(envPath, "LAKEBASE_PROJECT_ID");
   if (!args.host) args.host = (0, import_lakebase3.readEnvVar)(envPath, "DATABRICKS_HOST");
   const telemetry = sub === "cut" || sub === "delete" ? beginTelemetryRun({ command: "spike", onNotice: (m) => process.stderr.write(m) }) : void 0;

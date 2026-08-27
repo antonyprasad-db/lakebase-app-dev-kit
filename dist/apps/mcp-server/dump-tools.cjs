@@ -3257,8 +3257,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path7) {
-      let input = path7;
+    function removeDotSegments(path9) {
+      let input = path9;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3511,8 +3511,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path7, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path7 && path7 !== "/" ? path7 : void 0;
+        const [path9, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path9 && path9 !== "/" ? path9 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -6658,8 +6658,8 @@ var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase
 
 // consort/setup/project-consort-setup.ts
 init_cjs_shims();
-var fs4 = __toESM(require("fs"), 1);
-var path3 = __toESM(require("path"), 1);
+var fs6 = __toESM(require("fs"), 1);
+var path5 = __toESM(require("path"), 1);
 var import_node_url2 = require("url");
 
 // consort/config/consort-paths.ts
@@ -6825,16 +6825,35 @@ init_cjs_shims();
 var fs3 = __toESM(require("fs"), 1);
 var path2 = __toESM(require("path"), 1);
 
+// consort/lakebase/upgrade.ts
+init_cjs_shims();
+var fs5 = __toESM(require("fs"), 1);
+var path4 = __toESM(require("path"), 1);
+var import_node_child_process = require("child_process");
+
+// consort/config/kit-ref.ts
+init_cjs_shims();
+var import_node_fs = require("fs");
+var import_node_path2 = require("path");
+
+// consort/lakebase/update-commands.ts
+init_cjs_shims();
+var fs4 = __toESM(require("fs"), 1);
+var path3 = __toESM(require("path"), 1);
+
+// consort/lakebase/upgrade.ts
+var AGENT_SYNC_MARKER = path4.join(".claude", "agents", ".kit-version");
+
 // consort/setup/project-consort-setup.ts
-var __dirname2 = path3.dirname((0, import_node_url2.fileURLToPath)(importMetaUrl));
+var __dirname2 = path5.dirname((0, import_node_url2.fileURLToPath)(importMetaUrl));
 function kitPackageName() {
   const candidates = [
-    path3.resolve(__dirname2, "../../package.json"),
-    path3.resolve(__dirname2, "../../../package.json")
+    path5.resolve(__dirname2, "../../package.json"),
+    path5.resolve(__dirname2, "../../../package.json")
   ];
   for (const c of candidates) {
     try {
-      const name = JSON.parse(fs4.readFileSync(c, "utf8")).name;
+      const name = JSON.parse(fs6.readFileSync(c, "utf8")).name;
       if (typeof name === "string" && name) return name;
     } catch {
     }
@@ -6842,34 +6861,34 @@ function kitPackageName() {
   throw new Error(`could not resolve the kit package name; looked in: ${candidates.join(", ")}`);
 }
 function layDownTddScaffold(targetDir) {
-  const kitPkgFile = path3.join(targetDir, ".lakebase", "kit-package");
-  if (!fs4.existsSync(kitPkgFile)) {
-    fs4.mkdirSync(path3.dirname(kitPkgFile), { recursive: true });
-    fs4.writeFileSync(kitPkgFile, `${kitPackageName()}
+  const kitPkgFile = path5.join(targetDir, ".lakebase", "kit-package");
+  if (!fs6.existsSync(kitPkgFile)) {
+    fs6.mkdirSync(path5.dirname(kitPkgFile), { recursive: true });
+    fs6.writeFileSync(kitPkgFile, `${kitPackageName()}
 `);
   }
   layDownKitClaudeAssets(targetDir);
   const candidates = [
-    path3.resolve(__dirname2, `../../templates/consort-bootstrap/${ARTIFACT_ROOT}`),
-    path3.resolve(__dirname2, `../../../templates/consort-bootstrap/${ARTIFACT_ROOT}`)
+    path5.resolve(__dirname2, `../../templates/consort-bootstrap/${ARTIFACT_ROOT}`),
+    path5.resolve(__dirname2, `../../../templates/consort-bootstrap/${ARTIFACT_ROOT}`)
   ];
-  const source = candidates.find((c) => fs4.existsSync(c));
+  const source = candidates.find((c) => fs6.existsSync(c));
   if (!source) {
     throw new Error(`consort-bootstrap template not found; looked in: ${candidates.join(", ")}`);
   }
-  const dest = path3.join(targetDir, ARTIFACT_ROOT);
-  if (fs4.existsSync(dest)) {
+  const dest = path5.join(targetDir, ARTIFACT_ROOT);
+  if (fs6.existsSync(dest)) {
     return;
   }
-  fs4.cpSync(source, dest, { recursive: true });
+  fs6.cpSync(source, dest, { recursive: true });
 }
 function resolveKitRoot() {
   const candidates = [
-    path3.resolve(__dirname2, "../.."),
-    path3.resolve(__dirname2, "../../..")
+    path5.resolve(__dirname2, "../.."),
+    path5.resolve(__dirname2, "../../..")
   ];
   for (const c of candidates) {
-    if (fs4.existsSync(path3.join(c, "package.json")) && fs4.existsSync(path3.join(c, "skills", "consort", "agents"))) {
+    if (fs6.existsSync(path5.join(c, "package.json")) && fs6.existsSync(path5.join(c, "skills", "consort", "agents"))) {
       return c;
     }
   }
@@ -6879,53 +6898,53 @@ function resolveKitRoot() {
 }
 function kitVersion(root) {
   try {
-    return JSON.parse(fs4.readFileSync(path3.join(root, "package.json"), "utf8")).version ?? "";
+    return JSON.parse(fs6.readFileSync(path5.join(root, "package.json"), "utf8")).version ?? "";
   } catch {
     return "";
   }
 }
 function copyMissingMd(src, dest) {
-  if (!fs4.existsSync(src)) return;
-  fs4.mkdirSync(dest, { recursive: true });
-  for (const entry of fs4.readdirSync(src)) {
+  if (!fs6.existsSync(src)) return;
+  fs6.mkdirSync(dest, { recursive: true });
+  for (const entry of fs6.readdirSync(src)) {
     if (!entry.endsWith(".md")) continue;
-    const d = path3.join(dest, entry);
-    if (fs4.existsSync(d)) continue;
-    fs4.copyFileSync(path3.join(src, entry), d);
+    const d = path5.join(dest, entry);
+    if (fs6.existsSync(d)) continue;
+    fs6.copyFileSync(path5.join(src, entry), d);
   }
 }
 function layDownKitClaudeAssets(targetDir) {
   const root = resolveKitRoot();
-  const claudeDir = path3.join(targetDir, ".claude");
+  const claudeDir = path5.join(targetDir, ".claude");
   copyMissingMd(
-    path3.join(root, "skills", "consort", "agents"),
-    path3.join(claudeDir, "agents")
+    path5.join(root, "skills", "consort", "agents"),
+    path5.join(claudeDir, "agents")
   );
-  const skillsSrc = path3.join(root, "skills");
-  if (fs4.existsSync(skillsSrc)) {
-    for (const skill of fs4.readdirSync(skillsSrc).sort()) {
-      if (!fs4.existsSync(path3.join(skillsSrc, skill, "SKILL.md"))) continue;
-      const dest = path3.join(claudeDir, "skills", skill);
-      if (fs4.existsSync(dest)) continue;
-      fs4.mkdirSync(path3.dirname(dest), { recursive: true });
-      fs4.cpSync(path3.join(skillsSrc, skill), dest, { recursive: true });
+  const skillsSrc = path5.join(root, "skills");
+  if (fs6.existsSync(skillsSrc)) {
+    for (const skill of fs6.readdirSync(skillsSrc).sort()) {
+      if (!fs6.existsSync(path5.join(skillsSrc, skill, "SKILL.md"))) continue;
+      const dest = path5.join(claudeDir, "skills", skill);
+      if (fs6.existsSync(dest)) continue;
+      fs6.mkdirSync(path5.dirname(dest), { recursive: true });
+      fs6.cpSync(path5.join(skillsSrc, skill), dest, { recursive: true });
     }
   }
-  const cmdSrc = path3.join(root, "templates", "project", "common", ".claude", "commands");
-  if (fs4.existsSync(cmdSrc)) {
+  const cmdSrc = path5.join(root, "templates", "project", "common", ".claude", "commands");
+  if (fs6.existsSync(cmdSrc)) {
     const version = kitVersion(root);
-    const cmdDest = path3.join(claudeDir, "commands");
-    fs4.mkdirSync(cmdDest, { recursive: true });
-    for (const entry of fs4.readdirSync(cmdSrc)) {
+    const cmdDest = path5.join(claudeDir, "commands");
+    fs6.mkdirSync(cmdDest, { recursive: true });
+    for (const entry of fs6.readdirSync(cmdSrc)) {
       if (!entry.endsWith(".md")) continue;
-      const dest = path3.join(cmdDest, entry);
-      if (fs4.existsSync(dest)) continue;
-      const body = fs4.readFileSync(path3.join(cmdSrc, entry), "utf8").replace(/\$\{KIT_VERSION_AT_SCAFFOLD\}/g, version);
-      fs4.writeFileSync(dest, body);
+      const dest = path5.join(cmdDest, entry);
+      if (fs6.existsSync(dest)) continue;
+      const body = fs6.readFileSync(path5.join(cmdSrc, entry), "utf8").replace(/\$\{KIT_VERSION_AT_SCAFFOLD\}/g, version);
+      fs6.writeFileSync(dest, body);
     }
   }
 }
-var AGENT_SYNC_MARKER = path3.join(".claude", "agents", ".kit-version");
+var AGENT_SYNC_MARKER2 = path5.join(".claude", "agents", ".kit-version");
 function seedConsortConfig(projectDir, opts) {
   const consortConfig = defaultConsortConfig();
   for (const [role, model] of Object.entries(opts.agentModels ?? {})) {
@@ -6966,8 +6985,8 @@ var import_path7 = require("path");
 
 // consort/orchestrator/state/orchestrator-probe.ts
 init_cjs_shims();
-var fs10 = __toESM(require("fs"), 1);
-var path6 = __toESM(require("path"), 1);
+var fs12 = __toESM(require("fs"), 1);
+var path8 = __toESM(require("path"), 1);
 
 // consort/pipeline/run-cycle.ts
 init_cjs_shims();
@@ -6977,7 +6996,7 @@ var import_lakebase3 = require("@databricks-solutions/lakebase-scm-utils/lakebas
 init_cjs_shims();
 var import_fs2 = require("fs");
 var import_path3 = require("path");
-var import_node_child_process = require("child_process");
+var import_node_child_process2 = require("child_process");
 var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 function experimentsRoot(consortDir, featureId, storyId) {
   return (0, import_path3.join)(consortDir, "experiments", featureId, storyId);
@@ -7117,16 +7136,16 @@ function readMasterTestList(tddDir, featureId) {
 
 // consort/deploy/deploy.ts
 init_cjs_shims();
-var import_node_child_process2 = require("child_process");
+var import_node_child_process3 = require("child_process");
 var import_node_crypto = require("crypto");
-var import_node_fs2 = require("fs");
-var import_node_path3 = require("path");
+var import_node_fs3 = require("fs");
+var import_node_path4 = require("path");
 var import_lakebase7 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_util2 = require("@databricks-solutions/lakebase-scm-utils/util");
 
 // consort/gates/escalation.ts
 init_cjs_shims();
-var fs5 = __toESM(require("fs"), 1);
+var fs7 = __toESM(require("fs"), 1);
 
 // consort/smells/smells.ts
 init_cjs_shims();
@@ -7140,18 +7159,18 @@ function readSmellsLog(consortDir) {
 
 // consort/smells/deploy-verify-assess.ts
 init_cjs_shims();
-var fs6 = __toESM(require("fs"), 1);
-var path4 = __toESM(require("path"), 1);
+var fs8 = __toESM(require("fs"), 1);
+var path6 = __toESM(require("path"), 1);
 function markerPath(consortDir, featureId, storyId) {
   const fdir = findFeatureDir(consortDir, featureId);
   if (!fdir) return void 0;
-  return storyId ? path4.join(fdir, "stories", storyId, "deploy-verify-assess.json") : path4.join(fdir, "deploy-verify-assess.json");
+  return storyId ? path6.join(fdir, "stories", storyId, "deploy-verify-assess.json") : path6.join(fdir, "deploy-verify-assess.json");
 }
 function readDeployVerifyAssessMarker(consortDir, featureId, storyId) {
   const file = markerPath(consortDir, featureId, storyId);
-  if (!file || !fs6.existsSync(file)) return void 0;
+  if (!file || !fs8.existsSync(file)) return void 0;
   try {
-    return JSON.parse(fs6.readFileSync(file, "utf8"));
+    return JSON.parse(fs8.readFileSync(file, "utf8"));
   } catch {
     return void 0;
   }
@@ -7167,8 +7186,8 @@ function deployVerifyNeedsAssess(consortDir, featureId, storyId) {
 
 // consort/architecture/e2e-regex-clean.ts
 init_cjs_shims();
-var import_node_fs = require("fs");
-var import_node_path2 = require("path");
+var import_node_fs2 = require("fs");
+var import_node_path3 = require("path");
 
 // consort/smells/ephemeral-verify.ts
 init_cjs_shims();
@@ -7179,18 +7198,18 @@ var import_lakebase6 = require("@databricks-solutions/lakebase-scm-utils/lakebas
 
 // consort/architecture/design-adherence.ts
 init_cjs_shims();
-var import_node_fs3 = require("fs");
-var import_node_path4 = require("path");
+var import_node_fs4 = require("fs");
+var import_node_path5 = require("path");
 
 // consort/smells/supersession.ts
 init_cjs_shims();
-var fs7 = __toESM(require("fs"), 1);
-var import_node_path5 = require("path");
+var fs9 = __toESM(require("fs"), 1);
+var import_node_path6 = require("path");
 
 // consort/architecture/contract-clean.ts
 init_cjs_shims();
-var import_node_fs4 = require("fs");
-var import_node_path6 = require("path");
+var import_node_fs5 = require("fs");
+var import_node_path7 = require("path");
 var ARTIFACT_ROOTS_RE = artifactRootsRegexAlternation();
 var EXCLUDE_DIR = new RegExp(
   `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build|tests?|alembic|migrations)(/|$)`
@@ -7201,13 +7220,13 @@ var EXCLUDE_DIR_JUNK = new RegExp(
 
 // consort/smells/refactor-verify-assess.ts
 init_cjs_shims();
-var fs8 = __toESM(require("fs"), 1);
-var path5 = __toESM(require("path"), 1);
+var fs10 = __toESM(require("fs"), 1);
+var path7 = __toESM(require("path"), 1);
 
 // consort/architecture/migration-app-clean.ts
 init_cjs_shims();
-var import_node_fs5 = require("fs");
-var import_node_path7 = require("path");
+var import_node_fs6 = require("fs");
+var import_node_path8 = require("path");
 
 // consort/pipeline/cycle-record.ts
 var import_git = require("@databricks-solutions/lakebase-scm-utils/git");
@@ -7328,7 +7347,7 @@ function validateGateRecord(parsed, gateName, file) {
 
 // consort/gates/workflow-phase.ts
 init_cjs_shims();
-var fs9 = __toESM(require("fs"), 1);
+var fs11 = __toESM(require("fs"), 1);
 var PHASE_OWNER_KEY = "phase_feature_id";
 
 // consort/orchestrator/state/orchestrator-probe.ts
@@ -7350,9 +7369,9 @@ init_cjs_shims();
 
 // consort/orchestrator/state/orchestrator-probe.ts
 function readJson(file) {
-  if (!fs10.existsSync(file)) return void 0;
+  if (!fs12.existsSync(file)) return void 0;
   try {
-    return JSON.parse(fs10.readFileSync(file, "utf8"));
+    return JSON.parse(fs12.readFileSync(file, "utf8"));
   } catch {
     return void 0;
   }
@@ -7366,12 +7385,12 @@ function readDriveContext(consortDir, featureId, projectDir) {
   const spec = readJson(featureSpecJson(consortDir, featureId));
   const proposed = spec !== void 0;
   const breakdownDone = Array.isArray(spec?.stories) && spec.stories.length > 0;
-  const requestsAuthored = fs10.existsSync(featureRequestMd(consortDir, featureId));
-  const deployed = fs10.existsSync(featureDeployEvidenceJson(consortDir, featureId));
+  const requestsAuthored = fs12.existsSync(featureRequestMd(consortDir, featureId));
+  const deployed = fs12.existsSync(featureDeployEvidenceJson(consortDir, featureId));
   const gateApproved = readGateApproved(featureId, consortDir, "deploy");
   const verifyAssessEligible = deployVerifyNeedsAssess(consortDir, featureId);
   const verifyRefactorPending = deployVerifyRefactorPending(consortDir, featureId);
-  const proj = projectDir ?? path6.dirname(consortDir);
+  const proj = projectDir ?? path8.dirname(consortDir);
   let scmState;
   try {
     scmState = (0, import_lakebase9.readWorkflowState)(proj)?.state;
@@ -7428,8 +7447,8 @@ var import_fs8 = require("fs");
 
 // consort/gates/gate-conformance-guard.ts
 init_cjs_shims();
-var import_node_fs6 = require("fs");
-var import_node_path8 = require("path");
+var import_node_fs7 = require("fs");
+var import_node_path9 = require("path");
 
 // consort/architecture/architecture-conventions.ts
 init_cjs_shims();
@@ -7449,9 +7468,9 @@ function readPipeline(consortDir, featureId) {
 
 // consort/orchestrator/status/feature-status.ts
 var MAX_RECENT_LOG_ENTRIES = 5;
-function readJsonIfExists(path7) {
-  if (!(0, import_fs9.existsSync)(path7)) return null;
-  return JSON.parse((0, import_fs9.readFileSync)(path7, "utf8"));
+function readJsonIfExists(path9) {
+  if (!(0, import_fs9.existsSync)(path9)) return null;
+  return JSON.parse((0, import_fs9.readFileSync)(path9, "utf8"));
 }
 function listFeatureStories(consortDir, featureId) {
   const storiesDir2 = storiesDir(consortDir, featureId);
@@ -7487,9 +7506,9 @@ function summarizeTestList(consortDir, featureId) {
   }
 }
 function readSelectionLogRecent(consortDir, limit) {
-  const path7 = (0, import_path7.join)(consortDir, "selection-log.md");
-  if (!(0, import_fs9.existsSync)(path7)) return [];
-  const text = (0, import_fs9.readFileSync)(path7, "utf8");
+  const path9 = (0, import_path7.join)(consortDir, "selection-log.md");
+  if (!(0, import_fs9.existsSync)(path9)) return [];
+  const text = (0, import_fs9.readFileSync)(path9, "utf8");
   const entries = [];
   const headingRe = /^##\s+(\S+T\S+?)\s+–\s+(.+?)$/gm;
   let match;

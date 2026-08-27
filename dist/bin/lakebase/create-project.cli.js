@@ -6,8 +6,8 @@ import {
 } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 
 // consort/setup/project-consort-setup.ts
-import * as fs4 from "fs";
-import * as path3 from "path";
+import * as fs6 from "fs";
+import * as path5 from "path";
 import { fileURLToPath as fileURLToPath2 } from "url";
 
 // consort/config/consort-paths.ts
@@ -71,16 +71,32 @@ import { fileURLToPath } from "url";
 import * as fs3 from "fs";
 import * as path2 from "path";
 
+// consort/lakebase/upgrade.ts
+import * as fs5 from "fs";
+import * as path4 from "path";
+import { spawnSync } from "child_process";
+
+// consort/config/kit-ref.ts
+import { existsSync as existsSync5, readFileSync as readFileSync5, writeFileSync as writeFileSync4, mkdirSync as mkdirSync5 } from "fs";
+import { dirname as dirname5, join as join6 } from "path";
+
+// consort/lakebase/update-commands.ts
+import * as fs4 from "fs";
+import * as path3 from "path";
+
+// consort/lakebase/upgrade.ts
+var AGENT_SYNC_MARKER = path4.join(".claude", "agents", ".kit-version");
+
 // consort/setup/project-consort-setup.ts
-var __dirname2 = path3.dirname(fileURLToPath2(import.meta.url));
+var __dirname2 = path5.dirname(fileURLToPath2(import.meta.url));
 function kitPackageName() {
   const candidates = [
-    path3.resolve(__dirname2, "../../package.json"),
-    path3.resolve(__dirname2, "../../../package.json")
+    path5.resolve(__dirname2, "../../package.json"),
+    path5.resolve(__dirname2, "../../../package.json")
   ];
   for (const c of candidates) {
     try {
-      const name = JSON.parse(fs4.readFileSync(c, "utf8")).name;
+      const name = JSON.parse(fs6.readFileSync(c, "utf8")).name;
       if (typeof name === "string" && name) return name;
     } catch {
     }
@@ -88,34 +104,34 @@ function kitPackageName() {
   throw new Error(`could not resolve the kit package name; looked in: ${candidates.join(", ")}`);
 }
 function layDownTddScaffold(targetDir) {
-  const kitPkgFile = path3.join(targetDir, ".lakebase", "kit-package");
-  if (!fs4.existsSync(kitPkgFile)) {
-    fs4.mkdirSync(path3.dirname(kitPkgFile), { recursive: true });
-    fs4.writeFileSync(kitPkgFile, `${kitPackageName()}
+  const kitPkgFile = path5.join(targetDir, ".lakebase", "kit-package");
+  if (!fs6.existsSync(kitPkgFile)) {
+    fs6.mkdirSync(path5.dirname(kitPkgFile), { recursive: true });
+    fs6.writeFileSync(kitPkgFile, `${kitPackageName()}
 `);
   }
   layDownKitClaudeAssets(targetDir);
   const candidates = [
-    path3.resolve(__dirname2, `../../templates/consort-bootstrap/${ARTIFACT_ROOT}`),
-    path3.resolve(__dirname2, `../../../templates/consort-bootstrap/${ARTIFACT_ROOT}`)
+    path5.resolve(__dirname2, `../../templates/consort-bootstrap/${ARTIFACT_ROOT}`),
+    path5.resolve(__dirname2, `../../../templates/consort-bootstrap/${ARTIFACT_ROOT}`)
   ];
-  const source = candidates.find((c) => fs4.existsSync(c));
+  const source = candidates.find((c) => fs6.existsSync(c));
   if (!source) {
     throw new Error(`consort-bootstrap template not found; looked in: ${candidates.join(", ")}`);
   }
-  const dest = path3.join(targetDir, ARTIFACT_ROOT);
-  if (fs4.existsSync(dest)) {
+  const dest = path5.join(targetDir, ARTIFACT_ROOT);
+  if (fs6.existsSync(dest)) {
     return;
   }
-  fs4.cpSync(source, dest, { recursive: true });
+  fs6.cpSync(source, dest, { recursive: true });
 }
 function resolveKitRoot() {
   const candidates = [
-    path3.resolve(__dirname2, "../.."),
-    path3.resolve(__dirname2, "../../..")
+    path5.resolve(__dirname2, "../.."),
+    path5.resolve(__dirname2, "../../..")
   ];
   for (const c of candidates) {
-    if (fs4.existsSync(path3.join(c, "package.json")) && fs4.existsSync(path3.join(c, "skills", "consort", "agents"))) {
+    if (fs6.existsSync(path5.join(c, "package.json")) && fs6.existsSync(path5.join(c, "skills", "consort", "agents"))) {
       return c;
     }
   }
@@ -125,53 +141,53 @@ function resolveKitRoot() {
 }
 function kitVersion(root) {
   try {
-    return JSON.parse(fs4.readFileSync(path3.join(root, "package.json"), "utf8")).version ?? "";
+    return JSON.parse(fs6.readFileSync(path5.join(root, "package.json"), "utf8")).version ?? "";
   } catch {
     return "";
   }
 }
 function copyMissingMd(src, dest) {
-  if (!fs4.existsSync(src)) return;
-  fs4.mkdirSync(dest, { recursive: true });
-  for (const entry of fs4.readdirSync(src)) {
+  if (!fs6.existsSync(src)) return;
+  fs6.mkdirSync(dest, { recursive: true });
+  for (const entry of fs6.readdirSync(src)) {
     if (!entry.endsWith(".md")) continue;
-    const d = path3.join(dest, entry);
-    if (fs4.existsSync(d)) continue;
-    fs4.copyFileSync(path3.join(src, entry), d);
+    const d = path5.join(dest, entry);
+    if (fs6.existsSync(d)) continue;
+    fs6.copyFileSync(path5.join(src, entry), d);
   }
 }
 function layDownKitClaudeAssets(targetDir) {
   const root = resolveKitRoot();
-  const claudeDir = path3.join(targetDir, ".claude");
+  const claudeDir = path5.join(targetDir, ".claude");
   copyMissingMd(
-    path3.join(root, "skills", "consort", "agents"),
-    path3.join(claudeDir, "agents")
+    path5.join(root, "skills", "consort", "agents"),
+    path5.join(claudeDir, "agents")
   );
-  const skillsSrc = path3.join(root, "skills");
-  if (fs4.existsSync(skillsSrc)) {
-    for (const skill of fs4.readdirSync(skillsSrc).sort()) {
-      if (!fs4.existsSync(path3.join(skillsSrc, skill, "SKILL.md"))) continue;
-      const dest = path3.join(claudeDir, "skills", skill);
-      if (fs4.existsSync(dest)) continue;
-      fs4.mkdirSync(path3.dirname(dest), { recursive: true });
-      fs4.cpSync(path3.join(skillsSrc, skill), dest, { recursive: true });
+  const skillsSrc = path5.join(root, "skills");
+  if (fs6.existsSync(skillsSrc)) {
+    for (const skill of fs6.readdirSync(skillsSrc).sort()) {
+      if (!fs6.existsSync(path5.join(skillsSrc, skill, "SKILL.md"))) continue;
+      const dest = path5.join(claudeDir, "skills", skill);
+      if (fs6.existsSync(dest)) continue;
+      fs6.mkdirSync(path5.dirname(dest), { recursive: true });
+      fs6.cpSync(path5.join(skillsSrc, skill), dest, { recursive: true });
     }
   }
-  const cmdSrc = path3.join(root, "templates", "project", "common", ".claude", "commands");
-  if (fs4.existsSync(cmdSrc)) {
+  const cmdSrc = path5.join(root, "templates", "project", "common", ".claude", "commands");
+  if (fs6.existsSync(cmdSrc)) {
     const version = kitVersion(root);
-    const cmdDest = path3.join(claudeDir, "commands");
-    fs4.mkdirSync(cmdDest, { recursive: true });
-    for (const entry of fs4.readdirSync(cmdSrc)) {
+    const cmdDest = path5.join(claudeDir, "commands");
+    fs6.mkdirSync(cmdDest, { recursive: true });
+    for (const entry of fs6.readdirSync(cmdSrc)) {
       if (!entry.endsWith(".md")) continue;
-      const dest = path3.join(cmdDest, entry);
-      if (fs4.existsSync(dest)) continue;
-      const body = fs4.readFileSync(path3.join(cmdSrc, entry), "utf8").replace(/\$\{KIT_VERSION_AT_SCAFFOLD\}/g, version);
-      fs4.writeFileSync(dest, body);
+      const dest = path5.join(cmdDest, entry);
+      if (fs6.existsSync(dest)) continue;
+      const body = fs6.readFileSync(path5.join(cmdSrc, entry), "utf8").replace(/\$\{KIT_VERSION_AT_SCAFFOLD\}/g, version);
+      fs6.writeFileSync(dest, body);
     }
   }
 }
-var AGENT_SYNC_MARKER = path3.join(".claude", "agents", ".kit-version");
+var AGENT_SYNC_MARKER2 = path5.join(".claude", "agents", ".kit-version");
 function seedConsortConfig(projectDir, opts) {
   const consortConfig = defaultConsortConfig();
   for (const [role, model] of Object.entries(opts.agentModels ?? {})) {
@@ -249,8 +265,8 @@ function formatGateBlockers(blockers) {
 
 // consort/lakebase/kit-ref-pin.ts
 import { fileURLToPath as fileURLToPath3 } from "url";
-import { dirname as dirname6, join as join7 } from "path";
-import { readFileSync as readFileSync6 } from "fs";
+import { dirname as dirname9, join as join10 } from "path";
+import { readFileSync as readFileSync9 } from "fs";
 var CONSORT_PKG = "@databricks-solutions/consort";
 function kitRefPin(env, version) {
   if (env.LAKEBASE_KIT_REF && env.LAKEBASE_KIT_REF.trim()) return void 0;
@@ -261,13 +277,13 @@ function findConsortPkg(fromDir) {
   let d = fromDir;
   for (let i = 0; i < 8; i++) {
     try {
-      const pkg = JSON.parse(readFileSync6(join7(d, "package.json"), "utf-8"));
+      const pkg = JSON.parse(readFileSync9(join10(d, "package.json"), "utf-8"));
       if (pkg.name === CONSORT_PKG && typeof pkg.version === "string" && pkg.version) {
         return pkg;
       }
     } catch {
     }
-    const up = dirname6(d);
+    const up = dirname9(d);
     if (up === d) break;
     d = up;
   }
@@ -285,14 +301,14 @@ function declaredSubstrateVersion(fromDir) {
 }
 function consortVersionFromModule(metaUrl) {
   try {
-    return readConsortVersion(dirname6(fileURLToPath3(metaUrl)));
+    return readConsortVersion(dirname9(fileURLToPath3(metaUrl)));
   } catch {
     return void 0;
   }
 }
 function declaredSubstrateVersionFromModule(metaUrl) {
   try {
-    return declaredSubstrateVersion(dirname6(fileURLToPath3(metaUrl)));
+    return declaredSubstrateVersion(dirname9(fileURLToPath3(metaUrl)));
   } catch {
     return void 0;
   }
@@ -317,9 +333,9 @@ Fix: clear the npx cache and retry the version-pinned create from /consort:start
 
 // bin/lakebase/create-project.cli.ts
 import { createRequire } from "module";
-import { readFileSync as readFileSync7, appendFileSync, writeFileSync as writeFileSync5, openSync, closeSync } from "fs";
+import { readFileSync as readFileSync10, appendFileSync, writeFileSync as writeFileSync8, openSync, closeSync } from "fs";
 import * as os from "os";
-import * as path4 from "path";
+import * as path6 from "path";
 
 // consort/session/relaunch-detached.ts
 import { spawn } from "child_process";
@@ -514,7 +530,7 @@ async function main() {
   }
   if (rawArgv.includes("--detach")) {
     const childArgs = rawArgv.filter((a) => a !== "--detach");
-    const logPath = path4.join(os.tmpdir(), `consort-create-${Date.now()}.log`);
+    const logPath = path6.join(os.tmpdir(), `consort-create-${Date.now()}.log`);
     let pid = null;
     try {
       const fd = openSync(logPath, "a");
@@ -585,7 +601,7 @@ async function main() {
     try {
       const req = createRequire(import.meta.url);
       installed = JSON.parse(
-        readFileSync7(req.resolve("@databricks-solutions/lakebase-scm-utils/package.json"), "utf8")
+        readFileSync10(req.resolve("@databricks-solutions/lakebase-scm-utils/package.json"), "utf8")
       ).version;
     } catch {
     }
@@ -605,7 +621,7 @@ async function main() {
   }
   if (args.progressLog) {
     try {
-      writeFileSync5(args.progressLog, "");
+      writeFileSync8(args.progressLog, "");
     } catch {
     }
   }

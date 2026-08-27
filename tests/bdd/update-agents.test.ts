@@ -8,6 +8,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { execFileSync } from "node:child_process";
 import { updateAgents } from "../../consort/lakebase/update-agents.js";
 import { resyncAgentsOnKitDrift } from "../../consort/setup/project-consort-setup.js";
 
@@ -132,6 +133,39 @@ describe("resyncAgentsOnKitDrift: version-aware auto refresh", () => {
     // no marker file at all
     const r = resyncAgentsOnKitDrift(p);
     expect(r.refreshed).toBe(true);
+    expect(fs.readFileSync(path.join(projectAgentsDir(p), "dba.md"), "utf-8")).toBe(kitDba());
+  });
+
+  it("COMMITS the refreshed surface in a git repo, leaving a clean tree for the next fork", () => {
+    // The drift-resync re-writes tracked .claude/agents; without committing them the run's next
+    // experiment/feature fork refuses to fork a dirty tree (the crash after a branch checkout
+    // drifted the committed surface from the run pin). It must commit so the tree stays clean.
+    const p = mkProject();
+    execFileSync("git", ["-C", p, "init", "-q"]);
+    execFileSync("git", ["-C", p, "config", "user.email", "t@t"]);
+    execFileSync("git", ["-C", p, "config", "user.name", "t"]);
+    fs.mkdirSync(projectAgentsDir(p), { recursive: true });
+    fs.writeFileSync(path.join(projectAgentsDir(p), "dba.md"), "STALE\n");
+    fs.writeFileSync(markerPath(p), "0.0.1-old\n");
+    execFileSync("git", ["-C", p, "add", "-A"]);
+    execFileSync("git", ["-C", p, "commit", "-q", "-m", "baseline"]);
+
+    const r = resyncAgentsOnKitDrift(p);
+    expect(r.refreshed).toBe(true);
+    expect(r.committed).toBe(true);
+    // No uncommitted tracked .claude/agents remain , the fork guard would NOT refuse.
+    const dirty = execFileSync("git", ["-C", p, "status", "--porcelain", "--", ".claude/agents"], { encoding: "utf8" }).trim();
+    expect(dirty).toBe("");
+  });
+
+  it("still refreshes (no throw) when the project is NOT a git repo , commit is a no-op", () => {
+    const p = mkProject();
+    fs.mkdirSync(projectAgentsDir(p), { recursive: true });
+    fs.writeFileSync(path.join(projectAgentsDir(p), "dba.md"), "STALE\n");
+    fs.writeFileSync(markerPath(p), "0.0.1-old\n");
+    const r = resyncAgentsOnKitDrift(p);
+    expect(r.refreshed).toBe(true);
+    expect(r.committed).toBe(false); // not-a-git-repo => no-op, but the refresh still happened
     expect(fs.readFileSync(path.join(projectAgentsDir(p), "dba.md"), "utf-8")).toBe(kitDba());
   });
 });

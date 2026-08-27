@@ -3261,8 +3261,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path6) {
-      let input = path6;
+    function removeDotSegments(path8) {
+      let input = path8;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3515,8 +3515,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path6, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path6 && path6 !== "/" ? path6 : void 0;
+        const [path8, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path8 && path8 !== "/" ? path8 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -6673,7 +6673,7 @@ __export(claude_runner_exports, {
 });
 module.exports = __toCommonJS(claude_runner_exports);
 init_cjs_shims();
-var import_node_child_process2 = require("child_process");
+var import_node_child_process3 = require("child_process");
 
 // consort/config/consort-env.ts
 init_cjs_shims();
@@ -6706,8 +6706,8 @@ function warnLegacyEnv(legacyName, suffix) {
 
 // consort/setup/project-consort-setup.ts
 init_cjs_shims();
-var fs4 = __toESM(require("fs"), 1);
-var path3 = __toESM(require("path"), 1);
+var fs6 = __toESM(require("fs"), 1);
+var path5 = __toESM(require("path"), 1);
 var import_node_url2 = require("url");
 
 // consort/config/consort-paths.ts
@@ -6922,15 +6922,51 @@ function updateAgents(args) {
   return { files, changed };
 }
 
+// consort/lakebase/upgrade.ts
+init_cjs_shims();
+var fs5 = __toESM(require("fs"), 1);
+var path4 = __toESM(require("path"), 1);
+var import_node_child_process = require("child_process");
+
+// consort/config/kit-ref.ts
+init_cjs_shims();
+var import_node_fs = require("fs");
+var import_node_path2 = require("path");
+
+// consort/lakebase/update-commands.ts
+init_cjs_shims();
+var fs4 = __toESM(require("fs"), 1);
+var path3 = __toESM(require("path"), 1);
+
+// consort/lakebase/upgrade.ts
+var AGENT_SYNC_MARKER = path4.join(".claude", "agents", ".kit-version");
+var KIT_SURFACE_PATHS = [".claude/agents", ".claude/commands", "scripts", ".github/workflows", ".lakebase/kit-ref"];
+function commitRefreshedSurface(projectDir, targetVersion, git = (a) => {
+  const r = (0, import_node_child_process.spawnSync)("git", ["-C", projectDir, ...a], { encoding: "utf8" });
+  return { status: r.status, stdout: r.stdout ?? "" };
+}) {
+  if (git(["rev-parse", "--is-inside-work-tree"]).status !== 0) return { committed: false, reason: "not-a-git-repo" };
+  const paths = KIT_SURFACE_PATHS.filter((p) => fs5.existsSync(path4.join(projectDir, p)));
+  if (!paths.length) return { committed: false, reason: "nothing-to-commit" };
+  git(["add", "--", ...paths]);
+  if (git(["diff", "--cached", "--quiet", "--", ...paths]).status === 0) {
+    return { committed: false, reason: "nothing-to-commit" };
+  }
+  if (git(["commit", "--no-verify", "-m", `chore(kit): refresh scaffolded surface to ${targetVersion}`]).status !== 0) {
+    return { committed: false, reason: "commit-failed" };
+  }
+  return { committed: true, sha: git(["rev-parse", "--short", "HEAD"]).stdout.trim() };
+}
+
 // consort/setup/project-consort-setup.ts
-var __dirname2 = path3.dirname((0, import_node_url2.fileURLToPath)(importMetaUrl));
+var __dirname2 = path5.dirname((0, import_node_url2.fileURLToPath)(importMetaUrl));
 function resolveKitRoot() {
   const candidates = [
-    path3.resolve(__dirname2, "../.."),
-    path3.resolve(__dirname2, "../../..")
+    path5.resolve(__dirname2, "../.."),
+    path5.resolve(__dirname2, "../../..")
   ];
   for (const c of candidates) {
-    if (fs4.existsSync(path3.join(c, "package.json")) && fs4.existsSync(path3.join(c, "skills", "consort", "agents"))) {
+    if (fs6.existsSync(path5.join(c, "package.json")) && fs6.existsSync(path5.join(c, "skills", "consort", "agents"))) {
       return c;
     }
   }
@@ -6940,27 +6976,28 @@ function resolveKitRoot() {
 }
 function kitVersion(root) {
   try {
-    return JSON.parse(fs4.readFileSync(path3.join(root, "package.json"), "utf8")).version ?? "";
+    return JSON.parse(fs6.readFileSync(path5.join(root, "package.json"), "utf8")).version ?? "";
   } catch {
     return "";
   }
 }
-var AGENT_SYNC_MARKER = path3.join(".claude", "agents", ".kit-version");
+var AGENT_SYNC_MARKER2 = path5.join(".claude", "agents", ".kit-version");
 function resyncAgentsOnKitDrift(projectDir) {
   try {
     const root = resolveKitRoot();
     const current = kitVersion(root);
-    const markerPath = path3.join(projectDir, AGENT_SYNC_MARKER);
+    const markerPath = path5.join(projectDir, AGENT_SYNC_MARKER2);
     let last = "";
     try {
-      last = fs4.readFileSync(markerPath, "utf8").trim();
+      last = fs6.readFileSync(markerPath, "utf8").trim();
     } catch {
     }
     if (last === current) return { refreshed: false };
     updateAgents({ projectDir, kitDir: root, force: true });
-    fs4.mkdirSync(path3.dirname(markerPath), { recursive: true });
-    fs4.writeFileSync(markerPath, current + "\n");
-    return { refreshed: true, from: last || void 0, to: current };
+    fs6.mkdirSync(path5.dirname(markerPath), { recursive: true });
+    fs6.writeFileSync(markerPath, current + "\n");
+    const commit = commitRefreshedSurface(projectDir, current);
+    return { refreshed: true, from: last || void 0, to: current, committed: commit.committed };
   } catch {
     return { refreshed: false };
   }
@@ -6968,8 +7005,8 @@ function resyncAgentsOnKitDrift(projectDir) {
 
 // consort/orchestrator/drive/claude-runner.ts
 var import_node_crypto = require("crypto");
-var fs7 = __toESM(require("fs"), 1);
-var path5 = __toESM(require("path"), 1);
+var fs9 = __toESM(require("fs"), 1);
+var path7 = __toESM(require("path"), 1);
 var readline = __toESM(require("readline"), 1);
 
 // consort/logging/replay-artifacts.ts
@@ -7345,22 +7382,22 @@ function emitAgentLogEvent(input, opts = {}) {
 
 // consort/gates/workflow-phase.ts
 init_cjs_shims();
-var fs5 = __toESM(require("fs"), 1);
+var fs7 = __toESM(require("fs"), 1);
 var PHASE_OWNER_KEY = "phase_feature_id";
 function writeWorkflowPhase(consortDir, phase, featureId) {
   const file = workflowStateJson(consortDir);
   let state = {};
-  if (fs5.existsSync(file)) {
+  if (fs7.existsSync(file)) {
     try {
-      state = JSON.parse(fs5.readFileSync(file, "utf8"));
+      state = JSON.parse(fs7.readFileSync(file, "utf8"));
     } catch {
       state = {};
     }
   }
   state.phase = phase;
   if (featureId) state[PHASE_OWNER_KEY] = featureId;
-  fs5.mkdirSync(consortDir, { recursive: true });
-  fs5.writeFileSync(file, JSON.stringify(state, null, 2) + "\n");
+  fs7.mkdirSync(consortDir, { recursive: true });
+  fs7.writeFileSync(file, JSON.stringify(state, null, 2) + "\n");
 }
 
 // consort/orchestrator/settings/project-settings.ts
@@ -7368,8 +7405,8 @@ init_cjs_shims();
 
 // consort/orchestrator/steps/manifest.ts
 init_cjs_shims();
-var import_node_fs = require("fs");
-var import_node_path2 = require("path");
+var import_node_fs2 = require("fs");
+var import_node_path3 = require("path");
 
 // consort/orchestrator/steps/manifests/spec-author-breakdown.json
 var spec_author_breakdown_default = {
@@ -8359,14 +8396,14 @@ function makeOnAction(opts) {
 
 // consort/config/kit-bin.ts
 init_cjs_shims();
-var import_node_child_process = require("child_process");
-var fs6 = __toESM(require("fs"), 1);
-var path4 = __toESM(require("path"), 1);
+var import_node_child_process2 = require("child_process");
+var fs8 = __toESM(require("fs"), 1);
+var path6 = __toESM(require("path"), 1);
 var kitRootCache;
 function resolveKitRoot2() {
   if (kitRootCache !== void 0) return kitRootCache;
   const env = process.env.LAKEBASE_KIT_DIR?.trim();
-  kitRootCache = env && fs6.existsSync(path4.join(env, "package.json")) ? env : path4.resolve(__dirname, "..", "..", "..");
+  kitRootCache = env && fs8.existsSync(path6.join(env, "package.json")) ? env : path6.resolve(__dirname, "..", "..", "..");
   return kitRootCache;
 }
 var SUBSTRATE_PKG = "@databricks-solutions/lakebase-scm-utils";
@@ -8377,12 +8414,12 @@ function resolveSubstrateRoot() {
   if (substrateRoot !== void 0) return substrateRoot;
   let dir = resolveKitRoot2();
   for (; ; ) {
-    const cand = path4.join(dir, "node_modules", SUBSTRATE_PKG);
-    if (fs6.existsSync(path4.join(cand, "package.json"))) {
+    const cand = path6.join(dir, "node_modules", SUBSTRATE_PKG);
+    if (fs8.existsSync(path6.join(cand, "package.json"))) {
       substrateRoot = cand;
       return cand;
     }
-    const parent = path4.dirname(dir);
+    const parent = path6.dirname(dir);
     if (parent === dir) break;
     dir = parent;
   }
@@ -8392,26 +8429,26 @@ function resolveSubstrateRoot() {
 function resolveKitBinJs(bin) {
   if (kitBinMap === null) {
     try {
-      const pkg = JSON.parse(fs6.readFileSync(path4.join(resolveKitRoot2(), "package.json"), "utf8"));
+      const pkg = JSON.parse(fs8.readFileSync(path6.join(resolveKitRoot2(), "package.json"), "utf8"));
       kitBinMap = pkg.bin ?? {};
     } catch {
       kitBinMap = {};
     }
   }
   const rel = kitBinMap[bin];
-  if (rel) return path4.join(resolveKitRoot2(), rel);
+  if (rel) return path6.join(resolveKitRoot2(), rel);
   const subRoot = resolveSubstrateRoot();
   if (subRoot) {
     if (substrateBinMap === null) {
       try {
-        const pkg = JSON.parse(fs6.readFileSync(path4.join(subRoot, "package.json"), "utf8"));
+        const pkg = JSON.parse(fs8.readFileSync(path6.join(subRoot, "package.json"), "utf8"));
         substrateBinMap = pkg.bin ?? {};
       } catch {
         substrateBinMap = {};
       }
     }
     const subRel = substrateBinMap[bin];
-    if (subRel) return path4.join(subRoot, subRel);
+    if (subRel) return path6.join(subRoot, subRel);
   }
   return null;
 }
@@ -8421,19 +8458,19 @@ var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase
 
 // consort/setup/stray-artifact-recovery.ts
 init_cjs_shims();
-var import_node_fs2 = require("fs");
-var import_node_path3 = require("path");
+var import_node_fs3 = require("fs");
+var import_node_path4 = require("path");
 function malformedSiblingRoot(projectDir) {
   const p = projectDir.replace(/\/+$/, "");
-  return `${(0, import_node_path3.dirname)(p)}-${(0, import_node_path3.basename)(p)}`;
+  return `${(0, import_node_path4.dirname)(p)}-${(0, import_node_path4.basename)(p)}`;
 }
 function listFilesRel(dir) {
   const out = [];
   const walk = (abs, rel) => {
-    for (const entry of (0, import_node_fs2.readdirSync)(abs)) {
-      const childAbs = (0, import_node_path3.join)(abs, entry);
-      const childRel = rel ? (0, import_node_path3.join)(rel, entry) : entry;
-      if ((0, import_node_fs2.statSync)(childAbs).isDirectory()) walk(childAbs, childRel);
+    for (const entry of (0, import_node_fs3.readdirSync)(abs)) {
+      const childAbs = (0, import_node_path4.join)(abs, entry);
+      const childRel = rel ? (0, import_node_path4.join)(rel, entry) : entry;
+      if ((0, import_node_fs3.statSync)(childAbs).isDirectory()) walk(childAbs, childRel);
       else out.push(childRel);
     }
   };
@@ -8442,19 +8479,19 @@ function listFilesRel(dir) {
 }
 function relocateStrayDesignArtifacts(projectDir) {
   const sibling = malformedSiblingRoot(projectDir);
-  if (!(0, import_node_fs2.existsSync)(sibling)) return { relocated: false, moved: [] };
+  if (!(0, import_node_fs3.existsSync)(sibling)) return { relocated: false, moved: [] };
   const moved = [];
   for (const artRoot of ALL_ARTIFACT_ROOTS) {
-    const strayRoot = (0, import_node_path3.join)(sibling, artRoot);
-    if (!(0, import_node_fs2.existsSync)(strayRoot)) continue;
-    for (const rel of listFilesRel(strayRoot)) moved.push((0, import_node_path3.join)(artRoot, rel));
-    const realRoot = (0, import_node_path3.join)(projectDir, artRoot);
-    (0, import_node_fs2.mkdirSync)(realRoot, { recursive: true });
-    (0, import_node_fs2.cpSync)(strayRoot, realRoot, { recursive: true, force: true });
-    (0, import_node_fs2.rmSync)(strayRoot, { recursive: true, force: true });
+    const strayRoot = (0, import_node_path4.join)(sibling, artRoot);
+    if (!(0, import_node_fs3.existsSync)(strayRoot)) continue;
+    for (const rel of listFilesRel(strayRoot)) moved.push((0, import_node_path4.join)(artRoot, rel));
+    const realRoot = (0, import_node_path4.join)(projectDir, artRoot);
+    (0, import_node_fs3.mkdirSync)(realRoot, { recursive: true });
+    (0, import_node_fs3.cpSync)(strayRoot, realRoot, { recursive: true, force: true });
+    (0, import_node_fs3.rmSync)(strayRoot, { recursive: true, force: true });
   }
   try {
-    if ((0, import_node_fs2.readdirSync)(sibling).length === 0) (0, import_node_fs2.rmSync)(sibling, { recursive: true, force: true });
+    if ((0, import_node_fs3.readdirSync)(sibling).length === 0) (0, import_node_fs3.rmSync)(sibling, { recursive: true, force: true });
   } catch {
   }
   return moved.length > 0 ? { relocated: true, from: sibling, moved } : { relocated: false, moved: [] };
@@ -8552,7 +8589,7 @@ var CliEffectError = class extends Error {
 };
 function spawnCmd(bin, args, cwd) {
   return new Promise((resolve3, reject) => {
-    const child = (0, import_node_child_process2.spawn)(bin, args, { cwd, stdio: "inherit" });
+    const child = (0, import_node_child_process3.spawn)(bin, args, { cwd, stdio: "inherit" });
     child.on("error", (err) => reject(err));
     child.on("close", (code) => code === 0 ? resolve3() : reject(new CliEffectError(bin, code)));
   });
@@ -8578,7 +8615,7 @@ var ReplayCorpusMissError = class extends Error {
 var ArtifactOutOfRootError = class extends Error {
   constructor(role, label, anyOf, consortDir, checkedSibling) {
     super(
-      `role '${role}' produced no ${label} under ${path5.basename(consortDir)}/ (expected one of: ${anyOf.join(", ")}).
+      `role '${role}' produced no ${label} under ${path7.basename(consortDir)}/ (expected one of: ${anyOf.join(", ")}).
         The subagent likely resolved the project root wrong and wrote outside it. ` + (checkedSibling ? `Checked (and tried to relocate from) the malformed sibling ${checkedSibling}; nothing there either. ` : `(check $HOME and other dirs for a stray copy). `) + `Nothing downstream can consume the absent artifact. Re-run to re-dispatch the role.`
     );
     this.role = role;
@@ -8649,7 +8686,7 @@ function defaultTurnMonitor(sink) {
 }
 function spawnClaudeStreaming(args, cwd, monitorOverride) {
   return new Promise((resolve3, reject) => {
-    const child = (0, import_node_child_process2.spawn)("claude", args, { cwd, stdio: ["inherit", "pipe", "pipe"] });
+    const child = (0, import_node_child_process3.spawn)("claude", args, { cwd, stdio: ["inherit", "pipe", "pipe"] });
     const lines = [];
     let sawTooLong = false;
     let sawTransient = false;
@@ -8658,12 +8695,12 @@ function spawnClaudeStreaming(args, cwd, monitorOverride) {
     let liveLog;
     if (liveLogDir) {
       try {
-        fs7.mkdirSync(liveLogDir, { recursive: true });
-        liveLog = fs7.openSync(path5.join(liveLogDir, "agent-live.log"), "a");
+        fs9.mkdirSync(liveLogDir, { recursive: true });
+        liveLog = fs9.openSync(path7.join(liveLogDir, "agent-live.log"), "a");
         const pIdxL = args.indexOf("-p"), rIdxL = args.indexOf("--agent");
         const role = rIdxL >= 0 ? args[rIdxL + 1] : "agent";
         const task = pIdxL >= 0 ? args[pIdxL + 1] ?? "" : "";
-        fs7.writeSync(liveLog, `
+        fs9.writeSync(liveLog, `
 === ${(/* @__PURE__ */ new Date()).toISOString()} TURN START role=${role} :: ${task}
 `);
       } catch {
@@ -8673,7 +8710,7 @@ function spawnClaudeStreaming(args, cwd, monitorOverride) {
     const liveWrite = (s) => {
       if (liveLog === void 0) return;
       try {
-        fs7.writeSync(liveLog, s);
+        fs9.writeSync(liveLog, s);
       } catch {
       }
     };
@@ -8745,7 +8782,7 @@ function spawnClaudeStreaming(args, cwd, monitorOverride) {
     const closeLiveLog = () => {
       if (liveLog === void 0) return;
       try {
-        fs7.closeSync(liveLog);
+        fs9.closeSync(liveLog);
       } catch {
       }
       liveLog = void 0;
@@ -8990,8 +9027,8 @@ function execRunner(cfg) {
       if (cmd.kind === "verify-artifact") {
         const isPresent = () => cmd.anyOf.some((p) => {
           try {
-            const st = fs7.statSync(p);
-            return st.isDirectory() ? fs7.readdirSync(p).length > 0 : true;
+            const st = fs9.statSync(p);
+            return st.isDirectory() ? fs9.readdirSync(p).length > 0 : true;
           } catch {
             return false;
           }
