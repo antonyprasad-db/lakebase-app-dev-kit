@@ -156,3 +156,50 @@ export function roleArtifacts(consortDir: string, role: string, opts: { feature?
   }
   return out;
 }
+
+/** The freshest mtime across a story's key artifacts (dir + story.json + acs/) , used to pick
+ *  the story a just-finished role wrote into when several are mid-design. 0 when none exist. */
+function storyFreshness(consortDir: string, feature: string, story: string): number {
+  let m = 0;
+  for (const p of [storyDir(consortDir, feature, story), storyJson(consortDir, feature, story), acsDir(consortDir, feature, story)]) {
+    try { m = Math.max(m, fs.statSync(p).mtimeMs); } catch { /* absent */ }
+  }
+  return m;
+}
+
+/**
+ * The LIVE current feature + story for scoping the per-turn open. Reads `next.json` , the drive's
+ * AUTHORITATIVE per-turn snapshot (`feature` + `state.stories`) , NOT `workflow-state.json`, whose
+ * `feature_id`/`story_id` are null during a design/build drive (its `phase_feature_id` also drifts
+ * stale). That mismatch was the real bug: the per-turn open resolved an EMPTY scope and so opened
+ * nothing. The story is the FRESHEST among the snapshot's stories (the one the finishing role just
+ * wrote into) , the right pick when several sit in "designing" at once. Falls back to
+ * `workflow-state.json`, then `{}`. Never throws.
+ */
+export function resolveScope(consortDir: string): { feature?: string; story?: string } {
+  try {
+    const next = JSON.parse(fs.readFileSync(join(consortDir, "next.json"), "utf8")) as {
+      feature?: string | null;
+      state?: { stories?: Record<string, string> };
+    };
+    const feature = next.feature ?? undefined;
+    if (feature) {
+      let story: string | undefined;
+      let best = 0; // only a story whose artifacts EXIST (freshness > 0) is picked
+      for (const id of Object.keys(next.state?.stories ?? {})) {
+        const m = storyFreshness(consortDir, feature, id);
+        if (m > best) { best = m; story = id; }
+      }
+      return { feature, ...(story ? { story } : {}) };
+    }
+  } catch { /* no next.json , fall through */ }
+  try {
+    const ws = JSON.parse(fs.readFileSync(join(consortDir, "workflow-state.json"), "utf8")) as {
+      feature_id?: string | null;
+      story_id?: string | null;
+    };
+    return { ...(ws.feature_id ? { feature: ws.feature_id } : {}), ...(ws.story_id ? { story: ws.story_id } : {}) };
+  } catch {
+    return {};
+  }
+}

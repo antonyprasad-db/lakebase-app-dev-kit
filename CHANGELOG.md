@@ -6,6 +6,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.47] - 2026-08-27
+
+### Fixed
+
+- **Per-turn artifact open now resolves the LIVE feature/story (the reason nothing ever opened).** `consort-watch`'s per-turn open scoped the review artifacts from `workflow-state.json`, whose `feature_id`/`story_id` are `null` during a design/build drive (its `phase_feature_id` also drifts stale) , so the scope resolved empty and EVERY turn reported "no reviewable artifact for this scope" and opened nothing, regardless of editor. New `resolveScope` reads the drive's authoritative per-turn snapshot `next.json` (`feature` + `state.stories`), picking the freshest mid-design story (the one the finishing role just wrote into), and falls back to `workflow-state.json`. Verified against a live run: spec-author now resolves 7 artifacts, architect 2, test-strategist 3, navigator 2 (previously 0).
+
+### Added
+
+- **`LAKEBASE_CONSORT_OPEN=1` force-opens per-turn artifacts from a background monitor.** The open otherwise fires only when `consort-watch` runs inside the editor's integrated terminal (the `isInsideEditor` guard, so it never launches an editor uninvited) , but a Monitor-TOOL background task is not in that terminal. Setting `LAKEBASE_CONSORT_OPEN=1` (or `=force`) opts in: the editor CLI surfaces each file in the already-running instance regardless of the caller's terminal. A skipped design-role open now names this in its relay line. `commands/start.md` documents launching the monitor with it.
+
 ## [0.3.46] - 2026-08-27
 
 ### Fixed

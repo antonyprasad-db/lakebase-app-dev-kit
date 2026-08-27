@@ -237,6 +237,41 @@ function roleArtifacts(consortDir, role, opts = {}) {
   }
   return out;
 }
+function storyFreshness(consortDir, feature, story) {
+  let m = 0;
+  for (const p of [storyDir(consortDir, feature, story), storyJson(consortDir, feature, story), acsDir(consortDir, feature, story)]) {
+    try {
+      m = Math.max(m, fs2.statSync(p).mtimeMs);
+    } catch {
+    }
+  }
+  return m;
+}
+function resolveScope(consortDir) {
+  try {
+    const next = JSON.parse(fs2.readFileSync((0, import_node_path2.join)(consortDir, "next.json"), "utf8"));
+    const feature = next.feature ?? void 0;
+    if (feature) {
+      let story;
+      let best = 0;
+      for (const id of Object.keys(next.state?.stories ?? {})) {
+        const m = storyFreshness(consortDir, feature, id);
+        if (m > best) {
+          best = m;
+          story = id;
+        }
+      }
+      return { feature, ...story ? { story } : {} };
+    }
+  } catch {
+  }
+  try {
+    const ws = JSON.parse(fs2.readFileSync((0, import_node_path2.join)(consortDir, "workflow-state.json"), "utf8"));
+    return { ...ws.feature_id ? { feature: ws.feature_id } : {}, ...ws.story_id ? { story: ws.story_id } : {} };
+  } catch {
+    return {};
+  }
+}
 
 // consort/orchestrator/open/open-in-editor.ts
 var APP_BUNDLE_CLIS = [
@@ -287,21 +322,14 @@ function openRoleArtifacts(consortDir, role, opts = {}) {
 
 // bin/consort/watch.cli.ts
 var import_util = require("@databricks-solutions/lakebase-scm-utils/util");
-function currentScope(consortDir) {
-  try {
-    const ws = JSON.parse(fs4.readFileSync(path2.join(consortDir, "workflow-state.json"), "utf8"));
-    return { ...ws.feature_id ? { feature: ws.feature_id } : {}, ...ws.story_id ? { story: ws.story_id } : {} };
-  } catch {
-    return {};
-  }
-}
 function reportRoleOpen(consortDir, role, env) {
-  const res = openRoleArtifacts(consortDir, role, { ...currentScope(consortDir), env });
+  const force = env.LAKEBASE_CONSORT_OPEN === "1" || env.LAKEBASE_CONSORT_OPEN === "force";
+  const res = openRoleArtifacts(consortDir, role, { ...resolveScope(consortDir), env, force });
   if (res.opened) return `[consort-watch] opened ${res.files.length} artifact(s) produced by ${role} in ${res.editor}`;
   if (!DESIGN_ROLES.has(role)) return null;
   switch (res.reason) {
     case "not-in-editor":
-      return `[consort-watch] ${role} turn done , ${res.files.length} artifact(s) to review, NOT opened , run this relay inside your Cursor/VS Code integrated terminal to auto-open them (else review via consort-open)`;
+      return `[consort-watch] ${role} turn done , ${res.files.length} artifact(s) to review, NOT opened , run the relay inside your Cursor/VS Code integrated terminal, OR set LAKEBASE_CONSORT_OPEN=1 to auto-open from a background monitor (else review via consort-open)`;
     case "no-editor":
       return `[consort-watch] ${role} turn done , no cursor/code CLI found to open its ${res.files.length} artifact(s) , install the editor's shell command (else review via consort-open)`;
     case "no-artifacts":

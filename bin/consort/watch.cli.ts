@@ -15,7 +15,7 @@ import * as path from "node:path";
 import { resolveConsortDir } from "../../consort/config/consort-paths.js";
 import { classifyDriveLine, type WatchLineKind, type WatchClass } from "../../consort/orchestrator/drive/watch-classify.js";
 import { openRoleArtifacts } from "../../consort/orchestrator/open/open-in-editor.js";
-import { DESIGN_ROLES } from "../../consort/orchestrator/open/resolve-review-artifacts.js";
+import { DESIGN_ROLES, resolveScope } from "../../consort/orchestrator/open/resolve-review-artifacts.js";
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 
 interface Args {
@@ -49,19 +49,6 @@ interface Args {
   monitor: boolean;
 }
 
-/** The current feature/story from workflow-state, to scope the review-artifact open. */
-function currentScope(consortDir: string): { feature?: string; story?: string } {
-  try {
-    const ws = JSON.parse(fs.readFileSync(path.join(consortDir, "workflow-state.json"), "utf8")) as {
-      feature_id?: string | null;
-      story_id?: string | null;
-    };
-    return { ...(ws.feature_id ? { feature: ws.feature_id } : {}), ...(ws.story_id ? { story: ws.story_id } : {}) };
-  } catch {
-    return {};
-  }
-}
-
 /** Per-turn open + relay report: open exactly what the just-finished ROLE produced (roleArtifacts,
  *  scoped to the live feature/story) and return one line for the human , NEVER silent for a design
  *  role: it says what it opened, or WHY it could not (not inside the editor's terminal / no editor
@@ -69,12 +56,16 @@ function currentScope(consortDir: string): { feature?: string; story?: string } 
  *  A build turn (driver , no reviewable design artifact) returns null: opening nothing is expected.
  *  This is the visibility the design lane needs , after each role's turn, see its artifacts. */
 export function reportRoleOpen(consortDir: string, role: string, env: NodeJS.ProcessEnv): string | null {
-  const res = openRoleArtifacts(consortDir, role, { ...currentScope(consortDir), env });
+  // LAKEBASE_CONSORT_OPEN=1/force lets a background monitor (whose process is NOT the editor's
+  // integrated terminal, so isInsideEditor is false) still open , the human opted in, and the
+  // editor CLI surfaces the file in the already-running instance regardless of the caller.
+  const force = env.LAKEBASE_CONSORT_OPEN === "1" || env.LAKEBASE_CONSORT_OPEN === "force";
+  const res = openRoleArtifacts(consortDir, role, { ...resolveScope(consortDir), env, force });
   if (res.opened) return `[consort-watch] opened ${res.files.length} artifact(s) produced by ${role} in ${res.editor}`;
   if (!DESIGN_ROLES.has(role)) return null; // build turn / no design output: expected, stay silent
   switch (res.reason) {
     case "not-in-editor":
-      return `[consort-watch] ${role} turn done , ${res.files.length} artifact(s) to review, NOT opened , run this relay inside your Cursor/VS Code integrated terminal to auto-open them (else review via consort-open)`;
+      return `[consort-watch] ${role} turn done , ${res.files.length} artifact(s) to review, NOT opened , run the relay inside your Cursor/VS Code integrated terminal, OR set LAKEBASE_CONSORT_OPEN=1 to auto-open from a background monitor (else review via consort-open)`;
     case "no-editor":
       return `[consort-watch] ${role} turn done , no cursor/code CLI found to open its ${res.files.length} artifact(s) , install the editor's shell command (else review via consort-open)`;
     case "no-artifacts":

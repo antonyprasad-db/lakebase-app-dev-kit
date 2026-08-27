@@ -5,10 +5,10 @@
 // the editor-guarded open, pollOnce surfacing finished roles, and the relay report line.
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, chmodSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { roleArtifacts, DESIGN_ROLES } from "../../consort/orchestrator/open/resolve-review-artifacts";
+import { roleArtifacts, DESIGN_ROLES, resolveScope } from "../../consort/orchestrator/open/resolve-review-artifacts";
 import { openRoleArtifacts } from "../../consort/orchestrator/open/open-in-editor";
 import { pollOnce, reportRoleOpen } from "../../bin/consort/watch.cli";
 
@@ -42,6 +42,7 @@ function fixture(): { dir: string; binDir: string } {
   const binDir = join(dir, "bin");
   mkdirSync(binDir, { recursive: true });
   writeFileSync(join(binDir, "cursor"), "#!/bin/sh\nexit 0\n");
+  chmodSync(join(binDir, "cursor"), 0o755); // executable, so the force-open path can really spawn it
   return { dir, binDir };
 }
 
@@ -169,5 +170,45 @@ describe("reportRoleOpen (never silent for a design role; silent for a build tur
   });
   it("a driver build turn reports nothing (null) , opening nothing is expected", () => {
     expect(reportRoleOpen(f.dir, "driver", { PATH: f.binDir, TERM_PROGRAM: "vscode" })).toBeNull();
+  });
+  it("LAKEBASE_CONSORT_OPEN=1 force-opens from a NON-editor (background monitor) context", () => {
+    // No TERM_PROGRAM (a background monitor), but the opt-in forces the open , the editor CLI
+    // surfaces the file in the running instance regardless of the caller's terminal.
+    const line = reportRoleOpen(f.dir, "architect-reviewer", { PATH: f.binDir, LAKEBASE_CONSORT_OPEN: "1" });
+    expect(line).toContain("opened");
+    expect(line).not.toContain("NOT opened");
+  });
+});
+
+describe("resolveScope (LIVE feature/story from next.json, not the stale workflow-state)", () => {
+  let dir: string;
+  beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "scope-")); });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  it("reads next.json's feature + the FRESHEST mid-design story (the one the role just wrote)", () => {
+    writeFileSync(join(dir, "next.json"), JSON.stringify({
+      feature: "F4-outbound-pick",
+      state: { stories: { "S1-done": "done", "S3-a": "designing", "S4-b": "designing" } },
+    }));
+    for (const s of ["S3-a", "S4-b"]) mkdirSync(join(dir, "features", "F4-outbound-pick", "stories", s), { recursive: true });
+    const old = new Date("2020-01-01T00:00:00Z"), recent = new Date("2020-06-01T00:00:00Z");
+    utimesSync(join(dir, "features", "F4-outbound-pick", "stories", "S4-b"), old, old);
+    utimesSync(join(dir, "features", "F4-outbound-pick", "stories", "S3-a"), recent, recent);
+    expect(resolveScope(dir)).toEqual({ feature: "F4-outbound-pick", story: "S3-a" });
+  });
+
+  it("next.json with a feature but no existing story dirs => feature only (no bogus story)", () => {
+    writeFileSync(join(dir, "next.json"), JSON.stringify({ feature: "F4", state: { stories: { "S1": "done" } } }));
+    expect(resolveScope(dir)).toEqual({ feature: "F4" });
+  });
+
+  it("falls back to workflow-state.json when there is no next.json", () => {
+    writeFileSync(join(dir, "workflow-state.json"), JSON.stringify({ feature_id: "F2", story_id: "S9" }));
+    expect(resolveScope(dir)).toEqual({ feature: "F2", story: "S9" });
+  });
+
+  it("null feature_id/story_id in workflow-state (the real-run bug) resolves to empty, not a false scope", () => {
+    writeFileSync(join(dir, "workflow-state.json"), JSON.stringify({ feature_id: null, story_id: null, phase_feature_id: "F3-stale" }));
+    expect(resolveScope(dir)).toEqual({});
   });
 });
