@@ -106,12 +106,17 @@ export const GATE_SPAN_FIELDS_L1 = [
   "end_ts",
   "duration_ms",
   "outcome",
+  // WHY, at the DEFAULT level (both closed CATEGORY enums, never free text): `fail_class` is
+  // the categorized signature of a failed/aborted gate (the failure taxonomy); `revise_class`
+  // is why a `revise-route` re-routed (turns the L1 `revise_rounds` count into a reason). These
+  // are adoption-health signals ("why are runs failing / re-routing"), so they belong at L1.
+  "fail_class",
+  "revise_class",
 ] as const;
 
-/** The ADDITIONAL Level-2 `consort.gate` span fields. `fail_class` is a nullable
- *  CATEGORY enum (the failure taxonomy) — the categorized signature of an
- *  abort/escalation, NEVER the error text. */
-export const GATE_SPAN_FIELDS_L2 = ["fail_class"] as const;
+/** The ADDITIONAL Level-2 `consort.gate` span fields (none currently — `fail_class` was
+ *  promoted to L1). Kept as the seam for future opt-in gate fields. */
+export const GATE_SPAN_FIELDS_L2 = [] as const;
 
 /** The child `consort.gate` span fields (L1 + the opt-in L2 additions). */
 export const GATE_SPAN_FIELDS = [...GATE_SPAN_FIELDS_L1, ...GATE_SPAN_FIELDS_L2] as const;
@@ -126,6 +131,9 @@ export const TURN_SPAN_FIELDS = [
   "span_id",
   "name",
   "role",
+  // Phase (same closed PHASE_VALUES enum as the gate span): lets the L2 turn view be a clean
+  // GROUP BY phase, role, model , build roles multiplex phases that model/effort alone can't tell.
+  "phase",
   "model",
   "effort",
   "duration_ms",
@@ -261,6 +269,20 @@ export const FAIL_CLASSES = [
   "other",
 ] as const;
 export type FailClass = (typeof FAIL_CLASSES)[number];
+
+/** The REVISE TAXONOMY: WHY a `revise-route` sent a gate's verdict back to its author (the
+ *  categorized reason behind an L1 `revise_rounds` count). A closed enum , the recurring
+ *  design-lane re-route causes + an `other` catch-all. Category ONLY, never the verdict text. */
+export const REVISE_CLASSES = [
+  "nfr-coverage-gap",
+  "e2e-layer-misroute",
+  "invariant-leg-missing",
+  "ac-independence",
+  "test-list-drift",
+  "migration-reversibility",
+  "other",
+] as const;
+export type ReviseClass = (typeof REVISE_CLASSES)[number];
 
 /** The three span names (constants, never free text). */
 export const RUN_SPAN_NAME = "consort.run" as const;

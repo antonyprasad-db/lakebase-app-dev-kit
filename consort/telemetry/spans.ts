@@ -19,6 +19,7 @@ import {
   type ArchValue,
   type EffortValue,
   type FailClass,
+  type ReviseClass,
   type GateKind,
   type GateOutcome,
   type ModelValue,
@@ -78,9 +79,10 @@ export interface RunSpan {
   ui_track?: boolean;
 }
 
-/** The child span: one per performed action/gate, parented to the root span. The
- *  L2 `fail_class` is OPTIONAL (present only on a level-2 run, and only when a
- *  fail/abort was categorized): the categorized signature enum, NEVER error text. */
+/** The child span: one per performed action/gate, parented to the root span. `fail_class`
+ *  (a fail/abort's categorized signature) and `revise_class` (why a revise-route re-routed)
+ *  are L1 closed-enum categories , NEVER error/verdict text; each is present only when it
+ *  applies (a failed/aborted gate, resp. a revise-route action). */
 export interface GateSpan {
   trace_id: string;
   parent_span_id: string;
@@ -96,7 +98,12 @@ export interface GateSpan {
   end_ts: number;
   duration_ms: number;
   outcome: GateOutcome;
+  /** The categorized signature of a failed/aborted gate (closed enum). Set only when outcome
+   *  is fail/abort. Never the error message. L1. */
   fail_class?: FailClass | null;
+  /** Why a `revise-route` sent the verdict back to its author (closed enum). Set only on a
+   *  revise-route gate. Never the verdict text. L1. */
+  revise_class?: ReviseClass | null;
 }
 
 /** The LEVEL-2-only span: one per role invocation ("who is slow / expensive /
@@ -109,6 +116,9 @@ export interface TurnSpan {
   span_id: string;
   name: typeof TURN_SPAN_NAME;
   role: RoleValue;
+  /** The phase this role turn ran in (same closed enum as the gate span), so the L2 turn view is
+   *  a clean GROUP BY phase, role, model. Undefined when the action carries no derivable phase. */
+  phase?: PhaseValue;
   model?: ModelValue;
   effort?: EffortValue;
   duration_ms: number;

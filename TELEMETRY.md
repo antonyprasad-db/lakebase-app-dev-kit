@@ -149,7 +149,14 @@ member) and `phase` (the KIND of turn: breakdown / spec / architecture / db-desi
 test-strategy / ux-design / reflect / red / green / review / refactor /
 refactor-superseded / assess / assess-refactor / repair / other) — both CLOSED enums,
 so the default view attributes a run's duration to role × phase (where most of the time
-goes) instead of one coarse `invoke-role`. Never free text.
+goes) instead of one coarse `invoke-role`. Never free text. The gate span also carries two
+closed-enum **WHY** categories (never the error / verdict text): `fail_class` — the categorized
+signature of a FAILED / ABORTED gate (`merge-etimedout` \| `npm-proxy-hang` \|
+`alembic-multi-head` \| `review-blocked-protocol` \| `deploy-verify-halt` \| `ux-adherence-hil`
+\| `other`) — and `revise_class` — why a `revise-route` sent the verdict back to its author
+(`nfr-coverage-gap` \| `e2e-layer-misroute` \| `invariant-leg-missing` \| `ac-independence` \|
+`test-list-drift` \| `migration-reversibility` \| `other`), turning the `revise_rounds` count
+into a reason. Both are Level 1 (the default), populated only when they apply.
 
 ### The `gate` enum (frozen WorkflowAction kinds)
 
@@ -198,7 +205,8 @@ flaky, and is the ensemble thrashing*:
 **Turn span `consort.turn`** (one per role invocation): `trace_id`,
 `parent_span_id`, `span_id`, `name` (`"consort.turn"`), `role` (`spec-author` \|
 `architect-reviewer` \| `dba` \| `ux-designer` \| `test-strategist` \| `navigator`
-\| `driver` \| `product-owner`), `duration_ms`, plus the OPTIONAL coarse buckets
+\| `driver` \| `product-owner`), `phase` (the same closed phase enum as the gate span, so
+the turn view is a clean group-by phase × role × model), `duration_ms`, plus the OPTIONAL coarse buckets
 `model` (`opus` \| `sonnet` \| `haiku` \| `fable` \| `other`), `effort` (`low` \|
 `medium` \| `high` \| `unknown`), `token_bucket` (`xs` \| `s` \| `m` \| `l` \|
 `xl`), and `retry_count` (a number). The optional buckets are only carried when the
@@ -211,10 +219,8 @@ executor surfaces them; they are never the exact model id, and never a raw count
 `test_count` (coarse project shape — *how big is the work*, never *what* the work
 is).
 
-**Extra `consort.gate` field:** `fail_class` — a nullable **categorized signature**
-of a failure drawn from a closed enum (e.g. `merge-etimedout`, `npm-proxy-hang`,
-`deploy-verify-halt`, `review-blocked-protocol`, `ux-adherence-hil`, `other`).
-**Never the error text**, path, or any free string — only the category.
+(The gate span's `fail_class` and `revise_class` WHY categories are **Level 1** — described
+above — not Level-2-only; Level 2 adds no further gate field.)
 
 **Hard line, even at Level 2:** no prompts, code, spec / feature text, error
 *messages*, file paths, branch names, hostnames, or usernames. Level 2 still cannot

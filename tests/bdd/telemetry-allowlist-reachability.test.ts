@@ -161,6 +161,7 @@ describe("telemetry allowlist reachability (no unlisted / no silent field)", () 
       span_id: "s",
       name: "consort.turn",
       role: "driver",
+      phase: "green",
       model: "opus",
       effort: "high",
       duration_ms: 5,

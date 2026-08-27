@@ -9,10 +9,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runDriver, type DriveEffects } from "../../consort/orchestrator/drive/orchestrator-run";
 import type { DriveState, WorkflowAction } from "../../consort/orchestrator/workflow/workflow-vocabulary";
-import { beginTelemetryRun, type BeginRunDeps, type TelemetryRun } from "../../consort/telemetry/with-telemetry";
+import { beginTelemetryRun, classifyFailClass, classifyReviseClass, type BeginRunDeps, type TelemetryRun } from "../../consort/telemetry/with-telemetry";
 import { memorySink, type MemorySink } from "../../consort/telemetry/emitter";
 import { isRunSpan, isTurnSpan, type GateSpan, type RunSpan, type TurnSpan } from "../../consort/telemetry/spans";
-import { ROLE_VALUES } from "../../consort/telemetry/allowlist";
+import { ROLE_VALUES, PHASE_VALUES } from "../../consort/telemetry/allowlist";
 import { recordTurnMeta } from "../../consort/orchestrator/drive/claude-runner";
 
 /** A scripted DriveEffects that performs `actions` in order then reaches `done`.
@@ -319,8 +319,12 @@ describe("withTelemetry over the driver loop", () => {
     // One turn span per role invocation, carrying role (within the closed enum) +
     // timing, parented to the root and sharing the trace id. No free-text fields.
     expect(turns.map((t) => t.role)).toEqual(["navigator", "driver", "driver"]);
+    // Each turn also carries its PHASE (same closed enum as the gate span), so the L2 view can
+    // GROUP BY phase, role, model: RED navigator, GREEN driver, then a refactor driver.
+    expect(turns.map((t) => t.phase)).toEqual(["red", "green", "refactor"]);
     for (const t of turns) {
       expect(ROLE_VALUES).toContain(t.role);
+      expect(PHASE_VALUES).toContain(t.phase);
       expect(t.trace_id).toBe(root.trace_id);
       expect(t.parent_span_id).toBe(root.span_id);
       expect(t.duration_ms).toBeGreaterThanOrEqual(0);
@@ -402,5 +406,47 @@ describe("withTelemetry over the driver loop", () => {
     // Project shape + the per-turn spans stay Level-2 only.
     expect(root.story_count).toBeUndefined();
     expect(root.ui_track).toBeUndefined();
+  });
+});
+
+describe("L1 WHY: fail_class + revise_class (closed-enum categories, never free text)", () => {
+  it("classifyReviseClass maps a verdict's reason keywords to the closed enum", () => {
+    expect(classifyReviseClass({ kind: "revise-route", story: "S1", role: "spec-author", gate: "spec", reason: "NFR budget has no covering test (coverage gap)", source: "navigator" } as WorkflowAction)).toBe("nfr-coverage-gap");
+    expect(classifyReviseClass({ kind: "revise-route", story: "S1", role: "test-strategist", gate: "test_list", reason: "E2E-layer AC covered only by a mocked component test", source: "navigator" } as WorkflowAction)).toBe("e2e-layer-misroute");
+    expect(classifyReviseClass({ kind: "revise-route", story: "S1", role: "architect-reviewer", gate: "architecture", reason: "migration is not reversible (downgrade drops the table)", source: "navigator" } as WorkflowAction)).toBe("migration-reversibility");
+    expect(classifyReviseClass({ kind: "revise-route", story: "S1", role: "spec-author", gate: "spec", reason: "something unrecognized", source: "x" } as WorkflowAction)).toBe("other");
+  });
+
+  it("classifyFailClass maps an abort/fail reason to the closed enum", () => {
+    expect(classifyFailClass({ kind: "raise-to-hil", reason: "ux-adherence: page uses inline styles", source: "review" } as WorkflowAction)).toBe("ux-adherence-hil");
+    expect(classifyFailClass({ kind: "raise-to-hil", reason: "git merge failed: ETIMEDOUT on schema-diff hook", source: "accept" } as WorkflowAction)).toBe("merge-etimedout");
+    expect(classifyFailClass({ kind: "raise-to-hil", reason: "deploy-verify halted: E2E failed", source: "deploy" } as WorkflowAction)).toBe("deploy-verify-halt");
+    expect(classifyFailClass({ kind: "raise-to-hil", reason: "mystery", source: "y" } as WorkflowAction)).toBe("other");
+  });
+
+  it("a raise-to-hil gate carries fail_class (L1) on its abort span", async () => {
+    const sink = memorySink();
+    const run = beginTelemetryRun(CONSENTING(mkdtempSync(join(tmpdir(), "fc-")), sink)); // level 1 default? CONSENTING sets no level => L1
+    const { effects, transition } = scripted([{ kind: "raise-to-hil", reason: "ux-adherence inline style", source: "review" } as WorkflowAction]);
+    await runDriver(run.wrap(effects), { transition, enforceExpectations: false });
+    run.finish({ outcome: "aborted", exit_code: 3 });
+    const child = sink.payloads[0].spans.filter((s) => !isRunSpan(s))[0] as GateSpan;
+    expect(child.gate).toBe("raise-to-hil");
+    expect(child.outcome).toBe("abort");
+    expect(child.fail_class).toBe("ux-adherence-hil"); // populated at L1 (default), no opt-in needed
+  });
+
+  it("a revise-route gate carries revise_class (L1) even though it passes", async () => {
+    const sink = memorySink();
+    const run = beginTelemetryRun(CONSENTING(mkdtempSync(join(tmpdir(), "rc-")), sink));
+    const revise = { kind: "revise-route", story: "S1", role: "test-strategist", gate: "test_list", reason: "E2E-layer AC mapped to a mocked component test (boundary)", source: "navigator" } as WorkflowAction;
+    const { effects, transition } = scripted([revise]);
+    await runDriver(run.wrap(effects), { transition, enforceExpectations: false });
+    run.finish({ outcome: "completed", exit_code: 0 });
+    const child = sink.payloads[0].spans.filter((s) => !isRunSpan(s))[0] as GateSpan;
+    expect(child.gate).toBe("revise-route");
+    expect(child.outcome).toBe("pass");
+    expect(child.revise_class).toBe("e2e-layer-misroute");
+    expect(child.fail_class).toBeUndefined(); // not a failure, so no fail_class
   });
 });

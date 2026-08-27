@@ -6,6 +6,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.50] - 2026-08-27
+
+### Added
+
+- **Telemetry L1 `fail_class` + `revise_class` (the "why" categories).** `fail_class` (the categorized signature of a failed/aborted gate) was declared but never populated and was Level-2-only; it is now **wired + promoted to L1** , classified into a closed enum from the action's reason/source (never the error text) whenever a gate fails/aborts. New **`revise_class`** (also L1) classifies why a `revise-route` re-routed (`nfr-coverage-gap` / `e2e-layer-misroute` / `invariant-leg-missing` / `ac-independence` / `test-list-drift` / `migration-reversibility` / `other`), turning the L1 `revise_rounds` count into a reason. Both are closed CATEGORY enums , no free text ever reaches a span. So the DEFAULT telemetry now answers not just *where* time goes (role × phase) but *why* runs fail / re-route.
+- **Telemetry L2 `phase` on the `consort.turn` span.** The per-turn span carried `role` but not `phase`, so model/effort couldn't be attributed to a phase (build roles multiplex red/green/review/assess/refactor). The turn span now carries `phase` (same closed enum as the gate span), making the L2 view a clean `GROUP BY phase, role, model`.
+
+Server (consort-telemetry-ingest): `telemetry.gates` gains `revise_class`, `telemetry.turns` gains `phase` (both idempotent `ADD COLUMN`), and the ingest INSERTs carry them. `fail_class`'s gate column already shipped in v0.3.44.
+
 ## [0.3.49] - 2026-08-27
 
 ### Fixed

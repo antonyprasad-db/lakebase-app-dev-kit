@@ -100,9 +100,15 @@ var GATE_SPAN_FIELDS_L1 = [
   "start_ts",
   "end_ts",
   "duration_ms",
-  "outcome"
+  "outcome",
+  // WHY, at the DEFAULT level (both closed CATEGORY enums, never free text): `fail_class` is
+  // the categorized signature of a failed/aborted gate (the failure taxonomy); `revise_class`
+  // is why a `revise-route` re-routed (turns the L1 `revise_rounds` count into a reason). These
+  // are adoption-health signals ("why are runs failing / re-routing"), so they belong at L1.
+  "fail_class",
+  "revise_class"
 ];
-var GATE_SPAN_FIELDS_L2 = ["fail_class"];
+var GATE_SPAN_FIELDS_L2 = [];
 var GATE_SPAN_FIELDS = [...GATE_SPAN_FIELDS_L1, ...GATE_SPAN_FIELDS_L2];
 var ROLE_VALUES = [
   "spec-author",

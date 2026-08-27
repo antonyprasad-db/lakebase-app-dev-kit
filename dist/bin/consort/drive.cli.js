@@ -14892,9 +14892,15 @@ var GATE_SPAN_FIELDS_L1 = [
   "start_ts",
   "end_ts",
   "duration_ms",
-  "outcome"
+  "outcome",
+  // WHY, at the DEFAULT level (both closed CATEGORY enums, never free text): `fail_class` is
+  // the categorized signature of a failed/aborted gate (the failure taxonomy); `revise_class`
+  // is why a `revise-route` re-routed (turns the L1 `revise_rounds` count into a reason). These
+  // are adoption-health signals ("why are runs failing / re-routing"), so they belong at L1.
+  "fail_class",
+  "revise_class"
 ];
-var GATE_SPAN_FIELDS_L2 = ["fail_class"];
+var GATE_SPAN_FIELDS_L2 = [];
 var GATE_SPAN_FIELDS = [...GATE_SPAN_FIELDS_L1, ...GATE_SPAN_FIELDS_L2];
 var TURN_SPAN_FIELDS = [
   "trace_id",
@@ -14902,6 +14908,9 @@ var TURN_SPAN_FIELDS = [
   "span_id",
   "name",
   "role",
+  // Phase (same closed PHASE_VALUES enum as the gate span): lets the L2 turn view be a clean
+  // GROUP BY phase, role, model , build roles multiplex phases that model/effort alone can't tell.
+  "phase",
   "model",
   "effort",
   "duration_ms",
@@ -15393,6 +15402,31 @@ function phaseForAction(action) {
       return "other";
   }
 }
+function reasonText(action) {
+  const reason = "reason" in action && typeof action.reason === "string" ? action.reason : "";
+  const source = "source" in action && typeof action.source === "string" ? action.source : "";
+  return `${reason} ${source}`.toLowerCase();
+}
+function classifyFailClass(action) {
+  const t = reasonText(action);
+  if (/etimedout/.test(t) || /merge/.test(t) && /timeout/.test(t)) return "merge-etimedout";
+  if (/npm|proxy|registry/.test(t) && /hang|timeout|etimedout|econnreset/.test(t)) return "npm-proxy-hang";
+  if (/alembic|multi.?head|multiple heads/.test(t)) return "alembic-multi-head";
+  if (/review/.test(t) && /block|protocol|admin|bypass/.test(t)) return "review-blocked-protocol";
+  if (/deploy.?verify|working.?software|verify.*(halt|fail)/.test(t)) return "deploy-verify-halt";
+  if (/ux.?adherence|design.?guide|inline.?style/.test(t)) return "ux-adherence-hil";
+  return "other";
+}
+function classifyReviseClass(action) {
+  const t = reasonText(action);
+  if (/nfr/.test(t) && /coverage|gap|uncovered/.test(t)) return "nfr-coverage-gap";
+  if (/e2e|end.?to.?end/.test(t) && /layer|mock|boundary|component/.test(t)) return "e2e-layer-misroute";
+  if (/invariant/.test(t) && /leg|column|missing|uncovered/.test(t)) return "invariant-leg-missing";
+  if (/independence|subset|overlap/.test(t)) return "ac-independence";
+  if (/test.?list/.test(t)) return "test-list-drift";
+  if (/reversib|downgrade|migration/.test(t)) return "migration-reversibility";
+  return "other";
+}
 var FIRST_RUN_NOTICE = "[consort] Anonymous* usage telemetry is on (*pseudonymous: a random per-install id, no PII).\n          Each run of Consort reports to the maintainers' endpoint; only allowlisted,\n          non-sensitive fields are sent (no paths, code, error text, or names).\n          Help the maintainers more , opt in to Level 2: `consort-telemetry enable --level 2`\n          adds per-role timings + coarse failure classes (still no code/paths/names), so they\n          can find and fix what makes runs slow or fail. It's off by default; this is the ask.\n          Turn telemetry off any time: `consort-telemetry disable` (or CONSORT_TELEMETRY=0).\n          Details: TELEMETRY.md.\n";
 var L2_OPT_IN_NOTICE = "[consort] Level-2 usage telemetry is ON (you opted in).\n          On top of Level 1, it reports per-role turn timings and coarse\n          repair/loop counts , still only allowlisted enums, counts, and\n          durations (no prompts, code, paths, error text, or names).\n          Back to Level 1 any time: `consort-telemetry enable --level 1`.\n          Details: TELEMETRY.md.\n";
 var NOOP_RUN = {
@@ -15485,17 +15519,21 @@ function beginTelemetryRunUnsafe(deps) {
       const phase = phaseForAction(action);
       if (phase) span.phase = phase;
     }
+    if (span.outcome === "fail" || span.outcome === "abort") span.fail_class = classifyFailClass(action);
+    if (action.kind === "revise-route") span.revise_class = classifyReviseClass(action);
     emitter.enqueue(span);
     gates += 1;
     tallyL2(action);
     if (l2) {
       if (action.kind === "invoke-role" && isKnownRole(action.role)) {
+        const turnPhase = phaseForAction(action);
         const turn = {
           trace_id: traceId,
           parent_span_id: rootSpanId,
           span_id: newSpanId(),
           name: TURN_SPAN_NAME,
           role: action.role,
+          ...turnPhase ? { phase: turnPhase } : {},
           duration_ms: end - start,
           ...turnSpanFieldsFromMeta(takeLastTurnMeta())
         };

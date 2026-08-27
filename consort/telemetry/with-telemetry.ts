@@ -27,6 +27,8 @@ import {
   isKnownPhase,
   type GateOutcome,
   type PhaseValue,
+  type FailClass,
+  type ReviseClass,
   type RunOutcome,
   type TelemetryCommand,
   type TelemetryLevel,
@@ -66,6 +68,42 @@ export function phaseForAction(action: WorkflowAction): PhaseValue | undefined {
     case "navigator": return "red"; // base build turn = the RED test
     default: return "other";
   }
+}
+
+/** The reason+source an action carries (raise-to-hil / revise-route / deploy-verify-heal),
+ *  lowercased for keyword classification. NEVER stored , only fed to the closed-enum
+ *  classifiers below, which emit a CATEGORY (no free text ever reaches a span). */
+function reasonText(action: WorkflowAction): string {
+  const reason = "reason" in action && typeof action.reason === "string" ? action.reason : "";
+  const source = "source" in action && typeof action.source === "string" ? action.source : "";
+  return `${reason} ${source}`.toLowerCase();
+}
+
+/** Categorize a FAILED/ABORTED gate into the closed FAIL_CLASSES taxonomy from the action's
+ *  reason/source keywords. "other" when nothing matches. Category only , never the text. */
+export function classifyFailClass(action: WorkflowAction): FailClass {
+  const t = reasonText(action);
+  if (/etimedout/.test(t) || (/merge/.test(t) && /timeout/.test(t))) return "merge-etimedout";
+  if (/npm|proxy|registry/.test(t) && /hang|timeout|etimedout|econnreset/.test(t)) return "npm-proxy-hang";
+  if (/alembic|multi.?head|multiple heads/.test(t)) return "alembic-multi-head";
+  if (/review/.test(t) && /block|protocol|admin|bypass/.test(t)) return "review-blocked-protocol";
+  if (/deploy.?verify|working.?software|verify.*(halt|fail)/.test(t)) return "deploy-verify-halt";
+  if (/ux.?adherence|design.?guide|inline.?style/.test(t)) return "ux-adherence-hil";
+  return "other";
+}
+
+/** Categorize a REVISE-ROUTE into the closed REVISE_CLASSES taxonomy from the verdict's
+ *  reason/source keywords , turns the L1 revise_rounds count into WHY it re-routed. "other"
+ *  when nothing matches. Category only , never the verdict text. */
+export function classifyReviseClass(action: WorkflowAction): ReviseClass {
+  const t = reasonText(action);
+  if (/nfr/.test(t) && /coverage|gap|uncovered/.test(t)) return "nfr-coverage-gap";
+  if (/e2e|end.?to.?end/.test(t) && /layer|mock|boundary|component/.test(t)) return "e2e-layer-misroute";
+  if (/invariant/.test(t) && /leg|column|missing|uncovered/.test(t)) return "invariant-leg-missing";
+  if (/independence|subset|overlap/.test(t)) return "ac-independence";
+  if (/test.?list/.test(t)) return "test-list-drift";
+  if (/reversib|downgrade|migration/.test(t)) return "migration-reversibility";
+  return "other";
 }
 
 /** The one-time first-run notice (stderr). Pseudonymous, armed by default. */
@@ -255,6 +293,11 @@ function beginTelemetryRunUnsafe(deps: BeginRunDeps): TelemetryRun {
       const phase = phaseForAction(action);
       if (phase) span.phase = phase;
     }
+    // L1 WHY (both closed CATEGORY enums, never free text): the categorized signature of a
+    // fail/abort (fail_class), and why a revise-route re-routed (revise_class , turns the L1
+    // revise_rounds count into a reason). Populated UNCONDITIONALLY (L1), like role/phase.
+    if (span.outcome === "fail" || span.outcome === "abort") span.fail_class = classifyFailClass(action);
+    if (action.kind === "revise-route") span.revise_class = classifyReviseClass(action);
     emitter.enqueue(span);
     gates += 1;
 
@@ -269,12 +312,18 @@ function beginTelemetryRunUnsafe(deps: BeginRunDeps): TelemetryRun {
     // L2 (opt-in) only: the per-turn cost/flakiness span (model/effort/token/retry).
     if (l2) {
       if (action.kind === "invoke-role" && isKnownRole(action.role)) {
+        // Carry the PHASE too (same closed enum the gate span uses), so the L2 turn view is a
+        // clean GROUP BY phase, role, model , the design-lane roles are 1:1 with a phase, but the
+        // build roles (navigator/driver) multiplex red/green/review/assess/refactor, which only
+        // phase disambiguates (model/effort alone can't tell red from review).
+        const turnPhase = phaseForAction(action);
         const turn: TurnSpan = {
           trace_id: traceId,
           parent_span_id: rootSpanId,
           span_id: newSpanId(),
           name: TURN_SPAN_NAME,
           role: action.role,
+          ...(turnPhase ? { phase: turnPhase } : {}),
           duration_ms: end - start,
           ...turnSpanFieldsFromMeta(takeLastTurnMeta()),
         };
