@@ -233,7 +233,14 @@ function isInsideEditor(env = process.env) {
 }
 function openArtifactsInEditor(consortDir, opts = {}) {
   const env = opts.env ?? process.env;
-  const files = reviewArtifacts(consortDir, { feature: opts.feature, story: opts.story });
+  const all = reviewArtifacts(consortDir, { feature: opts.feature, story: opts.story });
+  const files = opts.changedSinceMs === void 0 ? all : all.filter((f) => {
+    try {
+      return fs3.statSync(f).mtimeMs >= opts.changedSinceMs;
+    } catch {
+      return false;
+    }
+  });
   if (!files.length) return { files, opened: false, reason: "no-artifacts" };
   const cmd = findEditorCmd(env);
   if (!cmd) return { files, opened: false, reason: "no-editor" };
@@ -336,15 +343,8 @@ function scanLastStop(logPath) {
   }
   return last;
 }
-function emitStop(c, consortDir, open) {
+function emitStop(c) {
   if (c.outcome === "gate" || c.outcome === "pause") {
-    if (open) {
-      const res = openArtifactsInEditor(consortDir, currentScope(consortDir));
-      if (res.opened) process.stderr.write(`consort-watch: opened ${res.files.length} artifact(s) for review in ${res.editor}.
-`);
-      else if (res.reason === "not-in-editor" && res.files.length) process.stderr.write(`consort-watch: review artifacts (not in an editor): ${res.files.map((f) => path2.basename(f)).join(", ")}
-`);
-    }
     process.stderr.write("consort-watch: control is back with you , run `consort-next` for the exact command, then re-run the drive.\n");
   } else if (c.outcome === "escalation") {
     process.stderr.write(`consort-watch: the run escalated , \`consort-diagnose\` bundles the forensics; after fixing the cause, \`consort-resolve-escalation\` clears it (do NOT rm the record), then re-run.
@@ -378,7 +378,7 @@ function readNextStop(consortDir) {
 function isNextStop(ns) {
   return !!ns && (ns.awaiting_human || ns.done || ns.escalated);
 }
-function emitNextStop(ns, consortDir, open) {
+function emitNextStop(ns) {
   process.stdout.write(`[consort-watch] DRIVE STOPPED , ${ns.summary || (ns.done ? "run complete" : ns.escalated ? "escalation" : "awaiting a decision")}
 `);
   if (ns.escalated) {
@@ -391,11 +391,6 @@ function emitNextStop(ns, consortDir, open) {
   }
   if (ns.hil) process.stdout.write(`[consort-watch] HUMAN NEEDED: ${ns.hil}${ns.enact ? ` , run: ${ns.enact}` : ""}
 `);
-  if (open) {
-    const res = openArtifactsInEditor(consortDir, currentScope(consortDir));
-    if (res.opened) process.stderr.write(`consort-watch: opened ${res.files.length} artifact(s) for review in ${res.editor}.
-`);
-  }
   process.stderr.write("consort-watch: control is back with you , run `consort-next` for the exact command, then re-run the drive.\n");
   return 0;
 }
@@ -470,6 +465,7 @@ async function main() {
   let carry = "";
   let inNotice = false;
   const watchStart = Date.now();
+  let lastTurnOpenMs = watchStart;
   process.stderr.write(`consort-watch: following ${logPath}${args.pid ? ` (pid ${args.pid})` : ""}
 `);
   if (args.monitor) {
@@ -477,7 +473,7 @@ async function main() {
     if (last) {
       process.stdout.write(`${PREFIX[last.kind]} ${last.text}
 `);
-      return emitStop(last, consortDir, args.open);
+      return emitStop(last);
     }
   }
   const nextBaseline = readNextStop(consortDir)?.generated_at ?? "";
@@ -485,19 +481,19 @@ async function main() {
     const pidGone = args.pid !== void 0 && !alive(args.pid);
     const ns = readNextStop(consortDir);
     if (pidGone) {
-      if (isNextStop(ns)) return emitNextStop(ns, consortDir, args.open);
+      if (isNextStop(ns)) return emitNextStop(ns);
       const last = scanLastStop(logPath);
       if (last) {
         process.stdout.write(`${PREFIX[last.kind]} ${last.text}
 `);
-        return emitStop(last, consortDir, args.open);
+        return emitStop(last);
       }
       process.stderr.write(`consort-watch: drive pid ${args.pid} is no longer running and no stop was recorded , run consort-next to check for a crash.
 `);
       return 3;
     }
     if (args.pid === void 0 && isNextStop(ns) && ns.generated_at !== nextBaseline) {
-      return emitNextStop(ns, consortDir, args.open);
+      return emitNextStop(ns);
     }
     return null;
   };
@@ -530,7 +526,16 @@ async function main() {
           inNotice = true;
           continue;
         }
-        if (c.stop) return emitStop(c, consortDir, args.open);
+        if (c.kind === "turn-done" && args.open) {
+          const role = c.text.match(/^(\S+) turn/)?.[1];
+          const res = openArtifactsInEditor(consortDir, { ...currentScope(consortDir), changedSinceMs: lastTurnOpenMs });
+          lastTurnOpenMs = Date.now();
+          if (res.opened) {
+            process.stderr.write(`consort-watch: opened ${res.files.length} artifact(s)${role ? ` produced by ${role}` : ""} in ${res.editor}.
+`);
+          }
+        }
+        if (c.stop) return emitStop(c);
       }
     }
     if (args.monitor) {
@@ -541,7 +546,7 @@ async function main() {
       if (last) {
         process.stdout.write(`${PREFIX[last.kind]} ${last.text}
 `);
-        return emitStop(last, consortDir, args.open);
+        return emitStop(last);
       }
       process.stderr.write(`consort-watch: drive pid ${args.pid} is no longer running (no terminal line seen).
 `);

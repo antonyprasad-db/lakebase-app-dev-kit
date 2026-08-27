@@ -66,13 +66,29 @@ export interface OpenOpts {
   env?: NodeJS.ProcessEnv;
   /** Injectable spawner (tests). Defaults to opening the files in the editor. */
   spawn?: (cmd: string, files: string[]) => void;
+  /** PER-TURN delta: when set, open ONLY the reviewable artifacts modified at/after this
+   *  epoch-ms , i.e. the files the just-finished role actually produced/updated this turn,
+   *  not the whole review set. Left unset (consort-open, manual) opens the full set. */
+  changedSinceMs?: number;
 }
 
 /** Resolve the reviewable artifacts and open them in the editor when appropriate.
  *  Never throws; returns what it did (or why not). */
 export function openArtifactsInEditor(consortDir: string, opts: OpenOpts = {}): OpenResult {
   const env = opts.env ?? process.env;
-  const files = reviewArtifacts(consortDir, { feature: opts.feature, story: opts.story });
+  const all = reviewArtifacts(consortDir, { feature: opts.feature, story: opts.story });
+  // Per-turn open narrows to what THIS turn touched (mtime >= the previous turn boundary),
+  // so the human sees only what the role just produced, not the whole set re-opened.
+  const files =
+    opts.changedSinceMs === undefined
+      ? all
+      : all.filter((f) => {
+          try {
+            return fs.statSync(f).mtimeMs >= (opts.changedSinceMs as number);
+          } catch {
+            return false;
+          }
+        });
   if (!files.length) return { files, opened: false, reason: "no-artifacts" };
 
   const cmd = findEditorCmd(env);

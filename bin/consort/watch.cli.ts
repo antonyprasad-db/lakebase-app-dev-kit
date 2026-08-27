@@ -126,17 +126,13 @@ export function scanLastStop(logPath: string): WatchClass | null {
   return last;
 }
 
-/** Emit the stop GUIDANCE for a terminal transition (open the review artifacts at a
- *  gate/pause; point at consort-diagnose on escalation; else "run complete") and return
- *  the process exit code (3 for escalation, else 0). The stop LINE itself is printed by
+/** Emit the stop GUIDANCE for a terminal transition (point the human at consort-next at a
+ *  gate/pause; consort-diagnose on escalation; else "run complete") and return the process
+ *  exit code (3 for escalation, else 0). Artifacts are opened PER TURN as each role finishes
+ *  (see the follow loop) , NOT batched here at the gate. The stop LINE itself is printed by
  *  the caller. Shared by the live follow AND the late-attach scan so both behave alike. */
-function emitStop(c: WatchClass, consortDir: string, open: boolean): number {
+function emitStop(c: WatchClass): number {
   if (c.outcome === "gate" || c.outcome === "pause") {
-    if (open) {
-      const res = openArtifactsInEditor(consortDir, currentScope(consortDir));
-      if (res.opened) process.stderr.write(`consort-watch: opened ${res.files.length} artifact(s) for review in ${res.editor}.\n`);
-      else if (res.reason === "not-in-editor" && res.files.length) process.stderr.write(`consort-watch: review artifacts (not in an editor): ${res.files.map((f) => path.basename(f)).join(", ")}\n`);
-    }
     process.stderr.write("consort-watch: control is back with you , run `consort-next` for the exact command, then re-run the drive.\n");
   } else if (c.outcome === "escalation") {
     process.stderr.write(`consort-watch: the run escalated , \`consort-diagnose\` bundles the forensics; after fixing the cause, \`consort-resolve-escalation\` clears it (do NOT rm the record), then re-run.\n`);
@@ -194,7 +190,7 @@ function isNextStop(ns: NextStop | null): ns is NextStop {
 /** Emit the stop from next.json (the authoritative surface) and return the exit code.
  *  Used by the persistent monitor so a drive-stop is surfaced the moment next.json changes,
  *  never contingent on a log marker. Escalation => 3; gate/done => 0. */
-function emitNextStop(ns: NextStop, consortDir: string, open: boolean): number {
+function emitNextStop(ns: NextStop): number {
   process.stdout.write(`[consort-watch] DRIVE STOPPED , ${ns.summary || (ns.done ? "run complete" : ns.escalated ? "escalation" : "awaiting a decision")}\n`);
   if (ns.escalated) {
     process.stderr.write("consort-watch: the run escalated , `consort-diagnose` bundles the forensics; after fixing the cause, `consort-resolve-escalation` clears it (do NOT rm the record), then re-run.\n");
@@ -205,12 +201,8 @@ function emitNextStop(ns: NextStop, consortDir: string, open: boolean): number {
     return 0;
   }
   // awaiting_human at a gate / backlog / accept-discard-revise: surface the prompt + the
-  // exact enact command, and open the review artifacts.
+  // exact enact command. (Artifacts are opened per turn as roles finish, not here.)
   if (ns.hil) process.stdout.write(`[consort-watch] HUMAN NEEDED: ${ns.hil}${ns.enact ? ` , run: ${ns.enact}` : ""}\n`);
-  if (open) {
-    const res = openArtifactsInEditor(consortDir, currentScope(consortDir));
-    if (res.opened) process.stderr.write(`consort-watch: opened ${res.files.length} artifact(s) for review in ${res.editor}.\n`);
-  }
   process.stderr.write("consort-watch: control is back with you , run `consort-next` for the exact command, then re-run the drive.\n");
   return 0;
 }
@@ -328,6 +320,9 @@ async function main(): Promise<number> {
   // surface them verbatim while inside the block. Persists across chunk reads.
   let inNotice = false;
   const watchStart = Date.now();
+  // Per-turn artifact open: timestamp of the previous turn boundary, so each `turn-done`
+  // opens only what changed since it. Starts at attach so the first finished turn opens its delta.
+  let lastTurnOpenMs = watchStart;
   process.stderr.write(`consort-watch: following ${logPath}${args.pid ? ` (pid ${args.pid})` : ""}\n`);
 
   // Monitor late-attach: if the drive ALREADY wrote a terminal marker before this monitor
@@ -339,7 +334,7 @@ async function main(): Promise<number> {
     const last = scanLastStop(logPath);
     if (last) {
       process.stdout.write(`${PREFIX[last.kind]} ${last.text}\n`);
-      return emitStop(last, consortDir, args.open);
+      return emitStop(last);
     }
   }
 
@@ -354,11 +349,11 @@ async function main(): Promise<number> {
     const pidGone = args.pid !== undefined && !alive(args.pid);
     const ns = readNextStop(consortDir);
     if (pidGone) {
-      if (isNextStop(ns)) return emitNextStop(ns, consortDir, args.open);
+      if (isNextStop(ns)) return emitNextStop(ns);
       const last = scanLastStop(logPath);
       if (last) {
         process.stdout.write(`${PREFIX[last.kind]} ${last.text}\n`);
-        return emitStop(last, consortDir, args.open);
+        return emitStop(last);
       }
       process.stderr.write(`consort-watch: drive pid ${args.pid} is no longer running and no stop was recorded , run consort-next to check for a crash.\n`);
       return 3;
@@ -366,7 +361,7 @@ async function main(): Promise<number> {
     // No --pid: a FRESH next.json stop (generated_at changed since attach) means the drive
     // stopped even though we cannot probe its pid.
     if (args.pid === undefined && isNextStop(ns) && ns.generated_at !== nextBaseline) {
-      return emitNextStop(ns, consortDir, args.open);
+      return emitNextStop(ns);
     }
     return null;
   };
@@ -394,9 +389,21 @@ async function main(): Promise<number> {
         if (!c) continue;
         process.stdout.write(`${PREFIX[c.kind]} ${c.text}\n`);
         if (c.kind === "notice") { inNotice = true; continue; }
+        // PER-TURN artifact open: when a role's turn finishes, reveal ONLY what that turn
+        // produced (reviewable artifacts modified since the previous turn) , visibility only,
+        // and a no-op unless inside an editor (openArtifactsInEditor's own guard). This is
+        // what replaces the old batch-open at the gate.
+        if (c.kind === "turn-done" && args.open) {
+          const role = c.text.match(/^(\S+) turn/)?.[1];
+          const res = openArtifactsInEditor(consortDir, { ...currentScope(consortDir), changedSinceMs: lastTurnOpenMs });
+          lastTurnOpenMs = Date.now();
+          if (res.opened) {
+            process.stderr.write(`consort-watch: opened ${res.files.length} artifact(s)${role ? ` produced by ${role}` : ""} in ${res.editor}.\n`);
+          }
+        }
         // The exact next command lives in the authoritative read-only surface, not in
         // this line's indented follow-up (which the classifier skips) , emitStop points there.
-        if (c.stop) return emitStop(c, consortDir, args.open);
+        if (c.stop) return emitStop(c);
       }
     }
     // Drive process gone + nothing more to read PAST our offset. This is the common
@@ -419,7 +426,7 @@ async function main(): Promise<number> {
       const last = scanLastStop(logPath);
       if (last) {
         process.stdout.write(`${PREFIX[last.kind]} ${last.text}\n`);
-        return emitStop(last, consortDir, args.open);
+        return emitStop(last);
       }
       process.stderr.write(`consort-watch: drive pid ${args.pid} is no longer running (no terminal line seen).\n`);
       return 3;

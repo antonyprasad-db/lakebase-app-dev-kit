@@ -10,6 +10,8 @@ This command launches the Consort (spec-first, test-driven) loop. First detect w
 
 **This is a SILENT precondition , do NOT narrate it.** Never say "checking telemetry", "handling the telemetry briefing", "step 0", or announce that you are looking at telemetry. **And do NOT explain your next move by referencing telemetry** , NOT "Telemetry's already acknowledged, so I'll go straight to taking stock", NOT "since telemetry is set, …". That still leaks the check. When `acknowledged` is true, your FIRST user-visible words are the situation report / create flow itself , the word "telemetry" does not appear at all (not even as the reason you're proceeding). Just run the `status --json` check quietly. On an already-acknowledged install (the common case) this step produces **ZERO** user-visible output about telemetry , you go straight to the project-state detection below as if it were your first action, giving no reason for doing so. The ONLY time telemetry is ever mentioned to the human is the one-time briefing itself, when `acknowledged` is false.
 
+**This silence includes the Bash tool-call DESCRIPTION, not just your prose.** The description you attach to a tool call is shown to the human exactly like narration, so the `status --json` check (and the `CONSORT_ROOT` resolve block above it) MUST carry a NEUTRAL description with no telemetry tell , never "telemetry", "checking", "briefing", "step 0", or "quietly". A description like "Checking telemetry requirements quietly" leaks the precondition just as loudly as saying it out loud. Use something generic such as "Prepare Consort environment".
+
 Consort reports pseudonymous usage telemetry to its maintainers. The human MUST be told this in plain language the first time you run `/consort:start` for them , and be offered the Level-1 opt-out and the Level-2 opt-in , **here, where they can actually read it** (a stderr notice buried in a background drive is not a disclosure). Gate on the `acknowledged` flag, not on whether a config file exists.
 
 **Invoke the telemetry CLI via the PLUGIN's binary, NOT `./scripts/lk`.** This step runs BEFORE the Create/Resume branch, and on a fresh install (the Create path) there is no scaffolded `./scripts/lk` yet , so `./scripts/lk consort-telemetry …` silently FAILS and the human's answer is never persisted (exactly the "I chose Level 2 and it didn't stick" bug). The plugin always ships `dist/`, so resolve its binary dir once and use it for every call below (it writes the same home config `~/.config/consort/telemetry.json` regardless of any project). **`$CLAUDE_PLUGIN_ROOT` is NOT reliably exported into a tool shell** , so prefer it but fall back to the plugin cache:
@@ -26,7 +28,7 @@ TCLI="node \"$CONSORT_ROOT/dist/bin/consort/telemetry.cli.js\""
 ```
 (Same `$CONSORT_ROOT` resolves `consort-watch` for the create relay in **B. Create** below.)
 
-1. Quietly run `$TCLI status --json` and read `acknowledged` (do NOT narrate this).
+1. Quietly run `$TCLI status --json` and read `acknowledged` (do NOT narrate this , and give the Bash call a NEUTRAL description, e.g. "Prepare Consort environment", NEVER one containing "telemetry"/"checking"/"quietly").
 2. **If `acknowledged` is `true`, SKIP this section SILENTLY** , they have already been briefed and made a choice; say NOTHING about telemetry and go straight to the `.consort/` check below.
 3. **If `acknowledged` is `false`** (a brand-new install, OR an older config that predates this briefing), present this verbatim and wait for their answer:
    > "One quick thing before we start , Consort's usage telemetry. Consort runs entirely in your own workspace, so a telemetry capture is the only way its maintainers can see what's working and make it better. It's **pseudonymous**: a random per-install id and nothing that identifies you , **no personal data, no code, no file paths, no names** , just event names, counts, and timings from a fixed allowlist. It's **on by default**, and you can opt out or change it anytime. How would you like it set?
@@ -191,7 +193,7 @@ KIT_REF="${LAKEBASE_KIT_REF:-}"
 if [ -z "$KIT_REF" ] && [ -f "$CONSORT_ROOT/.claude-plugin/plugin.json" ]; then
   KIT_REF="v$(node -p "require('$CONSORT_ROOT/.claude-plugin/plugin.json').version" 2>/dev/null || true)"
 fi
-KIT_REF="${KIT_REF:-v0.3.42}"   # stamped at release; == package.json version (enforced by tests/bdd/start-kit-pin.test.ts)
+KIT_REF="${KIT_REF:-v0.3.43}"   # stamped at release; == package.json version (enforced by tests/bdd/start-kit-pin.test.ts)
 export LAKEBASE_KIT_REF="$KIT_REF"
 
 # Launch scaffolding DETACHED (own session): it prints the child pid + a live-log path

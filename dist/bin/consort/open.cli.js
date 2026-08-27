@@ -138,7 +138,14 @@ function isInsideEditor(env = process.env) {
 }
 function openArtifactsInEditor(consortDir, opts = {}) {
   const env = opts.env ?? process.env;
-  const files = reviewArtifacts(consortDir, { feature: opts.feature, story: opts.story });
+  const all = reviewArtifacts(consortDir, { feature: opts.feature, story: opts.story });
+  const files = opts.changedSinceMs === void 0 ? all : all.filter((f) => {
+    try {
+      return fs3.statSync(f).mtimeMs >= opts.changedSinceMs;
+    } catch {
+      return false;
+    }
+  });
   if (!files.length) return { files, opened: false, reason: "no-artifacts" };
   const cmd = findEditorCmd(env);
   if (!cmd) return { files, opened: false, reason: "no-editor" };

@@ -6,6 +6,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.43] - 2026-08-26
+
+### Changed
+
+- **Review artifacts now open per turn, as each role finishes , not batched at the gate.** `consort-watch` opens the reviewable artifacts a role just produced the moment its turn completes (keyed on the `turn-done` line), so a human sees what is going into the next turn instead of the whole set at once when a gate is reached. It opens ONLY what that turn touched (reviewable artifacts modified since the previous turn boundary), stays visibility-only (never blocks the drive; gates remain the only pause points), and is a no-op unless the watcher runs inside an editor (`isInsideEditor`). The old gate-boundary batch-open (`emitStop`/`emitNextStop`) is removed; `consort-open` still opens the full set on demand.
+
+### Fixed
+
+- **The silent telemetry precondition no longer leaks through the Bash tool-call description.** `start.md`'s "do NOT narrate" rule covered prose but not the tool-call *description*, which is equally user-visible , so the `status --json` check surfaced as "Checking telemetry requirements quietly". The command now requires a neutral description (no "telemetry"/"checking"/"quietly") for that check, so step 0 is truly silent on an already-acknowledged install.
+
 ## [0.3.42] - 2026-08-26
 
 ### Added

@@ -4,7 +4,7 @@
 // uninvited. The `spawn` seam lets us assert what would open without spawning.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, utimesSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { reviewArtifacts } from "../../consort/orchestrator/open/resolve-review-artifacts";
@@ -133,5 +133,47 @@ describe("openArtifactsInEditor", () => {
   it("isInsideEditor detects the editor terminal", () => {
     expect(isInsideEditor({ TERM_PROGRAM: "vscode" } as NodeJS.ProcessEnv)).toBe(true);
     expect(isInsideEditor({ TERM_PROGRAM: "Apple_Terminal" } as NodeJS.ProcessEnv)).toBe(false);
+  });
+});
+
+describe("openArtifactsInEditor per-turn delta (changedSinceMs)", () => {
+  // The per-turn open (consort-watch, after each role's turn-done) reveals ONLY what that
+  // turn produced , the reviewable artifacts modified since the previous turn boundary ,
+  // instead of re-opening the whole review set. Left unset, behavior is unchanged.
+  const editorEnv = { PATH: "", TERM_PROGRAM: "vscode" } as NodeJS.ProcessEnv;
+
+  it("opens ONLY the artifacts modified at/after changedSinceMs (what the role just produced)", () => {
+    write("features/F1-x/feature-spec.json"); // produced by an EARLIER turn
+    write("features/F1-x/architecture.json"); // produced by THIS turn
+    const t = Date.now();
+    const old = new Date(t - 120_000);
+    const fresh = new Date(t + 120_000);
+    utimesSync(join(tdd, "features/F1-x/feature-spec.json"), old, old);
+    utimesSync(join(tdd, "features/F1-x/architecture.json"), fresh, fresh);
+    const spawn = vi.fn();
+    const res = openArtifactsInEditor(tdd, { feature: "F1-x", changedSinceMs: t, env: editorEnv, force: true, spawn });
+    expect(res.files.some((f) => f.endsWith("architecture.json"))).toBe(true); // changed this turn
+    expect(res.files.some((f) => f.endsWith("feature-spec.json"))).toBe(false); // untouched => excluded
+    if (res.opened) expect(spawn.mock.calls[0][1]).toEqual(res.files);
+  });
+
+  it("nothing changed since => no-artifacts, never spawns", () => {
+    write("features/F1-x/feature-spec.json");
+    const old = new Date(Date.now() - 120_000);
+    utimesSync(join(tdd, "features/F1-x/feature-spec.json"), old, old);
+    const spawn = vi.fn();
+    const res = openArtifactsInEditor(tdd, { feature: "F1-x", changedSinceMs: Date.now(), env: editorEnv, force: true, spawn });
+    expect(res.opened).toBe(false);
+    expect(res.reason).toBe("no-artifacts");
+    expect(spawn).not.toHaveBeenCalled();
+  });
+
+  it("changedSinceMs unset => opens the full set (unchanged consort-open behavior)", () => {
+    write("features/F1-x/feature-spec.json");
+    write("features/F1-x/architecture.json");
+    const spawn = vi.fn();
+    const res = openArtifactsInEditor(tdd, { feature: "F1-x", env: editorEnv, force: true, spawn });
+    expect(res.files.some((f) => f.endsWith("feature-spec.json"))).toBe(true);
+    expect(res.files.some((f) => f.endsWith("architecture.json"))).toBe(true);
   });
 });
