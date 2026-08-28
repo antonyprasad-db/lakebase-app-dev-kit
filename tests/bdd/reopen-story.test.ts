@@ -62,4 +62,46 @@ describe("reopenStoryForRedesign", () => {
     const res = reopenStoryForRedesign(tdd, F, S);
     expect(res.cleared).toHaveLength(0);
   });
+
+  it("reopening a DONE + merged + ACCEPTED story resets the pipeline entry, deploy gate, and coarse phase", () => {
+    // An accepted+merged story + its feature at the deploy gate , the case hand-surgery got wrong.
+    write(`features/${F}/stories/${S}/story.json`, { id: S, acs: ["AC1-a"] });
+    write(`features/${F}/stories/${S}/acs/AC1-a.json`, { id: "AC1-a", given: "g", when: "w", then: "t" });
+    write(`features/${F}/pipeline.json`, {
+      version: 1,
+      feature_id: F,
+      stories: {
+        [S]: {
+          status: "done",
+          gate: { status: "approved", history: [] },
+          experiment: { status: "merged", branch: "exp1", instance: 1 },
+          acceptance: { decision: "accepted", history: [] },
+        },
+      },
+      build_queue: [S],
+      build_active: S,
+    });
+    write(`features/${F}/deploy-evidence.json`, { deployed: true });
+    write(`workflow-state.json`, { phase: "deploy", phase_feature_id: F });
+
+    const res = reopenStoryForRedesign(tdd, F, S, { now: () => new Date("2026-08-27T00:00:00Z") });
+
+    // The entry is reset to a bare `designing` , spec gate, experiment, AND acceptance dropped ,
+    // and pulled off the build lane, so deriveFeaturePhase no longer reads the feature as complete.
+    const pl = JSON.parse(readFileSync(join(tdd, `features/${F}/pipeline.json`), "utf8")) as {
+      stories: Record<string, unknown>;
+      build_queue: string[];
+      build_active: string | null;
+    };
+    expect(pl.stories[S]).toEqual({ status: "designing" });
+    expect(pl.build_queue).not.toContain(S);
+    expect(pl.build_active).toBeNull();
+    // The feature deploy-gate artifact is gone (backed up).
+    expect(existsSync(join(tdd, `features/${F}/deploy-evidence.json`))).toBe(false);
+    expect(existsSync(join(res.backupDir, "feature-deploy-evidence.json"))).toBe(true);
+    // The coarse phase + its owner are cleared, so the drive re-derives design/build (not deploy).
+    const ws = JSON.parse(readFileSync(join(tdd, "workflow-state.json"), "utf8")) as Record<string, unknown>;
+    expect(ws.phase).toBeUndefined();
+    expect(ws.phase_feature_id).toBeUndefined();
+  });
 });

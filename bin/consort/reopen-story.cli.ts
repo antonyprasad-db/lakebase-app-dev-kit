@@ -7,9 +7,12 @@
 //
 //   consort-reopen-story --feature <F> --story <S> [--reason "<why>"] [--project-dir <p>]
 //
-// It does NOT touch the gate or the experiment branch (those are their own primitives);
-// it prints the full recovery sequence so neither is forgotten (an orphaned experiment
-// branch is surfaced here rather than silently stranded).
+// It ALSO resets the story's pipeline entry to `designing` , dropping the spec gate, the
+// experiment record, AND the acceptance in one write, clearing the feature deploy-evidence,
+// and clearing the coarse phase , so reopening a DONE + merged + ACCEPTED story works in one
+// command (the case the stockflow run had to hand-surger across four primitives). The one
+// thing it CANNOT clear is the actual git/Lakebase experiment BRANCH (a real external
+// resource); it prints that as the remaining manual step so it is never silently stranded.
 
 import { resolveConsortDir } from "../../consort/config/consort-paths.js";
 import { reopenStoryForRedesign } from "../../consort/gates/reopen-story.js";
@@ -63,11 +66,13 @@ async function main(): Promise<number> {
   process.stdout.write(`  cleared (backed up to ${res.backupDir}):\n`);
   for (const c of res.cleared) process.stdout.write(`    - ${c}\n`);
   process.stderr.write(
-    "\nComplete the reopen (each is a separate, existing primitive , this only cleared the design artifacts):\n" +
-      "  1. Withdraw the spec gate if it was approved (drops the story from the build queue).\n" +
-      "  2. Discard the story's experiment branch if one exists , do NOT leave it orphaned.\n" +
-      "  3. Re-run the drive: hasAcs is now false, so it re-dispatches the Spec Author -> Architect -> DBA ->\n" +
-      "     Test Strategist -> reflect -> the spec gate (a genuine re-author, not a re-approval).\n",
+    "\nThis reset the artifacts AND the pipeline entry (spec gate + experiment record + acceptance -> designing),\n" +
+      "the feature deploy-evidence, and the coarse phase. Two things remain:\n" +
+      "  1. Discard the story's actual git/Lakebase experiment BRANCH if one exists , this cannot clear a\n" +
+      "     live branch, only the pipeline record of it. Do NOT leave it orphaned.\n" +
+      "  2. Re-run the drive: hasAcs is now false and the entry is `designing`, so it re-dispatches the Spec\n" +
+      "     Author -> Architect -> DBA -> Test Strategist -> reflect -> the spec gate (a genuine re-author),\n" +
+      "     then cuts a FRESH experiment and re-runs the build + deploy gates.\n",
   );
   return 0;
 }

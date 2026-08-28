@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.53] - 2026-08-27
+
+### Fixed
+
+- **`consort-reopen-story` now reopens a DONE + merged + ACCEPTED story in one command.** Reopening a story for genuine re-design cleared its design artifacts (ACs / test-list / reflect-verdict / plan + `story.json.acs[]`) but left the *pipeline* entry untouched , so for a story the feature had already accepted, the entry stayed `status: done` + `acceptance: accepted`, `deriveFeaturePhase` kept reading the feature as complete, and the drive routed to DEPLOY instead of re-dispatching the Spec Author. The only workaround was to hand-compose four primitives (reopen-story + set-status + rebuild-story + withdraw-gate), which lands the run in an inconsistent state. `reopenStoryForRedesign` now also (1) resets the pipeline entry to a bare `{ status: "designing" }` , dropping the spec gate, the experiment record, AND the acceptance in one write , and pulls the story off `build_queue`/`build_active`; (2) clears the feature `deploy-evidence.json` so the stale deploy gate evaporates and the feature re-deploy-verifies after the rebuild; (3) clears the coarse `phase` + its owner in `workflow-state.json` so the drive re-derives design/build from the (now-reset) artifacts (the FEIP-8022 un-owned re-derive path). Everything is backed up first. The one thing it cannot clear is the actual git/Lakebase experiment *branch* (a live external resource); the CLI prints that as the remaining manual step so it is never silently stranded. Idempotent and safe for a not-yet-accepted story. Test: `tests/bdd/reopen-story.test.ts` (+1).
+
 ## [0.3.52] - 2026-08-27
 
 ### Fixed

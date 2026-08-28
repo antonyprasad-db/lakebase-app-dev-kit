@@ -22,7 +22,11 @@ import {
   storyPlanJson,
   storyJson,
   storyResolved,
+  featureDeployEvidenceJson,
+  workflowStateJson,
 } from "../config/consort-paths.js";
+import { readPipeline, writePipeline } from "../pipeline/story-pipeline.js";
+import { PHASE_OWNER_KEY } from "./workflow-phase.js";
 
 export interface ReopenResult {
   /** Where the cleared artifacts were copied before removal. */
@@ -80,6 +84,70 @@ export function reopenStoryForRedesign(
     } catch {
       /* leave a malformed story.json untouched */
     }
+  }
+
+  // 3. The FEATURE-level deploy gate. Reopening ANY story makes the feature no-longer-complete,
+  //    so its `deploy-evidence.json` (the deploy gate's artifact) is STALE , yet the feature
+  //    deploy gate is derived from it and would stay OPEN over a mid-redesign story (you cannot
+  //    re-approve a deploy for a feature being re-designed; reopening a story otherwise stranded
+  //    the gate, forcing a hand-clear). Back it up + clear it so the gate evaporates and the
+  //    feature re-deploy-verifies after the rebuild. It is feature-level (outside storyRoot), so
+  //    it is backed up under an explicit name rather than the story-relative `backup()`.
+  const fde = featureDeployEvidenceJson(consortDir, feature);
+  if (fs.existsSync(fde)) {
+    const dest = join(backupDir, "feature-deploy-evidence.json");
+    fs.mkdirSync(dirname(dest), { recursive: true });
+    fs.cpSync(fde, dest);
+    fs.rmSync(fde, { force: true });
+    cleared.push("../deploy-evidence.json (feature deploy gate)");
+  }
+
+  // 4. Reset the PIPELINE entry so the derivation re-enters the DESIGN lane for this story. This
+  //    is the piece that makes reopening a DONE + merged + ACCEPTED story actually work: the
+  //    feature phase is derived from each entry's status + acceptance (deriveFeaturePhase), so a
+  //    still-`accepted` entry keeps the feature reading complete and the engine routes to DEPLOY ,
+  //    never re-dispatching the Spec Author. reopen-story previously left the entry untouched, so
+  //    reopening an accepted story stranded the deploy gate and forced hand-surgery across
+  //    reopen-story + set-status + rebuild-story + withdraw-gate (which lands inconsistent). Clear
+  //    the entry to a bare `designing` , dropping the spec gate, experiment, AND acceptance in one
+  //    write , and pull it off the build lane. Idempotent + safe for a not-yet-accepted story
+  //    (its acceptance/experiment are already absent). Best-effort: a missing/malformed pipeline
+  //    still leaves the artifacts above reverted.
+  try {
+    const pipeline = readPipeline(consortDir, feature);
+    if (pipeline.stories[story]) {
+      pipeline.stories[story] = { status: "designing" };
+      pipeline.build_queue = pipeline.build_queue.filter((s) => s !== story);
+      if (pipeline.build_active === story) pipeline.build_active = null;
+      writePipeline(consortDir, pipeline);
+      cleared.push("pipeline entry -> designing (spec gate + experiment + acceptance cleared)");
+    }
+  } catch {
+    /* no/ malformed pipeline: the artifact clear above already reverts the design output */
+  }
+
+  // 5. Reset the COARSE driver phase so the drive re-enters design/build for this feature. The
+  //    drive routes on the per-PROJECT coarse `phase` (workflow-state.json), a STORED slot that
+  //    advanced to "deploy" when the feature completed , it is NOT derived, so the pipeline reset
+  //    above does not move it and the drive would keep routing to DEPLOY. Clearing the phase + its
+  //    owner makes the probe RE-DERIVE the true phase from this feature's (now-reset) artifacts ,
+  //    the FEIP-8022 un-owned re-derive path (deploy-evidence + gates + pipeline). Backed up.
+  try {
+    const wsFile = workflowStateJson(consortDir);
+    if (fs.existsSync(wsFile)) {
+      const ws = JSON.parse(fs.readFileSync(wsFile, "utf8")) as Record<string, unknown>;
+      if (ws.phase !== undefined || ws[PHASE_OWNER_KEY] !== undefined) {
+        const dest = join(backupDir, "workflow-state.json");
+        fs.mkdirSync(dirname(dest), { recursive: true });
+        fs.cpSync(wsFile, dest);
+        delete ws.phase;
+        delete ws[PHASE_OWNER_KEY];
+        fs.writeFileSync(wsFile, JSON.stringify(ws, null, 2) + "\n");
+        cleared.push("coarse phase cleared (drive re-derives design/build from artifacts)");
+      }
+    }
+  } catch {
+    /* best-effort: the derivation still re-reads the reset pipeline + deploy-evidence */
   }
 
   return { backupDir, cleared };
