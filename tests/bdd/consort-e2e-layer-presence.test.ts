@@ -31,7 +31,7 @@ describe("checkE2eLayerPresent (the decision logic, both signals)", () => {
   it("renders_via boundary + no E2E AC => BLOCK (the actor-less-form shape)", () => {
     const r = checkE2eLayerPresent(REACT_BOUNDARY, { acLayers: ["API", "Infra"] });
     expect(r.ok).toBe(false);
-    expect(r.violations?.join(" ")).toMatch(/layer:"E2E"/);
+    if (!r.ok) expect(r.violations.join(" ")).toMatch(/layer:"E2E"/);
   });
 
   it("renders_via boundary + an E2E AC present => ok", () => {
@@ -46,7 +46,7 @@ describe("checkE2eLayerPresent (the decision logic, both signals)", () => {
     // The mis-classification dropped renders_via too; the project signal still catches it.
     const r = checkE2eLayerPresent(API_BOUNDARY, { acLayers: ["API", "Infra"], uiReact: true });
     expect(r.ok).toBe(false);
-    expect(r.violations?.join(" ")).toMatch(/React UI-track/);
+    if (!r.ok) expect(r.violations.join(" ")).toMatch(/React UI-track/);
   });
 
   it("a React project with only Infra ACs (no endpoint the SPA calls) => ok (no false positive)", () => {
