@@ -11,6 +11,17 @@ explicit **opt-in** (off by default) that captures *more* — per-role turn timi
 and coarse repair/loop counts — still drawn from a closed allowlist. No free-form
 data is ever collected at either level. See [Level 2 (opt-in)](#level-2-opt-in).
 
+### The one-time install marker
+
+Separately from the usage telemetry above, Consort sends a **one-time install marker** on first
+run: a `consort.install` beacon carrying only a **random install id + the kit version + a
+timestamp** — nothing about you, your project, or your machine. It lets the maintainers count how
+many installs exist. It is **disclosed in the `/consort:start` briefing** and sent **once per
+install** (idempotent), **regardless of the opt-out choice** — so an install is countable even when
+its owner opts out of run/gate/turn telemetry. The one thing that suppresses it is a total kill
+(`CONSORT_TELEMETRY=0`), which sends nothing at all. It lands in its own `telemetry.installs` table
+(`install_id`, `version`, `first_seen`), separate from run data.
+
 ## Why this is collected
 
 Consort is a deterministic orchestrator with many roles and gates; without telemetry the

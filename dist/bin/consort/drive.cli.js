@@ -15228,7 +15228,8 @@ function readStoredConfig(deps = {}) {
     const telemetry_level = data.telemetry_level === 2 ? 2 : DEFAULT_TELEMETRY_LEVEL;
     const l2_opt_in_notified = data.l2_opt_in_notified === true;
     const acknowledged = data.acknowledged === true;
-    return { install_id: data.install_id, telemetry_enabled, telemetry_level, l2_opt_in_notified, acknowledged };
+    const beacon_sent = data.beacon_sent === true;
+    return { install_id: data.install_id, telemetry_enabled, telemetry_level, l2_opt_in_notified, acknowledged, beacon_sent };
   } catch {
     return null;
   }

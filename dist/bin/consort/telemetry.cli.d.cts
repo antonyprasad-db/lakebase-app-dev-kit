@@ -30,5 +30,10 @@ interface TelemetryStatus {
 }
 /** Run the CLI. Returns the process exit code. Never throws. */
 declare function runTelemetryCli(argv: string[], deps?: TelemetryCliDeps): number;
+/** `consort-telemetry beacon` , send the one-time install beacon (a random id + version + date).
+ *  Async (a network POST), so it is a separate entry from the sync runTelemetryCli. ALWAYS exits
+ *  0: the beacon is best-effort and must never fail the caller (the `/consort:start` briefing runs
+ *  it right after disclosing it). Idempotent + fires regardless of the opt-out (see install-beacon). */
+declare function runTelemetryBeacon(deps?: TelemetryCliDeps): Promise<number>;
 
-export { type TelemetryCliDeps, type TelemetryStatus, runTelemetryCli };
+export { type TelemetryCliDeps, type TelemetryStatus, runTelemetryBeacon, runTelemetryCli };

@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.51] - 2026-08-27
+
+### Added
+
+- **One-time install marker (beacon).** On first run, `/consort:start` sends a `consort.install` beacon carrying only a **random install id + kit version + timestamp** , so the maintainers can count installs. It is **disclosed in the briefing** and sent **once per install** (idempotent via a `beacon_sent` flag), **regardless of the ongoing-telemetry opt-out** (it records only that Consort was installed somewhere; the opt-out still governs all run/gate/turn telemetry). A total kill (`CONSORT_TELEMETRY=0`) suppresses it too. New `consort-telemetry beacon` subcommand (fired by the briefing after disclosing it); best-effort, never blocks, marks `beacon_sent` only on a successful send so an offline first run retries until it lands once. Server (consort-telemetry-ingest): new `telemetry.installs` table (`install_id` PK, `version`, `first_seen`) + ingest route + SP grant. Disclosure added to TELEMETRY.md + start.md.
+
 ## [0.3.50] - 2026-08-27
 
 ### Added

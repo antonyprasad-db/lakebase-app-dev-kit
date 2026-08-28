@@ -31,6 +31,7 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // bin/consort/telemetry.cli.ts
 var telemetry_cli_exports = {};
 __export(telemetry_cli_exports, {
+  runTelemetryBeacon: () => runTelemetryBeacon,
   runTelemetryCli: () => runTelemetryCli
 });
 module.exports = __toCommonJS(telemetry_cli_exports);
@@ -197,6 +198,21 @@ var import_node_crypto = require("crypto");
 var import_node_child_process = require("child_process");
 var fs = __toESM(require("fs"), 1);
 var path = __toESM(require("path"), 1);
+var kitRootCache;
+function resolveKitRoot() {
+  if (kitRootCache !== void 0) return kitRootCache;
+  const env = process.env.LAKEBASE_KIT_DIR?.trim();
+  kitRootCache = env && fs.existsSync(path.join(env, "package.json")) ? env : path.resolve(__dirname, "..", "..", "..");
+  return kitRootCache;
+}
+function kitVersion() {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(resolveKitRoot(), "package.json"), "utf8"));
+    return pkg.version ?? "unknown";
+  } catch {
+    return "unknown";
+  }
+}
 
 // consort/telemetry/emitter.ts
 var DEFAULT_ENDPOINT = "https://consort-telemetry-ingest-v2.azurewebsites.net";
@@ -245,7 +261,8 @@ function readStoredConfig(deps = {}) {
     const telemetry_level = data.telemetry_level === 2 ? 2 : DEFAULT_TELEMETRY_LEVEL;
     const l2_opt_in_notified = data.l2_opt_in_notified === true;
     const acknowledged = data.acknowledged === true;
-    return { install_id: data.install_id, telemetry_enabled, telemetry_level, l2_opt_in_notified, acknowledged };
+    const beacon_sent = data.beacon_sent === true;
+    return { install_id: data.install_id, telemetry_enabled, telemetry_level, l2_opt_in_notified, acknowledged, beacon_sent };
   } catch {
     return null;
   }
@@ -295,6 +312,9 @@ function isTelemetryAcknowledged(deps = {}) {
 function markTelemetryAcknowledged(deps = {}) {
   return updateStoredConfig({ acknowledged: true }, deps);
 }
+function markBeaconSent(deps = {}) {
+  return updateStoredConfig({ beacon_sent: true }, deps);
+}
 function resolveTelemetryLevel(deps = {}) {
   const env = deps.env ?? process.env;
   const raw = (env.CONSORT_TELEMETRY_LEVEL ?? "").trim();
@@ -309,6 +329,42 @@ function ciBool(env) {
   return v !== "" && !/^(0|false)$/i.test(v);
 }
 
+// consort/telemetry/install-beacon.ts
+async function sendInstallBeacon(opts) {
+  const env = opts.env ?? process.env;
+  if (env.CONSORT_TELEMETRY === "0") return { sent: false, reason: "hard-disabled" };
+  const deps = opts.deps ?? {};
+  if (readStoredConfig(deps)?.beacon_sent === true) return { sent: false, reason: "already-sent" };
+  const install_id = ensureInstallId(deps);
+  const endpoint = (opts.endpoint ?? DEFAULT_ENDPOINT).replace(/\/$/, "");
+  const body = JSON.stringify({ name: "consort.install", install_id, version: opts.version, ts: opts.nowIso ?? (/* @__PURE__ */ new Date()).toISOString() }) + "\n";
+  const doFetch = opts.fetchImpl ?? fetch;
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 5e3);
+    let ok = false;
+    try {
+      const res = await doFetch(`${endpoint}/v1/traces`, {
+        method: "POST",
+        headers: { "content-type": "application/x-ndjson" },
+        body,
+        signal: ctrl.signal
+      });
+      ok = res.ok;
+    } finally {
+      clearTimeout(timer);
+    }
+    if (ok) {
+      markBeaconSent(deps);
+      return { sent: true };
+    }
+    return { sent: false, reason: "post-failed" };
+  } catch (err) {
+    telemetryDebug("install beacon POST failed (will retry next run)", err);
+    return { sent: false, reason: "post-failed" };
+  }
+}
+
 // bin/consort/telemetry.cli.ts
 var HELP = `consort-telemetry , inspect + toggle Consort usage telemetry
 
@@ -316,6 +372,7 @@ Usage:
   consort-telemetry status [--json]     Show consent state, level, install id, endpoint
   consort-telemetry enable [--level N]  Persist telemetry_enabled = true (N = 1 or 2)
   consort-telemetry disable             Persist telemetry_enabled = false
+  consort-telemetry beacon              Send the one-time install marker (id + version + date), once
   consort-telemetry ack [--json]        Record that you've been briefed + keep the
                                         current settings (stops the /consort:start
                                         briefing without changing consent)
@@ -428,11 +485,23 @@ ${HELP}`);
       return 2;
   }
 }
+async function runTelemetryBeacon(deps = {}) {
+  const err = deps.err ?? ((s) => process.stderr.write(s));
+  const r = await sendInstallBeacon({ version: kitVersion(), deps });
+  if (r.sent) err("consort-telemetry: install beacon recorded.\n");
+  return 0;
+}
 if ((0, import_util.isCliEntry)(importMetaUrl)) {
-  process.exit(runTelemetryCli(process.argv.slice(2)));
+  const argv = process.argv.slice(2);
+  if (argv[0] === "beacon") {
+    runTelemetryBeacon().then((code) => process.exit(code));
+  } else {
+    process.exit(runTelemetryCli(argv));
+  }
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  runTelemetryBeacon,
   runTelemetryCli
 });
 //# sourceMappingURL=telemetry.cli.cjs.map

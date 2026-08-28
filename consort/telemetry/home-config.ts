@@ -42,6 +42,12 @@ export interface StoredTelemetryConfig {
    *  minted (which happens with no human present), so existence is NOT acknowledgment.
    *  `/consort:start` presents the briefing until this is true. */
   acknowledged?: boolean;
+  /** True once the one-time INSTALL BEACON has been transmitted (a random id + version + date).
+   *  The beacon is disclosed in the briefing and fires ONCE per install REGARDLESS of the opt-out
+   *  choice (it records only that Consort was installed somewhere); the opt-out then governs all
+   *  ongoing run/gate/turn telemetry. Set only on a successful send, so an offline first-run
+   *  retries until the marker lands exactly once. */
+  beacon_sent?: boolean;
 }
 
 /** Default consent when no decision has been recorded yet (opt-out model, paired
@@ -93,6 +99,7 @@ export function readStoredConfig(deps: HomeConfigDeps = {}): StoredTelemetryConf
       telemetry_level?: unknown;
       l2_opt_in_notified?: unknown;
       acknowledged?: unknown;
+      beacon_sent?: unknown;
     };
     if (!isUuidV4(data.install_id)) return null;
     const telemetry_enabled =
@@ -102,7 +109,8 @@ export function readStoredConfig(deps: HomeConfigDeps = {}): StoredTelemetryConf
     const telemetry_level: TelemetryLevel = data.telemetry_level === 2 ? 2 : DEFAULT_TELEMETRY_LEVEL;
     const l2_opt_in_notified = data.l2_opt_in_notified === true;
     const acknowledged = data.acknowledged === true;
-    return { install_id: data.install_id, telemetry_enabled, telemetry_level, l2_opt_in_notified, acknowledged };
+    const beacon_sent = data.beacon_sent === true;
+    return { install_id: data.install_id, telemetry_enabled, telemetry_level, l2_opt_in_notified, acknowledged, beacon_sent };
   } catch {
     return null;
   }
@@ -204,6 +212,17 @@ export function isTelemetryAcknowledged(deps: HomeConfigDeps = {}): boolean {
  *  an explicit "keep defaults" ack). Preserves every other field. Never throws. */
 export function markTelemetryAcknowledged(deps: HomeConfigDeps = {}): StoredTelemetryConfig {
   return updateStoredConfig({ acknowledged: true }, deps);
+}
+
+/** True once the one-time install beacon has landed. Pure read; never creates the file. */
+export function wasBeaconSent(deps: HomeConfigDeps = {}): boolean {
+  return readStoredConfig(deps)?.beacon_sent === true;
+}
+
+/** Record that the one-time install beacon was transmitted (set ONLY on a successful send, so
+ *  an offline first-run retries until it lands exactly once). Preserves every other field. */
+export function markBeaconSent(deps: HomeConfigDeps = {}): StoredTelemetryConfig {
+  return updateStoredConfig({ beacon_sent: true }, deps);
 }
 
 /**

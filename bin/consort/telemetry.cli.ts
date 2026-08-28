@@ -21,6 +21,8 @@ import {
 import { shouldEmitTelemetry } from "../../consort/telemetry/consent.js";
 import { endpointMode } from "../../consort/telemetry/emitter.js";
 import { ciBool } from "../../consort/telemetry/resource.js";
+import { sendInstallBeacon } from "../../consort/telemetry/install-beacon.js";
+import { kitVersion } from "../../consort/config/kit-bin.js";
 import {
   ensureInstallId,
   isTelemetryEnabled,
@@ -45,6 +47,7 @@ Usage:
   consort-telemetry status [--json]     Show consent state, level, install id, endpoint
   consort-telemetry enable [--level N]  Persist telemetry_enabled = true (N = 1 or 2)
   consort-telemetry disable             Persist telemetry_enabled = false
+  consort-telemetry beacon              Send the one-time install marker (id + version + date), once
   consort-telemetry ack [--json]        Record that you've been briefed + keep the
                                         current settings (stops the /consort:start
                                         briefing without changing consent)
@@ -190,6 +193,22 @@ export function runTelemetryCli(argv: string[], deps: TelemetryCliDeps = {}): nu
   }
 }
 
+/** `consort-telemetry beacon` , send the one-time install beacon (a random id + version + date).
+ *  Async (a network POST), so it is a separate entry from the sync runTelemetryCli. ALWAYS exits
+ *  0: the beacon is best-effort and must never fail the caller (the `/consort:start` briefing runs
+ *  it right after disclosing it). Idempotent + fires regardless of the opt-out (see install-beacon). */
+export async function runTelemetryBeacon(deps: TelemetryCliDeps = {}): Promise<number> {
+  const err = deps.err ?? ((s: string) => process.stderr.write(s));
+  const r = await sendInstallBeacon({ version: kitVersion(), deps });
+  if (r.sent) err("consort-telemetry: install beacon recorded.\n");
+  return 0;
+}
+
 if (isCliEntry(import.meta.url)) {
-  process.exit(runTelemetryCli(process.argv.slice(2)));
+  const argv = process.argv.slice(2);
+  if (argv[0] === "beacon") {
+    runTelemetryBeacon().then((code) => process.exit(code));
+  } else {
+    process.exit(runTelemetryCli(argv));
+  }
 }
