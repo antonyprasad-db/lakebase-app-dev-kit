@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.52] - 2026-08-27
+
+### Fixed
+
+- **Kit upgrade no longer strips (and now retrofits) the Playwright E2E block from a UI project's deploy-verify.** `refreshSurface` resets `scripts/run-tests.sh` to the kit template, which carries **no** E2E block (the block is appended per-project by `enableE2eForProject`, never shipped in the template). So every `consort-upgrade` silently wiped a UI project's client-E2E out of the deploy-verify gate, and a project scaffolded before enable-e2e-by-default never had it , the gate then never ran the client Playwright suite. That is exactly how F4's actor-less pick form (the browser can't record a pick) shipped past a **green** deploy-verify, caught only by an out-of-band review. `refreshSurface` now re-appends the E2E block for a UI project (`uiTrack`/`clientFramework: react`) via the idempotent `enableE2eForProject` after the scripts copy, so an upgraded UI project's deploy-verify runs the client Playwright E2E. The `run-tests.sh` change is committed by `commitRefreshedSurface` (v0.3.49). Pairs with v0.3.48's `checkE2ECoverage` (which requires the happy-path E2E to *exist*): the test is now both authored **and** executed at the feature gate.
+
 ## [0.3.51] - 2026-08-27
 
 ### Added

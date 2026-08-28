@@ -8186,6 +8186,7 @@ var fs4 = __toESM(require("fs"), 1);
 var path3 = __toESM(require("path"), 1);
 
 // consort/lakebase/upgrade.ts
+var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var AGENT_SYNC_MARKER = path4.join(".claude", "agents", ".kit-version");
 
 // consort/setup/project-consort-setup.ts
@@ -8442,7 +8443,7 @@ function kitVersion() {
 }
 
 // consort/orchestrator/drive/claude-runner.ts
-var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/setup/stray-artifact-recovery.ts
 init_cjs_shims();
@@ -8575,12 +8576,12 @@ var path10 = __toESM(require("path"), 1);
 
 // consort/pipeline/run-cycle.ts
 init_cjs_shims();
-var import_lakebase3 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase4 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/experiment/experiment.ts
 init_cjs_shims();
 var import_node_child_process4 = require("child_process");
-var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase3 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/pipeline/run-cycle.ts
 function readAcLayer2(consortDir, featureId, acId) {
@@ -8605,7 +8606,7 @@ var import_node_child_process5 = require("child_process");
 var import_node_crypto4 = require("crypto");
 var import_node_fs12 = require("fs");
 var import_node_path14 = require("path");
-var import_lakebase7 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase8 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_util2 = require("@databricks-solutions/lakebase-scm-utils/util");
 
 // consort/gates/escalation.ts
@@ -8962,9 +8963,9 @@ var import_node_path13 = require("path");
 // consort/smells/ephemeral-verify.ts
 init_cjs_shims();
 var import_util = require("@databricks-solutions/lakebase-scm-utils/util");
-var import_lakebase4 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_lakebase5 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_lakebase6 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase7 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/deploy/deploy.ts
 function deployEvidencePasses(e) {
@@ -9099,7 +9100,7 @@ var import_node_path18 = require("path");
 
 // consort/pipeline/cycle-record.ts
 var import_git = require("@databricks-solutions/lakebase-scm-utils/git");
-var import_lakebase8 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase9 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 function readStoryItems(consortDir, featureId, story) {
   const file = storyTestListJson(consortDir, featureId, story);
   if (!(0, import_fs5.existsSync)(file)) {
@@ -9331,7 +9332,7 @@ function validateGateRecord(parsed, gateName, file) {
 }
 
 // consort/orchestrator/state/orchestrator-probe.ts
-var import_lakebase9 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase10 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/smells/reflection.ts
 init_cjs_shims();
@@ -9451,14 +9452,14 @@ function readDriveContext(consortDir, featureId, projectDir) {
   const proj = projectDir ?? path10.dirname(consortDir);
   let scmState;
   try {
-    scmState = (0, import_lakebase9.readWorkflowState)(proj)?.state;
+    scmState = (0, import_lakebase10.readWorkflowState)(proj)?.state;
   } catch {
     scmState = void 0;
   }
   const atOrPast = (target) => {
     if (!scmState) return false;
-    const i = import_lakebase9.SCM_STATES.indexOf(scmState);
-    const t = import_lakebase9.SCM_STATES.indexOf(target);
+    const i = import_lakebase10.SCM_STATES.indexOf(scmState);
+    const t = import_lakebase10.SCM_STATES.indexOf(target);
     return i >= 0 && t >= 0 && i >= t;
   };
   const promote = {
@@ -9771,7 +9772,7 @@ function readDriveStateFromDisk(consortDir, featureId, projectDir, opts = {}) {
 }
 
 // bin/consort/next.cli.ts
-var import_lakebase10 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase11 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/intake/orchestrator-sprint.ts
 init_cjs_shims();
@@ -10259,7 +10260,7 @@ ${HELP}`);
       stories: summarizeStories(consortDir, args.feature),
       // The promote gate's required --promote-ref is the feature's canonical
       // branch, recorded in the SCM workflow state at claim (FEIP-8019).
-      ...(0, import_lakebase10.readWorkflowState)(projectDir)?.branch ? { featureBranch: (0, import_lakebase10.readWorkflowState)(projectDir).branch } : {}
+      ...(0, import_lakebase11.readWorkflowState)(projectDir)?.branch ? { featureBranch: (0, import_lakebase11.readWorkflowState)(projectDir).branch } : {}
     }
   );
   if (args.json) process.stdout.write(JSON.stringify(snapshot, null, 2) + "\n");

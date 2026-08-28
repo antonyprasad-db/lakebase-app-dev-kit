@@ -6677,7 +6677,7 @@ function resolveConsortDir(projectDir = process.cwd()) {
 
 // bin/consort/spike.cli.ts
 var import_util = require("@databricks-solutions/lakebase-scm-utils/util");
-var import_lakebase3 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase4 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/experiment/spike.ts
 init_cjs_shims();
@@ -7393,6 +7393,7 @@ var fs6 = __toESM(require("fs"), 1);
 var path5 = __toESM(require("path"), 1);
 
 // consort/lakebase/upgrade.ts
+var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var AGENT_SYNC_MARKER = path6.join(".claude", "agents", ".kit-version");
 
 // consort/setup/project-consort-setup.ts
@@ -7523,7 +7524,7 @@ init_cjs_shims();
 init_cjs_shims();
 
 // consort/orchestrator/drive/claude-runner.ts
-var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase3 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/setup/stray-artifact-recovery.ts
 init_cjs_shims();
@@ -7929,8 +7930,8 @@ async function runSpikeCli(argv) {
   const args = parseArgs(argv.slice(1));
   const consortDir = tddDirFor(args);
   const envPath = path9.join(args.projectDir ?? process.cwd(), ".env");
-  if (!args.instance) args.instance = (0, import_lakebase3.readEnvVar)(envPath, "LAKEBASE_PROJECT_ID");
-  if (!args.host) args.host = (0, import_lakebase3.readEnvVar)(envPath, "DATABRICKS_HOST");
+  if (!args.instance) args.instance = (0, import_lakebase4.readEnvVar)(envPath, "LAKEBASE_PROJECT_ID");
+  if (!args.host) args.host = (0, import_lakebase4.readEnvVar)(envPath, "DATABRICKS_HOST");
   const telemetry = sub === "cut" || sub === "delete" ? beginTelemetryRun({ command: "spike", onNotice: (m) => process.stderr.write(m) }) : void 0;
   const finishTel = (rc) => {
     try {

@@ -144,7 +144,7 @@ async function main(): Promise<number> {
   process.stdout.write(
     `consort-upgrade: UPGRADED to ${ref}.\n` +
       `  pins: .local ${pin.previousLocal ?? "(unset)"} -> ${ref}; committed ${pin.previousCommitted ?? "(unset)"} -> ${ref} (in lockstep, no drift).\n` +
-      `  surface: ${surf.agents} agent(s) + ${surf.commands} command(s) + ${surf.scripts} script(s) + ${surf.workflows} CI workflow(s) refreshed from ${ref} (the scm-utils scripts/lk shim + project config left as-is).\n` +
+      `  surface: ${surf.agents} agent(s) + ${surf.commands} command(s) + ${surf.scripts} script(s) + ${surf.workflows} CI workflow(s) refreshed from ${ref}${surf.e2e ? " + Playwright E2E block re-wired into run-tests.sh (deploy-verify runs the client E2E)" : ""} (the scm-utils scripts/lk shim + project config left as-is).\n` +
       `  committed: ${committed.committed ? `${committed.sha} , kit surface committed, tree clean for the next fork` : `nothing committed (${committed.reason}) , if the tree is dirty with kit files, commit them before the next fork`}.\n` +
       `  RESUME: run \`consort-next\` for the exact command, then re-run your drive , it runs ${ref}, re-derives state from disk, and continues from the gate.\n` +
       `  ROLLBACK (instant undo): \`./scripts/lk consort-upgrade --rollback\` then \`./scripts/lk --refresh\` (re-commit the restored surface if the next fork reports a dirty tree).\n`,

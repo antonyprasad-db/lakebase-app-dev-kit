@@ -247,6 +247,48 @@ function updateCommands(args) {
 }
 
 // consort/lakebase/upgrade.ts
+var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+
+// consort/config/consort-config-file.ts
+var import_fs = require("fs");
+var import_path2 = require("path");
+
+// consort/config/agent-models.ts
+var import_path = require("path");
+var RECOMMENDED_MODELS = {
+  "spec-author": "opus",
+  "architect-reviewer": "opus",
+  dba: "opus",
+  "test-strategist": "sonnet",
+  "ux-designer": "sonnet",
+  navigator: "sonnet",
+  driver: "sonnet",
+  "product-owner": "opus"
+};
+var ALL_AGENT_ROLES = Object.keys(RECOMMENDED_MODELS);
+var AGENT_CONFIG_REL = (0, import_path.join)(".lakebase", "agent-config.json");
+
+// consort/config/consort-config-file.ts
+var CONSORT_CONFIG_REL = (0, import_path2.join)(".lakebase", "consort-config.json");
+var LEGACY_CONFIG_RELS = [
+  (0, import_path2.join)(".lakebase", "sftdd-config.json"),
+  (0, import_path2.join)(".lakebase", "tdd-config.json")
+];
+var LEGACY_TDD_CONFIG_REL = LEGACY_CONFIG_RELS[0];
+function loadConsortConfig(projectDir) {
+  for (const rel of [CONSORT_CONFIG_REL, ...LEGACY_CONFIG_RELS]) {
+    const f = (0, import_path2.join)(projectDir, rel);
+    if (!(0, import_fs.existsSync)(f)) continue;
+    try {
+      return JSON.parse((0, import_fs.readFileSync)(f, "utf8"));
+    } catch {
+      return void 0;
+    }
+  }
+  return void 0;
+}
+
+// consort/lakebase/upgrade.ts
 var KIT_REF_PREV_FILE = "kit-ref.prev";
 var AGENT_SYNC_MARKER = path4.join(".claude", "agents", ".kit-version");
 function lakebaseFile2(projectDir, name) {
@@ -326,6 +368,15 @@ function refreshSurface(projectDir, kitDir, targetVersion) {
     path4.join(commonDir, ".github", "workflows"),
     path4.join(projectDir, ".github", "workflows")
   );
+  let e2e = false;
+  try {
+    const cfg = loadConsortConfig(projectDir);
+    if (cfg?.project?.uiTrack === true || cfg?.project?.clientFramework === "react") {
+      (0, import_lakebase.enableE2eForProject)({ projectDir });
+      e2e = true;
+    }
+  } catch {
+  }
   const marker = path4.join(projectDir, AGENT_SYNC_MARKER);
   try {
     fs5.mkdirSync(path4.dirname(marker), { recursive: true });
@@ -333,7 +384,7 @@ function refreshSurface(projectDir, kitDir, targetVersion) {
   } catch {
   }
   const count = (files) => files.filter((f) => f.outcome === "added" || f.outcome === "updated").length;
-  return { agents: count(a.files), commands: count(c.files), scripts, workflows };
+  return { agents: count(a.files), commands: count(c.files), scripts, workflows, e2e };
 }
 var KIT_SURFACE_PATHS = [".claude/agents", ".claude/commands", "scripts", ".github/workflows", ".lakebase/kit-ref"];
 function commitRefreshedSurface(projectDir, targetVersion, git = (a) => {
@@ -452,7 +503,7 @@ async function main() {
   process.stdout.write(
     `consort-upgrade: UPGRADED to ${ref}.
   pins: .local ${pin.previousLocal ?? "(unset)"} -> ${ref}; committed ${pin.previousCommitted ?? "(unset)"} -> ${ref} (in lockstep, no drift).
-  surface: ${surf.agents} agent(s) + ${surf.commands} command(s) + ${surf.scripts} script(s) + ${surf.workflows} CI workflow(s) refreshed from ${ref} (the scm-utils scripts/lk shim + project config left as-is).
+  surface: ${surf.agents} agent(s) + ${surf.commands} command(s) + ${surf.scripts} script(s) + ${surf.workflows} CI workflow(s) refreshed from ${ref}${surf.e2e ? " + Playwright E2E block re-wired into run-tests.sh (deploy-verify runs the client E2E)" : ""} (the scm-utils scripts/lk shim + project config left as-is).
   committed: ${committed.committed ? `${committed.sha} , kit surface committed, tree clean for the next fork` : `nothing committed (${committed.reason}) , if the tree is dirty with kit files, commit them before the next fork`}.
   RESUME: run \`consort-next\` for the exact command, then re-run your drive , it runs ${ref}, re-derives state from disk, and continues from the gate.
   ROLLBACK (instant undo): \`./scripts/lk consort-upgrade --rollback\` then \`./scripts/lk --refresh\` (re-commit the restored surface if the next fork reports a dirty tree).

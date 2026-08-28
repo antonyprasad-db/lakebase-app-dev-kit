@@ -6649,12 +6649,12 @@ init_cjs_shims();
 
 // apps/mcp-server/tools.ts
 init_cjs_shims();
-var import_lakebase10 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_lakebase11 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase12 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/lakebase/create-project.ts
 init_cjs_shims();
-var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/setup/project-consort-setup.ts
 init_cjs_shims();
@@ -6842,6 +6842,7 @@ var fs4 = __toESM(require("fs"), 1);
 var path3 = __toESM(require("path"), 1);
 
 // consort/lakebase/upgrade.ts
+var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var AGENT_SYNC_MARKER = path4.join(".claude", "agents", ".kit-version");
 
 // consort/setup/project-consort-setup.ts
@@ -6968,7 +6969,7 @@ function resolveEnableE2e(input) {
   return input.clientFramework === "react" ? true : input.enableE2e;
 }
 function createProject(input, progress) {
-  return (0, import_lakebase.createProject)(
+  return (0, import_lakebase2.createProject)(
     { ...input, enableE2e: resolveEnableE2e(input), consortHooks: input.consortHooks ?? kitConsortHooks },
     progress
   );
@@ -6976,7 +6977,7 @@ function createProject(input, progress) {
 
 // apps/mcp-server/tools.ts
 var import_github = require("@databricks-solutions/lakebase-scm-utils/github");
-var import_lakebase12 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase13 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/orchestrator/status/feature-status.ts
 init_cjs_shims();
@@ -6990,14 +6991,14 @@ var path8 = __toESM(require("path"), 1);
 
 // consort/pipeline/run-cycle.ts
 init_cjs_shims();
-var import_lakebase3 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase4 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/experiment/experiment.ts
 init_cjs_shims();
 var import_fs2 = require("fs");
 var import_path3 = require("path");
 var import_node_child_process2 = require("child_process");
-var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase3 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 function experimentsRoot(consortDir, featureId, storyId) {
   return (0, import_path3.join)(consortDir, "experiments", featureId, storyId);
 }
@@ -7140,7 +7141,7 @@ var import_node_child_process3 = require("child_process");
 var import_node_crypto = require("crypto");
 var import_node_fs3 = require("fs");
 var import_node_path4 = require("path");
-var import_lakebase7 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase8 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_util2 = require("@databricks-solutions/lakebase-scm-utils/util");
 
 // consort/gates/escalation.ts
@@ -7192,9 +7193,9 @@ var import_node_path3 = require("path");
 // consort/smells/ephemeral-verify.ts
 init_cjs_shims();
 var import_util = require("@databricks-solutions/lakebase-scm-utils/util");
-var import_lakebase4 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_lakebase5 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_lakebase6 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase7 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/architecture/design-adherence.ts
 init_cjs_shims();
@@ -7230,7 +7231,7 @@ var import_node_path8 = require("path");
 
 // consort/pipeline/cycle-record.ts
 var import_git = require("@databricks-solutions/lakebase-scm-utils/git");
-var import_lakebase8 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase9 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/orchestrator/state/orchestrator-derive.ts
 init_cjs_shims();
@@ -7351,7 +7352,7 @@ var fs11 = __toESM(require("fs"), 1);
 var PHASE_OWNER_KEY = "phase_feature_id";
 
 // consort/orchestrator/state/orchestrator-probe.ts
-var import_lakebase9 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase10 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/smells/reflection.ts
 init_cjs_shims();
@@ -7393,14 +7394,14 @@ function readDriveContext(consortDir, featureId, projectDir) {
   const proj = projectDir ?? path8.dirname(consortDir);
   let scmState;
   try {
-    scmState = (0, import_lakebase9.readWorkflowState)(proj)?.state;
+    scmState = (0, import_lakebase10.readWorkflowState)(proj)?.state;
   } catch {
     scmState = void 0;
   }
   const atOrPast = (target) => {
     if (!scmState) return false;
-    const i = import_lakebase9.SCM_STATES.indexOf(scmState);
-    const t = import_lakebase9.SCM_STATES.indexOf(target);
+    const i = import_lakebase10.SCM_STATES.indexOf(scmState);
+    const t = import_lakebase10.SCM_STATES.indexOf(target);
     return i >= 0 && t >= 0 && i >= t;
   };
   const promote = {
@@ -7630,10 +7631,10 @@ function getFeatureStatus(consortDir, featureId, projectDir = (0, import_path7.d
 
 // apps/mcp-server/tools.ts
 var import_github2 = require("@databricks-solutions/lakebase-scm-utils/github");
-var import_lakebase13 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_lakebase14 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_lakebase15 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_lakebase16 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase17 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 function requireString(args, key) {
   const v = args[key];
   if (typeof v !== "string" || v.length === 0) {
@@ -7667,7 +7668,7 @@ var TOOLS = [
       additionalProperties: false
     },
     handler: async (args) => {
-      return await (0, import_lakebase10.getConnection)({
+      return await (0, import_lakebase11.getConnection)({
         output: "dsn",
         instance: requireString(args, "instance"),
         branch: requireString(args, "branch"),
@@ -7697,7 +7698,7 @@ var TOOLS = [
       additionalProperties: false
     },
     handler: async (args) => {
-      return await (0, import_lakebase11.getSchemaDiff)({
+      return await (0, import_lakebase12.getSchemaDiff)({
         instance: requireString(args, "instance"),
         branch: requireString(args, "branch"),
         comparisonBranch: optionalString(args, "against"),
@@ -7795,7 +7796,7 @@ var TOOLS = [
       additionalProperties: false
     },
     handler: async (args) => {
-      return (0, import_lakebase12.listSchemaMigrations)({
+      return (0, import_lakebase13.listSchemaMigrations)({
         projectDir: optionalString(args, "projectDir"),
         language: optionalString(args, "language")
       });
@@ -7822,7 +7823,7 @@ var TOOLS = [
       additionalProperties: false
     },
     handler: async (args) => {
-      return (0, import_lakebase12.applySchemaMigrations)({
+      return (0, import_lakebase13.applySchemaMigrations)({
         instance: requireString(args, "instance"),
         branch: requireString(args, "branch"),
         projectDir: optionalString(args, "projectDir"),
@@ -7854,7 +7855,7 @@ var TOOLS = [
       additionalProperties: false
     },
     handler: async (args) => {
-      return (0, import_lakebase12.rollbackSchemaMigration)({
+      return (0, import_lakebase13.rollbackSchemaMigration)({
         instance: requireString(args, "instance"),
         branch: requireString(args, "branch"),
         target: requireString(args, "target"),
@@ -7886,7 +7887,7 @@ var TOOLS = [
       additionalProperties: false
     },
     handler: async (args) => {
-      return (0, import_lakebase12.schemaMigrationStatus)({
+      return (0, import_lakebase13.schemaMigrationStatus)({
         instance: requireString(args, "instance"),
         branch: requireString(args, "branch"),
         projectDir: optionalString(args, "projectDir"),
@@ -8085,7 +8086,7 @@ var TOOLS = [
       additionalProperties: false
     },
     handler: async (args) => {
-      return (0, import_lakebase13.runHealthDoctor)({
+      return (0, import_lakebase14.runHealthDoctor)({
         projectDir: optionalString(args, "projectDir"),
         profile: optionalString(args, "profile"),
         host: optionalString(args, "host")
@@ -8106,7 +8107,7 @@ var TOOLS = [
       additionalProperties: false
     },
     handler: async (args) => {
-      return (0, import_lakebase14.detectWorkflowDrift)({
+      return (0, import_lakebase15.detectWorkflowDrift)({
         projectDir: requireString(args, "projectDir"),
         kitDir: optionalString(args, "kitDir")
       });
@@ -8126,7 +8127,7 @@ var TOOLS = [
       additionalProperties: false
     },
     handler: async (args) => {
-      return (0, import_lakebase15.listBranches)({
+      return (0, import_lakebase16.listBranches)({
         instance: requireString(args, "instance"),
         host: optionalString(args, "host")
       });
@@ -8146,7 +8147,7 @@ var TOOLS = [
       additionalProperties: false
     },
     handler: async (args) => {
-      const info = await (0, import_lakebase15.getBranchByName)(requireString(args, "branch"), {
+      const info = await (0, import_lakebase16.getBranchByName)(requireString(args, "branch"), {
         instance: requireString(args, "instance"),
         host: optionalString(args, "host")
       });
@@ -8174,7 +8175,7 @@ var TOOLS = [
       additionalProperties: false
     },
     handler: async (args) => {
-      return (0, import_lakebase16.createPairedBranch)({
+      return (0, import_lakebase17.createPairedBranch)({
         instance: requireString(args, "instance"),
         branch: requireString(args, "branch"),
         parentBranch: optionalString(args, "parentBranch"),
@@ -8208,7 +8209,7 @@ var TOOLS = [
       additionalProperties: false
     },
     handler: async (args) => {
-      return (0, import_lakebase16.deletePairedBranch)({
+      return (0, import_lakebase17.deletePairedBranch)({
         instance: requireString(args, "instance"),
         branch: requireString(args, "branch"),
         cwd: optionalString(args, "cwd") ?? process.cwd(),
@@ -8232,7 +8233,7 @@ var TOOLS = [
       additionalProperties: false
     },
     handler: async (args) => {
-      return (0, import_lakebase16.checkoutPaired)({
+      return (0, import_lakebase17.checkoutPaired)({
         cwd: optionalString(args, "cwd") ?? process.cwd(),
         branch: optionalString(args, "branch"),
         instance: optionalString(args, "instance"),
@@ -8254,7 +8255,7 @@ var TOOLS = [
       additionalProperties: false
     },
     handler: async (args) => {
-      return (0, import_lakebase16.syncEnvToCurrentBranch)({
+      return (0, import_lakebase17.syncEnvToCurrentBranch)({
         cwd: optionalString(args, "cwd") ?? process.cwd(),
         instance: optionalString(args, "instance"),
         branch: optionalString(args, "branch"),

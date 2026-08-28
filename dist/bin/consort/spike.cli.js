@@ -7385,6 +7385,7 @@ import * as fs6 from "fs";
 import * as path6 from "path";
 
 // consort/lakebase/upgrade.ts
+import { enableE2eForProject } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 var AGENT_SYNC_MARKER = path7.join(".claude", "agents", ".kit-version");
 
 // consort/setup/project-consort-setup.ts

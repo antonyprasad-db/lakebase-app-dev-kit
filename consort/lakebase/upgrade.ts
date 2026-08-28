@@ -26,6 +26,8 @@ import {
 } from "../config/kit-ref.js";
 import { updateAgents } from "./update-agents.js";
 import { updateCommands } from "./update-commands.js";
+import { enableE2eForProject } from "@databricks-solutions/lakebase-scm-utils/lakebase";
+import { loadConsortConfig } from "../config/consort-config-file.js";
 
 /** Where the prior pins are recorded so an upgrade is reversible (rollback). */
 export const KIT_REF_PREV_FILE = "kit-ref.prev";
@@ -135,6 +137,7 @@ export interface RefreshSurfaceResult {
   commands: number;
   scripts: number; // kit-owned scripts copied
   workflows: number; // CI workflow files copied
+  e2e: boolean; // whether the Playwright E2E block was (re)wired into run-tests.sh (UI projects)
 }
 
 /** Count the files (recursively) under `dir`, or 0 if it does not exist. */
@@ -174,6 +177,24 @@ export function refreshSurface(projectDir: string, kitDir: string, targetVersion
     path.join(commonDir, ".github", "workflows"),
     path.join(projectDir, ".github", "workflows"),
   );
+  // Re-append the Playwright E2E block to run-tests.sh for a UI project. The scripts copy above
+  // just reset run-tests.sh to the kit TEMPLATE, which carries NO E2E block , the block is appended
+  // PER-PROJECT by enableE2eForProject, never shipped in the template. So without this, every
+  // upgrade WIPES a UI project's E2E out of the deploy-verify gate (the gate then never runs the
+  // client Playwright suite , exactly how F4's actor-less form shipped past a green deploy-verify),
+  // and a UI project scaffolded before enable-e2e-by-default never had the block at all.
+  // enableE2eForProject is idempotent: it re-appends the block + wires the harness only where
+  // missing. Best-effort , a failure here must never block the upgrade.
+  let e2e = false;
+  try {
+    const cfg = loadConsortConfig(projectDir);
+    if (cfg?.project?.uiTrack === true || cfg?.project?.clientFramework === "react") {
+      enableE2eForProject({ projectDir });
+      e2e = true;
+    }
+  } catch {
+    /* best-effort: keep the (possibly block-less) run-tests.sh rather than failing the upgrade */
+  }
   const marker = path.join(projectDir, AGENT_SYNC_MARKER);
   try {
     fs.mkdirSync(path.dirname(marker), { recursive: true });
@@ -182,7 +203,7 @@ export function refreshSurface(projectDir: string, kitDir: string, targetVersion
     /* best-effort: the drive's resyncAgentsOnKitDrift will refresh again if the marker is stale */
   }
   const count = (files: Array<{ outcome: string }>): number => files.filter((f) => f.outcome === "added" || f.outcome === "updated").length;
-  return { agents: count(a.files), commands: count(c.files), scripts, workflows };
+  return { agents: count(a.files), commands: count(c.files), scripts, workflows, e2e };
 }
 
 /** The kit-owned tracked paths refreshSurface + pinBoth rewrite. Committed by EXACT path so the

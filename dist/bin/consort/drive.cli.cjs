@@ -11499,6 +11499,7 @@ var fs11 = __toESM(require("fs"), 1);
 var path6 = __toESM(require("path"), 1);
 
 // consort/lakebase/upgrade.ts
+var import_lakebase9 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var AGENT_SYNC_MARKER = path7.join(".claude", "agents", ".kit-version");
 var KIT_SURFACE_PATHS = [".claude/agents", ".claude/commands", "scripts", ".github/workflows", ".lakebase/kit-ref"];
 function commitRefreshedSurface(projectDir, targetVersion, git = (a) => {
@@ -11937,7 +11938,7 @@ function kitVersion2() {
 }
 
 // consort/orchestrator/drive/claude-runner.ts
-var import_lakebase9 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase10 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/setup/stray-artifact-recovery.ts
 init_cjs_shims();
@@ -12560,7 +12561,7 @@ function buildCfg(args, featureId) {
   const projectDir = args.projectDir ?? process.cwd();
   const consortDir = args.consortDir ?? resolveConsortDir(projectDir);
   maybeResyncAgents(projectDir);
-  const scm = (0, import_lakebase9.readWorkflowState)(projectDir);
+  const scm = (0, import_lakebase10.readWorkflowState)(projectDir);
   const settings = resolveConsortSettings({ projectDir });
   return {
     projectDir,
@@ -14768,17 +14769,17 @@ async function runSprint(effects) {
 }
 
 // bin/consort/drive.cli.ts
-var import_lakebase11 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase12 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_util4 = require("@databricks-solutions/lakebase-scm-utils/util");
 
 // consort/orchestrator/provisioning/credentials.ts
 init_cjs_shims();
 var import_node_child_process9 = require("child_process");
-var import_lakebase10 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
-async function driveAuthPreflight(host, check = import_lakebase10.checkDatabricksAuth) {
+var import_lakebase11 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+async function driveAuthPreflight(host, check = import_lakebase11.checkDatabricksAuth) {
   const res = await check(host);
   if (res.ok) return { ok: true };
-  return { ok: false, message: (0, import_lakebase10.databricksAuthPrereqMessage)(host, res.reason) };
+  return { ok: false, message: (0, import_lakebase11.databricksAuthPrereqMessage)(host, res.reason) };
 }
 
 // consort/session/run-config.ts
@@ -16123,7 +16124,7 @@ Place each under the project's \`.consort/\`; I will read them as the proposal +
       try {
         const { action } = await planNextAction(buildCfg(args, featureId));
         if (action.kind === "done") return true;
-        const scm = (0, import_lakebase11.readWorkflowState)(projectDir);
+        const scm = (0, import_lakebase12.readWorkflowState)(projectDir);
         const backlog = backlogFeatureIds(readBacklog(consortDir, sprint));
         if (shippedBecauseLaterFeatureClaimed(featureId, scm?.feature_id, backlog)) return true;
         return shippedByClearedClaim(scm?.feature_id, deriveFeaturePhase(summarizeStories(consortDir, featureId)));
@@ -16218,7 +16219,7 @@ Place each under the project's \`.consort/\`; I will read them as the proposal +
     const recordingOrReplaying = !!consortEnv("REPLAY_DIR") || !!consortEnv("REPLAY_BUILD_DIR") || !!consortEnv("RECORD_BUILD_DIR") || !!consortEnv("RECORD_DIR");
     if (!recordingOrReplaying) {
       try {
-        const claimed = (0, import_lakebase11.readWorkflowState)(projectDir)?.feature_id?.trim();
+        const claimed = (0, import_lakebase12.readWorkflowState)(projectDir)?.feature_id?.trim();
         if (claimed) {
           emitNextJson(consortDir, claimed, projectDir, { version: kitVersion2() });
         } else {
@@ -16393,8 +16394,8 @@ ${help()}`);
   const confirmContinue = pauseMilestone ? makeConfirmContinue() : void 0;
   const cfg = buildCfg(args, args.feature);
   {
-    const scm = (0, import_lakebase11.readWorkflowState)(cfg.projectDir);
-    if ((0, import_lakebase11.isForeignFeatureClaim)(scm, cfg.featureId)) {
+    const scm = (0, import_lakebase12.readWorkflowState)(cfg.projectDir);
+    if ((0, import_lakebase12.isForeignFeatureClaim)(scm, cfg.featureId)) {
       process.stderr.write(
         `consort-drive: refusing to drive "${cfg.featureId}" , the SCM workflow state records a
 DIFFERENT feature "${scm?.feature_id}" (branch ${scm?.branch ?? "?"}). Driving now would fork the

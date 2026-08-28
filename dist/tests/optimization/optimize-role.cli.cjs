@@ -8869,6 +8869,7 @@ var fs6 = __toESM(require("fs"), 1);
 var path3 = __toESM(require("path"), 1);
 
 // consort/lakebase/upgrade.ts
+var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var AGENT_SYNC_MARKER = path4.join(".claude", "agents", ".kit-version");
 
 // consort/setup/project-consort-setup.ts
@@ -9657,7 +9658,7 @@ function resolveKitBinJs(bin) {
 }
 
 // consort/orchestrator/drive/claude-runner.ts
-var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/setup/stray-artifact-recovery.ts
 init_cjs_shims();
@@ -10566,14 +10567,14 @@ var path10 = __toESM(require("path"), 1);
 init_cjs_shims();
 var import_fs9 = require("fs");
 var import_path9 = require("path");
-var import_lakebase3 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase4 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/experiment/experiment.ts
 init_cjs_shims();
 var import_fs8 = require("fs");
 var import_path8 = require("path");
 var import_node_child_process5 = require("child_process");
-var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase3 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 function branchIdOf(info) {
   const leaf = info.name.split("/").pop();
   if (!leaf) throw new Error(`could not derive branch_id from ${info.name}`);
@@ -10611,8 +10612,8 @@ function experimentDir(consortDir, featureId, storyId, slug) {
 }
 async function cutExperiment(args, deps = {}) {
   const { consortDir, projectDir, featureId, storyId, experimentSlug, branch, parentBranch, ttl, notes, resetStaleBranch, ...lookup } = args;
-  const create = deps.createPairedBranch ?? import_lakebase2.createPairedBranch;
-  const dropBranch = deps.deletePairedBranch ?? import_lakebase2.deletePairedBranch;
+  const create = deps.createPairedBranch ?? import_lakebase3.createPairedBranch;
+  const dropBranch = deps.deletePairedBranch ?? import_lakebase3.deletePairedBranch;
   if (resetStaleBranch) {
     try {
       await dropBranch({ instance: lookup.instance, branch, cwd: projectDir });
@@ -10700,7 +10701,7 @@ async function deleteExperiment(args) {
   }
   if (deleteBranchToo) {
     const branchId = (0, import_fs8.readFileSync)((0, import_path8.join)(dir, "branch.txt"), "utf8").trim();
-    await (0, import_lakebase2.deletePairedBranch)({ instance: lookup.instance, branch: branchId, cwd: projectDir });
+    await (0, import_lakebase3.deletePairedBranch)({ instance: lookup.instance, branch: branchId, cwd: projectDir });
   }
 }
 
@@ -10788,7 +10789,7 @@ var import_node_child_process6 = require("child_process");
 var import_node_crypto3 = require("crypto");
 var import_node_fs9 = require("fs");
 var import_node_path12 = require("path");
-var import_lakebase7 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase8 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_util2 = require("@databricks-solutions/lakebase-scm-utils/util");
 
 // consort/gates/escalation.ts
@@ -11178,9 +11179,9 @@ var import_node_path11 = require("path");
 // consort/smells/ephemeral-verify.ts
 init_cjs_shims();
 var import_util = require("@databricks-solutions/lakebase-scm-utils/util");
-var import_lakebase4 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_lakebase5 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_lakebase6 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase7 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/deploy/deploy.ts
 function deployEvidencePasses(e) {
@@ -11251,7 +11252,7 @@ var import_node_path15 = require("path");
 
 // consort/pipeline/cycle-record.ts
 var import_git = require("@databricks-solutions/lakebase-scm-utils/git");
-var import_lakebase8 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase9 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 function readStoryItems(consortDir, featureId, story) {
   const file = storyTestListJson(consortDir, featureId, story);
   if (!(0, import_fs11.existsSync)(file)) {
@@ -11612,7 +11613,7 @@ function validateGateRecord(parsed, gateName, file) {
 }
 
 // consort/orchestrator/state/orchestrator-probe.ts
-var import_lakebase9 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase10 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/smells/reflection.ts
 init_cjs_shims();
@@ -11732,14 +11733,14 @@ function readDriveContext(consortDir, featureId, projectDir) {
   const proj = projectDir ?? path10.dirname(consortDir);
   let scmState;
   try {
-    scmState = (0, import_lakebase9.readWorkflowState)(proj)?.state;
+    scmState = (0, import_lakebase10.readWorkflowState)(proj)?.state;
   } catch {
     scmState = void 0;
   }
   const atOrPast = (target) => {
     if (!scmState) return false;
-    const i = import_lakebase9.SCM_STATES.indexOf(scmState);
-    const t = import_lakebase9.SCM_STATES.indexOf(target);
+    const i = import_lakebase10.SCM_STATES.indexOf(scmState);
+    const t = import_lakebase10.SCM_STATES.indexOf(target);
     return i >= 0 && t >= 0 && i >= t;
   };
   const promote = {
@@ -15809,7 +15810,7 @@ init_cjs_shims();
 // consort/orchestrator/provisioning/credentials.ts
 init_cjs_shims();
 var import_node_child_process7 = require("child_process");
-var import_lakebase10 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase11 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 function resolveHostFromProfile(profile, timeoutMs = 15e3) {
   try {
     const raw = (0, import_node_child_process7.execFileSync)("databricks", ["auth", "describe", "--profile", profile, "-o", "json"], {
@@ -15901,12 +15902,12 @@ var import_node_child_process8 = require("child_process");
 
 // consort/lakebase/create-project.ts
 init_cjs_shims();
-var import_lakebase11 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase12 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 function resolveEnableE2e(input) {
   return input.clientFramework === "react" ? true : input.enableE2e;
 }
 function createProject(input, progress) {
-  return (0, import_lakebase11.createProject)(
+  return (0, import_lakebase12.createProject)(
     { ...input, enableE2e: resolveEnableE2e(input), consortHooks: input.consortHooks ?? kitConsortHooks },
     progress
   );

@@ -7302,6 +7302,7 @@ var fs4 = __toESM(require("fs"), 1);
 var path3 = __toESM(require("path"), 1);
 
 // consort/lakebase/upgrade.ts
+var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var AGENT_SYNC_MARKER = path4.join(".claude", "agents", ".kit-version");
 var KIT_SURFACE_PATHS = [".claude/agents", ".claude/commands", "scripts", ".github/workflows", ".lakebase/kit-ref"];
 function commitRefreshedSurface(projectDir, targetVersion, git = (a) => {
@@ -8926,7 +8927,7 @@ function resolveKitBinJs(bin) {
 }
 
 // consort/orchestrator/drive/claude-runner.ts
-var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/setup/stray-artifact-recovery.ts
 init_cjs_shims();
@@ -9539,7 +9540,7 @@ function buildCfg(args, featureId) {
   const projectDir = args.projectDir ?? process.cwd();
   const consortDir = args.consortDir ?? resolveConsortDir(projectDir);
   maybeResyncAgents(projectDir);
-  const scm = (0, import_lakebase.readWorkflowState)(projectDir);
+  const scm = (0, import_lakebase2.readWorkflowState)(projectDir);
   const settings = resolveConsortSettings({ projectDir });
   return {
     projectDir,
@@ -12132,14 +12133,14 @@ var path10 = __toESM(require("path"), 1);
 
 // consort/pipeline/run-cycle.ts
 init_cjs_shims();
-var import_lakebase3 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase4 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/experiment/experiment.ts
 init_cjs_shims();
 var import_fs9 = require("fs");
 var import_path9 = require("path");
 var import_node_child_process4 = require("child_process");
-var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase3 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 function branchIdOf(info) {
   const leaf = info.name.split("/").pop();
   if (!leaf) throw new Error(`could not derive branch_id from ${info.name}`);
@@ -12177,8 +12178,8 @@ function experimentDir(consortDir, featureId, storyId, slug) {
 }
 async function cutExperiment(args, deps = {}) {
   const { consortDir, projectDir, featureId, storyId, experimentSlug, branch, parentBranch, ttl, notes, resetStaleBranch, ...lookup } = args;
-  const create = deps.createPairedBranch ?? import_lakebase2.createPairedBranch;
-  const dropBranch = deps.deletePairedBranch ?? import_lakebase2.deletePairedBranch;
+  const create = deps.createPairedBranch ?? import_lakebase3.createPairedBranch;
+  const dropBranch = deps.deletePairedBranch ?? import_lakebase3.deletePairedBranch;
   if (resetStaleBranch) {
     try {
       await dropBranch({ instance: lookup.instance, branch, cwd: projectDir });
@@ -12283,7 +12284,7 @@ var import_node_child_process5 = require("child_process");
 var import_node_crypto4 = require("crypto");
 var import_node_fs12 = require("fs");
 var import_node_path14 = require("path");
-var import_lakebase7 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase8 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_util2 = require("@databricks-solutions/lakebase-scm-utils/util");
 
 // consort/gates/escalation.ts
@@ -12654,9 +12655,9 @@ var import_node_path13 = require("path");
 // consort/smells/ephemeral-verify.ts
 init_cjs_shims();
 var import_util = require("@databricks-solutions/lakebase-scm-utils/util");
-var import_lakebase4 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_lakebase5 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var import_lakebase6 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase7 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/deploy/deploy.ts
 function deployEvidencePasses(e) {
@@ -12791,7 +12792,7 @@ var import_node_path18 = require("path");
 
 // consort/pipeline/cycle-record.ts
 var import_git = require("@databricks-solutions/lakebase-scm-utils/git");
-var import_lakebase8 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase9 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 function readStoryItems(consortDir, featureId, story) {
   const file = storyTestListJson(consortDir, featureId, story);
   if (!(0, import_fs12.existsSync)(file)) {
@@ -13032,7 +13033,7 @@ function validateGateRecord(parsed, gateName, file) {
 }
 
 // consort/orchestrator/state/orchestrator-probe.ts
-var import_lakebase9 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase10 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/smells/reflection.ts
 init_cjs_shims();
@@ -13152,14 +13153,14 @@ function readDriveContext(consortDir, featureId, projectDir) {
   const proj = projectDir ?? path10.dirname(consortDir);
   let scmState;
   try {
-    scmState = (0, import_lakebase9.readWorkflowState)(proj)?.state;
+    scmState = (0, import_lakebase10.readWorkflowState)(proj)?.state;
   } catch {
     scmState = void 0;
   }
   const atOrPast = (target) => {
     if (!scmState) return false;
-    const i = import_lakebase9.SCM_STATES.indexOf(scmState);
-    const t = import_lakebase9.SCM_STATES.indexOf(target);
+    const i = import_lakebase10.SCM_STATES.indexOf(scmState);
+    const t = import_lakebase10.SCM_STATES.indexOf(target);
     return i >= 0 && t >= 0 && i >= t;
   };
   const promote = {
@@ -15673,7 +15674,7 @@ function makeBuildGate(consortDir, featureId) {
 }
 
 // bin/consort/optimize.cli.ts
-var import_lakebase10 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase11 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/optimize/optimize-report.ts
 init_cjs_shims();
@@ -15887,7 +15888,7 @@ function buildCtxForHandoff(handoff, loc) {
     ...loc.recordDir ? { recordDir: loc.recordDir } : {}
   };
   if (isBuildHandoff(handoff)) {
-    const scm = (0, import_lakebase10.readWorkflowState)(projectDir);
+    const scm = (0, import_lakebase11.readWorkflowState)(projectDir);
     if (!scm?.project_id || !scm.branch) {
       return { error: "[optimize] build handoff needs a claimed feature (project_id + branch in .lakebase/workflow-state.json); claim + drive to the build turn first.\n" };
     }

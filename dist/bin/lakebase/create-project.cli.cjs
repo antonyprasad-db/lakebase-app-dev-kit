@@ -28,7 +28,7 @@ var getImportMetaUrl = () => typeof document === "undefined" ? new URL(`file:${_
 var importMetaUrl = /* @__PURE__ */ getImportMetaUrl();
 
 // consort/lakebase/create-project.ts
-var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/setup/project-consort-setup.ts
 var fs6 = __toESM(require("fs"), 1);
@@ -110,6 +110,7 @@ var fs4 = __toESM(require("fs"), 1);
 var path3 = __toESM(require("path"), 1);
 
 // consort/lakebase/upgrade.ts
+var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var AGENT_SYNC_MARKER = path4.join(".claude", "agents", ".kit-version");
 
 // consort/setup/project-consort-setup.ts
@@ -236,14 +237,14 @@ function resolveEnableE2e(input) {
   return input.clientFramework === "react" ? true : input.enableE2e;
 }
 function createProject(input, progress) {
-  return (0, import_lakebase.createProject)(
+  return (0, import_lakebase2.createProject)(
     { ...input, enableE2e: resolveEnableE2e(input), consortHooks: input.consortHooks ?? kitConsortHooks },
     progress
   );
 }
 
 // consort/lakebase/create-doctor-gate.ts
-var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase3 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var CREATE_GATE_BLOCKING_CHECKS = /* @__PURE__ */ new Set([
   "databricks-cli",
   "databricks-auth",
@@ -260,7 +261,7 @@ function blockingChecksForLanguage(language) {
   return set;
 }
 async function runCreateDoctorGate(args) {
-  const doctor = args.doctor ?? ((a) => (0, import_lakebase2.runHealthDoctor)(a));
+  const doctor = args.doctor ?? ((a) => (0, import_lakebase3.runHealthDoctor)(a));
   const report = await doctor({
     projectDir: args.parentDir,
     host: args.databricksHost,

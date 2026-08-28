@@ -6939,6 +6939,7 @@ var fs4 = __toESM(require("fs"), 1);
 var path3 = __toESM(require("path"), 1);
 
 // consort/lakebase/upgrade.ts
+var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 var AGENT_SYNC_MARKER = path4.join(".claude", "agents", ".kit-version");
 var KIT_SURFACE_PATHS = [".claude/agents", ".claude/commands", "scripts", ".github/workflows", ".lakebase/kit-ref"];
 function commitRefreshedSurface(projectDir, targetVersion, git = (a) => {
@@ -8454,7 +8455,7 @@ function resolveKitBinJs(bin) {
 }
 
 // consort/orchestrator/drive/claude-runner.ts
-var import_lakebase = require("@databricks-solutions/lakebase-scm-utils/lakebase");
+var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebase");
 
 // consort/setup/stray-artifact-recovery.ts
 init_cjs_shims();
@@ -9083,7 +9084,7 @@ function buildCfg(args, featureId) {
   const projectDir = args.projectDir ?? process.cwd();
   const consortDir = args.consortDir ?? resolveConsortDir(projectDir);
   maybeResyncAgents(projectDir);
-  const scm = (0, import_lakebase.readWorkflowState)(projectDir);
+  const scm = (0, import_lakebase2.readWorkflowState)(projectDir);
   const settings = resolveConsortSettings({ projectDir });
   return {
     projectDir,
