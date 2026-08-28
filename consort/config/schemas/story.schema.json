@@ -50,6 +50,10 @@
         }
       }
     },
+    "requires_e2e": {
+      "type": "boolean",
+      "description": "HUMAN/PO-set (not agent-derived): true when this story's acceptance is a user interacting with the UI (a form submit + its confirmation, an inline validation the client renders). When true, the spec gate HARD-BLOCKS unless the story carries >=1 acceptance criterion tagged layer:\"E2E\" (storyRequiresE2eReason). This is the flatten-proof lever for a client-facing story the design lane keeps collapsing into a backend \"the record is saved\" API AC: the AC layer is agent-assigned (and the very thing that gets flattened), so this authoritative story-level flag forces the client<->server AC to exist and be verified by a real Playwright e2e."
+    },
     "external_ref": {
       "type": "object",
       "properties": {

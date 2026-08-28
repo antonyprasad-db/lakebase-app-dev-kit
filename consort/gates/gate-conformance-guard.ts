@@ -155,6 +155,66 @@ export function storyIndependenceForStoryReason(fdir: string, story: string): st
 }
 
 /**
+ * requires_e2e spec-gate condition (HUMAN-authoritative, per-story): a story whose
+ * story.json sets `requires_e2e: true` MUST carry >=1 `layer:"E2E"` AC. This is the
+ * flatten-PROOF lever for a client-facing story the design lane keeps collapsing into a
+ * backend "the record is saved" API AC. Everything else we can steer with is agent-derived
+ * , the AC layer tags, the architect's renders_via, prose in story.md , and the design lane
+ * flattens its own classification. `requires_e2e` is set by the HUMAN/PO on the story, so the
+ * design lane cannot override it: a flagged story with no E2E AC HARD-BLOCKS (fail-closed)
+ * instead of opening on a backend-only spec. Complements the FEATURE-wide checkE2eLayerPresent
+ * (which a sibling story's E2E AC can satisfy); this is PER-story, so it bites even when other
+ * stories carry the E2E , the sub-case checkE2eLayerPresent cannot see. Null when the story is
+ * unflagged / already has an E2E AC / is absent / is malformed (its own conformance check
+ * catches malformed).
+ */
+export function storyRequiresE2eReason(fdir: string, story: string): string | null {
+  const sj = join(fdir, "stories", story, "story.json");
+  if (!existsSync(sj)) return null;
+  try {
+    if ((JSON.parse(readFileSync(sj, "utf8")) as { requires_e2e?: unknown }).requires_e2e !== true) return null;
+  } catch {
+    return null; // a malformed story.json is reported by its own conformance check
+  }
+  const ad = join(fdir, "stories", story, "acs");
+  if (existsSync(ad)) {
+    for (const f of readdirSync(ad)) {
+      if (!f.endsWith(".json")) continue;
+      try {
+        if ((JSON.parse(readFileSync(join(ad, f), "utf8")) as { layer?: string }).layer === "E2E") return null;
+      } catch {
+        /* a malformed AC is caught by acsConformanceReason */
+      }
+    }
+  }
+  return (
+    `story ${story} sets requires_e2e:true but no acceptance criterion is tagged layer:"E2E" , the client<->server ` +
+    `interaction this story exists for (a form submit + its confirmation, an inline validation the client renders) must be ` +
+    `an E2E AC verified by a real Playwright test, NOT flattened into a backend "the record is saved" API AC. Add a ` +
+    `client-submit AC tagged layer:"E2E" (a mocked component test cannot verify the real wire contract)`
+  );
+}
+
+/**
+ * Feature-wide backstop for the per-story requires_e2e check: apply it to every DESIGNED
+ * story (one with an acs/ dir), so a flagged story that slipped its per-story gate still
+ * blocks the ship gate. Defers on a not-yet-designed flagged story (no acs/ yet , the
+ * streaming design lane may not have authored it), the same way the other feature-wide
+ * checks tolerate a partially-designed feature.
+ */
+function requiresE2eReason(consortDir: string, featureId: string): string | null {
+  const fdir = featureDir(consortDir, featureId);
+  const storiesDir = join(fdir, "stories");
+  if (!existsSync(storiesDir)) return null;
+  for (const s of readdirSync(storiesDir)) {
+    if (!existsSync(join(storiesDir, s, "acs"))) continue; // not designed yet , defer
+    const r = storyRequiresE2eReason(fdir, s);
+    if (r !== null) return r;
+  }
+  return null;
+}
+
+/**
  * Architecture-conventions spec-gate condition: once the project canon is
  * established (.tdd/architecture/conventions.json, set by the first service-
  * backed feature), every LATER feature's architecture.json must reuse the same
@@ -584,6 +644,10 @@ export function resolveArtifactInputs(
       // (test_list gate) never bites. Enforced only once every declared story is designed.
       const e2eLayerReason = e2eLayerPresentReason(consortDir, featureId);
       if (e2eLayerReason !== null) return { reason: e2eLayerReason };
+      // Human-authoritative per-story lever: a story the human/PO flagged requires_e2e must
+      // carry an E2E AC. Bites per-story even when a sibling satisfies the feature-wide check.
+      const requiresE2e = requiresE2eReason(consortDir, featureId);
+      if (requiresE2e !== null) return { reason: requiresE2e };
       const layeringReason = layeringDeclaredReason(consortDir, featureId);
       if (layeringReason !== null) return { reason: layeringReason };
       // The DBA runs after the architect and before the test-strategist: a

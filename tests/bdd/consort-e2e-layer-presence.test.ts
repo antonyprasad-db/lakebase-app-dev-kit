@@ -13,7 +13,8 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { checkE2eLayerPresent } from "../../consort/orchestrator/validators/conformance/artifact-conformance";
-import { e2eLayerPresentReason } from "../../consort/gates/gate-conformance-guard";
+import { e2eLayerPresentReason, storyRequiresE2eReason, featureDir as fdirOf } from "../../consort/gates/gate-conformance-guard";
+import { initPipeline, surfaceForGate, writePipeline, approveStoryGateFromDisk } from "../../consort/pipeline/story-pipeline";
 
 const REACT_BOUNDARY = JSON.stringify({
   feature_id: "F4-pick",
@@ -123,5 +124,102 @@ describe("e2eLayerPresentReason (gate wiring: streaming deferral + spec-gate blo
     featureFile("architecture.json", JSON.parse(API_BOUNDARY));
     ac("S1-endpoint", "AC1-get", "API");
     expect(e2eLayerPresentReason(consortDir, F)).toBeNull();
+  });
+});
+
+describe("storyRequiresE2eReason (human-authoritative per-story lever, flatten-proof)", () => {
+  const F = "F4-pick";
+  const S = "S4-record-actor";
+  let tmp: string;
+  let consortDir: string;
+  beforeEach(() => { tmp = mkdtempSync(join(tmpdir(), "requires-e2e-")); consortDir = join(tmp, ".consort"); });
+  afterEach(() => rmSync(tmp, { recursive: true, force: true }));
+
+  const STORY = { id: S, asA: "operator", iWantTo: "record who made a pick", soThat: "the audit trail is complete" };
+  function story(obj: Record<string, unknown>): void {
+    const p = join(consortDir, "features", F, "stories", S, "story.json");
+    mkdirSync(join(p, ".."), { recursive: true });
+    writeFileSync(p, JSON.stringify(obj));
+  }
+  function ac(id: string, layer: "API" | "E2E" | "Infra"): void {
+    const p = join(consortDir, "features", F, "stories", S, "acs", `${id}.json`);
+    mkdirSync(join(p, ".."), { recursive: true });
+    writeFileSync(p, JSON.stringify({ id, layer, given: "g", when: "w", then: "t", status: "draft", architectural_notes: "n" }));
+  }
+  const fdir = (): string => fdirOf(consortDir, F);
+
+  it("requires_e2e:true + only a backend API AC (the flatten) => BLOCK", () => {
+    story({ ...STORY, requires_e2e: true });
+    ac("AC1-pick-saved", "API");
+    const r = storyRequiresE2eReason(fdir(), S);
+    expect(r).not.toBeNull();
+    expect(r).toMatch(/layer:"E2E"/);
+  });
+
+  it("requires_e2e:true + a client-submit E2E AC present => ok", () => {
+    story({ ...STORY, requires_e2e: true });
+    ac("AC1-pick-saved", "API");
+    ac("AC2-submit-via-form", "E2E");
+    expect(storyRequiresE2eReason(fdir(), S)).toBeNull();
+  });
+
+  it("requires_e2e absent/false + only an API AC => ok (unflagged story is not our concern)", () => {
+    story({ ...STORY });
+    ac("AC1-pick-saved", "API");
+    expect(storyRequiresE2eReason(fdir(), S)).toBeNull();
+  });
+
+  it("malformed story.json => null (its own conformance check catches it)", () => {
+    const p = join(consortDir, "features", F, "stories", S, "story.json");
+    mkdirSync(join(p, ".."), { recursive: true });
+    writeFileSync(p, "{ not json");
+    expect(storyRequiresE2eReason(fdir(), S)).toBeNull();
+  });
+});
+
+describe("approveStoryGateFromDisk enforces requires_e2e (fail-closed at the per-story spec gate)", () => {
+  const F = "F4-pick";
+  const S = "S1-record-actor"; // first story , no independence determination needed
+  let tdd: string;
+  beforeEach(() => { tdd = mkdtempSync(join(tmpdir(), "requires-e2e-gate-")); });
+  afterEach(() => rmSync(tdd, { recursive: true, force: true }));
+
+  function ac(id: string, layer: "API" | "E2E"): void {
+    const p = join(tdd, "features", F, "stories", S, "acs", `${id}.json`);
+    mkdirSync(join(p, ".."), { recursive: true });
+    const num = parseInt(id.match(/^AC(\d+)/)?.[1] ?? "1", 10);
+    const base: Record<string, unknown> = { id, layer, given: "g", when: "w", then: "t", status: "draft", architectural_notes: "n" };
+    // AC-independence gate: every AC after the first must carry independence.
+    if (num > 1) base.independence = { distinct_from_prior: true, rationale: "distinct client-submit outcome" };
+    writeFileSync(p, JSON.stringify(base));
+  }
+  function storyJson(requiresE2e: boolean): void {
+    const p = join(tdd, "features", F, "stories", S, "story.json");
+    mkdirSync(join(p, ".."), { recursive: true });
+    writeFileSync(p, JSON.stringify({ id: S, asA: "operator", iWantTo: "record who made a pick", soThat: "audit", requires_e2e: requiresE2e }));
+  }
+  function surfaced(): void {
+    const p = initPipeline(F);
+    surfaceForGate(p, S);
+    writePipeline(tdd, p);
+  }
+
+  it("REFUSES a flagged story with only a backend API AC (the 3x-flatten, now fail-closed)", () => {
+    surfaced();
+    storyJson(true);
+    ac("AC1-pick-saved", "API");
+    const r = approveStoryGateFromDisk(tdd, F, S, { approver: "po@example.com" });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/requires_e2e/);
+    expect(r.queue).toBeUndefined(); // never queued for build
+  });
+
+  it("approves once the story carries a client-submit E2E AC", () => {
+    surfaced();
+    storyJson(true);
+    ac("AC1-pick-saved", "API");
+    ac("AC2-submit-via-form", "E2E");
+    const r = approveStoryGateFromDisk(tdd, F, S, { approver: "po@example.com" });
+    expect(r.ok).toBe(true);
   });
 });

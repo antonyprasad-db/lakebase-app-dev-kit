@@ -7125,6 +7125,26 @@ function storyIndependenceForStoryReason(fdir, story) {
   const r = checkStoryIndependence(collectStoryJsons(fdir), story);
   return r.ok ? null : `story independence failed: ${r.violations.join("; ")}`;
 }
+function storyRequiresE2eReason(fdir, story) {
+  const sj = join6(fdir, "stories", story, "story.json");
+  if (!existsSync3(sj)) return null;
+  try {
+    if (JSON.parse(readFileSync3(sj, "utf8")).requires_e2e !== true) return null;
+  } catch {
+    return null;
+  }
+  const ad = join6(fdir, "stories", story, "acs");
+  if (existsSync3(ad)) {
+    for (const f of readdirSync2(ad)) {
+      if (!f.endsWith(".json")) continue;
+      try {
+        if (JSON.parse(readFileSync3(join6(ad, f), "utf8")).layer === "E2E") return null;
+      } catch {
+      }
+    }
+  }
+  return `story ${story} sets requires_e2e:true but no acceptance criterion is tagged layer:"E2E" , the client<->server interaction this story exists for (a form submit + its confirmation, an inline validation the client renders) must be an E2E AC verified by a real Playwright test, NOT flattened into a backend "the record is saved" API AC. Add a client-submit AC tagged layer:"E2E" (a mocked component test cannot verify the real wire contract)`;
+}
 
 // consort/pipeline/story-pipeline.ts
 var STORY_STATUSES = [
@@ -7272,6 +7292,8 @@ function approveStoryGateFromDisk(consortDir, feature, story, opts) {
   if (acReason) return { ok: false, error: acReason };
   const indepReason = storyIndependenceForStoryReason(featureDir2(consortDir, feature), story);
   if (indepReason) return { ok: false, error: indepReason };
+  const e2eReason = storyRequiresE2eReason(featureDir2(consortDir, feature), story);
+  if (e2eReason) return { ok: false, error: e2eReason };
   try {
     approveStoryGate(pipeline, story, {
       approver: opts.approver,

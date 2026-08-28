@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.55] - 2026-08-28
+
+### Added
+
+- **`requires_e2e` , a HUMAN-authoritative, per-story spec-gate lever that forces a client-facing story to carry an E2E AC (flatten-proof).** v0.3.54's `checkE2eLayerPresent` is FEATURE-wide, so a sibling story's E2E AC satisfies it , it cannot catch a single story the design lane collapses into a backend "the record is saved" API AC when other stories already carry E2E work. Observed live: a browser-submit story flattened into an `API` AC on THREE successive attempts (appended note, premise rewrite, and v0.3.54's sharpened agent instructions all overridden), because every signal we can steer with is agent-derived , the AC layer tags, the architect's `renders_via`, prose in story.md , and the design lane flattens its own classification. `requires_e2e` (optional boolean on `story.json`, added to the schema) is set by the HUMAN/PO, so the design lane cannot override it: a story with `requires_e2e: true` and no `layer:"E2E"` AC HARD-BLOCKS the spec gate (`storyRequiresE2eReason`), fail-closed, both at the per-story approval (`approveStoryGateFromDisk`) and as a feature-wide backstop in the spec gate. It does not force the Spec Author to author the AC , it makes the system fail-closed and hands the human a lever, so a flattened spec halts at the gate (and, after the revise budget, at HIL) instead of opening on a form the browser can never exercise. `spec-author.md`: a UI-interaction story must carry a client-facing AC and set `requires_e2e`, never flatten it to a backend record. Test: `consort-e2e-layer-presence.test.ts` (+6, incl. an end-to-end proof through `approveStoryGateFromDisk`).
+
 ## [0.3.54] - 2026-08-28
 
 ### Fixed

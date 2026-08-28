@@ -13,7 +13,7 @@ import {
   featureSpecJson,
   featureSpecMd,
 } from "../../consort/config/consort-paths.js";
-import { featureDir, storyAcsConformanceReason, storyIndependenceForStoryReason } from "../../consort/gates/gate-conformance-guard.js";
+import { featureDir, storyAcsConformanceReason, storyIndependenceForStoryReason, storyRequiresE2eReason } from "../../consort/gates/gate-conformance-guard.js";
 
 export const STORY_STATUSES = [
   "designing",
@@ -436,6 +436,10 @@ export function approveStoryGateFromDisk(
   // later, not-yet-designed sibling stub cannot fault an earlier story's gate.
   const indepReason = storyIndependenceForStoryReason(featureDir(consortDir, feature), story);
   if (indepReason) return { ok: false, error: indepReason };
+  // Human-authoritative lever: a story the human/PO flagged requires_e2e must carry an E2E AC.
+  // Fails at ITS OWN spec gate (fail-closed) rather than opening on a flattened backend-only spec.
+  const e2eReason = storyRequiresE2eReason(featureDir(consortDir, feature), story);
+  if (e2eReason) return { ok: false, error: e2eReason };
   try {
     approveStoryGate(pipeline, story, {
       approver: opts.approver,

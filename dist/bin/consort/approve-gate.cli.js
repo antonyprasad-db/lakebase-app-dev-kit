@@ -8125,6 +8125,37 @@ function storyIndependenceForStoryReason(fdir, story) {
   const r = checkStoryIndependence(collectStoryJsons(fdir), story);
   return r.ok ? null : `story independence failed: ${r.violations.join("; ")}`;
 }
+function storyRequiresE2eReason(fdir, story) {
+  const sj = join11(fdir, "stories", story, "story.json");
+  if (!existsSync12(sj)) return null;
+  try {
+    if (JSON.parse(readFileSync12(sj, "utf8")).requires_e2e !== true) return null;
+  } catch {
+    return null;
+  }
+  const ad = join11(fdir, "stories", story, "acs");
+  if (existsSync12(ad)) {
+    for (const f of readdirSync6(ad)) {
+      if (!f.endsWith(".json")) continue;
+      try {
+        if (JSON.parse(readFileSync12(join11(ad, f), "utf8")).layer === "E2E") return null;
+      } catch {
+      }
+    }
+  }
+  return `story ${story} sets requires_e2e:true but no acceptance criterion is tagged layer:"E2E" , the client<->server interaction this story exists for (a form submit + its confirmation, an inline validation the client renders) must be an E2E AC verified by a real Playwright test, NOT flattened into a backend "the record is saved" API AC. Add a client-submit AC tagged layer:"E2E" (a mocked component test cannot verify the real wire contract)`;
+}
+function requiresE2eReason(consortDir, featureId) {
+  const fdir = featureDir2(consortDir, featureId);
+  const storiesDir2 = join11(fdir, "stories");
+  if (!existsSync12(storiesDir2)) return null;
+  for (const s of readdirSync6(storiesDir2)) {
+    if (!existsSync12(join11(storiesDir2, s, "acs"))) continue;
+    const r = storyRequiresE2eReason(fdir, s);
+    if (r !== null) return r;
+  }
+  return null;
+}
 function architectureConventionsReason(consortDir, featureId) {
   const conventions = readConventions(consortDir);
   if (!conventions) return null;
@@ -8381,6 +8412,8 @@ function resolveArtifactInputs(gate, fdir, promoteRef, consortDir, featureId) {
       if (serviceBacked !== null) return { reason: serviceBacked };
       const e2eLayerReason = e2eLayerPresentReason(consortDir, featureId);
       if (e2eLayerReason !== null) return { reason: e2eLayerReason };
+      const requiresE2e = requiresE2eReason(consortDir, featureId);
+      if (requiresE2e !== null) return { reason: requiresE2e };
       const layeringReason = layeringDeclaredReason(consortDir, featureId);
       if (layeringReason !== null) return { reason: layeringReason };
       const dbReason = dbDesignReason(consortDir, featureId);
@@ -8599,6 +8632,8 @@ function approveStoryGateFromDisk(consortDir, feature, story, opts) {
   if (acReason) return { ok: false, error: acReason };
   const indepReason = storyIndependenceForStoryReason(featureDir2(consortDir, feature), story);
   if (indepReason) return { ok: false, error: indepReason };
+  const e2eReason = storyRequiresE2eReason(featureDir2(consortDir, feature), story);
+  if (e2eReason) return { ok: false, error: e2eReason };
   try {
     approveStoryGate(pipeline, story, {
       approver: opts.approver,

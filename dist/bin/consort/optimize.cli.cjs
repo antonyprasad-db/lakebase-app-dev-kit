@@ -13509,6 +13509,37 @@ function storyIndependenceReason(fdir) {
   const r = checkStoryIndependence(collectStoryJsons(fdir));
   return r.ok ? null : `story independence failed: ${r.violations.join("; ")}`;
 }
+function storyRequiresE2eReason(fdir, story) {
+  const sj = (0, import_node_path19.join)(fdir, "stories", story, "story.json");
+  if (!(0, import_node_fs16.existsSync)(sj)) return null;
+  try {
+    if (JSON.parse((0, import_node_fs16.readFileSync)(sj, "utf8")).requires_e2e !== true) return null;
+  } catch {
+    return null;
+  }
+  const ad = (0, import_node_path19.join)(fdir, "stories", story, "acs");
+  if ((0, import_node_fs16.existsSync)(ad)) {
+    for (const f of (0, import_node_fs16.readdirSync)(ad)) {
+      if (!f.endsWith(".json")) continue;
+      try {
+        if (JSON.parse((0, import_node_fs16.readFileSync)((0, import_node_path19.join)(ad, f), "utf8")).layer === "E2E") return null;
+      } catch {
+      }
+    }
+  }
+  return `story ${story} sets requires_e2e:true but no acceptance criterion is tagged layer:"E2E" , the client<->server interaction this story exists for (a form submit + its confirmation, an inline validation the client renders) must be an E2E AC verified by a real Playwright test, NOT flattened into a backend "the record is saved" API AC. Add a client-submit AC tagged layer:"E2E" (a mocked component test cannot verify the real wire contract)`;
+}
+function requiresE2eReason(consortDir, featureId) {
+  const fdir = featureDir2(consortDir, featureId);
+  const storiesDir2 = (0, import_node_path19.join)(fdir, "stories");
+  if (!(0, import_node_fs16.existsSync)(storiesDir2)) return null;
+  for (const s of (0, import_node_fs16.readdirSync)(storiesDir2)) {
+    if (!(0, import_node_fs16.existsSync)((0, import_node_path19.join)(storiesDir2, s, "acs"))) continue;
+    const r = storyRequiresE2eReason(fdir, s);
+    if (r !== null) return r;
+  }
+  return null;
+}
 function architectureConventionsReason(consortDir, featureId) {
   const conventions = readConventions(consortDir);
   if (!conventions) return null;
@@ -13765,6 +13796,8 @@ function resolveArtifactInputs(gate, fdir, promoteRef, consortDir, featureId) {
       if (serviceBacked !== null) return { reason: serviceBacked };
       const e2eLayerReason = e2eLayerPresentReason(consortDir, featureId);
       if (e2eLayerReason !== null) return { reason: e2eLayerReason };
+      const requiresE2e = requiresE2eReason(consortDir, featureId);
+      if (requiresE2e !== null) return { reason: requiresE2e };
       const layeringReason = layeringDeclaredReason(consortDir, featureId);
       if (layeringReason !== null) return { reason: layeringReason };
       const dbReason = dbDesignReason(consortDir, featureId);
