@@ -78,5 +78,44 @@ describe("buildCrossStoryContext (cross-story review context)", () => {
     const ctx = buildCrossStoryContext(tdd, F, "S1-record-receipt");
     expect(ctx.sibling_stories).toHaveLength(0);
     expect(ctx.open_decisions).toHaveLength(0);
+    expect(ctx.required_persistence_fields).toHaveLength(0);
+  });
+
+  it("surfaces the mandated fields (not_null invariants) so the field-contract gap is catchable", () => {
+    // The actor-not-sent case: an audit story mandates `actor` NOT NULL, while the sibling
+    // operator-submit story's submit AC never captures it , a missing-supply (field-contract)
+    // gap the reviewer must see (required_persistence_fields), NOT a contradiction.
+    write(`features/${F}/stories/S2-submit-valid-pick/acs/AC1-valid-pick-recorded.json`, {
+      id: "AC1-valid-pick-recorded",
+      status: "gated",
+      layer: "API",
+      given: "a valid SKU, location, and quantity",
+      when: "the operator submits the pick",
+      then: "the pick is recorded capturing the SKU, quantity, and location", // NOTE: no actor
+    });
+    write(`features/${F}/architecture.json`, {
+      feature_id: F,
+      service_backed: true,
+      nfrs: [],
+      persistence_invariants: [
+        { id: "PI1-pick-fk", type: "foreign_key", table: "stock_picks", brief: "each pick references a stock record" },
+        { id: "PI2-pick-actor-not-null", type: "not_null", table: "stock_picks", brief: "actor is NOT NULL: every pick records who made it" },
+        { id: "PI3-pick-ts-not-null", type: "not_null", table: "stock_picks", brief: "created_at is NOT NULL" },
+        { id: "PI4-qty-positive", type: "check", table: "stock_picks", brief: "CHECK quantity > 0" },
+      ],
+    });
+
+    const ctx = buildCrossStoryContext(tdd, F, "S4-record-audit-metadata");
+
+    // ONLY the not_null invariants are mandated fields (fk/check are a different class).
+    const ids = ctx.required_persistence_fields.map((f) => f.invariant_id).sort();
+    expect(ids).toEqual(["PI2-pick-actor-not-null", "PI3-pick-ts-not-null"]);
+    const actor = ctx.required_persistence_fields.find((f) => f.invariant_id === "PI2-pick-actor-not-null");
+    expect(actor?.table).toBe("stock_picks");
+    expect(actor?.brief).toContain("actor is NOT NULL");
+    // The sibling submit AC (which does NOT capture actor) is visible alongside , the reviewer
+    // now has both halves to flag the gap.
+    const s2 = ctx.sibling_stories.find((s) => s.story.startsWith("S2"));
+    expect(s2?.acs.some((a) => (a.then ?? "").includes("actor"))).toBe(false);
   });
 });

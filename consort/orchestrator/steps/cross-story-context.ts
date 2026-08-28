@@ -36,6 +36,13 @@ export interface OpenDecision {
   resolved_by_story?: string;
   resolution?: string;
 }
+export interface RequiredField {
+  /** The `not_null` persistence-invariant id (e.g. PI2-pick-actor-not-null). */
+  invariant_id: string;
+  table?: string;
+  /** The invariant brief , names the mandated field + why (e.g. "actor is NOT NULL: every pick records who made it"). */
+  brief?: string;
+}
 export interface CrossStoryContext {
   current_story: string;
   /** Every OTHER story's ACs in this feature (status carried so the reviewer weighs a
@@ -43,6 +50,13 @@ export interface CrossStoryContext {
   sibling_stories: SiblingStory[];
   /** The architecture's deliberately-unresolved decisions (schema `open_decisions`). */
   open_decisions: OpenDecision[];
+  /** The feature's MANDATED fields , the architecture's `not_null` persistence invariants. A field
+   *  the schema requires must reach the DB through some story's WRITE path; if that path is a user
+   *  submit, the submit's AC must SUPPLY it. Surfaced so the reviewer can catch a story that adds a
+   *  required field (e.g. actor NOT NULL) that an earlier user-submit story never supplies , a
+   *  field-CONTRACT gap (missing supply), NOT a contradiction, so check #8's opposite-outcome test
+   *  misses it (the actor-not-sent defect: a required column with no client path to fill it). */
+  required_persistence_fields: RequiredField[];
 }
 
 const str = (v: unknown): string | undefined => (typeof v === "string" && v.length > 0 ? v : undefined);
@@ -51,7 +65,7 @@ const str = (v: unknown): string | undefined => (typeof v === "string" && v.leng
  *  stories' ACs + the architecture's open decisions. Never throws; missing pieces yield
  *  empty arrays. */
 export function buildCrossStoryContext(consortDir: string, feature: string, currentStory: string): CrossStoryContext {
-  const ctx: CrossStoryContext = { current_story: currentStory, sibling_stories: [], open_decisions: [] };
+  const ctx: CrossStoryContext = { current_story: currentStory, sibling_stories: [], open_decisions: [], required_persistence_fields: [] };
 
   const currentDir = (() => {
     try {
@@ -90,7 +104,10 @@ export function buildCrossStoryContext(consortDir: string, feature: string, curr
   }
 
   try {
-    const arch = JSON.parse(fs.readFileSync(architectureJson(consortDir, feature), "utf8")) as { open_decisions?: unknown };
+    const arch = JSON.parse(fs.readFileSync(architectureJson(consortDir, feature), "utf8")) as {
+      open_decisions?: unknown;
+      persistence_invariants?: unknown;
+    };
     if (Array.isArray(arch.open_decisions)) {
       ctx.open_decisions = arch.open_decisions
         .filter((d): d is Record<string, unknown> => !!d && typeof (d as Record<string, unknown>).id === "string")
@@ -101,6 +118,17 @@ export function buildCrossStoryContext(consortDir: string, feature: string, curr
           resolved_by_story: str(d.resolved_by_story),
           resolution: str(d.resolution),
         }));
+    }
+    // Mandated fields: the `not_null` persistence invariants. Each is a field the schema REQUIRES,
+    // so it must reach the DB through some story's write path; the reviewer checks that a required
+    // field written via a user submit is actually supplied by that submit's AC.
+    if (Array.isArray(arch.persistence_invariants)) {
+      ctx.required_persistence_fields = arch.persistence_invariants
+        .filter(
+          (p): p is Record<string, unknown> =>
+            !!p && typeof (p as Record<string, unknown>).id === "string" && (p as Record<string, unknown>).type === "not_null",
+        )
+        .map((p) => ({ invariant_id: String(p.id), table: str(p.table), brief: str(p.brief) }));
     }
   } catch {
     /* no architecture.json yet (early design) */

@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.56] - 2026-08-28
+
+### Added
+
+- **Cross-story field-contract check , the design lane now catches a later story adding a required field an earlier user-submit path never supplies (the actor-not-sent defect at its root).** Diagnosed from the live run: F4's `S4-record-audit-metadata` (an *auditor* story) correctly authors backend `API` ACs and mandates `actor` NOT NULL (`PI2`), while the sibling `S2-submit-valid-pick` owns the operator's form-submit (it has a real E2E AC) but captures only SKU/quantity/location , so the required `actor` column has NO client path to fill it and the real form 422s. This is a MISSING-SUPPLY (field-contract) gap, not a contradiction, so navigator reflect check #8 (opposite-outcome test) sailed past it, and it is NOT a per-story authoring flatten (so a spec-author advisor would not see it , S4 is legitimately backend). The cross-story reviewer already had every sibling story's ACs in context; it was only missing the mandated-fields signal. `buildCrossStoryContext` now surfaces `required_persistence_fields` , the architecture's `not_null` persistence invariants (deterministic, curated, off `architecture.json`) , and navigator reflect gains **check (9)**: a mandated field written through a user submit must be SUPPLIED by that submit's AC; if the sibling that owns the submit path doesn't capture it, flag `owner:"spec-author"` (extend that submit AC, or re-slice so one story owns capture->record). The deterministic half (`required_persistence_fields`) makes the review concrete; the one semantic step (which sibling owns the submit) is the navigator's, and it has the sibling ACs to make it. Reuses the existing cross-story infra , no new gate, no fan-out. Test: `cross-story-context.test.ts` (+1). GOTCHA recorded: the run's `db-design.json` had EMPTY `schema_changes[]`, so per-story column attribution via schema-changes is unreliable; the architect's `not_null` `persistence_invariants` are the dependable mandated-field signal.
+
 ## [0.3.55] - 2026-08-28
 
 ### Added

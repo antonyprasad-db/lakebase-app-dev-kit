@@ -80,7 +80,7 @@ import * as fs2 from "fs";
 import { basename } from "path";
 var str = (v) => typeof v === "string" && v.length > 0 ? v : void 0;
 function buildCrossStoryContext(consortDir, feature, currentStory) {
-  const ctx = { current_story: currentStory, sibling_stories: [], open_decisions: [] };
+  const ctx = { current_story: currentStory, sibling_stories: [], open_decisions: [], required_persistence_fields: [] };
   const currentDir = (() => {
     try {
       return basename(storyResolved(consortDir, feature, currentStory));
@@ -124,6 +124,11 @@ function buildCrossStoryContext(consortDir, feature, currentStory) {
         resolved_by_story: str(d.resolved_by_story),
         resolution: str(d.resolution)
       }));
+    }
+    if (Array.isArray(arch.persistence_invariants)) {
+      ctx.required_persistence_fields = arch.persistence_invariants.filter(
+        (p) => !!p && typeof p.id === "string" && p.type === "not_null"
+      ).map((p) => ({ invariant_id: String(p.id), table: str(p.table), brief: str(p.brief) }));
     }
   } catch {
   }
