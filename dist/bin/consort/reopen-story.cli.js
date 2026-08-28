@@ -6699,17 +6699,45 @@ function findFeatureDir(tdd, featureId) {
 // consort/gates/reopen-story.ts
 init_esm_shims();
 import * as fs3 from "fs";
-import { basename, dirname as dirname2, join as join5 } from "path";
+import { basename, dirname as dirname5, join as join7 } from "path";
 
 // consort/pipeline/story-pipeline.ts
 init_esm_shims();
 import { existsSync as existsSync4, readFileSync as readFileSync4, writeFileSync as writeFileSync2, mkdirSync as mkdirSync2, readdirSync as readdirSync3, statSync as statSync3, rmSync } from "fs";
-import { dirname, join as join4 } from "path";
+import { dirname as dirname4, join as join6 } from "path";
 
 // consort/gates/gate-conformance-guard.ts
 init_esm_shims();
 import { existsSync as existsSync3, readFileSync as readFileSync3, readdirSync as readdirSync2, statSync as statSync2 } from "fs";
-import { join as join3 } from "path";
+import { join as join5, dirname as dirname3 } from "path";
+
+// consort/config/consort-config-file.ts
+init_esm_shims();
+import { dirname as dirname2, join as join3 } from "path";
+
+// consort/config/agent-models.ts
+init_esm_shims();
+import { dirname, join as join2 } from "path";
+var RECOMMENDED_MODELS = {
+  "spec-author": "opus",
+  "architect-reviewer": "opus",
+  dba: "opus",
+  "test-strategist": "sonnet",
+  "ux-designer": "sonnet",
+  navigator: "sonnet",
+  driver: "sonnet",
+  "product-owner": "opus"
+};
+var ALL_AGENT_ROLES = Object.keys(RECOMMENDED_MODELS);
+var AGENT_CONFIG_REL = join2(".lakebase", "agent-config.json");
+
+// consort/config/consort-config-file.ts
+var CONSORT_CONFIG_REL = join3(".lakebase", "consort-config.json");
+var LEGACY_CONFIG_RELS = [
+  join3(".lakebase", "sftdd-config.json"),
+  join3(".lakebase", "tdd-config.json")
+];
+var LEGACY_TDD_CONFIG_REL = LEGACY_CONFIG_RELS[0];
 
 // consort/orchestrator/validators/conformance/artifact-conformance.ts
 init_esm_shims();
@@ -6718,15 +6746,15 @@ init_esm_shims();
 init_esm_shims();
 var import_ajv = __toESM(require_ajv(), 1);
 import { existsSync as existsSync2, readFileSync as readFileSync2 } from "fs";
-import { join as join2 } from "path";
+import { join as join4 } from "path";
 function resolveSchemaDir() {
-  const direct = join2(__dirname, "..", "..", "config", "schemas");
+  const direct = join4(__dirname, "..", "..", "config", "schemas");
   if (existsSync2(direct)) return direct;
   let dir = __dirname;
   for (let i = 0; i < 8; i++) {
-    const cand = join2(dir, "consort", "config", "schemas");
+    const cand = join4(dir, "consort", "config", "schemas");
     if (existsSync2(cand)) return cand;
-    const parent = join2(dir, "..");
+    const parent = join4(dir, "..");
     if (parent === dir) break;
     dir = parent;
   }
@@ -6756,7 +6784,7 @@ function readPipeline(consortDir, featureId) {
 }
 function writePipeline(consortDir, pipeline) {
   const p = pipelinePath(consortDir, pipeline.feature_id);
-  mkdirSync2(dirname(p), { recursive: true });
+  mkdirSync2(dirname4(p), { recursive: true });
   writeFileSync2(p, JSON.stringify(pipeline, null, 2) + "\n");
 }
 
@@ -6770,12 +6798,12 @@ function reopenStoryForRedesign(consortDir, feature, story, opts = {}) {
   const now = opts.now ?? (() => /* @__PURE__ */ new Date());
   const storyRoot = storyResolved(consortDir, feature, story);
   const stamp = now().toISOString().replace(/[:.]/g, "-");
-  const backupDir = join5(consortDir, `.backup-${basename(storyRoot)}-redesign-${stamp}`);
+  const backupDir = join7(consortDir, `.backup-${basename(storyRoot)}-redesign-${stamp}`);
   const cleared = [];
   const rel = (p) => p.slice(storyRoot.length).replace(/^[/\\]/, "") || basename(p);
   const backup = (p) => {
-    const dest = join5(backupDir, rel(p));
-    fs3.mkdirSync(dirname2(dest), { recursive: true });
+    const dest = join7(backupDir, rel(p));
+    fs3.mkdirSync(dirname5(dest), { recursive: true });
     fs3.cpSync(p, dest, { recursive: true });
   };
   for (const p of [
@@ -6803,8 +6831,8 @@ function reopenStoryForRedesign(consortDir, feature, story, opts = {}) {
   }
   const fde = featureDeployEvidenceJson(consortDir, feature);
   if (fs3.existsSync(fde)) {
-    const dest = join5(backupDir, "feature-deploy-evidence.json");
-    fs3.mkdirSync(dirname2(dest), { recursive: true });
+    const dest = join7(backupDir, "feature-deploy-evidence.json");
+    fs3.mkdirSync(dirname5(dest), { recursive: true });
     fs3.cpSync(fde, dest);
     fs3.rmSync(fde, { force: true });
     cleared.push("../deploy-evidence.json (feature deploy gate)");
@@ -6825,8 +6853,8 @@ function reopenStoryForRedesign(consortDir, feature, story, opts = {}) {
     if (fs3.existsSync(wsFile)) {
       const ws = JSON.parse(fs3.readFileSync(wsFile, "utf8"));
       if (ws.phase !== void 0 || ws[PHASE_OWNER_KEY] !== void 0) {
-        const dest = join5(backupDir, "workflow-state.json");
-        fs3.mkdirSync(dirname2(dest), { recursive: true });
+        const dest = join7(backupDir, "workflow-state.json");
+        fs3.mkdirSync(dirname5(dest), { recursive: true });
         fs3.cpSync(wsFile, dest);
         delete ws.phase;
         delete ws[PHASE_OWNER_KEY];
@@ -6864,14 +6892,7 @@ function parseArgs(argv) {
       case "-h":
       case "--help":
         process.stdout.write(
-          `consort-reopen-story , clear a story's design artifacts (backed up) so the drive re-authors it.
-
-  consort-reopen-story --feature <F> --story <S> [--reason "<why>"]
-
-Clears acs/, test-list-per-story.json, reflect-verdict.json, plan.json and empties story.json acs[]
-so hasAcs=false and the Spec Author is re-dispatched. Backs everything up first. Does NOT touch the
-gate or the experiment branch , it prints the full recovery sequence for those.
-`
+          'consort-reopen-story , send a story back to the design lane for a genuine re-author (backed up).\n\n  consort-reopen-story --feature <F> --story <S> [--reason "<why>"]\n\nClears acs/, test-list-per-story.json, reflect-verdict.json, plan.json and empties story.json acs[]\n(so hasAcs=false and the Spec Author is re-dispatched), AND resets the pipeline entry to designing\n(dropping the spec gate, experiment record, and acceptance), clears the feature deploy-evidence, and\nclears the coarse phase , so a DONE + merged + ACCEPTED story reopens in one command. Backs everything\nup first. It CANNOT clear a live git/Lakebase experiment branch , it prints that as the one step left.\n'
         );
         process.exit(0);
     }

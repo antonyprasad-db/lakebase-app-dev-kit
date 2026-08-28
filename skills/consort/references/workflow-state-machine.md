@@ -164,7 +164,7 @@ flowchart LR
     testList["④ test-list-construction<br/>Beck-ordered, scoped per story"] -. produces .-> tl(["test-list.json"])
     testList --> TestListGate
     HU2(("human")) -. decides .-> TestListGate
-    TestListGate{⑤ test_list gate}
+    TestListGate{⑤ test_list gate<br/>+ E2E coverage}
     TestListGate -->|approve| analyze
     TestListGate -->|reject, reorder| testList
     analyze["⑥ analyzeForGate<br/>design-spec analysis, N, strategies, budget"] -. produces .-> plan(["plan.json"])
@@ -293,7 +293,7 @@ flowchart LR
 flowchart LR
     ORCH(("orchestr-<br/>ator")) -. routes .-> deploy
     RE(("Release<br/>Engineer")) -. composes remote .-> deploy
-    deploy["① consort-deploy<br/>deploy, poll reachable, feature-verify"] -. produces .-> evidence(["deploy-evidence<br/>reachability proof plus verify result"])
+    deploy["① consort-deploy<br/>deploy, poll reachable, feature-verify<br/>(UI: incl. client Playwright E2E)"] -. produces .-> evidence(["deploy-evidence<br/>reachability proof plus verify result"])
     deploy --> DeployGate
     HU(("human")) -. decides .-> DeployGate
     DeployGate{② deploy gate}
@@ -398,12 +398,12 @@ flowchart TB
 | UX design (conditional, `project.uiTrack: true`) | SDD | `/design` | UX Designer writes the project-level `design-guide.{md,json}` + `ia.md`; readiness gates build dispatch | none (readiness check) |
 | `architectural-review` | SDD | `/design` | Architect Reviewer writes `architectural_notes` on EVERY AC of the story + the feature `architecture` md/json (`service_backed`, layers, `persistence_invariants`), covers NFRs | **`spec` gate** (arch folds in) |
 | `database-design` | SDD | `/design` | DBA realizes the physical schema in `db-design.{json,md}` (tables/DDL + per-story migration plan) realizing every architecture `persistence_invariant`; runs after the architect, before the test-strategist | **`spec` gate** (db-design folds in) |
-| `test-list-construction` | SDD | `/design` | Test Strategist builds the Beck-ordered test list, scoped per story | **`test_list` gate** |
+| `test-list-construction` | SDD | `/design` | Test Strategist builds the Beck-ordered test list, scoped per story; a `layer:E2E` AC must carry a real Playwright e2e (`checkE2ECoverage`), not just a mocked component test | **`test_list` gate** |
 | `design-spec-gate` | SDD | `/design` | Analyzer proposes the experiment plan (N, strategies, budget) to `plan.json`; PO signs off | experiment-plan approval |
 | `implementation` | TDD | `/build` | Per-story experiment; Navigator runs PLAN/RED/REVIEW (+ ASSESS on a failed verify), Driver runs GREEN/REFACTOR (+ REPAIR or permissive-green on a failed verify); each verify runs on a disposable ephemeral child DB; smells after each cycle | per story: **accept / discard / revise** |
 | `synthesis` | TDD | `/build` | N>=2 only: `compareExperiments` report; PO selects the winner or synthesizes (`promoteExperiment` / `synthesizeExperiments`) | experiment selection (HITL, not the `promote` gate) |
 | `review` | TDD | `/build` | Ready-for-review: accepted experiment merged into the feature branch | (feature-complete, to deploy) |
-| `deploy` | deploy | `/deploy` | Deploy merged feature/story; poll reachable; run feature-verify | **`deploy` gate** |
+| `deploy` | deploy | `/deploy` | Deploy merged feature/story; poll reachable; run feature-verify (UI projects: incl. the client Playwright E2E, so the `layer:E2E` tests authored at the `test_list` gate actually execute here) | **`deploy` gate** |
 | `promote` | promote | (sprint) | `prepare-pr` (open PR) -> `wait-ci` (regression gate) -> **`promote` gate** -> `merge` to parent tier | **`promote` gate** |
 | `shipped` | terminal | (loop) | Working software live, merged to parent; feeds the next `/plan` | loops to planning |
 | `abandoned` | terminal | (any) | PO abandons, or stalled experiment population (`abandon-all`) | none |
@@ -429,8 +429,8 @@ the same three records every time:
 | Gate | `gates.json` key | Decided after | Certifies (frozen artifact) | Reject path |
 |---|---|---|---|---|
 | sprint PLAN gate | sprint-level (not a per-feature key) | sprint planning | `backlog.json` (committed feature ids + sizes) | refine planning |
-| spec gate | `spec` | discovery + architectural-review | `feature-spec.{md,json}` + per-story `story.{md,json}` + `acs/<AC>.{md,json}` (architecture folds in) | back to discovery (re-spec) |
-| test_list gate | `test_list` | test-list-construction | `test-list.json` (Beck-ordered, scoped per story) | back to test-list (reorder) |
+| spec gate | `spec` | discovery + architectural-review | `feature-spec.{md,json}` + per-story `story.{md,json}` + `acs/<AC>.{md,json}` (architecture folds in); a client-facing feature (boundary `renders_via`, or a React UI-track project with an `API` AC) must carry ≥1 `layer:E2E` AC (`checkE2eLayerPresent`), so a UI feature cannot be designed as all-backend | back to discovery (re-spec) |
+| test_list gate | `test_list` | test-list-construction | `test-list.json` (Beck-ordered, scoped per story); hard-blocks unless every `layer:E2E` AC has a real Playwright e2e (`checkE2ECoverage`), not just a mocked component test | back to test-list (reorder) |
 | experiment-plan gate (design-spec-gate) | `plan` | `analyzeForGate` proposal | `plan.json` (`{ feature_id, N, mode, strategies[], budget, rationale }`, plus attached `spike_inputs[]`) | renegotiate the plan |
 | deploy gate | deploy-evidence (not a per-feature key) | deploy | deploy-evidence: reachability proof + `feature-verify` result against the running app | back to deploy (fix) |
 | promote gate | `promote` | the promote phase, after `prepare-pr` + `wait-ci` (CI green) | the PR / merge of the feature to its parent tier (`--promote-ref`) | back to prepare-pr (fix) |

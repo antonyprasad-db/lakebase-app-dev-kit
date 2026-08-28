@@ -10030,7 +10030,7 @@ import { existsSync as existsSync27, readFileSync as readFileSync27, writeFileSy
 // consort/gates/gate-conformance-guard.ts
 init_esm_shims();
 import { existsSync as existsSync26, readFileSync as readFileSync26, readdirSync as readdirSync15, statSync as statSync9 } from "fs";
-import { join as join23 } from "path";
+import { join as join23, dirname as dirname11 } from "path";
 
 // consort/architecture/architecture-conventions.ts
 init_esm_shims();
@@ -10084,7 +10084,7 @@ function deriveFeaturePhase(stories) {
 // consort/orchestrator/drive/orchestrator-effects.ts
 init_esm_shims();
 import * as fs18 from "fs";
-import { dirname as dirname22, join as join43 } from "path";
+import { dirname as dirname23, join as join43 } from "path";
 
 // consort/orchestrator/steps/manifest.ts
 init_esm_shims();
@@ -11454,7 +11454,7 @@ import { spawnSync } from "child_process";
 // consort/config/kit-ref.ts
 init_esm_shims();
 import { existsSync as existsSync34, readFileSync as readFileSync32, writeFileSync as writeFileSync20, mkdirSync as mkdirSync20 } from "fs";
-import { dirname as dirname13, join as join30 } from "path";
+import { dirname as dirname14, join as join30 } from "path";
 var KIT_REF_FILE = "kit-ref";
 var KIT_REF_LOCAL_FILE = "kit-ref.local";
 function lakebaseFile(projectDir, name) {
@@ -11485,7 +11485,7 @@ function pinRunKitRef(projectDir, ref) {
   const file = lakebaseFile(projectDir, KIT_REF_LOCAL_FILE);
   const previous = readTrimmed(file);
   if (previous === ref) return { pinned: false, ref };
-  mkdirSync20(dirname13(file), { recursive: true });
+  mkdirSync20(dirname14(file), { recursive: true });
   writeFileSync20(file, ref + "\n", "utf8");
   return { pinned: true, ref, ...previous ? { previous } : {} };
 }
@@ -11575,7 +11575,7 @@ import * as readline from "readline";
 // consort/logging/replay-artifacts.ts
 init_esm_shims();
 import { existsSync as existsSync38, mkdirSync as mkdirSync24, readdirSync as readdirSync24, copyFileSync as copyFileSync4, statSync as statSync13 } from "fs";
-import { join as join34, dirname as dirname17 } from "path";
+import { join as join34, dirname as dirname18 } from "path";
 var REPLAYABLE_DESIGN_ROLES = /* @__PURE__ */ new Set([
   "spec-author",
   "architect-reviewer",
@@ -11586,7 +11586,7 @@ var REPLAYABLE_DESIGN_ROLES = /* @__PURE__ */ new Set([
 ]);
 function cp(src, dst) {
   if (!existsSync38(src)) return false;
-  mkdirSync24(dirname17(dst), { recursive: true });
+  mkdirSync24(dirname18(dst), { recursive: true });
   copyFileSync4(src, dst);
   return true;
 }
@@ -11945,10 +11945,10 @@ import { readWorkflowState as readWorkflowState2 } from "@databricks-solutions/l
 // consort/setup/stray-artifact-recovery.ts
 init_esm_shims();
 import { existsSync as existsSync40, mkdirSync as mkdirSync25, cpSync as cpSync6, rmSync as rmSync11, readdirSync as readdirSync25, statSync as statSync14 } from "fs";
-import { join as join36, dirname as dirname19, basename as basename3 } from "path";
+import { join as join36, dirname as dirname20, basename as basename3 } from "path";
 function malformedSiblingRoot(projectDir) {
   const p = projectDir.replace(/\/+$/, "");
-  return `${dirname19(p)}-${basename3(p)}`;
+  return `${dirname20(p)}-${basename3(p)}`;
 }
 function listFilesRel(dir) {
   const out = [];
@@ -12742,7 +12742,7 @@ ${instructions.guidelines.map((g) => `- ${g}`).join("\n")}` : "";
 // consort/orchestrator/agents/mock-replay-agent.ts
 init_esm_shims();
 import { readFileSync as readFileSync37, writeFileSync as writeFileSync24, existsSync as existsSync41, mkdirSync as mkdirSync27, cpSync as cpSync7, readdirSync as readdirSync27, statSync as statSync16 } from "fs";
-import { join as join38, dirname as dirname20, relative as relative5, sep } from "path";
+import { join as join38, dirname as dirname21, relative as relative5, sep } from "path";
 function makeMockReplayAgent(opts) {
   const role = opts.role ?? "product-owner";
   return {
@@ -12760,7 +12760,7 @@ function makeMockReplayAgent(opts) {
           mkdirSync27(dst, { recursive: true });
           cpSync7(src, dst, { recursive: true, force: true, filter: codeTreeFilter(src) });
         } else {
-          mkdirSync27(dirname20(dst), { recursive: true });
+          mkdirSync27(dirname21(dst), { recursive: true });
           writeFileSync24(dst, readFileSync37(src, "utf8"));
         }
         materialized.push(seed.to);
@@ -12786,7 +12786,7 @@ function actionSignature(a) {
 function resolveTurnsDir(corpusRoot) {
   const here = join38(corpusRoot, "turns");
   if (existsSync41(here)) return here;
-  const parent = join38(dirname20(corpusRoot), "turns");
+  const parent = join38(dirname21(corpusRoot), "turns");
   if (existsSync41(parent)) return parent;
   return void 0;
 }
@@ -12839,7 +12839,7 @@ function materializeFiles(filesDir, workspaceDir) {
       }
       const rel = remapArtifactRoot(relative5(filesDir, src));
       const dst = join38(workspaceDir, rel);
-      mkdirSync27(dirname20(dst), { recursive: true });
+      mkdirSync27(dirname21(dst), { recursive: true });
       writeFileSync24(dst, readFileSync37(src));
       out.push(rel);
     }
@@ -13342,7 +13342,7 @@ function designGuideConformance(consortDir) {
 init_esm_shims();
 import { execSync as execSync2 } from "child_process";
 import * as fs17 from "fs";
-import { dirname as dirname21, join as join42 } from "path";
+import { dirname as dirname22, join as join42 } from "path";
 function artifactRoot(consortDir) {
   return consortDir;
 }
@@ -13408,7 +13408,7 @@ function readCtxLeverMarker(consortDir) {
   }
 }
 function failingTestBlock(consortDir, story, reader = defaultFailingTestReader) {
-  const body = reader(dirname21(consortDir), story);
+  const body = reader(dirname22(consortDir), story);
   return body ? ` FAILING TEST (make THIS pass; do NOT search for it) ::
 \`\`\`python
 ${body}
@@ -13435,7 +13435,7 @@ function buildContextPack(consortDir, featureId, story, ac, opts = {}) {
   const marker = readCtxLeverMarker(consortDir);
   const dbOn = opts.dbState ?? marker.dbState ?? consortEnv("CTX_DBSTATE") === "1";
   if (dbOn) {
-    const st = (opts.dbStateReader ?? defaultDbStateReader)(dirname21(consortDir));
+    const st = (opts.dbStateReader ?? defaultDbStateReader)(dirname22(consortDir));
     if (st && (st.current || st.heads)) {
       parts.push(
         ` DB STATE (already probed, do NOT re-run alembic current/heads) ::${st.current ? ` current=${st.current.replace(/\s+/g, " ")}` : ""}${st.heads ? ` head=${st.heads.replace(/\s+/g, " ")}` : ""}. The branch is migrated to head; iterate with \`uv run --env-file .env pytest <path>\` (no re-migrate).`
@@ -14386,7 +14386,7 @@ function buildDriveEffects(cfg) {
     onHandback(handoff, detail) {
       const file = handbackFile(cfg.consortDir, cfg.featureId, handoff.responder, handoff.story);
       try {
-        fs18.mkdirSync(dirname22(file), { recursive: true });
+        fs18.mkdirSync(dirname23(file), { recursive: true });
         fs18.writeFileSync(file, `${detail}
 `, "utf8");
       } catch {

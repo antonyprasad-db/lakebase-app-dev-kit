@@ -8,8 +8,9 @@
 // gate any more than the headless proxy can.
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import type { GateName } from "./gates.js";
+import { resolveProjectSettings } from "../../consort/config/consort-config-file.js";
 import {
   checkArtifactConformance,
   canonicalArtifactName,
@@ -25,6 +26,7 @@ import {
   invariantRealizingStory,
   checkSchemaChangeStoryRealizes,
   checkServiceBackedDeclaration,
+  checkE2eLayerPresent,
   checkDbDesign,
 } from "../../consort/orchestrator/validators/conformance/artifact-conformance.js";
 import { acsForStory } from "../test-list/test-list.js";
@@ -403,6 +405,64 @@ function serviceBackedReason(consortDir: string, featureId: string): string | nu
 }
 
 /**
+ * E2E-layer-presence spec-gate condition (closes the "UI feature designed as all-backend"
+ * escape): `e2eCoverageReason` only bites once an AC is tagged `layer:"E2E"`, so a design
+ * lane that mis-classifies every client-facing AC as `API`/`Infra` produces a UI feature with
+ * ZERO E2E ACs that passes the coverage guard vacuously , exactly how the actor-less pick form
+ * shipped. This cross-checks the architect's OWN structural signal (a `boundary` layer with
+ * `renders_via` = the feature renders a UI) against the feature's AC `layer`s: a UI-rendering
+ * feature must carry >=1 `layer:"E2E"` AC. It is FEATURE-wide but NON-monotonic (zero E2E now
+ * can become >=1 once a later, still-undesigned story is authored), so , unlike the monotonic
+ * serviceBacked check , it enforces ONLY once every story the feature-spec DECLARES has been
+ * designed (an `acs/` dir on disk); a partially-designed feature returns null (defer). Null when
+ * design is incomplete / the feature renders no UI / an E2E AC already exists / no architecture.
+ */
+export function e2eLayerPresentReason(consortDir: string, featureId: string): string | null {
+  const arch = readArchitecture(consortDir, featureId);
+  if (arch === undefined) return null;
+  const fdir = featureDir(consortDir, featureId);
+  // Declared stories (feature-spec.json.stories) vs designed stories (an acs/ dir on disk).
+  // Defer until every declared story is designed , the streaming design lane may not have
+  // reached the client-facing story yet, and a premature zero-E2E read would false-positive.
+  let declared: string[];
+  try {
+    declared = (JSON.parse(readFileSync(join(fdir, "feature-spec.json"), "utf8")) as { stories?: string[] }).stories ?? [];
+  } catch {
+    return null; // no/malformed feature-spec: completeness is unknowable, do not block
+  }
+  if (declared.length === 0) return null;
+  const storiesDir = join(fdir, "stories");
+  const hasAcs = (story: string): boolean => existsSync(join(storiesDir, story, "acs"));
+  if (!declared.every(hasAcs)) return null; // design not complete yet , defer
+  // Every declared story is designed: collect its AC layers (the same acs/ walk serviceBackedReason uses).
+  const acLayers: string[] = [];
+  for (const s of declared) {
+    const ad = join(storiesDir, s, "acs");
+    for (const f of readdirSync(ad)) {
+      if (!f.endsWith(".json")) continue;
+      try {
+        const layer = (JSON.parse(readFileSync(join(ad, f), "utf8")) as { layer?: string }).layer;
+        if (typeof layer === "string") acLayers.push(layer);
+      } catch {
+        /* a malformed AC is caught by acsConformanceReason */
+      }
+    }
+  }
+  // The architect-independent client-facing signal: a React UI track (consort-config.json,
+  // read from the project root , consortDir is <projectDir>/.consort). Lets the check fire even
+  // when the mis-classification also dropped the boundary's renders_via.
+  let uiReact = false;
+  try {
+    const proj = resolveProjectSettings(dirname(consortDir)).project;
+    uiReact = proj.uiTrack === true && proj.clientFramework === "react";
+  } catch {
+    /* no/unreadable project config: fall back to the architecture's renders_via signal alone */
+  }
+  const r = checkE2eLayerPresent(arch, { acLayers, uiReact });
+  return r.ok ? null : `E2E-layer presence failed: ${r.violations.join("; ")}`;
+}
+
+/**
  * db-design story-attribution spec-gate condition: a `create_table` must be attributed to a story
  * that actually persists (has an API/Infra AC), never a pure UI/E2E shell story. This closes the
  * root cause of the persistence-invariant reflect loop , a scaffold story handed the table creation
@@ -519,6 +579,11 @@ export function resolveArtifactInputs(
       // declare its layers, and every Required NFR must be covered by a brief_ref.
       const serviceBacked = serviceBackedReason(consortDir, featureId);
       if (serviceBacked !== null) return { reason: serviceBacked };
+      // A UI-rendering feature (boundary renders_via) must carry >=1 layer:"E2E" AC , else the
+      // design lane classified a client-facing feature as all-backend and the E2E-coverage guard
+      // (test_list gate) never bites. Enforced only once every declared story is designed.
+      const e2eLayerReason = e2eLayerPresentReason(consortDir, featureId);
+      if (e2eLayerReason !== null) return { reason: e2eLayerReason };
       const layeringReason = layeringDeclaredReason(consortDir, featureId);
       if (layeringReason !== null) return { reason: layeringReason };
       // The DBA runs after the architect and before the test-strategist: a

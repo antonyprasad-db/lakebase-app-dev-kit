@@ -37,11 +37,13 @@ function parseArgs(argv: string[]): Args {
       case "--tdd-dir": case "--consort-dir": out.consortDir = argv[++i]; break;
       case "-h": case "--help":
         process.stdout.write(
-          "consort-reopen-story , clear a story's design artifacts (backed up) so the drive re-authors it.\n\n" +
+          "consort-reopen-story , send a story back to the design lane for a genuine re-author (backed up).\n\n" +
             "  consort-reopen-story --feature <F> --story <S> [--reason \"<why>\"]\n\n" +
             "Clears acs/, test-list-per-story.json, reflect-verdict.json, plan.json and empties story.json acs[]\n" +
-            "so hasAcs=false and the Spec Author is re-dispatched. Backs everything up first. Does NOT touch the\n" +
-            "gate or the experiment branch , it prints the full recovery sequence for those.\n",
+            "(so hasAcs=false and the Spec Author is re-dispatched), AND resets the pipeline entry to designing\n" +
+            "(dropping the spec gate, experiment record, and acceptance), clears the feature deploy-evidence, and\n" +
+            "clears the coarse phase , so a DONE + merged + ACCEPTED story reopens in one command. Backs everything\n" +
+            "up first. It CANNOT clear a live git/Lakebase experiment branch , it prints that as the one step left.\n",
         );
         process.exit(0);
     }

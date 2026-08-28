@@ -6652,7 +6652,7 @@ import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 
 // consort/gates/human-proxy.ts
 init_esm_shims();
-import { existsSync as existsSync11, readFileSync as readFileSync11, writeFileSync as writeFileSync7, mkdirSync as mkdirSync6 } from "fs";
+import { existsSync as existsSync12, readFileSync as readFileSync12, writeFileSync as writeFileSync8, mkdirSync as mkdirSync7 } from "fs";
 
 // consort/config/consort-env.ts
 init_esm_shims();
@@ -6684,7 +6684,7 @@ function warnLegacyEnv(legacyName, suffix) {
 }
 
 // consort/gates/human-proxy.ts
-import { dirname as dirname4, basename as basename2 } from "path";
+import { dirname as dirname7, basename as basename2 } from "path";
 
 // consort/gates/approve-gate.ts
 init_esm_shims();
@@ -7435,6 +7435,29 @@ function checkServiceBackedDeclaration(architectureJson2, evidence) {
     ]
   };
 }
+function checkE2eLayerPresent(architectureJson2, evidence) {
+  let parsed;
+  try {
+    parsed = JSON.parse(architectureJson2);
+  } catch (err) {
+    return { ok: false, violations: [`architecture.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`] };
+  }
+  const acLayers = evidence.acLayers ?? [];
+  const declaresRenderingBoundary = (parsed.layers ?? []).some(
+    (l) => l.role === "boundary" && typeof l.renders_via === "string" && l.renders_via.length > 0
+  );
+  const reactFeatureWithApi = evidence.uiReact === true && acLayers.includes("API");
+  const clientFacing = declaresRenderingBoundary || reactFeatureWithApi;
+  if (!clientFacing) return { ok: true };
+  if (acLayers.includes("E2E")) return { ok: true };
+  const why = declaresRenderingBoundary ? `declares a UI-rendering boundary (renders_via)` : `is a React UI-track project exposing an API-layer AC (an endpoint the client consumes)`;
+  return {
+    ok: false,
+    violations: [
+      `the feature ${why} but NO acceptance criterion is tagged layer:"E2E"; a feature that renders a UI has at least one client<->server contract (a form submit, an inline validation rejection, a success/empty state) whose ONLY real verification is a Playwright e2e against the live API , tag that AC layer:"E2E" (a mocked component test stubs the response envelope, so a fabricated shape passes green while the real wire contract drifts). NOTE: an outcome phrased as "record WHO performed the action" or "the pick is saved", when the operator enters their name on a form with no auth, IS a client form submission (layer:"E2E") , do not flatten it into a backend "API" AC. If the endpoint is genuinely not consumed by any client, reconsider , that is unusual for a UI-track feature.`
+    ]
+  };
+}
 function checkLayeringDeclared(architectureJson2) {
   let parsed;
   try {
@@ -7871,22 +7894,82 @@ function emitAgentLogEvent(input, opts = {}) {
 
 // consort/gates/gate-conformance-guard.ts
 init_esm_shims();
-import { existsSync as existsSync10, readFileSync as readFileSync10, readdirSync as readdirSync6, statSync as statSync4 } from "fs";
-import { join as join9 } from "path";
+import { existsSync as existsSync11, readFileSync as readFileSync11, readdirSync as readdirSync6, statSync as statSync4 } from "fs";
+import { join as join11, dirname as dirname6 } from "path";
+
+// consort/config/consort-config-file.ts
+init_esm_shims();
+import { existsSync as existsSync8, readFileSync as readFileSync8, mkdirSync as mkdirSync4, writeFileSync as writeFileSync5 } from "fs";
+import { dirname as dirname4, join as join9 } from "path";
+
+// consort/config/agent-models.ts
+init_esm_shims();
+import { dirname as dirname3, join as join8 } from "path";
+var RECOMMENDED_MODELS = {
+  "spec-author": "opus",
+  "architect-reviewer": "opus",
+  dba: "opus",
+  "test-strategist": "sonnet",
+  "ux-designer": "sonnet",
+  navigator: "sonnet",
+  driver: "sonnet",
+  "product-owner": "opus"
+};
+var ALL_AGENT_ROLES = Object.keys(RECOMMENDED_MODELS);
+var AGENT_CONFIG_REL = join8(".lakebase", "agent-config.json");
+
+// consort/config/consort-config-file.ts
+var CONSORT_CONFIG_REL = join9(".lakebase", "consort-config.json");
+var LEGACY_CONFIG_RELS = [
+  join9(".lakebase", "sftdd-config.json"),
+  join9(".lakebase", "tdd-config.json")
+];
+var LEGACY_TDD_CONFIG_REL = LEGACY_CONFIG_RELS[0];
+function loadConsortConfig(projectDir) {
+  for (const rel of [CONSORT_CONFIG_REL, ...LEGACY_CONFIG_RELS]) {
+    const f = join9(projectDir, rel);
+    if (!existsSync8(f)) continue;
+    try {
+      return JSON.parse(readFileSync8(f, "utf8"));
+    } catch {
+      return void 0;
+    }
+  }
+  return void 0;
+}
+function resolveProjectSettings(projectDir) {
+  const file = loadConsortConfig(projectDir);
+  const build = {
+    loopGranularity: file?.build?.loopGranularity ?? "story",
+    batchCap: file?.build?.batchCap,
+    sessionScope: file?.build?.sessionScope ?? "story"
+  };
+  const project = {
+    uiTrack: file?.project?.uiTrack ?? true,
+    // HITL-first: the declared project policy defaults to interactive (a human
+    // approves each gate). Headless (proxy) is a deliberate opt-in, set in the
+    // file or as a RUN-SCOPED --gates override (never persisted by a flag).
+    gates: file?.project?.gates ?? "interactive",
+    deployTarget: file?.project?.deployTarget ?? "local",
+    clientFramework: file?.project?.clientFramework ?? "none"
+  };
+  const plan = { sizing: file?.plan?.sizing ?? true };
+  return { build, plan, project };
+}
 
 // consort/test-list/test-list.ts
 init_esm_shims();
-import { readFileSync as readFileSync8, writeFileSync as writeFileSync5, existsSync as existsSync8, mkdirSync as mkdirSync4, readdirSync as readdirSync5, statSync as statSync3 } from "fs";
-import { join as join8, dirname as dirname3 } from "path";
+import { readFileSync as readFileSync9, writeFileSync as writeFileSync6, existsSync as existsSync9, mkdirSync as mkdirSync5, readdirSync as readdirSync5, statSync as statSync3 } from "fs";
+import { join as join10, dirname as dirname5 } from "path";
 function acIdsInStoryDir(storyDir2) {
-  const dir = join8(storyDir2, "acs");
-  if (!existsSync8(dir)) return [];
+  const dir = join10(storyDir2, "acs");
+  if (!existsSync9(dir)) return [];
   const out = [];
   for (const f of readdirSync5(dir)) {
     if (!f.endsWith(".json")) continue;
     const base = f.slice(0, -".json".length);
     try {
-      const obj = JSON.parse(readFileSync8(join8(dir, f), "utf8"));
+      const obj = JSON.parse(readFileSync9(join10(dir, f), "utf8"));
       if (obj && typeof obj.id === "string" && obj.id === base) out.push(base);
     } catch {
     }
@@ -7900,15 +7983,15 @@ function acsForStory(tddDir, featureId, storyId) {
 
 // consort/architecture/architecture-conventions.ts
 init_esm_shims();
-import { existsSync as existsSync9, readFileSync as readFileSync9, writeFileSync as writeFileSync6, mkdirSync as mkdirSync5 } from "fs";
+import { existsSync as existsSync10, readFileSync as readFileSync10, writeFileSync as writeFileSync7, mkdirSync as mkdirSync6 } from "fs";
 function normModule(m) {
   return m.replace(/\/+$/, "");
 }
 function readConventions(consortDir) {
   const f = architectureConventionsJson(consortDir);
-  if (!existsSync9(f)) return void 0;
+  if (!existsSync10(f)) return void 0;
   try {
-    return JSON.parse(readFileSync9(f, "utf8"));
+    return JSON.parse(readFileSync10(f, "utf8"));
   } catch {
     return void 0;
   }
@@ -7961,16 +8044,16 @@ function conformanceReason(inputs) {
   return problems.length === 0 ? null : `format conformance failed: ${problems.join("; ")}`;
 }
 function storyAcProblems(fdir, story) {
-  const acsDir2 = join9(fdir, "stories", story, "acs");
-  if (!existsSync10(acsDir2)) return [];
+  const acsDir2 = join11(fdir, "stories", story, "acs");
+  if (!existsSync11(acsDir2)) return [];
   const problems = [];
   const acs = [];
   for (const f of readdirSync6(acsDir2)) {
     if (!f.endsWith(".json")) continue;
-    const p = join9(acsDir2, f);
+    const p = join11(acsDir2, f);
     let content;
     try {
-      content = readFileSync10(p, "utf8");
+      content = readFileSync11(p, "utf8");
     } catch {
       continue;
     }
@@ -7983,20 +8066,20 @@ function storyAcProblems(fdir, story) {
   return problems;
 }
 function acsConformanceReason(fdir) {
-  const stories = join9(fdir, "stories");
-  if (!existsSync10(stories)) return null;
+  const stories = join11(fdir, "stories");
+  if (!existsSync11(stories)) return null;
   const problems = readdirSync6(stories).flatMap((s) => storyAcProblems(fdir, s));
   return problems.length === 0 ? null : `AC conformance failed: ${problems.join("; ")}`;
 }
 function collectStoryJsons(fdir) {
-  const stories = join9(fdir, "stories");
-  if (!existsSync10(stories)) return [];
+  const stories = join11(fdir, "stories");
+  if (!existsSync11(stories)) return [];
   const out = [];
   for (const s of readdirSync6(stories)) {
-    const p = join9(stories, s, "story.json");
-    if (!existsSync10(p)) continue;
+    const p = join11(stories, s, "story.json");
+    if (!existsSync11(p)) continue;
     try {
-      out.push({ name: s, content: readFileSync10(p, "utf8") });
+      out.push({ name: s, content: readFileSync11(p, "utf8") });
     } catch {
       continue;
     }
@@ -8011,10 +8094,10 @@ function architectureConventionsReason(consortDir, featureId) {
   const conventions = readConventions(consortDir);
   if (!conventions) return null;
   const archFile = architectureJson(consortDir, featureId);
-  if (!existsSync10(archFile)) return null;
+  if (!existsSync11(archFile)) return null;
   let content;
   try {
-    content = readFileSync10(archFile, "utf8");
+    content = readFileSync11(archFile, "utf8");
   } catch {
     return null;
   }
@@ -8023,9 +8106,9 @@ function architectureConventionsReason(consortDir, featureId) {
 }
 function readArchitecture(consortDir, featureId) {
   const f = architectureJson(consortDir, featureId);
-  if (!existsSync10(f)) return void 0;
+  if (!existsSync11(f)) return void 0;
   try {
-    return readFileSync10(f, "utf8");
+    return readFileSync11(f, "utf8");
   } catch {
     return void 0;
   }
@@ -8040,9 +8123,9 @@ function dbDesignReason(consortDir, featureId) {
   const arch = readArchitecture(consortDir, featureId);
   if (arch === void 0) return null;
   const dbFile = dbDesignJson(consortDir, featureId);
-  const db = existsSync10(dbFile) ? (() => {
+  const db = existsSync11(dbFile) ? (() => {
     try {
-      return readFileSync10(dbFile, "utf8");
+      return readFileSync11(dbFile, "utf8");
     } catch {
       return void 0;
     }
@@ -8055,11 +8138,11 @@ function nfrCoverageReason(consortDir, featureId) {
   if (arch === void 0) return null;
   const featureNfrs = featureNfrsMd(consortDir, featureId);
   const projectNfrs = nfrsMd(consortDir);
-  const nfrsFile = existsSync10(featureNfrs) ? featureNfrs : existsSync10(projectNfrs) ? projectNfrs : void 0;
+  const nfrsFile = existsSync11(featureNfrs) ? featureNfrs : existsSync11(projectNfrs) ? projectNfrs : void 0;
   if (nfrsFile === void 0) return null;
   let nfrsContent;
   try {
-    nfrsContent = readFileSync10(nfrsFile, "utf8");
+    nfrsContent = readFileSync11(nfrsFile, "utf8");
   } catch {
     return null;
   }
@@ -8075,16 +8158,16 @@ function fitnessCoverageReason(consortDir, featureId, testListJson) {
   return r.ok ? null : `fitness coverage failed: ${r.violations.join("; ")}`;
 }
 function e2eCoverageReason(consortDir, featureId, testListJson) {
-  const storiesDir2 = join9(featureDir2(consortDir, featureId), "stories");
-  if (!existsSync10(storiesDir2)) return null;
+  const storiesDir2 = join11(featureDir2(consortDir, featureId), "stories");
+  if (!existsSync11(storiesDir2)) return null;
   const e2eAcIds = [];
   for (const s of readdirSync6(storiesDir2)) {
-    const ad = join9(storiesDir2, s, "acs");
-    if (!existsSync10(ad)) continue;
+    const ad = join11(storiesDir2, s, "acs");
+    if (!existsSync11(ad)) continue;
     for (const f of readdirSync6(ad)) {
       if (!f.endsWith(".json")) continue;
       try {
-        const ac = JSON.parse(readFileSync10(join9(ad, f), "utf8"));
+        const ac = JSON.parse(readFileSync11(join11(ad, f), "utf8"));
         if (ac.layer === "E2E") e2eAcIds.push(ac.id ?? f.replace(/\.json$/, ""));
       } catch {
       }
@@ -8107,11 +8190,11 @@ function invariantCoverageDistinctReason(consortDir, featureId, testListJson) {
     return null;
   }
   const items = master.items ?? [];
-  const storiesDir2 = join9(featureDir2(consortDir, featureId), "stories");
-  if (!existsSync10(storiesDir2)) return null;
+  const storiesDir2 = join11(featureDir2(consortDir, featureId), "stories");
+  if (!existsSync11(storiesDir2)) return null;
   const perStory = readdirSync6(storiesDir2).filter((s) => {
     try {
-      return statSync4(join9(storiesDir2, s)).isDirectory();
+      return statSync4(join11(storiesDir2, s)).isDirectory();
     } catch {
       return false;
     }
@@ -8123,8 +8206,8 @@ function invariantCoverageDistinctReason(consortDir, featureId, testListJson) {
   const archFile = architectureJson(consortDir, featureId);
   const dbFile = dbDesignJson(consortDir, featureId);
   const owner = invariantRealizingStory(
-    existsSync10(archFile) ? readFileSync10(archFile, "utf8") : void 0,
-    existsSync10(dbFile) ? readFileSync10(dbFile, "utf8") : void 0
+    existsSync11(archFile) ? readFileSync11(archFile, "utf8") : void 0,
+    existsSync11(dbFile) ? readFileSync11(dbFile, "utf8") : void 0
   );
   const r = checkInvariantCoverageDistinct(perStory, owner);
   return r.ok ? null : `invariant coverage not distinct across stories: ${r.violations.join("; ")}`;
@@ -8134,15 +8217,15 @@ function serviceBackedReason(consortDir, featureId) {
   if (arch === void 0) return null;
   const acLayers = [];
   const fdir = featureDir2(consortDir, featureId);
-  const stories = join9(fdir, "stories");
-  if (existsSync10(stories)) {
+  const stories = join11(fdir, "stories");
+  if (existsSync11(stories)) {
     for (const s of readdirSync6(stories)) {
-      const ad = join9(stories, s, "acs");
-      if (!existsSync10(ad)) continue;
+      const ad = join11(stories, s, "acs");
+      if (!existsSync11(ad)) continue;
       for (const f of readdirSync6(ad)) {
         if (!f.endsWith(".json")) continue;
         try {
-          const layer = JSON.parse(readFileSync10(join9(ad, f), "utf8")).layer;
+          const layer = JSON.parse(readFileSync11(join11(ad, f), "utf8")).layer;
           if (typeof layer === "string") acLayers.push(layer);
         } catch {
         }
@@ -8158,28 +8241,63 @@ function serviceBackedReason(consortDir, featureId) {
   const r = checkServiceBackedDeclaration(arch, { acLayers, nfrsText });
   return r.ok ? null : `service_backed declaration failed: ${r.violations.join("; ")}`;
 }
+function e2eLayerPresentReason(consortDir, featureId) {
+  const arch = readArchitecture(consortDir, featureId);
+  if (arch === void 0) return null;
+  const fdir = featureDir2(consortDir, featureId);
+  let declared;
+  try {
+    declared = JSON.parse(readFileSync11(join11(fdir, "feature-spec.json"), "utf8")).stories ?? [];
+  } catch {
+    return null;
+  }
+  if (declared.length === 0) return null;
+  const storiesDir2 = join11(fdir, "stories");
+  const hasAcs = (story) => existsSync11(join11(storiesDir2, story, "acs"));
+  if (!declared.every(hasAcs)) return null;
+  const acLayers = [];
+  for (const s of declared) {
+    const ad = join11(storiesDir2, s, "acs");
+    for (const f of readdirSync6(ad)) {
+      if (!f.endsWith(".json")) continue;
+      try {
+        const layer = JSON.parse(readFileSync11(join11(ad, f), "utf8")).layer;
+        if (typeof layer === "string") acLayers.push(layer);
+      } catch {
+      }
+    }
+  }
+  let uiReact = false;
+  try {
+    const proj = resolveProjectSettings(dirname6(consortDir)).project;
+    uiReact = proj.uiTrack === true && proj.clientFramework === "react";
+  } catch {
+  }
+  const r = checkE2eLayerPresent(arch, { acLayers, uiReact });
+  return r.ok ? null : `E2E-layer presence failed: ${r.violations.join("; ")}`;
+}
 function schemaChangeStoryRealizesReason(consortDir, featureId) {
   const dbFile = dbDesignJson(consortDir, featureId);
-  if (!existsSync10(dbFile)) return null;
+  if (!existsSync11(dbFile)) return null;
   let db;
   try {
-    db = JSON.parse(readFileSync10(dbFile, "utf8"));
+    db = JSON.parse(readFileSync11(dbFile, "utf8"));
   } catch {
     return null;
   }
   const changes = db.schema_changes ?? [];
   if (changes.length === 0) return null;
-  const storiesDir2 = join9(featureDir2(consortDir, featureId), "stories");
-  if (!existsSync10(storiesDir2)) return null;
+  const storiesDir2 = join11(featureDir2(consortDir, featureId), "stories");
+  if (!existsSync11(storiesDir2)) return null;
   const storyLayers = /* @__PURE__ */ new Map();
   for (const s of readdirSync6(storiesDir2)) {
-    const ad = join9(storiesDir2, s, "acs");
-    if (!existsSync10(ad)) continue;
+    const ad = join11(storiesDir2, s, "acs");
+    if (!existsSync11(ad)) continue;
     const layers = [];
     for (const f of readdirSync6(ad)) {
       if (!f.endsWith(".json")) continue;
       try {
-        const layer = JSON.parse(readFileSync10(join9(ad, f), "utf8")).layer;
+        const layer = JSON.parse(readFileSync11(join11(ad, f), "utf8")).layer;
         if (typeof layer === "string") layers.push(layer);
       } catch {
       }
@@ -8191,9 +8309,9 @@ function schemaChangeStoryRealizesReason(consortDir, featureId) {
 }
 function resolveArtifactInputs(gate, fdir, promoteRef, consortDir, featureId) {
   const readIfPresent = (name) => {
-    const p = join9(fdir, name);
+    const p = join11(fdir, name);
     try {
-      return existsSync10(p) ? readFileSync10(p, "utf8") : void 0;
+      return existsSync11(p) ? readFileSync11(p, "utf8") : void 0;
     } catch {
       return void 0;
     }
@@ -8226,6 +8344,8 @@ function resolveArtifactInputs(gate, fdir, promoteRef, consortDir, featureId) {
       if (conventionsReason !== null) return { reason: conventionsReason };
       const serviceBacked = serviceBackedReason(consortDir, featureId);
       if (serviceBacked !== null) return { reason: serviceBacked };
+      const e2eLayerReason = e2eLayerPresentReason(consortDir, featureId);
+      if (e2eLayerReason !== null) return { reason: e2eLayerReason };
       const layeringReason = layeringDeclaredReason(consortDir, featureId);
       if (layeringReason !== null) return { reason: layeringReason };
       const dbReason = dbDesignReason(consortDir, featureId);
@@ -8385,16 +8505,16 @@ function supplyArtifact(args) {
     }
     return { ok: false, artifact, to: args.to, reason };
   };
-  if (!existsSync11(args.from)) {
+  if (!existsSync12(args.from)) {
     return refuse(`recorded source not found: ${args.from}`);
   }
-  const content = readFileSync11(args.from, "utf8");
+  const content = readFileSync12(args.from, "utf8");
   const conformance = checkArtifactConformance(artifact, content);
   if (!conformance.ok) {
     return refuse(`format conformance failed: ${conformance.violations.join("; ")}`);
   }
-  mkdirSync6(dirname4(args.to), { recursive: true });
-  writeFileSync7(args.to, content);
+  mkdirSync7(dirname7(args.to), { recursive: true });
+  writeFileSync8(args.to, content);
   try {
     emitAgentLogEvent(
       {
@@ -8443,7 +8563,7 @@ function supplyRequests(args = {}) {
 function summarizeRequest(from) {
   let text = "";
   try {
-    text = readFileSync11(from, "utf8");
+    text = readFileSync12(from, "utf8");
   } catch {
     return { ask: "", rationale: "" };
   }
@@ -8473,20 +8593,20 @@ function supplyProposals(args = {}) {
 Candidate features for this sprint, projected deterministically from the recorded feature-requests (the headless stand-in for the Spec Author's live proposal turn).
 
 ` + sections.join("\n");
-  mkdirSync6(planningDir(consortDir), { recursive: true });
-  writeFileSync7(featureProposalsMd(consortDir), body);
+  mkdirSync7(planningDir(consortDir), { recursive: true });
+  writeFileSync8(featureProposalsMd(consortDir), body);
   return { written: true, count: pairs.length };
 }
 
 // consort/orchestrator/status/revise.ts
 init_esm_shims();
-import { existsSync as existsSync24, readFileSync as readFileSync25, writeFileSync as writeFileSync17, mkdirSync as mkdirSync15, readdirSync as readdirSync16, rmSync as rmSync8 } from "fs";
-import { join as join22, dirname as dirname10 } from "path";
+import { existsSync as existsSync25, readFileSync as readFileSync26, writeFileSync as writeFileSync18, mkdirSync as mkdirSync16, readdirSync as readdirSync16, rmSync as rmSync8 } from "fs";
+import { join as join24, dirname as dirname13 } from "path";
 
 // consort/pipeline/story-pipeline.ts
 init_esm_shims();
-import { existsSync as existsSync12, readFileSync as readFileSync12, writeFileSync as writeFileSync8, mkdirSync as mkdirSync7, readdirSync as readdirSync8, statSync as statSync5, rmSync } from "fs";
-import { dirname as dirname5, join as join11 } from "path";
+import { existsSync as existsSync13, readFileSync as readFileSync13, writeFileSync as writeFileSync9, mkdirSync as mkdirSync8, readdirSync as readdirSync8, statSync as statSync5, rmSync } from "fs";
+import { dirname as dirname8, join as join13 } from "path";
 function initPipeline(featureId) {
   return { version: 1, feature_id: featureId, stories: {}, build_queue: [], build_active: null };
 }
@@ -8495,13 +8615,13 @@ function pipelinePath(consortDir, featureId) {
 }
 function readPipeline(consortDir, featureId) {
   const p = pipelinePath(consortDir, featureId);
-  if (!existsSync12(p)) return initPipeline(featureId);
-  return JSON.parse(readFileSync12(p, "utf8"));
+  if (!existsSync13(p)) return initPipeline(featureId);
+  return JSON.parse(readFileSync13(p, "utf8"));
 }
 function writePipeline(consortDir, pipeline) {
   const p = pipelinePath(consortDir, pipeline.feature_id);
-  mkdirSync7(dirname5(p), { recursive: true });
-  writeFileSync8(p, JSON.stringify(pipeline, null, 2) + "\n");
+  mkdirSync8(dirname8(p), { recursive: true });
+  writeFileSync9(p, JSON.stringify(pipeline, null, 2) + "\n");
 }
 function setStoryStatus(pipeline, storyId, status) {
   const existing = pipeline.stories[storyId];
@@ -8541,9 +8661,9 @@ function reviseStory(pipeline, storyId, opts) {
 
 // consort/smells/smells.ts
 init_esm_shims();
-import { existsSync as existsSync13, readFileSync as readFileSync13, writeFileSync as writeFileSync9 } from "fs";
+import { existsSync as existsSync14, readFileSync as readFileSync14, writeFileSync as writeFileSync10 } from "fs";
 import { createHash as createHash2 } from "crypto";
-import { join as join12 } from "path";
+import { join as join14 } from "path";
 
 // consort/pipeline/run-cycle.ts
 init_esm_shims();
@@ -8573,14 +8693,14 @@ function smellMatches(entry, smell, story_id) {
   return entry.story_id === void 0 || entry.story_id === story_id;
 }
 function markSmellResolved(consortDir, smell, opts) {
-  const file = join12(consortDir, "smells.json");
-  if (!existsSync13(file)) return false;
-  const log = JSON.parse(readFileSync13(file, "utf8"));
+  const file = join14(consortDir, "smells.json");
+  if (!existsSync14(file)) return false;
+  const log = JSON.parse(readFileSync14(file, "utf8"));
   const entry = log.detected.find((d) => !d.resolution && smellMatches(d, smell, opts.story_id));
   if (!entry) return false;
   entry.resolution = opts.note ?? `${opts.kind} by PO`;
   entry.resolution_kind = opts.kind;
-  writeFileSync9(file, JSON.stringify(log, null, 2) + "\n");
+  writeFileSync10(file, JSON.stringify(log, null, 2) + "\n");
   return true;
 }
 var REFLECT_SMELL_NAMES = /* @__PURE__ */ new Set([
@@ -8592,17 +8712,17 @@ function isReflectSmell(name) {
 }
 function storyTestListFingerprint(consortDir, featureId, story_id) {
   const f = storyTestListJson(consortDir, featureId, story_id);
-  if (!existsSync13(f)) return "";
+  if (!existsSync14(f)) return "";
   try {
-    return createHash2("sha1").update(readFileSync13(f)).digest("hex");
+    return createHash2("sha1").update(readFileSync14(f)).digest("hex");
   } catch {
     return "";
   }
 }
 function resolveOpenReflectSmellsForStory(consortDir, story_id, note, artifactSha) {
-  const file = join12(consortDir, "smells.json");
-  if (!existsSync13(file)) return 0;
-  const log = JSON.parse(readFileSync13(file, "utf8"));
+  const file = join14(consortDir, "smells.json");
+  if (!existsSync14(file)) return 0;
+  const log = JSON.parse(readFileSync14(file, "utf8"));
   let n = 0;
   for (const d of log.detected) {
     if (!d.resolution && isReflectSmell(d.smell) && d.story_id === story_id) {
@@ -8612,34 +8732,34 @@ function resolveOpenReflectSmellsForStory(consortDir, story_id, note, artifactSh
       n++;
     }
   }
-  if (n) writeFileSync9(file, JSON.stringify(log, null, 2) + "\n");
+  if (n) writeFileSync10(file, JSON.stringify(log, null, 2) + "\n");
   return n;
 }
 
 // consort/smells/reflection.ts
 init_esm_shims();
-import { existsSync as existsSync14, readFileSync as readFileSync14, writeFileSync as writeFileSync10, mkdirSync as mkdirSync8, rmSync as rmSync2 } from "fs";
+import { existsSync as existsSync15, readFileSync as readFileSync15, writeFileSync as writeFileSync11, mkdirSync as mkdirSync9, rmSync as rmSync2 } from "fs";
 var SMELL_FOR_OWNER = {
   "spec-author": "reflect-spec-defect",
   "test-strategist": "reflect-testlist-defect"
 };
 function clearReflectVerdict(consortDir, feature, story) {
   const p = reflectVerdictJson(consortDir, feature, story);
-  if (existsSync14(p)) rmSync2(p, { force: true });
+  if (existsSync15(p)) rmSync2(p, { force: true });
 }
 var REFLECT_SMELLS = Object.values(SMELL_FOR_OWNER);
 
 // consort/pipeline/cycle-record.ts
 init_esm_shims();
-import { existsSync as existsSync23, readFileSync as readFileSync24, readdirSync as readdirSync15, statSync as statSync9, writeFileSync as writeFileSync16, mkdirSync as mkdirSync14, rmSync as rmSync7, copyFileSync } from "fs";
-import { join as join21, dirname as dirname9, basename as basename3 } from "path";
+import { existsSync as existsSync24, readFileSync as readFileSync25, readdirSync as readdirSync15, statSync as statSync9, writeFileSync as writeFileSync17, mkdirSync as mkdirSync15, rmSync as rmSync7, copyFileSync } from "fs";
+import { join as join23, dirname as dirname12, basename as basename3 } from "path";
 
 // consort/deploy/deploy.ts
 init_esm_shims();
 import { execSync, spawn } from "child_process";
 import { randomBytes } from "crypto";
-import { existsSync as existsSync17, mkdirSync as mkdirSync11, readFileSync as readFileSync18, rmSync as rmSync4, writeFileSync as writeFileSync13 } from "fs";
-import { dirname as dirname7, join as join15 } from "path";
+import { existsSync as existsSync18, mkdirSync as mkdirSync12, readFileSync as readFileSync19, rmSync as rmSync4, writeFileSync as writeFileSync14 } from "fs";
+import { dirname as dirname10, join as join17 } from "path";
 import { readTargets } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 import { pollUntil } from "@databricks-solutions/lakebase-scm-utils/util";
 
@@ -8654,8 +8774,8 @@ import * as path2 from "path";
 
 // consort/architecture/e2e-regex-clean.ts
 init_esm_shims();
-import { readdirSync as readdirSync10, readFileSync as readFileSync17, statSync as statSync6 } from "fs";
-import { join as join14 } from "path";
+import { readdirSync as readdirSync10, readFileSync as readFileSync18, statSync as statSync6 } from "fs";
+import { join as join16 } from "path";
 
 // consort/smells/ephemeral-verify.ts
 init_esm_shims();
@@ -8666,18 +8786,18 @@ import { getConnection as getConnection2, waitForBranchAuthReady } from "@databr
 
 // consort/architecture/design-adherence.ts
 init_esm_shims();
-import { existsSync as existsSync18, readFileSync as readFileSync19, readdirSync as readdirSync12 } from "fs";
-import { join as join16 } from "path";
+import { existsSync as existsSync19, readFileSync as readFileSync20, readdirSync as readdirSync12 } from "fs";
+import { join as join18 } from "path";
 
 // consort/smells/supersession.ts
 init_esm_shims();
 import * as fs4 from "fs";
-import { join as join17 } from "path";
+import { join as join19 } from "path";
 
 // consort/architecture/contract-clean.ts
 init_esm_shims();
-import { existsSync as existsSync20, readFileSync as readFileSync21, readdirSync as readdirSync13, statSync as statSync7 } from "fs";
-import { join as join18, relative, extname } from "path";
+import { existsSync as existsSync21, readFileSync as readFileSync22, readdirSync as readdirSync13, statSync as statSync7 } from "fs";
+import { join as join20, relative, extname } from "path";
 var ARTIFACT_ROOTS_RE = artifactRootsRegexAlternation();
 var EXCLUDE_DIR = new RegExp(
   `(^|/)(node_modules|\\.git|\\.venv|venv|__pycache__|${ARTIFACT_ROOTS_RE}|\\.lakebase|dist|build|tests?|alembic|migrations)(/|$)`
@@ -8693,31 +8813,31 @@ import * as path3 from "path";
 
 // consort/architecture/migration-app-clean.ts
 init_esm_shims();
-import { existsSync as existsSync22, readFileSync as readFileSync23, readdirSync as readdirSync14, statSync as statSync8 } from "fs";
-import { join as join20, relative as relative2, extname as extname2 } from "path";
+import { existsSync as existsSync23, readFileSync as readFileSync24, readdirSync as readdirSync14, statSync as statSync8 } from "fs";
+import { join as join22, relative as relative2, extname as extname2 } from "path";
 
 // consort/pipeline/cycle-record.ts
 import { commitAllIfChanged } from "@databricks-solutions/lakebase-scm-utils/git";
 import { assertCommitTargetNotProtected, ProtectedBranchCommitError } from "@databricks-solutions/lakebase-scm-utils/lakebase";
 function resetStoryBuildState(consortDir, featureId, story) {
-  const cyclesDir = join21(cyclesRootDir(consortDir), featureId, story);
+  const cyclesDir = join23(cyclesRootDir(consortDir), featureId, story);
   let cyclesCleared = false;
-  if (existsSync23(cyclesDir)) {
+  if (existsSync24(cyclesDir)) {
     rmSync7(cyclesDir, { recursive: true, force: true });
     cyclesCleared = true;
   }
   let testItemsReset = 0;
   const tlPath = storyTestListJson(consortDir, featureId, story);
-  if (existsSync23(tlPath)) {
+  if (existsSync24(tlPath)) {
     try {
-      const tl = JSON.parse(readFileSync24(tlPath, "utf8"));
+      const tl = JSON.parse(readFileSync25(tlPath, "utf8"));
       for (const item of tl.items ?? []) {
         if (item.status && item.status !== "pending") {
           item.status = "pending";
           testItemsReset++;
         }
       }
-      writeFileSync16(tlPath, JSON.stringify(tl, null, 2) + "\n");
+      writeFileSync17(tlPath, JSON.stringify(tl, null, 2) + "\n");
     } catch {
     }
   }
@@ -8730,23 +8850,23 @@ function staleStoryArtifactsForRevise(consortDir, featureId, story, gate) {
   clearReflectVerdict(consortDir, featureId, story);
   const acIds = new Set(storyAcIds(consortDir, featureId, story));
   const master = featureTestListJson(consortDir, featureId);
-  if (existsSync24(master)) {
+  if (existsSync25(master)) {
     try {
-      const data = JSON.parse(readFileSync25(master, "utf8"));
+      const data = JSON.parse(readFileSync26(master, "utf8"));
       if (Array.isArray(data.items)) {
         data.items = data.items.filter((it) => !it.ac_id || !acIds.has(it.ac_id));
-        writeFileSync17(master, JSON.stringify(data, null, 2) + "\n");
+        writeFileSync18(master, JSON.stringify(data, null, 2) + "\n");
       }
     } catch {
     }
   }
   const perStory = storyTestListJson(consortDir, featureId, story);
-  if (existsSync24(perStory)) rmSync8(perStory, { force: true });
+  if (existsSync25(perStory)) rmSync8(perStory, { force: true });
   if (gate === "spec") {
     const dir = acsDir(consortDir, featureId, story);
-    if (existsSync24(dir)) {
+    if (existsSync25(dir)) {
       for (const f of readdirSync16(dir)) {
-        if (f.endsWith(".json") || f.endsWith(".md")) rmSync8(join22(dir, f), { force: true });
+        if (f.endsWith(".json") || f.endsWith(".md")) rmSync8(join24(dir, f), { force: true });
       }
     }
   } else if (gate === "architecture") {
@@ -8755,15 +8875,15 @@ function staleStoryArtifactsForRevise(consortDir, featureId, story, gate) {
 }
 function clearArchitecturalNotes(consortDir, featureId, story) {
   const dir = acsDir(consortDir, featureId, story);
-  if (!existsSync24(dir)) return;
+  if (!existsSync25(dir)) return;
   for (const f of readdirSync16(dir)) {
     if (!f.endsWith(".json")) continue;
-    const p = join22(dir, f);
+    const p = join24(dir, f);
     try {
-      const ac = JSON.parse(readFileSync25(p, "utf8"));
+      const ac = JSON.parse(readFileSync26(p, "utf8"));
       if ("architectural_notes" in ac) {
         delete ac.architectural_notes;
-        writeFileSync17(p, JSON.stringify(ac, null, 2) + "\n");
+        writeFileSync18(p, JSON.stringify(ac, null, 2) + "\n");
       }
     } catch {
     }
@@ -8802,8 +8922,8 @@ function applyReviseSelfHeal(args) {
   staleStoryArtifactsForRevise(consortDir, args.featureId, args.story, args.gate);
   try {
     const hb = handbackFile(consortDir, args.featureId, args.routedTo, args.story);
-    mkdirSync15(dirname10(hb), { recursive: true });
-    writeFileSync17(hb, composeReviseBrief({ smell: args.smell, gate: args.gate, reason: args.reason }));
+    mkdirSync16(dirname13(hb), { recursive: true });
+    writeFileSync18(hb, composeReviseBrief({ smell: args.smell, gate: args.gate, reason: args.reason }));
   } catch {
   }
   const reflect = isReflectSmell(args.smell);
@@ -8813,9 +8933,9 @@ function applyReviseSelfHeal(args) {
       if (role === args.routedTo) continue;
       try {
         const hb = handbackFile(consortDir, args.featureId, role, args.story);
-        mkdirSync15(dirname10(hb), { recursive: true });
+        mkdirSync16(dirname13(hb), { recursive: true });
         const gate = role === "architect-reviewer" ? "architecture" : "test_list";
-        writeFileSync17(hb, composeReviseBrief({ smell: args.smell, gate, reason: args.reason }));
+        writeFileSync18(hb, composeReviseBrief({ smell: args.smell, gate, reason: args.reason }));
       } catch {
       }
     }
@@ -8835,7 +8955,7 @@ function applyReviseSelfHeal(args) {
 
 // consort/gates/sprint-gates.ts
 init_esm_shims();
-import { existsSync as existsSync25, mkdirSync as mkdirSync16, readFileSync as readFileSync26, renameSync as renameSync2, unlinkSync as unlinkSync3, writeFileSync as writeFileSync18 } from "fs";
+import { existsSync as existsSync26, mkdirSync as mkdirSync17, readFileSync as readFileSync27, renameSync as renameSync2, unlinkSync as unlinkSync3, writeFileSync as writeFileSync19 } from "fs";
 var SPRINT_GATES_SCHEMA_VERSION = 1;
 var PLAN_GATE_ARTIFACT = "feature-proposals.md";
 function defaultSprintGatesState(sprint) {
@@ -8851,10 +8971,10 @@ function sprintGatesFile(consortDir, sprint) {
 function readSprintGates(sprint, opts = {}) {
   const consortDir = opts.consortDir ?? resolveConsortDir();
   const file = sprintGatesFile(consortDir, sprint);
-  if (!existsSync25(file)) return defaultSprintGatesState(sprint);
+  if (!existsSync26(file)) return defaultSprintGatesState(sprint);
   let parsed;
   try {
-    parsed = JSON.parse(readFileSync26(file, "utf8"));
+    parsed = JSON.parse(readFileSync27(file, "utf8"));
   } catch (err) {
     const cause = err instanceof Error ? err.message : String(err);
     throw new Error(`sprint gates.json at ${file} is not valid JSON: ${cause}`);
@@ -8868,10 +8988,10 @@ function readSprintGates(sprint, opts = {}) {
 }
 function writeSprintGates(state, opts = {}) {
   const consortDir = opts.consortDir ?? resolveConsortDir();
-  mkdirSync16(sprintDir(consortDir, state.sprint), { recursive: true });
+  mkdirSync17(sprintDir(consortDir, state.sprint), { recursive: true });
   const file = sprintGatesJson(consortDir, state.sprint);
   const tmp = `${file}.tmp.${process.pid}.${Date.now()}`;
-  writeFileSync18(tmp, JSON.stringify(state, null, 2) + "\n", "utf8");
+  writeFileSync19(tmp, JSON.stringify(state, null, 2) + "\n", "utf8");
   try {
     renameSync2(tmp, file);
   } catch (err) {
@@ -8887,10 +9007,10 @@ function approveSprintPlanGate(args) {
   if (args.approver.length === 0) return { ok: false, reason: "approver must not be empty" };
   const consortDir = args.consortDir ?? resolveConsortDir();
   const file = featureProposalsMd(consortDir);
-  if (!existsSync25(file)) {
+  if (!existsSync26(file)) {
     return { ok: false, reason: `${PLAN_GATE_ARTIFACT} not found (no sprint plan to review)` };
   }
-  const content = readFileSync26(file, "utf8");
+  const content = readFileSync27(file, "utf8");
   const conf = checkArtifactConformance(PLAN_GATE_ARTIFACT, content);
   if (!conf.ok) {
     return { ok: false, reason: `${PLAN_GATE_ARTIFACT} not conformant: ${(conf.violations ?? []).join("; ")}` };

@@ -6,6 +6,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.54] - 2026-08-28
+
+### Fixed
+
+- **The spec gate now hard-blocks a client-facing feature designed as all-backend (`checkE2eLayerPresent`).** `checkE2ECoverage` (v0.3.48) only bites once an AC is tagged `layer:"E2E"`, so a design lane that mis-classifies every client-facing AC as `API`/`Infra` produces a feature with ZERO E2E ACs that satisfies the coverage guard vacuously , exactly how the actor-less pick form shipped, and it recurred even after the story premise was rewritten to "the operator submits the form in the browser" (the Spec Author flattened it into a backend "the pick is saved" API AC). The new `checkE2eLayerPresent` cross-checks TWO client-facing signals against the AC-layer evidence and requires ≥1 `layer:"E2E"` AC: (1) the architect's own `boundary.renders_via` declaration, AND (2) the architect-INDEPENDENT project signal , a React UI-track project (`consort-config.json`) with an `API`-layer AC. Signal 2 matters because the same mis-classification that drops the E2E tags can also drop `renders_via`, so keying only on the architect's declaration lets the failure dodge the net. It mirrors `checkServiceBackedDeclaration` (structure cross-checked against evidence, not overridable prose) and defers until every declared story is designed (the streaming design lane). Feature-wide by design (no sound purely-mechanical per-story "client-facing" signal exists , the E2E tag IS that signal): it catches the systematic "whole UI feature as backend" case with no false positives. Test: `consort-e2e-layer-presence.test.ts` (11).
+- **Design-lane instruction hardening for the same defect class.** `architect-reviewer.md`: the E2E-classification rule now names the exact trap , an outcome phrased "record WHO performed the action", entered on a form with no auth, IS a client form submission (`layer:"E2E"`), not a backend/authenticated-identity concern; and `## Out of bounds` NFR items are a HARD NEGATIVE constraint (no AC/architecture may REQUIRE an excluded capability , "no authentication for V1" means the actor is a form field, never a derived authenticated identity). `spec-author.md`: same `## Out of bounds` discipline , never flatten a browser-round-trip premise into a backend AC.
+
+### Changed
+
+- **Docs true-up (no behavior change):** `scm-workflow-state.md` prepare-pr guard now lists the current `RUNTIME_ARTIFACT_IGNORE` set (`.consort/` + `.sftdd/` + `.tdd/` + `.lakebase/` + `.claude/agent-memory/`, was the stale `.sftdd/` + `.lakebase/`); `workflow-state-machine.md` reflects the E2E-coverage/E2E-presence gate teeth (test_list + spec) and that a UI deploy-verify runs the client Playwright E2E; `reopen-story` CLI `-h` text now matches the full accepted-story reset (v0.3.53).
+
 ## [0.3.53] - 2026-08-27
 
 ### Fixed

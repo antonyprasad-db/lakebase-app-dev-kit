@@ -6835,12 +6835,40 @@ init_cjs_shims();
 // consort/pipeline/story-pipeline.ts
 init_cjs_shims();
 var import_fs3 = require("fs");
-var import_path3 = require("path");
+var import_path5 = require("path");
 
 // consort/gates/gate-conformance-guard.ts
 init_cjs_shims();
 var import_node_fs = require("fs");
 var import_node_path2 = require("path");
+
+// consort/config/consort-config-file.ts
+init_cjs_shims();
+var import_path3 = require("path");
+
+// consort/config/agent-models.ts
+init_cjs_shims();
+var import_path2 = require("path");
+var RECOMMENDED_MODELS = {
+  "spec-author": "opus",
+  "architect-reviewer": "opus",
+  dba: "opus",
+  "test-strategist": "sonnet",
+  "ux-designer": "sonnet",
+  navigator: "sonnet",
+  driver: "sonnet",
+  "product-owner": "opus"
+};
+var ALL_AGENT_ROLES = Object.keys(RECOMMENDED_MODELS);
+var AGENT_CONFIG_REL = (0, import_path2.join)(".lakebase", "agent-config.json");
+
+// consort/config/consort-config-file.ts
+var CONSORT_CONFIG_REL = (0, import_path3.join)(".lakebase", "consort-config.json");
+var LEGACY_CONFIG_RELS = [
+  (0, import_path3.join)(".lakebase", "sftdd-config.json"),
+  (0, import_path3.join)(".lakebase", "tdd-config.json")
+];
+var LEGACY_TDD_CONFIG_REL = LEGACY_CONFIG_RELS[0];
 
 // consort/orchestrator/validators/conformance/artifact-conformance.ts
 init_cjs_shims();
@@ -6848,16 +6876,16 @@ init_cjs_shims();
 // consort/orchestrator/validators/schema-loader.ts
 init_cjs_shims();
 var import_fs2 = require("fs");
-var import_path2 = require("path");
+var import_path4 = require("path");
 var import_ajv = __toESM(require_ajv(), 1);
 function resolveSchemaDir() {
-  const direct = (0, import_path2.join)(__dirname, "..", "..", "config", "schemas");
+  const direct = (0, import_path4.join)(__dirname, "..", "..", "config", "schemas");
   if ((0, import_fs2.existsSync)(direct)) return direct;
   let dir = __dirname;
   for (let i = 0; i < 8; i++) {
-    const cand = (0, import_path2.join)(dir, "consort", "config", "schemas");
+    const cand = (0, import_path4.join)(dir, "consort", "config", "schemas");
     if ((0, import_fs2.existsSync)(cand)) return cand;
-    const parent = (0, import_path2.join)(dir, "..");
+    const parent = (0, import_path4.join)(dir, "..");
     if (parent === dir) break;
     dir = parent;
   }
@@ -6868,7 +6896,7 @@ var ajv = new import_ajv.default({ allErrors: true, strict: false });
 ajv.addFormat("date-time", true);
 var validatorCache = /* @__PURE__ */ new Map();
 function loadSchema(name) {
-  return JSON.parse((0, import_fs2.readFileSync)((0, import_path2.join)(SCHEMA_DIR, name), "utf8"));
+  return JSON.parse((0, import_fs2.readFileSync)((0, import_path4.join)(SCHEMA_DIR, name), "utf8"));
 }
 function getValidator(name) {
   const cached = validatorCache.get(name);
@@ -6906,7 +6934,7 @@ function readPipeline(consortDir, featureId) {
 }
 function writePipeline(consortDir, pipeline) {
   const p = pipelinePath(consortDir, pipeline.feature_id);
-  (0, import_fs3.mkdirSync)((0, import_path3.dirname)(p), { recursive: true });
+  (0, import_fs3.mkdirSync)((0, import_path5.dirname)(p), { recursive: true });
   (0, import_fs3.writeFileSync)(p, JSON.stringify(pipeline, null, 2) + "\n");
 }
 function setStoryStatus(pipeline, storyId, status) {
@@ -7032,7 +7060,7 @@ function warnLegacyEnv(legacyName, suffix) {
 }
 
 // consort/pipeline/cycle-record.ts
-var import_path5 = require("path");
+var import_path7 = require("path");
 
 // consort/deploy/deploy.ts
 init_cjs_shims();
@@ -7057,7 +7085,7 @@ var import_lakebase2 = require("@databricks-solutions/lakebase-scm-utils/lakebas
 // consort/logging/agent-log.ts
 init_cjs_shims();
 var import_fs4 = require("fs");
-var import_path4 = require("path");
+var import_path6 = require("path");
 
 // consort/logging/agent-log-events.ts
 init_cjs_shims();
@@ -7134,14 +7162,14 @@ function renderEventMessage(event, slots = {}) {
 
 // consort/logging/agent-log.ts
 function logFilePath(consortDir) {
-  return (0, import_path4.join)(consortDir, "agent-log.jsonl");
+  return (0, import_path6.join)(consortDir, "agent-log.jsonl");
 }
 function mirrorToRecordDir(text) {
   const recordDir = consortEnv("RECORD_DIR")?.trim();
   if (!recordDir) return;
   try {
-    const dst = (0, import_path4.join)(recordDir, "agent-log.jsonl");
-    (0, import_fs4.mkdirSync)((0, import_path4.dirname)(dst), { recursive: true });
+    const dst = (0, import_path6.join)(recordDir, "agent-log.jsonl");
+    (0, import_fs4.mkdirSync)((0, import_path6.dirname)(dst), { recursive: true });
     (0, import_fs4.appendFileSync)(dst, text, "utf8");
   } catch {
   }
@@ -7266,7 +7294,7 @@ async function commitExperimentCode(projectDir, message) {
   });
 }
 function resetStoryBuildState(consortDir, featureId, story) {
-  const cyclesDir = (0, import_path5.join)(cyclesRootDir(consortDir), featureId, story);
+  const cyclesDir = (0, import_path7.join)(cyclesRootDir(consortDir), featureId, story);
   let cyclesCleared = false;
   if ((0, import_fs5.existsSync)(cyclesDir)) {
     (0, import_fs5.rmSync)(cyclesDir, { recursive: true, force: true });

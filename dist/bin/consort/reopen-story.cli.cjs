@@ -6702,12 +6702,40 @@ var import_node_path3 = require("path");
 // consort/pipeline/story-pipeline.ts
 init_cjs_shims();
 var import_fs2 = require("fs");
-var import_path2 = require("path");
+var import_path4 = require("path");
 
 // consort/gates/gate-conformance-guard.ts
 init_cjs_shims();
 var import_node_fs = require("fs");
 var import_node_path2 = require("path");
+
+// consort/config/consort-config-file.ts
+init_cjs_shims();
+var import_path2 = require("path");
+
+// consort/config/agent-models.ts
+init_cjs_shims();
+var import_path = require("path");
+var RECOMMENDED_MODELS = {
+  "spec-author": "opus",
+  "architect-reviewer": "opus",
+  dba: "opus",
+  "test-strategist": "sonnet",
+  "ux-designer": "sonnet",
+  navigator: "sonnet",
+  driver: "sonnet",
+  "product-owner": "opus"
+};
+var ALL_AGENT_ROLES = Object.keys(RECOMMENDED_MODELS);
+var AGENT_CONFIG_REL = (0, import_path.join)(".lakebase", "agent-config.json");
+
+// consort/config/consort-config-file.ts
+var CONSORT_CONFIG_REL = (0, import_path2.join)(".lakebase", "consort-config.json");
+var LEGACY_CONFIG_RELS = [
+  (0, import_path2.join)(".lakebase", "sftdd-config.json"),
+  (0, import_path2.join)(".lakebase", "tdd-config.json")
+];
+var LEGACY_TDD_CONFIG_REL = LEGACY_CONFIG_RELS[0];
 
 // consort/orchestrator/validators/conformance/artifact-conformance.ts
 init_cjs_shims();
@@ -6715,16 +6743,16 @@ init_cjs_shims();
 // consort/orchestrator/validators/schema-loader.ts
 init_cjs_shims();
 var import_fs = require("fs");
-var import_path = require("path");
+var import_path3 = require("path");
 var import_ajv = __toESM(require_ajv(), 1);
 function resolveSchemaDir() {
-  const direct = (0, import_path.join)(__dirname, "..", "..", "config", "schemas");
+  const direct = (0, import_path3.join)(__dirname, "..", "..", "config", "schemas");
   if ((0, import_fs.existsSync)(direct)) return direct;
   let dir = __dirname;
   for (let i = 0; i < 8; i++) {
-    const cand = (0, import_path.join)(dir, "consort", "config", "schemas");
+    const cand = (0, import_path3.join)(dir, "consort", "config", "schemas");
     if ((0, import_fs.existsSync)(cand)) return cand;
-    const parent = (0, import_path.join)(dir, "..");
+    const parent = (0, import_path3.join)(dir, "..");
     if (parent === dir) break;
     dir = parent;
   }
@@ -6754,7 +6782,7 @@ function readPipeline(consortDir, featureId) {
 }
 function writePipeline(consortDir, pipeline) {
   const p = pipelinePath(consortDir, pipeline.feature_id);
-  (0, import_fs2.mkdirSync)((0, import_path2.dirname)(p), { recursive: true });
+  (0, import_fs2.mkdirSync)((0, import_path4.dirname)(p), { recursive: true });
   (0, import_fs2.writeFileSync)(p, JSON.stringify(pipeline, null, 2) + "\n");
 }
 
@@ -6862,14 +6890,7 @@ function parseArgs(argv) {
       case "-h":
       case "--help":
         process.stdout.write(
-          `consort-reopen-story , clear a story's design artifacts (backed up) so the drive re-authors it.
-
-  consort-reopen-story --feature <F> --story <S> [--reason "<why>"]
-
-Clears acs/, test-list-per-story.json, reflect-verdict.json, plan.json and empties story.json acs[]
-so hasAcs=false and the Spec Author is re-dispatched. Backs everything up first. Does NOT touch the
-gate or the experiment branch , it prints the full recovery sequence for those.
-`
+          'consort-reopen-story , send a story back to the design lane for a genuine re-author (backed up).\n\n  consort-reopen-story --feature <F> --story <S> [--reason "<why>"]\n\nClears acs/, test-list-per-story.json, reflect-verdict.json, plan.json and empties story.json acs[]\n(so hasAcs=false and the Spec Author is re-dispatched), AND resets the pipeline entry to designing\n(dropping the spec gate, experiment record, and acceptance), clears the feature deploy-evidence, and\nclears the coarse phase , so a DONE + merged + ACCEPTED story reopens in one command. Backs everything\nup first. It CANNOT clear a live git/Lakebase experiment branch , it prints that as the one step left.\n'
         );
         process.exit(0);
     }

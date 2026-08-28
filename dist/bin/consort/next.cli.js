@@ -7697,7 +7697,7 @@ function resolveConsortSettings(inputs) {
 // consort/orchestrator/drive/orchestrator-effects.ts
 init_esm_shims();
 import * as fs17 from "fs";
-import { dirname as dirname20, join as join38 } from "path";
+import { dirname as dirname21, join as join38 } from "path";
 
 // consort/orchestrator/drive/orchestrator-drive.ts
 init_esm_shims();
@@ -9686,7 +9686,7 @@ import { existsSync as existsSync38, readFileSync as readFileSync35, writeFileSy
 // consort/gates/gate-conformance-guard.ts
 init_esm_shims();
 import { existsSync as existsSync37, readFileSync as readFileSync34, readdirSync as readdirSync23, statSync as statSync14 } from "fs";
-import { join as join36 } from "path";
+import { join as join36, dirname as dirname19 } from "path";
 
 // consort/architecture/architecture-conventions.ts
 init_esm_shims();
@@ -9726,7 +9726,7 @@ function designGuideConformance(consortDir) {
 init_esm_shims();
 import { execSync as execSync2 } from "child_process";
 import * as fs16 from "fs";
-import { dirname as dirname19, join as join37 } from "path";
+import { dirname as dirname20, join as join37 } from "path";
 
 // consort/orchestrator/build/preconditions.ts
 init_esm_shims();

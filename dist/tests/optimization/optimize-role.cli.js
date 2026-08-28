@@ -6651,7 +6651,7 @@ init_esm_shims();
 import { isCliEntry } from "@databricks-solutions/lakebase-scm-utils/util";
 import { mkdirSync as mkdirSync38, writeFileSync as writeFileSync34, readFileSync as readFileSync55, existsSync as existsSync60, readdirSync as readdirSync36, mkdtempSync as mkdtempSync3, rmSync as rmSync19 } from "fs";
 import { tmpdir as tmpdir3 } from "os";
-import { join as join62, dirname as dirname28, relative as relative9 } from "path";
+import { join as join62, dirname as dirname29, relative as relative9 } from "path";
 
 // consort/optimize/role-chains.ts
 init_esm_shims();
@@ -16579,7 +16579,7 @@ function featureOf(state) {
 // consort/orchestrator/drive/orchestrator-effects.ts
 init_esm_shims();
 import * as fs17 from "fs";
-import { dirname as dirname27, join as join57 } from "path";
+import { dirname as dirname28, join as join57 } from "path";
 
 // consort/orchestrator/drive/executor-dispatch.ts
 init_esm_shims();
@@ -17297,12 +17297,12 @@ function assertRouteSatisfiable(action, step, ctx, exists = existsSync51) {
 // consort/pipeline/story-pipeline.ts
 init_esm_shims();
 import { existsSync as existsSync53, readFileSync as readFileSync47, writeFileSync as writeFileSync30, mkdirSync as mkdirSync34, readdirSync as readdirSync31, statSync as statSync20, rmSync as rmSync16 } from "fs";
-import { dirname as dirname26, join as join56 } from "path";
+import { dirname as dirname27, join as join56 } from "path";
 
 // consort/gates/gate-conformance-guard.ts
 init_esm_shims();
 import { existsSync as existsSync52, readFileSync as readFileSync46, readdirSync as readdirSync30, statSync as statSync19 } from "fs";
-import { join as join55 } from "path";
+import { join as join55, dirname as dirname26 } from "path";
 
 // consort/pipeline/story-pipeline.ts
 function initPipeline(featureId) {
@@ -17318,7 +17318,7 @@ function readPipeline(consortDir, featureId) {
 }
 function writePipeline(consortDir, pipeline) {
   const p = pipelinePath(consortDir, pipeline.feature_id);
-  mkdirSync34(dirname26(p), { recursive: true });
+  mkdirSync34(dirname27(p), { recursive: true });
   writeFileSync30(p, JSON.stringify(pipeline, null, 2) + "\n");
 }
 
@@ -18144,7 +18144,7 @@ function buildDriveEffects(cfg) {
     onHandback(handoff, detail) {
       const file = handbackFile(cfg.consortDir, cfg.featureId, handoff.responder, handoff.story);
       try {
-        fs17.mkdirSync(dirname27(file), { recursive: true });
+        fs17.mkdirSync(dirname28(file), { recursive: true });
         fs17.writeFileSync(file, `${detail}
 `, "utf8");
       } catch {
@@ -19887,7 +19887,7 @@ function persistTrial(runDir, chain, baseModel, trial) {
   if (trial.telemetry) writeFileSync34(join62(dir, "telemetry.json"), JSON.stringify(trial.telemetry, null, 2) + "\n");
   for (const [rel, contents] of Object.entries(trial.producedArtifacts ?? {})) {
     const dest = join62(dir, "artifacts", rel);
-    mkdirSync38(dirname28(dest), { recursive: true });
+    mkdirSync38(dirname29(dest), { recursive: true });
     writeFileSync34(dest, contents);
   }
   const navigatorEvalFiles = Object.keys(trial.producedArtifacts ?? {}).filter((k) => k.startsWith("navigator-eval/")).map((k) => k.slice("navigator-eval/".length));

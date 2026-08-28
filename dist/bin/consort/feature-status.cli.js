@@ -6652,7 +6652,7 @@ init_esm_shims();
 // consort/orchestrator/status/feature-status.ts
 init_esm_shims();
 import { existsSync as existsSync21, readFileSync as readFileSync22, readdirSync as readdirSync14, statSync as statSync10 } from "fs";
-import { dirname as dirname7, join as join18 } from "path";
+import { dirname as dirname8, join as join18 } from "path";
 
 // consort/orchestrator/state/orchestrator-probe.ts
 init_esm_shims();
@@ -7253,7 +7253,7 @@ import { existsSync as existsSync20, readFileSync as readFileSync21, writeFileSy
 // consort/gates/gate-conformance-guard.ts
 init_esm_shims();
 import { existsSync as existsSync19, readFileSync as readFileSync20, readdirSync as readdirSync12, statSync as statSync8 } from "fs";
-import { join as join17 } from "path";
+import { join as join17, dirname as dirname7 } from "path";
 
 // consort/architecture/architecture-conventions.ts
 init_esm_shims();
@@ -7387,7 +7387,7 @@ function readProgression(consortDir, featureId, projectDir) {
     return null;
   }
 }
-function getFeatureStatus(consortDir, featureId, projectDir = dirname7(consortDir)) {
+function getFeatureStatus(consortDir, featureId, projectDir = dirname8(consortDir)) {
   const plans = [];
   for (const storyId of listFeatureStories(consortDir, featureId)) {
     const p = readPlan(consortDir, featureId, storyId);

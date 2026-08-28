@@ -7057,6 +7057,29 @@ function checkServiceBackedDeclaration(architectureJson2, evidence) {
     ]
   };
 }
+function checkE2eLayerPresent(architectureJson2, evidence) {
+  let parsed;
+  try {
+    parsed = JSON.parse(architectureJson2);
+  } catch (err) {
+    return { ok: false, violations: [`architecture.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`] };
+  }
+  const acLayers = evidence.acLayers ?? [];
+  const declaresRenderingBoundary = (parsed.layers ?? []).some(
+    (l) => l.role === "boundary" && typeof l.renders_via === "string" && l.renders_via.length > 0
+  );
+  const reactFeatureWithApi = evidence.uiReact === true && acLayers.includes("API");
+  const clientFacing = declaresRenderingBoundary || reactFeatureWithApi;
+  if (!clientFacing) return { ok: true };
+  if (acLayers.includes("E2E")) return { ok: true };
+  const why = declaresRenderingBoundary ? `declares a UI-rendering boundary (renders_via)` : `is a React UI-track project exposing an API-layer AC (an endpoint the client consumes)`;
+  return {
+    ok: false,
+    violations: [
+      `the feature ${why} but NO acceptance criterion is tagged layer:"E2E"; a feature that renders a UI has at least one client<->server contract (a form submit, an inline validation rejection, a success/empty state) whose ONLY real verification is a Playwright e2e against the live API , tag that AC layer:"E2E" (a mocked component test stubs the response envelope, so a fabricated shape passes green while the real wire contract drifts). NOTE: an outcome phrased as "record WHO performed the action" or "the pick is saved", when the operator enters their name on a form with no auth, IS a client form submission (layer:"E2E") , do not flatten it into a backend "API" AC. If the endpoint is genuinely not consumed by any client, reconsider , that is unusual for a UI-track feature.`
+    ]
+  };
+}
 function checkLayeringDeclared(architectureJson2) {
   let parsed;
   try {
@@ -7906,19 +7929,79 @@ init_cjs_shims();
 var import_node_fs2 = require("fs");
 var import_node_path2 = require("path");
 
-// consort/test-list/test-list.ts
+// consort/config/consort-config-file.ts
 init_cjs_shims();
 var import_fs7 = require("fs");
+var import_path8 = require("path");
+
+// consort/config/agent-models.ts
+init_cjs_shims();
 var import_path7 = require("path");
+var RECOMMENDED_MODELS = {
+  "spec-author": "opus",
+  "architect-reviewer": "opus",
+  dba: "opus",
+  "test-strategist": "sonnet",
+  "ux-designer": "sonnet",
+  navigator: "sonnet",
+  driver: "sonnet",
+  "product-owner": "opus"
+};
+var ALL_AGENT_ROLES = Object.keys(RECOMMENDED_MODELS);
+var AGENT_CONFIG_REL = (0, import_path7.join)(".lakebase", "agent-config.json");
+
+// consort/config/consort-config-file.ts
+var CONSORT_CONFIG_REL = (0, import_path8.join)(".lakebase", "consort-config.json");
+var LEGACY_CONFIG_RELS = [
+  (0, import_path8.join)(".lakebase", "sftdd-config.json"),
+  (0, import_path8.join)(".lakebase", "tdd-config.json")
+];
+var LEGACY_TDD_CONFIG_REL = LEGACY_CONFIG_RELS[0];
+function loadConsortConfig(projectDir) {
+  for (const rel of [CONSORT_CONFIG_REL, ...LEGACY_CONFIG_RELS]) {
+    const f = (0, import_path8.join)(projectDir, rel);
+    if (!(0, import_fs7.existsSync)(f)) continue;
+    try {
+      return JSON.parse((0, import_fs7.readFileSync)(f, "utf8"));
+    } catch {
+      return void 0;
+    }
+  }
+  return void 0;
+}
+function resolveProjectSettings(projectDir) {
+  const file = loadConsortConfig(projectDir);
+  const build = {
+    loopGranularity: file?.build?.loopGranularity ?? "story",
+    batchCap: file?.build?.batchCap,
+    sessionScope: file?.build?.sessionScope ?? "story"
+  };
+  const project = {
+    uiTrack: file?.project?.uiTrack ?? true,
+    // HITL-first: the declared project policy defaults to interactive (a human
+    // approves each gate). Headless (proxy) is a deliberate opt-in, set in the
+    // file or as a RUN-SCOPED --gates override (never persisted by a flag).
+    gates: file?.project?.gates ?? "interactive",
+    deployTarget: file?.project?.deployTarget ?? "local",
+    clientFramework: file?.project?.clientFramework ?? "none"
+  };
+  const plan = { sizing: file?.plan?.sizing ?? true };
+  return { build, plan, project };
+}
+
+// consort/test-list/test-list.ts
+init_cjs_shims();
+var import_fs8 = require("fs");
+var import_path9 = require("path");
 function acIdsInStoryDir(storyDir2) {
-  const dir = (0, import_path7.join)(storyDir2, "acs");
-  if (!(0, import_fs7.existsSync)(dir)) return [];
+  const dir = (0, import_path9.join)(storyDir2, "acs");
+  if (!(0, import_fs8.existsSync)(dir)) return [];
   const out = [];
-  for (const f of (0, import_fs7.readdirSync)(dir)) {
+  for (const f of (0, import_fs8.readdirSync)(dir)) {
     if (!f.endsWith(".json")) continue;
     const base = f.slice(0, -".json".length);
     try {
-      const obj = JSON.parse((0, import_fs7.readFileSync)((0, import_path7.join)(dir, f), "utf8"));
+      const obj = JSON.parse((0, import_fs8.readFileSync)((0, import_path9.join)(dir, f), "utf8"));
       if (obj && typeof obj.id === "string" && obj.id === base) out.push(base);
     } catch {
     }
@@ -7932,15 +8015,15 @@ function acsForStory(tddDir, featureId, storyId) {
 
 // consort/architecture/architecture-conventions.ts
 init_cjs_shims();
-var import_fs8 = require("fs");
+var import_fs9 = require("fs");
 function normModule(m) {
   return m.replace(/\/+$/, "");
 }
 function readConventions(consortDir) {
   const f = architectureConventionsJson(consortDir);
-  if (!(0, import_fs8.existsSync)(f)) return void 0;
+  if (!(0, import_fs9.existsSync)(f)) return void 0;
   try {
-    return JSON.parse((0, import_fs8.readFileSync)(f, "utf8"));
+    return JSON.parse((0, import_fs9.readFileSync)(f, "utf8"));
   } catch {
     return void 0;
   }
@@ -8198,6 +8281,41 @@ function serviceBackedReason(consortDir, featureId) {
   const r = checkServiceBackedDeclaration(arch, { acLayers, nfrsText });
   return r.ok ? null : `service_backed declaration failed: ${r.violations.join("; ")}`;
 }
+function e2eLayerPresentReason(consortDir, featureId) {
+  const arch = readArchitecture(consortDir, featureId);
+  if (arch === void 0) return null;
+  const fdir = featureDir2(consortDir, featureId);
+  let declared;
+  try {
+    declared = JSON.parse((0, import_node_fs2.readFileSync)((0, import_node_path2.join)(fdir, "feature-spec.json"), "utf8")).stories ?? [];
+  } catch {
+    return null;
+  }
+  if (declared.length === 0) return null;
+  const storiesDir2 = (0, import_node_path2.join)(fdir, "stories");
+  const hasAcs = (story) => (0, import_node_fs2.existsSync)((0, import_node_path2.join)(storiesDir2, story, "acs"));
+  if (!declared.every(hasAcs)) return null;
+  const acLayers = [];
+  for (const s of declared) {
+    const ad = (0, import_node_path2.join)(storiesDir2, s, "acs");
+    for (const f of (0, import_node_fs2.readdirSync)(ad)) {
+      if (!f.endsWith(".json")) continue;
+      try {
+        const layer = JSON.parse((0, import_node_fs2.readFileSync)((0, import_node_path2.join)(ad, f), "utf8")).layer;
+        if (typeof layer === "string") acLayers.push(layer);
+      } catch {
+      }
+    }
+  }
+  let uiReact = false;
+  try {
+    const proj = resolveProjectSettings((0, import_node_path2.dirname)(consortDir)).project;
+    uiReact = proj.uiTrack === true && proj.clientFramework === "react";
+  } catch {
+  }
+  const r = checkE2eLayerPresent(arch, { acLayers, uiReact });
+  return r.ok ? null : `E2E-layer presence failed: ${r.violations.join("; ")}`;
+}
 function schemaChangeStoryRealizesReason(consortDir, featureId) {
   const dbFile = dbDesignJson(consortDir, featureId);
   if (!(0, import_node_fs2.existsSync)(dbFile)) return null;
@@ -8266,6 +8384,8 @@ function resolveArtifactInputs(gate, fdir, promoteRef, consortDir, featureId) {
       if (conventionsReason !== null) return { reason: conventionsReason };
       const serviceBacked = serviceBackedReason(consortDir, featureId);
       if (serviceBacked !== null) return { reason: serviceBacked };
+      const e2eLayerReason = e2eLayerPresentReason(consortDir, featureId);
+      if (e2eLayerReason !== null) return { reason: e2eLayerReason };
       const layeringReason = layeringDeclaredReason(consortDir, featureId);
       if (layeringReason !== null) return { reason: layeringReason };
       const dbReason = dbDesignReason(consortDir, featureId);
@@ -8408,8 +8528,8 @@ function drainGatesAsHumanProxy(args) {
 
 // consort/pipeline/story-pipeline.ts
 init_cjs_shims();
-var import_fs9 = require("fs");
-var import_path8 = require("path");
+var import_fs10 = require("fs");
+var import_path10 = require("path");
 function initPipeline(featureId) {
   return { version: 1, feature_id: featureId, stories: {}, build_queue: [], build_active: null };
 }
@@ -8418,13 +8538,13 @@ function pipelinePath(consortDir, featureId) {
 }
 function readPipeline(consortDir, featureId) {
   const p = pipelinePath(consortDir, featureId);
-  if (!(0, import_fs9.existsSync)(p)) return initPipeline(featureId);
-  return JSON.parse((0, import_fs9.readFileSync)(p, "utf8"));
+  if (!(0, import_fs10.existsSync)(p)) return initPipeline(featureId);
+  return JSON.parse((0, import_fs10.readFileSync)(p, "utf8"));
 }
 function writePipeline(consortDir, pipeline) {
   const p = pipelinePath(consortDir, pipeline.feature_id);
-  (0, import_fs9.mkdirSync)((0, import_path8.dirname)(p), { recursive: true });
-  (0, import_fs9.writeFileSync)(p, JSON.stringify(pipeline, null, 2) + "\n");
+  (0, import_fs10.mkdirSync)((0, import_path10.dirname)(p), { recursive: true });
+  (0, import_fs10.writeFileSync)(p, JSON.stringify(pipeline, null, 2) + "\n");
 }
 function setStoryStatus(pipeline, storyId, status) {
   const existing = pipeline.stories[storyId];
@@ -8438,14 +8558,14 @@ function enqueueReady(pipeline, storyId) {
 }
 function storyHasAcceptanceCriteria(consortDir, featureId, storyId) {
   const acsDir2 = acsDir(consortDir, featureId, storyId);
-  if (!(0, import_fs9.existsSync)(acsDir2)) return false;
-  return (0, import_fs9.readdirSync)(acsDir2).some((f) => f.endsWith(".json"));
+  if (!(0, import_fs10.existsSync)(acsDir2)) return false;
+  return (0, import_fs10.readdirSync)(acsDir2).some((f) => f.endsWith(".json"));
 }
 function findBatchedDraftStories(consortDir, featureId, pipeline, gatingStoryId) {
   const storiesDir2 = storiesDir(consortDir, featureId);
-  if (!(0, import_fs9.existsSync)(storiesDir2)) return [];
+  if (!(0, import_fs10.existsSync)(storiesDir2)) return [];
   const offenders = [];
-  for (const storyId of (0, import_fs9.readdirSync)(storiesDir2)) {
+  for (const storyId of (0, import_fs10.readdirSync)(storiesDir2)) {
     if (storyId === gatingStoryId) continue;
     if (!storyHasAcceptanceCriteria(consortDir, featureId, storyId)) continue;
     const status = pipeline.stories[storyId]?.status;

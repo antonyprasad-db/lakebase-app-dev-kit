@@ -9628,7 +9628,7 @@ function composeOnAction(...hooks) {
 // consort/orchestrator/drive/orchestrator-effects.ts
 init_esm_shims();
 import * as fs17 from "fs";
-import { dirname as dirname23, join as join44 } from "path";
+import { dirname as dirname24, join as join44 } from "path";
 
 // consort/orchestrator/drive/orchestrator-drive.ts
 init_esm_shims();
@@ -10253,6 +10253,29 @@ function checkServiceBackedDeclaration(architectureJson2, evidence) {
     ok: false,
     violations: [
       `architecture.json is not service_backed but shows persistence evidence (${why}); set service_backed:true + declare boundary/service/repository layers (a data-persisting feature MUST be layered), or remove the misleading signal if the feature is genuinely trivial`
+    ]
+  };
+}
+function checkE2eLayerPresent(architectureJson2, evidence) {
+  let parsed;
+  try {
+    parsed = JSON.parse(architectureJson2);
+  } catch (err) {
+    return { ok: false, violations: [`architecture.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`] };
+  }
+  const acLayers = evidence.acLayers ?? [];
+  const declaresRenderingBoundary = (parsed.layers ?? []).some(
+    (l) => l.role === "boundary" && typeof l.renders_via === "string" && l.renders_via.length > 0
+  );
+  const reactFeatureWithApi = evidence.uiReact === true && acLayers.includes("API");
+  const clientFacing = declaresRenderingBoundary || reactFeatureWithApi;
+  if (!clientFacing) return { ok: true };
+  if (acLayers.includes("E2E")) return { ok: true };
+  const why = declaresRenderingBoundary ? `declares a UI-rendering boundary (renders_via)` : `is a React UI-track project exposing an API-layer AC (an endpoint the client consumes)`;
+  return {
+    ok: false,
+    violations: [
+      `the feature ${why} but NO acceptance criterion is tagged layer:"E2E"; a feature that renders a UI has at least one client<->server contract (a form submit, an inline validation rejection, a success/empty state) whose ONLY real verification is a Playwright e2e against the live API , tag that AC layer:"E2E" (a mocked component test stubs the response envelope, so a fabricated shape passes green while the real wire contract drifts). NOTE: an outcome phrased as "record WHO performed the action" or "the pick is saved", when the operator enters their name on a form with no auth, IS a client form submission (layer:"E2E") , do not flatten it into a backend "API" AC. If the endpoint is genuinely not consumed by any client, reconsider , that is unusual for a UI-track feature.`
     ]
   };
 }
@@ -13376,7 +13399,7 @@ import { existsSync as existsSync46, readFileSync as readFileSync41, writeFileSy
 // consort/gates/gate-conformance-guard.ts
 init_esm_shims();
 import { existsSync as existsSync45, readFileSync as readFileSync40, readdirSync as readdirSync29, statSync as statSync19 } from "fs";
-import { join as join42 } from "path";
+import { join as join42, dirname as dirname22 } from "path";
 
 // consort/architecture/architecture-conventions.ts
 init_esm_shims();
@@ -13638,6 +13661,41 @@ function serviceBackedReason(consortDir, featureId) {
   const r = checkServiceBackedDeclaration(arch, { acLayers, nfrsText });
   return r.ok ? null : `service_backed declaration failed: ${r.violations.join("; ")}`;
 }
+function e2eLayerPresentReason(consortDir, featureId) {
+  const arch = readArchitecture(consortDir, featureId);
+  if (arch === void 0) return null;
+  const fdir = featureDir2(consortDir, featureId);
+  let declared;
+  try {
+    declared = JSON.parse(readFileSync40(join42(fdir, "feature-spec.json"), "utf8")).stories ?? [];
+  } catch {
+    return null;
+  }
+  if (declared.length === 0) return null;
+  const storiesDir2 = join42(fdir, "stories");
+  const hasAcs = (story) => existsSync45(join42(storiesDir2, story, "acs"));
+  if (!declared.every(hasAcs)) return null;
+  const acLayers = [];
+  for (const s of declared) {
+    const ad = join42(storiesDir2, s, "acs");
+    for (const f of readdirSync29(ad)) {
+      if (!f.endsWith(".json")) continue;
+      try {
+        const layer = JSON.parse(readFileSync40(join42(ad, f), "utf8")).layer;
+        if (typeof layer === "string") acLayers.push(layer);
+      } catch {
+      }
+    }
+  }
+  let uiReact = false;
+  try {
+    const proj = resolveProjectSettings(dirname22(consortDir)).project;
+    uiReact = proj.uiTrack === true && proj.clientFramework === "react";
+  } catch {
+  }
+  const r = checkE2eLayerPresent(arch, { acLayers, uiReact });
+  return r.ok ? null : `E2E-layer presence failed: ${r.violations.join("; ")}`;
+}
 function schemaChangeStoryRealizesReason(consortDir, featureId) {
   const dbFile = dbDesignJson(consortDir, featureId);
   if (!existsSync45(dbFile)) return null;
@@ -13706,6 +13764,8 @@ function resolveArtifactInputs(gate, fdir, promoteRef, consortDir, featureId) {
       if (conventionsReason !== null) return { reason: conventionsReason };
       const serviceBacked = serviceBackedReason(consortDir, featureId);
       if (serviceBacked !== null) return { reason: serviceBacked };
+      const e2eLayerReason = e2eLayerPresentReason(consortDir, featureId);
+      if (e2eLayerReason !== null) return { reason: e2eLayerReason };
       const layeringReason = layeringDeclaredReason(consortDir, featureId);
       if (layeringReason !== null) return { reason: layeringReason };
       const dbReason = dbDesignReason(consortDir, featureId);
@@ -14062,7 +14122,7 @@ function formatRoleResponse(args) {
 init_esm_shims();
 import { execSync as execSync2 } from "child_process";
 import * as fs16 from "fs";
-import { dirname as dirname22, join as join43 } from "path";
+import { dirname as dirname23, join as join43 } from "path";
 function artifactRoot(consortDir) {
   return consortDir;
 }
@@ -14128,7 +14188,7 @@ function readCtxLeverMarker(consortDir) {
   }
 }
 function failingTestBlock(consortDir, story, reader = defaultFailingTestReader) {
-  const body = reader(dirname22(consortDir), story);
+  const body = reader(dirname23(consortDir), story);
   return body ? ` FAILING TEST (make THIS pass; do NOT search for it) ::
 \`\`\`python
 ${body}
@@ -14155,7 +14215,7 @@ function buildContextPack(consortDir, featureId, story, ac, opts = {}) {
   const marker = readCtxLeverMarker(consortDir);
   const dbOn = opts.dbState ?? marker.dbState ?? consortEnv("CTX_DBSTATE") === "1";
   if (dbOn) {
-    const st = (opts.dbStateReader ?? defaultDbStateReader)(dirname22(consortDir));
+    const st = (opts.dbStateReader ?? defaultDbStateReader)(dirname23(consortDir));
     if (st && (st.current || st.heads)) {
       parts.push(
         ` DB STATE (already probed, do NOT re-run alembic current/heads) ::${st.current ? ` current=${st.current.replace(/\s+/g, " ")}` : ""}${st.heads ? ` head=${st.heads.replace(/\s+/g, " ")}` : ""}. The branch is migrated to head; iterate with \`uv run --env-file .env pytest <path>\` (no re-migrate).`
@@ -15106,7 +15166,7 @@ function buildDriveEffects(cfg) {
     onHandback(handoff, detail) {
       const file = handbackFile(cfg.consortDir, cfg.featureId, handoff.responder, handoff.story);
       try {
-        fs17.mkdirSync(dirname23(file), { recursive: true });
+        fs17.mkdirSync(dirname24(file), { recursive: true });
         fs17.writeFileSync(file, `${detail}
 `, "utf8");
       } catch {
@@ -15308,13 +15368,13 @@ import { join as join48 } from "path";
 // consort/optimize/optimize-agent-overlay.ts
 init_esm_shims();
 import { existsSync as existsSync50, mkdirSync as mkdirSync31, readFileSync as readFileSync46, rmSync as rmSync13, writeFileSync as writeFileSync28 } from "fs";
-import { dirname as dirname24, join as join46 } from "path";
+import { dirname as dirname25, join as join46 } from "path";
 function overlayAgent(args) {
   const { projectDir, role, markdown } = args;
   const agentPath = join46(projectDir, ".claude", "agents", `${role}.md`);
   const hadBaseline = existsSync50(agentPath);
   const baseline = hadBaseline ? readFileSync46(agentPath, "utf8") : void 0;
-  mkdirSync31(dirname24(agentPath), { recursive: true });
+  mkdirSync31(dirname25(agentPath), { recursive: true });
   writeFileSync28(agentPath, markdown);
   return {
     restore() {
@@ -15371,7 +15431,7 @@ function evaluateDesignGate(args) {
 init_esm_shims();
 import { cpSync as cpSync8, mkdtempSync, rmSync as rmSync14 } from "fs";
 import { tmpdir } from "os";
-import { basename as basename5, dirname as dirname25, join as join47 } from "path";
+import { basename as basename5, dirname as dirname26, join as join47 } from "path";
 function captureDesignArtifacts(args) {
   const { consortDir, destDir } = args;
   rmSync14(destDir, { recursive: true, force: true });

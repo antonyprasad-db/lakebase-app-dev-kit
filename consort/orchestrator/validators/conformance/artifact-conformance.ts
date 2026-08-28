@@ -463,6 +463,69 @@ export function checkServiceBackedDeclaration(
 }
 
 /**
+ * E2E-layer PRESENCE (closes the "a UI feature designed as all-backend" escape).
+ * `checkE2ECoverage` only bites once an AC is tagged `layer:"E2E"`, so a design lane
+ * that mis-classifies EVERY client-facing AC as `API`/`Infra` yields a feature with ZERO
+ * E2E ACs and satisfies the coverage guard vacuously , exactly how the actor-less pick
+ * form shipped (a whole feature of client behavior, not one E2E AC, so the client<->
+ * server contract was never verified end to end, TWICE: the design lane flattened even a
+ * rewritten "operator submits the form in the browser" premise into a backend
+ * "the pick is saved" API AC). This cross-checks TWO signals that the feature is
+ * client-facing against the AC-layer evidence:
+ *   1. the architect's own structural declaration , a `boundary` layer with `renders_via`
+ *      (`react`/`jinja2`) means the feature renders a UI; and
+ *   2. the architect-INDEPENDENT project signal , the project is a React UI track
+ *      (`uiReact`) AND the feature exposes an `API`-layer AC (an endpoint the SPA
+ *      consumes). Signal 2 matters because the SAME mis-classification that drops the
+ *      E2E tags can also drop `renders_via` (an architect that thinks the feature is
+ *      backend declares a plain API boundary), so keying only on the architect's own
+ *      declaration lets the failure dodge the net.
+ * Given either signal, the feature MUST carry >=1 `layer:"E2E"` AC (a genuine client<->
+ * server round-trip's only real verification is a Playwright e2e). Mirrors
+ * `checkServiceBackedDeclaration` (a structural declaration cross-checked against
+ * evidence, not prose the architect can silently override). Null when the feature is
+ * not client-facing, or already has an E2E AC. The CALLER enforces this only once every
+ * declared story is designed (a partially-designed feature may not have reached its
+ * client-facing story yet), the same way the streaming design lane defers other
+ * feature-wide checks.
+ */
+export function checkE2eLayerPresent(
+  architectureJson: string,
+  evidence: { acLayers?: string[]; uiReact?: boolean },
+): ConformanceResult {
+  let parsed: { layers?: Array<{ role?: string; renders_via?: unknown }> };
+  try {
+    parsed = JSON.parse(architectureJson);
+  } catch (err) {
+    return { ok: false, violations: [`architecture.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`] };
+  }
+  const acLayers = evidence.acLayers ?? [];
+  const declaresRenderingBoundary = (parsed.layers ?? []).some(
+    (l) => l.role === "boundary" && typeof l.renders_via === "string" && l.renders_via.length > 0,
+  );
+  // Signal 2: a React UI-track project's feature that exposes an endpoint the SPA calls.
+  const reactFeatureWithApi = evidence.uiReact === true && acLayers.includes("API");
+  const clientFacing = declaresRenderingBoundary || reactFeatureWithApi;
+  if (!clientFacing) return { ok: true }; // an API/CLI/Infra feature renders no UI to verify end to end
+  if (acLayers.includes("E2E")) return { ok: true };
+  const why = declaresRenderingBoundary
+    ? `declares a UI-rendering boundary (renders_via)`
+    : `is a React UI-track project exposing an API-layer AC (an endpoint the client consumes)`;
+  return {
+    ok: false,
+    violations: [
+      `the feature ${why} but NO acceptance criterion is tagged layer:"E2E"; a feature that renders a UI has at least one ` +
+        `client<->server contract (a form submit, an inline validation rejection, a success/empty state) whose ONLY real ` +
+        `verification is a Playwright e2e against the live API , tag that AC layer:"E2E" (a mocked component test stubs the ` +
+        `response envelope, so a fabricated shape passes green while the real wire contract drifts). NOTE: an outcome phrased as ` +
+        `"record WHO performed the action" or "the pick is saved", when the operator enters their name on a form with no auth, IS ` +
+        `a client form submission (layer:"E2E") , do not flatten it into a backend "API" AC. If the endpoint is genuinely not ` +
+        `consumed by any client, reconsider , that is unusual for a UI-track feature.`,
+    ],
+  };
+}
+
+/**
  * Layering declared (FEIP layered-build enforcement): a feature the architect
  * marked `service_backed: true` MUST declare a boundary + service + repository in
  * `architecture.json.layers` (layered architecture: boundary -> service ->
